@@ -1,1 +1,4 @@
 node_modules
+package
+LOCALDIFF.txt
+yarn-error.log

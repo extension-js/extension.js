@@ -1,11 +1,14 @@
 {
   "name": "create-browser-extension",
   "version": "0.0.1",
+  "private": true,
   "description": "Create cross-browser extensions on the fly",
   "scripts": {
+    "serve": "webpack serve --mode development --config build_scripts/webpack.config.js",
+    "build": "webpack --mode production --config build_scripts/webpack.config.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start:chromium": "web-ext run -t chromium",
-    "start:firefox": "web-ext run -t firefox-desktop"
+    "run:chromium": "web-ext run -s package -t chromium",
+    "run:firefox": "web-ext run -s package -t firefox-desktop"
   },
   "keywords": [
     "browser extension",
@@ -18,7 +21,15 @@
   ],
   "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
   "license": "MIT",
+  "devDependencies": {
+    "copy-webpack-plugin": "^6.2.1",
+    "web-ext": "^5.3.0",
+    "webpack": "^5.2.0",
+    "webpack-cli": "^4.1.0",
+    "webpack-dev-server": "^3.11.0"
+  },
   "dependencies": {
-    "web-ext": "^5.3.0"
+    "@rbarilani/remove-source-map-url-webpack-plugin": "^0.1.0",
+    "delete-sourcemap-webpack-plugin": "^1.0.1"
   }
 }
