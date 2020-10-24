@@ -22,14 +22,14 @@
   "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
   "license": "MIT",
   "devDependencies": {
+    "@rbarilani/remove-source-map-url-webpack-plugin": "^0.1.0",
+    "delete-sourcemap-webpack-plugin": "^1.0.1",
     "copy-webpack-plugin": "^6.2.1",
+    "string-replace-loader": "^2.3.0",
     "web-ext": "^5.3.0",
+    "webextension-polyfill": "^0.6.0",
     "webpack": "^5.2.0",
     "webpack-cli": "^4.1.0",
     "webpack-dev-server": "^3.11.0"
-  },
-  "dependencies": {
-    "@rbarilani/remove-source-map-url-webpack-plugin": "^0.1.0",
-    "delete-sourcemap-webpack-plugin": "^1.0.1"
   }
 }
