@@ -2,3 +2,5 @@ node_modules
 package
 yarn-error.log
 local_samples
+docs
+dist
