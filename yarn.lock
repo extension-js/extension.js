@@ -1616,11 +1616,6 @@ delayed-stream@~1.0.0:
   resolved "https://registry.yarnpkg.com/delayed-stream/-/delayed-stream-1.0.0.tgz#df3ae199acadfb7d440aaae0b29e2272b24ec619"
   integrity sha1-3zrhmayt+31ECqrgsp4icrJOxhk=
 
-delete-sourcemap-webpack-plugin@^1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/delete-sourcemap-webpack-plugin/-/delete-sourcemap-webpack-plugin-1.0.1.tgz#a297d20381e0fe63b6ac709f29bfd2d0129096a9"
-  integrity sha512-uBniGgqiheXTpuuWEv4sAcXlBDIjRkvo/85ZMcS4S8c5cVyCULrRxnQv4EqS3dkIoHHVqgFkTvxgygkdk2QDVA==
-
 depd@~1.1.2:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/depd/-/depd-1.1.2.tgz#9bcd52e14c097763e749b274c4346ed2e560b5a9"

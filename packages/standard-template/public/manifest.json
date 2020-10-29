@@ -3,6 +3,6 @@
   "name": "Your browser extension",
   "version": "1.0",
   "background": {
-    "scripts": [ "background.js" ]
+    "scripts": [ "../src/background.js" ]
   }
 }
