@@ -1,0 +1,28 @@
+{
+  "name": "create",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The create step of create-browser-extension",
+  "scripts": {
+    "create": "node ./module.js"
+  },
+  "main": "./module.js",
+  "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
+  "license": "MIT",
+  "engines": {
+    "node": ">=10"
+  },
+  "dependencies": {
+    "chalk": "^4.1.0",
+    "commander": "^6.2.0",
+    "dedent": "^0.7.0",
+    "fancy-json-stringify": "^1.0.0",
+    "fs-extra": "^9.0.1",
+    "log-md": "^0.1.0",
+    "marked": "^1.2.3",
+    "marked-terminal": "^4.1.0",
+    "pacote": "^11.1.13",
+    "semver": "^7.3.2",
+    "yarn": "^1.22.10"
+  }
+}
