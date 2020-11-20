@@ -4,6 +4,7 @@
   "private": true,
   "description": "Cross-browser web extension development made easy",
   "scripts": {
+    "create": "node ./create",
     "develop:start": "node ./develop/start",
     "develop:open:chromium": "npx web-ext run -s ./packages/standard-template/dist -t chromium"
   },
