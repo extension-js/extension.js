@@ -2,14 +2,10 @@
   "name": "create-browser-extension",
   "version": "0.0.1",
   "private": true,
-  "description": "Create cross-browser extensions on the fly",
+  "description": "Cross-browser web extension development made easy",
   "scripts": {
-    "serve": "webpack serve --mode development --config scripts/webpack.config.js",
-    "serve:template": "MANIFEST_FILE=packages/standard-template/public/manifest.json yarn serve",
-    "build:template": "MANIFEST_FILE=packages/standard-template/public/manifest.json webpack --mode production --config scripts/webpack.config.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "run:chromium": "web-ext run -s packages/standard-template/dist -t chromium",
-    "run:firefox": "web-ext run -s packages/standard-template/dist -t firefox-desktop"
+    "develop:start": "node ./develop/start",
+    "develop:open:chromium": "npx web-ext run -s ./packages/standard-template/dist -t chromium"
   },
   "keywords": [
     "browser extension",
@@ -21,15 +17,5 @@
     "template"
   ],
   "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
-  "license": "MIT",
-  "devDependencies": {
-    "@rbarilani/remove-source-map-url-webpack-plugin": "^0.1.0",
-    "copy-webpack-plugin": "^6.2.1",
-    "string-replace-loader": "^2.3.0",
-    "web-ext": "^5.3.0",
-    "webextension-polyfill": "^0.6.0",
-    "webpack": "^5.2.0",
-    "webpack-cli": "^4.1.0",
-    "webpack-dev-server": "^3.11.0"
-  }
+  "license": "MIT"
 }

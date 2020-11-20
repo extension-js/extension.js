@@ -1,0 +1,9 @@
+{
+  "name": "webpack-web-extension-entries-plugin",
+  "version": "1.0.0",
+  "main": "index.js",
+  "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
+  "dependencies": {
+    "webpack": "^5.6.0"
+  }
+}
