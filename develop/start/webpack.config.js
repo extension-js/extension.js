@@ -2,10 +2,10 @@ const fs = require('fs')
 const path = require('path')
 const webpack = require('webpack')
 const CopyPlugin = require('copy-webpack-plugin')
-const WebpackWebExtensionManifestPlugin = require('../packages/webpack-web-extension-entries-plugin')
+const WebpackWebExtensionManifestPlugin = require('../../packages/webpack-web-extension-entries-plugin')
 
-const manifestFilePath = path
-  .resolve(__dirname, '..', process.env.MANIFEST_FILE || 'public/manifest.json')
+const manifestFilePath = path.resolve(process.env.MANIFEST_FILE)
+
 // by default dist/ is one level up relative to the manifest file
 const outputFolderPath = path
   .resolve(path.dirname(manifestFilePath), '..', process.env.DIST_FOLDER || 'dist/')

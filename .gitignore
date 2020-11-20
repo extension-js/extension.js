@@ -4,3 +4,4 @@ yarn-error.log
 local_samples
 docs
 dist
+yarn.lock
