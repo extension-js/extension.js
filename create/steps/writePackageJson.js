@@ -7,6 +7,11 @@ const { log } = require('log-md')
 
 const templatesDir = path.resolve(__dirname, '../templates')
 
+const packageJsonScripts = {
+  start: 'create-browser-extension develop:start',
+  'start:chromium': 'web-ext run -s ./dist -t chromium'
+}
+
 module.exports = async function (workingDir, projectName, template) {
   const projectPath = path.resolve(workingDir, projectName)
 
@@ -31,7 +36,10 @@ module.exports = async function (workingDir, projectName, template) {
     version: '0.0.0',
     dependencies: templateMetadata.dependencies,
     devDependencies: templateMetadata.devDependencies,
-    scripts: templateMetadata.scripts
+    scripts: {
+      ...templateMetadata.scripts,
+      ...packageJsonScripts
+    }
   }
 
   try {
