@@ -8,13 +8,13 @@ class WebpackWebExtensionManifestEntriesPlugin {
 
   apply (compiler) {
     compiler.hooks.compilation.tap('ManifestEntriesPlugin', compilation => {
-      const { background } = this.manifest
+      const manifestJson = require(this.manifest)
       let json = ''
 
       if (this.manifest) {
         json = {
-          ...this.manifest,
-          ...modifyBackgroundScript(background.scripts)
+          ...manifestJson,
+          ...modifyBackgroundScript(manifestJson.background.scripts)
         }
       }
 
