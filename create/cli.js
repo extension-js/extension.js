@@ -4,13 +4,18 @@ const messages = require('./messages')
 const packageJson = require('./package.json')
 
 let projectName
-
-module.exports = function () {
+let templateName
+module.exports = async function () {
   program
     .version(packageJson.version)
-    .arguments('<project-directory>')
-    .usage('<project-directory> [options]')
-    .action(name => { projectName = name })
+    .command('create', { isDefault: true })
+    .usage('create <project-directory> [options]')
+    .action((cmd) => {
+      const { args, template } = cmd
+      projectName = args[0]
+      templateName = template
+    })
+    .description('create a new cross-browser extension')
     .option(
       '-t, --template <template-name>',
       'specify a template for the created project'
@@ -19,5 +24,5 @@ module.exports = function () {
     .parse(process.argv)
 
   const workingDir = process.cwd()
-  createExtension(workingDir, projectName, program.template)
+  await createExtension(workingDir, projectName, templateName)
 }
