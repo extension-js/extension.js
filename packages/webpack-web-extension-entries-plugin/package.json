@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
+  "engines": {
+    "node": ">=10"
+  },
   "dependencies": {
     "webpack": "^5.6.0"
   }

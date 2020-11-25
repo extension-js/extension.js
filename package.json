@@ -7,6 +7,9 @@
   "bin": {
     "create-browser-extension": "./module.js"
   },
+  "scripts": {
+    "lint": "eslint --config=eslintrc.json ."
+  },
   "keywords": [
     "browser extension",
     "chromium extension",
@@ -20,6 +23,11 @@
   "license": "MIT",
   "dependencies": {
     "commander": "^6.2.0",
+    "eslint": "^7.14.0",
+    "eslint-config-auditor": "github:cezaraugusto/eslint-config-auditor",
+    "eslint-plugin-import": "^2.22.1",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^4.2.1",
     "log-md": "^0.2.0"
   }
 }

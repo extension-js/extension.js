@@ -1,0 +1,8 @@
+{
+  "extends": "auditor",
+  "rules": {
+    "node/no-process-exit": "warn",
+    "consistent-return": "warn",
+    "no-await-in-loop": "warn"
+  }
+}
