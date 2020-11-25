@@ -33,8 +33,9 @@ module.exports = (env) => {
       })
     ],
     module: {
-      // Adapted from https://github.com/webextension-toolbox/webextension-toolbox,
-      // relased under MIT license. Copyright 2018 Henrik Wenz
+      // Adapted from
+      // https://github.com/webextension-toolbox/webextension-toolbox
+      // Relased under MIT license. Copyright 2018 Henrik Wenz
       rules: [{
         test: /webextension-polyfill[\\/]+dist[\\/]+browser-polyfill\.js$/,
         loader: require.resolve('string-replace-loader'),
