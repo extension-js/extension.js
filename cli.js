@@ -9,10 +9,10 @@ function help () {
     All high-level commands for \`create-browser-extension\` are below.
     Each of these commands offer their own \`--help\` files providing
     information about usage and command flags available. For example:
-    \`create-browser-extension\ create --help\` outputs information
+    \`create-browser-extension create --help\` outputs information
     about the \`create\` command.
 
-    Usage: \`create-browser-extension\ [command] [options]\`
+    Usage: \`create-browser-extension [command] [options]\`
 
       \`create-browser-extension create\`
       Creates a new extension from template. The "create" command
