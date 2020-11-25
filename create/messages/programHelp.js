@@ -2,6 +2,8 @@ const { log } = require('log-md')
 
 module.exports = function () {
   log(`
+    # Help center for the \`create\` command
+
     ## The \`<project-directory>\` argument (required).
 
     The project's directory where your extension will be installed.
@@ -14,8 +16,7 @@ module.exports = function () {
     Valid template names can be any published npm module, for example
     \`cbe-standard-template\`.
 
-    Feels something is wrong? Help us by reporting a bug:
-
+    Feels something is wrong? Help by reporting a bug:
     https://github.com/cezaraugusto/create-browser-extension/issues/new
   `)
 }

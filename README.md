@@ -17,6 +17,19 @@ Read more about my motivations behind this project [here](https://github.com/cez
   - [ ] `eject` - Detaches the current extension project as a standalone project. (similar to `create-react-app` eject option)
 - [ ] `publish` - Everything needed to publish or update a new extension to all popular extension stores. (TBD)
 
+## Usage
+
+```
+create-browser-extension <project-directory>
+cd <project-directory>
+# starts dev server
+yarn start
+# open another cmd line instance to open chromium (temp hack)
+yarn start:chromium
+
+# Full list of optionns
+create-browser-extension --help
+```
 ## License
 
 MIT (c) Cezar Augusto.

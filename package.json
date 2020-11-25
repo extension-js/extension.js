@@ -3,10 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "description": "Cross-browser web extension development made easy",
-  "scripts": {
-    "create": "node ./create",
-    "develop:start": "node ./develop/start",
-    "develop:open:chromium": "npx web-ext run -s ./packages/standard-template/dist -t chromium"
+  "main": "./module.js",
+  "bin": {
+    "create-browser-extension": "./module.js"
   },
   "keywords": [
     "browser extension",
@@ -18,5 +17,9 @@
     "template"
   ],
   "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^6.2.0",
+    "log-md": "^0.2.0"
+  }
 }
