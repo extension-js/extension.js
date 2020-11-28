@@ -7,8 +7,7 @@ const resolveBackgroundScripts = require('../resolve/resolveBackgroundScripts')
 
 process.on('unhandledRejection', (error) => { throw error })
 
-module.exports = (env) => {
-  const { projectDir, manifestPath } = env
+module.exports = (projectDir, manifestPath) => {
   const publicPath = path.join(projectDir, 'public')
   const distFolder = path.join(projectDir, 'dist')
 

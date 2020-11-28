@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@rbarilani/remove-source-map-url-webpack-plugin": "^0.1.0",
+    "chrome-launcher": "^0.13.4",
     "commander": "^6.2.0",
     "copy-webpack-plugin": "^6.2.1",
     "fs-extra": "^9.0.1",

@@ -4,36 +4,42 @@ const { log } = require('log-md')
 const WebpackDevServer = require('webpack-dev-server')
 const compilerConfig = require('../config/compiler.js')
 const serverConfig = require('../config/server.js')
+const {openExtensionInBrowser, closeBrowser} = require('./openBrowser.js')
 
-function closeServer (devServer) {
+async function closeAll (devServer) {
+  await closeBrowser()
   devServer.close()
   process.exit()
 }
 
-module.exports = function (projectDir, resolvedManifest) {
-  const env = {
-    ...process.env,
-    projectDir,
-    manifestPath: resolvedManifest
-  }
+module.exports = async function (projectDir, manifestPath) {
   const serverOptions = {
     // Tell the server where to serve content from
-    contentBase: path.dirname(resolvedManifest)
+    contentBase: path.dirname(manifestPath)
   }
 
-  const compiler = webpack(compilerConfig(env))
+  const webpackConfig = compilerConfig(projectDir, manifestPath)
+
+  const compiler = webpack(webpackConfig)
   const server = { ...serverConfig, ...serverOptions }
   const devServer = new WebpackDevServer(compiler, server)
 
   const PORT = 3001
   const HOST = '127.0.0.1'
 
-  devServer.listen(PORT, HOST, (error) => {
-    if (error) return console.log(error)
-
+  devServer.listen(PORT, HOST, async (error) => {
     log('Starting the development server...')
+ 
+    if (error) return log(`Error in the extension runner: ${error}`)
+
+    log('Opening the browser with your extensionn loaded...')
+
+    await openExtensionInBrowser(projectDir, {
+      // Starting URL to open the browser with
+      startingUrl: 'about:blank'
+    })
   })
 
-  process.on('SIGINT', () => closeServer(devServer))
-  process.on('SIGTERM', () => closeServer(devServer))
+  process.on('SIGINT', () => closeAll(devServer))
+  process.on('SIGTERM', () => closeAll(devServer))
 }
