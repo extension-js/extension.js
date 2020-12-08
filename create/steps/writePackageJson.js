@@ -8,8 +8,8 @@ const { log } = require('log-md')
 const templatesDir = path.resolve(__dirname, '../templates')
 
 const packageJsonScripts = {
-  start: 'create-browser-extension develop:start',
-  'start:chromium': 'web-ext run -s ./dist -t chromium'
+  // TODO: Point to the npm script alias
+  start: 'node ../module.js start'
 }
 
 module.exports = async function (workingDir, projectName, template) {

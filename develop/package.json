@@ -19,10 +19,12 @@
     "log-md": "^0.2.0",
     "semver": "^7.3.2",
     "string-replace-loader": "^2.3.0",
-    "web-ext": "^5.3.0",
     "webextension-polyfill": "^0.6.0",
     "webpack": "^5.6.0",
     "webpack-cli": "^4.1.0",
-    "webpack-dev-server": "^3.11.0"
+    "webpack-dev-server": "^3.11.0",
+    "webpack-open-chrome-extension": "0.2.0",
+    "webpack-resolve-background-script": "^1.0.0",
+    "webpack-run-chrome-extension": "^0.1.0"
   }
 }

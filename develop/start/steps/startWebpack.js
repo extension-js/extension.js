@@ -4,15 +4,13 @@ const { log } = require('log-md')
 const WebpackDevServer = require('webpack-dev-server')
 const compilerConfig = require('../config/compiler.js')
 const serverConfig = require('../config/server.js')
-const {openExtensionInBrowser, closeBrowser} = require('./openBrowser.js')
 
-async function closeAll (devServer) {
-  await closeBrowser()
+function closeAll (devServer) {
   devServer.close()
   process.exit()
 }
 
-module.exports = async function (projectDir, manifestPath) {
+module.exports = function (projectDir, manifestPath) {
   const serverOptions = {
     // Tell the server where to serve content from
     contentBase: path.dirname(manifestPath)
@@ -27,17 +25,12 @@ module.exports = async function (projectDir, manifestPath) {
   const PORT = 3001
   const HOST = '127.0.0.1'
 
-  devServer.listen(PORT, HOST, async (error) => {
-    log('Starting the development server...')
- 
+  devServer.listen(PORT, HOST, (error) => {
     if (error) return log(`Error in the extension runner: ${error}`)
 
-    log('Opening the browser with your extensionn loaded...')
-
-    await openExtensionInBrowser(projectDir, {
-      // Starting URL to open the browser with
-      startingUrl: 'about:blank'
-    })
+    log(`
+      Starting the development server...
+    `)
   })
 
   process.on('SIGINT', () => closeAll(devServer))
