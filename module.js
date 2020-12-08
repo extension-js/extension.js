@@ -3,6 +3,7 @@
 const isKeyword = require('./reservedKeywords')
 
 const cli = require('./cli')
+
 cli()
 
 // We support creating new extensions without

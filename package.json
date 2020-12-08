@@ -8,7 +8,7 @@
     "create-browser-extension": "./module.js"
   },
   "scripts": {
-    "lint": "eslint --config=eslintrc.json ."
+    "lint": "eslint --config=eslintrc.json"
   },
   "keywords": [
     "browser extension",
