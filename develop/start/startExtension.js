@@ -7,8 +7,15 @@
 
 const resoleManifest = require('./steps/resolveManifest')
 const startWebpack = require('./steps/startWebpack')
+const { log } = require('log-md')
 
 module.exports = async function (projectDir, manifestPath) {
-  const resolvedManifest = await resoleManifest(projectDir, manifestPath)
-  startWebpack(projectDir, resolvedManifest)
+  try {
+    const resolvedManifest = await resoleManifest(projectDir, manifestPath)
+    startWebpack(projectDir, resolvedManifest)
+  } catch (error) {
+    log(`
+      Error while starting the extension: ${error}
+    `)
+  }
 }
