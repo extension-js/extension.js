@@ -1,4 +1,5 @@
 const path = require('path')
+
 const { log } = require('log-md')
 
 module.exports = function (workingDir, projectName) {

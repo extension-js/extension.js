@@ -1,5 +1,6 @@
-const fs = require('fs-extra')
 const path = require('path')
+
+const fs = require('fs-extra')
 const { log } = require('log-md')
 
 const templatesDir = path.resolve(__dirname, '../templates')

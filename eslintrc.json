@@ -1,8 +1,53 @@
 {
   "extends": "auditor",
   "rules": {
-    "node/no-process-exit": "warn",
-    "consistent-return": "warn",
-    "no-await-in-loop": "warn"
+    "node/no-process-exit": "off",
+    "consistent-return": "off",
+    "no-await-in-loop": "off",
+		"no-shadow": [
+			"off",
+			{
+				"allow": [
+					"done",
+					"next",
+					"resolve",
+					"reject",
+					"cb"
+				]
+			}
+    ],
+		"no-magic-numbers": [
+			"off",
+			{
+				"detectObjects": false,
+				"enforceConst": true,
+				"ignore": [
+					0,
+					1,
+					2,
+					3
+				],
+				"ignoreArrayIndexes": true
+			}
+		],
+    "require-atomic-updates": "off",
+    "promise/avoid-new": "off",
+    "promise/catch-or-return": "off",
+		"prefer-destructuring": [
+			"off",
+			{
+				"AssignmentExpression": {
+					"array": false,
+					"object": false
+				},
+				"VariableDeclarator": {
+					"array": true,
+					"object": true
+				}
+			},
+			{
+				"enforceForRenamedProperties": false
+			}
+		]
   }
 }

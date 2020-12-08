@@ -1,7 +1,9 @@
 const path = require('path')
+
 const fs = require('fs-extra')
-const messages = require('../messages')
 const { log } = require('log-md')
+
+const messages = require('../messages')
 
 const allowlist = [
   'LICENSE',

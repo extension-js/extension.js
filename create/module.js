@@ -17,8 +17,9 @@
 // ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║
 // ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 
-const messages = require('./messages')
 const semver = require('semver')
+
+const messages = require('./messages')
 const cli = require('./cli')
 
 module.exports = function () {

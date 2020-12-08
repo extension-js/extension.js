@@ -17,8 +17,9 @@
 // ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║
 // ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 
-const messages = require('./messages')
 const semver = require('semver')
+
+const messages = require('./messages')
 const startCLI = require('./start/cli')
 
 if (semver.lte(process.version, '10.3.0')) {
