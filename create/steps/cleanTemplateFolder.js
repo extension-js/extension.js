@@ -1,6 +1,7 @@
 const fs = require('fs-extra')
-const getTemplatePath = require('./getTemplatePath')
 const { log } = require('log-md')
+
+const getTemplatePath = require('./getTemplatePath')
 
 module.exports = async function (template) {
   // We don't want to delete local templates

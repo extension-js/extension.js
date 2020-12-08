@@ -1,9 +1,11 @@
-const fs = require('fs-extra')
 const path = require('path')
-const getTemplatePath = require('./getTemplatePath')
+
+const fs = require('fs-extra')
 const fancyJsonStringify = require('fancy-json-stringify')
-const abortProjectAndClean = require('./abortProjectAndClean')
 const { log } = require('log-md')
+
+const getTemplatePath = require('./getTemplatePath')
+const abortProjectAndClean = require('./abortProjectAndClean')
 
 const templatesDir = path.resolve(__dirname, '../templates')
 
@@ -26,6 +28,7 @@ module.exports = async function (workingDir, projectName, template) {
   const templateJson = require(templateJsonPath)
 
   const templateMetadata = templateJson.package || {}
+
   templateMetadata.scripts = templateMetadata.scripts || {}
   templateMetadata.dependencies = templateMetadata.dependencies || {}
   templateMetadata.devDependencies = templateMetadata.devDependencies || {}
