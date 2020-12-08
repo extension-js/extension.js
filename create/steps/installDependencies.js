@@ -1,7 +1,9 @@
 const path = require('path')
-const abortProjectAndClean = require('./abortProjectAndClean')
+
 const pacote = require('pacote')
 const { log } = require('log-md')
+
+const abortProjectAndClean = require('./abortProjectAndClean')
 
 module.exports = async function (workingDir, projectName) {
   const projectPath = path.resolve(workingDir, projectName)
@@ -15,6 +17,7 @@ module.exports = async function (workingDir, projectName) {
 
   if (dependencies.length === 0) {
     log('⏭  - No dependencies. Skipping install step...')
+
     return
   }
 

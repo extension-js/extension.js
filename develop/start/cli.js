@@ -1,4 +1,5 @@
 const { program } = require('commander')
+
 const startExtension = require('./startExtension')
 const messages = require('../messages')
 const packageJson = require('../package.json')
@@ -17,5 +18,6 @@ module.exports = async function () {
     .parse(process.argv)
 
   const projectDir = process.cwd()
+
   await startExtension(projectDir, program.manifest)
 }

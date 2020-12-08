@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
 const isKeyword = require('./reservedKeywords')
-
 const cli = require('./cli')
 
 cli()
@@ -13,8 +12,10 @@ cli()
 // and only run create if it's not.
 if (!isKeyword()) {
   const createExtensionCLI = require('./create')
+
   createExtensionCLI()
 } else {
   const developExtensionCLI = require('./develop')
+
   developExtensionCLI()
 }

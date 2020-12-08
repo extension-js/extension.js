@@ -1,9 +1,11 @@
 const path = require('path')
+
 const webpack = require('webpack')
 const CopyPlugin = require('copy-webpack-plugin')
 const ResolveBackgroundScripts = require('webpack-resolve-background-script')
-const resolveBackgroundEntries = require('../resolve/resolveBackgroundScriptEntries')
 const RunChromeExtension = require('webpack-run-chrome-extension')
+
+const resolveBackgroundEntries = require('../resolve/resolveBackgroundScriptEntries')
 
 process.on('unhandledRejection', (error) => { throw error })
 

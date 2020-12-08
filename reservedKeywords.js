@@ -11,6 +11,7 @@ const reservedKeywords = [
 
 module.exports = function () {
   const commands = process.argv
+
   return reservedKeywords
     .some((word, index) => word === commands[index])
 }
