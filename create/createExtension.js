@@ -1,3 +1,10 @@
+//  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
+// ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
+// ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
+// ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
+// ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
+//  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
+
 const createDirectory = require('./steps/createDirectory')
 const importExternalTemplate = require('./steps/importExternalTemplate')
 const importLocalTemplate = require('./steps/importLocalTemplate')
