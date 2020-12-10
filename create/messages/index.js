@@ -1,3 +1,10 @@
+//  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
+// ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
+// ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
+// ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
+// ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
+//  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
+
 const directoryHasConflicts = require('./directoryHasConflicts')
 const nodeVersionNotSupported = require('./nodeVersionNotSupported')
 const programHelp = require('./programHelp')
