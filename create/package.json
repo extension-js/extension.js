@@ -1,16 +1,21 @@
 {
-  "name": "create",
-  "version": "0.0.0",
-  "private": true,
-  "description": "The create step of extension-create",
-  "scripts": {
-    "create": "node ./module.js"
-  },
-  "main": "./module.js",
-  "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/extension-create.git",
+    "directory": "create"
+  },
   "engines": {
     "node": ">=10"
+  },
+  "name": "@cezaraugusto/create",
+  "version": "0.0.0",
+  "description": "The create step of extension-create",
+  "main": "./module.js",
+  "bin": "./module.js",
+  "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
+  "scripts": {
+    "create": "node ./module.js"
   },
   "dependencies": {
     "chalk": "^4.1.0",
@@ -23,6 +28,7 @@
     "marked-terminal": "^4.1.0",
     "pacote": "^11.1.13",
     "semver": "^7.3.2",
+    "symlink-dir": "^4.1.0",
     "yarn": "^1.22.10"
   }
 }
