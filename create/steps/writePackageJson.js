@@ -17,8 +17,7 @@ const abortProjectAndClean = require('./abortProjectAndClean')
 const templatesDir = path.resolve(__dirname, '../templates')
 
 const packageJsonScripts = {
-  // TODO: Point to the npm script alias
-  start: 'node ../module.js start'
+  start: 'extension-create start'
 }
 
 module.exports = async function (workingDir, projectName, template) {
