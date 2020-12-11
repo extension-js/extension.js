@@ -2,7 +2,7 @@
   "name": "create",
   "version": "0.0.0",
   "private": true,
-  "description": "The create step of create-browser-extension",
+  "description": "The create step of extension-create",
   "scripts": {
     "create": "node ./module.js"
   },

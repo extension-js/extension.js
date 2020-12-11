@@ -2,7 +2,7 @@
   "name": "develop",
   "version": "0.0.0",
   "private": true,
-  "description": "The develop step of create-browser-extension",
+  "description": "The develop step of extension-create",
   "main": "./module.js",
   "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
   "license": "MIT",

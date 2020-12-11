@@ -1,11 +1,11 @@
 {
-  "name": "create-browser-extension",
+  "name": "extension-create",
   "version": "0.0.1",
   "private": true,
   "description": "Cross-browser web extension development made easy",
   "main": "./module.js",
   "bin": {
-    "create-browser-extension": "./module.js"
+    "extension-create": "./module.js"
   },
   "scripts": {
     "lint": "eslint --config=eslintrc.json",
@@ -34,6 +34,7 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
     "fs-extra": "^9.0.1",
-    "jest": "^26.6.3"
+    "jest": "^26.6.3",
+    "lerna": "^3.22.1"
   }
 }

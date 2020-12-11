@@ -1,13 +1,13 @@
 > ## This project is under active development and subject to change.
 
-[action-image]: https://github.com/cezaraugusto/create-browser-extension/workflows/CI/badge.svg
-[action-url]: https://github.com/cezaraugusto/create-browser-extension/actions
-[npm-image]: https://img.shields.io/npm/v/create-browser-extension.svg
-[npm-url]: https://npmjs.org/package/create-browser-extension
+[action-image]: https://github.com/cezaraugusto/extension-create/workflows/CI/badge.svg
+[action-url]: https://github.com/cezaraugusto/extension-create/actions
+[npm-image]: https://img.shields.io/npm/v/extension-create.svg
+[npm-url]: https://npmjs.org/package/extension-create
 [wip-image]: https://img.shields.io/badge/under-development-orange.svg
-[wip-url]: https://github.com/cezaraugusto/create-browser-extension
+[wip-url]: https://github.com/cezaraugusto/extension-create
 
-# Create Browser Extension [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
+# extension-create [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
 
 <img alt="Logo" align="right" src="LOGO.png" width="25%" />
 
@@ -16,12 +16,12 @@ Create modern cross-browser extensions with no build configuration.
 - [Creating an extension](#creating-an-extension) – How to create a new extension.
 - [Getting started immediately](#getting-started-immediately) – Get work done in no time.
 
-`create-browser-extension` helps you develop extensions with built-in support for esnext, module imports/exports, auto-reload, unit testing, and more. Read about the project vision and personal motivations [here](https://github.com/cezaraugusto/create-browser-extension/wiki/This-initiative).
+`extension-create` helps you develop extensions with built-in support for esnext, module imports/exports, auto-reload, unit testing, and more. Read about the project vision and personal motivations [here](https://github.com/cezaraugusto/extension-create/wiki/This-initiative).
 
 ## Creating an Extension
 
 ```sh
-npx create-browser-extension my-extension-hello
+npx extension-create my-extension-hello
 cd my-extension-hello
 npm start
 ```
@@ -41,7 +41,7 @@ You are done. Time to hack on your extension!
 ### Zero-config extension kickstart with support for modules and page-reloads
 
 ```
-npx create-browser-extension start my-existing-extension
+npx extension-create start my-existing-extension
 ```
 
 ## Next steps

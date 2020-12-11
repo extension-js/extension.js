@@ -1,5 +1,5 @@
 # create
 
-> The `create` part of `create-browser-extension`
+> The `create` part of `extension-create`
 
-This package stores all logic needed by `create-browser-extension` to create new projects.
+This package stores all logic needed by `extension-create` to create new projects.
