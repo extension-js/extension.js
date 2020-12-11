@@ -1,0 +1,33 @@
+{
+  "npmClient": "yarn",
+  "version": "independent",
+  "packages": [
+    "create",
+    "develop"
+  ],
+  "command": {
+    "publish": {
+      "ignoreChanges": [
+        "*.md"
+      ],
+      "message": "chore(release): publish",
+      "registry": "https://npm.pkg.github.com"
+    },
+    "bootstrap": {
+      "npmClientArgs": ["--no-package-lock"]
+    }
+  },
+  "changelog": {
+    "repo": "cezaraugusto/extension-create",
+    "labels": {
+      "new feature": ":rocket: New Feature",
+      "breaking change": ":boom: Breaking Change",
+      "bug fix": ":bug: Bug Fix",
+      "enhancement": ":nail_care: Enhancement",
+      "documentation": ":memo: Documentation",
+      "internal": ":house: Internal",
+      "underlying tools": ":hammer: Underlying Tools"
+    },
+    "cacheDir": ".changelog"
+  }
+}
