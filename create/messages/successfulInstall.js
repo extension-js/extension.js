@@ -11,17 +11,16 @@ const { log } = require('log-md')
 
 module.exports = async function (workingDir, projectName) {
   const projectPath = path.join(workingDir, projectName)
+  const relativePath = path.relative(workingDir, projectPath)
 
   await Promise.resolve(
     log(`
-       # Success!
+      # Success! Extension ${projectName} created at ${relativePath}.
 
-       Created extension \`${projectName}\` at \`${projectPath}\`.
+      Now \`cd ${relativePath}\` and *npm start* to open a new browser instance
+      with your extension installed, loaded, and ready for development.
 
-       Go to \`${projectPath}\` and run \`npm start\` to start developing
-       your extension without any further step.
-
-      Happy coding!
+      You are done. Time to hack on your extension!
     `)
   )
 }
