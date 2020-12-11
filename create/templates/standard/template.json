@@ -1,7 +1,7 @@
 {
   "package": {
     "devDependencies": {
-      "web-ext": "^5.4.0"
+      "extension-create": "^0.1.0"
     }
   }
 }

@@ -6,8 +6,7 @@ Directory Structure:
 
 ```
 ./template
-├── public
-│   └── manifest.json
+├── manifest.json
 ├── src
 │   ├── background.js
 │   └── content.js (next)

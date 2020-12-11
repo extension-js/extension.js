@@ -7,12 +7,13 @@
     "extension-create": "./module.js"
   },
   "scripts": {
-    "changelog": "lerna-changelog",
+    "add-dep": "lerna add",
+    "changelog-deps": "lerna-changelog",
     "extension-create": "node module.js",
-    "lint": "eslint --config=eslintrc.json",
-    "preinstall": "lerna bootstrap",
-    "publish": "lerna publish",
-    "test": "jest && lerna run test"
+    "lint-deps": "eslint --config=eslintrc.json",
+    "install-deps": "lerna bootstrap",
+    "publish-deps": "lerna publish",
+    "test-deps": "jest && lerna run test"
   },
   "keywords": [
     "browser extension",
