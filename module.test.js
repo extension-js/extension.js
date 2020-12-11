@@ -4,8 +4,8 @@ const path = require('path')
 const spawn = require('cross-spawn')
 const fs = require('fs-extra')
 
-describe('createBrowserExtension', () => {
-  const createBrowserExtension = path.resolve(__dirname, './module.js')
+describe('extensionCreate', () => {
+  const extensionCreate = path.resolve(__dirname, './module.js')
   const projectName = 'my-extension-home'
   const outputpath = path.resolve(__dirname, projectName)
 
@@ -18,7 +18,7 @@ describe('createBrowserExtension', () => {
     it('creates a folder with specified project name', async (done) => {
       spawn.sync(
         'node',
-        [createBrowserExtension, 'my-extension-home'],
+        [extensionCreate, 'my-extension-home'],
         { stdio: 'inherit' }
       )
 

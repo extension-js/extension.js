@@ -25,7 +25,7 @@ module.exports = async function (error, workingDir, projectName) {
     `)
     log(`Please report: "${error}"`)
     log(
-      'https://github.com/cezaraugusto/create-browser-extension/issues/',
+      'https://github.com/cezaraugusto/extension-create/issues/',
       { gutter: true }
     )
   }

@@ -14,7 +14,7 @@ module.exports = function () {
     ## The \`<project-directory>\` argument (required).
 
     The project's directory where your extension will be installed.
-    \`create-browser-extension\` can't install files without this information.
+    \`extension-create\` can't install files without this information.
 
     ## The \`--template\` _<template-name>_ flag
 
@@ -24,6 +24,6 @@ module.exports = function () {
     \`cbe-standard-template\`.
 
     Feels something is wrong? Help by reporting a bug:
-    https://github.com/cezaraugusto/create-browser-extension/issues/new
+    https://github.com/cezaraugusto/extension-create/issues/new
   `)
 }

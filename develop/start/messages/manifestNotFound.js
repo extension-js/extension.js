@@ -14,8 +14,8 @@ module.exports = function () {
     By default both root and \`public/\` folder are scanned, but none was found.
 
     If you store your manifest file somewhere else, you need to tell
-    \`create-browser-extension\` where to look using the \`--manifest\` flag.
+    \`extension-create\` where to look using the \`--manifest\` flag.
 
-    \`create-browser-extension start --manifest=\`<path-to-manifest>
+    \`extension-create start --manifest=\`<path-to-manifest>
   `)
 }
