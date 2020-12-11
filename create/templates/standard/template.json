@@ -1,0 +1,7 @@
+{
+  "package": {
+    "devDependencies": {
+      "web-ext": "^5.4.0"
+    }
+  }
+}
