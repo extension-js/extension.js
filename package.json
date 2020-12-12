@@ -9,6 +9,7 @@
   "scripts": {
     "extension-create": "cross-env NODE_ENV=development node module.js",
     "lint": "eslint --config=eslintrc.json",
+    "preinstall": "sh preinstall.sh",
     "publish": "np --no-2-fa",
     "test": "jest"
   },
@@ -36,7 +37,6 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^4.2.1",
     "fs-extra": "^9.0.1",
-    "jest": "^26.6.3",
-    "np": "^7.0.0"
+    "jest": "^26.6.3"
   }
 }
