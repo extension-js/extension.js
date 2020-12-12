@@ -16,7 +16,7 @@ module.exports = function (template) {
   if (template) {
     thisTemplate = templateTempDir(template)
   } else {
-    thisTemplate = 'cbe-standard-template'
+    thisTemplate = 'standard'
   }
 
   return path.resolve(templatesDir, thisTemplate)
