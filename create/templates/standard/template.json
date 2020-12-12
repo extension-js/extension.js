@@ -1,7 +1,6 @@
 {
   "package": {
     "devDependencies": {
-      "extension-create": "^0.1.0"
     }
   }
 }
