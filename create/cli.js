@@ -6,6 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 const { program } = require('commander')
+const { log } = require('log-md')
 
 const createExtension = require('./createExtension')
 const messages = require('./messages')
@@ -32,6 +33,14 @@ module.exports = async function () {
     )
     .on('--help', () => messages.programHelp())
     .parse(process.argv)
+
+  if (!projectName) {
+    log(`
+      You need to provide an extension name to create one.
+      See \`--help\` for command info.
+    `)
+    process.exit(1)
+  }
 
   const workingDir = process.cwd()
 
