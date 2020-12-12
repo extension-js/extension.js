@@ -20,9 +20,6 @@ module.exports = function () {
 
     A template name can be provided if your project needs a special config.
 
-    Valid template names can be any published npm module, for example
-    \`cbe-standard-template\`.
-
     Feels something is wrong? Help by reporting a bug:
     https://github.com/cezaraugusto/extension-create/issues/new
   `)
