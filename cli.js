@@ -5,19 +5,31 @@ const packageJson = require('./package.json')
 
 function help () {
   log(`
-    # Help center for the \`extension-create\` app
+    # Help center for the extension-create program
 
-    All high-level commands for \`extension-create\` are below.
-    Each of these commands offer their own \`--help\` files providing
-    information about usage and command flags available. For example:
-    \`extension-create create --help\` outputs information
-    about the \`create\` command.
+    ## Usage: \`extension-create [command] [options]\`
 
-    Usage: \`extension-create [command] [options]\`
+    **Note:** If you are looking for a specific list of options,
+    all high-level commands offer their own \`--help\` file with
+    information about usage and a list of command flags available.
 
-      \`extension-create create\`
-      Creates a new extension from template. The "create" command
-      is optional and can be ommitted.
+    For example:
+
+    \`extension-create create --help\`
+    outputs information about the \`create\` command.
+
+    ## Options available
+
+    \`extension-create create <extension-name>\`
+    Creates a new extension from template. The "create" command
+    is optional and can be ommitted.
+
+    \`extension-create start <extension-path>\`
+    Starts a new browser instance with the target extension loaded
+    and set up as a modern web app including esnext and module support.
+
+    \`extension-create --help\`
+    This command ;) Outputs a help file with key command options.
 
     Feels something is wrong? Help by reporting a bug:
     https://github.com/cezaraugusto/extension-create/issues/new
