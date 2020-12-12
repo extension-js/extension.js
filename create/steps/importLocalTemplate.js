@@ -11,7 +11,7 @@ const fs = require('fs-extra')
 const { log } = require('log-md')
 
 const templatesDir = path.resolve(__dirname, '../templates')
-const defaultTemplate = 'cbe-standard-template'
+const defaultTemplate = 'standard'
 
 module.exports = async function (workingDir, projectName) {
   const projectPath = path.resolve(workingDir, projectName)
