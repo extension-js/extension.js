@@ -21,6 +21,7 @@
   "dependencies": {
     "chalk": "^4.1.0",
     "commander": "^6.2.0",
+    "cross-spawn": "^7.0.3",
     "dedent": "^0.7.0",
     "fancy-json-stringify": "^1.0.0",
     "fs-extra": "^9.0.1",

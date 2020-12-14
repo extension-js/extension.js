@@ -24,6 +24,14 @@
   ],
   "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
   "license": "MIT",
+  "files": [
+    "create",
+    "develop",
+    "cli.js",
+    "module.js",
+    "preinstall.sh",
+    "reservedKeywords.js"
+  ],
   "dependencies": {
     "commander": "^6.2.0",
     "log-md": "^0.2.0"
