@@ -8,10 +8,10 @@
 const directoryHasConflicts = require('./directoryHasConflicts')
 const nodeVersionNotSupported = require('./nodeVersionNotSupported')
 const programHelp = require('./programHelp')
-const successfulInstall = require('./successfulInstall')
+const successfullInstall = require('./successfullInstall')
 
 module.exports = {
-  successfulInstall,
+  successfullInstall,
   nodeVersionNotSupported,
   programHelp,
   directoryHasConflicts

@@ -36,7 +36,7 @@ module.exports = async function (workingDir, projectName) {
     log('🛠  - Installing extension-create as devDependency...')
     // Link instead of download in local env
     if (process.env.NODE_ENV === 'development') {
-      spawn(command, ['link'], { stdio: 'inherit' })
+      spawn.sync(command, ['link'], { stdio: 'inherit' })
 
       const linkSelfArgs = [
         commonArgs,
@@ -45,22 +45,23 @@ module.exports = async function (workingDir, projectName) {
         'extension-create'
       ]
 
-      spawn(command, linkSelfArgs, { stdio: 'inherit' })
+      spawn.sync(command, linkSelfArgs, { stdio: 'inherit' })
     } else {
       const installSelfArgs = [
         ...commonArgs,
         'install',
         '-D',
-        'extension-create'
+        'extension-create',
+        '--silent'
       ]
 
-      spawn(command, installSelfArgs, { stdio: 'inherit' })
+      spawn.sync(command, installSelfArgs, { stdio: 'inherit' })
     }
 
     log('⚙️  - Installing package dependencies...')
-    const installArgs = [...commonArgs, 'install', '--exact']
+    const installArgs = [...commonArgs, 'install', '--exact', '--silent']
 
-    spawn(command, installArgs, { stdio: 'inherit' })
+    spawn.sync(command, installArgs, { stdio: 'inherit' })
     await Promise.resolve()
   } catch (error) {
     abortProjectAndClean(error, workingDir, projectName)

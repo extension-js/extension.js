@@ -27,7 +27,7 @@ module.exports = async function (workingDir, projectName, template) {
     await writePackageJson(workingDir, projectName, template)
     await installDependencies(workingDir, projectName)
     await cleanTemplateFolder(template)
-    await messages.successfulInstall(workingDir, projectName)
+    messages.successfullInstall(workingDir, projectName)
   } catch (error) {
     await abortAndClean(error, workingDir, projectName)
     await cleanTemplateFolder(template)
