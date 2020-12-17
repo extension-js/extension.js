@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 //  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
 // ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
 // ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
@@ -15,8 +17,8 @@ const packageJson = require('./package.json')
 let projectName
 let templateName
 
-module.exports = async function () {
-  program
+function createExtensionCLI (clientProgram = program) {
+  clientProgram
     .version(packageJson.version)
     .command('create', { isDefault: true })
     .usage('create <project-directory> [options]')
@@ -44,5 +46,13 @@ module.exports = async function () {
 
   const workingDir = process.cwd()
 
-  await createExtension(workingDir, projectName, templateName)
+  createExtension(workingDir, projectName, templateName)
 }
+
+// If the module was called from the cmd line, execute it
+if (require.main === module) {
+  createExtensionCLI()
+}
+
+// Export as a module so it can be reused
+module.exports = createExtensionCLI
