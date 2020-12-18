@@ -8,11 +8,11 @@
 const { program } = require('commander')
 
 const startExtension = require('./startExtension')
-const messages = require('../messages')
+const messages = require('./messages')
 const packageJson = require('../package.json')
 
-module.exports = async function () {
-  program
+function startExtensionCLI (clientProgram = program) {
+  clientProgram
     .version(packageJson.version)
     .command('start')
     .usage('start [options]')
@@ -26,5 +26,13 @@ module.exports = async function () {
 
   const projectDir = process.cwd()
 
-  await startExtension(projectDir, program.manifest)
+  startExtension(projectDir, clientProgram.manifest)
 }
+
+// If the module was called from the cmd line, execute it
+if (require.main === module) {
+  startExtensionCLI()
+}
+
+// Export as a module so it can be reused
+module.exports = startExtensionCLI
