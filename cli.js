@@ -1,44 +1,35 @@
-const { log } = require('log-md')
+#!/usr/bin/env node
+
 const { program } = require('commander')
+const semver = require('semver')
 
+const isKeyword = require('./reservedKeywords')
 const packageJson = require('./package.json')
+const createExtensionCLI = require('./create')
+const developExtensionCLI = require('./develop')
+const messages = require('./messages')
 
-function help () {
-  log(`
-    # Help center for the extension-create program
-
-    ## Usage: \`extension-create [command] [options]\`
-
-    **Note:** If you are looking for a specific list of options,
-    all high-level commands offer their own \`--help\` file with
-    information about usage and a list of command flags available.
-
-    For example:
-
-    \`extension-create create --help\`
-    outputs information about the \`create\` command.
-
-    ## Options available
-
-    \`extension-create create <extension-name>\`
-    Creates a new extension from template. The "create" command
-    is optional and can be ommitted.
-
-    \`extension-create start <extension-path>\`
-    Starts a new browser instance with the target extension loaded
-    and set up as a modern web app including esnext and module support.
-
-    \`extension-create --help\`
-    This command ;) Outputs a help file with key command options.
-
-    Feels something is wrong? Help by reporting a bug:
-    https://github.com/cezaraugusto/extension-create/issues/new
-  `)
+if (semver.lte(process.version, '10.3.0')) {
+  messages.nodeVersionNotSupported()
+  process.exit(1)
 }
 
-module.exports = function () {
-  program
-    .version(packageJson.version)
-    .on('--help', () => help())
-    .parse(process.argv)
+const extensionCreate = program
+
+extensionCreate
+  .version(packageJson.version)
+  .on('--help', () => messages.help())
+
+// We support creating new extensions without
+// an explicit `create` command but this convenience
+// allows user to add projects using command names.
+// In this case we check first if command is a keyword
+// and only run create if it's not.
+if (!isKeyword()) {
+  createExtensionCLI(extensionCreate)
+} else {
+  developExtensionCLI(extensionCreate)
 }
+
+extensionCreate
+  .parse(process.argv)
