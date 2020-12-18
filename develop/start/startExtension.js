@@ -19,5 +19,6 @@ module.exports = async function (projectDir, manifestPath) {
     log(`
       Error while starting the extension: ${error}
     `)
+    process.exit(1)
   }
 }
