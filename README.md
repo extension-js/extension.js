@@ -9,7 +9,7 @@
 
 # extension-create [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
 
-<img alt="Logo" align="right" src="LOGO.png" width="25%" />
+<img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
 Create modern cross-browser extensions with no build configuration.
 
