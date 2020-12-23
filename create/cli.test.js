@@ -7,7 +7,7 @@ const fs = require('fs-extra')
 describe('`create` command line interface', () => {
   const createExtensionCLI = path.resolve(__dirname, './cli.js')
   const projectName = 'my-extension-home'
-  const outputpath = path.resolve(__dirname, projectName)
+  const outputpath = path.resolve(process.cwd(), projectName)
 
   afterEach(async () => {
     // Clear filesystem after running tests

@@ -10,7 +10,8 @@
     "extension-create": "cross-env NODE_ENV=development node cli.js",
     "lint": "eslint --config=eslintrc.json",
     "preinstall": "sh preinstall.sh",
-    "publish": "np --no-2-fa"
+    "publish": "np --no-2-fa",
+    "test": "jest"
   },
   "keywords": [
     "browser extension",
