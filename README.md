@@ -38,29 +38,37 @@ You are done. Time to hack on your extension!
 
 ## Getting Started Immediately
 
-### Zero-config extension kickstart with support for modules and page-reloads
+### Kickstart any sample from `chrome-extesions-sample`
 
+Say you like the extension sample `set_icon_path`. The sample URL on GitHub is https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/set_icon_path.
+
+```sh
+npx extension-create start --remote https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/set_icon_path
 ```
-npx extension-create start my-existing-extension
-```
+
+Will not only download the extension but also kickstart a Chrome instance in a fresh profile with your sample extension loaded. Try it!
+
+This also works with any other GitHub URL
+as long as it points to a directory includig the manifest within its root path.
 
 ## Next steps
 
 Project roadmap TBD. These are the major areas I plan to cover (sorted)
 
-- [x] `create` - Everything needed to create a new extension, Supports templates (alpha)
+- [x] `create` - Everything needed to create a new extension. Supports templates (alpha)
 - [ ] `develop` - Everything needed to develop a new extension. (under development)
   - [x] `start` - Runs the extension on a browser with support for hot-reload, JS modules, and custom browser configs. (in progress)
-    - [x] Chrome - Develop your extension running a standalone Chrome instance
-    - [ ] Firefox - Develop your extension running a standalone Firefox instance
-    - [ ] Edge (Chromium) - Develop your extension running a standalone Edge (Chromium) instance
-    - [ ] Safari - Develop your extension running a standalone Safari instance
-    - [ ] Brave - Develop your extension running a standalone Brave instance
-    - [ ] Multiple TBD - Develop your extension running multiple browser instances
+    - [ ] `--browser` - Sets the browser to open. Defaults to default broser
+      - [x] `chrome` - Develop your extension running a standalone Chrome instance
+      - [ ] `firefox` - Develop your extension running a standalone Firefox instance
+      - [ ] `edge` (Chromium) - Develop your extension running a standalone Edge (Chromium) instance
+      - [ ] `safari` - Develop your extension running a standalone Safari instance
+      - [ ] `brave` - Develop your extension running a standalone Brave instance
+      - [ ] `multiple` TBD - Develop your extension running multiple browser instances
     - [ ] Other browsers TBD
   - [ ] `build` - Prepares the code with production defaults for the publish step.
-  - [ ] `test` - Unit test extensions using Jest (TBD: e2e support)
-  - [ ] `lint` - Lints the extension with defaults optimized for cross-browser webExtesions
+  - [ ] `test` - Unit test extensions using Jest
+  - [ ] `lint` - Lints the extension with defaults optimized for cross-browser extesions
   - [ ] `eject` - Detaches the current extension project as a standalone project. (similar to `create-react-app` eject option)
 - [ ] `publish` - Everything needed to publish or update a new extension to all popular extension stores. (TBD)
 

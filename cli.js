@@ -30,6 +30,3 @@ if (!isKeyword()) {
 } else {
   developExtensionCLI(extensionCreate)
 }
-
-extensionCreate
-  .parse(process.argv)
