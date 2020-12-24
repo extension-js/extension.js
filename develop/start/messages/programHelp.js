@@ -22,7 +22,7 @@ module.exports = function () {
 
     For example:
 
-    \`extension-create start --fast https://github.com/user/repo/\`
+    \`extension-create start --remote https://github.com/user/repo/\`
     will download \`repo\` in the current working directory and
     kick off a new browser instance with \`repo\` loaded as an extension.
 

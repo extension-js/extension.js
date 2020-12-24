@@ -12,18 +12,15 @@ const CopyPlugin = require('copy-webpack-plugin')
 const ResolveBackgroundScripts = require('webpack-resolve-background-script')
 const RunChromeExtension = require('webpack-run-chrome-extension')
 
-const resolveBackgroundEntries = require('../resolve/resolveBackgroundScriptEntries')
+const entries = require('./entries')
 
 process.on('unhandledRejection', (error) => { throw error })
 
 module.exports = (projectDir, manifestPath) => {
-  return {
+  const config = {
     mode: 'development',
     // https://github.com/webpack/webpack/issues/2145
     devtool: 'inline-cheap-module-source-map',
-    entry: {
-      background: resolveBackgroundEntries(manifestPath)
-    },
     plugins: [
       new ResolveBackgroundScripts(manifestPath),
       // Polyfill `browser` namespace for unspported browsers (FF and Edge).
@@ -51,5 +48,10 @@ module.exports = (projectDir, manifestPath) => {
         }
       }]
     }
+  }
+
+  return {
+    ...config,
+    ...entries(manifestPath),
   }
 }
