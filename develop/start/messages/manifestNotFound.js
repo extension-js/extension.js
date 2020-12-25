@@ -11,11 +11,12 @@ module.exports = function () {
   log(`
     # Error! Can't find the project's manifest file.
 
-    By default both root and \`public/\` folder are scanned, but none was found.
+    By default, extension-create scans the root folder and the paths to
+    \`src/\`, and \`public/\` looking for a manifest file, but none was found.
 
-    If you store your manifest file somewhere else, you need to tell
-    \`extension-create\` where to look using the \`--manifest\` flag.
+    The argument after \`start\` needs to point to a folder where the
+    manifest is available within one of the paths above.
 
-    \`extension-create start --manifest=\`<path-to-manifest>
+    \`extension-create start\` <path-to-extension-folder>
   `)
 }

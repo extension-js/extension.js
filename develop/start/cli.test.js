@@ -29,11 +29,11 @@ async function createTmpExtension () {
 }
 
 describe('`start` command line interface', () => {
-  it.todo('calls browser with a resolved manifest path')
-  it.todo('warns users if manifest file is missing')
-
-  describe('-m, --manifest', () => {
-    it.todo('warns users if manifest flag is empty')
-    it.todo('starts an extension with a custom manifest file path')
-  })
+  it.todo('starts extension from local path with arguments')
+  it.todo('starts extension from local path without arguments')
+  it.todo('starts extension from local path - manifest in src/')
+  it.todo('starts extension from local path - manifest in public/')
+  it.todo('starts extension from remote (URL) path')
+  it.todo('starts extension from remote (URL) path - manifest in src/')
+  it.todo('starts extension from remote (URL) path - manifest in public/')
 })
