@@ -40,16 +40,15 @@ You are done. Time to hack on your extension!
 
 ### Kickstart any sample from `chrome-extesions-sample`
 
-Say you like the extension sample `set_icon_path`. The sample URL on GitHub is https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/set_icon_path.
+Say you like the extension sample `set_icon_path` from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/). Its URL on GitHub is https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/set_icon_path.
 
 ```sh
-npx extension-create start --remote https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/set_icon_path
+npx extension-create start https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/set_icon_path
 ```
 
-Will not only download the extension but also kickstart a Chrome instance in a fresh profile with your sample extension loaded. Try it!
+Will not only download the extension but also kickstart a Chrome instance in a fresh profile with your sample extension loaded. Try it yourself!
 
-This also works with any other GitHub URL
-as long as it points to a directory includig the manifest within its root path.
+> **Note:** It also works with any other GitHub URL, as long as it points to a directory with an available manifest file.
 
 ## Next steps
 
@@ -57,7 +56,7 @@ Project roadmap TBD. These are the major areas I plan to cover (sorted)
 
 - [x] `create` - Everything needed to create a new extension. Supports templates (alpha)
 - [ ] `develop` - Everything needed to develop a new extension. (under development)
-  - [x] `start` - Runs the extension on a browser with support for hot-reload, JS modules, and custom browser configs. (in progress)
+  - [x] `start` - Runs the extension on a browser with support for hot-reload, JS modules, and custom browser configs. (alpha)
     - [ ] `--browser` - Sets the browser to open. Defaults to default broser
       - [x] `chrome` - Develop your extension running a standalone Chrome instance
       - [ ] `firefox` - Develop your extension running a standalone Firefox instance

@@ -35,6 +35,9 @@ module.exports = (projectDir, manifestPath) => {
         extensionPath: projectDir
       })
     ],
+    resolve: {
+      extensions: ['js', '.json']
+    },
     module: {
       // Adapted from
       // https://github.com/webextension-toolbox/webextension-toolbox
