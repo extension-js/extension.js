@@ -28,7 +28,7 @@
     "create",
     "develop",
     "cli.js",
-    "module.js",
+    "messages.js",
     "preinstall.sh",
     "reservedKeywords.js"
   ],
