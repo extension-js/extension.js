@@ -23,7 +23,7 @@ function startExtensionCLI (clientProgram = program) {
 
   const projectDir = process.cwd()
   const commands = clientProgram.commands[0]
-  const [, customPath] = commands.args
+  const customPath = commands.args[1] || ''
 
   startExtension(projectDir, { customPath })
 }
