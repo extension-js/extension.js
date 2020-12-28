@@ -42,18 +42,17 @@ async function setCurrentProjectDirFromLocal (customPath) {
 module.exports = async function (projectDir, { customPath }) {
   let currentProjectDir
 
-  // console.log('👾👾👾👾👾👾👾👾👾👾👾👾', )
   try {
     if (!customPath) {
-      currentProjectDir = await setCurrentProjectDirFromLocal(customPath)
+      // No user arguments, default to cwd
+      currentProjectDir = path.resolve(projectDir, customPath)
     } else if (customPath.startsWith('http')) {
       currentProjectDir = setCurrentProjectDirFromRemote(customPath)
     } else {
-      // No user arguments, default to cwd
-      currentProjectDir = path.resolve(projectDir, customPath)
+      currentProjectDir = await setCurrentProjectDirFromLocal(customPath)
     }
 
-    const resolvedManifest = await resoleManifest(currentProjectDir, customPath)
+    const resolvedManifest = await resoleManifest(currentProjectDir)
     startWebpack(currentProjectDir, resolvedManifest)
   } catch (error) {
     log(`
