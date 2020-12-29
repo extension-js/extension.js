@@ -1,6 +1,6 @@
 {
   "name": "extension-create",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Cross-browser web extension development made easy",
   "main": "./cli.js",
   "bin": {
