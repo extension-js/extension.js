@@ -41,7 +41,17 @@ function unsupportedNodeVersion () {
   `)
 }
 
+function noURLWithoutStart (argument) {
+  log(`
+    The default \`create\` command does not accept URLs.
+    Are you forgetting a \`start\` command? Maybe:
+
+    npx extension-create \`start\` ${argument}
+  `)
+}
+
 module.exports = {
   help,
-  unsupportedNodeVersion
+  unsupportedNodeVersion,
+  noURLWithoutStart
 }
