@@ -14,7 +14,7 @@ const githubPartials = require('github-partials')
 const resoleManifest = require('./steps/resolveManifest')
 const startWebpack = require('./steps/startWebpack')
 
-function setCurrentProjectDirFromRemote (customPath) {
+function setWorkingDirFromRemote (workingDir, customPath) {
   if (new URL(customPath).hostname !== 'github.com') {
     log(`
       The remote extension URL must be stored on GitHub.
@@ -23,11 +23,12 @@ function setCurrentProjectDirFromRemote (customPath) {
   }
 
   githubPartials(customPath)
-  return path.join(process.cwd(), path.basename(customPath))
+  return path.join(workingDir, path.basename(customPath))
 }
 
-async function setCurrentProjectDirFromLocal (customPath) {
-  const extensionPath = await fs.stat(customPath)
+async function setWorkingDirFromLocal (workingDir, customPath) {
+  const currentPath = path.resolve(workingDir, customPath)
+  const extensionPath = await fs.stat(currentPath)
 
   if (!extensionPath.isDirectory()) {
     log(`
@@ -36,24 +37,24 @@ async function setCurrentProjectDirFromLocal (customPath) {
     process.exit(1)
   }
 
-  return customPath
+  return currentPath
 }
 
-module.exports = async function (projectDir, { customPath }) {
-  let currentProjectDir
+module.exports = async function (workingDir, { customPath }) {
+  let currentworkingDir
 
   try {
     if (!customPath) {
       // No user arguments, default to cwd
-      currentProjectDir = path.resolve(projectDir, customPath)
+      currentworkingDir = workingDir
     } else if (customPath.startsWith('http')) {
-      currentProjectDir = setCurrentProjectDirFromRemote(customPath)
+      currentworkingDir = setWorkingDirFromRemote(customPath)
     } else {
-      currentProjectDir = await setCurrentProjectDirFromLocal(customPath)
+      currentworkingDir = await setWorkingDirFromLocal(workingDir, customPath)
     }
 
-    const resolvedManifest = await resoleManifest(currentProjectDir)
-    startWebpack(currentProjectDir, resolvedManifest)
+    const resolvedManifest = await resoleManifest(currentworkingDir)
+    startWebpack(currentworkingDir, resolvedManifest)
   } catch (error) {
     log(`
       Error while starting the extension: ${error}
