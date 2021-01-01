@@ -9,7 +9,7 @@ const path = require('path')
 const fs = require('fs-extra')
 
 const { log } = require('log-md')
-const githubPartials = require('github-partials')
+const goGitIt = require('go-git-it')
 
 const resoleManifest = require('./steps/resolveManifest')
 const startWebpack = require('./steps/startWebpack')
@@ -22,7 +22,7 @@ function setWorkingDirFromRemote (workingDir, customPath) {
     process.exit(1)
   }
 
-  githubPartials(customPath)
+  goGitIt(customPath)
   return path.join(workingDir, path.basename(customPath))
 }
 
@@ -48,7 +48,7 @@ module.exports = async function (workingDir, { customPath }) {
       // No user arguments, default to cwd
       currentworkingDir = workingDir
     } else if (customPath.startsWith('http')) {
-      currentworkingDir = setWorkingDirFromRemote(customPath)
+      currentworkingDir = setWorkingDirFromRemote(workingDir, customPath)
     } else {
       currentworkingDir = await setWorkingDirFromLocal(workingDir, customPath)
     }
