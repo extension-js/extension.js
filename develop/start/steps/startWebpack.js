@@ -8,7 +8,7 @@
 const path = require('path')
 
 const webpack = require('webpack')
-const { log } = require('log-md')
+const {log} = require('log-md')
 const WebpackDevServer = require('webpack-dev-server')
 
 const compilerConfig = require('../config/compiler.js')
@@ -28,7 +28,7 @@ module.exports = function (projectDir, manifestPath) {
   const webpackConfig = compilerConfig(projectDir, manifestPath)
 
   const compiler = webpack(webpackConfig)
-  const server = { ...serverConfig, ...serverOptions }
+  const server = {...serverConfig, ...serverOptions}
   const devServer = new WebpackDevServer(compiler, server)
 
   const PORT = 3001

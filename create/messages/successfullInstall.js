@@ -7,7 +7,7 @@
 
 const path = require('path')
 
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 module.exports = function (workingDir, projectName) {
   const projectPath = path.join(workingDir, projectName)

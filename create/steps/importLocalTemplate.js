@@ -8,7 +8,7 @@
 const path = require('path')
 
 const fs = require('fs-extra')
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 const templatesDir = path.resolve(__dirname, '../templates')
 const defaultTemplate = 'standard'
@@ -26,7 +26,7 @@ module.exports = async function (workingDir, projectName) {
   } catch (error) {
     log(
       `😕❓ Can't copy template __${templateName}__: ${error}`,
-      { gutter: true }
+      {gutter: true}
     )
     process.exit(1)
   }

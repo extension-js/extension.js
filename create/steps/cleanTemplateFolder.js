@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 const fs = require('fs-extra')
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 const getTemplatePath = require('./getTemplatePath')
 
