@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
-const { program } = require('commander')
+const {program} = require('commander')
 const semver = require('semver')
-const { log } = require('log-md')
 
 const isKeyword = require('./reservedKeywords')
 const packageJson = require('./package.json')
@@ -34,6 +33,7 @@ if (!isKeyword()) {
     messages.noURLWithoutStart(argument)
     process.exit()
   }
+
   createExtensionCLI(extensionCreate)
 } else {
   developExtensionCLI(extensionCreate)
