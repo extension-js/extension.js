@@ -8,14 +8,14 @@
 const path = require('path')
 
 const fs = require('fs-extra')
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 module.exports = async function (projectPath, conflictingFiles) {
   const projectName = path.basename(projectPath)
 
   log(
     `Conflict! Directory \`${(projectName)}/\` includes conflicting files:`,
-    { gutter: true }
+    {gutter: true}
   )
 
   for (const file of conflictingFiles) {
@@ -31,7 +31,7 @@ module.exports = async function (projectPath, conflictingFiles) {
   log(
     'You need to either rename/remove the files listed above,\n' +
     'or choose a new directory name for your extension.',
-    { gutter: true }
+    {gutter: true}
   )
 
   log(`Path to conflicting directory: \`${projectPath}\``)

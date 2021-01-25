@@ -8,7 +8,7 @@
 const path = require('path')
 
 const fs = require('fs-extra')
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 const messages = require('../messages')
 
@@ -20,7 +20,7 @@ const allowlist = [
 module.exports = async function (workingDir, projectName) {
   log(
     `👍 Starting a new browser extension named **${projectName}**`,
-    { gutter: true }
+    {gutter: true}
   )
   const projectPath = path.resolve(workingDir, projectName)
 

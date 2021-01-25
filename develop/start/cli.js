@@ -5,7 +5,7 @@
 // ███████║   ██║   ██║  ██║██║  ██║   ██║
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
 
-const { program } = require('commander')
+const {program} = require('commander')
 
 const startExtension = require('./startExtension')
 const messages = require('./messages')
@@ -25,7 +25,7 @@ function startExtensionCLI (clientProgram = program) {
   const commands = clientProgram.commands[0]
   const customPath = commands.args[1] || ''
 
-  startExtension(projectDir, { customPath })
+  startExtension(projectDir, {customPath})
 }
 
 // If the module was called from the cmd line, execute it

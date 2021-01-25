@@ -25,10 +25,10 @@ module.exports = (projectDir, manifestPath) => {
       new ResolveBackgroundScripts(manifestPath),
       // Polyfill `browser` namespace for unspported browsers (FF and Edge).
       // TODO: Do not add this plugin when developing for those vendors
-      new webpack.ProvidePlugin({ browser: require.resolve('webextension-polyfill') }),
+      new webpack.ProvidePlugin({browser: require.resolve('webextension-polyfill')}),
       new CopyPlugin({
         patterns: [
-          { from: manifestPath, to: path.join(projectDir, 'manifest.json') }
+          {from: manifestPath, to: path.join(projectDir, 'manifest.json')}
         ]
       }),
       new RunChromeExtension({
@@ -55,6 +55,6 @@ module.exports = (projectDir, manifestPath) => {
 
   return {
     ...config,
-    ...entries(manifestPath),
+    ...entries(manifestPath)
   }
 }

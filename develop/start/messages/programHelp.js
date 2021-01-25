@@ -5,7 +5,7 @@
 // ███████║   ██║   ██║  ██║██║  ██║   ██║
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
 
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 module.exports = function () {
   log(`

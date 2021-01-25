@@ -6,9 +6,9 @@
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
 
 const path = require('path')
-const fs = require('fs-extra')
 
-const { log } = require('log-md')
+const fs = require('fs-extra')
+const {log} = require('log-md')
 const goGitIt = require('go-git-it')
 
 const resoleManifest = require('./steps/resolveManifest')
@@ -23,6 +23,7 @@ function setWorkingDirFromRemote (workingDir, customPath) {
   }
 
   goGitIt(customPath)
+
   return path.join(workingDir, path.basename(customPath))
 }
 
@@ -40,7 +41,7 @@ async function setWorkingDirFromLocal (workingDir, customPath) {
   return currentPath
 }
 
-module.exports = async function (workingDir, { customPath }) {
+module.exports = async function (workingDir, {customPath}) {
   let currentworkingDir
 
   try {
@@ -54,6 +55,7 @@ module.exports = async function (workingDir, { customPath }) {
     }
 
     const resolvedManifest = await resoleManifest(currentworkingDir)
+
     startWebpack(currentworkingDir, resolvedManifest)
   } catch (error) {
     log(`

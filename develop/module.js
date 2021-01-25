@@ -7,7 +7,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-const { program } = require('commander')
+const {program} = require('commander')
 
 const startCLI = require('./start/cli')
 

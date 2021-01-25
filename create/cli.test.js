@@ -11,14 +11,14 @@ describe('`create` command line interface', () => {
 
   afterEach(async () => {
     // Clear filesystem after running tests
-    await fs.rmdir(outputpath, { recursive: true })
+    await fs.rmdir(outputpath, {recursive: true})
   })
 
   it('creates an extension with specified project name', async () => {
     spawn.sync(
       'node',
       [createExtensionCLI, 'my-extension-home'],
-      { stdio: 'inherit' }
+      {stdio: 'inherit'}
     )
 
     const pathStat = await fs.stat(outputpath)

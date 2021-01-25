@@ -8,7 +8,7 @@
 const path = require('path')
 
 const spawn = require('cross-spawn')
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 const abortProjectAndClean = require('./abortProjectAndClean')
 
@@ -36,7 +36,7 @@ module.exports = async function (workingDir, projectName) {
     log('🛠  - Installing extension-create as devDependency...')
     // Link instead of download in local env
     if (process.env.NODE_ENV === 'development') {
-      spawn.sync(command, ['link'], { stdio: 'inherit' })
+      spawn.sync(command, ['link'], {stdio: 'inherit'})
 
       const linkSelfArgs = [
         commonArgs,
@@ -45,7 +45,7 @@ module.exports = async function (workingDir, projectName) {
         'extension-create'
       ]
 
-      spawn.sync(command, linkSelfArgs, { stdio: 'inherit' })
+      spawn.sync(command, linkSelfArgs, {stdio: 'inherit'})
     } else {
       const installSelfArgs = [
         ...commonArgs,
@@ -55,13 +55,13 @@ module.exports = async function (workingDir, projectName) {
         '--silent'
       ]
 
-      spawn.sync(command, installSelfArgs, { stdio: 'inherit' })
+      spawn.sync(command, installSelfArgs, {stdio: 'inherit'})
     }
 
     log('⚙️  - Installing package dependencies...')
     const installArgs = [...commonArgs, 'install', '--exact', '--silent']
 
-    spawn.sync(command, installArgs, { stdio: 'inherit' })
+    spawn.sync(command, installArgs, {stdio: 'inherit'})
     await Promise.resolve()
   } catch (error) {
     abortProjectAndClean(error, workingDir, projectName)

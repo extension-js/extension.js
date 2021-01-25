@@ -1,4 +1,4 @@
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 function help () {
   log(`

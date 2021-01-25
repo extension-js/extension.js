@@ -9,7 +9,7 @@ const path = require('path')
 
 const fs = require('fs-extra')
 const fancyJsonStringify = require('fancy-json-stringify')
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 const getTemplatePath = require('./getTemplatePath')
 const abortProjectAndClean = require('./abortProjectAndClean')

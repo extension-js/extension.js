@@ -7,8 +7,8 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-const { program } = require('commander')
-const { log } = require('log-md')
+const {program} = require('commander')
+const {log} = require('log-md')
 
 const createExtension = require('./createExtension')
 const messages = require('./messages')
@@ -20,10 +20,10 @@ let templateName
 function createExtensionCLI (clientProgram = program) {
   clientProgram
     .version(packageJson.version)
-    .command('create', { isDefault: true })
+    .command('create', {isDefault: true})
     .usage('create <project-directory> [options]')
     .action((cmd) => {
-      const { args, template } = cmd
+      const {args, template} = cmd
 
       projectName = args[0]
       templateName = template

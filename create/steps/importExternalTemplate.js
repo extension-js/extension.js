@@ -9,7 +9,7 @@ const path = require('path')
 
 const fs = require('fs-extra')
 const pacote = require('pacote')
-const { log } = require('log-md')
+const {log} = require('log-md')
 
 const templatesDir = path.resolve(__dirname, '../templates')
 
@@ -22,7 +22,7 @@ module.exports = async function (workingDir, projectName, template) {
       .join(templatesDir, `__temp__${templateName}`)
 
     log(`⚙️  - Importing template \`${template}\` as requested...`)
-    const { name, version } = await pacote.manifest(templateName)
+    const {name, version} = await pacote.manifest(templateName)
 
     await pacote
       .extract(`${name}@${version}`, tempTemplatePath)
@@ -34,7 +34,7 @@ module.exports = async function (workingDir, projectName, template) {
   } catch (error) {
     log(
       `😕❓ Can't find template __${templateName}__. ${error}`,
-      { gutter: true }
+      {gutter: true}
     )
     process.exit(1)
   }
