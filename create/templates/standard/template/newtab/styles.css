@@ -1,0 +1,43 @@
+body {
+  font-family: 'Lato', sans-serif;
+  font-size: 32px;
+  line-height: 1.4;
+  text-align: center;
+  height: 100vh;
+  display: flex;
+  color: #1b2d45;
+  background-color: #f2f4f6;
+  margin: 0;
+}
+
+.hello-box {
+  background-color: #fff;
+  border-radius: 4px;
+  max-width: 600px;
+  padding: 40px;
+  margin: auto;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+img {
+  display: block;
+  margin: auto;
+  width: 150px;
+}
+
+h1 {
+  font-size: 2.5rem;
+  line-height: 1.75rem;
+  color: #00214d;
+}
+
+
+p {
+  font-family: 'Courier New';
+  font-size: 1.25rem;
+  color: #94a1b2;
+}
+
+header + p {
+  margin: 1rem 0;
+}
