@@ -10,7 +10,7 @@ const RunChromeExtension = require('webpack-run-chrome-extension')
 
 process.on('unhandledRejection', (error) => { throw error })
 
-module.exports = (projectDir, manifestPath) => {
+module.exports = (projectDir) => {
   const config = {
     mode: 'development',
     // https://github.com/webpack/webpack/issues/2145
