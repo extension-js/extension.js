@@ -35,7 +35,7 @@
     "webpack-cli": "^4.1.0",
     "webpack-dev-server": "^3.11.0",
     "webpack-resolve-background-script": "^1.0.0",
-    "webpack-run-chrome-extension": "^0.2.0"
+    "webpack-run-chrome-extension": "^0.3.0"
   },
   "devDependencies": {
     "cross-spawn": "^7.0.3",

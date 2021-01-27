@@ -5,14 +5,8 @@
 // ███████║   ██║   ██║  ██║██║  ██║   ██║
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
 
-const path = require('path')
-
 const webpack = require('webpack')
-const CopyPlugin = require('copy-webpack-plugin')
-const ResolveBackgroundScripts = require('webpack-resolve-background-script')
 const RunChromeExtension = require('webpack-run-chrome-extension')
-
-const entries = require('./entries')
 
 process.on('unhandledRejection', (error) => { throw error })
 
@@ -22,15 +16,9 @@ module.exports = (projectDir, manifestPath) => {
     // https://github.com/webpack/webpack/issues/2145
     devtool: 'inline-cheap-module-source-map',
     plugins: [
-      new ResolveBackgroundScripts(manifestPath),
       // Polyfill `browser` namespace for unspported browsers (FF and Edge).
       // TODO: Do not add this plugin when developing for those vendors
       new webpack.ProvidePlugin({browser: require.resolve('webextension-polyfill')}),
-      new CopyPlugin({
-        patterns: [
-          {from: manifestPath, to: path.join(projectDir, 'manifest.json')}
-        ]
-      }),
       new RunChromeExtension({
         extensionPath: projectDir
       })
@@ -54,7 +42,6 @@ module.exports = (projectDir, manifestPath) => {
   }
 
   return {
-    ...config,
-    ...entries(manifestPath)
+    ...config
   }
 }
