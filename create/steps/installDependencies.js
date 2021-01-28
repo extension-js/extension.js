@@ -6,6 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 const path = require('path')
+const fs = require('fs-extra')
 
 const spawn = require('cross-spawn')
 const {log} = require('log-md')
@@ -36,16 +37,7 @@ module.exports = async function (workingDir, projectName) {
     log('🛠  - Installing extension-create as devDependency...')
     // Link instead of download in local env
     if (process.env.NODE_ENV === 'development') {
-      spawn.sync(command, ['link'], {stdio: 'inherit'})
-
-      const linkSelfArgs = [
-        commonArgs,
-        `${projectPath}/node_modules`,
-        'link',
-        'extension-create'
-      ]
-
-      spawn.sync(command, linkSelfArgs, {stdio: 'inherit'})
+      await fs.ensureSymlink(`${projectPath}/node_modules`, workingDir)
     } else {
       const installSelfArgs = [
         ...commonArgs,
