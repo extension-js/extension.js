@@ -11,7 +11,7 @@ describe('`create` command line interface', () => {
 
   afterEach(async () => {
     // Clear filesystem after running tests
-    await fs.rmdir(outputpath, {recursive: true})
+    await fs.remove(outputpath)
   })
 
   it('creates an extension with specified project name', async () => {
