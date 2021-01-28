@@ -13,10 +13,11 @@
 
 Create modern cross-browser extensions with no build configuration.
 
-- [Creating an extension](#creating-an-extension) – How to create a new extension.
-- [Getting started immediately](#getting-started-immediately) – Get work done in no time.
+- [Creating an extension](#creating-an-extension) — How to create a new extension.
+- [Getting started immediately](#getting-started-immediately) — Get work done in no time.
+- [Advancing your skills](https://github.com/cezaraugusto/browser-extensions-book) — Learn everything extensions can do for you, for free.
 
-`extension-create` helps you develop extensions with built-in support for esnext, module imports/exports, auto-reload, unit testing, and more. Read about the project vision and personal motivations [here](https://github.com/cezaraugusto/extension-create/wiki/This-initiative).
+`extension-create` helps you develop cross-browser extensions with built-in support for module imports/exports, auto-reload, and more. Interested to know how it's being developed? Every week I send emails about its progress [here](https://cezaraugusto.substack.com/). For goals, see the [wiki](https://github.com/cezaraugusto/extension-create/wiki/This-initiative).
 
 ## Creating an Extension
 
@@ -30,46 +31,32 @@ A new browser instance (for now, Chrome) will open up with your extension ready 
 
 You are done. Time to hack on your extension!
 
-<!-- TODO add demo image
-<p align='center'>
-<img src='DEMO.png' width='600' alt='npm start'>
+<!-- TODO: Add "extension-hello" sample
+<p align="center">
+<img src="" width="600" alt="npm start">
 </p>
 -->
 
 ## Getting Started Immediately
 
-### Kickstart any sample from `chrome-extesions-sample`
+### Kickstart any sample from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/)
 
-Say you like the extension sample `set_icon_path` from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/). Its URL on GitHub is https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/set_icon_path.
+The URL for the **make_page_red** sample is https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/make_page_red. We then copy the URL and paste it using the start command:
 
 ```sh
-npx extension-create start https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/set_icon_path
+npx extension-create start https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/make_page_red
 ```
 
+<!-- TODO: add getting started sample
+<p align="center">
+<img src="https://user-images.githubusercontent.com/4672033/105644192-e0755280-5e72-11eb-90bd-658224eb33c7.gif" width="600" alt="npm start">
+</p>
+ -->
 Will not only download the extension but also kickstart a Chrome instance in a fresh profile with your sample extension loaded. Try it yourself!
 
-> **Note:** It also works with any other GitHub URL, as long as it points to a directory with an available manifest file.
+## What's next?
 
-## Next steps
-
-Project roadmap TBD. These are the major areas I plan to cover (sorted)
-
-- [x] `create` - Everything needed to create a new extension. Supports templates (alpha)
-- [ ] `develop` - Everything needed to develop a new extension. (under development)
-  - [x] `start` - Runs the extension on a browser with support for hot-reload, JS modules, and custom browser configs. (alpha)
-    - [ ] `--browser` - Sets the browser to open. Defaults to default broser
-      - [x] `chrome` - Develop your extension running a standalone Chrome instance
-      - [ ] `firefox` - Develop your extension running a standalone Firefox instance
-      - [ ] `edge` (Chromium) - Develop your extension running a standalone Edge (Chromium) instance
-      - [ ] `safari` - Develop your extension running a standalone Safari instance
-      - [ ] `brave` - Develop your extension running a standalone Brave instance
-      - [ ] `multiple` TBD - Develop your extension running multiple browser instances
-    - [ ] Other browsers TBD
-  - [ ] `build` - Prepares the code with production defaults for the publish step.
-  - [ ] `test` - Unit test extensions using Jest
-  - [ ] `lint` - Lints the extension with defaults optimized for cross-browser extesions
-  - [ ] `eject` - Detaches the current extension project as a standalone project. (similar to `create-react-app` eject option)
-- [ ] `publish` - Everything needed to publish or update a new extension to all popular extension stores. (TBD)
+See the [Wiki](https://github.com/cezaraugusto/extension-create/wiki) for stable updates and future project roadmap. If you're interesteed in the latest news, I write weekly about this development at https://cezaraugusto.substack.com
 
 ## License
 
