@@ -36,10 +36,6 @@ module.exports = function (projectDir, manifestPath) {
 
   devServer.listen(PORT, HOST, (error) => {
     if (error) return log(`Error in the extension runner: ${error}`)
-
-    log(`
-      Starting the development server...
-    `)
   })
 
   process.on('SIGINT', () => closeAll(devServer))

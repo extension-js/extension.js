@@ -25,7 +25,7 @@
     "commander": "^6.2.0",
     "copy-webpack-plugin": "^6.2.1",
     "fs-extra": "^9.0.1",
-    "go-git-it": "^0.1.2",
+    "go-git-it": "github:cezaraugusto/go-git-it#deddf77cd861bfea5538b0c21c91ff7de542b3a7",
     "log-md": "^0.2.0",
     "semver": "^7.3.2",
     "string-replace-loader": "^2.3.0",
