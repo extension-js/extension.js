@@ -38,6 +38,8 @@ You are done. Time to hack on your extension!
 
 The URL for the **make_page_red** sample is https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/make_page_red. We then copy the URL and paste it using the start command:
 
+> Optimized for **git version 2.30.0**. Older versions are supported but download can take much longer.
+
 ```sh
 npx extension-create start https://github.com/GoogleChrome/chrome-extensions-samples/tree/master/api/browserAction/make_page_red
 ```
