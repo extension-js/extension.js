@@ -13,6 +13,7 @@ Create modern cross-browser extensions with no build configuration.
 
 - [Creating an extension](#creating-an-extension) — How to create a new extension.
 - [Getting started immediately](#getting-started-immediately) — Get work done in no time.
+- [I have an extension](#i-have-an-extension) - Use only specific parts of `extension-create`
 
 `extension-create` helps you develop cross-browser extensions with built-in support for module imports/exports, auto-reload, and more. Interested to know how it's being developed? [Every week I send emails about its progress](https://cezaraugusto.substack.com/). For goals, see the [wiki](https://github.com/cezaraugusto/extension-create/wiki/This-initiative).
 
@@ -49,6 +50,25 @@ npx extension-create start https://github.com/GoogleChrome/chrome-extensions-sam
 </p>
 
 Will not only download the extension but also kickstart a Chrome instance in a fresh profile with your sample extension loaded and default auto-reload support. Try it yourself!
+
+## I have an extension
+
+`extension-create` was designed to have each command/major feature working as a standalone module. This is useful if you have your extension setup but want to benefit from specific features, such as the browser launcher w/ default auto-reload support.
+
+**Example:**
+
+Using `npx extension-create start .` as an npm script alias. In your package.json:
+
+```js
+{
+  // ...npm stuff,
+  "scripts": {
+    "start": "npx extension-create start"
+  }
+}
+```
+
+Will load your extension the same way the screenshot above demonstrates. This method is, in fact, what the [standard template does](https://github.com/cezaraugusto/extension-create/blob/main/create/steps/writePackageJson.js#L19-L21) when you run the create command `npx extension-create <extension-name>`.
 
 ## What's next?
 
