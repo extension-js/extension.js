@@ -1,6 +1,5 @@
 {
   "license": "MIT",
-  "private": true,
   "repository": {
     "type": "git",
     "url": "https://github.com/cezaraugusto/extension-create.git",
@@ -9,7 +8,7 @@
   "engines": {
     "node": ">=10"
   },
-  "name": "develop",
+  "name": "@extension-create/develop",
   "version": "0.0.0",
   "description": "The develop step of extension-create",
   "main": "./module.js",

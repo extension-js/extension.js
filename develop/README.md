@@ -1,4 +1,4 @@
-# @webextension/develop
+# @extension-create/develop
 
 > The `start` part of `extension-create` available as a standalone package.
 
@@ -7,7 +7,7 @@ This package stores all logic needed by `extension-create` to start new projects
 ## Installation
 
 ```
-npm i @webextension/develop
+npm i @extension-create/develop
 ```
 
 ## Usage
@@ -17,17 +17,17 @@ There are two ways of using it:
 ### Standalone Executable
 
 ```
-# Will start a new browser instance ith my-extension-hello loaded.
-npx @webextension/start my-extension-hello
+# Will start a new browser instance with my-extension-hello loaded.
+npx @extension-create/start my-extension-hello
 ```
 
 ### Imported CLI
 
-Alternatively, if you're using [commander](https://github.com/tj/commander.js), you can use `@webextension/start` to extend you CLI. This is what `extension-create` does.
+Alternatively, if you're using [commander](https://github.com/tj/commander.js), you can use `@extension-create/start` to extend you CLI. This is what `extension-create` does.
 
 ```js
 const {program} = require('commander')
-const startExtensionCLI = require('@webextension/start')
+const startExtensionCLI = require('@extension-create/start')
 
 const yourCreateProgram = program
 
