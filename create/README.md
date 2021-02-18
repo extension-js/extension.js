@@ -1,4 +1,4 @@
-# @webextension/create
+# @extension-create/create
 
 > The `create` part of `extension-create` available as a standalone package.
 
@@ -7,7 +7,7 @@ This package stores all logic needed by `extension-create` to create new project
 ## Installation
 
 ```
-npm i @webextension/create
+npm i @extension-create/create
 ```
 
 ## Usage
@@ -18,16 +18,16 @@ There are two ways of using it:
 
 ```
 # Will create a new directory named `my-extension-hello`.
-npx @webextension/create my-extension-hello
+npx @extension-create/create my-extension-hello
 ```
 
 ### Imported CLI
 
-Alternatively, if you're using [commander](https://github.com/tj/commander.js), you can use `@webextension/create` to extend you CLI. This is what `extension-create` does.
+Alternatively, if you're using [commander](https://github.com/tj/commander.js), you can use `@extension-create/create` to extend you CLI. This is what `extension-create` does.
 
 ```js
 const {program} = require('commander')
-const createExtensionCLI = require('@webextension/create')
+const createExtensionCLI = require('@extension-create/create')
 
 const yourCreateProgram = program
 
