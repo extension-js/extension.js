@@ -1,6 +1,6 @@
 {
   "name": "extension-create",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Create modern cross-browser extensions with no build configuration.",
   "main": "./cli.js",
   "bin": {
