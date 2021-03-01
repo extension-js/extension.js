@@ -1,4 +1,4 @@
-> ### This prooject is under active development.
+> ### This project is under active development.
 
 [action-image]: https://github.com/cezaraugusto/extension-create/workflows/CI/badge.svg
 [action-url]: https://github.com/cezaraugusto/extension-create/actions
