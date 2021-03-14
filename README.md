@@ -70,7 +70,7 @@ And see a Crome Extension sample running automatically. On Edge!
 `extension-create` was designed to have each command/major feature working as a standalone module. This is useful if you have your extension setup but want to benefit from specific features, such as the browser launcher w/ default auto-reload support. You have two ways of doing it.
 ### Integrate `extension-create` via command line or npm scripts
 
-The second option is to just use the command line interface `extension-create` provides and add it to your npm scripts. Assuming you want your extension to run the `start` command (path argument can be omitted if the manifest file is on your extension root folder), here's how it should look in your `package.json`:
+The first option is to just use the command line interface `extension-create` provides and add it to your npm scripts. Assuming you want your extension to run the `start` command (path argument can be omitted if the manifest file is on your extension root folder), here's how it should look in your `package.json`:
 
 ```js
 {
