@@ -39,8 +39,8 @@ module.exports = function () {
     A browser vendor name can be provided to run your extension on a specific browser.
     One of:
 
-    - \`--browser\`:chrome (default)
-    - \`--browser\`:edge
+    - \`--browser\`=chrome (default)
+    - \`--browser\`=edge
 
     Feels something is wrong? Help by reporting a bug:
     https://github.com/cezaraugusto/extension-create/issues/new
