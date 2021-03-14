@@ -41,6 +41,7 @@ module.exports = function () {
 
     - \`--browser\`=chrome (default)
     - \`--browser\`=edge
+    - \`--browser\`=all (runs all available browsers)
 
     Feels something is wrong? Help by reporting a bug:
     https://github.com/cezaraugusto/extension-create/issues/new
