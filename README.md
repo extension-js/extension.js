@@ -68,6 +68,7 @@ And see a Crome Extension sample running automatically. On Edge!
 ## I have an extension
 
 `extension-create` was designed to have each command/major feature working as a standalone module. This is useful if you have your extension setup but want to benefit from specific features, such as the browser launcher w/ default auto-reload support. You have two ways of doing it.
+
 ### Integrate `extension-create` via command line or npm scripts
 
 The first option is to just use the command line interface `extension-create` provides and add it to your npm scripts. Assuming you want your extension to run the `start` command (path argument can be omitted if the manifest file is on your extension root folder), here's how it should look in your `package.json`:
@@ -83,9 +84,6 @@ The first option is to just use the command line interface `extension-create` pr
 
 Will load your extension the same way the screenshot above demonstrates. This method is, in fact, what the [standard template does](https://github.com/cezaraugusto/extension-create/blob/main/create/steps/writePackageJson.js#L19-L21) when you run the create command `npx extension-create <extension-name>`.
 
-### Integrate each major feature separately via Node API
-
-Navigating through each major command folder ([create](https://github.com/cezaraugusto/extension-create/tree/main/create) and [develop](https://github.com/cezaraugusto/extension-create/tree/main/develop)) should be enough to get started. This is how extension-create works itself.
 #### Using a specific browser for development
 
 | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/a94987f29719142668cdf960b3f624ce1a3c6aa8/src/chrome/chrome.svg?sanitize=true" alt="Chrome browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/a94987f29719142668cdf960b3f624ce1a3c6aa8/src/edge/edge.svg?sanitize=true" alt="Microsoft Edge browser logo"> |
