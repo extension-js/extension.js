@@ -41,7 +41,7 @@ async function setWorkingDirFromLocal (workingDir, customPath) {
   return currentPath
 }
 
-module.exports = async function (workingDir, {customPath}) {
+module.exports = async function (workingDir, {customPath, browserVendor}) {
   let currentworkingDir
 
   try {
@@ -56,7 +56,10 @@ module.exports = async function (workingDir, {customPath}) {
 
     const resolvedManifest = await resoleManifest(currentworkingDir)
 
-    startWebpack(currentworkingDir, resolvedManifest)
+    startWebpack(currentworkingDir, {
+      manifestPath: resolvedManifest,
+      browserVendor
+    })
   } catch (error) {
     log(`
       Error while starting the extension: ${error}

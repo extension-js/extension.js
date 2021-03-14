@@ -19,13 +19,16 @@ function closeAll (devServer) {
   process.exit()
 }
 
-module.exports = function (projectDir, manifestPath) {
+module.exports = function (projectDir, {manifestPath, browserVendor}) {
   const serverOptions = {
     // Tell the server where to serve content from
     contentBase: path.dirname(manifestPath)
   }
 
-  const webpackConfig = compilerConfig(projectDir, manifestPath)
+  const webpackConfig = compilerConfig(projectDir, {
+    manifestPath,
+    browserVendor
+  })
 
   const compiler = webpack(webpackConfig)
   const server = {...serverConfig, ...serverOptions}
