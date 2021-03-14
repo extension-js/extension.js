@@ -9,7 +9,7 @@
   "scripts": {
     "extension-create": "cross-env NODE_ENV=development node cli.js",
     "lint": "eslint --config=eslintrc.json",
-    "preinstall": "sh preinstall.sh",
+    "preinstall": "cd create && yarn install && cd .. && cd develop && yarn install && cd ..",
     "deploy": "np",
     "test": "jest"
   },
