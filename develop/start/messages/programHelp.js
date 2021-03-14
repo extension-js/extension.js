@@ -34,6 +34,14 @@ module.exports = function () {
     \`extension-create\` will look for your project's root
     path and **public/** directory, failing if no manifest is found.
 
+    ## The \`--browser\` _<browser-vendor>_ flag
+
+    A browser vendor name can be provided to run your extension on a specific browser.
+    One of:
+
+    - \`--browser\`:chrome (default)
+    - \`--browser\`:edge
+
     Feels something is wrong? Help by reporting a bug:
     https://github.com/cezaraugusto/extension-create/issues/new
   `)

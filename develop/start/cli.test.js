@@ -36,4 +36,10 @@ describe('`start` command line interface', () => {
   it.todo('starts extension from remote (URL) path')
   it.todo('starts extension from remote (URL) path - manifest in src/')
   it.todo('starts extension from remote (URL) path - manifest in public/')
+  describe('--browser flag', () => {
+    it.todo('accepts and starts `chrome` as flag')
+    it.todo('accepts and starts `edge` as flag')
+    it.todo('accepts and `all` browsers as flag')
+    it.todo('accepts and starts chrome as default')
+  })
 })
