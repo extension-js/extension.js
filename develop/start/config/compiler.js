@@ -6,22 +6,22 @@
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
 
 const webpack = require('webpack')
-const RunChromeExtension = require('webpack-run-chrome-extension')
+
+const browserSwitch = require('./browserSwitch')
 
 process.on('unhandledRejection', (error) => { throw error })
 
-module.exports = (projectDir) => {
+module.exports = (projectDir, {browserVendor}) => {
   const config = {
     mode: 'development',
     // https://github.com/webpack/webpack/issues/2145
     devtool: 'inline-cheap-module-source-map',
     plugins: [
-      // Polyfill `browser` namespace for unspported browsers (FF and Edge).
+      // Polyfill `browser` namespace for unspported browsers (FF).
       // TODO: Do not add this plugin when developing for those vendors
       new webpack.ProvidePlugin({browser: require.resolve('webextension-polyfill')}),
-      new RunChromeExtension({
-        extensionPath: projectDir
-      })
+      // Browser lists loaded conditionally based on user choice
+      browserSwitch(projectDir, browserVendor)
     ],
     resolve: {
       extensions: ['js', '.json']
