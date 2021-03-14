@@ -29,7 +29,6 @@
     "develop",
     "cli.js",
     "messages.js",
-    "preinstall.sh",
     "reservedKeywords.js"
   ],
   "dependencies": {
