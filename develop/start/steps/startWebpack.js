@@ -11,8 +11,8 @@ const webpack = require('webpack')
 const {log} = require('log-md')
 const WebpackDevServer = require('webpack-dev-server')
 
-const compilerConfig = require('../config/compiler.js')
-const serverConfig = require('../config/server.js')
+const compilerConfig = require('../config/compiler')
+const serverConfig = require('../config/server')
 
 function closeAll (devServer) {
   devServer.close()

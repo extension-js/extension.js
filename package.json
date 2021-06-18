@@ -35,7 +35,6 @@
   "dependencies": {
     "commander": "^6.2.0",
     "log-md": "^0.2.0",
-    "np": "^7.2.0",
     "semver": "^7.3.4"
   },
   "devDependencies": {
@@ -45,8 +44,9 @@
     "eslint-config-auditor": "^0.3.0",
     "eslint-plugin-import": "^2.22.1",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^4.2.1",
+    "eslint-plugin-promise": "^4.3.1",
     "fs-extra": "^9.0.1",
-    "jest": "^26.6.3"
+    "jest": "^26.6.3",
+    "np": "^7.2.0"
   }
 }
