@@ -13,7 +13,7 @@ const {log} = require('log-md')
 const templatesDir = path.resolve(__dirname, '../templates')
 const defaultTemplate = 'standard'
 
-module.exports = async function (workingDir, projectName) {
+module.exports = async function importLocalTemplate (workingDir, projectName) {
   const projectPath = path.resolve(workingDir, projectName)
   const templateDirPath = path
     .join(templatesDir, defaultTemplate, 'template')

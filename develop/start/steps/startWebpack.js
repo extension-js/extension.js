@@ -19,7 +19,7 @@ function closeAll (devServer) {
   process.exit()
 }
 
-module.exports = function (projectDir, {manifestPath, browserVendor}) {
+module.exports = function startWebpack (projectDir, {manifestPath, browserVendor}) {
   const serverOptions = {
     // Tell the server where to serve content from
     contentBase: path.dirname(manifestPath)

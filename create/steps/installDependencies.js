@@ -13,7 +13,7 @@ const {log} = require('log-md')
 
 const abortProjectAndClean = require('./abortProjectAndClean')
 
-module.exports = async function (workingDir, projectName) {
+module.exports = async function installDependencies (workingDir, projectName) {
   const projectPath = path.resolve(workingDir, projectName)
   const projectPackageJson = path.join(projectPath, 'package.json')
   const packageMetadata = require(projectPackageJson)

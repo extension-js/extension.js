@@ -49,6 +49,8 @@
 				"enforceForRenamedProperties": false
 			}
     ],
-    "import/no-extraneous-dependencies": "off"
+    "import/no-extraneous-dependencies": "off",
+    "node/global-require": "off",
+    "import/order": "off"
   }
 }

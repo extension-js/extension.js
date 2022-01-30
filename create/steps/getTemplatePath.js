@@ -10,7 +10,7 @@ const path = require('path')
 const templatesDir = path.resolve(__dirname, '../templates')
 const templateTempDir = (template) => `__temp__${template}`
 
-module.exports = function (template) {
+module.exports = function getTemplatePath (template) {
   let thisTemplate
 
   if (template) {

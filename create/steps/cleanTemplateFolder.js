@@ -10,7 +10,7 @@ const {log} = require('log-md')
 
 const getTemplatePath = require('./getTemplatePath')
 
-module.exports = async function (template) {
+module.exports = async function createTemplateFolder (template) {
   // We don't want to delete local templates
   if (!template) {
     return

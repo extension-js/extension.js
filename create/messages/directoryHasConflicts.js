@@ -10,7 +10,7 @@ const path = require('path')
 const fs = require('fs-extra')
 const {log} = require('log-md')
 
-module.exports = async function (projectPath, conflictingFiles) {
+module.exports = async function directoryHasConflicts (projectPath, conflictingFiles) {
   const projectName = path.basename(projectPath)
 
   log(

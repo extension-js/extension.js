@@ -17,7 +17,7 @@ const allowlist = [
   'node_modules'
 ]
 
-module.exports = async function (workingDir, projectName) {
+module.exports = async function createDirectory (workingDir, projectName) {
   log(
     `👍 Starting a new browser extension named **${projectName}**`,
     {gutter: true}
