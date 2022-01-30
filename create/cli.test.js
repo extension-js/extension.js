@@ -16,11 +16,9 @@ describe('`create` command line interface', () => {
 
   it('creates an extension with specified project name', async () => {
     expect.assertions(1)
-    spawn.sync(
-      'node',
-      [createExtensionCLI, 'my-extension-home'],
-      {stdio: 'inherit'}
-    )
+    spawn.sync('node', [createExtensionCLI, 'my-extension-home'], {
+      stdio: 'inherit'
+    })
 
     const pathStat = await fs.stat(outputpath)
     const isDirectory = pathStat.isDirectory()

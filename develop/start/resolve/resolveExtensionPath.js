@@ -11,7 +11,7 @@ const fs = require('fs-extra')
 
 const message = require('../messages')
 
-module.exports = async function resolveExtensionPath (workingDir, manifestFile) {
+module.exports = async function resolveExtensionPath(workingDir, manifestFile) {
   // Defaults to user-defined path
   let manifestFilePath = manifestFile
 

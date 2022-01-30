@@ -12,16 +12,12 @@ const {log} = require('log-md')
 
 const messages = require('../messages')
 
-const allowlist = [
-  'LICENSE',
-  'node_modules'
-]
+const allowlist = ['LICENSE', 'node_modules']
 
-module.exports = async function createDirectory (workingDir, projectName) {
-  log(
-    `👍 Starting a new browser extension named **${projectName}**`,
-    {gutter: true}
-  )
+module.exports = async function createDirectory(workingDir, projectName) {
+  log(`👍 Starting a new browser extension named **${projectName}**`, {
+    gutter: true
+  })
   const projectPath = path.resolve(workingDir, projectName)
 
   log(`🤞 - Checking if \`${workingDir}\` exists...`)
@@ -31,11 +27,11 @@ module.exports = async function createDirectory (workingDir, projectName) {
   const currentDir = await fs.readdir(projectPath)
   const conflictingFiles = currentDir
     // .gitignore, .DS_Store, etc
-    .filter(file => !file.startsWith('.'))
+    .filter((file) => !file.startsWith('.'))
     // Logs of yarn/npm
-    .filter(file => !file.endsWith('.log'))
+    .filter((file) => !file.endsWith('.log'))
     // Whatever we think is appropriate
-    .filter(file => !allowlist.includes(file))
+    .filter((file) => !allowlist.includes(file))
 
   // If directory has conflicting files, abort
   if (conflictingFiles.length) {

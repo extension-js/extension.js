@@ -17,7 +17,7 @@ const packageJson = require('./package.json')
 let projectName
 let templateName
 
-function createExtensionCLI (clientProgram = program) {
+function createExtensionCLI(clientProgram = program) {
   clientProgram
     .version(packageJson.version)
     .command('create', {isDefault: true})

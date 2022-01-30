@@ -11,7 +11,7 @@ const fs = require('fs-extra')
 
 const message = require('../messages')
 
-module.exports = async function resolveManifest (workingDir) {
+module.exports = async function resolveManifest(workingDir) {
   let manifestFilePath
 
   // Iterate over common paths looking for the manifest file.
