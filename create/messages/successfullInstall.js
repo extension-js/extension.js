@@ -9,7 +9,7 @@ const path = require('path')
 
 const {log} = require('log-md')
 
-module.exports = function (workingDir, projectName) {
+module.exports = function successfullInstall (workingDir, projectName) {
   const projectPath = path.join(workingDir, projectName)
   const relativePath = path.relative(workingDir, projectPath)
 

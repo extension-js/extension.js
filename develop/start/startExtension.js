@@ -41,7 +41,7 @@ async function setWorkingDirFromLocal (workingDir, customPath) {
   return currentPath
 }
 
-module.exports = async function (workingDir, {customPath, browserVendor}) {
+module.exports = async function startExtension (workingDir, {customPath, browserVendor}) {
   let currentworkingDir
 
   try {

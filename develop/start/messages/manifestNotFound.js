@@ -7,7 +7,7 @@
 
 const {log} = require('log-md')
 
-module.exports = function () {
+module.exports = function manifestNotFound () {
   log(`
     # Error! Can't find the project's manifest file.
 
