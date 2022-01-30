@@ -31,20 +31,18 @@ const startExtensionCLI = require('@extension-create/start')
 
 const yourCreateProgram = program
 
-yourCreateProgram
-  .version(packageJson.version)
+yourCreateProgram.version(packageJson.version)
 
 startExtensionCLI(yourCreateProgram)
 
-yourCreateProgram
-  .parse(process.argv)
+yourCreateProgram.parse(process.argv)
 ```
 
 ## Program options table
 
-| Flag             | Argument                                                 | What it does |
-|------------------|----------------------------------------------------------|--------------|
-| -m, --manifest   | file path | Specify a custom path for your extensions's manifest file |
+| Flag           | Argument  | What it does                                              |
+| -------------- | --------- | --------------------------------------------------------- |
+| -m, --manifest | file path | Specify a custom path for your extensions's manifest file |
 
 ## Contributing
 

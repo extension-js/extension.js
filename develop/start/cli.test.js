@@ -8,14 +8,12 @@ const boringManifestFile = {
   name: 'Your browser extension',
   version: '1.0',
   background: {
-    scripts: [
-      './background.js'
-    ]
+    scripts: ['./background.js']
   }
 }
 
 /* eslint-disable no-unused-vars */
-async function createTmpExtension () {
+async function createTmpExtension() {
   // Write a fake bg script
   await fs.writeFile(
     path.join(process.cwd(), 'background.js'),

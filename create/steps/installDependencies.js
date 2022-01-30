@@ -13,7 +13,7 @@ const {log} = require('log-md')
 
 const abortProjectAndClean = require('./abortProjectAndClean')
 
-module.exports = async function installDependencies (workingDir, projectName) {
+module.exports = async function installDependencies(workingDir, projectName) {
   const projectPath = path.resolve(workingDir, projectName)
   const projectPackageJson = path.join(projectPath, 'package.json')
   const packageMetadata = require(projectPackageJson)
@@ -21,10 +21,7 @@ module.exports = async function installDependencies (workingDir, projectName) {
   const dependencies = packageMetadata.dependencies || []
   const devDependencies = packageMetadata.devDependencies || []
 
-  if (
-    dependencies.length === 0 &&
-    devDependencies.length === 0
-  ) {
+  if (dependencies.length === 0 && devDependencies.length === 0) {
     log('⏭  - No dependencies. Skipping install step...')
 
     return

@@ -1,5 +1,5 @@
 {
-  "extends": "auditor",
+  "extends": ["auditor", "prettier"],
   "rules": {
     "node/no-process-exit": "off",
     "consistent-return": "off",

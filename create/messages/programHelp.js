@@ -7,7 +7,7 @@
 
 const {log} = require('log-md')
 
-module.exports = function programHelp () {
+module.exports = function programHelp() {
   log(`
     # Help center for the \`create\` command
 

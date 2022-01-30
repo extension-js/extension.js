@@ -20,16 +20,16 @@ const packageJsonScripts = {
   start: 'extension-create start'
 }
 
-module.exports = async function writePackageJson (workingDir, projectName, template) {
+module.exports = async function writePackageJson(
+  workingDir,
+  projectName,
+  template
+) {
   const projectPath = path.resolve(workingDir, projectName)
 
-  const templatePath = path.resolve(
-    templatesDir,
-    getTemplatePath(template)
-  )
+  const templatePath = path.resolve(templatesDir, getTemplatePath(template))
 
-  const templateJsonPath = path
-    .resolve(templatePath, 'template.json')
+  const templateJsonPath = path.resolve(templatePath, 'template.json')
 
   const templateJson = require(templateJsonPath)
 
