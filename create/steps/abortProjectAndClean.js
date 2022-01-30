@@ -10,7 +10,11 @@ const path = require('path')
 const fs = require('fs-extra')
 const {log} = require('log-md')
 
-module.exports = async function abortProjectAndClean (error, workingDir, projectName) {
+module.exports = async function abortProjectAndClean(
+  error,
+  workingDir,
+  projectName
+) {
   const projectPath = path.resolve(workingDir, projectName)
 
   log('😑👎 Aborting installation.')
@@ -24,10 +28,9 @@ module.exports = async function abortProjectAndClean (error, workingDir, project
       🚨 Unexpected creation error. This is a bug.
     `)
     log(`Please report: "${error}"`)
-    log(
-      'https://github.com/cezaraugusto/extension-create/issues/',
-      {gutter: true}
-    )
+    log('https://github.com/cezaraugusto/extension-create/issues/', {
+      gutter: true
+    })
   }
 
   log('🧹 - Removing files generated from project in:')

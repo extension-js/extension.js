@@ -31,20 +31,18 @@ const createExtensionCLI = require('@extension-create/create')
 
 const yourCreateProgram = program
 
-yourCreateProgram
-  .version(packageJson.version)
+yourCreateProgram.version(packageJson.version)
 
 createExtensionCLI(yourCreateProgram)
 
-yourCreateProgram
-  .parse(process.argv)
+yourCreateProgram.parse(process.argv)
 ```
 
 ## Program options table
 
-| Flag             | Argument                                                 | What it does |
-|------------------|----------------------------------------------------------|--------------|
-| -t, --template   | Path to the template used to bootstrap your extension    | Bootstrap your extension using a template |
+| Flag           | Argument                                              | What it does                              |
+| -------------- | ----------------------------------------------------- | ----------------------------------------- |
+| -t, --template | Path to the template used to bootstrap your extension | Bootstrap your extension using a template |
 
 ## Contributing
 

@@ -13,7 +13,7 @@ const packageJson = require('../package.json')
 
 let browserVendor
 
-function startExtensionCLI (clientProgram = program) {
+function startExtensionCLI(clientProgram = program) {
   clientProgram
     .version(packageJson.version)
     .command('start')

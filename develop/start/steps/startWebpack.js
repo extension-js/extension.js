@@ -14,12 +14,15 @@ const WebpackDevServer = require('webpack-dev-server')
 const compilerConfig = require('../config/compiler')
 const serverConfig = require('../config/server')
 
-function closeAll (devServer) {
+function closeAll(devServer) {
   devServer.close()
   process.exit()
 }
 
-module.exports = function startWebpack (projectDir, {manifestPath, browserVendor}) {
+module.exports = function startWebpack(
+  projectDir,
+  {manifestPath, browserVendor}
+) {
   const serverOptions = {
     // Tell the server where to serve content from
     contentBase: path.dirname(manifestPath)
