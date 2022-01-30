@@ -39,7 +39,7 @@ You are done. Time to hack on your extension!
 
 ### Kickstart any sample from Chrome Extension Samples
 
-The [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/) project is a great way to kickstart developing your extension.
+The [chrome-extensions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/) project is a great way to kickstart developing your extension.
 
 If we go to the samples repository and look for an extension sample to work, let's say the [make_page_red](https://github.com/GoogleChrome/chrome-extensions-samples/blob/main/mv2-archive/api/browserAction/make_page_red/) sample, all we need is to copy and paste it's URL as an argument for the start command:
 
