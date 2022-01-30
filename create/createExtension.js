@@ -16,7 +16,7 @@ const cleanTemplateFolder = require('./steps/cleanTemplateFolder')
 
 process.on('unhandledRejection', (error) => { throw error })
 
-module.exports = async function (workingDir, projectName, template) {
+module.exports = async function createExtension (workingDir, projectName, template) {
   try {
     await createDirectory(workingDir, projectName)
 

@@ -20,7 +20,7 @@ const packageJsonScripts = {
   start: 'extension-create start'
 }
 
-module.exports = async function (workingDir, projectName, template) {
+module.exports = async function writePackageJson (workingDir, projectName, template) {
   const projectPath = path.resolve(workingDir, projectName)
 
   const templatePath = path.resolve(

@@ -11,6 +11,6 @@ const {program} = require('commander')
 
 const startCLI = require('./start/cli')
 
-module.exports = function (clientProgram = program) {
+module.exports = function develop (clientProgram = program) {
   startCLI(clientProgram)
 }
