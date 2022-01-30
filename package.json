@@ -8,7 +8,7 @@
   },
   "scripts": {
     "extension-create": "cross-env NODE_ENV=development node cli.js",
-    "lint": "eslint --config=eslintrc.json",
+    "lint": "eslint --config=eslintrc.json create develop",
     "preinstall": "sh preinstall.sh",
     "deploy": "np",
     "test": "jest"
