@@ -1,7 +1,7 @@
 const RunChromeExtension = require('webpack-run-chrome-extension')
 const RunEdgeExtension = require('webpack-run-edge-extension')
 
-module.exports = function browserSwitch (projectDir, browserVendor) {
+module.exports = function browserSwitch(projectDir, browserVendor) {
   switch (browserVendor) {
     case 'chrome':
       return new RunChromeExtension({extensionPath: projectDir})

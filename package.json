@@ -8,7 +8,7 @@
   },
   "scripts": {
     "extension-create": "cross-env NODE_ENV=development node cli.js",
-    "lint": "eslint --config=eslintrc.json create develop",
+    "lint": "prettier --check --write create develop && eslint --config=eslintrc.json create develop",
     "preinstall": "sh preinstall.sh",
     "deploy": "np",
     "test": "jest"
@@ -42,8 +42,10 @@
     "cross-spawn": "^7.0.3",
     "eslint": "^8.8.0",
     "eslint-config-auditor": "^0.5.0",
+    "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-import": "^2.25.4",
     "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-prettier": "^4.0.0",
     "eslint-plugin-promise": "^6.0.0",
     "fs-extra": "^10.0.0",
     "jest": "^27.4.7",

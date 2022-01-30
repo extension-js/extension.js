@@ -14,7 +14,7 @@ const goGitIt = require('go-git-it')
 const resoleManifest = require('./steps/resolveManifest')
 const startWebpack = require('./steps/startWebpack')
 
-function setWorkingDirFromRemote (workingDir, customPath) {
+function setWorkingDirFromRemote(workingDir, customPath) {
   if (new URL(customPath).hostname !== 'github.com') {
     log(`
       The remote extension URL must be stored on GitHub.
@@ -27,7 +27,7 @@ function setWorkingDirFromRemote (workingDir, customPath) {
   return path.join(workingDir, path.basename(customPath))
 }
 
-async function setWorkingDirFromLocal (workingDir, customPath) {
+async function setWorkingDirFromLocal(workingDir, customPath) {
   const currentPath = path.resolve(workingDir, customPath)
   const extensionPath = await fs.stat(currentPath)
 
@@ -41,7 +41,10 @@ async function setWorkingDirFromLocal (workingDir, customPath) {
   return currentPath
 }
 
-module.exports = async function startExtension (workingDir, {customPath, browserVendor}) {
+module.exports = async function startExtension(
+  workingDir,
+  {customPath, browserVendor}
+) {
   let currentworkingDir
 
   try {

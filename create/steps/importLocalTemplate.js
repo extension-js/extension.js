@@ -13,10 +13,9 @@ const {log} = require('log-md')
 const templatesDir = path.resolve(__dirname, '../templates')
 const defaultTemplate = 'standard'
 
-module.exports = async function importLocalTemplate (workingDir, projectName) {
+module.exports = async function importLocalTemplate(workingDir, projectName) {
   const projectPath = path.resolve(workingDir, projectName)
-  const templateDirPath = path
-    .join(templatesDir, defaultTemplate, 'template')
+  const templateDirPath = path.join(templatesDir, defaultTemplate, 'template')
 
   const templateName = path.basename(templateDirPath)
 
@@ -24,10 +23,9 @@ module.exports = async function importLocalTemplate (workingDir, projectName) {
     log(`🧰 - Installing **${projectName}** from standard template...`)
     await fs.copy(templateDirPath, projectPath)
   } catch (error) {
-    log(
-      `😕❓ Can't copy template __${templateName}__: ${error}`,
-      {gutter: true}
-    )
+    log(`😕❓ Can't copy template __${templateName}__: ${error}`, {
+      gutter: true
+    })
     process.exit(1)
   }
 }
