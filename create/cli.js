@@ -22,7 +22,7 @@ function createExtensionCLI(clientProgram = program) {
     .version(packageJson.version)
     .command('create', {isDefault: true})
     .usage('create <project-directory> [options]')
-    .action((cmd) => {
+    .action((_, cmd) => {
       const {args, template} = cmd
 
       projectName = args[0]
