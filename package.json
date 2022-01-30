@@ -33,20 +33,20 @@
     "reservedKeywords.js"
   ],
   "dependencies": {
-    "commander": "^7.2.0",
+    "commander": "^9.0.0",
     "log-md": "^0.2.0",
     "semver": "^7.3.5"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",
     "cross-spawn": "^7.0.3",
-    "eslint": "^7.28.0",
-    "eslint-config-auditor": "^0.4.0",
-    "eslint-plugin-import": "^2.23.4",
+    "eslint": "^8.8.0",
+    "eslint-config-auditor": "^0.5.0",
+    "eslint-plugin-import": "^2.25.4",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^5.1.0",
+    "eslint-plugin-promise": "^6.0.0",
     "fs-extra": "^10.0.0",
-    "jest": "^27.0.4",
-    "np": "^7.5.0"
+    "jest": "^27.4.7",
+    "np": "^7.6.0"
   }
 }
