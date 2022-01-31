@@ -19,19 +19,19 @@
     "test": "jest"
   },
   "dependencies": {
-    "commander": "^6.2.0",
-    "fs-extra": "^9.0.1",
+    "commander": "^9.0.0",
+    "fs-extra": "^10.0.0",
     "go-git-it": "github:cezaraugusto/go-git-it#174168d12a31791a08c777b92650f98470d45674",
     "log-md": "^0.2.0",
-    "semver": "^7.3.2",
-    "webpack": "^5.6.0",
-    "webpack-cli": "^4.1.0",
-    "webpack-dev-server": "^3.11.0",
-    "webpack-run-chrome-extension": "^0.3.0",
-    "webpack-run-edge-extension": "^0.3.0"
+    "semver": "^7.3.5",
+    "webpack": "^5.67.0",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.7.3",
+    "webpack-run-chrome-extension": "^0.2.0",
+    "webpack-run-edge-extension": "^0.4.0"
   },
   "devDependencies": {
     "cross-spawn": "^7.0.3",
-    "jest": "^26.6.1"
+    "jest": "^27.4.7"
   }
 }
