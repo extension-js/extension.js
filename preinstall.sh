@@ -1,4 +1,6 @@
-function install {
+#!/bin/bash
+
+install() {
   if ! command -v yarn &> /dev/null
   then
     npm install
