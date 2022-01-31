@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 install() {
   if ! command -v yarn &> /dev/null
