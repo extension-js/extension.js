@@ -1,6 +1,7 @@
 node_modules
 package
 package-lock.json
+yarn-lock.json
 yarn-error.log
 local_samples
 docs
