@@ -13,7 +13,7 @@ const packageJson = require('../package.json')
 
 let browserVendor
 
-function startExtensionCLI(clientProgram = program) {
+async function startExtensionCLI(clientProgram = program) {
   clientProgram
     .version(packageJson.version)
     .command('start')
@@ -35,7 +35,7 @@ function startExtensionCLI(clientProgram = program) {
   const commands = clientProgram.commands[0]
   const customPath = commands.args[1] || ''
 
-  startExtension(projectDir, {customPath, browserVendor})
+  await startExtension(projectDir, {customPath, browserVendor})
 }
 
 // If the module was called from the cmd line, execute it

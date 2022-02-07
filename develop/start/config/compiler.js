@@ -7,10 +7,6 @@
 
 const browserSwitch = require('./browserSwitch')
 
-process.on('unhandledRejection', (error) => {
-  throw error
-})
-
 module.exports = (projectDir, {browserVendor}) => {
   const config = {
     mode: 'development',
