@@ -19,7 +19,6 @@
     "test": "jest"
   },
   "dependencies": {
-    "chalk": "^4.1.0",
     "commander": "^6.2.0",
     "cross-spawn": "^7.0.3",
     "dedent": "^0.7.0",
@@ -28,8 +27,6 @@
     "fs-extra": "^9.0.1",
     "jest": "^26.6.3",
     "log-md": "^0.1.0",
-    "marked": "^1.2.3",
-    "marked-terminal": "^4.1.0",
     "pacote": "^11.1.13",
     "semver": "^7.3.2",
     "symlink-dir": "^4.1.0",
