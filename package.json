@@ -7,7 +7,7 @@
     "extension-create": "./cli.js"
   },
   "scripts": {
-    "extension-create": "cross-env NODE_ENV=development node cli.js",
+    "extension-create": "cross-env NODE_ENV=development node --trace-warnings cli.js",
     "lint": "prettier --check --write create develop && eslint --config=eslintrc.json create develop",
     "preinstall": "sh preinstall.sh",
     "deploy": "np",
