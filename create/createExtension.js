@@ -14,10 +14,6 @@ const messages = require('./messages')
 const abortAndClean = require('./steps/abortProjectAndClean')
 const cleanTemplateFolder = require('./steps/cleanTemplateFolder')
 
-process.on('unhandledRejection', (error) => {
-  throw error
-})
-
 module.exports = async function createExtension(
   workingDir,
   projectName,
