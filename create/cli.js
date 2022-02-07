@@ -17,7 +17,7 @@ const packageJson = require('./package.json')
 let projectName
 let templateName
 
-function createExtensionCLI(clientProgram = program) {
+async function createExtensionCLI(clientProgram = program) {
   clientProgram
     .version(packageJson.version)
     .command('create', {isDefault: true})
@@ -46,7 +46,7 @@ function createExtensionCLI(clientProgram = program) {
 
   const workingDir = process.cwd()
 
-  createExtension(workingDir, projectName, templateName)
+  await createExtension(workingDir, projectName, templateName)
 }
 
 // If the module was called from the cmd line, execute it

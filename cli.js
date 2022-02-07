@@ -9,6 +9,10 @@ const createExtensionCLI = require('./create')
 const developExtensionCLI = require('./develop')
 const messages = require('./messages')
 
+process.on('unhandledRejection', (error) => {
+  throw error
+})
+
 if (semver.lte(process.version, '10.3.0')) {
   messages.nodeVersionNotSupported()
   process.exit(1)
@@ -33,6 +37,7 @@ if (!isKeyword()) {
     messages.noURLWithoutStart(argument)
     process.exit()
   }
+  console.log('good')
 
   createExtensionCLI(extensionCreate)
 } else {
