@@ -21,17 +21,17 @@
   "dependencies": {
     "commander": "^9.0.0",
     "fs-extra": "^10.0.0",
-    "go-git-it": "github:cezaraugusto/go-git-it#174168d12a31791a08c777b92650f98470d45674",
-    "log-md": "^0.2.0",
+    "go-git-it": "^0.5.1",
+    "log-md": "^0.5.0",
     "semver": "^7.3.5",
-    "webpack": "^5.67.0",
+    "webpack": "^5.68.0",
     "webpack-cli": "^4.9.2",
-    "webpack-dev-server": "^4.7.3",
-    "webpack-run-chrome-extension": "^0.2.0",
+    "webpack-dev-server": "^4.7.4",
+    "webpack-run-chrome-extension": "^0.4.0",
     "webpack-run-edge-extension": "^0.4.0"
   },
   "devDependencies": {
     "cross-spawn": "^7.0.3",
-    "jest": "^27.4.7"
+    "jest": "^27.5.0"
   }
 }
