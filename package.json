@@ -12,6 +12,7 @@
     "preinstall": "sh preinstall.sh",
     "test": "jest"
   },
+  "type": "module",
   "keywords": [
     "browser extension",
     "chromium extension",

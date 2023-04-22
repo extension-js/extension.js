@@ -10,3 +10,6 @@ yarn.lock
 FUTURE
 SAMPLES
 DEPS
+.history
+notes/*
+.vscode
