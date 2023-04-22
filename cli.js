@@ -30,16 +30,17 @@ extensionCreate
 // In this case we check first if command is a keyword
 // and only run create if it's not.
 if (!isKeyword()) {
-  const argument = process.argv[process.argv.length - 1]
+	const argument = process.argv[process.argv.length - 1];
 
-  // This operation is a mistake, warn user.
-  if (argument.startsWith('http')) {
-    messages.noURLWithoutStart(argument)
-    process.exit()
-  }
-  console.log('good')
+	// This operation is a mistake, warn user.
+	if (argument.startsWith('http')) {
+		messages.noURLWithoutStart(argument);
+		process.exit();
+	}
 
-  createExtensionCLI(extensionCreate)
+	console.log('good');
+
+	createExtensionCLI(extensionCreate);
 } else {
   developExtensionCLI(extensionCreate)
 }
