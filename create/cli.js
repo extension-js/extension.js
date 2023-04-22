@@ -17,71 +17,77 @@ async function createExtensionCLI(clientProgram = program) {
   const inquirer = (await import('inquirer')).default
 
   clientProgram
-		.version(packageJson.version)
-		.command('create [project-directory]', { isDefault: true })
-		.description('create a new project')
-		.option('-t, --template <template>', 'Specify the template for the project')
-		.usage('create <project-directory> [options]')
-		.action(async (projectDir, options) => {
-			let projectName;
-			let templateName;
+    .version(packageJson.version)
+    .command('create [project-directory]', {isDefault: true})
+    .description('create a new project')
+    .option('-t, --template <template>', 'Specify the template for the project')
+    .usage('create <project-directory> [options]')
+    .action(async (projectDir, options) => {
+      let projectName
+      let templateName
 
-			// Check if projectDir is a string before assigning it to projectName
-			if (typeof projectDir === 'string') {
-				projectName = projectDir;
-			} else {
-				const { useCwd, projectNameInput } = await inquirer.prompt([
-					{
-						type: 'confirm',
-						name: 'useCwd',
-						message: 'No project directory provided. Do you want to use the current directory?',
-						default: false,
-					},
-					{
-						type: 'input',
-						name: 'projectNameInput',
-						message: 'Enter a project directory:',
-						when: (answers) => !answers.useCwd,
-					},
-				]);
+      // Check if projectDir is a string before assigning it to projectName
+      if (typeof projectDir === 'string') {
+        projectName = projectDir
+      } else {
+        const {useCwd, projectNameInput} = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'useCwd',
+            message:
+              'No project directory provided. Do you want to use the current directory?',
+            default: false
+          },
+          {
+            type: 'input',
+            name: 'projectNameInput',
+            message: 'Enter a project directory:',
+            when: (answers) => !answers.useCwd
+          }
+        ])
 
-				if (useCwd) {
-					projectName = '.';
-				} else {
-					projectName = projectNameInput;
-				}
-			}
+        if (useCwd) {
+          projectName = '.'
+        } else {
+          projectName = projectNameInput
+        }
+      }
 
-			// eslint-disable-next-line prefer-const
-			if (typeof options.template === 'undefined') {
-				const { template } = await inquirer.prompt([
-					{
-						type: 'list',
-						name: 'template',
-						message: 'Select a template:',
-						choices: [
-							{
-								name: 'Standard',
-								value: 'standard',
-							},
-							{
-								name: 'Popup',
-								value: 'popup',
-							},
-						],
-					},
-				]);
+      // eslint-disable-next-line prefer-const
+      if (typeof options.template === 'undefined') {
+        const {template} = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'template',
+            message: 'Select a template:',
+            choices: [
+              {
+                name: 'Standard',
+                value: 'standard'
+              },
+              {
+                name: 'Popup',
+                value: 'popup'
+              }
+            ]
+          }
+        ])
 
-				templateName = template;
-			} else {
-				templateName = options.template;
-			}
+        templateName = template
+      } else {
+        templateName = options.template
+      }
 
-			// Call the createExtension function here, within the action callback
-			const workingDir = process.cwd();
+      // Call the createExtension function here, within the action callback
+      const workingDir = process.cwd()
 
-			await createExtension(workingDir, projectName, templateName);
-		});
+      await createExtension({
+        workingDir,
+        projectName,
+        template: templateName,
+        isExternalTemplate: !!templateName && templateName !== 'standard'
+      })
+    })
 
   // Parse the command-line arguments
   clientProgram.parse(process.argv)
