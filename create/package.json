@@ -16,7 +16,7 @@
   "author": "Cezar Augusto <boss@cezaraugusto.net> (https://twitter.com/cezaraugusto)",
   "scripts": {
     "dev:create": "node ./cli.js",
-    "test": "jest"
+    "test": "mkdir -p  my-extension-home && jest"
   },
   "dependencies": {
     "commander": "^6.2.0",
@@ -25,6 +25,7 @@
     "degit": "^2.8.0",
     "fancy-json-stringify": "^1.0.0",
     "fs-extra": "^9.0.1",
+    "inquirer": "^9.1.5",
     "jest": "^26.6.3",
     "log-md": "^0.1.0",
     "pacote": "^11.1.13",

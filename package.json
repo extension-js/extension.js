@@ -8,7 +8,7 @@
   },
   "scripts": {
     "extension-create": "cross-env NODE_ENV=development node --trace-warnings cli.js",
-    "lint": "prettier --check --write create develop && eslint --config=eslintrc.json create develop",
+    "lint": "prettier --check --write create develop && eslint --config=.eslintrc create develop",
     "preinstall": "sh preinstall.sh",
     "test": "mkdir -p  my-extension-home && jest"
   },
@@ -33,6 +33,7 @@
   ],
   "dependencies": {
     "commander": "^9.0.0",
+    "inquirer": "^9.1.5",
     "log-md": "^0.1.0",
     "semver": "^7.3.5"
   },
