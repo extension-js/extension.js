@@ -10,9 +10,8 @@
     "extension-create": "cross-env NODE_ENV=development node --trace-warnings cli.js",
     "lint": "prettier --check --write create develop && eslint --config=eslintrc.json create develop",
     "preinstall": "sh preinstall.sh",
-    "test": "jest"
+    "test": "mkdir -p  my-extension-home && jest"
   },
-  "type": "module",
   "keywords": [
     "browser extension",
     "chromium extension",
