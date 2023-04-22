@@ -1,12 +1,12 @@
 const RunChromeExtension = require('webpack-run-chrome-extension')
-// const RunEdgeExtension = require('webpack-run-edge-extension')
+const RunEdgeExtension = require('webpack-run-edge-extension')
 
 module.exports = function browserSwitch(projectDir, browserVendor) {
   if (browserVendor === 'chrome') {
     return new RunChromeExtension({extensionPath: projectDir})
   }
 
-  if (browserVendor === 'chrome') {
+  if (browserVendor === 'edge') {
     return new RunEdgeExtension({extensionPath: projectDir})
   }
 
@@ -18,14 +18,14 @@ module.exports = function browserSwitch(projectDir, browserVendor) {
           port: 8081
         }).apply(compiler)
 
-        // new RunEdgeExtension({
-        //   extensionPath: projectDir,
-        //   port: 8082
-        // }).apply(compiler)
+        new RunEdgeExtension({
+          extensionPath: projectDir,
+          port: 8082
+        }).apply(compiler)
       }
     }
   }
 
-  // TODO: Should default to user browser, not Chrome
-  return new RunChromeExtension({extensionPath: projectDir})
+  // Default to user browser
+  return browserVendor
 }
