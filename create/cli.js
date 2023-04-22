@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+
 //  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
 // ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
 // ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
@@ -7,45 +8,60 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 const {program} = require('commander')
-const {log} = require('log-md')
-
 const createExtension = require('./createExtension')
-const messages = require('./messages')
 const packageJson = require('./package.json')
-
-let projectName
-let templateName
+// Const inquirer = require('inquirer');
 
 async function createExtensionCLI(clientProgram = program) {
+  // eslint-disable-next-line no-unused-expressions
+  const inquirer = (await import('inquirer')).default
+
   clientProgram
     .version(packageJson.version)
     .command('create', {isDefault: true})
     .usage('create <project-directory> [options]')
-    .action((_, cmd) => {
-      const {args, template} = cmd
+    .action(async (projectDir, cmd) => {
+      let projectName
+      let templateName
 
-      projectName = args[0]
-      templateName = template
+      // Check if projectDir is a string before assigning it to projectName
+      if (typeof projectDir === 'string') {
+        projectName = projectDir
+      } else {
+        const {useCwd, projectNameInput} = await inquirer.prompt([
+          {
+            type: 'confirm',
+            name: 'useCwd',
+            message:
+              'No project directory provided. Do you want to use the current directory?',
+            default: false
+          },
+          {
+            type: 'input',
+            name: 'projectNameInput',
+            message: 'Enter a project directory:',
+            when: (answers) => !answers.useCwd
+          }
+        ])
+
+        if (useCwd) {
+          projectName = '.'
+        } else {
+          projectName = projectNameInput
+        }
+      }
+
+      // eslint-disable-next-line prefer-const
+      templateName = cmd.template
+
+      // Call the createExtension function here, within the action callback
+      const workingDir = process.cwd()
+
+      await createExtension(workingDir, projectName, templateName)
     })
-    .description('create a new cross-browser extension')
-    .option(
-      '-t, --template <template-name>',
-      'specify a template for the created project'
-    )
-    .on('--help', () => messages.programHelp())
-    .parse(process.argv)
 
-  if (!projectName) {
-    log(`
-      You need to provide an extension name to create one.
-      See \`--help\` for command info.
-    `)
-    process.exit(1)
-  }
-
-  const workingDir = process.cwd()
-
-  await createExtension(workingDir, projectName, templateName)
+  // Parse the command-line arguments
+  clientProgram.parse(process.argv)
 }
 
 // If the module was called from the cmd line, execute it
