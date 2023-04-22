@@ -1,17 +1,13 @@
 // List of words you can't use as a name for your project
 // because they conflict with either current or future program commands
-const reservedKeywords = [
-  'build',
-  'eject',
-  'start',
-  'test',
-  'open',
-  'deploy'
-]
+const reservedKeywords = new Set(['build', 'eject', 'start', 'test', 'open', 'deploy', 'templates', 'template', 'standard']);
 
-module.exports = function () {
-  const commands = process.argv
+module.exports = function reservedKeywords() {
+	const commands = process.argv;
 
-  return reservedKeywords
-    .some((word, index) => word === commands[index])
+	return commands.some((command) => reservedKeywords.has(command));
+};
+
+if (reservedKeywords) {
+	console.log('Reserved keywords are being used.');
 }
