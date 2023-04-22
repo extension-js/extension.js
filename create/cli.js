@@ -18,7 +18,9 @@ async function createExtensionCLI(clientProgram = program) {
 
   clientProgram
 		.version(packageJson.version)
-		.command('create', { isDefault: true })
+		.command('create [project-directory]', { isDefault: true })
+		.description('create a new project')
+		.option('-t, --template <template>', 'Specify the template for the project')
 		.usage('create <project-directory> [options]')
 		.action(async (projectDir, options) => {
 			let projectName;
