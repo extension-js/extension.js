@@ -1,0 +1,13 @@
+name: Autofill PR description
+
+on: pull_request
+
+jobs:
+  openai-pr-description:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: platisd/openai-pr-description@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
