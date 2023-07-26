@@ -1,12 +1,63 @@
+# ███████╗██╗  ██╗████████╗███████╗███╗   ██╗███████╗██╗ ██████╗ ███╗   ██╗
+# ██╔════╝╚██╗██╔╝╚══██╔══╝██╔════╝████╗  ██║██╔════╝██║██╔═══██╗████╗  ██║
+# █████╗   ╚███╔╝    ██║   █████╗  ██╔██╗ ██║███████╗██║██║   ██║██╔██╗ ██║
+# ██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║╚██╗██║╚════██║██║██║   ██║██║╚██╗██║
+# ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║
+# ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
+#  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
+# ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
+# ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
+# ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
+# ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
+#  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
+
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+.test-output
+*.d.ts.map
+# *.d.ts
+
+# dependencies
 node_modules
-package
-package-lock.json
-yarn-lock.json
-yarn-error.log
-local_samples
-docs
-dist
-yarn.lock
-FUTURE
-SAMPLES
-DEPS
+.pnp
+.pnp.js
+
+# testing
+coverage
+
+# next.js
+.next/
+out/
+
+# tsup
+dist/
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# turbo
+.turbo
+
+# vercel
+.vercel
+
+# extension-create (alpha)
+__hmr-tests__
+browser-extension-test-data
+__utils__
+packages/reload-plugin
+packages/web-resources-plugin
+TODO.yml

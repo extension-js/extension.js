@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "version": "0.1",
+  "name": "Testing extension",
+  "author": "Cezar Augusto",
+  "page_action": {
+    "default_popup": "page-action.html",
+    "default_title": "Test"
+  }
+}

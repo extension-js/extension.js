@@ -1,0 +1,26 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/default-template.git",
+    "directory": "packages/default-template"
+  },
+  "name": "default-template",
+  "description": "The default template for extension-create.",
+  "version": "0.0.0",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "files": [
+    "template",
+    "template.json"
+  ],
+  "keywords": [
+    "extension-create",
+    "browser-extension",
+    "web-extension",
+    "template"
+  ]
+}

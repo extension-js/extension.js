@@ -1,13 +1,17 @@
-> ### This project is under active development. Does not work on Windows yet.
-
 [action-image]: https://github.com/cezaraugusto/extension-create/workflows/CI/badge.svg
 [action-url]: https://github.com/cezaraugusto/extension-create/actions
-[npm-image]: https://img.shields.io/npm/v/extension-create.svg
-[npm-url]: https://npmjs.org/package/extension-create
-[wip-image]: https://img.shields.io/badge/under-development-orange.svg
-[wip-url]: https://github.com/cezaraugusto/extension-create
+[maintenance-image]: https://img.shields.io/badge/Maintained%3F-yes-green.svg
+[maintenance-url]: https://GitHub.com/extension-create/extension-create/graphs/commit-activity
+[npm-version-image]: https://badgen.net/npm/v/extension-create
+[npm-version-url]: https://npmjs.com/package/extension-create
+[npm-dependents-image]: https://badgen.net/npm/dependents/extension-create
+[npm-dependents-url]: https://npmjs.com/package/extension-create
+[npm-downloads-image]: https://badgen.net/npm/dm/extension-create
+[npm-downloads-url]: https://npmjs.ccom/package/extension-create
 
-# extension-create [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
+> # THIS PROJECT IS UNDER ACTIVE DEVELOPMENT
+
+# extension-create [![Maintenance][maintenance-image]][maintenance-url] [![workflow][action-image]][action-url] [![Npm package version][npm-version-image]][npm-version-url] [![Npm package dependents][npm-dependents-image]][npm-dependents-url] [![Npm package monthly downloads][npm-downloads-image]][npm-downloads-url]
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
@@ -41,12 +45,12 @@ You are done. Time to hack on your extension!
 
 The [chrome-extensions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/) project is a great way to kickstart developing your extension.
 
-If we go to the samples repository and look for an extension sample to work, let's say the [make_page_red](https://github.com/GoogleChrome/chrome-extensions-samples/blob/main/mv2-archive/api/browserAction/make_page_red/) sample, all we need is to copy and paste it's URL as an argument for the start command:
+If we go to the samples repository and look for an extension sample to work, let's say the [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) sample, all we need is to copy and paste it's URL as an argument for the start command:
 
 > Optimized for **git version 2.30.0**. Older versions are supported, but download can take much longer.
 
 ```sh
-npx extension-create start https://github.com/GoogleChrome/chrome-extensions-samples/blob/main/mv2-archive/api/browserAction/make_page_red/
+npx extension-create dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
 ```
 
 <p align="center">
@@ -60,41 +64,44 @@ Will not only download the extension but also kickstart a Chrome instance in a f
 You read it! Just run the command above with the `--browser=edge` flag:
 
 ```
-npx extension-create start --browser=edge https://github.com/GoogleChrome/chrome-extensions-samples/blob/main/mv2-archive/api/browserAction/make_page_red/
+npx extension-create start --browser=edge https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
 ```
 
-And see a Crome Extension sample running automatically. On Edge!
+And see a Chrome Extension sample running automatically. On Edge!
 
 ## I have an extension
 
-`extension-create` was designed to have each command/major feature working as a standalone module. This is useful if you have your extension setup but want to benefit from specific features, such as the browser launcher w/ default auto-reload support. You have two ways of doing it.
-
-### Integrate `extension-create` via command line or npm scripts
-
-The first option is to just use the command line interface `extension-create` provides and add it to your npm scripts. Assuming you want your extension to run the `start` command (path argument can be omitted if the manifest file is on your extension root folder), here's how it should look in your `package.json`:
+Use the command line interface `extension-create` provides and add it to your npm scripts. Here's how it should look in your `package.json`:
 
 ```js
 {
   // ...npm stuff,
   "scripts": {
-    "start": "npx extension-create start"
+    "start": "npx extension-create start",
+    "dev": "npx extension-create dev",
+    "build": "npx extension-create build"
   }
 }
 ```
 
-Will load your extension the same way the screenshot above demonstrates. This method is, in fact, what the [standard template does](https://github.com/cezaraugusto/extension-create/blob/main/create/steps/writePackageJson.js#L19-L21) when you run the create command `npx extension-create <extension-name>`.
-
 #### Using a specific browser for development
 
-| <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/a94987f29719142668cdf960b3f624ce1a3c6aa8/src/chrome/chrome.svg?sanitize=true" alt="Chrome browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/a94987f29719142668cdf960b3f624ce1a3c6aa8/src/edge/edge.svg?sanitize=true" alt="Microsoft Edge browser logo"> |
-|-----------|---------|
-| Google Chrome ✅ | Microsoft Edge ✅ |
+| <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" alt="Chrome browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" alt="Microsoft Edge browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" alt="Mozilla Firefox browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg" alt="Apple Safari browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" alt="Opera browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chromium/chromium.svg" alt="Chromium browser logo"> |
+| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Google Chrome ✅                                                                                                                 | Microsoft Edge ✅                                                                                                                    | Mozilla Firefox ⛔️                                                                                                                         | Apple Safari ⛔️                                                                                                                       | Opera browser ⛔️                                                                                                             | Chromium (forks) 🤔                                                                                                                    |
 
-If you want to target a specific browser, just pass the `--browser` flag to the start command (Chrome or Edge, soon others), like `npx extension-create start --browser=edge`.
+> Mainstream Chromium-like browsers include Brave, and Vivaldi. These vendors are supported on production but there are currently no modules to handle development using these browsers. I do plan to support them in the near future.
+
+If you want to target a specific browser, just pass the `--browser` flag to the dev/start command (Chrome or Edge, soon others), like `npx extension-create dev --browser=edge`.
 
 That's it!
 
 > _Hint: pass `all` instead of `edge` as an argument to load both Edge and Chrome at the same time!_
+
+## Program Options Table
+
+For a list of all commands available, see [OPTIONS_TABLE.md](OPTIONS_TABLE.md).
+
 ## What's next?
 
 See the [Wiki](https://github.com/cezaraugusto/extension-create/wiki) for stable updates and future project roadmap. If you're interested in the latest news, I write weekly about this project development at https://cezaraugusto.substack.com.
