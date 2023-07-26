@@ -1,0 +1,10 @@
+{
+  "manifest_version": 2,
+  "version": "0.1",
+  "name": "Testing extension",
+  "author": "Cezar Augusto",
+  "background": {
+    "persistent": false,
+    "page": "background/background.html"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "manifest_version": 2,
+  "name": "Background MV2",
+  "version": "1.0.0",
+  "background": {
+    "scripts": ["./dist/background.background.js"]
+  },
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self';",
+
+  "web_accessible_resources": ["/*.txt", "/*.json", "*.js"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["/dist/content-0.hmr-bundle.js"],
+      "css": ["/dist/content-0.content.css"]
+    }
+  ],
+  "permissions": ["tabs", "<all_urls>"]
+}
