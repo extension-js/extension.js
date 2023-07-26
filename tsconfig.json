@@ -1,0 +1,11 @@
+{
+  "extends": "./packages/tsconfig/base.json",
+  "include": ["."],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "browser-extension-test-data",
+    "__hmr-tests__",
+    "__utils__"
+  ]
+}

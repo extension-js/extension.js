@@ -1,0 +1,60 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/extension-create.git"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "name": "extension-create",
+  "version": "1.0.0",
+  "description": "Create cross-browser extensions with no build configuration.",
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "files": [
+    "dist"
+  ],
+  "bin": {
+    "extension-create": "./dist/cli.js"
+  },
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "postinstall": "ts-node ./scripts/copyMarkdownFilesToCli.ts",
+    "compile": "tsup-node ./cli.ts --format cjs --dts --target=node16",
+    "test": "echo \"Note: no test specified\" && exit 0"
+  },
+  "keywords": [
+    "zero-config",
+    "build",
+    "develop",
+    "browser",
+    "extension",
+    "chrome extension",
+    "edge extension",
+    "firefox extension",
+    "web",
+    "react",
+    "typescript"
+  ],
+  "dependencies": {
+    "@extension-create/create": "*",
+    "@extension-create/develop": "*",
+    "commander": "^10.0.1",
+    "inquirer": "^9.2.0",
+    "semver": "^7.5.0",
+    "tsconfig": "*"
+  },
+  "devDependencies": {
+    "@types/inquirer": "^9.0.3",
+    "@types/node": "^18.16.3",
+    "@types/pacote": "^11.1.5",
+    "@types/semver": "^7.3.13",
+    "tsup": "^7.1.0",
+    "typescript": "^5.0.4"
+  }
+}

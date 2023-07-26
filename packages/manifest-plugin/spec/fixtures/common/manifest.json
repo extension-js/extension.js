@@ -1,0 +1,66 @@
+{
+  "author": "Cezar Augusto",
+  "version": "1.0",
+  "manifest_version": 2,
+  "name": "Demo extension",
+  "background": {
+    "persistent": false,
+    "scripts": ["background1.js", "background2.js", "background3.js"]
+  },
+  "content_scripts": [
+    {
+      "css": ["content1.css", "content2.css"],
+      "js": ["content1.js", "content2.jsx"],
+      "matches": ["<all_urls>"],
+      "run_at": "document_start"
+    },
+    {
+      "css": ["content3.css", "content4.css"],
+      "js": ["content3.jsx", "content4.js"],
+      "matches": ["<all_urls>"],
+      "run_at": "document_end"
+    }
+  ],
+  "icons": {
+    "16": "test_16.png",
+    "32": "test_32.png",
+    "48": "test_48.png",
+    "64": "test_64.png"
+  },
+  "page_action": {
+    "default_icon": {
+      "16": "test_16.png",
+      "32": "test_32.png",
+      "48": "test_48.png",
+      "64": "test_64.png"
+    },
+    "default_popup": "popup.html",
+    "default_title": "Test"
+  },
+  "web_accessible_resources": ["resources/*"],
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "devtools_page": "devtools.html",
+  "options_ui": {
+    "chrome_style": true,
+    "page": "options.html"
+  },
+  "options_page": "options.html",
+  "sidebar_action": {
+    "default_icon": "test_16.png",
+    "default_panel": "sidebar.html",
+    "default_title": "Test"
+  },
+  "chrome_settings_overrides": {
+    "homepage": "custom.html",
+    "favicon_url": "favicon.ico"
+  },
+  "user_scripts": {
+    "api_script": "apiscript.js"
+  },
+  "sandbox": {
+    "pages": ["page1.html", "page2.html"],
+    "content_security_policy": "sandbox allow-scripts; script-src 'self'"
+  }
+}

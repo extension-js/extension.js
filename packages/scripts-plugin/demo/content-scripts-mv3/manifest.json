@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "Content Scripts MV3",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./dist/background.background.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["/dist/*.txt", "/dist/*.json", "/dist/*.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["/dist/content-0.hmr-bundle.js"],
+      "css": ["/dist/content-0.content.css"]
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["/dist/content-1.hmr-bundle.js"]
+    }
+  ],
+  "permissions": ["scripting"],
+  "host_permissions": ["<all_urls>"]
+}

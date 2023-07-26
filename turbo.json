@@ -1,0 +1,30 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "globalEnv": ["EXTENSION_ENV", "npm_config_user_agent"],
+  "pipeline": {
+    "compile": {
+      "outputs": ["dist/**"],
+      "dependsOn": ["^compile"]
+    },
+    "watch": {
+      "cache": false,
+      "persistent": true,
+      "outputs": ["dist/**"],
+      "dependsOn": ["^compile"]
+    },
+    "test": {
+      "outputs": ["dist/**"],
+      "dependsOn": ["^compile"]
+    },
+    "lint": {
+      "outputs": []
+    },
+    "clean": {
+      "cache": false
+    },
+    "postinstall": {
+      "cache": false
+    }
+  }
+}

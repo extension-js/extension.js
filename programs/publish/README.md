@@ -1,0 +1,7 @@
+- Ideas for possible plugins:
+
+  - validate-plugin: Ensure extension meets basic standards from stores
+  - tos-generator-plugin: Adds required tos with sane defaults (with options)
+  - package-plugin: zips plugin
+  - publish-plugin: publish extesions via CLI
+    - (can be interactive/have a UI bundled in-browser as an extension)

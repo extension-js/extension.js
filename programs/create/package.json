@@ -1,0 +1,41 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/extension-create.git",
+    "directory": "create"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "name": "@extension-create/create",
+  "version": "0.0.0",
+  "description": "The create step of extension-create",
+  "main": "./dist/module.js",
+  "types": "./dist/module.d.ts",
+  "files": [
+    "dist"
+  ],
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "watch": "yarn compile --watch",
+    "compile": "tsup-node ./module.ts --format cjs --dts --target=node16 --minify",
+    "test": "echo \"Note: no test specified\" && exit 0"
+  },
+  "dependencies": {
+    "chalk": "^5.2.0",
+    "cross-spawn": "^7.0.3",
+    "pacote": "^15.1.3",
+    "tsconfig": "*"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.2",
+    "@types/react-dom": "^18.2.1",
+    "tsup": "^7.1.0",
+    "typescript": "^5.0.4"
+  }
+}
