@@ -1,0 +1,73 @@
+{
+  "author": "Cezar Augusto",
+  "background": {
+    "persistent": false,
+    "page": "background/background.html"
+  },
+  "browser_action": {
+    "default_icon": {
+      "16": "public/icon/test_16.png",
+      "32": "public/icon/test_32.png",
+      "48": "public/icon/test_48.png",
+      "64": "public/icon/test_64.png"
+    },
+    "default_popup": "popup/popup.html",
+    "default_title": "Test"
+  },
+  "chrome_url_overrides": {
+    "newtab": "overrides/newtab/newtab.html"
+  },
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+F",
+        "mac": "MacCtrl+Shift+F"
+      }
+    },
+    "toggle-feature": {
+      "description": "Send a 'toggle-feature' event to the extension",
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "MacCtrl+Shift+Y"
+      }
+    }
+  },
+  "content_scripts": [
+    {
+      "css": ["content/content1.css", "content/content2.css"],
+      "js": ["content/content1.js", "content/content2.js"],
+      "matches": ["<all_urls>"],
+      "run_at": "document_start"
+    }
+  ],
+  "content_security_policy": "script-src 'self' 'unsafe-eval'; object-src 'self'",
+  "default_locale": "en",
+  "description": "A demo extension",
+  "devtools_page": "devtools/devtools.html",
+  "externally_connectable": {
+    "matches": ["*://*.example.com/*"]
+  },
+  "homepage_url": "https://github.com/cezaraugusto/demo-extension",
+  "icons": {
+    "16": "public/icon/test_16.png",
+    "32": "public/icon/test_32.png",
+    "48": "public/icon/test_48.png",
+    "64": "public/icon/test_64.png"
+  },
+  "incognito": "not_allowed",
+  "manifest_version": 2,
+  "name": "Demo extension",
+  "offline_enabled": true,
+  "omnibox": {
+    "keyword": "demo"
+  },
+  "options_ui": {
+    "chrome_style": true,
+    "page": "options/options.html"
+  },
+  "permissions": ["tabs"],
+  "short_name": "Short Name",
+  "version": "1.0",
+  "version_name": "",
+  "web_accessible_resources": ["resources/*"]
+}

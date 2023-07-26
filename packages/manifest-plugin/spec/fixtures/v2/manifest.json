@@ -1,0 +1,47 @@
+{
+  "author": "Cezar Augusto",
+  "version": "1.0",
+  "manifest_version": 2,
+  "name": "Demo extension",
+  "background": {
+    "page": "background.html"
+  },
+  "browser_action": {
+    "default_icon": {
+      "16": "test_16.png",
+      "32": "test_32.png",
+      "48": "test_48.png",
+      "64": "test_64.png"
+    },
+    "default_popup": "popup.html",
+    "default_title": "Test",
+    "theme_icons": [
+      {
+        "light": "test_16-light.png",
+        "dark": "test_16.png",
+        "size": 16
+      },
+      {
+        "light": "test_32-light.png",
+        "dark": "test_32.png",
+        "size": 32
+      },
+      {
+        "light": "test_48-light.png",
+        "dark": "test_48.png",
+        "size": 48
+      },
+      {
+        "light": "test_64-light.png",
+        "dark": "test_64.png",
+        "size": 64
+      },
+      {
+        "light": "test_128-light.png",
+        "dark": "test_128.png",
+        "size": 128
+      }
+    ]
+  },
+  "web_accessible_resources": ["resources/*"]
+}

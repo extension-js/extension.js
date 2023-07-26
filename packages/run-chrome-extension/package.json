@@ -1,0 +1,61 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/webpack-run-chrome-extension.git"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "name": "webpack-run-chrome-extension",
+  "version": "0.6.0",
+  "description": "Run and build your extension on Chrome with auto-reload support",
+  "main": "./dist/module.js",
+  "types": "./dist/module.d.ts",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "compile": "tsup-node ./module.ts --format cjs --dts --target=node16 && node ./copyExtensions.js",
+    "lint": "eslint \"./**/*.ts*\"",
+    "test": "echo \"Note: no test specified\" && exit 0",
+    "test:fixture": "yarn --cwd=./fixtures/dev-server-no-hmr dev",
+    "demo": "yarn test:fixture"
+  },
+  "keywords": [
+    "webpack",
+    "plugin",
+    "chrome",
+    "run",
+    "open",
+    "plugin",
+    "browser",
+    "web",
+    "extension",
+    "web-ext",
+    "webextension"
+  ],
+  "peerDependencies": {
+    "webpack": "^5.68.0"
+  },
+  "dependencies": {
+    "chrome-location": "^1.2.1",
+    "browser-extension-manifest-fields": "*",
+    "ws": "^8.4.2"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.1",
+    "eslint": "^7.32.0",
+    "eslint-config-extension-create": "*",
+    "copy-webpack-plugin": "^10.2.4",
+    "css-loader": "^6.6.0",
+    "html-webpack-plugin": "^5.5.0",
+    "mini-css-extract-plugin": "^2.5.3",
+    "style-loader": "^3.3.1",
+    "tsconfig": "*",
+    "webpack": "^5.68.0",
+    "webpack-cli": "^4.9.2"
+  }
+}
