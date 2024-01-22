@@ -22,7 +22,7 @@
   },
   "scripts": {
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts --format cjs --dts --target=node16 --minify",
+    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node16 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },

@@ -15,4 +15,4 @@ export interface ManifestFields {
   webResources: any
 }
 
-export type ManifestData = Record<string, any | any[]>;
+export type ManifestData = Record<string, any | any[]>
