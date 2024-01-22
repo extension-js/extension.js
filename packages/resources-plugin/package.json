@@ -1,0 +1,63 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/webpack-browser-extension-resources-plugin.git"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "name": "webpack-browser-extension-resources-plugin",
+  "version": "0.0.0",
+  "description": "webpack plugin to handle manifest web resources assets from browser extensions",
+  "main": "./dist/module.js",
+  "types": "./dist/module.d.ts",
+  "files": [
+    "dist"
+  ],
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "watch": "yarn compile --watch",
+    "compile": "tsup-node ./module.ts --format cjs --dts --target=node16 --minify",
+    "lint": "eslint \"./**/*.ts*\"",
+    "test": "echo \"Note: no test specified\" && exit 0"
+  },
+  "keywords": [
+    "webpack",
+    "plugin",
+    "browser",
+    "web",
+    "extension",
+    "web-ext",
+    "web",
+    "resources",
+    "manifest",
+    "manifest.json"
+  ],
+  "peerDependencies": {
+    "webpack": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "eslint": "^7.32.0",
+    "eslint-config-extension-create": "*",
+    "jasmine": "^4.0.2",
+    "rimraf": "^3.0.2",
+    "tsconfig": "*",
+    "tsup": "^6.7.0",
+    "webpack": "^5.9.0",
+    "webpack-cli": "^4.2.0"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.22.7",
+    "@babel/traverse": "^7.22.8",
+    "browser-extension-manifest-fields": "*",
+    "csv-loader": "^3.0.5",
+    "glob": "^10.3.9",
+    "xml-loader": "^1.2.1"
+  }
+}

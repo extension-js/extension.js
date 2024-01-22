@@ -5,7 +5,7 @@
 
 # webpack-browser-extension-scripts-plugin [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url]
 
-> webpack plugin to handle script assets (background, content, service worker) from browser extensions
+> webpack plugin to handle manifest script assets (content_scripts, background.scripts, service_worker, user_scripts) from browser extensions
 
 Properly output script files based on the manifest fields declared in the manifest file.
 
@@ -35,7 +35,8 @@ module.exports = {
   // ...other webpack config,
   plugins: [
     new ScriptsPlugin({
-      manifestPath: '<path-to-my-manifest-json-file>'
+      manifestPath: '<path-to-my-manifest-json-file>',
+      exclude: ['<path_to_excluded_folder>']
     })
   ]
 }
@@ -45,15 +46,15 @@ module.exports = {
 
 Given a manifest file, grab all possible JavaScript fields and add them as [webpack entry points](https://webpack.js.org/concepts/entry-points/#root).
 
-```json5
+```json
 // myproject/manifest.json
 {
-  manifest_version: 2,
-  version: '0.1',
-  name: 'myextension',
-  author: 'Cezar Augusto',
-  background: {
-    scripts: ['background1.js', 'background2.js']
+  "manifest_version": 2,
+  "version": "0.1",
+  "name": "myextension",
+  "author": "Cezar Augusto",
+  "background": {
+    "scripts": ["background1.js", "background2.js"]
   }
 }
 ```
@@ -86,13 +87,8 @@ module.exports = {
 
 ```
 - myproject/
-  - background1.js
-  - background2.js
+  - background/index.js
 ```
-
-## Static dir
-
-Define a folder to handle static assets. Defaults to `/static/`.
 
 ## License
 

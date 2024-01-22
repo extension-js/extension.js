@@ -22,7 +22,10 @@ function browserExtensionManifestFields(
     json: jsonFromManifest(manifestPath, manifestContent),
     locales: localesFromManifest(manifestPath, manifestContent),
     scripts: scriptsFromManifest(manifestPath, manifestContent),
-    webResources: webResourcesFromManifest(manifestPath, manifestContent)
+    web_accessible_resources: webResourcesFromManifest(
+      manifestPath,
+      manifestContent
+    )
   }
 }
 

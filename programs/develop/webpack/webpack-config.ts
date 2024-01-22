@@ -19,7 +19,6 @@ import cssOptimizationOptions from './options/cssOptimization'
 
 // Loaders
 import assetLoaders from './loaders/assetLoaders'
-import htmlLoaders from './loaders/htmlLoaders'
 import jsLoaders from './loaders/jsLoaders'
 import styleLoaders from './loaders/styleLoaders'
 
@@ -36,6 +35,8 @@ import CssMinimizerPlugin from 'css-minimizer-webpack-plugin'
 import {isUsingTypeScript} from './options/typescript'
 import getDevToolOption from './config/getDevtoolOption'
 import browserPlugins from './plugins/browser'
+import boringPlugins from './plugins/boring'
+import {getWebpackStats} from './config/logging'
 
 export default function webpackConfig(
   projectPath: string,
@@ -44,19 +45,22 @@ export default function webpackConfig(
 ): webpack.Configuration {
   return {
     mode,
-    // target: 'web',
+    entry: {},
+    target: 'web',
     context: projectPath,
     devtool: getDevToolOption(projectPath),
-    entry: {},
+    stats: getWebpackStats(),
+    infrastructureLogging: {
+      level: 'none'
+    },
+    cache: false,
     output: {
       path: getOutputPath(projectPath, devOptions.browser),
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: getWebpackPublicPath(projectPath),
-      clean: true,
       environment: {
         bigIntLiteral: true,
-        dynamicImport: true,
-        module: true
+        dynamicImport: true
       }
     },
     resolve: {
@@ -78,7 +82,6 @@ export default function webpackConfig(
       rules: [
         ...jsLoaders(projectPath, {mode}),
         ...styleLoaders(projectPath, {mode}),
-        ...htmlLoaders,
         ...assetLoaders
       ]
     },
@@ -87,27 +90,13 @@ export default function webpackConfig(
       extensionPlugins(projectPath, devOptions),
       reloadPlugins(projectPath, devOptions),
       browserPlugins(projectPath, devOptions),
-      errorPlugins(projectPath, devOptions)
+      errorPlugins(projectPath, devOptions),
+      boringPlugins(projectPath, devOptions)
     ],
     optimization: {
-      minimize: false,
-      // runtimeChunk: {
-      //   name: (entrypoint: any) => {
-      //     if (entrypoint.name.startsWith("background")) {
-      //       return null;
-      //     }
-
-      //     return `runtime-${entrypoint.name}`
-      //   }
-      // },
-      // splitChunks: {
-      //   chunks(chunk) {
-      //     return chunk.name !== "background";
-      //   },
-      // },
-      // TODO: cezaraugusto this can have side-effects.
-      // https://webpack.js.org/guides/code-splitting/#entry-dependencies
-      // runtimeChunk: 'single',
+      // WARN: This can have side-effects.
+      // See https://webpack.js.org/guides/code-splitting/#entry-dependencies
+      // runtimeChunk: true,
       minimizer: [
         // Minify JSON
         new JsonMinimizerPlugin(),
@@ -116,10 +105,6 @@ export default function webpackConfig(
         // Minify CSS
         new CssMinimizerPlugin(cssOptimizationOptions)
       ]
-    },
-    stats: {
-      children: true,
-      errorDetails: true
     }
   }
 }

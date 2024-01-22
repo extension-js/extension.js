@@ -1,7 +1,7 @@
 export interface HtmlPluginInterface {
   manifestPath: string
+  pages?: string
   exclude?: string[]
-  experimentalHMREnabled?: boolean
 }
 
 export interface OutputPath {

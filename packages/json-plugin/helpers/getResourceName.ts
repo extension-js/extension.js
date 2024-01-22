@@ -29,4 +29,3 @@ export function getFileOutputPath(feature: string, filePath: string) {
 
   return `${feature}/${entryName}${extname}`
 }
-

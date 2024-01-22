@@ -10,15 +10,16 @@ import webpack from 'webpack'
 import type {DevOptions} from '../../extensionDev'
 
 // Plugins
-import CopyStaticFolderPlugin from './copy-static-folder-plugin'
+import ManifestPlugin from 'webpack-browser-extension-manifest-plugin'
 import HtmlPlugin from 'webpack-browser-extension-html-plugin'
 import ScriptsPlugin from 'webpack-browser-extension-scripts-plugin'
 import LocalesPlugin from 'webpack-browser-extension-locales-plugin'
-import IconsPlugin from 'webpack-browser-extension-icons-plugin'
-// import WebResourcesPlugin from 'webpack-browser-extension-web-resources-plugin'
 import JsonPlugin from 'webpack-browser-extension-json-plugin'
-import ManifestPlugin from 'webpack-browser-extension-manifest-plugin'
-import {getStaticFolderPath} from '../config/getPath'
+import IconsPlugin from 'webpack-browser-extension-icons-plugin'
+import ResourcesPlugin from 'webpack-browser-extension-resources-plugin'
+
+// Config
+import {getDynamicPagesPath, getStaticFolderPath} from '../config/getPath'
 
 export default function extensionPlugins(
   projectPath: string,
@@ -29,10 +30,6 @@ export default function extensionPlugins(
   return {
     name: 'extensionPlugins',
     apply: (compiler: webpack.Compiler) => {
-      new CopyStaticFolderPlugin({
-        staticDir: getStaticFolderPath(projectPath)
-      }).apply(compiler)
-
       // Generate a manifest file with all the assets we need
       new ManifestPlugin({
         browser,
@@ -51,21 +48,26 @@ export default function extensionPlugins(
       // Get every field in manifest that allows an .html file
       new HtmlPlugin({
         manifestPath,
-        // Exclude paths that are in the /public/ folder
         exclude: [getStaticFolderPath(projectPath)],
-        experimentalHMREnabled: false
+        pages: getDynamicPagesPath(projectPath)
       }).apply(compiler)
 
       // Get all scripts (bg, content, sw) declared in manifest
       new ScriptsPlugin({
         manifestPath,
         // Exclude paths that are in the /public/ folder
-        exclude: [getStaticFolderPath(projectPath)],
-        experimentalHMREnabled: false
+        exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
       // Get locales
       new LocalesPlugin({manifestPath}).apply(compiler)
+
+      // Grab all JSON assets from manifest except _locales
+      new JsonPlugin({
+        manifestPath,
+        // Exclude paths that are in the /public/ folder
+        exclude: [getStaticFolderPath(projectPath)]
+      }).apply(compiler)
 
       // Grab all icon assets from manifest including popup icons
       new IconsPlugin({
@@ -74,17 +76,13 @@ export default function extensionPlugins(
         exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
-      // TODO: cezaraugusto
-      // Grab all web resource assets from manifest
-      // new WebResourcesPlugin({
-      //   manifestPath
-      // }).apply(compiler)
-
-      // Grab all JSON assets from manifest except _locales
-      new JsonPlugin({
-        manifestPath,
+      // Grab all resources from script files
+      // (background, content_scripts, service_worker)
+      // and add them to the assets bundle.
+      new ResourcesPlugin({
+        manifestPath
         // Exclude paths that are in the /public/ folder
-        exclude: [getStaticFolderPath(projectPath)]
+        // exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
       // Allow browser polyfill as needed

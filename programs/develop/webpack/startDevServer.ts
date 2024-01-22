@@ -23,7 +23,7 @@ export default async function startDevServer(
   {...devOptions}: DevOptions
 ) {
   const compilerConfig = webpackConfig(projectPath, 'development', devOptions)
-  const serverConfig = await devServerConfig(projectPath, devOptions)
+  const serverConfig = devServerConfig(projectPath, devOptions)
   const compiler = webpack(compilerConfig)
 
   const devServer = new WebpackDevServer(serverConfig, compiler)

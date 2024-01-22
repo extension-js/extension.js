@@ -1,6 +1,0 @@
-{
-  "action": {
-    "default_popup": "./src/popup.html",
-    "default_title": "Test"
-  }
-}

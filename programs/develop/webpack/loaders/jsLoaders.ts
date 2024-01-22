@@ -16,6 +16,8 @@ export default function jsLoaders(projectDir: string, opts: any) {
     : /\.(js|mjs|jsx)$/
 
   return [
+    // https://webpack.js.org/loaders/babel-loader/
+    // https://babeljs.io/docs/en/babel-loader
     {
       test: files,
       include: projectDir,
@@ -26,6 +28,7 @@ export default function jsLoaders(projectDir: string, opts: any) {
         typescript: isUsingTypeScript(projectDir)
       })
     },
+    // https://webpack.js.org/loaders/ts-loader/
     {
       test: /\.tsx?$/,
       use: {

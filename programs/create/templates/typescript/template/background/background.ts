@@ -1,3 +1,3 @@
 import helloExtension from './lib'
 
-console.log(helloExtension)
+console.log(helloExtension())

@@ -70,11 +70,10 @@ export default class JsonPlugin {
 
             if (compilation.errors.length > 0) return
 
-            const manifestSource = assets['manifest.json']
-              ? assets['manifest.json'].source()
+            const manifest = assets['manifest.json']
+              ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const manifest = JSON.parse(manifestSource.toString())
             const jsonFields = manifestFields(this.manifestPath, manifest).json
 
             for (const field of Object.entries(jsonFields)) {
@@ -126,11 +125,9 @@ export default class JsonPlugin {
           (assets) => {
             if (compilation.errors?.length) return
 
-            const manifestSource = compilation.getAsset('manifest.json')
-              ? compilation.getAsset('manifest.json')?.source.source()
+            const manifest = assets['manifest.json']
+              ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
-
-            const manifest = JSON.parse(manifestSource.toString())
             const jsonFields = manifestFields(this.manifestPath, manifest).json
 
             for (const field of Object.entries(jsonFields)) {

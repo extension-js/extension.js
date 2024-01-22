@@ -7,28 +7,26 @@
 
 import type WebpackDevServer from 'webpack-dev-server'
 import type {DevOptions} from '../extensionDev'
-import getNextAvailablePort from './config/getNextAvailablePort'
-// import {type getOutputPath} from './config/getPath'
+import {getStaticFolderPath} from './config/getPath'
+// import getNextAvailablePort from './config/getNextAvailablePort'
 
-export default async function devServerConfig(
+export default function devServerConfig(
   projectPath: string,
-  {port, browser}: DevOptions
-): Promise<WebpackDevServer.Configuration> {
+  {port}: DevOptions
+): WebpackDevServer.Configuration {
   return {
     host: '127.0.0.1',
-    allowedHosts: 'all', // TODO: cezaraugusto check
-    // static: {
-    //     directory: projectPath, // getOutputPath(projectPath, browser),
-    //   watch: {
-    //     // TODO: revert
-    //     ignored: [/\bnode_modules\b/, 
-    //     // exclude all js files
-    //     /\.js$/,
-    //   //  /^((?!content).)*$/,
-        
-    //   ]
-    //   }
-    // },
+    allowedHosts: 'all',
+    static: getStaticFolderPath(projectPath),
+    compress: true,
+    devMiddleware: {
+      writeToDisk: true
+    },
+    // WARN: for some reason, adding HTML as a watch file
+    // causes content_scripts to do a full reload instead of a hot reload.
+    // We work around this in the webpack-run extensions by
+    // adding the HTML file as an entry point.
+    // watchFiles: {},
     client: {
       // Allows to set log level in the browser, e.g. before reloading,
       // before an error or when Hot Module Replacement is enabled.
@@ -42,14 +40,14 @@ export default async function devServerConfig(
         warnings: true
       }
     },
-    devMiddleware: {
-      writeToDisk: true
-    },
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
-    port: await getNextAvailablePort(port),
-    // Enable webpack's Hot Module Replacement feature
+    // TODO: cezaraugusto scan available ports
+    // port: getNextAvailablePort(port),
+    port: port || 8818,
+    // WARN: Setting TRUE here causes the content_script
+    // entry of a react extension to be reloaded infinitely.
     hot: 'only'
   }
 }

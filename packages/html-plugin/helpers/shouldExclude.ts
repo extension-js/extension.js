@@ -9,6 +9,6 @@ export default function shouldExclude(
   return excludedFolders.some((excludedFolder) => {
     const excludedFolderDir = path.basename(excludedFolder)
 
-    return path.normalize(filePath).startsWith(excludedFolderDir)
+    return path.normalize(filePath).includes(excludedFolderDir + '/')
   })
 }

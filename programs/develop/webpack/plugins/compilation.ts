@@ -10,12 +10,12 @@ import fs from 'fs'
 import webpack from 'webpack'
 
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
-// import ForkTsCheckerWarningWebpackPlugin from './fork-ts-checker-warning-webpack-plugin'
+import ForkTsCheckerWarningWebpackPlugin from './fork-ts-checker-warning-webpack-plugin'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import Dotenv from 'dotenv-webpack'
 
 // Checks
-// import {isUsingTypeScript} from '../options/typescript'
+import {isUsingTypeScript} from '../options/typescript'
 import {type DevOptions} from '../../extensionDev'
 
 export default function compilationPlugins(
@@ -25,12 +25,10 @@ export default function compilationPlugins(
   return {
     name: 'compilationPlugins',
     apply: (compiler: webpack.Compiler) => {
-      // new ESLintPlugin().apply(compiler)
-
       new CaseSensitivePathsPlugin().apply(compiler)
 
-      // Parse TypeScript files in a different process if needed
-      // TODO: cezaraugusto this makes the reload plugin to run twice
+      // WARN: this makes the reload plugin to run twice
+      // Parse TypeScript files in a different process if needed.
       // if (isUsingTypeScript(projectPath)) {
       //   new ForkTsCheckerWarningWebpackPlugin().apply(compiler)
       // }

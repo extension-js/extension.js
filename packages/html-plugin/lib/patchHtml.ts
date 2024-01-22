@@ -4,10 +4,7 @@ import path from 'path'
 import utils from 'parse5-utils'
 import parseHtml from './parseHtml'
 import shouldExclude from '../helpers/shouldExclude'
-import {
-  getFilePathWithinFolder,
-  getFilePathSplitByDots
-} from '../helpers/getResourceName'
+import {getFilepath} from '../helpers/getResourceName'
 
 export default function patchHtml(
   feature: string,
@@ -28,36 +25,36 @@ export default function patchHtml(
         htmlChildNode.nodeName === 'body'
       ) {
         parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
-          const entryExt = path.extname(filePath)
           // Do not attempt to rewrite the asset path if it's in the exclude list.
-          const shouldSkipRewrite = shouldExclude(exclude, filePath)
+          const isPublicFolder = shouldExclude(exclude, filePath)
 
-          // TODO: After testing HMR and ensuring the custom file path
-          // works, consider making features as [feature]/folder.ext
-          // instead of [feature].folder.ext. This will prettify the output.
-          const fileOutputpath = shouldSkipRewrite
+          const assetOutputpath = isPublicFolder
             ? path.normalize(filePath)
-            : getFilePathSplitByDots(feature, filePath)
-
-          const assetOutputpath = shouldSkipRewrite
-            ? path.normalize(filePath)
-            : getFilePathWithinFolder(feature, filePath)
+            : getFilepath(feature, filePath)
 
           switch (assetType) {
             case 'script': {
-              node = utils.setAttribute(
-                childNode,
-                'src',
-                `/${fileOutputpath.replace(entryExt, '.js')}`
-              )
+              if (isPublicFolder) {
+                node = utils.setAttribute(
+                  childNode,
+                  'src',
+                  `/${assetOutputpath}`
+                )
+              } else {
+                node = utils.remove(childNode)
+              }
               break
             }
             case 'css': {
-              node = utils.setAttribute(
-                childNode,
-                'href',
-                `/${assetOutputpath.replace(entryExt, '.css')}`
-              )
+              if (isPublicFolder) {
+                node = utils.setAttribute(
+                  childNode,
+                  'href',
+                  `/${assetOutputpath}`
+                )
+              } else {
+                node = utils.remove(childNode)
+              }
               break
             }
             case 'staticHref':
@@ -73,6 +70,25 @@ export default function patchHtml(
               break
           }
         })
+      }
+
+      // Create the link tag for the CSS bundle
+      if (htmlChildNode.nodeName === 'head') {
+        const linkTag = utils.createNode('link')
+        linkTag.attrs = [
+          {name: 'rel', value: 'stylesheet'},
+          {name: 'href', value: getFilepath('.', './index.css')}
+        ]
+
+        utils.append(htmlChildNode, linkTag)
+      }
+
+      // Create the script tag for the JS bundle
+      if (htmlChildNode.nodeName === 'body') {
+        const scriptTag = utils.createNode('script')
+        scriptTag.attrs = [{name: 'src', value: getFilepath('.', './index.js')}]
+
+        utils.append(htmlChildNode, scriptTag)
       }
     }
 

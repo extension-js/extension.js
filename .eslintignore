@@ -25,5 +25,5 @@ browser-extension-test-data
 __hmr-tests__
 __utils__
 reloadService.js
-
-
+__examples
+**/html-bundler-webpack-plugin/**/*

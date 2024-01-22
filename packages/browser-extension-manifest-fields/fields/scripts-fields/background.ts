@@ -19,18 +19,5 @@ export default function background(
     })
   }
 
-  const serviceWorker = manifest.background.service_worker
-
-  if (serviceWorker) {
-    const serviceWorker = manifest.background.service_worker
-
-    const serviceWorkerAbsolutePath = path.join(
-      path.dirname(manifestPath),
-      serviceWorker
-    )
-
-    return serviceWorkerAbsolutePath
-  }
-
   return undefined
 }
