@@ -18,7 +18,7 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "compile": "tsup-node ./module.ts --format cjs --dts --target=node16 && node ./copyExtensions.js",
+    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node16 && node ./copyExtensions.js",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0",
     "test:fixture": "yarn --cwd=./fixtures/dev-server-no-hmr dev",
@@ -41,16 +41,21 @@
     "webpack": "^5.68.0"
   },
   "dependencies": {
-    "chrome-location": "^1.2.1",
+    "@types/loader-utils": "^2.0.6",
+    "@types/schema-utils": "^2.4.0",
     "browser-extension-manifest-fields": "*",
+    "chrome-location": "^1.2.1",
+    "content-security-policy-parser": "^0.4.1",
+    "loader-utils": "^3.2.1",
+    "schema-utils": "^4.2.0",
     "ws": "^8.4.2"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.1",
-    "eslint": "^7.32.0",
-    "eslint-config-extension-create": "*",
     "copy-webpack-plugin": "^10.2.4",
     "css-loader": "^6.6.0",
+    "eslint": "^7.32.0",
+    "eslint-config-extension-create": "*",
     "html-webpack-plugin": "^5.5.0",
     "mini-css-extract-plugin": "^2.5.3",
     "style-loader": "^3.3.1",

@@ -1,56 +1,62 @@
-/** global 8082 chrome */
-function executeWs(port) {
-  const ws = new window.WebSocket(`ws://localhost:${port}`)
+/* global chrome WebSocket */
 
-  // Gracefully close websocket connection before unloading app
-  window.onbeforeunload = () => {
-    ws.onclose = () => {
-      ws.close()
-    }
+const TEN_SECONDS_MS = 10 * 1000
+let webSocket = null
+
+chrome.runtime.onInstalled.addListener(async () => {
+  if (webSocket) {
+    disconnect()
+  } else {
+    await connect()
+    keepAlive()
+  }
+})
+
+async function connect() {
+  if (webSocket) {
+    // If already connected, do nothing
+    return
   }
 
-  ws.onopen = () => {
-    ws.send(JSON.stringify({status: 'clientReady'}))
-    console.log('[Reload Service] Extension ready. Watching changes...')
+  webSocket = new WebSocket('ws://localhost:8082')
+
+  webSocket.onerror = (event) => {
+    console.error(`[Reload Service] Connection error: ${JSON.stringify(event)}`)
+    webSocket.close()
   }
 
-  ws.onmessage = async (event) => {
+  webSocket.onopen = () => {
+    console.info(`[Reload Service] Connection opened.`)
+  }
+
+  webSocket.onmessage = async (event) => {
     const message = JSON.parse(event.data)
 
-    // Response status
-    if (message.status === 'reload') {
-      console.log(
-        `[Reload Service] Changed detected on ${message.where}. Extension reloaded. Watching changes...`
-      )
-      if (message.where === 'background') {
-        await reloadAllExtensions()
-        ws.send(JSON.stringify({status: 'allExtensionsReloaded'}))
-      }
-
-      if (message.where === 'manifest') {
-        ws.send(JSON.stringify({status: 'manifestReloaded'}))
-      }
-
-      if (
-        message.where === 'manifest' ||
-        message.where === 'html' ||
-        message.where === 'content' ||
-        message.where === 'locale'
-      ) {
-        await reloadAllExtensions()
-        await reloadAllTabs()
-        ws.send(
-          JSON.stringify({
-            status: 'everythingReloaded',
-            where: message.where
-          })
-        )
-      }
+    if (message.status === 'serverReady') {
+      console.info('[Reload Service] Connection ready.')
+      await requestInitialLoadData()
     }
+
+    if (message.changedFile) {
+      console.info(
+        `[Reload Service] Changes detected on ${message.changedFile}. Reloading extension...`
+      )
+
+      await messageAllExtensions(message.changedFile)
+    }
+  }
+
+  webSocket.onclose = () => {
+    console.info('[Reload Service] Connection closed.')
+    webSocket = null
   }
 }
 
-executeWs(8082)
+function disconnect() {
+  if (webSocket) {
+    webSocket.close()
+  }
+}
 
 async function getDevExtensions() {
   const allExtensions = await new Promise((resolve) => {
@@ -61,54 +67,91 @@ async function getDevExtensions() {
     return (
       // Do not include itself
       extension.id !== chrome.runtime.id &&
+      // Manager extension
+      extension.id !== 'hkklidinfhnfidkjiknmmbmcloigimco' &&
       // Show only unpackaged extensions
       extension.installType === 'development'
     )
   })
 }
 
-async function reloadExtension(extensionId) {
-  setTimeout(async () => {
-    await setEnabled(extensionId, false)
-    await setEnabled(extensionId, true)
-  }, 1000)
-}
+async function messageAllExtensions(changedFile) {
+  // Check if the external extension is ready
+  const isExtensionReady = await checkExtensionReadiness()
 
-async function setEnabled(extensionId, value) {
-  if (extensionId === chrome.runtime.id) {
-    return Promise.resolve()
-  }
-
-  await new Promise((resolve) => {
-    chrome.management.setEnabled(extensionId, value, resolve)
-  })
-}
-
-async function reloadAllExtensions() {
-  const devExtensions = await getDevExtensions()
-  const reloadAll = devExtensions.map((extension) =>
-    reloadExtension(extension.id)
-  )
-
-  await Promise.all(reloadAll)
-}
-
-// eslint-disable-next-line no-unused-expressions
-async function reloadTab() {
-  await new Promise((resolve) => {
-    chrome.tabs.getCurrent((tab) => {
-      chrome.tabs.reload(tab?.id)
-      resolve
-    })
-  })
-}
-
-async function reloadAllTabs() {
-  setTimeout(async () => {
-    await new Promise((resolve) => {
-      return chrome.tabs.query({}, (tabs) => {
-        tabs.forEach((tab) => chrome.tabs.reload(tab.id), resolve)
+  if (isExtensionReady) {
+    const devExtensions = await getDevExtensions()
+    const reloadAll = devExtensions.map((extension) => {
+      chrome.runtime.sendMessage(extension.id, {changedFile}, (response) => {
+        if (response) {
+          console.info('[Reload Service] Extension reloaded and ready.')
+        }
       })
+
+      return true
     })
-  }, 1000)
+
+    await Promise.all(reloadAll)
+  } else {
+    console.info('[Reload Service] External extension is not ready.')
+  }
+}
+
+async function requestInitialLoadData() {
+  const devExtensions = await getDevExtensions()
+
+  const messagePromises = devExtensions.map((extension) => {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        extension.id,
+        {initialLoadData: true},
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error(
+              `Error sending message to ${extension.id}: ${chrome.runtime.lastError.message}`
+            )
+            resolve(null)
+          } else {
+            console.log({response})
+            resolve(response)
+          }
+        }
+      )
+    })
+  })
+
+  const responses = await Promise.all(messagePromises)
+
+  // We received the info from the use extension.
+  // All good, client is ready. Inform the server.
+  if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+    const message = JSON.stringify({
+      status: 'clientReady',
+      data: responses[0]
+    })
+
+    webSocket.send(message)
+  }
+}
+
+async function checkExtensionReadiness() {
+  // Delay for 1 second
+  await delay(1000)
+  // Assume the extension is ready
+  return true
+}
+
+async function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function keepAlive() {
+  const keepAliveIntervalId = setInterval(() => {
+    if (webSocket) {
+      webSocket.send(JSON.stringify({status: 'ping'}))
+      console.info('[Reload Service] Listening for changes...')
+    } else {
+      clearInterval(keepAliveIntervalId)
+    }
+  }, TEN_SECONDS_MS)
 }

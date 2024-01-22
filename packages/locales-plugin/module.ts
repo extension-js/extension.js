@@ -78,11 +78,9 @@ export default class LocalesPlugin {
 
             if (compilation.errors.length > 0) return
 
-            const manifestSource = assets['manifest.json']
-              ? assets['manifest.json'].source()
+            const manifest = assets['manifest.json']
+              ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
-
-            const manifest = JSON.parse(manifestSource.toString())
 
             const localesFields = manifestFields(
               this.manifestPath,
@@ -136,11 +134,9 @@ export default class LocalesPlugin {
           (assets) => {
             if (compilation.errors?.length) return
 
-            const manifestSource = compilation.getAsset('manifest.json')
-              ? compilation.getAsset('manifest.json')?.source.source()
+            const manifest = assets['manifest.json']
+              ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
-
-            const manifest = JSON.parse(manifestSource.toString())
             const localesFields = manifestFields(
               this.manifestPath,
               manifest

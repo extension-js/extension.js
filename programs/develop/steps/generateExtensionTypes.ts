@@ -18,7 +18,7 @@ export default async function generateExtensionTypes(projectDir: string) {
 
   const fileContent = `\
 // Required extension-create types for TypeScript projects.
-// This file auto-generated and should not be excluded.
+// This file is auto-generated and should not be excluded.
 // If you need extra types, consider creating a new *.d.ts and
 // referencing it in the "include" array in your tsconfig.json file.
 // See https://www.typescriptlang.org/tsconfig#include for info.
@@ -27,16 +27,22 @@ export default async function generateExtensionTypes(projectDir: string) {
 `
 
   try {
-    // If there is a extension-env.d.ts file already, return early.
-    if ((await fs.stat(extensionEnvFile)).isFile()) {
-      return
-    }
-
+    // Check if the file exists
+    await fs.access(extensionEnvFile)
+    console.log('🔵 - extension-env.d.ts already exists.')
+    return // File exists, return early
+  } catch (err) {
+    // File does not exist, continue to write it
     console.log(
       '🔷 - TypeScript install detected. Writing extension type definitions...'
     )
-    await fs.writeFile(extensionEnvFile, fileContent)
-  } catch (err) {
-    console.log('🔴 - Failed to write the extension type definition.')
+    try {
+      await fs.writeFile(extensionEnvFile, fileContent)
+    } catch (writeErr) {
+      console.log(
+        '🔴 - Failed to write the extension type definition.',
+        writeErr
+      )
+    }
   }
 }

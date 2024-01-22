@@ -8,18 +8,17 @@
   "updateInternalDependencies": "patch",
   "ignore": [
     "browser-extension-manifest-fields",
+    "webpack-browser-extension-common-errors-plugin",
     "eslint-config-extension-create",
-    "webpack-run-chrome-extension",
-    "webpack-run-edge-extension",
     "webpack-browser-extension-html-plugin",
     "webpack-browser-extension-icons-plugin",
     "webpack-browser-extension-json-plugin",
     "webpack-browser-extension-locales-plugin",
+    "webpack-browser-extension-manifest-compat-plugin",
     "webpack-browser-extension-manifest-plugin",
-    "webpack-browser-extension-polyfill-plugin",
-    "webpack-browser-extension-polyfill-loader",
-    "webpack-browser-extension-web-resouces-plugin",
-    "webpack-common-errors-plugin",
+    "webpack-browser-extension-resouces-plugin",
+    "webpack-run-chrome-extension",
+    "webpack-browser-extension-scripts-plugin",
     "tsconfig"
   ]
 }

@@ -53,5 +53,5 @@ export default function getWebAccessibleResources(
     webAccessibleResources.push(resourcesAbsolutePath)
   }
 
-  return webAccessibleResources.flat().filter(arr => arr.length > 0)
+  return webAccessibleResources.flat().filter((arr) => arr.length > 0)
 }

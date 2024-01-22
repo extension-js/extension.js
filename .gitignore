@@ -55,9 +55,8 @@ yarn-error.log*
 .vercel
 
 # extension-create (alpha)
-__hmr-tests__
+packages/*/demo
+packages/*/spec
 browser-extension-test-data
-__utils__
-packages/reload-plugin
-packages/web-resources-plugin
 TODO.yml
+_examples

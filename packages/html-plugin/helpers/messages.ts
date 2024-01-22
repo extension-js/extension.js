@@ -21,6 +21,35 @@ export function fileError(feature: string | undefined, filePath: string) {
   }
 }
 
+export function serverRestartRequired(
+  projectDir: string,
+  filePath: string
+  // contentChanged: {
+  //   prevFile: string
+  //   updatedFile: string
+  // } | null
+) {
+  const basename = path.relative(projectDir, filePath)
+  const extname = path.extname(filePath)
+  // const extname = path.extname(
+  //   contentChanged?.prevFile || contentChanged?.updatedFile || ''
+  // )
+  // const tag = ['js', 'ts', 'jsx', 'tsx'].includes(extname) ? 'script' : 'link'
+  // const prevFileRelative = path.relative(filePath, contentChanged?.prevFile!)
+  // const updatedFileRelative = path.relative(
+  //   filePath,
+  //   contentChanged?.updatedFile!
+  // )
+  const errorMessage = `[${basename}] Entry Point Modification Found
+
+Changing <script> or <link rel="stylesheet"> source paths after compilation requires a server restart. Restart the program and try again.`
+  // \'\'\'diff
+  // - ${prevFileRelative}
+  // + ${updatedFileRelative}
+  // \'\'\'
+  return errorMessage
+}
+
 export function reloadAfterErrorRequiredMessage() {
   const hintMessage = `and run the program again.`
   const errorMessage = `Ensure \`<script>\` sources are valid ${hintMessage}`
@@ -51,13 +80,13 @@ export function manifestFieldError(feature: string, htmlFilePath: string) {
 
 export function javaScriptError(htmlFilePath: string, inputFilepath: string) {
   const hintMessage = `Check your <script> tags in \`${htmlFilePath}\`.`
-  const errorMessage = `File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const errorMessage = `[HTML] File path \`${inputFilepath}\` not found. ${hintMessage}`
   return errorMessage
 }
 
 export function cssError(htmlFilePath: string, inputFilepath: string) {
   const hintMessage = `Check your <link> tags in \`${htmlFilePath}\`.`
-  const errorMessage = `File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const errorMessage = `[HTML] File path \`${inputFilepath}\` not found. ${hintMessage}`
   return errorMessage
 }
 
@@ -67,6 +96,6 @@ export function staticAssetErrorMessage(
 ) {
   const extname = path.extname(inputFilepath)
   const hintMessage = `Check your *${extname} file paths in \`${htmlFilePath}\`.`
-  const errorMessage = `File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const errorMessage = `[HTML] File path \`${inputFilepath}\` not found. ${hintMessage}`
   return errorMessage
 }
