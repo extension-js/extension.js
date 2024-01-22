@@ -2,13 +2,16 @@ import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
 import {type ManifestData} from '../../types'
 
-type SandboxType = Record<string, | {
-        css: string[]
-        js: string[]
-        static: string[]
-        html: string
-      }
-    | undefined>;
+type SandboxType = Record<
+  string,
+  | {
+      css: string[]
+      js: string[]
+      static: string[]
+      html: string
+    }
+  | undefined
+>
 
 export default function sandbox(
   manifestPath: string,

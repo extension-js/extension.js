@@ -67,16 +67,14 @@ export default class ScriptsPlugin {
             // Do not emit if manifest doesn't exist.
             if (!fs.existsSync(this.manifestPath)) {
               this.manifestNotFoundError(compilation)
-              return
             }
 
             if (compilation.errors.length > 0) return
 
-            const manifestSource = assets['manifest.json']
-              ? assets['manifest.json'].source()
+            const manifest = assets['manifest.json']
+              ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const manifest = JSON.parse(manifestSource.toString())
             const iconFields = manifestFields(this.manifestPath, manifest).icons
 
             for (const field of Object.entries(iconFields)) {
@@ -128,11 +126,10 @@ export default class ScriptsPlugin {
           (assets) => {
             if (compilation.errors?.length) return
 
-            const manifestSource = compilation.getAsset('manifest.json')
-              ? compilation.getAsset('manifest.json')?.source.source()
+            const manifest = assets['manifest.json']
+              ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const manifest = JSON.parse(manifestSource.toString())
             const iconFields = manifestFields(this.manifestPath, manifest).icons
 
             for (const field of Object.entries(iconFields)) {

@@ -22,7 +22,7 @@
   },
   "scripts": {
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts ./extension-html-reloader.ts --format cjs --dts --target=node16 --minify",
+    "compile": "tsup-node ./module.ts ./loaders/InjectHmrAcceptLoader.ts ./html-reloader.ts --format cjs --dts --target=node16 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
@@ -59,6 +59,7 @@
   },
   "dependencies": {
     "browser-extension-manifest-fields": "*",
+    "nunjucks": "^3.2.4",
     "parse5": "^7.1.2",
     "parse5-utils": "^2.0.0"
   }

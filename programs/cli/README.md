@@ -9,6 +9,8 @@
 [npm-downloads-image]: https://badgen.net/npm/dm/extension-create
 [npm-downloads-url]: https://npmjs.ccom/package/extension-create
 
+> # THIS PROJECT IS UNDER ACTIVE DEVELOPMENT
+
 # extension-create [![Maintenance][maintenance-image]][maintenance-url] [![workflow][action-image]][action-url] [![Npm package version][npm-version-image]][npm-version-url] [![Npm package dependents][npm-dependents-image]][npm-dependents-url] [![Npm package monthly downloads][npm-downloads-image]][npm-downloads-url]
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />

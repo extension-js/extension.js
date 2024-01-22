@@ -22,18 +22,14 @@ function getOutputExtname(extname: string) {
   }
 }
 
-export function getFilePathWithinFolder(feature: string, filePath: string) {
+export function getFilepath(feature: string, filePath: string) {
   const entryExt = path.extname(filePath)
   const entryName = path.basename(filePath, entryExt)
   const extname = getOutputExtname(entryExt)
 
-  return `${feature}/${entryName}${extname}`
-}
+  if (extname === '.html' || extname === '.js' || extname === '.css') {
+    return `${feature}/index${extname}`
+  }
 
-export function getFilePathSplitByDots(feature: string, filePath: string) {
-  const entryExt = path.extname(filePath)
-  const entryName = path.basename(filePath, entryExt)
-  const extname = getOutputExtname(entryExt)
-
-  return `${feature}.${entryName}${extname}`
+  return `assets/${entryName}${extname}`
 }

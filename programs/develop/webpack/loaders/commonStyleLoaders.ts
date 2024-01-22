@@ -15,35 +15,24 @@ export default function getCommonStyleLoaders(
   opts: any
 ): any {
   const styleLoaders: webpack.RuleSetUse = [
-    opts.mode === 'development'
-      ? // For production builds it's recommended to extract the CSS from
-        // your bundle being able to use parallel loading of CSS/JS
-        // resources later on. This can be achieved by using the
-        // mini-css-extract-plugin, because it creates separate css files.
-        // For development mode (including webpack-dev-server) you can use
-        // style-loader, because it injects CSS into the DOM using multiple and works faster.
-        require.resolve('style-loader')
-      : // This plugin extracts CSS into separate files.
-        // It creates a CSS file per JS file which contains CSS.
-        // It supports On-Demand-Loading of CSS and SourceMaps
-        // See https://webpack.js.org/plugins/mini-css-extract-plugin/
-        {
-          loader: MiniCssExtractPlugin.loader
-          // options: {
-          //   // only enable hot in development
-          //   hmr: opts.mode === 'development',
-          //   // if hmr does not work, this is a forceful method.
-          //   publicPath: '',
-          //   reloadAll: true
-          // }
-        },
+    // This plugin extracts CSS into separate files.
+    // It creates a CSS file per JS file which contains CSS.
+    // It supports On-Demand-Loading of CSS and SourceMaps
+    // See https://webpack.js.org/plugins/mini-css-extract-plugin/
+    {
+      loader: MiniCssExtractPlugin.loader,
+      options: {
+        // This is needed for allowing import() statements
+        // in CSS files imported from content_scripts.
+        // sourceMap: true,
+        // esModule: false,
+        // This breaks dynamic imports in content scripts
+        // modules: true
+      }
+    },
     {
       // `css-loader` resolves paths in CSS and adds assets as dependencies.
-      loader: require.resolve('css-loader'),
-      options: {
-        importLoaders: 1,
-        modules: true
-      }
+      loader: require.resolve('css-loader')
     },
     {
       // `postcss-loader` applies autoprefixer to our CSS.

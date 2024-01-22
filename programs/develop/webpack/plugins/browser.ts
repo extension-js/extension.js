@@ -7,7 +7,7 @@
 
 // import path from 'path'
 import type webpack from 'webpack'
-import {getOutputPath} from '../config/getPath'
+import {getManifestPath, getOutputPath} from '../config/getPath'
 import {type DevOptions} from '../../extensionDev'
 import RunChromeExtension from 'webpack-run-chrome-extension'
 // import RunEdgeExtension from 'webpack-run-edge-extension'
@@ -21,11 +21,11 @@ export default function browserPlugins(
 
   const chromeConfig = {
     port: 8082,
+    manifestPath: getManifestPath(projectPath),
     // The final folder where the extension manifest file is located.
     // This is used to load the extension into the browser.
     extensionPath: getOutputPath(projectPath, devOptions.browser),
-    autoReload: false,
-    // autoReload: 'background' as 'background',
+    autoReload: true,
     browserFlags: ['--enable-benchmarking']
   }
 

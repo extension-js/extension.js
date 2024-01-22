@@ -34,9 +34,12 @@ export default async function generateExtensionTypes(
   /// <reference types="extension-create/develop/types/polyfill.d.ts" />
 
   try {
+    await fs.mkdir(projectPath, {recursive: true})
+
     console.log('🔷 - Writing extension type definitions...')
+
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (err) {
-    console.log('🔴 - Failed to write the extension type definition.')
+    console.log('🔴 - Failed to write the extension type definition.', err)
   }
 }

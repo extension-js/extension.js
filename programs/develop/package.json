@@ -26,8 +26,7 @@
     "watch": "yarn compile --watch",
     "compile": "tsup-node ./module.ts --format cjs --dts --target=node16 --minify",
     "lint": "eslint \"./**/*.ts*\"",
-    "test": "echo \"Note: no test specified\" && exit 0",
-    "program:dev": "webpack serve --config ./webpack/webpack.dev.js"
+    "test": "echo \"Note: no test specified\" && exit 0"
   },
   "dependencies": {
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.10",
@@ -69,13 +68,16 @@
     "ts-loader": "^9.4.2",
     "webextension-polyfill": "^0.10.0",
     "webpack": "^5.81.0",
+    "webpack-browser-extension-common-errors-plugin": "*",
     "webpack-browser-extension-html-plugin": "*",
     "webpack-browser-extension-icons-plugin": "*",
     "webpack-browser-extension-json-plugin": "*",
     "webpack-browser-extension-locales-plugin": "*",
     "webpack-browser-extension-manifest-plugin": "*",
+    "webpack-browser-extension-manifest-compat-plugin": "*",
+    "webpack-browser-extension-resources-plugin": "*",
     "webpack-browser-extension-scripts-plugin": "*",
-    "webpack-dev-server": "^4.13.3",
+    "webpack-dev-server": "^4.7.4",
     "webpack-merge": "^5.8.0",
     "webpack-run-chrome-extension": "*",
     "xml-loader": "^1.2.1"

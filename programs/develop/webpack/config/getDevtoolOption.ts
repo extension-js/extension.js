@@ -26,7 +26,6 @@ export default function getDevToolOption(projectPath: string) {
   if (manifest.manifest_version === 3) {
     return 'cheap-source-map'
   }
-  // TODO: cezaraugusto check implcations of this with HMR
-  // return 'eval-cheap-source-map'
-  return 'cheap-source-map'
+
+  return 'eval-cheap-source-map'
 }

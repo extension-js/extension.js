@@ -52,7 +52,10 @@
     "webpack-cli": "^4.2.0"
   },
   "dependencies": {
+    "ajv": "^8.12.0",
     "browser-extension-manifest-fields": "*",
-    "minimatch": "^9.0.3"
+    "chrome-extension-manifest-json-schema": "^0.2.0",
+    "minimatch": "^9.0.3",
+    "webpack-manifest-plugin": "^5.0.0"
   }
 }

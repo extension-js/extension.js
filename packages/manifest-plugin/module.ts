@@ -1,12 +1,13 @@
 import type webpack from 'webpack'
-import {type ManifestPluginInterface} from './types'
+import {type ManifestPluginInterface} from './src/types'
 
 // Manifest plugins
-import EmitManifestPlugin from './plugins/EmitManifestPlugin'
-import MinimumRequirementsPlugin from './plugins/MinimumRequirementsPlugin'
-import UpdateManifestPlugin from './plugins/UpdateManifestPlugin'
-import AddDependenciesPlugin from './plugins/AddDependenciesPlugin'
-// import WatchRecompilePlugin from './plugins/WatchRecompilePlugin'
+import EmitManifestPlugin from './src/plugins/EmitManifestPlugin'
+import MinimumRequirementsPlugin from './src/plugins/MinimumRequirementsPlugin'
+import UpdateManifestPlugin from './src/plugins/UpdateManifestPlugin'
+import AddDependenciesPlugin from './src/plugins/AddDependenciesPlugin'
+import CheckManifestFilesPlugin from './src/plugins/CheckManifestFilesPlugin'
+import ThrowIfRecompileIsNeeded from './src/plugins/ThrowIfRecompileIsNeeded'
 
 export default class ManifestPlugin {
   public readonly browser?: string
@@ -20,6 +21,10 @@ export default class ManifestPlugin {
   }
 
   public apply(compiler: webpack.Compiler) {
+    // Before attempting to do anything, check
+    // if manifest meets the minimum requirements.
+    new MinimumRequirementsPlugin().apply(compiler)
+
     // Add the manifest to the assets bundle.
     // This is important so other plugins can
     // get it via the compilation.assets object,
@@ -28,9 +33,9 @@ export default class ManifestPlugin {
       manifestPath: this.manifestPath
     }).apply(compiler)
 
-    // Before attempting to do anything, check
-    // if manifest meets the minimum requirements.
-    new MinimumRequirementsPlugin().apply(compiler)
+    new CheckManifestFilesPlugin({
+      manifestPath: this.manifestPath
+    }).apply(compiler)
 
     // Override the manifest with the updated version.
     new UpdateManifestPlugin({
@@ -41,5 +46,13 @@ export default class ManifestPlugin {
     // Ensure this manifest is stored as file dependency
     // so webpack can watch and trigger changes.
     new AddDependenciesPlugin([this.manifestPath]).apply(compiler)
+
+    // Some files in manifest are used as entrypoints. Since
+    // we can't recompile entrypoints at runtime, we need to
+    // throw an error if any of those files change.
+    new ThrowIfRecompileIsNeeded({
+      manifestPath: this.manifestPath,
+      exclude: this.exclude
+    }).apply(compiler)
   }
 }

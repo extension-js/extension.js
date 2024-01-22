@@ -35,6 +35,7 @@ export default function contentScript(
     const css = contentCss(content)
 
     contentScriptsData[`content_scripts-${index}`] = [
+      // contentScriptsData.content_scripts = [
       ...(js || []).filter((js) => js != null),
       ...(css || []).filter((css) => css != null)
     ]
