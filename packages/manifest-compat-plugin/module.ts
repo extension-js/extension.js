@@ -2,8 +2,8 @@ import Ajv from 'ajv'
 import fs from 'fs'
 import path from 'path'
 import {Compiler, WebpackError} from 'webpack'
-import v2Schema from 'chrome-extension-manifest-json-schema/manifest/manifest.schema.v2.json'
-import v3Schema from 'chrome-extension-manifest-json-schema/manifest/manifest.schema.v3.json'
+// import v2Schema from './lib/manifest.schema.v2.json'
+import v3Schema from './lib/manifest.schema.v3.json'
 import addCustomFormats from './src/helpers/customValidators'
 
 interface ManifestCompatPluginOptions {
@@ -30,23 +30,17 @@ export default class ManifestCompatPlugin {
         const ajv = new Ajv()
         addCustomFormats(ajv)
 
-        let schema
-        if (manifest.manifest_version === 2) {
-          schema = v2Schema
-        } else if (manifest.manifest_version === 3) {
-          schema = v3Schema
-        } else {
-          compilation.warnings.push(
-            new WebpackError('Unsupported manifest version')
-          )
-          return done()
-        }
+        const combinedSchema = {
+          "allOf": [
+            v3Schema
+          ]
+        };
 
-        const validate = ajv.compile(schema)
+        const validate = ajv.compile(combinedSchema)
         const valid = validate(manifest)
 
         if (!valid) {
-          compilation.warnings.push(
+          compilation.errors.push(
             new WebpackError(
               'Manifest validation error: ' + ajv.errorsText(validate.errors)
             )
