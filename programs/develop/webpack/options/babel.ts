@@ -17,9 +17,11 @@ export function getBabelConfigFile(projectDir: string) {
     const configFile = path.join(projectDir, file)
 
     if (fs.existsSync(configFile)) {
-      console.log(
-        `🟡 - Using Babel config file: \`${path.basename(configFile)}\``
-      )
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(
+          `🟡 - Using Babel config file: \`${path.basename(configFile)}\``
+        )
+      }
       return configFile
     }
   }

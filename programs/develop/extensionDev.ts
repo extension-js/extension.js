@@ -18,7 +18,7 @@ export interface DevOptions {
   port?: number
   noOpen?: boolean
   userDataDir?: string | boolean
-  noPolyfill?: boolean
+  polyfill?: boolean
 }
 
 export default async function extensionDev(

@@ -7,16 +7,16 @@
 
 /* eslint-disable @typescript-eslint/no-floating-promises */
 
-import fs from 'fs/promises'
-import path from 'path'
+const fs = require('fs/promises')
+const path = require('path')
 
 const sourceDir = path.resolve(__dirname, '../../../')
 const targetDir = path.resolve(__dirname, '../')
 
 async function copyMarkdownFilesToCli(
-  sourcePath: string,
-  targetPath: string
-): Promise<void> {
+  sourcePath,
+  targetPath
+) {
   try {
     const sourceData = await fs.readFile(sourcePath, 'utf8')
     let targetData = ''
@@ -40,7 +40,7 @@ async function copyMarkdownFilesToCli(
         )} haven't changed. Skipping copy...`
       )
     }
-  } catch (err: any) {
+  } catch (err) {
     if (err.code === 'ENOENT') {
       console.error(`File not found: ${err.path}`)
     } else {
@@ -49,7 +49,7 @@ async function copyMarkdownFilesToCli(
   }
 }
 
-;(async (): Promise<void> => {
+;(async () => {
   try {
     await copyMarkdownFilesToCli(
       path.join(sourceDir, 'README.md'),

@@ -59,4 +59,4 @@ packages/*/demo
 packages/*/spec
 browser-extension-test-data
 TODO.yml
-_examples
+__TEST__

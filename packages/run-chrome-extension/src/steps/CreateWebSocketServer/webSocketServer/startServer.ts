@@ -31,9 +31,9 @@ export default function (compiler: Compiler, port?: number) {
 
       if (message.status === 'clientReady') {
         if (!message.data) {
-          compiler.getInfrastructureLogger('🧩').error(
-            '[run-chrome] No data received from client.'
-          )
+          compiler
+            .getInfrastructureLogger('🧩')
+            .error('[run-chrome] No data received from client.')
           // throw new Error('[run-chrome] No data received from client.')
         }
 

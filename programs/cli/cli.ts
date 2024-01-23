@@ -27,7 +27,7 @@ import {
   extensionBuild
 } from '@extension-create/develop'
 
-if (semver.lte(process.version, '16.0.0')) {
+if (semver.lte(process.version, '18.0.0')) {
   messages.unsupportedNodeVersion()
   process.exit(1)
 }
@@ -47,8 +47,6 @@ const extensionCreate = program
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-// This package is provided
-// both via npx extension <args> and npx extension-create <args>
 const isExtensionCreateNamespace = packageJson.name === 'extension-create'
 
 extensionCreate
@@ -68,8 +66,8 @@ extensionCreate
   // Pprevent users form using
   // the redundant `npx extension-create create` command.
   .command('create', {isDefault: isExtensionCreateNamespace})
-  .arguments('<project-name>')
-  .usage('create <project-name> [options]')
+  .arguments('<project-name|project-path>')
+  .usage('create <project-name|project-path> [options]')
   .description('Creates a new extension.')
   .option(
     '-t, --template <template-name>',
@@ -91,13 +89,9 @@ extensionCreate
 
 extensionCreate
   .command('dev')
-  .arguments('[pathOrRemoteUrl]')
-  .usage('dev [path-to-remote-extension] [options]')
-  .description('start the development server (dev mode)')
-  .option(
-    '-no, --no-launch <boolean>',
-    'whether to launch the browser. This invalidates the `--user-data-dir` flag. Defaults to `true`'
-  )
+  .arguments('[project-path|remote-url]')
+  .usage('dev [project-path|remote-url] [options]')
+  .description('Starts the development server (development mode)')
   .option(
     '-u, --user-data-dir <path-to-file | boolean>',
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
@@ -137,13 +131,9 @@ extensionCreate
 
 extensionCreate
   .command('start')
-  .arguments('[pathOrRemoteUrl]')
-  .usage('dev [path-to-remote-extension] [options]')
-  .description('start the development server (dev mode)')
-  .option(
-    '-no, --no-launch <boolean>',
-    'whether to launch the browser. This invalidates the `--user-data-dir` flag. Defaults to `true`'
-  )
+  .arguments('[project-path|remote-url]')
+  .usage('start [project-path|remote-url] [options]')
+  .description('Starts the development server (production mode)')
   .option(
     '-u, --user-data-dir <path-to-file | boolean>',
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
@@ -185,14 +175,14 @@ extensionCreate
   .command('build')
   .arguments('[project-name]')
   .usage('build [path-to-remote-extension] [options]')
-  .description('start the development server (dev mode)')
+  .description('Builds the extension for production')
   .option(
     '-b, --browser <chrome | edge>',
     'specify a browser to run your extension in development mode'
   )
   .option(
-    '--no-polyfill <boolean>',
-    'whether or not to apply the cross-browser polyfill. Defaults to `true`'
+    '--polyfill <boolean>',
+    'whether or not to apply the cross-browser polyfill. Defaults to `false`'
   )
   .action(function (
     pathOrRemoteUrl: string,
