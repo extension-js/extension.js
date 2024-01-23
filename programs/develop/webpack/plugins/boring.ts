@@ -11,8 +11,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
     apply: (compiler: webpack.Compiler) => {
       compiler.hooks.done.tap('errorPlugins', (stats) => {
         const divider = stats.hasErrors() ? '✖︎✖︎✖︎' : '►►►'
-        stats.compilation.name = `🧩 extension-create ${divider} ${projectName} (${projectVersion}) running in ${mode} mode`
-        // stats.compilation.name = `[extension-create 🧩] ${divider} ${projectName} running in ${mode} mode`
+        stats.compilation.name = `\n🧩 extension-create ${divider} ${projectName} (${projectVersion})`
       })
     }
   }

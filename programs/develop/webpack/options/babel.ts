@@ -38,7 +38,9 @@ export function babelConfig(projectDir: string, opts: any) {
     presets: [...presetModernExtensions(opts).presets],
     plugins: [
       ...presetModernExtensions(opts).plugins,
-      opts.mode === 'development' && require.resolve('react-refresh/babel')
+      process.env.NODE_ENV !== 'test' &&
+        opts.mode === 'development' &&
+        require.resolve('react-refresh/babel')
     ].filter(Boolean)
   }
 }

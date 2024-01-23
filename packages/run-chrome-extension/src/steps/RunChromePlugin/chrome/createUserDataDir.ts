@@ -14,10 +14,7 @@ export default function createUserDataDir() {
     }
   })
 
-  const outputPath = path.resolve(
-    __dirname,
-    'webpack-run-chrome-extension-data-dir'
-  )
+  const outputPath = path.resolve(__dirname, 'run-chrome-data-dir')
   const preferences = path.join(outputPath, 'Default')
 
   fs.ensureDirSync(preferences)

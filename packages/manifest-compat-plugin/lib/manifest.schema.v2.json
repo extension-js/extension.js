@@ -1,0 +1,108 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://json.schemastore.org/chrome-manifest-v2.json",
+  "title": "JSON schema for Google Chrome extension manifest files (Version 2)",
+  "type": "object",
+  "required": ["manifest_version", "name", "version"],
+  "properties": {
+    "manifest_version": {
+      "type": "number",
+      "description": "Specifies the manifest schema version",
+      "enum": [2]
+    },
+    "name": {
+      "type": "string",
+      "description": "The name of the extension",
+      "maxLength": 45
+    },
+    "version": {
+      "type": "string",
+      "description": "One to four dot-separated integers identifying the version of this extension.",
+      "pattern": "^(?:\\d{1,5}\\.){0,3}\\d{1,5}$"
+    },
+    "default_locale": {
+      "type": "string",
+      "description": "Specifies the default locale for this extension"
+    },
+    "description": {
+      "type": "string",
+      "description": "A plain text description of the extension"
+    },
+    "icons": {
+      "type": "object",
+      "properties": {
+        "16": {"type": "string"},
+        "48": {"type": "string"},
+        "128": {"type": "string"}
+      },
+      "description": "One or more icons representing the extension"
+    },
+    "background": {
+      "type": "object",
+      "properties": {
+        "scripts": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Scripts to be included in the background page"
+        },
+        "page": {
+          "type": "string",
+          "description": "Path to an HTML file for the background page"
+        },
+        "persistent": {
+          "type": "boolean",
+          "description": "Indicates whether the background page stays loaded"
+        }
+      }
+    },
+    "browser_action": {
+      "type": "object",
+      "properties": {
+        "default_icon": {
+          "type": "object",
+          "properties": {
+            "19": {"type": "string"},
+            "38": {"type": "string"}
+          }
+        },
+        "default_popup": {"type": "string"},
+        "default_title": {"type": "string"}
+      }
+    },
+    "content_scripts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "matches": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "exclude_matches": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "js": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "css": {
+            "type": "array",
+            "items": {"type": "string"}
+          },
+          "run_at": {
+            "type": "string",
+            "enum": ["document_start", "document_end", "document_idle"]
+          },
+          "all_frames": {"type": "boolean"}
+        },
+        "required": ["matches"]
+      }
+    },
+    "permissions": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": false
+}

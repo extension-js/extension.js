@@ -3,6 +3,7 @@ import {Compilation, sources} from 'webpack'
 import {patchV2CSP, patchV3CSP} from './patchCSP'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patchWebResources'
 import patchBackground from './patchBackground'
+import patchExternallyConnectable from './patchExternallyConnectable'
 import {type RunChromeExtensionInterface} from '../../../types'
 
 class ApplyManifestDevDefaultsPlugin {
@@ -50,6 +51,11 @@ class ApplyManifestDevDefaultsPlugin {
 
       // Use the background script to inject the reload handler.
       ...patchBackground(manifest),
+
+      // A misuse of external_connectable can break communication
+      // across extension reloads, so we ensure that the extension
+      // is externally connectable to all other extensions.
+      ...patchExternallyConnectable(manifest),
 
       // We need to allow /*.json', '/*.js', '/*.css to be able to load
       // the reload script and the reload handler assets.

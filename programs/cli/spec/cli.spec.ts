@@ -13,19 +13,19 @@ import mockFs from 'mock-fs'
 
 const execAsync = promisify(exec)
 
-async function executeCLI(command: string = '', options: string[] = []) {
+async function executeCLI(command: string = '') {
   const cliCommand = `ts-node ${path.join(
     __dirname,
     '..',
     'dist',
     'cli.js'
-  )} ${command} ${options.join(' ')}`
+  )} ${command}`
   return await execAsync(cliCommand)
 }
 
 async function removeDir(dirPath: string) {
   if (fs.existsSync(dirPath)) {
-    await fs.promises.rmdir(dirPath, {recursive: true})
+    await fs.promises.rm(dirPath, {recursive: true})
   }
 }
 
@@ -40,13 +40,18 @@ describe('CLI Commands', () => {
       mockFs.restore()
     })
 
+    afterAll(async () => {
+      await removeDir(extensionPath)
+      await removeDir(customPath)
+    })
+
     it('throws an error if no command is provided', async () => {
       try {
         await executeCLI()
       } catch (error: any) {
         expect(error).toBeTruthy()
         expect(error.message).toContain(
-          "missing required argument 'project-name'"
+          "missing required argument 'project-name|project-path"
         )
       }
     })
@@ -65,7 +70,7 @@ describe('CLI Commands', () => {
     })
 
     it('should display the help message', async () => {
-      const {stdout} = await executeCLI('', ['--help'])
+      const {stdout} = await executeCLI('--help')
       expect(stdout).toContain('Usage:')
     })
   })
@@ -78,6 +83,11 @@ describe('CLI Commands', () => {
       await removeDir(extensionPath)
       await removeDir(customPath)
       mockFs.restore()
+    })
+
+    afterAll(async () => {
+      await removeDir(extensionPath)
+      await removeDir(customPath)
     })
 
     it('throws an error if target directory has conflicting files', async () => {
@@ -101,7 +111,7 @@ describe('CLI Commands', () => {
       } catch (error: any) {
         expect(error).toBeTruthy()
         expect(error.message).toContain(
-          "missing required argument 'project-name'"
+          "missing required argument 'project-name|project-path"
         )
       }
     })
@@ -144,26 +154,10 @@ describe('CLI Commands', () => {
   })
 
   describe.skip('Dev Command', () => {
-    // beforeAll(async () => {
-    //   // Create an extension we can work with
-    //   await executeCLI('create my-extension')
-    // })
-
-    // afterAll(async () => {
-    //   // Remove the extension we created
-    //   await removeDir(path.join(__dirname, '..', 'my-extension'))
-    // })
-
-    // it('should start extension in development mode', async () => {
-    //   const {stdout} = await executeCLI('dev my-extension')
-    //   expect(stdout).toContain('Starting development server')
-    // })
-
     /**
-     * can develop an extension (assert updating html outptus the update part)
+     * can develop an extension
      * can develop an extension from a remote url
      * can start an extension in a custom output directory
-     * can launch without a browser
      * can launch using chrome
      * can launch using edge
      * can launch with a custom user data dir
@@ -173,17 +167,16 @@ describe('CLI Commands', () => {
   })
 
   describe.skip('Start Command', () => {
-  /**
-   * can start an extension
-   * can start an extension from a remote url
-   * can start an extension in a custom output directory
-   * can launch without a browser
-   * can launch using chrome
-   * can launch using edge
-   * can launch with a custom user data dir
-   * can launch without a polyfill
-   * can launch with a custom port
-   */
+    /**
+     * can start an extension
+     * can start an extension from a remote url
+     * can start an extension in a custom output directory
+     * can launch using chrome
+     * can launch using edge
+     * can launch with a custom user data dir
+     * can launch without a polyfill
+     * can launch with a custom port
+     */
   })
 
   describe.skip('Build Command', () => {
