@@ -1,6 +1,6 @@
 export interface HtmlPluginInterface {
   manifestPath: string
-  pages?: string
+  pagesFolder?: string
   exclude?: string[]
 }
 

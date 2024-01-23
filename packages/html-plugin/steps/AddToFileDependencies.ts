@@ -5,13 +5,16 @@ import {type HtmlPluginInterface} from '../types'
 
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
+import getPagesPath from '../helpers/getPagesPath'
 
 export default class AddToFileDependencies {
   public readonly manifestPath: string
+  public readonly pagesFolder?: string
   public readonly exclude?: string[]
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.pagesFolder = options.pagesFolder
     this.exclude = options.exclude || []
   }
 
@@ -31,12 +34,12 @@ export default class AddToFileDependencies {
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const htmlFields = manifestFields(
-              this.manifestPath,
-              manifestSource
-            ).html
+            const allEntries = {
+              ...manifestFields(this.manifestPath, manifestSource).html,
+              ...getPagesPath(this.pagesFolder)
+            }
 
-            for (const field of Object.entries(htmlFields)) {
+            for (const field of Object.entries(allEntries)) {
               const [, resource] = field
 
               if (resource?.html) {

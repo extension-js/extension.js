@@ -1,3 +1,4 @@
+import path from 'path'
 import webpack from 'webpack'
 
 import {type HtmlPluginInterface} from './types'
@@ -11,10 +12,14 @@ import HandleCommonErrors from './steps/HandleCommonErrors'
 
 export default class HtmlPlugin {
   public readonly manifestPath: string
+  public readonly pagesFolder?: string
   public readonly exclude?: string[]
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.pagesFolder = options.pagesFolder
+      ? path.resolve(path.dirname(options.manifestPath), options.pagesFolder)
+      : undefined
     this.exclude = options.exclude || []
   }
 
@@ -23,30 +28,35 @@ export default class HtmlPlugin {
     // 1 - Adds the HTML file to the compilation.
     new AddHtmlFileToCompilation({
       manifestPath: this.manifestPath,
+      pagesFolder: this.pagesFolder,
       exclude: this.exclude
     }).apply(compiler)
 
     // 2 - Adds the assets within the HTML file to the compilation.
     new AddAssetsToCompilation({
       manifestPath: this.manifestPath,
+      pagesFolder: this.pagesFolder,
       exclude: this.exclude
     }).apply(compiler)
 
     // 3 - Adds the scripts and stylesheets within the HTML file to the compilation.
     new AddScriptsAndStyles({
       manifestPath: this.manifestPath,
+      pagesFolder: this.pagesFolder,
       exclude: this.exclude
     }).apply(compiler)
 
     // 4 - Ensure scripts within the HTML file are HMR enabled.
     new EnsureHMRForScripts({
       manifestPath: this.manifestPath,
+      pagesFolder: this.pagesFolder,
       exclude: this.exclude
     }).apply(compiler)
 
     // 5 - Ensure HTML file is recompiled upon changes.
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
+      pagesFolder: this.pagesFolder,
       exclude: this.exclude
     }).apply(compiler)
 
@@ -56,12 +66,14 @@ export default class HtmlPlugin {
     // entrypoints at runtime.
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
+      pagesFolder: this.pagesFolder,
       exclude: this.exclude
     }).apply(compiler)
 
     // 7 - Handle common errors.
     new HandleCommonErrors({
-      manifestPath: this.manifestPath
+      manifestPath: this.manifestPath,
+      pagesFolder: this.pagesFolder
     }).apply(compiler)
   }
 }
