@@ -15,13 +15,13 @@ export function getWebpackStats() {
   }
 
   return {
-    children: true,
+    children: false,
     errorDetails: true,
-    entrypoints: true,
+    entrypoints: false,
     colors: true,
-    assets: true,
-    chunks: true,
-    modules: true
+    assets: false,
+    chunks: false,
+    modules: false
   }
 }
 
@@ -42,7 +42,7 @@ export function getDevServerClientOptions(): ClientConfiguration {
     // before an error or when Hot Module Replacement is enabled.
     logging: 'error',
     // Prints compilation progress in percentage in the browser.
-    progress: true,
+    progress: false,
     // Shows a full-screen overlay in the browser
     // when there are compiler errors or warnings.
     overlay: {

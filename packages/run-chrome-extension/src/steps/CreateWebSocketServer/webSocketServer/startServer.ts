@@ -1,4 +1,4 @@
-import {type Compiler} from 'webpack'
+import {WebpackError, type Compiler} from 'webpack'
 import WebSocket from 'ws'
 
 export default function (compiler: Compiler, port?: number) {
@@ -9,11 +9,6 @@ export default function (compiler: Compiler, port?: number) {
 
   webSocketServer.on('connection', (ws) => {
     ws.send(JSON.stringify({status: 'serverReady'}))
-    if (process.env.EXTENSION_ENV === 'development') {
-      console.log(
-        '\n[extension-create setup] Starting a new Chrome instance...\n'
-      )
-    }
 
     ws.on('error', (error) => {
       console.log('Error', error)
@@ -30,27 +25,35 @@ export default function (compiler: Compiler, port?: number) {
       const message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
-        if (!message.data) {
-          // TODO: cezaraugusto this happens when the extension
-          // can't reach the background script. Improve this error.
-          throw new Error(
-            '[run-chrome] No data received from client. Restart the program and try again.'
-          )
-        }
+        setTimeout(() => {
+          if (!message.data) {
+            // TODO: cezaraugusto this happens when the extension
+            // can't reach the background script. This can be many
+            // things such as a mismatch config or if after an error
+            // the extension starts disabled. Improve this error.
+            throw new WebpackError(
+              '[⛔️] No data received from client. Restart the program and try again.'
+            )
+          }
 
-        const {id, manifest} = message.data
-        const isMutableId = id !== manifest.id
-        // TODO: cezaraugusto Also interesting:
-        // • Size: 1.2 MB
-        // • Static Pages: /pages
-        // • Static Resources: /public
-        // • Web Accessible Resources: /web_accessible_resources
-        console.log(`• Name: ${manifest.name}`)
-        console.log(`• Version: ${manifest.version}`)
-        console.log(`• ID: ${id} (${isMutableId ? 'dynamic' : 'fixed'})`)
-        console.log(`• Permissions: ${manifest.permissions.join(', ')}`)
-        console.log(`• Settings URL: chrome://extensions/?id=${id}\n`)
-        console.log(`[🧩] Started a new Chrome instance. Extension ready.\n`)
+          const compilerOptions = compiler.options
+          const {id, manifest} = message.data
+          const isMutableId = id !== manifest.id
+          // TODO: cezaraugusto Also interesting:
+          // • Size: 1.2 MB
+          // • Static Pages: /pages
+          // • Static Resources: /public
+          // • Web Accessible Resources: /web_accessible_resources
+          console.log('')
+          console.log(
+            `• Name: ${manifest.name} (${compilerOptions.mode} mode)`
+          )
+          console.log(`• Version: ${manifest.version}`)
+          console.log(`• ID: ${id} (${isMutableId ? 'dynamic' : 'fixed'})`)
+          console.log(`• Permissions: ${manifest.permissions.join(', ')}`)
+          console.log(`• Settings URL: chrome://extensions/?id=${id}\n`)
+          console.log(`[🧩] chrome-runtime ►►► Running a new Chrome instance. Extension ready.`)
+        }, 1000)
       }
     })
   })
