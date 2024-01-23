@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import webpack, { Compiler } from 'webpack'
+import webpack, {Compiler} from 'webpack'
 
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'

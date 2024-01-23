@@ -16,7 +16,7 @@ export default function browserAction(
   const browserActionDefaultIcons = []
 
   if (typeof manifest.browser_action.default_icon === 'string') {
-    return path.join(
+    return path.resolve(
       path.dirname(manifestPath),
       manifest.browser_action.default_icon
     )
@@ -24,7 +24,7 @@ export default function browserAction(
 
   for (const icon in manifest.browser_action.default_icon) {
     const browserActionDefaultIconAbsolutePath =
-      (manifest.browser_action.default_icon[icon] = path.join(
+      (manifest.browser_action.default_icon[icon] = path.resolve(
         path.dirname(manifestPath),
         manifest.browser_action.default_icon[icon]
       ))
