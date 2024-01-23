@@ -10,6 +10,7 @@ import manifestFields from 'browser-extension-manifest-fields'
 
 import {isUsingReact} from '../helpers/isUsingReact'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
+import getPagesPath from '../helpers/getPagesPath'
 
 const schema: Schema = {
   type: 'object',
@@ -29,12 +30,14 @@ const schema: Schema = {
 interface InjectContentAcceptContext extends LoaderContext<any> {
   getOptions: () => {
     manifestPath: string
+    pagesFolder?: string
   }
 }
 
 export default function (this: InjectContentAcceptContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
+  const pagesFolder = options.pagesFolder
   const projectPath = path.dirname(manifestPath)
   const manifest = require(manifestPath)
 
@@ -47,7 +50,6 @@ export default function (this: InjectContentAcceptContext, source: string) {
   const reloadCode = `
 if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
   `
-
   // Let the react reload plugin handle the reload.
   // WARN: Removing this check will cause the content script to pile up
   // in the browser. This is something related to the react reload plugin
@@ -56,9 +58,12 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
   // written in JSX doesn't reload. This is a bug.
   if (isUsingReact(projectPath)) return source
 
-  const htmlFields = manifestFields(manifestPath, manifest).html
+  const allEntries = {
+    ...manifestFields(manifestPath, manifest).html,
+    ...getPagesPath(pagesFolder)
+  }
 
-  for (const field of Object.entries(htmlFields)) {
+  for (const field of Object.entries(allEntries)) {
     const [feature, resource] = field
 
     // Resources from the manifest lib can come as undefined.
