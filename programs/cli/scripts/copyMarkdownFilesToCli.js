@@ -13,10 +13,7 @@ const path = require('path')
 const sourceDir = path.resolve(__dirname, '../../../')
 const targetDir = path.resolve(__dirname, '../')
 
-async function copyMarkdownFilesToCli(
-  sourcePath,
-  targetPath
-) {
+async function copyMarkdownFilesToCli(sourcePath, targetPath) {
   try {
     const sourceData = await fs.readFile(sourcePath, 'utf8')
     let targetData = ''

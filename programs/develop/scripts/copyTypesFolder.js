@@ -15,10 +15,7 @@ const fs = require('fs/promises')
 const sourceDir = path.resolve(__dirname, '../')
 const targetDir = path.resolve(__dirname, '../dist')
 
-async function copyTypesToFolder(
-  sourcePath,
-  targetPath
-) {
+async function copyTypesToFolder(sourcePath, targetPath) {
   try {
     const sourceStats = await fs.stat(sourcePath)
     if (sourceStats.isDirectory()) {

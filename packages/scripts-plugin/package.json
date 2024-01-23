@@ -23,7 +23,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node18 --minify",
+    "compile": "tsup-node ./module.ts ./loaders/* ./default-background.ts --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },

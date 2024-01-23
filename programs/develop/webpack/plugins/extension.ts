@@ -34,15 +34,7 @@ export default function extensionPlugins(
       new ManifestPlugin({
         browser,
         manifestPath,
-        exclude: [
-          // Exclude paths that are in the /public/ folder
-          getStaticFolderPath(projectPath),
-          // Exclude filenames used by the reloader plugin.
-          // Otherwise we will parse it to background.[scriptname],
-          // which we want to avoid.
-          path.join(projectPath, 'extension-html-reloader'),
-          path.join(projectPath, 'extension-bg-reloader')
-        ]
+        exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
       // Get every field in manifest that allows an .html file
@@ -55,7 +47,6 @@ export default function extensionPlugins(
       // Get all scripts (bg, content, sw) declared in manifest
       new ScriptsPlugin({
         manifestPath,
-        // Exclude paths that are in the /public/ folder
         exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
@@ -65,14 +56,12 @@ export default function extensionPlugins(
       // Grab all JSON assets from manifest except _locales
       new JsonPlugin({
         manifestPath,
-        // Exclude paths that are in the /public/ folder
         exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
       // Grab all icon assets from manifest including popup icons
       new IconsPlugin({
         manifestPath,
-        // Exclude paths that are in the /public/ folder
         exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
@@ -81,7 +70,6 @@ export default function extensionPlugins(
       // and add them to the assets bundle.
       new ResourcesPlugin({
         manifestPath
-        // Exclude paths that are in the /public/ folder
         // exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
