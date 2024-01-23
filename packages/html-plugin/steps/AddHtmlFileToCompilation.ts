@@ -11,13 +11,16 @@ import {getFilepath} from '../helpers/getResourceName'
 import shouldEmitFile from '../helpers/shouldEmitFile'
 import patchHtml from '../lib/patchHtml'
 import {manifestFieldError} from '../helpers/messages'
+import getPagesPath from '../helpers/getPagesPath'
 
 export default class AddHtmlFileToCompilation {
   public readonly manifestPath: string
+  public readonly pagesFolder?: string
   public readonly exclude?: string[]
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.pagesFolder = options.pagesFolder
     this.exclude = options.exclude || []
   }
 
@@ -64,12 +67,13 @@ export default class AddHtmlFileToCompilation {
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const htmlFields = manifestFields(
-              this.manifestPath,
-              manifestSource
-            ).html
+            const allEntries = {
+              ...manifestFields(this.manifestPath, manifestSource).html,
+              ...getPagesPath(this.pagesFolder)
+            }
 
-            for (const field of Object.entries(htmlFields)) {
+            console.log({allEntries, pagesPath: getPagesPath(this.pagesFolder)})
+            for (const field of Object.entries(allEntries)) {
               const [feature, resource] = field
 
               // Resources from the manifest lib can come as undefined.

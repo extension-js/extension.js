@@ -11,20 +11,26 @@ import {getFilepath} from '../helpers/getResourceName'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 import shouldEmitFile from '../helpers/shouldEmitFile'
 import shouldExclude from '../helpers/shouldExclude'
+import getPagesPath from '../helpers/getPagesPath'
 
 export default class AddScriptsAndStyles {
   public readonly manifestPath: string
+  public readonly pagesFolder?: string
   public readonly exclude?: string[]
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.pagesFolder = options.pagesFolder
     this.exclude = options.exclude || []
   }
 
   public apply(compiler: webpack.Compiler): void {
-    const htmlFields = manifestFields(this.manifestPath).html
+    const allEntries = {
+      ...manifestFields(this.manifestPath).html,
+      ...getPagesPath(this.pagesFolder)
+    }
 
-    for (const field of Object.entries(htmlFields)) {
+    for (const field of Object.entries(allEntries)) {
       const [feature, resource] = field
 
       // Resources from the manifest lib can come as undefined.

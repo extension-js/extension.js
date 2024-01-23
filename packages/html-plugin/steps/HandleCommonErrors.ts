@@ -4,10 +4,12 @@ import manifestFields from 'browser-extension-manifest-fields'
 
 import {fileError} from '../helpers/messages'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
+import getPagesPath from '../helpers/getPagesPath'
 import {HtmlPluginInterface} from '../types'
 
 export function handleCantResolveError(
   manifestPath: string,
+  pagesFolder: string | undefined,
   error: webpack.WebpackError
 ) {
   const cantResolveMsg = "Module not found: Error: Can't resolve "
@@ -15,9 +17,12 @@ export function handleCantResolveError(
   const wrongFilename = customError.split("'")[1]
 
   if (error.message.includes(cantResolveMsg)) {
-    const htmlFields = manifestFields(manifestPath).html
+    const allEntries = {
+      ...manifestFields(manifestPath).html,
+      ...getPagesPath(pagesFolder)
+    }
 
-    for (const field of Object.entries(htmlFields)) {
+    for (const field of Object.entries(allEntries)) {
       const [feature, resource] = field
 
       // Resources from the manifest lib can come as undefined.
@@ -32,7 +37,11 @@ export function handleCantResolveError(
           jsAssets.includes(wrongFilename) ||
           cssAssets.includes(wrongFilename)
         ) {
-          const errorMsg = fileError(resource?.html, wrongFilename)
+          const errorMsg = fileError(
+            manifestPath,
+            resource?.html,
+            wrongFilename
+          )
           return new webpack.WebpackError(errorMsg)
         }
       }
@@ -44,9 +53,11 @@ export function handleCantResolveError(
 
 export default class CommonErrorsPlugin {
   public readonly manifestPath: string
+  public readonly pagesFolder?: string
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.pagesFolder = options.pagesFolder
   }
 
   apply(compiler: webpack.Compiler) {
@@ -63,6 +74,7 @@ export default class CommonErrorsPlugin {
               // For that we use the AddAssetsToCompilationPlugin.
               const cantResolveError = handleCantResolveError(
                 this.manifestPath,
+                this.pagesFolder,
                 error
               )
               if (cantResolveError) {

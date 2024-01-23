@@ -62,8 +62,10 @@ export default class AddScriptsAndStyles {
 
       // During development, ensure we have a background.js file
       // entry point, so that we can hot reload it.
-      const isBackgroundMv2 = manifest.manifest_version === 2 && feature === 'background'
-      const isBackgroundMv3 = manifest.manifest_version === 3 && feature === 'service_worker'
+      const isBackgroundMv2 =
+        manifest.manifest_version === 2 && feature === 'background'
+      const isBackgroundMv3 =
+        manifest.manifest_version === 3 && feature === 'service_worker'
       if (
         IS_DEV &&
         (isBackgroundMv2 || isBackgroundMv3) &&

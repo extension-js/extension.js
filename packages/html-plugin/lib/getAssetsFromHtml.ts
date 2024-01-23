@@ -5,9 +5,9 @@ import utils from 'parse5-utils'
 import parseHtml from './parseHtml'
 
 export interface ParsedHtmlAsset {
-  css: string[]
-  js: string[]
-  static: string[]
+  css?: string[]
+  js?: string[]
+  static?: string[]
 }
 
 export default function getAssetsFromHtml(
@@ -45,14 +45,14 @@ export default function getAssetsFromHtml(
 
           switch (assetType) {
             case 'script':
-              assets.js.push(fileAbsolutePath)
+              assets.js?.push(fileAbsolutePath)
               break
             case 'css':
-              assets.css.push(fileAbsolutePath)
+              assets.css?.push(fileAbsolutePath)
               break
             case 'staticSrc':
             case 'staticHref':
-              assets.static.push(fileAbsolutePath)
+              assets.static?.push(fileAbsolutePath)
               break
             default:
               break

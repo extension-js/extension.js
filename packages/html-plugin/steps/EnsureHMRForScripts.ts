@@ -5,10 +5,12 @@ import {type HtmlPluginInterface} from '../types'
 
 export default class EnsureHMRForScripts {
   public readonly manifestPath: string
+  public readonly pagesFolder?: string
   public readonly exclude?: string[]
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.pagesFolder = options.pagesFolder
     this.exclude = options.exclude || []
   }
 
@@ -20,7 +22,8 @@ export default class EnsureHMRForScripts {
           loader: path.resolve(__dirname, './loaders/InjectHmrAcceptLoader'),
           options: {
             manifestPath: this.manifestPath,
-            exclude: this.exclude
+            exclude: this.exclude,
+            pagesFolder: this.pagesFolder
           }
         }
       ]
