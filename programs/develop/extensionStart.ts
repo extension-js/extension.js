@@ -16,7 +16,7 @@ export interface StartOptions {
   port?: number
   noOpen?: boolean
   userDataDir?: string | boolean
-  noPolyfill?: boolean
+  polyfill?: boolean
 }
 
 export default async function extensionStart(
