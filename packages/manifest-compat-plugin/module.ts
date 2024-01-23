@@ -31,10 +31,8 @@ export default class ManifestCompatPlugin {
         addCustomFormats(ajv)
 
         const combinedSchema = {
-          "allOf": [
-            v3Schema
-          ]
-        };
+          allOf: [v3Schema]
+        }
 
         const validate = ajv.compile(combinedSchema)
         const valid = validate(manifest)

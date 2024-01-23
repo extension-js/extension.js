@@ -45,14 +45,14 @@ export default function (compiler: Compiler, port?: number) {
           // • Static Resources: /public
           // • Web Accessible Resources: /web_accessible_resources
           console.log('')
-          console.log(
-            `• Name: ${manifest.name} (${compilerOptions.mode} mode)`
-          )
+          console.log(`• Name: ${manifest.name} (${compilerOptions.mode} mode)`)
           console.log(`• Version: ${manifest.version}`)
           console.log(`• ID: ${id} (${isMutableId ? 'dynamic' : 'fixed'})`)
           console.log(`• Permissions: ${manifest.permissions.join(', ')}`)
           console.log(`• Settings URL: chrome://extensions/?id=${id}\n`)
-          console.log(`[🧩] chrome-runtime ►►► Running a new Chrome instance. Extension ready.`)
+          console.log(
+            `[🧩] chrome-runtime ►►► Running a new Chrome instance. Extension ready.`
+          )
         }, 1000)
       }
     })

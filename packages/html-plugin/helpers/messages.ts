@@ -1,23 +1,29 @@
 import path from 'path'
 
-export function fileError(feature: string | undefined, filePath: string) {
+export function fileError(
+  manifestPath: string,
+  feature: string | undefined,
+  filePath: string
+) {
   if (!feature) {
     throw new Error('This operation is impossible. Please report a bug.')
   }
+
+  const projectDir = path.dirname(manifestPath)
 
   switch (path.extname(filePath)) {
     case '.js':
     case '.ts':
     case '.jsx':
     case '.tsx':
-      return javaScriptError(feature, filePath)
+      return javaScriptError(projectDir, feature, filePath)
     case '.css':
     case '.scss':
     case '.sass':
     case '.less':
-      return cssError(feature, filePath)
+      return cssError(projectDir, feature, filePath)
     default:
-      return staticAssetErrorMessage(feature, filePath)
+      return staticAssetErrorMessage(projectDir, feature, filePath)
   }
 }
 
@@ -78,24 +84,36 @@ export function manifestFieldError(feature: string, htmlFilePath: string) {
   return errorMessage
 }
 
-export function javaScriptError(htmlFilePath: string, inputFilepath: string) {
+export function javaScriptError(
+  manifestPath: string,
+  htmlFilePath: string,
+  inputFilepath: string
+) {
+  const pathRelative = path.relative(manifestPath, htmlFilePath)
   const hintMessage = `Check your <script> tags in \`${htmlFilePath}\`.`
-  const errorMessage = `[HTML] File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const errorMessage = `[${pathRelative}] File path \`${inputFilepath}\` not found. ${hintMessage}`
   return errorMessage
 }
 
-export function cssError(htmlFilePath: string, inputFilepath: string) {
+export function cssError(
+  manifestPath: string,
+  htmlFilePath: string,
+  inputFilepath: string
+) {
+  const pathRelative = path.relative(manifestPath, htmlFilePath)
   const hintMessage = `Check your <link> tags in \`${htmlFilePath}\`.`
-  const errorMessage = `[HTML] File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const errorMessage = `[${pathRelative}] File path \`${inputFilepath}\` not found. ${hintMessage}`
   return errorMessage
 }
 
 export function staticAssetErrorMessage(
+  manifestPath: string,
   htmlFilePath: string,
   inputFilepath: string
 ) {
   const extname = path.extname(inputFilepath)
-  const hintMessage = `Check your *${extname} file paths in \`${htmlFilePath}\`.`
-  const errorMessage = `[HTML] File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const pathRelative = path.relative(manifestPath, htmlFilePath)
+  const hintMessage = `Check your *${extname} assets in \`${htmlFilePath}\`.`
+  const errorMessage = `[${pathRelative}] File path \`${inputFilepath}\` not found. ${hintMessage}`
   return errorMessage
 }

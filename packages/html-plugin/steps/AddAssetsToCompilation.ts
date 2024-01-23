@@ -12,13 +12,16 @@ import {getFilepath} from '../helpers/getResourceName'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 import {fileError} from '../helpers/messages'
 import shouldEmitFile from '../helpers/shouldEmitFile'
+import getPagesPath from '../helpers/getPagesPath'
 
 export default class AddAssetsToCompilation {
   public readonly manifestPath: string
+  public readonly pagesFolder?: string
   public readonly exclude?: string[]
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.pagesFolder = options.pagesFolder
     this.exclude = options.exclude || []
   }
 
@@ -27,7 +30,7 @@ export default class AddAssetsToCompilation {
     htmlFilePath: string,
     filePath: string
   ) {
-    const errorMessage = fileError(htmlFilePath, filePath)
+    const errorMessage = fileError(this.manifestPath, htmlFilePath, filePath)
 
     compilation.warnings.push(new webpack.WebpackError(errorMessage))
   }
@@ -49,12 +52,12 @@ export default class AddAssetsToCompilation {
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const htmlFields = manifestFields(
-              this.manifestPath,
-              manifestSource
-            ).html
+            const allEntries = {
+              ...manifestFields(this.manifestPath, manifestSource).html,
+              ...getPagesPath(this.pagesFolder)
+            }
 
-            for (const field of Object.entries(htmlFields)) {
+            for (const field of Object.entries(allEntries)) {
               const [feature, resource] = field
 
               // Resources from the manifest lib can come as undefined.

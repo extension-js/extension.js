@@ -41,7 +41,7 @@ export default function extensionPlugins(
       new HtmlPlugin({
         manifestPath,
         exclude: [getStaticFolderPath(projectPath)],
-        pages: getDynamicPagesPath(projectPath)
+        pagesFolder: getDynamicPagesPath(projectPath)
       }).apply(compiler)
 
       // Get all scripts (bg, content, sw) declared in manifest

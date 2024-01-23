@@ -4,15 +4,18 @@ import manifestFields from 'browser-extension-manifest-fields'
 
 import {type HtmlPluginInterface} from '../types'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
+import getPagesPath from '../helpers/getPagesPath'
 import {serverRestartRequired} from '../helpers/messages'
 
 export default class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
+  public readonly pagesFolder?: string
   public readonly exclude?: string[]
   private initialHtmlAssets: Record<string, {js: string[]; css: string[]}> = {}
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.pagesFolder = options.pagesFolder
     this.exclude = options.exclude || []
   }
 
@@ -77,7 +80,12 @@ export default class ThrowIfRecompileIsNeeded {
   public apply(compiler: webpack.Compiler): void {
     const manifest = require(this.manifestPath)
     const htmlFields = manifestFields(this.manifestPath, manifest).html
-    this.storeInitialHtmlAssets(htmlFields)
+    const allEntries = {
+      ...manifestFields(this.manifestPath, htmlFields).html,
+      ...getPagesPath(this.pagesFolder)
+    }
+
+    this.storeInitialHtmlAssets(allEntries)
 
     compiler.hooks.make.tapAsync(
       'RunChromeExtensionPlugin',
@@ -94,10 +102,10 @@ export default class ThrowIfRecompileIsNeeded {
 
           if (this.hasEntriesChanged(updatedJsEntries, initialJsEntries)) {
             const projectDir = path.dirname(this.manifestPath)
-            const contentChanged = this.whichEntryChanged(
-              initialJsEntries,
-              updatedJsEntries
-            )
+            // const contentChanged = this.whichEntryChanged(
+            //   initialJsEntries,
+            //   updatedJsEntries
+            // )
 
             const errorMessage = serverRestartRequired(
               projectDir,
@@ -109,10 +117,10 @@ export default class ThrowIfRecompileIsNeeded {
 
           if (this.hasEntriesChanged(updatedCssEntries, initialCssEntries)) {
             const projectDir = path.dirname(this.manifestPath)
-            const contentChanged = this.whichEntryChanged(
-              initialCssEntries,
-              updatedCssEntries
-            )
+            // const contentChanged = this.whichEntryChanged(
+            //   initialCssEntries,
+            //   updatedCssEntries
+            // )
 
             const errorMessage = serverRestartRequired(
               projectDir,
