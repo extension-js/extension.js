@@ -112,7 +112,6 @@ async function requestInitialLoadData() {
             )
             resolve(null)
           } else {
-            console.log({response})
             resolve(response)
           }
         }

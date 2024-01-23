@@ -23,7 +23,7 @@ import {getDynamicPagesPath, getStaticFolderPath} from '../config/getPath'
 
 export default function extensionPlugins(
   projectPath: string,
-  {noPolyfill, browser}: DevOptions
+  {polyfill, browser}: DevOptions
 ) {
   const manifestPath = path.resolve(projectPath, 'manifest.json')
 
@@ -86,7 +86,7 @@ export default function extensionPlugins(
       }).apply(compiler)
 
       // Allow browser polyfill as needed
-      if (!noPolyfill) {
+      if (polyfill) {
         if (browser !== 'firefox') {
           new webpack.ProvidePlugin({
             browser: require.resolve('webextension-polyfill')

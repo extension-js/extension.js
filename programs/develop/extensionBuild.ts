@@ -10,7 +10,7 @@ import buildWebpack from './webpack/buildWebpack'
 
 export interface BuildOptions {
   browser?: 'chrome' | 'edge'
-  noPolyfill?: boolean
+  polyfill?: boolean
 }
 
 export default function extensionBuild(

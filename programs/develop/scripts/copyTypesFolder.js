@@ -9,16 +9,16 @@
 
 /* eslint-disable @typescript-eslint/no-floating-promises */
 
-import path from 'path'
-import fs from 'fs/promises'
+const path = require('path')
+const fs = require('fs/promises')
 
 const sourceDir = path.resolve(__dirname, '../')
 const targetDir = path.resolve(__dirname, '../dist')
 
 async function copyTypesToFolder(
-  sourcePath: string,
-  targetPath: string
-): Promise<void> {
+  sourcePath,
+  targetPath
+) {
   try {
     const sourceStats = await fs.stat(sourcePath)
     if (sourceStats.isDirectory()) {
@@ -41,7 +41,7 @@ async function copyTypesToFolder(
         )} copied to ${targetPath}`
       )
     }
-  } catch (err: any) {
+  } catch (err) {
     if (err.code === 'ENOENT') {
       console.error(`File or directory not found: ${err.path.toString()}`)
     } else {
@@ -50,7 +50,7 @@ async function copyTypesToFolder(
   }
 }
 
-;(async (): Promise<void> => {
+;(async () => {
   try {
     await copyTypesToFolder(
       path.join(sourceDir, 'types'),

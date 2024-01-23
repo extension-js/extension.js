@@ -6,16 +6,13 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import fs from 'fs'
-import webpack from 'webpack'
+import webpack, { Compiler } from 'webpack'
 
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
-import ForkTsCheckerWarningWebpackPlugin from './fork-ts-checker-warning-webpack-plugin'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-import Dotenv from 'dotenv-webpack'
+// import Dotenv from 'dotenv-webpack'
 
 // Checks
-import {isUsingTypeScript} from '../options/typescript'
 import {type DevOptions} from '../../extensionDev'
 
 export default function compilationPlugins(
@@ -37,9 +34,10 @@ export default function compilationPlugins(
       new MiniCssExtractPlugin().apply(compiler)
 
       // Support .env files
-      if (fs.existsSync(path.join(projectPath, '.env'))) {
-        new Dotenv().apply(compiler)
-      }
+      // TODO: cezaraugusto this has a type errors
+      // if (fs.existsSync(path.join(projectPath, '.env'))) {
+      //   new Dotenv().apply(compiler)
+      // }
 
       // Support environment variables
       new webpack.EnvironmentPlugin({

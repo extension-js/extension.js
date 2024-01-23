@@ -5,7 +5,7 @@
     "url": "https://github.com/cezaraugusto/webpack-browser-extension-resources-plugin.git"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "name": "webpack-browser-extension-resources-plugin",
   "version": "0.0.0",
@@ -21,8 +21,9 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
+    "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts --format cjs --dts --target=node16 --minify",
+    "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
@@ -43,21 +44,21 @@
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",
-    "eslint": "^7.32.0",
+    "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
-    "jasmine": "^4.0.2",
-    "rimraf": "^3.0.2",
+    "jasmine": "^5.1.0",
+    "rimraf": "^5.0.5",
     "tsconfig": "*",
-    "tsup": "^6.7.0",
-    "webpack": "^5.9.0",
-    "webpack-cli": "^4.2.0"
+    "tsup": "^8.0.1",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   },
   "dependencies": {
-    "@babel/parser": "^7.22.7",
-    "@babel/traverse": "^7.22.8",
+    "@babel/parser": "^7.23.6",
+    "@babel/traverse": "^7.23.7",
     "browser-extension-manifest-fields": "*",
     "csv-loader": "^3.0.5",
-    "glob": "^10.3.9",
+    "glob": "^10.3.10",
     "xml-loader": "^1.2.1"
   }
 }

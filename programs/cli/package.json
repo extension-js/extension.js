@@ -5,7 +5,7 @@
     "url": "https://github.com/cezaraugusto/extension-create.git"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "name": "extension-create",
   "version": "1.0.0",
@@ -24,9 +24,11 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "postinstall": "ts-node ./scripts/copyMarkdownFilesToCli.ts",
-    "compile": "tsup-node ./cli.ts --format cjs --dts --target=node16",
-    "test": "echo \"Note: no test specified\" && exit 0"
+    "postinstall": "node ./scripts/copyMarkdownFilesToCli.js",
+    "clean": "rm -rf dist",
+    "compile": "tsup-node ./cli.ts --format cjs --dts --target=node18",
+    "test": "jest",
+"test:watch": "jest --watch"
   },
   "keywords": [
     "zero-config",
@@ -44,17 +46,23 @@
   "dependencies": {
     "@extension-create/create": "*",
     "@extension-create/develop": "*",
-    "commander": "^10.0.1",
-    "inquirer": "^9.2.0",
-    "semver": "^7.5.0",
+    "@types/jest": "^29.5.11",
+    "commander": "^11.1.0",
+    "inquirer": "^9.2.12",
+    "semver": "^7.5.4",
     "tsconfig": "*"
   },
   "devDependencies": {
-    "@types/inquirer": "^9.0.3",
-    "@types/node": "^18.16.3",
-    "@types/pacote": "^11.1.5",
-    "@types/semver": "^7.3.13",
-    "tsup": "^7.1.0",
-    "typescript": "^5.0.4"
+    "@types/inquirer": "^9.0.7",
+    "@types/jest": "^29.5.11",
+    "@types/mock-fs": "^4.13.4",
+    "@types/node": "^20.11.5",
+    "@types/pacote": "^11.1.8",
+    "@types/semver": "^7.5.6",
+    "jest": "^29.7.0",
+    "mock-fs": "^5.2.0",
+    "ts-jest": "^29.1.2",
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
   }
 }

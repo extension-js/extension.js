@@ -5,7 +5,7 @@
     "url": "https://github.com/cezaraugusto/browser-extension-manifest-fields.git"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "name": "browser-extension-manifest-fields",
   "version": "1.0.0",
@@ -18,8 +18,9 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
+    "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts --format cjs --dts --target=node16 --minify",
+    "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
@@ -35,6 +36,6 @@
     "parse5": "7.1.2",
     "parse5-utils": "2.0.0",
     "tsconfig": "*",
-    "tsup": "^7.1.0"
+    "tsup": "^8.0.1"
   }
 }
