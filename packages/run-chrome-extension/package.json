@@ -5,7 +5,7 @@
     "url": "https://github.com/cezaraugusto/webpack-run-chrome-extension.git"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "name": "webpack-run-chrome-extension",
   "version": "0.6.0",
@@ -18,7 +18,8 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node16 && node ./copyExtensions.js",
+    "clean": "rm -rf dist",
+    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node18 && node ./copyExtensions.js",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0",
     "test:fixture": "yarn --cwd=./fixtures/dev-server-no-hmr dev",
@@ -48,19 +49,19 @@
     "content-security-policy-parser": "^0.4.1",
     "loader-utils": "^3.2.1",
     "schema-utils": "^4.2.0",
-    "ws": "^8.4.2"
+    "ws": "^8.16.0"
   },
   "devDependencies": {
-    "@types/fs-extra": "^11.0.1",
-    "copy-webpack-plugin": "^10.2.4",
-    "css-loader": "^6.6.0",
-    "eslint": "^7.32.0",
+    "@types/fs-extra": "^11.0.4",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^6.9.1",
+    "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
-    "html-webpack-plugin": "^5.5.0",
-    "mini-css-extract-plugin": "^2.5.3",
-    "style-loader": "^3.3.1",
+    "html-webpack-plugin": "^5.6.0",
+    "mini-css-extract-plugin": "^2.7.7",
+    "style-loader": "^3.3.4",
     "tsconfig": "*",
-    "webpack": "^5.68.0",
-    "webpack-cli": "^4.9.2"
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   }
 }

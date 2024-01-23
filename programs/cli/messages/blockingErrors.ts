@@ -9,7 +9,7 @@ export function unsupportedNodeVersion() {
   return `
     You are using an unsupported Node version (${process.version}).
 
-    Please update to a version higher than 16.
+    Please update to a version higher than 18.
   `
 }
 

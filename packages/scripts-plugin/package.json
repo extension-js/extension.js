@@ -5,7 +5,7 @@
     "url": "https://github.com/cezaraugusto/webpack-browser-extension-scripts-plugin.git"
   },
   "engines": {
-    "node": ">=16"
+    "node": ">=18"
   },
   "name": "webpack-browser-extension-scripts-plugin",
   "version": "1.0.0",
@@ -21,8 +21,9 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
+    "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node16 --minify",
+    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
@@ -50,15 +51,15 @@
     "browser-extension-manifest-fields": "*"
   },
   "devDependencies": {
-    "eslint": "^7.32.0",
+    "eslint": "^8.56.0",
     "tsconfig": "*",
     "eslint-config-extension-create": "*",
-    "jasmine": "^4.0.2",
-    "mini-css-extract-plugin": "^2.7.6",
-    "rimraf": "^3.0.2",
-    "tsup": "^7.1.0",
-    "webpack": "^5.9.0",
-    "webpack-cli": "^5.1.1",
+    "jasmine": "^5.1.0",
+    "mini-css-extract-plugin": "^2.7.7",
+    "rimraf": "^5.0.5",
+    "tsup": "^8.0.1",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4",
     "webpack-target-webextension": "*"
   }
 }

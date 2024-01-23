@@ -1,17 +1,11 @@
-[action-image]: https://github.com/cezaraugusto/extension-create/workflows/CI/badge.svg
-[action-url]: https://github.com/cezaraugusto/extension-create/actions
-[maintenance-image]: https://img.shields.io/badge/Maintained%3F-yes-green.svg
-[maintenance-url]: https://GitHub.com/extension-create/extension-create/graphs/commit-activity
-[npm-version-image]: https://badgen.net/npm/v/extension-create
-[npm-version-url]: https://npmjs.com/package/extension-create
-[npm-dependents-image]: https://badgen.net/npm/dependents/extension-create
-[npm-dependents-url]: https://npmjs.com/package/extension-create
-[npm-downloads-image]: https://badgen.net/npm/dm/extension-create
-[npm-downloads-url]: https://npmjs.ccom/package/extension-create
+[action-image]: https://github.com/cezaraugusto/create-browser-extension/workflows/CI/badge.svg
+[action-url]: https://github.com/cezaraugusto/create-browser-extension/actions
+[npm-image]: https://img.shields.io/npm/v/create-browser-extension.svg
+[npm-url]: https://npmjs.org/package/create-browser-extension
+[wip-image]: https://img.shields.io/badge/under-development-orange.svg
+[wip-url]: https://github.com/cezaraugusto/create-browser-extension
 
-> # THIS PROJECT IS UNDER ACTIVE DEVELOPMENT
-
-# extension-create [![Maintenance][maintenance-image]][maintenance-url] [![workflow][action-image]][action-url] [![Npm package version][npm-version-image]][npm-version-url] [![Npm package dependents][npm-dependents-image]][npm-dependents-url] [![Npm package monthly downloads][npm-downloads-image]][npm-downloads-url]
+# Create Browser Extension [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
@@ -19,7 +13,7 @@ Create modern cross-browser extensions with no build configuration.
 
 - [Creating an extension](#creating-an-extension) — How to create a new extension.
 - [Getting started immediately](#getting-started-immediately) — Get work done in no time.
-- [I have an extension](#i-have-an-extension) - Use only specific parts of `extension-create`
+- [I have an extension](#i-have-an-extension) - Use only specific parts of `extension-create`.
 
 `extension-create` helps you develop cross-browser extensions with built-in support for module imports/exports, auto-reload, and more. Interested to know how it's being developed? [Every week I send emails about its progress](https://cezaraugusto.substack.com/). For goals, see the [wiki](https://github.com/cezaraugusto/extension-create/wiki/This-initiative).
 
@@ -31,7 +25,7 @@ cd my-extension-hello
 npm start
 ```
 
-A new browser instance (for now, Chrome) will open up with your extension ready for development.
+A new browser instance will open up with your extension ready for development.
 
 You are done. Time to hack on your extension!
 
@@ -46,8 +40,6 @@ You are done. Time to hack on your extension!
 The [chrome-extensions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/) project is a great way to kickstart developing your extension.
 
 If we go to the samples repository and look for an extension sample to work, let's say the [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) sample, all we need is to copy and paste it's URL as an argument for the start command:
-
-> Optimized for **git version 2.30.0**. Older versions are supported, but download can take much longer.
 
 ```sh
 npx extension-create dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
@@ -71,7 +63,7 @@ And see a Chrome Extension sample running automatically. On Edge!
 
 ## I have an extension
 
-Use the command line interface `extension-create` provides and add it to your npm scripts. Here's how it should look in your `package.json`:
+Just add `extension-create` to your npm scripts. Here's how it should look in your `package.json`:
 
 ```js
 {
@@ -90,7 +82,6 @@ Use the command line interface `extension-create` provides and add it to your np
 | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Google Chrome ✅                                                                                                                 | Microsoft Edge ✅                                                                                                                    | Mozilla Firefox ⛔️                                                                                                                         | Apple Safari ⛔️                                                                                                                       | Opera browser ⛔️                                                                                                             | Chromium (forks) 🤔                                                                                                                    |
 
-> Mainstream Chromium-like browsers include Brave, and Vivaldi. These vendors are supported on production but there are currently no modules to handle development using these browsers. I do plan to support them in the near future.
 
 If you want to target a specific browser, just pass the `--browser` flag to the dev/start command (Chrome or Edge, soon others), like `npx extension-create dev --browser=edge`.
 

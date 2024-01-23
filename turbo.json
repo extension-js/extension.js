@@ -13,9 +13,9 @@
       "outputs": ["dist/**"],
       "dependsOn": ["^compile"]
     },
-    "test": {
-      "outputs": ["dist/**"],
-      "dependsOn": ["^compile"]
+    "test": {},
+    "test:watch": {
+      "cache": false
     },
     "lint": {
       "outputs": []
