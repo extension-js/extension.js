@@ -75,6 +75,8 @@ export default function (this: InjectContentCssImportContext, source: string) {
   if (this._compilation?.options.mode === 'production') return source
 
   const url = urlToRequest(this.resourcePath)
+  if (!manifest.content_scripts || !manifest.content_scripts.length)
+    return source
 
   for (const [
     contentIndex,
