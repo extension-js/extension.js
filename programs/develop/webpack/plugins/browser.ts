@@ -16,6 +16,10 @@ export default function browserPlugins(
   projectPath: string,
   devOptions: DevOptions
 ) {
+  if (!devOptions?.mode || process.env.NODE_ENV === 'test') {
+    return
+  }
+
   // TODO: cezaraugusto can't resolve paths with spaces in it.
   // const manifestPath = path.resolve(projectPath, 'manifest.json')
 

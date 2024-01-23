@@ -66,7 +66,8 @@ export default function parseHtml(
         // Do nothing for urls
         if (isUrl(href)) continue
 
-        onResourceFound(href, childNode, 'staticHref')
+        // WARN: We do not parse the href attribute of <a> and <area> elements.
+        // onResourceFound(href, childNode, 'staticHref')
 
         // Static assets with src attribute
       } else if (

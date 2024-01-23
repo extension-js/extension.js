@@ -21,6 +21,7 @@ export default class AddScriptsAndStyles {
   public apply(compiler: webpack.Compiler): void {
     const IS_DEV = compiler.options.mode === 'development'
     const scriptFields = manifestFields(this.manifestPath).scripts
+    const manifest = require(this.manifestPath)
 
     for (const field of Object.entries(scriptFields)) {
       const [feature, scriptFilePath] = field
@@ -61,10 +62,12 @@ export default class AddScriptsAndStyles {
 
       // During development, ensure we have a background.js file
       // entry point, so that we can hot reload it.
+      const isBackgroundMv2 = manifest.manifest_version === 2 && feature === 'background'
+      const isBackgroundMv3 = manifest.manifest_version === 3 && feature === 'service_worker'
       if (
         IS_DEV &&
-        (feature === 'background' || feature === 'service_worker') &&
-        (!scriptFilePath || scriptFilePath?.length === 0)
+        (isBackgroundMv2 || isBackgroundMv3) &&
+        (!scriptEntries || scriptEntries?.length === 0)
       ) {
         const jsEntryPath = `${path.join(__dirname, 'default-background')}.js`
         const manifest = require(this.manifestPath)
