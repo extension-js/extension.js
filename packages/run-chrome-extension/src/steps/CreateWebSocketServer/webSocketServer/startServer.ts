@@ -31,10 +31,11 @@ export default function (compiler: Compiler, port?: number) {
 
       if (message.status === 'clientReady') {
         if (!message.data) {
-          compiler
-            .getInfrastructureLogger('🧩')
-            .error('[run-chrome] No data received from client.')
-          // throw new Error('[run-chrome] No data received from client.')
+          // TODO: cezaraugusto this happens when the extension
+          // can't reach the background script. Improve this error.
+          throw new Error(
+            '[run-chrome] No data received from client. Restart the program and try again.'
+          )
         }
 
         const {id, manifest} = message.data
@@ -44,14 +45,7 @@ export default function (compiler: Compiler, port?: number) {
         // • Static Pages: /pages
         // • Static Resources: /public
         // • Web Accessible Resources: /web_accessible_resources
-        // const logger = compiler.getInfrastructureLogger('🧩')
-        // logger.info(`${manifest.name}`)
-        // logger.info(`Version: ${manifest.version}`)
-        // logger.info(`ID: ${id} (${isMutableId ? 'dynamic' : 'fixed'})`)
-        // logger.info(`Permissions: ${manifest.permissions.join(', ')}`)
-        // logger.info(`Settings URL: chrome://extensions/?id=${id}`)
-        // logger.info(`Started a new Chrome instance. Extension ready.\n`)
-        console.log(`• Name: ${manifest.version}`)
+        console.log(`• Name: ${manifest.name}`)
         console.log(`• Version: ${manifest.version}`)
         console.log(`• ID: ${id} (${isMutableId ? 'dynamic' : 'fixed'})`)
         console.log(`• Permissions: ${manifest.permissions.join(', ')}`)

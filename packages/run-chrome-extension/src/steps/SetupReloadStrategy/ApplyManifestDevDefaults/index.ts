@@ -3,8 +3,6 @@ import {Compilation, sources} from 'webpack'
 import {patchV2CSP, patchV3CSP} from './patchCSP'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patchWebResources'
 import patchBackground from './patchBackground'
-// import patchContentScripts from './patchContentScripts'
-import injectScriptToPage from './injectScriptToPage'
 import {type RunChromeExtensionInterface} from '../../../types'
 
 class ApplyManifestDevDefaultsPlugin {

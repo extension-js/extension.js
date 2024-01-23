@@ -33,6 +33,7 @@
     "packages/*",
     "programs/*",
     "browser-extension-test-data",
-    "__hmr-tests__/*"
-  ]
+    "__TEST__/*"
+  ],
+  "dependencies": {}
 }

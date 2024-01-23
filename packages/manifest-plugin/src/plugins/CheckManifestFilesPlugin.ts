@@ -70,8 +70,10 @@ class CheckManifestFilesPlugin {
         for (const icon of value) {
           const fieldError = manifestFieldError(field, icon as string)
 
-          if (!fs.existsSync(icon as string)) {
-            compilation.errors.push(new WebpackError(fieldError))
+          if (typeof icon === 'string') {
+            if (!fs.existsSync(icon)) {
+              compilation.errors.push(new WebpackError(fieldError))
+            }
           }
         }
       }

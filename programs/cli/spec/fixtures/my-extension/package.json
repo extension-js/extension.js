@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "extension-create": "*"
+  },
+  "scripts": {
+    "dev": "node node_modules/extension-create dev",
+    "start": "node node_modules/extension-create start",
+    "build": "node node_modules/extension-create build"
+  },
+  "dependencies": {},
+  "name": "my-extension",
+  "private": true,
+  "version": "0.0.0"
+}

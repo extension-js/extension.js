@@ -28,8 +28,8 @@ export default class AddScriptsAndStyles {
       const scriptEntries = Array.isArray(scriptFilePath)
         ? scriptFilePath || []
         : scriptFilePath
-        ? [scriptFilePath]
-        : []
+          ? [scriptFilePath]
+          : []
 
       const validJsExtensions = compiler.options.resolve.extensions
       const fileAssets = scriptEntries.filter((asset) => {
@@ -59,8 +59,29 @@ export default class AddScriptsAndStyles {
         }
       }
 
-      // if all scriptEntires are actually css files, add a js file
-      // for each of them to the entry point, so that we can
+      // During development, ensure we have a background.js file
+      // entry point, so that we can hot reload it.
+      if (
+        IS_DEV &&
+        (feature === 'background' || feature === 'service_worker') &&
+        (!scriptFilePath || scriptFilePath?.length === 0)
+      ) {
+        const jsEntryPath = `${path.join(__dirname, 'default-background')}.js`
+        const manifest = require(this.manifestPath)
+        const featureName =
+          manifest.manifest_version === 3 ? 'service_worker' : 'background'
+
+        compiler.options.entry = {
+          ...compiler.options.entry,
+          // https://webpack.js.org/configuration/entry-context/#entry-descriptor
+          [getFilepath(featureName)]: {
+            import: [jsEntryPath]
+          }
+        }
+      }
+
+      // During development, if all content_scripts are actually css files,
+      // add a js file for each of them to the entry point, so that we can
       // hot reload them.
       if (IS_DEV) {
         const fileAssets = scriptEntries.filter((asset) => {

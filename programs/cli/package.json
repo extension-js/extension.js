@@ -28,7 +28,7 @@
     "clean": "rm -rf dist",
     "compile": "tsup-node ./cli.ts --format cjs --dts --target=node18",
     "test": "jest",
-"test:watch": "jest --watch"
+    "test:watch": "jest --watch"
   },
   "keywords": [
     "zero-config",
