@@ -34,7 +34,7 @@ export default class ThrowIfRecompileIsNeeded {
 
   public apply(compiler: webpack.Compiler): void {
     compiler.hooks.watchRun.tapAsync(
-      'RunChromeExtensionPlugin',
+      'ManifestPlugin (ThrowIfRecompileIsNeeded)',
       (compiler, done) => {
         const files = compiler.modifiedFiles || new Set<string>()
         const changedFile = Array.from(files)[0]
@@ -48,7 +48,7 @@ export default class ThrowIfRecompileIsNeeded {
     )
 
     compiler.hooks.compilation.tap(
-      'RunChromeExtensionPlugin',
+      'ManifestPlugin (ThrowIfRecompileIsNeeded)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {

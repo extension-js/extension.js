@@ -10,7 +10,7 @@ export default class AddDependenciesPlugin {
 
   apply(compiler: webpack.Compiler): void {
     compiler.hooks.afterCompile.tap(
-      'BrowserExtensionManifestPlugin',
+      'ManifestPlugin (AddDependenciesPlugin)',
       (compilation) => {
         if (compilation.errors?.length) return
 

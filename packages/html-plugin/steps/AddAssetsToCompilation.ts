@@ -37,7 +37,7 @@ export default class AddAssetsToCompilation {
 
   public apply(compiler: webpack.Compiler): void {
     compiler.hooks.thisCompilation.tap(
-      'AddAssetsToCompilationPlugin',
+      'HtmlPlugin (AddAssetsToCompilation)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
