@@ -72,7 +72,6 @@ export default class AddHtmlFileToCompilation {
               ...getPagesPath(this.pagesFolder)
             }
 
-            console.log({allEntries, pagesPath: getPagesPath(this.pagesFolder)})
             for (const field of Object.entries(allEntries)) {
               const [feature, resource] = field
 
