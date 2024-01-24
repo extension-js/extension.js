@@ -7,6 +7,7 @@
   "access": "public",
   "updateInternalDependencies": "patch",
   "ignore": [
+    "browser-extension-loader",
     "browser-extension-manifest-fields",
     "webpack-browser-extension-common-errors-plugin",
     "eslint-config-extension-create",
