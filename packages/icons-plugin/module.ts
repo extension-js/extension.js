@@ -60,10 +60,9 @@ export default class ScriptsPlugin {
         compilation.hooks.processAssets.tap(
           {
             name: 'BrowserExtensionIconsPlugin',
-            // Add additional assets to the compilation.
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER
           },
-          (assets) => {
+          () => {
             // Do not emit if manifest doesn't exist.
             if (!fs.existsSync(this.manifestPath)) {
               this.manifestNotFoundError(compilation)
@@ -71,11 +70,7 @@ export default class ScriptsPlugin {
 
             if (compilation.errors.length > 0) return
 
-            const manifest = assets['manifest.json']
-              ? JSON.parse(assets['manifest.json'].source().toString())
-              : require(this.manifestPath)
-
-            const iconFields = manifestFields(this.manifestPath, manifest).icons
+            const iconFields = manifestFields(this.manifestPath).icons
 
             for (const field of Object.entries(iconFields)) {
               const [feature, resource] = field
