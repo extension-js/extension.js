@@ -1,8 +1,5 @@
 import webpack from 'webpack'
-import {
-  handleMultipleAssetsError
-  // handleCantResolveError
-} from './src/compilationErrorHandlers'
+import {handleMultipleAssetsError} from './src/compilationErrorHandlers'
 import {
   handleInsecureCSPValue,
   handleWrongWebResourceFormatError
@@ -19,15 +16,10 @@ export default class CommonErrorsPlugin {
   private handleCompilations(compilation: webpack.Compilation) {
     compilation.errors.forEach((error, index) => {
       const multipleAssetsError = handleMultipleAssetsError(error)
-      // const cantResolveError = handleCantResolveError(error)
 
       if (multipleAssetsError) {
         compilation.errors[index] = multipleAssetsError
       }
-
-      // if (cantResolveError) {
-      // compilation.errors[index] = cantResolveError
-      // }
     })
   }
 
@@ -48,10 +40,10 @@ export default class CommonErrorsPlugin {
 
   apply(compiler: webpack.Compiler) {
     compiler.hooks.compilation.tap(
-      'HandleCommonErrorsPlugin',
+      'CommonErrorsPlugin (module)',
       (compilation) => {
         compilation.hooks.afterSeal.tapAsync(
-          'HandleCommonErrorsPlugin',
+          'CommonErrorsPlugin (module)',
           (done) => {
             // Handle errors related to compilation such
             // as multiple assets with the same name,
