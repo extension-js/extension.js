@@ -76,36 +76,41 @@ class ApplyManifestDevDefaultsPlugin {
   }
 
   apply(compiler: webpack.Compiler) {
-    compiler.hooks.thisCompilation.tap('ReloadPlugin', (compilation) => {
-      const Error = compiler.webpack.WebpackError
+    compiler.hooks.thisCompilation.tap(
+      'RunChromeExtension (ApplyManifestDevDefaults)',
+      (compilation) => {
+        const Error = compiler.webpack.WebpackError
 
-      // This plugin only works during development
-      if (compiler.options.mode === 'production') return
+        // This plugin only works during development
+        if (compiler.options.mode === 'production') return
 
-      compilation.hooks.processAssets.tap(
-        {
-          name: 'ReloadPlugin',
-          // Summarize the list of existing assets.
-          stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
-        },
-        (_assets) => {
-          if (!this.manifestPath) {
-            const errorMessage =
-              'No manifest.json found in your extension bundle. Unable to patch manifest.json.'
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'RunChromeExtension (ApplyManifestDevDefaults)',
+            // Summarize the list of existing assets.
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+          },
+          (_assets) => {
+            if (!this.manifestPath) {
+              const errorMessage =
+                'No manifest.json found in your extension bundle. Unable to patch manifest.json.'
 
-            if (!!compilation && !!Error) {
-              compilation.errors.push(
-                new Error(`[ReloadPlugin]: ${errorMessage}`)
-              )
+              if (!!compilation && !!Error) {
+                compilation.errors.push(
+                  new Error(
+                    `[RunChromeExtension (ApplyManifestDevDefaults)]: ${errorMessage}`
+                  )
+                )
+              }
+              return
             }
-            return
-          }
 
-          // Most of the patching happens in the manifest.json file.
-          this.generateManifestPatches(compilation)
-        }
-      )
-    })
+            // Most of the patching happens in the manifest.json file.
+            this.generateManifestPatches(compilation)
+          }
+        )
+      }
+    )
   }
 }
 

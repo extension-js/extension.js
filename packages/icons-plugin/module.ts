@@ -55,11 +55,11 @@ export default class ScriptsPlugin {
     // plugins can get it via the compilation.assets object,
     // allowing them to modify it.
     compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionIconsPlugin',
+      'ScriptsPlugin (module)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'BrowserExtensionIconsPlugin',
+            name: 'ScriptsPlugin (module)',
             stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER
           },
           () => {
@@ -111,11 +111,11 @@ export default class ScriptsPlugin {
     )
 
     compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionIconsPlugin',
+      'ScriptsPlugin (module)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'BrowserExtensionIconsPlugin',
+            name: 'ScriptsPlugin (module)',
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           (assets) => {

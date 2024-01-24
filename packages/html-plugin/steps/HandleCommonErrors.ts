@@ -62,10 +62,10 @@ export default class CommonErrorsPlugin {
 
   apply(compiler: webpack.Compiler) {
     compiler.hooks.compilation.tap(
-      'HandleCommonErrorsPlugin',
+      'HtmlPlugin (HandleCommonErrors)',
       (compilation) => {
         compilation.hooks.afterSeal.tapPromise(
-          'HandleCommonErrorsPlugin',
+          'HtmlPlugin (HandleCommonErrors)',
           async () => {
             compilation.errors.forEach((error, index) => {
               // Handle "Module not found" errors.

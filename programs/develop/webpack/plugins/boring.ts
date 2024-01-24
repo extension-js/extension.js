@@ -9,7 +9,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
   return {
     name: 'boringPlugins',
     apply: (compiler: webpack.Compiler) => {
-      compiler.hooks.done.tap('errorPlugins', (stats) => {
+      compiler.hooks.done.tap('BoringPlugin', (stats) => {
         const divider = stats.hasErrors() ? '✖︎✖︎✖︎' : '►►►'
         stats.compilation.name = `🧩 extension-create ${divider} ${projectName} (${projectVersion})`
       })

@@ -20,11 +20,11 @@ export default class AddToFileDependencies {
 
   public apply(compiler: webpack.Compiler): void {
     compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionAddToFileDependencies',
+      'HtmlPlugin (AddToFileDependencies)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'BrowserExtensionAddToFileDependencies4',
+            name: 'HtmlPlugin (AddToFileDependencies)',
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           (assets) => {

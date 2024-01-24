@@ -54,7 +54,7 @@ export default class ChromeExtensionLauncherPlugin {
     let chromeDidLaunch = false
 
     compiler.hooks.emit.tapAsync(
-      'RunChromeExtensionPlugin',
+      'RunChromeExtensionPlugin (ChromeExtensionLauncher)',
       (compilation, done) => {
         if (compilation.errors.length > 0) {
           done()

@@ -5,6 +5,7 @@ import {Compiler, WebpackError} from 'webpack'
 // import v2Schema from './lib/manifest.schema.v2.json'
 import v3Schema from './lib/manifest.schema.v3.json'
 import addCustomFormats from './src/helpers/customValidators'
+// import bcd from '@mdn/browser-compat-data'
 
 interface ManifestCompatPluginOptions {
   manifestPath: string
@@ -19,8 +20,11 @@ export default class ManifestCompatPlugin {
 
   apply(compiler: Compiler) {
     compiler.hooks.emit.tapAsync(
-      'ValidateManifestPlugin',
+      'CompatPlugin (module)',
       (compilation, done) => {
+        // const ext = bcd.webextensions.manifest
+        // console.log({ext})
+
         const manifestPath = path.resolve(
           compiler.options.context!,
           this.options.manifestPath

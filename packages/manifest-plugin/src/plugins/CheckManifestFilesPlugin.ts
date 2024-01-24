@@ -136,10 +136,10 @@ class CheckManifestFilesPlugin {
 
   apply(compiler: Compiler) {
     compiler.hooks.compilation.tap(
-      'HandleCommonErrorsPlugin',
+      'ManifestPlugin (CheckManifestFilesPlugin)',
       (compilation) => {
         compilation.hooks.afterSeal.tapAsync(
-          'HandleCommonErrorsPlugin',
+          'ManifestPlugin (CheckManifestFilesPlugin)',
           (done) => {
             const WebpackError = webpack.WebpackError
             // Handle HTML errors.

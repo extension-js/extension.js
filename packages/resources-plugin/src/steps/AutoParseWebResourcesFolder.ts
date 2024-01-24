@@ -31,46 +31,53 @@ export default class OutputWebAccessibleResourcesFolder {
   }
 
   apply(compiler: webpack.Compiler) {
-    compiler.hooks.emit.tapAsync('WebResourcesPlugin', (compilation, done) => {
-      const {web_accessible_resources} = manifestFields(this.manifestPath)
-      const contentScriptsCss = this.getContentScriptsCss()
+    compiler.hooks.emit.tapAsync(
+      'WebResourcesPlugin (AutoParseWebResourcesFolder)',
+      (compilation, done) => {
+        const {web_accessible_resources} = manifestFields(this.manifestPath)
+        const contentScriptsCss = this.getContentScriptsCss()
 
-      if (web_accessible_resources?.length) {
-        for (const resource of web_accessible_resources) {
-          // Manifest V2
-          if (typeof resource === 'string') {
-            const isContentCss = contentScriptsCss?.some(
-              ([key]) => key === resource
-            )
-
-            if (!isContentCss) {
-              if (!shouldExclude(this.manifestPath, resource, this.exclude)) {
-                compilation.assets[`web_accessible_resources/${resource}`] =
-                  compilation.assets[resource]
-              }
-            }
-          } else {
-            // Manifest V3
-            resource.forEach((resourcePath, index) => {
+        if (web_accessible_resources?.length) {
+          for (const resource of web_accessible_resources) {
+            // Manifest V2
+            if (typeof resource === 'string') {
               const isContentCss = contentScriptsCss?.some(
-                ([key]) => key === resourcePath
+                ([key]) => key === resource
               )
 
               if (!isContentCss) {
-                if (
-                  !shouldExclude(this.manifestPath, resourcePath, this.exclude)
-                ) {
-                  compilation.assets[
-                    `web_accessible_resources/resource-${index}/${resourcePath}`
-                  ] = compilation.assets[resourcePath]
+                if (!shouldExclude(this.manifestPath, resource, this.exclude)) {
+                  compilation.assets[`web_accessible_resources/${resource}`] =
+                    compilation.assets[resource]
                 }
               }
-            })
+            } else {
+              // Manifest V3
+              resource.forEach((resourcePath, index) => {
+                const isContentCss = contentScriptsCss?.some(
+                  ([key]) => key === resourcePath
+                )
+
+                if (!isContentCss) {
+                  if (
+                    !shouldExclude(
+                      this.manifestPath,
+                      resourcePath,
+                      this.exclude
+                    )
+                  ) {
+                    compilation.assets[
+                      `web_accessible_resources/resource-${index}/${resourcePath}`
+                    ] = compilation.assets[resourcePath]
+                  }
+                }
+              })
+            }
           }
         }
-      }
 
-      done()
-    })
+        done()
+      }
+    )
   }
 }
