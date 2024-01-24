@@ -5,7 +5,13 @@ import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
 import parseChromeTabsCreate from './src/parsers/parseChromeTabsCreate'
 import resolvePath from './src/resolver'
-import {errorMessage, isPagesPath, isPublicPath, isUrl} from './src/utils'
+import {
+  errorMessage,
+  isManifestAsset,
+  isPagesPath,
+  isPublicPath,
+  isUrl
+} from './src/utils'
 
 const schema: Schema = {
   type: 'object',
@@ -46,7 +52,14 @@ function processResult(
   const isPublic = isPublicPath(self.context, result.path)
   const isPages = isPagesPath(self.context, result.path)
 
-  if (!isUrl(resultResolvedPath) && !isPublic && !isPages) {
+  if (isUrl(result.path)) return source
+
+  if (
+    !isManifestAsset(self.context, resultAbsolutePath) &&
+    !isUrl(resultResolvedPath) &&
+    !isPublic &&
+    !isPages
+  ) {
     self.emitFile(result.path, source)
   }
 
