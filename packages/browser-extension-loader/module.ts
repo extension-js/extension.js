@@ -5,6 +5,7 @@ import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
 import parseChromeTabsCreate from './src/parsers/tabs/create'
 import parseChromeActionSetPopup from './src/parsers/action/setPopup'
+import parseChromeRuntimeGetURL from './src/parsers/runtime/getURL'
 
 import resolvePath from './src/resolver'
 import {
@@ -43,33 +44,29 @@ function processResult(
   result: {path: string},
   source: string
 ) {
-  const resultResolvedPath = resolvePath(self.context, result.path)
-  const resultAbsolutePath = path.resolve(self.context, result.path)
+  if (isUrl(result.path)) return source
 
-  if (!isUrl(result.path) && !fs.existsSync(resultAbsolutePath)) {
+  // const resultResolvedPath = resolvePath(self.rootContext, result.path)
+  const resultAbsolutePath = path.resolve(self.rootContext, result.path)
+
+  if (!fs.existsSync(resultAbsolutePath)) {
     self.emitError(errorMessage(resultAbsolutePath, result, self.resourcePath))
     return source
   }
 
-  const isPublic = isPublicPath(self.context, result.path)
-  const isPages = isPagesPath(self.context, result.path)
-
-  if (isUrl(result.path)) return source
+  const isPublic = isPublicPath(self.rootContext, result.path)
+  const isPages = isPagesPath(self.rootContext, result.path)
 
   if (
-    !isManifestAsset(self.context, resultAbsolutePath) &&
-    !isUrl(resultResolvedPath) &&
+    !isManifestAsset(self.rootContext, resultAbsolutePath) &&
     !isPublic &&
     !isPages
   ) {
     self.emitFile(result.path, source)
   }
 
-  if (!isUrl(resultResolvedPath)) {
-    return source.replace(new RegExp(result.path, 'g'), resultResolvedPath)
-  }
-
   return source
+  // return source.replace(new RegExp(result.path, 'g'), resultResolvedPath)
 }
 
 export default function (this: BrowserExtensionContext, source: string) {
@@ -81,20 +78,26 @@ export default function (this: BrowserExtensionContext, source: string) {
   })
 
   if (new RegExp(options.test).test(this.resourcePath)) {
-    const chromeActionSetPopup = parseChromeActionSetPopup(source)
-    const chromeTabCreateResults = parseChromeTabsCreate(source)
+    // const chromeActionSetPopup = parseChromeActionSetPopup(source)
+    // const chromeTabCreateResults = parseChromeTabsCreate(source)
+    // const chromeRuntimeGetURLResults = parseChromeRuntimeGetURL(source)
 
     let modifiedSource = source
 
-    // chrome.action.setPopup
-    chromeActionSetPopup.forEach((result) => {
-      modifiedSource = processResult(this, result, modifiedSource)
-    })
+    // // chrome.action.setPopup
+    // chromeActionSetPopup.forEach((result) => {
+    //   modifiedSource = processResult(this, result, modifiedSource)
+    // })
 
-    // chrome.tabs.create
-    chromeTabCreateResults.forEach((result) => {
-      modifiedSource = processResult(this, result, modifiedSource)
-    })
+    // // chrome.tabs.create
+    // chromeTabCreateResults.forEach((result) => {
+    //   modifiedSource = processResult(this, result, modifiedSource)
+    // })
+
+    // chrome.runtime.getURL
+    // chromeRuntimeGetURLResults.forEach((result) => {
+    //   modifiedSource = processResult(this, result, modifiedSource)
+    // })
 
     return modifiedSource
   }
