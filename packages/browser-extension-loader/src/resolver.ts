@@ -35,7 +35,7 @@ export default function resolvePath(
   } else {
     // TODO: Support manifest.json fields
     // if (path_is_equal_to_some_manifest_field) {
-      // return `/[feature]/[index|script][ext]`
+    // return `/[feature]/[index|script][ext]`
     // }
 
     return absolutePath
