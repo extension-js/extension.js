@@ -52,107 +52,97 @@ export default class JsonPlugin {
     // Add the JSON to the compilation. This is important so other
     // plugins can get it via the compilation.assets object,
     // allowing them to modify it.
-    compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionJsonPlugin',
-      (compilation) => {
-        compilation.hooks.processAssets.tap(
-          {
-            name: 'BrowserExtensionJsonPlugin',
-            // Add additional assets to the compilation.
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
-          },
-          (assets) => {
-            // Do not emit if manifest doesn't exist.
-            if (!fs.existsSync(this.manifestPath)) {
-              this.manifestNotFoundError(compilation)
-              return
-            }
+    compiler.hooks.thisCompilation.tap('JsonPlugin (module)', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'JsonPlugin (module)',
+          // Add additional assets to the compilation.
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+        },
+        (assets) => {
+          // Do not emit if manifest doesn't exist.
+          if (!fs.existsSync(this.manifestPath)) {
+            this.manifestNotFoundError(compilation)
+            return
+          }
 
-            if (compilation.errors.length > 0) return
+          if (compilation.errors.length > 0) return
 
-            const manifest = assets['manifest.json']
-              ? JSON.parse(assets['manifest.json'].source().toString())
-              : require(this.manifestPath)
+          const manifest = assets['manifest.json']
+            ? JSON.parse(assets['manifest.json'].source().toString())
+            : require(this.manifestPath)
 
-            const jsonFields = manifestFields(this.manifestPath, manifest).json
+          const jsonFields = manifestFields(this.manifestPath, manifest).json
 
-            for (const field of Object.entries(jsonFields)) {
-              const [feature, resource] = field
+          for (const field of Object.entries(jsonFields)) {
+            const [feature, resource] = field
 
-              const resourceArr = Array.isArray(resource)
-                ? resource
-                : [resource]
+            const resourceArr = Array.isArray(resource) ? resource : [resource]
 
-              for (const thisResource of resourceArr) {
-                // Resources from the manifest lib can come as undefined.
-                if (thisResource) {
-                  // Do not output if file doesn't exist.
-                  // If the user updates the path, this script runs again
-                  // and output the file accordingly.
-                  if (!fs.existsSync(thisResource)) {
-                    this.entryNotFoundWarn(compilation, feature, thisResource)
-                    return
-                  }
+            for (const thisResource of resourceArr) {
+              // Resources from the manifest lib can come as undefined.
+              if (thisResource) {
+                // Do not output if file doesn't exist.
+                // If the user updates the path, this script runs again
+                // and output the file accordingly.
+                if (!fs.existsSync(thisResource)) {
+                  this.entryNotFoundWarn(compilation, feature, thisResource)
+                  return
+                }
 
-                  const source = fs.readFileSync(thisResource)
-                  const rawSource = new sources.RawSource(source)
-                  const context = compiler.options.context || ''
+                const source = fs.readFileSync(thisResource)
+                const rawSource = new sources.RawSource(source)
+                const context = compiler.options.context || ''
 
-                  if (this.shouldEmitFile(context, thisResource)) {
-                    compilation.emitAsset(
-                      getFileOutputPath(feature, thisResource),
-                      rawSource
-                    )
-                  }
+                if (this.shouldEmitFile(context, thisResource)) {
+                  compilation.emitAsset(
+                    getFileOutputPath(feature, thisResource),
+                    rawSource
+                  )
                 }
               }
             }
           }
-        )
-      }
-    )
+        }
+      )
+    })
 
     // Ensure this JSON file and its assets are stored as file
     // dependencies so webpack can watch and trigger changes.
-    compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionJsonPlugin',
-      (compilation) => {
-        compilation.hooks.processAssets.tap(
-          {
-            name: 'BrowserExtensionJsonPlugin',
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
-          },
-          (assets) => {
-            if (compilation.errors?.length) return
+    compiler.hooks.thisCompilation.tap('JsonPlugin (module)', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'JsonPlugin (module)',
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+        },
+        (assets) => {
+          if (compilation.errors?.length) return
 
-            const manifest = assets['manifest.json']
-              ? JSON.parse(assets['manifest.json'].source().toString())
-              : require(this.manifestPath)
-            const jsonFields = manifestFields(this.manifestPath, manifest).json
+          const manifest = assets['manifest.json']
+            ? JSON.parse(assets['manifest.json'].source().toString())
+            : require(this.manifestPath)
+          const jsonFields = manifestFields(this.manifestPath, manifest).json
 
-            for (const field of Object.entries(jsonFields)) {
-              const [, resource] = field
+          for (const field of Object.entries(jsonFields)) {
+            const [, resource] = field
 
-              const resourceArr = Array.isArray(resource)
-                ? resource
-                : [resource]
+            const resourceArr = Array.isArray(resource) ? resource : [resource]
 
-              for (const thisResource of resourceArr) {
-                if (thisResource) {
-                  const fileDependencies = new Set(compilation.fileDependencies)
+            for (const thisResource of resourceArr) {
+              if (thisResource) {
+                const fileDependencies = new Set(compilation.fileDependencies)
 
-                  if (fs.existsSync(thisResource)) {
-                    if (!fileDependencies.has(thisResource)) {
-                      fileDependencies.add(thisResource)
-                      compilation.fileDependencies.add(thisResource)
-                    }
+                if (fs.existsSync(thisResource)) {
+                  if (!fileDependencies.has(thisResource)) {
+                    fileDependencies.add(thisResource)
+                    compilation.fileDependencies.add(thisResource)
                   }
                 }
               }
             }
           }
-        )
-      }
-    )
+        }
+      )
+    })
   }
 }

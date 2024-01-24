@@ -34,11 +34,11 @@ export default class UpdateManifestPlugin {
 
   apply(compiler: Compiler) {
     compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionManifestPlugin',
+      'ManifestPlugin (UpdateManifestPlugin)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'BrowserExtensionManifestPlugin',
+            name: 'ManifestPlugin (UpdateManifestPlugin)',
             // Summarize the list of existing assets.
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },

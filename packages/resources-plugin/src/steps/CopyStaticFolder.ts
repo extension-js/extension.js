@@ -34,7 +34,7 @@ export default class CopyStaticFolder {
     const {staticDir} = this.options
     const output = compiler.options.output?.path || ''
 
-    compiler.hooks.afterEmit.tap('CopyStaticFolder', () => {
+    compiler.hooks.afterEmit.tap('ResourcesPlugin (CopyStaticFolder)', () => {
       if (!staticDir) return
 
       const source = staticDir

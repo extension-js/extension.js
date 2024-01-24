@@ -61,11 +61,11 @@ export default class LocalesPlugin {
     // plugins can get it via the compilation.assets object,
     // allowing them to modify it.
     compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionLocalesPlugin',
+      'LocalesPlugin (module)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'BrowserExtensionLocalesPlugin',
+            name: 'LocalesPlugin (module)',
             // Add additional assets to the compilation.
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
@@ -124,11 +124,11 @@ export default class LocalesPlugin {
     // Ensure this locales file and its assets are stored as file
     // dependencies so webpack can watch and trigger changes.
     compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionLocalesPlugin',
+      'LocalesPlugin (module)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'BrowserExtensionLocalesPlugin',
+            name: 'LocalesPlugin (module)',
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           (assets) => {

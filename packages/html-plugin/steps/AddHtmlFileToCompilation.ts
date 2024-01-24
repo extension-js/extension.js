@@ -46,11 +46,11 @@ export default class AddHtmlFileToCompilation {
 
   public apply(compiler: webpack.Compiler): void {
     compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionAddHtmlFileToCompilation',
+      'HtmlPlugin (AddHtmlFileToCompilation)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'BrowserExtensionAddHtmlFileToCompilation4',
+            name: 'HtmlPlugin (AddHtmlFileToCompilation)4',
             // Add additional assets to the compilation.
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },

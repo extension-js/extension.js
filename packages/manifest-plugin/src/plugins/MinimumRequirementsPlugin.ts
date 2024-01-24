@@ -9,11 +9,11 @@ export default class MinimumRequirementsPlugin {
 
   apply(compiler: Compiler) {
     compiler.hooks.thisCompilation.tap(
-      'BrowserExtensionManifestPlugin',
+      'ManifestPlugin (MinimumRequirementsPlugin)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'BrowserExtensionManifestPlugin',
+            name: 'ManifestPlugin (MinimumRequirementsPlugin)',
             // Add additional assets to the compilation.
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },

@@ -17,7 +17,7 @@ export default class HardReloadManifestPlugin {
     // this.logger = compiler.getInfrastructureLogger('webpack-cli')
 
     compiler.hooks.watchRun.tapAsync(
-      'RunChromeExtensionPlugin',
+      'ManifestPlugin (HardReloadManifest)',
       (compiler, done) => {
         const files = compiler.modifiedFiles || new Set()
         const changedFile = files.values().next().value
@@ -28,7 +28,7 @@ export default class HardReloadManifestPlugin {
         }
 
         compiler.hooks.afterCompile.tap(
-          'BrowserExtensionHtmlPlugin',
+          'ManifestPlugin (HardReloadManifest)',
           (compilation) => {
             if (
               compilation.errors?.length > 0 ||

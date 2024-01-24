@@ -88,7 +88,7 @@ export default class ThrowIfRecompileIsNeeded {
     this.storeInitialHtmlAssets(allEntries)
 
     compiler.hooks.make.tapAsync(
-      'RunChromeExtensionPlugin',
+      'HtmlPlugin (RunChromeExtensionPlugin)',
       (compilation, done) => {
         const files = compiler.modifiedFiles || new Set<string>()
         const changedFile = Array.from(files)[0]
