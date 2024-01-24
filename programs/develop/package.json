@@ -35,6 +35,7 @@
     "@types/webextension-polyfill": "^0.10.7",
     "babel-loader": "^9.1.3",
     "babel-preset-modern-browser-extension": "^0.2.0",
+    "browser-extension-loader": "*",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "css-loader": "^6.9.1",
     "css-minimizer-webpack-plugin": "^6.0.0",
