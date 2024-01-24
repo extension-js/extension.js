@@ -33,7 +33,13 @@ export default class CreateWebSocketServer {
           return
         }
 
-        console.info('[Reload Service] Updates on:', path.basename(changedFile))
+        console.info(
+          '[-] Updates on: ',
+          path.relative(
+            path.dirname(this.options.manifestPath || ''),
+            changedFile
+          )
+        )
 
         if (this.options.manifestPath) {
           messageDispatcher(wss, this.options, changedFile)
