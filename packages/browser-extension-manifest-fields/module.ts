@@ -4,6 +4,7 @@ import jsonFromManifest from './fields/json-fields'
 import localesFromManifest from './fields/locales-fields'
 import scriptsFromManifest from './fields/scripts-fields'
 import webResourcesFromManifest from './fields/web-resources-fields'
+import getPagesPath from './helpers/getPagesPath'
 import {type ManifestFields, type ManifestData} from './types'
 
 export {type ManifestFields}
@@ -30,3 +31,4 @@ function browserExtensionManifestFields(
 }
 
 export default browserExtensionManifestFields
+export {getPagesPath}
