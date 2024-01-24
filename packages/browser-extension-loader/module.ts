@@ -3,7 +3,9 @@ import fs from 'fs'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
-import parseChromeTabsCreate from './src/parsers/parseChromeTabsCreate'
+import parseChromeTabsCreate from './src/parsers/tabs/create'
+import parseChromeActionSetPopup from './src/parsers/action/setPopup'
+
 import resolvePath from './src/resolver'
 import {
   errorMessage,
@@ -79,9 +81,17 @@ export default function (this: BrowserExtensionContext, source: string) {
   })
 
   if (new RegExp(options.test).test(this.resourcePath)) {
+    const chromeActionSetPopup = parseChromeActionSetPopup(source)
     const chromeTabCreateResults = parseChromeTabsCreate(source)
+
     let modifiedSource = source
 
+    // chrome.action.setPopup
+    chromeActionSetPopup.forEach((result) => {
+      modifiedSource = processResult(this, result, modifiedSource)
+    })
+
+    // chrome.tabs.create
     chromeTabCreateResults.forEach((result) => {
       modifiedSource = processResult(this, result, modifiedSource)
     })
