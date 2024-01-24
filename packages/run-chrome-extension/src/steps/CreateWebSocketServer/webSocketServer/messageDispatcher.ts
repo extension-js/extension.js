@@ -1,6 +1,6 @@
 import path from 'path'
 import WebSocket from 'ws'
-import manifestFields from 'browser-extension-manifest-fields'
+import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 import {type RunChromeExtensionInterface} from '../../../../types'
 
 function dispatchMessage(
@@ -21,8 +21,16 @@ export default function messageDispatcher(
   options: RunChromeExtensionInterface,
   updatedFile: string
 ) {
-  if (!updatedFile) return
-  const manifestHtml = manifestFields(options.manifestPath!).html
+  if (!updatedFile || !options.manifestPath) return
+
+  const pagesPath = options.pagesFolder
+    ? path.resolve(path.dirname(options.manifestPath), options.pagesFolder)
+    : undefined
+
+  const allHtml = {
+    ...manifestFields(options.manifestPath!).html,
+    ...(pagesPath ? getPagesPath(pagesPath) : {})
+  }
   const manifestLocales = manifestFields(options.manifestPath!).locales
   const manifestScripts = manifestFields(options.manifestPath!).scripts
 
@@ -34,7 +42,7 @@ export default function messageDispatcher(
   }
 
   // Handle HTML files
-  Object.entries(manifestHtml).forEach(([, entryData]) => {
+  Object.entries(allHtml).forEach(([, entryData]) => {
     if (entryData?.html === updatedFile) {
       dispatchMessage(server, {
         changedFile: 'html'
