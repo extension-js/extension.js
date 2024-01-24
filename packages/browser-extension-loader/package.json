@@ -1,0 +1,46 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/browser-extension-loader.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "name": "browser-extension-loader",
+  "version": "1.0.0",
+  "description": "A webpack loader to parse browser extension APIs",
+  "main": "./dist/module.js",
+  "types": "./dist/module.d.ts",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "watch": "yarn compile --watch",
+    "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
+    "lint": "eslint \"./**/*.ts*\"",
+    "test": "echo \"Note: no test specified\" && exit 0"
+  },
+  "keywords": [
+    "browser",
+    "extension",
+    "webextension",
+    "manifest",
+    "generate",
+    "assets"
+  ],
+  "dependencies": {
+    "@babel/parser": "7.23.6",
+    "@babel/traverse": "7.23.7",
+    "@babel/types": "7.23.6",
+    "typescript": "^5.3.3",
+    "tsconfig": "*",
+    "tsup": "^8.0.1"
+  },
+  "peerDependencies": {
+    "webpack": "^5.0.0"
+  }
+}

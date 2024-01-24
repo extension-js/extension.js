@@ -16,6 +16,13 @@ export default function jsLoaders(projectDir: string, opts: any) {
     : /\.(js|mjs|jsx)$/
 
   return [
+    {
+      test: files,
+      include: projectDir,
+      exclude: /node_modules/,
+      loader: require.resolve('browser-extension-loader')
+      // options:
+    },
     // https://webpack.js.org/loaders/babel-loader/
     // https://babeljs.io/docs/en/babel-loader
     {
