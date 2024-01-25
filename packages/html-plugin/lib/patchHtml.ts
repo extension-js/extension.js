@@ -30,7 +30,7 @@ export default function patchHtml(
 
           const assetOutputpath = isPublicFolder
             ? path.normalize(filePath)
-            : getFilepath(feature, filePath)
+            : '/' + getFilepath(feature, filePath)
 
           switch (assetType) {
             case 'script': {
@@ -38,7 +38,7 @@ export default function patchHtml(
                 node = utils.setAttribute(
                   childNode,
                   'src',
-                  `/${assetOutputpath}`
+                  `${assetOutputpath}`
                 )
               } else {
                 node = utils.remove(childNode)
@@ -50,7 +50,7 @@ export default function patchHtml(
                 node = utils.setAttribute(
                   childNode,
                   'href',
-                  `/${assetOutputpath}`
+                  `${assetOutputpath}`
                 )
               } else {
                 node = utils.remove(childNode)
@@ -62,7 +62,7 @@ export default function patchHtml(
               node = utils.setAttribute(
                 childNode,
                 assetType === 'staticSrc' ? 'src' : 'href',
-                `/${assetOutputpath}`
+                `${assetOutputpath}`
               )
               break
             }

@@ -9,7 +9,9 @@ interface PagesPath {
 function findHtmlFiles(
   dir: string,
   pagesPath: Record<string, any> = {}
-): PagesPath {
+): PagesPath | undefined {
+  if (!fs.existsSync(dir)) return undefined
+
   const files = fs.readdirSync(dir)
 
   files.forEach((file) => {
@@ -33,7 +35,7 @@ function findHtmlFiles(
   return pagesPath
 }
 
-export default function getPagesPath(pagePath?: string): PagesPath {
+export default function getPagesPath(pagePath?: string): PagesPath | undefined {
   if (!pagePath) return {}
 
   const pagesPath = findHtmlFiles(pagePath)
