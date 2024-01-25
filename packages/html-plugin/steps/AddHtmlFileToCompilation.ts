@@ -85,6 +85,7 @@ export default class AddHtmlFileToCompilation {
                 }
 
                 const updatedHtml = patchHtml(
+                  compiler,
                   feature,
                   resource?.html,
                   this.exclude!

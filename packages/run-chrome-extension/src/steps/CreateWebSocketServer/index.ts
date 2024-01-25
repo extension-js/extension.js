@@ -34,11 +34,14 @@ export default class CreateWebSocketServer {
         }
 
         console.info(
-          '[-] Updates on: ',
-          path.relative(
-            path.dirname(this.options.manifestPath || ''),
-            changedFile
-          )
+          '►► Updated file',
+          // '\`' + changedFile + '\`'
+          '`' +
+            path.relative(
+              path.dirname(this.options.manifestPath || ''),
+              changedFile
+            ) +
+            '` (relative to manifest.json root directory)'
         )
 
         if (this.options.manifestPath) {

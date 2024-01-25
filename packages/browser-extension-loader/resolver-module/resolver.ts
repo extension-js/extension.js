@@ -66,3 +66,24 @@ export default function resolvePath(
     return relativePath
   }
 }
+
+// if (isUrl(result.path)) return source
+
+// const resultResolvedPath = resolvePath(self.rootContext, result.path)
+// const resultAbsolutePath = path.resolve(self.rootContext, result.path)
+
+// // if (!fs.existsSync(resultAbsolutePath)) {
+// //   self.emitError(errorMessage(resultAbsolutePath, result, self.resourcePath))
+// //   return source
+// // }
+
+// const isPublic = isPublicPath(self.rootContext, result.path)
+// const isPages = isPagesPath(self.rootContext, result.path)
+
+// if (
+//   !isManifestAsset(self.rootContext, resultAbsolutePath) &&
+//   !isPublic &&
+//   !isPages
+// ) {
+//   self.emitFile(result.path, source)
+// }

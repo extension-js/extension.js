@@ -37,34 +37,74 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
 
   const url = urlToRequest(this.resourcePath)
   const reloadCode = `
-;chrome.runtime.onMessageExternal.addListener(
-  async (request, _sender, sendResponse) => {
-    const managementInfo = await new Promise((resolve) => {
-      chrome.management.getSelf(resolve);
-    });
+  ;chrome.runtime.onMessageExternal.addListener(
+    async (request, _sender, sendResponse) => {
+      const managementInfo = await new Promise((resolve) => {
+        chrome.management.getSelf(resolve);
+      });
+ 
+      // Ping-pong between the user extension background page(this)
+      // and the middleware socket client (reloadService.ts),
+      // which will then send a message to the server
+      // (startServer.ts) so it can display the extension info.
+      if (request.initialLoadData) {
+        sendResponse({
+          id: chrome.runtime.id,
+          manifest: chrome.runtime.getManifest(),
+          management: managementInfo,
+          management2: await chrome.management.getSelf()
+        })
+        return true
+      }
+  
+      // Reload the extension runtime if the manifest or
+      // service worker changes. 
+      if (
+        request.changedFile === 'manifest.json' ||
+        request.changedFile === 'service_worker'
+      ) {
+        setTimeout(() => {
+          sendResponse({reloaded: true})
+          chrome.runtime.reload()
+        }, 750)
+      }
 
-    if (request.initialLoadData) {
-      sendResponse({
-        id: chrome.runtime.id,
-        manifest: chrome.runtime.getManifest(),
-        management: managementInfo
-      })
+      // if (request.changedFile === 'html') {
+      //   sendResponse({reloaded: true})
+      //   setTimeout(() => {
+      //     chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+      //       if (tabs[0]) {
+      //         chrome.tabs.reload(tabs[0].id)
+      //       }
+      //     })
+      //   }, 750)
+      // }
+
+      // Reload the HTML page if the HTML file changes.
+      // TODO: cezaraugusto Sometimes this is not enough.
+      // Maybe reloading the tab solves the issue?
+      chrome.runtime.onMessageExternal.addListener(
+        (request, _sender, sendResponse) => {
+          if (request.changedFile === 'html') {
+            setTimeout(() => {
+              sendResponse({reloaded: true})
+              window.location.reload()
+            }, 750)
+          }
+        }
+      )
+
+      // Reload all tabs if the contextMenus code changes.
+      if (request.changedFile === 'contextMenus') {
+        sendResponse({reloaded: true})
+        chrome.tabs.query({}, (tabs) => {
+          tabs.forEach((tab) => chrome.tabs.reload(tab.id))
+        })
+      }
+  
       return true
     }
-
-    if (
-      request.changedFile === 'manifest.json' ||
-      request.changedFile === 'service_worker'
-    ) {
-      sendResponse({reloaded: true})
-      setTimeout(() => {
-        chrome.runtime.reload()
-      }, 1000)
-    }
-
-    return true
-  }
-);
+  );
   `
 
   // Let the react reload plugin handle the reload.
