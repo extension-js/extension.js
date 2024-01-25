@@ -49,13 +49,13 @@ export default class ManifestCompatPlugin {
           const isChrome = this.options.browser === 'chrome'
           const browserName = this.options.browser
             ? this.options.browser.substring(0, 1).toUpperCase() + this.options.browser.substring(1)
-            : 'Chrome'
+            : 'Chrome Extensions API reference'
 
           compilation.warnings.push(
             new WebpackError(
 `[manifest.json]: Manifest field ${field} ${message?.replace('be', 'be of type')}.
 
-Read more about the \`${namespace}\` namespace on ${browserName}'s documentation:
+Read more about the \`${namespace}\` namespace on ${browserName} :
 ${isChrome ? chromeUrl : mdnUrl}.`
             )
           )

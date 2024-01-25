@@ -36,8 +36,8 @@ export default function devServerConfig(
       // Shows a full-screen overlay in the browser
       // when there are compiler errors or warnings.
       overlay: {
-        errors: true,
-        warnings: true
+        errors: false,
+        warnings: false
       }
     },
     headers: {
