@@ -5,14 +5,19 @@ import utils from 'parse5-utils'
 import parseHtml from './parseHtml'
 import shouldExclude from '../helpers/shouldExclude'
 import {getFilepath} from '../helpers/getResourceName'
+import {Compiler} from 'webpack'
 
 export default function patchHtml(
+  compiler: Compiler,
   feature: string,
   htmlEntry: string,
   exclude: string[]
 ) {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = utils.parse(htmlFile)
+
+  let hasCssEntry = false
+  let hasJsEntry = false
 
   for (let node of htmlDocument.childNodes) {
     if (node.nodeName !== 'html') continue
@@ -42,6 +47,7 @@ export default function patchHtml(
                 )
               } else {
                 node = utils.remove(childNode)
+                hasJsEntry = true
               }
               break
             }
@@ -54,6 +60,7 @@ export default function patchHtml(
                 )
               } else {
                 node = utils.remove(childNode)
+                hasCssEntry = true
               }
               break
             }
@@ -72,23 +79,32 @@ export default function patchHtml(
         })
       }
 
-      // Create the link tag for the CSS bundle
       if (htmlChildNode.nodeName === 'head') {
-        const linkTag = utils.createNode('link')
-        linkTag.attrs = [
-          {name: 'rel', value: 'stylesheet'},
-          {name: 'href', value: getFilepath('.', './index.css')}
-        ]
+        if (hasCssEntry) {
+          // Create the link tag for the CSS bundle
+          const linkTag = utils.createNode('link')
+          linkTag.attrs = [
+            {name: 'rel', value: 'stylesheet'},
+            {name: 'href', value: getFilepath('.', './index.css')}
+          ]
 
-        utils.append(htmlChildNode, linkTag)
+          utils.append(htmlChildNode, linkTag)
+        }
       }
 
       // Create the script tag for the JS bundle
       if (htmlChildNode.nodeName === 'body') {
-        const scriptTag = utils.createNode('script')
-        scriptTag.attrs = [{name: 'src', value: getFilepath('.', './index.js')}]
+        // We want a single JS entry point for the extension even
+        // during development, so we only add the script tag if the
+        // user has not already added one.
+        if (hasJsEntry || compiler.options.mode !== 'production') {
+          const scriptTag = utils.createNode('script')
+          scriptTag.attrs = [
+            {name: 'src', value: getFilepath('.', './index.js')}
+          ]
 
-        utils.append(htmlChildNode, scriptTag)
+          utils.append(htmlChildNode, scriptTag)
+        }
       }
     }
 
