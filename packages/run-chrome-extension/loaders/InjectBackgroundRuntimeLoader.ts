@@ -38,11 +38,16 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
   const url = urlToRequest(this.resourcePath)
   const reloadCode = `
 ;chrome.runtime.onMessageExternal.addListener(
-  (request, _sender, sendResponse) => {
+  async (request, _sender, sendResponse) => {
+    const managementInfo = await new Promise((resolve) => {
+      chrome.management.getSelf(resolve);
+    });
+
     if (request.initialLoadData) {
       sendResponse({
         id: chrome.runtime.id,
-        manifest: chrome.runtime.getManifest()
+        manifest: chrome.runtime.getManifest(),
+        management: managementInfo
       })
       return true
     }

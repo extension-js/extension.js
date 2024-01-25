@@ -5,14 +5,13 @@ import webpack, {sources, Compilation} from 'webpack'
 import {type HtmlPluginInterface} from '../types'
 
 // Manifest fields
-import manifestFields from 'browser-extension-manifest-fields'
+import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 
 import {getFilepath} from '../helpers/getResourceName'
 
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 import {fileError} from '../helpers/messages'
 import shouldEmitFile from '../helpers/shouldEmitFile'
-import getPagesPath from '../helpers/getPagesPath'
 
 export default class AddAssetsToCompilation {
   public readonly manifestPath: string
