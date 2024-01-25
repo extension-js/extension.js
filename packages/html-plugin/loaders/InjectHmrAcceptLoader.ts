@@ -6,11 +6,10 @@ import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
 
 // Manifest fields
-import manifestFields from 'browser-extension-manifest-fields'
+import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 
 import {isUsingReact} from '../helpers/isUsingReact'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
-import getPagesPath from '../helpers/getPagesPath'
 
 const schema: Schema = {
   type: 'object',
