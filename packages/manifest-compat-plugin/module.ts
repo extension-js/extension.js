@@ -5,10 +5,11 @@ import {Compiler, WebpackError} from 'webpack'
 // import v2Schema from './lib/manifest.schema.v2.json'
 import v3Schema from './lib/manifest.schema.v3.json'
 import addCustomFormats from './src/helpers/customValidators'
-// import bcd from '@mdn/browser-compat-data'
+import bcd from '@mdn/browser-compat-data'
 
 interface ManifestCompatPluginOptions {
   manifestPath: string
+  browser?: string
 }
 
 export default class ManifestCompatPlugin {
@@ -22,9 +23,6 @@ export default class ManifestCompatPlugin {
     compiler.hooks.emit.tapAsync(
       'CompatPlugin (module)',
       (compilation, done) => {
-        // const ext = bcd.webextensions.manifest
-        // console.log({ext})
-
         const manifestPath = path.resolve(
           compiler.options.context!,
           this.options.manifestPath
@@ -42,9 +40,23 @@ export default class ManifestCompatPlugin {
         const valid = validate(manifest)
 
         if (!valid) {
-          compilation.errors.push(
+          const field = validate.errors?.[0].instancePath.replaceAll('/', '.').slice(1) || ''
+          const extensionKnowledge = bcd.webextensions.manifest
+          const message = validate.errors?.[0].message
+          const namespace = field?.split('.')[0]
+          const chromeUrl = `https://developer.chrome.com/docs/extensions/reference/api/${namespace}`
+          const mdnUrl = extensionKnowledge?.[namespace].__compat?.mdn_url
+          const isChrome = this.options.browser === 'chrome'
+          const browserName = this.options.browser
+            ? this.options.browser.substring(0, 1).toUpperCase() + this.options.browser.substring(1)
+            : 'Chrome'
+
+          compilation.warnings.push(
             new WebpackError(
-              'Manifest validation error: ' + ajv.errorsText(validate.errors)
+`[manifest.json]: Manifest field ${field} ${message?.replace('be', 'be of type')}.
+
+Read more about the \`${namespace}\` namespace on ${browserName}'s documentation:
+${isChrome ? chromeUrl : mdnUrl}.`
             )
           )
         }
