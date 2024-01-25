@@ -1,14 +1,14 @@
-export function isBrowser(callee: any) {
+function isBrowser(callee: any, browser: string) {
   return (
     callee.type === 'MemberExpression' &&
     callee.object.type === 'MemberExpression' &&
     callee.object.object.type === 'Identifier' &&
-    callee.object.object.name === 'chrome'
+    callee.object.object.name === browser
   )
 }
 
-export function isNamespace(callee: any, namespace: string) {
-  if (!isBrowser(callee)) false
+function isNamespace(callee: any, browser: string, namespace: string) {
+  if (!isBrowser(callee, browser)) false
 
   return (
     callee.object.property.type === 'Identifier' &&
@@ -16,21 +16,59 @@ export function isNamespace(callee: any, namespace: string) {
   )
 }
 
-export function isMethod(callee: any, namespace: string, func: string) {
-  if (!isNamespace(callee, namespace)) false
+function isMethod(
+  callee: any,
+  browser: string,
+  namespace: string,
+  func: string
+) {
+  if (!isNamespace(callee, browser, namespace)) false
 
   return callee.property.type === 'Identifier' && callee.property.name === func
 }
 
-export function isListener(
+function isMethodWithinMethod(
   callee: any,
+  browser: string,
   namespace: string,
   func: string,
-  listener: string
+  methodWithin: string
 ) {
-  if (!isMethod(callee, namespace, func)) false
+  if (!isMethod(callee, browser, namespace, func)) false
 
   return (
-    callee.property.type === 'Identifier' && callee.property.name === listener
+    callee.property.type === 'Identifier' &&
+    callee.property.name === methodWithin
   )
+}
+
+export function has(
+  callee: any,
+  method: string,
+) {
+  const methodArr = method.split('.')
+
+  switch (methodArr.length) {
+    case 1: 
+      return isBrowser(callee, methodArr[0])
+    case 2:
+      return isNamespace(callee, methodArr[0], methodArr[1])
+    case 3:
+      return isMethod(
+        callee,
+        methodArr[0],
+        methodArr[1],
+        methodArr[2]
+      )
+    case 4:
+      return isMethodWithinMethod(
+        callee,
+        methodArr[0],
+        methodArr[1],
+        methodArr[2],
+        methodArr[3]
+      )
+    default:
+      return false
+  }
 }

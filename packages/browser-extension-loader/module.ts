@@ -13,7 +13,7 @@ import {
   isPublicPath,
   isUrl
 } from './src/utils'
-import {isBrowser, isListener, isMethod, isNamespace} from './src/parsers'
+import {has} from './src/parsers'
 
 const schema: Schema = {
   type: 'object',
@@ -96,133 +96,66 @@ export default function (this: BrowserExtensionContext, source: string) {
         const callee = path.node.callee
         const args = path.node.arguments
 
-        if (isBrowser(callee)) {
-          if (!args.length) return
-
-          // chrome.action (2 methods)
-          // - chrome.action.setIcon: chrome.action.setIcon({path: 'icon.png'})
-          // - chrome.action.setPopup: chrome.action.setIcon({ path: { 48: 'icon48.png' } })
-          if (isNamespace(callee, 'action')) {
-            if (isMethod(callee, 'action', 'setIcon')) {
-            }
-            if (isMethod(callee, 'action', 'setPopup')) {
-            }
-          }
-
-          // chrome.browserAction (2 methods)
-          // - chrome.browserAction.setIcon: chrome.browserAction.setIcon({path: 'icon.png'})
-          // - chrome.browserAction.setPopup: chrome.browserAction.setPopup({popup: 'popup.html'})
-          if (isNamespace(callee, 'browserAction')) {
-            if (isMethod(callee, 'browserAction', 'setIcon')) {
-            }
-            if (isMethod(callee, 'browserAction', 'setPopup')) {
-            }
-          }
-
-          // chrome.devtools
-          // - chrome.devtools.panels
-          if (isNamespace(callee, 'devtools')) {
-            if (isMethod(callee, 'devtools', 'panels')) {
-              // chrome.devtools.panels
-            }
-
-            // chrome.devtools.inspectedWindow
-            // chrome.devtools.network
-            // chrome.devtools.panels
-          }
-
-          // chrome.downloads
-          if (isNamespace(callee, 'downloads')) {
-            if (isMethod(callee, 'downloads', 'download')) {
-              // chrome.downloads.download({url: 'http://example.org/file.pdf'})
-            }
-
-            if (
-              isListener(
-                callee,
-                'downloads',
-                'onDeterminingFilename',
-                'addListener'
-              )
-            ) {
-              // chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
-              // suggest({filename: 'customfolder/customname.pdf'});
-              // });
-            }
-          }
-
-          // chrome.pageAction
-          // - chrome.pageAction.setIcon
-          // - chrome.pageAction.setPopup
-          if (isNamespace(callee, 'pageAction')) {
-            if (isMethod(callee, 'pageAction', 'setIcon')) {
-              // chrome.pageAction.setIcon({path: 'icon.png'})
-            }
-
-            if (isMethod(callee, 'pageAction', 'setPopup')) {
-              // chrome.pageAction.setPopup({popup: 'popup.html'})
-            }
-          }
-
-          // chrome.runtime
-          if (isNamespace(callee, 'runtime')) {
-            if (isMethod(callee, 'runtime', 'getURL')) {
-              // Returns full qualified urls like chrome-extension://<extension-id>/script.js
-              // chrome.runtime.getURL('script.js')
-            }
-          }
-
-          // chrome.scripting
-          // - chrome.scripting.insertCSS({ files: ["styles.css"] });
-          // - chrome.scripting.removeCSS({ files: ['styles.css'] });
-          // - chrome.scripting.executeScript({ files: ['script.js'] });
-          // - chrome.scripting.registerContentScript({ files: ['script.js'] });
-          // - chrome.scripting.unregisterContentScript('script.js');
-
-          // chrome.scriptBadge
-          // - chrome.scriptBadge.setPopup({ popup: "popup.html" });
-          if (isNamespace(callee, 'scriptBadge')) {
-            if (isMethod(callee, 'scriptBadge', 'setPopup')) {
-            }
-          }
-
-          // chrome.sessions
-
-          // chrome.storage
-
-          // chrome.socket
-
-          // chrome.system
-
-          // chrome.tabCapture
-
-          // chrome.tabs
-
-          // chrome.tabGroups
-
-          // chrome.topSites
-
-          // chrome.tts
-
-          // chrome.ttsEngine
-
-          // chrome.types
-
-          // chrome.vpnProvider
-
-          // chrome.wallpaper
-
-          // chrome.webNavigation
-
-          // chrome.webRequest
-
-          // chrome.webstore
-
-          // chrome.windows
-
-          // chrome.declarativeNetRequest
-
-          // chrome.sidePanel
+        if (
+          // 1 - chrome.action
+          // 1.1 - chrome.action.setIcon: chrome.action.setIcon({path: 'icon.png'})
+          has(callee, 'chrome.action.setIcon') ||
+          // 1.2 - chrome.action.setPopup: chrome.action.setIcon({ path: { 48: 'icon48.png' } })
+          has(callee, 'chrome.action.setPopup') ||
+          // 2. chrome.browserAction
+          // 2.1 - chrome.browserAction.setIcon: chrome.browserAction.setIcon({path: 'icon.png'})
+          has(callee, 'chrome.browserAction.setIcon') ||
+          // 2.2 - chrome.browserAction.setPopup: chrome.browserAction.setPopup({popup: 'popup.html'})
+          has(callee, 'chrome.browserAction.setPopup') ||
+          // 3 - chrome.devtools
+          // 3.1 - chrome.devtools.panels.create('MyPanel', 'icon.png', 'panel.html', (panel) => {})
+          has(callee, 'chrome.devtools.panels.create') ||
+          // 4 - chrome.downloads
+          // 4.1 - chrome.downloads.download({url: 'http://example.org/file.pdf'})
+          has(callee, 'chrome.downloads.download') ||
+          // 4.2 - chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => { suggest({filename: 'customfolder/customname.pdf'}); });
+          has(callee, 'chrome.downloads.onDeterminingFilename.addListener') ||
+          // 5 - chrome.pageAction
+          // 5.1 - chrome.pageAction.setIcon: chrome.pageAction.setIcon({path: 'icon.png'})
+          // 5.2 - chrome.pageAction.setPopup: chrome.pageAction.setPopup({popup: 'popup.html'})
+          has(callee, 'chrome.pageAction.setIcon') ||
+          has(callee, 'chrome.pageAction.setPopup') ||
+          // 6 - chrome.runtime
+          // # Returns full qualified urls like chrome-extension://<extension-id>/script.js
+          // 6.1 - chrome.runtime.getURL('script.js')
+          has(callee, 'chrome.runtime.getURL') ||
+          // 7 - chrome.scripting
+          // 7.1 - chrome.scripting.insertCSS({ files: ["styles.css"] });
+          // 7.2 - chrome.scripting.removeCSS({ files: ['styles.css'] });
+          // 7.3 - chrome.scripting.executeScript({ files: ['script.js'] });
+          // 7.4 - chrome.scripting.registerContentScript({ files: ['script.js'] });
+          // 7.5 - chrome.scripting.unregisterContentScript('script.js');
+          has(callee, 'chrome.scripting.insertCSS') ||
+          has(callee, 'chrome.scripting.removeCSS') ||
+          has(callee, 'chrome.scripting.executeScript') ||
+          has(
+            callee,
+            'chrome.scripting.registerContentScript'
+          ) ||
+          has(
+            callee,
+            'chrome.scripting.unregisterContentScript'
+          ) ||
+          // 8 - chrome.scriptBadge
+          // 8.1 - chrome.scriptBadge.setPopup({ popup: "popup.html" });
+          has(callee, 'chrome.scriptBadge.setPopup') ||
+          // 9 - chrome.tabs
+          // 9.1 - chrome.tabs.create({url: 'path/to/local/file.html'})
+          // 9.2 - chrome.tabs.executeScript(tabId, {file: 'path/to/script.js'})
+          // 9.3 - chrome.tabs.insertCSS(tabId, {file: 'path/to/style.css'})
+          has(callee, 'chrome.tabs.create') ||
+          has(callee, 'chrome.tabs.executeScript') ||
+          has(callee, 'chrome.tabs.insertCSS') ||
+          // 10 - chrome.sidePanel
+          // 10.1 - chrome.sidePanel.setOptions({path: 'panel.html'}, () => {})
+          has(callee, 'chrome.sidePanel.setOptions')
+        ) {
+          console.log('chrome.* API found', callee)
         }
 
         results.forEach((result) => {
