@@ -5,13 +5,12 @@ import webpack, {sources, Compilation} from 'webpack'
 import {type HtmlPluginInterface} from '../types'
 
 // Manifest fields
-import manifestFields from 'browser-extension-manifest-fields'
+import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 
 import {getFilepath} from '../helpers/getResourceName'
 import shouldEmitFile from '../helpers/shouldEmitFile'
 import patchHtml from '../lib/patchHtml'
 import {manifestFieldError} from '../helpers/messages'
-import getPagesPath from '../helpers/getPagesPath'
 
 export default class AddHtmlFileToCompilation {
   public readonly manifestPath: string
