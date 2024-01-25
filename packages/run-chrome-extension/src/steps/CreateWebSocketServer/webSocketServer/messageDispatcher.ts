@@ -2,6 +2,7 @@ import path from 'path'
 import WebSocket from 'ws'
 import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 import {type RunChromeExtensionInterface} from '../../../../types'
+import parseScript from '../../../helpers/parseScript'
 
 function dispatchMessage(
   server: WebSocket.Server<typeof WebSocket, any>,
@@ -58,6 +59,16 @@ export default function messageDispatcher(
       })
     }
   })
+
+  const changedFileIncludesContextMenuCode = parseScript(
+    updatedFile,
+    'chrome.contextMenus'
+  )
+  if (changedFileIncludesContextMenuCode) {
+    dispatchMessage(server, {
+      changedFile: 'contextMenus'
+    })
+  }
 
   // Handle background/content/user scripts.
   Object.entries(manifestScripts).forEach(([entryName, entryData]) => {

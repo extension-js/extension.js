@@ -89,7 +89,7 @@ export default function webpackConfig(
       compilationPlugins(projectPath, devOptions),
       extensionPlugins(projectPath, devOptions),
       reloadPlugins(projectPath, devOptions),
-      browserPlugins(projectPath, devOptions),
+      // browserPlugins(projectPath, devOptions),
       errorPlugins(projectPath, devOptions),
       boringPlugins(projectPath, devOptions)
     ],
