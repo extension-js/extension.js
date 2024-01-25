@@ -103,64 +103,64 @@ export default function (this: BrowserExtensionContext, source: string) {
         const callee = path.node.callee
         const args = path.node.arguments
 
-        // Handle cases for different Chrome APIs
-        if (
-          has(callee, 'chrome.action.setIcon') ||
-          has(callee, 'chrome.browserAction.setIcon') ||
-          has(callee, 'chrome.pageAction.setIcon')
-        ) {
-          args[0] = handlePathProperty(args[0])
-        }
+        // // Handle cases for different Chrome APIs
+        // if (
+        //   has(callee, 'chrome.action.setIcon') ||
+        //   has(callee, 'chrome.browserAction.setIcon') ||
+        //   has(callee, 'chrome.pageAction.setIcon')
+        // ) {
+        //   args[0] = handlePathProperty(args[0])
+        // }
 
-        if (
-          has(callee, 'chrome.action.setPopup') ||
-          has(callee, 'chrome.browserAction.setPopup') ||
-          has(callee, 'chrome.pageAction.setPopup') ||
-          has(callee, 'chrome.scriptBadge.setPopup')
-        ) {
-          args[0] = handlePopupProperty(args[0])
-        }
+        // if (
+        //   has(callee, 'chrome.action.setPopup') ||
+        //   has(callee, 'chrome.browserAction.setPopup') ||
+        //   has(callee, 'chrome.pageAction.setPopup') ||
+        //   has(callee, 'chrome.scriptBadge.setPopup')
+        // ) {
+        //   args[0] = handlePopupProperty(args[0])
+        // }
 
-        if (has(callee, 'chrome.devtools.panels.create')) {
-          args[1] = handleStringProperty(args[1])
-          args[2] = handleStringProperty(args[2])
-        }
+        // if (has(callee, 'chrome.devtools.panels.create')) {
+        //   args[1] = handleStringProperty(args[1])
+        //   args[2] = handleStringProperty(args[2])
+        // }
 
-        if (has(callee, 'chrome.downloads.download')) {
-          args[0] = handleUrlProperty(args[0])
-        }
+        // if (has(callee, 'chrome.downloads.download')) {
+        //   args[0] = handleUrlProperty(args[0])
+        // }
 
-        if (has(callee, 'chrome.runtime.getURL')) {
-          args[0] = handleStringProperty(args[0])
-        }
+        // if (has(callee, 'chrome.runtime.getURL')) {
+        //   args[0] = handleStringProperty(args[0])
+        // }
 
-        if (
-          has(callee, 'chrome.scripting.insertCSS') ||
-          has(callee, 'chrome.scripting.removeCSS') ||
-          has(callee, 'chrome.scripting.executeScript') ||
-          has(callee, 'chrome.scripting.registerContentScript') ||
-          has(callee, 'chrome.scripting.unregisterContentScript')
-        ) {
-          args[0] = handeFilesProperty(args[0])
-        }
+        // if (
+        //   has(callee, 'chrome.scripting.insertCSS') ||
+        //   has(callee, 'chrome.scripting.removeCSS') ||
+        //   has(callee, 'chrome.scripting.executeScript') ||
+        //   has(callee, 'chrome.scripting.registerContentScript') ||
+        //   has(callee, 'chrome.scripting.unregisterContentScript')
+        // ) {
+        //   args[0] = handeFilesProperty(args[0])
+        // }
 
-        if (
-          has(callee, 'chrome.tabs.create') ||
-          has(callee, 'chrome.tabs.executeScript') ||
-          has(callee, 'chrome.tabs.insertCSS')
-        ) {
-          if (args.length > 0) {
-            args[0] = handleUrlProperty(args[0])
-          }
-        }
+        // if (
+        //   has(callee, 'chrome.tabs.create') ||
+        //   has(callee, 'chrome.tabs.executeScript') ||
+        //   has(callee, 'chrome.tabs.insertCSS')
+        // ) {
+        //   if (args.length > 0) {
+        //     args[0] = handleUrlProperty(args[0])
+        //   }
+        // }
 
-        if (has(callee, 'chrome.sidePanel.setOptions')) {
-          args[0] = handlePathProperty(args[0])
-        }
+        // if (has(callee, 'chrome.sidePanel.setOptions')) {
+        //   args[0] = handlePathProperty(args[0])
+        // }
 
-        results.forEach((result) => {
-          source = processResult(this as any, result, source)
-        })
+        // results.forEach((result) => {
+        //   source = processResult(this as any, result, source)
+        // })
       }
     })
   }
