@@ -4,8 +4,7 @@ import webpack, {Compilation} from 'webpack'
 import {type HtmlPluginInterface} from '../types'
 
 // Manifest fields
-import manifestFields from 'browser-extension-manifest-fields'
-import getPagesPath from '../helpers/getPagesPath'
+import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 
 export default class AddToFileDependencies {
   public readonly manifestPath: string
@@ -51,7 +50,10 @@ export default class AddToFileDependencies {
                   for (const thisResource of fileResources) {
                     if (!fileDependencies.has(thisResource)) {
                       fileDependencies.add(thisResource)
-                      compilation.fileDependencies.add(thisResource)
+
+                      if (thisResource === resource?.html) {
+                        compilation.fileDependencies.add(thisResource)
+                      }
                     }
                   }
                 }

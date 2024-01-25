@@ -5,13 +5,12 @@ import webpack from 'webpack'
 import {type HtmlPluginInterface} from '../types'
 
 // Manifest fields
-import manifestFields from 'browser-extension-manifest-fields'
+import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 
 import {getFilepath} from '../helpers/getResourceName'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 import shouldEmitFile from '../helpers/shouldEmitFile'
 import shouldExclude from '../helpers/shouldExclude'
-import getPagesPath from '../helpers/getPagesPath'
 
 export default class AddScriptsAndStyles {
   public readonly manifestPath: string

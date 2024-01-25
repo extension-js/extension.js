@@ -72,7 +72,15 @@ export default class AddAssetsToCompilation {
                   // by HandleCommonErrorsPlugin because static assets
                   // are not entrypoints.
                   if (!fs.existsSync(asset)) {
-                    this.fileNotFoundWarn(compilation, resource?.html, asset)
+                    if (
+                      shouldEmitFile(
+                        compiler.options.context || '',
+                        asset,
+                        this.exclude
+                      )
+                    ) {
+                      this.fileNotFoundWarn(compilation, resource?.html, asset)
+                    }
                     return
                   }
 
