@@ -8,14 +8,14 @@ if (import.meta.webpackHot) {
   import.meta.webpackHot.accept()
 }
 
-chrome.runtime.onMessageExternal.addListener(
-  (request, _sender, sendResponse) => {
-    if (request.changedFile === 'html') {
-      sendResponse({reloaded: true})
+// chrome.runtime.onMessageExternal.addListener(
+//   (request, _sender, sendResponse) => {
+//     if (request.changedFile === 'html') {
+//       sendResponse({reloaded: true})
 
-      setTimeout(() => {
-        window.location.reload()
-      }, 750)
-    }
-  }
-)
+//       setTimeout(() => {
+//         window.location.reload()
+//       }, 750)
+//     }
+//   }
+// )

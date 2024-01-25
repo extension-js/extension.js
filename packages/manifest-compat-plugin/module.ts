@@ -40,7 +40,9 @@ export default class ManifestCompatPlugin {
         const valid = validate(manifest)
 
         if (!valid) {
-          const field = validate.errors?.[0].instancePath.replaceAll('/', '.').slice(1) || ''
+          const field =
+            validate.errors?.[0].instancePath.replaceAll('/', '.').slice(1) ||
+            ''
           const extensionKnowledge = bcd.webextensions.manifest
           const message = validate.errors?.[0].message
           const namespace = field?.split('.')[0]
@@ -48,12 +50,13 @@ export default class ManifestCompatPlugin {
           const mdnUrl = extensionKnowledge?.[namespace].__compat?.mdn_url
           const isChrome = this.options.browser === 'chrome'
           const browserName = this.options.browser
-            ? this.options.browser.substring(0, 1).toUpperCase() + this.options.browser.substring(1)
+            ? this.options.browser.substring(0, 1).toUpperCase() +
+              this.options.browser.substring(1)
             : 'Chrome Extensions API reference'
 
           compilation.warnings.push(
             new WebpackError(
-`[manifest.json]: Manifest field ${field} ${message?.replace('be', 'be of type')}.
+              `[manifest.json]: Manifest field ${field} ${message?.replace('be', 'be of type')}.
 
 Read more about the \`${namespace}\` namespace on ${browserName} :
 ${isChrome ? chromeUrl : mdnUrl}.`
