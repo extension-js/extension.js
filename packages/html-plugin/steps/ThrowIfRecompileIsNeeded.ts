@@ -1,10 +1,9 @@
 import path from 'path'
 import webpack from 'webpack'
-import manifestFields from 'browser-extension-manifest-fields'
+import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 
 import {type HtmlPluginInterface} from '../types'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
-import getPagesPath from '../helpers/getPagesPath'
 import {serverRestartRequired} from '../helpers/messages'
 
 export default class ThrowIfRecompileIsNeeded {

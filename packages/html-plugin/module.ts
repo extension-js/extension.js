@@ -18,7 +18,7 @@ export default class HtmlPlugin {
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
     this.pagesFolder = options.pagesFolder
-      ? path.resolve(path.dirname(options.manifestPath), options.pagesFolder)
+      ? path.join(path.dirname(options.manifestPath), options.pagesFolder)
       : undefined
     this.exclude = options.exclude || []
   }

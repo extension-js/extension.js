@@ -1,10 +1,9 @@
 import fs from 'fs'
 import webpack from 'webpack'
-import manifestFields from 'browser-extension-manifest-fields'
+import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 
 import {fileError} from '../helpers/messages'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
-import getPagesPath from '../helpers/getPagesPath'
 import {HtmlPluginInterface} from '../types'
 
 export function handleCantResolveError(
