@@ -39,6 +39,11 @@ export default function (compiler: Compiler, port?: number) {
 
           const compilerOptions = compiler.options
           const {id, manifest, management, management2} = message.data
+
+          console.log({
+            management,
+            management2
+          })
           const isMutableId = id !== manifest.id
           const manifestPath = path.join(
             compilerOptions.context || '',
