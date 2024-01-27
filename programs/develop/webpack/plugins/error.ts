@@ -23,7 +23,8 @@ export default function errorPlugins(projectPath: string, {mode}: DevOptions) {
       // new ErrorLayerPlugin().apply(compiler)
       // TODO: Handle manifest compatibilities across browser vendors.
       new ManifestCompatPlugin({
-        manifestPath
+        manifestPath,
+        browser: 'chrome'
       }).apply(compiler)
 
       // Handle common user mistakes and webpack errors.
