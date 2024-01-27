@@ -34,7 +34,7 @@ export default async function extensionDev(
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
   ) {
     console.log(
-      `🫣  - Manifest file not found. Path \`${projectPath}\` must include a \`manifest.json\`.`
+      `🫣  - Manifest file not found.\nPath \`${projectPath}\` must include a \`manifest.json\`.`
     )
     process.exit(1)
   }
