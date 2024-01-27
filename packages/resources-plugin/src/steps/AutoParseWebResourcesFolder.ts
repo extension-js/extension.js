@@ -31,7 +31,7 @@ export default class OutputWebAccessibleResourcesFolder {
   }
 
   apply(compiler: webpack.Compiler) {
-    compiler.hooks.emit.tapAsync(
+    compiler.hooks.afterCompile.tapAsync(
       'WebResourcesPlugin (AutoParseWebResourcesFolder)',
       (compilation, done) => {
         const {web_accessible_resources} = manifestFields(this.manifestPath)

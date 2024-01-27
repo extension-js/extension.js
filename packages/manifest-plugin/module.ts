@@ -3,7 +3,6 @@ import {type ManifestPluginInterface} from './src/types'
 
 // Manifest plugins
 import EmitManifestPlugin from './src/plugins/EmitManifestPlugin'
-import MinimumRequirementsPlugin from './src/plugins/MinimumRequirementsPlugin'
 import UpdateManifestPlugin from './src/plugins/UpdateManifestPlugin'
 import AddDependenciesPlugin from './src/plugins/AddDependenciesPlugin'
 import CheckManifestFilesPlugin from './src/plugins/CheckManifestFilesPlugin'
@@ -21,10 +20,6 @@ export default class ManifestPlugin {
   }
 
   public apply(compiler: webpack.Compiler) {
-    // Before attempting to do anything, check
-    // if manifest meets the minimum requirements.
-    new MinimumRequirementsPlugin().apply(compiler)
-
     // Add the manifest to the assets bundle.
     // This is important so other plugins can
     // get it via the compilation.assets object,
