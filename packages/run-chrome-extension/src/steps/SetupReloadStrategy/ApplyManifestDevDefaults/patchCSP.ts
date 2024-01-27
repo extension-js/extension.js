@@ -2,10 +2,11 @@ import parse from 'content-security-policy-parser'
 
 export function patchV2CSP(policy: string) {
   if (!policy) {
-    return (
-      "script-src 'self' 'unsafe-eval' blob: filesystem:;" +
-      "object-src 'self' blob: filesystem:;"
-    )
+    return {
+      content_security_policy:
+        "script-src 'self' 'unsafe-eval' blob: filesystem:;" +
+        "object-src 'self' blob: filesystem:;"
+    }
   }
 
   const csp = parse(policy)
@@ -23,12 +24,14 @@ export function patchV2CSP(policy: string) {
     policy += `${k} ${csp[k].join(' ')};`
   }
 
-  return policy
+  return {content_security_policy: policy}
 }
 
 export function patchV3CSP(policy: string) {
   if (!policy) {
-    return "script-src 'self'; " + "object-src 'self';"
+    return {
+      content_security_policy: "script-src 'self'; " + "object-src 'self';"
+    }
   }
 
   const csp = parse(policy)
@@ -42,5 +45,7 @@ export function patchV3CSP(policy: string) {
     policy += `${k} ${csp[k].join(' ')};`
   }
 
-  return policy
+  return {
+    content_security_policy: policy
+  }
 }
