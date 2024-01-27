@@ -101,6 +101,12 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
           tabs.forEach((tab) => chrome.tabs.reload(tab.id))
         })
       }
+
+      // Reload all tabs if the declarative_net_request code changes.
+      if (request.changedFile === 'declarative_net_request') {
+        sendResponse({reloaded: true})
+        chrome.runtime.reload()
+      }
   
       return true
     }

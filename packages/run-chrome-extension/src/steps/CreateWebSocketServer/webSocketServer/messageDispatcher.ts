@@ -34,6 +34,7 @@ export default function messageDispatcher(
   }
   const manifestLocales = manifestFields(options.manifestPath!).locales
   const manifestScripts = manifestFields(options.manifestPath!).scripts
+  const jsonScripts = manifestFields(options.manifestPath!).json
 
   // Ensure the manifest itself is watched.
   if (path.basename(updatedFile) === 'manifest.json') {
@@ -60,6 +61,7 @@ export default function messageDispatcher(
     }
   })
 
+  // Handle contextMenus files
   const changedFileIncludesContextMenuCode = parseScript(
     updatedFile,
     'chrome.contextMenus'
@@ -70,7 +72,7 @@ export default function messageDispatcher(
     })
   }
 
-  // Handle background/content/user scripts.
+  // Handle service_worker scripts.
   Object.entries(manifestScripts).forEach(([entryName, entryData]) => {
     const entryDataArr = Array.isArray(entryData) ? entryData : [entryData]
     const entryFiles = Object.values(entryDataArr).flatMap((arr) => arr)
@@ -79,6 +81,17 @@ export default function messageDispatcher(
       if (entryName === 'service_worker') {
         dispatchMessage(server, {
           changedFile: 'service_worker'
+        })
+      }
+    }
+  })
+
+  // Handle JSON files
+  Object.entries(jsonScripts).forEach(([entryName, entryData]) => {
+    if (entryData?.includes(updatedFile)) {
+      if (entryName === 'declarative_net_request') {
+        dispatchMessage(server, {
+          changedFile: 'declarative_net_request'
         })
       }
     }
