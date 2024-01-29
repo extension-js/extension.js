@@ -61,15 +61,19 @@ export default function messageDispatcher(
     }
   })
 
-  // Handle contextMenus files
-  const changedFileIncludesContextMenuCode = parseScript(
-    updatedFile,
-    'chrome.contextMenus'
-  )
-  if (changedFileIncludesContextMenuCode) {
-    dispatchMessage(server, {
-      changedFile: 'contextMenus'
-    })
+  const extensions = ['js', 'ts', 'jsx', 'tsx']
+
+  if (extensions.includes(updatedFile.split('.').pop()!)) {
+    // Handle contextMenus files
+    const changedFileIncludesContextMenuCode = parseScript(
+      updatedFile,
+      'chrome.contextMenus'
+    )
+    if (changedFileIncludesContextMenuCode) {
+      dispatchMessage(server, {
+        changedFile: 'contextMenus'
+      })
+    }
   }
 
   // Handle service_worker scripts.
