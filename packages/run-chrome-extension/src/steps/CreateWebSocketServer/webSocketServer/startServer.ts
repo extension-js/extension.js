@@ -38,20 +38,25 @@ export default function (compiler: Compiler, port?: number) {
           }
 
           const compilerOptions = compiler.options
-          const {id, manifest, management, management2} = message.data
+          const {id, manifest, management} = message.data
 
-          console.log({
-            management,
-            management2
-          })
-          const isMutableId = id !== manifest.id
+          if (!management) {
+            if (process.env.EXTENSION_ENV === 'development') {
+              console.log(
+                '[⛔️] No management info received from client. Investigate.'
+              )
+            }
+          }
+
           const manifestPath = path.join(
             compilerOptions.context || '',
             'manifest.json'
           )
+          const manifestFromCompiler = require(manifestPath)
           const permissionsBefore: string[] =
-            require(manifestPath).permissions || []
-          const permissionsAfter: string[] = management.permissions || []
+            manifestFromCompiler.permissions || []
+          const permissionsAfter: string[] = manifest.permissions || []
+          const isMutableId = manifestFromCompiler.id !== manifest.id
 
           // If a permission is used in the post compilation but not
           // in the pre-compilation step, add a "dev only" string to it.
@@ -65,51 +70,23 @@ export default function (compiler: Compiler, port?: number) {
           // • Static Pages: /pages
           // • Static Resources: /public
           // • Web Accessible Resources: /web_accessible_resources
-          // data: {
-          //     id: 'illpikdfgomnapmkenldchkadgedpalf',
-          //     manifest: {
-          //       background: [Object],
-          //       content_security_policy: [Object],
-          //       description: 'Uses the chrome.contextMenus API to customize the context menu.',
-          //       externally_connectable: [Object],
-          //       manifest_version: 3,
-          //       name: 'Context Menus Sample',
-          //       permissions: [Array],
-          //       version: '0.7',
-          //       web_accessible_resources: [Array]
-          //     },
-
           console.log('')
+          console.log(`• Name: ${manifest.name} (${compilerOptions.mode} mode)`)
+          console.log(`• Description: ${manifest.description}`)
           console.log(
-            `• Name: ${management.name} (${compilerOptions.mode} mode)`
+            `• ID: ${manifest.id} (${isMutableId ? 'dynamic' : 'static'})`
           )
-          console.log(`• Description: ${management.description}`)
-          console.log(
-            `• ID: ${management.id} (${isMutableId ? 'dynamic' : 'static'})`
-          )
-          console.log(`• Version: ${management.version}`)
-          management.hostPermissions.length &&
+          console.log(`• Version: ${manifest.version}`)
+          manifest.hostPermissions &&
+            manifest.hostPermissions.length &&
             console.log(
-              `• Host Permissions: ${management.hostPermissions.join(', ')}`
+              `• Host Permissions: ${manifest.hostPermissions.join(', ')}`
             )
           console.log(`• Permissions: ${permissions.sort().join(', ')}`)
-          management.optionsUrl &&
-            console.log(`• Options URL: ${management.optionsUrl}`)
           console.log(`• Settings URL: chrome://extensions/?id=${id}\n`)
           console.log(
-            `🧩 extension-create ►►► Running a new Chrome instance. Extension ${management.enabled ? 'enabled' : 'disabled'}.`
+            `🧩 extension-create ►►► Running a new Chrome instance. Extension ready.`
           )
-
-          // console.log({data: message.data})
-          // console.log('')
-          // console.log(`• Name: ${manifest.name} (${compilerOptions.mode} mode)`)
-          // console.log(`• Version: ${manifest.version}`)
-          // console.log(`• ID: ${id} (${isMutableId ? 'dynamic' : 'static'})`)
-          // console.log(`• Permissions: ${permissions.sort().join(', ')}`)
-          // console.log(`• Settings URL: chrome://extensions/?id=${id}\n`)
-          // console.log(
-          //   `[🧩] chrome-runtime ►►► Running a new Chrome instance. Extension ready.`
-          // )
         }, 1000)
       }
     })
