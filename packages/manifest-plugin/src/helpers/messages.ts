@@ -1,8 +1,7 @@
 export function serverRestartRequired() {
   const errorMessage = `[manifest.json] Entry Point Modification Found.
 
-Changing the path of non-static assets defined in manifest.json requires a server restart. To apply these changes, restart the program and try again.
-  `
+Changing the path of non-static assets defined in manifest.json requires a server restart. To apply these changes, restart the program and try again.`
   return errorMessage
 }
 
