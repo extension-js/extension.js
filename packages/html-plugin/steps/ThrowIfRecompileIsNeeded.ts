@@ -80,7 +80,7 @@ export default class ThrowIfRecompileIsNeeded {
     const manifest = require(this.manifestPath)
     const htmlFields = manifestFields(this.manifestPath, manifest).html
     const allEntries = {
-      ...manifestFields(this.manifestPath, htmlFields).html,
+      ...htmlFields,
       ...getPagesPath(this.pagesFolder)
     }
 
