@@ -24,8 +24,8 @@ export default class CreateWebSocketServer {
 
     compiler.hooks.watchRun.tapAsync(
       'RunChromeExtensionPlugin (CreateWebSocketServer)',
-      (compilation, done) => {
-        const files = compilation.modifiedFiles || new Set()
+      (compiler, done) => {
+        const files = compiler.modifiedFiles || new Set()
         const changedFile = files.values().next().value
 
         if (!changedFile) {

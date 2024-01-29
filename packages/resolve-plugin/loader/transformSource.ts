@@ -1,41 +1,20 @@
 import traverse from '@babel/traverse'
 import generate from '@babel/generator'
-import path from 'path'
-
 import {has} from './checkApiExists'
-import {
-  handeFilesProperty,
-  handlePathProperty,
-  handlePopupProperty,
-  handleStringProperty,
-  handleUrlProperty
-} from './parser'
-import addImportDeclaration from '../addImportDeclaration'
+import {resolvePropertyArg, resolveStringArg} from './parser'
 
-export default function transformSource(
-  ast: any,
-  source: string,
-  resolverModulePath?: string,
-  self?: any
-): string {
-  const outputPath = self?._compilation?.options.output.path || ''
-  const resolverAbsolutePath = path.resolve(
-    outputPath,
-    resolverModulePath || ''
-  )
-
+export default function transformSource(ast: any, source: string) {
   traverse(ast as any, {
     CallExpression(path: any) {
       const callee = path.node.callee
       const args = path.node.arguments
 
-      // addImportDeclaration(ast, resolverAbsolutePath!)
       if (
         has(callee, 'chrome.action.setIcon') ||
         has(callee, 'chrome.browserAction.setIcon') ||
         has(callee, 'chrome.pageAction.setIcon')
       ) {
-        handlePathProperty(path)
+        resolvePropertyArg(path, 'r.resolvePath')
       }
 
       if (
@@ -44,19 +23,21 @@ export default function transformSource(
         has(callee, 'chrome.pageAction.setPopup') ||
         has(callee, 'chrome.scriptBadge.setPopup')
       ) {
-        handlePopupProperty(path)
+        resolvePropertyArg(path, 'r.resolvePopup')
       }
 
       if (has(callee, 'chrome.devtools.panels.create')) {
-        handleStringProperty(path)
+        resolveStringArg(path, 'chrome.devtools.panels.create')
       }
 
       if (has(callee, 'chrome.downloads.download')) {
-        handleUrlProperty(path)
+        if (args.length > 0) {
+          resolvePropertyArg(path, 'r.resolveUrl')
+        }
       }
 
       if (has(callee, 'chrome.runtime.getURL')) {
-        handleStringProperty(path)
+        resolveStringArg(path, 'chrome.runtime.getURL')
       }
 
       if (
@@ -66,7 +47,7 @@ export default function transformSource(
         has(callee, 'chrome.scripting.registerContentScript') ||
         has(callee, 'chrome.scripting.unregisterContentScript')
       ) {
-        handeFilesProperty(path)
+        resolvePropertyArg(path, 'r.resolveFiles')
       }
 
       if (
@@ -75,16 +56,23 @@ export default function transformSource(
         has(callee, 'chrome.tabs.insertCSS')
       ) {
         if (args.length > 0) {
-          handleUrlProperty(path)
+          resolvePropertyArg(path, 'r.resolveUrl')
         }
       }
 
       if (has(callee, 'chrome.sidePanel.setOptions')) {
-        handlePathProperty(path)
+        resolvePropertyArg(path, 'r.resolvePath')
       }
     }
   })
 
-  const output = generate(ast as any, {}, source)
+  const output = generate(
+    ast as any,
+    {
+      decoratorsBeforeExport: false
+    },
+    source
+  )
+
   return output.code
 }

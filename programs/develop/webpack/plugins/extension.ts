@@ -10,6 +10,7 @@ import webpack from 'webpack'
 import type {DevOptions} from '../../extensionDev'
 
 // Plugins
+import ResolvePlugin from 'webpack-browser-extension-resolve-plugin'
 import ManifestPlugin from 'webpack-browser-extension-manifest-plugin'
 import HtmlPlugin from 'webpack-browser-extension-html-plugin'
 import ScriptsPlugin from 'webpack-browser-extension-scripts-plugin'
@@ -30,6 +31,11 @@ export default function extensionPlugins(
   return {
     name: 'extensionPlugins',
     apply: (compiler: webpack.Compiler) => {
+      new ResolvePlugin({
+        manifestPath,
+        exclude: [getStaticFolderPath(projectPath)]
+      }).apply(compiler)
+
       // Generate a manifest file with all the assets we need
       new ManifestPlugin({
         browser,

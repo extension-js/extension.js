@@ -1,3 +1,5 @@
+import {LoaderContext} from 'webpack'
+
 export interface Callee {
   type: string
   object: {
@@ -15,4 +17,15 @@ export interface Callee {
     type: string
     name: string
   }
+}
+
+export interface BrowserExtensionContext extends LoaderContext<any> {
+  getOptions: () => {
+    test: string
+  }
+}
+
+export interface ResolvePluginInterface {
+  manifestPath: string
+  exclude?: string[]
 }
