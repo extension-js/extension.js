@@ -52,7 +52,6 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
           id: chrome.runtime.id,
           manifest: chrome.runtime.getManifest(),
           management: managementInfo,
-          management2: await chrome.management.getSelf()
         })
         return true
       }
