@@ -7,7 +7,6 @@
   "access": "public",
   "updateInternalDependencies": "patch",
   "ignore": [
-    "browser-extension-loader",
     "browser-extension-manifest-fields",
     "webpack-browser-extension-common-errors-plugin",
     "eslint-config-extension-create",
@@ -17,6 +16,7 @@
     "webpack-browser-extension-locales-plugin",
     "webpack-browser-extension-manifest-compat-plugin",
     "webpack-browser-extension-manifest-plugin",
+    "webpack-browser-extension-resolve-plugin",
     "webpack-browser-extension-resouces-plugin",
     "webpack-run-chrome-extension",
     "webpack-browser-extension-scripts-plugin",

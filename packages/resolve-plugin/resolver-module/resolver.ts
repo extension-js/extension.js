@@ -4,7 +4,7 @@ import {
   isManifestAsset,
   isPagesPath,
   isPublicPath
-} from './utils'
+} from '../helpers/utils'
 
 function getPublicPath(context: string, absolutePath: string) {
   const publicDir = path.resolve(context, 'public')
@@ -28,26 +28,26 @@ function getManifestPath(
   absolutePath: string,
   relativePath: string
 ) {
-  if (isManifestAsset(context, absolutePath)) {
-    const assetPath = assetAsManifestAsset(context, absolutePath, relativePath)
+  // if (isManifestAsset(context, absolutePath)) {
+  //   const assetPath = assetAsManifestAsset(context, absolutePath, relativePath)
 
-    if (assetPath) {
-      return assetPath
-    }
-  }
+  //   if (assetPath) {
+  //     return assetPath
+  //   }
+  // }
 
   return absolutePath
 }
 
-export default function resolvePath(
+export default function resolvePathFromApiCall(
   context: string,
-  relativePath: string
+  pathFromApi: string
 ): string {
   // If URL, return as is
-  if (relativePath.startsWith('http')) return relativePath
+  if (pathFromApi.startsWith('http')) return pathFromApi
 
   // Resolve the absolute path of the file
-  const absolutePath = path.resolve(context, relativePath)
+  const absolutePath = path.resolve(context, pathFromApi)
 
   // Check if the file is within the public directory
   if (isPublicPath(context, absolutePath)) {
@@ -59,31 +59,10 @@ export default function resolvePath(
 
     // Check if the file is a manifest asset
   } else {
-    if (isManifestAsset(context, absolutePath)) {
-      return getManifestPath(context, absolutePath, relativePath)
-    }
+    // if (isManifestAsset(context, absolutePath)) {
+    //   return getManifestPath(context, absolutePath, pathFromApi)
+    // }
 
-    return relativePath
+    return pathFromApi
   }
 }
-
-// if (isUrl(result.path)) return source
-
-// const resultResolvedPath = resolvePath(self.rootContext, result.path)
-// const resultAbsolutePath = path.resolve(self.rootContext, result.path)
-
-// // if (!fs.existsSync(resultAbsolutePath)) {
-// //   self.emitError(errorMessage(resultAbsolutePath, result, self.resourcePath))
-// //   return source
-// // }
-
-// const isPublic = isPublicPath(self.rootContext, result.path)
-// const isPages = isPagesPath(self.rootContext, result.path)
-
-// if (
-//   !isManifestAsset(self.rootContext, resultAbsolutePath) &&
-//   !isPublic &&
-//   !isPages
-// ) {
-//   self.emitFile(result.path, source)
-// }

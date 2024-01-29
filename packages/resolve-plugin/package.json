@@ -2,14 +2,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/browser-extension-loader.git"
+    "url": "https://github.com/cezaraugusto/webpack-browser-extension-resolve-plugin.git"
   },
   "engines": {
     "node": ">=18"
   },
-  "name": "browser-extension-loader",
+  "name": "webpack-browser-extension-resolve-plugin",
   "version": "1.0.0",
-  "description": "A webpack loader to parse browser extension APIs",
+  "description": "A webpack plugin to resolve paths in browser extension APIs",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
   "author": {
@@ -20,9 +20,9 @@
   "scripts": {
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
+    "compile": "tsup-node ./module.ts ./loader/* --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
-    "test": "echo \"Note: no test specified\" && exit 0"
+    "test": "jest"
   },
   "keywords": [
     "browser",
@@ -36,11 +36,21 @@
     "@babel/parser": "7.23.6",
     "@babel/traverse": "7.23.7",
     "@babel/types": "7.23.6",
-    "typescript": "^5.3.3",
+    "imports-loader": "^5.0.0",
+    "node-stdlib-browser": "^1.2.0",
+    "path-browserify": "^1.0.1",
     "tsconfig": "*",
-    "tsup": "^8.0.1"
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3",
+    "webpack-sources": "^3.2.3"
   },
   "peerDependencies": {
     "webpack": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.11",
+    "jest": "^29.7.0",
+    "mock-fs": "^5.2.0",
+    "ts-jest": "^29.1.2"
   }
 }
