@@ -1,8 +1,3 @@
-import path from 'path'
-import webpack from 'webpack'
-import manifestFields from 'browser-extension-manifest-fields'
-import {getFilepath} from './getResourceName'
-
 // Example utility function
 export function logMessage(message: string): void {
   console.log(message)
@@ -18,26 +13,15 @@ export function isUrl(path: string) {
 }
 
 export function isPublicPath(context: string, relativePath: string) {
-  const publicDir = path.resolve(context, 'public')
-  const absolutePath = path.resolve(context, relativePath)
+  const publicDir = context + '/public'
+  const absolutePath = context + '/relativePath'
   return absolutePath.startsWith(publicDir)
 }
 
 export function isPagesPath(context: string, relativePath: string) {
-  const pagesDir = path.resolve(context, 'pages')
-  const resultResolvedPath = path.resolve(context, relativePath)
+  const pagesDir = context + '/pages'
+  const resultResolvedPath = context + '/relativePath'
   return resultResolvedPath.startsWith(pagesDir)
-}
-
-export function errorMessage(
-  resultAbsolutePath: string,
-  result: {path: string},
-  resourcePath: string
-) {
-  return new webpack.WebpackError(
-    `\nFile path ${resultAbsolutePath} not found. ` +
-      `Check the request for ${result.path} in ${resourcePath}.`
-  )
 }
 
 export function transformHtmlData(htmlData: {
@@ -97,17 +81,15 @@ export function transformManifestData(manifestData: {
 }
 
 export function getFlatManifestFields(context: string) {
-  const manifestPath = path.join(context, 'manifest.json')
-
-  const html = transformHtmlData(manifestFields(manifestPath).html)[0]
-  const json = transformManifestData(manifestFields(manifestPath).json)[0]
-  const scripts = transformManifestData(manifestFields(manifestPath).scripts)[0]
-
-  return Object.entries({
-    ...html,
-    ...json,
-    ...scripts
-  })
+  //   const manifestPath = context + '/manifest.json'
+  //   const html = transformHtmlData(htmlFields(manifestPath).html)[0]
+  //   const json = transformManifestData(jsonFields(manifestPath).json)[0]
+  //   const scripts = transformManifestData(scriptsFields(manifestPath).scripts)[0]
+  //   return Object.entries({
+  //     ...html,
+  //     ...json,
+  //     ...scripts
+  //   })
 }
 
 export function assetAsManifestAsset(
@@ -115,23 +97,20 @@ export function assetAsManifestAsset(
   absolutePath: string,
   relativePath: string
 ) {
-  const flatManifestFields = getFlatManifestFields(context)
-  const assetAsManifestAsset = flatManifestFields.map(([feature, itemsArr]) => {
-    if (itemsArr?.includes(absolutePath)) {
-      return getFilepath(feature, relativePath)
-    }
-
-    return null
-  })
-
-  return assetAsManifestAsset.filter((item) => item !== null)[0]
+  // const flatManifestFields = getFlatManifestFields(context)
+  // const assetAsManifestAsset = flatManifestFields.map(([feature, itemsArr]) => {
+  //   if (itemsArr?.includes(absolutePath)) {
+  //     return getFilepath(feature, relativePath)
+  //   }
+  //   return null
+  // })
+  // return assetAsManifestAsset.filter((item) => item !== null)[0]
 }
 
 export function isManifestAsset(context: string, absolutePath: string) {
-  const flatManifestFields = getFlatManifestFields(context)
-  const isManifestAsset = flatManifestFields.some(([feature, itemsArr]) =>
-    itemsArr?.includes(absolutePath)
-  )
-
-  return isManifestAsset
+  // const flatManifestFields = getFlatManifestFields(context)
+  // const isManifestAsset = flatManifestFields.some(([feature, itemsArr]) =>
+  //   itemsArr?.includes(absolutePath)
+  // )
+  // return isManifestAsset
 }

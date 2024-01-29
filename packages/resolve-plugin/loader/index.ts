@@ -1,13 +1,8 @@
-import path from 'path'
-import fs from 'fs'
 import {validate} from 'schema-utils'
-import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
 import * as parser from '@babel/parser'
 
-import emitResolverModule from './src/steps/emitResolverModule'
-import addImportDeclaration from './src/steps/addImportDeclaration'
-import transformSource from './src/steps/transformSource'
+import transformSource from './transformSource'
 
 const schema: Schema = {
   type: 'object',
@@ -18,19 +13,11 @@ const schema: Schema = {
   }
 }
 
-export interface BrowserExtensionContext extends LoaderContext<any> {
-  getOptions: () => {
-    test: string
-  }
-}
-
-let emitted = false
-
-export default function (this: BrowserExtensionContext, source: string) {
+export default function (this: any, source: string) {
   const options = this.getOptions()
 
   validate(schema, options, {
-    name: 'Browser Extension Loader',
+    name: 'Browser Extension Resolve Loader',
     baseDataPath: 'options'
   })
 
@@ -40,26 +27,24 @@ export default function (this: BrowserExtensionContext, source: string) {
       plugins: ['jsx', 'typescript']
     })
 
-    const outputPath = this?._compilation?.options.output.path || ''
-    const resolverName = 'resolver-module.js'
+    // const resolverName = 'browser-extension-module-resolver.js'
 
-    console.log('resolver moduleMMMM exists', resolverName)
     // 1 - Emit the resolver module. This will be used by the
     // browser extension to resolve the API methods.
     // The resolver is bundled by this loader at install time.
-    emitResolverModule(this, resolverName)
+    // emitResolverModule(this, resolverName)
 
     // 2 - Add the import declaration to the resolver module
     // to every JS file that uses the API methods.
-    addImportDeclaration(ast, resolverName, this)
+    // addImportDeclaration(ast, this, resolverName)
+    // const reloadCode = `;import r from 'resolver-modules';\n`
 
-    // 2 - Add the import declaration to the source code
-    // and transform the arguments of the API methods
+    // 3 - Transform the arguments of the API methods
     // to use the calls from the resolver module.
     // This way, the browser extension will be able to
     // resolve the API methods at runtime.
-    return transformSource(ast, source, resolverName)
-    // return source
+    // return transformSource(ast, `${reloadCode}${source}`)
+    return transformSource(ast, source)
   }
 
   return source
