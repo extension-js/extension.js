@@ -26,7 +26,7 @@ export default function devServerConfig(
     // causes content_scripts to do a full reload instead of a hot reload.
     // We work around this in the webpack-run extensions by
     // adding the HTML file as an entry point.
-    // watchFiles: {},
+    watchFiles: ['**/*.html'],
     client: {
       // Allows to set log level in the browser, e.g. before reloading,
       // before an error or when Hot Module Replacement is enabled.

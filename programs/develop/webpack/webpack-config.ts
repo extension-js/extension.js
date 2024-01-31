@@ -5,7 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import type webpack from 'webpack'
+import webpack from 'webpack'
 import {type DevOptions} from '../extensionDev'
 
 // Option files for plugins
@@ -55,6 +55,7 @@ export default function webpackConfig(
     },
     cache: false,
     output: {
+      clean: true,
       path: getOutputPath(projectPath, devOptions.browser),
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: getWebpackPublicPath(projectPath),
