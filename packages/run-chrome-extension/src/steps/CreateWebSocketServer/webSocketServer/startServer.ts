@@ -56,7 +56,7 @@ export default function (compiler: Compiler, port?: number) {
           const permissionsBefore: string[] =
             manifestFromCompiler.permissions || []
           const permissionsAfter: string[] = manifest.permissions || []
-          const isMutableId = manifestFromCompiler.id !== manifest.id
+          const isMutableId = manifestFromCompiler.id !== id
 
           // If a permission is used in the post compilation but not
           // in the pre-compilation step, add a "dev only" string to it.
@@ -74,7 +74,7 @@ export default function (compiler: Compiler, port?: number) {
           console.log(`• Name: ${manifest.name} (${compilerOptions.mode} mode)`)
           console.log(`• Description: ${manifest.description}`)
           console.log(
-            `• ID: ${manifest.id} (${isMutableId ? 'dynamic' : 'static'})`
+            `• ID: ${id} (${isMutableId ? 'dynamic' : 'static'})`
           )
           console.log(`• Version: ${manifest.version}`)
           manifest.hostPermissions &&
