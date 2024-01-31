@@ -3,6 +3,7 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
+import { getFilepath } from '../src/helpers/getResourceName'
 
 const schema: Schema = {
   type: 'object',
@@ -22,6 +23,7 @@ interface InjectBackgroundAcceptContext extends LoaderContext<any> {
   }
 }
 
+let defaultBgEmitted = false
 export default function (this: InjectBackgroundAcceptContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
@@ -36,7 +38,8 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
   if (this._compilation?.options.mode === 'production') return source
 
   const url = urlToRequest(this.resourcePath)
-  const reloadCode = `
+
+  const generalReloadCode = `
   ;chrome.runtime.onMessageExternal.addListener(
     async (request, _sender, sendResponse) => {
       const managementInfo = await new Promise((resolve) => {
@@ -68,35 +71,11 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
         }, 750)
       }
 
-      // if (request.changedFile === 'html') {
-      //   sendResponse({reloaded: true})
-      //   setTimeout(() => {
-      //     chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
-      //       if (tabs[0]) {
-      //         chrome.tabs.reload(tabs[0].id)
-      //       }
-      //     })
-      //   }, 750)
-      // }
-
-      // Reload the HTML page if the HTML file changes.
-      // TODO: cezaraugusto Sometimes this is not enough.
-      // Maybe reloading the tab solves the issue?
-      chrome.runtime.onMessageExternal.addListener(
-        (request, _sender, sendResponse) => {
-          if (request.changedFile === 'html') {
-            setTimeout(() => {
-              sendResponse({reloaded: true})
-              window.location.reload()
-            }, 750)
-          }
-        }
-      )
-
       // Reload all tabs if the contextMenus code changes.
       if (request.changedFile === 'contextMenus') {
         sendResponse({reloaded: true})
         chrome.tabs.query({}, (tabs) => {
+          if (!tabs) return
           tabs.forEach((tab) => chrome.tabs.reload(tab.id))
         })
       }
@@ -111,7 +90,6 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
     }
   );
   `
-
   // Let the react reload plugin handle the reload.
   if (manifest.background) {
     if (manifest.background.scripts) {
@@ -119,7 +97,7 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
         const absoluteUrl = path.resolve(projectPath, bgScript)
 
         if (url.includes(absoluteUrl)) {
-          return `${reloadCode}${source}`
+          return `${generalReloadCode}${source}`
         }
       }
     }
@@ -130,8 +108,20 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
         manifest.background.service_worker
       )
       if (url.includes(absoluteUrl)) {
-        return `${reloadCode}${source}`
+        return `${generalReloadCode}${source}`
       }
+    }
+  }
+
+  if (!manifest.background) {
+    if (manifest.manifest_version === 2) {
+      this.emitFile(getFilepath('background') + '.js', generalReloadCode)
+      defaultBgEmitted = true
+    }
+
+    if (manifest.manifest_version === 3) {
+      this.emitFile(getFilepath('service_worker') + '.js', generalReloadCode)
+      defaultBgEmitted = true
     }
   }
 

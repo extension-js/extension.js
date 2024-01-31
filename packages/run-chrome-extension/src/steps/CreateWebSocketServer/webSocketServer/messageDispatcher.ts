@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 import WebSocket from 'ws'
 import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 import {type RunChromeExtensionInterface} from '../../../../types'
@@ -42,15 +43,6 @@ export default function messageDispatcher(
       changedFile: 'manifest.json'
     })
   }
-
-  // Handle HTML files
-  Object.entries(allHtml).forEach(([, entryData]) => {
-    if (entryData?.html === updatedFile) {
-      dispatchMessage(server, {
-        changedFile: 'html'
-      })
-    }
-  })
 
   // Handle _locales files
   manifestLocales.forEach((path) => {
