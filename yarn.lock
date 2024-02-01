@@ -7714,13 +7714,6 @@ hosted-git-info@^7.0.0:
   dependencies:
     lru-cache "^10.0.1"
 
-hot-accept-webpack-plugin@^4.0.2:
-  version "4.0.2"
-  resolved "https://registry.yarnpkg.com/hot-accept-webpack-plugin/-/hot-accept-webpack-plugin-4.0.2.tgz#df0b01cf4dc57fbfd760231f7145149643e9ee55"
-  integrity sha512-j3Nbd7zGt8Az9cy+g9cIqCEIxlrd+v1Vjrhe3uoRTZt9/LMGbgtmeNjRbXQzvibUljIGbYS5lALIes0sIBJRvA==
-  dependencies:
-    modify-source-webpack-plugin "4.0.1"
-
 hpack.js@^2.1.6:
   version "2.1.6"
   resolved "https://registry.yarnpkg.com/hpack.js/-/hpack.js-2.1.6.tgz#87774c0949e513f42e84575b3c45681fade2a0b2"
@@ -9764,15 +9757,6 @@ loader-runner@^4.2.0:
   resolved "https://registry.yarnpkg.com/loader-runner/-/loader-runner-4.3.0.tgz#c1b4a163b99f614830353b16755e7149ac2314e1"
   integrity sha512-3R/1M+yS3j5ou80Me59j7F9IMs4PXs3VqRrm0TU3AbKPxlmpoY1TNscJV/oGJXo8qCatFGTfDbY6W6ipGOYXfg==
 
-"loader-utils-webpack-v4@npm:loader-utils@^2.0.4", loader-utils@^2.0.0, loader-utils@^2.0.4:
-  version "2.0.4"
-  resolved "https://registry.yarnpkg.com/loader-utils/-/loader-utils-2.0.4.tgz#8b5cb38b5c34a9a018ee1fc0e6a066d1dfcc528c"
-  integrity sha512-xXqpXoINfFhgua9xiqD8fPFHgkoq1mmmpE92WlDbm9rNRd/EbRb+Gqf908T2DMfuHjjJlksiK2RbHVOdD/MqSw==
-  dependencies:
-    big.js "^5.2.2"
-    emojis-list "^3.0.0"
-    json5 "^2.1.2"
-
 loader-utils@^1.0.0:
   version "1.4.2"
   resolved "https://registry.yarnpkg.com/loader-utils/-/loader-utils-1.4.2.tgz#29a957f3a63973883eb684f10ffd3d151fec01a3"
@@ -9781,6 +9765,15 @@ loader-utils@^1.0.0:
     big.js "^5.2.2"
     emojis-list "^3.0.0"
     json5 "^1.0.1"
+
+loader-utils@^2.0.0, loader-utils@^2.0.4:
+  version "2.0.4"
+  resolved "https://registry.yarnpkg.com/loader-utils/-/loader-utils-2.0.4.tgz#8b5cb38b5c34a9a018ee1fc0e6a066d1dfcc528c"
+  integrity sha512-xXqpXoINfFhgua9xiqD8fPFHgkoq1mmmpE92WlDbm9rNRd/EbRb+Gqf908T2DMfuHjjJlksiK2RbHVOdD/MqSw==
+  dependencies:
+    big.js "^5.2.2"
+    emojis-list "^3.0.0"
+    json5 "^2.1.2"
 
 loader-utils@^3.2.0, loader-utils@^3.2.1:
   version "3.2.1"
@@ -10331,14 +10324,6 @@ mock-fs@^5.2.0:
   version "5.2.0"
   resolved "https://registry.yarnpkg.com/mock-fs/-/mock-fs-5.2.0.tgz#3502a9499c84c0a1218ee4bf92ae5bf2ea9b2b5e"
   integrity sha512-2dF2R6YMSZbpip1V1WHKGLNjr/k48uQClqMVb5H3MOvwc9qhYis3/IWbj02qIg/Y8MDXKFF4c5v0rxx2o6xTZw==
-
-modify-source-webpack-plugin@4.0.1:
-  version "4.0.1"
-  resolved "https://registry.yarnpkg.com/modify-source-webpack-plugin/-/modify-source-webpack-plugin-4.0.1.tgz#fbdb66328d23a572d4d520d1f57845be7eee9204"
-  integrity sha512-PhNUlSXYra6s1mCyVZsLif3YVlEzVeCeJLPtWAlZ6qQ49gRxsBNYEYjx/0J4O3YvDfNoxj8Z08LQqSHXbrHbXQ==
-  dependencies:
-    loader-utils-webpack-v4 "npm:loader-utils@^2.0.4"
-    schema-utils "^4.0.0"
 
 ms@2.0.0:
   version "2.0.0"
