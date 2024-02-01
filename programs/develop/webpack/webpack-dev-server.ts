@@ -8,6 +8,7 @@
 import type WebpackDevServer from 'webpack-dev-server'
 import type {DevOptions} from '../extensionDev'
 import {getStaticFolderPath} from './config/getPath'
+import { isUsingReact } from './options/react'
 // import getNextAvailablePort from './config/getNextAvailablePort'
 
 export default function devServerConfig(
@@ -23,10 +24,9 @@ export default function devServerConfig(
       writeToDisk: true
     },
     // WARN: for some reason, adding HTML as a watch file
-    // causes content_scripts to do a full reload instead of a hot reload.
-    // We work around this in the webpack-run extensions by
-    // adding the HTML file as an entry point.
-    watchFiles: ['**/*.html'],
+    // causes content_scripts to do a full reload instead of a hot reload
+    // when using React.
+    watchFiles: isUsingReact(projectPath) ? [] : ['**/*.html'],
     client: {
       // Allows to set log level in the browser, e.g. before reloading,
       // before an error or when Hot Module Replacement is enabled.
