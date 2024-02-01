@@ -48,7 +48,7 @@ export default function messageDispatcher(
   manifestLocales.forEach((path) => {
     if (path.includes(updatedFile)) {
       dispatchMessage(server, {
-        changedFile: 'locale'
+        changedFile: '_locales'
       })
     }
   })

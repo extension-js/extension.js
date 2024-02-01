@@ -63,7 +63,8 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
       // service worker changes. 
       if (
         request.changedFile === 'manifest.json' ||
-        request.changedFile === 'service_worker'
+        request.changedFile === 'service_worker' ||
+        request.changedFile === '_locales'
       ) {
         setTimeout(() => {
           sendResponse({reloaded: true})
