@@ -34,7 +34,6 @@ function extensionCreateServerOutput(
   const {
     name,
     description,
-    id: parsedId,
     version,
     hostPermissions,
     permissions
@@ -62,12 +61,12 @@ function extensionCreateServerOutput(
   log('')
   log(`• Name: ${name} (${compilerOptions.mode} mode)`)
   description && log(`• Description: ${description}`)
-  log(`• ID: ${parsedId} (${fixedId ? 'fixed' : 'dynamic'})`)
+  log(`• ID: ${id} (${fixedId ? 'fixed' : 'dynamic'})`)
   log(`• Version: ${version}`)
   hasHost && log(`• Host Permissions: ${hostPermissions.sort().join(', ')}`)
   log(`• Permissions: ${permissionsParsed.sort().join(', ')}`)
   log(`• Settings URL: chrome://extensions/?id=${id}\n`)
-  log(`🧩 extension-create ►►► Running a new Chrome instance. Extension ready.`)
+  log(`►►► Running a new Chrome instance. Extension ready.`)
 }
 
 export default function (compiler: Compiler, port?: number) {
