@@ -31,9 +31,9 @@ export default class ManifestCompatPlugin {
   private getApiDocumentationURL(browser: string, namespace: string) {
     const extensionKnowledge = bcd.webextensions.manifest
     const isChrome = browser === 'chrome'
-    const chromeUrl = extensionKnowledge?.[namespace].__compat?.mdn_url
-    const mdnUrl = `https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/`
-
+    const chromeUrl = `https://developer.chrome.com/docs/extensions/reference/api/${namespace}`
+    const mdnUrl = extensionKnowledge?.[namespace].__compat?.mdn_url
+    
     return isChrome ? chromeUrl : mdnUrl
   }
 
@@ -60,7 +60,7 @@ ${this.getManifestDocumentationURL(this.options.browser)}`
     const message = errorData?.message
     const namespace = field?.split('.')[0]
 
-    return `Field ${field} ${message?.replace('be', 'be of type')}
+    return `Field ${field} ${message?.replace('be', 'be of type')}.
 
 Read more about the \`${namespace}\` namespace:
 ${this.getApiDocumentationURL('chrome', namespace)}`
