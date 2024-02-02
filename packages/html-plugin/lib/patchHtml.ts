@@ -6,6 +6,12 @@ import parseHtml from './parseHtml'
 import shouldExclude from '../helpers/shouldExclude'
 import {getFilepath} from '../helpers/getResourceName'
 import {Compiler} from 'webpack'
+import {getPagePath, isPage} from '../helpers/pageUtils'
+import {getPublicPath} from '../helpers/publicUtils'
+import {
+  getManifestHtmlEntry,
+  isManifestHtmlEntry
+} from '../helpers/htmlEntryUtils'
 
 export default function patchHtml(
   compiler: Compiler,
@@ -34,7 +40,7 @@ export default function patchHtml(
           const isPublicFolder = shouldExclude(exclude, filePath)
 
           const assetOutputpath = isPublicFolder
-            ? path.normalize(filePath)
+            ? getPublicPath(filePath)
             : '/' + getFilepath(feature, filePath)
 
           switch (assetType) {
@@ -66,11 +72,50 @@ export default function patchHtml(
             }
             case 'staticHref':
             case 'staticSrc': {
-              node = utils.setAttribute(
-                childNode,
-                assetType === 'staticSrc' ? 'src' : 'href',
-                `${assetOutputpath}`
+              const manifestPath = path.resolve(
+                compiler.options.context || '',
+                'manifest.json'
               )
+              const filePathAbsolute = path.resolve(
+                path.dirname(htmlEntry),
+                filePath
+              )
+              const isFilePathPagesFolder = isPage(
+                manifestPath,
+                filePathAbsolute
+              )
+              const isFilePathManifestEntry = isManifestHtmlEntry(
+                manifestPath,
+                filePathAbsolute
+              )
+              const pagePath = getPagePath(manifestPath, filePathAbsolute)
+
+              // Handle import of static assets that also happen
+              // to be in the pages folder. Mainly an iframe.
+              if (isFilePathPagesFolder) {
+                node = utils.setAttribute(
+                  childNode,
+                  assetType === 'staticSrc' ? 'src' : 'href',
+                  `${pagePath}`
+                )
+              } else if (isFilePathManifestEntry) {
+                const manifestEntry = getManifestHtmlEntry(
+                  manifestPath,
+                  filePathAbsolute
+                )
+                node = utils.setAttribute(
+                  childNode,
+                  assetType === 'staticSrc' ? 'src' : 'href',
+                  `${manifestEntry}`
+                )
+              } else {
+                node = utils.setAttribute(
+                  childNode,
+                  assetType === 'staticSrc' ? 'src' : 'href',
+                  `${assetOutputpath}`
+                )
+              }
+
               break
             }
             default:
