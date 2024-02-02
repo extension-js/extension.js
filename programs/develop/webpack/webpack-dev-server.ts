@@ -7,9 +7,8 @@
 
 import type WebpackDevServer from 'webpack-dev-server'
 import type {DevOptions} from '../extensionDev'
-import {getStaticFolderPath} from './config/getPath'
-import { isUsingReact } from './options/react'
-// import getNextAvailablePort from './config/getNextAvailablePort'
+import {getOverlay, getPort, getStaticFolderPath} from './config/userOptions'
+import {isUsingReact} from './options/react'
 
 export default function devServerConfig(
   projectPath: string,
@@ -32,20 +31,15 @@ export default function devServerConfig(
       // before an error or when Hot Module Replacement is enabled.
       logging: 'error',
       // Prints compilation progress in percentage in the browser.
-      progress: true,
+      progress: false,
       // Shows a full-screen overlay in the browser
       // when there are compiler errors or warnings.
-      overlay: {
-        errors: false,
-        warnings: false
-      }
+      overlay: getOverlay()
     },
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
-    // TODO: cezaraugusto scan available ports
-    // port: getNextAvailablePort(port),
-    port: port || 8818,
+    port: getPort(port),
     // WARN: Setting TRUE here causes the content_script
     // entry of a react extension to be reloaded infinitely.
     hot: 'only'

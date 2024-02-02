@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
+import {isUsingTypeScript} from '../options/typescript'
 
 function getManifestPath(projectPath: string) {
   return path.resolve(projectPath, 'manifest.json')
@@ -24,28 +25,28 @@ function getWebpackPublicPath(_projectPath?: string) {
   return '/'
 }
 
-function getStaticFolderPath(projectPath: string) {
-  return path.join(projectPath, 'public/')
-}
-
-function getDynamicPagesPath(_projectPath: string) {
-  return './pages'
-}
-
-function getWebResourcesFolderPath(projectPath: string) {
-  return path.join(projectPath, 'web_accessible_resources')
-}
-
 function getModulesToResolve(projectPath: string) {
   return ['node_modules', path.join(projectPath, 'node_modules')]
+}
+
+function getScriptResolveExtensions(projectPath: string) {
+  return [
+    '.js',
+    '.mjs',
+    '.jsx',
+    ...(isUsingTypeScript(projectPath) ? ['.ts', '.tsx'] : [])
+  ]
+}
+
+function getExtensionsToResolve(projectPath: string) {
+  return [...getScriptResolveExtensions(projectPath), '.json', '.wasm']
 }
 
 export {
   getManifestPath,
   getOutputPath,
   getWebpackPublicPath,
-  getStaticFolderPath,
-  getDynamicPagesPath,
-  getWebResourcesFolderPath,
-  getModulesToResolve
+  getModulesToResolve,
+  getScriptResolveExtensions,
+  getExtensionsToResolve
 }
