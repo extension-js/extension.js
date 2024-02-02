@@ -1,26 +1,26 @@
 import fs from 'fs'
 import path from 'path'
+import {Compilation} from 'webpack'
 // @ts-ignore
 import utils from 'parse5-utils'
+
 import parseHtml from './parseHtml'
-import shouldExclude from '../helpers/shouldExclude'
-import {getFilepath} from '../helpers/getResourceName'
-import {Compiler} from 'webpack'
-import {getPagePath, isPage} from '../helpers/pageUtils'
-import {getPublicPath} from '../helpers/publicUtils'
 import {
-  getManifestHtmlEntry,
-  isManifestHtmlEntry
-} from '../helpers/htmlEntryUtils'
+  getCompilationEntryName,
+  getResolvedPath,
+  isCompilationEntry,
+  shouldExclude
+} from '../helpers/utils'
 
 export default function patchHtml(
-  compiler: Compiler,
-  feature: string,
+  compilation: Compilation,
   htmlEntry: string,
   exclude: string[]
 ) {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = utils.parse(htmlFile)
+  const context = compilation.options.context || ''
+  const manifestPath = path.resolve(context, 'manifest.json')
 
   let hasCssEntry = false
   let hasJsEntry = false
@@ -36,21 +36,20 @@ export default function patchHtml(
         htmlChildNode.nodeName === 'body'
       ) {
         parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
+          const absolutePath = path.resolve(context, filePath)
           // Do not attempt to rewrite the asset path if it's in the exclude list.
-          const isPublicFolder = shouldExclude(exclude, filePath)
-
-          const assetOutputpath = isPublicFolder
-            ? getPublicPath(filePath)
-            : '/' + getFilepath(feature, filePath)
+          const isExcludedPath = shouldExclude(absolutePath, exclude)
+          const excludedPath = getResolvedPath(context, filePath, 'public')
+          const isItCompilationEntry = isCompilationEntry(compilation, filePath)
+          const compilationEntry = getCompilationEntryName(
+            compilation,
+            filePath
+          )
 
           switch (assetType) {
             case 'script': {
-              if (isPublicFolder) {
-                node = utils.setAttribute(
-                  childNode,
-                  'src',
-                  `${assetOutputpath}`
-                )
+              if (isExcludedPath) {
+                node = utils.setAttribute(childNode, 'src', excludedPath)
               } else {
                 node = utils.remove(childNode)
                 hasJsEntry = true
@@ -58,12 +57,8 @@ export default function patchHtml(
               break
             }
             case 'css': {
-              if (isPublicFolder) {
-                node = utils.setAttribute(
-                  childNode,
-                  'href',
-                  `${assetOutputpath}`
-                )
+              if (isExcludedPath) {
+                node = utils.setAttribute(childNode, 'href', excludedPath)
               } else {
                 node = utils.remove(childNode)
                 hasCssEntry = true
@@ -72,47 +67,25 @@ export default function patchHtml(
             }
             case 'staticHref':
             case 'staticSrc': {
-              const manifestPath = path.resolve(
-                compiler.options.context || '',
-                'manifest.json'
-              )
-              const filePathAbsolute = path.resolve(
-                path.dirname(htmlEntry),
-                filePath
-              )
-              const isFilePathPagesFolder = isPage(
-                manifestPath,
-                filePathAbsolute
-              )
-              const isFilePathManifestEntry = isManifestHtmlEntry(
-                manifestPath,
-                filePathAbsolute
-              )
-              const pagePath = getPagePath(manifestPath, filePathAbsolute)
-
               // Handle import of static assets that also happen
               // to be in the pages folder. Mainly an iframe.
-              if (isFilePathPagesFolder) {
+              if (isExcludedPath) {
                 node = utils.setAttribute(
                   childNode,
                   assetType === 'staticSrc' ? 'src' : 'href',
-                  `${pagePath}`
+                  excludedPath
                 )
-              } else if (isFilePathManifestEntry) {
-                const manifestEntry = getManifestHtmlEntry(
-                  manifestPath,
-                  filePathAbsolute
-                )
+              } else if (isItCompilationEntry) {
                 node = utils.setAttribute(
                   childNode,
                   assetType === 'staticSrc' ? 'src' : 'href',
-                  `${manifestEntry}`
+                  getResolvedPath(manifestPath, filePath, compilationEntry)
                 )
               } else {
                 node = utils.setAttribute(
                   childNode,
                   assetType === 'staticSrc' ? 'src' : 'href',
-                  `${assetOutputpath}`
+                  getResolvedPath(manifestPath, filePath, 'assets')
                 )
               }
 
@@ -130,7 +103,7 @@ export default function patchHtml(
           const linkTag = utils.createNode('link')
           linkTag.attrs = [
             {name: 'rel', value: 'stylesheet'},
-            {name: 'href', value: getFilepath('.', './index.css')}
+            {name: 'href', value: './index.css'}
           ]
 
           utils.append(htmlChildNode, linkTag)
@@ -142,11 +115,9 @@ export default function patchHtml(
         // We want a single JS entry point for the extension even
         // during development, so we only add the script tag if the
         // user has not already added one.
-        if (hasJsEntry || compiler.options.mode !== 'production') {
+        if (hasJsEntry || compilation.options.mode !== 'production') {
           const scriptTag = utils.createNode('script')
-          scriptTag.attrs = [
-            {name: 'src', value: getFilepath('.', './index.js')}
-          ]
+          scriptTag.attrs = [{name: 'src', value: './index.js'}]
 
           utils.append(htmlChildNode, scriptTag)
         }

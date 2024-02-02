@@ -1,38 +1,24 @@
-import path from 'path'
 import fs from 'fs'
 import webpack, {sources, Compilation} from 'webpack'
 
-import {type HtmlPluginInterface} from '../types'
+import {IncludeList, type StepPluginInterface} from '../types'
 
 // Manifest fields
-import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
-
-import {getFilepath} from '../helpers/getResourceName'
+import manifestFields from 'browser-extension-manifest-fields'
 
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
-import {fileError} from '../helpers/messages'
-import shouldEmitFile from '../helpers/shouldEmitFile'
-import {isPage} from '../helpers/pageUtils'
+import errors from '../helpers/errors'
+import {shouldExclude} from '../helpers/utils'
 
 export default class AddAssetsToCompilation {
   public readonly manifestPath: string
-  public readonly pagesFolder?: string
-  public readonly exclude?: string[]
+  public readonly includeList: IncludeList
+  public readonly exclude: string[]
 
-  constructor(options: HtmlPluginInterface) {
+  constructor(options: StepPluginInterface) {
     this.manifestPath = options.manifestPath
-    this.pagesFolder = options.pagesFolder
-    this.exclude = options.exclude || []
-  }
-
-  private fileNotFoundWarn(
-    compilation: webpack.Compilation,
-    htmlFilePath: string,
-    filePath: string
-  ) {
-    const errorMessage = fileError(this.manifestPath, htmlFilePath, filePath)
-
-    compilation.warnings.push(new webpack.WebpackError(errorMessage))
+    this.includeList = options.includeList
+    this.exclude = options.exclude
   }
 
   public apply(compiler: webpack.Compiler): void {
@@ -52,12 +38,12 @@ export default class AddAssetsToCompilation {
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const allEntries = {
+            const htmlEntries = {
               ...manifestFields(this.manifestPath, manifestSource).html,
-              ...getPagesPath(this.pagesFolder)
+              ...this.includeList
             }
 
-            for (const field of Object.entries(allEntries)) {
+            for (const field of Object.entries(htmlEntries)) {
               const [feature, resource] = field
 
               // Resources from the manifest lib can come as undefined.
@@ -72,38 +58,30 @@ export default class AddAssetsToCompilation {
                   // by HandleCommonErrorsPlugin because static assets
                   // are not entrypoints.
                   if (!fs.existsSync(asset)) {
-                    if (
-                      shouldEmitFile(
-                        compiler.options.context || '',
-                        asset,
-                        this.exclude
+                    if (!shouldExclude(asset, this.exclude)) {
+                      errors.fileNotFoundWarn(
+                        compilation,
+                        this.manifestPath,
+                        resource?.html,
+                        asset
                       )
-                    ) {
-                      this.fileNotFoundWarn(compilation, resource?.html, asset)
                     }
                     return
                   }
 
-                  const context = compiler.options.context || ''
-
-                  if (shouldEmitFile(context, asset, this.exclude)) {
+                  if (shouldExclude(asset, this.exclude)) {
                     const source = fs.readFileSync(asset)
                     const rawSource = new sources.RawSource(source)
 
-                    // Assume pages are handled by their respective plugin.
-                    if (!isPage(this.manifestPath, asset)) {
-                      const assetName = getFilepath(feature, asset)
-                      console.log({
-                        asset,
-                        assetName,
-                        feature,
-                        assets: compilation.getAssets()
-                      })
+                    // Pages are handled by AddHtmlFileToCompilation.
+                    // Users can reference own pages/ (like an iframe),
+                    // but we don't want to emit them as assets again.
+                    if (!feature.startsWith('pages')) {
                       // Assume that if the asset is not an HTML file, it should be emitted,
                       // Either by manifest require, pages, or public folder.
                       if (!asset.endsWith('.html')) {
-                        if (!compilation.getAsset(assetName)) {
-                          compilation.emitAsset(assetName, rawSource)
+                        if (!compilation.getAsset(feature)) {
+                          compilation.emitAsset(feature, rawSource)
                         }
                       }
                     }

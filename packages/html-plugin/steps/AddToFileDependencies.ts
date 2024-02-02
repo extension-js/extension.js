@@ -1,20 +1,20 @@
 import fs from 'fs'
 import webpack, {Compilation} from 'webpack'
 
-import {type HtmlPluginInterface} from '../types'
+import {IncludeList, type StepPluginInterface} from '../types'
 
 // Manifest fields
-import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
+import manifestFields from 'browser-extension-manifest-fields'
 
 export default class AddToFileDependencies {
   public readonly manifestPath: string
-  public readonly pagesFolder?: string
-  public readonly exclude?: string[]
+  public readonly includeList: IncludeList
+  public readonly exclude: string[]
 
-  constructor(options: HtmlPluginInterface) {
+  constructor(options: StepPluginInterface) {
     this.manifestPath = options.manifestPath
-    this.pagesFolder = options.pagesFolder
-    this.exclude = options.exclude || []
+    this.includeList = options.includeList
+    this.exclude = options.exclude
   }
 
   public apply(compiler: webpack.Compiler): void {
@@ -35,7 +35,7 @@ export default class AddToFileDependencies {
 
             const allEntries = {
               ...manifestFields(this.manifestPath, manifestSource).html,
-              ...getPagesPath(this.pagesFolder)
+              ...this.includeList
             }
 
             for (const field of Object.entries(allEntries)) {

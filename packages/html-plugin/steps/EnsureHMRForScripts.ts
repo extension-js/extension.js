@@ -1,16 +1,16 @@
 import path from 'path'
 import webpack from 'webpack'
 
-import {type HtmlPluginInterface} from '../types'
+import {IncludeList, type StepPluginInterface} from '../types'
 
 export default class EnsureHMRForScripts {
   public readonly manifestPath: string
-  public readonly pagesFolder?: string
-  public readonly exclude?: string[]
+  public readonly includeList: IncludeList
+  public readonly exclude: string[]
 
-  constructor(options: HtmlPluginInterface) {
+  constructor(options: StepPluginInterface) {
     this.manifestPath = options.manifestPath
-    this.pagesFolder = options.pagesFolder
+    this.includeList = options.includeList
     this.exclude = options.exclude || []
   }
 
@@ -23,7 +23,7 @@ export default class EnsureHMRForScripts {
           options: {
             manifestPath: this.manifestPath,
             exclude: this.exclude,
-            pagesFolder: this.pagesFolder
+            includeList: this.includeList
           }
         }
       ]

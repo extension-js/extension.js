@@ -27,32 +27,12 @@ export function fileError(
   }
 }
 
-export function serverRestartRequired(
-  projectDir: string,
-  filePath: string
-  // contentChanged: {
-  //   prevFile: string
-  //   updatedFile: string
-  // } | null
-) {
+export function serverRestartRequired(projectDir: string, filePath: string) {
   const basename = path.relative(projectDir, filePath)
-  const extname = path.extname(filePath)
-  // const extname = path.extname(
-  //   contentChanged?.prevFile || contentChanged?.updatedFile || ''
-  // )
-  // const tag = ['js', 'ts', 'jsx', 'tsx'].includes(extname) ? 'script' : 'link'
-  // const prevFileRelative = path.relative(filePath, contentChanged?.prevFile!)
-  // const updatedFileRelative = path.relative(
-  //   filePath,
-  //   contentChanged?.updatedFile!
-  // )
   const errorMessage = `[${basename}] Entry Point Modification Found
 
 Changing <script> or <link rel="stylesheet"> source paths after compilation requires a server restart. Restart the program and try again.`
-  // \'\'\'diff
-  // - ${prevFileRelative}
-  // + ${updatedFileRelative}
-  // \'\'\'
+
   return errorMessage
 }
 
@@ -63,9 +43,9 @@ export function reloadAfterErrorRequiredMessage() {
 }
 
 export function manifestMissingError() {
-  const hintMessage = `Check your manifest.json file.`
+  const hintMessage = `A manifest file is required for this plugin to run.`
   const errorMessage = `File \`manifest.json\` not found. ${hintMessage}`
-  return errorMessage
+  return `[manifest.json]: ${errorMessage}`
 }
 
 export function manifestFieldRequiredError(requiredField: string) {
@@ -81,7 +61,7 @@ export function manifestFieldError(feature: string, htmlFilePath: string) {
   const errorMessage = `File path \`${htmlFilePath}\` not found. ${
     isPage ? pagesMessage : hintMessage
   }`
-  return errorMessage
+  return `[manifest.json]: ${errorMessage}`
 }
 
 export function javaScriptError(
