@@ -7,11 +7,7 @@
 
 // import path from 'path'
 import type webpack from 'webpack'
-import {
-  getDynamicPagesPath,
-  getManifestPath,
-  getOutputPath
-} from '../config/getPath'
+import {getManifestPath, getOutputPath} from '../config/getPath'
 import {type DevOptions} from '../../extensionDev'
 import RunChromeExtension from 'webpack-run-chrome-extension'
 // import RunEdgeExtension from 'webpack-run-edge-extension'
@@ -34,8 +30,8 @@ export default function browserPlugins(
     // This is used to load the extension into the browser.
     extensionPath: getOutputPath(projectPath, devOptions.browser),
     autoReload: true,
-    browserFlags: ['--enable-benchmarking'],
-    pagesFolder: getDynamicPagesPath(projectPath)
+    browserFlags: ['--enable-benchmarking']
+    // pagesFolder: getPagesFolderPath(projectPath)
   }
 
   // const edgeConfig = {
