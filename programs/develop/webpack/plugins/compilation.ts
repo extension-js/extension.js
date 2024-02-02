@@ -10,6 +10,8 @@ import webpack, {Compiler} from 'webpack'
 
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+// @ts-ignore
+import CssUrlRelativePlugin from 'css-url-relative-plugin'
 // import Dotenv from 'dotenv-webpack'
 
 // Checks
@@ -32,6 +34,8 @@ export default function compilationPlugins(
 
       // Extracts imported CSS into separate files
       new MiniCssExtractPlugin().apply(compiler)
+
+      new CssUrlRelativePlugin(/* options */)
 
       // Support .env files
       // TODO: cezaraugusto this has a type errors

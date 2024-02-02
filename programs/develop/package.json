@@ -38,6 +38,7 @@
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "css-loader": "^6.9.1",
     "css-minimizer-webpack-plugin": "^6.0.0",
+    "css-url-relative-plugin": "^1.1.0",
     "csv-loader": "^3.0.5",
     "dotenv-webpack": "^8.0.1",
     "error-overlay-webpack-plugin": "^1.1.1",

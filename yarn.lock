@@ -3849,6 +3849,11 @@ array-union@^2.1.0:
   resolved "https://registry.yarnpkg.com/array-union/-/array-union-2.1.0.tgz#b798420adbeb1de828d84acd8a2e23d3efe85e8d"
   integrity sha512-HGyxoOTYUyCM6stUe6EJgnd4EoewAI7zMdfqO+kGjnlZmBDz/cR5pf8r/cR4Wq60sL/p0IkcjUEEPwS3GFrIyw==
 
+array-uniq@^1.0.1:
+  version "1.0.3"
+  resolved "https://registry.yarnpkg.com/array-uniq/-/array-uniq-1.0.3.tgz#af6ac877a25cc7f74e058894753858dfdb24fdb6"
+  integrity sha512-MNha4BWQ6JbwhFhj03YK552f7cb3AzoE8SzeljgChvL1dl3IcvggXVz1DilzySZkCja+CXuZbdW7yATchWn8/Q==
+
 array-unique@^0.3.2:
   version "0.3.2"
   resolved "https://registry.yarnpkg.com/array-unique/-/array-unique-0.3.2.tgz#a894b75d4bc4f6cd679ef3244a9fd8f46ae2d428"
@@ -5390,6 +5395,15 @@ css-tree@~2.2.0:
   dependencies:
     mdn-data "2.0.28"
     source-map-js "^1.0.1"
+
+css-url-relative-plugin@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/css-url-relative-plugin/-/css-url-relative-plugin-1.1.0.tgz#8c6b31d09300e9e7fef414d9e0b7d13b33b05317"
+  integrity sha512-dr7cF4Fwy4B4t642LjrSQmGRDJT8pNs8YmtO4wT+PSXkuAFtKR4nO70+8qkLK6EmGtu+r3xQHQl1QWXlNyhKnA==
+  dependencies:
+    loader-utils "^1.1.0"
+    parse-import "^2.0.0"
+    webpack-sources "^1.1.0"
 
 css-what@^6.0.1, css-what@^6.1.0:
   version "6.1.0"
@@ -7223,6 +7237,14 @@ get-caller-file@^2.0.1, get-caller-file@^2.0.5:
   resolved "https://registry.yarnpkg.com/get-caller-file/-/get-caller-file-2.0.5.tgz#4f94412a82db32f36e3b0b9741f8a97feb031f7e"
   integrity sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==
 
+get-imports@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/get-imports/-/get-imports-1.0.0.tgz#47c0b4ee989351642c54977193bf4fcaabf5378f"
+  integrity sha512-9FjKG2Os+o/EuOIh3B/LNMbU2FWPGHVy/gs9TJpytK95IPl7lLqiu+VAU7JX6VZimqdmpLemgsGMdQWdKvqYGQ==
+  dependencies:
+    array-uniq "^1.0.1"
+    import-regex "^1.1.0"
+
 get-intrinsic@^1.0.2, get-intrinsic@^1.1.1, get-intrinsic@^1.1.3, get-intrinsic@^1.2.0, get-intrinsic@^1.2.1:
   version "1.2.1"
   resolved "https://registry.yarnpkg.com/get-intrinsic/-/get-intrinsic-1.2.1.tgz#d295644fed4505fc9cde952c37ee12b477a83d82"
@@ -7978,6 +8000,11 @@ import-local@^3.0.2:
   dependencies:
     pkg-dir "^4.2.0"
     resolve-cwd "^3.0.0"
+
+import-regex@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/import-regex/-/import-regex-1.1.0.tgz#a55c52e4c705c765ca210e9242a06bbcc8aa7f66"
+  integrity sha512-EblpleIyIdATUKj8ovFojUHyToxgjeKXQgTHZBGZ4cEkbtV21BlO1PSrzZQ6Fei2fgk7uhDeEx656yvPhlRGeA==
 
 imports-loader@^5.0.0:
   version "5.0.0"
@@ -9757,7 +9784,7 @@ loader-runner@^4.2.0:
   resolved "https://registry.yarnpkg.com/loader-runner/-/loader-runner-4.3.0.tgz#c1b4a163b99f614830353b16755e7149ac2314e1"
   integrity sha512-3R/1M+yS3j5ou80Me59j7F9IMs4PXs3VqRrm0TU3AbKPxlmpoY1TNscJV/oGJXo8qCatFGTfDbY6W6ipGOYXfg==
 
-loader-utils@^1.0.0:
+loader-utils@^1.0.0, loader-utils@^1.1.0:
   version "1.4.2"
   resolved "https://registry.yarnpkg.com/loader-utils/-/loader-utils-1.4.2.tgz#29a957f3a63973883eb684f10ffd3d151fec01a3"
   integrity sha512-I5d00Pd/jwMD2QCduo657+YM/6L3KZu++pmX9VFncxaxvHcru9jx1lBaFft+r4Mt2jK0Yhp41XlRAihzPxHNCg==
@@ -11049,6 +11076,13 @@ parse-asn1@^5.0.0, parse-asn1@^5.1.6:
     evp_bytestokey "^1.0.0"
     pbkdf2 "^3.0.3"
     safe-buffer "^5.1.1"
+
+parse-import@^2.0.0:
+  version "2.0.0"
+  resolved "https://registry.yarnpkg.com/parse-import/-/parse-import-2.0.0.tgz#2b2474030e008ab98db76c4bcbf4db5ae7306f5f"
+  integrity sha512-c59vdx1LiQT+majNKMyfFLrNMAVS9U1bychTv3CEuxbKspgnVTrzLRtgtfCWyAmTuFAxQVSJFasVv8svJLksIg==
+  dependencies:
+    get-imports "^1.0.0"
 
 parse-json@^4.0.0:
   version "4.0.0"
@@ -13141,7 +13175,7 @@ socks@^2.7.1:
     ip "^2.0.0"
     smart-buffer "^4.2.0"
 
-source-list-map@^2.0.1:
+source-list-map@^2.0.0, source-list-map@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/source-list-map/-/source-list-map-2.0.1.tgz#3993bd873bfc48479cca9ea3a547835c7c154b34"
   integrity sha512-qnQ7gVMxGNxsiL4lEuJwe/To8UnK7fAnmbGEEH8RpLouuKbeEm0lhbQVFIrNSuB+G7tVrAlVsZgETT5nljf+Iw==
@@ -14690,6 +14724,14 @@ webpack-merge@^5.7.3:
   dependencies:
     clone-deep "^4.0.1"
     wildcard "^2.0.0"
+
+webpack-sources@^1.1.0:
+  version "1.4.3"
+  resolved "https://registry.yarnpkg.com/webpack-sources/-/webpack-sources-1.4.3.tgz#eedd8ec0b928fbf1cbfe994e22d2d890f330a933"
+  integrity sha512-lgTS3Xhv1lCOKo7SA5TjKXMjpSM4sBjNV5+q2bqesbSPs5FjGmU6jjtBSkX9b4qW87vDIsCIlUPOEhbZrMdjeQ==
+  dependencies:
+    source-list-map "^2.0.0"
+    source-map "~0.6.1"
 
 webpack-sources@^2.2.0:
   version "2.3.1"
