@@ -31,13 +31,8 @@ function extensionCreateServerOutput(
       console.log('[⛔️] No management info received from client. Investigate.')
     }
   }
-  const {
-    name,
-    description,
-    version,
-    hostPermissions,
-    permissions
-  } = manifest
+
+  const {name, description, version, hostPermissions, permissions} = manifest
 
   const manifestPath = path.join(compilerOptions.context || '', 'manifest.json')
   const manifestFromCompiler = require(manifestPath)
@@ -51,6 +46,7 @@ function extensionCreateServerOutput(
   })
   const fixedId = manifestFromCompiler.id === id
   const hasHost = hostPermissions && hostPermissions.length
+  management.enabled
 
   // TODO: cezaraugusto Also interesting:
   // log(`• Size: 1.2 MB`)
@@ -59,14 +55,16 @@ function extensionCreateServerOutput(
   // log(`• Web Accessible Resources: /web_accessible_resources`)
 
   log('')
-  log(`• Name: ${name} (${compilerOptions.mode} mode)`)
+  log(`• Name: ${name}`)
   description && log(`• Description: ${description}`)
   log(`• ID: ${id} (${fixedId ? 'fixed' : 'dynamic'})`)
   log(`• Version: ${version}`)
   hasHost && log(`• Host Permissions: ${hostPermissions.sort().join(', ')}`)
   log(`• Permissions: ${permissionsParsed.sort().join(', ')}`)
   log(`• Settings URL: chrome://extensions/?id=${id}\n`)
-  log(`►►► Running a new Chrome instance. Extension ready.`)
+  log(
+    `browser-runtime ►►► Running Chrome in ${compilerOptions.mode} mode. Browser ${management.type} ${management.enabled ? 'enabled' : 'disabled'}.`
+  )
 }
 
 export default function (compiler: Compiler, port?: number) {
