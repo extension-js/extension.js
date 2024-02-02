@@ -20,7 +20,7 @@ import IconsPlugin from 'webpack-browser-extension-icons-plugin'
 import ResourcesPlugin from 'webpack-browser-extension-resources-plugin'
 
 // Config
-import {getDynamicPagesPath, getStaticFolderPath} from '../config/getPath'
+import {getPagesFolderPath, getStaticFolderPath} from '../config/userOptions'
 
 export default function extensionPlugins(
   projectPath: string,
@@ -40,19 +40,29 @@ export default function extensionPlugins(
       new ManifestPlugin({
         browser,
         manifestPath,
-        exclude: [getStaticFolderPath(projectPath)]
+        exclude: [
+          // TODO: cezaraugusto - Allow users to add pages/
+          // as entry points for the extension.
+          // getPagesFolderPath(projectPath),
+          getStaticFolderPath(projectPath)
+        ]
       }).apply(compiler)
 
       // Get every field in manifest that allows an .html file
       new HtmlPlugin({
         manifestPath,
         exclude: [getStaticFolderPath(projectPath)],
-        pagesFolder: getDynamicPagesPath(projectPath)
+        // TODO: cezaraugusto this should be called "include"
+        pagesFolder: getPagesFolderPath(projectPath)
       }).apply(compiler)
 
       // Get all scripts (bg, content, sw) declared in manifest
       new ScriptsPlugin({
         manifestPath,
+        // TODO: cezaraugusto similar to pages/, allow users to add
+        // scripts/ as entry points for the extension without requiring
+        // them to be declared in the manifest.
+        // include: [getScriptsFolderPath(projectPath)],
         exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
@@ -80,6 +90,7 @@ export default function extensionPlugins(
       }).apply(compiler)
 
       // Allow browser polyfill as needed
+      // TODO: move this to webpack-browser-extension-polyfill plugin.
       if (polyfill) {
         if (browser !== 'firefox') {
           new webpack.ProvidePlugin({

@@ -12,7 +12,8 @@ import {type DevOptions} from '../extensionDev'
 import {
   getOutputPath,
   getModulesToResolve,
-  getWebpackPublicPath
+  getWebpackPublicPath,
+  getExtensionsToResolve
 } from './config/getPath'
 import jsOptimizationOptions from './options/jsOptimization'
 import cssOptimizationOptions from './options/cssOptimization'
@@ -67,14 +68,7 @@ export default function webpackConfig(
     resolve: {
       mainFields: ['browser', 'module', 'main'],
       modules: getModulesToResolve(projectPath),
-      extensions: [
-        '.js',
-        '.mjs',
-        '.json',
-        '.wasm',
-        '.jsx',
-        ...(isUsingTypeScript(projectPath) ? ['.ts', '.tsx'] : [])
-      ]
+      extensions: getExtensionsToResolve(projectPath)
     },
     watchOptions: {
       ignored: /node_modules/
