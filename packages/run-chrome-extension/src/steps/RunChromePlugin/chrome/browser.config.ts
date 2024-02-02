@@ -20,9 +20,7 @@ export default function browserConfig(
     ''
   )
 
-  const extensionsToLoad = [
-    `"${userBrowserExtension}"`, 
-    managerExtension]
+  const extensionsToLoad = [`"${userBrowserExtension}"`, managerExtension]
 
   if (configOptions.autoReload) {
     extensionsToLoad.push(reloadExtension)

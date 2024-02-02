@@ -3,7 +3,7 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
-import { getFilepath } from '../src/helpers/getResourceName'
+import {getFilepath} from '../src/helpers/getResourceName'
 
 const schema: Schema = {
   type: 'object',
