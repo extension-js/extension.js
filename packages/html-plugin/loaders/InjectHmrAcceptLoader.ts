@@ -6,10 +6,11 @@ import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
 
 // Manifest fields
-import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
+import manifestFields from 'browser-extension-manifest-fields'
 
-import {isUsingReact} from '../helpers/isUsingReact'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
+import {IncludeList} from '../types'
+import {isUsingReact} from '../helpers/utils'
 
 const schema: Schema = {
   type: 'object',
@@ -20,6 +21,9 @@ const schema: Schema = {
     manifestPath: {
       type: 'string'
     },
+    includeList: {
+      type: 'object'
+    },
     exclude: {
       type: 'array'
     }
@@ -29,14 +33,15 @@ const schema: Schema = {
 interface InjectContentAcceptContext extends LoaderContext<any> {
   getOptions: () => {
     manifestPath: string
-    pagesFolder?: string
+    includeList: IncludeList
+    exclude: string[]
   }
 }
 
 export default function (this: InjectContentAcceptContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
-  const pagesFolder = options.pagesFolder
+  const includeList = options.includeList
   const projectPath = path.dirname(manifestPath)
   const manifest = require(manifestPath)
 
@@ -59,7 +64,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
 
   const allEntries = {
     ...manifestFields(manifestPath, manifest).html,
-    ...getPagesPath(pagesFolder)
+    ...includeList
   }
 
   for (const field of Object.entries(allEntries)) {

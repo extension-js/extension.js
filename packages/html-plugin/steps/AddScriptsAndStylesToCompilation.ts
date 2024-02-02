@@ -2,34 +2,32 @@ import path from 'path'
 import fs from 'fs'
 import webpack from 'webpack'
 
-import {type HtmlPluginInterface} from '../types'
+import {IncludeList, type StepPluginInterface} from '../types'
 
 // Manifest fields
-import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
+import manifestFields from 'browser-extension-manifest-fields'
 
-import {getFilepath} from '../helpers/getResourceName'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
-import shouldEmitFile from '../helpers/shouldEmitFile'
-import shouldExclude from '../helpers/shouldExclude'
+import {shouldExclude} from '../helpers/utils'
 
-export default class AddScriptsAndStyles {
+export default class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string
-  public readonly pagesFolder?: string
-  public readonly exclude?: string[]
+  public readonly includeList: IncludeList
+  public readonly exclude: string[]
 
-  constructor(options: HtmlPluginInterface) {
+  constructor(options: StepPluginInterface) {
     this.manifestPath = options.manifestPath
-    this.pagesFolder = options.pagesFolder
-    this.exclude = options.exclude || []
+    this.includeList = options.includeList
+    this.exclude = options.exclude
   }
 
   public apply(compiler: webpack.Compiler): void {
-    const allEntries = {
+    const htmlEntries = {
       ...manifestFields(this.manifestPath).html,
-      ...getPagesPath(this.pagesFolder)
+      ...this.includeList
     }
 
-    for (const field of Object.entries(allEntries)) {
+    for (const field of Object.entries(htmlEntries)) {
       const [feature, resource] = field
 
       // Resources from the manifest lib can come as undefined.
@@ -40,7 +38,7 @@ export default class AddScriptsAndStyles {
         const jsAssets = htmlAssets?.js || []
         const cssAssets = htmlAssets?.css || []
         const fileAssets = [...jsAssets, ...cssAssets].filter(
-          (asset) => !shouldExclude(this.exclude || [], asset)
+          (asset) => !shouldExclude(asset, this.exclude)
         )
 
         if (compiler.options.mode === 'development') {
@@ -48,17 +46,12 @@ export default class AddScriptsAndStyles {
           fileAssets.push(hmrScript)
         }
 
-        const fileName = getFilepath(feature, resource?.html)
-        const context = compiler.options.context || ''
-        const fileNameExt = path.extname(fileName)
-        const fileNameNoExt = fileName.replace(fileNameExt, '')
-
         if (fs.existsSync(resource?.html)) {
-          if (shouldEmitFile(context, resource?.html, this.exclude)) {
+          if (!shouldExclude(resource?.html, this.exclude)) {
             compiler.options.entry = {
               ...compiler.options.entry,
               // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-              [fileNameNoExt]: {
+              [feature]: {
                 import: fileAssets
               }
             }

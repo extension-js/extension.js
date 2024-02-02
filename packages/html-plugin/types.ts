@@ -1,21 +1,17 @@
 export interface HtmlPluginInterface {
   manifestPath: string
-  pagesFolder?: string
+  include?: string[]
   exclude?: string[]
 }
 
-export interface OutputPath {
-  backgroundPage?: string
-  bookmarks?: string
-  history?: string
-  newtab?: string
-  devtools?: string
-  options?: string
-  action?: string
-  settings?: string
-  sidebar?: string
-  sandbox?: string
-  sidePanel?: string
+export interface StepPluginInterface {
+  manifestPath: string
+  includeList: IncludeList
+  exclude: string[]
+}
+
+export interface IncludeList {
+  [key: string]: string
 }
 
 export type ResourceType =

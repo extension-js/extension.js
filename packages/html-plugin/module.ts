@@ -1,63 +1,100 @@
 import path from 'path'
 import webpack from 'webpack'
 
-import {type HtmlPluginInterface} from './types'
+import {IncludeList, type HtmlPluginInterface} from './types'
 import AddHtmlFileToCompilation from './steps/AddHtmlFileToCompilation'
 import AddAssetsToCompilation from './steps/AddAssetsToCompilation'
-import AddScriptsAndStyles from './steps/AddScriptsAndStyles'
+import AddScriptsAndStylesToCompilation from './steps/AddScriptsAndStylesToCompilation'
 import EnsureHMRForScripts from './steps/EnsureHMRForScripts'
 import AddToFileDependencies from './steps/AddToFileDependencies'
 import ThrowIfRecompileIsNeeded from './steps/ThrowIfRecompileIsNeeded'
 import HandleCommonErrors from './steps/HandleCommonErrors'
 
+/**
+ * HtmlPlugin is responsible for handling the HTML file
+ * defined in the manifest.json. Static assets and CSS files
+ * within the HTML file are added to the compilation. JS files
+ * are added as webpack entrypoints. It also supports ecxtra
+ * html files defined via this.include option. These extra
+ * html files are added to the compilation and are also HMR
+ * enabled. They are useful for adding extra pages to the
+ * extension runtime that are not defined in manifest.
+ *
+ * Features supported:
+ * action.default_popup - HMR enabled
+ * background.page - HMR enabled
+ * chrome_settings_overrides.homepage - HMR enabled
+ * chrome_url_overrides.newtab - HMR enabled
+ * chrome_url_overrides.history - HMR enabled
+ * chrome_url_overrides.bookmarks - HMR enabled
+ * devtools_page - HMR enabled
+ * options_ui.page - HMR enabled
+ * page_action.default_popup - HMR enabled
+ * sandbox.page - HMR enabled
+ * side_panel.default_panel - HMR enabled
+ * sidebar_action.default_panel - HMR enabled
+ */
 export default class HtmlPlugin {
   public readonly manifestPath: string
-  public readonly pagesFolder?: string
+  public readonly include?: string[]
   public readonly exclude?: string[]
 
   constructor(options: HtmlPluginInterface) {
     this.manifestPath = options.manifestPath
-    this.pagesFolder = options.pagesFolder
-      ? path.join(path.dirname(options.manifestPath), options.pagesFolder)
-      : undefined
+    this.include = options.include || []
     this.exclude = options.exclude || []
   }
 
+  private parseIncludes(includes: string[]): IncludeList {
+    return includes.reduce((acc, include) => {
+      const extname = path.extname(include)
+      const basename = path.basename(include, extname)
+      const entryname = basename === 'index' ? path.dirname(include) : basename
+
+      return {
+        ...acc,
+        [`pages-${entryname}`]: include
+      }
+    }, {})
+  }
+
   public apply(compiler: webpack.Compiler): void {
-    // This plugin:
-    // 1 - Adds the HTML file to the compilation.
+    // 1 - Gets the original HTML file, resolves files (via patchHtml),
+    // and add the HTML file to the compilation.
     new AddHtmlFileToCompilation({
       manifestPath: this.manifestPath,
-      pagesFolder: this.pagesFolder,
-      exclude: this.exclude
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
     }).apply(compiler)
 
-    // 2 - Adds the assets within the HTML file to the compilation.
+    // 2 - Adds the assets within the HTML file to the compilation,
+    // such as <img>, <iframe>, <link>, <script> etc.
     new AddAssetsToCompilation({
       manifestPath: this.manifestPath,
-      pagesFolder: this.pagesFolder,
-      exclude: this.exclude
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
     }).apply(compiler)
 
-    // 3 - Adds the scripts and stylesheets within the HTML file to the compilation.
-    new AddScriptsAndStyles({
+    // 3 - Adds the scripts and stylesheets within the HTML file
+    // to the compilation.
+    new AddScriptsAndStylesToCompilation({
       manifestPath: this.manifestPath,
-      pagesFolder: this.pagesFolder,
-      exclude: this.exclude
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
     }).apply(compiler)
 
     // 4 - Ensure scripts within the HTML file are HMR enabled.
     new EnsureHMRForScripts({
       manifestPath: this.manifestPath,
-      pagesFolder: this.pagesFolder,
-      exclude: this.exclude
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
     }).apply(compiler)
 
     // 5 - Ensure HTML file is recompiled upon changes.
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
-      pagesFolder: this.pagesFolder,
-      exclude: this.exclude
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
     }).apply(compiler)
 
     // 6 - Suggest user to recompile if any style
@@ -66,14 +103,15 @@ export default class HtmlPlugin {
     // entrypoints at runtime.
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
-      pagesFolder: this.pagesFolder,
-      exclude: this.exclude
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
     }).apply(compiler)
 
     // 7 - Handle common errors.
     new HandleCommonErrors({
       manifestPath: this.manifestPath,
-      pagesFolder: this.pagesFolder
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
     }).apply(compiler)
   }
 }
