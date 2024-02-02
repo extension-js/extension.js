@@ -9,16 +9,7 @@ export default function AddHmrAcceptCode(
     test: /\.(t|j)sx?$/,
     use: [
       {
-        loader: path.resolve(
-          __dirname,
-          './loaders/InjectBackgroundAcceptLoader'
-        ),
-        options: {
-          manifestPath
-        }
-      },
-      {
-        loader: path.resolve(__dirname, './loaders/InjectContentAcceptLoader'),
+        loader: path.resolve(__dirname, './loaders/InjectHMRAcceptLoader'),
         options: {
           manifestPath
         }

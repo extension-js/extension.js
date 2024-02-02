@@ -20,7 +20,11 @@ import IconsPlugin from 'webpack-browser-extension-icons-plugin'
 import ResourcesPlugin from 'webpack-browser-extension-resources-plugin'
 
 // Config
-import {getPagesFolderPath, getStaticFolderPath} from '../config/userOptions'
+import {
+  getStaticFolderPath,
+  getPagesFolderPath,
+  getScriptsFolderPath
+} from '../config/userOptions'
 
 export default function extensionPlugins(
   projectPath: string,
@@ -40,29 +44,21 @@ export default function extensionPlugins(
       new ManifestPlugin({
         browser,
         manifestPath,
-        exclude: [
-          // TODO: cezaraugusto - Allow users to add pages/
-          // as entry points for the extension.
-          // getPagesFolderPath(projectPath),
-          getStaticFolderPath(projectPath)
-        ]
+        exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
       // Get every field in manifest that allows an .html file
       new HtmlPlugin({
         manifestPath,
-        exclude: [getStaticFolderPath(projectPath)],
-        // TODO: cezaraugusto this should be called "include"
-        pagesFolder: getPagesFolderPath(projectPath)
+        // TODO: cezaraugusto
+        // include: [...getPagesFolderPath(projectPath)],
+        exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
       // Get all scripts (bg, content, sw) declared in manifest
       new ScriptsPlugin({
         manifestPath,
-        // TODO: cezaraugusto similar to pages/, allow users to add
-        // scripts/ as entry points for the extension without requiring
-        // them to be declared in the manifest.
-        // include: [getScriptsFolderPath(projectPath)],
+        include: [...getScriptsFolderPath(projectPath)],
         exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 

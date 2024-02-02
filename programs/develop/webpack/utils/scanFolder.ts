@@ -2,68 +2,47 @@ import fs from 'fs'
 import path from 'path'
 import {getScriptResolveExtensions} from '../config/getPath'
 
-interface PagesPath {
-  [key: string]: string | undefined
-}
+export function scanHtmlFilesInFolder(dirPath: string): string[] {
+  let htmlFiles: string[] = []
 
-interface ScriptsPath extends PagesPath {}
+  function recurse(currentPath: string) {
+    const entries = fs.readdirSync(currentPath, {withFileTypes: true})
 
-export function findHtmlFiles(
-  dir: string,
-  pagesPath: Record<string, any> = {}
-): PagesPath | undefined {
-  if (!pagesPath) return {}
-  if (!fs.existsSync(dir)) return undefined
-
-  const files = fs.readdirSync(dir)
-  const basename = path.basename(dir)
-
-  files.forEach((file) => {
-    const filePath = path.join(dir, file)
-    const fileStat = fs.statSync(filePath)
-
-    if (fileStat.isDirectory()) {
-      findHtmlFiles(filePath, pagesPath)
-    } else if (file.endsWith('.html')) {
-      const name = path.basename(file, '.html')
-      const dirName = path.basename(dir)
-      const pageName = name === 'index' ? dirName : name
-
-      // Like "pages/my_file_name"
-      pagesPath[`${basename}/${pageName}`] = filePath
+    for (const entry of entries) {
+      const entryPath = path.join(currentPath, entry.name)
+      if (entry.isDirectory()) {
+        recurse(entryPath)
+      } else if (entry.isFile() && entry.name.endsWith('.html')) {
+        htmlFiles.push(entryPath)
+      }
     }
-  })
+  }
 
-  return pagesPath
+  recurse(dirPath)
+  return htmlFiles
 }
 
-export function findScriptFiles(
+export function scanScriptFilesInFolder(
   projectPath: string,
-  dir: string,
-  scriptsPath: Record<string, any> = {}
-): ScriptsPath | undefined {
-  if (!scriptsPath) return {}
-  if (!fs.existsSync(dir)) return undefined
+  dirPath: string
+): string[] {
+  let htmlFiles: string[] = []
 
-  const files = fs.readdirSync(dir)
-  const basename = path.basename(dir)
+  function recurse(currentPath: string) {
+    const entries = fs.readdirSync(currentPath, {withFileTypes: true})
 
-  files.forEach((file) => {
-    const filePath = path.join(dir, file)
-    const fileStat = fs.statSync(filePath)
-    const ext = path.extname(file)
-    const hasValidExt = getScriptResolveExtensions(projectPath).includes(ext)
-
-    if (fileStat.isDirectory()) {
-      findScriptFiles(projectPath, filePath, scriptsPath)
-    } else if (hasValidExt) {
-      const name = path.basename(file, ext)
-      const dirName = path.basename(dir)
-      const scriptName = name === 'index' ? dirName : name
-
-      scriptsPath[`${basename}/${scriptName}`] = filePath
+    for (const entry of entries) {
+      const ext = path.extname(entry.name)
+      const hasValidExt = getScriptResolveExtensions(projectPath).includes(ext)
+      const entryPath = path.join(currentPath, entry.name)
+      if (entry.isDirectory()) {
+        recurse(entryPath)
+      } else if (entry.isFile() && hasValidExt) {
+        htmlFiles.push(entryPath)
+      }
     }
-  })
+  }
 
-  return scriptsPath
+  recurse(dirPath)
+  return htmlFiles
 }

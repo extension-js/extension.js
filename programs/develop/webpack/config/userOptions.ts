@@ -6,18 +6,24 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
+import {
+  scanHtmlFilesInFolder,
+  scanScriptFilesInFolder
+} from '../utils/scanFolder'
 // import getNextAvailablePort from './getNextAvailablePort'
 
 function getStaticFolderPath(projectPath: string) {
   return path.join(projectPath, 'public')
 }
 
-function getPagesFolderPath(_projectPath: string) {
-  return './pages'
+function getPagesFolderPath(projectPath: string) {
+  const pagesPath = path.join(projectPath, 'pages')
+  return scanHtmlFilesInFolder(pagesPath)
 }
 
 function getScriptsFolderPath(projectPath: string) {
-  return path.join(projectPath, 'scripts')
+  const scriptsPath = path.join(projectPath, 'scripts')
+  return scanScriptFilesInFolder(projectPath, scriptsPath)
 }
 
 function getWebResourcesFolderPath(projectPath: string) {
@@ -37,11 +43,38 @@ function getOverlay() {
   }
 }
 
+function getOutputFilePath(chunkname: string, ext: string) {
+  // TODO: this will get the chunk
+  if (chunkname.startsWith('content_scripts')) {
+    const [featureName, index] = chunkname.split('-')
+    return `${featureName}/script-${index}${ext}`
+  }
+
+  if (chunkname === 'service_worker') {
+    return `background/${chunkname}${ext}`
+  }
+
+  // Special /pages path for scripts not defined in manifest.json
+  if (chunkname.startsWith('pages')) {
+    const [pagesFolder, filename] = chunkname.split('-')
+    return `${pagesFolder}/${filename}${ext}`
+  }
+
+  // Special /script path for scripts not defined in manifest.json
+  if (chunkname.startsWith('scripts')) {
+    const [scriptsFolder, filename] = chunkname.split('-')
+    return `${scriptsFolder}/${filename}${ext}`
+  }
+
+  return chunkname
+}
+
 export {
   getStaticFolderPath,
   getPagesFolderPath,
   getScriptsFolderPath,
   getWebResourcesFolderPath,
   getPort,
-  getOverlay
+  getOverlay,
+  getOutputFilePath
 }

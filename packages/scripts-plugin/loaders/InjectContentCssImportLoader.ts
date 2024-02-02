@@ -1,10 +1,9 @@
 import path from 'path'
+import {type LoaderContext} from 'webpack'
 import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
-import manifestFields from 'browser-extension-manifest-fields'
-import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {getFilepath} from '../src/helpers/getResourceName'
+import manifestFields from 'browser-extension-manifest-fields'
 
 const schema: Schema = {
   type: 'object',
@@ -101,8 +100,7 @@ export default function (this: InjectContentCssImportContext, source: string) {
             const thisScriptImportEntries =
               cssEntriesToImport[contentIndex].join('\n')
 
-            const fakeContentScriptCssFileText = `
-/**
+            const fakeContentScriptCssFileText = `/**
  * During development, we extract all content_script CSS files
  * and add them as dynamic imports to the content_script JS file,
  * so that we can reload them on the fly.
@@ -113,12 +111,9 @@ export default function (this: InjectContentCssImportContext, source: string) {
  *
  * During production, we don't need to do this because we
  * actually add the CSS files to the content_script bundle.
-*/
-            `
+*/`
             // This filename is a hack, but it works.
-            const fakeContentScriptCssFile = getFilepath(
-              `content_scripts-${contentIndex}`
-            )
+            const fakeContentScriptCssFile = `content_scripts-${contentIndex}`
 
             this.emitFile(
               `${fakeContentScriptCssFile}.css`,
