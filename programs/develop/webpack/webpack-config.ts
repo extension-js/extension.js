@@ -33,11 +33,11 @@ import TerserPlugin from 'terser-webpack-plugin'
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin'
 
 // Checks
-import {isUsingTypeScript} from './options/typescript'
 import getDevToolOption from './config/getDevtoolOption'
 import browserPlugins from './plugins/browser'
 import boringPlugins from './plugins/boring'
 import {getWebpackStats} from './config/logging'
+import {getOutputFilePath} from './config/userOptions'
 
 export default function webpackConfig(
   projectPath: string,
@@ -57,6 +57,10 @@ export default function webpackConfig(
     cache: false,
     output: {
       clean: true,
+      filename(pathData, assetInfo) {
+        const filepath = pathData.chunk?.name || assetInfo?.filename
+        return getOutputFilePath(filepath, '.js')
+      },
       path: getOutputPath(projectPath, devOptions.browser),
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: getWebpackPublicPath(projectPath),
