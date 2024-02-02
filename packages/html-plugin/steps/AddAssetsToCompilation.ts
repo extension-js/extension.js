@@ -12,6 +12,7 @@ import {getFilepath} from '../helpers/getResourceName'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 import {fileError} from '../helpers/messages'
 import shouldEmitFile from '../helpers/shouldEmitFile'
+import {isPage} from '../helpers/pageUtils'
 
 export default class AddAssetsToCompilation {
   public readonly manifestPath: string
@@ -83,17 +84,28 @@ export default class AddAssetsToCompilation {
                     return
                   }
 
-                  const source = fs.readFileSync(asset)
-                  const rawSource = new sources.RawSource(source)
                   const context = compiler.options.context || ''
 
                   if (shouldEmitFile(context, asset, this.exclude)) {
-                    // check if asset is emitted
-                    if (!compilation.getAsset(asset)) {
-                      compilation.emitAsset(
-                        getFilepath(feature, asset),
-                        rawSource
-                      )
+                    const source = fs.readFileSync(asset)
+                    const rawSource = new sources.RawSource(source)
+
+                    // Assume pages are handled by their respective plugin.
+                    if (!isPage(this.manifestPath, asset)) {
+                      const assetName = getFilepath(feature, asset)
+                      console.log({
+                        asset,
+                        assetName,
+                        feature,
+                        assets: compilation.getAssets()
+                      })
+                      // Assume that if the asset is not an HTML file, it should be emitted,
+                      // Either by manifest require, pages, or public folder.
+                      if (!asset.endsWith('.html')) {
+                        if (!compilation.getAsset(assetName)) {
+                          compilation.emitAsset(assetName, rawSource)
+                        }
+                      }
                     }
                   }
                 }
