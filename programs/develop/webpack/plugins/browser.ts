@@ -5,7 +5,6 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-// import path from 'path'
 import type webpack from 'webpack'
 import {getManifestPath, getOutputPath} from '../config/getPath'
 import {type DevOptions} from '../../extensionDev'
@@ -20,9 +19,6 @@ export default function browserPlugins(
     return
   }
 
-  // TODO: cezaraugusto can't resolve paths with spaces in it.
-  // const manifestPath = path.resolve(projectPath, 'manifest.json')
-
   const chromeConfig = {
     port: 8082,
     manifestPath: getManifestPath(projectPath),
@@ -31,7 +27,6 @@ export default function browserPlugins(
     extensionPath: getOutputPath(projectPath, devOptions.browser),
     autoReload: true,
     browserFlags: ['--enable-benchmarking']
-    // pagesFolder: getPagesFolderPath(projectPath)
   }
 
   // const edgeConfig = {

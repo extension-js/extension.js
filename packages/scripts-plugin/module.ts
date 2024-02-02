@@ -1,46 +1,63 @@
+import path from 'path'
 import webpack from 'webpack'
 
-import {type ScriptsPluginInterface} from './types'
-import AddScriptsAndStyles from './src/steps/AddScriptsAndStyles'
-import AddHmrAcceptCode from './src/steps/AddHmrAcceptCode'
-import AddDynamicCssImport from './src/steps/AddDynamicCssImport'
+import {IncludeList, type ScriptsPluginInterface} from './types'
+import AddScriptsAndStyles from './steps/AddScriptsAndStyles'
+import AddHmrAcceptCode from './steps/AddHmrAcceptCode'
+import AddDynamicCssImport from './steps/AddDynamicCssImport'
 
-export default class HtmlPlugin {
+/**
+ * ScriptsPlugin is responsible for handiling all possible JavaScript
+ * (and CSS, for content_scripts) fields in manifest.json. It also
+ * supports extra scripts defined via this.include option. These
+ * extra scripts are added to the compilation and are also HMR
+ * enabled. They are useful for adding extra scripts to the
+ * extension runtime, like content_scripts via `scripting`, for example.
+ *
+ * Features supported:
+ * - content_scripts.js - HMR enabled
+ * - content_scripts.css - HMR enabled
+ * - background.scripts - HMR enabled
+ * - service_worker - Reloaded by chrome.runtime.reload()
+ * - user_scripts.api_scripts - HMR enabled
+ * - scripts via this.include - HMR enabled
+ */
+export default class ScriptsPlugin {
   public readonly manifestPath: string
+  public readonly include?: string[]
   public readonly exclude?: string[]
 
   constructor(options: ScriptsPluginInterface) {
     this.manifestPath = options.manifestPath
+    this.include = options.include || []
     this.exclude = options.exclude || []
   }
 
-  /**
-   * Scripts plugin is responsible for handiling all the JavaScript
-   * (and CSS, for content_scripts) possible fields in manifest.json.
-   *
-   * Features supported:
-   * - content_scripts.js - HMR enabled
-   * - content_scripts.css - HMR enabled
-   * - background.scripts - HMR enabled
-   * - service_worker - Reloaded by chrome.runtime.reload()
-   * - user_scripts.api_scripts - HMR enabled
-   *
-   * The background (and service_worker) scripts are also
-   * responsible for receiving messages from the extension
-   * reload plugin. They are responsible for reloading the
-   * extension runtime when a change is detected in the
-   * manifest.json file and in the service_worker.
-   */
+  private parseIncludes(includes: string[]): IncludeList {
+    return includes.reduce((acc, include) => {
+      const extname = path.extname(include)
+      const basename = path.basename(include, extname)
+      const entryname = basename === 'index' ? path.dirname(include) : basename
+
+      return {
+        ...acc,
+        [`pages-${entryname}`]: include
+      }
+    }, {})
+  }
+
   public apply(compiler: webpack.Compiler): void {
     // 1 - Adds the scripts entries from the manifest file
-    // (and stylesheets for content_scripts) to the compilation.
+    // (and stylesheets for content_scripts) and also
+    // from the extra scripts defined in this.include
+    // to the compilation.
     new AddScriptsAndStyles({
       manifestPath: this.manifestPath,
-      exclude: this.exclude
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
     }).apply(compiler)
 
-    // 2 - Ensure scripts (content, background, service_worker)
-    // are HMR enabled by adding the reload code.
+    // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
     AddHmrAcceptCode(compiler, this.manifestPath)
 
     // 3 - Ensure css for content_scripts defined in manifest.json
