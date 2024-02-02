@@ -91,12 +91,11 @@ export default class AddHtmlFileToCompilation {
                   this.exclude!
                 )
 
-                const assetName = getFilepath(feature, resource?.html)
-
-                const rawSource = new sources.RawSource(updatedHtml)
                 const context = compiler.options.context || ''
 
                 if (shouldEmitFile(context, resource?.html, this.exclude)) {
+                  const assetName = getFilepath(feature, resource?.html)
+                  const rawSource = new sources.RawSource(updatedHtml)
                   compilation.emitAsset(assetName, rawSource)
                 }
               }
