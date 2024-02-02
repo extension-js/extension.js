@@ -1,21 +1,21 @@
 import path from 'path'
 import webpack from 'webpack'
-import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
+import manifestFields from 'browser-extension-manifest-fields'
 
-import {type HtmlPluginInterface} from '../types'
+import {IncludeList, type StepPluginInterface} from '../types'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
-import {serverRestartRequired} from '../helpers/messages'
+import error from '../helpers/errors'
 
 export default class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
-  public readonly pagesFolder?: string
-  public readonly exclude?: string[]
+  public readonly includeList: IncludeList
+  public readonly exclude: string[]
   private initialHtmlAssets: Record<string, {js: string[]; css: string[]}> = {}
 
-  constructor(options: HtmlPluginInterface) {
+  constructor(options: StepPluginInterface) {
     this.manifestPath = options.manifestPath
-    this.pagesFolder = options.pagesFolder
-    this.exclude = options.exclude || []
+    this.includeList = options.includeList
+    this.exclude = options.exclude
   }
 
   private hasEntriesChanged(
@@ -32,36 +32,6 @@ export default class ThrowIfRecompileIsNeeded {
       }
     }
     return false
-  }
-
-  private whichEntryChanged(
-    prevEntries: string[] | undefined,
-    updatedEntries: string[] | undefined
-  ): {prevFile: string; updatedFile: string} | null {
-    if (!prevEntries || !updatedEntries) {
-      return null
-    }
-
-    // Check for added or removed entries in updatedEntries
-    if (updatedEntries.length > prevEntries.length) {
-      const newEntries = updatedEntries.filter(
-        (entry) => !prevEntries.includes(entry)
-      )
-
-      return {
-        updatedFile: newEntries.join(', '),
-        prevFile: prevEntries.join(', ')
-      }
-    }
-
-    // Compare entries when lengths are the same
-    for (let i = 0; i < updatedEntries.length; i++) {
-      if (updatedEntries[i] !== prevEntries[i]) {
-        return {prevFile: prevEntries[i], updatedFile: updatedEntries[i]}
-      }
-    }
-
-    return null
   }
 
   private storeInitialHtmlAssets(htmlFields: Record<string, any>) {
@@ -81,7 +51,7 @@ export default class ThrowIfRecompileIsNeeded {
     const htmlFields = manifestFields(this.manifestPath, manifest).html
     const allEntries = {
       ...htmlFields,
-      ...getPagesPath(this.pagesFolder)
+      ...this.includeList
     }
 
     this.storeInitialHtmlAssets(allEntries)
@@ -96,37 +66,14 @@ export default class ThrowIfRecompileIsNeeded {
           const updatedJsEntries = getAssetsFromHtml(changedFile)?.js || []
           const updatedCssEntries = getAssetsFromHtml(changedFile)?.css || []
 
-          const {js: initialJsEntries, css: initialCssEntries} =
-            this.initialHtmlAssets[changedFile]
+          const {js, css} = this.initialHtmlAssets[changedFile]
 
-          if (this.hasEntriesChanged(updatedJsEntries, initialJsEntries)) {
+          if (
+            this.hasEntriesChanged(updatedCssEntries, css) ||
+            this.hasEntriesChanged(updatedJsEntries, js)
+          ) {
             const projectDir = path.dirname(this.manifestPath)
-            // const contentChanged = this.whichEntryChanged(
-            //   initialJsEntries,
-            //   updatedJsEntries
-            // )
-
-            const errorMessage = serverRestartRequired(
-              projectDir,
-              changedFile
-              // contentChanged
-            )
-            compilation.errors.push(new webpack.WebpackError(errorMessage))
-          }
-
-          if (this.hasEntriesChanged(updatedCssEntries, initialCssEntries)) {
-            const projectDir = path.dirname(this.manifestPath)
-            // const contentChanged = this.whichEntryChanged(
-            //   initialCssEntries,
-            //   updatedCssEntries
-            // )
-
-            const errorMessage = serverRestartRequired(
-              projectDir,
-              changedFile
-              // contentChanged
-            )
-            compilation.errors.push(new webpack.WebpackError(errorMessage))
+            error.serverStartRequiredError(compilation, projectDir, changedFile)
           }
         }
 

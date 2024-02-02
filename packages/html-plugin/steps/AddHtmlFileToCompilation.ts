@@ -1,46 +1,24 @@
-import path from 'path'
 import fs from 'fs'
 import webpack, {sources, Compilation} from 'webpack'
 
-import {type HtmlPluginInterface} from '../types'
+import {IncludeList, type StepPluginInterface} from '../types'
 
 // Manifest fields
-import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
+import manifestFields from 'browser-extension-manifest-fields'
 
-import {getFilepath} from '../helpers/getResourceName'
-import shouldEmitFile from '../helpers/shouldEmitFile'
 import patchHtml from '../lib/patchHtml'
-import {manifestFieldError} from '../helpers/messages'
+import {shouldExclude} from '../helpers/utils'
+import errors from '../helpers/errors'
 
 export default class AddHtmlFileToCompilation {
   public readonly manifestPath: string
-  public readonly pagesFolder?: string
-  public readonly exclude?: string[]
+  public readonly includeList: IncludeList
+  public readonly exclude: string[]
 
-  constructor(options: HtmlPluginInterface) {
+  constructor(options: StepPluginInterface) {
     this.manifestPath = options.manifestPath
-    this.pagesFolder = options.pagesFolder
-    this.exclude = options.exclude || []
-  }
-
-  private manifestNotFoundError(compilation: webpack.Compilation) {
-    const errorMessage = `A manifest file is required for this plugin to run.`
-
-    compilation.errors.push(
-      new webpack.WebpackError(`[manifest.json]: ${errorMessage}`)
-    )
-  }
-
-  private entryNotFoundWarn(
-    compilation: webpack.Compilation,
-    feature: string,
-    htmlFilePath: string
-  ) {
-    const errorMessage = manifestFieldError(feature, htmlFilePath)
-
-    compilation.warnings.push(
-      new webpack.WebpackError(`[manifest.json]: ${errorMessage}`)
-    )
+    this.includeList = options.includeList
+    this.exclude = options.exclude
   }
 
   public apply(compiler: webpack.Compiler): void {
@@ -49,14 +27,14 @@ export default class AddHtmlFileToCompilation {
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'HtmlPlugin (AddHtmlFileToCompilation)4',
+            name: 'HtmlPlugin (AddHtmlFileToCompilation)',
             // Add additional assets to the compilation.
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           (assets) => {
             // Do not emit if manifest doesn't exist.
             if (!fs.existsSync(this.manifestPath)) {
-              this.manifestNotFoundError(compilation)
+              errors.manifestNotFoundError(compilation)
               return
             }
 
@@ -66,37 +44,30 @@ export default class AddHtmlFileToCompilation {
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const allEntries = {
+            const htmlEntries = {
               ...manifestFields(this.manifestPath, manifestSource).html,
-              ...getPagesPath(this.pagesFolder)
+              ...this.includeList
             }
 
-            for (const field of Object.entries(allEntries)) {
+            for (const field of Object.entries(htmlEntries)) {
               const [feature, resource] = field
+              const html = resource?.html
 
               // Resources from the manifest lib can come as undefined.
-              if (resource?.html) {
+              if (html) {
                 // Do not output if file doesn't exist.
                 // If the user updates the path, this script runs again
                 // and output the file accordingly.
-                if (!fs.existsSync(resource?.html)) {
-                  this.entryNotFoundWarn(compilation, feature, resource?.html)
+                if (!fs.existsSync(html)) {
+                  errors.entryNotFoundWarn(compilation, feature, html)
                   return
                 }
 
-                const updatedHtml = patchHtml(
-                  compiler,
-                  feature,
-                  resource?.html,
-                  this.exclude!
-                )
+                const updatedHtml = patchHtml(compilation, html, this.exclude)
 
-                const context = compiler.options.context || ''
-
-                if (shouldEmitFile(context, resource?.html, this.exclude)) {
-                  const assetName = getFilepath(feature, resource?.html)
+                if (!shouldExclude(html, this.exclude)) {
                   const rawSource = new sources.RawSource(updatedHtml)
-                  compilation.emitAsset(assetName, rawSource)
+                  compilation.emitAsset(feature, rawSource)
                 }
               }
             }
