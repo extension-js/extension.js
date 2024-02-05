@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 // @ts-ignore
-import utils from 'parse5-utils'
+import parse5utils from 'parse5-utils'
 import parseHtml from './parseHtml'
 
 export interface ParsedHtmlAsset {
@@ -16,7 +16,7 @@ export default function getAssetsFromHtml(
 ) {
   const htmlString =
     htmlContent || fs.readFileSync(htmlFilePath, {encoding: 'utf8'})
-  const htmlDocument = utils.parse(htmlString)
+  const htmlDocument = parse5utils.parse(htmlString)
 
   const assets: ParsedHtmlAsset = {
     css: [],

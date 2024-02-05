@@ -14,7 +14,7 @@ export function isUsingReact(projectDir: string) {
     packageJson.devDependencies && packageJson.devDependencies.react
   const reactAsDep = packageJson.dependencies && packageJson.dependencies.react
 
-  return reactAsDevDep || reactAsDep
+  return !!(reactAsDevDep || reactAsDep)
 }
 
 export function shouldExclude(path: string, ignorePatterns: string[]): boolean {
@@ -28,30 +28,40 @@ export function getResolvedPath(
   filePath: string,
   basePath: string
 ) {
+  // Ensure the filePath is relative to the context
   const relativePath = path.relative(context, filePath)
+
+  // Normalize to avoid issues with different OS path formats
   const pathNormalized = path.normalize(relativePath)
-  const publicPath = pathNormalized.split(`${basePath}/`)[1]
-  return `/${basePath}/${publicPath}`
+  const prefixedBasePath = basePath ? `/${basePath}` : ''
+  const publicPath = path.join(prefixedBasePath, pathNormalized)
+  return path.normalize(publicPath)
 }
 
-export function isCompilationEntry(compilation: Compilation, filePath: string) {
+export function isCompilationEntry(
+  compilation: Compilation,
+  filePath: string
+): boolean {
   const context = compilation.compiler.context
   const filePathAbsolute = path.resolve(context, filePath)
-  const assets = Object.keys(compilation.assets)
-
-  console.log({assets, filePathAbsolute})
-  return false
+  return Object.keys(compilation.assets).some((assetName) => {
+    const assetPathAbsolute = path.resolve(context, assetName)
+    return filePathAbsolute === assetPathAbsolute
+  })
 }
 
 export function getCompilationEntryName(
   compilation: Compilation,
   filePath: string
-) {
+): string {
+  // This simplistic approach assumes entries are directly named by their output file names.
   const context = compilation.compiler.context
   const filePathAbsolute = path.resolve(context, filePath)
-  const assets = Object.keys(compilation.assets)
 
-  console.log({filePathAbsolute, assets2: assets})
+  const entryName = Object.keys(compilation.assets).find((assetName) => {
+    const assetPathAbsolute = path.resolve(context, assetName)
+    return filePathAbsolute === assetPathAbsolute
+  })
 
-  return ''
+  return entryName || ''
 }

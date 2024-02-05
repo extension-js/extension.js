@@ -33,7 +33,7 @@ export default class ManifestCompatPlugin {
     const isChrome = browser === 'chrome'
     const chromeUrl = `https://developer.chrome.com/docs/extensions/reference/api/${namespace}`
     const mdnUrl = extensionKnowledge?.[namespace].__compat?.mdn_url
-    
+
     return isChrome ? chromeUrl : mdnUrl
   }
 
