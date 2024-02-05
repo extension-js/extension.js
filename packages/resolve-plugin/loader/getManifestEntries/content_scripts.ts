@@ -1,18 +1,15 @@
-import path from 'path'
-import {type ManifestData} from '../resolver-module/types'
+import * as path from '../../helpers/pathUtils.js'
+import {type ManifestData} from './types.js'
 
-export default function contentScript(
-  manifestPath: string,
-  manifest: ManifestData
-): ManifestData {
+export default function contentScript(manifest: ManifestData): ManifestData {
   if (!manifest || !manifest.content_scripts)
-    return {[`content_scripts-0`]: undefined}
+    return {[`content_scripts/script-0.js`]: undefined}
 
   const contentJs = (content: {css?: string[]; js?: string[]}) => {
     if (content.js?.length === 0) return undefined
 
     return content.js?.map((js) => {
-      const contentAbsolutePath = path.join(path.dirname(manifestPath), js)
+      const contentAbsolutePath = js
 
       return contentAbsolutePath
     })
@@ -22,20 +19,19 @@ export default function contentScript(
     if (content.css?.length === 0) return undefined
 
     return content.css?.map((css) => {
-      const contentAbsolutePath = path.join(path.dirname(manifestPath), css)
+      const contentAbsolutePath = css
 
       return contentAbsolutePath
     })
   }
 
-  const contentScriptsData: any = {}
+  const contentScriptsData: {[key: string]: string[]} = {}
 
   for (const [index, content] of manifest.content_scripts.entries()) {
     const js = contentJs(content)
     const css = contentCss(content)
 
-    contentScriptsData[`content_scripts-${index}`] = [
-      // contentScriptsData.content_scripts = [
+    contentScriptsData[`content_scripts/script-${index}`] = [
       ...(js || []).filter((js) => js != null),
       ...(css || []).filter((css) => css != null)
     ]
