@@ -21,6 +21,15 @@ export default class AddScriptsAndStylesToCompilation {
     this.exclude = options.exclude
   }
 
+  private getFilePath(feature: string) {
+    if (feature.startsWith('sandbox')) {
+      const [featureName, index] = feature.split('-')
+      return `${featureName}/page-${index}`
+    }
+
+    return `${feature}/index`
+  }
+
   public apply(compiler: webpack.Compiler): void {
     const htmlEntries = {
       ...manifestFields(this.manifestPath).html,
@@ -51,7 +60,7 @@ export default class AddScriptsAndStylesToCompilation {
             compiler.options.entry = {
               ...compiler.options.entry,
               // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-              [`${feature}/index`]: {
+              [this.getFilePath(feature)]: {
                 import: fileAssets
               }
             }

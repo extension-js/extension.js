@@ -19,6 +19,9 @@ import HandleCommonErrors from './steps/HandleCommonErrors'
  * html files are added to the compilation and are also HMR
  * enabled. They are useful for adding extra pages to the
  * extension runtime that are not defined in manifest.
+ * 
+ * The plugin also has a guard against recompiling entrypoints
+ * at runtime, throwing an error if any of those files change.
  *
  * Features supported:
  * action.default_popup - HMR enabled

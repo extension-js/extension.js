@@ -21,6 +21,15 @@ export default class AddHtmlFileToCompilation {
     this.exclude = options.exclude
   }
 
+  private getFilePath(feature: string) {
+    if (feature.startsWith('sandbox')) {
+      const [featureName, index] = feature.split('-')
+      return `${featureName}/page-${index}.html`
+    }
+
+    return `${feature}/index.html`
+  }
+
   public apply(compiler: webpack.Compiler): void {
     compiler.hooks.thisCompilation.tap(
       'HtmlPlugin (AddHtmlFileToCompilation)',
@@ -67,7 +76,7 @@ export default class AddHtmlFileToCompilation {
 
                 if (!shouldExclude(html, this.exclude)) {
                   const rawSource = new sources.RawSource(updatedHtml)
-                  compilation.emitAsset(`${feature}/index.html`, rawSource)
+                  compilation.emitAsset(this.getFilePath(feature), rawSource)
                 }
               }
             }
