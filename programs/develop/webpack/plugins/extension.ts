@@ -50,15 +50,14 @@ export default function extensionPlugins(
       // Get every field in manifest that allows an .html file
       new HtmlPlugin({
         manifestPath,
-        // TODO: cezaraugusto
-        // include: [...getPagesFolderPath(projectPath)],
+        include: getPagesFolderPath(projectPath),
         exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
       // Get all scripts (bg, content, sw) declared in manifest
       new ScriptsPlugin({
         manifestPath,
-        include: [...getScriptsFolderPath(projectPath)],
+        include: getScriptsFolderPath(projectPath),
         exclude: [getStaticFolderPath(projectPath)]
       }).apply(compiler)
 
