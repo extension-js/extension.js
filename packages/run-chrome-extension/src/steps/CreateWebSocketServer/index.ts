@@ -33,15 +33,14 @@ export default class CreateWebSocketServer {
           return
         }
 
+        const relativePath = path.relative(
+          path.dirname(this.options.manifestPath || ''),
+          changedFile
+        )
+
+        const context = path.dirname(this.options.manifestPath || '')
         console.info(
-          '►► Updated file',
-          // '\`' + changedFile + '\`'
-          '`' +
-            path.relative(
-              path.dirname(this.options.manifestPath || ''),
-              changedFile
-            ) +
-            '` (relative to manifest.json root directory)'
+          `►► Updated file \`${relativePath}\` (relative to ${context})`
         )
 
         if (this.options.manifestPath) {

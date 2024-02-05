@@ -29,7 +29,7 @@ export default class ChromeExtensionLauncherPlugin {
       : `"${chrome}"`
 
     if (!fs.existsSync(path.resolve(chrome))) {
-      console.error(`[Run Chrome Extension] Chrome not found at ${chrome}`)
+      console.error(`browser-runtime ►►► Chrome not found at ${chrome}`)
       process.exit()
     }
 
@@ -39,9 +39,9 @@ export default class ChromeExtensionLauncherPlugin {
     const child = exec(cmd, (error, _stdout, stderr) => {
       if (error != null) throw error
       if (stderr.includes('Unable to move the cache')) {
-        console.log('[Run Chrome Extension] Chrome instance already running.')
+        console.log('browser-runtime ►►► Chrome instance already running.')
       } else {
-        console.log('[Run Chrome Extension] Chrome instance exited.')
+        console.log('browser-runtime ►►► Chrome instance exited.')
         process.exit()
       }
     })
