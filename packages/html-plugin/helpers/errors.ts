@@ -96,5 +96,5 @@ export default {
   entryNotFoundWarn,
   fileNotFoundWarn,
   serverStartRequiredError,
-  handleCantResolveError
+  handleCantResolveError,
 }
