@@ -12,7 +12,7 @@ export default function patchBackground(manifest: any) {
     return {
       background: {
         ...manifest.background,
-        service_worker: 'service_worker/script.js'
+        service_worker: 'background/service_worker.js'
       }
     }
   }

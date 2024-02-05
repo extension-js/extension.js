@@ -25,14 +25,6 @@ export default function messageDispatcher(
 ) {
   if (!updatedFile || !options.manifestPath) return
 
-  const pagesPath = options.pagesFolder
-    ? path.resolve(path.dirname(options.manifestPath), options.pagesFolder)
-    : undefined
-
-  const allHtml = {
-    ...manifestFields(options.manifestPath!).html,
-    ...(pagesPath ? getPagesPath(pagesPath) : {})
-  }
   const manifestLocales = manifestFields(options.manifestPath!).locales
   const manifestScripts = manifestFields(options.manifestPath!).scripts
   const jsonScripts = manifestFields(options.manifestPath!).json
