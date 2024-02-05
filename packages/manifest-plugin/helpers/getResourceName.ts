@@ -27,23 +27,32 @@ export function getFilepath(feature: string, filePath: string) {
   const entryName = path.basename(filePath, entryExt)
   const extname = getOutputExtname(entryExt)
 
-  if (extname === '.html') {
-    return `${feature}/index${extname}`
-  }
+  console.log({feature})
 
   if (feature.startsWith('content_scripts')) {
     const [featureName, index] = feature.split('-')
-    return `${featureName}/script-${index}${extname}`
+    return `${featureName}/script-${index}${extname}.js`
   }
 
-  if (
-    extname.endsWith('.js') ||
-    extname.endsWith('.jsx') ||
-    extname.endsWith('.ts') ||
-    extname.endsWith('.tsx') ||
-    extname.endsWith('.mjs')
-  ) {
-    return `${feature}/script${extname}`
+  if (feature === 'service_worker') {
+    return `background/${feature}${extname}.js`
+  }
+
+  if (feature === 'background') {
+    return `${feature}/script${extname}.js`
+  }
+
+  if (feature === 'user_script') {
+    return `${feature}/apiscript${extname}.js`
+  }
+
+  if (feature.startsWith('sandbox')) {
+    const [featureName, index] = feature.split('-')
+    return `${featureName}/page-${index}.html`
+  }
+
+  if (filePath.endsWith('html')) {
+    return `${feature}/index.html`
   }
 
   return `${feature}/${entryName}${extname}`

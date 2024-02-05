@@ -72,6 +72,7 @@ export default class UpdateManifestPlugin {
             }
 
             const source = JSON.stringify(patchedManifest, null, 2)
+            console.log({source})
             const rawSource = new sources.RawSource(source)
 
             compilation.updateAsset('manifest.json', rawSource)

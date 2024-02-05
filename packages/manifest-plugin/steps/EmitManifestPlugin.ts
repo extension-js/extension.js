@@ -1,5 +1,6 @@
 import fs from 'fs'
 import webpack, {sources} from 'webpack'
+import errors from '../helpers/errors'
 
 interface Options {
   manifestPath: string
@@ -12,22 +13,6 @@ export default class EmitManifestPlugin {
     this.options = options
   }
 
-  private manifestNotFoundError(compilation: webpack.Compilation) {
-    const hintMessage = `Ensure you have a manifest.json file at the root direcotry of your project.`
-    const errorMessage = `A manifest file is required. ${hintMessage}`
-    compilation.errors.push(
-      new webpack.WebpackError(`[manifest.json]: ${errorMessage}`)
-    )
-  }
-
-  private manifestInvalidError(compilation: webpack.Compilation, error: any) {
-    const hintMessage = `Update your manifest file and run the program again.`
-    const errorMessage = `${error}. ${hintMessage}`
-    compilation.errors.push(
-      new webpack.WebpackError(`[manifest.json]: ${errorMessage}`)
-    )
-  }
-
   apply(compiler: webpack.Compiler): void {
     compiler.hooks.thisCompilation.tap(
       'ManifestPlugin (EmitManifestPlugin)',
@@ -38,7 +23,7 @@ export default class EmitManifestPlugin {
           () => {
             // Do not emit manifest if it doesn't exist.
             if (!fs.existsSync(this.options.manifestPath)) {
-              this.manifestNotFoundError(compilation)
+              errors.manifestNotFoundError(compilation)
               return
             }
 
@@ -46,7 +31,7 @@ export default class EmitManifestPlugin {
             try {
               JSON.parse(fs.readFileSync(this.options.manifestPath).toString())
             } catch (error: any) {
-              this.manifestInvalidError(compilation, error)
+              errors.manifestInvalidError(compilation, error)
               return
             }
 

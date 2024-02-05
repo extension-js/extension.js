@@ -10,7 +10,7 @@ export default function userScripts(manifest: ManifestData, exclude: string[]) {
         ...(manifest.user_scripts.api_script && {
           api_script: getFilename(
             'user_scripts',
-            manifest.user_scripts.api_script,
+            'apiscript.js',
             exclude
           )
         })
