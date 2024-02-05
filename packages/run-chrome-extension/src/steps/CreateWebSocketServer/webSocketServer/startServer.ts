@@ -19,7 +19,7 @@ function extensionCreateServerOutput(
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
     throw new WebpackError(
-      '[⛔️] No data received from client. Restart the program and try again.'
+      '[⛔️] No data received from client. Ensure no hanging Chrome instance open and try again.'
     )
   }
 
@@ -50,7 +50,8 @@ function extensionCreateServerOutput(
 
   // TODO: cezaraugusto Also interesting:
   // log(`• Size: 1.2 MB`)
-  // log(`• Static Pages: /pages`)
+  // log(`• Pages: /pages`)
+  // log(`• Static Resources: /public`)
   // log(`• Static Resources: /public`)
   // log(`• Web Accessible Resources: /web_accessible_resources`)
 
