@@ -34,6 +34,7 @@ export default class ScriptsPlugin {
   }
 
   private parseIncludes(includes: string[]): IncludeList {
+    if (!includes.length) return {}
     return includes.reduce((acc, include) => {
       const extname = path.extname(include)
       const basename = path.basename(include, extname)
@@ -41,7 +42,7 @@ export default class ScriptsPlugin {
 
       return {
         ...acc,
-        [`pages-${entryname}`]: include
+        [`scripts/${entryname}`]: include
       }
     }, {})
   }
