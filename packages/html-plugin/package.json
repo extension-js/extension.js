@@ -23,9 +23,9 @@
   "scripts": {
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts ./loaders/InjectHmrAcceptLoader.ts ./html-reloader.ts --format cjs --dts --target=node18 --minify",
+    "compile": "tsup-node ./module.ts ./loaders/InjectHmrAcceptLoader.ts ./minimum-script-file.ts --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
-    "test": "echo \"Note: no test specified\" && exit 0"
+    "test": "jest"
   },
   "keywords": [
     "webpack",
@@ -45,14 +45,16 @@
     "webpack": "^5.0.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.11",
     "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
-    "jasmine": "^5.1.0",
+    "jest": "^29.7.0",
     "jsdom": "^24.0.0",
     "mock-fs": "^5.2.0",
     "rimraf": "^5.0.5",
     "tailwindcss": "^3.4.1",
     "tsconfig": "*",
+    "ts-jest": "^29.1.2",
     "tsup": "^8.0.1",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4",

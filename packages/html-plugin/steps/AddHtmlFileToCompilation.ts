@@ -67,7 +67,7 @@ export default class AddHtmlFileToCompilation {
 
                 if (!shouldExclude(html, this.exclude)) {
                   const rawSource = new sources.RawSource(updatedHtml)
-                  compilation.emitAsset(feature, rawSource)
+                  compilation.emitAsset(`${feature}/index.html`, rawSource)
                 }
               }
             }

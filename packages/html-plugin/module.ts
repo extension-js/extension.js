@@ -46,6 +46,7 @@ export default class HtmlPlugin {
   }
 
   private parseIncludes(includes: string[]): IncludeList {
+    if (!includes.length) return {}
     return includes.reduce((acc, include) => {
       const extname = path.extname(include)
       const basename = path.basename(include, extname)
@@ -53,7 +54,7 @@ export default class HtmlPlugin {
 
       return {
         ...acc,
-        [`pages-${entryname}`]: include
+        [`pages/${entryname}`]: include
       }
     }, {})
   }

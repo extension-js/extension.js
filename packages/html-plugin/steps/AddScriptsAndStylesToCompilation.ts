@@ -42,7 +42,7 @@ export default class AddScriptsAndStylesToCompilation {
         )
 
         if (compiler.options.mode === 'development') {
-          const hmrScript = path.resolve(__dirname, 'html-reloader.js')
+          const hmrScript = path.resolve(__dirname, 'minimum-script-file.js')
           fileAssets.push(hmrScript)
         }
 
@@ -51,7 +51,7 @@ export default class AddScriptsAndStylesToCompilation {
             compiler.options.entry = {
               ...compiler.options.entry,
               // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-              [feature]: {
+              [`${feature}/index`]: {
                 import: fileAssets
               }
             }
