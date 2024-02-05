@@ -2,15 +2,10 @@ import fs from 'fs'
 import path from 'path'
 import {Compilation} from 'webpack'
 // @ts-ignore
-import utils from 'parse5-utils'
+import parse5utils from 'parse5-utils'
 
 import parseHtml from './parseHtml'
-import {
-  getCompilationEntryName,
-  getResolvedPath,
-  isCompilationEntry,
-  shouldExclude
-} from '../helpers/utils'
+import * as fileUtils from '../helpers/utils'
 
 export default function patchHtml(
   compilation: Compilation,
@@ -18,7 +13,7 @@ export default function patchHtml(
   exclude: string[]
 ) {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
-  const htmlDocument = utils.parse(htmlFile)
+  const htmlDocument = parse5utils.parse(htmlFile)
   const context = compilation.options.context || ''
   const manifestPath = path.resolve(context, 'manifest.json')
 
@@ -38,10 +33,17 @@ export default function patchHtml(
         parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
           const absolutePath = path.resolve(context, filePath)
           // Do not attempt to rewrite the asset path if it's in the exclude list.
-          const isExcludedPath = shouldExclude(absolutePath, exclude)
-          const excludedPath = getResolvedPath(context, filePath, 'public')
-          const isItCompilationEntry = isCompilationEntry(compilation, filePath)
-          const compilationEntry = getCompilationEntryName(
+          const isExcludedPath = fileUtils.shouldExclude(absolutePath, exclude)
+          const excludedPath = fileUtils.getResolvedPath(
+            context,
+            filePath,
+            'public'
+          )
+          const isItCompilationEntry = fileUtils.isCompilationEntry(
+            compilation,
+            filePath
+          )
+          const compilationEntry = fileUtils.getCompilationEntryName(
             compilation,
             filePath
           )
@@ -49,18 +51,18 @@ export default function patchHtml(
           switch (assetType) {
             case 'script': {
               if (isExcludedPath) {
-                node = utils.setAttribute(childNode, 'src', excludedPath)
+                node = parse5utils.setAttribute(childNode, 'src', excludedPath)
               } else {
-                node = utils.remove(childNode)
+                node = parse5utils.remove(childNode)
                 hasJsEntry = true
               }
               break
             }
             case 'css': {
               if (isExcludedPath) {
-                node = utils.setAttribute(childNode, 'href', excludedPath)
+                node = parse5utils.setAttribute(childNode, 'href', excludedPath)
               } else {
-                node = utils.remove(childNode)
+                node = parse5utils.remove(childNode)
                 hasCssEntry = true
               }
               break
@@ -70,22 +72,26 @@ export default function patchHtml(
               // Handle import of static assets that also happen
               // to be in the pages folder. Mainly an iframe.
               if (isExcludedPath) {
-                node = utils.setAttribute(
+                node = parse5utils.setAttribute(
                   childNode,
                   assetType === 'staticSrc' ? 'src' : 'href',
                   excludedPath
                 )
               } else if (isItCompilationEntry) {
-                node = utils.setAttribute(
+                node = parse5utils.setAttribute(
                   childNode,
                   assetType === 'staticSrc' ? 'src' : 'href',
-                  getResolvedPath(manifestPath, filePath, compilationEntry)
+                  fileUtils.getResolvedPath(
+                    manifestPath,
+                    filePath,
+                    compilationEntry
+                  )
                 )
               } else {
-                node = utils.setAttribute(
+                node = parse5utils.setAttribute(
                   childNode,
                   assetType === 'staticSrc' ? 'src' : 'href',
-                  getResolvedPath(manifestPath, filePath, 'assets')
+                  fileUtils.getResolvedPath(manifestPath, filePath, 'assets')
                 )
               }
 
@@ -100,13 +106,13 @@ export default function patchHtml(
       if (htmlChildNode.nodeName === 'head') {
         if (hasCssEntry) {
           // Create the link tag for the CSS bundle
-          const linkTag = utils.createNode('link')
+          const linkTag = parse5utils.createNode('link')
           linkTag.attrs = [
             {name: 'rel', value: 'stylesheet'},
             {name: 'href', value: './index.css'}
           ]
 
-          utils.append(htmlChildNode, linkTag)
+          parse5utils.append(htmlChildNode, linkTag)
         }
       }
 
@@ -116,14 +122,14 @@ export default function patchHtml(
         // during development, so we only add the script tag if the
         // user has not already added one.
         if (hasJsEntry || compilation.options.mode !== 'production') {
-          const scriptTag = utils.createNode('script')
+          const scriptTag = parse5utils.createNode('script')
           scriptTag.attrs = [{name: 'src', value: './index.js'}]
 
-          utils.append(htmlChildNode, scriptTag)
+          parse5utils.append(htmlChildNode, scriptTag)
         }
       }
     }
 
-    return utils.serialize(htmlDocument)
+    return parse5utils.serialize(htmlDocument)
   }
 }
