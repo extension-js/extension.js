@@ -2,7 +2,6 @@ import fs from 'fs'
 import type webpack from 'webpack'
 import WebExtension from 'webpack-target-webextension'
 import {type RunChromeExtensionInterface} from '../../../types'
-import {getFilepath} from '../../../helpers/getResourceName'
 
 class TargetWebExtensionPlugin {
   private readonly manifestPath?: string
@@ -16,15 +15,15 @@ class TargetWebExtensionPlugin {
 
     if (manifest.background) {
       if (manifest.manifest_version === 3) {
-        return {serviceWorkerEntry: getFilepath('service_worker')}
+        return {serviceWorkerEntry: 'background/service_worker'}
       }
 
       if (manifest.manifest_version === 2) {
-        return {pageEntry: getFilepath('background')}
+        return {pageEntry: 'background/script'}
       }
     }
 
-    return {pageEntry: getFilepath('background')}
+    return {pageEntry: 'background'}
   }
 
   public apply(compiler: webpack.Compiler) {

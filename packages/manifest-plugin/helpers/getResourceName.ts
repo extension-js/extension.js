@@ -27,15 +27,13 @@ export function getFilepath(feature: string, filePath: string) {
   const entryName = path.basename(filePath, entryExt)
   const extname = getOutputExtname(entryExt)
 
-  console.log({feature})
-
   if (feature.startsWith('content_scripts')) {
     const [featureName, index] = feature.split('-')
-    return `${featureName}/script-${index}${extname}.js`
+    return `${featureName}/script-${index}.js`
   }
 
   if (feature === 'service_worker') {
-    return `background/${feature}${extname}.js`
+    return `background/${feature}.js`
   }
 
   if (feature === 'background') {

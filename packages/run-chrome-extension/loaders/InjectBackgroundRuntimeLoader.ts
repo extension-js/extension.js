@@ -3,7 +3,6 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {getFilepath} from '../src/helpers/getResourceName'
 
 const schema: Schema = {
   type: 'object',
@@ -116,12 +115,12 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
 
   if (!manifest.background) {
     if (manifest.manifest_version === 2) {
-      this.emitFile(getFilepath('background') + '.js', generalReloadCode)
+      this.emitFile('background/script' + '.js', generalReloadCode)
       defaultBgEmitted = true
     }
 
     if (manifest.manifest_version === 3) {
-      this.emitFile(getFilepath('service_worker') + '.js', generalReloadCode)
+      this.emitFile('background/service_worker' + '.js', generalReloadCode)
       defaultBgEmitted = true
     }
   }
