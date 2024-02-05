@@ -1,7 +1,7 @@
 import fs from 'fs'
 import webpack, {Compilation, type Compiler} from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
-import {manifestFieldError} from '../helpers/messages'
+import errors from '../helpers/messages'
 
 class CheckManifestFilesPlugin {
   private readonly manifestPath: string
@@ -19,7 +19,7 @@ class CheckManifestFilesPlugin {
 
     for (const [field, value] of Object.entries(htmlFields)) {
       if (value) {
-        const fieldError = manifestFieldError(field, value?.html)
+        const fieldError = errors.manifestFieldError(field, value?.html)
 
         if (!fs.existsSync(value.html)) {
           compilation.errors.push(new WebpackError(fieldError))
@@ -38,7 +38,7 @@ class CheckManifestFilesPlugin {
     for (const [field, value] of Object.entries(iconsFields)) {
       if (value) {
         if (typeof value === 'string') {
-          const fieldError = manifestFieldError(field, value)
+          const fieldError = errors.manifestFieldError(field, value)
 
           if (!fs.existsSync(value)) {
             compilation.errors.push(new WebpackError(fieldError))
@@ -50,7 +50,7 @@ class CheckManifestFilesPlugin {
         const icon = value as {light?: string; dark?: string}
 
         if (icon.light) {
-          const fieldError = manifestFieldError(field, icon.light as string)
+          const fieldError = errors.manifestFieldError(field, icon.light as string)
 
           if (!fs.existsSync(icon.dark as string)) {
             compilation.errors.push(new WebpackError(fieldError))
@@ -58,7 +58,10 @@ class CheckManifestFilesPlugin {
         }
 
         if (icon.dark) {
-          const fieldError = manifestFieldError(field, icon.dark as string)
+          const fieldError = errors.manifestFieldError(
+            field,
+            icon.dark as string
+          )
 
           if (!fs.existsSync(icon.dark as string)) {
             compilation.errors.push(new WebpackError(fieldError))
@@ -68,7 +71,7 @@ class CheckManifestFilesPlugin {
 
       if (Array.isArray(value)) {
         for (const icon of value) {
-          const fieldError = manifestFieldError(field, icon as string)
+          const fieldError = errors.manifestFieldError(field, icon as string)
 
           if (typeof icon === 'string') {
             if (!fs.existsSync(icon)) {
@@ -92,7 +95,7 @@ class CheckManifestFilesPlugin {
         const valueArr = Array.isArray(value) ? value : [value]
 
         for (const json of valueArr) {
-          const fieldError = manifestFieldError(field, json)
+          const fieldError = errors.manifestFieldError(field, json)
 
           if (!fs.existsSync(json)) {
             compilation.errors.push(new WebpackError(fieldError))
@@ -101,7 +104,6 @@ class CheckManifestFilesPlugin {
       }
     }
   }
-
   private handleScriptsErrors(
     compilation: Compilation,
     WebpackError: typeof webpack.WebpackError
@@ -117,13 +119,13 @@ class CheckManifestFilesPlugin {
           if (field.startsWith('content_scripts')) {
             const [featureName, index] = field.split('-')
             const prettyFeature = `${featureName} (index ${index})`
-            const fieldError = manifestFieldError(prettyFeature, script)
+            const fieldError = errors.manifestFieldError(prettyFeature, script)
 
             if (!fs.existsSync(script)) {
               compilation.errors.push(new WebpackError(fieldError))
             }
           } else {
-            const fieldError = manifestFieldError(field, script)
+            const fieldError = errors.manifestFieldError(field, script)
 
             if (!fs.existsSync(script)) {
               compilation.errors.push(new WebpackError(fieldError))
