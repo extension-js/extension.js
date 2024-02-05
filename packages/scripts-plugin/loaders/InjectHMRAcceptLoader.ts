@@ -3,7 +3,7 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {isUsingReact} from '../steps/utils'
+import {isUsingReact} from '../helpers/utils'
 
 const schema: Schema = {
   type: 'object',

@@ -43,17 +43,7 @@ function getOverlay() {
   }
 }
 
-function getOutputFilePath(chunkname: string, ext: string) {
-  // TODO: this will get the chunk
-  if (chunkname.startsWith('content_scripts')) {
-    const [featureName, index] = chunkname.split('-')
-    return `${featureName}/script-${index}${ext}`
-  }
-
-  if (chunkname === 'service_worker') {
-    return `background/${chunkname}${ext}`
-  }
-
+function getOutputFilePath(chunkname: string, ext?: string) {
   // Special /pages path for scripts not defined in manifest.json
   if (chunkname.startsWith('pages')) {
     const [pagesFolder, filename] = chunkname.split('-')
@@ -66,7 +56,7 @@ function getOutputFilePath(chunkname: string, ext: string) {
     return `${scriptsFolder}/${filename}${ext}`
   }
 
-  return chunkname
+  return chunkname + ext
 }
 
 export {
