@@ -1,6 +1,6 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
-import {type RunChromeExtensionInterface} from '../../../types'
+import {type RunChromeExtensionInterface} from '../../types'
 import messageDispatcher from './webSocketServer/messageDispatcher'
 import startServer from './webSocketServer/startServer'
 import rewriteReloadPort from './rewriteReloadPort'
