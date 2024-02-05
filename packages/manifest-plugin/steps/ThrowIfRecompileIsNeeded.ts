@@ -3,7 +3,7 @@ import webpack, {Compilation} from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 
 import {type ManifestPluginInterface} from '../types'
-import {serverRestartRequired} from '../helpers/messages'
+import messages from '../helpers/messages'
 
 export default class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
@@ -63,7 +63,7 @@ export default class ThrowIfRecompileIsNeeded {
               const updatedValues = this.getFlattenedAssets(manifest).sort()
 
               if (initialValues.toString() !== updatedValues.toString()) {
-                const errorMessage = serverRestartRequired()
+                const errorMessage = messages.serverRestartRequired()
 
                 compilation.errors.push(new webpack.WebpackError(errorMessage))
                 this.manifestChanged = false
