@@ -22,10 +22,17 @@ export interface Callee {
 export interface BrowserExtensionContext extends LoaderContext<any> {
   getOptions: () => {
     test: string
+    manifestPath: string
+    exclude?: string[]
   }
 }
 
 export interface ResolvePluginInterface {
   manifestPath: string
+  includeList?: IncludeList
   exclude?: string[]
+}
+
+export interface IncludeList {
+  [key: string]: string
 }

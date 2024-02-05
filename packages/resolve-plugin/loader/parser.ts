@@ -5,13 +5,10 @@ export function resolvePropertyArg(path: any, resolverFunctionName: string) {
   if (path.node.arguments.length === 0) return
 
   const arg = path.node.arguments[0]
-  if (t.isObjectExpression(arg)) {
-    // Wrap the entire object argument with the resolver function
-    path.node.arguments[0] = t.callExpression(
-      t.identifier(resolverFunctionName),
-      [arg]
-    )
-  }
+  path.node.arguments[0] = t.callExpression(
+    t.identifier(resolverFunctionName),
+    [arg]
+  )
 }
 
 export function resolveStringArg(path: any, api: string) {

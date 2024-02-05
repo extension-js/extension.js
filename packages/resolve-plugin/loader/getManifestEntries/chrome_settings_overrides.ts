@@ -1,10 +1,8 @@
-import path from 'path'
-import {type ManifestData} from '../resolver-module/types'
+import * as path from '../../helpers/pathUtils.js'
 
-export default function chromeSettingsOverrides(
-  manifestPath: string,
-  manifest: ManifestData
-) {
+import {type ManifestData} from './types.js'
+
+export default function chromeSettingsOverrides(manifest: ManifestData) {
   if (
     !manifest ||
     !manifest.chrome_settings_overrides ||
@@ -17,10 +15,7 @@ export default function chromeSettingsOverrides(
 
   const settingsPage = manifest.chrome_settings_overrides.homepage
 
-  const settingsPageAbsolutePath = path.join(
-    path.dirname(manifestPath),
-    settingsPage
-  )
+  const settingsPageAbsolutePath = settingsPage
 
   return settingsPageAbsolutePath
 }

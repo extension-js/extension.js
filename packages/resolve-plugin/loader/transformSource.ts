@@ -53,7 +53,8 @@ export default function transformSource(ast: any, source: string) {
       if (
         has(callee, 'chrome.tabs.create') ||
         has(callee, 'chrome.tabs.executeScript') ||
-        has(callee, 'chrome.tabs.insertCSS')
+        has(callee, 'chrome.tabs.insertCSS') ||
+        has(callee, 'chrome.windows.create')
       ) {
         if (args.length > 0) {
           resolvePropertyArg(path, 'r.resolveUrl')
@@ -62,6 +63,10 @@ export default function transformSource(ast: any, source: string) {
 
       if (has(callee, 'chrome.sidePanel.setOptions')) {
         resolvePropertyArg(path, 'r.resolvePath')
+      }
+
+      if (has(callee, 'chrome.notifications.create')) {
+        resolvePropertyArg(path, 'r.resolveIconUrl')
       }
     }
   })

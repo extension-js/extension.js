@@ -20,7 +20,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts ./loader/* --format cjs --dts --target=node18 --minify",
+    "compile": "tsup-node ./module.ts ./resolver-module.ts ./loader/* --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "jest"
   },
