@@ -2,7 +2,11 @@ import fs from 'fs'
 import path from 'path'
 import {getScriptResolveExtensions} from '../config/getPath'
 
-export function scanHtmlFilesInFolder(dirPath: string): string[] {
+export function scanHtmlFilesInFolder(dirPath: string): string[] | undefined {
+  if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+    return undefined
+  }
+
   let htmlFiles: string[] = []
 
   function recurse(currentPath: string) {
@@ -25,8 +29,12 @@ export function scanHtmlFilesInFolder(dirPath: string): string[] {
 export function scanScriptFilesInFolder(
   projectPath: string,
   dirPath: string
-): string[] {
-  let htmlFiles: string[] = []
+): string[] | undefined {
+  if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+    return undefined
+  }
+
+  let scriptFiles: string[] = []
 
   function recurse(currentPath: string) {
     const entries = fs.readdirSync(currentPath, {withFileTypes: true})
@@ -38,11 +46,11 @@ export function scanScriptFilesInFolder(
       if (entry.isDirectory()) {
         recurse(entryPath)
       } else if (entry.isFile() && hasValidExt) {
-        htmlFiles.push(entryPath)
+        scriptFiles.push(entryPath)
       }
     }
   }
 
   recurse(dirPath)
-  return htmlFiles
+  return scriptFiles
 }

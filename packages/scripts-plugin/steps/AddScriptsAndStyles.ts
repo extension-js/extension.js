@@ -6,7 +6,7 @@ import webpack from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 
 import {IncludeList, type StepPluginInterface} from '../types'
-import {shouldExclude} from './utils'
+import {shouldExclude} from '../helpers/utils'
 
 export default class AddScriptsAndStyles {
   public readonly manifestPath: string
@@ -41,6 +41,8 @@ export default class AddScriptsAndStyles {
   }
 
   private addScriptToCssOnlyEntry(feature: string, scriptImports: string[]) {
+    if (feature !== 'content_scripts') return null
+
     const hasOnlyCssLikeFiles = scriptImports.every((asset) => {
       return (
         asset.endsWith('.css') ||
@@ -68,6 +70,29 @@ export default class AddScriptsAndStyles {
 
       return [jsEntryPath, cssEntryPath]
     }
+
+    return null
+  }
+
+  private getFilePath(feature: string) {
+    if (feature.startsWith('content_scripts')) {
+      const [featureName, index] = feature.split('-')
+      return `${featureName}/script-${index}`
+    }
+
+    if (feature === 'service_worker') {
+      return `background/${feature}`
+    }
+
+    if (feature === 'background') {
+      return `${feature}/script`
+    }
+
+    if (feature === 'user_script') {
+      return `${feature}/apiscript`
+    }
+
+    return `${feature}/script`
   }
 
   public apply(compiler: webpack.Compiler): void {
@@ -93,7 +118,7 @@ export default class AddScriptsAndStyles {
         compiler.options.entry = {
           ...compiler.options.entry,
           // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-          [feature]: {import: scriptOnlyImports}
+          [this.getFilePath(feature)]: {import: scriptOnlyImports}
         }
       }
 
@@ -105,11 +130,11 @@ export default class AddScriptsAndStyles {
           feature,
           scriptImports
         )
-        if (scriptImportsWithOnlyCss?.length) {
+        if (scriptImportsWithOnlyCss) {
           compiler.options.entry = {
             ...compiler.options.entry,
             // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-            [feature]: {import: scriptImportsWithOnlyCss}
+            [this.getFilePath(feature)]: {import: scriptImportsWithOnlyCss}
           }
         }
       }

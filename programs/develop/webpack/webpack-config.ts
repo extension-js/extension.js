@@ -57,10 +57,6 @@ export default function webpackConfig(
     cache: false,
     output: {
       clean: true,
-      filename(pathData, assetInfo) {
-        const filepath = pathData.chunk?.name || assetInfo?.filename
-        return getOutputFilePath(filepath, '.js')
-      },
       path: getOutputPath(projectPath, devOptions.browser),
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: getWebpackPublicPath(projectPath),
