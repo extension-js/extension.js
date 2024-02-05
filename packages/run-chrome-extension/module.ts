@@ -1,9 +1,9 @@
 import type webpack from 'webpack'
 import {type RunChromeExtensionInterface} from './types'
-import CreateWebSocketServer from './src/steps/CreateWebSocketServer'
-import SetupReloadStrategy from './src/steps/SetupReloadStrategy'
-import RunChromePlugin from './src/steps/RunChromePlugin'
-import createUserDataDir from './src/steps/RunChromePlugin/chrome/createUserDataDir'
+import CreateWebSocketServer from './steps/CreateWebSocketServer'
+import SetupReloadStrategy from './steps/SetupReloadStrategy'
+import RunChromePlugin from './steps/RunChromePlugin'
+import createUserDataDir from './steps/RunChromePlugin/chrome/createUserDataDir'
 
 export default class RunChromeExtension {
   private readonly options: RunChromeExtensionInterface

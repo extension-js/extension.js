@@ -2,7 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import WebSocket from 'ws'
 import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
-import {type RunChromeExtensionInterface} from '../../../../types'
+import {type RunChromeExtensionInterface} from '../../../types'
 import parseScript from '../../../helpers/parseScript'
 
 function dispatchMessage(
