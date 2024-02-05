@@ -1,10 +1,8 @@
-import path from 'path'
-import {type ManifestData} from '../resolver-module/types'
+import * as path from '../../helpers/pathUtils.js'
 
-export default function chromeUrlOverrides(
-  manifestPath: string,
-  manifest: ManifestData
-) {
+import {type ManifestData} from './types.js'
+
+export default function chromeUrlOverrides(manifest: ManifestData) {
   if (!manifest || !manifest.chrome_url_overrides) {
     return undefined
   }
@@ -12,10 +10,7 @@ export default function chromeUrlOverrides(
   if (manifest.chrome_url_overrides.history) {
     const historyPage = manifest.chrome_url_overrides.history
 
-    const historyPageAbsolutePath = path.join(
-      path.dirname(manifestPath),
-      historyPage
-    )
+    const historyPageAbsolutePath = historyPage
 
     return historyPageAbsolutePath
   }
@@ -23,10 +18,7 @@ export default function chromeUrlOverrides(
   if (manifest.chrome_url_overrides.newtab) {
     const newtabPage = manifest.chrome_url_overrides.newtab
 
-    const newtabPageAbsolutePath = path.join(
-      path.dirname(manifestPath),
-      newtabPage
-    )
+    const newtabPageAbsolutePath = newtabPage
 
     return newtabPageAbsolutePath
   }
@@ -34,10 +26,7 @@ export default function chromeUrlOverrides(
   if (manifest.chrome_url_overrides.bookmarks) {
     const bookmarksPage = manifest.chrome_url_overrides.bookmarks
 
-    const bookmarksPageAbsolutePath = path.join(
-      path.dirname(manifestPath),
-      bookmarksPage
-    )
+    const bookmarksPageAbsolutePath = bookmarksPage
 
     return bookmarksPageAbsolutePath
   }
