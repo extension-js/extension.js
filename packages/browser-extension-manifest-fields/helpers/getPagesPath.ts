@@ -22,8 +22,7 @@ function findHtmlFiles(
       findHtmlFiles(filePath, pagesPath)
     } else if (file.endsWith('.html')) {
       const name = path.basename(file, '.html')
-      const dirName = path.basename(dir)
-      const pageName = name === 'index' ? dirName : name
+      const pageName = name === 'index' ? 'page' : name
 
       pagesPath[`pages/${pageName}`] = {
         ...getAssetsFromHtml(filePath),

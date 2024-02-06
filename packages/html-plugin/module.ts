@@ -19,7 +19,7 @@ import HandleCommonErrors from './steps/HandleCommonErrors'
  * html files are added to the compilation and are also HMR
  * enabled. They are useful for adding extra pages to the
  * extension runtime that are not defined in manifest.
- * 
+ *
  * The plugin also has a guard against recompiling entrypoints
  * at runtime, throwing an error if any of those files change.
  *
@@ -53,7 +53,7 @@ export default class HtmlPlugin {
     return includes.reduce((acc, include) => {
       const extname = path.extname(include)
       const basename = path.basename(include, extname)
-      const entryname = basename === 'index' ? path.dirname(include) : basename
+      const entryname = basename === 'index' ? 'page' : basename
 
       return {
         ...acc,

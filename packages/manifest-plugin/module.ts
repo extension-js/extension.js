@@ -25,7 +25,7 @@ export default class ManifestPlugin {
    * throwing errors if they don't. It also ensures the manifest is emitted
    * to the assets bundle, so other plugins can modify it, and stored
    * as file dependency so webpack can watch and trigger changes.
-   * 
+   *
    * The plugin also has a guard against recompiling entrypoints
    * at runtime, throwing an error if any of those files change.
    */

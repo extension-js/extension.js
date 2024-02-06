@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {getScriptResolveExtensions} from '../config/getPath'
+import {getScriptResolveExtensions} from './getPath'
 
 export function scanHtmlFilesInFolder(dirPath: string): string[] | undefined {
   if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
@@ -53,4 +53,56 @@ export function scanScriptFilesInFolder(
 
   recurse(dirPath)
   return scriptFiles
+}
+
+interface IncludeList {
+  [key: string]: string
+}
+
+export function generatePagesEntries(
+  includes: string[] | undefined
+): IncludeList {
+  if (!includes || !includes.length) return {}
+  return includes.reduce((acc, include) => {
+    const extname = path.extname(include)
+    const basename = path.basename(include, extname)
+    const entryname = basename === 'index' ? 'page' : basename
+
+    return {
+      ...acc,
+      [`pages/${entryname}.html`]: include
+    }
+  }, {})
+}
+
+export function generateScriptsEntries(
+  includes: string[] | undefined
+): IncludeList {
+  if (!includes || !includes.length) return {}
+  return includes.reduce((acc, include) => {
+    const extname = path.extname(include)
+    const basename = path.basename(include, extname)
+    const entryname = basename === 'index' ? 'script' : basename
+
+    return {
+      ...acc,
+      [`scripts/${entryname}.js`]: include
+    }
+  }, {})
+}
+
+export function generateStaticEntries(
+  projectPath: string,
+  includes: string[] | undefined
+): IncludeList {
+  if (!includes || !includes.length) return {}
+  return includes.reduce((acc, include) => {
+    const relativePath = path.relative(projectPath, include)
+    const publicPath = path.join('public', relativePath)
+
+    return {
+      ...acc,
+      [publicPath]: include
+    }
+  }, {})
 }

@@ -5,25 +5,22 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+/**
+ * Defines user options for the webpack configuration.
+ * In the future, this will be replaced by a configuration file. 
+}*/
 import path from 'path'
-import {
-  scanHtmlFilesInFolder,
-  scanScriptFilesInFolder
-} from '../utils/scanFolder'
-// import getNextAvailablePort from './getNextAvailablePort'
 
 function getStaticFolderPath(projectPath: string) {
   return path.join(projectPath, 'public')
 }
 
 function getPagesFolderPath(projectPath: string) {
-  const pagesPath = path.join(projectPath, 'pages')
-  return scanHtmlFilesInFolder(pagesPath)
+  return path.join(projectPath, 'pages')
 }
 
 function getScriptsFolderPath(projectPath: string) {
-  const scriptsPath = path.join(projectPath, 'scripts')
-  return scanScriptFilesInFolder(projectPath, scriptsPath)
+  return path.join(projectPath, 'scripts')
 }
 
 function getWebResourcesFolderPath(projectPath: string) {

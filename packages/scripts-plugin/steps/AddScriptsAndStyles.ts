@@ -92,6 +92,10 @@ export default class AddScriptsAndStyles {
       return `${feature}/apiscript`
     }
 
+    if (feature.startsWith('scripts')) {
+      return `${feature}`
+    }
+
     return `${feature}/script`
   }
 

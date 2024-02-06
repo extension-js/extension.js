@@ -38,7 +38,7 @@ export default class ScriptsPlugin {
     return includes.reduce((acc, include) => {
       const extname = path.extname(include)
       const basename = path.basename(include, extname)
-      const entryname = basename === 'index' ? path.dirname(include) : basename
+      const entryname = basename === 'index' ? 'script' : basename
 
       return {
         ...acc,

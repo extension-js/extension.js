@@ -71,7 +71,7 @@ export default function webpackConfig(
       extensions: getExtensionsToResolve(projectPath)
     },
     watchOptions: {
-      ignored: /node_modules/
+      ignored: /node_modules|dist/
     },
     module: {
       rules: [

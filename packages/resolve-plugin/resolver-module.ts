@@ -4,6 +4,18 @@ function notFoundError() {
   return ''
 }
 
+function pathResolve(path: string) {
+  if (path.startsWith('/')) {
+    path = path.substring(1)
+  }
+
+  if (path.startsWith('./')) {
+    path = path.substring(2)
+  }
+
+  return path
+}
+
 function resolverError(filePath?: string) {
   if (filePath?.endsWith('.html')) {
     console.error(messages.resolverHtmlError(filePath))
@@ -18,25 +30,11 @@ function resolverError(filePath?: string) {
   return filePath
 }
 
-const includeList = {
-  'pages/page.html': 'pages/index.html',
-  'scripts/content-script.js': 'scripts/content-script.js',
-  'background/script.js': undefined,
-  'background/service_worker.js': 'sw.js',
-  'content_scripts/script-0.js': undefined,
-  'user_scripts/apiscript.js': undefined,
-  'action/index.html': undefined,
-  'background/index.html': undefined,
-  'browser_action/index.html': undefined,
-  'chrome_settings_overrides/index.html': undefined,
-  'chrome_url_overrides/index.html': undefined,
-  'devtools_page/index.html': undefined,
-  'options_ui/index.html': undefined,
-  'page_action/index.html': undefined,
-  'sandbox/page-0.html': undefined,
-  'side_panel/index.html': undefined,
-  'sidebar_action/index.html': undefined
-}
+// includeList is a map of the file path to the key
+// This is used to resolve the file path to the key.
+// emitResolverModule is responsible for generating this map,
+// which is done at runtime.
+const includeList = {data: '__RESOLVER_MODULE_FILE_LIST__'}
 
 function resolver(filePath?: string): string {
   if (!filePath) {
@@ -45,9 +43,20 @@ function resolver(filePath?: string): string {
   // If URL, return as is
   if (filePath?.startsWith('http')) return filePath
 
+  // Special case for favicon
+  if (filePath?.startsWith('/_favicon')) return filePath
+
   // Iterate over the includesList to find the key by its value
-  for (const [key, value] of Object.entries(includeList)) {
-    if (value === filePath) {
+  for (const [key, value] of Object.entries(includeList.data)) {
+    const filePathResolved = pathResolve(value)
+    console.error({
+      key,
+      value,
+      filePath,
+      filePathResolved,
+      iseq: value === filePathResolved
+    })
+    if (value === filePathResolved) {
       return key
     }
   }
@@ -56,12 +65,54 @@ function resolver(filePath?: string): string {
   return filePath
 }
 
+type ResolveApiType = Record<string, any> | Record<string, any>[] | string
+
+function resolveApi(apiArgument?: ResolveApiType) {
+  console.log('handle apiArgument  ►►►', {apiArgument})
+
+  if (typeof apiArgument === 'string') {
+    return resolver(apiArgument)
+  }
+
+  if (Array.isArray(apiArgument)) {
+    return apiArgument.map((obj: Record<string, any>) => ({
+      ...obj,
+      ...(obj?.path && {path: resolver(obj.path)}),
+      ...(obj?.popup && {popup: resolver(obj.popup)}),
+      ...(obj?.url && {url: resolver(obj.url)}),
+      ...(obj?.iconUrl && {iconUrl: resolver(obj.iconUrl)}),
+      ...(obj?.files && obj?.files.map((file: string) => resolver(file))),
+      ...(obj?.js && {js: obj?.js.map((file: string) => resolver(file))}),
+      ...(obj?.css && {css: obj?.css.map((file: string) => resolver(file))})
+    }))
+  }
+
+  return {
+    ...apiArgument,
+    ...(apiArgument?.path && {path: resolver(apiArgument.path)}),
+    ...(apiArgument?.popup && {popup: resolver(apiArgument.popup)}),
+    ...(apiArgument?.url && {url: resolver(apiArgument.url)}),
+    ...(apiArgument?.iconUrl && {iconUrl: resolver(apiArgument.iconUrl)}),
+    ...(apiArgument?.files &&
+      apiArgument?.files.map((file: string) => resolver(file))),
+    ...(apiArgument?.js && {
+      js: apiArgument?.js.map((file: string) => resolver(file))
+    }),
+    ...(apiArgument?.css && {
+      css: apiArgument?.css.map((file: string) => resolver(file))
+    })
+  }
+}
+
 // - chrome.action.setIcon
 // - chrome.browserAction.setIcon
 // - chrome.pageAction.setIcon
 // - chrome.sidePanel.setOptions
 function resolvePath(objWithPath?: Record<string, any>) {
   console.log('handle path path  ►►►', {objWithPath})
+  console.log('handle path path (resolved) ►►►', {
+    objWithPath: resolver(objWithPath?.path)
+  })
   return {
     ...objWithPath,
     ...(objWithPath?.path && {path: resolver(objWithPath.path)})
@@ -74,6 +125,9 @@ function resolvePath(objWithPath?: Record<string, any>) {
 // - chrome.scriptBadge.setPopup(objWithPopup)
 function resolvePopup(objWithPopup?: Record<string, any>) {
   console.log('handle popup  ►►►', {objWithPopup})
+  console.log('handle popup (resolved) ►►►', {
+    objWithPopup: resolver(objWithPopup?.popup)
+  })
   return {
     ...objWithPopup,
     ...(objWithPopup?.popup && {popup: resolver(objWithPopup.popup)})
@@ -90,6 +144,7 @@ function resolveFiles(objWithFiles?: Record<string, any>) {
   const resolvedFiles = objWithFiles?.files.map((file: string) =>
     resolver(file)
   )
+  console.log('handle files path (resolved)  ►►►', resolvedFiles)
   return {
     ...objWithFiles,
     ...(objWithFiles?.files && {files: resolvedFiles})
@@ -103,6 +158,7 @@ function resolveFiles(objWithFiles?: Record<string, any>) {
 // - chrome.windows.create(objWithUrl)
 function resolveUrl(objWithUrl?: Record<string, any>) {
   console.log('handle url path  ►►►', objWithUrl)
+  console.log('handle url path (resolved)  ►►►', resolver(objWithUrl?.url))
   return {
     ...objWithUrl,
     ...(objWithUrl?.url && {url: resolver(objWithUrl.url)})
@@ -113,16 +169,66 @@ function resolveUrl(objWithUrl?: Record<string, any>) {
 // - chrome.runtime.getURL(stringPath)
 function resolveString(stringPath?: string) {
   console.log('handle string path  ►►►', stringPath)
-  if (stringPath?.startsWith('/_favicon')) return stringPath
+  console.log('handle string path (resolved) ►►►', resolver(stringPath))
 
   return resolver(stringPath)
 }
 
+// chrome.notifications.create
 function resolveIconUrl(objWithIconUrl?: Record<string, any>) {
   console.log('handle iconUrl path  ►►►', objWithIconUrl)
+  console.log(
+    'handle iconUrl path (resolved) ►►►',
+    resolver(objWithIconUrl?.iconUrl)
+  )
   return {
     ...objWithIconUrl,
     ...(objWithIconUrl?.iconUrl && {iconUrl: resolver(objWithIconUrl.iconUrl)})
+  }
+}
+
+// chrome.scripting.registerContentScripts
+// chrome.declarativeContent.RequestContentScripts
+function resolveJs(objWithFiles?: Record<string, any> | Record<string, any>[]) {
+  if (Array.isArray(objWithFiles)) {
+    return objWithFiles.map((obj: Record<string, any>) => {
+      console.log('handle js path  ►►►', obj)
+      const resolvedFiles = obj.js.map((file: string) => resolver(file))
+      return {
+        ...obj,
+        ...(obj.js && {js: resolvedFiles})
+      }
+    })
+  }
+
+  console.log('handle js path  ►►►', objWithFiles)
+  const resolvedFiles = objWithFiles?.js.map((file: string) => resolver(file))
+
+  return {
+    ...objWithFiles,
+    ...(objWithFiles?.js && {js: resolvedFiles})
+  }
+}
+
+// chrome.declarativeContent.RequestContentScripts
+function resolveCss(objWithFiles?: Record<string, any>) {
+  if (Array.isArray(objWithFiles)) {
+    return objWithFiles.map((obj: Record<string, any>) => {
+      console.log('handle css path  ►►►', obj)
+      const resolvedFiles = obj.css.map((file: string) => resolver(file))
+      return {
+        ...obj,
+        ...(obj.css && {css: resolvedFiles})
+      }
+    })
+  }
+
+  console.log('handle css path  ►►►', objWithFiles)
+  const resolvedFiles = objWithFiles?.css.map((file: string) => resolver(file))
+
+  return {
+    ...objWithFiles,
+    ...(objWithFiles?.css && {css: resolvedFiles})
   }
 }
 
@@ -132,5 +238,7 @@ export default {
   resolveFiles,
   resolveUrl,
   resolveString,
-  resolveIconUrl
+  resolveIconUrl,
+  resolveJs,
+  resolveCss
 }

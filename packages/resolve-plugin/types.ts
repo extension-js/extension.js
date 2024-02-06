@@ -23,6 +23,7 @@ export interface BrowserExtensionContext extends LoaderContext<any> {
   getOptions: () => {
     test: string
     manifestPath: string
+    includeList?: IncludeList
     exclude?: string[]
   }
 }
