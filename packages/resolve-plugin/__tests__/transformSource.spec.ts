@@ -1,4 +1,4 @@
-import transformSource from '../loader/transformSource'
+import transformSource from '../steps/transformSource'
 import {parse} from '@babel/parser'
 
 describe('transformSource Tests', () => {
