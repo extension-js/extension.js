@@ -50,7 +50,10 @@ class CheckManifestFilesPlugin {
         const icon = value as {light?: string; dark?: string}
 
         if (icon.light) {
-          const fieldError = errors.manifestFieldError(field, icon.light as string)
+          const fieldError = errors.manifestFieldError(
+            field,
+            icon.light as string
+          )
 
           if (!fs.existsSync(icon.dark as string)) {
             compilation.errors.push(new WebpackError(fieldError))

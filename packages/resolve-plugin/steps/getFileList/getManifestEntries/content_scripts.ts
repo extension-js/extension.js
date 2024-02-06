@@ -1,4 +1,3 @@
-import * as path from '../../helpers/pathUtils.js'
 import {type ManifestData} from './types.js'
 
 export default function contentScript(manifest: ManifestData): ManifestData {
