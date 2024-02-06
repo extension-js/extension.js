@@ -23,7 +23,6 @@ export function resolveStringArg(path: any, api: string) {
       path.node.arguments[2]
     ])
   } else if (api === 'chrome.runtime.getURL') {
-    console.log('chama ', path.node.arguments[0])
     if (path.node.arguments[0].value === '/_favicon/') {
       return
     }

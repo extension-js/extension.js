@@ -1,5 +1,5 @@
 import fs from 'fs'
-import webpack, { Compilation } from 'webpack'
+import webpack, {Compilation} from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 
 import messages from './messages'

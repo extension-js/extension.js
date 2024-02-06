@@ -1,4 +1,4 @@
-import {Callee} from '../types'
+import {Callee} from '../../types'
 
 function isMethodChain(callee: Callee, chain: string[]): boolean {
   let current: any = callee

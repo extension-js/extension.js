@@ -16,7 +16,7 @@ export default class RunChromeExtension {
       browserFlags: options.browserFlags || [],
       userDataDir: options.userDataDir || createUserDataDir(),
       startingUrl: options.startingUrl,
-      autoReload: options.autoReload != null ? options.autoReload : true,
+      autoReload: options.autoReload != null ? options.autoReload : true
     }
   }
 

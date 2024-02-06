@@ -11,11 +11,7 @@ export default function getBackground(
       background: {
         ...manifest.background,
         ...(manifest.background.service_worker && {
-          service_worker: getFilename(
-            'service_worker',
-            '',
-            exclude
-          )
+          service_worker: getFilename('service_worker', '', exclude)
         })
       }
     }

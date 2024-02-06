@@ -1,4 +1,4 @@
-import {has} from '../loader/checkApiExists'
+import {has} from '../steps/transformSource/checkApiExists'
 import * as t from '@babel/types'
 
 describe('API Check Tests', () => {

@@ -1,7 +1,6 @@
 import path from 'path'
 import webpack from 'webpack'
 import {IncludeList, ResolvePluginInterface} from './types'
-import getManifestEntries from './loader/getManifestEntries'
 
 /**
  * ResolvePlugin is responsible for resolving paths for
@@ -51,7 +50,7 @@ export default class ResolvePlugin {
     // to use the resolver module.
     compiler.options.module?.rules.push({
       test: /\.(t|j)sx?$/,
-      loader: require.resolve(path.resolve(__dirname, './loader/index.js')),
+      loader: require.resolve(path.resolve(__dirname, './loader.js')),
       options: {
         manifestPath: this.manifestPath,
         includeList: this.includeList
