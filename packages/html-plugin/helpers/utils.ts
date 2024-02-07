@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import {Compilation} from 'webpack'
+import {IncludeList} from '../types'
 
 export function isUsingReact(projectDir: string) {
   const packageJsonPath = path.join(projectDir, 'package.json')
@@ -35,33 +35,56 @@ export function getResolvedPath(
   const pathNormalized = path.normalize(relativePath)
   const prefixedBasePath = basePath ? `/${basePath}` : ''
   const publicPath = path.join(prefixedBasePath, pathNormalized)
+
   return path.normalize(publicPath)
 }
 
-export function isCompilationEntry(
-  compilation: Compilation,
+export function isFromIncludeList(
+  includeList: IncludeList,
   filePath: string
 ): boolean {
-  const context = compilation.compiler.context
-  const filePathAbsolute = path.resolve(context, filePath)
-  return Object.keys(compilation.assets).some((assetName) => {
-    const assetPathAbsolute = path.resolve(context, assetName)
-    return filePathAbsolute === assetPathAbsolute
+  return Object.values(includeList).some((value) => {
+    return value?.html === filePath
   })
 }
 
-export function getCompilationEntryName(
-  compilation: Compilation,
-  filePath: string
+export function getIncludeEntry(
+  includeList: IncludeList,
+  filePath: string,
+  extension: string
 ): string {
-  // This simplistic approach assumes entries are directly named by their output file names.
-  const context = compilation.compiler.context
-  const filePathAbsolute = path.resolve(context, filePath)
+  const entryname =
+    Object.keys(includeList).find((key) => {
+      return (
+        includeList[key]?.html === filePath ||
+        includeList[key]?.js.includes(filePath) ||
+        includeList[key]?.css.includes(filePath)
+      )
+    }) || ''
 
-  const entryName = Object.keys(compilation.assets).find((assetName) => {
-    const assetPathAbsolute = path.resolve(context, assetName)
-    return filePathAbsolute === assetPathAbsolute
-  })
+  const extname = getExtname(filePath)
+  if (!entryname) return `${filePath.replace(extname, '')}${extension}`
 
-  return entryName || ''
+  return `/${entryname.replace(extname, '')}${extension}`
+}
+
+export function getExtname(filePath: string) {
+  const extname = path.extname(filePath)
+
+  switch (extname) {
+    case '.js':
+    case '.mjs':
+    case '.ts':
+    case '.tsx':
+      return '.js'
+    case '.css':
+    case '.scss':
+    case '.sass':
+    case '.less':
+      return '.css'
+    case '.html':
+      return '.html'
+    default:
+      return '.js'
+  }
 }
