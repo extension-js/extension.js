@@ -11,7 +11,14 @@ export interface StepPluginInterface {
 }
 
 export interface IncludeList {
-  [key: string]: string
+  [key: string]:
+    | {
+        html: string
+        js: string[]
+        css: string[]
+        static: string[]
+      }
+    | undefined
 }
 
 export type ResourceType =

@@ -11,7 +11,7 @@
 }*/
 import path from 'path'
 
-function getStaticFolderPath(projectPath: string) {
+function getPublicFolderPath(projectPath: string) {
   return path.join(projectPath, 'public')
 }
 
@@ -57,7 +57,7 @@ function getOutputFilePath(chunkname: string, ext?: string) {
 }
 
 export {
-  getStaticFolderPath,
+  getPublicFolderPath,
   getPagesFolderPath,
   getScriptsFolderPath,
   getWebResourcesFolderPath,

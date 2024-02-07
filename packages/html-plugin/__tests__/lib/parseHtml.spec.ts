@@ -3,7 +3,7 @@ jest.mock('parse5-utils', () => ({
   getAttribute: jest.fn()
 }))
 
-import parseHtml from './parseHtml'
+import parseHtml from '../../lib/parseHtml'
 // @ts-ignore
 import parse5utils from 'parse5-utils'
 

@@ -9,6 +9,7 @@ import manifestFields from 'browser-extension-manifest-fields'
 import patchHtml from '../lib/patchHtml'
 import {shouldExclude} from '../helpers/utils'
 import errors from '../helpers/errors'
+import getFilePath from '../helpers/getFilePath'
 
 export default class AddHtmlFileToCompilation {
   public readonly manifestPath: string
@@ -19,15 +20,6 @@ export default class AddHtmlFileToCompilation {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.exclude = options.exclude
-  }
-
-  private getFilePath(feature: string) {
-    if (feature.startsWith('sandbox')) {
-      const [featureName, index] = feature.split('-')
-      return `${featureName}/page-${index}.html`
-    }
-
-    return `${feature}/index.html`
   }
 
   public apply(compiler: webpack.Compiler): void {
@@ -53,7 +45,7 @@ export default class AddHtmlFileToCompilation {
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const htmlEntries = {
+            const htmlEntries: IncludeList = {
               ...manifestFields(this.manifestPath, manifestSource).html,
               ...this.includeList
             }
@@ -72,11 +64,18 @@ export default class AddHtmlFileToCompilation {
                   return
                 }
 
-                const updatedHtml = patchHtml(compilation, html, this.exclude)
+                const updatedHtml = patchHtml(
+                  compilation,
+                  feature,
+                  html,
+                  htmlEntries,
+                  this.exclude
+                )
 
                 if (!shouldExclude(html, this.exclude)) {
                   const rawSource = new sources.RawSource(updatedHtml)
-                  compilation.emitAsset(this.getFilePath(feature), rawSource)
+                  const filepath = getFilePath(feature, '.html')
+                  compilation.emitAsset(filepath, rawSource)
                 }
               }
             }

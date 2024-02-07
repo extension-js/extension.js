@@ -1,4 +1,4 @@
-import getAssetsFromHtml from './getAssetsFromHtml'
+import getAssetsFromHtml from '../../lib/getAssetsFromHtml'
 import fs from 'fs'
 // @ts-ignore
 import parse5utils from 'parse5-utils'

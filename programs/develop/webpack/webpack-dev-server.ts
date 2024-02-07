@@ -7,7 +7,7 @@
 
 import type WebpackDevServer from 'webpack-dev-server'
 import type {DevOptions} from '../extensionDev'
-import {getOverlay, getPort, getStaticFolderPath} from './config/userOptions'
+import {getOverlay, getPort, getPublicFolderPath} from './config/userOptions'
 import {isUsingReact} from './options/react'
 
 export default function devServerConfig(
@@ -17,7 +17,7 @@ export default function devServerConfig(
   return {
     host: '127.0.0.1',
     allowedHosts: 'all',
-    static: getStaticFolderPath(projectPath),
+    static: getPublicFolderPath(projectPath),
     compress: true,
     devMiddleware: {
       writeToDisk: true
