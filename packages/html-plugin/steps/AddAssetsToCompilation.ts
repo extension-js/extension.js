@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import webpack, {sources, Compilation} from 'webpack'
 
 import {IncludeList, type StepPluginInterface} from '../types'
@@ -6,9 +7,10 @@ import {IncludeList, type StepPluginInterface} from '../types'
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
 
-import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 import errors from '../helpers/errors'
 import {shouldExclude} from '../helpers/utils'
+import * as fileUtils from '../helpers/utils'
+import getFilePath from '../helpers/getFilePath'
 
 export default class AddAssetsToCompilation {
   public readonly manifestPath: string
@@ -50,8 +52,7 @@ export default class AddAssetsToCompilation {
               if (resource?.html) {
                 if (!fs.existsSync(resource?.html)) return
 
-                const htmlAssets = getAssetsFromHtml(resource?.html)
-                const fileAssets = htmlAssets?.static || []
+                const fileAssets = resource?.static || []
 
                 for (const asset of [...fileAssets]) {
                   // Handle missing static assets. This is not covered
@@ -69,20 +70,19 @@ export default class AddAssetsToCompilation {
                     return
                   }
 
-                  if (shouldExclude(asset, this.exclude)) {
+                  if (!shouldExclude(asset, this.exclude)) {
                     const source = fs.readFileSync(asset)
                     const rawSource = new sources.RawSource(source)
 
                     // Pages are handled by AddHtmlFileToCompilation.
                     // Users can reference own pages/ (like an iframe),
                     // but we don't want to emit them as assets again.
-                    if (!feature.startsWith('pages')) {
-                      // Assume that if the asset is not an HTML file, it should be emitted,
-                      // Either by manifest require, pages, or public folder.
-                      if (!asset.endsWith('.html')) {
-                        if (!compilation.getAsset(feature)) {
-                          compilation.emitAsset(feature, rawSource)
-                        }
+                    // Assume that if the asset is not an HTML file, it should be emitted,
+                    // Either by manifest require, pages, or public folder.
+                    if (!asset.endsWith('.html')) {
+                      const filepath = path.join('assets', path.basename(asset))
+                      if (!compilation.getAsset(filepath)) {
+                        compilation.emitAsset(filepath, rawSource)
                       }
                     }
                   }

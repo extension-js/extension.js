@@ -1,10 +1,10 @@
 import fs from 'fs'
 import path from 'path'
-import {getScriptResolveExtensions} from './getPath'
+import {getScriptResolveExtensions} from '../config/getPath'
 
-export function scanHtmlFilesInFolder(dirPath: string): string[] | undefined {
+export function scanHtmlFilesInFolder(dirPath: string): string[] {
   if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
-    return undefined
+    return []
   }
 
   let htmlFiles: string[] = []
@@ -29,9 +29,9 @@ export function scanHtmlFilesInFolder(dirPath: string): string[] | undefined {
 export function scanScriptFilesInFolder(
   projectPath: string,
   dirPath: string
-): string[] | undefined {
+): string[] {
   if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
-    return undefined
+    return []
   }
 
   let scriptFiles: string[] = []
@@ -53,6 +53,30 @@ export function scanScriptFilesInFolder(
 
   recurse(dirPath)
   return scriptFiles
+}
+
+export function scanPublicFilesInFolder(dirPath: string): string[] {
+  if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
+    return []
+  }
+
+  let publicFiles: string[] = []
+
+  function recurse(currentPath: string) {
+    const entries = fs.readdirSync(currentPath, {withFileTypes: true})
+
+    for (const entry of entries) {
+      const entryPath = path.join(currentPath, entry.name)
+      if (entry.isDirectory()) {
+        recurse(entryPath)
+      } else if (entry.isFile()) {
+        publicFiles.push(entryPath)
+      }
+    }
+  }
+
+  recurse(dirPath)
+  return publicFiles
 }
 
 interface IncludeList {
@@ -91,7 +115,7 @@ export function generateScriptsEntries(
   }, {})
 }
 
-export function generateStaticEntries(
+export function generatePublicEntries(
   projectPath: string,
   includes: string[] | undefined
 ): IncludeList {

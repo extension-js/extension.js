@@ -9,6 +9,7 @@ import EnsureHMRForScripts from './steps/EnsureHMRForScripts'
 import AddToFileDependencies from './steps/AddToFileDependencies'
 import ThrowIfRecompileIsNeeded from './steps/ThrowIfRecompileIsNeeded'
 import HandleCommonErrors from './steps/HandleCommonErrors'
+import getAssetsFromHtml from './lib/getAssetsFromHtml'
 
 /**
  * HtmlPlugin is responsible for handling the HTML file
@@ -57,17 +58,19 @@ export default class HtmlPlugin {
 
       return {
         ...acc,
-        [`pages/${entryname}`]: include
+        [`pages/${entryname}`]: {html: include, ...getAssetsFromHtml(include)}
       }
     }, {})
   }
 
   public apply(compiler: webpack.Compiler): void {
+    const includeList = this.parseIncludes(this.include || [])
+
     // 1 - Gets the original HTML file, resolves files (via patchHtml),
     // and add the HTML file to the compilation.
     new AddHtmlFileToCompilation({
       manifestPath: this.manifestPath,
-      includeList: this.parseIncludes(this.include || []),
+      includeList,
       exclude: this.exclude || []
     }).apply(compiler)
 
@@ -75,7 +78,7 @@ export default class HtmlPlugin {
     // such as <img>, <iframe>, <link>, <script> etc.
     new AddAssetsToCompilation({
       manifestPath: this.manifestPath,
-      includeList: this.parseIncludes(this.include || []),
+      includeList,
       exclude: this.exclude || []
     }).apply(compiler)
 
@@ -83,21 +86,21 @@ export default class HtmlPlugin {
     // to the compilation.
     new AddScriptsAndStylesToCompilation({
       manifestPath: this.manifestPath,
-      includeList: this.parseIncludes(this.include || []),
+      includeList,
       exclude: this.exclude || []
     }).apply(compiler)
 
     // 4 - Ensure scripts within the HTML file are HMR enabled.
     new EnsureHMRForScripts({
       manifestPath: this.manifestPath,
-      includeList: this.parseIncludes(this.include || []),
+      includeList,
       exclude: this.exclude || []
     }).apply(compiler)
 
     // 5 - Ensure HTML file is recompiled upon changes.
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
-      includeList: this.parseIncludes(this.include || []),
+      includeList,
       exclude: this.exclude || []
     }).apply(compiler)
 
@@ -107,14 +110,14 @@ export default class HtmlPlugin {
     // entrypoints at runtime.
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
-      includeList: this.parseIncludes(this.include || []),
+      includeList,
       exclude: this.exclude || []
     }).apply(compiler)
 
     // 7 - Handle common errors.
     new HandleCommonErrors({
       manifestPath: this.manifestPath,
-      includeList: this.parseIncludes(this.include || []),
+      includeList,
       exclude: this.exclude || []
     }).apply(compiler)
   }
