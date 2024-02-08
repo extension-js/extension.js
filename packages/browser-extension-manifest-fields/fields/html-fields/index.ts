@@ -16,16 +16,23 @@ export default function getHtmlFields(
   manifest: ManifestData
 ) {
   return {
-    action: action(manifestPath, manifest),
-    background: background(manifestPath, manifest),
-    browser_action: browserAction(manifestPath, manifest),
-    chrome_settings_overrides: chromeSettingsOverrides(manifestPath, manifest),
-    chrome_url_overrides: chromeUrlOverrides(manifestPath, manifest),
-    devtools_page: devtoolsPage(manifestPath, manifest),
-    options_ui: optionsUi(manifestPath, manifest),
-    page_action: pageAction(manifestPath, manifest),
+    'action/default_popup': action(manifestPath, manifest),
+    'background/page': background(manifestPath, manifest),
+    'browser_action/default_popup': browserAction(manifestPath, manifest),
+    'chrome_settings_overrides/homepage': chromeSettingsOverrides(
+      manifestPath,
+      manifest
+    ),
+    ...chromeUrlOverrides(manifestPath, manifest),
+    // devtools_page doesnt really have a page field, but it's a special case
+    // so we include it here.
+    'devtools_page/page': devtoolsPage(manifestPath, manifest),
+    'options_ui/page': optionsUi(manifestPath, manifest),
+    'page_action/default_popup': pageAction(manifestPath, manifest),
+    // same for sandbox, where we output sandobx/page-0.html. There are no
+    // other known cases in manifest.json
     ...sandbox(manifestPath, manifest),
-    side_panel: sidePanel(manifestPath, manifest),
-    sidebar_action: sidebarAction(manifestPath, manifest)
+    'side_panel/default_path': sidePanel(manifestPath, manifest),
+    'sidebar_action/default_panel': sidebarAction(manifestPath, manifest)
   }
 }

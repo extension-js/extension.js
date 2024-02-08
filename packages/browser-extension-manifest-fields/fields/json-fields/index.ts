@@ -7,7 +7,10 @@ export default function getJsonFields(
   manifest: ManifestData
 ) {
   return {
-    declarative_net_request: declarativeNetRequest(manifestPath, manifest),
-    storage: storage(manifestPath, manifest)
+    'declarative_net_request/rule_resources': declarativeNetRequest(
+      manifestPath,
+      manifest
+    ),
+    'storage/managed_schema': storage(manifestPath, manifest)
   }
 }
