@@ -18,7 +18,7 @@ export default function sandbox(
   manifest: ManifestData
 ): SandboxType {
   if (!manifest || !manifest.sandbox || !manifest.sandbox.pages) {
-    return {[`sandbox-0`]: undefined}
+    return {[`sandbox/page-0`]: undefined}
   }
 
   const sandboxPages = manifest.sandbox.pages as string[]
@@ -28,7 +28,7 @@ export default function sandbox(
   for (const [index, page] of sandboxPages.entries()) {
     const sandboxPageAbsolutePath = path.join(path.dirname(manifestPath), page)
 
-    sandboxedData[`sandbox-${index}`] = getHtmlResources(
+    sandboxedData[`sandbox/page-${index}`] = getHtmlResources(
       sandboxPageAbsolutePath
     )
   }
