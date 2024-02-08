@@ -9,9 +9,9 @@ export default function getScriptFields(
   manifest: ManifestData
 ) {
   return {
-    background: backgroundScripts(manifestPath, manifest),
-    service_worker: serviceWorker(manifestPath, manifest),
+    'background/scripts': backgroundScripts(manifestPath, manifest),
+    'background/service_worker': serviceWorker(manifestPath, manifest),
     ...contentScripts(manifestPath, manifest),
-    user_scripts: userScripts(manifestPath, manifest)
+    'user_scripts/api_script': userScripts(manifestPath, manifest)
   }
 }

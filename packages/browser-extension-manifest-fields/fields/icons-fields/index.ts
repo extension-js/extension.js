@@ -12,15 +12,18 @@ export default function getIconsFields(
   manifest: ManifestData
 ) {
   return {
-    action: action(manifestPath, manifest),
-    browser_action: browserAction(manifestPath, manifest),
-    'browser_action.theme_icons': browserActionThemeIcons(
+    'action/default_icon': action(manifestPath, manifest),
+    'browser_action/default_icon': browserAction(manifestPath, manifest),
+    'browser_action/theme_icons': browserActionThemeIcons(
       manifestPath,
       manifest
     ),
-    chrome_settings_overrides: chromeSettingsOverrides(manifestPath, manifest),
+    'chrome_settings_overrides/favicon_url': chromeSettingsOverrides(
+      manifestPath,
+      manifest
+    ),
     icons: icons(manifestPath, manifest),
-    page_action: pageAction(manifestPath, manifest),
-    sidebar_action: sidebarAction(manifestPath, manifest)
+    'page_action/default_icon': pageAction(manifestPath, manifest),
+    'sidebar_action/default_icon': sidebarAction(manifestPath, manifest)
   }
 }

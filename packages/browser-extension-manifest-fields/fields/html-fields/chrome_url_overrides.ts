@@ -6,6 +6,8 @@ export default function chromeUrlOverrides(
   manifestPath: string,
   manifest: ManifestData
 ) {
+  let chromeUrlOverride: Record<string, any> = {newtab: undefined}
+
   if (!manifest || !manifest.chrome_url_overrides) {
     return undefined
   }
@@ -18,7 +20,9 @@ export default function chromeUrlOverrides(
       historyPage
     )
 
-    return getHtmlResources(historyPageAbsolutePath)
+    chromeUrlOverride = {
+      'chrome_url_overrides/history': getHtmlResources(historyPageAbsolutePath)
+    }
   }
 
   if (manifest.chrome_url_overrides.newtab) {
@@ -29,7 +33,9 @@ export default function chromeUrlOverrides(
       newtabPage
     )
 
-    return getHtmlResources(newtabPageAbsolutePath)
+    chromeUrlOverride = {
+      'chrome_url_overrides/newtab': getHtmlResources(newtabPageAbsolutePath)
+    }
   }
 
   if (manifest.chrome_url_overrides.bookmarks) {
@@ -40,8 +46,10 @@ export default function chromeUrlOverrides(
       bookmarksPage
     )
 
-    return getHtmlResources(bookmarksPageAbsolutePath)
+    chromeUrlOverride = {
+      'chrome_url_overrides/bookmarks': bookmarksPageAbsolutePath
+    }
   }
 
-  return undefined
+  return chromeUrlOverride
 }
