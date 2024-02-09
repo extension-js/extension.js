@@ -21,7 +21,7 @@ const findStringInFile = (filePath: string, string: string) => {
   })
 }
 
-describe('HtmlPlugin', () => {
+describe('HtmlPlugin (default behavior)', () => {
   const fixturesPath = getFixturesPath('sandbox')
   const webpackConfigPath = path.join(fixturesPath, 'webpack.config.js')
   const outputPath = path.resolve(fixturesPath, 'dist')
@@ -175,5 +175,42 @@ describe('HtmlPlugin', () => {
       // Handle PNG file that is also a manifest.json features
       await findStringInFile(sandboxHtml, '/public/js/file.js')
     })
+  })
+
+})
+
+describe('HtmlPlugin (edge cases)', () => {
+  const fixturesPath = getFixturesPath('sandbox-nojs')
+  const webpackConfigPath = path.join(fixturesPath, 'webpack.config.js')
+  const outputPath = path.resolve(fixturesPath, 'dist')
+
+  beforeAll((done) => {
+    exec(
+      `npx webpack --config ${webpackConfigPath}`,
+      {cwd: fixturesPath},
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error(`exec error: ${error}`)
+          return done(error)
+        }
+        done()
+      }
+    )
+  }, 40000)
+
+  afterAll(() => {
+    if (fs.existsSync(outputPath)) {
+      fs.removeSync(outputPath)
+    }
+  })
+
+  it('during DEVELOPMENT, output a default JS file for HTML paths defined in MANIFEST.JSON that doesnt have it', async () => {
+    const defaultJs = path.join(outputPath, 'sandbox', 'page-0.js')
+    await assertFileIsEmitted(defaultJs)
+  })
+
+  it('during DEVELOPMENT, output a default JS file for HTML paths defined in INCLUDE that doesnt have it', async () => {
+    const defaultJs = path.join(outputPath, 'pages', 'main.js')
+    await assertFileIsEmitted(defaultJs)
   })
 })

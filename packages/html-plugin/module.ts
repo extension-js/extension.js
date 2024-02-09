@@ -53,12 +53,11 @@ export default class HtmlPlugin {
     if (!includes.length) return {}
     return includes.reduce((acc, include) => {
       const extname = path.extname(include)
-      const basename = path.basename(include, extname)
-      const entryname = basename === 'index' ? 'page' : basename
+      const filename = path.basename(include, extname)
 
       return {
         ...acc,
-        [`pages/${entryname}`]: {html: include, ...getAssetsFromHtml(include)}
+        [`pages/${filename}`]: {html: include, ...getAssetsFromHtml(include)}
       }
     }, {})
   }
