@@ -41,7 +41,7 @@ export default class AddScriptsAndStyles {
   }
 
   private addScriptToCssOnlyEntry(feature: string, scriptImports: string[]) {
-    if (feature !== 'content_scripts') return null
+    if (!feature.startsWith('content_scripts')) return null
 
     const hasOnlyCssLikeFiles = scriptImports.every((asset) => {
       return (
@@ -66,7 +66,18 @@ export default class AddScriptsAndStyles {
         scriptImports.map((css) => `import("${css}");`).join('\n'),
         'utf-8'
       )
-      fs.writeFileSync(cssEntryPath, '/** Nothing to see here... */', 'utf-8')
+      fs.writeFileSync(
+        cssEntryPath,
+        `/**
+ * This file is generated during development by ScriptsPlugin.
+ * During development, CSS imports work by dynamically importing the CSS files
+ * from the content_scripts field in the manifest.json and adding them to the entry point.
+ * This entrypoint is built at runtime and is not part of the final build. But for
+ * cases where the manifest is expecting a css file, we create this dummy css file to reflect
+ * the expected behavior.
+ */`,
+        'utf-8'
+      )
 
       return [jsEntryPath, cssEntryPath]
     }
@@ -74,33 +85,8 @@ export default class AddScriptsAndStyles {
     return null
   }
 
-  private getFilePath(feature: string) {
-    if (feature.startsWith('content_scripts')) {
-      const [featureName, index] = feature.split('-')
-      return `${featureName}/script-${index}`
-    }
-
-    if (feature === 'service_worker') {
-      return `background/${feature}`
-    }
-
-    if (feature === 'background') {
-      return `${feature}/script`
-    }
-
-    if (feature === 'user_script') {
-      return `${feature}/apiscript`
-    }
-
-    if (feature.startsWith('scripts')) {
-      return `${feature}`
-    }
-
-    return `${feature}/script`
-  }
-
   public apply(compiler: webpack.Compiler): void {
-    const validJsExtensions = compiler.options.resolve.extensions
+    const validJsExtensions = compiler.options.resolve.extensions || ['.js']
     const IS_DEV = compiler.options.mode === 'development'
 
     const scriptFields = {
@@ -110,19 +96,25 @@ export default class AddScriptsAndStyles {
 
     for (const field of Object.entries(scriptFields)) {
       const [feature, scriptPath] = field
-      const scriptImports = this.getScriptImports(scriptPath)
+      let scriptImports = this.getScriptImports(scriptPath)
 
-      // 1 - Add the script entries to the compilation along
-      // with the CSS entries, if the script is a content_script.
+      // 1 - Add the script entries to the compilation.
       if (scriptImports.length) {
-        const scriptOnlyImports = scriptImports.filter((asset) => {
-          return IS_DEV && validJsExtensions?.some((ext) => asset.endsWith(ext))
-        })
+        // During development, we extract the CSS files from the content_scripts
+        // and add them later as a dynamic import to the entry point.
+        // So we filter out the css files from the scriptImports.
+        // This does not apply to production builds, as we want to bundle
+        // the css files in the content_scripts.
+        if (IS_DEV) {
+          scriptImports = scriptImports.filter((asset) =>
+            validJsExtensions?.some((ext) => asset.endsWith(ext))
+          )
+        }
 
         compiler.options.entry = {
           ...compiler.options.entry,
           // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-          [this.getFilePath(feature)]: {import: scriptOnlyImports}
+          [feature]: {import: scriptImports}
         }
       }
 
@@ -132,13 +124,14 @@ export default class AddScriptsAndStyles {
       if (IS_DEV) {
         const scriptImportsWithOnlyCss = this.addScriptToCssOnlyEntry(
           feature,
-          scriptImports
+          this.getScriptImports(scriptPath)
         )
-        if (scriptImportsWithOnlyCss) {
+
+        if (scriptImportsWithOnlyCss && scriptImportsWithOnlyCss.length) {
           compiler.options.entry = {
             ...compiler.options.entry,
             // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-            [this.getFilePath(feature)]: {import: scriptImportsWithOnlyCss}
+            [feature]: {import: scriptImportsWithOnlyCss}
           }
         }
       }
