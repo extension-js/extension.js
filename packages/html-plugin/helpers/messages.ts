@@ -71,7 +71,7 @@ export function javaScriptError(
 ) {
   const pathRelative = path.relative(manifestPath, htmlFilePath)
   const hintMessage = `Check your <script> tags in \`${htmlFilePath}\`.`
-  const errorMessage = `[${pathRelative}] File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const errorMessage = `[${pathRelative}] File not found\n- \`${inputFilepath}\` (not found)\n\n${hintMessage}`
   return errorMessage
 }
 
@@ -80,9 +80,13 @@ export function cssError(
   htmlFilePath: string,
   inputFilepath: string
 ) {
-  const pathRelative = path.relative(manifestPath, htmlFilePath)
+  const htmlPathRelative = path.relative(manifestPath, htmlFilePath)
+  const filePathRelative = path.relative(
+    path.dirname(htmlFilePath),
+    inputFilepath
+  )
   const hintMessage = `Check your <link> tags in \`${htmlFilePath}\`.`
-  const errorMessage = `[${pathRelative}] File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const errorMessage = `[${htmlPathRelative}] Can\'t resolve path \`${filePathRelative}\`.\n\n- \`${inputFilepath}\` (not found)\n\n${hintMessage}.`
   return errorMessage
 }
 
@@ -94,6 +98,6 @@ export function staticAssetErrorMessage(
   const extname = path.extname(inputFilepath)
   const pathRelative = path.relative(manifestPath, htmlFilePath)
   const hintMessage = `Check your *${extname} assets in \`${htmlFilePath}\`.`
-  const errorMessage = `[${pathRelative}] File path \`${inputFilepath}\` not found. ${hintMessage}`
+  const errorMessage = `[${pathRelative}] File not found\n- \`${inputFilepath}\` (not found)\n${hintMessage}`
   return errorMessage
 }

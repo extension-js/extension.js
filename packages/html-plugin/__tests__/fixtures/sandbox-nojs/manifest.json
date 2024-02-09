@@ -1,0 +1,9 @@
+{
+  "name": "Sandboxed Content Sample",
+  "version": "1.0.3",
+  "manifest_version": 3,
+  "description": "Demonstrates creating a tab for a sandboxed iframe. The sandbox calls eval() to write HTML to its own document.",
+  "sandbox": {
+    "pages": ["sandboxed.html"]
+  }
+}
