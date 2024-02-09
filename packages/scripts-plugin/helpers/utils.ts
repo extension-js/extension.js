@@ -13,7 +13,7 @@ export function isUsingReact(projectDir: string) {
     packageJson.devDependencies && packageJson.devDependencies.react
   const reactAsDep = packageJson.dependencies && packageJson.dependencies.react
 
-  return reactAsDevDep || reactAsDep
+  return !!(reactAsDevDep || reactAsDep)
 }
 
 export function shouldExclude(path: string, ignorePatterns: string[]): boolean {
