@@ -20,14 +20,12 @@ export function getTypeScriptConfigFile(projectDir: string) {
 export function getTypeScriptConfigOverrides(projectDir: string, opts: any) {
   return {
     compilerOptions: {
-      // treat JS like raw web extensions do
       isolatedModules: false,
       sourceMap: opts.mode === 'development',
       inlineSourceMap: false,
       declarationMap: false,
       incremental: true,
       skipLibCheck: true,
-      // TODO: this is possibly false
       noEmit: true,
       module: 'esnext',
       target: 'es2021',
