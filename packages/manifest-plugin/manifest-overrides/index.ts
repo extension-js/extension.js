@@ -2,11 +2,11 @@
 import manifestCommon from './common'
 import manifestV2 from './mv2'
 import manifestV3 from './mv3'
-import {type ManifestData} from './types'
+import {type Manifest} from '../types'
 
 export default function getManifestOverrides(
   manifestPath: string,
-  manifest?: ManifestData,
+  manifest?: Manifest,
   exclude: string[] = []
 ) {
   // In case user don't provide a manifest content,
