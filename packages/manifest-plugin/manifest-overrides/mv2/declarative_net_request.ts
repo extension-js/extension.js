@@ -1,8 +1,8 @@
-import {type ManifestData} from '../types'
+import {type Manifest} from '../../types'
 import getFilename from '../../helpers/getFilename'
 
 export default function declarativeNetRequest(
-  manifest: ManifestData,
+  manifest: Manifest,
   exclude: string[]
 ) {
   return (
@@ -10,13 +10,13 @@ export default function declarativeNetRequest(
       declarative_net_request: {
         ...manifest.declarative_net_request,
         rule_resources: manifest.declarative_net_request.rule_resources.map(
-          (resourceObj: {path: string}) => {
+          (resourceObj: {path: string, id: string}) => {
             return {
               ...resourceObj,
               path:
                 resourceObj.path &&
                 getFilename(
-                  'declarative_net_request',
+                  `declarative_net_request/${resourceObj.id}.json`,
                   resourceObj.path,
                   exclude
                 )

@@ -1,7 +1,7 @@
-import {type ManifestData} from '../types'
+import {type Manifest} from '../../types'
 
 export default function webAccessibleResources(
-  manifest: ManifestData,
+  manifest: Manifest,
   exclude: string[]
 ) {
   return (

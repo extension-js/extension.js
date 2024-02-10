@@ -1,14 +1,16 @@
-import {type ManifestData} from '../types'
+import path from 'path'
+import {type Manifest} from '../../types'
 import getFilename from '../../helpers/getFilename'
 
-export default function pageAction(manifest: ManifestData, exclude: string[]) {
+const getBasename = (filepath: string) => path.basename(filepath)
+export default function pageAction(manifest: Manifest, exclude: string[]) {
   return (
     manifest.page_action && {
       page_action: {
         ...manifest.page_action,
         ...(manifest.page_action.default_popup && {
           default_popup: getFilename(
-            'page_action',
+            'page_action/default_popup.html',
             manifest.page_action.default_popup,
             exclude
           )
@@ -17,7 +19,7 @@ export default function pageAction(manifest: ManifestData, exclude: string[]) {
           default_icon:
             typeof manifest.page_action.default_icon === 'string'
               ? getFilename(
-                  'page_action',
+                  `page_action/${getBasename(manifest.page_action.default_icon)}`,
                   manifest.page_action.default_icon,
                   exclude
                 )
@@ -25,7 +27,14 @@ export default function pageAction(manifest: ManifestData, exclude: string[]) {
                   Object.entries(
                     manifest.page_action.default_icon as Record<string, string>
                   ).map(([size, icon]) => {
-                    return [size, getFilename('page_action', icon, exclude)]
+                    return [
+                      size,
+                      getFilename(
+                        `page_action/${getBasename(icon)}`,
+                        icon,
+                        exclude
+                      )
+                    ]
                   })
                 )
         })

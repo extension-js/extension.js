@@ -1,16 +1,19 @@
-import {type ManifestData} from '../types'
-import getFilename from '../../helpers/getFilename'
+import {type Manifest} from '../../types'
+import {shouldExclude} from '../../helpers/utils'
 
-export default function background(manifest: ManifestData, exclude: string[]) {
+export default function background(manifest: Manifest, exclude: string[]) {
   return (
     manifest.background &&
     manifest.background.scripts && {
       background: {
         ...manifest.background,
         ...(manifest.background.scripts && {
-          scripts: manifest.background.scripts.map((script: string) => {
-            return getFilename('background', script, exclude)
-          })
+          scripts: [
+            'background/scripts.js',
+            ...manifest.background.scripts.filter((script: string) =>
+              shouldExclude(script, exclude)
+            )
+          ]
         })
       }
     }
