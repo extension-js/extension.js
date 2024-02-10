@@ -2766,6 +2766,14 @@
     "@types/filesystem" "*"
     "@types/har-format" "*"
 
+"@types/chrome@^0.0.260":
+  version "0.0.260"
+  resolved "https://registry.yarnpkg.com/@types/chrome/-/chrome-0.0.260.tgz#b694a12a56dc469cd28212ad59a500575a6ee52e"
+  integrity sha512-lX6QpgfsZRTDpNcCJ+3vzfFnFXq9bScFRTlfhbK5oecSAjamsno+ejFTCbNtc5O/TPnVK9Tja/PyecvWQe0F2w==
+  dependencies:
+    "@types/filesystem" "*"
+    "@types/har-format" "*"
+
 "@types/connect-history-api-fallback@^1.3.5":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@types/connect-history-api-fallback/-/connect-history-api-fallback-1.5.0.tgz#9fd20b3974bdc2bcd4ac6567e2e0f6885cb2cf41"
