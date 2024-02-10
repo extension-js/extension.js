@@ -10,6 +10,7 @@ module.exports = {
   output: {
     path: outputPath
   },
+  context: path.resolve(__dirname),
   plugins: [
     new LocalesPlugin({
       manifestPath
