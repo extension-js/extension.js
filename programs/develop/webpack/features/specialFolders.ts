@@ -89,12 +89,11 @@ export function generatePagesEntries(
   if (!includes || !includes.length) return {}
   return includes.reduce((acc, include) => {
     const extname = path.extname(include)
-    const basename = path.basename(include, extname)
-    const entryname = basename === 'index' ? 'page' : basename
+    const filename = path.basename(include, extname)
 
     return {
       ...acc,
-      [`pages/${entryname}.html`]: include
+      [`pages/${filename}.html`]: include
     }
   }, {})
 }
@@ -105,12 +104,11 @@ export function generateScriptsEntries(
   if (!includes || !includes.length) return {}
   return includes.reduce((acc, include) => {
     const extname = path.extname(include)
-    const basename = path.basename(include, extname)
-    const entryname = basename === 'index' ? 'script' : basename
+    const filename = path.basename(include, extname)
 
     return {
       ...acc,
-      [`scripts/${entryname}.js`]: include
+      [`scripts/${filename}.js`]: include
     }
   }, {})
 }
