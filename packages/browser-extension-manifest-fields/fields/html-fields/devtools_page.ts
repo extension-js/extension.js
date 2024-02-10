@@ -1,8 +1,11 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type ManifestData} from '../../types'
+import {type Manifest, ManifestHtmlData} from '../../types'
 
-export default function devtools(manifestPath: string, manifest: ManifestData) {
+export default function devtools(
+  manifestPath: string,
+  manifest: Manifest
+): ManifestHtmlData | undefined {
   if (!manifest || !manifest.devtools_page) {
     return undefined
   }

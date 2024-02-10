@@ -1,12 +1,12 @@
 import path from 'path'
-import {type ManifestData} from '../../types'
+import {type Manifest, type ManifestData} from '../../types'
 
 export default function contentScript(
   manifestPath: string,
-  manifest: ManifestData
-): ManifestData {
+  manifest: Manifest
+): {[key: string]: ManifestData} {
   if (!manifest || !manifest.content_scripts)
-    return {[`content_scripts/script-0`]: undefined}
+    return {[`content_scripts/content-0`]: undefined}
 
   const contentJs = (content: {css?: string[]; js?: string[]}) => {
     if (content.js?.length === 0) return undefined
@@ -34,7 +34,7 @@ export default function contentScript(
     const js = contentJs(content)
     const css = contentCss(content)
 
-    contentScriptsData[`content_scripts/script-${index}`] = [
+    contentScriptsData[`content_scripts/content-${index}`] = [
       // contentScriptsData.content_scripts = [
       ...(js || []).filter((js) => js != null),
       ...(css || []).filter((css) => css != null)

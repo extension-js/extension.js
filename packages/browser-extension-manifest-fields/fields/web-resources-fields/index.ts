@@ -1,11 +1,11 @@
 import path from 'path'
 import glob from 'glob'
-import {type ManifestData} from '../../types'
+import {type Manifest, type ManifestData} from '../../types'
 
 export default function getWebAccessibleResources(
   manifestPath: string,
-  manifest: ManifestData
-): string[] | string[][] | undefined {
+  manifest: Manifest
+): ManifestData | string[][] {
   if (
     !manifest ||
     !manifest.web_accessible_resources ||

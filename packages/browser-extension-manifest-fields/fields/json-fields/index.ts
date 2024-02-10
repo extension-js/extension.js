@@ -1,16 +1,14 @@
-import {type ManifestData} from '../../types'
+import {type Manifest, type ManifestData} from '../../types'
 import declarativeNetRequest from './declarative_net_request'
 import storage from './storage'
 
 export default function getJsonFields(
   manifestPath: string,
-  manifest: ManifestData
-) {
+  manifest: Manifest
+): {[key: string]: string | undefined} {
   return {
-    'declarative_net_request/rule_resources': declarativeNetRequest(
-      manifestPath,
-      manifest
-    ),
+    // read as: declarativeNetRequest/<id>: declarativeNetRequest(manifestPath, manifest),
+    ...declarativeNetRequest(manifestPath, manifest),
     'storage/managed_schema': storage(manifestPath, manifest)
   }
 }
