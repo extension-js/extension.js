@@ -16,7 +16,7 @@ export default class ScriptsPlugin {
    * IconsPlugin is responsible for handling the icon files defined
    * in the manifest.json. It emits the icon files to the output
    * directory and adds them to the file dependencies of the compilation.
-   * 
+   *
    * Features supported:
    * action.default_icon
    * browser_action.default_icon

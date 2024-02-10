@@ -36,7 +36,7 @@ describe('ScriptsPlugin (default behavior)', () => {
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {
-      // fs.removeSync(outputPath)
+      fs.removeSync(outputPath)
     }
   })
 
@@ -80,7 +80,7 @@ describe('ScriptsPlugin (edge cases)', () => {
   })
 
   it('during DEVELOPMENT, output a default JS file for CSS-only content.scripts', async () => {
-    const defaultJs = path.join(outputPath, 'content_scripts', 'script-0.js')
+    const defaultJs = path.join(outputPath, 'content_scripts', 'content-0.js')
     await assertFileIsEmitted(defaultJs)
   })
 })
