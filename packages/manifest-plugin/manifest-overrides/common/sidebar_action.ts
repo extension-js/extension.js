@@ -1,18 +1,19 @@
-import {type ManifestData} from '../types'
+import path from 'path'
+import {type Manifest} from '../../types'
 import getFilename from '../../helpers/getFilename'
 
+const getBasename = (filepath: string) => path.basename(filepath)
 export default function sidebarAction(
-  manifest: ManifestData,
+  manifest: Manifest,
   exclude: string[]
 ) {
   return (
     manifest.sidebar_action && {
       sidebar_action: {
         ...manifest.sidebar_action,
-
         ...(manifest.sidebar_action.default_panel && {
           default_panel: getFilename(
-            'sidebar_action',
+            `sidebar_action/default_panel.html`,
             manifest.sidebar_action.default_panel,
             exclude
           )
@@ -20,7 +21,7 @@ export default function sidebarAction(
 
         ...(manifest.sidebar_action.default_icon && {
           default_icon: getFilename(
-            'sidebar_action',
+            `sidebar_action/${getBasename(manifest.sidebar_action.default_icon)}`,
             manifest.sidebar_action.default_icon,
             exclude
           )

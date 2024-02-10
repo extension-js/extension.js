@@ -1,5 +1,4 @@
 import backgroundScript from './background'
-import chromeSettingsOverrides from './chrome_settings_overrides'
 import chromeUrlOverrides from './chrome_url_overrides'
 import contentScripts from './content_scripts'
 import devtoolsPage from './devtools_page'
@@ -14,12 +13,11 @@ import storage from './storage'
 import theme from './theme'
 import userScripts from './user_scripts'
 import webAccessibleResources from './web_accessible_resources'
-import {type ManifestData} from '../types'
+import {type Manifest} from '../../types'
 
-function manifestCommon(manifest: ManifestData, exclude: string[]) {
+function manifestCommon(manifest: Manifest, exclude: string[]) {
   return {
     ...backgroundScript(manifest, exclude),
-    ...chromeSettingsOverrides(manifest, exclude),
     ...chromeUrlOverrides(manifest, exclude),
     ...contentScripts(manifest, exclude),
     ...devtoolsPage(manifest, exclude),

@@ -1,8 +1,8 @@
-import {type ManifestData} from '../types'
+import {type Manifest} from '../../types'
 import getFilename from '../../helpers/getFilename'
 
 export default function getBackground(
-  manifest: ManifestData,
+  manifest: Manifest,
   exclude: string[]
 ) {
   return (
@@ -11,7 +11,11 @@ export default function getBackground(
       background: {
         ...manifest.background,
         ...(manifest.background.page && {
-          page: getFilename('background', manifest.background.page, exclude)
+          page: getFilename(
+            'background/page.html',
+            manifest.background.page,
+            exclude
+          )
         })
       }
     }

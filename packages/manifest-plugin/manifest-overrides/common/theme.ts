@@ -1,7 +1,10 @@
-import {type ManifestData} from '../types'
+import path from 'path'
+import {type Manifest} from '../../types'
 import getFilename from '../../helpers/getFilename'
 
-export default function theme(manifest: ManifestData, exclude: string[]) {
+const getBasename = (filepath: string) => path.basename(filepath)
+
+export default function theme(manifest: Manifest, exclude: string[]) {
   return (
     manifest.theme && {
       theme: {
@@ -10,7 +13,7 @@ export default function theme(manifest: ManifestData, exclude: string[]) {
           images: {
             ...manifest.theme.images,
             theme_frame: getFilename(
-              'theme',
+              `theme/images/${getBasename(manifest.theme.images.theme_frame)}`,
               manifest.theme.images.theme_frame,
               exclude
             )
@@ -20,3 +23,4 @@ export default function theme(manifest: ManifestData, exclude: string[]) {
     }
   )
 }
+    

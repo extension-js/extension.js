@@ -93,20 +93,17 @@ class CheckManifestFilesPlugin {
     const manifest = require(this.manifestPath)
     const jsonFields = manifestFields(this.manifestPath, manifest).json
 
-    for (const [field, value] of Object.entries(jsonFields)) {
-      if (value) {
-        const valueArr = Array.isArray(value) ? value : [value]
+    for (const [field, jsonPath] of Object.entries(jsonFields)) {
+      if (jsonPath) {
+        const fieldError = errors.manifestFieldError(field, jsonPath)
 
-        for (const json of valueArr) {
-          const fieldError = errors.manifestFieldError(field, json)
-
-          if (!fs.existsSync(json)) {
-            compilation.errors.push(new WebpackError(fieldError))
-          }
+        if (!fs.existsSync(jsonPath)) {
+          compilation.errors.push(new WebpackError(fieldError))
         }
       }
     }
   }
+
   private handleScriptsErrors(
     compilation: Compilation,
     WebpackError: typeof webpack.WebpackError

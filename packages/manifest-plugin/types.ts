@@ -1,3 +1,5 @@
+import {ManifestBase} from './manifest-types'
+
 export interface ManifestPluginInterface {
   manifestPath: string
   exclude?: string[]
@@ -26,3 +28,5 @@ export interface OutputPath {
   storage?: string
   sidePanel?: string
 }
+
+export type Manifest = ManifestBase

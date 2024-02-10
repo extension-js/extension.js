@@ -22,7 +22,7 @@
     "watch": "yarn compile --watch",
     "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
-    "test": "echo \"Note: no test specified\" && exit 0"
+    "test": "jest"
   },
   "files": [
     "manifest",
@@ -43,12 +43,14 @@
     "webpack": "^5.0.0"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.12",
     "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
-    "jasmine": "^5.1.0",
+    "jest": "^29.7.0",
     "rimraf": "^5.0.5",
     "tsconfig": "*",
     "tsup": "^8.0.1",
+    "ts-jest": "^29.1.2",
     "webpack": "^5.89.0",
     "webpack-cli": "^5.1.4"
   },
