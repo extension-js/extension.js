@@ -1,11 +1,11 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type ManifestData} from '../../types'
+import {type Manifest, ManifestHtmlData} from '../../types'
 
 export default function pageAction(
   manifestPath: string,
-  manifest: ManifestData
-) {
+  manifest: Manifest
+): ManifestHtmlData | undefined {
   if (
     !manifest ||
     !manifest.page_action ||

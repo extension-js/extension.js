@@ -1,9 +1,9 @@
 import path from 'path'
-import {type ManifestData} from '../../types'
+import {type Manifest} from '../../types'
 
 export default function storage(
   manifestPath: string,
-  manifest: ManifestData
+  manifest: Manifest
 ): string | undefined {
   if (!manifest || !manifest.storage || !manifest.storage.managed_schema) {
     return undefined

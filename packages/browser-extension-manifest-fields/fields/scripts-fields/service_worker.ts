@@ -1,10 +1,10 @@
 import path from 'path'
-import {type ManifestData} from '../../types'
+import {type Manifest, ManifestData} from '../../types'
 
 export default function serviceWorker(
   manifestPath: string,
-  manifest: ManifestData
-) {
+  manifest: Manifest
+): ManifestData {
   if (!manifest || !manifest.background) {
     return undefined
   }

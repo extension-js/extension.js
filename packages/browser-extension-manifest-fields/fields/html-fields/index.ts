@@ -9,12 +9,12 @@ import pageAction from './page_action'
 import sandbox from './sandbox'
 import sidePanel from './side_panel'
 import sidebarAction from './sidebar_action'
-import {type ManifestData} from '../../types'
+import {type Manifest, type ManifestHtmlData} from '../../types'
 
 export default function getHtmlFields(
   manifestPath: string,
-  manifest: ManifestData
-) {
+  manifest: Manifest
+): {[key: string]: ManifestHtmlData} {
   return {
     'action/default_popup': action(manifestPath, manifest),
     'background/page': background(manifestPath, manifest),
@@ -23,14 +23,12 @@ export default function getHtmlFields(
       manifestPath,
       manifest
     ),
+    // read as: chrome_url_overrides/<history | newtab | settings | ...>: chromeUrlOverrides(manifestPath, manifest),
     ...chromeUrlOverrides(manifestPath, manifest),
-    // devtools_page doesnt really have a page field, but it's a special case
-    // so we include it here.
-    'devtools_page/page': devtoolsPage(manifestPath, manifest),
+    devtools_page: devtoolsPage(manifestPath, manifest),
     'options_ui/page': optionsUi(manifestPath, manifest),
     'page_action/default_popup': pageAction(manifestPath, manifest),
-    // same for sandbox, where we output sandobx/page-0.html. There are no
-    // other known cases in manifest.json
+    // read as: sandbox/page-<index>: sandbox(manifestPath, manifest),
     ...sandbox(manifestPath, manifest),
     'side_panel/default_path': sidePanel(manifestPath, manifest),
     'sidebar_action/default_panel': sidebarAction(manifestPath, manifest)

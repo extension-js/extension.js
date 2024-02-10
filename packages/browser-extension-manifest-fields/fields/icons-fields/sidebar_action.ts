@@ -1,10 +1,10 @@
 import path from 'path'
-import {type ManifestData} from '../../types'
+import {type Manifest, type ManifestData} from '../../types'
 
 export default function sidebarAction(
   manifestPath: string,
-  manifest: ManifestData
-) {
+  manifest: Manifest
+): ManifestData {
   if (
     !manifest ||
     !manifest.sidebar_action ||

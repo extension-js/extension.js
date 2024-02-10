@@ -1,21 +1,21 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type ManifestData} from '../../types'
+import {type Manifest, ManifestHtmlData} from '../../types'
 
-type SandboxType = Record<
-  string,
-  | {
-      css: string[]
-      js: string[]
-      static: string[]
-      html: string
-    }
-  | undefined
->
+type SandboxType = {
+  [key: string]:
+    | {
+        css: string[]
+        js: string[]
+        static: string[]
+        html: string
+      }
+    | undefined
+}
 
 export default function sandbox(
   manifestPath: string,
-  manifest: ManifestData
+  manifest: Manifest
 ): SandboxType {
   if (!manifest || !manifest.sandbox || !manifest.sandbox.pages) {
     return {[`sandbox/page-0`]: undefined}
