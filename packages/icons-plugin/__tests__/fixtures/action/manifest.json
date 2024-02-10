@@ -6,7 +6,8 @@
   "action": {
     "default_icon": {
       "16": "test_16.png",
-      "48": "test_48.png"
+      "48": "test_48.png",
+      "128": "public/icon.png"
     }
   }
 }
