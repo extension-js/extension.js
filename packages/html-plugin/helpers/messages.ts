@@ -56,7 +56,7 @@ export function manifestFieldRequiredError(requiredField: string) {
 
 export function manifestFieldError(feature: string, htmlFilePath: string) {
   const hintMessage = `Check the ${feature} field in your manifest.json file.`
-  const pagesMessage = `Check the \`pages\` field in your manifest.json file.`
+  const pagesMessage = `Check the \`pages\` folder in your project root directory.`
   const isPage = feature.startsWith('pages')
   const errorMessage = `File path \`${htmlFilePath}\` not found. ${
     isPage ? pagesMessage : hintMessage

@@ -23,10 +23,9 @@ const config = {
   plugins: [
     new MiniCssExtractPlugin(),
     new ScriptsPlugin({
-      manifestPath: path.join(__dirname, './manifest.json'),
+      manifestPath: path.join(__dirname, './manifest.json')
     })
   ]
 }
 
 module.exports = config
-

@@ -10,7 +10,7 @@ export default function declarativeNetRequest(
       declarative_net_request: {
         ...manifest.declarative_net_request,
         rule_resources: manifest.declarative_net_request.rule_resources.map(
-          (resourceObj: {path: string, id: string}) => {
+          (resourceObj: {path: string; id: string}) => {
             return {
               ...resourceObj,
               path:

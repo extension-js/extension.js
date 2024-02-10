@@ -37,7 +37,7 @@ export default function messageDispatcher(
   }
 
   // Handle _locales files
-  manifestLocales.forEach((path) => {
+  manifestLocales?.forEach((path) => {
     if (path.includes(updatedFile)) {
       dispatchMessage(server, {
         changedFile: '_locales'
