@@ -5,6 +5,7 @@ export function resolvePropertyArg(path: any, resolverFunctionName: string) {
   if (path.node.arguments.length === 0) return
 
   const arg = path.node.arguments[0]
+
   path.node.arguments[0] = t.callExpression(
     t.identifier(resolverFunctionName),
     [arg]
