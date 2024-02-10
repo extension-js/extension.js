@@ -5,13 +5,13 @@ import localesFromManifest from './fields/locales-fields'
 import scriptsFromManifest from './fields/scripts-fields'
 import webResourcesFromManifest from './fields/web-resources-fields'
 import getPagesPath from './helpers/getPagesPath'
-import {type ManifestFields, type ManifestData} from './types'
+import {type ManifestFields, type Manifest, type ManifestData} from './types'
 
 export {type ManifestFields}
 
 function browserExtensionManifestFields(
   manifestPath: string,
-  manifest?: ManifestData
+  manifest?: Manifest
 ) {
   // In case user don't provide a manifest content,
   // we will try to load it from the manifestPath.

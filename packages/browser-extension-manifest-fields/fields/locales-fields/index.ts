@@ -1,11 +1,11 @@
 import path from 'path'
 import fs from 'fs'
-import {type ManifestData} from '../../types'
+import {type Manifest} from '../../types'
 
 export default function getLocaleFields(
   manifestPath: string,
-  manifest: ManifestData
-) {
+  manifest: Manifest
+): string[] | undefined {
   const localesFolder = path.join(path.dirname(manifestPath), '_locales')
 
   const localeFiles = []

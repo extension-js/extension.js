@@ -1,3 +1,5 @@
+import {ManifestBase} from './manifest-types'
+
 export interface HtmlFieldsOutput {
   css: string[]
   js: string[]
@@ -15,4 +17,16 @@ export interface ManifestFields {
   webResources: any
 }
 
-export type ManifestData = Record<string, any | any[]>
+export type Manifest = ManifestBase
+export type ManifestData = string | string[] | undefined
+export type ManifestBrowserThemeIcons =
+  | Array<{light: string; dark: string}>
+  | undefined
+export type ManifestHtmlData =
+  | {
+      css: string[]
+      js: string[]
+      static: string[]
+      html: string
+    }
+  | undefined

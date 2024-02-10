@@ -1,26 +1,31 @@
 import path from 'path'
-import {type ManifestData} from '../../types'
+import {type Manifest} from '../../types'
 
 export default function declarativeNetRequest(
   manifestPath: string,
-  manifest: ManifestData
-): string[] | undefined {
+  manifest: Manifest
+): {[key: string]: string | undefined} {
+  let ruleResources: {[key: string]: string} = {}
+
   if (
     !manifest ||
     !manifest.declarative_net_request ||
     !manifest.declarative_net_request.rule_resources
   ) {
-    return undefined
+    return {'declarative_net_request/rule_resources-0': undefined}
   }
 
   const declarativeNetRequest = manifest.declarative_net_request.rule_resources
 
-  return declarativeNetRequest.map((resource: {path: string}) => {
+  declarativeNetRequest.forEach((resource: {id: string; path: string}) => {
     const declarativeNetRequestAbsolutePath = path.join(
       path.dirname(manifestPath),
       resource.path
     )
 
-    return declarativeNetRequestAbsolutePath
+    ruleResources[`declarative_net_request/${resource.id}`] =
+      declarativeNetRequestAbsolutePath
   })
+
+  return ruleResources
 }

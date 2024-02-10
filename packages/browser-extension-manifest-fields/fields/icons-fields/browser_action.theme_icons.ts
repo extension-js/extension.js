@@ -1,10 +1,10 @@
 import path from 'path'
-import {type ManifestData} from '../../types'
+import {type Manifest, type ManifestBrowserThemeIcons} from '../../types'
 
 export default function browserActionThemeIcon(
   manifestPath: string,
-  manifest: ManifestData
-): Array<{light: string; dark: string}> | undefined {
+  manifest: Manifest
+): ManifestBrowserThemeIcons {
   if (
     !manifest ||
     !manifest.browser_action ||

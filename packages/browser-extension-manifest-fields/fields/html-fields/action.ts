@@ -1,8 +1,11 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type ManifestData} from '../../types'
+import {type Manifest, type ManifestHtmlData} from '../../types'
 
-export default function action(manifestPath: string, manifest: ManifestData) {
+export default function action(
+  manifestPath: string,
+  manifest: Manifest
+): ManifestHtmlData | undefined {
   if (!manifest || !manifest.action || !manifest.action.default_popup) {
     return undefined
   }

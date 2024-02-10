@@ -1,7 +1,10 @@
 import path from 'path'
-import {type ManifestData} from '../../types'
+import {type Manifest, type ManifestData} from '../../types'
 
-export default function icons(manifestPath: string, manifest: ManifestData) {
+export default function icons(
+  manifestPath: string,
+  manifest: Manifest
+): ManifestData {
   if (!manifest || !manifest.icons) return undefined
 
   const defaultIcons = []
