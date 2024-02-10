@@ -21,9 +21,7 @@ module.exports = {
     new MiniCssExtractPlugin(),
     new HtmlPlugin({
       manifestPath: path.join(__dirname, 'manifest.json'),
-      include: [
-        path.join(__dirname, 'pages', 'main.html'),
-      ],
+      include: [path.join(__dirname, 'pages', 'main.html')]
     })
   ]
 }

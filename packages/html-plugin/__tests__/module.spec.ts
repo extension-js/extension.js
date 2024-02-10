@@ -176,7 +176,6 @@ describe('HtmlPlugin (default behavior)', () => {
       await findStringInFile(sandboxHtml, '/public/js/file.js')
     })
   })
-
 })
 
 describe('HtmlPlugin (edge cases)', () => {
