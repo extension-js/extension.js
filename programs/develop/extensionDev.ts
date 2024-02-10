@@ -27,8 +27,6 @@ export default async function extensionDev(
 ) {
   const projectPath = getProjectPath(pathOrRemoteUrl)
 
-  // TODO: cezaraugusto maybe we don't need this
-  // and can rely on the "catch" block
   if (
     !projectPath.startsWith('http') &&
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
