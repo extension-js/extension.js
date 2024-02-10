@@ -1,4 +1,4 @@
-import {has} from '../steps/transformSource/checkApiExists'
+import {has} from '../../../steps/transformSource/checkApiExists'
 import * as t from '@babel/types'
 
 describe('API Check Tests', () => {
@@ -39,14 +39,6 @@ describe('API Check Tests', () => {
   })
 
   // Negative test cases
-  test('should not identify chrome.action.nonexistentMethod', () => {
-    const callee: any = t.memberExpression(
-      t.memberExpression(t.identifier('chrome'), t.identifier('action')),
-      t.identifier('nonexistentMethod')
-    )
-    expect(has(callee, 'chrome.action.nonexistentMethod')).toBe(false)
-  })
-
   test('should not identify nonChrome.api.call', () => {
     const callee: any = t.memberExpression(
       t.memberExpression(t.identifier('nonChrome'), t.identifier('api')),

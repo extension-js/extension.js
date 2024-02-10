@@ -4,6 +4,9 @@ function isMethodChain(callee: Callee, chain: string[]): boolean {
   let current: any = callee
   for (let i = chain.length - 1; i >= 0; i--) {
     if (i === 0) {
+      if (chain[i] !== 'chrome' && chain[i] !== 'browser') {
+        return false
+      }
       // The last element should be an Identifier at the top of the chain
       return current.type === 'Identifier' && current.name === chain[i]
     } else {

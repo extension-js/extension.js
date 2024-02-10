@@ -1,11 +1,12 @@
 import traverse from '@babel/traverse'
 import generate from '@babel/generator'
 import template from '@babel/template'
+import * as BabelTypes from '@babel/types'
 
 import {has} from './checkApiExists'
 import {resolvePropertyArg, resolveStringArg} from './parser'
 
-function ensureImportOnce(ast: any, resolverRelativePath: string) {
+function importOnce(ast: any, resolverRelativePath: string) {
   let importAdded = false
 
   // Check if the import statement already exists
@@ -25,7 +26,7 @@ function ensureImportOnce(ast: any, resolverRelativePath: string) {
       `import r from '${resolverRelativePath}';`,
       {preserveComments: true}
     )
-    ast.program.body.unshift(importDeclaration)
+    ast.program.body.push(importDeclaration)
   }
 }
 
@@ -34,6 +35,12 @@ export default function transformSource(
   source: string,
   resolverRelativePath: string
 ) {
+  importOnce(ast, resolverRelativePath)
+
+  if (!BabelTypes.isFile(ast) || !BabelTypes.isProgram(ast.program)) {
+    throw new Error('Unable to parse source code into AST')
+  }
+
   traverse(ast as any, {
     CallExpression(path: any) {
       const callee = path.node.callee
@@ -44,7 +51,6 @@ export default function transformSource(
         has(callee, 'chrome.browserAction.setIcon') ||
         has(callee, 'chrome.pageAction.setIcon')
       ) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolvePropertyArg(path, 'r.resolvePath')
       }
 
@@ -54,24 +60,20 @@ export default function transformSource(
         has(callee, 'chrome.pageAction.setPopup') ||
         has(callee, 'chrome.scriptBadge.setPopup')
       ) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolvePropertyArg(path, 'r.resolvePopup')
       }
 
       if (has(callee, 'chrome.devtools.panels.create')) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolveStringArg(path, 'chrome.devtools.panels.create')
       }
 
       if (has(callee, 'chrome.downloads.download')) {
         if (args.length > 0) {
-          ensureImportOnce(ast, resolverRelativePath)
           resolvePropertyArg(path, 'r.resolveUrl')
         }
       }
 
       if (has(callee, 'chrome.runtime.getURL')) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolveStringArg(path, 'chrome.runtime.getURL')
       }
 
@@ -80,7 +82,6 @@ export default function transformSource(
         has(callee, 'chrome.scripting.removeCSS') ||
         has(callee, 'chrome.scripting.executeScript')
       ) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolvePropertyArg(path, 'r.resolveFiles')
       }
 
@@ -88,12 +89,10 @@ export default function transformSource(
         has(callee, 'chrome.scripting.registerContentScripts') ||
         has(callee, 'chrome.declarativeContent.RequestContentScript')
       ) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolvePropertyArg(path, 'r.resolveJs')
       }
 
       if (has(callee, 'chrome.declarativeContent.RequestContentScript')) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolvePropertyArg(path, 'r.resolveCss')
       }
 
@@ -104,18 +103,15 @@ export default function transformSource(
         has(callee, 'chrome.windows.create')
       ) {
         if (args.length > 0) {
-          ensureImportOnce(ast, resolverRelativePath)
           resolvePropertyArg(path, 'r.resolveUrl')
         }
       }
 
       if (has(callee, 'chrome.sidePanel.setOptions')) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolvePropertyArg(path, 'r.resolvePath')
       }
 
       if (has(callee, 'chrome.notifications.create')) {
-        ensureImportOnce(ast, resolverRelativePath)
         resolvePropertyArg(path, 'r.resolveIconUrl')
       }
     }
