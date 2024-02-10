@@ -1,6 +1,6 @@
+import fs from 'fs-extra'
 import path from 'path'
 import {exec} from 'child_process'
-import fs from 'fs-extra'
 
 const getFixturesPath = (demoDir: string) =>
   path.join(__dirname, 'fixtures', demoDir)
