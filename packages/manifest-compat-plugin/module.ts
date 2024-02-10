@@ -2,9 +2,7 @@ import Ajv, {ErrorObject} from 'ajv'
 import fs from 'fs'
 import path from 'path'
 import {Compiler, WebpackError} from 'webpack'
-// import v2Schema from './lib/manifest.schema.v2.json'
 import v3Schema from './lib/manifest.schema.v3.json'
-import addCustomFormats from './src/helpers/customValidators'
 import bcd from '@mdn/browser-compat-data'
 
 interface ManifestCompatPluginOptions {
@@ -17,15 +15,6 @@ export default class ManifestCompatPlugin {
 
   constructor(options: ManifestCompatPluginOptions) {
     this.options = options
-  }
-
-  private getBrowserName() {
-    const browserName = this.options.browser
-      ? this.options.browser.substring(0, 1).toUpperCase() +
-        this.options.browser.substring(1)
-      : 'Chrome Extensions API reference'
-
-    return browserName
   }
 
   private getApiDocumentationURL(browser: string, namespace: string) {
@@ -77,7 +66,6 @@ ${this.getApiDocumentationURL('chrome', namespace)}`
         const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
 
         const ajv = new Ajv()
-        addCustomFormats(ajv)
 
         const combinedSchema = {
           allOf: [v3Schema]

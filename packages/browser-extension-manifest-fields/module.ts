@@ -13,8 +13,6 @@ function browserExtensionManifestFields(
   manifestPath: string,
   manifest?: Manifest
 ) {
-  // In case user don't provide a manifest content,
-  // we will try to load it from the manifestPath.
   const manifestContent = manifest || require(manifestPath)
 
   return {
