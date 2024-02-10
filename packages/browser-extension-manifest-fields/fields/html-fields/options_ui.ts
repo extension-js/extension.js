@@ -1,11 +1,11 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type ManifestData} from '../../types'
+import {type Manifest, ManifestHtmlData} from '../../types'
 
 export default function optionsUi(
   manifestPath: string,
-  manifest: ManifestData
-) {
+  manifest: Manifest
+): ManifestHtmlData | undefined {
   if (manifest.options_page) {
     const optionsPage = manifest.options_page
 

@@ -1,11 +1,11 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type ManifestData} from '../../types'
+import {type Manifest, ManifestHtmlData} from '../../types'
 
 export default function chromeSettingsOverrides(
   manifestPath: string,
-  manifest: ManifestData
-) {
+  manifest: Manifest
+): ManifestHtmlData | undefined {
   if (
     !manifest ||
     !manifest.chrome_settings_overrides ||
