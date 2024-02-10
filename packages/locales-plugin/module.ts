@@ -74,7 +74,6 @@ export default class LocalesPlugin {
                 if (!utils.shouldExclude(resource, this.exclude || [])) {
                   const filename = path.relative(context, resource)
 
-                  console.log({filename})
                   compilation.emitAsset(filename, rawSource)
                 }
               }

@@ -115,9 +115,8 @@ export default function extensionPlugins(
       // (background, content_scripts, service_worker)
       // and add them to the assets bundle.
       new ResourcesPlugin({
-        manifestPath
-        // TODO cezaraugusto
-        // exclude: allPublic
+        manifestPath,
+        exclude: allPublic
       }).apply(compiler)
 
       // Allow browser polyfill as needed

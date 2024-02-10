@@ -1,4 +1,3 @@
-// import fs from 'fs'
 import manifestCommon from './common'
 import manifestV2 from './mv2'
 import manifestV3 from './mv3'

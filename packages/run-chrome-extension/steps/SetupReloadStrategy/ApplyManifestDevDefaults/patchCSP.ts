@@ -26,26 +26,3 @@ export function patchV2CSP(policy: string) {
 
   return {content_security_policy: policy}
 }
-
-export function patchV3CSP(policy: string) {
-  if (!policy) {
-    return {
-      content_security_policy: "script-src 'self'; " + "object-src 'self';"
-    }
-  }
-
-  const csp = parse(policy)
-  policy = ''
-
-  if (!csp['script-src']) {
-    csp['script-src'] = ["'self'"]
-  }
-
-  for (const k in csp) {
-    policy += `${k} ${csp[k].join(' ')};`
-  }
-
-  return {
-    content_security_policy: policy
-  }
-}

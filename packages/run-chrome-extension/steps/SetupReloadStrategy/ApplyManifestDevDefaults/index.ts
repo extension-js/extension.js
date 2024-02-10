@@ -1,6 +1,6 @@
 import type webpack from 'webpack'
 import {Compilation, sources} from 'webpack'
-import {patchV2CSP, patchV3CSP} from './patchCSP'
+import {patchV2CSP} from './patchCSP'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patchWebResources'
 import patchBackground from './patchBackground'
 import patchExternallyConnectable from './patchExternallyConnectable'
@@ -13,10 +13,7 @@ class ApplyManifestDevDefaultsPlugin {
     this.manifestPath = options.manifestPath
   }
 
-  private generateManifestPatches(
-    compilation: webpack.Compilation
-    // manifest: any
-  ) {
+  private generateManifestPatches(compilation: webpack.Compilation) {
     const manifest = compilation.getAsset('manifest.json')
       ? JSON.parse(
           (compilation.getAsset('manifest.json')?.source.source() as string) ||
@@ -44,9 +41,6 @@ class ApplyManifestDevDefaultsPlugin {
         : // : {permissions: []}
           {}),
 
-      // Use content_scripts to inject the reload dispatcher.
-      // content_scripts: patchContentScripts(manifest),
-
       // Use the background script to inject the reload handler.
       ...patchBackground(manifest),
 
@@ -68,8 +62,6 @@ class ApplyManifestDevDefaultsPlugin {
 
     if (compilation.getAsset('manifest.json')) {
       compilation.updateAsset('manifest.json', rawSource)
-    } else {
-      // compilation.emitAsset('manifest.json', rawSource)
     }
   }
 
