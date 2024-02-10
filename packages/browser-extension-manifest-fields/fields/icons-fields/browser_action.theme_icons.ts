@@ -13,22 +13,15 @@ export default function browserActionThemeIcon(
     return undefined
   }
 
+  const context = path.dirname(manifestPath)
   for (const themeIcon of manifest.browser_action.theme_icons) {
     if (themeIcon.light) {
-      const lightThemeIconAbsolutePath = path.join(
-        path.dirname(manifestPath),
-        themeIcon.light
-      )
-
+      const lightThemeIconAbsolutePath = path.resolve(context, themeIcon.light)
       themeIcon.light = lightThemeIconAbsolutePath
     }
 
     if (themeIcon.dark) {
-      const darkThemeIconAbsolutePath = path.join(
-        path.dirname(manifestPath),
-        themeIcon.dark
-      )
-
+      const darkThemeIconAbsolutePath = path.resolve(context, themeIcon.dark)
       themeIcon.dark = darkThemeIconAbsolutePath
     }
 
