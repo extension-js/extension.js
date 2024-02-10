@@ -3,10 +3,7 @@ import {type Manifest} from '../../types'
 import getFilename from '../../helpers/getFilename'
 
 const getBasename = (filepath: string) => path.basename(filepath)
-export default function sidebarAction(
-  manifest: Manifest,
-  exclude: string[]
-) {
+export default function sidebarAction(manifest: Manifest, exclude: string[]) {
   return (
     manifest.sidebar_action && {
       sidebar_action: {

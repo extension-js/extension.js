@@ -3,10 +3,7 @@ import getFilename from '../../helpers/getFilename'
 
 type ContentObj = {js?: string[] | undefined; css?: string[] | undefined}
 
-export default function contentScripts(
-  manifest: Manifest,
-  exclude: string[]
-) {
+export default function contentScripts(manifest: Manifest, exclude: string[]) {
   return (
     manifest.content_scripts && {
       content_scripts: manifest.content_scripts.map(
