@@ -2,7 +2,7 @@ import path from 'path'
 import webpack, {Compilation} from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 
-import {type ManifestPluginInterface} from '../types'
+import {type ManifestPluginInterface, type Manifest} from '../types'
 import messages from '../helpers/messages'
 
 export default class ThrowIfRecompileIsNeeded {
@@ -17,9 +17,7 @@ export default class ThrowIfRecompileIsNeeded {
     this.initialValues = this.getFlattenedAssets()
   }
 
-  private getFlattenedAssets(
-    updatedManifest?: Record<string, any | any[]>
-  ): string[] {
+  private getFlattenedAssets(updatedManifest?: Manifest): string[] {
     const html = manifestFields(this.manifestPath, updatedManifest).html
     const scripts = manifestFields(this.manifestPath, updatedManifest).scripts
     const htmlFields = Object.values(html).map((value) => value?.html)
