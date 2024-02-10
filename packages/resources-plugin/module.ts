@@ -16,13 +16,16 @@ export default class WebResourcesPlugin {
   }
 
   /**
-   * WebResourcesPlugin is responsible for handling all assets
-   * declared in:
+   * ResourcesPlugin is responsible for requires of all static assets
+   * in web_accessible_resources and in the extension script files,
+   * with a special case for content_scripts. It also copies the
+   * 'public/' folder to the output directory.
+   *
+   * Feature supported:
    *
    * - web_accessible_resources paths in the manifest.json file.
-   * - Assets imported from content_scripts.
-   *
-   * and outputting them in the web_accessible_resources folder.
+   * - Assets imported from content_scripts files.
+   * - Assets imported from other script files.
    *
    * Assets supported:
    * - Images: png|jpg|jpeg|gif|webp|avif|ico|bmp|svg
@@ -42,11 +45,11 @@ export default class WebResourcesPlugin {
       'public/'
     )
 
-    // Copy the static folder recursively, keeping the original
+    // 1 - Copy the static folder recursively, keeping the original
     // folder structure.
     new CopyStaticFolder({staticDir}).apply(compiler)
 
-    // Iterate over the list of web_accessible_resources
+    // 2 - Iterate over the list of web_accessible_resources
     // defined in the manifest.json file and output them
     // to the web_accessible_resources folder.
     // TODO: cezaraugusto this needs more testing.
@@ -55,7 +58,7 @@ export default class WebResourcesPlugin {
     //   exclude: this.exclude
     // }).apply(compiler)
 
-    // 2 - Apply common loaders to handle assets
+    // 3 - Apply common loaders to handle assets
     // imported from content_scripts and output them
     // in the web_accessible_resources folder.
     new ApplyCommonFileLoaders({
@@ -63,7 +66,7 @@ export default class WebResourcesPlugin {
       exclude: this.exclude
     }).apply(compiler)
 
-    // 3 - Write the web_accessible_resources folder to the manifest allowlist.
+    // 4 - Write the web_accessible_resources folder to the manifest allowlist.
     new UpdateManifest({
       manifestPath: this.manifestPath
     }).apply(compiler)
