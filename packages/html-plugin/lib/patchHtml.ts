@@ -37,7 +37,11 @@ export default function patchHtml(
           const absolutePath = path.resolve(htmlDir, filePath)
           const extname = file.getExtname(absolutePath)
           // public/ and script/ paths are excluded from the compilation.
-          const isExcludedPath = file.shouldExclude(absolutePath, exclude)
+          const context = compilation.options.context || ''
+          const isExcludedPath = file.shouldExclude(
+            path.resolve(context, filePath),
+            exclude
+          )
           const excludedFilePath = path.join('/', path.normalize(filePath))
           // Check if the file is in the compilation entry map.
           const includeListEntry = file.isFromIncludeList(
@@ -117,7 +121,7 @@ export default function patchHtml(
                 node = parse5utils.setAttribute(
                   childNode,
                   assetType === 'staticSrc' ? 'src' : 'href',
-                  getFilePath(filepath, extname, true)
+                  getFilePath(filepath, '', true)
                 )
               }
               break
