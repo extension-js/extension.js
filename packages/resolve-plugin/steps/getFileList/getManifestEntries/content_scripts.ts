@@ -2,7 +2,7 @@ import {type ManifestData} from './types.js'
 
 export default function contentScript(manifest: ManifestData): ManifestData {
   if (!manifest || !manifest.content_scripts)
-    return {[`content_scripts/script-0.js`]: undefined}
+    return {[`content_scripts/content-0.js`]: undefined}
 
   const contentJs = (content: {css?: string[]; js?: string[]}) => {
     if (content.js?.length === 0) return undefined
@@ -30,7 +30,7 @@ export default function contentScript(manifest: ManifestData): ManifestData {
     const js = contentJs(content)
     const css = contentCss(content)
 
-    contentScriptsData[`content_scripts/script-${index}`] = [
+    contentScriptsData[`content_scripts/content-${index}`] = [
       ...(js || []).filter((js) => js != null),
       ...(css || []).filter((css) => css != null)
     ]
