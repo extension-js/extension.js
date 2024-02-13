@@ -49,7 +49,8 @@ export default class EmitFile {
                   // If the user updates the path, this script runs again
                   // and output the file accordingly.
                   if (!fs.existsSync(entry)) {
-                    messages.entryNotFoundWarn(compilation, feature, entry)
+                    // WARN: This is handled by the manifest plugin.
+                    // Do not add an error handler here.
                     continue
                   }
 
