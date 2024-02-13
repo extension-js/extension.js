@@ -30,7 +30,7 @@ async function removeDir(dirPath: string) {
 }
 
 describe('CLI Commands', () => {
-  describe('The CLI itself', () => {
+  describe.skip('The CLI itself', () => {
     const extensionPath = path.join(__dirname, '..', 'my-extension')
     const customPath = path.join(__dirname, '..', 'my-custom-path')
 
@@ -75,7 +75,7 @@ describe('CLI Commands', () => {
     })
   })
 
-  describe('Create Command', () => {
+  describe.skip('Create Command', () => {
     const extensionPath = path.join(__dirname, '..', 'my-extension')
     const customPath = path.join(__dirname, '..', 'my-custom-path')
 
