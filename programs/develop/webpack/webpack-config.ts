@@ -24,20 +24,19 @@ import jsLoaders from './loaders/jsLoaders'
 import styleLoaders from './loaders/styleLoaders'
 
 // Plugins
-import compilationPlugins from './plugins/compilation'
-import extensionPlugins from './plugins/extension'
-import reloadPlugins from './plugins/reload'
-import errorPlugins from './plugins/error'
+import compilationPlugins from './plugins/compilationPlugins'
+import extensionPlugins from './plugins/extensionPlugins'
+import reloadPlugins from './plugins/reloadPlugins'
+import errorPlugins from './plugins/errorPlugins'
+import browserPlugins from './plugins/browserPlugins'
+import boringPlugins from './plugins/boringPlugins'
 import JsonMinimizerPlugin from 'json-minimizer-webpack-plugin'
 import TerserPlugin from 'terser-webpack-plugin'
 import CssMinimizerPlugin from 'css-minimizer-webpack-plugin'
 
 // Checks
 import getDevToolOption from './config/getDevtoolOption'
-import browserPlugins from './plugins/browser'
-import boringPlugins from './plugins/boring'
 import {getWebpackStats} from './config/logging'
-import {getOutputFilePath} from './config/userOptions'
 
 export default function webpackConfig(
   projectPath: string,
@@ -55,6 +54,11 @@ export default function webpackConfig(
       level: 'none'
     },
     cache: false,
+    performance: {
+      hints: false,
+      maxAssetSize: 999000,
+      maxEntrypointSize: 999000
+    },
     output: {
       clean: true,
       path: getOutputPath(projectPath, devOptions.browser),
@@ -86,7 +90,7 @@ export default function webpackConfig(
       reloadPlugins(projectPath, devOptions),
       browserPlugins(projectPath, devOptions),
       errorPlugins(projectPath, devOptions),
-      boringPlugins(projectPath, devOptions)
+      boringPlugins(projectPath, devOptions),
     ],
     optimization: {
       // WARN: This can have side-effects.
