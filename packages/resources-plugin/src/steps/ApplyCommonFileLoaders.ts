@@ -11,7 +11,10 @@ export default class ApplyCommonFileLoaders {
   private loaders() {
     const getFilename = (runtime: string, folderPath: string) => {
       if (runtime.startsWith('content_scripts')) {
-        return 'web_accessible_resources/[name].[hash:8][ext]'
+        const [, filename] = runtime.split('/')
+        const index = filename.split('-')[1]
+
+        return `web_accessible_resources/resource-${index}/[name].[hash:8][ext]`
       }
 
       return `${folderPath}/[name].[hash:8][ext]`
