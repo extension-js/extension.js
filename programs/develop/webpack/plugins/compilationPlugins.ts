@@ -14,7 +14,6 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import CssUrlRelativePlugin from 'css-url-relative-plugin'
 // import Dotenv from 'dotenv-webpack'
 
-// Checks
 import {type DevOptions} from '../../extensionDev'
 
 export default function compilationPlugins(
@@ -22,15 +21,9 @@ export default function compilationPlugins(
   {mode}: DevOptions
 ) {
   return {
-    name: 'compilationPlugins',
+    name: 'CompilationPlugins',
     apply: (compiler: webpack.Compiler) => {
       new CaseSensitivePathsPlugin().apply(compiler)
-
-      // WARN: this makes the reload plugin to run twice
-      // Parse TypeScript files in a different process if needed.
-      // if (isUsingTypeScript(projectPath)) {
-      //   new ForkTsCheckerWarningWebpackPlugin().apply(compiler)
-      // }
 
       // Extracts imported CSS into separate files
       new MiniCssExtractPlugin().apply(compiler)
