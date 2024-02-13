@@ -1,7 +1,5 @@
-import path from 'path'
 import type webpack from 'webpack'
 import {type WebResourcesPluginInterface} from './types'
-import CopyStaticFolder from './src/steps/CopyStaticFolder'
 // import AutoParseWebResourcesFolder from './src/steps/AutoParseWebResourcesFolder'
 import ApplyCommonFileLoaders from './src/steps/ApplyCommonFileLoaders'
 import UpdateManifest from './src/steps/UpdateManifest'
@@ -39,17 +37,7 @@ export default class WebResourcesPlugin {
    * These entries are also added to the manifest.json file.
    */
   apply(compiler: webpack.Compiler) {
-    const projectPath = path.dirname(this.manifestPath)
-    const staticDir = path.join(
-      compiler.options.context || projectPath,
-      'public/'
-    )
-
-    // 1 - Copy the static folder recursively, keeping the original
-    // folder structure.
-    new CopyStaticFolder({staticDir}).apply(compiler)
-
-    // 2 - Iterate over the list of web_accessible_resources
+    // 0 - Iterate over the list of web_accessible_resources
     // defined in the manifest.json file and output them
     // to the web_accessible_resources folder.
     // TODO: cezaraugusto this needs more testing.
@@ -58,7 +46,7 @@ export default class WebResourcesPlugin {
     //   exclude: this.exclude
     // }).apply(compiler)
 
-    // 3 - Apply common loaders to handle assets
+    // 1 - Apply common loaders to handle assets
     // imported from content_scripts and output them
     // in the web_accessible_resources folder.
     new ApplyCommonFileLoaders({
@@ -66,7 +54,7 @@ export default class WebResourcesPlugin {
       exclude: this.exclude
     }).apply(compiler)
 
-    // 4 - Write the web_accessible_resources folder to the manifest allowlist.
+    // 2 - Write the web_accessible_resources folder to the manifest allowlist.
     new UpdateManifest({
       manifestPath: this.manifestPath
     }).apply(compiler)
