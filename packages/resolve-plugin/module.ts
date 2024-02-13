@@ -45,6 +45,10 @@ export default class ResolvePlugin {
   }
 
   public apply(compiler: webpack.Compiler): void {
+    new webpack.ProvidePlugin({
+      r: [path.resolve(__dirname, './resolver-module'), 'default']
+    }).apply(compiler)
+
     // 1 - Add the resolver loader.
     // This loader will be used to transform the API methods
     // to use the resolver module.

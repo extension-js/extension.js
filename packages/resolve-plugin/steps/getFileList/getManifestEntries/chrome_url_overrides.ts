@@ -1,33 +1,30 @@
 import {type ManifestData} from './types.js'
 
 export default function chromeUrlOverrides(manifest: ManifestData) {
+  let chromeUrlOverride: Record<string, any> = {newtab: undefined}
+
   if (!manifest || !manifest.chrome_url_overrides) {
-    return undefined
+    return {'chrome_url_overrides/newtab.html': undefined}
   }
 
   if (manifest.chrome_url_overrides.history) {
-    const historyPage = manifest.chrome_url_overrides.history
-
-    const historyPageAbsolutePath = historyPage
-
-    return historyPageAbsolutePath
+    chromeUrlOverride = {
+      'chrome_url_overrides/history.html': manifest.chrome_url_overrides.history
+    }
   }
 
   if (manifest.chrome_url_overrides.newtab) {
-    const newtabPage = manifest.chrome_url_overrides.newtab
-
-    const newtabPageAbsolutePath = newtabPage
-
-    return newtabPageAbsolutePath
+    chromeUrlOverride = {
+      'chrome_url_overrides/newtab.html': manifest.chrome_url_overrides.newtab
+    }
   }
 
   if (manifest.chrome_url_overrides.bookmarks) {
-    const bookmarksPage = manifest.chrome_url_overrides.bookmarks
-
-    const bookmarksPageAbsolutePath = bookmarksPage
-
-    return bookmarksPageAbsolutePath
+    chromeUrlOverride = {
+      'chrome_url_overrides/bookmarks.html':
+        manifest.chrome_url_overrides.bookmarks
+    }
   }
 
-  return undefined
+  return chromeUrlOverride
 }

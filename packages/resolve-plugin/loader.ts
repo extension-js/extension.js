@@ -81,6 +81,14 @@ export default function (this: ResolvePluginContext, source: string) {
   if (new RegExp(options.test).test(this.resourcePath)) {
     const resolverName = 'resolver-module.js'
 
+    // Skip if path is node_modules
+    if (
+      this.resourcePath.includes('node_modules') ||
+      this.resourcePath.includes('dist/')
+    ) {
+      return source
+    }
+
     const ast = parser.parse(source, {
       sourceType: 'module',
       plugins: ['jsx', 'typescript']
@@ -97,11 +105,6 @@ export default function (this: ResolvePluginContext, source: string) {
       path.dirname(this.resourcePath),
       resolverAbsolutePath
     )
-
-    // Skip if path is node_modules
-    if (this.resourcePath.includes('node_modules')) {
-      return source
-    }
 
     // 3 - Get the current source, add the resolver module import and
     // transform the API methods to use the resolver module.

@@ -4,7 +4,6 @@ export function resolvePropertyArg(path: any, resolverFunctionName: string) {
   if (path.node.arguments.length === 0) return
 
   const arg = path.node.arguments[0]
-
   path.node.arguments[0] = t.callExpression(
     t.identifier(resolverFunctionName),
     [arg]
@@ -22,7 +21,10 @@ export function resolveStringArg(path: any, api: string) {
       path.node.arguments[2]
     ])
   } else if (api === 'chrome.runtime.getURL') {
-    if (path.node.arguments[0].value === '/_favicon/') {
+    if (
+      path.node.arguments[0].value &&
+      path.node.arguments[0].value.includes('/_favicon/')
+    ) {
       return
     }
     path.node.arguments[0] = t.callExpression(t.identifier('r.resolveString'), [

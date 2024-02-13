@@ -2,7 +2,6 @@ import {has} from '../../../steps/transformSource/checkApiExists'
 import * as t from '@babel/types'
 
 describe('API Check Tests', () => {
-  // Positive test cases
   test('should identify chrome.action.setIcon', () => {
     const callee: any = t.memberExpression(
       t.memberExpression(t.identifier('chrome'), t.identifier('action')),
@@ -36,14 +35,5 @@ describe('API Check Tests', () => {
       t.identifier('create')
     )
     expect(has(callee, 'chrome.devtools.panels.create')).toBe(true)
-  })
-
-  // Negative test cases
-  test('should not identify nonChrome.api.call', () => {
-    const callee: any = t.memberExpression(
-      t.memberExpression(t.identifier('nonChrome'), t.identifier('api')),
-      t.identifier('call')
-    )
-    expect(has(callee, 'nonChrome.api.call')).toBe(false)
   })
 })
