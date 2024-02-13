@@ -27,7 +27,7 @@ import {
   scanPublicFilesInFolder,
   scanHtmlFilesInFolder,
   scanScriptFilesInFolder
-} from '../features/specialFolders'
+} from '../config/specialFolders'
 
 // FUTURE: extension.config.js
 import {
@@ -62,7 +62,7 @@ export default function extensionPlugins(
   const scriptsList = generateScriptsEntries(allScripts)
 
   return {
-    name: 'extensionPlugins',
+    name: 'ExtensionPlugin',
     apply: (compiler: webpack.Compiler) => {
       new ResolvePlugin({
         manifestPath,

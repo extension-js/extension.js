@@ -20,22 +20,24 @@ export default function browserPlugins(
   }
 
   const chromeConfig = {
-    port: 8082,
+    port: 8000,
     manifestPath: getManifestPath(projectPath),
     // The final folder where the extension manifest file is located.
     // This is used to load the extension into the browser.
     extensionPath: getOutputPath(projectPath, devOptions.browser),
     autoReload: true,
-    browserFlags: ['--enable-benchmarking']
+    browserFlags: ['--enable-benchmarking'],
+    stats: true
   }
 
   // const edgeConfig = {
   //   ...chromeConfig,
-  //   port: 8082,
+  //   port: 8001,
+  //   stats: 'minimal'
   // }
 
   return {
-    name: 'browserPlugins',
+    name: 'BrowserPlugin',
     apply: (compiler: webpack.Compiler) => {
       switch (devOptions.browser) {
         case 'chrome':

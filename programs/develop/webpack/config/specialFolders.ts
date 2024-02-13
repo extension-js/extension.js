@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {getScriptResolveExtensions} from '../config/getPath'
+import {getScriptResolveExtensions} from './getPath'
 
 export function scanHtmlFilesInFolder(dirPath: string): string[] {
   if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
@@ -120,7 +120,7 @@ export function generatePublicEntries(
   if (!includes || !includes.length) return {}
   return includes.reduce((acc, include) => {
     const relativePath = path.relative(projectPath, include)
-    const publicPath = path.join('public', relativePath)
+    const publicPath = path.normalize(relativePath)
 
     return {
       ...acc,
