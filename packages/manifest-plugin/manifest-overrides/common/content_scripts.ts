@@ -22,7 +22,7 @@ export default function contentScripts(manifest: Manifest, exclude: string[]) {
             js: [
               ...contentJs.map((js: string) => {
                 return getFilename(
-                  `content_scripts/script-${index}.js`,
+                  `content_scripts/content-${index}.js`,
                   js,
                   exclude
                 )
@@ -31,7 +31,7 @@ export default function contentScripts(manifest: Manifest, exclude: string[]) {
             css: [
               ...contentCss.map((css: string) => {
                 return getFilename(
-                  `content_scripts/script-${index}.css`,
+                  `content_scripts/content-${index}.css`,
                   css,
                   exclude
                 )
