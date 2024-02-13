@@ -1,46 +1,15 @@
 import traverse from '@babel/traverse'
 import generate from '@babel/generator'
 import template from '@babel/template'
-import * as BabelTypes from '@babel/types'
 
 import {has} from './checkApiExists'
 import {resolvePropertyArg, resolveStringArg} from './parser'
 
-function importOnce(ast: any, resolverRelativePath: string) {
-  let importAdded = false
-
-  // Check if the import statement already exists
-  traverse(ast, {
-    ImportDeclaration(path) {
-      if (path.node.source.value === resolverRelativePath) {
-        importAdded = true
-        // Stop traversal once found
-        path.stop()
-      }
-    }
-  })
-
-  // Add the import declaration only if it doesn't exist
-  if (!importAdded) {
-    const importDeclaration = template.ast(
-      `import r from '${resolverRelativePath}';`,
-      {preserveComments: true}
-    )
-    ast.program.body.push(importDeclaration)
-  }
-}
-
 export default function transformSource(
   ast: any,
   source: string,
-  resolverRelativePath: string
+  resolverRelativePath?: string
 ) {
-  importOnce(ast, resolverRelativePath)
-
-  if (!BabelTypes.isFile(ast) || !BabelTypes.isProgram(ast.program)) {
-    throw new Error('Unable to parse source code into AST')
-  }
-
   traverse(ast as any, {
     CallExpression(path: any) {
       const callee = path.node.callee
@@ -68,9 +37,7 @@ export default function transformSource(
       }
 
       if (has(callee, 'chrome.downloads.download')) {
-        if (args.length > 0) {
-          resolvePropertyArg(path, 'r.resolveUrl')
-        }
+        resolvePropertyArg(path, 'r.resolveUrl')
       }
 
       if (has(callee, 'chrome.runtime.getURL')) {
