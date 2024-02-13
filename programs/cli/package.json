@@ -27,8 +27,7 @@
     "postinstall": "node ./scripts/copyMarkdownFilesToCli.js",
     "clean": "rm -rf dist",
     "compile": "tsup-node ./cli.ts --format cjs --dts --target=node18",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "test": "jest"
   },
   "keywords": [
     "zero-config",
