@@ -3,7 +3,7 @@ import fs from 'fs'
 import WebSocket from 'ws'
 import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
 import {type RunChromeExtensionInterface} from '../../../types'
-import parseScript from '../../../helpers/parseScript'
+// import parseScript from '../../../helpers/parseScript'
 
 function dispatchMessage(
   server: WebSocket.Server<typeof WebSocket, any>,
@@ -45,20 +45,20 @@ export default function messageDispatcher(
     }
   })
 
-  const extensions = ['js', 'ts', 'jsx', 'tsx']
-
-  if (extensions.includes(updatedFile.split('.').pop()!)) {
-    // Handle contextMenus files
-    const changedFileIncludesContextMenuCode = parseScript(
-      updatedFile,
-      'chrome.contextMenus'
-    )
-    if (changedFileIncludesContextMenuCode) {
-      dispatchMessage(server, {
-        changedFile: 'contextMenus'
-      })
-    }
-  }
+  // const extensions = ['js', 'ts', 'jsx', 'tsx']
+  //
+  // if (extensions.includes(updatedFile.split('.').pop()!)) {
+  //   // Handle contextMenus files
+  //   const changedFileIncludesContextMenuCode = parseScript(
+  //     updatedFile,
+  //     'chrome.contextMenus'
+  //   )
+  //   if (changedFileIncludesContextMenuCode) {
+  //     dispatchMessage(server, {
+  //       changedFile: 'contextMenus'
+  //     })
+  //   }
+  // }
 
   // Handle service_worker scripts.
   Object.entries(manifestScripts).forEach(([entryName, entryData]) => {
@@ -66,7 +66,7 @@ export default function messageDispatcher(
     const entryFiles = Object.values(entryDataArr).flatMap((arr) => arr)
 
     if (entryFiles.includes(updatedFile)) {
-      if (entryName === 'service_worker') {
+      if (entryName === 'background/service_worker') {
         dispatchMessage(server, {
           changedFile: 'service_worker'
         })
