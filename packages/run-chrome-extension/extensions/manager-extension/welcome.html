@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Welcome!</title>
+    <meta charset="UTF-8">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧩</text></svg>">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura.css" media="screen" />
+    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura-dark.css" media="screen and (prefers-color-scheme: dark)" />
+    <style>
+      .center-middle {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 100vh;
+        padding: 0;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="center-middle">
+      <h1>Welcome to extension-create 🧩</h1>
+      <p>Create cross-browser extensions with no build configuration.</p>
+      <p>To see the extension details, navigate to <code>chrome://extensions</code> (the first open tab) where 
+      <b><span id="extensionName"></span></b> is already running in development mode. To start interacting with your extension, 
+      <a id="closeTab" href="#">close this tab</a>.
+      </p>
+      <button>🧩 Learn more about developing cross-browser extensions</button>
+    </div>
+    <script src="welcome.js"></script>
+  </body>
+</html>

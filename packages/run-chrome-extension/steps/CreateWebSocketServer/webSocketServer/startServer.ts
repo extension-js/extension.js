@@ -1,74 +1,14 @@
-import path from 'path'
 import WebSocket from 'ws'
-import {WebpackError, type Compiler} from 'webpack'
-const {log} = console
+import {type Compiler} from 'webpack'
+import messages from '../../../helpers/messages'
+import {StatsPreset} from '../../../types'
 
-function extensionCreateServerOutput(
+export default function (
   compiler: Compiler,
-  message: {
-    data?: {
-      id: string
-      manifest: Record<string, any>
-      management: Record<string, any>
-    }
-  }
+  statsConfig: StatsPreset | undefined,
+  port?: number,
+  isFirstRun?: boolean
 ) {
-  if (!message.data) {
-    // TODO: cezaraugusto this happens when the extension
-    // can't reach the background script. This can be many
-    // things such as a mismatch config or if after an error
-    // the extension starts disabled. Improve this error.
-    throw new WebpackError(
-      '[⛔️] No data received from client. Ensure no hanging Chrome instance open and try again.'
-    )
-  }
-
-  const compilerOptions = compiler.options
-  const {id, manifest, management} = message.data
-
-  if (!management) {
-    if (process.env.EXTENSION_ENV === 'development') {
-      console.log('[⛔️] No management info received from client. Investigate.')
-    }
-  }
-
-  const {name, description, version, hostPermissions, permissions} = manifest
-
-  const manifestPath = path.join(compilerOptions.context || '', 'manifest.json')
-  const manifestFromCompiler = require(manifestPath)
-  const permissionsBefore: string[] = manifestFromCompiler.permissions || []
-  const permissionsAfter: string[] = permissions || []
-  // If a permission is used in the post compilation but not
-  // in the pre-compilation step, add a "dev only" string to it.
-  const permissionsParsed: string[] = permissionsAfter.map((permission) => {
-    if (permissionsBefore.includes(permission)) return permission
-    return `${permission} (dev only)`
-  })
-  const fixedId = manifestFromCompiler.id === id
-  const hasHost = hostPermissions && hostPermissions.length
-  management.enabled
-
-  // TODO: cezaraugusto Also interesting:
-  // log(`• Size: 1.2 MB`)
-  // log(`• Pages: /pages`)
-  // log(`• Static Resources: /public`)
-  // log(`• Static Resources: /public`)
-  // log(`• Web Accessible Resources: /web_accessible_resources`)
-
-  log('')
-  log(`• Name: ${name}`)
-  description && log(`• Description: ${description}`)
-  log(`• ID: ${id} (${fixedId ? 'fixed' : 'dynamic'})`)
-  log(`• Version: ${version}`)
-  hasHost && log(`• Host Permissions: ${hostPermissions.sort().join(', ')}`)
-  log(`• Permissions: ${permissionsParsed.sort().join(', ')}`)
-  log(`• Settings URL: chrome://extensions/?id=${id}\n`)
-  log(
-    `browser-runtime ►►► Running Chrome in ${compilerOptions.mode} mode. Browser ${management.type} ${management.enabled ? 'enabled' : 'disabled'}.`
-  )
-}
-
-export default function (compiler: Compiler, port?: number) {
   const webSocketServer = new WebSocket.Server({
     host: 'localhost',
     port
@@ -78,12 +18,20 @@ export default function (compiler: Compiler, port?: number) {
     ws.send(JSON.stringify({status: 'serverReady'}))
 
     ws.on('error', (error) => {
-      console.log('Error', error)
+      messages.webSocketError(error)
       webSocketServer.close()
     })
 
-    ws.on('close', () => {
-      console.log('[😓] Watch mode closed. Exiting...\n')
+    ws.on('close', (code, reason) => {
+      // TODO: cezaraugusto there is some sort of bug that closes the
+      // WebSocket connection and the process exits with code 1001.
+      // This error breaks the watch mode and the user has to restart
+      // the process. This is a temporary fix to avoid the error message.
+      // The fix so far is to run the process again.
+      if (!isFirstRun) {
+        messages.watchModeClosed(code, reason)
+      }
+
       webSocketServer.close()
     })
 
@@ -92,9 +40,9 @@ export default function (compiler: Compiler, port?: number) {
       const message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
-        setTimeout(() => {
-          extensionCreateServerOutput(compiler, message)
-        }, 1000)
+        if (statsConfig === true) {
+          messages.extensionData(compiler, message, isFirstRun)
+        }
       }
     })
   })

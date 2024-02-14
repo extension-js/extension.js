@@ -7,17 +7,21 @@ import createUserDataDir from './steps/RunChromePlugin/chrome/createUserDataDir'
 
 export default class RunChromeExtension {
   private readonly options: RunChromeExtensionInterface
+  private readonly isFirstRun: boolean = true
 
   constructor(options: RunChromeExtensionInterface) {
     this.options = {
       manifestPath: options.manifestPath,
       extensionPath: options.extensionPath,
-      port: options.port || 8082,
+      port: options.port || 8000,
       browserFlags: options.browserFlags || [],
-      userDataDir: options.userDataDir || createUserDataDir(),
+      userDataDir: createUserDataDir(options.userDataDir).userDataDir,
       startingUrl: options.startingUrl,
-      autoReload: options.autoReload != null ? options.autoReload : true
+      autoReload: options.autoReload != null ? options.autoReload : true,
+      stats: options.stats != null ? options.stats : true
     }
+
+    this.isFirstRun = createUserDataDir(options.userDataDir).isFirstRun
   }
 
   /**
@@ -48,14 +52,12 @@ export default class RunChromeExtension {
    * - manifest.json - Full extension reload (chrome.runtime.reload)
    */
   apply(compiler: webpack.Compiler) {
-    // This plugin:
-
     // 1 - Creates a WebSockets server to communicate with the browser.
     // This server is responsible for sending reload requests to the client,
     // which is a browser extension that is injected into the browser called
     // reload-extension. This extension is responsible for sending messages
     // to the user extension.
-    new CreateWebSocketServer(this.options).apply(compiler)
+    new CreateWebSocketServer(this.options, this.isFirstRun).apply(compiler)
 
     // 2 - Patches the manifest file, modifies the background script to
     // accept both extension runtime updates (service_worker, manifest.json)
@@ -68,6 +70,6 @@ export default class RunChromeExtension {
     // requests to the user extension. The manager extension is responsible
     // for everything else, for now opening the chrome://extension page on startup.
     // It starts a new browser instance with the user extension loaded.
-    new RunChromePlugin(this.options).apply(compiler)
+    new RunChromePlugin(this.options, this.isFirstRun).apply(compiler)
   }
 }

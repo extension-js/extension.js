@@ -18,7 +18,7 @@ async function connect() {
     return
   }
 
-  webSocket = new WebSocket('ws://localhost:8082')
+  webSocket = new WebSocket('ws://localhost:__RELOAD_PORT__')
 
   webSocket.onerror = (event) => {
     console.error(`[Reload Service] Connection error: ${JSON.stringify(event)}`)

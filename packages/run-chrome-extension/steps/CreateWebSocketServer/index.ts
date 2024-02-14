@@ -4,12 +4,15 @@ import {type RunChromeExtensionInterface} from '../../types'
 import messageDispatcher from './webSocketServer/messageDispatcher'
 import startServer from './webSocketServer/startServer'
 import rewriteReloadPort from './rewriteReloadPort'
+import rewriteFirstRunVariable from './rewriteFirstRunVariable'
 
 export default class CreateWebSocketServer {
   private readonly options: RunChromeExtensionInterface
+  private readonly isFirstRun: boolean = true
 
-  constructor(options: RunChromeExtensionInterface) {
+  constructor(options: RunChromeExtensionInterface, isFirstRun: boolean) {
     this.options = options
+    this.isFirstRun = isFirstRun
   }
 
   apply(compiler: Compiler) {
@@ -17,10 +20,20 @@ export default class CreateWebSocketServer {
 
     // Before all, rewrite the reload service file
     // with the user-provided port.
-    rewriteReloadPort(this.options.port)
+    rewriteReloadPort(this.options.port || 8000)
+
+    // And also rewrite the first run variable.
+    // This will change the user active tab on first run.
+    rewriteFirstRunVariable(this.isFirstRun)
 
     // Start webSocket server to communicate with the extension.
-    const wss = startServer(compiler, this.options.port)
+    const startConfig = this.options.stats
+    const wss = startServer(
+      compiler,
+      startConfig,
+      this.options.port,
+      this.isFirstRun
+    )
 
     compiler.hooks.watchRun.tapAsync(
       'RunChromeExtensionPlugin (CreateWebSocketServer)',

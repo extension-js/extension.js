@@ -13,7 +13,8 @@ const reloadExtension = path.resolve(
 )
 
 export default function browserConfig(
-  configOptions: RunChromeExtensionInterface
+  configOptions: RunChromeExtensionInterface,
+  isFirstRun: boolean
 ) {
   const userBrowserExtension = configOptions.extensionPath?.replace(
     'manifest.json',
@@ -31,6 +32,8 @@ export default function browserConfig(
   return [
     `--load-extension=${extensionsToLoad.join()}`,
     `--user-data-dir=${configOptions.userDataDir}`,
+    // Disable Chrome's native first run experience.
+    '--no-first-run',
     // Flags to pass to Chrome
     // Any of http://peter.sh/experiments/chromium-command-line-switches/
     ...(configOptions.browserFlags || [])

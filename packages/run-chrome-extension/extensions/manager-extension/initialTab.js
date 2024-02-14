@@ -6,19 +6,19 @@
 // Create a new tab and set it to background.
 // We want the user-selected page to be active,
 // not chrome://extensions.
-function createChromeExtensionsTab(initialTab) {
-  // Check if chrome://extensions tab is open
+function createChromeExtensionsTab(initialTab, url) {
+  // Check if url tab is open
   chrome.tabs.query({url: 'chrome://extensions/'}, (tabs) => {
     const extensionsTabExist = tabs.length > 0
 
-    // Return if chrome://extensions exists
+    // Return if url exists
     if (extensionsTabExist) return
 
     // Create an inactive tab
     chrome.tabs.create(
-      {url: 'chrome://extensions/', active: false},
+      {url, active: false},
       function setBackgroundTab(extensionsTab) {
-        // Get current chrome://extensions tab and move it left.
+        // Get current url tab and move it left.
         // This action auto-activates the tab
         chrome.tabs.move(extensionsTab.id, {index: 0}, () => {
           // Get user-selected initial page tab and activate the right tab
@@ -29,14 +29,16 @@ function createChromeExtensionsTab(initialTab) {
   })
 }
 
+let __IS_FIRST_RUN__ = false
+
 chrome.tabs.query({active: true}, ([initialTab]) => {
-  if (
-    // initialTab.url === 'chrome://newtab/' ||
-    initialTab.url === 'chrome://welcome/'
-  ) {
-    // Ensure this tab isn't open
+  if (initialTab.url === 'chrome://newtab/') {
     chrome.tabs.update({url: 'chrome://extensions/'})
+    // WARN: This is generated at runtime by rewriteFirstRunVariable function.
+    if (__IS_FIRST_RUN__) {
+      chrome.tabs.create({url: 'welcome.html'})
+    }
   } else {
-    createChromeExtensionsTab(initialTab)
+    createChromeExtensionsTab(initialTab, 'chrome://extensions/')
   }
 })
