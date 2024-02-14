@@ -90,7 +90,7 @@ export default function webpackConfig(
       reloadPlugins(projectPath, devOptions),
       browserPlugins(projectPath, devOptions),
       errorPlugins(projectPath, devOptions),
-      boringPlugins(projectPath, devOptions),
+      boringPlugins(projectPath, devOptions)
     ],
     optimization: {
       // WARN: This can have side-effects.

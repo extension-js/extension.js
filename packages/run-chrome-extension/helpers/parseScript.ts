@@ -1,6 +1,7 @@
 import * as parser from '@babel/parser'
 import traverse from '@babel/traverse'
 import fs from 'fs'
+import messages from './messages'
 
 export default function parseScript(
   filePath: string,
@@ -44,8 +45,7 @@ export default function parseScript(
     })
   } catch (error) {
     // Continue execution the error
-    console.log(`Error parsing file: ${filePath}`)
-    console.error(error)
+    messages.parseFileError(error, filePath)
   }
 
   return found
