@@ -18,9 +18,11 @@ process.on('SIGTERM', () => {
 
 export default class ChromeExtensionLauncherPlugin {
   private readonly options: PluginOptions
+  private readonly isFirstRun: boolean = true
 
-  constructor(options: PluginOptions) {
+  constructor(options: PluginOptions, isFirstRun: boolean) {
     this.options = options
+    this.isFirstRun = isFirstRun
   }
 
   private launchChrome(compiler: webpack.Compiler) {
@@ -33,7 +35,7 @@ export default class ChromeExtensionLauncherPlugin {
       process.exit()
     }
 
-    const chromeConfig = browserConfig(this.options)
+    const chromeConfig = browserConfig(this.options, this.isFirstRun)
     const cmd = `${chromeLaunchPath} ${chromeConfig}`
 
     const child = exec(cmd, (error, _stdout, stderr) => {
@@ -52,8 +54,7 @@ export default class ChromeExtensionLauncherPlugin {
 
   apply(compiler: Compiler) {
     let chromeDidLaunch = false
-
-    compiler.hooks.emit.tapAsync(
+    compiler.hooks.afterEmit.tapAsync(
       'RunChromeExtensionPlugin (ChromeExtensionLauncher)',
       (compilation, done) => {
         if (compilation.errors.length > 0) {

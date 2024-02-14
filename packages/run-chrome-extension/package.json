@@ -48,6 +48,7 @@
     "chrome-location": "^1.2.1",
     "content-security-policy-parser": "^0.4.1",
     "loader-utils": "^3.2.1",
+    "progress": "^2.0.3",
     "schema-utils": "^4.2.0",
     "ws": "^8.16.0"
   },
