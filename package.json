@@ -4,7 +4,7 @@
     "clean": "turbo clean && rm -rf node_modules",
     "changeset": "changeset",
     "compile": "dotenv -- turbo run compile",
-    "extension-create": "dotenv -- ts-node ./programs/cli/dist/cli.js",
+    "extension": "dotenv -- ts-node ./programs/cli/dist/cli.js",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
     "lint": "eslint . --config .eslintrc.js",
     "release": "dotenv -- turbo run compile && changeset publish",
