@@ -5,6 +5,7 @@
 import path from 'path'
 import fs from 'fs-extra'
 import addProgressBar from '../../../helpers/addProgressBar'
+import masterPreferences from './masterPreferences'
 
 export default function createUserDataDir(dataDirPath?: string) {
   if (
@@ -17,17 +18,7 @@ export default function createUserDataDir(dataDirPath?: string) {
     }
   }
 
-  // PROFILE PREFS aka "Master Preferences" aka "User Preferences"
-  // * Official ref: https://www.chromium.org/administrators/configuring-other-preferences/
-  // * Extra ref: https://serverfault.com/a/635203
-  // * Source code: https://src.chromium.org/viewvc/chrome/trunk/src/chrome/common/pref_names.cc?view=markup
-  const userProfile = JSON.stringify({
-    extensions: {
-      ui: {
-        developer_mode: true
-      }
-    }
-  })
+  const userProfile = JSON.stringify(masterPreferences)
 
   addProgressBar('👤 Creating user data directory...', () => {
     const outputPath = path.resolve(__dirname, 'run-chrome-data-dir')

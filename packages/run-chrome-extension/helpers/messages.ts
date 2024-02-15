@@ -4,6 +4,19 @@ import {log, error} from 'console'
 import getDirectorySize from '../steps/calculateDirSize'
 import {ManifestBase} from '../manifest-types'
 
+interface Data {
+  id: string
+  manifest: ManifestBase
+  management: chrome.management.ExtensionInfo
+}
+
+function manifestFieldError(feature: string, htmlFilePath: string) {
+  const hintMessage = `Check the \`${feature}\` field in your manifest.json file and try again.`
+
+  const errorMessage = `[manifest.json] File path \`${htmlFilePath}\` not found. ${hintMessage}`
+  return errorMessage
+}
+
 function manifestNotFound() {
   log(`
 # Error! Can't find the project's manifest file.
@@ -11,12 +24,6 @@ function manifestNotFound() {
 Check your extension \`manifest.json\` file and ensure its path points to
 one of the options above, and try again.
   `)
-}
-
-interface Data {
-  id: string
-  manifest: ManifestBase
-  management: chrome.management.ExtensionInfo
 }
 
 function extensionData(
@@ -29,9 +36,10 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(
-      '[⛔️] chrome-runtime ►►► No data received from client. Ensure no hanging Chrome instance open and try again.'
-    )
+    error(`[⛔️] chrome-runtime ►►► No data received from client.
+
+Ensure your extension is enabled and that no hanging Chrome instance is open then try again.`)
+
     process.exit(1)
   }
 
@@ -83,7 +91,10 @@ function extensionData(
     log('')
     log('This is your first run using extension-create. Welcome! 🎉')
     log(
-      'To start developing your extension, terminate this process and run `yarn dev`.\n\nHappy hacking!'
+      'To start developing your extension, terminate this process and run `yarn dev`.'
+    )
+    log(
+      '\n\nRead more about extension-create capabilities at https://docs.extensioncreate.com'
     )
   }
 }
@@ -113,6 +124,7 @@ function parseFileError(error: any, filepath: string) {
 }
 
 export default {
+  manifestFieldError,
   manifestNotFound,
   extensionData,
   watchModeClosed,
