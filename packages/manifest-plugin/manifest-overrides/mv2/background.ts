@@ -1,5 +1,5 @@
 import {type Manifest} from '../../types'
-import {shouldExclude} from '../../helpers/utils'
+import utils from '../../helpers/utils'
 
 export default function background(manifest: Manifest, exclude: string[]) {
   return (
@@ -11,7 +11,7 @@ export default function background(manifest: Manifest, exclude: string[]) {
           scripts: [
             'background/scripts.js',
             ...manifest.background.scripts.filter((script: string) =>
-              shouldExclude(script, exclude)
+              utils.shouldExclude(script, exclude)
             )
           ]
         })
