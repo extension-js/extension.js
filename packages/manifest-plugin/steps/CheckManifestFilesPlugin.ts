@@ -137,7 +137,6 @@ class CheckManifestFilesPlugin {
     }
   }
 
-
   apply(compiler: Compiler) {
     compiler.hooks.compilation.tap(
       'ManifestPlugin (CheckManifestFilesPlugin)',
