@@ -6,6 +6,8 @@ import {IncludeList, type StepPluginInterface} from '../types'
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
 
+import * as fileUtils from '../helpers/utils'
+
 export default class AddToFileDependencies {
   public readonly manifestPath: string
   public readonly includeList: IncludeList
@@ -29,9 +31,10 @@ export default class AddToFileDependencies {
           (assets) => {
             if (compilation.errors?.length) return
 
-            const manifestSource = assets['manifest.json']
-              ? JSON.parse(assets['manifest.json'].source().toString())
-              : require(this.manifestPath)
+            const manifestSource = fileUtils.getManifestContent(
+              compilation,
+              this.manifestPath
+            )
 
             const allEntries = {
               ...manifestFields(this.manifestPath, manifestSource).html,
