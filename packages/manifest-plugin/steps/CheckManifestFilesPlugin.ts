@@ -2,6 +2,7 @@ import fs from 'fs'
 import webpack, {Compilation, type Compiler} from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 import errors from '../helpers/messages'
+import utils from '../helpers/utils'
 
 class CheckManifestFilesPlugin {
   private readonly manifestPath: string
@@ -14,7 +15,7 @@ class CheckManifestFilesPlugin {
     compilation: Compilation,
     WebpackError: typeof webpack.WebpackError
   ) {
-    const manifest = require(this.manifestPath)
+    const manifest = utils.getManifestContent(compilation, this.manifestPath)
     const htmlFields = manifestFields(this.manifestPath, manifest).html
 
     for (const [field, value] of Object.entries(htmlFields)) {
@@ -32,7 +33,7 @@ class CheckManifestFilesPlugin {
     compilation: Compilation,
     WebpackError: typeof webpack.WebpackError
   ) {
-    const manifest = require(this.manifestPath)
+    const manifest = utils.getManifestContent(compilation, this.manifestPath)
     const iconsFields = manifestFields(this.manifestPath, manifest).icons
 
     for (const [field, value] of Object.entries(iconsFields)) {
@@ -41,7 +42,7 @@ class CheckManifestFilesPlugin {
           const fieldError = errors.manifestFieldError(field, value)
 
           if (!fs.existsSync(value)) {
-            compilation.errors.push(new WebpackError(fieldError))
+            compilation.warnings.push(new WebpackError(fieldError))
           }
         }
       }
@@ -56,7 +57,7 @@ class CheckManifestFilesPlugin {
           )
 
           if (!fs.existsSync(icon.dark as string)) {
-            compilation.errors.push(new WebpackError(fieldError))
+            compilation.warnings.push(new WebpackError(fieldError))
           }
         }
 
@@ -67,7 +68,7 @@ class CheckManifestFilesPlugin {
           )
 
           if (!fs.existsSync(icon.dark as string)) {
-            compilation.errors.push(new WebpackError(fieldError))
+            compilation.warnings.push(new WebpackError(fieldError))
           }
         }
       }
@@ -78,7 +79,7 @@ class CheckManifestFilesPlugin {
 
           if (typeof icon === 'string') {
             if (!fs.existsSync(icon)) {
-              compilation.errors.push(new WebpackError(fieldError))
+              compilation.warnings.push(new WebpackError(fieldError))
             }
           }
         }
@@ -90,7 +91,7 @@ class CheckManifestFilesPlugin {
     compilation: Compilation,
     WebpackError: typeof webpack.WebpackError
   ) {
-    const manifest = require(this.manifestPath)
+    const manifest = utils.getManifestContent(compilation, this.manifestPath)
     const jsonFields = manifestFields(this.manifestPath, manifest).json
 
     for (const [field, jsonPath] of Object.entries(jsonFields)) {
@@ -98,7 +99,7 @@ class CheckManifestFilesPlugin {
         const fieldError = errors.manifestFieldError(field, jsonPath)
 
         if (!fs.existsSync(jsonPath)) {
-          compilation.errors.push(new WebpackError(fieldError))
+          compilation.warnings.push(new WebpackError(fieldError))
         }
       }
     }
@@ -108,7 +109,7 @@ class CheckManifestFilesPlugin {
     compilation: Compilation,
     WebpackError: typeof webpack.WebpackError
   ) {
-    const manifest = require(this.manifestPath)
+    const manifest = utils.getManifestContent(compilation, this.manifestPath)
     const scriptsFields = manifestFields(this.manifestPath, manifest).scripts
 
     for (const [field, value] of Object.entries(scriptsFields)) {
@@ -136,13 +137,18 @@ class CheckManifestFilesPlugin {
     }
   }
 
+
   apply(compiler: Compiler) {
     compiler.hooks.compilation.tap(
       'ManifestPlugin (CheckManifestFilesPlugin)',
       (compilation) => {
-        compilation.hooks.afterSeal.tapAsync(
-          'ManifestPlugin (CheckManifestFilesPlugin)',
-          (done) => {
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'ManifestPlugin (CheckManifestFilesPlugin)',
+            // Summarize the list of existing assets.
+            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COMPATIBILITY
+          },
+          () => {
             const WebpackError = webpack.WebpackError
             // Handle HTML errors.
             this.handleHtmlErrors(compilation, WebpackError)
@@ -155,8 +161,6 @@ class CheckManifestFilesPlugin {
 
             // Handle scripts errors.
             this.handleScriptsErrors(compilation, WebpackError)
-
-            done()
           }
         )
       }
