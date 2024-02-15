@@ -10,6 +10,7 @@ import patchHtml from '../lib/patchHtml'
 import {shouldExclude} from '../helpers/utils'
 import errors from '../helpers/errors'
 import getFilePath from '../helpers/getFilePath'
+import * as fileUtils from '../helpers/utils'
 
 export default class AddHtmlFileToCompilation {
   public readonly manifestPath: string
@@ -30,7 +31,7 @@ export default class AddHtmlFileToCompilation {
           {
             name: 'HtmlPlugin (AddHtmlFileToCompilation)',
             // Add additional assets to the compilation.
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+            stage: Compilation.PROCESS_ASSETS_STAGE_DERIVED
           },
           (assets) => {
             // Do not emit if manifest doesn't exist.
@@ -41,9 +42,10 @@ export default class AddHtmlFileToCompilation {
 
             if (compilation.errors.length > 0) return
 
-            const manifestSource = assets['manifest.json']
-              ? JSON.parse(assets['manifest.json'].source().toString())
-              : require(this.manifestPath)
+            const manifestSource = fileUtils.getManifestContent(
+              compilation,
+              this.manifestPath
+            )
 
             const htmlEntries: IncludeList = {
               ...manifestFields(this.manifestPath, manifestSource).html,

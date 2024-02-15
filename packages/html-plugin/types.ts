@@ -1,3 +1,5 @@
+import {ManifestBase} from './manifest-types'
+
 export interface HtmlPluginInterface {
   manifestPath: string
   include?: string[]
@@ -29,3 +31,5 @@ export type ResourceType =
   | 'staticSrc'
   | 'staticHref'
   | 'empty'
+
+export type Manifest = ManifestBase
