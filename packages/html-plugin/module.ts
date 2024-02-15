@@ -2,9 +2,10 @@ import path from 'path'
 import webpack from 'webpack'
 
 import {IncludeList, type HtmlPluginInterface} from './types'
-import AddHtmlFileToCompilation from './steps/AddHtmlFileToCompilation'
+import EmitHtmlFile from './steps/EmitHtmlFile'
 import AddAssetsToCompilation from './steps/AddAssetsToCompilation'
 import AddScriptsAndStylesToCompilation from './steps/AddScriptsAndStylesToCompilation'
+import UpdateHtmlFile from './steps/UpdateHtmlFile'
 import EnsureHMRForScripts from './steps/EnsureHMRForScripts'
 import AddToFileDependencies from './steps/AddToFileDependencies'
 import ThrowIfRecompileIsNeeded from './steps/ThrowIfRecompileIsNeeded'
@@ -65,9 +66,8 @@ export default class HtmlPlugin {
   public apply(compiler: webpack.Compiler): void {
     const includeList = this.parseIncludes(this.include || [])
 
-    // 1 - Gets the original HTML file, resolves files (via patchHtml),
-    // and add the HTML file to the compilation.
-    new AddHtmlFileToCompilation({
+    // 1 - Gets the original HTML file and add the HTML file to the compilation.
+    new EmitHtmlFile({
       manifestPath: this.manifestPath,
       includeList,
       exclude: this.exclude || []
@@ -89,21 +89,28 @@ export default class HtmlPlugin {
       exclude: this.exclude || []
     }).apply(compiler)
 
-    // 4 - Ensure scripts within the HTML file are HMR enabled.
+    // 4 - Updates the HTML file with the new assets and entrypoints.
+    new UpdateHtmlFile({
+      manifestPath: this.manifestPath,
+      includeList,
+      exclude: this.exclude || []
+    }).apply(compiler)
+
+    // 5 - Ensure scripts within the HTML file are HMR enabled.
     new EnsureHMRForScripts({
       manifestPath: this.manifestPath,
       includeList,
       exclude: this.exclude || []
     }).apply(compiler)
 
-    // 5 - Ensure HTML file is recompiled upon changes.
+    // 6 - Ensure HTML file is recompiled upon changes.
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
       includeList,
       exclude: this.exclude || []
     }).apply(compiler)
 
-    // 6 - Suggest user to recompile if any style
+    // 7 - Suggest user to recompile if any style
     // or script path within the HTML file has changed.
     // This is needed because when can't recompile
     // entrypoints at runtime.
