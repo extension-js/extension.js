@@ -37,9 +37,8 @@ export default function patchHtml(
           const absolutePath = path.resolve(htmlDir, filePath)
           const extname = file.getExtname(absolutePath)
           // public/ and script/ paths are excluded from the compilation.
-          const context = compilation.options.context || ''
           const isExcludedPath = file.shouldExclude(
-            path.resolve(context, filePath),
+            path.resolve(htmlDir, filePath),
             exclude
           )
           const excludedFilePath = path.join('/', path.normalize(filePath))
@@ -118,11 +117,16 @@ export default function patchHtml(
                   'assets',
                   path.basename(absolutePath, extname)
                 )
-                node = parse5utils.setAttribute(
-                  childNode,
-                  assetType === 'staticSrc' ? 'src' : 'href',
-                  getFilePath(filepath, '', true)
-                )
+                // There will be cases where users can add
+                // a # to a link href, in which case we would try to parse.
+                // This ensures we only parse the file path if its valid.
+                if (fs.existsSync(absolutePath)) {
+                  node = parse5utils.setAttribute(
+                    childNode,
+                    assetType === 'staticSrc' ? 'src' : 'href',
+                    getFilePath(filepath, '', true)
+                  )
+                }
               }
               break
             }

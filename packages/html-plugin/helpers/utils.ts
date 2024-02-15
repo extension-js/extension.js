@@ -1,8 +1,9 @@
 import path from 'path'
 import fs from 'fs'
-import {IncludeList} from '../types'
+import {Compilation} from 'webpack'
+import {IncludeList, Manifest} from '../types'
 
-export function isUsingReact(projectDir: string) {
+function isUsingReact(projectDir: string) {
   const packageJsonPath = path.join(projectDir, 'package.json')
 
   if (!fs.existsSync(packageJsonPath)) {
@@ -17,17 +18,13 @@ export function isUsingReact(projectDir: string) {
   return !!(reactAsDevDep || reactAsDep)
 }
 
-export function shouldExclude(path: string, ignorePatterns: string[]): boolean {
+function shouldExclude(path: string, ignorePatterns: string[]): boolean {
   return ignorePatterns.some((pattern) => {
     return path.includes(pattern)
   })
 }
 
-export function getResolvedPath(
-  context: string,
-  filePath: string,
-  basePath: string
-) {
+function getResolvedPath(context: string, filePath: string, basePath: string) {
   // Ensure the filePath is relative to the context
   const relativePath = path.relative(context, filePath)
 
@@ -39,7 +36,7 @@ export function getResolvedPath(
   return path.normalize(publicPath)
 }
 
-export function isFromIncludeList(
+function isFromIncludeList(
   includeList: IncludeList,
   filePath: string
 ): boolean {
@@ -48,7 +45,7 @@ export function isFromIncludeList(
   })
 }
 
-export function getIncludeEntry(
+function getIncludeEntry(
   includeList: IncludeList,
   filePath: string,
   extension: string
@@ -68,7 +65,7 @@ export function getIncludeEntry(
   return `/${entryname.replace(extname, '')}${extension}`
 }
 
-export function getExtname(filePath: string) {
+function getExtname(filePath: string) {
   const extname = path.extname(filePath)
 
   switch (extname) {
@@ -87,4 +84,29 @@ export function getExtname(filePath: string) {
     default:
       return '.js'
   }
+}
+
+function getManifestContent(
+  compilation: Compilation,
+  manifestPath: string
+): Manifest {
+  if (
+    compilation.getAsset('manifest.json') ||
+    compilation.assets['manifest.json']
+  ) {
+    const manifest = compilation.assets['manifest.json'].source().toString()
+    return JSON.parse(manifest || '{}')
+  }
+
+  return require(manifestPath)
+}
+
+export {
+  isUsingReact,
+  shouldExclude,
+  getResolvedPath,
+  isFromIncludeList,
+  getIncludeEntry,
+  getExtname,
+  getManifestContent
 }
