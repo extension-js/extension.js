@@ -1,5 +1,5 @@
 import path from 'path'
-import {shouldExclude} from './utils'
+import utils from './utils'
 
 export default function getFilename(
   feature: string,
@@ -9,7 +9,7 @@ export default function getFilename(
   const entryExt = path.extname(filepath)
 
   // Do not attempt to rewrite the asset path if it's in the exclude list.
-  const shouldSkipRewrite = shouldExclude(filepath, exclude)
+  const shouldSkipRewrite = utils.shouldExclude(filepath, exclude)
 
   const fileOutputpath = shouldSkipRewrite ? path.normalize(filepath) : feature
 
