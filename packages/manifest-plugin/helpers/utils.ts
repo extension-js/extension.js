@@ -11,7 +11,10 @@ function getManifestContent(
   compilation: Compilation,
   manifestPath: string
 ): Manifest {
-  if (compilation.getAsset('manifest.json') || compilation.assets['manifest.json']) {
+  if (
+    compilation.getAsset('manifest.json') ||
+    compilation.assets['manifest.json']
+  ) {
     const manifest = compilation.assets['manifest.json'].source().toString()
     return JSON.parse(manifest || '{}')
   }
