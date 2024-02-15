@@ -1,7 +1,6 @@
 import * as path from 'path'
 import * as chokidar from 'chokidar'
-import webpack from 'webpack'
-import {Compilation, Compiler, WebpackError} from 'webpack'
+import webpack, {Compiler} from 'webpack'
 
 class WatchPagesPlugin {
   private manifestPath: string
@@ -10,7 +9,7 @@ class WatchPagesPlugin {
     this.manifestPath = manifestPath
   }
 
-  private xxxxxx(compiler: webpack.Compiler) {
+  private recompileWebpack(compiler: webpack.Compiler) {
     const webpackCompiler = webpack({
       ...compiler.options,
       output: {
@@ -20,8 +19,8 @@ class WatchPagesPlugin {
       plugins: [
         ...compiler.options.plugins.filter((data) => {
           return (
-            (data as any)?.name !== 'BrowserPlugins' &&
-            (data as any)?.name !== 'ReloadPlugins'
+            (data as any)?.name !== 'browserPlugins' &&
+            (data as any)?.name !== 'reloadPlugins'
           )
         })
       ]
@@ -32,40 +31,76 @@ class WatchPagesPlugin {
         console.error(err)
         return
       }
-
-      console.log('-----------------------------------')
     })
   }
-  private warningMessage(folder: string) {
-    const typeOfAsset = folder === 'pages' ? 'HTML pages' : 'Script files'
-    const warningMessage =
-      `⚠️ extension-create ►►► Adding new ${typeOfAsset} after compilation ` +
-      'requires a server restart. Restart the program to see changes.'
 
-    console.warn(warningMessage)
+  private throwCompilationError(
+    folder: string,
+    filePath: string,
+    isAddition?: boolean
+  ) {
+    const addingOrRemoving = isAddition ? 'Adding' : 'Removing'
+    const addedOrRemoved = isAddition ? 'added' : 'removed'
+    const typeOfAsset = folder === 'pages' ? 'HTML pages' : 'script files'
+    const errorMessage =
+      `\n🧩 extension-create ✋✋✋ ${addingOrRemoving} ${typeOfAsset} ` +
+      `in the ${folder}/ folder after compilation requires a server restart.` +
+      `\n\n- File ${addedOrRemoved}: ${filePath}\n\nRestart the program to apply changes.`
+
+    // Adding a page or script doesn't make it loaded but at least don't break anything,
+    // so we add a warning instead of an error and user can keep working.
+    if (isAddition) {
+      console.warn(errorMessage)
+      return
+    }
+
+    // Removing a page or script breaks the program, so we add an error and
+    // user need to restart to see changes.
+    console.error(errorMessage)
+    process.exit(1)
   }
 
   public apply(compiler: Compiler): void {
     compiler.hooks.afterPlugins.tap('WatchPagesPlugin', () => {
       const projectPath: string = path.dirname(this.manifestPath)
       const pagesPath: string = path.join(projectPath, 'pages')
+      const scriptsPath: string = path.join(projectPath, 'scripts')
 
-      const watcher = chokidar.watch(pagesPath, {
-        ignoreInitial: true
+      const pagesWatcher = chokidar.watch(pagesPath, {ignoreInitial: true})
+      const scriptsWatcher = chokidar.watch(scriptsPath, {ignoreInitial: true})
+      const extensionsSupported = compiler.options.resolve?.extensions
+
+      pagesWatcher.on('add', (filePath: string) => {
+        const isHtml = filePath.endsWith('.html')
+        if (isHtml) {
+          this.throwCompilationError('pages', filePath, true)
+        }
       })
 
-      watcher.on('add', (filePath: string) => {
-        console.log('File added::::::', filePath)
-        this.warningMessage('pages')
+      pagesWatcher.on('unlink', (filePath: string) => {
+        const isHtml = filePath.endsWith('.html')
+        if (isHtml) {
+          this.throwCompilationError('pages', filePath)
+        }
       })
 
-      watcher.on('unlink', (filePath: string) => {
-        console.log('File removed::::::', filePath)
-        this.warningMessage('pages')
+      scriptsWatcher.on('add', (filePath: string) => {
+        const isScript = extensionsSupported?.includes(path.extname(filePath))
+        if (isScript) {
+          this.throwCompilationError('scripts', filePath, true)
+        }
+      })
+
+      scriptsWatcher.on('unlink', (filePath: string) => {
+        const isScript = extensionsSupported?.includes(path.extname(filePath))
+        if (isScript) {
+          this.throwCompilationError('scripts', filePath)
+        }
       })
 
       compiler.hooks.watchClose.tap('WatchPagesPlugin', () => {
-        watcher.close()
+        pagesWatcher.close()
+        scriptsWatcher.close()
       })
     })
   }
