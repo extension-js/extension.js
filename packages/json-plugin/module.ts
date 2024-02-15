@@ -2,7 +2,7 @@ import fs from 'fs'
 import webpack, {sources, Compilation} from 'webpack'
 import {type JsonPluginInterface} from './types'
 import manifestFields from 'browser-extension-manifest-fields'
-import {shouldExclude} from './helpers/utils'
+import utils from './helpers/utils'
 import errors from './helpers/errors'
 
 /**
@@ -54,7 +54,7 @@ export default class JsonPlugin {
                 // Do not output if file doesn't exist.
                 // If the user updates the path, this script runs again
                 // and output the file accordingly.
-                if (!shouldExclude(thisResource, this.exclude || [])) {
+                if (!utils.shouldExclude(thisResource, this.exclude || [])) {
                   if (!fs.existsSync(thisResource)) {
                     errors.entryNotFoundWarn(compilation, feature, thisResource)
                     return
@@ -97,7 +97,7 @@ export default class JsonPlugin {
               if (thisResource) {
                 const fileDependencies = new Set(compilation.fileDependencies)
 
-                if (!shouldExclude(thisResource, this.exclude || [])) {
+                if (!utils.shouldExclude(thisResource, this.exclude || [])) {
                   if (fs.existsSync(thisResource)) {
                     if (!fileDependencies.has(thisResource)) {
                       fileDependencies.add(thisResource)
