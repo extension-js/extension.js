@@ -4,6 +4,7 @@ import {patchV2CSP} from './patchCSP'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patchWebResources'
 import patchBackground from './patchBackground'
 import patchExternallyConnectable from './patchExternallyConnectable'
+import * as utils from '../../../helpers/utils'
 import {type RunChromeExtensionInterface} from '../../../types'
 
 class ApplyManifestDevDefaultsPlugin {
@@ -14,12 +15,7 @@ class ApplyManifestDevDefaultsPlugin {
   }
 
   private generateManifestPatches(compilation: webpack.Compilation) {
-    const manifest = compilation.getAsset('manifest.json')
-      ? JSON.parse(
-          (compilation.getAsset('manifest.json')?.source.source() as string) ||
-            '{}'
-        )
-      : require(this.manifestPath!)
+    const manifest = utils.getManifestContent(compilation, this.manifestPath!)
 
     const patchedManifest = {
       // Preserve all other user entries
