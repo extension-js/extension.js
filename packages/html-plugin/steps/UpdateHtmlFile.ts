@@ -12,7 +12,7 @@ import errors from '../helpers/errors'
 import getFilePath from '../helpers/getFilePath'
 import * as fileUtils from '../helpers/utils'
 
-export default class AddHtmlFileToCompilation {
+export default class UpdateHtmlFile {
   public readonly manifestPath: string
   public readonly includeList: IncludeList
   public readonly exclude: string[]
@@ -25,22 +25,16 @@ export default class AddHtmlFileToCompilation {
 
   public apply(compiler: webpack.Compiler): void {
     compiler.hooks.thisCompilation.tap(
-      'HtmlPlugin (AddHtmlFileToCompilation)',
+      'HtmlPlugin (UpdateHtmlFile)',
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'HtmlPlugin (AddHtmlFileToCompilation)',
-            // Add additional assets to the compilation.
+            name: 'HtmlPlugin (UpdateHtmlFile)',
+            // Summarize the list of existing assets.
             stage: Compilation.PROCESS_ASSETS_STAGE_DERIVED
           },
-          (assets) => {
-            // Do not emit if manifest doesn't exist.
-            if (!fs.existsSync(this.manifestPath)) {
-              errors.manifestNotFoundError(compilation)
-              return
-            }
-
-            if (compilation.errors.length > 0) return
+          () => {
+            if (compilation.errors.length > 0) return   
 
             const manifestSource = fileUtils.getManifestContent(
               compilation,
@@ -58,14 +52,6 @@ export default class AddHtmlFileToCompilation {
 
               // Resources from the manifest lib can come as undefined.
               if (html) {
-                // Do not output if file doesn't exist.
-                // If the user updates the path, this script runs again
-                // and output the file accordingly.
-                if (!fs.existsSync(html)) {
-                  errors.entryNotFoundWarn(compilation, feature, html)
-                  return
-                }
-
                 const updatedHtml = patchHtml(
                   compilation,
                   feature,
@@ -77,7 +63,7 @@ export default class AddHtmlFileToCompilation {
                 if (!shouldExclude(html, this.exclude)) {
                   const rawSource = new sources.RawSource(updatedHtml)
                   const filepath = getFilePath(feature, '.html')
-                  compilation.emitAsset(filepath, rawSource)
+                  compilation.updateAsset(filepath, rawSource)
                 }
               }
             }

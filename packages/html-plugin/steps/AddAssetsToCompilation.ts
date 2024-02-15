@@ -10,6 +10,7 @@ import manifestFields from 'browser-extension-manifest-fields'
 import errors from '../helpers/errors'
 import {shouldExclude} from '../helpers/utils'
 import * as fileUtils from '../helpers/utils'
+import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 
 export default class AddAssetsToCompilation {
   public readonly manifestPath: string
@@ -30,7 +31,7 @@ export default class AddAssetsToCompilation {
           {
             name: 'AddAssetsToCompilationPlugin',
             // Derive new assets from the existing assets.
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
           },
           () => {
             if (compilation.errors.length > 0) return
@@ -40,56 +41,64 @@ export default class AddAssetsToCompilation {
               this.manifestPath
             )
 
-            const htmlEntries = {
+            const manifestEntries = {
               ...manifestFields(this.manifestPath, manifestSource).html,
               ...this.includeList
             }
 
-            for (const field of Object.entries(htmlEntries)) {
+            for (const field of Object.entries(manifestEntries)) {
               const [feature, resource] = field
+              const featureName = feature + '.html'
 
               // Resources from the manifest lib can come as undefined.
               if (resource?.html) {
-                if (!fs.existsSync(resource?.html)) return
+                const compilationAsset = compilation.getAsset(featureName)
+                if (compilationAsset) {
+                  const htmlSource = compilationAsset.source.source().toString()
+                  const staticAssets = getAssetsFromHtml(
+                    resource?.html,
+                    htmlSource
+                  )?.static
 
-                const fileAssets = [...new Set(resource?.static || [])]
+                  const fileAssets = [...new Set(staticAssets)]
 
-                for (const asset of fileAssets) {
-                  console.log('0', asset)
-                  if (!shouldExclude(asset, this.exclude)) {
-                    // Handle missing static assets. This is not covered
-                    // by HandleCommonErrorsPlugin because static assets
-                    // are not entrypoints.
-                    if (!fs.existsSync(asset)) {
-                      // TODO: cezaraugusto. This is a sensible part
-                      // as we would need to skip warning every scenario
-                      // where the asset is not found. Let's live with it
-                      // for now. Here we are warning the user that the
-                      // asset in the HTML is not found, but we're ok
-                      // if the path is a hash, as it's a reference to
-                      // an in-page asset (like an ID reference for anchors).
-                      // if (!asset.startsWith('#')) {
-                      errors.fileNotFoundWarn(
-                        compilation,
-                        this.manifestPath,
-                        resource?.html,
-                        asset
-                      )
-                      return
-                      // }
-                    }
+                  for (const asset of fileAssets) {
+                    if (!shouldExclude(asset, this.exclude)) {
+                      // Handle missing static assets. This is not covered
+                      // by HandleCommonErrorsPlugin because static assets
+                      // are not entrypoints.
+                      console.log({asset})
+                      if (!fs.existsSync(asset)) {
+                        // TODO: cezaraugusto. This is a sensible part
+                        // as we would need to skip warning every scenario
+                        // where the asset is not found. Let's live with it
+                        // for now. Here we are warning the user that the
+                        // asset in the HTML is not found, but we're ok
+                        // if the path is a hash, as it's a reference to
+                        // an in-page asset (like an ID reference for anchors).
+                        if (!asset.startsWith('#')) {
+                          errors.fileNotFoundWarn(
+                            compilation,
+                            this.manifestPath,
+                            resource?.html,
+                            asset
+                          )
+                          return
+                        }
+                      }
 
-                    const source = fs.readFileSync(asset)
-                    const rawSource = new sources.RawSource(source)
+                      const source = fs.readFileSync(asset)
+                      const rawSource = new sources.RawSource(source)
 
-                    // Pages are handled by AddHtmlFileToCompilation.
-                    // Users can reference own pages/ (like an iframe),
-                    // but we don't want to emit them as assets again.
-                    // Assume that if the asset is not an HTML file, it should be emitted,
-                    // Either by manifest require, pages, or public folder.
-                    const filepath = path.join('assets', path.basename(asset))
-                    if (!compilation.getAsset(filepath)) {
-                      compilation.emitAsset(filepath, rawSource)
+                      // Pages are handled by AddHtmlFileToCompilation.
+                      // Users can reference own pages/ (like an iframe),
+                      // but we don't want to emit them as assets again.
+                      // Assume that if the asset is not an HTML file, it should be emitted,
+                      // Either by manifest require, pages, or public folder.
+                      const filepath = path.join('assets', path.basename(asset))
+                      if (!compilation.getAsset(filepath)) {
+                        compilation.emitAsset(filepath, rawSource)
+                      }
                     }
                   }
                 }
