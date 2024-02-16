@@ -1,15 +1,10 @@
 import traverse from '@babel/traverse'
 import generate from '@babel/generator'
-import template from '@babel/template'
 
 import {has} from './checkApiExists'
 import {resolvePropertyArg, resolveStringArg} from './parser'
 
-export default function transformSource(
-  ast: any,
-  source: string,
-  resolverRelativePath?: string
-) {
+export default function transformSource(ast: any, source: string) {
   traverse(ast as any, {
     CallExpression(path: any) {
       const callee = path.node.callee
@@ -18,18 +13,14 @@ export default function transformSource(
       if (
         has(callee, 'chrome.action.setIcon') ||
         has(callee, 'chrome.browserAction.setIcon') ||
-        has(callee, 'chrome.pageAction.setIcon')
-      ) {
-        resolvePropertyArg(path, 'r.resolvePath')
-      }
-
-      if (
+        has(callee, 'chrome.pageAction.setIcon') ||
+        has(callee, 'chrome.declarativeContent.SetIcon') ||
         has(callee, 'chrome.action.setPopup') ||
         has(callee, 'chrome.browserAction.setPopup') ||
         has(callee, 'chrome.pageAction.setPopup') ||
         has(callee, 'chrome.scriptBadge.setPopup')
       ) {
-        resolvePropertyArg(path, 'r.resolvePopup')
+        resolvePropertyArg(path, 'r.solve')
       }
 
       if (has(callee, 'chrome.devtools.panels.create')) {
@@ -37,7 +28,7 @@ export default function transformSource(
       }
 
       if (has(callee, 'chrome.downloads.download')) {
-        resolvePropertyArg(path, 'r.resolveUrl')
+        resolvePropertyArg(path, 'r.solve')
       }
 
       if (has(callee, 'chrome.runtime.getURL')) {
@@ -49,18 +40,18 @@ export default function transformSource(
         has(callee, 'chrome.scripting.removeCSS') ||
         has(callee, 'chrome.scripting.executeScript')
       ) {
-        resolvePropertyArg(path, 'r.resolveFiles')
+        resolvePropertyArg(path, 'r.solve')
       }
 
       if (
         has(callee, 'chrome.scripting.registerContentScripts') ||
         has(callee, 'chrome.declarativeContent.RequestContentScript')
       ) {
-        resolvePropertyArg(path, 'r.resolveJs')
+        resolvePropertyArg(path, 'r.solve')
       }
 
       if (has(callee, 'chrome.declarativeContent.RequestContentScript')) {
-        resolvePropertyArg(path, 'r.resolveCss')
+        resolvePropertyArg(path, 'r.solve')
       }
 
       if (
@@ -70,16 +61,16 @@ export default function transformSource(
         has(callee, 'chrome.windows.create')
       ) {
         if (args.length > 0) {
-          resolvePropertyArg(path, 'r.resolveUrl')
+          resolvePropertyArg(path, 'r.solve')
         }
       }
 
       if (has(callee, 'chrome.sidePanel.setOptions')) {
-        resolvePropertyArg(path, 'r.resolvePath')
+        resolvePropertyArg(path, 'r.solve')
       }
 
       if (has(callee, 'chrome.notifications.create')) {
-        resolvePropertyArg(path, 'r.resolveIconUrl')
+        resolvePropertyArg(path, 'r.solve')
       }
     }
   })
