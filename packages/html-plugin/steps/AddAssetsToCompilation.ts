@@ -67,7 +67,6 @@ export default class AddAssetsToCompilation {
                       // Handle missing static assets. This is not covered
                       // by HandleCommonErrorsPlugin because static assets
                       // are not entrypoints.
-                      console.log({asset})
                       if (!fs.existsSync(asset)) {
                         // TODO: cezaraugusto. This is a sensible part
                         // as we would need to skip warning every scenario

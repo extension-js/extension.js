@@ -34,7 +34,7 @@ export default class UpdateHtmlFile {
             stage: Compilation.PROCESS_ASSETS_STAGE_DERIVED
           },
           () => {
-            if (compilation.errors.length > 0) return   
+            if (compilation.errors.length > 0) return
 
             const manifestSource = fileUtils.getManifestContent(
               compilation,
