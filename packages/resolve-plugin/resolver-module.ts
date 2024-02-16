@@ -28,6 +28,7 @@ function resolverError(filePath?: string) {
   }
 
   console.error(messages.resolverStaticError(filePath))
+
   return filePath
 }
 
@@ -38,7 +39,6 @@ function resolverError(filePath?: string) {
 const includeList = {data: '__RESOLVER_MODULE_FILE_LIST__'}
 
 function resolver(filePath?: string): string {
-  console.log('dark', filePath)
   if (!filePath) {
     return notFoundError()
   }
@@ -50,15 +50,10 @@ function resolver(filePath?: string): string {
   if (filePath?.startsWith('chrome-extension://')) {
     const extensionUrl = chrome.runtime.getURL('')
 
-    console.log({
-      extensionUrl,
-      filePath: filePath.replace(extensionUrl, '')
-    })
-
     if (filePath.startsWith(extensionUrl)) {
       const urlPath = filePath.replace(extensionUrl, '')
 
-      return resolver(urlPath)
+      return chrome.runtime.getURL(resolver(urlPath))
     }
 
     return filePath
@@ -70,20 +65,15 @@ function resolver(filePath?: string): string {
   const resolvedValue = Object.entries(includeList.data).find(
     ([key, value]) => {
       const filepathNormalized = pathNormalize(filePath)
-      console.log('123123adasdasdas222222222', {
-        value,
-        filepathNormalized,
-        key
-      })
+
       if (value === filepathNormalized) {
         return key
       }
     }
   )
 
-  console.log('public path exists::::::', resolvedValue)
-  if (resolvedValue) {
-    return resolvedValue[0]
+  if (resolvedValue && resolvedValue.length) {
+    return chrome.runtime.getURL(resolvedValue[0])
   }
 
   resolverError(filePath)
@@ -93,7 +83,7 @@ function resolver(filePath?: string): string {
 type SolveType = Record<string, any> | Record<string, any>[] | string
 
 function solve(apiArgument?: SolveType) {
-  // - chrome.devtools.panels.create(..., stringPath, stringPath)
+  // - chrome.devtools.panels.create(..., stringPath, stringPath, ...)
   // - chrome.runtime.getURL(stringPath)
   if (typeof apiArgument === 'string') {
     return resolver(apiArgument)
@@ -101,38 +91,52 @@ function solve(apiArgument?: SolveType) {
 
   const resolveProperty = (obj: Record<string, any>) => ({
     ...obj,
-    // - chrome.action.setIcon
-    // - chrome.browserAction.setIcon
-    // - chrome.pageAction.setIcon
-    // - chrome.sidePanel.setOptions
+    // chrome.action.setIcon({..., path: string})
+    // chrome.browserAction.setIcon({..., path: string})
+    // chrome.pageAction.setIcon({..., path: string})
+    // chrome.sidePanel.setOptions({..., path: string})
+    // chrome.declarativeContent.SetIcon({..., path: string})
+    // - https://developer.chrome.com/docs/extensions/reference/api/declarativeContent#type-SetIcon
     ...(obj?.path && {path: resolver(obj.path)}),
-    // - chrome.action.setPopup(objWithPopup)
-    // - chrome.browserAction.setPopup(objWithPopup)
-    // - chrome.pageAction.setPopup(objWithPopup)
-    // - chrome.scriptBadge.setPopup(objWithPopup)
+
+    // chrome.action.setPopup({..., popup: string})
+    // chrome.browserAction.setPopup({..., popup: string})
+    // chrome.pageAction.setPopup({..., popup: string})
+    // chrome.scriptBadge.setPopup({..., popup: string})
     ...(obj?.popup && {popup: resolver(obj.popup)}),
-    // - chrome.downloads.download(objWithUrl)
-    // - chrome.tabs.create(objWithUrl)
-    // - chrome.tabs.executeScript(objWithUrl)
-    // - chrome.tabs.insertCSS(objWithUrl)
-    // - chrome.windows.create(objWithUrl)
+
+    // chrome.downloads.download({..., url: string})
+    // chrome.tabs.create({..., url: string})
+    // chrome.tabs.executeScript({..., url: string})
+    // chrome.tabs.insertCSS({..., url: string})
+    // chrome.windows.create({..., url: string})
     ...(obj?.url && {url: resolver(obj.url)}),
+
     // chrome.notifications.create
+    // https://developer.chrome.com/docs/extensions/reference/api/notifications#property-NotificationOptions-iconUrl
     ...(obj?.iconUrl && {iconUrl: resolver(obj.iconUrl)}),
-    // - chrome.scripting.insertCSS(objWithFiles)
-    // - chrome.scripting.removeCSS(objWithFiles)
-    // - chrome.scripting.executeScript(objWithFiles)
-    // - chrome.scripting.registerContentScript(objWithFiles)
-    // - chrome.scripting.unregisterContentScript(objWithFiles)
+
+    // chrome.scripting.insertCSS(..., files: string[])
+    // chrome.scripting.removeCSS(..., files: string[])
+    // chrome.scripting.executeScript(..., files: string[])
+    // chrome.scripting.registerContentScript(..., files: string[])
+    // chrome.scripting.unregisterContentScript(..., files: string[])
     ...(obj?.files && obj?.files.map((file: string) => resolver(file))),
-    // chrome.scripting.registerContentScripts
-    // chrome.declarativeContent.RequestContentScripts
+
+    // chrome.declarativeContent.RequestContentScript (css array)
+    // - https://developer.chrome.com/docs/extensions/reference/api/declarativeContent#property-RequestContentScript-js
+    // chrome.scripting.registerContentScripts (css array)
+    // https://developer.chrome.com/docs/extensions/reference/api/scripting#property-RegisteredContentScript-js
     ...(obj?.js && {
-      css: Array.isArray(obj?.js)
+      js: Array.isArray(obj?.js)
         ? obj?.js.map((file: string) => resolver(file))
         : obj?.js
     }),
-    // chrome.declarativeContent.RequestContentScripts
+
+    // chrome.declarativeContent.RequestContentScript (css array)
+    // - https://developer.chrome.com/docs/extensions/reference/api/declarativeContent#property-RequestContentScript-css
+    // chrome.scripting.registerContentScripts (css array)
+    // https://developer.chrome.com/docs/extensions/reference/api/scripting#property-RegisteredContentScript-css
     ...(obj?.css && {
       css: Array.isArray(obj?.css)
         ? obj?.css.map((file: string) => resolver(file))
@@ -149,178 +153,6 @@ function solve(apiArgument?: SolveType) {
   }
 }
 
-// - chrome.action.setIcon
-// - chrome.browserAction.setIcon
-// - chrome.pageAction.setIcon
-// - chrome.sidePanel.setOptions
-function resolvePath(objWithPath?: Record<string, any>) {
-  console.log('handle path path  ►►►', {objWithPath})
-  if (!objWithPath?.path) {
-    return objWithPath
-  }
-  console.log('handle path path (resolved) ►►►', {
-    objWithPath: resolver(objWithPath?.path)
-  })
-  return {
-    ...objWithPath,
-    ...(objWithPath?.path && {path: resolver(objWithPath.path)})
-  }
-}
-
-// - chrome.action.setPopup(objWithPopup)
-// - chrome.browserAction.setPopup(objWithPopup)
-// - chrome.pageAction.setPopup(objWithPopup)
-// - chrome.scriptBadge.setPopup(objWithPopup)
-function resolvePopup(objWithPopup?: Record<string, any>) {
-  console.log('handle popup  ►►►', {objWithPopup})
-  if (!objWithPopup?.popup) {
-    return objWithPopup
-  }
-
-  console.log('handle popup (resolved) ►►►', {
-    objWithPopup: resolver(objWithPopup?.popup)
-  })
-  return {
-    ...objWithPopup,
-    ...(objWithPopup?.popup && {popup: resolver(objWithPopup.popup)})
-  }
-}
-
-// - chrome.scripting.insertCSS(objWithFiles)
-// - chrome.scripting.removeCSS(objWithFiles)
-// - chrome.scripting.executeScript(objWithFiles)
-// - chrome.scripting.registerContentScript(objWithFiles)
-// - chrome.scripting.unregisterContentScript(objWithFiles)
-function resolveFiles(objWithFiles?: Record<string, any>) {
-  console.log('handle files path  ►►►', objWithFiles)
-  if (!objWithFiles?.files) {
-    return objWithFiles
-  }
-
-  const resolvedFiles = objWithFiles?.files.map((file: string) =>
-    resolver(file)
-  )
-
-  console.log('handle files path (resolved)  ►►►', resolvedFiles)
-  return {
-    ...objWithFiles,
-    ...(objWithFiles?.files && {files: resolvedFiles})
-  }
-}
-
-// - chrome.downloads.download(objWithUrl)
-// - chrome.tabs.create(objWithUrl)
-// - chrome.tabs.executeScript(objWithUrl)
-// - chrome.tabs.insertCSS(objWithUrl)
-// - chrome.windows.create(objWithUrl)
-function resolveUrl(objWithUrl?: Record<string, any>) {
-  console.log('handle url path  ►►►', objWithUrl)
-  if (!objWithUrl?.url) {
-    return objWithUrl
-  }
-
-  console.log('handle url path (resolved)  ►►►', resolver(objWithUrl?.url))
-  return {
-    ...objWithUrl,
-    ...(objWithUrl?.url && {url: resolver(objWithUrl.url)})
-  }
-}
-
-// - chrome.devtools.panels.create(..., stringPath, stringPath)
-// - chrome.runtime.getURL(stringPath)
-function resolveString(stringPath?: string) {
-  console.log('handle string path  ►►►', stringPath)
-  console.log('handle string path (resolved) ►►►', resolver(stringPath))
-
-  return resolver(stringPath)
-}
-
-// chrome.notifications.create
-function resolveIconUrl(objWithIconUrl?: Record<string, any>) {
-  if (!objWithIconUrl?.iconUrl) {
-    return objWithIconUrl
-  }
-
-  console.log('handle iconUrl path  ►►►', objWithIconUrl)
-  console.log(
-    'handle iconUrl path (resolved) ►►►',
-    resolver(objWithIconUrl?.iconUrl)
-  )
-  return {
-    ...objWithIconUrl,
-    ...(objWithIconUrl?.iconUrl && {iconUrl: resolver(objWithIconUrl.iconUrl)})
-  }
-}
-
-// chrome.scripting.registerContentScripts
-// chrome.declarativeContent.RequestContentScripts
-function resolveJs(objWithFiles?: Record<string, any> | Record<string, any>[]) {
-  if (Array.isArray(objWithFiles)) {
-    return objWithFiles.map((obj: Record<string, any>) => {
-      console.log('handle js path  ►►►', obj)
-      if (obj?.js.length === 0) {
-        return obj
-      }
-
-      const resolvedFiles = obj.js.map((file: string) => resolver(file))
-      return {
-        ...obj,
-        ...(obj.js && {js: resolvedFiles})
-      }
-    })
-  }
-
-  console.log('handle js path  ►►►', objWithFiles)
-  if (objWithFiles?.js.length === 0) {
-    return objWithFiles
-  }
-
-  const resolvedFiles = objWithFiles?.js.map((file: string) => resolver(file))
-
-  return {
-    ...objWithFiles,
-    ...(objWithFiles?.js && {js: resolvedFiles})
-  }
-}
-
-// chrome.declarativeContent.RequestContentScripts
-function resolveCss(objWithFiles?: Record<string, any>) {
-  if (Array.isArray(objWithFiles)) {
-    return objWithFiles.map((obj: Record<string, any>) => {
-      console.log('handle css path  ►►►', obj)
-      if (obj?.css.length === 0) {
-        return obj
-      }
-
-      const resolvedFiles = obj.css.map((file: string) => resolver(file))
-      return {
-        ...obj,
-        ...(obj.css && {css: resolvedFiles})
-      }
-    })
-  }
-
-  console.log('handle css path  ►►►', objWithFiles)
-  if (objWithFiles?.css.length === 0) {
-    return objWithFiles
-  }
-
-  const resolvedFiles = objWithFiles?.css.map((file: string) => resolver(file))
-
-  return {
-    ...objWithFiles,
-    ...(objWithFiles?.css && {css: resolvedFiles})
-  }
-}
-
 export default {
-  solve,
-  resolvePath,
-  resolvePopup,
-  resolveFiles,
-  resolveUrl,
-  resolveString,
-  resolveIconUrl,
-  resolveJs,
-  resolveCss
+  solve
 }
