@@ -43,13 +43,19 @@ describe('manifestOverries', () => {
       content_scripts: [
         {
           matches: ['<all_urls>'],
-          js: ['content_scripts/script-0.js', 'content_scripts/script-0.js'],
-          css: ['content_scripts/script-0.css', 'content_scripts/script-0.css']
+          js: ['content_scripts/content-0.js', 'content_scripts/content-0.js'],
+          css: [
+            'content_scripts/content-0.css',
+            'content_scripts/content-0.css'
+          ]
         },
         {
           matches: ['<all_urls>'],
-          js: ['content_scripts/script-1.js', 'content_scripts/script-1.js'],
-          css: ['content_scripts/script-1.css', 'content_scripts/script-1.css']
+          js: ['content_scripts/content-1.js', 'content_scripts/content-1.js'],
+          css: [
+            'content_scripts/content-1.css',
+            'content_scripts/content-1.css'
+          ]
         }
       ],
       declarative_net_request: {
