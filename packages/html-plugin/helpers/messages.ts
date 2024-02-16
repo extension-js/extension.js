@@ -80,13 +80,9 @@ export function cssError(
   htmlFilePath: string,
   inputFilepath: string
 ) {
-  const htmlPathRelative = path.relative(manifestPath, htmlFilePath)
-  const filePathRelative = path.relative(
-    path.dirname(htmlFilePath),
-    inputFilepath
-  )
+  const pathRelative = path.relative(manifestPath, htmlFilePath)
   const hintMessage = `Check your <link> tags in \`${htmlFilePath}\`.`
-  const errorMessage = `[${htmlPathRelative}] Can\'t resolve path \`${filePathRelative}\`.\n\n- \`${inputFilepath}\` (not found)\n\n${hintMessage}.`
+  const errorMessage = `[${pathRelative}] File not found\n- \`${inputFilepath}\` (not found)\n\n${hintMessage}`
   return errorMessage
 }
 
