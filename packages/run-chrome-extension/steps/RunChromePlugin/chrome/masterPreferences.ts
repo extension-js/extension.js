@@ -50,22 +50,6 @@ const masterPreferences = {
     // Boolean. Do not show first run bubble, even if it would otherwise be shown.
     suppress_first_run_bubble: true,
 
-    // Boolean. Prevent creation of all shortcuts to chrome, including the
-    // desktop, quick launch, taskbar and the start menu shortcuts.
-    do_not_create_any_shortcuts: true,
-
-    // Boolean. Prevent creation of the Desktop shortcut on install (and later on
-    // Active Setup for each user on a system-level install).
-    do_not_create_desktop_shortcut: true,
-
-    // Boolean. Prevent creation of the Quick Launch shortcut on install (and later
-    // on Active Setup for each user on a system-level install).
-    do_not_create_quick_launch_shortcut: true,
-
-    // Boolean. Prevent creation of the Taskbar (since Windows 7) shortcut on
-    // install (and later on Active Setup for each user on a system-level install).
-    do_not_create_taskbar_shortcut: true,
-
     // Boolean. Do not launch Chrome after first install. Cmd line override present.
     // "do_not_launch_chrome": true,
 
@@ -120,43 +104,6 @@ const masterPreferences = {
       developer_mode: true
     }
   },
-  // As part of the master preferences an optional section indicates the tabs
-  // to open during first run. An example is the following:
-  first_run_tabs: ['http://google.com/f1', 'https://google.com/f2'],
-
-  // This is the URL of the page to load when opening new tabs.
-  homepage: 'http://www.google.com',
-
-  // A boolean specifying whether the New Tab page is the home page or not.
-  homepage_is_newtabpage: true,
-
-  // Boolean that specifies whether to import bookmarks from the default browser
-  // on first run.
-  import_bookmarks: false,
-
-  // Boolean that specifies whether to import the browsing history from the
-  // default browser on first run.
-  import_history: false,
-
-  // Boolean that specifies whether to import the homepage from the default
-  // browser on first run.
-  import_home_page: false,
-
-  // Boolean that specifies whether to import the search engine from the default
-  // browser on first run.
-  import_search_engine: false,
-
-  // Boolean that specifies whether to import the saved passwords from the default
-  // browser on first run.
-  import_saved_passwords: false,
-  incognito: {
-    /* Might be useful for highly-secure workstations. */
-    // Enum that specifies whether Incognito mode is:
-    // 0 - Enabled. Default behaviour. Default mode is available on demand.
-    // 1 - Disabled. Used cannot browse pages in Incognito mode.
-    // 2 - Forced. All pages/sessions are forced into Incognito.
-    mode_availability: 0
-  },
   plugins: {
     plugins_list: [
       {
@@ -196,11 +143,7 @@ const masterPreferences = {
     // 3: unused, previously indicated the user wants to restore a saved session.
     // 4: restore the URLs defined in kURLsToRestoreOnStartup.
     // 5: open the New Tab Page on startup.
-    restore_on_startup: 4,
-
-    // The URLs to restore on startup or when the home button is pressed. The URLs
-    // are only restored on startup if kRestoreOnStartup is 4.
-    startup_urls: ['http://www.google.com']
+    restore_on_startup: 4
   },
   sync: {
     suppress_start: true
