@@ -21,6 +21,11 @@ async function onStartup() {
   document.getElementById('closeTab').addEventListener('click', () => {
     window.close()
   })
+
+  const learnMore = document.getElementById('learnMore')
+  learnMore.addEventListener('click', () => {
+    chrome.tabs.create({url: 'https://docs.extensioncreate.com/'})
+  })
 }
 
 onStartup()
