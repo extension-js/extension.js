@@ -1,7 +1,9 @@
 import path from 'path'
 import fs from 'fs'
+import isFirstRun from '../RunChromePlugin/chrome/isFirstRun'
 
-export default function rewriteFirstRunVariable(isFirstRun: boolean) {
+export default function rewriteFirstRunVariable() {
+  const firstRun = isFirstRun()
   const filePath = path.resolve(
     __dirname,
     './extensions/manager-extension/initialTab.js'
@@ -14,7 +16,7 @@ export default function rewriteFirstRunVariable(isFirstRun: boolean) {
     }
     const updatedData = data.replace(
       /__IS_FIRST_RUN__ = false/g,
-      `__IS_FIRST_RUN__ = ${isFirstRun}`.toString()
+      `__IS_FIRST_RUN__ = ${firstRun}`.toString()
     )
 
     fs.writeFile(filePath, updatedData, 'utf8', (err) => {

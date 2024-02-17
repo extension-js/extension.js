@@ -1,5 +1,6 @@
 import path from 'path'
 import {type RunChromeExtensionInterface} from '../../../types'
+import createUserDataDir from '../../../steps/RunChromePlugin/chrome/createUserDataDir'
 
 const managerExtension = path.resolve(
   __dirname,
@@ -13,8 +14,7 @@ const reloadExtension = path.resolve(
 )
 
 export default function browserConfig(
-  configOptions: RunChromeExtensionInterface,
-  isFirstRun: boolean
+  configOptions: RunChromeExtensionInterface
 ) {
   const userBrowserExtension = configOptions.extensionPath?.replace(
     'manifest.json',
@@ -31,7 +31,7 @@ export default function browserConfig(
   // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
   return [
     `--load-extension=${extensionsToLoad.join()}`,
-    `--user-data-dir=${configOptions.userDataDir}`,
+    `--user-data-dir=${createUserDataDir(configOptions.userDataDir)}`,
     // Disable Chrome's native first run experience.
     '--no-first-run',
     // Flags to pass to Chrome
