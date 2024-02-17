@@ -3,11 +3,9 @@ import {type RunChromeExtensionInterface} from './types'
 import CreateWebSocketServer from './steps/CreateWebSocketServer'
 import SetupReloadStrategy from './steps/SetupReloadStrategy'
 import RunChromePlugin from './steps/RunChromePlugin'
-import createUserDataDir from './steps/RunChromePlugin/chrome/createUserDataDir'
 
 export default class RunChromeExtension {
   private readonly options: RunChromeExtensionInterface
-  private readonly isFirstRun: boolean = true
 
   constructor(options: RunChromeExtensionInterface) {
     this.options = {
@@ -15,13 +13,11 @@ export default class RunChromeExtension {
       extensionPath: options.extensionPath,
       port: options.port || 8000,
       browserFlags: options.browserFlags || [],
-      userDataDir: createUserDataDir(options.userDataDir).userDataDir,
+      userDataDir: options.userDataDir,
       startingUrl: options.startingUrl,
       autoReload: options.autoReload != null ? options.autoReload : true,
       stats: options.stats != null ? options.stats : true
     }
-
-    this.isFirstRun = createUserDataDir(options.userDataDir).isFirstRun
   }
 
   /**
@@ -57,7 +53,7 @@ export default class RunChromeExtension {
     // which is a browser extension that is injected into the browser called
     // reload-extension. This extension is responsible for sending messages
     // to the user extension.
-    new CreateWebSocketServer(this.options, this.isFirstRun).apply(compiler)
+    new CreateWebSocketServer(this.options).apply(compiler)
 
     // 2 - Patches the manifest file, modifies the background script to
     // accept both extension runtime updates (service_worker, manifest.json)
@@ -70,6 +66,6 @@ export default class RunChromeExtension {
     // requests to the user extension. The manager extension is responsible
     // for everything else, for now opening the chrome://extension page on startup.
     // It starts a new browser instance with the user extension loaded.
-    new RunChromePlugin(this.options, this.isFirstRun).apply(compiler)
+    new RunChromePlugin(this.options).apply(compiler)
   }
 }

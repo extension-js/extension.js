@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
 import {type Compiler} from 'webpack'
-import type webpack from 'webpack'
 import {exec} from 'child_process'
 // @ts-ignore
 import chrome from 'chrome-location'
@@ -18,14 +17,12 @@ process.on('SIGTERM', () => {
 
 export default class ChromeExtensionLauncherPlugin {
   private readonly options: PluginOptions
-  private readonly isFirstRun: boolean = true
 
-  constructor(options: PluginOptions, isFirstRun: boolean) {
+  constructor(options: PluginOptions) {
     this.options = options
-    this.isFirstRun = isFirstRun
   }
 
-  private launchChrome(compiler: webpack.Compiler) {
+  private launchChrome() {
     const chromeLaunchPath = this.options.startingUrl
       ? `"${chrome}" "${this.options.startingUrl}"`
       : `"${chrome}"`
@@ -35,7 +32,7 @@ export default class ChromeExtensionLauncherPlugin {
       process.exit()
     }
 
-    const chromeConfig = browserConfig(this.options, this.isFirstRun)
+    const chromeConfig = browserConfig(this.options)
     const cmd = `${chromeLaunchPath} ${chromeConfig}`
 
     const child = exec(cmd, (error, _stdout, stderr) => {
@@ -66,7 +63,7 @@ export default class ChromeExtensionLauncherPlugin {
           done()
           return
         }
-        this.launchChrome(compiler)
+        this.launchChrome()
         chromeDidLaunch = true
         done()
       }
