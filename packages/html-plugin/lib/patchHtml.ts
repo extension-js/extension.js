@@ -5,7 +5,7 @@ import {Compilation} from 'webpack'
 import parse5utils from 'parse5-utils'
 
 import parseHtml from './parseHtml'
-import * as file from '../helpers/utils'
+import * as fileUtils from '../helpers/utils'
 import getFilePath from '../helpers/getFilePath'
 import {IncludeList} from '../types'
 
@@ -35,15 +35,15 @@ export default function patchHtml(
         parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
           const htmlDir = path.dirname(htmlEntry)
           const absolutePath = path.resolve(htmlDir, filePath)
-          const extname = file.getExtname(absolutePath)
+          const extname = fileUtils.getExtname(absolutePath)
           // public/ and script/ paths are excluded from the compilation.
-          const isExcludedPath = file.shouldExclude(
+          const isExcludedPath = fileUtils.shouldExclude(
             path.resolve(htmlDir, filePath),
             exclude
           )
           const excludedFilePath = path.join('/', path.normalize(filePath))
           // Check if the file is in the compilation entry map.
-          const includeListEntry = file.isFromIncludeList(
+          const includeListEntry = fileUtils.isFromIncludeList(
             includeList,
             absolutePath
           )
@@ -101,7 +101,7 @@ export default function patchHtml(
                 )
                 // Path is in the include list. Resolve to entry name.
               } else if (includeListEntry) {
-                const filepath = file.getIncludeEntry(
+                const filepath = fileUtils.getIncludeEntry(
                   includeList,
                   absolutePath,
                   extname

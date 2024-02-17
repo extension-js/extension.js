@@ -68,21 +68,31 @@ export default class AddAssetsToCompilation {
                       // by HandleCommonErrorsPlugin because static assets
                       // are not entrypoints.
                       if (!fs.existsSync(asset)) {
-                        // TODO: cezaraugusto. This is a sensible part
-                        // as we would need to skip warning every scenario
-                        // where the asset is not found. Let's live with it
-                        // for now. Here we are warning the user that the
-                        // asset in the HTML is not found, but we're ok
-                        // if the path is a hash, as it's a reference to
-                        // an in-page asset (like an ID reference for anchors).
-                        if (!asset.startsWith('#')) {
-                          errors.fileNotFoundWarn(
-                            compilation,
-                            this.manifestPath,
-                            resource?.html,
-                            asset
-                          )
-                          return
+                        const includeListEntry = fileUtils.isFromIncludeList(
+                          this.includeList,
+                          asset
+                        )
+
+                        // If this asset is an asset emitted by some other plugin,
+                        // we don't want to emit it again. This is the case for
+                        // HTML or script assets .
+                        if (!includeListEntry) {
+                          // TODO: cezaraugusto. This is a sensible part
+                          // as we would need to skip warning every scenario
+                          // where the asset is not found. Let's live with it
+                          // for now. Here we are warning the user that the
+                          // asset in the HTML is not found, but we're ok
+                          // if the path is a hash, as it's a reference to
+                          // an in-page asset (like an ID reference for anchors).
+                          if (!asset.startsWith('#')) {
+                            errors.fileNotFoundWarn(
+                              compilation,
+                              this.manifestPath,
+                              resource?.html,
+                              asset
+                            )
+                            return
+                          }
                         }
                       }
 
