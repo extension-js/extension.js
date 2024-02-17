@@ -8,11 +8,9 @@ import rewriteFirstRunVariable from './rewriteFirstRunVariable'
 
 export default class CreateWebSocketServer {
   private readonly options: RunChromeExtensionInterface
-  private readonly isFirstRun: boolean = true
 
-  constructor(options: RunChromeExtensionInterface, isFirstRun: boolean) {
+  constructor(options: RunChromeExtensionInterface) {
     this.options = options
-    this.isFirstRun = isFirstRun
   }
 
   apply(compiler: Compiler) {
@@ -24,16 +22,11 @@ export default class CreateWebSocketServer {
 
     // And also rewrite the first run variable.
     // This will change the user active tab on first run.
-    rewriteFirstRunVariable(this.isFirstRun)
+    rewriteFirstRunVariable()
 
     // Start webSocket server to communicate with the extension.
     const startConfig = this.options.stats
-    const wss = startServer(
-      compiler,
-      startConfig,
-      this.options.port,
-      this.isFirstRun
-    )
+    const wss = startServer(compiler, startConfig, this.options.port)
 
     compiler.hooks.watchRun.tapAsync(
       'RunChromeExtensionPlugin (CreateWebSocketServer)',

@@ -93,9 +93,7 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
     log(
       'To start developing your extension, terminate this process and run `yarn dev`.'
     )
-    log(
-      '\n\nRead more about extension-create capabilities at https://docs.extensioncreate.com'
-    )
+    log('\n🧩 More at https://docs.extensioncreate.com')
   }
 }
 
