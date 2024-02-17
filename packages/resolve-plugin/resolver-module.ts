@@ -5,16 +5,20 @@ function notFoundError() {
   return ''
 }
 
-function pathNormalize(path: string) {
-  if (path.startsWith('/')) {
-    path = path.substring(1)
+function pathNormalize(path: string): string {
+  const parts = path.split('/')
+  const stack: string[] = []
+
+  for (const part of parts) {
+    if (part === '..' || part === '.') {
+      // Ignore '..' and '.' segments
+      continue
+    } else if (part !== '') {
+      stack.push(part)
+    }
   }
 
-  if (path.startsWith('./')) {
-    path = path.substring(2)
-  }
-
-  return path
+  return stack.join('/')
 }
 
 function resolverError(filePath?: string) {
@@ -43,7 +47,7 @@ function resolver(filePath?: string): string {
     return notFoundError()
   }
 
-  if (filePath?.startsWith('http')) {
+  if (filePath?.startsWith('http') || filePath?.startsWith('chrome://')) {
     return filePath
   }
 
@@ -73,7 +77,7 @@ function resolver(filePath?: string): string {
   )
 
   if (resolvedValue && resolvedValue.length) {
-    return chrome.runtime.getURL(resolvedValue[0])
+    return resolvedValue[0]
   }
 
   resolverError(filePath)
@@ -121,16 +125,16 @@ function solve(apiArgument?: SolveType) {
     // chrome.scripting.executeScript(..., files: string[])
     // chrome.scripting.registerContentScript(..., files: string[])
     // chrome.scripting.unregisterContentScript(..., files: string[])
-    ...(obj?.files && obj?.files.map((file: string) => resolver(file))),
+    ...(obj?.files && {files: obj.files.map((file: string) => resolver(file))}),
 
     // chrome.declarativeContent.RequestContentScript (css array)
     // - https://developer.chrome.com/docs/extensions/reference/api/declarativeContent#property-RequestContentScript-js
     // chrome.scripting.registerContentScripts (css array)
     // https://developer.chrome.com/docs/extensions/reference/api/scripting#property-RegisteredContentScript-js
     ...(obj?.js && {
-      js: Array.isArray(obj?.js)
-        ? obj?.js.map((file: string) => resolver(file))
-        : obj?.js
+      js: Array.isArray(obj.js)
+        ? obj.js.map((file: string) => resolver(file))
+        : obj.js
     }),
 
     // chrome.declarativeContent.RequestContentScript (css array)
@@ -138,9 +142,9 @@ function solve(apiArgument?: SolveType) {
     // chrome.scripting.registerContentScripts (css array)
     // https://developer.chrome.com/docs/extensions/reference/api/scripting#property-RegisteredContentScript-css
     ...(obj?.css && {
-      css: Array.isArray(obj?.css)
-        ? obj?.css.map((file: string) => resolver(file))
-        : obj?.css
+      css: Array.isArray(obj.css)
+        ? obj.css.map((file: string) => resolver(file))
+        : obj.css
     })
   })
 
