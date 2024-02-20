@@ -25,10 +25,10 @@ export default async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   {...devOptions}: DevOptions
 ) {
-  const projectPath = getProjectPath(pathOrRemoteUrl)
+  const projectPath = await getProjectPath(pathOrRemoteUrl)
 
   if (
-    !projectPath.startsWith('http') &&
+    !pathOrRemoteUrl?.startsWith('http') &&
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
   ) {
     console.log(
