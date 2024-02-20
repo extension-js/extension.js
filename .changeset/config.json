@@ -16,8 +16,9 @@
     "webpack-browser-extension-locales-plugin",
     "webpack-browser-extension-manifest-compat-plugin",
     "webpack-browser-extension-manifest-plugin",
+    "webpack-browser-extension-polyfill",
     "webpack-browser-extension-resolve-plugin",
-    "webpack-browser-extension-resouces-plugin",
+    "webpack-browser-extension-resources-plugin",
     "webpack-run-chrome-extension",
     "webpack-browser-extension-scripts-plugin",
     "tsconfig"

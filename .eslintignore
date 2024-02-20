@@ -11,19 +11,24 @@
 # ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 #  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
+.eslintrc.js
 dist
 .extension_package
 *.spec.js
 *.spec.ts
 *.spec.tsx
 *.spec.jsx
+*.test.js
+*.test.ts
+*.test.tsx
+*.test.jsx
 **/spec/**/*
+**/test/**/*
 **/demo/**/*
+**/packages/run-chrome-extension/extensions/**
 *.d.ts
 types
-browser-extension-test-data
-__hmr-tests__
-__utils__
-reloadService.js
-__examples
-**/html-bundler-webpack-plugin/**/*
+__TESTS__
+__tests__
+**/copyTypesFolder.js
+**/copyMarkdownFilesToCli.js
