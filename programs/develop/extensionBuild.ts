@@ -13,11 +13,11 @@ export interface BuildOptions {
   polyfill?: boolean
 }
 
-export default function extensionBuild(
+export default async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
   {...buildOptions}: BuildOptions
 ) {
-  const projectPath = getProjectPath(pathOrRemoteUrl)
+  const projectPath = await getProjectPath(pathOrRemoteUrl)
 
   try {
     buildWebpack(projectPath, {...buildOptions})
