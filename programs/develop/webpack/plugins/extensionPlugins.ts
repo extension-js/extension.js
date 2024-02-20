@@ -18,6 +18,7 @@ import LocalesPlugin from 'webpack-browser-extension-locales-plugin'
 import JsonPlugin from 'webpack-browser-extension-json-plugin'
 import IconsPlugin from 'webpack-browser-extension-icons-plugin'
 import ResourcesPlugin from 'webpack-browser-extension-resources-plugin'
+import PolyfillPlugin from 'webpack-browser-extension-polyfill'
 
 // Handle special folders feature
 import {
@@ -120,11 +121,11 @@ export default function extensionPlugins(
       }).apply(compiler)
 
       // Allow browser polyfill as needed
-      // TODO: move this to webpack-browser-extension-polyfill plugin.
       if (polyfill) {
         if (browser !== 'firefox') {
-          new webpack.ProvidePlugin({
-            browser: require.resolve('webextension-polyfill')
+          new PolyfillPlugin({
+            manifestPath,
+            browser
           }).apply(compiler)
         }
       }
