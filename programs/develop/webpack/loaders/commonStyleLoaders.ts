@@ -20,15 +20,7 @@ export default function getCommonStyleLoaders(
     // It supports On-Demand-Loading of CSS and SourceMaps
     // See https://webpack.js.org/plugins/mini-css-extract-plugin/
     {
-      loader: MiniCssExtractPlugin.loader,
-      options: {
-        // This is needed for allowing import() statements
-        // in CSS files imported from content_scripts.
-        // sourceMap: true,
-        // esModule: false,
-        // This breaks dynamic imports in content scripts
-        // modules: true
-      }
+      loader: MiniCssExtractPlugin.loader
     },
     {
       // `css-loader` resolves paths in CSS and adds assets as dependencies.
