@@ -64,6 +64,8 @@ export default function webpackConfig(
       path: getOutputPath(projectPath, devOptions.browser),
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: getWebpackPublicPath(projectPath),
+      hotUpdateChunkFilename: 'hot/hot-update.js',
+      hotUpdateMainFilename: 'hot/hot-update.json',
       environment: {
         bigIntLiteral: true,
         dynamicImport: true
@@ -79,8 +81,8 @@ export default function webpackConfig(
     },
     module: {
       rules: [
-        ...jsLoaders(projectPath, {mode}),
-        ...styleLoaders(projectPath, {mode}),
+        ...jsLoaders(projectPath, devOptions),
+        ...styleLoaders(projectPath, devOptions),
         ...assetLoaders
       ]
     },
