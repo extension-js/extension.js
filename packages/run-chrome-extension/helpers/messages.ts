@@ -1,6 +1,19 @@
 import path from 'path'
 import {Compiler} from 'webpack'
 import {log, error} from 'console'
+import {
+  underline,
+  bold,
+  bgWhite,
+  green,
+  blue,
+  red,
+  white,
+  black,
+  bgCyan,
+  bgRed,
+} from '@colors/colors/safe'
+// import {log, error} from 'console'
 import getDirectorySize from '../steps/calculateDirSize'
 import {ManifestBase} from '../manifest-types'
 
@@ -36,7 +49,9 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] chrome-runtime ►►► No data received from client.
+    error(`[⛔️] ${bgWhite(bold(` chrome-runtime `))} ${green(
+      '►►►'
+    )} No data received from client.
 
 Ensure your extension is enabled and that no hanging Chrome instance is open then try again.`)
 
@@ -49,7 +64,9 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
       error(
-        '[⛔️] chrome-runtime ►►► No management API info received from client. Investigate.'
+        `[⛔️] ${bgWhite(bold(` chrome-runtime `))} ${green(
+          '►►►'
+        )} No management API info received from client. Investigate.`
       )
     }
   }
@@ -71,16 +88,35 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   management.enabled
 
   log('')
-  log(`• Name: ${name}`)
-  description && log(`• Description: ${description}`)
-  log(`• Version: ${version}`)
-  log(`• Size: ${getDirectorySize(compilerOptions.output.path || 'dist')}`)
-  log(`• ID: ${id} (${fixedId ? 'fixed' : 'dynamic'})`)
-  hasHost && log(`• Host Permissions: ${hostPermissions.sort().join(', ')}`)
-  log(`• Permissions: ${permissionsParsed.sort().join(', ')}`)
-  log(`• Settings URL: chrome://extensions/?id=${id}\n`)
+  log(`${bold(`• Name:`)} ${name}`)
+  description && log(`${bold(`• Description:`)} ${description}`)
+  log(`${bold(`• Version:`)} ${version}`)
   log(
-    `🛰️ chrome-runtime ►►► Running Chrome in ${
+    `${bold(`• Size:`)} ${getDirectorySize(
+      compilerOptions.output.path || 'dist'
+    )}`
+  )
+  log(`${bold(`• ID:`)} ${id} (${fixedId ? 'fixed' : 'dynamic'})`)
+  hasHost &&
+    log(`${bold(`• Host Permissions`)}: ${hostPermissions.sort().join(', ')}`)
+  log(`${bold(`• Permissions:`)} ${permissionsParsed.sort().join(', ')}`)
+  log(
+    `${bold(`• Settings URL`)}: ${underline(
+      blue(`chrome://extensions/?id=${id}`)
+    )}\n`
+  )
+
+  const crRuntime = bgWhite(black(bold(` chrome-runtime `)))
+  // 🟠brave ⚪️chrome 🔵edge ⭕️opera 🔴firefox 🟣safari 🟢edge 🟡
+  // const edgeRuntime = bgCyan(black(bold(` edge-runtime `)))
+  // const ffRuntime = bgRed(white(bold(` firefox-runtime `)))
+  // const operaRuntime = bgWhite(red(bold(` opera-runtime `)))
+  // const braveRuntime = bgBlack(white(bold(` brave-runtime `)))
+  // const vivaldiRuntime = bgMagenta(white(bold(` vivaldi-runtime `)))
+  // const safariRuntime = bgWhite(blue(bold(` safari-runtime `)))
+
+  log(
+    `${crRuntime} ${green('►►►')} Running Chrome in ${
       compilerOptions.mode
     } mode. Browser ${management.type} ${
       management.enabled ? 'enabled' : 'disabled'
@@ -91,9 +127,11 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
     log('')
     log('This is your first run using extension-create. Welcome! 🎉')
     log(
-      'To start developing your extension, terminate this process and run `yarn dev`.'
+      `To start developing your extension, terminate this process and run ${bold(
+        blue(`yarn dev`)
+      )}.`
     )
-    log('\n🧩 More at https://docs.extensioncreate.com')
+    log(`\n🧩 More at ${blue(`https://docs.extensioncreate.com`)}`)
   }
 }
 
@@ -101,23 +139,32 @@ function watchModeClosed(code: number, reason: Buffer) {
   const message = reason.toString()
 
   log(
-    `[😓] chrome-runtime ►►► Watch mode closed (code ${code}). ${
+    `[😓] ${bgWhite(bold(` chrome-runtime `))} ${red(
+      '✖︎✖︎✖︎'
+    )} Watch mode closed (code ${code}). ${
       message && '\n\nReason!!! ' + message + '\n'
     }Exiting...\n`
   )
 }
 
 function browserNotFound(chromePath: string) {
-  error(`chrome-runtime ►►► Chrome not found at ${chromePath}`)
+  error(
+    `${bgWhite(bold(` chrome-runtime `))} ${red('✖︎✖︎✖︎')} Chrome not found at ${chromePath}`
+  )
 }
 
 function webSocketError(error: any) {
-  error('[⛔️] chrome-runtime ►►► WebSocket error', error)
+  error(
+    `[⛔️] ${bgWhite(bold(` chrome-runtime `))} ${red('✖︎✖︎✖︎')} WebSocket error`,
+    error
+  )
 }
 
 function parseFileError(error: any, filepath: string) {
   error(
-    `[⛔️] chrome-runtime ►►► Error parsing file: ${filepath}. Reason: ${error.message}`
+    `[⛔️] ${bgWhite(bold(` chrome-runtime `))} ${red(
+      '✖︎✖︎✖︎'
+    )} Error parsing file: ${filepath}. Reason: ${error.message}`
   )
 }
 

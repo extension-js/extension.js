@@ -15,10 +15,7 @@ export default function createUserDataDir(
     dataDirPath ||
     fs.existsSync(path.resolve(__dirname, 'run-chrome-data-dir'))
   ) {
-    return {
-      isFirstRun: false,
-      userDataDir: dataDirPath || path.resolve(__dirname, 'run-chrome-data-dir')
-    }
+    return dataDirPath || path.resolve(__dirname, 'run-chrome-data-dir')
   }
 
   const userProfile = JSON.stringify(masterPreferences)
