@@ -11,7 +11,7 @@ import {
   white,
   black,
   bgCyan,
-  bgRed,
+  bgRed
 } from '@colors/colors/safe'
 // import {log, error} from 'console'
 import getDirectorySize from '../steps/calculateDirSize'

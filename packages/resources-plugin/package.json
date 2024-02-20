@@ -2,12 +2,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/webpack-browser-extension-resources-plugin.git"
+    "url": "https://github.com/cezaraugusto/webpack-browser-extension-resources.git"
   },
   "engines": {
     "node": ">=18"
   },
-  "name": "webpack-browser-extension-resources-plugin",
+  "name": "webpack-browser-extension-resources",
   "version": "0.0.0",
   "description": "webpack plugin to handle manifest web resources assets from browser extensions",
   "main": "./dist/module.js",
