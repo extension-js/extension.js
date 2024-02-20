@@ -7,8 +7,8 @@
 
 import path from 'path'
 import webpack from 'webpack'
-import ManifestCompatPlugin from 'webpack-browser-extension-manifest-compat-plugin'
-import CommonErrorsPlugin from 'webpack-browser-extension-common-errors-plugin'
+import ManifestCompatPlugin from 'webpack-browser-extension-manifest-compat'
+import CommonErrorsPlugin from 'webpack-browser-extension-common-errors'
 import {type DevOptions} from '../../extensionDev'
 
 export default function errorPlugins(
