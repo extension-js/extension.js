@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {exec} from 'child_process'
+import {bgWhite, black, green} from '@colors/colors/safe'
 // @ts-ignore
 import chrome from 'chrome-location'
 import browserConfig from './chrome/browser.config'
@@ -28,7 +29,11 @@ export default class ChromeExtensionLauncherPlugin {
       : `"${chrome}"`
 
     if (!fs.existsSync(path.resolve(chrome))) {
-      console.error(`browser-runtime ►►► Chrome not found at ${chrome}`)
+      console.error(
+        `${bgWhite(black(`chrome-runtime`))} ${green(
+          `►►►`
+        )} Chrome not found at ${chrome}`
+      )
       process.exit()
     }
 
@@ -38,9 +43,15 @@ export default class ChromeExtensionLauncherPlugin {
     const child = exec(cmd, (error, _stdout, stderr) => {
       if (error != null) throw error
       if (stderr.includes('Unable to move the cache')) {
-        console.log('browser-runtime ►►► Chrome instance already running.')
+        console.log(
+          `${bgWhite(black(`chrome-runtime`))} ${green(
+            `►►►`
+          )} Chrome instance already running.`
+        )
       } else {
-        console.log('browser-runtime ►►► Chrome instance exited.')
+        console.log(
+          `${bgWhite(black(`chrome-runtime`))} ${green(`►►►`)} Chrome instance exited.`
+        )
         process.exit()
       }
     })
