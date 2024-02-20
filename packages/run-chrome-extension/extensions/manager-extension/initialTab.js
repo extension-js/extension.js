@@ -29,7 +29,7 @@ function createChromeExtensionsTab(initialTab, url) {
   })
 }
 
-let __IS_FIRST_RUN__ = false
+const __IS_FIRST_RUN__ = false
 
 chrome.tabs.query({active: true}, ([initialTab]) => {
   if (initialTab.url === 'chrome://newtab/') {
