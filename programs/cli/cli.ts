@@ -47,6 +47,9 @@ const extensionCreate = program
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
+// If users are using extension-create, prevents from writing
+// extension-create create <...args> and do extension-create <...args> instead.
+// for the extension namespace, users will npx extension create <...args>
 const isExtensionCreateNamespace = packageJson.name === 'extension-create'
 
 extensionCreate
@@ -184,13 +187,13 @@ extensionCreate
     '--polyfill <boolean>',
     'whether or not to apply the cross-browser polyfill. Defaults to `false`'
   )
-  .action(function (
+  .action(async function (
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...buildOptions}: BuildOptions
   ) {
     const vendors = browser.split(',')
     for (const vendor of vendors) {
-      extensionBuild(pathOrRemoteUrl, {
+      await extensionBuild(pathOrRemoteUrl, {
         browser: vendor as any,
         ...buildOptions
       })
