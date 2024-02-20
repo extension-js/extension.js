@@ -10,14 +10,14 @@ import webpack from 'webpack'
 import type {DevOptions} from '../../extensionDev'
 
 // Plugins
-import ResolvePlugin from 'webpack-browser-extension-resolve-plugin'
-import ManifestPlugin from 'webpack-browser-extension-manifest-plugin'
-import HtmlPlugin from 'webpack-browser-extension-html-plugin'
-import ScriptsPlugin from 'webpack-browser-extension-scripts-plugin'
-import LocalesPlugin from 'webpack-browser-extension-locales-plugin'
-import JsonPlugin from 'webpack-browser-extension-json-plugin'
-import IconsPlugin from 'webpack-browser-extension-icons-plugin'
-import ResourcesPlugin from 'webpack-browser-extension-resources-plugin'
+import ResolvePlugin from 'webpack-browser-extension-resolve'
+import ManifestPlugin from 'webpack-browser-extension-manifest'
+import HtmlPlugin from 'webpack-browser-extension-html'
+import ScriptsPlugin from 'webpack-browser-extension-scripts'
+import LocalesPlugin from 'webpack-browser-extension-locales'
+import JsonPlugin from 'webpack-browser-extension-json'
+import IconsPlugin from 'webpack-browser-extension-icons'
+import ResourcesPlugin from 'webpack-browser-extension-resources'
 import PolyfillPlugin from 'webpack-browser-extension-polyfill'
 
 // Handle special folders feature

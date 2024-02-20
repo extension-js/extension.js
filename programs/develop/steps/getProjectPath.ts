@@ -7,13 +7,7 @@
 
 import path from 'path'
 import goGitIt from 'go-git-it'
-import {
-  blue,
-  green,
-  white,
-  bold,
-  underline
-} from '@colors/colors/safe'
+import {blue, green, white, bold, underline} from '@colors/colors/safe'
 
 async function importUrlSource(pathOrRemoteUrl: string, text: string) {
   if (new URL(pathOrRemoteUrl).hostname !== 'github.com') {
