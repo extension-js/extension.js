@@ -5,7 +5,6 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import {babelConfig} from '../options/babel'
 import {isUsingTypeScript} from '../options/typescript'
 import ReactRefreshTypeScript from 'react-refresh-typescript'
 
@@ -16,17 +15,17 @@ export default function jsLoaders(projectDir: string, opts: any) {
     : /\.(js|mjs|jsx)$/
 
   return [
-    // https://webpack.js.org/loaders/babel-loader/
-    // https://babeljs.io/docs/en/babel-loader
     {
       test: files,
-      include: projectDir,
-      exclude: /node_modules/,
-      loader: require.resolve('babel-loader'),
-      options: babelConfig(projectDir, {
-        mode: opts.mode,
-        typescript: isUsingTypeScript(projectDir)
-      })
+      use: {
+        loader: require.resolve('swc-loader'),
+        options: {
+          env: {
+            targets: `browserslist config or defaults`
+          },
+          minify: opts.mode === 'production'
+        }
+      }
     },
     // https://webpack.js.org/loaders/ts-loader/
     {
