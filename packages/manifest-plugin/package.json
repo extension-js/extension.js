@@ -2,12 +2,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/webpack-browser-extension-manifest-plugin.git"
+    "url": "https://github.com/cezaraugusto/webpack-browser-extension-manifest.git"
   },
   "engines": {
     "node": ">=18"
   },
-  "name": "webpack-browser-extension-manifest-plugin",
+  "name": "webpack-browser-extension-manifest",
   "version": "0.0.0",
   "description": "webpack plugin to handle browser extensions manifest file",
   "main": "./dist/module.js",
