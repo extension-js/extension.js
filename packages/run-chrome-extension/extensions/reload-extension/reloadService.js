@@ -60,7 +60,7 @@ function disconnect() {
 
 async function getDevExtensions() {
   const allExtensions = await new Promise((resolve) => {
-    return chrome.management.getAll(resolve)
+    chrome.management.getAll(resolve)
   })
 
   return allExtensions.filter((extension) => {
@@ -100,8 +100,8 @@ async function messageAllExtensions(changedFile) {
 async function requestInitialLoadData() {
   const devExtensions = await getDevExtensions()
 
-  const messagePromises = devExtensions.map((extension) => {
-    return new Promise((resolve) => {
+  const messagePromises = devExtensions.map(async (extension) => {
+    return await new Promise((resolve) => {
       chrome.runtime.sendMessage(
         extension.id,
         {initialLoadData: true},
@@ -141,7 +141,7 @@ async function checkExtensionReadiness() {
 }
 
 async function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+  return await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function keepAlive() {
