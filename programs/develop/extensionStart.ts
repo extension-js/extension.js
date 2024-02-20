@@ -23,7 +23,7 @@ export default async function extensionStart(
   pathOrRemoteUrl: string | undefined,
   {...startOptions}: StartOptions
 ) {
-  const projectPath = getProjectPath(pathOrRemoteUrl)
+  const projectPath = await getProjectPath(pathOrRemoteUrl)
 
   try {
     if (isUsingTypeScript(projectPath)) {
