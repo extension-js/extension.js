@@ -7,6 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
+import {bold, red, yellow} from '@colors/colors/safe'
 
 import getTemplatePath from '../helpers/getTemplatePath'
 import isExternalTemplate from '../helpers/isExternalTemplate'
@@ -64,15 +65,16 @@ export default async function writePackageJson(
   }
 
   try {
-    console.log('📝 - Writing `package.json` metadata...')
+    console.log(`📝 - Writing ${yellow(`package.json`)} metadata...`)
     await fs.writeFile(
       path.join(projectPath, 'package.json'),
       JSON.stringify(packageMetadata, null, 2)
     )
   } catch (error: any) {
     console.error(
-      `😕❓ Can't write package.json for __${projectName}__: ${error}`
+      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(`package.json`)} for ${bold(projectName)}. ${error}`
     )
+
     process.exit(1)
   }
 }

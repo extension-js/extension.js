@@ -7,6 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
+import {bold, red, yellow} from '@colors/colors/safe'
 
 import {getInstallCommand} from '../helpers/getInstallInfo'
 import isExternalTemplate from '../helpers/isExternalTemplate'
@@ -33,12 +34,13 @@ export default async function writeReadmeFile(
     .replaceAll('[projectPackageManager]', getInstallCommand())
 
   try {
-    console.log('📝 - Writing `README.md` metadata...')
+    console.log(`📝 - Writing ${yellow(`README.md`)} metadata...`)
     await fs.writeFile(path.join(projectPath, 'README.md'), readmeFileEdited)
   } catch (error: any) {
     console.error(
-      `😕❓ Can't write README file for __${projectName}__: ${error}`
+      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't install dependencies for ${bold(projectName)}. ${error}`
     )
+
     process.exit(1)
   }
 }

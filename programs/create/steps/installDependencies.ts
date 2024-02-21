@@ -7,6 +7,8 @@
 
 import path from 'path'
 import {spawn} from 'cross-spawn'
+import {bold, red} from '@colors/colors/safe'
+
 import {getInstallCommand, getInstallArgs} from '../helpers/getInstallInfo'
 import createSymlink from './symlinkExtensionCreate'
 
@@ -48,10 +50,9 @@ export default async function installDependencies(
     })
   } catch (error: any) {
     console.error(
-      `😕❓ Can't install dependencies for __${projectName}__: ${JSON.stringify(
-        error
-      )}`
+      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't install dependencies for ${bold(projectName)}. ${error}`
     )
+
     process.exit(1)
   }
 }
