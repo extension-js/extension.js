@@ -115,13 +115,17 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
 
   if (!manifest.background) {
     if (manifest.manifest_version === 2) {
-      this.emitFile('background/script' + '.js', generalReloadCode)
-      defaultBgEmitted = true
+      if (!defaultBgEmitted) {
+        this.emitFile('background/script' + '.js', generalReloadCode)
+        defaultBgEmitted = true
+      }
     }
 
     if (manifest.manifest_version === 3) {
-      this.emitFile('background/service_worker' + '.js', generalReloadCode)
-      defaultBgEmitted = true
+      if (!defaultBgEmitted) {
+        this.emitFile('background/service_worker' + '.js', generalReloadCode)
+        defaultBgEmitted = true
+      }
     }
   }
 
