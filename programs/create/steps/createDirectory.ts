@@ -7,6 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
+import {bold, red} from '@colors/colors/safe'
 import * as messages from '../messages'
 import isDirectoryWriteable from '../helpers/isDirectoryWriteable'
 
@@ -16,7 +17,9 @@ export default async function createDirectory(
   workingDir: string,
   projectName: string
 ) {
-  console.log(`🐣 - Starting a new browser extension named **${projectName}**`)
+  console.log(
+    `🐣 - Starting a new browser extension named ${bold(projectName)}...`
+  )
   const projectPath = path.resolve(workingDir, projectName)
 
   try {
@@ -28,7 +31,7 @@ export default async function createDirectory(
       process.exit(1)
     }
 
-    console.log(`🤝 - Ensuring \`${projectName}\` exists...`)
+    console.log(`🤝 - Ensuring ${bold(projectName)} exists...`)
     await fs.mkdir(projectPath, {recursive: true})
 
     const currentDir = await fs.readdir(projectPath)
@@ -54,7 +57,9 @@ export default async function createDirectory(
       process.exit(1)
     }
   } catch (error: any) {
-    console.error(`😕❓ Can't create directory __${projectName}__. ${error}`)
+    console.error(
+      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't create directory ${bold(projectName)}. ${error}`
+    )
     process.exit(1)
   }
 }
