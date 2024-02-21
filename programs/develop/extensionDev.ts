@@ -7,6 +7,7 @@
 
 import fs from 'fs'
 import path from 'path'
+import {bold, red} from '@colors/colors/safe'
 import getProjectPath from './steps/getProjectPath'
 import {isUsingTypeScript} from './webpack/options/typescript'
 import generateExtensionTypes from './steps/generateExtensionTypes'
@@ -49,7 +50,10 @@ export default async function extensionDev(
 
     await startDevServer(projectPath, {...devOptions})
   } catch (error: any) {
-    console.log(`🚨 Error while developing the extension:\n\n${error || ''}`)
+    console.log(
+      `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} ` +
+        `Error while developing the extension:\n\n${red(bold(error.toString() || ''))}`
+    )
     process.exit(1)
   }
 }
