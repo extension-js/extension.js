@@ -113,7 +113,7 @@ export default class LocalesPlugin {
                 const fileDependencies = new Set(compilation.fileDependencies)
 
                 const fileResources = localesFields || []
-                
+
                 for (const thisResource of fileResources) {
                   if (fs.existsSync(thisResource)) {
                     if (!fileDependencies.has(thisResource)) {
