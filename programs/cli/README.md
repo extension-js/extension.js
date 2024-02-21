@@ -1,11 +1,11 @@
-[action-image]: https://github.com/cezaraugusto/create-browser-extension/workflows/CI/badge.svg
-[action-url]: https://github.com/cezaraugusto/create-browser-extension/actions
-[npm-image]: https://img.shields.io/npm/v/create-browser-extension.svg
-[npm-url]: https://npmjs.org/package/create-browser-extension
+[action-image]: https://github.com/cezaraugusto/extension-create/workflows/CI/badge.svg
+[action-url]: https://github.com/cezaraugusto/extension-create/actions
+[npm-image]: https://img.shields.io/npm/v/extension-create.svg
+[npm-url]: https://npmjs.org/package/extension-create
 [wip-image]: https://img.shields.io/badge/under-development-orange.svg
-[wip-url]: https://github.com/cezaraugusto/create-browser-extension
+[wip-url]: https://github.com/cezaraugusto/extension-create
 
-# Create Browser Extension [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
+# extension-create [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
