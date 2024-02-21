@@ -8,12 +8,10 @@ import {
   green,
   blue,
   red,
-  white,
-  black,
-  bgCyan,
-  bgRed
+  black
 } from '@colors/colors/safe'
-// import {log, error} from 'console'
+// @ts-ignore
+import prefersYarn from 'prefers-yarn'
 import getDirectorySize from '../steps/calculateDirSize'
 import {ManifestBase} from '../manifest-types'
 
@@ -128,10 +126,10 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
     log('This is your first run using extension-create. Welcome! 🎉')
     log(
       `To start developing your extension, terminate this process and run ${bold(
-        blue(`yarn dev`)
+        blue(prefersYarn() ? `yarn dev` : `npm run dev`)
       )}.`
     )
-    log(`\n🧩 More at ${blue(`https://docs.extensioncreate.com`)}`)
+    log(`\n🧩 More at ${blue(underline(`https://docs.extensioncreate.com`))}`)
   }
 }
 

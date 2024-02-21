@@ -44,7 +44,7 @@ export default class CreateWebSocketServer {
           changedFile
         )
 
-        const context = path.dirname(this.options.manifestPath || '')
+        const context = path.relative(process.cwd(), path.dirname(changedFile))
         console.info(
           `►► Updated file \`${relativePath}\` (relative to ${context})`
         )
