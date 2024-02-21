@@ -8,6 +8,7 @@
 import path from 'path'
 import fs from 'fs/promises'
 import pacote from 'pacote'
+import {bold, blue} from '@colors/colors/safe'
 import {getExternalImportInfo} from '../helpers/getImportInfo'
 
 export default async function importExternalTemplate(
@@ -24,11 +25,13 @@ export default async function importExternalTemplate(
 
     const {name, version} = await pacote.manifest(importInfo)
     console.log(
-      `🧰 - Installing **${projectName}** from template \`${templateName}\``
+      `🧰 - Installing ${bold(projectName)} from template ${blue(bold(templateName))}`
     )
     await pacote.extract(`${name}@${version}`, projectPath)
   } catch (error: any) {
-    console.error(`😕❓ Can't find template __${templateName}__. ${error}`)
+    console.error(
+      `😕❓ Can't find template ${blue(bold(templateName))}. ${error}`
+    )
     process.exit(1)
   }
 }
