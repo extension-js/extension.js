@@ -32,6 +32,7 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
+    "@swc/core": "^1.4.2",
     "@types/chrome": "^0.0.258",
     "@types/webextension-polyfill": "^0.10.7",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
@@ -76,8 +77,8 @@
     "webpack-browser-extension-icons": "*",
     "webpack-browser-extension-json": "*",
     "webpack-browser-extension-locales": "*",
-    "webpack-browser-extension-manifest-compat": "*",
     "webpack-browser-extension-manifest": "*",
+    "webpack-browser-extension-manifest-compat": "*",
     "webpack-browser-extension-polyfill": "*",
     "webpack-browser-extension-resolve": "*",
     "webpack-browser-extension-resources": "*",

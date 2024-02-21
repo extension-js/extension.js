@@ -13,6 +13,7 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 // @ts-ignore
 import CssUrlRelativePlugin from 'css-url-relative-plugin'
 // import Dotenv from 'dotenv-webpack'
+import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
 
 import {type DevOptions} from '../../extensionDev'
 
@@ -41,6 +42,8 @@ export default function compilationPlugins(
         EXTENSION_ENV: process.env.EXTENSION_ENV || mode,
         EXTENSION_PUBLIC_PATH: path.join(projectPath, '/')
       }).apply(compiler)
+
+      new CleanHotUpdatesPlugin().apply(compiler)
     }
   }
 }
