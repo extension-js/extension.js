@@ -55,24 +55,25 @@ export default class LocalesPlugin {
 
             for (const field of Object.entries(localesFields || [])) {
               const [feature, resource] = field
+              const thisResource = resource as string
 
               // Resources from the manifest lib can come as undefined.
-              if (resource) {
+              if (thisResource) {
                 // Do not output if file doesn't exist.
                 // If the user updates the path, this script runs again
                 // and output the file accordingly.
-                if (!fs.existsSync(resource)) {
-                  errors.entryNotFoundWarn(compilation, feature, resource)
+                if (!fs.existsSync(thisResource)) {
+                  errors.entryNotFoundWarn(compilation, feature, thisResource)
                   return
                 }
 
-                const source = fs.readFileSync(resource)
+                const source = fs.readFileSync(thisResource)
                 const rawSource = new sources.RawSource(source)
                 const context =
                   compiler.options.context || path.dirname(this.manifestPath)
 
-                if (!utils.shouldExclude(resource, this.exclude || [])) {
-                  const filename = path.relative(context, resource)
+                if (!utils.shouldExclude(thisResource, this.exclude || [])) {
+                  const filename = path.relative(context, thisResource)
 
                   compilation.emitAsset(filename, rawSource)
                 }
@@ -99,6 +100,7 @@ export default class LocalesPlugin {
             const manifest = assets['manifest.json']
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
+
             const localesFields = manifestFields(
               this.manifestPath,
               manifest
@@ -110,10 +112,14 @@ export default class LocalesPlugin {
               if (resource) {
                 const fileDependencies = new Set(compilation.fileDependencies)
 
-                if (fs.existsSync(resource)) {
-                  if (!fileDependencies.has(resource)) {
-                    fileDependencies.add(resource)
-                    compilation.fileDependencies.add(resource)
+                const fileResources = localesFields || []
+                
+                for (const thisResource of fileResources) {
+                  if (fs.existsSync(thisResource)) {
+                    if (!fileDependencies.has(thisResource)) {
+                      fileDependencies.add(thisResource)
+                      compilation.fileDependencies.add(thisResource)
+                    }
                   }
                 }
               }
