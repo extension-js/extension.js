@@ -64,8 +64,8 @@ export default function webpackConfig(
       path: getOutputPath(projectPath, devOptions.browser),
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: getWebpackPublicPath(projectPath),
-      hotUpdateChunkFilename: 'hot/hot-update.js',
-      hotUpdateMainFilename: 'hot/hot-update.json',
+      hotUpdateChunkFilename: 'hot/[id].[runtime].hot-update.js',
+      hotUpdateMainFilename: 'hot/[runtime].hot-update.json',
       environment: {
         bigIntLiteral: true,
         dynamicImport: true
