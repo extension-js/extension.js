@@ -5,6 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import {bold, red} from '@colors/colors/safe'
 import getProjectPath from './steps/getProjectPath'
 import {isUsingTypeScript} from './webpack/options/typescript'
 import generateExtensionTypes from './steps/generateExtensionTypes'
@@ -36,9 +37,10 @@ export default async function extensionStart(
     }
 
     await startDevServer(projectPath, {...startOptions})
-  } catch (error) {
+  } catch (error: any) {
     console.log(
-      `🚨 Error while developing the extension:\n${JSON.stringify(error) || ''}`
+      `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} ` +
+        `Error while developing the extension:\n\n${red(bold(error.toString() || ''))}`
     )
     process.exit(1)
   }

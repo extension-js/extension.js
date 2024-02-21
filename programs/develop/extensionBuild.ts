@@ -5,6 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import {bold, red} from '@colors/colors/safe'
 import getProjectPath from './steps/getProjectPath'
 import buildWebpack from './webpack/buildWebpack'
 
@@ -22,9 +23,10 @@ export default async function extensionBuild(
   try {
     buildWebpack(projectPath, {...buildOptions})
   } catch (error: any) {
-    console.log(`
-      🚨 \`Error while building the extension:\`\n${error}
-    `)
+    console.log(
+      `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} ` +
+        `Error while developing the extension:\n\n${red(bold(error.toString() || ''))}`
+    )
     process.exit(1)
   }
 }
