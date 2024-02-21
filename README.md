@@ -9,20 +9,20 @@
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
-Create modern cross-browser extensions with no build configuration.
+Create cross-browser extensions with no build configuration.
 
 - [Creating an extension](#creating-an-extension) — How to create a new extension.
 - [Getting started immediately](#getting-started-immediately) — Get work done in no time.
 - [I have an extension](#i-have-an-extension) - Use only specific parts of `extension-create`.
 
-`extension-create` helps you develop cross-browser extensions with built-in support for module imports/exports, auto-reload, and more. Interested to know how it's being developed? [Every week I send emails about its progress](https://cezaraugusto.substack.com/). For goals, see the [wiki](https://github.com/cezaraugusto/extension-create/wiki/This-initiative).
+`extension-create` helps you develop cross-browser extensions with built-in support for module imports/exports, auto-reload, and more.
 
 ## Creating an Extension
 
 ```sh
-npx extension-create my-extension-hello
+npx extension-create create my-extension-hello
 cd my-extension-hello
-npm start
+npm run dev
 ```
 
 A new browser instance will open up with your extension ready for development.
@@ -41,7 +41,13 @@ The [chrome-extensions-sample](https://github.com/GoogleChrome/chrome-extensions
 
 If we go to the samples repository and look for an extension sample to work, let's say the [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) sample, all we need is to copy and paste it's URL as an argument for the start command:
 
+#### Command
+
 ```sh
+# This command will:
+# 1. Download the Chrome extension sample URL to the current working directory
+# 2. Bundle the downloaded extension using extension-create
+# 3. Enable the extension in Chrome using a fresh user profile
 npx extension-create dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
 ```
 
@@ -53,10 +59,10 @@ Will not only download the extension but also kickstart a Chrome instance in a f
 
 ### Use `Microsoft Edge` to kickstart any sample from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/)
 
-You read it! Just run the command above with the `--browser=edge` flag:
+**You read it!** Just run the command above with the `--browser=edge` flag:
 
-```
-npx extension-create start --browser=edge https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
+```sh
+npx extension-create dev --browser=edge https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
 ```
 
 And see a Chrome Extension sample running automatically. On Edge!
@@ -91,10 +97,6 @@ That's it!
 ## Program Options Table
 
 For a list of all commands available, see [OPTIONS_TABLE.md](OPTIONS_TABLE.md).
-
-## What's next?
-
-See the [Wiki](https://github.com/cezaraugusto/extension-create/wiki) for stable updates and future project roadmap. If you're interested in the latest news, I write weekly about this project development at https://cezaraugusto.substack.com.
 
 ## License
 
