@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-browser-extension-common-errors",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "webpack plugin to handle common errors from browser extensions",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",

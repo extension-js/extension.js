@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-run-chrome-extension",
-  "version": "0.6.0",
+  "version": "1.0.0-0",
   "description": "Run and build your extension on Chrome with auto-reload support",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
