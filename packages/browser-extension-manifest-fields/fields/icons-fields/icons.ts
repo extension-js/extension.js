@@ -7,7 +7,7 @@ export default function icons(
 ): ManifestData {
   if (!manifest || !manifest.icons) return undefined
 
-  const defaultIcons = []
+  const defaultIcons: string[] = []
   for (const icon in manifest.icons) {
     const iconAbsolutePath = path.join(
       path.dirname(manifestPath),

@@ -1,11 +1,11 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type Manifest, ManifestHtmlData} from '../../types'
+import {type Manifest, type ManifestHtmlData} from '../../types'
 
 export default function chromeUrlOverrides(
   manifestPath: string,
   manifest: Manifest
-): {[key: string]: ManifestHtmlData | undefined} {
+): Record<string, ManifestHtmlData | undefined> {
   let chromeUrlOverride: Record<string, any> = {newtab: undefined}
 
   if (!manifest || !manifest.chrome_url_overrides) {
@@ -13,7 +13,7 @@ export default function chromeUrlOverrides(
   }
 
   if (manifest.chrome_url_overrides.history) {
-    const historyPage = manifest.chrome_url_overrides.history
+    const historyPage: string = manifest.chrome_url_overrides.history
 
     const historyPageAbsolutePath = path.join(
       path.dirname(manifestPath),

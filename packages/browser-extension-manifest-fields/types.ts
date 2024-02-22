@@ -1,4 +1,4 @@
-import {ManifestBase} from './manifest-types'
+import {type ManifestBase} from './manifest-types'
 
 export interface HtmlFieldsOutput {
   css: string[]

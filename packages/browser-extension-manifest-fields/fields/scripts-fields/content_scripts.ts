@@ -4,7 +4,7 @@ import {type Manifest, type ManifestData} from '../../types'
 export default function contentScript(
   manifestPath: string,
   manifest: Manifest
-): {[key: string]: ManifestData} {
+): Record<string, ManifestData> {
   if (!manifest || !manifest.content_scripts)
     return {[`content_scripts/content-0`]: undefined}
 
