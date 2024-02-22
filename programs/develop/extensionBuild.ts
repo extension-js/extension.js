@@ -25,7 +25,7 @@ export default async function extensionBuild(
   } catch (error: any) {
     console.log(
       `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} ` +
-        `Error while developing the extension:\n\n${red(bold(error.toString() || ''))}`
+        `Error while developing the extension:\n\n${red(bold(error as string || ''))}`
     )
     process.exit(1)
   }

@@ -1,37 +1,12 @@
 import * as path from 'path'
 import * as chokidar from 'chokidar'
-import webpack, {Compiler} from 'webpack'
+import {type Compiler} from 'webpack'
 
 class WatchPagesPlugin {
-  private manifestPath: string
+  private readonly manifestPath: string
 
   constructor(manifestPath: string) {
     this.manifestPath = manifestPath
-  }
-
-  private recompileWebpack(compiler: webpack.Compiler) {
-    const webpackCompiler = webpack({
-      ...compiler.options,
-      output: {
-        ...compiler.options.output,
-        uniqueName: 'browser-extension-manifest-plugin'
-      },
-      plugins: [
-        ...compiler.options.plugins.filter((data) => {
-          return (
-            (data as any)?.name !== 'browserPlugins' &&
-            (data as any)?.name !== 'reloadPlugins'
-          )
-        })
-      ]
-    } as any)
-
-    webpackCompiler.run((err, stats) => {
-      if (err) {
-        console.error(err)
-        return
-      }
-    })
   }
 
   private throwCompilationError(
@@ -99,8 +74,8 @@ class WatchPagesPlugin {
       })
 
       compiler.hooks.watchClose.tap('WatchPagesPlugin', () => {
-        pagesWatcher.close()
-        scriptsWatcher.close()
+        pagesWatcher.close().catch(console.error)
+        scriptsWatcher.close().catch(console.error)
       })
     })
   }

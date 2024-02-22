@@ -8,7 +8,7 @@
 /**
  * Defines user options for the webpack configuration.
  * In the future, this will be replaced by a configuration file. 
-}*/
+ */
 import path from 'path'
 
 function getPublicFolderPath(projectPath: string) {

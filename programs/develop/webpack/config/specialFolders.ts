@@ -7,7 +7,7 @@ export function scanHtmlFilesInFolder(dirPath: string): string[] {
     return []
   }
 
-  let htmlFiles: string[] = []
+  const htmlFiles: string[] = []
 
   function recurse(currentPath: string) {
     const entries = fs.readdirSync(currentPath, {withFileTypes: true})
@@ -34,7 +34,7 @@ export function scanScriptFilesInFolder(
     return []
   }
 
-  let scriptFiles: string[] = []
+  const scriptFiles: string[] = []
 
   function recurse(currentPath: string) {
     const entries = fs.readdirSync(currentPath, {withFileTypes: true})
@@ -60,7 +60,7 @@ export function scanPublicFilesInFolder(dirPath: string): string[] {
     return []
   }
 
-  let publicFiles: string[] = []
+  const publicFiles: string[] = []
 
   function recurse(currentPath: string) {
     const entries = fs.readdirSync(currentPath, {withFileTypes: true})
@@ -79,9 +79,7 @@ export function scanPublicFilesInFolder(dirPath: string): string[] {
   return publicFiles
 }
 
-interface IncludeList {
-  [key: string]: string
-}
+type IncludeList = Record<string, string>;
 
 export function generatePagesEntries(
   includes: string[] | undefined
