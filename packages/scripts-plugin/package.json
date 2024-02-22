@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-browser-extension-scripts",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "webpack plugin to handle manifest script assets (background, content scripts, content css, service worker) from browser extensions",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -48,7 +48,9 @@
     "webpack": "^5.0.0"
   },
   "dependencies": {
-    "browser-extension-manifest-fields": "*"
+    "browser-extension-manifest-fields": "*",
+    "loader-utils": "^3.2.1",
+    "schema-utils": "^4.2.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.12",

@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-run-edge-extension",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Run your extension on Microsoft Edge with auto-reload support",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -45,13 +45,16 @@
     "webpack": "^5.00.0"
   },
   "dependencies": {
+    "@colors/colors": "^1.6.0",
     "browser-extension-manifest-fields": "*",
     "content-security-policy-parser": "^0.4.1",
     "edge-location": "^1.0.0",
+    "fs-extra": "^11.2.0",
     "loader-utils": "^3.2.1",
     "prefers-yarn": "^1.0.1",
     "progress": "^2.0.3",
     "schema-utils": "^4.2.0",
+    "webpack-target-webextension": "^1.1.1",
     "ws": "^8.16.0"
   },
   "devDependencies": {
