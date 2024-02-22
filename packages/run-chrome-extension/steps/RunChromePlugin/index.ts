@@ -28,7 +28,7 @@ export default class ChromeExtensionLauncherPlugin {
       ? `"${chrome}" "${this.options.startingUrl}"`
       : `"${chrome}"`
 
-    if (!fs.existsSync(path.resolve(chrome))) {
+    if (!fs.existsSync(path.resolve(chrome as string))) {
       console.error(
         `${bgWhite(black(`chrome-runtime`))} ${green(
           `►►►`

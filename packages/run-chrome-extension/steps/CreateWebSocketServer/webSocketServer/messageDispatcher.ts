@@ -1,7 +1,6 @@
 import path from 'path'
-import fs from 'fs'
 import WebSocket from 'ws'
-import manifestFields, {getPagesPath} from 'browser-extension-manifest-fields'
+import manifestFields from 'browser-extension-manifest-fields'
 import {type RunChromeExtensionInterface} from '../../../types'
 // import parseScript from '../../../helpers/parseScript'
 
@@ -25,9 +24,9 @@ export default function messageDispatcher(
 ) {
   if (!updatedFile || !options.manifestPath) return
 
-  const manifestLocales = manifestFields(options.manifestPath!).locales
-  const manifestScripts = manifestFields(options.manifestPath!).scripts
-  const jsonScripts = manifestFields(options.manifestPath!).json
+  const manifestLocales = manifestFields(options.manifestPath).locales
+  const manifestScripts = manifestFields(options.manifestPath).scripts
+  const jsonScripts = manifestFields(options.manifestPath).json
 
   // Ensure the manifest itself is watched.
   if (path.basename(updatedFile) === 'manifest.json') {
