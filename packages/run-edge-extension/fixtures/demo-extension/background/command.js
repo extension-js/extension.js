@@ -1,4 +1,4 @@
-/* global edge */
+/* global chrome */
 
 console.log('command listener opened in background')
 chrome.commands.onCommand.addListener((command) => {

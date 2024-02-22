@@ -1,12 +1,12 @@
 import fs from 'fs'
 import path from 'path'
-import webpack, {sources, Compilation} from 'webpack'
+import type webpack from 'webpack'
+import {sources, Compilation} from 'webpack'
 import {type IconsPluginInterface} from '../types'
 
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
 import {shouldExclude} from '../helpers/utils'
-import messages from '../helpers/messages'
 
 export default class EmitFile {
   private readonly manifestPath: string
@@ -36,7 +36,7 @@ export default class EmitFile {
 
               if (resource === undefined) continue
 
-              const iconEntries = Array.isArray(resource)
+              const iconEntries: string[] = Array.isArray(resource)
                 ? typeof resource[0] === 'string'
                   ? resource
                   : resource.map(Object.values).flat()
