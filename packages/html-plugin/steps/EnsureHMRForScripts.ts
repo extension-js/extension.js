@@ -1,7 +1,7 @@
 import path from 'path'
-import webpack from 'webpack'
+import type webpack from 'webpack'
 
-import {IncludeList, type StepPluginInterface} from '../types'
+import {type IncludeList, type StepPluginInterface} from '../types'
 
 export default class EnsureHMRForScripts {
   public readonly manifestPath: string

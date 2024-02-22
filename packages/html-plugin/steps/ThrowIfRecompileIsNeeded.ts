@@ -1,8 +1,12 @@
 import path from 'path'
-import webpack from 'webpack'
+import type webpack from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 
-import {IncludeList, type StepPluginInterface} from '../types'
+import {
+  type IncludeList,
+  type StepPluginInterface,
+  type Manifest
+} from '../types'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 import error from '../helpers/errors'
 
@@ -36,7 +40,7 @@ export default class ThrowIfRecompileIsNeeded {
 
   private storeInitialHtmlAssets(htmlFields: Record<string, any>) {
     Object.entries(htmlFields).forEach(([key, resource]) => {
-      const htmlFile = resource?.html
+      const htmlFile = resource?.html as string
       if (htmlFile) {
         this.initialHtmlAssets[htmlFile] = {
           js: getAssetsFromHtml(htmlFile)?.js || [],
@@ -47,7 +51,7 @@ export default class ThrowIfRecompileIsNeeded {
   }
 
   public apply(compiler: webpack.Compiler): void {
-    const manifest = require(this.manifestPath)
+    const manifest: Manifest = require(this.manifestPath)
     const htmlFields = manifestFields(this.manifestPath, manifest).html
     const allEntries = {
       ...htmlFields,

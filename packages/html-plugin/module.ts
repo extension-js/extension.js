@@ -1,7 +1,7 @@
 import path from 'path'
-import webpack from 'webpack'
+import type webpack from 'webpack'
 
-import {IncludeList, type HtmlPluginInterface} from './types'
+import {type IncludeList, type HtmlPluginInterface} from './types'
 import EmitHtmlFile from './steps/EmitHtmlFile'
 import AddAssetsToCompilation from './steps/AddAssetsToCompilation'
 import AddScriptsAndStylesToCompilation from './steps/AddScriptsAndStylesToCompilation'
