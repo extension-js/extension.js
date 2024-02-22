@@ -24,15 +24,16 @@ export default class EdgeExtensionLauncherPlugin {
   }
 
   private launchEdge() {
+    const msEdge: string = edge()
     const edgeLaunchPath = this.options.startingUrl
-      ? `"${edge()}" "${this.options.startingUrl}"`
-      : `"${edge()}"`
+      ? `"${msEdge}" "${this.options.startingUrl}"`
+      : `"${msEdge}"`
 
-    if (!fs.existsSync(path.resolve(edge()))) {
+    if (!fs.existsSync(path.resolve(msEdge))) {
       console.error(
         `${bgCyan(white(bold(` edge-runtime `)))} ${red(
           `✖︎✖︎✖︎`
-        )} Edge not found at ${edge()}`
+        )} Edge not found at ${msEdge}`
       )
       process.exit()
     }
