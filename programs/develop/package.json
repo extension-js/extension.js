@@ -46,7 +46,7 @@
     "esm": "^3.2.25",
     "filemanager-webpack-plugin": "^8.0.0",
     "fork-ts-checker-webpack-plugin": "^9.0.2",
-    "go-git-it": "*",
+    "go-git-it": "1.2.2",
     "html-loader": "^5.0.0",
     "json-minimizer-webpack-plugin": "^5.0.0",
     "less": "^4.2.0",
