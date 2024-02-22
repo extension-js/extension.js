@@ -11,7 +11,7 @@ import fs from 'fs'
 import {log, error} from 'console'
 import {green, bold, red, underline} from '@colors/colors/safe'
 import compilerConfig from './webpack-config'
-import {BuildOptions} from '../extensionBuild'
+import {type BuildOptions} from '../extensionBuild'
 import {getOutputPath} from './config/getPath'
 
 function getFileSize(fileSizeInBytes: number): string {
@@ -19,19 +19,20 @@ function getFileSize(fileSizeInBytes: number): string {
 }
 
 // Function to recursively print the tree structure
-function printTree(node: any, prefix = '') {
+function printTree(node: Record<string, any>, prefix = '') {
   Object.keys(node).forEach((key, index, array) => {
     const isLast = index === array.length - 1
     const connector = isLast ? '└─' : '├─'
-    const sizeInKB = node[key].size ? ` (${getFileSize(node[key].size)})` : ''
+    const sizeInKB = node[key].size ? ` (${getFileSize(node[key].size as number)})` : ''
     log(`${prefix}${connector} ${bold(key)}${sizeInKB}`)
     if (typeof node[key] === 'object' && !node[key].size) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       printTree(node[key], `${prefix}${isLast ? '   ' : '|  '}`)
     }
   })
 }
 
-function getAssetInfo(assets: any[] | undefined) {
+function getAssetInfo(assets: Array<{name: string, size: number}> | undefined) {
   log('\n')
   assets?.forEach((asset) => {
     const sizeInKB = getFileSize(asset.size)
@@ -42,10 +43,11 @@ function getAssetInfo(assets: any[] | undefined) {
 }
 
 function getAssetsTree(assets: webpack.StatsAsset[] | undefined) {
-  const assetTree = {}
+  const assetTree: Record<string, {size: number}> = {}
 
   assets?.forEach((asset) => {
     const paths = asset.name.split('/')
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     let currentLevel: any = assetTree
 
     paths.forEach((part, index) => {
@@ -95,7 +97,7 @@ export default function buildWebpack(
       getOutputPath(projectDir, browser || 'chrome'),
       'manifest.json'
     )
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    const manifest: Record<string, string> = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
     const assets = statsJson?.assets
     const heading = `Building ${bold(manifest.name)} extension using ${bold(vendor)} defaults...\n`
     const buildTime = `\nBuild completed in ${((statsJson?.time || 0) / 1000).toFixed(2)} seconds.`

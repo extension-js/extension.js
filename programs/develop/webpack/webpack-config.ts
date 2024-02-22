@@ -5,7 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import webpack from 'webpack'
+import type webpack from 'webpack'
 import {type DevOptions} from '../extensionDev'
 
 // Option files for plugins

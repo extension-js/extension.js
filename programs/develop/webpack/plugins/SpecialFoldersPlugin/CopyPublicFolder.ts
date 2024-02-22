@@ -69,7 +69,7 @@ export default class CopyStaticFolder {
       })
 
       compiler.hooks.watchClose.tap('WatchPagesPlugin', () => {
-        watcher.close()
+        watcher.close().catch(console.error)
       })
     })
 

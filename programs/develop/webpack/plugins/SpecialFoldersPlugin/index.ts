@@ -1,4 +1,4 @@
-import {Compiler} from 'webpack'
+import {type Compiler} from 'webpack'
 import CopyPublicFolder from './CopyPublicFolder'
 import WarnUponFolderChanges from './WarnUponFolderChanges'
 

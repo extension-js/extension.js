@@ -5,7 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import {ClientConfiguration} from 'webpack-dev-server'
+import {type ClientConfiguration} from 'webpack-dev-server'
 
 const authorMode = process.env.EXTENSION_ENV === 'development'
 

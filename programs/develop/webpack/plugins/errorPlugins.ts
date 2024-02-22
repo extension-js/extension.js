@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import webpack from 'webpack'
+import type webpack from 'webpack'
 import ManifestCompatPlugin from 'webpack-browser-extension-manifest-compat'
 import CommonErrorsPlugin from 'webpack-browser-extension-common-errors'
 import {type DevOptions} from '../../extensionDev'
