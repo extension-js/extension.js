@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/develop",
-  "version": "0.0.0",
+  "version": "1.0.1",
   "description": "The develop step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -22,10 +22,10 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "postinstall": "node ./scripts/copyTypesFolder.js",
+    "copyTypesFolder": "node ./scripts/copyTypesFolder.js",
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
+    "compile": "yarn copyTypesFolder && tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
@@ -42,7 +42,6 @@
     "css-url-relative-plugin": "^1.1.0",
     "csv-loader": "^3.0.5",
     "dotenv-webpack": "^8.0.1",
-    "error-overlay-webpack-plugin": "^1.1.1",
     "eslint-webpack-plugin": "^4.0.1",
     "esm": "^3.2.25",
     "filemanager-webpack-plugin": "^8.0.0",
@@ -85,8 +84,7 @@
     "webpack-browser-extension-scripts": "*",
     "webpack-dev-server": "^4.15.1",
     "webpack-merge": "^5.10.0",
-    "webpack-run-chrome-extension": "*",
-    "xml-loader": "^1.2.1"
+    "webpack-run-chrome-extension": "*"
   },
   "devDependencies": {
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
