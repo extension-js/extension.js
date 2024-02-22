@@ -7,7 +7,7 @@
 
 import fs from 'fs'
 import path from 'path'
-import {bold, red} from '@colors/colors/safe'
+import {bold, red, yellow, underline} from '@colors/colors/safe'
 import getProjectPath from './steps/getProjectPath'
 import {isUsingTypeScript} from './webpack/options/typescript'
 import generateExtensionTypes from './steps/generateExtensionTypes'
@@ -33,7 +33,7 @@ export default async function extensionDev(
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
   ) {
     console.log(
-      `🫣  - Manifest file not found.\nPath \`${projectPath}\` must include a \`manifest.json\`.`
+      `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} Manifest file ${red(bold('not found'))}. Path ${underline(projectPath)} must include a ${yellow('manifest.json')}.`
     )
     process.exit(1)
   }
@@ -42,7 +42,7 @@ export default async function extensionDev(
     if (isUsingTypeScript(projectPath)) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(
-          '[extension-create setup] 🔷 - Using TypeScript config file: `tsconfig.json`'
+          `🧩 ${bold(`extension-create`)} 🔷🔷🔷 - Using TypeScript config file: ${yellow('tsconfig.json')}`
         )
       }
       await generateExtensionTypes(projectPath)
