@@ -1,10 +1,10 @@
-import webpack from 'webpack'
+import type webpack from 'webpack'
 import {handleMultipleAssetsError} from './src/compilationErrorHandlers'
 import {
   handleInsecureCSPValue,
   handleWrongWebResourceFormatError
 } from './src/browserRuntimeErrorHandlers'
-import {CommonErrorsPluginInterface} from './types'
+import {type CommonErrorsPluginInterface} from './types'
 
 export default class CommonErrorsPlugin {
   public readonly manifestPath: string
