@@ -16,16 +16,16 @@ export default function pageAction(
   if (typeof manifest.page_action.default_icon === 'string') {
     return path.join(
       path.dirname(manifestPath),
-      manifest.page_action.default_icon
+      manifest.page_action.default_icon as string
     )
   }
 
-  const pageActionDefaultIcons = []
+  const pageActionDefaultIcons: string[] = []
 
   for (const icon in manifest.page_action.default_icon) {
     const pageactionDefaultIconAbsolutePath = path.join(
       path.dirname(manifestPath),
-      manifest.page_action.default_icon[icon]
+      manifest.page_action.default_icon[icon] as string
     )
 
     pageActionDefaultIcons.push(pageactionDefaultIconAbsolutePath)

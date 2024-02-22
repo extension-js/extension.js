@@ -5,7 +5,7 @@ import localesFromManifest from './fields/locales-fields'
 import scriptsFromManifest from './fields/scripts-fields'
 import webResourcesFromManifest from './fields/web-resources-fields'
 import getPagesPath from './helpers/getPagesPath'
-import {type ManifestFields, type Manifest, type ManifestData} from './types'
+import {type ManifestFields, type Manifest} from './types'
 
 export {type ManifestFields}
 
@@ -13,7 +13,7 @@ function browserExtensionManifestFields(
   manifestPath: string,
   manifest?: Manifest
 ) {
-  const manifestContent = manifest || require(manifestPath)
+  const manifestContent: Manifest = manifest || require(manifestPath)
 
   return {
     html: htmlFromManifest(manifestPath, manifestContent),

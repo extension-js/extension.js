@@ -1,6 +1,6 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type Manifest, ManifestHtmlData} from '../../types'
+import {type Manifest, type ManifestHtmlData} from '../../types'
 
 export default function sidebarAction(
   manifestPath: string,
@@ -14,7 +14,7 @@ export default function sidebarAction(
     return undefined
   }
 
-  const sidebarPage = manifest.sidebar_action.default_panel
+  const sidebarPage: string = manifest.sidebar_action.default_panel
 
   const sidebarPageAbsolutePath = path.join(
     path.dirname(manifestPath),

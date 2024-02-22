@@ -13,7 +13,7 @@ export default function userScripts(
     return undefined
   }
 
-  const userScript = manifest.user_scripts.api_script
+  const userScript: string = manifest.user_scripts.api_script
 
   const scriptAbsolutePath = path.join(path.dirname(manifestPath), userScript)
 

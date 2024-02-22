@@ -1,6 +1,6 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type Manifest, ManifestHtmlData} from '../../types'
+import {type Manifest, type ManifestHtmlData} from '../../types'
 
 export default function action(
   manifestPath: string,
@@ -14,7 +14,7 @@ export default function action(
     return undefined
   }
 
-  const browserActionPage = manifest.browser_action.default_popup
+  const browserActionPage: string = manifest.browser_action.default_popup
 
   const browserActionPageAbsolutePath = path.join(
     path.dirname(manifestPath),

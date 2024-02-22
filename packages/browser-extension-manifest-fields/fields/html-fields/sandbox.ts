@@ -1,17 +1,17 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type Manifest, ManifestHtmlData} from '../../types'
+import {type Manifest} from '../../types'
 
-type SandboxType = {
-  [key: string]:
-    | {
-        css: string[]
-        js: string[]
-        static: string[]
-        html: string
-      }
-    | undefined
-}
+type SandboxType = Record<
+  string,
+  | {
+      css: string[]
+      js: string[]
+      static: string[]
+      html: string
+    }
+  | undefined
+>
 
 export default function sandbox(
   manifestPath: string,
@@ -21,9 +21,9 @@ export default function sandbox(
     return {[`sandbox/page-0`]: undefined}
   }
 
-  const sandboxPages = manifest.sandbox.pages as string[]
+  const sandboxPages: string[] = manifest.sandbox.pages
 
-  const sandboxedData: any = {}
+  const sandboxedData: SandboxType = {}
 
   for (const [index, page] of sandboxPages.entries()) {
     const sandboxPageAbsolutePath = path.join(path.dirname(manifestPath), page)
