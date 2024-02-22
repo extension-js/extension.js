@@ -6,10 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import type webpack from 'webpack'
-import {getManifestPath, getOutputPath} from '../config/getPath'
-import {type DevOptions} from '../../extensionDev'
 import RunChromeExtension from 'webpack-run-chrome-extension'
 import RunEdgeExtension from 'webpack-run-edge-extension'
+import {type DevOptions} from '../../extensionDev'
+import {getManifestPath, getOutputPath} from '../config/getPath'
 
 export default function browserPlugins(
   projectPath: string,

@@ -9,7 +9,7 @@ import webpack from 'webpack'
 import path from 'path'
 import fs from 'fs'
 import {log, error} from 'console'
-import {green, bold, red, underline} from '@colors/colors/safe'
+import {blue, green, bold, red, underline} from '@colors/colors/safe'
 import compilerConfig from './webpack-config'
 import {type BuildOptions} from '../extensionBuild'
 import {getOutputPath} from './config/getPath'
@@ -103,12 +103,12 @@ export default function buildWebpack(
       fs.readFileSync(manifestPath, 'utf8')
     )
     const assets = statsJson?.assets
-    const heading = `Building ${bold(manifest.name)} extension using ${bold(vendor)} defaults...\n`
+    const heading = `🧩 ${bold('extension-create')} ${green('►►►')} Building ${bold(manifest.name)} extension using ${bold(vendor)} defaults...\n`
     const buildTime = `\nBuild completed in ${((statsJson?.time || 0) / 1000).toFixed(2)} seconds.`
     const buildStatus = `Build Status: ${stats?.hasErrors() ? red('Failed') : green('Success')}`
     const version = `Version: ${manifest.version}`
     const size = `Size: ${getAssetsSize(assets)}`
-    const ready = green(
+    const ready = blue(
       'No errors or warnings found. Your extension is ready for deployment.'
     )
 
