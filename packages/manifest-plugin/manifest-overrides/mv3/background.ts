@@ -10,7 +10,7 @@ export default function getBackground(manifest: Manifest, exclude: string[]) {
         ...(manifest.background.service_worker && {
           service_worker: getFilename(
             'background/service_worker.js',
-            manifest.background.service_worker,
+            manifest.background.service_worker as string,
             exclude
           )
         })
