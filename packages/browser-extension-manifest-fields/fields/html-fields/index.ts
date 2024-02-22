@@ -14,7 +14,7 @@ import {type Manifest, type ManifestHtmlData} from '../../types'
 export default function getHtmlFields(
   manifestPath: string,
   manifest: Manifest
-): {[key: string]: ManifestHtmlData} {
+): Record<string, ManifestHtmlData> {
   return {
     'action/default_popup': action(manifestPath, manifest),
     'background/page': background(manifestPath, manifest),
