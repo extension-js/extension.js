@@ -36,6 +36,7 @@
     "assets"
   ],
   "dependencies": {
+    "glob": "^10.3.10",
     "parse5": "7.1.2",
     "parse5-utils": "2.0.0"
   },
@@ -44,4 +45,4 @@
     "tsconfig": "*",
     "tsup": "^8.0.1"
   }
-}   
+}

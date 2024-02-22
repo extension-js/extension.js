@@ -9593,10 +9593,10 @@ webidl-conversions@^7.0.0:
   resolved "https://registry.yarnpkg.com/webidl-conversions/-/webidl-conversions-7.0.0.tgz#256b4e1882be7debbf01d05f0aa2039778ea080a"
   integrity sha512-VwddBukDzu71offAQR975unBIGqfKZpM+8ZX6ySk8nYhVoo5CYaZyzt3YBvYtRtO+aoGlqxPg/B87NGVZ/fu6g==
 
-webpack-browser-extension-polyfill@^2.0.1:
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/webpack-browser-extension-polyfill/-/webpack-browser-extension-polyfill-2.0.1.tgz#d48d1408842c7f9595b7f693c0d6a2f949b25e86"
-  integrity sha512-ostDeE8Cgk7P78w50QbL0GfaaB1HkonVBiekb568UP0WWPHWrKxDARyHEnc6pmfG2BAlIGOXFH6hUcaIbjKh5w==
+webpack-browser-extension-polyfill@^2.0.2:
+  version "2.0.2"
+  resolved "https://registry.yarnpkg.com/webpack-browser-extension-polyfill/-/webpack-browser-extension-polyfill-2.0.2.tgz#63ffc7314733d55962e6f349517ee1ee935bc8c3"
+  integrity sha512-au74OwDidMwiHEaX7hkwwCC1Gdiiyv6dj7jxDJnU1mmGYZOanuP0FEH6UiKVE7lbHL3nE0sblwBxFQNBuAED8w==
   dependencies:
     webextension-polyfill "^0.10.0"
 
