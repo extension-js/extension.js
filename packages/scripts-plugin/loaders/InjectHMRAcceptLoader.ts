@@ -47,7 +47,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
   if (manifest.background) {
     if (manifest.background.scripts) {
       for (const bgScript of manifest.background.scripts) {
-        const absoluteUrl = path.resolve(projectPath, bgScript)
+        const absoluteUrl = path.resolve(projectPath, bgScript as string)
         if (url.includes(absoluteUrl)) {
           return `${reloadCode}${source}`
         }
@@ -68,7 +68,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
         if (!contentScript.js) continue
 
         for (const js of contentScript.js) {
-          const absoluteUrl = path.resolve(projectPath, js)
+          const absoluteUrl = path.resolve(projectPath, js as string)
 
           if (url.includes(absoluteUrl)) {
             return `${reloadCode}${source}`
@@ -81,7 +81,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
   // 3 - Handle user_scripts.
   if (manifest.user_scripts) {
     for (const userScript of manifest.user_scripts) {
-      const absoluteUrl = path.resolve(projectPath, userScript)
+      const absoluteUrl = path.resolve(projectPath, userScript as string)
       if (url.includes(absoluteUrl)) {
         return `${reloadCode}${source}`
       }

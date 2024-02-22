@@ -1,11 +1,11 @@
 import path from 'path'
 import fs from 'fs'
-import webpack from 'webpack'
+import type webpack from 'webpack'
 
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
 
-import {IncludeList, type StepPluginInterface} from '../types'
+import {type IncludeList, type StepPluginInterface} from '../types'
 import {shouldExclude} from '../helpers/utils'
 
 export default class AddScriptsAndStyles {
