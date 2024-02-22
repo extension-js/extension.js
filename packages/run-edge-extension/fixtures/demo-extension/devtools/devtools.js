@@ -1,4 +1,4 @@
-/* global edge */
+/* global chrome */
 
 function handleShown() {
   console.log('panel visible')
