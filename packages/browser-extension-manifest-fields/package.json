@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "browser-extension-manifest-fields",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Output a list of HTML, CSS, JavaScript, and static asset fields from a manifest.json file",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -36,10 +36,12 @@
     "assets"
   ],
   "dependencies": {
-    "@types/chrome": "^0.0.260",
     "parse5": "7.1.2",
-    "parse5-utils": "2.0.0",
+    "parse5-utils": "2.0.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.260",
     "tsconfig": "*",
     "tsup": "^8.0.1"
   }
-}
+}   

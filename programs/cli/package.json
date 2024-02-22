@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "extension-create",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
@@ -45,11 +45,8 @@
   "dependencies": {
     "@extension-create/create": "*",
     "@extension-create/develop": "*",
-    "@types/jest": "^29.5.11",
     "commander": "^11.1.0",
-    "inquirer": "^9.2.12",
-    "semver": "^7.5.4",
-    "tsconfig": "*"
+    "semver": "^7.5.4"
   },
   "devDependencies": {
     "@types/inquirer": "^9.0.7",
@@ -61,6 +58,7 @@
     "jest": "^29.7.0",
     "mock-fs": "^5.2.0",
     "ts-jest": "^29.1.2",
+    "tsconfig": "*",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3"
   }

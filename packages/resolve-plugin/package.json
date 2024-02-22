@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-browser-extension-resolve",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "A webpack plugin to resolve paths in browser extension APIs",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -41,11 +41,7 @@
   "dependencies": {
     "@babel/parser": "7.23.6",
     "@babel/traverse": "7.23.7",
-    "@babel/types": "7.23.6",
-    "imports-loader": "^5.0.0",
-    "node-stdlib-browser": "^1.2.0",
-    "path-browserify": "^1.0.1",
-    "webpack-sources": "^3.2.3"
+    "@babel/types": "7.23.6"
   },
   "devDependencies": {
     "@types/jest": "^29.5.11",
