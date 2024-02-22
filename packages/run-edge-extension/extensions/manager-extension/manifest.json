@@ -1,0 +1,11 @@
+{
+  "name": "⌘ Extension Manager",
+  "version": "1.0",
+  "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA02Q4Zwr24MA5XW/tGzqQnK6tUmS2VnhmomJ1oP1mHqaE7DiGzITpmvWnixUl7zJd5LEr5c0LS58tRzBckGOSE7hfEUNCztQc4ywKa1b4L+67VdvG7PZJLMd525cou82ZkAnmEvb/qgR8qAQa74Jpd4ePZV3M0Gm0nvKIajvVTWbN2lq33nE+a5Yry91RkgkVm6EZgJBUJrxZtdoU5kfCV23Uf1+t6XkDqMYy2BrJ+cE9WT3FhV5DtP1kfYkkCzUxO6pd+wVxmhkXjygLI02lc0OR7Xs69QPfNcGJoJBRH3X4srMdwSCO3JONv/yp+2GH/5mvFx07AtenKg8lGauUXwIDAQAB",
+  "background": {
+    "service_worker": "initialTab.js",
+    "type": "module"
+  },
+  "permissions": ["management", "tabs"]
+}
