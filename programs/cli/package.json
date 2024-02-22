@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "extension-create",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
@@ -49,7 +49,6 @@
     "semver": "^7.5.4"
   },
   "devDependencies": {
-    "@types/inquirer": "^9.0.7",
     "@types/jest": "^29.5.11",
     "@types/mock-fs": "^4.13.4",
     "@types/node": "^20.11.5",

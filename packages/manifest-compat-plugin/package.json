@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-browser-extension-manifest-compat",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "webpack plugin to handle browser extensions incompatibilities",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -53,8 +53,6 @@
   "devDependencies": {
     "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
-    "jasmine": "^5.1.0",
-    "rimraf": "^5.0.5",
     "tsconfig": "*",
     "tsup": "^8.0.1",
     "webpack": "^5.89.0",

@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-browser-extension-resources",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "webpack plugin to handle manifest web resources assets from browser extensions",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -47,10 +47,8 @@
     "csv-loader": "^3.0.5"
   },
   "devDependencies": {
-    "@types/glob": "^8.1.0",
     "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
-    "jasmine": "^5.1.0",
     "rimraf": "^5.0.5",
     "tsconfig": "*",
     "tsup": "^8.0.1",
