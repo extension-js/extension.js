@@ -1,7 +1,7 @@
 import path from 'path'
-import webpack from 'webpack'
+import type webpack from 'webpack'
 
-import {IncludeList, type ScriptsPluginInterface} from './types'
+import {type IncludeList, type ScriptsPluginInterface} from './types'
 import AddScriptsAndStyles from './steps/AddScriptsAndStyles'
 import AddHmrAcceptCode from './steps/AddHmrAcceptCode'
 import AddDynamicCssImport from './steps/AddDynamicCssImport'

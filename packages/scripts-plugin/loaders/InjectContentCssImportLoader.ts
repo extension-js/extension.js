@@ -87,7 +87,7 @@ export default function (this: InjectContentCssImportContext, source: string) {
         // are bundled together, so we only need to add the
         // dynamic import() to the first file.
         if (fileIndex === 0) {
-          const absoluteUrl = path.resolve(projectPath, js)
+          const absoluteUrl = path.resolve(projectPath, js as string)
 
           if (url.includes(absoluteUrl)) {
             const cssEntriesToImport = getCssEntriesToImport(
