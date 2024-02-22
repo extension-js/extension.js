@@ -33,7 +33,10 @@ export default function browserPlugins(
   const edgeConfig = {
     ...chromeConfig,
     port: 8001,
-    stats: false
+    // If all browsers are being used, we don't need to show the stats
+    // for each browser. This is because the stats will be the same for
+    // each browser.
+    stats: devOptions.browser !== 'all'
   }
 
   return {
@@ -44,7 +47,7 @@ export default function browserPlugins(
           new RunChromeExtension(chromeConfig).apply(compiler)
           break
         case 'edge':
-          new RunChromeExtension(edgeConfig).apply(compiler)
+          new RunEdgeExtension(edgeConfig).apply(compiler)
           break
         case 'firefox':
           console.warn('[extension-create]: firefox browser not supported yet')
