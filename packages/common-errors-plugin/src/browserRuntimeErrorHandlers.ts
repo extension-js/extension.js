@@ -5,10 +5,11 @@ export function handleInsecureCSPValue(
   manifestPath: string
 ): webpack.WebpackError | null {
   const manifest = require(manifestPath)
-  const manifestCSP = manifest.content_security_policy
-  const extensionPagesCSP = manifest.content_security_policy?.extension_pages
+  const manifestCSP: string | undefined = manifest.content_security_policy
+  const extensionPagesCSP: string | undefined =
+    manifest.content_security_policy?.extension_pages
 
-  const checkCSP = (cspString: string) => {
+  const checkCSP = (cspString: string): string | undefined => {
     const parsedCSP = parseCSP(cspString)
 
     if (
@@ -20,10 +21,10 @@ export function handleInsecureCSPValue(
   }
 
   if (manifest.manifest_version === 3) {
-    const mainCSPError = manifestCSP ? checkCSP(manifestCSP) : null
+    const mainCSPError = manifestCSP ? checkCSP(manifestCSP) : undefined
     const extensionPagesCSPError = extensionPagesCSP
       ? checkCSP(extensionPagesCSP)
-      : null
+      : undefined
 
     if (mainCSPError) return new webpack.WebpackError(mainCSPError)
     if (extensionPagesCSPError)
@@ -37,7 +38,7 @@ export function handleWrongWebResourceFormatError(
   manifestPath: string
 ): webpack.WebpackError | null {
   const manifest = require(manifestPath)
-  const webResources = manifest.web_accessible_resources
+  const webResources = manifest.web_accessible_resources as string[]
 
   if (webResources) {
     const mv2Format = webResources.some((resource: string) => {

@@ -5,14 +5,14 @@ import fs from 'fs-extra'
 const getFixturesPath = (demoDir: string) =>
   path.join(__dirname, 'fixtures', demoDir)
 
-const assertFileIsEmitted = (filePath: string) => {
-  return fs.access(filePath, fs.constants.F_OK)
+const assertFileIsEmitted = async (filePath: string) => {
+  await fs.access(filePath, fs.constants.F_OK);
 }
 
-const assertFileIsNotEmitted = (filePath: string) => {
-  return fs.access(filePath, fs.constants.F_OK).catch((err) => {
+const assertFileIsNotEmitted = async (filePath: string) => {
+  await fs.access(filePath, fs.constants.F_OK).catch((err) => {
     expect(err).toBeTruthy()
-  })
+  });
 }
 
 describe('ScriptsPlugin (default behavior)', () => {
@@ -26,7 +26,7 @@ describe('ScriptsPlugin (default behavior)', () => {
       {cwd: fixturesPath},
       (error, stdout, stderr) => {
         if (error) {
-          console.error(`exec error: ${error}`)
+          console.error(`exec error: ${error.message}`)
           return done(error)
         }
         done()
@@ -65,7 +65,7 @@ describe('ScriptsPlugin (edge cases)', () => {
       {cwd: fixturesPath},
       (error, stdout, stderr) => {
         if (error) {
-          console.error(`exec error: ${error}`)
+          console.error(`exec error: ${error.message}`)
           return done(error)
         }
         done()
