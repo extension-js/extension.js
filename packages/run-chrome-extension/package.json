@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-run-chrome-extension",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Run your extension on Google Chrome with auto-reload support",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -25,6 +25,9 @@
     "test:fixture": "yarn --cwd=./fixtures/dev-server-no-hmr dev",
     "demo": "yarn test:fixture"
   },
+  "files": [
+    "dist"
+  ],
   "keywords": [
     "webpack",
     "plugin",
@@ -43,7 +46,6 @@
   },
   "dependencies": {
     "@types/loader-utils": "^2.0.6",
-    "@types/schema-utils": "^2.4.0",
     "browser-extension-manifest-fields": "*",
     "chrome-location": "^1.2.1",
     "content-security-policy-parser": "^0.4.1",
