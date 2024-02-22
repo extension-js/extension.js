@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/develop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "The develop step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -43,10 +43,7 @@
     "csv-loader": "^3.0.5",
     "dotenv-webpack": "^8.0.1",
     "eslint-webpack-plugin": "^4.0.1",
-    "esm": "^3.2.25",
-    "filemanager-webpack-plugin": "^8.0.0",
-    "fork-ts-checker-webpack-plugin": "^9.0.2",
-    "go-git-it": "1.2.2",
+    "go-git-it": "^1.2.2",
     "html-loader": "^5.0.0",
     "json-minimizer-webpack-plugin": "^5.0.0",
     "less": "^4.2.0",
@@ -60,8 +57,6 @@
     "postcss-scss": "^4.0.9",
     "react-refresh": "^0.14.0",
     "react-refresh-typescript": "^2.0.9",
-    "remark-html": "^16.0.1",
-    "remark-loader": "^6.0.0",
     "sass": "^1.70.0",
     "sass-loader": "^14.0.0",
     "style-loader": "^3.3.4",
@@ -90,7 +85,6 @@
   "devDependencies": {
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/dotenv-webpack": "^7.0.7",
-    "copyfiles": "^2.4.1",
     "tsup": "^8.0.1"
   }
 }

@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/create",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "The create step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -32,12 +32,12 @@
     "@colors/colors": "^1.6.0",
     "cross-spawn": "^7.0.3",
     "pacote": "^17.0.6",
-    "prefers-yarn": "^1.0.1",
-    "tsconfig": "*"
+    "prefers-yarn": "^1.0.1"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.6",
     "@types/react-dom": "^18.2.18",
+    "tsconfig": "*",
     "tsup": "^8.0.1",
     "typescript": "^5.3.3"
   }
