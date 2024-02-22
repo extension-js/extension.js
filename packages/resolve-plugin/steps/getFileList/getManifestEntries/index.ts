@@ -14,7 +14,9 @@ import sidePanel from './side_panel'
 import sidebarAction from './sidebar_action'
 import {type ManifestData} from './types'
 
-export default function getManifestEntries(manifest: ManifestData): Record<string, string | string[] | undefined> {
+export default function getManifestEntries(
+  manifest: ManifestData
+): Record<string, string | string[] | undefined> {
   return {
     [`background/scripts.js`]: backgroundScripts(manifest),
     [`background/service_worker.js`]: serviceWorker(manifest),

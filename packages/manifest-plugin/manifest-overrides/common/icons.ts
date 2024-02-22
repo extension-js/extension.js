@@ -11,11 +11,7 @@ export default function icons(manifest: Manifest, exclude: string[]) {
         Object.entries(manifest.icons).map(([size, icon]) => {
           return [
             size,
-            getFilename(
-              `icons/${getBasename(icon)}`,
-              icon,
-              exclude
-            )
+            getFilename(`icons/${getBasename(icon)}`, icon, exclude)
           ]
         })
       )

@@ -97,12 +97,12 @@ function solve(apiArgument?: SolveType) {
   }
 
   const resolveProperty = (obj: {
-    path?: string,
-    popup?: string,
-    url?: string,
-    iconUrl?: string,
-    files?: string[],
-    js?: string | string[],
+    path?: string
+    popup?: string
+    url?: string
+    iconUrl?: string
+    files?: string[]
+    js?: string | string[]
     css?: string | string[]
   }) => ({
     ...obj,

@@ -9,7 +9,7 @@ import type webpack from 'webpack'
 import {getManifestPath, getOutputPath} from '../config/getPath'
 import {type DevOptions} from '../../extensionDev'
 import RunChromeExtension from 'webpack-run-chrome-extension'
-// import RunEdgeExtension from 'webpack-run-edge-extension'
+import RunEdgeExtension from 'webpack-run-edge-extension'
 
 export default function browserPlugins(
   projectPath: string,
@@ -30,11 +30,11 @@ export default function browserPlugins(
     stats: true
   }
 
-  // const edgeConfig = {
-  //   ...chromeConfig,
-  //   port: 8001,
-  //   stats: 'minimal'
-  // }
+  const edgeConfig = {
+    ...chromeConfig,
+    port: 8001,
+    stats: false
+  }
 
   return {
     name: 'BrowserPlugin',
@@ -44,13 +44,10 @@ export default function browserPlugins(
           new RunChromeExtension(chromeConfig).apply(compiler)
           break
         case 'edge':
-          // new RunChromeExtension(edgeConfig).apply(compiler)
-          console.warn(
-            '[extension-create]: edger browser is being refactored... not currentlty supported'
-          )
+          new RunChromeExtension(edgeConfig).apply(compiler)
           break
         case 'firefox':
-          console.warn('[extension-create]: firefox browser not supported')
+          console.warn('[extension-create]: firefox browser not supported yet')
           break
         default:
           new RunChromeExtension(chromeConfig).apply(compiler)

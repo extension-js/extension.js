@@ -1,5 +1,5 @@
 import fs from 'fs'
-import type webpack from 'webpack';
+import type webpack from 'webpack'
 import {sources, Compilation} from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 import {type JsonPluginInterface, type Manifest} from './types'
@@ -47,7 +47,11 @@ export default class JsonPlugin {
           for (const field of Object.entries(jsonFields)) {
             const [feature, resource] = field
 
-            const resourceArr: Array<string | undefined> = Array.isArray(resource) ? resource : [resource]
+            const resourceArr: Array<string | undefined> = Array.isArray(
+              resource
+            )
+              ? resource
+              : [resource]
 
             for (const thisResource of resourceArr) {
               // Resources from the manifest lib can come as undefined.
@@ -92,7 +96,11 @@ export default class JsonPlugin {
           for (const field of Object.entries(jsonFields)) {
             const [, resource] = field
 
-            const resourceArr: Array<string | undefined> = Array.isArray(resource) ? resource : [resource]
+            const resourceArr: Array<string | undefined> = Array.isArray(
+              resource
+            )
+              ? resource
+              : [resource]
 
             for (const thisResource of resourceArr) {
               if (thisResource) {

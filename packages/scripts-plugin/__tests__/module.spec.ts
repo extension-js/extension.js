@@ -6,13 +6,13 @@ const getFixturesPath = (demoDir: string) =>
   path.join(__dirname, 'fixtures', demoDir)
 
 const assertFileIsEmitted = async (filePath: string) => {
-  await fs.access(filePath, fs.constants.F_OK);
+  await fs.access(filePath, fs.constants.F_OK)
 }
 
 const assertFileIsNotEmitted = async (filePath: string) => {
   await fs.access(filePath, fs.constants.F_OK).catch((err) => {
     expect(err).toBeTruthy()
-  });
+  })
 }
 
 describe('ScriptsPlugin (default behavior)', () => {

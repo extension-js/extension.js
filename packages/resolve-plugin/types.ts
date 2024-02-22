@@ -1,5 +1,5 @@
 import {type LoaderContext} from 'webpack'
-import { type ManifestBase } from './manifest-types'
+import {type ManifestBase} from './manifest-types'
 
 export interface Callee {
   type: string
@@ -35,6 +35,6 @@ export interface ResolvePluginInterface {
   exclude?: string[]
 }
 
-export type IncludeList = Record<string, string>;
+export type IncludeList = Record<string, string>
 
 export type Manifest = ManifestBase

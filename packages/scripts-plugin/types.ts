@@ -10,4 +10,4 @@ export interface StepPluginInterface {
   exclude: string[]
 }
 
-export type IncludeList = Record<string, string>;
+export type IncludeList = Record<string, string>

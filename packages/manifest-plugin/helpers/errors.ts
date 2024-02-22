@@ -63,10 +63,7 @@ function handleIconsErrors(
       const icon = value as {light?: string; dark?: string}
 
       if (icon.light) {
-        const fieldError = messages.manifestFieldError(
-          field,
-          icon.light
-        )
+        const fieldError = messages.manifestFieldError(field, icon.light)
 
         if (!fs.existsSync(icon.dark!)) {
           compilation.errors.push(new WebpackError(fieldError))
@@ -74,10 +71,7 @@ function handleIconsErrors(
       }
 
       if (icon.dark) {
-        const fieldError = messages.manifestFieldError(
-          field,
-          icon.dark
-        )
+        const fieldError = messages.manifestFieldError(field, icon.dark)
 
         if (!fs.existsSync(icon.dark)) {
           compilation.errors.push(new WebpackError(fieldError))

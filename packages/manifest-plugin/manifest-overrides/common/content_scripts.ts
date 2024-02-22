@@ -1,7 +1,10 @@
 import {type Manifest} from '../../types'
 import getFilename from '../../helpers/getFilename'
 
-interface ContentObj {js?: string[] | undefined; css?: string[] | undefined}
+interface ContentObj {
+  js?: string[] | undefined
+  css?: string[] | undefined
+}
 
 export default function contentScripts(manifest: Manifest, exclude: string[]) {
   return (

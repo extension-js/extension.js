@@ -23,7 +23,9 @@ function printTree(node: Record<string, any>, prefix = '') {
   Object.keys(node).forEach((key, index, array) => {
     const isLast = index === array.length - 1
     const connector = isLast ? '└─' : '├─'
-    const sizeInKB = node[key].size ? ` (${getFileSize(node[key].size as number)})` : ''
+    const sizeInKB = node[key].size
+      ? ` (${getFileSize(node[key].size as number)})`
+      : ''
     log(`${prefix}${connector} ${bold(key)}${sizeInKB}`)
     if (typeof node[key] === 'object' && !node[key].size) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
@@ -32,7 +34,7 @@ function printTree(node: Record<string, any>, prefix = '') {
   })
 }
 
-function getAssetInfo(assets: Array<{name: string, size: number}> | undefined) {
+function getAssetInfo(assets: Array<{name: string; size: number}> | undefined) {
   log('\n')
   assets?.forEach((asset) => {
     const sizeInKB = getFileSize(asset.size)
@@ -97,7 +99,9 @@ export default function buildWebpack(
       getOutputPath(projectDir, browser || 'chrome'),
       'manifest.json'
     )
-    const manifest: Record<string, string> = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+    const manifest: Record<string, string> = JSON.parse(
+      fs.readFileSync(manifestPath, 'utf8')
+    )
     const assets = statsJson?.assets
     const heading = `Building ${bold(manifest.name)} extension using ${bold(vendor)} defaults...\n`
     const buildTime = `\nBuild completed in ${((statsJson?.time || 0) / 1000).toFixed(2)} seconds.`
