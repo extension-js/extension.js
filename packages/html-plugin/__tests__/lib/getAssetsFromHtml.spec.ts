@@ -21,7 +21,7 @@ function createMockHtmlDocument(childNodes: any[]): any {
     childNodes: [
       {
         nodeName: 'html',
-        childNodes: childNodes
+        childNodes
       }
     ]
   }

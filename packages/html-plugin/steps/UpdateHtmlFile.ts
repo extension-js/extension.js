@@ -1,14 +1,13 @@
-import fs from 'fs'
-import webpack, {sources, Compilation} from 'webpack'
+import type webpack from 'webpack'
+import {sources, Compilation} from 'webpack'
 
-import {IncludeList, type StepPluginInterface} from '../types'
+import {type IncludeList, type StepPluginInterface} from '../types'
 
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
 
 import patchHtml from '../lib/patchHtml'
 import {shouldExclude} from '../helpers/utils'
-import errors from '../helpers/errors'
 import getFilePath from '../helpers/getFilePath'
 import * as fileUtils from '../helpers/utils'
 
@@ -52,7 +51,7 @@ export default class UpdateHtmlFile {
 
               // Resources from the manifest lib can come as undefined.
               if (html) {
-                const updatedHtml = patchHtml(
+                const updatedHtml: string = patchHtml(
                   compilation,
                   feature,
                   html,

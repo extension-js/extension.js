@@ -1,4 +1,4 @@
-import {ManifestBase} from './manifest-types'
+import {type ManifestBase} from './manifest-types'
 
 export interface HtmlPluginInterface {
   manifestPath: string
@@ -12,16 +12,16 @@ export interface StepPluginInterface {
   exclude: string[]
 }
 
-export interface IncludeList {
-  [key: string]:
-    | {
-        html: string
-        js: string[]
-        css: string[]
-        static: string[]
-      }
-    | undefined
-}
+export type IncludeList = Record<
+  string,
+  | {
+      html: string
+      js: string[]
+      css: string[]
+      static: string[]
+    }
+  | undefined
+>
 
 export type ResourceType =
   | 'script'

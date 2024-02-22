@@ -1,12 +1,12 @@
 import fs from 'fs'
-import webpack, {sources, Compilation} from 'webpack'
+import type webpack from 'webpack'
+import {sources} from 'webpack'
 
-import {IncludeList, type StepPluginInterface} from '../types'
+import {type IncludeList, type StepPluginInterface} from '../types'
 
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
 
-import patchHtml from '../lib/patchHtml'
 import {shouldExclude} from '../helpers/utils'
 import errors from '../helpers/errors'
 import getFilePath from '../helpers/getFilePath'

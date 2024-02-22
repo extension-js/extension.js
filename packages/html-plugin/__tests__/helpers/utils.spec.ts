@@ -1,6 +1,6 @@
 import fs from 'fs'
 import * as utils from '../../helpers/utils'
-import {IncludeList} from '../../types'
+import {type IncludeList} from '../../types'
 
 jest.mock('fs')
 

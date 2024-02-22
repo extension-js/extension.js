@@ -1,8 +1,9 @@
 import fs from 'fs'
 import path from 'path'
-import webpack, {sources, Compilation} from 'webpack'
+import type webpack from 'webpack'
+import {sources, Compilation} from 'webpack'
 
-import {IncludeList, type StepPluginInterface} from '../types'
+import {type IncludeList, type StepPluginInterface} from '../types'
 
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'

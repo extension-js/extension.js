@@ -5,18 +5,18 @@ import {exec} from 'child_process'
 const getFixturesPath = (demoDir: string) =>
   path.join(__dirname, 'fixtures', demoDir)
 
-const assertFileIsEmitted = (filePath: string) => {
-  return fs.access(filePath, fs.constants.F_OK)
+const assertFileIsEmitted = async (filePath: string) => {
+  await fs.access(filePath, fs.constants.F_OK)
 }
 
-const assertFileIsNotEmitted = (filePath: string) => {
-  return fs.access(filePath, fs.constants.F_OK).catch((err) => {
+const assertFileIsNotEmitted = async (filePath: string) => {
+  await fs.access(filePath, fs.constants.F_OK).catch((err) => {
     expect(err).toBeTruthy()
   })
 }
 
-const findStringInFile = (filePath: string, string: string) => {
-  return fs.readFile(filePath, 'utf8').then((data) => {
+const findStringInFile = async (filePath: string, string: string) => {
+  await fs.readFile(filePath, 'utf8').then((data) => {
     expect(data).toContain(string)
   })
 }
@@ -32,7 +32,7 @@ describe('HtmlPlugin (default behavior)', () => {
       {cwd: fixturesPath},
       (error, stdout, stderr) => {
         if (error) {
-          console.error(`exec error: ${error}`)
+          console.error(`exec error: ${error.message}`)
           return done(error)
         }
         done()
@@ -189,7 +189,7 @@ describe('HtmlPlugin (edge cases)', () => {
       {cwd: fixturesPath},
       (error, stdout, stderr) => {
         if (error) {
-          console.error(`exec error: ${error}`)
+          console.error(`exec error: ${error.message}`)
           return done(error)
         }
         done()
