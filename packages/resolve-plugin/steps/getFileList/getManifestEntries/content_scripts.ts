@@ -1,6 +1,6 @@
 import {type ManifestData} from './types.js'
 
-type ContentScript = Array<{css?: string[], js?: string[]}>
+type ContentScript = Array<{css?: string[]; js?: string[]}>
 export default function contentScript(manifest: ManifestData): ManifestData {
   if (!manifest || !manifest.content_scripts)
     return {[`content_scripts/content-0.js`]: undefined}
