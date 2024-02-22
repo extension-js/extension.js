@@ -5,7 +5,7 @@ import {type Schema} from 'schema-utils/declarations/validate'
 import * as parser from '@babel/parser'
 
 import transformSource from './steps/transformSource'
-import {IncludeList} from './types'
+import {type IncludeList} from './types'
 import emitResolverModule from './steps/emitResolverModule'
 
 const schema: Schema = {
