@@ -3,6 +3,8 @@
 // @ts-ignore
 import {render} from 'react-dom'
 import {App} from './App'
+
+// @ts-ignore
 import('./content.css')
 
 console.log('ok~2211~!')
@@ -12,5 +14,6 @@ function initial() {
   const root = document.createElement('div')
   root.id = 'extension-root'
   document.body.appendChild(root)
+  // @ts-ignore
   render(<App />, root)
 }
