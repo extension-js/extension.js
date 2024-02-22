@@ -8,7 +8,7 @@
 import path from 'path'
 // @ts-ignore
 import prefersYarn from 'prefers-yarn'
-import {bold, blue, green} from '@colors/colors/safe'
+import {bold, blue, green, underline} from '@colors/colors/safe'
 
 export default function successfullInstall(
   workingDir: string,
@@ -23,7 +23,7 @@ export default function successfullInstall(
 
   const packageManager = prefersYarn() ? 'yarn' : 'npm run'
   console.log(`
-Now ${blue(bold(`cd`))} *${relativePath}* and ${blue(bold(`${packageManager} dev`))} to open a new browser instance
+Now ${blue(bold(`cd`))} ${underline(relativePath)} and ${blue(bold(`${packageManager} dev`))} to open a new browser instance
 with your extension installed, loaded, and enabled for development.
 
 You are ready. Time to hack on your extension!

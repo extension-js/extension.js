@@ -21,7 +21,7 @@ export default async function generateExtensionTypes(
       ? '../../programs/develop/types'
       : 'extension-create/develop/types'
 
-  let fileContent = `\
+  const fileContent = `\
 // Required extension-create types for TypeScript projects.
 // This file auto-generated and should not be excluded.
 // If you need extra types, consider creating a new *.d.ts and
