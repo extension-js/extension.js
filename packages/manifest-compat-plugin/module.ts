@@ -1,7 +1,7 @@
-import Ajv, {ErrorObject} from 'ajv'
+import Ajv, {type ErrorObject} from 'ajv'
 import fs from 'fs'
 import path from 'path'
-import {Compiler, WebpackError} from 'webpack'
+import {type Compiler, WebpackError} from 'webpack'
 import v3Schema from './lib/manifest.schema.v3.json'
 import addCustomFormats from './lib/customValidators'
 import bcd from '@mdn/browser-compat-data'
@@ -12,7 +12,7 @@ interface ManifestCompatPluginOptions {
 }
 
 export default class ManifestCompatPlugin {
-  private options: ManifestCompatPluginOptions
+  private readonly options: ManifestCompatPluginOptions
 
   constructor(options: ManifestCompatPluginOptions) {
     this.options = options
@@ -80,7 +80,7 @@ ${this.getApiDocumentationURL('chrome', namespace)}`
           const errorData = validate.errors?.[0]
 
           if (errorData?.keyword === 'required') {
-            const missingProperty = errorData?.params.missingProperty
+            const missingProperty = errorData?.params.missingProperty as string
             compilation.errors.push(
               new WebpackError(
                 `[manifest.json]: ${this.missingRequiredFieldError(missingProperty)}`

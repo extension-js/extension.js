@@ -1,4 +1,4 @@
-import Ajv from 'ajv'
+import type Ajv from 'ajv'
 
 export function addCustomFormats(ajv: Ajv) {
   // Permission format
@@ -18,6 +18,7 @@ export function addCustomFormats(ajv: Ajv) {
     type: 'string',
     validate: (data: any) => {
       // Basic glob pattern validation
+      // eslint-disable-next-line no-useless-escape
       return typeof data === 'string' && /[\*\?\[\]]/.test(data)
     }
   })
@@ -69,6 +70,7 @@ export function addCustomFormats(ajv: Ajv) {
     type: 'string',
     validate: (data: any) => {
       // Basic MIME type validation
+      // eslint-disable-next-line no-useless-escape
       return typeof data === 'string' && /^[a-z]+\/[a-z0-9\-\+]+$/.test(data)
     }
   })
