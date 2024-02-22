@@ -1,5 +1,5 @@
 import path from 'path'
-import {Compiler} from 'webpack'
+import {type Compiler} from 'webpack'
 import {log, error} from 'console'
 import {
   underline,
@@ -8,12 +8,13 @@ import {
   green,
   blue,
   red,
+  yellow,
   black
 } from '@colors/colors/safe'
 // @ts-ignore
 import prefersYarn from 'prefers-yarn'
 import getDirectorySize from '../steps/calculateDirSize'
-import {ManifestBase} from '../manifest-types'
+import {type ManifestBase} from '../manifest-types'
 
 interface Data {
   id: string
@@ -22,7 +23,7 @@ interface Data {
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the \`${feature}\` field in your manifest.json file and try again.`
+  const hintMessage = `Check the ${bold(feature)} field in your manifest.json file and try again.`
 
   const errorMessage = `[manifest.json] File path \`${htmlFilePath}\` not found. ${hintMessage}`
   return errorMessage
@@ -30,11 +31,11 @@ function manifestFieldError(feature: string, htmlFilePath: string) {
 
 function manifestNotFound() {
   log(`
-# Error! Can't find the project's manifest file.
+${bold("Error! Can't find the project's manifest file.")}
 
-Check your extension \`manifest.json\` file and ensure its path points to
+Check your extension ${yellow('manifest.json')} file and ensure its path points to
 one of the options above, and try again.
-  `)
+`)
 }
 
 function extensionData(
@@ -57,7 +58,7 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   }
 
   const compilerOptions = compiler.options
-  const {id, manifest, management} = message.data
+  const {id, management} = message.data
 
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
@@ -83,7 +84,6 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   })
   const fixedId = manifestFromCompiler.id === id
   const hasHost = hostPermissions && hostPermissions.length
-  management.enabled
 
   log('')
   log(`${bold(`• Name:`)} ${name}`)

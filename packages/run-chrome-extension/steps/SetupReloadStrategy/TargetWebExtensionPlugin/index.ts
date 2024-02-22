@@ -2,9 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import type webpack from 'webpack'
 import WebExtension from 'webpack-target-webextension'
-import {type RunChromeExtensionInterface} from '../../../types'
+import {type RunChromeExtensionInterface, type Manifest} from '../../../types'
 import messages from '../../../helpers/messages'
-import {Manifest} from '../../../types'
 
 class TargetWebExtensionPlugin {
   private readonly manifestPath?: string
@@ -16,7 +15,7 @@ class TargetWebExtensionPlugin {
   private handleMissingBackground(manifest: Manifest) {
     if (manifest.manifest_version === 3) {
       if (manifest.background.service_worker) {
-        const serviceWorker = manifest.background.service_worker
+        const serviceWorker = manifest.background.service_worker as string
         const serviceWorkerPath = path.join(
           path.dirname(this.manifestPath!),
           serviceWorker
@@ -33,7 +32,7 @@ class TargetWebExtensionPlugin {
     }
 
     if (manifest.background.scripts) {
-      const backgroundScripts = manifest.background.scripts
+      const backgroundScripts = manifest.background.scripts as string[]
       const backgroundPath = path.join(
         path.dirname(this.manifestPath!),
         backgroundScripts[0]
@@ -70,7 +69,7 @@ class TargetWebExtensionPlugin {
       return
     }
 
-    const manifest = require(this.manifestPath)
+    const manifest: Manifest = require(this.manifestPath)
 
     if (manifest.background) {
       this.handleMissingBackground(manifest)

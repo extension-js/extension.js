@@ -9,7 +9,10 @@ export default function patchExternallyConnectable(manifest: any) {
     return {
       externally_connectable: {
         ...manifest.externally_connectable,
-        ids: [...new Set(manifest.externally_connectable.ids || []), '*']
+        ids: [
+          ...new Set((manifest.externally_connectable.ids as string[]) || []),
+          '*'
+        ]
       }
     }
   }

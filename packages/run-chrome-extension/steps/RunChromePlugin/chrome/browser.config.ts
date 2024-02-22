@@ -1,6 +1,6 @@
 import path from 'path'
 import {type RunChromeExtensionInterface} from '../../../types'
-import createUserDataDir from '../../../steps/RunChromePlugin/chrome/createUserDataDir'
+import createUserDataDir from './createUserDataDir'
 
 const managerExtension = path.resolve(
   __dirname,

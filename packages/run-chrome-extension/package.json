@@ -8,8 +8,8 @@
     "node": ">=18"
   },
   "name": "webpack-run-chrome-extension",
-  "version": "0.6.0",
-  "description": "Run and build your extension on Chrome with auto-reload support",
+  "version": "1.0.0",
+  "description": "Run your extension on Google Chrome with auto-reload support",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
   "author": {
@@ -39,7 +39,7 @@
     "webextension"
   ],
   "peerDependencies": {
-    "webpack": "^5.68.0"
+    "webpack": "^5.00.0"
   },
   "dependencies": {
     "@types/loader-utils": "^2.0.6",

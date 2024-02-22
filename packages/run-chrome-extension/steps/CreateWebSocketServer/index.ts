@@ -32,7 +32,7 @@ export default class CreateWebSocketServer {
       'RunChromeExtensionPlugin (CreateWebSocketServer)',
       (compiler, done) => {
         const files = compiler.modifiedFiles || new Set()
-        const changedFile = files.values().next().value
+        const changedFile: string | undefined = files.values().next().value
 
         if (!changedFile) {
           done()
