@@ -13,8 +13,8 @@ export default function theme(manifest: Manifest, exclude: string[]) {
           images: {
             ...manifest.theme.images,
             theme_frame: getFilename(
-              `theme/images/${getBasename(manifest.theme.images.theme_frame)}`,
-              manifest.theme.images.theme_frame,
+              `theme/images/${getBasename(manifest.theme.images.theme_frame as string)}`,
+              manifest.theme.images.theme_frame as string,
               exclude
             )
           }

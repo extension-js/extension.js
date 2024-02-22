@@ -11,7 +11,7 @@ export default function getAction(manifest: Manifest, exclude: string[]) {
         ...(manifest.action.default_popup && {
           default_popup: getFilename(
             `action/default_popup.html`,
-            manifest.action.default_popup,
+            manifest.action.default_popup as string,
             exclude
           )
         }),
@@ -20,18 +20,18 @@ export default function getAction(manifest: Manifest, exclude: string[]) {
           default_icon:
             typeof manifest.action.default_icon === 'string'
               ? getFilename(
-                  `action/${getBasename(manifest.action.default_icon)}`,
-                  manifest.action.default_icon,
+                  `action/${getBasename(manifest.action.default_icon as string)}`,
+                  manifest.action.default_icon as string,
                   exclude
                 )
               : Object.fromEntries(
-                  Object.entries(manifest.action.default_icon).map(
+                  Object.entries(manifest.action.default_icon as string).map(
                     ([size, icon]) => {
                       return [
                         size,
                         getFilename(
-                          `action/${getBasename(icon as string)}`,
-                          icon as string,
+                          `action/${getBasename(icon)}`,
+                          icon,
                           exclude
                         )
                       ]

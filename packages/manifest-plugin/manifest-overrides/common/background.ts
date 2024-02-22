@@ -10,7 +10,7 @@ export default function getBackground(manifest: Manifest, exclude: string[]) {
         ...(manifest.background.page && {
           page: getFilename(
             'background/page.html',
-            manifest.background.page,
+            manifest.background.page as string,
             exclude
           )
         })

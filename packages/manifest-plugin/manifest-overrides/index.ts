@@ -11,7 +11,7 @@ export default function getManifestOverrides(
 ) {
   // In case user don't provide a manifest content,
   // we will try to load it from the manifestPath.
-  const manifestContent = manifest || require(manifestPath)
+  const manifestContent: Manifest = manifest || require(manifestPath)
   const excludeRelative = exclude.map((excludePath) => {
     const context = path.dirname(manifestPath)
     const excludeRelative = excludePath.replace(context, '')
