@@ -8,7 +8,7 @@ import {
 } from './messages'
 import manifestFields from 'browser-extension-manifest-fields'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
-import {IncludeList} from '../types'
+import {type IncludeList} from '../types'
 
 function manifestNotFoundError(compilation: webpack.Compilation) {
   const errorMessage = manifestMissingError()
@@ -63,7 +63,7 @@ function handleCantResolveError(
     }
 
     for (const field of Object.entries(allEntries)) {
-      const [_feature, resource] = field
+      const [, resource] = field
 
       // Resources from the manifest lib can come as undefined.
       if (resource?.html) {
