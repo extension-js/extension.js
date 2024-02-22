@@ -79,7 +79,7 @@ export function scanPublicFilesInFolder(dirPath: string): string[] {
   return publicFiles
 }
 
-type IncludeList = Record<string, string>;
+type IncludeList = Record<string, string>
 
 export function generatePagesEntries(
   includes: string[] | undefined

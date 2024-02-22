@@ -27,9 +27,15 @@ dist
 **/test/**/*
 **/demo/**/*
 packages/run-chrome-extension/extensions/*
+packages/run-edge-extension/extensions/*
+packages/run-firefox-extension/extensions/*
+packages/run-brave-extension/extensions/*
+packages/run-opera-extension/extensions/*
 *.d.ts
 types
+__TEST__
 __TESTS__
+__test__
 __tests__
 **/copyTypesFolder.js
 **/copyMarkdownFilesToCli.js

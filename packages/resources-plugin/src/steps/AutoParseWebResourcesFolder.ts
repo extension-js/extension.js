@@ -34,7 +34,9 @@ export default class OutputWebAccessibleResourcesFolder {
     compiler.hooks.afterCompile.tapAsync(
       'WebResourcesPlugin (AutoParseWebResourcesFolder)',
       (compilation, done) => {
-        const {web_accessible_resources: webAccResources} = manifestFields(this.manifestPath)
+        const {web_accessible_resources: webAccResources} = manifestFields(
+          this.manifestPath
+        )
         const contentScriptsCss = this.getContentScriptsCss()
 
         if (webAccResources?.length) {

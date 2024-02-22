@@ -16,13 +16,13 @@ export default class ThrowIfRecompileIsNeeded {
     this.initialValues = this.getFlattenedAssets(this.readManifest())
   }
 
-  private readManifest(): Manifest  | undefined {
+  private readManifest(): Manifest | undefined {
     try {
       const manifestJson = fs.readFileSync(this.manifestPath, 'utf-8')
       return JSON.parse(manifestJson)
     } catch (error) {
       console.error('Error reading manifest file:', error)
-      
+
       return undefined
     }
   }
