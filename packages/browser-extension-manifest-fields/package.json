@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "browser-extension-manifest-fields",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Output a list of HTML, CSS, JavaScript, and static asset fields from a manifest.json file",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -24,6 +24,9 @@
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
+  "files": [
+    "dist"
+  ],
   "keywords": [
     "browser",
     "extension",
