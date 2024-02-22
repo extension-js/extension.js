@@ -1,6 +1,7 @@
 import fs from 'fs'
-import webpack, {Compilation} from 'webpack'
-import {type IconsPluginInterface} from '../types'
+import type webpack from 'webpack'
+import {Compilation} from 'webpack'
+import {type IconsPluginInterface, type Manifest} from '../types'
 
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
@@ -26,7 +27,7 @@ export default class AddToFileDependencies {
           (assets) => {
             if (compilation.errors?.length) return
 
-            const manifest = assets['manifest.json']
+            const manifest: Manifest = assets['manifest.json']
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
@@ -35,7 +36,7 @@ export default class AddToFileDependencies {
             for (const field of Object.entries(iconFields)) {
               const [, resource] = field
 
-              const iconEntries = Array.isArray(resource)
+              const iconEntries: string[] = Array.isArray(resource)
                 ? typeof resource[0] === 'string'
                   ? resource
                   : resource.map(Object.values).flat()
