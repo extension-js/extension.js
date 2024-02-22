@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-browser-extension-common-errors",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "webpack plugin to handle common errors from browser extensions",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -47,11 +47,9 @@
   "devDependencies": {
     "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
-    "jasmine": "^5.1.0",
-    "rimraf": "^5.0.5",
-    "webpack": "^5.89.0",
-    "webpack-cli": "^5.1.4",
     "tsconfig": "*",
-    "tsup": "^8.0.1"
+    "tsup": "^8.0.1",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
   }
 }

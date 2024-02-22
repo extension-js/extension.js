@@ -25,8 +25,8 @@ export default async function abortProjectAndClean(
     )
   } else {
     console.log(
-      `🧩 ${bold(`extension-create`)} 🚨🚨🚨 Unexpected creation error. This is a bug.` +
-        `Please report: "${JSON.stringify(error)}"`
+      `🧩 ${bold(`extension-create`)} 🚨🚨🚨 Unexpected creation error. This is a bug. ` +
+        `Please report: "${error}"`
     )
     console.log(
       blue(
