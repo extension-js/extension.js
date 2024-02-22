@@ -78,7 +78,7 @@
     "webpack-browser-extension-locales": "*",
     "webpack-browser-extension-manifest": "*",
     "webpack-browser-extension-manifest-compat": "*",
-    "webpack-browser-extension-polyfill": "*",
+    "webpack-browser-extension-polyfill": "^2.0.1",
     "webpack-browser-extension-resolve": "*",
     "webpack-browser-extension-resources": "*",
     "webpack-browser-extension-scripts": "*",
