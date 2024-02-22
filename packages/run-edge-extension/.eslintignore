@@ -1,0 +1,4 @@
+.eslintrc.js
+dist
+*.d.ts
+./extensions/**/*.js
