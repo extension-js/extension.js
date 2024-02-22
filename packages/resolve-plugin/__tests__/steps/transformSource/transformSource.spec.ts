@@ -1,7 +1,6 @@
 import transformSource from '../../../steps/transformSource'
 import {parse} from '@babel/parser'
 
-const resolverRelativePath = 'resolver-module.js'
 describe('transformSource Tests', () => {
   test('should transform chrome.action.setIcon', () => {
     const code = `chrome.action.setIcon({ path: 'icon.png' });`

@@ -14,9 +14,7 @@ import sidePanel from './side_panel'
 import sidebarAction from './sidebar_action'
 import {type ManifestData} from './types'
 
-export default function getManifestEntries(manifest: ManifestData): {
-  [key: string]: string | string[] | undefined
-} {
+export default function getManifestEntries(manifest: ManifestData): Record<string, string | string[] | undefined> {
   return {
     [`background/scripts.js`]: backgroundScripts(manifest),
     [`background/service_worker.js`]: serviceWorker(manifest),
@@ -24,8 +22,8 @@ export default function getManifestEntries(manifest: ManifestData): {
     ...contentScripts(manifest),
     [`user_scripts/apiscript.js`]: userScripts(manifest),
     [`action/default_popup.html`]: action(manifest),
-    ['background/page.html']: background(manifest),
-    ['browser_action/default_popup.html']: browserAction(manifest),
+    'background/page.html': background(manifest),
+    'browser_action/default_popup.html': browserAction(manifest),
     // read as chrom_settings_overrides/newtab.html
     ...chromeUrlOverrides(manifest),
     [`devtools_page.html`]: devtoolsPage(manifest),
