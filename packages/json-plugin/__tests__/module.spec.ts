@@ -19,7 +19,7 @@ describe('JsonPlugin', () => {
         {cwd: fixturesPath},
         (error, stdout, stderr) => {
           if (error) {
-            console.error(`exec error: ${error}`)
+            console.error(`exec error: ${error.message}`)
             return done(error)
           }
           done()
@@ -64,7 +64,7 @@ describe('JsonPlugin', () => {
         {cwd: fixturesPath},
         (error, stdout, stderr) => {
           if (error) {
-            console.error(`exec error: ${error}`)
+            console.error(`exec error: ${error.message}`)
             return done(error)
           }
           done()
