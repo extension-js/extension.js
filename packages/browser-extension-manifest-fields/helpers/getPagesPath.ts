@@ -1,10 +1,8 @@
 import fs from 'fs'
 import path from 'path'
-import getAssetsFromHtml, {ParsedHtmlAsset} from './getHtmlFileResources'
+import getAssetsFromHtml, {type ParsedHtmlAsset} from './getHtmlFileResources'
 
-interface PagesPath {
-  [key: string]: (ParsedHtmlAsset & {html: string}) | undefined
-}
+type PagesPath = Record<string, (ParsedHtmlAsset & {html: string}) | undefined>
 
 function findHtmlFiles(
   dir: string,

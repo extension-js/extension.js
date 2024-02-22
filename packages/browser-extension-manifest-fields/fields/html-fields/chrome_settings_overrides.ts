@@ -1,6 +1,6 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type Manifest, ManifestHtmlData} from '../../types'
+import {type Manifest, type ManifestHtmlData} from '../../types'
 
 export default function chromeSettingsOverrides(
   manifestPath: string,
@@ -16,7 +16,7 @@ export default function chromeSettingsOverrides(
     return undefined
   }
 
-  const settingsPage = manifest.chrome_settings_overrides.homepage
+  const settingsPage: string = manifest.chrome_settings_overrides.homepage
 
   const settingsPageAbsolutePath = path.join(
     path.dirname(manifestPath),

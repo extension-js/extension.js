@@ -1,6 +1,12 @@
 import path from 'path'
 import {type Manifest, type ManifestBrowserThemeIcons} from '../../types'
 
+interface ThemeIcon {
+  light: string
+  dark: string
+  size?: number
+}
+
 export default function browserActionThemeIcon(
   manifestPath: string,
   manifest: Manifest
@@ -14,7 +20,7 @@ export default function browserActionThemeIcon(
   }
 
   const context = path.dirname(manifestPath)
-  for (const themeIcon of manifest.browser_action.theme_icons) {
+  for (const themeIcon of manifest.browser_action.theme_icons as ThemeIcon[]) {
     if (themeIcon.light) {
       const lightThemeIconAbsolutePath = path.resolve(context, themeIcon.light)
       themeIcon.light = lightThemeIconAbsolutePath

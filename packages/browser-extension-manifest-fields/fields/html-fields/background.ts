@@ -1,6 +1,6 @@
 import path from 'path'
 import getHtmlResources from '../../helpers/getHtmlFileResources'
-import {type Manifest, ManifestHtmlData} from '../../types'
+import {type Manifest, type ManifestHtmlData} from '../../types'
 
 export default function background(
   manifestPath: string,
@@ -10,7 +10,7 @@ export default function background(
     return undefined
   }
 
-  const backgroundPage = manifest.background.page
+  const backgroundPage: string = manifest.background.page
 
   const backgroundAbsolutePath = path.join(
     path.dirname(manifestPath),

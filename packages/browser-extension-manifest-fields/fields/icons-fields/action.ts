@@ -10,15 +10,18 @@ export default function action(
   }
 
   if (typeof manifest.action.default_icon === 'string') {
-    return path.join(path.dirname(manifestPath), manifest.action.default_icon)
+    return path.join(
+      path.dirname(manifestPath),
+      manifest.action.default_icon as string
+    )
   }
 
-  const actionDefaultIcons = []
+  const actionDefaultIcons: string[] = []
 
   for (const icon in manifest.action.default_icon) {
     const actionDefaultIconAbsolutePath = path.join(
       path.dirname(manifestPath),
-      manifest.action.default_icon[icon]
+      manifest.action.default_icon[icon] as string
     )
 
     actionDefaultIcons.push(actionDefaultIconAbsolutePath)

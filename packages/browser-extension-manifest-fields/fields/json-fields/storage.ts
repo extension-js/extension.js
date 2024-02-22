@@ -9,7 +9,7 @@ export default function storage(
     return undefined
   }
 
-  const storageManagedSchema = manifest.storage.managed_schema
+  const storageManagedSchema: string = manifest.storage.managed_schema
 
   const storageManagedSchemaAbsolutePath = path.join(
     path.dirname(manifestPath),

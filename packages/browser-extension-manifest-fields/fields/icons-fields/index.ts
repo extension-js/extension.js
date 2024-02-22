@@ -13,7 +13,7 @@ import sidebarAction from './sidebar_action'
 export default function getIconsFields(
   manifestPath: string,
   manifest: Manifest
-): {[key: string]: ManifestData | ManifestBrowserThemeIcons} {
+): Record<string, ManifestData | ManifestBrowserThemeIcons> {
   return {
     action: action(manifestPath, manifest),
     browser_action: browserAction(manifestPath, manifest),

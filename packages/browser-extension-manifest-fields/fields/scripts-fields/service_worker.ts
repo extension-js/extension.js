@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Manifest, ManifestData} from '../../types'
+import {type Manifest, type ManifestData} from '../../types'
 
 export default function serviceWorker(
   manifestPath: string,
@@ -9,11 +9,9 @@ export default function serviceWorker(
     return undefined
   }
 
-  const serviceWorker = manifest.background.service_worker
+  const serviceWorker: string = manifest.background.service_worker
 
   if (serviceWorker) {
-    const serviceWorker = manifest.background.service_worker
-
     const serviceWorkerAbsolutePath = path.join(
       path.dirname(manifestPath),
       serviceWorker

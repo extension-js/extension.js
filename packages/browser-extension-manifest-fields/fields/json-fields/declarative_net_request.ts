@@ -4,8 +4,8 @@ import {type Manifest} from '../../types'
 export default function declarativeNetRequest(
   manifestPath: string,
   manifest: Manifest
-): {[key: string]: string | undefined} {
-  let ruleResources: {[key: string]: string} = {}
+): Record<string, string | undefined> {
+  const ruleResources: Record<string, string> = {}
 
   if (
     !manifest ||
@@ -15,7 +15,8 @@ export default function declarativeNetRequest(
     return {'declarative_net_request/rule_resources-0': undefined}
   }
 
-  const declarativeNetRequest = manifest.declarative_net_request.rule_resources
+  const declarativeNetRequest: Record<string, any> =
+    manifest.declarative_net_request.rule_resources
 
   declarativeNetRequest.forEach((resource: {id: string; path: string}) => {
     const declarativeNetRequestAbsolutePath = path.join(

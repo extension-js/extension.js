@@ -20,7 +20,7 @@ export default function parseHtml(
   for (const childNode of childNodes) {
     // Handle <script> tags
     if (childNode.nodeName === 'script') {
-      const src = utils.getAttribute(childNode, 'src')
+      const src: string | undefined = utils.getAttribute(childNode, 'src')
 
       // Some scripts have no src
       if (!src) continue
@@ -29,8 +29,8 @@ export default function parseHtml(
 
       onResourceFound(src, childNode, 'script')
     } else if (childNode.nodeName === 'link') {
-      const href = utils.getAttribute(childNode, 'href')
-      const rel = utils.getAttribute(childNode, 'rel')
+      const href: string | undefined = utils.getAttribute(childNode, 'href')
+      const rel: string | undefined = utils.getAttribute(childNode, 'rel')
 
       // Some links have no href
       if (!href) continue
@@ -59,7 +59,7 @@ export default function parseHtml(
     } else {
       // Static assets with href attribute
       if (childNode.nodeName === 'a' || childNode.nodeName === 'area') {
-        const href = utils.getAttribute(childNode, 'href')
+        const href: string | undefined = utils.getAttribute(childNode, 'href')
 
         // Some elements have no href
         if (!href) continue
@@ -80,7 +80,7 @@ export default function parseHtml(
         childNode.nodeName === 'track' ||
         childNode.nodeName === 'video'
       ) {
-        const src = utils.getAttribute(childNode, 'src')
+        const src: string | undefined = utils.getAttribute(childNode, 'src')
 
         // Some elements have no src
         if (!src) continue

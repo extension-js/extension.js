@@ -10,7 +10,7 @@ export default function action(
     return undefined
   }
 
-  const actionPage = manifest.action.default_popup
+  const actionPage: string = manifest.action.default_popup
 
   const actionPageAbsolutePath = path.join(
     path.dirname(manifestPath),
