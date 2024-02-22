@@ -1,5 +1,5 @@
-import {Compilation} from 'webpack'
-import {Manifest} from '../types'
+import {type Compilation} from 'webpack'
+import {type Manifest} from '../types'
 
 export function shouldExclude(path: string, ignorePatterns: string[]): boolean {
   return ignorePatterns.some((pattern) => {

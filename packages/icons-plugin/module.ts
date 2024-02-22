@@ -1,4 +1,4 @@
-import webpack from 'webpack'
+import type webpack from 'webpack'
 import {type IconsPluginInterface} from './types'
 import EmitFile from './steps/EmitFile'
 import AddToFileDependencies from './steps/AddToFileDependencies'
