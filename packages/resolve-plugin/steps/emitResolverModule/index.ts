@@ -1,5 +1,5 @@
 import fs from 'fs'
-import {BrowserExtensionContext} from '../../types'
+import {type BrowserExtensionContext} from '../../types'
 import getFileList from '../getFileList'
 
 export default function emitResolverModule(

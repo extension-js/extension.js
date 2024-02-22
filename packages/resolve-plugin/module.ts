@@ -1,6 +1,6 @@
 import path from 'path'
 import webpack from 'webpack'
-import {IncludeList, ResolvePluginInterface} from './types'
+import {type IncludeList, type ResolvePluginInterface} from './types'
 
 /**
  * ResolvePlugin is responsible for resolving paths for

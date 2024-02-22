@@ -7,6 +7,7 @@ describe('API Check Tests', () => {
       t.memberExpression(t.identifier('chrome'), t.identifier('action')),
       t.identifier('setIcon')
     )
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(has(callee, 'chrome.action.setIcon')).toBe(true)
   })
 
@@ -15,6 +16,7 @@ describe('API Check Tests', () => {
       t.memberExpression(t.identifier('chrome'), t.identifier('action')),
       t.identifier('setPopup')
     )
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(has(callee, 'chrome.action.setPopup')).toBe(true)
   })
 
@@ -23,6 +25,7 @@ describe('API Check Tests', () => {
       t.memberExpression(t.identifier('chrome'), t.identifier('runtime')),
       t.identifier('getURL')
     )
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(has(callee, 'chrome.runtime.getURL')).toBe(true)
   })
 
@@ -34,6 +37,7 @@ describe('API Check Tests', () => {
       ),
       t.identifier('create')
     )
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     expect(has(callee, 'chrome.devtools.panels.create')).toBe(true)
   })
 })

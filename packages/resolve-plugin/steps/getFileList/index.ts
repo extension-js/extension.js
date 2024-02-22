@@ -1,5 +1,5 @@
 import path from 'path'
-import {IncludeList} from '../../types'
+import {type IncludeList, type Manifest} from '../../types'
 import getManifestEntries from './getManifestEntries'
 
 function parseIncludeList(
@@ -10,17 +10,17 @@ function parseIncludeList(
 
   const updatedIncludeList: IncludeList = Object.entries(
     includeList || {}
-  ).reduce((acc, [key, absolutePath]) => {
+  ).reduce<IncludeList>((acc, [key, absolutePath]) => {
     const relativePath = path.relative(manifestDir, absolutePath)
     acc[key] = relativePath
     return acc
-  }, {} as IncludeList)
+  }, {})
 
   return updatedIncludeList
 }
 
 function parseManifestList(manifestPath: string) {
-  const manifest = require(manifestPath)
+  const manifest: Manifest = require(manifestPath)
   const manifestIncludeList = getManifestEntries(manifest)
   return manifestIncludeList
 }

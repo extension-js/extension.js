@@ -73,6 +73,9 @@ function resolver(filePath?: string): string {
       if (value === filepathNormalized) {
         return key
       }
+
+      // TODO: cezaraugusto - this was not tested
+      return false
     }
   )
 
@@ -84,7 +87,7 @@ function resolver(filePath?: string): string {
   return filePath
 }
 
-type SolveType = Record<string, any> | Record<string, any>[] | string
+type SolveType = Record<string, any> | Array<Record<string, any>> | string
 
 function solve(apiArgument?: SolveType) {
   // - chrome.devtools.panels.create(..., stringPath, stringPath, ...)
@@ -93,7 +96,15 @@ function solve(apiArgument?: SolveType) {
     return resolver(apiArgument)
   }
 
-  const resolveProperty = (obj: Record<string, any>) => ({
+  const resolveProperty = (obj: {
+    path?: string,
+    popup?: string,
+    url?: string,
+    iconUrl?: string,
+    files?: string[],
+    js?: string | string[],
+    css?: string | string[]
+  }) => ({
     ...obj,
     // chrome.action.setIcon({..., path: string})
     // chrome.browserAction.setIcon({..., path: string})
@@ -149,7 +160,8 @@ function solve(apiArgument?: SolveType) {
   })
 
   if (Array.isArray(apiArgument)) {
-    return apiArgument.map(resolveProperty(apiArgument))
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    return apiArgument.map((arg) => resolveProperty(arg))
   }
 
   return {
