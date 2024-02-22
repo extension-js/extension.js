@@ -53,10 +53,10 @@ class CheckManifestFilesPlugin {
         if (icon.light) {
           const fieldError = errors.manifestFieldError(
             field,
-            icon.light as string
+            icon.light
           )
 
-          if (!fs.existsSync(icon.dark as string)) {
+          if (!fs.existsSync(icon.dark!)) {
             compilation.warnings.push(new WebpackError(fieldError))
           }
         }
@@ -64,10 +64,10 @@ class CheckManifestFilesPlugin {
         if (icon.dark) {
           const fieldError = errors.manifestFieldError(
             field,
-            icon.dark as string
+            icon.dark
           )
 
-          if (!fs.existsSync(icon.dark as string)) {
+          if (!fs.existsSync(icon.dark)) {
             compilation.warnings.push(new WebpackError(fieldError))
           }
         }

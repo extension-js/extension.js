@@ -11,7 +11,7 @@ export default function pageAction(manifest: Manifest, exclude: string[]) {
         ...(manifest.page_action.default_popup && {
           default_popup: getFilename(
             'page_action/default_popup.html',
-            manifest.page_action.default_popup,
+            manifest.page_action.default_popup as string,
             exclude
           )
         }),
@@ -19,8 +19,8 @@ export default function pageAction(manifest: Manifest, exclude: string[]) {
           default_icon:
             typeof manifest.page_action.default_icon === 'string'
               ? getFilename(
-                  `page_action/${getBasename(manifest.page_action.default_icon)}`,
-                  manifest.page_action.default_icon,
+                  `page_action/${getBasename(manifest.page_action.default_icon as string)}`,
+                  manifest.page_action.default_icon as string,
                   exclude
                 )
               : Object.fromEntries(

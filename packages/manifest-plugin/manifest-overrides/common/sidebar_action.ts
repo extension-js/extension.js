@@ -11,15 +11,15 @@ export default function sidebarAction(manifest: Manifest, exclude: string[]) {
         ...(manifest.sidebar_action.default_panel && {
           default_panel: getFilename(
             `sidebar_action/default_panel.html`,
-            manifest.sidebar_action.default_panel,
+            manifest.sidebar_action.default_panel as string,
             exclude
           )
         }),
 
         ...(manifest.sidebar_action.default_icon && {
           default_icon: getFilename(
-            `sidebar_action/${getBasename(manifest.sidebar_action.default_icon)}`,
-            manifest.sidebar_action.default_icon,
+            `sidebar_action/${getBasename(manifest.sidebar_action.default_icon as string)}`,
+            manifest.sidebar_action.default_icon as string,
             exclude
           )
         })
