@@ -1,0 +1,69 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/webpack-run-edge-extension.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "name": "webpack-run-edge-extension",
+  "version": "1.0.0",
+  "description": "Run your extension on Microsoft Edge with auto-reload support",
+  "main": "./dist/module.js",
+  "types": "./dist/module.d.ts",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node18 && node ./copyExtensions.js",
+    "lint": "eslint \"./**/*.ts*\"",
+    "test": "echo \"Note: no test specified\" && exit 0",
+    "test:fixture": "yarn --cwd=./fixtures/dev-server-no-hmr dev",
+    "demo": "yarn test:fixture"
+  },
+  "keywords": [
+    "webpack",
+    "plugin",
+    "edge",
+    "run",
+    "open",
+    "plugin",
+    "browser",
+    "web",
+    "extension",
+    "web-ext",
+    "webextension"
+  ],
+  "peerDependencies": {
+    "webpack": "^5.00.0"
+  },
+  "dependencies": {
+    "@types/loader-utils": "^2.0.6",
+    "@types/schema-utils": "^2.4.0",
+    "browser-extension-manifest-fields": "*",
+    "content-security-policy-parser": "^0.4.1",
+    "edge-location": "^1.0.0",
+    "loader-utils": "^3.2.1",
+    "prefers-yarn": "^1.0.1",
+    "progress": "^2.0.3",
+    "schema-utils": "^4.2.0",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "copy-webpack-plugin": "^12.0.2",
+    "css-loader": "^6.9.1",
+    "eslint": "^8.56.0",
+    "eslint-config-extension-create": "*",
+    "html-webpack-plugin": "^5.6.0",
+    "mini-css-extract-plugin": "^2.7.7",
+    "style-loader": "^3.3.4",
+    "tsconfig": "*",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
