@@ -1,7 +1,7 @@
-import webpack from 'webpack'
+import type webpack from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 import shouldExclude from '../helpers/shoudExclude'
-import {WebResourcesPluginInterface} from '../../types'
+import {type WebResourcesPluginInterface} from '../../types'
 
 export default class OutputWebAccessibleResourcesFolder {
   private readonly manifestPath: string
@@ -34,11 +34,11 @@ export default class OutputWebAccessibleResourcesFolder {
     compiler.hooks.afterCompile.tapAsync(
       'WebResourcesPlugin (AutoParseWebResourcesFolder)',
       (compilation, done) => {
-        const {web_accessible_resources} = manifestFields(this.manifestPath)
+        const {web_accessible_resources: webAccResources} = manifestFields(this.manifestPath)
         const contentScriptsCss = this.getContentScriptsCss()
 
-        if (web_accessible_resources?.length) {
-          for (const resource of web_accessible_resources) {
+        if (webAccResources?.length) {
+          for (const resource of webAccResources) {
             // Manifest V2
             if (typeof resource === 'string') {
               const isContentCss = contentScriptsCss?.some(
