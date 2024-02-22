@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-browser-extension-resources",
-  "version": "0.0.0",
+  "version": "1.0.1",
   "description": "webpack plugin to handle manifest web resources assets from browser extensions",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -58,7 +58,6 @@
     "@babel/traverse": "^7.23.7",
     "browser-extension-manifest-fields": "*",
     "csv-loader": "^3.0.5",
-    "glob": "^10.3.10",
-    "xml-loader": "^1.2.1"
+    "glob": "^10.3.10"
   }
 }

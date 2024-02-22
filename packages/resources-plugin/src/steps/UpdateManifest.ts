@@ -1,5 +1,5 @@
 import {type Compiler, Compilation, sources} from 'webpack'
-import {WebResourcesPluginInterface} from '../../types'
+import {type WebResourcesPluginInterface, type Manifest} from '../../types'
 
 export default class UpdateManifest {
   private readonly manifestPath: string
@@ -8,7 +8,7 @@ export default class UpdateManifest {
     this.manifestPath = options.manifestPath
   }
 
-  private addFolderToWebResourcesField(manifest: Record<string, any>) {
+  private addFolderToWebResourcesField(manifest: Manifest) {
     const isV2 = manifest.manifest_version === 2
     const isV3 = manifest.manifest_version === 3
 
@@ -60,11 +60,12 @@ export default class UpdateManifest {
           (assets) => {
             if (compilation.errors.length > 0) return
 
-            const manifest = assets['manifest.json']
+            const manifest: Manifest = assets['manifest.json']
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
-            const patchedManifest = this.addFolderToWebResourcesField(manifest)
+            const patchedManifest: Manifest =
+              this.addFolderToWebResourcesField(manifest)
 
             const source = JSON.stringify(patchedManifest, null, 2)
             const rawSource = new sources.RawSource(source)

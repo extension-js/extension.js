@@ -64,14 +64,6 @@ export default class ApplyCommonFileLoaders {
           filename: ({runtime}: {runtime: string}) =>
             getFilename(runtime, 'assets')
         }
-      },
-      {
-        test: /\.xml$/i,
-        use: ['xml-loader'],
-        generator: {
-          filename: ({runtime}: {runtime: string}) =>
-            getFilename(runtime, 'assets')
-        }
       }
     ]
 
