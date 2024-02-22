@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import webpack, {Compiler} from 'webpack'
+import webpack from 'webpack'
 
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
@@ -29,7 +29,9 @@ export default function compilationPlugins(
       // Extracts imported CSS into separate files
       new MiniCssExtractPlugin().apply(compiler)
 
-      new CssUrlRelativePlugin(/* options */)
+      // eslint-disable-next-line no-new
+      // TODO: cezaraugusto ensure this works
+      new CssUrlRelativePlugin(/* options */).apply(compiler)
 
       // Support .env files
       // TODO: cezaraugusto this has a type errors

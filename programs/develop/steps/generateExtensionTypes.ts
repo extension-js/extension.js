@@ -30,7 +30,6 @@ export default async function generateExtensionTypes(projectDir: string) {
     // Check if the file exists
     await fs.access(extensionEnvFile)
     console.log('🔵 - extension-env.d.ts already exists.')
-    return // File exists, return early
   } catch (err) {
     // File does not exist, continue to write it
     console.log(
