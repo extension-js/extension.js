@@ -25,7 +25,7 @@ class ApplyManifestDevDefaultsPlugin {
       // See https://github.com/awesome-webextension/webpack-target-webextension#source-map.
       // For V3, see https://developer.chrome.com/docs/extensions/migrating/improve-security/#update-csp
       ...(manifest.manifest_version === 2 &&
-        patchV2CSP(manifest.content_security_policy)),
+        patchV2CSP(manifest.content_security_policy as string)),
 
       // Set permission scripting as it's required for reload to work
       // with content scripts in v3. See:

@@ -3,6 +3,7 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
+import {type Manifest} from '../types'
 
 const schema: Schema = {
   type: 'object',
@@ -27,7 +28,7 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
   const projectPath = path.dirname(manifestPath)
-  const manifest = require(manifestPath)
+  const manifest: Manifest = require(manifestPath)
 
   validate(schema, options, {
     name: 'Inject Reload (background.scripts and background.service_worker) Script',
@@ -94,7 +95,7 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
   if (manifest.background) {
     if (manifest.background.scripts) {
       for (const bgScript of [manifest.background.scripts[0]]) {
-        const absoluteUrl = path.resolve(projectPath, bgScript)
+        const absoluteUrl = path.resolve(projectPath, bgScript as string)
 
         if (url.includes(absoluteUrl)) {
           return `${generalReloadCode}${source}`
@@ -105,7 +106,7 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
     if (manifest.background.service_worker) {
       const absoluteUrl = path.resolve(
         projectPath,
-        manifest.background.service_worker
+        manifest.background.service_worker as string
       )
       if (url.includes(absoluteUrl)) {
         return `${generalReloadCode}${source}`
