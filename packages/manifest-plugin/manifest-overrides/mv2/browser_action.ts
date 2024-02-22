@@ -14,7 +14,7 @@ export default function getBrowserAction(
         ...(manifest.browser_action.default_popup && {
           default_popup: getFilename(
             'browser_action/default_popup.html',
-            manifest.browser_action.default_popup,
+            manifest.browser_action.default_popup as string,
             exclude
           )
         }),
@@ -22,23 +22,23 @@ export default function getBrowserAction(
           default_icon:
             typeof manifest.browser_action.default_icon === 'string'
               ? getFilename(
-                  `browser_action/${getBasename(manifest.browser_action.default_icon)}`,
-                  manifest.browser_action.default_icon,
+                  `browser_action/${getBasename(manifest.browser_action.default_icon as string)}`,
+                  manifest.browser_action.default_icon as string,
                   exclude
                 )
               : Object.fromEntries(
-                  Object.entries(manifest.browser_action.default_icon).map(
-                    ([size, icon]) => {
-                      return [
-                        size,
-                        getFilename(
-                          `browser_action/${getBasename(icon as string)}`,
-                          icon as string,
-                          exclude
-                        )
-                      ]
-                    }
-                  )
+                  Object.entries(
+                    manifest.browser_action.default_icon as string
+                  ).map(([size, icon]) => {
+                    return [
+                      size,
+                      getFilename(
+                        `browser_action/${getBasename(icon)}`,
+                        icon,
+                        exclude
+                      )
+                    ]
+                  })
                 )
         }),
         ...(manifest.browser_action.theme_icons && {

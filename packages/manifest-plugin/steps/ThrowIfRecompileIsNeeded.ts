@@ -8,7 +8,7 @@ import messages from '../helpers/messages'
 export default class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
   public readonly exclude?: string[]
-  private initialValues: string[] = []
+  private readonly initialValues: string[] = []
 
   constructor(options: ManifestPluginInterface) {
     this.manifestPath = options.manifestPath
@@ -16,13 +16,14 @@ export default class ThrowIfRecompileIsNeeded {
     this.initialValues = this.getFlattenedAssets(this.readManifest())
   }
 
-  private readManifest(): Manifest {
+  private readManifest(): Manifest  | undefined {
     try {
       const manifestJson = fs.readFileSync(this.manifestPath, 'utf-8')
       return JSON.parse(manifestJson)
     } catch (error) {
       console.error('Error reading manifest file:', error)
-      return {} as Manifest
+      
+      return undefined
     }
   }
 

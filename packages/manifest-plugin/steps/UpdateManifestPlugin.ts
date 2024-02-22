@@ -1,6 +1,7 @@
 import {type Compiler, Compilation, sources} from 'webpack'
 import getManifestOverrides from '../manifest-overrides'
 import getFilename from '../helpers/getFilename'
+import {type Manifest} from '../types'
 
 interface Options {
   manifestPath: string
@@ -48,14 +49,16 @@ export default class UpdateManifestPlugin {
             const manifestSource = compilation
               .getAsset('manifest.json')
               ?.source.source()
-            const manifest = JSON.parse((manifestSource || '').toString())
+            const manifest: Manifest = JSON.parse(
+              (manifestSource || '').toString()
+            )
             const overrides = getManifestOverrides(
               this.manifestPath,
               manifest,
               this.exclude
             )
 
-            const patchedManifest = {
+            const patchedManifest: Manifest = {
               // Preserve all uncatched user entries
               ...manifest,
               ...JSON.parse(overrides)

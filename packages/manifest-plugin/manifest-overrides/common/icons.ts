@@ -12,8 +12,8 @@ export default function icons(manifest: Manifest, exclude: string[]) {
           return [
             size,
             getFilename(
-              `icons/${getBasename(icon as string)}`,
-              icon as string,
+              `icons/${getBasename(icon)}`,
+              icon,
               exclude
             )
           ]

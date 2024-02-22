@@ -1,4 +1,3 @@
-import fs from 'fs'
 import manifestOverries from '../../manifest-overrides'
 import {getFixturesPath} from '../__utils__'
 

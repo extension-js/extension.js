@@ -1,5 +1,6 @@
 import fs from 'fs'
-import webpack, {sources} from 'webpack'
+import type webpack from 'webpack';
+import {sources} from 'webpack'
 import errors from '../helpers/errors'
 
 interface Options {

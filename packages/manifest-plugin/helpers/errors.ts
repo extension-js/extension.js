@@ -1,8 +1,9 @@
 import fs from 'fs'
-import webpack, {Compilation} from 'webpack'
+import webpack, {type Compilation} from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 
 import messages from './messages'
+import {type Manifest} from '../types'
 
 function manifestNotFoundError(compilation: webpack.Compilation) {
   compilation.errors.push(
@@ -25,7 +26,7 @@ function handleHtmlErrors(
   manifestPath: string,
   WebpackError: typeof webpack.WebpackError
 ) {
-  const manifest = require(manifestPath)
+  const manifest: Manifest = require(manifestPath)
   const htmlFields = manifestFields(manifestPath, manifest).html
 
   for (const [field, value] of Object.entries(htmlFields)) {
@@ -44,7 +45,7 @@ function handleIconsErrors(
   manifestPath: string,
   WebpackError: typeof webpack.WebpackError
 ) {
-  const manifest = require(manifestPath)
+  const manifest: Manifest = require(manifestPath)
   const iconsFields = manifestFields(manifestPath, manifest).icons
 
   for (const [field, value] of Object.entries(iconsFields)) {
@@ -64,10 +65,10 @@ function handleIconsErrors(
       if (icon.light) {
         const fieldError = messages.manifestFieldError(
           field,
-          icon.light as string
+          icon.light
         )
 
-        if (!fs.existsSync(icon.dark as string)) {
+        if (!fs.existsSync(icon.dark!)) {
           compilation.errors.push(new WebpackError(fieldError))
         }
       }
@@ -75,10 +76,10 @@ function handleIconsErrors(
       if (icon.dark) {
         const fieldError = messages.manifestFieldError(
           field,
-          icon.dark as string
+          icon.dark
         )
 
-        if (!fs.existsSync(icon.dark as string)) {
+        if (!fs.existsSync(icon.dark)) {
           compilation.errors.push(new WebpackError(fieldError))
         }
       }
@@ -104,12 +105,12 @@ function handleJsonErrors(
 
   WebpackError: typeof webpack.WebpackError
 ) {
-  const manifest = require(manifestPath)
+  const manifest: Manifest = require(manifestPath)
   const jsonFields = manifestFields(manifestPath, manifest).json
 
   for (const [field, value] of Object.entries(jsonFields)) {
     if (value) {
-      const valueArr = Array.isArray(value) ? value : [value]
+      const valueArr: string[] = Array.isArray(value) ? value : [value]
 
       for (const json of valueArr) {
         const fieldError = messages.manifestFieldError(field, json)
@@ -128,7 +129,7 @@ function handleScriptsErrors(
 
   WebpackError: typeof webpack.WebpackError
 ) {
-  const manifest = require(manifestPath)
+  const manifest: Manifest = require(manifestPath)
   const scriptsFields = manifestFields(manifestPath, manifest).scripts
 
   for (const [field, value] of Object.entries(scriptsFields)) {
