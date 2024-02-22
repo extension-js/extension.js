@@ -7,7 +7,7 @@ export default function sandbox(manifest: ManifestData) {
 
   const sandboxPages = manifest.sandbox.pages as string[]
 
-  const sandboxedData: {[key: string]: string} = {}
+  const sandboxedData: Record<string, string> = {}
 
   for (const [index, page] of sandboxPages.entries()) {
     const sandboxPageAbsolutePath = page
