@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/develop",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "The develop step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -73,7 +73,7 @@
     "webpack-browser-extension-locales": "*",
     "webpack-browser-extension-manifest": "*",
     "webpack-browser-extension-manifest-compat": "*",
-    "webpack-browser-extension-polyfill": "^2.0.1",
+    "webpack-browser-extension-polyfill": "^2.0.2",
     "webpack-browser-extension-resolve": "*",
     "webpack-browser-extension-resources": "*",
     "webpack-browser-extension-scripts": "*",
