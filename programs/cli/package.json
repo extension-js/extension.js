@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "extension-create",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
@@ -24,9 +24,9 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "postinstall": "node ./scripts/copyMarkdownFilesToCli.js",
+    "copyMarkdownFilesToCli": "node ./scripts/copyMarkdownFilesToCli.js",
     "clean": "rm -rf dist",
-    "compile": "tsup-node ./cli.ts --format cjs --dts --target=node18",
+    "compile": "yarn copyMarkdownFilesToCli && tsup-node ./cli.ts --format cjs --dts --target=node18",
     "test": "jest"
   },
   "keywords": [
