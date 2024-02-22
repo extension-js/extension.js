@@ -1,5 +1,5 @@
-import webpack from 'webpack'
-import {IncludeList, type StepPluginInterface} from '../types'
+import type webpack from 'webpack'
+import {type IncludeList, type StepPluginInterface} from '../types'
 import errors from '../helpers/errors'
 
 export default class CommonErrorsPlugin {

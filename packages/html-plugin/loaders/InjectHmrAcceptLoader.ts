@@ -9,7 +9,7 @@ import {type Schema} from 'schema-utils/declarations/validate'
 import manifestFields from 'browser-extension-manifest-fields'
 
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
-import {IncludeList} from '../types'
+import {type IncludeList, type Manifest} from '../types'
 import {isUsingReact} from '../helpers/utils'
 
 const schema: Schema = {
@@ -43,7 +43,7 @@ export default function (this: InjectContentAcceptContext, source: string) {
   const manifestPath = options.manifestPath
   const includeList = options.includeList
   const projectPath = path.dirname(manifestPath)
-  const manifest = require(manifestPath)
+  const manifest: Manifest = require(manifestPath)
 
   validate(schema, options, {
     name: 'Inject HMR (<script> tags) Accept',
@@ -68,7 +68,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
   }
 
   for (const field of Object.entries(allEntries)) {
-    const [feature, resource] = field
+    const [, resource] = field
 
     // Resources from the manifest lib can come as undefined.
     if (resource?.html) {

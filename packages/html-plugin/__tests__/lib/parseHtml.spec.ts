@@ -1,11 +1,11 @@
 // Mock the parse5-utils
-jest.mock('parse5-utils', () => ({
-  getAttribute: jest.fn()
-}))
-
 import parseHtml from '../../lib/parseHtml'
 // @ts-ignore
 import parse5utils from 'parse5-utils'
+
+jest.mock('parse5-utils', () => ({
+  getAttribute: jest.fn()
+}))
 
 const setupAttributesMock = (attributes: Record<string, string>) => {
   ;(parse5utils.getAttribute as jest.Mock).mockImplementation(

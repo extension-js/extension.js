@@ -1,13 +1,13 @@
 import fs from 'fs'
 import path from 'path'
-import {Compilation} from 'webpack'
+import {type Compilation} from 'webpack'
 // @ts-ignore
 import parse5utils from 'parse5-utils'
 
 import parseHtml from './parseHtml'
 import * as fileUtils from '../helpers/utils'
 import getFilePath from '../helpers/getFilePath'
-import {IncludeList} from '../types'
+import {type IncludeList} from '../types'
 
 export default function patchHtml(
   compilation: Compilation,

@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
-import {Compilation} from 'webpack'
-import {IncludeList, Manifest} from '../types'
+import {type Compilation} from 'webpack'
+import {type IncludeList, type Manifest} from '../types'
 
 function isUsingReact(projectDir: string) {
   const packageJsonPath = path.join(projectDir, 'package.json')
