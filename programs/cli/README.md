@@ -92,8 +92,6 @@ If you want to target a specific browser, just pass the `--browser` flag to the 
 
 That's it!
 
-> _Hint: pass `all` instead of `edge` as an argument to load both Edge and Chrome at the same time!_
-
 ## Program Options Table
 
 For a list of all commands available, see [OPTIONS_TABLE.md](OPTIONS_TABLE.md).
