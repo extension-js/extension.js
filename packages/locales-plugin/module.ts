@@ -1,7 +1,8 @@
 import path from 'path'
 import fs from 'fs'
-import webpack, {sources, Compilation} from 'webpack'
-import {type LocalesPluginInterface} from './types'
+import type webpack from 'webpack'
+import {sources, Compilation} from 'webpack'
+import {type LocalesPluginInterface, type Manifest} from './types'
 import manifestFields from 'browser-extension-manifest-fields'
 import errors from './helpers/errors'
 import * as utils from './helpers/utils'
@@ -17,6 +18,7 @@ export default class LocalesPlugin {
   constructor(options: LocalesPluginInterface) {
     this.manifestPath = options.manifestPath
   }
+
   public apply(compiler: webpack.Compiler): void {
     // Add the locales to the compilation. This is important so other
     // plugins can get it via the compilation.assets object,
@@ -39,7 +41,7 @@ export default class LocalesPlugin {
 
             if (compilation.errors.length > 0) return
 
-            const manifest = assets['manifest.json']
+            const manifest: Manifest = assets['manifest.json']
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
@@ -55,7 +57,7 @@ export default class LocalesPlugin {
 
             for (const field of Object.entries(localesFields || [])) {
               const [feature, resource] = field
-              const thisResource = resource as string
+              const thisResource = resource
 
               // Resources from the manifest lib can come as undefined.
               if (thisResource) {
@@ -97,7 +99,7 @@ export default class LocalesPlugin {
           (assets) => {
             if (compilation.errors?.length) return
 
-            const manifest = assets['manifest.json']
+            const manifest: Manifest = assets['manifest.json']
               ? JSON.parse(assets['manifest.json'].source().toString())
               : require(this.manifestPath)
 
@@ -113,7 +115,7 @@ export default class LocalesPlugin {
                 const fileDependencies = new Set(compilation.fileDependencies)
 
                 const fileResources = localesFields || []
-                
+
                 for (const thisResource of fileResources) {
                   if (fs.existsSync(thisResource)) {
                     if (!fileDependencies.has(thisResource)) {
