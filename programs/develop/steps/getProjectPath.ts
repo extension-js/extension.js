@@ -7,16 +7,9 @@
 
 import path from 'path'
 import goGitIt from 'go-git-it'
-import {blue, green, white, bold, underline} from '@colors/colors/safe'
+import {blue, red, green, white, bold, underline} from '@colors/colors/safe'
 
 async function importUrlSource(pathOrRemoteUrl: string, text: string) {
-  if (new URL(pathOrRemoteUrl).hostname !== 'github.com') {
-    console.log(`
-      The remote extension URL must be stored on GitHub.
-    `)
-    process.exit(1)
-  }
-
   await goGitIt(pathOrRemoteUrl, process.cwd(), text)
 
   return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))
@@ -32,7 +25,7 @@ export default async function getProjectPath(
   if (pathOrRemoteUrl.startsWith('http')) {
     if (!pathOrRemoteUrl.startsWith('https://github.com')) {
       console.log(
-        `extension-create ►►► The remote extension URL must be stored on GitHub.`
+        `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} ${bold('The remote extension URL must be stored on GitHub.')}`
       )
       process.exit(1)
     }
