@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/create",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "The create step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
