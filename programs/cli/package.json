@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "extension-create",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",

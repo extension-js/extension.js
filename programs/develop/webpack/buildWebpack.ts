@@ -83,6 +83,7 @@ export default function buildWebpack(
   {browser}: BuildOptions
 ) {
   const webpackConfig = compilerConfig(projectDir, 'production', {
+    mode: 'production',
     browser
   })
 
