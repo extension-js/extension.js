@@ -47,7 +47,9 @@ export default function chromeUrlOverrides(
     )
 
     chromeUrlOverride = {
-      'chrome_url_overrides/bookmarks': bookmarksPageAbsolutePath
+      'chrome_url_overrides/bookmarks': getHtmlResources(
+        bookmarksPageAbsolutePath
+      )
     }
   }
 
