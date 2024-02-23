@@ -1,5 +1,5 @@
-import path from 'path'
-import glob from 'glob'
+// import path from 'path'
+// import glob from 'glob'
 import {type Manifest, type ManifestData} from '../../types'
 
 export default function getWebAccessibleResources(
@@ -13,45 +13,48 @@ export default function getWebAccessibleResources(
   ) {
     return undefined
   }
-  const webAccessibleResources = []
 
-  // Handle Manifest V3
-  if (manifest.manifest_version === 3) {
-    for (const entry of manifest.web_accessible_resources) {
-      const resources: string[] = entry.resources || []
+  return manifest.web_accessible_resources
+  // TODO: cezaraugusto fixme or moveme
+  // const webAccessibleResources = []
 
-      const resourcesAbsolutePath = resources.map((resource) => {
-        // If resource is a glob, we need to expand it
-        if (resource.includes('*')) {
-          const globPath = path.join(path.dirname(manifestPath), resource)
-          const globPathResolved = glob.sync(globPath)
-          return globPathResolved
-        }
+  // // Handle Manifest V3
+  // if (manifest.manifest_version === 3) {
+  //   for (const entry of manifest.web_accessible_resources) {
+  //     const resources: string[] = entry.resources || []
 
-        const filePath = path.join(path.dirname(manifestPath), resource)
-        return filePath
-      })
+  //     const resourcesAbsolutePath = resources.map((resource) => {
+  //       // If resource is a glob, we need to expand it
+  //       if (resource.includes('*')) {
+  //         const globPath = path.join(path.dirname(manifestPath), resource)
+  //         const globPathResolved = glob.sync(globPath)
+  //         return globPathResolved
+  //       }
 
-      webAccessibleResources.push(resourcesAbsolutePath)
-    }
-  }
+  //       const filePath = path.join(path.dirname(manifestPath), resource)
+  //       return filePath
+  //     })
 
-  // Handle Manifest V2
-  if (manifest.manifest_version === 2) {
-    const resourcesAbsolutePath = manifest.web_accessible_resources.map(
-      (resource: string) => {
-        if (resource.includes('*')) {
-          const globPath = path.join(path.dirname(manifestPath), resource)
-          const globPathResolved = glob.sync(globPath)
-          return globPathResolved
-        }
+  //     webAccessibleResources.push(resourcesAbsolutePath)
+  //   }
+  // }
 
-        return path.join(path.dirname(manifestPath), resource)
-      }
-    )
+  // // Handle Manifest V2
+  // if (manifest.manifest_version === 2) {
+  //   const resourcesAbsolutePath = manifest.web_accessible_resources.map(
+  //     (resource: string) => {
+  //       if (resource.includes('*')) {
+  //         const globPath = path.join(path.dirname(manifestPath), resource)
+  //         const globPathResolved = glob.sync(globPath)
+  //         return globPathResolved
+  //       }
 
-    webAccessibleResources.push(resourcesAbsolutePath)
-  }
+  //       return path.join(path.dirname(manifestPath), resource)
+  //     }
+  //   )
 
-  return webAccessibleResources.flat().filter((arr) => arr.length > 0)
+  //   webAccessibleResources.push(resourcesAbsolutePath)
+  // }
+
+  // return webAccessibleResources.flat().filter((arr) => arr.length > 0)
 }

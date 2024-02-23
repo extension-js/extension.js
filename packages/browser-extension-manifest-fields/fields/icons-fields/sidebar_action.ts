@@ -13,16 +13,10 @@ export default function sidebarAction(
     return undefined
   }
 
-  const sidebarActionDefaultIcons: string[] = []
+  const sidebarActionDefaultIconAbsolutePath = path.join(
+    path.dirname(manifestPath),
+    manifest.sidebar_action.default_icon as string
+  )
 
-  for (const icon in manifest.sidebar_action.default_icon) {
-    const sidebarActionDefaultIconAbsolutePath = path.join(
-      path.dirname(manifestPath),
-      manifest.sidebar_action.default_icon[icon] as string
-    )
-
-    sidebarActionDefaultIcons.push(sidebarActionDefaultIconAbsolutePath)
-  }
-
-  return sidebarActionDefaultIcons
+  return sidebarActionDefaultIconAbsolutePath
 }
