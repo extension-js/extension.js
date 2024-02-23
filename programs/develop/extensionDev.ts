@@ -24,7 +24,7 @@ export interface DevOptions {
 
 export default async function extensionDev(
   pathOrRemoteUrl: string | undefined,
-  {...devOptions}: DevOptions
+  {...devOptions}: DevOptions = {mode: 'development'}
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 

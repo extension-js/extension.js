@@ -22,7 +22,7 @@ export interface StartOptions {
 
 export default async function extensionStart(
   pathOrRemoteUrl: string | undefined,
-  {...startOptions}: StartOptions
+  {...startOptions}: StartOptions = {mode: 'production'}
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
