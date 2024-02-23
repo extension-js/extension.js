@@ -3,7 +3,7 @@
 // Released under MIT license.
 
 import path from 'path'
-import fs from 'fs-extra'
+import fs from 'fs'
 import addProgressBar from '../../../helpers/addProgressBar'
 import masterPreferences from './masterPreferences'
 
@@ -24,7 +24,9 @@ export default function createUserDataDir(
     addProgressBar('👤 Creating user data directory...', () => {
       const outputPath = path.resolve(__dirname, 'run-edge-data-dir')
       const preferences = path.join(outputPath, 'Default')
-      fs.ensureDirSync(preferences)
+
+      // Ensure directory exists
+      fs.mkdirSync(preferences, {recursive: true})
 
       const preferencesPath = path.join(preferences, 'Preferences')
 
