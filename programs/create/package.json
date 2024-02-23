@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/create",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "The create step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -31,7 +31,6 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "cross-spawn": "^7.0.3",
-    "fs-extra": "^11.2.0",
     "pacote": "^17.0.6",
     "prefers-yarn": "^1.0.1"
   },
