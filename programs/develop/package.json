@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/develop",
-  "version": "1.0.5",
+  "version": "1.0.7",
   "description": "The develop step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -66,25 +66,26 @@
     "ts-loader": "^9.5.1",
     "webextension-polyfill": "^0.10.0",
     "webpack": "^5.89.0",
-    "webpack-browser-extension-common-errors": "^1.0.1",
-    "webpack-browser-extension-html": "^1.0.2",
-    "webpack-browser-extension-icons": "^1.0.1",
-    "webpack-browser-extension-json": "^1.0.1",
-    "webpack-browser-extension-locales": "^1.0.1",
-    "webpack-browser-extension-manifest": "^1.0.3",
-    "webpack-browser-extension-manifest-compat": "^1.0.2",
+    "webpack-browser-extension-common-errors": "*",
+    "webpack-browser-extension-html": "*",
+    "webpack-browser-extension-icons": "*",
+    "webpack-browser-extension-json": "*",
+    "webpack-browser-extension-locales": "*",
+    "webpack-browser-extension-manifest": "*",
+    "webpack-browser-extension-manifest-compat": "*",
     "webpack-browser-extension-polyfill": "^2.0.2",
-    "webpack-browser-extension-resolve": "^1.0.4",
-    "webpack-browser-extension-resources": "^1.0.3",
-    "webpack-browser-extension-scripts": "^1.0.1",
+    "webpack-browser-extension-resolve": "*",
+    "webpack-browser-extension-resources": "*",
+    "webpack-browser-extension-scripts": "*",
     "webpack-dev-server": "^4.15.1",
     "webpack-merge": "^5.10.0",
-    "webpack-run-chrome-extension": "^1.0.2",
-    "webpack-run-edge-extension": "^1.0.2"
+    "webpack-run-chrome-extension": "*",
+    "webpack-run-edge-extension": "*"
   },
   "devDependencies": {
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/dotenv-webpack": "^7.0.7",
-    "tsup": "^8.0.1"
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
   }
 }
