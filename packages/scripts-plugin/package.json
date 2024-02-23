@@ -53,6 +53,7 @@
     "schema-utils": "^4.2.0"
   },
   "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.5.12",
     "css-loader": "^6.10.0",
     "eslint": "^8.56.0",
