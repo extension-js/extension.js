@@ -45,6 +45,7 @@
     "browser-extension-manifest-fields": "*"
   },
   "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.5.12",
     "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
