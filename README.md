@@ -78,6 +78,9 @@ Just add `extension-create` to your npm scripts. Here's how it should look in yo
     "start": "npx extension-create start",
     "dev": "npx extension-create dev",
     "build": "npx extension-create build"
+  },
+  "devDependencies": {
+    "extension-create": "latest"
   }
 }
 ```
