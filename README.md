@@ -6,6 +6,7 @@
 [wip-url]: https://github.com/cezaraugusto/extension-create
 
 # extension-create [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create?ref=badge_shield)
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
@@ -102,3 +103,6 @@ For a list of all commands available, see [OPTIONS_TABLE.md](OPTIONS_TABLE.md).
 ## License
 
 MIT (c) Cezar Augusto.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create?ref=badge_large)
