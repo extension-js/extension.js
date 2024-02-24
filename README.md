@@ -2,10 +2,15 @@
 [action-url]: https://github.com/cezaraugusto/extension-create/actions
 [npm-image]: https://img.shields.io/npm/v/extension-create.svg
 [npm-url]: https://npmjs.org/package/extension-create
-[wip-image]: https://img.shields.io/badge/under-development-orange.svg
-[wip-url]: https://github.com/cezaraugusto/extension-create
+[downloads-image]: https://img.shields.io/npm/dm/extension-create.svg
+[downloads-url]: https://npmjs.org/package/extension-create
+[node]: https://img.shields.io/node/v/extension-create.svg
+[node-url]: https://nodejs.org
+[prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
+[prs-url]: https://webpack.js.org/contribute/
+[vunlerabilities]: https://snyk.io/test/github/cezaraugusto/extension-create/badge.svg
 
-# extension-create [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url] [![wip][wip-image]][wip-url]
+# extension-create [![npm][npm-image]][npm-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
@@ -20,7 +25,7 @@ Create cross-browser extensions with no build configuration.
 ## Creating an Extension
 
 ```sh
-npx extension-create create my-extension-hello
+npx extension-create@latest create my-extension-hello
 cd my-extension-hello
 npm run dev
 ```
