@@ -26,7 +26,7 @@ export default class ApplyCommonFileLoaders {
         type: 'asset/resource',
         generator: {
           filename: ({runtime}: {runtime: string}) =>
-            getFilename(runtime, 'images')
+            getFilename(runtime, 'assets')
         },
         parser: {
           dataUrlCondition: {
@@ -40,7 +40,7 @@ export default class ApplyCommonFileLoaders {
         type: 'asset/resource',
         generator: {
           filename: ({runtime}: {runtime: string}) =>
-            getFilename(runtime, 'fonts')
+            getFilename(runtime, 'assets')
         }
       },
       {

@@ -83,8 +83,16 @@ function resolver(filePath?: string): string {
     return resolvedValue[0]
   }
 
-  resolverError(filePath)
-  return filePath
+  // The import below is a dynamic import, which means that the
+  // file will be included in the bundle. 
+  import(filePath).catch(() => {
+    resolverError(filePath)
+    return filePath
+  })
+
+  const basename = filePath.split('/').pop()
+  return `assets/${basename}`
+  // return filePath
 }
 
 type SolveType = Record<string, any> | Array<Record<string, any>> | string

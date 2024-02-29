@@ -20,7 +20,9 @@
   "scripts": {
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts ./resolver-module.ts ./loader.ts --format cjs --dts --target=node18 --minify",
+    "compile:plugin": "tsup-node ./module.ts ./resolver-module.ts ./loader.ts --format cjs --dts --target=node18 --minify",
+    "compile:resolver-module": "tsup-node ./resolver-module.ts --format cjs --dts --target=node18 --minify --config=tsconfig.resolver-module.json",
+    "compile": "yarn compile:plugin && yarn compile:resolver-module",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "jest"
   },
