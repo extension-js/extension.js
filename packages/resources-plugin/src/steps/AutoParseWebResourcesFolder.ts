@@ -1,6 +1,6 @@
 import type webpack from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
-import shouldExclude from '../helpers/shoudExclude'
+import utils from '../helpers/utils'
 import {type WebResourcesPluginInterface} from '../../types'
 
 export default class OutputWebAccessibleResourcesFolder {
@@ -48,7 +48,7 @@ export default class OutputWebAccessibleResourcesFolder {
               )
 
               if (!isContentCss) {
-                if (!shouldExclude(this.manifestPath, resource, this.exclude)) {
+                if (!utils.shouldExclude(resource, this.exclude || [])) {
                   compilation.assets[`web_accessible_resources/${resource}`] =
                     compilation.assets[resource]
                 }
@@ -61,13 +61,7 @@ export default class OutputWebAccessibleResourcesFolder {
                 )
 
                 if (!isContentCss) {
-                  if (
-                    !shouldExclude(
-                      this.manifestPath,
-                      resourcePath,
-                      this.exclude
-                    )
-                  ) {
+                  if (!utils.shouldExclude(resourcePath, this.exclude || [])) {
                     compilation.assets[
                       `web_accessible_resources/resource-${index}/${resourcePath}`
                     ] = compilation.assets[resourcePath]
