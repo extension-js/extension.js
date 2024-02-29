@@ -9,8 +9,10 @@
 [prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
 [prs-url]: https://webpack.js.org/contribute/
 [vunlerabilities]: https://snyk.io/test/github/cezaraugusto/extension-create/badge.svg
+[fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create.svg?type=shield
+[fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create?ref=badge_large
 
-# extension-create [![npm][npm-image]][npm-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
+# extension-create [![npm][npm-image]][npm-url] [![workflow][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
