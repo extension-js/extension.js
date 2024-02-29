@@ -7,10 +7,12 @@
 [node]: https://img.shields.io/node/v/extension-create.svg
 [node-url]: https://nodejs.org
 [prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
-[prs-url]: https://webpack.js.org/contribute/
+[prs-url]: https://github.com/cezaraugusto/extension-create/blob/main/CONTRIBUTING.md
 [vunlerabilities]: https://snyk.io/test/github/cezaraugusto/extension-create/badge.svg
+[fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create.svg?type=shield
+[fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create?ref=badge_large
 
-# extension-create [![npm][npm-image]][npm-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
+# extension-create [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
@@ -83,6 +85,9 @@ Just add `extension-create` to your npm scripts. Here's how it should look in yo
     "start": "npx extension-create start",
     "dev": "npx extension-create dev",
     "build": "npx extension-create build"
+  },
+  "devDependencies": {
+    "extension-create": "latest"
   }
 }
 ```
