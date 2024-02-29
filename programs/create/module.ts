@@ -24,7 +24,7 @@ export interface CreateOptions {
 
 export default async function createExtension(
   projectName: string | undefined,
-  {targetDir = process.cwd(), template = 'web'}: CreateOptions
+  {targetDir = process.cwd(), template = 'default'}: CreateOptions
 ) {
   if (!projectName) {
     messages.noProjectName()
