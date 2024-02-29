@@ -18,7 +18,6 @@ import LocalesPlugin from 'webpack-browser-extension-locales'
 import JsonPlugin from 'webpack-browser-extension-json'
 import IconsPlugin from 'webpack-browser-extension-icons'
 import ResourcesPlugin from 'webpack-browser-extension-resources'
-import PolyfillPlugin from 'webpack-browser-extension-polyfill'
 
 // Handle special folders feature
 import {
@@ -39,7 +38,7 @@ import {
 
 export default function extensionPlugins(
   projectPath: string,
-  {polyfill, browser}: DevOptions
+  {browser}: DevOptions
 ) {
   const manifestPath = path.resolve(projectPath, 'manifest.json')
 
@@ -119,16 +118,6 @@ export default function extensionPlugins(
         manifestPath,
         exclude: allPublic
       }).apply(compiler)
-
-      // Allow browser polyfill as needed
-      if (polyfill) {
-        if (browser !== 'firefox') {
-          new PolyfillPlugin({
-            manifestPath,
-            browser
-          }).apply(compiler)
-        }
-      }
     }
   }
 }
