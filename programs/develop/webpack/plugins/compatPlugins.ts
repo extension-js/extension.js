@@ -5,30 +5,36 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import webpack from 'webpack'
-
-import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-// @ts-ignore
-import CssUrlRelativePlugin from 'css-url-relative-plugin'
-
+import path from 'path'
+import type webpack from 'webpack'
+import PolyfillPlugin from 'webpack-browser-extension-polyfill'
+import ManifestCompatPlugin from 'webpack-browser-extension-manifest-compat'
 import {type DevOptions} from '../../extensionDev'
 
-export default function compilationPlugins(
+export default function compatPlugins(
   projectPath: string,
-  {mode}: DevOptions
+  {polyfill, browser}: DevOptions
 ) {
   return {
-    name: 'CompilationPlugins',
+    name: 'CompatPlugin',
     apply: (compiler: webpack.Compiler) => {
-      new CaseSensitivePathsPlugin().apply(compiler)
+      const manifestPath = path.resolve(projectPath, 'manifest.json')
 
-      // Extracts imported CSS into separate files
-      new MiniCssExtractPlugin().apply(compiler)
+      // Allow browser polyfill as needed
+      if (polyfill) {
+        if (browser !== 'firefox') {
+          new PolyfillPlugin({
+            manifestPath,
+            browser
+          }).apply(compiler)
+        }
+      }
 
-      // eslint-disable-next-line no-new
-      // TODO: cezaraugusto ensure this works
-      new CssUrlRelativePlugin(/* options */).apply(compiler)
+      // Handle manifest compatibilities across browser vendors.
+      new ManifestCompatPlugin({
+        manifestPath,
+        browser
+      }).apply(compiler)
     }
   }
 }
