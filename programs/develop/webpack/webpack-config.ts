@@ -27,6 +27,7 @@ import styleLoaders from './loaders/styleLoaders'
 import compilationPlugins from './plugins/compilationPlugins'
 import extensionPlugins from './plugins/extensionPlugins'
 import reloadPlugins from './plugins/reloadPlugins'
+import compatPlugins from './plugins/compatPlugins'
 import errorPlugins from './plugins/errorPlugins'
 import browserPlugins from './plugins/browserPlugins'
 import boringPlugins from './plugins/boringPlugins'
@@ -90,6 +91,7 @@ export default function webpackConfig(
       compilationPlugins(projectPath, devOptions),
       extensionPlugins(projectPath, devOptions),
       reloadPlugins(projectPath, devOptions),
+      compatPlugins(projectPath, devOptions),
       browserPlugins(projectPath, devOptions),
       errorPlugins(projectPath, devOptions),
       boringPlugins(projectPath, devOptions)
