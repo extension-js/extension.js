@@ -1,3 +1,3 @@
-# extension-create Default Template
+# extension-create Web Template
 
-> Default template for [extension-create](https://github.com/cezaraugusto/extension-create).
+> Web template for [extension-create](https://github.com/cezaraugusto/extension-create).
