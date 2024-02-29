@@ -1,5 +1,5 @@
 import {type Compilation} from 'webpack'
-import {type Manifest} from '../types'
+import {type Manifest} from '../../types'
 
 function getManifestContent(
   compilation: Compilation,
@@ -16,6 +16,13 @@ function getManifestContent(
   return require(manifestPath)
 }
 
+function shouldExclude(path: string, ignorePatterns: string[]): boolean {
+  return ignorePatterns.some((pattern) => {
+    return path.includes(pattern)
+  })
+}
+
 export default {
-  getManifestContent
+  getManifestContent,
+  shouldExclude
 }
