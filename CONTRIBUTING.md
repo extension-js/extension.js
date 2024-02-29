@@ -71,6 +71,16 @@ yarn extension <command> [argument]
 The monorepo's `package.json` includes scripts that affect all programs and packages at once
 and are needed for the project development.
 
+
+### Extension
+
+This is the same command users run when they do `npx extension-create <command>
+
+```sh
+yarn extension <command> [args] [flags]
+```
+
+
 ### Compile
 
 Compiles (builds) packages and programns. This npm script generates the `/dist` folder that other packages may consume.
@@ -111,12 +121,4 @@ Deletes cache, dist/ and node_modules/ across packages and programs .
 
 ```sh
 yarn clean
-```
-
-### copyTypesFolder
-
-This special command copies the original README.md file from the Monorepo and applies to packages/cli, which is what we publish on npm.
-
-```sh
-yarn copyTypesFolder
 ```
