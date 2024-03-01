@@ -1,4 +1,4 @@
-[action-image]: https://github.com/cezaraugusto/extension-create/workflows/CI/badge.svg
+[action-image]: https://github.com/cezaraugusto/extension-create/actions/workflows/ci.yml/badge.svg?branch=main
 [action-url]: https://github.com/cezaraugusto/extension-create/actions
 [npm-image]: https://img.shields.io/npm/v/extension-create.svg
 [npm-url]: https://npmjs.org/package/extension-create
