@@ -4,6 +4,7 @@ import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import * as parser from '@babel/parser'
 
+import utils from './helpers/utils'
 import transformSource from './steps/transformSource'
 import {type IncludeList} from './types'
 import emitResolverModule from './steps/emitResolverModule'
@@ -54,9 +55,15 @@ export default function (this: ResolvePluginContext, source: string) {
       return source
     }
 
+    const plugins: any[] = ['jsx']
+
+    if (utils.isUsingTypeScript(this.rootContext)) {
+      plugins.push('typescript')
+    }
+
     const ast = parser.parse(source, {
       sourceType: 'module',
-      plugins: ['jsx', 'typescript']
+      plugins
     })
 
     // 1 - Emit the resolver module. This will be used by the

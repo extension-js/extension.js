@@ -80,12 +80,12 @@
     "webpack-dev-server": "^4.15.1",
     "webpack-merge": "^5.10.0",
     "webpack-run-chrome-extension": "*",
-    "webpack-run-edge-extension": "*",
-    "typescript": "^5.3.3"
+    "webpack-run-edge-extension": "*"
   },
   "devDependencies": {
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/dotenv-webpack": "^7.0.7",
-    "tsup": "^8.0.1"
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
   }
 }
