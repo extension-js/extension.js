@@ -61,7 +61,6 @@
     "sass-loader": "^14.0.0",
     "style-loader": "^3.3.4",
     "swc-loader": "^0.2.6",
-    "tailwindcss": "^3.4.1",
     "terser-webpack-plugin": "^5.3.10",
     "ts-loader": "^9.5.1",
     "webextension-polyfill": "^0.10.0",
