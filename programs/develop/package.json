@@ -43,7 +43,6 @@
     "dotenv-webpack": "^8.0.1",
     "eslint-webpack-plugin": "^4.0.1",
     "go-git-it": "^1.2.2",
-    "html-loader": "^5.0.0",
     "less": "^4.2.0",
     "less-loader": "^12.1.0",
     "mini-css-extract-plugin": "^2.7.7",
