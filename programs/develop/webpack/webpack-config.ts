@@ -15,8 +15,6 @@ import {
   getWebpackPublicPath,
   getExtensionsToResolve
 } from './config/getPath'
-import jsOptimizationOptions from './options/jsOptimization'
-import cssOptimizationOptions from './options/cssOptimization'
 
 // Loaders
 import assetLoaders from './loaders/assetLoaders'
@@ -33,7 +31,6 @@ import browserPlugins from './plugins/browserPlugins'
 import boringPlugins from './plugins/boringPlugins'
 import JsonMinimizerPlugin from 'json-minimizer-webpack-plugin'
 import TerserPlugin from 'terser-webpack-plugin'
-import CssMinimizerPlugin from 'css-minimizer-webpack-plugin'
 
 // Checks
 import getDevToolOption from './config/getDevtoolOption'
@@ -97,17 +94,10 @@ export default function webpackConfig(
       boringPlugins(projectPath, devOptions)
     ],
     optimization: {
+      minimize: mode === 'production',
       // WARN: This can have side-effects.
       // See https://webpack.js.org/guides/code-splitting/#entry-dependencies
       // runtimeChunk: true,
-      minimizer: [
-        // Minify JSON
-        new JsonMinimizerPlugin(),
-        // Minify JavaScript
-        new TerserPlugin(jsOptimizationOptions),
-        // Minify CSS
-        new CssMinimizerPlugin(cssOptimizationOptions)
-      ]
     }
   }
 }
