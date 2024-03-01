@@ -3,8 +3,8 @@
   "display": "Default",
   "compilerOptions": {
     "jsx": "react-jsx",
-    "target": "es6",
-    "lib": ["es2021", "dom"],
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
     "composite": false,
     "declaration": true,
     "declarationMap": true,
@@ -18,7 +18,8 @@
     "preserveWatchOutput": true,
     "skipLibCheck": true,
     "strict": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "module": "CommonJS"
   },
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist"]
 }
