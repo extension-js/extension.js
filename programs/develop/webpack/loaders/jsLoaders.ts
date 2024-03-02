@@ -26,7 +26,7 @@ export default function jsLoaders(projectDir: string, opts: any) {
           minify: opts.mode === 'production'
         }
       }
-    },
+    }
   ]
 
   if (isUsingTypeScript(projectDir)) {

@@ -94,7 +94,7 @@ export default function webpackConfig(
       boringPlugins(projectPath, devOptions)
     ],
     optimization: {
-      minimize: mode === 'production',
+      minimize: mode === 'production'
       // WARN: This can have side-effects.
       // See https://webpack.js.org/guides/code-splitting/#entry-dependencies
       // runtimeChunk: true,

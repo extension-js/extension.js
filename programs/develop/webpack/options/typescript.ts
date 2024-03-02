@@ -50,7 +50,7 @@ export function getTypeScriptConfigOverrides(projectDir: string, opts: any) {
     },
     exclude: ['node_modules', 'dist']
   }
-}      
+}
 
 export function isUsingTypeScript(projectDir: string) {
   const packageJsonPath = path.join(projectDir, 'package.json')
