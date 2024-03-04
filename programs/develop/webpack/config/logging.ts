@@ -10,15 +10,15 @@ import {type ClientConfiguration} from 'webpack-dev-server'
 const authorMode = process.env.EXTENSION_ENV === 'development'
 
 export function getWebpackStats() {
-    return {
-      children: true,
-      errorDetails: true,
-      entrypoints: false,
-      colors: true,
-      assets: false,
-      chunks: false,
-      modules: false
-    }
+  return {
+    children: true,
+    errorDetails: true,
+    entrypoints: false,
+    colors: true,
+    assets: false,
+    chunks: false,
+    modules: false
+  }
 }
 
 export function getDevServerClientOptions(): ClientConfiguration {
