@@ -85,7 +85,7 @@ export default class AddAssetsToCompilation {
                           // asset in the HTML is not found, but we're ok
                           // if the path is a hash, as it's a reference to
                           // an in-page asset (like an ID reference for anchors).
-                          if (!asset.startsWith('#')) {
+                          if (!path.basename(asset).startsWith('#')) {
                             errors.fileNotFoundWarn(
                               compilation,
                               this.manifestPath,

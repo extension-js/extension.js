@@ -52,6 +52,9 @@ export default function getAssetsFromHtml(
               break
             case 'staticSrc':
             case 'staticHref':
+              if (filePath.startsWith('#')) {
+                break
+              }
               assets.static?.push(fileAbsolutePath)
               break
             default:
