@@ -29,8 +29,6 @@ import compatPlugins from './plugins/compatPlugins'
 import errorPlugins from './plugins/errorPlugins'
 import browserPlugins from './plugins/browserPlugins'
 import boringPlugins from './plugins/boringPlugins'
-import JsonMinimizerPlugin from 'json-minimizer-webpack-plugin'
-import TerserPlugin from 'terser-webpack-plugin'
 
 // Checks
 import getDevToolOption from './config/getDevtoolOption'
@@ -85,7 +83,7 @@ export default function webpackConfig(
       ]
     },
     plugins: [
-      compilationPlugins(projectPath, devOptions),
+      compilationPlugins(),
       extensionPlugins(projectPath, devOptions),
       reloadPlugins(projectPath, devOptions),
       compatPlugins(projectPath, devOptions),
