@@ -30,7 +30,7 @@ export default class ChromeExtensionLauncherPlugin {
 
     if (!fs.existsSync(path.resolve(chrome as string))) {
       console.error(
-        `${bgWhite(black(` chrome-runtime `))} ${red(
+        `${bgWhite(black(` chrome-browser `))} ${red(
           `✖︎✖︎✖︎`
         )} Chrome not found at ${chrome}`
       )
@@ -44,20 +44,22 @@ export default class ChromeExtensionLauncherPlugin {
       if (error != null) throw error
       if (stderr.includes('Unable to move the cache')) {
         console.log(
-          `${bgWhite(black(` chrome-runtime `))} ${green(
+          `${bgWhite(black(` chrome-browser `))} ${green(
             `►►►`
           )} Chrome instance already running.`
         )
       } else {
         console.log(
-          `${bgWhite(black(` chrome-runtime `))} ${green(`►►►`)} Chrome instance exited.`
+          `${bgWhite(black(` chrome-browser `))} ${green(`►►►`)} Chrome instance exited.`
         )
         process.exit()
       }
     })
 
-    child.stdout?.pipe(process.stdout)
-    child.stderr?.pipe(process.stderr)
+    if (process.env.EXTENSION_ENV === 'development') {
+      child.stdout?.pipe(process.stdout)
+      child.stderr?.pipe(process.stderr)
+    }
   }
 
   apply(compiler: Compiler) {

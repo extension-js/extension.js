@@ -31,7 +31,7 @@ export default class EdgeExtensionLauncherPlugin {
 
     if (!fs.existsSync(path.resolve(msEdge))) {
       console.error(
-        `${bgCyan(white(bold(` edge-runtime `)))} ${red(
+        `${bgCyan(white(bold(` edge-browser `)))} ${red(
           `✖︎✖︎✖︎`
         )} Edge not found at ${msEdge}`
       )
@@ -45,20 +45,22 @@ export default class EdgeExtensionLauncherPlugin {
       if (error != null) throw error
       if (stderr.includes('Unable to move the cache')) {
         console.log(
-          `${bgCyan(white(bold(` edge-runtime `)))} ${green(
+          `${bgCyan(white(bold(` edge-browser `)))} ${green(
             `►►►`
           )} Edge instance already running.`
         )
       } else {
         console.log(
-          `${bgCyan(white(bold(` edge-runtime `)))} ${green(`►►►`)} Edge instance exited.`
+          `${bgCyan(white(bold(` edge-browser `)))} ${green(`►►►`)} Edge instance exited.`
         )
         process.exit()
       }
     })
 
-    child.stdout?.pipe(process.stdout)
-    child.stderr?.pipe(process.stderr)
+    if (process.env.EXTENSION_ENV === 'development') {
+      child.stdout?.pipe(process.stdout)
+      child.stderr?.pipe(process.stderr)
+    }
   }
 
   apply(compiler: Compiler) {

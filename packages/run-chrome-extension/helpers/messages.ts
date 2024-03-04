@@ -48,7 +48,7 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] ${bgWhite(bold(` chrome-runtime `))} ${green(
+    error(`[⛔️] ${bgWhite(bold(` chrome-browser `))} ${green(
       '►►►'
     )} No data received from client.
 
@@ -63,7 +63,7 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
       error(
-        `[⛔️] ${bgWhite(bold(` chrome-runtime `))} ${green(
+        `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${green(
           '►►►'
         )} No management API info received from client. Investigate.`
       )
@@ -104,9 +104,9 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
     )}\n`
   )
 
-  const crRuntime = bgWhite(black(bold(` chrome-runtime `)))
+  const crRuntime = bgWhite(black(bold(` chrome-browser `)))
   // 🟠brave ⚪️chrome 🔵edge ⭕️opera 🔴firefox 🟣safari 🟢edge 🟡
-  // const edgeRuntime = bgCyan(black(bold(` edge-runtime `)))
+  // const edgeRuntime = bgCyan(black(bold(` edge-browser `)))
   // const ffRuntime = bgRed(white(bold(` firefox-runtime `)))
   // const operaRuntime = bgWhite(red(bold(` opera-runtime `)))
   // const braveRuntime = bgBlack(white(bold(` brave-runtime `)))
@@ -137,7 +137,7 @@ function watchModeClosed(code: number, reason: Buffer) {
   const message = reason.toString()
 
   log(
-    `[😓] ${bgWhite(bold(` chrome-runtime `))} ${red(
+    `[😓] ${bgWhite(bold(` chrome-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Watch mode closed (code ${code}). ${
       message && '\n\nReason!!! ' + message + '\n'
@@ -147,20 +147,20 @@ function watchModeClosed(code: number, reason: Buffer) {
 
 function browserNotFound(chromePath: string) {
   error(
-    `${bgWhite(bold(` chrome-runtime `))} ${red('✖︎✖︎✖︎')} Chrome not found at ${chromePath}`
+    `${bgWhite(bold(` chrome-browser `))} ${red('✖︎✖︎✖︎')} Chrome not found at ${chromePath}`
   )
 }
 
 function webSocketError(error: any) {
   error(
-    `[⛔️] ${bgWhite(bold(` chrome-runtime `))} ${red('✖︎✖︎✖︎')} WebSocket error`,
+    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red('✖︎✖︎✖︎')} WebSocket error`,
     error
   )
 }
 
 function parseFileError(error: any, filepath: string) {
   error(
-    `[⛔️] ${bgWhite(bold(` chrome-runtime `))} ${red(
+    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Error parsing file: ${filepath}. Reason: ${error.message}`
   )
