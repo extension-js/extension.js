@@ -45,9 +45,11 @@ export default class CreateWebSocketServer {
         )
 
         const context = path.relative(process.cwd(), path.dirname(changedFile))
-        console.info(
-          `►► Updated file \`${relativePath}\` (relative to ${context})`
-        )
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.info(
+            `►► Updated file \`${relativePath}\` (relative to ${context})`
+          )
+        }
 
         if (this.options.manifestPath) {
           messageDispatcher(wss, this.options, changedFile)
