@@ -45,7 +45,7 @@ export default function (this: ResolvePluginContext, source: string) {
   })
 
   if (new RegExp(options.test).test(this.resourcePath)) {
-    const resolverName = 'resolver-module.js'
+    const resolverName = 'resolver-module.mjs'
 
     // Skip if path is node_modules
     if (
