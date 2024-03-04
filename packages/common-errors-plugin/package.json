@@ -41,6 +41,7 @@
     "webpack": "^5.0.0"
   },
   "dependencies": {
+    "@colors/colors": "^1.6.0",
     "browser-extension-manifest-fields": "*",
     "content-security-policy-parser": "^0.4.1"
   },

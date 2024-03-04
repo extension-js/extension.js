@@ -1,5 +1,8 @@
 import type webpack from 'webpack'
-import {handleMultipleAssetsError} from './src/compilationErrorHandlers'
+import {
+  handleMultipleAssetsError,
+  handleTopLevelAwaitError
+} from './src/compilationErrorHandlers'
 import {
   handleInsecureCSPValue,
   handleWrongWebResourceFormatError
@@ -13,12 +16,23 @@ export default class CommonErrorsPlugin {
     this.manifestPath = options.manifestPath
   }
 
-  private handleCompilations(compilation: webpack.Compilation) {
+  private handleCompilationErrors(compilation: webpack.Compilation) {
     compilation.errors.forEach((error, index) => {
-      const multipleAssetsError = handleMultipleAssetsError(error)
+      const multipleAssetsError = handleMultipleAssetsError(
+        this.manifestPath,
+        error
+      )
+      const topLevelAwaitError = handleTopLevelAwaitError(
+        this.manifestPath,
+        error
+      )
 
       if (multipleAssetsError) {
         compilation.errors[index] = multipleAssetsError
+      }
+
+      if (topLevelAwaitError) {
+        compilation.errors[index] = topLevelAwaitError
       }
     })
   }
@@ -48,11 +62,12 @@ export default class CommonErrorsPlugin {
             // Handle errors related to compilation such
             // as multiple assets with the same name,
             // or missing dependencies.
-            this.handleCompilations(compilation)
+            this.handleCompilationErrors(compilation)
 
             // Handle errors related to the browser
             // runtime such as insecure CSP values.
             this.handleBrowserRuntimeErrors(compilation)
+
             done()
           }
         )
