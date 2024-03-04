@@ -48,7 +48,7 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] ${bgCyan(white(bold(` edge-runtime `)))} ${green(
+    error(`[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${green(
       '►►►'
     )} No data received from client.
 
@@ -63,7 +63,7 @@ Ensure your extension is enabled and that no hanging Edge instance is open then 
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
       error(
-        `[⛔️] ${bgCyan(white(bold(` edge-runtime `)))} ${green(
+        `[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${green(
           '►►►'
         )} No management API info received from client. Investigate.`
       )
@@ -104,9 +104,9 @@ Ensure your extension is enabled and that no hanging Edge instance is open then 
     )}\n`
   )
 
-  const edgeRuntime = bgCyan(white(bold(` edge-runtime `)))
+  const edgeRuntime = bgCyan(white(bold(` edge-browser `)))
   // 🟠brave ⚪️chrome 🔵edge ⭕️opera 🔴firefox 🟣safari 🟢edge 🟡
-  // const crRuntime = bgCyan(black(bold(` chrome-runtime `)))
+  // const crRuntime = bgCyan(black(bold(` chrome-browser `)))
   // const ffRuntime = bgRed(white(bold(` firefox-runtime `)))
   // const operaRuntime = bgWhite(red(bold(` opera-runtime `)))
   // const braveRuntime = bgBlack(white(bold(` brave-runtime `)))
@@ -137,7 +137,7 @@ function watchModeClosed(code: number, reason: Buffer) {
   const message = reason.toString()
 
   log(
-    `[😓] ${bgCyan(white(bold(` edge-runtime `)))} ${red(
+    `[😓] ${bgCyan(white(bold(` edge-browser `)))} ${red(
       '✖︎✖︎✖︎'
     )} Watch mode closed (code ${code}). ${
       message && '\n\nReason!!! ' + message + '\n'
@@ -147,20 +147,20 @@ function watchModeClosed(code: number, reason: Buffer) {
 
 function browserNotFound(edgePath: string) {
   error(
-    `${bgCyan(white(bold(` edge-runtime `)))} ${red('✖︎✖︎✖︎')} Edge not found at ${edgePath}`
+    `${bgCyan(white(bold(` edge-browser `)))} ${red('✖︎✖︎✖︎')} Edge not found at ${edgePath}`
   )
 }
 
 function webSocketError(error: any) {
   error(
-    `[⛔️] ${bgCyan(white(bold(` edge-runtime `)))} ${red('✖︎✖︎✖︎')} WebSocket error`,
+    `[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${red('✖︎✖︎✖︎')} WebSocket error`,
     error
   )
 }
 
 function parseFileError(error: any, filepath: string) {
   error(
-    `[⛔️] ${bgCyan(white(bold(` edge-runtime `)))} ${red(
+    `[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${red(
       '✖︎✖︎✖︎'
     )} Error parsing file: ${filepath}. Reason: ${error.message}`
   )
