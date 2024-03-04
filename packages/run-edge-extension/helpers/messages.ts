@@ -48,8 +48,8 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${green(
-      '►►►'
+    error(`[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${red(
+      '✖︎✖︎✖︎'
     )} No data received from client.
 
 Ensure your extension is enabled and that no hanging Edge instance is open then try again.`)
