@@ -1,5 +1,5 @@
-[npm-image]: https://img.shields.io/npm/v/extension-manifest-assets.svg
-[npm-url]: https://npmjs.org/package/extension-manifest-assets
+[npm-image]: https://img.shields.io/npm/v/browser-extension-manifest-fields.svg
+[npm-url]: https://npmjs.org/package/browser-extension-manifest-fields
 
 # browser-extension-manifest-fields [![npm][npm-image]][npm-url]
 
