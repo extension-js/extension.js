@@ -42,7 +42,7 @@ export default class AddScriptsAndStylesToCompilation {
         )
 
         if (compiler.options.mode === 'development') {
-          const hmrScript = path.resolve(__dirname, 'minimum-script-file.js')
+          const hmrScript = path.resolve(__dirname, 'minimum-script-file.mjs')
           fileAssets.push(hmrScript)
         }
 

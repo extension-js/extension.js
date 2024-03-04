@@ -71,7 +71,6 @@ yarn extension <command> [argument]
 The monorepo's `package.json` includes scripts that affect all programs and packages at once
 and are needed for the project development.
 
-
 ### Extension
 
 This is the same command users run when they do `npx extension-create <command>
@@ -79,7 +78,6 @@ This is the same command users run when they do `npx extension-create <command>
 ```sh
 yarn extension <command> [args] [flags]
 ```
-
 
 ### Compile
 

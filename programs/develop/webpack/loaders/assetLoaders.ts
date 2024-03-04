@@ -7,10 +7,6 @@
 
 const assetLoaders = [
   {
-    test: /\.html$/i,
-    use: ['html-loader']
-  },
-  {
     test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp|svg)$/i,
     type: 'asset/resource',
     parser: {

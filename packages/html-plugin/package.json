@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-browser-extension-html",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "webpack plugin to handle HTML assets from browser extensions",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -23,7 +23,9 @@
   "scripts": {
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts ./loaders/InjectHmrAcceptLoader.ts ./minimum-script-file.ts --format cjs --dts --target=node18 --minify",
+    "compile:plugin": "tsup-node ./module.ts ./loaders/InjectHmrAcceptLoader.ts --format cjs --dts --target=node18 --minify",
+    "compile:web": "tsup-node ./minimum-script-file.ts --format esm --dts --target=node18 --minify --config=tsconfig.web.json",
+    "compile": "yarn compile:plugin && yarn compile:web",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "jest"
   },

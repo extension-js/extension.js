@@ -1,9 +1,9 @@
-[action-image]: https://github.com/cezaraugusto/webpack-browser-extension-scripts-plugin/workflows/CI/badge.svg
-[action-url]: https://github.com/cezaraugusto/webpack-browser-extension-scripts-plugin/actions?query=workflow%3ACI
-[npm-image]: https://img.shields.io/npm/v/webpack-browser-extension-scripts-plugin.svg
-[npm-url]: https://npmjs.org/package/webpack-browser-extension-scripts-plugin
+[action-image]: https://github.com/cezaraugusto/webpack-browser-extension-scripts/workflows/CI/badge.svg
+[action-url]: https://github.com/cezaraugusto/webpack-browser-extension-scripts/actions?query=workflow%3ACI
+[npm-image]: https://img.shields.io/npm/v/webpack-browser-extension-scripts.svg
+[npm-url]: https://npmjs.org/package/webpack-browser-extension-scripts
 
-# webpack-browser-extension-scripts-plugin [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url]
+# webpack-browser-extension-scripts [![workflow][action-image]][action-url] [![npm][npm-image]][npm-url]
 
 > webpack plugin to handle manifest script assets (content_scripts, background.scripts, service_worker, user_scripts) from browser extensions
 
@@ -19,7 +19,7 @@ Properly output script files based on the manifest fields declared in the manife
 ## Install
 
 ```
-npm i webpack-browser-extension-scripts-plugin --save-dev
+npm i webpack-browser-extension-scripts --save-dev
 ```
 
 ## Usage
@@ -29,7 +29,7 @@ Check the [demo](./demo/) folder for a list of samples using a HMR plugin.
 ```js
 // webpack.config.js
 
-const ScriptsPlugin = require('webpack-browser-extension-scripts-plugin')
+const ScriptsPlugin = require('webpack-browser-extension-scripts')
 
 module.exports = {
   // ...other webpack config,
@@ -63,7 +63,7 @@ Given a manifest file, grab all possible JavaScript fields and add them as [webp
 // myproject/webpack.config.js
 const path = require('path')
 const ScriptsPlugin =
-  require('webpack-browser-extension-scripts-plugin').default
+  require('webpack-browser-extension-scripts').default
 
 const manifestPath = path.join(__dirname, 'manifest.json')
 const outputPath = path.resolve(__dirname, './dist')

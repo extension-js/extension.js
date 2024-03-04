@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/develop",
-  "version": "1.0.9",
+  "version": "1.1.0",
   "description": "The develop step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -38,14 +38,11 @@
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "chokidar": "^3.6.0",
     "css-loader": "^6.9.1",
-    "css-minimizer-webpack-plugin": "^6.0.0",
     "css-url-relative-plugin": "^1.1.0",
     "csv-loader": "^3.0.5",
     "dotenv-webpack": "^8.0.1",
     "eslint-webpack-plugin": "^4.0.1",
     "go-git-it": "^1.2.2",
-    "html-loader": "^5.0.0",
-    "json-minimizer-webpack-plugin": "^5.0.0",
     "less": "^4.2.0",
     "less-loader": "^12.1.0",
     "mini-css-extract-plugin": "^2.7.7",
@@ -61,8 +58,6 @@
     "sass-loader": "^14.0.0",
     "style-loader": "^3.3.4",
     "swc-loader": "^0.2.6",
-    "tailwindcss": "^3.4.1",
-    "terser-webpack-plugin": "^5.3.10",
     "ts-loader": "^9.5.1",
     "webextension-polyfill": "^0.10.0",
     "webpack": "^5.89.0",
@@ -80,12 +75,12 @@
     "webpack-dev-server": "^4.15.1",
     "webpack-merge": "^5.10.0",
     "webpack-run-chrome-extension": "*",
-    "webpack-run-edge-extension": "*",
-    "typescript": "^5.3.3"
+    "webpack-run-edge-extension": "*"
   },
   "devDependencies": {
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/dotenv-webpack": "^7.0.7",
-    "tsup": "^8.0.1"
+    "tsup": "^8.0.1",
+    "typescript": "^5.3.3"
   }
 }

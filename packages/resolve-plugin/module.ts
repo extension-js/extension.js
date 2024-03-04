@@ -46,7 +46,7 @@ export default class ResolvePlugin {
 
   public apply(compiler: webpack.Compiler): void {
     new webpack.ProvidePlugin({
-      r: [path.resolve(__dirname, './resolver-module'), 'default']
+      r: [path.resolve(__dirname, './resolver-module.mjs'), 'default']
     }).apply(compiler)
 
     // 1 - Add the resolver loader.
