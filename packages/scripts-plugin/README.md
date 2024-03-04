@@ -62,8 +62,7 @@ Given a manifest file, grab all possible JavaScript fields and add them as [webp
 ```js
 // myproject/webpack.config.js
 const path = require('path')
-const ScriptsPlugin =
-  require('webpack-browser-extension-scripts').default
+const ScriptsPlugin = require('webpack-browser-extension-scripts').default
 
 const manifestPath = path.join(__dirname, 'manifest.json')
 const outputPath = path.resolve(__dirname, './dist')
