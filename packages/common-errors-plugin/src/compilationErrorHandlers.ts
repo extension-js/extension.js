@@ -1,14 +1,17 @@
 import webpack from 'webpack'
+import {bold, red} from '@colors/colors/safe'
 
 export function handleMultipleAssetsError(
+  manifestPath: string,
   error: webpack.WebpackError
 ): webpack.WebpackError | null {
+  const manifest = require(manifestPath)
   const actualMsg =
     'Conflict: Multiple assets emit different content to the same filename '
   if (error.message.includes(actualMsg)) {
     const filename = error.message.replace(actualMsg, '')
     const extFilename = filename.split('.').pop()
-    const errorMsg = `[content_scripts] One of your \`${extFilename}\` file imports is also defined as a content_script in manifest.json. Remove the duplicate entry and try again.`
+    const errorMsg = `[${manifest.name}'s content_scripts] One of your \`${extFilename}\` file imports is also defined as a content_script in manifest.json. Remove the duplicate entry and try again.`
 
     if (filename.startsWith('content_scripts')) {
       return new webpack.WebpackError(errorMsg)
@@ -18,13 +21,34 @@ export function handleMultipleAssetsError(
 }
 
 export function handleCantResolveError(
+  manifestPath: string,
   error: webpack.WebpackError
 ): webpack.WebpackError | null {
+  const manifest = require(manifestPath)
   const cantResolveMsg = "Module not found: Error: Can't resolve"
 
   if (error.message.includes(cantResolveMsg)) {
-    // Customize the error message or handle it as needed
-    const customMessage = 'Custom Error Message: ' + error.message
+    const customMessage = `[${manifest.name}]: ` + error.message
+    return new webpack.WebpackError(customMessage)
+  }
+
+  return null
+}
+
+export function handleTopLevelAwaitError(
+  manifestPath: string,
+  error: webpack.WebpackError
+): webpack.WebpackError | null {
+  const manifest = require(manifestPath)
+  const topLevelAwaitMsg =
+    'Top-level-await is only supported in EcmaScript Modules'
+
+  const additionalInfo =
+    "Make sure to set the module type to 'module' in your package.json or use the .mjs extension for your files."
+
+  if (error.message.includes(topLevelAwaitMsg)) {
+    const customMessage = `[${manifest.name}] ${red(bold(topLevelAwaitMsg + '.\n' + additionalInfo))}`
+
     return new webpack.WebpackError(customMessage)
   }
 
