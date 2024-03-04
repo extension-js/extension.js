@@ -31,7 +31,6 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "cross-spawn": "^7.0.3",
-    "pacote": "^17.0.6",
     "prefers-yarn": "^1.0.1"
   },
   "devDependencies": {
