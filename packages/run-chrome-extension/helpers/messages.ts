@@ -48,8 +48,8 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] ${bgWhite(bold(` chrome-browser `))} ${green(
-      '►►►'
+    error(`[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
+      '✖︎✖︎✖︎'
     )} No data received from client.
 
 Ensure your extension is enabled and that no hanging Chrome instance is open then try again.`)
@@ -140,7 +140,7 @@ function watchModeClosed(code: number, reason: Buffer) {
     `[😓] ${bgWhite(bold(` chrome-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Watch mode closed (code ${code}). ${
-      message && '\n\nReason!!! ' + message + '\n'
+      message && '\n\nReason ' + message + '\n'
     }Exiting...\n`
   )
 }
