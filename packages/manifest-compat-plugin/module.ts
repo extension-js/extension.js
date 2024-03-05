@@ -1,7 +1,8 @@
-import Ajv, {type ErrorObject} from 'ajv'
 import fs from 'fs'
 import path from 'path'
 import {type Compiler, WebpackError} from 'webpack'
+import Ajv, {type ErrorObject} from 'ajv'
+import {blue, underline, yellow} from '@colors/colors'
 import v3Schema from './lib/manifest.schema.v3.json'
 import addCustomFormats from './lib/customValidators'
 import bcd from '@mdn/browser-compat-data'
@@ -24,7 +25,7 @@ export default class ManifestCompatPlugin {
     const chromeUrl = `https://developer.chrome.com/docs/extensions/reference/api/${namespace}`
     const mdnUrl = extensionKnowledge?.[namespace].__compat?.mdn_url
 
-    return isChrome ? chromeUrl : mdnUrl
+    return isChrome ? blue(underline(chromeUrl)) : blue(underline(mdnUrl || ''))
   }
 
   private getManifestDocumentationURL(browser?: string) {
@@ -33,14 +34,14 @@ export default class ManifestCompatPlugin {
       'https://developer.chrome.com/docs/extensions/reference/manifest'
     const mdnUrl = `https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json`
 
-    return isChrome ? chromeUrl : mdnUrl
+    return isChrome ? blue(underline(chromeUrl)) : blue(underline(mdnUrl || ''))
   }
 
   private missingRequiredFieldError(message: string | undefined) {
     const hintMessage = `Update your manifest.json file to run your extension.`
-    const errorMessage = `Field \`${message}\` is required. ${hintMessage}
+    const errorMessage = `Field ${yellow(message || '')} is required. ${hintMessage}
 
-Read more about the \`${message}\` field:
+Read more about the ${yellow(message || '')} field:
 ${this.getManifestDocumentationURL(this.options.browser)}`
     return errorMessage
   }
@@ -50,7 +51,7 @@ ${this.getManifestDocumentationURL(this.options.browser)}`
     const message = errorData?.message
     const namespace = field?.split('.')[0]
 
-    return `Manifest field ${field} ${message?.replace('be', 'be of type')}.
+    return `Field ${yellow(field)} ${message?.replace('be', 'be of type')}.
 
 Read more about the \`${namespace}\` namespace:
 ${this.getApiDocumentationURL('chrome', namespace)}`
