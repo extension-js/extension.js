@@ -66,7 +66,7 @@
     "mini-css-extract-plugin": "^2.7.7",
     "style-loader": "^3.3.4",
     "tsconfig": "*",
-    "webpack": "^5.89.0",
+    "webpack": "~5.89.0",
     "webpack-cli": "^5.1.4"
   }
 }
