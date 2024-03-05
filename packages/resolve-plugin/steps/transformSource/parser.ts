@@ -14,7 +14,10 @@ export function resolvePropertyArg(path: any, resolverFunctionName: string) {
 export function resolveStringArg(path: any, api: string) {
   if (path.node.arguments.length === 0) return
 
-  if (api === 'chrome.devtools.panels.create') {
+  if (
+    api === 'chrome.devtools.panels.create' ||
+    api === 'browser.devtools.panels.create'
+  ) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     path.node.arguments[1] = t.callExpression(t.identifier('r.solve'), [
       path.node.arguments[1]
@@ -23,7 +26,10 @@ export function resolveStringArg(path: any, api: string) {
     path.node.arguments[2] = t.callExpression(t.identifier('r.solve'), [
       path.node.arguments[2]
     ])
-  } else if (api === 'chrome.runtime.getURL') {
+  } else if (
+    api === 'chrome.runtime.getURL' ||
+    api === 'browser.runtime.getURL'
+  ) {
     if (
       path.node.arguments[0].value &&
       path.node.arguments[0].value.includes('/_favicon/')
