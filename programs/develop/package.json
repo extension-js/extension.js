@@ -60,7 +60,7 @@
     "swc-loader": "^0.2.6",
     "ts-loader": "^9.5.1",
     "webextension-polyfill": "^0.10.0",
-    "webpack": "^5.89.0",
+    "webpack": "~5.89.0",
     "webpack-browser-extension-common-errors": "*",
     "webpack-browser-extension-html": "*",
     "webpack-browser-extension-icons": "*",
