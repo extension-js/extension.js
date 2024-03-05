@@ -7,7 +7,6 @@
 
 import path from 'path'
 import type webpack from 'webpack'
-import ManifestCompatPlugin from 'webpack-browser-extension-manifest-compat'
 import CommonErrorsPlugin from 'webpack-browser-extension-common-errors'
 import {type DevOptions} from '../../extensionDev'
 
@@ -25,12 +24,6 @@ export default function errorPlugins(
 
       // TODO: Combine common config errors and output a nice error display.
       // new ErrorLayerPlugin().apply(compiler)
-
-      // Handle manifest compatibilities across browser vendors.
-      new ManifestCompatPlugin({
-        manifestPath,
-        browser
-      }).apply(compiler)
 
       // Handle common user mistakes and webpack errors.
       new CommonErrorsPlugin({
