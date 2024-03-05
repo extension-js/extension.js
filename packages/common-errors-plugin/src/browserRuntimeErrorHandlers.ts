@@ -9,7 +9,8 @@ export function handleInsecureCSPValue(
   const extensionPagesCSP: string | undefined =
     manifest.content_security_policy?.extension_pages
 
-  const checkCSP = (cspString: string): string | undefined => {
+  const checkCSP = (cspString: string | undefined): string | undefined => {
+    if (!cspString) return undefined
     const parsedCSP = parseCSP(cspString)
 
     if (
@@ -21,14 +22,13 @@ export function handleInsecureCSPValue(
   }
 
   if (manifest.manifest_version === 3) {
-    const mainCSPError = manifestCSP ? checkCSP(manifestCSP) : undefined
-    const extensionPagesCSPError = extensionPagesCSP
+    const extensionPagesCSPError = manifestCSP
       ? checkCSP(extensionPagesCSP)
       : undefined
 
-    if (mainCSPError) return new webpack.WebpackError(mainCSPError)
-    if (extensionPagesCSPError)
+    if (extensionPagesCSPError) {
       return new webpack.WebpackError(extensionPagesCSPError)
+    }
   }
 
   return null
