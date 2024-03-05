@@ -24,10 +24,10 @@ class ApplyManifestDevDefaultsPlugin {
       // script-src 'self' 'unsafe-eval';
       // See https://github.com/awesome-webextension/webpack-target-webextension#source-map.
       // For V3, see https://developer.chrome.com/docs/extensions/migrating/improve-security/#update-csp
-      ...(manifest.manifest_version === 2
-        ? patchV2CSP(manifest)
-        : patchV3CSP(manifest)
-      ),
+      content_security_policy:
+        manifest.manifest_version === 3
+          ? patchV3CSP(manifest)
+          : patchV2CSP(manifest),
 
       // Set permission scripting as it's required for reload to work
       // with content scripts in v3. See:

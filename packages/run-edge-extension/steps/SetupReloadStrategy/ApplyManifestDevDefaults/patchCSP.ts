@@ -2,13 +2,13 @@ import parse from 'content-security-policy-parser'
 import {ManifestBase} from '../../../manifest-types'
 
 export function patchV2CSP(manifest: ManifestBase) {
-  let policy = manifest.content_security_policy
+  let policy: string | undefined = manifest.content_security_policy
 
   if (!policy) {
     manifest.content_security_policy =
-      "script-src 'self' 'unsafe-eval' blob: filesystem:;" +
-      "object-src 'self' blob: filesystem:;" +
-      'connect-src ws: wss:;'
+      "script-src 'self' 'unsafe-eval' blob: filesystem:; " +
+      "object-src 'self' blob: filesystem:; " +
+      'connect-src ws:;'
     return manifest
   }
 
@@ -23,7 +23,7 @@ export function patchV2CSP(manifest: ManifestBase) {
     csp['script-src'].push("'unsafe-eval'")
   }
   if (!csp['connect-src']) {
-    csp['connect-src'] = ['ws:', 'wss:']
+    csp['connect-src'] = ['ws:']
   } else {
     if (!csp['connect-src'].includes('ws:')) {
       csp['connect-src'].push('ws:')
@@ -33,23 +33,25 @@ export function patchV2CSP(manifest: ManifestBase) {
     policy += `${k} ${csp[k].join(' ')};`
   }
 
-  manifest.content_security_policy = policy // Update the CSP in the manifest
-  return manifest
+  // Update the CSP in the manifest
+  return policy
 }
 
 export function patchV3CSP(manifest: ManifestBase) {
   // Extract the CSP for extension_pages
-  let policy = manifest.content_security_policy.extension_pages
+  let policy: {extension_pages: string} | undefined =
+    manifest.content_security_policy
 
   // Check if a policy exists, if not, apply a default one
   if (!policy) {
-    manifest.content_security_policy.extension_pages =
-      "connect-src 'self' ws: wss:;"
-    return manifest
+    return {
+      extension_pages:
+        "script-src 'self'; " + "object-src 'self'; " + 'connect-src ws:;'
+    }
   }
 
   // Parse the CSP to a manageable format
-  const csp = parse(policy)
+  const csp = parse(policy.extension_pages)
   let extensionPagesPolicy = ''
 
   // Ensure 'connect-src' is present and includes 'ws:' if not already
@@ -68,7 +70,7 @@ export function patchV3CSP(manifest: ManifestBase) {
   }
 
   // Update the manifest's CSP
-  manifest.content_security_policy.extension_pages = extensionPagesPolicy.trim()
-
-  return manifest
+  return {
+    extension_pages: extensionPagesPolicy.trim()
+  }
 }
