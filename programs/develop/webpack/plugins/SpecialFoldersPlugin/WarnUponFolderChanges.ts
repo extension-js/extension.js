@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as chokidar from 'chokidar'
 import {type Compiler} from 'webpack'
+import {bold, red, underline} from '@colors/colors/safe'
 
 class WatchPagesPlugin {
   private readonly manifestPath: string
@@ -14,13 +15,14 @@ class WatchPagesPlugin {
     filePath: string,
     isAddition?: boolean
   ) {
+    const pathRelative = path.relative(process.cwd(), filePath)
     const addingOrRemoving = isAddition ? 'Adding' : 'Removing'
     const addedOrRemoved = isAddition ? 'added' : 'removed'
     const typeOfAsset = folder === 'pages' ? 'HTML pages' : 'script files'
     const errorMessage =
-      `\n🧩 extension-create ✋✋✋ ${addingOrRemoving} ${typeOfAsset} ` +
-      `in the ${folder}/ folder after compilation requires a server restart.` +
-      `\n\n- File ${addedOrRemoved}: ${filePath}\n\nRestart the program to apply changes.`
+      `\n🧩 ${bold('extension-create')} ${red('✖︎✖︎✖︎')} ${addingOrRemoving} ${typeOfAsset} ` +
+      `in the ${underline(folder + '/')} folder after compilation requires a server restart.` +
+      `\n\n- File ${addedOrRemoved}: ${underline(pathRelative)}\n\nRestart the program to apply changes.`
 
     // Adding a page or script doesn't make it loaded but at least don't break anything,
     // so we add a warning instead of an error and user can keep working.
