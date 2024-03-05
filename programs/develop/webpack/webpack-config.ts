@@ -96,6 +96,20 @@ export default function webpackConfig(
       // WARN: This can have side-effects.
       // See https://webpack.js.org/guides/code-splitting/#entry-dependencies
       // runtimeChunk: true,
+    },
+    experiments: {
+      // Enable native CSS support. Note that it's an experimental feature still under development
+      // and will be enabled by default in webpack v6, however you can track the progress on GitHub
+      // here: https://github.com/webpack/webpack/issues/14893.
+      css: false,
+      // Support the new WebAssembly according to the updated specification,
+      // it makes a WebAssembly module an async module.
+      asyncWebAssembly: true,
+      // Once enabled, webpack will output ECMAScript module syntax whenever possible.
+      // For instance, import() to load chunks, ESM exports to expose chunk data, among others.
+      // TODO: cezaraugusto as we mature the ManifestPlugin to handle files without hardcoded names,
+      // we can enable this feature as long as we have tests to cover it.
+      outputModule: false
     }
   }
 }
