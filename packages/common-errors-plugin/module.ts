@@ -1,7 +1,8 @@
 import type webpack from 'webpack'
 import {
   handleMultipleAssetsError,
-  handleTopLevelAwaitError
+  handleTopLevelAwaitError,
+  handleCantResolveError
 } from './src/compilationErrorHandlers'
 import {
   handleInsecureCSPValue,
@@ -26,6 +27,7 @@ export default class CommonErrorsPlugin {
         this.manifestPath,
         error
       )
+      const cantResolveError = handleCantResolveError(this.manifestPath, error)
 
       if (multipleAssetsError) {
         compilation.errors[index] = multipleAssetsError
@@ -33,6 +35,10 @@ export default class CommonErrorsPlugin {
 
       if (topLevelAwaitError) {
         compilation.errors[index] = topLevelAwaitError
+      }
+
+      if (cantResolveError) {
+        compilation.errors[index] = cantResolveError
       }
     })
   }

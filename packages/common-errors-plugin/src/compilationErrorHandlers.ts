@@ -1,5 +1,5 @@
 import webpack from 'webpack'
-import {bold, red} from '@colors/colors/safe'
+import {bold, red, underline, blue} from '@colors/colors/safe'
 
 export function handleMultipleAssetsError(
   manifestPath: string,
@@ -25,11 +25,18 @@ export function handleCantResolveError(
   error: webpack.WebpackError
 ): webpack.WebpackError | null {
   const manifest = require(manifestPath)
-  const cantResolveMsg = "Module not found: Error: Can't resolve"
+  const cantResolveMsg = 'Module not found: Error:'
 
   if (error.message.includes(cantResolveMsg)) {
-    const customMessage = `[${manifest.name}]: ` + error.message
-    return new webpack.WebpackError(customMessage)
+    const link = 'https://docs.extensioncreate.com/n/features/special-folders'
+    const customMessage =
+      `[${manifest.name}]:${error.message.replace(cantResolveMsg, '')}. ` +
+      `Make sure to import the file correctly and that it exists in your extension's directory.` +
+      `\n\nIf you need to handle assets not supported by ${underline('manifest.json')}, add them to the ` +
+      `${underline('public/')} (for static content) or ${underline('scripts/')} folder. ` +
+      `Read more about ${'special folders'} ${underline(blue(link))}.`
+
+    return new webpack.WebpackError(bold(customMessage))
   }
 
   return null
