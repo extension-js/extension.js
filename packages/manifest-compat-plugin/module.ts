@@ -53,8 +53,8 @@ ${this.getManifestDocumentationURL(this.options.browser)}`
 
     return `Field ${yellow(field)} ${message?.replace('be', 'be of type')}.
 
-Read more about the \`${namespace}\` namespace:
-${this.getApiDocumentationURL('chrome', namespace)}`
+Read more about the ${yellow(namespace)} field:
+${this.getManifestDocumentationURL(this.options.browser)}`
   }
 
   apply(compiler: Compiler) {
