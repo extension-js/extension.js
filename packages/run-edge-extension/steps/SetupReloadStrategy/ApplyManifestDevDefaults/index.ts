@@ -1,6 +1,6 @@
 import type webpack from 'webpack'
 import {Compilation, sources} from 'webpack'
-import {patchV2CSP} from './patchCSP'
+import {patchV2CSP, patchV3CSP} from './patchCSP'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patchWebResources'
 import patchBackground from './patchBackground'
 import patchExternallyConnectable from './patchExternallyConnectable'
@@ -24,8 +24,9 @@ class ApplyManifestDevDefaultsPlugin {
       // script-src 'self' 'unsafe-eval';
       // See https://github.com/awesome-webextension/webpack-target-webextension#source-map.
       // For V3, see https://developer.chrome.com/docs/extensions/migrating/improve-security/#update-csp
-      ...(manifest.manifest_version === 2 &&
-        patchV2CSP(manifest.content_security_policy as string)),
+      ...(manifest.manifest_version === 2
+        ? patchV2CSP(manifest)
+        : patchV3CSP(manifest)),
 
       // Set permission scripting as it's required for reload to work
       // with content scripts in v3. See:
@@ -63,7 +64,7 @@ class ApplyManifestDevDefaultsPlugin {
 
   apply(compiler: webpack.Compiler) {
     compiler.hooks.thisCompilation.tap(
-      'RunEdgeExtension (ApplyManifestDevDefaults)',
+      'RunChromeExtension (ApplyManifestDevDefaults)',
       (compilation) => {
         const Error = compiler.webpack.WebpackError
 
@@ -72,7 +73,7 @@ class ApplyManifestDevDefaultsPlugin {
 
         compilation.hooks.processAssets.tap(
           {
-            name: 'RunEdgeExtension (ApplyManifestDevDefaults)',
+            name: 'RunChromeExtension (ApplyManifestDevDefaults)',
             // Summarize the list of existing assets.
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
@@ -84,7 +85,7 @@ class ApplyManifestDevDefaultsPlugin {
               if (!!compilation && !!Error) {
                 compilation.errors.push(
                   new Error(
-                    `[RunEdgeExtension (ApplyManifestDevDefaults)]: ${errorMessage}`
+                    `[RunChromeExtension (ApplyManifestDevDefaults)]: ${errorMessage}`
                   )
                 )
               }
