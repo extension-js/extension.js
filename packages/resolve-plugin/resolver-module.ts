@@ -70,7 +70,11 @@ function resolver(filePath?: string): string {
     ([key, value]) => {
       const filepathNormalized = pathNormalize(filePath)
 
-      if (value === filepathNormalized) {
+      if (
+        value === filepathNormalized ||
+        value === `pages/${filepathNormalized}` ||
+        value === `scripts/${filepathNormalized}`
+      ) {
         return key
       }
 
@@ -78,6 +82,12 @@ function resolver(filePath?: string): string {
       return false
     }
   )
+
+  const pathNorlaized = pathNormalize(filePath)
+
+  if (pathNorlaized.includes('public/')) {
+    return '/' + pathNorlaized
+  }
 
   if (resolvedValue && resolvedValue.length) {
     return resolvedValue[0]
