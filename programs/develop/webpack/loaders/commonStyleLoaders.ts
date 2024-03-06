@@ -14,6 +14,10 @@ export default function getCommonStyleLoaders(
   opts: any
 ): any {
   const styleLoaders: webpack.RuleSetUse = [
+    // Creates `style` nodes from JS strings
+    'style-loader',
+    // Translates CSS into CommonJS
+    'css-loader',
     {
       // `postcss-loader` applies autoprefixer to our CSS.
       loader: require.resolve('postcss-loader'),
