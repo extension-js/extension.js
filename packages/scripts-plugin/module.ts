@@ -59,9 +59,5 @@ export default class ScriptsPlugin {
 
     // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
     AddHmrAcceptCode(compiler, this.manifestPath)
-
-    // 3 - Ensure css for content_scripts defined in manifest.json
-    // are HMR enabled by adding them as dynamic imports to the entry point.
-    AddDynamicCssImport(compiler, this.manifestPath)
   }
 }
