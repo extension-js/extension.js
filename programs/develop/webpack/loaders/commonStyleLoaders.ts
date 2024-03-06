@@ -6,7 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import type webpack from 'webpack'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 import {isUsingTailwind} from '../options/tailwind'
 
@@ -15,17 +14,6 @@ export default function getCommonStyleLoaders(
   opts: any
 ): any {
   const styleLoaders: webpack.RuleSetUse = [
-    // This plugin extracts CSS into separate files.
-    // It creates a CSS file per JS file which contains CSS.
-    // It supports On-Demand-Loading of CSS and SourceMaps
-    // See https://webpack.js.org/plugins/mini-css-extract-plugin/
-    {
-      loader: MiniCssExtractPlugin.loader
-    },
-    {
-      // `css-loader` resolves paths in CSS and adds assets as dependencies.
-      loader: require.resolve('css-loader')
-    },
     {
       // `postcss-loader` applies autoprefixer to our CSS.
       loader: require.resolve('postcss-loader'),
