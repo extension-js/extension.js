@@ -65,6 +65,9 @@ export default function webpackConfig(
       environment: {
         bigIntLiteral: true,
         dynamicImport: true
+      },
+      cssFilename(pathData) {
+        return pathData.chunk?.name + '.css' || '[name].css'
       }
     },
     resolve: {
@@ -101,7 +104,7 @@ export default function webpackConfig(
       // Enable native CSS support. Note that it's an experimental feature still under development
       // and will be enabled by default in webpack v6, however you can track the progress on GitHub
       // here: https://github.com/webpack/webpack/issues/14893.
-      css: false,
+      css: true,
       // Support the new WebAssembly according to the updated specification,
       // it makes a WebAssembly module an async module.
       asyncWebAssembly: true,

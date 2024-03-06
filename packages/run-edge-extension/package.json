@@ -59,12 +59,9 @@
   "devDependencies": {
     "@types/loader-utils": "^2.0.6",
     "copy-webpack-plugin": "^12.0.2",
-    "css-loader": "^6.9.1",
     "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
     "html-webpack-plugin": "^5.6.0",
-    "mini-css-extract-plugin": "^2.7.7",
-    "style-loader": "^3.3.4",
     "tsconfig": "*",
     "webpack": "~5.89.0",
     "webpack-cli": "^5.1.4"
