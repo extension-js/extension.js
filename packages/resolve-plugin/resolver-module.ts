@@ -106,8 +106,8 @@ function solve(apiArgument?: SolveType) {
     return resolver(apiArgument)
   }
 
-  const resolveProperty = (obj: {
-    path?: string
+  const propertyResolver = (obj: {
+    path?: string | Record<string, string>
     popup?: string
     url?: string
     iconUrl?: string
@@ -116,13 +116,22 @@ function solve(apiArgument?: SolveType) {
     css?: string | string[]
   }) => ({
     ...obj,
-    // chrome.action.setIcon({..., path: string})
-    // chrome.browserAction.setIcon({..., path: string})
-    // chrome.pageAction.setIcon({..., path: string})
     // chrome.sidePanel.setOptions({..., path: string})
-    // chrome.declarativeContent.SetIcon({..., path: string})
+    // chrome.action.setIcon({..., path: string | Record<string, string>})
+    // chrome.browserAction.setIcon({..., path: string | Record<string, string>})
+    // chrome.pageAction.setIcon({..., path: string | Record<string, string>})
     // - https://developer.chrome.com/docs/extensions/reference/api/declarativeContent#type-SetIcon
-    ...(obj?.path && {path: resolver(obj.path)}),
+    // chrome.declarativeContent.SetIcon({..., path: string | Record<string, string>})
+    ...(obj?.path && {
+      path:
+        typeof obj.path === 'string'
+          ? resolver(obj.path)
+          : Object.entries(obj.path).reduce((acc, [key, value]) => {
+              // Apply the resolver to each value in the path object
+              ;(acc as Record<string, string>)[key] = resolver(value)
+              return acc
+            }, {})
+    }),
 
     // chrome.action.setPopup({..., popup: string})
     // chrome.browserAction.setPopup({..., popup: string})
@@ -171,11 +180,11 @@ function solve(apiArgument?: SolveType) {
 
   if (Array.isArray(apiArgument)) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return apiArgument.map((arg) => resolveProperty(arg))
+    return apiArgument.map((arg) => propertyResolver(arg))
   }
 
   return {
-    ...resolveProperty(apiArgument || {})
+    ...propertyResolver(apiArgument || {})
   }
 }
 
