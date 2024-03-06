@@ -7,6 +7,7 @@ export default function styleLoaders(projectDir: string, opts: any) {
       exclude: /\.module\.css$/,
       use: getCommonStyleLoaders(projectDir, {
         regex: /\.module\.css$/,
+        loader: require.resolve('sass-loader'),
         mode: opts.mode
       })
     },
