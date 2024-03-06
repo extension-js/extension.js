@@ -4,7 +4,6 @@ import type webpack from 'webpack'
 import {type IncludeList, type ScriptsPluginInterface} from './types'
 import AddScriptsAndStyles from './steps/AddScriptsAndStyles'
 import AddHmrAcceptCode from './steps/AddHmrAcceptCode'
-import AddDynamicCssImport from './steps/AddDynamicCssImport'
 
 /**
  * ScriptsPlugin is responsible for handiling all possible JavaScript
