@@ -100,14 +100,39 @@ export default class AddAssetsToCompilation {
                       const source = fs.readFileSync(asset)
                       const rawSource = new sources.RawSource(source)
 
-                      // Pages are handled by AddHtmlFileToCompilation.
-                      // Users can reference own pages/ (like an iframe),
-                      // but we don't want to emit them as assets again.
-                      // Assume that if the asset is not an HTML file, it should be emitted,
-                      // Either by manifest require, pages, or public folder.
                       const filepath = path.join('assets', path.basename(asset))
                       if (!compilation.getAsset(filepath)) {
-                        compilation.emitAsset(filepath, rawSource)
+                        // If for some reason the HTML file reached this condition,
+                        // it means it is not defined in the manifest file nor
+                        // in the include list. If the HTML file is treated like
+                        // any other resource, it will be emitted as an asset.
+                        // Here we also emit the assets referenced in the HTML file.
+                        if (asset.endsWith('.html')) {
+                          const htmlAssets = getAssetsFromHtml(asset)
+                          const assetsFromHtml = [
+                            ...(htmlAssets?.js || []),
+                            ...(htmlAssets?.css || []),
+                            ...(htmlAssets?.static || [])
+                          ]
+
+                          // Emit the HTML itself
+                          compilation.emitAsset(filepath, rawSource)
+                          assetsFromHtml.forEach((assetFromHtml) => {
+                            const source = fs.readFileSync(assetFromHtml)
+                            const rawSource = new sources.RawSource(source)
+
+                            const filepath = path.join(
+                              'assets',
+                              path.basename(assetFromHtml)
+                            )
+
+                            if (!compilation.getAsset(filepath)) {
+                              compilation.emitAsset(filepath, rawSource)
+                            }
+                          })
+                        } else {
+                          compilation.emitAsset(filepath, rawSource)
+                        }
                       }
                     }
                   }
