@@ -143,7 +143,7 @@ const masterPreferences = {
     // 3: unused, previously indicated the user wants to restore a saved session.
     // 4: restore the URLs defined in kURLsToRestoreOnStartup.
     // 5: open the New Tab Page on startup.
-    restore_on_startup: 4
+    restore_on_startup: 1
   },
   sync: {
     suppress_start: true
