@@ -3,21 +3,6 @@ import getCommonStyleLoaders from './commonStyleLoaders'
 export default function styleLoaders(projectDir: string, opts: any) {
   return [
     {
-      test: /\.css$/,
-      exclude: /\.module\.css$/,
-      use: getCommonStyleLoaders(projectDir, {
-        regex: /\.css$/,
-        mode: opts.mode
-      })
-    },
-    {
-      test: /\.module\.css$/,
-      use: getCommonStyleLoaders(projectDir, {
-        regex: /\.module\.css$/,
-        mode: opts.mode
-      })
-    },
-    {
       test: /\.(scss|sass)$/,
       exclude: /\.module\.css$/,
       use: getCommonStyleLoaders(projectDir, {
