@@ -5,6 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import {babelConfig} from '../options/babel'
 import {isUsingTypeScript} from '../options/typescript'
 import ReactRefreshTypeScript from 'react-refresh-typescript'
 
@@ -15,36 +16,46 @@ export default function jsLoaders(projectDir: string, opts: any) {
     : /\.(js|mjs|jsx)$/
 
   const jsLoaders = [
+    // https://webpack.js.org/loaders/babel-loader/
+    // https://babeljs.io/docs/en/babel-loader
     {
       test: files,
-      use: {
-        loader: require.resolve('swc-loader'),
-        options: {
-          env: {
-            targets: `browserslist config or defaults`
-          },
-          minify: opts.mode === 'production'
-        }
-      }
-    }
+      include: projectDir,
+      exclude: /node_modules/,
+      loader: require.resolve('babel-loader'),
+      options: babelConfig(projectDir, {
+        mode: opts.mode,
+        typescript: isUsingTypeScript(projectDir)
+      })
+    },
+    // {
+    //   test: files,
+    //   use: {
+    //     loader: require.resolve('swc-loader'),
+    //     options: {
+    //       env: {
+    //         targets: `browserslist config or defaults`
+    //       },
+    //       minify: opts.mode === 'production'
+    //     }
+    //   }
+    // }
   ]
 
   if (isUsingTypeScript(projectDir)) {
     // https://webpack.js.org/loaders/ts-loader/
     jsLoaders.push({
       test: /\.tsx?$/,
-      use: {
-        loader: require.resolve('ts-loader'),
-        options: {
-          transpileOnly: true,
-          getCustomTransformers: () => ({
-            before: [
-              opts.mode === 'development' && ReactRefreshTypeScript()
-            ].filter(Boolean)
-          })
-        } as any
-      }
-    })
+      loader: require.resolve('ts-loader'),
+      options: {
+        transpileOnly: true,
+        getCustomTransformers: () => ({
+          before: [
+            opts.mode === 'development' && ReactRefreshTypeScript()
+          ].filter(Boolean)
+        })
+      } as any
+    } as any)
   }
 
   return jsLoaders
