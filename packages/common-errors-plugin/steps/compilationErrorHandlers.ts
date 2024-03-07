@@ -32,8 +32,12 @@ export function handleCantResolveError(
     const customMessage =
       `[${manifest.name}]:${error.message.replace(cantResolveMsg, '')}. ` +
       `Make sure to import the file correctly and that it exists in your extension's directory.` +
-      `\n\nIf you need to handle assets not supported by ${underline('manifest.json')}, add them to the ` +
-      `${underline('public/')} (for static content) or ${underline('scripts/')} folder. ` +
+      `\n\nIf you need to handle assets not supported by ${underline(
+        'manifest.json'
+      )}, add them to the ` +
+      `${underline('public/')} (for static content) or ${underline(
+        'scripts/'
+      )} folder. ` +
       `Read more about ${'special folders'} ${underline(blue(link))}.`
 
     return new webpack.WebpackError(bold(customMessage))
@@ -54,7 +58,9 @@ export function handleTopLevelAwaitError(
     "Make sure to set the module type to 'module' in your package.json or use the .mjs extension for your files."
 
   if (error.message.includes(topLevelAwaitMsg)) {
-    const customMessage = `[${manifest.name}] ${red(bold(topLevelAwaitMsg + '.\n' + additionalInfo))}`
+    const customMessage = `[${manifest.name}] ${red(
+      bold(topLevelAwaitMsg + '.\n' + additionalInfo)
+    )}`
 
     return new webpack.WebpackError(customMessage)
   }
