@@ -40,7 +40,9 @@ export default async function extensionStart(
   } catch (error: any) {
     console.log(
       `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} ` +
-        `Error while developing the extension:\n\n${red(bold((error as string) || ''))}`
+        `Error while developing the extension:\n\n${red(
+          bold((error as string) || '')
+        )}`
     )
     process.exit(1)
   }

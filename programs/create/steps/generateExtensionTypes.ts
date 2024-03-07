@@ -41,7 +41,9 @@ export default async function generateExtensionTypes(
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Failed to write the extension type definition. ${error}`
+      `🧩 ${bold(`extension-create`)} ${red(
+        `✖︎✖︎✖︎`
+      )} Failed to write the extension type definition. ${error}`
     )
 
     process.exit(1)

@@ -18,7 +18,9 @@ export default function sidebarAction(manifest: Manifest, exclude: string[]) {
 
         ...(manifest.sidebar_action.default_icon && {
           default_icon: getFilename(
-            `sidebar_action/${getBasename(manifest.sidebar_action.default_icon as string)}`,
+            `sidebar_action/${getBasename(
+              manifest.sidebar_action.default_icon as string
+            )}`,
             manifest.sidebar_action.default_icon as string,
             exclude
           )

@@ -19,7 +19,9 @@ export default function pageAction(manifest: Manifest, exclude: string[]) {
           default_icon:
             typeof manifest.page_action.default_icon === 'string'
               ? getFilename(
-                  `page_action/${getBasename(manifest.page_action.default_icon as string)}`,
+                  `page_action/${getBasename(
+                    manifest.page_action.default_icon as string
+                  )}`,
                   manifest.page_action.default_icon as string,
                   exclude
                 )

@@ -24,8 +24,8 @@ export default class AddScriptsAndStyles {
     const scriptEntries = Array.isArray(scriptPath)
       ? scriptPath || []
       : scriptPath
-        ? [scriptPath]
-        : []
+      ? [scriptPath]
+      : []
 
     const fileAssets = scriptEntries.filter((asset) => {
       return (
