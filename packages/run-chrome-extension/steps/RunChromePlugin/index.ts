@@ -50,7 +50,9 @@ export default class ChromeExtensionLauncherPlugin {
         )
       } else {
         console.log(
-          `${bgWhite(black(` chrome-browser `))} ${green(`►►►`)} Chrome instance exited.`
+          `${bgWhite(black(` chrome-browser `))} ${green(
+            `►►►`
+          )} Chrome instance exited.`
         )
         process.exit()
       }

@@ -25,7 +25,9 @@ export default async function getProjectPath(
   if (pathOrRemoteUrl.startsWith('http')) {
     if (!pathOrRemoteUrl.startsWith('https://github.com')) {
       console.log(
-        `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} ${bold('The remote extension URL must be stored on GitHub.')}`
+        `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} ${bold(
+          'The remote extension URL must be stored on GitHub.'
+        )}`
       )
       process.exit(1)
     }
@@ -35,12 +37,20 @@ export default async function getProjectPath(
     const project = urlData.slice(1, 3)[1]
     const projectName = path.basename(pathOrRemoteUrl)
     console.log(
-      `🧩 ${bold(`extension-create`)} ${green(`►►►`)} Fetching data from ${blue(underline(`https://github.com/${owner}/${project}`))}`
+      `🧩 ${bold(`extension-create`)} ${green(`►►►`)} Fetching data from ${blue(
+        underline(`https://github.com/${owner}/${project}`)
+      )}`
     )
-    const downloadingText = `🧩 ${bold(`extension-create`)} ${green(`►►►`)} Downloading ${bold(projectName)}...`
+    const downloadingText = `🧩 ${bold(`extension-create`)} ${green(
+      `►►►`
+    )} Downloading ${bold(projectName)}...`
     const urlSource = await importUrlSource(pathOrRemoteUrl, downloadingText)
     console.log(
-      `🧩 ${bold(`extension-create`)} ${green(`►►►`)} Creating a new browser extension in ${white(underline(`${process.cwd()}/${projectName}`))}`
+      `🧩 ${bold(`extension-create`)} ${green(
+        `►►►`
+      )} Creating a new browser extension in ${white(
+        underline(`${process.cwd()}/${projectName}`)
+      )}`
     )
 
     return urlSource

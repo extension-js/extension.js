@@ -38,7 +38,9 @@ export default async function writeReadmeFile(
     await fs.writeFile(path.join(projectPath, 'README.md'), readmeFileEdited)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't install dependencies for ${bold(projectName)}. ${error}`
+      `🧩 ${bold(`extension-create`)} ${red(
+        `✖︎✖︎✖︎`
+      )} Can't install dependencies for ${bold(projectName)}. ${error}`
     )
 
     process.exit(1)

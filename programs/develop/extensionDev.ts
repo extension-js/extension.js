@@ -33,7 +33,11 @@ export default async function extensionDev(
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
   ) {
     console.log(
-      `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} Manifest file ${red(bold('not found'))}. Path ${underline(projectPath)} must include a ${yellow('manifest.json')}.`
+      `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} Manifest file ${red(
+        bold('not found')
+      )}. Path ${underline(projectPath)} must include a ${yellow(
+        'manifest.json'
+      )}.`
     )
     process.exit(1)
   }
@@ -42,7 +46,9 @@ export default async function extensionDev(
     if (isUsingTypeScript(projectPath)) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(
-          `🧩 ${bold(`extension-create`)} 🔷🔷🔷 - Using TypeScript config file: ${yellow('tsconfig.json')}`
+          `🧩 ${bold(
+            `extension-create`
+          )} 🔷🔷🔷 - Using TypeScript config file: ${yellow('tsconfig.json')}`
         )
       }
       await generateExtensionTypes(projectPath)
@@ -52,7 +58,9 @@ export default async function extensionDev(
   } catch (error: any) {
     console.log(
       `🧩 ${bold(`extension-create`)} ${red('✖︎✖︎✖︎')} ` +
-        `Error while developing the extension:\n\n${red(bold((error as string) || ''))}`
+        `Error while developing the extension:\n\n${red(
+          bold((error as string) || '')
+        )}`
     )
     process.exit(1)
   }

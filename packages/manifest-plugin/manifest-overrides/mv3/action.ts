@@ -20,7 +20,9 @@ export default function getAction(manifest: Manifest, exclude: string[]) {
           default_icon:
             typeof manifest.action.default_icon === 'string'
               ? getFilename(
-                  `action/${getBasename(manifest.action.default_icon as string)}`,
+                  `action/${getBasename(
+                    manifest.action.default_icon as string
+                  )}`,
                   manifest.action.default_icon as string,
                   exclude
                 )

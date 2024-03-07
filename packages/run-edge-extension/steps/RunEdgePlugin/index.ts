@@ -51,7 +51,9 @@ export default class EdgeExtensionLauncherPlugin {
         )
       } else {
         console.log(
-          `${bgCyan(white(bold(` edge-browser `)))} ${green(`►►►`)} Edge instance exited.`
+          `${bgCyan(white(bold(` edge-browser `)))} ${green(
+            `►►►`
+          )} Edge instance exited.`
         )
         process.exit()
       }

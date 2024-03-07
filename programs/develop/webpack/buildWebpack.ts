@@ -39,7 +39,9 @@ function getAssetInfo(assets: Array<{name: string; size: number}> | undefined) {
   assets?.forEach((asset) => {
     const sizeInKB = getFileSize(asset.size)
     log(
-      `• ${bold('Filename:')} ${asset.name}, ${bold('Size:')} ${sizeInKB}, ${bold('Path:')} ${underline(`${asset.name}`)}`
+      `• ${bold('Filename:')} ${asset.name}, ${bold(
+        'Size:'
+      )} ${sizeInKB}, ${bold('Path:')} ${underline(`${asset.name}`)}`
     )
   })
 }
@@ -104,9 +106,17 @@ export default function buildWebpack(
       fs.readFileSync(manifestPath, 'utf8')
     )
     const assets = statsJson?.assets
-    const heading = `🧩 ${bold('extension-create')} ${green('►►►')} Building ${bold(manifest.name)} extension using ${bold(vendor)} defaults...\n`
-    const buildTime = `\nBuild completed in ${((statsJson?.time || 0) / 1000).toFixed(2)} seconds.`
-    const buildStatus = `Build Status: ${stats?.hasErrors() ? red('Failed') : green('Success')}`
+    const heading = `🧩 ${bold('extension-create')} ${green(
+      '►►►'
+    )} Building ${bold(manifest.name)} extension using ${bold(
+      vendor
+    )} defaults...\n`
+    const buildTime = `\nBuild completed in ${(
+      (statsJson?.time || 0) / 1000
+    ).toFixed(2)} seconds.`
+    const buildStatus = `Build Status: ${
+      stats?.hasErrors() ? red('Failed') : green('Success')
+    }`
     const version = `Version: ${manifest.version}`
     const size = `Size: ${getAssetsSize(assets)}`
     const ready = blue(

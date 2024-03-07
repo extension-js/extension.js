@@ -23,7 +23,9 @@ interface Data {
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the ${bold(feature)} field in your manifest.json file and try again.`
+  const hintMessage = `Check the ${bold(
+    feature
+  )} field in your manifest.json file and try again.`
 
   const errorMessage = `[manifest.json] File path \`${htmlFilePath}\` not found. ${hintMessage}`
   return errorMessage
@@ -33,7 +35,9 @@ function manifestNotFound() {
   log(`
 ${bold("Error! Can't find the project's manifest file.")}
 
-Check your extension ${yellow('manifest.json')} file and ensure its path points to
+Check your extension ${yellow(
+    'manifest.json'
+  )} file and ensure its path points to
 one of the options above, and try again.
 `)
 }
@@ -147,13 +151,17 @@ function watchModeClosed(code: number, reason: Buffer) {
 
 function browserNotFound(chromePath: string) {
   error(
-    `${bgWhite(bold(` chrome-browser `))} ${red('✖︎✖︎✖︎')} Chrome not found at ${chromePath}`
+    `${bgWhite(bold(` chrome-browser `))} ${red(
+      '✖︎✖︎✖︎'
+    )} Chrome not found at ${chromePath}`
   )
 }
 
 function webSocketError(error: any) {
   error(
-    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red('✖︎✖︎✖︎')} WebSocket error`,
+    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
+      '✖︎✖︎✖︎'
+    )} WebSocket error`,
     error
   )
 }

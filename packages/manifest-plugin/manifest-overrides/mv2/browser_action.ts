@@ -22,7 +22,9 @@ export default function getBrowserAction(
           default_icon:
             typeof manifest.browser_action.default_icon === 'string'
               ? getFilename(
-                  `browser_action/${getBasename(manifest.browser_action.default_icon as string)}`,
+                  `browser_action/${getBasename(
+                    manifest.browser_action.default_icon as string
+                  )}`,
                   manifest.browser_action.default_icon as string,
                   exclude
                 )
