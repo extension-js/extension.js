@@ -72,7 +72,9 @@ export default async function writePackageJson(
     )
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(`package.json`)} for ${bold(projectName)}. ${error}`
+      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
+        `package.json`
+      )} for ${bold(projectName)}. ${error}`
     )
 
     process.exit(1)

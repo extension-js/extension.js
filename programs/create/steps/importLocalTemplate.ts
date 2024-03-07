@@ -21,12 +21,18 @@ export default async function importLocalTemplate(
 
   try {
     console.log(
-      `🧰 - Installing ${bold(projectName)} from ${blue(bold(template))} template...`
+      `🧰 - Installing ${bold(projectName)} from ${blue(
+        bold(template)
+      )} template...`
     )
     await copyDirectory(localTemplatePath, projectPath)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't copy template ${blue(bold(template))} for ${bold(projectName)}. ${error}`
+      `🧩 ${bold(`extension-create`)} ${red(
+        `✖︎✖︎✖︎`
+      )} Can't copy template ${blue(bold(template))} for ${bold(
+        projectName
+      )}. ${error}`
     )
     process.exit(1)
   }

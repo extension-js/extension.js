@@ -21,11 +21,15 @@ export default async function abortProjectAndClean(
 
   if (error.command) {
     console.log(
-      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} ${error.command} has failed.`
+      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} ${
+        error.command
+      } has failed.`
     )
   } else {
     console.log(
-      `🧩 ${bold(`extension-create`)} 🚨🚨🚨 Unexpected creation error. This is a bug. ` +
+      `🧩 ${bold(
+        `extension-create`
+      )} 🚨🚨🚨 Unexpected creation error. This is a bug. ` +
         `Please report: "${error}"`
     )
     console.log(
