@@ -23,7 +23,9 @@ export default function successfullInstall(
 
   const packageManager = prefersYarn() ? 'yarn' : 'npm run'
   console.log(`
-Now ${blue(bold(`cd`))} ${underline(relativePath)} and ${blue(bold(`${packageManager} dev`))} to open a new browser instance
+Now ${blue(bold(`cd`))} ${underline(relativePath)} and ${blue(
+    bold(`${packageManager} dev`)
+  )} to open a new browser instance
 with your extension installed, loaded, and enabled for development.
 
 You are ready. Time to hack on your extension!

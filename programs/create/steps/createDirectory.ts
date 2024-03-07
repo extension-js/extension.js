@@ -58,7 +58,9 @@ export default async function createDirectory(
     }
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't create directory ${bold(projectName)}. ${error}`
+      `🧩 ${bold(`extension-create`)} ${red(
+        `✖︎✖︎✖︎`
+      )} Can't create directory ${bold(projectName)}. ${error}`
     )
     process.exit(1)
   }

@@ -6,7 +6,10 @@ Changing the path of non-static assets defined in manifest.json requires a serve
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the \`${feature.replace('/', '.')}\` field in your manifest.json file and try again.`
+  const hintMessage = `Check the \`${feature.replace(
+    '/',
+    '.'
+  )}\` field in your manifest.json file and try again.`
 
   const errorMessage = `[manifest.json] File path \`${htmlFilePath}\` not found. ${hintMessage}`
   return errorMessage

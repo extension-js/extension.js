@@ -50,7 +50,9 @@ export default async function installDependencies(
     })
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't install dependencies for ${bold(projectName)}. ${error}`
+      `🧩 ${bold(`extension-create`)} ${red(
+        `✖︎✖︎✖︎`
+      )} Can't install dependencies for ${bold(projectName)}. ${error}`
     )
 
     process.exit(1)

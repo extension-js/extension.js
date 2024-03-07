@@ -25,7 +25,9 @@ export default async function importExternalTemplate(
 
     // const {name, version} = await pacote.manifest(importInfo)
     console.log(
-      `🧰 - Installing ${bold(projectName)} from template ${blue(bold(templateName))}`
+      `🧰 - Installing ${bold(projectName)} from template ${blue(
+        bold(templateName)
+      )}`
     )
     // await pacote.extract(`${name}@${version}`, projectPath)
   } catch (error: any) {
