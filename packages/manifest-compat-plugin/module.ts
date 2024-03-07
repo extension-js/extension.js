@@ -1,103 +1,29 @@
 import fs from 'fs'
-import path from 'path'
-import {type Compiler, WebpackError} from 'webpack'
-import Ajv, {type ErrorObject} from 'ajv'
-import {blue, underline, yellow} from '@colors/colors'
-import v3Schema from './lib/manifest.schema.v3.json'
-import addCustomFormats from './lib/customValidators'
-import bcd from '@mdn/browser-compat-data'
-
-interface ManifestCompatPluginOptions {
-  manifestPath: string
-  browser?: string
-}
+import {type Compiler} from 'webpack'
+import {type ManifestCompatInterface} from './types'
+import handleSchemaErrors from './handleSchemaErrors'
+import handleRuntimeErrors from './handleRuntimeErrors'
+import {ManifestBase} from './manifest-types'
 
 export default class ManifestCompatPlugin {
-  private readonly options: ManifestCompatPluginOptions
+  private readonly options: ManifestCompatInterface
 
-  constructor(options: ManifestCompatPluginOptions) {
+  constructor(options: ManifestCompatInterface) {
     this.options = options
-  }
-
-  private getApiDocumentationURL(browser: string, namespace: string) {
-    const extensionKnowledge = bcd.webextensions.manifest
-    const isChrome = browser === 'chrome'
-    const chromeUrl = `https://developer.chrome.com/docs/extensions/reference/api/${namespace}`
-    const mdnUrl = extensionKnowledge?.[namespace].__compat?.mdn_url
-
-    return isChrome ? blue(underline(chromeUrl)) : blue(underline(mdnUrl || ''))
-  }
-
-  private getManifestDocumentationURL(browser?: string) {
-    const isChrome = browser === 'chrome'
-    const chromeUrl =
-      'https://developer.chrome.com/docs/extensions/reference/manifest'
-    const mdnUrl = `https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json`
-
-    return isChrome ? blue(underline(chromeUrl)) : blue(underline(mdnUrl || ''))
-  }
-
-  private missingRequiredFieldError(message: string | undefined) {
-    const hintMessage = `Update your manifest.json file to run your extension.`
-    const errorMessage = `Field ${yellow(message || '')} is required. ${hintMessage}
-
-Read more about the ${yellow(message || '')} field:
-${this.getManifestDocumentationURL(this.options.browser)}`
-    return errorMessage
-  }
-
-  private invalidTypeFieldError(errorData: ErrorObject | undefined) {
-    const field = errorData?.instancePath.replaceAll('/', '.').slice(1) || ''
-    const message = errorData?.message
-    const namespace = field?.split('.')[0]
-
-    return `Field ${yellow(field)} ${message?.replace('be', 'be of type')}.
-
-Read more about the ${yellow(namespace)} field:
-${this.getManifestDocumentationURL(this.options.browser)}`
   }
 
   apply(compiler: Compiler) {
     compiler.hooks.afterCompile.tapAsync(
       'CompatPlugin (module)',
       (compilation, done) => {
-        const manifestPath = path.resolve(
-          compiler.options.context!,
-          this.options.manifestPath
+        const manifestPath = this.options.manifestPath
+        const manifest: ManifestBase = JSON.parse(
+          fs.readFileSync(manifestPath, 'utf-8')
         )
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+        const browser = this.options.browser || 'chrome'
 
-        const ajv = new Ajv()
-        addCustomFormats(ajv)
-
-        const combinedSchema = {
-          allOf: [v3Schema]
-        }
-
-        const validate = ajv.compile(combinedSchema)
-        const valid = validate(manifest)
-
-        if (!valid) {
-          const errorData = validate.errors?.[0]
-
-          if (errorData?.keyword === 'required') {
-            const missingProperty = errorData?.params.missingProperty as string
-            compilation.errors.push(
-              new WebpackError(
-                `[manifest.json]: ${this.missingRequiredFieldError(missingProperty)}`
-              )
-            )
-
-            done()
-            return
-          }
-
-          compilation.warnings.push(
-            new WebpackError(
-              `[manifest.json]: ${this.invalidTypeFieldError(errorData)}`
-            )
-          )
-        }
+        handleSchemaErrors(compilation, manifest, browser)
+        handleRuntimeErrors(compilation, manifest, browser)
 
         done()
       }

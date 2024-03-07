@@ -3,11 +3,7 @@ import {
   handleMultipleAssetsError,
   handleTopLevelAwaitError,
   handleCantResolveError
-} from './src/compilationErrorHandlers'
-import {
-  handleInsecureCSPValue,
-  handleWrongWebResourceFormatError
-} from './src/browserRuntimeErrorHandlers'
+} from './steps/compilationErrorHandlers'
 import {type CommonErrorsPluginInterface} from './types'
 
 export default class CommonErrorsPlugin {
@@ -15,47 +11,6 @@ export default class CommonErrorsPlugin {
 
   constructor(options: CommonErrorsPluginInterface) {
     this.manifestPath = options.manifestPath
-  }
-
-  private handleCompilationErrors(compilation: webpack.Compilation) {
-    compilation.errors.forEach((error, index) => {
-      const multipleAssetsError = handleMultipleAssetsError(
-        this.manifestPath,
-        error
-      )
-      const topLevelAwaitError = handleTopLevelAwaitError(
-        this.manifestPath,
-        error
-      )
-      const cantResolveError = handleCantResolveError(this.manifestPath, error)
-
-      if (multipleAssetsError) {
-        compilation.errors[index] = multipleAssetsError
-      }
-
-      if (topLevelAwaitError) {
-        compilation.errors[index] = topLevelAwaitError
-      }
-
-      if (cantResolveError) {
-        compilation.errors[index] = cantResolveError
-      }
-    })
-  }
-
-  private handleBrowserRuntimeErrors(compilation: webpack.Compilation) {
-    const insecureCSPValueError = handleInsecureCSPValue(this.manifestPath)
-    const wrongWebResourceFormatError = handleWrongWebResourceFormatError(
-      this.manifestPath
-    )
-
-    if (insecureCSPValueError) {
-      compilation.errors.push(insecureCSPValueError)
-    }
-
-    if (wrongWebResourceFormatError) {
-      compilation.errors.push(wrongWebResourceFormatError)
-    }
   }
 
   apply(compiler: webpack.Compiler) {
@@ -68,11 +23,32 @@ export default class CommonErrorsPlugin {
             // Handle errors related to compilation such
             // as multiple assets with the same name,
             // or missing dependencies.
-            this.handleCompilationErrors(compilation)
+            compilation.errors.forEach((error, index) => {
+              const multipleAssetsError = handleMultipleAssetsError(
+                this.manifestPath,
+                error
+              )
+              const topLevelAwaitError = handleTopLevelAwaitError(
+                this.manifestPath,
+                error
+              )
+              const cantResolveError = handleCantResolveError(
+                this.manifestPath,
+                error
+              )
 
-            // Handle errors related to the browser
-            // runtime such as insecure CSP values.
-            this.handleBrowserRuntimeErrors(compilation)
+              if (multipleAssetsError) {
+                compilation.errors[index] = multipleAssetsError
+              }
+
+              if (topLevelAwaitError) {
+                compilation.errors[index] = topLevelAwaitError
+              }
+
+              if (cantResolveError) {
+                compilation.errors[index] = cantResolveError
+              }
+            })
 
             done()
           }

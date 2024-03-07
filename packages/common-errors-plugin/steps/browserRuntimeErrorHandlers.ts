@@ -66,3 +66,18 @@ export function handleWrongWebResourceFormatError(
 
   return null
 }
+
+// private handleBrowserRuntimeErrors(compilation: webpack.Compilation) {
+//   const insecureCSPValueError = handleInsecureCSPValue(this.manifestPath)
+//   const wrongWebResourceFormatError = handleWrongWebResourceFormatError(
+//     this.manifestPath
+//   )
+
+//   if (insecureCSPValueError) {
+//     compilation.errors.push(insecureCSPValueError)
+//   }
+
+//   if (wrongWebResourceFormatError) {
+//     compilation.errors.push(wrongWebResourceFormatError)
+//   }
+// }
