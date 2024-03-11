@@ -24,9 +24,11 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "copyMarkdownFilesToCli": "node ./scripts/copyMarkdownFilesToCli.js",
+    "compile:readme-files": "node ./scripts/copyMarkdownFilesToCli.js",
+    "compile:tailwind-config": "node ./scripts/copyTailwindConfig.js",
+    "compile:cli": "tsup-node ./cli.ts --format cjs --dts --target=node18",
+    "compile": "yarn compile:readme-files && yarn compile:tailwind-config && yarn compile:cli",
     "clean": "rm -rf dist",
-    "compile": "yarn copyMarkdownFilesToCli && tsup-node ./cli.ts --format cjs --dts --target=node18",
     "test": "jest"
   },
   "keywords": [
@@ -58,6 +60,6 @@
     "ts-jest": "^29.1.2",
     "tsconfig": "*",
     "tsup": "^8.0.1",
-    "typescript": "^5.3.3"
+    "typescript": "5.3.3"
   }
 }
