@@ -1,7 +1,7 @@
 import webpack from 'webpack'
 import parseCSP from 'content-security-policy-parser'
 import {bold, cyan, yellow, blue} from '@colors/colors'
-import {ManifestBase} from '../manifest-types'
+import {type ManifestBase} from '../manifest-types'
 
 export default function handleInsecureCSPValueError(
   manifest: ManifestBase
