@@ -2,11 +2,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/typescript-template.git",
-    "directory": "packages/typescript-template"
+    "url": "https://github.com/cezaraugusto/default-template.git",
+    "directory": "packages/create/templates/typescript"
   },
-  "name": "typescript-template",
-  "description": "The TypeScript template for extension-create.",
+  "name": "extensioncreate-typescript-template",
+  "description": "The Typescript template for extension-create.",
   "version": "0.0.0",
   "author": {
     "name": "Cezar Augusto",
@@ -21,7 +21,6 @@
     "extension-create",
     "browser-extension",
     "web-extension",
-    "template",
-    "typescript"
+    "template"
   ]
 }
