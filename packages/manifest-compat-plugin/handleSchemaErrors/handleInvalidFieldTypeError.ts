@@ -1,5 +1,5 @@
-import {WebpackError, Compilation} from 'webpack'
-import {ErrorObject} from 'ajv'
+import {WebpackError, type Compilation} from 'webpack'
+import {type ErrorObject} from 'ajv'
 import {bold, yellow, cyan} from '@colors/colors'
 import {getManifestDocumentationURL} from '../helpers/getDocUrl'
 
@@ -8,7 +8,7 @@ export function invalidFieldType(
   browser: string
 ) {
   const field = errorData?.instancePath.replaceAll('/', '.').slice(1) || ''
-  const type = errorData?.params.type
+  const type: string = errorData?.params.type
   const namespace = yellow(field?.split('.')[0] || '')
 
   return `Field ${yellow(field)} must be of type ${cyan(type)}.
