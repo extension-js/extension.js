@@ -3,10 +3,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/cezaraugusto/default-template.git",
-    "directory": "packages/default-template"
+    "directory": "packages/create/templates/react"
   },
-  "name": "default-template",
-  "description": "The default template for extension-create.",
+  "name": "extensioncreate-react-template",
+  "description": "The React template for extension-create.",
   "version": "0.0.0",
   "author": {
     "name": "Cezar Augusto",
