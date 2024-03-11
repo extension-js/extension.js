@@ -1,0 +1,19 @@
+{
+  "devDependencies": {
+    "@types/react": "^18.2.64",
+    "@types/react-dom": "^18.2.21",
+    "daisyui": "^4.7.3",
+    "openai": "^4.28.4",
+    "react": "^18.1.0",
+    "react-dom": "^18.1.0",
+    "tailwindcss": "^3.4.1"
+  },
+  "scripts": {
+    "dev": "node node_modules/extension-create dev",
+    "start": "node node_modules/extension-create start",
+    "build": "node node_modules/extension-create build"
+  },
+  "name": "reactnew",
+  "private": true,
+  "version": "0.0.0"
+}
