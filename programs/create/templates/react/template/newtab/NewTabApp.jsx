@@ -1,17 +1,23 @@
-import puzzle from '../public/puzzle.png'
+import React from 'react'
+import reactLogo from '../images/react.png'
 
-export default function NewTabApp () {
+export default function NewTabApp() {
   return (
-    <div className='hello-box'>
+    <div>
       <header>
-        <img src={puzzle} alt='A puzzle icon' />
-        <h1>Welcome to your extension</h1>
-        <p className='description loading'>Browser extensions are 🙌🙌🙌</p>
+        <h1>
+          <img src={reactLogo} className="rotate" alt="The React logo" width="120px" />
+          <br />
+          Welcome to your React Extension.
+        </h1>
+        <p>
+          Learn more about creating browser extensions at{' '}
+          <a href="https://docs.extensioncreate.com" target="_blank">
+            https://docs.extensioncreate.com
+          </a>
+          .
+        </p>
       </header>
-      <p>
-        This page is being watched, and so are all entries in manifest.json.
-        Happy hacking!!
-      </p>
     </div>
   )
 }
