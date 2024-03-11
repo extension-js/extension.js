@@ -35,7 +35,7 @@ function getScriptResolveExtensions(projectPath: string) {
     '.mjs',
     '.jsx',
     '.mjsx',
-    ...(isUsingTypeScript(projectPath) ? ['.ts', '.tsx', '.mtsx'] : [])
+    ...(isUsingTypeScript(projectPath) ? ['.ts', '.mts', '.tsx', '.mtsx'] : [])
   ]
 }
 
