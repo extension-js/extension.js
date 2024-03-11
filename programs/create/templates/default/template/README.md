@@ -57,4 +57,4 @@ In the project directory, you can run:
 
 ## Learn More
 
-You can learn more in the [extension-create](https://docs.extension-create.com) documentation.
+You can learn more in the [extension-create](https://docs.extensioncreate.com) documentation.
