@@ -5,6 +5,7 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
+import path from 'path'
 import * as messages from './messages'
 import createDirectory from './steps/createDirectory'
 // import importExternalTemplate from './steps/importExternalTemplate'
@@ -24,7 +25,7 @@ export interface CreateOptions {
 
 export default async function createExtension(
   projectName: string | undefined,
-  {targetDir = process.cwd(), template = 'default'}: CreateOptions
+  {template = 'default'}: CreateOptions
 ) {
   if (!projectName) {
     messages.noProjectName()
@@ -36,26 +37,33 @@ export default async function createExtension(
     process.exit(1)
   }
 
+  // check if path is aboslute
+  const projectPath = path.isAbsolute(projectName)
+    ? projectName
+    : path.join(process.cwd(), projectName)
+
+  const projectname = path.basename(projectPath)
+
   try {
-    await createDirectory(targetDir, projectName)
+    await createDirectory(projectPath, projectname)
 
     // if (isExternalTemplate(template)) {
     //   await importExternalTemplate(targetDir, projectName, template)
     // } else {
+    await importLocalTemplate(projectPath, projectName, template)
     // }
-    await importLocalTemplate(targetDir, projectName, template)
 
-    await writePackageJson(targetDir, projectName, template)
-    await installDependencies(targetDir, projectName)
-    await writeReadmeFile(targetDir, projectName, template)
+    await writePackageJson(projectPath, projectName, template)
+    await installDependencies(projectPath, projectName)
+    await writeReadmeFile(projectPath, projectName, template)
 
     if (isTypeScriptTemplate(template)) {
-      await generateExtensionTypes(targetDir, projectName)
+      await generateExtensionTypes(projectPath, projectName)
     }
 
     // All good!
-    messages.successfullInstall(targetDir, projectName)
+    messages.successfullInstall(projectPath, projectName)
   } catch (error: any) {
-    await abortAndClean(error, targetDir, projectName)
+    await abortAndClean(error, projectPath, projectName)
   }
 }

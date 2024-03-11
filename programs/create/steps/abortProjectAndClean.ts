@@ -5,18 +5,16 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-import path from 'path'
 import fs from 'fs/promises'
 import {bold, underline, blue, red} from '@colors/colors/safe'
 
 export default async function abortProjectAndClean(
   error: any,
-  workingDir: string,
+  projectPath: string,
   projectName: string
 ) {
-  const projectPath = path.resolve(workingDir, projectName)
   console.log(
-    `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Aborting installation.`
+    `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Aborting installation of ${projectName}.`
   )
 
   if (error.command) {
