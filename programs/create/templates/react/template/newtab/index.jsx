@@ -1,11 +1,12 @@
+import React from 'react'
 import ReactDOM from 'react-dom/client'
-import PopupApp from './PopupApp'
-import './popup.css'
+import NewTabApp from './NewTabApp'
+import './styles.css'
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
 
 root.render(
   <React.StrictMode>
-    <PopupApp />
+    <NewTabApp />
   </React.StrictMode>
 )
