@@ -28,12 +28,11 @@ const extensionCreatePackageJsonScripts = {
 }
 
 export default async function writePackageJson(
-  workingDir: string,
+  projectPath: string,
   projectName: string,
   template: string
 ) {
-  const projectPath = path.join(workingDir, projectName)
-  const templatePath = getTemplatePath(workingDir, template)
+  const templatePath = getTemplatePath(process.cwd(), template)
 
   const packageJsonPath = isExternalTemplate(template)
     ? path.join(projectPath, 'package.json')
