@@ -1,7 +1,7 @@
 import path from 'path'
 import webpack from 'webpack'
 import colors from '@colors/colors/safe'
-// import Dotenv from 'dotenv-webpack'
+import Dotenv from 'dotenv-webpack'
 import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
 
 import SpecialFoldersPlugin from './SpecialFoldersPlugin'
@@ -29,17 +29,15 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
       }).apply(compiler)
 
       // Support .env files
-      // TODO: cezaraugusto this has a type errors
-      // if (fs.existsSync(path.join(projectPath, '.env'))) {
-      //   new Dotenv().apply(compiler)
-      // }
+      new Dotenv({
+        path: path.join(projectPath, '.env'),
+        allowEmptyValues: true,
+        systemvars: true
+      } as any).apply(compiler as any)
 
-      // Support environment variables
-      new webpack.EnvironmentPlugin({
-        EXTENSION_ENV: process.env.EXTENSION_ENV || mode,
-        EXTENSION_PUBLIC_PATH: path.join(projectPath, '/')
-      }).apply(compiler)
-
+      // Since we write files to disk, we need to clean up the hot updates
+      // to avoid having a lot of files in the output folder.
+      // TODO: cezaraugusto this has some issues with content scripts.
       new CleanHotUpdatesPlugin().apply(compiler)
     }
   }
