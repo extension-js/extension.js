@@ -55,7 +55,11 @@ export default function (this: ResolvePluginContext, source: string) {
       return source
     }
 
-    const plugins: any[] = ['jsx']
+    const plugins: any[] = []
+
+    if (utils.isUsingReact(this.rootContext)) {
+      plugins.push('jsx')
+    }
 
     if (utils.isUsingTypeScript(this.rootContext)) {
       plugins.push('typescript')
