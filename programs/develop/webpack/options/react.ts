@@ -26,16 +26,18 @@ export function isUsingReact(projectDir: string) {
   const reactAsDep = packageJson.dependencies && packageJson.dependencies.react
 
   // This message is shown for each JS loader we have, so we only want to show it once.
-  if (!userMessageDelivered) {
-    console.log(
-      bold(
-        `🧩 extension-create ${blue('►►►')} ${manifest.name} (v${
-          manifest.version
-        }) `
-      ) + `is using ${bold(cyan('React'))}.`
-    )
+  if (reactAsDevDep || reactAsDep) {
+    if (!userMessageDelivered) {
+      console.log(
+        bold(
+          `🧩 extension-create ${blue('►►►')} ${manifest.name} (v${
+            manifest.version
+          }) `
+        ) + `is using ${bold(cyan('React'))}.`
+      )
 
-    userMessageDelivered = true
+      userMessageDelivered = true
+    }
   }
 
   return reactAsDevDep || reactAsDep
