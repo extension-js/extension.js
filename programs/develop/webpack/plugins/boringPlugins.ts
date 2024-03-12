@@ -1,3 +1,4 @@
+import fs from 'fs'
 import path from 'path'
 import webpack from 'webpack'
 import colors from '@colors/colors/safe'
@@ -28,12 +29,21 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
         manifestPath: path.join(projectPath, 'manifest.json')
       }).apply(compiler)
 
-      // Support .env files
-      new Dotenv({
-        path: path.join(projectPath, '.env'),
-        allowEmptyValues: true,
-        systemvars: true
-      } as any).apply(compiler as any)
+      if (
+        fs.existsSync(path.join(projectPath, '.env')) ||
+        fs.existsSync(path.join(projectPath, '.env.example')) ||
+        fs.existsSync(path.join(projectPath, '.env.defaults'))
+      ) {
+        // Support .env files
+        new Dotenv({
+          path: fs.existsSync(path.join(projectPath, '.env'))
+            ? path.join(projectPath, '.env')
+            : path.join(projectPath, '.env.example'),
+          allowEmptyValues: true,
+          defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
+          systemvars: true
+        } as any).apply(compiler as any)
+      }
 
       // Since we write files to disk, we need to clean up the hot updates
       // to avoid having a lot of files in the output folder.
