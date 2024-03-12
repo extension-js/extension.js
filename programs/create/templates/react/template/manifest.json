@@ -4,10 +4,10 @@
   "name": "React Template",
   "description": "An extension template using React. This template includes a new tab override.",
   "icons": {
-    "16": "images/icon_16.png",
-    "48": "images/icon_48.png"
+    "16": "public/icons/icon_16.png",
+    "48": "public/icons/icon_48.png"
   },
   "chrome_url_overrides": {
-    "newtab": "newtab/newtab.html"
+    "newtab": "newtab/index.html"
   }
 }
