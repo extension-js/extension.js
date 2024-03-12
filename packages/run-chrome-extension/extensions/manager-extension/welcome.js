@@ -20,8 +20,8 @@ async function onStartup() {
 
   extensionName.innerText = userExtension[0].name
   extensionName.title = `• Name: ${userExtension[0].name}
-  • ID: ${userExtension[0].id}
-  • Version: ${userExtension[0].version}`
+• ID: ${userExtension[0].id}
+• Version: ${userExtension[0].version}`
 
   extensionDescription.innerText = userExtension[0].description
 
