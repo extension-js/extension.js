@@ -13,7 +13,7 @@ export default async function isDirectoryWriteable(
   projectName: string
 ): Promise<boolean> {
   try {
-    console.log(`🤝 - Ensuring ${bold(projectName)} exists...`)
+    console.log(`🤝 - Ensuring ${bold(projectName)} folder exists...`)
 
     await fs.mkdir(directory, {recursive: true})
 
