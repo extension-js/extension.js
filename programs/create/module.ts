@@ -24,28 +24,28 @@ export interface CreateOptions {
 }
 
 export default async function createExtension(
-  projectName: string | undefined,
-  {template = 'default'}: CreateOptions
+  projectNameInput: string | undefined,
+  {template = 'new'}: CreateOptions
 ) {
-  if (!projectName) {
+  if (!projectNameInput) {
     messages.noProjectName()
     process.exit(1)
   }
 
-  if (projectName.startsWith('http')) {
+  if (projectNameInput.startsWith('http')) {
     messages.noUrlAllowed()
     process.exit(1)
   }
 
   // check if path is aboslute
-  const projectPath = path.isAbsolute(projectName)
-    ? projectName
-    : path.join(process.cwd(), projectName)
+  const projectPath = path.isAbsolute(projectNameInput)
+    ? projectNameInput
+    : path.join(process.cwd(), projectNameInput)
 
-  const projectname = path.basename(projectPath)
+  const projectName = path.basename(projectPath)
 
   try {
-    await createDirectory(projectPath, projectname)
+    await createDirectory(projectPath, projectName)
 
     // if (isExternalTemplate(template)) {
     //   await importExternalTemplate(targetDir, projectName, template)
