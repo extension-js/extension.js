@@ -38,7 +38,6 @@ function SidebarApp() {
 
     const newMessages = [...messages, newMessage];
 
-    console.log({newMessages})
     setMessages(newMessages);
     setIsTyping(true);
     e.target.reset();
