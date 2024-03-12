@@ -8,6 +8,6 @@
     "48": "images/icons/icon_48.png"
   },
   "chrome_url_overrides": {
-    "newtab": "newtab/newtab.html"
+    "newtab": "newtab/index.html"
   }
 }
