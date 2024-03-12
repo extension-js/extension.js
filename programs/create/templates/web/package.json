@@ -2,10 +2,10 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/default-template.git",
+    "url": "https://github.com/cezaraugusto/web-template.git",
     "directory": "packages/create/templates/web"
   },
-  "name": "extensioncreate-web-template",
+  "name": "web-template",
   "description": "The web template for extension-create.",
   "version": "0.0.0",
   "author": {
