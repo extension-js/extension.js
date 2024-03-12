@@ -42,7 +42,6 @@
     "css-loader": "^6.10.0",
     "csv-loader": "^3.0.5",
     "dotenv-webpack": "^8.0.1",
-    "eslint-webpack-plugin": "^4.0.1",
     "fork-ts-checker-webpack-plugin": "^9.0.2",
     "go-git-it": "^1.2.2",
     "less": "^4.2.0",
