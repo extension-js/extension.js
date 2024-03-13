@@ -46,6 +46,7 @@
     "go-git-it": "^1.2.2",
     "less": "^4.2.0",
     "less-loader": "^12.1.0",
+    "mini-css-extract-plugin": "^2.8.1",
     "postcss": "^8.4.33",
     "postcss-flexbugs-fixes": "^5.0.2",
     "postcss-loader": "^8.0.0",
