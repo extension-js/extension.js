@@ -1,0 +1,27 @@
+
+.box {
+  background: red;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  width: 350px;
+  height: 150px;
+  margin: 3em;
+  padding: 3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1em;
+}
+
+.title {
+  font-size: 2.35em;
+}
+
+#colorPicker {
+  display: block;
+  width: 100%;
+  height: 90px;
+}
