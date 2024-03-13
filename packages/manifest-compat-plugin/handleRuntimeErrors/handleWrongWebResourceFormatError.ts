@@ -1,6 +1,6 @@
 import webpack from 'webpack'
 import {bold, yellow} from '@colors/colors'
-import {ManifestBase} from '../manifest-types'
+import {type ManifestBase} from '../manifest-types'
 import {getManifestDocumentationURL} from '../helpers/getDocUrl'
 
 export default function handleWrongWebResourceFormatError(

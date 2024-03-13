@@ -11,11 +11,10 @@ import prefersYarn from 'prefers-yarn'
 import {bold, blue, green, underline} from '@colors/colors/safe'
 
 export default function successfullInstall(
-  workingDir: string,
+  projectPath: string,
   projectName: string
 ) {
-  const projectPath = path.join(workingDir, projectName)
-  const relativePath = path.relative(workingDir, projectPath)
+  const relativePath = path.relative(process.cwd(), projectPath)
 
   console.log(
     `🧩 - ${bold(green('Success!'))} Extension ${bold(projectName)} created.`
@@ -23,7 +22,7 @@ export default function successfullInstall(
 
   const packageManager = prefersYarn() ? 'yarn' : 'npm run'
   console.log(`
-Now ${blue(bold(`cd`))} ${underline(relativePath)} and ${blue(
+Now ${blue(`cd ${underline(relativePath)}`)} and ${blue(
     bold(`${packageManager} dev`)
   )} to open a new browser instance
 with your extension installed, loaded, and enabled for development.

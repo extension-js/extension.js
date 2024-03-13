@@ -5,7 +5,7 @@ import addCustomFormats from './lib/customValidators'
 import handleRequiredFieldError from './handleRequiredFieldError'
 import handleInvalidFieldTypeError from './handleInvalidFieldTypeError'
 import handleDeprecatedError from './handleDeprecatedError'
-import {ManifestBase} from '../manifest-types'
+import {type ManifestBase} from '../manifest-types'
 
 export default function handleSchemaErrors(
   compilation: Compilation,

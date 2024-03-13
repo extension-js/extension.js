@@ -1,30 +1,13 @@
 {
   "manifest_version": 3,
   "version": "1.0",
-  "name": "Welcome Extension",
-  "description": "An extension to welcome you!",
+  "name": "TypeScript Template",
+  "description": "An extension template using TypeScript. This template includes a new tab override.",
   "icons": {
-    "16": "public/icon/test_16.png",
-    "32": "public/icon/test_32.png",
-    "48": "public/icon/test_48.png",
-    "64": "public/icon/test_64.png"
-  },
-  "permissions": ["tabs"],
-  "web_accessible_resources": ["public/*"],
-  "background": {
-    "service_worker": "background.ts"
-  },
-  "browser_action": {
-    "default_icon": {
-      "16": "public/icon/test_16.png",
-      "32": "public/icon/test_32.png",
-      "48": "public/icon/test_48.png",
-      "64": "public/icon/test_64.png"
-    },
-    "default_popup": "popup/popup.html",
-    "default_title": "Welcome Extension"
+    "16": "images/icons/icon_16.png",
+    "48": "images/icons/icon_48.png"
   },
   "chrome_url_overrides": {
-    "newtab": "newtab/newtab.html"
+    "newtab": "newtab/index.html"
   }
 }

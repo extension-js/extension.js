@@ -1,5 +1,5 @@
 import parse from 'content-security-policy-parser'
-import {ManifestBase} from '../../../manifest-types'
+import {type ManifestBase} from '../../../manifest-types'
 
 export function patchV2CSP(manifest: ManifestBase) {
   let policy: string | undefined = manifest.content_security_policy
@@ -31,7 +31,7 @@ export function patchV2CSP(manifest: ManifestBase) {
 
 export function patchV3CSP(manifest: ManifestBase) {
   // Extract the CSP for extension_pages
-  let policy: {extension_pages: string} | undefined =
+  const policy: {extension_pages: string} | undefined =
     manifest.content_security_policy
 
   if (!policy) {

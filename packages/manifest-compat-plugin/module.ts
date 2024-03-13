@@ -3,7 +3,7 @@ import {type Compiler} from 'webpack'
 import {type ManifestCompatInterface} from './types'
 import handleSchemaErrors from './handleSchemaErrors'
 import handleRuntimeErrors from './handleRuntimeErrors'
-import {ManifestBase} from './manifest-types'
+import {type ManifestBase} from './manifest-types'
 
 export default class ManifestCompatPlugin {
   private readonly options: ManifestCompatInterface

@@ -9,12 +9,8 @@ import path from 'path'
 import {spawn} from 'cross-spawn'
 import {getInstallCommand} from '../helpers/getInstallInfo'
 
-export default async function createSymlink(
-  workingDir: string,
-  projectName: string
-) {
+export default async function createSymlink(projectPath: string) {
   const extensionCreateCliDir = path.join(__dirname, '../../cli')
-  const projectPath = path.join(workingDir, projectName)
   const command = getInstallCommand()
   const args = ['link']
 

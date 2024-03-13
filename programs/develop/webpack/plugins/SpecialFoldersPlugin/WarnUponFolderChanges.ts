@@ -20,9 +20,15 @@ class WatchPagesPlugin {
     const addedOrRemoved = isAddition ? 'added' : 'removed'
     const typeOfAsset = folder === 'pages' ? 'HTML pages' : 'script files'
     const errorMessage =
-      `\n🧩 ${bold('extension-create')} ${red('✖︎✖︎✖︎')} ${addingOrRemoving} ${typeOfAsset} ` +
-      `in the ${underline(folder + '/')} folder after compilation requires a server restart.` +
-      `\n\n- File ${addedOrRemoved}: ${underline(pathRelative)}\n\nRestart the program to apply changes.`
+      `\n🧩 ${bold('extension-create')} ${red(
+        '✖︎✖︎✖︎'
+      )} ${addingOrRemoving} ${typeOfAsset} ` +
+      `in the ${underline(
+        folder + '/'
+      )} folder after compilation requires a server restart.` +
+      `\n\n- File ${addedOrRemoved}: ${underline(
+        pathRelative
+      )}\n\nRestart the program to apply changes.`
 
     // Adding a page or script doesn't make it loaded but at least don't break anything,
     // so we add a warning instead of an error and user can keep working.

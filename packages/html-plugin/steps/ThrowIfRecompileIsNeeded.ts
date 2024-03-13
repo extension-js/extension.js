@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 import type webpack from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
 
@@ -9,6 +10,7 @@ import {
 } from '../types'
 import getAssetsFromHtml from '../lib/getAssetsFromHtml'
 import error from '../helpers/errors'
+import {manifestFieldError} from '../helpers/messages'
 
 export default class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
@@ -41,7 +43,13 @@ export default class ThrowIfRecompileIsNeeded {
   private storeInitialHtmlAssets(htmlFields: Record<string, any>) {
     Object.entries(htmlFields).forEach(([key, resource]) => {
       const htmlFile = resource?.html as string
+
       if (htmlFile) {
+        if (!fs.existsSync(htmlFile)) {
+          console.error(manifestFieldError(key, htmlFile))
+          process.exit(1)
+        }
+
         this.initialHtmlAssets[htmlFile] = {
           js: getAssetsFromHtml(htmlFile)?.js || [],
           css: getAssetsFromHtml(htmlFile)?.css || []
