@@ -5,7 +5,9 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
 import type webpack from 'webpack'
+import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 import {isUsingTailwind} from '../options/tailwind'
 
@@ -14,8 +16,12 @@ export default function getCommonStyleLoaders(
   opts: any
 ): any {
   const styleLoaders: webpack.RuleSetUse = [
-    // Creates `style` nodes from JS strings
-    require.resolve('style-loader'),
+    // While the current experimental CSS feature from webpack
+    // is able to replace the MiniCssExtractPlugin, it cannot
+    // handle content_scripts.css, so we still use MiniCssExtractPlugin
+    // for that.
+      MiniCssExtractPlugin.loader,
+    // require.resolve('style-loader'),
     // Translates CSS into CommonJS
     require.resolve('css-loader'),
     {
