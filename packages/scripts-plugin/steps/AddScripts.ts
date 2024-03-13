@@ -1,11 +1,10 @@
-import fs from 'fs'
 import type webpack from 'webpack'
 
 // Manifest fields
 import manifestFields from 'browser-extension-manifest-fields'
 
 import {type IncludeList, type StepPluginInterface} from '../types'
-import {shouldExclude} from '../helpers/utils'
+import {getScriptEntries} from '../helpers/utils'
 
 export default class AddScriptsAndStyles {
   public readonly manifestPath: string
@@ -18,27 +17,6 @@ export default class AddScriptsAndStyles {
     this.exclude = options.exclude
   }
 
-  private getScriptImports(
-    scriptPath: string | string[] | undefined
-  ): string[] {
-    const scriptEntries = Array.isArray(scriptPath)
-      ? scriptPath || []
-      : scriptPath
-        ? [scriptPath]
-        : []
-
-    const fileAssets = scriptEntries.filter((asset) => {
-      return (
-        // File exists
-        fs.existsSync(asset) &&
-        // Not in some public/ folder
-        !shouldExclude(asset, this.exclude)
-      )
-    })
-
-    return fileAssets
-  }
-
   public apply(compiler: webpack.Compiler): void {
     const scriptFields = {
       ...manifestFields(this.manifestPath).scripts,
@@ -47,7 +25,7 @@ export default class AddScriptsAndStyles {
 
     for (const field of Object.entries(scriptFields)) {
       const [feature, scriptPath] = field
-      const scriptImports = this.getScriptImports(scriptPath)
+      const scriptImports = getScriptEntries(compiler, scriptPath, this.exclude)
 
       // 1 - Add the script entries to the compilation.
       if (scriptImports.length) {

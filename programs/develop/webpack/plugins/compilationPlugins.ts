@@ -17,7 +17,7 @@ export default function compilationPlugins(
   opts: DevOptions
 ) {
   return {
-    name: 'CompilationPlugins',
+    constructor: {name: 'CompilationPlugins'},
     apply: (compiler: Compiler) => {
       new CaseSensitivePathsPlugin().apply(compiler)
 
