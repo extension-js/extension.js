@@ -14,7 +14,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
   const projectVersion = project.version
 
   return {
-    name: 'BoringPlugin',
+    constructor: {name: 'BoringPlugin'},
     apply: (compiler: webpack.Compiler) => {
       // Writes the project name and version to the terminal
       compiler.hooks.done.tap('BoringPlugin', (stats) => {
