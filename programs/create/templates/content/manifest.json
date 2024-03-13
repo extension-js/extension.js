@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Color Picker Background Changer",
+  "version": "1.0",
+  "description": "Change the background color of the current webpage using a color picker.",
+  "permissions": ["activeTab"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "css": ["sakura-dark.css", "content.css"]
+    }
+  ],
+  "icons": {
+    "16": "images/icons/icon_16.png",
+    "48": "images/icons/icon_48.png"
+  }
+}
