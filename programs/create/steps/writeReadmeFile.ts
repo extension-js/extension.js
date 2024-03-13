@@ -13,11 +13,10 @@ import {getInstallCommand} from '../helpers/getInstallInfo'
 import isExternalTemplate from '../helpers/isExternalTemplate'
 
 export default async function writeReadmeFile(
-  workingDir: string,
+  projectPath: string,
   projectName: string,
   template: string
 ) {
-  const projectPath = path.join(workingDir, projectName)
   const readmePath = path.join(projectPath, 'README.md')
   const stats = await fs.lstat(readmePath)
 
