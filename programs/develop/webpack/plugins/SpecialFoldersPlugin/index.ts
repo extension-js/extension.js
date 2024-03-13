@@ -28,8 +28,10 @@ export default class SpecialFoldersPlugin {
       manifestPath
     }).apply(compiler)
 
-    if (compiler.options.watchOptions) {
-      new WarnUponFolderChanges(manifestPath).apply(compiler)
+    if (compiler.options.mode === 'development') {
+      if (compiler.options.watchOptions) {
+        new WarnUponFolderChanges(manifestPath).apply(compiler)
+      }
     }
   }
 }

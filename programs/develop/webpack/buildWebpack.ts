@@ -12,7 +12,6 @@ import {log, error} from 'console'
 import {blue, green, bold, red, underline} from '@colors/colors/safe'
 import compilerConfig from './webpack-config'
 import {type BuildOptions} from '../extensionBuild'
-import {getOutputPath} from './config/getPath'
 
 function getFileSize(fileSizeInBytes: number): string {
   return `${(fileSizeInBytes / 1024).toFixed(2)}KB`
@@ -89,7 +88,15 @@ export default function buildWebpack(
     browser
   })
 
-  webpack(webpackConfig).run((err, stats) => {
+  const webpackConfigNoBrowser = {
+    ...webpackConfig,
+    plugins: webpackConfig.plugins?.filter(
+      // BrowserPlugin can run in production but never in the build command.
+      (plugin) => plugin?.constructor.name !== 'BrowserPlugin'
+    )
+  }
+
+  webpack(webpackConfigNoBrowser).run((err, stats) => {
     if (err) {
       error(err.stack || err)
       process.exit(1)
@@ -98,10 +105,7 @@ export default function buildWebpack(
     const vendor = browser || 'chrome'
     // Convert stats object to JSON format
     const statsJson = stats?.toJson()
-    const manifestPath = path.join(
-      getOutputPath(projectDir, browser || 'chrome'),
-      'manifest.json'
-    )
+    const manifestPath = path.join(projectDir, 'manifest.json')
     const manifest: Record<string, string> = JSON.parse(
       fs.readFileSync(manifestPath, 'utf8')
     )
@@ -133,6 +137,9 @@ export default function buildWebpack(
 
     if (!stats?.hasErrors()) {
       log(ready)
+    } else {
+      console.log(stats.toString({colors: true}))
+      process.exit(1)
     }
   })
 }
