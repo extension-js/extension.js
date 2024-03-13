@@ -13,8 +13,7 @@ import devServerConfig from './webpack-dev-server'
 import webpackConfig from './webpack-config'
 
 function closeAll(devServer: WebpackDevServer) {
-  // devServer.stop()
-  devServer.close()
+  devServer.stop()
   process.exit()
 }
 

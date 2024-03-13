@@ -2,7 +2,8 @@ import path from 'path'
 import type webpack from 'webpack'
 
 import {type IncludeList, type ScriptsPluginInterface} from './types'
-import AddScriptsAndStyles from './steps/AddScriptsAndStyles'
+import AddScripts from './steps/AddScripts'
+import AddStyles from './steps/AddStyles'
 import AddHmrAcceptCode from './steps/AddHmrAcceptCode'
 
 /**
@@ -49,8 +50,14 @@ export default class ScriptsPlugin {
     // 1 - Adds the scripts entries from the manifest file
     // (and stylesheets for content_scripts) and also
     // from the extra scripts defined in this.include
-    // to the compilation.
-    new AddScriptsAndStyles({
+    // to the compilation.x
+    new AddScripts({
+      manifestPath: this.manifestPath,
+      includeList: this.parseIncludes(this.include || []),
+      exclude: this.exclude || []
+    }).apply(compiler)
+
+    new AddStyles({
       manifestPath: this.manifestPath,
       includeList: this.parseIncludes(this.include || []),
       exclude: this.exclude || []

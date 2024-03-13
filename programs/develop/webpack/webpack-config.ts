@@ -66,8 +66,14 @@ export default function webpackConfig(
         bigIntLiteral: true,
         dynamicImport: true
       },
+      chunkFilename: (pathData) => {
+        const chunkRuntime = (pathData.chunk as any)?.runtime
+        const feature = chunkRuntime.split('/')[0]
+        if (feature.startsWith('content')) return chunkRuntime + '_css' + '.js'
+        return chunkRuntime + '_chunk' + '.js'
+      },
       cssFilename(pathData) {
-        return pathData.chunk?.name + '.css' || '[name].css'
+        return pathData.chunk?.name + '.css'
       }
     },
     resolve: {
