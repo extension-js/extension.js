@@ -14,25 +14,24 @@ import isDirectoryWriteable from '../helpers/isDirectoryWriteable'
 const allowlist = ['LICENSE', 'node_modules']
 
 export default async function createDirectory(
-  workingDir: string,
+  projectPath: string,
   projectName: string
 ) {
   console.log(
     `🐣 - Starting a new browser extension named ${bold(projectName)}...`
   )
-  const projectPath = path.resolve(workingDir, projectName)
 
   try {
-    const isCurrentDirWriteable = await isDirectoryWriteable(workingDir)
+    const isCurrentDirWriteable = await isDirectoryWriteable(
+      projectPath,
+      projectName
+    )
 
     console.log('🤞 - Checking if destination path is writeable...')
     if (!isCurrentDirWriteable) {
-      messages.destinationNotWriteable(workingDir)
+      messages.destinationNotWriteable(projectPath)
       process.exit(1)
     }
-
-    console.log(`🤝 - Ensuring ${bold(projectName)} exists...`)
-    await fs.mkdir(projectPath, {recursive: true})
 
     const currentDir = await fs.readdir(projectPath)
 

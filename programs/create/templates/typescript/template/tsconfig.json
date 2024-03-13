@@ -1,20 +1,18 @@
 {
   "compilerOptions": {
-    "target": "es2021",
-    "lib": ["DOM", "DOM.Iterable", "ESNext"],
-    "module": "ESNext",
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "allowJs": true,
-    "skipLibCheck": true,
-    "allowSyntheticDefaultImports": true,
-    "noFallthroughCasesInSwitch": true,
-    "moduleResolution": "Node",
+    "jsx": "preserve",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "moduleResolution": "node",
+    "module": "esnext",
     "resolveJsonModule": true,
-    "isolatedModules": false,
-    "noEmit": true
+    "strict": true,
+    "target": "esnext",
+    "isolatedModules": false
   },
   "include": ["./"],
-  "exclude": ["node_modules", "**/node_modules/*"]
+  "exclude": ["node_modules", "dist"]
 }

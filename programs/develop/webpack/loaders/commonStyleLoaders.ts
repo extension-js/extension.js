@@ -15,9 +15,9 @@ export default function getCommonStyleLoaders(
 ): any {
   const styleLoaders: webpack.RuleSetUse = [
     // Creates `style` nodes from JS strings
-    'style-loader',
+    require.resolve('style-loader'),
     // Translates CSS into CommonJS
-    'css-loader',
+    require.resolve('css-loader'),
     {
       // `postcss-loader` applies autoprefixer to our CSS.
       loader: require.resolve('postcss-loader'),
@@ -42,7 +42,7 @@ export default function getCommonStyleLoaders(
               }
             ],
             require.resolve('postcss-normalize')
-          ]
+          ].filter(Boolean)
         },
         sourceMap: false
       }

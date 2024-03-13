@@ -1,5 +1,5 @@
-import {WebpackError, Compilation} from 'webpack'
-import {ErrorObject} from 'ajv'
+import {WebpackError, type Compilation} from 'webpack'
+import {type ErrorObject} from 'ajv'
 import {yellow, bold} from '@colors/colors'
 import {getManifestDocumentationURL} from '../helpers/getDocUrl'
 
@@ -7,9 +7,9 @@ function deprecatedMessage(
   browser: string,
   errorData: ErrorObject<string, Record<string, any>, unknown> | undefined
 ) {
-  const schemaPath = errorData?.schemaPath as string
-  const splitSchemaPath = schemaPath.split('/')
-  const field = splitSchemaPath.slice(splitSchemaPath.length - 2).shift()
+  const schemaPath = errorData?.schemaPath
+  const splitSchemaPath = schemaPath?.split('/')
+  const field = splitSchemaPath?.slice(splitSchemaPath.length - 2).shift()
   const hintMessage = `Update your ${yellow(
     'manifest.json'
   )} file to run your extension.`

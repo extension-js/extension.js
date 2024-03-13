@@ -7,6 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
+import {bold, blue, yellow} from '@colors/colors/safe'
 
 export default async function generateExtensionTypes(projectDir: string) {
   const extensionEnvFile = path.join(projectDir, 'extension-env.d.ts')
@@ -26,14 +27,27 @@ export default async function generateExtensionTypes(projectDir: string) {
 
 `
 
+  const manifest = require(path.join(projectDir, 'manifest.json'))
+
   try {
     // Check if the file exists
     await fs.access(extensionEnvFile)
-    console.log('🔵 - extension-env.d.ts already exists.')
+    console.log(
+      bold(
+        `🧩 extension-create ${blue('►►►')} ${manifest.name} (v${
+          manifest.version
+        }) `
+      ) + `${yellow('extension-env.d.ts')} already exists.`
+    )
   } catch (err) {
     // File does not exist, continue to write it
     console.log(
-      '🔷 - TypeScript install detected. Writing extension type definitions...'
+      bold(
+        `🧩 extension-create ${blue('►►►')} ${manifest.name} (v${
+          manifest.version
+        }) `
+      ) +
+        `${blue('TypeScript')} install detected. Writing extension type definitions...`
     )
     try {
       await fs.writeFile(extensionEnvFile, fileContent)

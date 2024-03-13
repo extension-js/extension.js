@@ -1,7 +1,7 @@
-import webpack from 'webpack'
+import type webpack from 'webpack'
 import handleInsecureCSPValueError from './handleInsecureCSPValueError'
 import handleWrongWebResourceFormatError from './handleWrongWebResourceFormatError'
-import {ManifestBase} from '../manifest-types'
+import {type ManifestBase} from '../manifest-types'
 
 export default function handleRuntimeErrors(
   compilation: webpack.Compilation,

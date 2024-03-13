@@ -12,12 +12,11 @@ import copyDirectory from '../helpers/copyDirectory'
 const templatesDir = path.resolve(__dirname, 'templates')
 
 export default async function importLocalTemplate(
-  workingDir: string,
+  projectPath: string,
   projectName: string,
   template: string
 ) {
   const localTemplatePath = path.join(templatesDir, template, 'template')
-  const projectPath = path.join(workingDir, projectName)
 
   try {
     console.log(

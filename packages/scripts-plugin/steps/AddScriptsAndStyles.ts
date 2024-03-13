@@ -24,8 +24,8 @@ export default class AddScriptsAndStyles {
     const scriptEntries = Array.isArray(scriptPath)
       ? scriptPath || []
       : scriptPath
-      ? [scriptPath]
-      : []
+        ? [scriptPath]
+        : []
 
     const fileAssets = scriptEntries.filter((asset) => {
       return (
@@ -47,7 +47,7 @@ export default class AddScriptsAndStyles {
 
     for (const field of Object.entries(scriptFields)) {
       const [feature, scriptPath] = field
-      let scriptImports = this.getScriptImports(scriptPath)
+      const scriptImports = this.getScriptImports(scriptPath)
 
       // 1 - Add the script entries to the compilation.
       if (scriptImports.length) {
