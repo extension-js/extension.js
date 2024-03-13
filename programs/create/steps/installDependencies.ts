@@ -13,18 +13,17 @@ import {getInstallCommand, getInstallArgs} from '../helpers/getInstallInfo'
 import createSymlink from './symlinkExtensionCreate'
 
 export default async function installDependencies(
-  workingDir: string,
+  projectPath: string,
   projectName: string
 ) {
   const command = getInstallCommand()
-  const projectPath = path.join(workingDir, projectName)
   const dependenciesArgs = getInstallArgs(projectPath)
 
   console.log('🛠  - Installing dependencies...')
 
+  // Symlink extension-create for development
   if (process.env.EXTENSION_ENV === 'development') {
-    await createSymlink(workingDir, projectName)
-    return
+    await createSymlink(projectPath)
   }
 
   try {

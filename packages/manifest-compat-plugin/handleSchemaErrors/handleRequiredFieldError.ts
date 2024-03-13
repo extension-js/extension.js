@@ -1,5 +1,5 @@
-import {WebpackError, Compilation} from 'webpack'
-import {ErrorObject} from 'ajv'
+import {WebpackError, type Compilation} from 'webpack'
+import {type ErrorObject} from 'ajv'
 import {yellow, bold} from '@colors/colors'
 import {getManifestDocumentationURL} from '../helpers/getDocUrl'
 

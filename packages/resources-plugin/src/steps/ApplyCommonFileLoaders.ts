@@ -14,10 +14,10 @@ export default class ApplyCommonFileLoaders {
         const [, filename] = runtime.split('/')
         const index = filename.split('-')[1]
 
-        return `web_accessible_resources/resource-${index}/[name].[hash:8][ext]`
+        return `web_accessible_resources/resource-${index}/[name][ext]`
       }
 
-      return `${folderPath}/[name].[hash:8][ext]`
+      return `${folderPath}/[name][ext]`
     }
 
     const assetLoaders = [
