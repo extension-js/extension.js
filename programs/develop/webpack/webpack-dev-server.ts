@@ -5,6 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
 import type WebpackDevServer from 'webpack-dev-server'
 import type {DevOptions} from '../extensionDev'
 import {getOverlay, getPort, getPublicFolderPath} from './config/userOptions'
@@ -22,14 +23,17 @@ export default function devServerConfig(
     devMiddleware: {
       writeToDisk: true
     },
+    // liveReload: true,
     // WARN: for some reason, adding HTML as a watch file
     // causes content_scripts to do a full reload instead of a hot reload
     // when using React.
-    watchFiles: isUsingReact(projectPath) ? [] : ['**/*.html'],
+    watchFiles: isUsingReact(projectPath)
+      ? []
+      : [path.join(projectPath, '**/*.html')],
     client: {
       // Allows to set log level in the browser, e.g. before reloading,
       // before an error or when Hot Module Replacement is enabled.
-      logging: 'error',
+      logging: process.env.EXTENSION_ENV === 'development' ? 'error' : 'none',
       // Prints compilation progress in percentage in the browser.
       progress: false,
       // Shows a full-screen overlay in the browser
