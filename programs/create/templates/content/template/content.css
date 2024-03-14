@@ -1,12 +1,12 @@
 
 .box {
-  background: red;
+  background: #fff;
   position: fixed;
   right: 0;
   bottom: 0;
   z-index: 9;
   width: 350px;
-  height: 150px;
+  height: 250px;
   margin: 3em;
   padding: 3em;
   display: flex;
@@ -18,6 +18,7 @@
 
 .title {
   font-size: 2.35em;
+  color: #333;
 }
 
 #colorPicker {
