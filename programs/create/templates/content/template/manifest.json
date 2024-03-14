@@ -1,17 +1,17 @@
 {
   "manifest_version": 3,
-  "name": "Color Picker Background Changer",
   "version": "1.0",
-  "description": "Change the background color of the current webpage using a color picker.",
-  "permissions": ["activeTab"],
+  "name": "Content Template",
+  "description": "An extension template using vanilla HTML, CSS, and JavaScript. This template includes a content script.",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "service-worker.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["sakura-dark.css", "content.css"]
+      "js": ["content.js"]
     }
   ],
   "icons": {
