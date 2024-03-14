@@ -1,3 +1,4 @@
+import('./content.css')
 document.body.innerHTML += `
 <div class="box">
 <h1 class="title">Change background ⬇</h1>
@@ -6,5 +7,8 @@ document.body.innerHTML += `
 `
 
 document.getElementById('colorPicker').addEventListener('input', (event) => {
-  document.body.style.backgroundColor = event.target.value
+  chrome.runtime.sendMessage({
+    action: 'changeBackgroundColor',
+    color: event.target.value
+  })
 })
