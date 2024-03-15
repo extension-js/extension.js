@@ -47,7 +47,9 @@ export default async function generateExtensionTypes(projectDir: string) {
           manifest.version
         }) `
       ) +
-        `${blue('TypeScript')} install detected. Writing extension type definitions...`
+        `${blue(
+          'TypeScript'
+        )} install detected. Writing extension type definitions...`
     )
     try {
       await fs.writeFile(extensionEnvFile, fileContent)

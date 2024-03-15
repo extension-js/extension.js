@@ -8,8 +8,10 @@ document.body.innerHTML += `
 `
 
 document.getElementById('colorPicker').addEventListener('input', (event) => {
-  chrome.runtime.sendMessage({
-    action: 'changeBackgroundColor',
-    color: event.target.value
-  }).catch(console.error)
+  chrome.runtime
+    .sendMessage({
+      action: 'changeBackgroundColor',
+      color: event.target.value
+    })
+    .catch(console.error)
 })

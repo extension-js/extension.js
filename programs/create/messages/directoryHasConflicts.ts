@@ -18,7 +18,9 @@ export default async function directoryHasConflicts(
   console.error(
     bold(
       red(
-        `\nConflict! Path to ${underline(projectName)} includes conflicting files:\n`
+        `\nConflict! Path to ${underline(
+          projectName
+        )} includes conflicting files:\n`
       )
     )
   )
