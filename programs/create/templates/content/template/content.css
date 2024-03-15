@@ -5,7 +5,7 @@
   right: 0;
   bottom: 0;
   z-index: 9;
-  width: 350px;
+  width: 250px;
   height: 250px;
   margin: 3em;
   padding: 3em;
@@ -14,11 +14,21 @@
   justify-content: center;
   flex-direction: column;
   gap: 1em;
+  border: 1px solid #777;
 }
 
 .title {
   font-size: 2.35em;
   color: #333;
+  line-height: 1.1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+  font-weight: 700;
+  margin-top: 3rem;
+  margin-bottom: 1.5rem;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  -ms-word-break: break-all;
+  word-break: break-word;
 }
 
 #colorPicker {
