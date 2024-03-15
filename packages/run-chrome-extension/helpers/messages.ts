@@ -27,7 +27,9 @@ function manifestFieldError(feature: string, htmlFilePath: string) {
     feature
   )} field in your manifest.json file and try again.`
 
-  const errorMessage = `[manifest.json] File path ${underline(htmlFilePath)} not found. ${hintMessage}`
+  const errorMessage = `[manifest.json] File path ${underline(
+    htmlFilePath
+  )} not found. ${hintMessage}`
   return errorMessage
 }
 
