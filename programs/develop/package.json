@@ -26,15 +26,15 @@
     "watch": "yarn compile --watch",
     "compile:types-folder": "node ./scripts/copyTypesFolder.js",
     "compile:stylelint-config": "node ./scripts/copyStylelintConfig.js",
+    "compile:tailwind-config": "node ./scripts/copyTailwindConfig.js",
     "compile:program": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
-    "compile": "yarn compile:types-folder && yarn compile:stylelint-config && yarn compile:program",
+    "compile": "yarn compile:types-folder && yarn compile:stylelint-config && yarn compile:tailwind-config && yarn compile:program",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
-    "@swc/core": "^1.4.2",
     "@types/chrome": "^0.0.258",
     "@types/webextension-polyfill": "^0.10.7",
     "babel-loader": "^9.1.3",

@@ -19,7 +19,9 @@ export default function patchHtml(
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utils.parse(htmlFile)
 
-  let hasCssEntry = false
+  // Ensure that not only we cover files imported by the HTML file
+  // but also by the JS files imported by the HTML file.
+  let hasCssEntry = !!compilation.getAsset(feature + '.css')
   let hasJsEntry = false
 
   for (let node of htmlDocument.childNodes) {
@@ -138,19 +140,17 @@ export default function patchHtml(
 
       if (htmlChildNode.nodeName === 'head') {
         if (hasCssEntry) {
-          // We use style-loader in development, so we don't need to
-          // create a link tag for the CSS bundle as styles are inlined
-          // into the head tag.
-          if (compilation.options.mode === 'production') {
-            // Create the link tag for the CSS bundle
-            const linkTag = parse5utils.createNode('link')
-            linkTag.attrs = [
-              {name: 'rel', value: 'stylesheet'},
-              {name: 'href', value: getFilePath(feature, '.css', true)}
-            ]
+          // Create the link tag for the CSS bundle.
+          // During development this is populated by a mock CSS file
+          // since we use style-loader to enable HMR for CSS files
+          // and it inlines the styles into the page.
+          const linkTag = parse5utils.createNode('link')
+          linkTag.attrs = [
+            {name: 'rel', value: 'stylesheet'},
+            {name: 'href', value: getFilePath(feature, '.css', true)}
+          ]
 
-            parse5utils.append(htmlChildNode, linkTag)
-          }
+          parse5utils.append(htmlChildNode, linkTag)
         }
       }
 

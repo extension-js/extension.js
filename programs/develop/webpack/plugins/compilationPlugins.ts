@@ -6,7 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import fs from 'fs'
 import {type Compiler} from 'webpack'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin'
@@ -16,7 +15,7 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 import {type DevOptions} from '../../extensionDev'
 import {isUsingTypeScript, tsCheckerOptions} from '../options/typescript'
-import {isUsingTailwind} from '../options/tailwind'
+import {isUsingStylelint} from '../options/stylelint'
 import {getStylelintConfigFile} from '../options/stylelint'
 
 export default function compilationPlugins(
@@ -35,7 +34,7 @@ export default function compilationPlugins(
 
       new StylelintPlugin({
         context: projectDir,
-        configFile: isUsingTailwind(projectDir)
+        configFile: isUsingStylelint(projectDir)
           ? getStylelintConfigFile(projectDir)
           : path.join(__dirname, 'stylelint.config.js'),
         files: '**/*.{css,scss,sass,less}',
@@ -44,7 +43,9 @@ export default function compilationPlugins(
         // failOnWarning: true
       }).apply(compiler)
 
-      // new MiniCssExtractPlugin().apply(compiler)
+      if (opts.mode === 'production') {
+        new MiniCssExtractPlugin().apply(compiler)
+      }
     }
   }
 }

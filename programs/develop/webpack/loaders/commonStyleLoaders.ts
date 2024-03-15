@@ -16,12 +16,9 @@ export default function getCommonStyleLoaders(
   opts: any
 ): any {
   const styleLoaders: webpack.RuleSetUse = [
-    // While the current experimental CSS feature from webpack
-    // is able to replace the MiniCssExtractPlugin, it cannot
-    // handle content_scripts.css, so we still use MiniCssExtractPlugin
-    // for that.
-    // MiniCssExtractPlugin.loader,
-    require.resolve('style-loader'),
+    opts.mode === 'production'
+      ? MiniCssExtractPlugin.loader
+      : require.resolve('style-loader'),
     // Translates CSS into CommonJS
     require.resolve('css-loader'),
     {
