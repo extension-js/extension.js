@@ -6,10 +6,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 function changeBackgroundColor(color, tabId) {
   chrome.scripting.executeScript({
-    target: {tabId: tabId},
+    target: {tabId},
     function: setPageBackgroundColor,
     args: [color]
-  })
+  }).catch(console.error)
 }
 
 function setPageBackgroundColor(color) {

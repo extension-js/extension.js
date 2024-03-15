@@ -21,11 +21,11 @@ const schema: Schema = {
 interface InjectDynamicCssLoaderContext extends LoaderContext<any> {
   getOptions: () => {
     manifestPath: string
-    cssImportPaths: {
+    cssImportPaths: Array<{
       feature: string
       scriptPath: string
       cssImports: string[]
-    }[]
+    }>
   }
 }
 
@@ -40,21 +40,30 @@ export default function (this: InjectDynamicCssLoaderContext, source: string) {
 
   const url = urlToRequest(this.resourcePath)
 
-  for (const {feature, scriptPath, cssImports} of cssImportPaths) {
+  // 1 - Since we are extracting CSS files from content.css in
+  // the manifest.json file, we need to have a placeholder
+  // file to prevent the manifest from looking to a missing file.
+  // this.emitFile(`${feature}.css`, '/** hello */')
+  cssImportPaths.forEach(({feature, scriptPath, cssImports}) => {
     if (url.includes(scriptPath)) {
-      // 1 - Since we are extracting CSS files from content.css in
-      // the manifest.json file, we need to have a placeholder
-      // file to prevent the manifest fro mlooking to a amissing file.
+      // Dynamically generate import statements for CSS files
+      const dynamicImports = cssImports
+        .map((cssImport) => {
+          // Ensure to resolve the path relative to the manifest or webpack context
+          // const resolvedPath = getRelativePath(options.manifestPath, cssImport)
+          // Generate a dynamic import statement for each CSS file
+          return `import(/* webpackChunkName: "${
+            feature + '_'
+          }" */ '${cssImport}').then(css => console.log('CSS loaded:', css)).catch(err => console.error(err));`
+        })
+        .join('\n')
+
       this.emitFile(`${feature}.css`, '/** hello */')
 
-      // 2 - Inject dynamic imports for CSS files
-      const cssImportsParsed = cssImports.map((cssImport) => {
-        return `import('${cssImport}');`
-      })
-
-      return `;${cssImportsParsed.join('\n')}${source}`
+      // Prepend the dynamic imports to the module source
+      source = `${dynamicImports}\n${source}`
     }
-  }
+  })
 
   return source
 }
