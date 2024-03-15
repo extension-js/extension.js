@@ -1,4 +1,3 @@
-import fs from 'fs'
 import path from 'path'
 import type webpack from 'webpack'
 
@@ -9,8 +8,7 @@ import {type IncludeList, type StepPluginInterface} from '../types'
 import {
   getCssEntries,
   getRelativePath,
-  getScriptEntries,
-  shouldExclude
+  getScriptEntries
 } from '../helpers/utils'
 
 export default class AddScriptsAndStyles {
@@ -26,11 +24,11 @@ export default class AddScriptsAndStyles {
 
   public apply(compiler: webpack.Compiler): void {
     const scriptFields = manifestFields(this.manifestPath).scripts
-    const cssImportPaths: {
+    const cssImportPaths: Array<{
       feature: string
       scriptPath: string
       cssImports: string[]
-    }[] = []
+    }> = []
     const scriptEntries = Object.entries(scriptFields).filter(
       ([feature, scriptPath]) => feature.startsWith('content') && scriptPath
     )
@@ -41,12 +39,8 @@ export default class AddScriptsAndStyles {
     // files. To do that, we get all CSS files defined and inject them
     // as dynamic imports in the content_script.js file.
     for (const contentScript of scriptEntries) {
-      // content_scripts-1: ['content_script.js', 'content_script.css']
-      // content_scripts-2: ['content_script.js', 'content_script.css']
       const [feature, scriptPath] = contentScript
 
-      // content_scripts-1: ['content_script-a.js', 'content_script-b.js']
-      // content_scripts-2: ['content_script-c.js', 'content_script-d.js']
       const scriptImports = [
         ...getScriptEntries(compiler, scriptPath, this.exclude)
       ]

@@ -138,14 +138,19 @@ export default function patchHtml(
 
       if (htmlChildNode.nodeName === 'head') {
         if (hasCssEntry) {
-          // Create the link tag for the CSS bundle
-          const linkTag = parse5utils.createNode('link')
-          linkTag.attrs = [
-            {name: 'rel', value: 'stylesheet'},
-            {name: 'href', value: getFilePath(feature, '.css', true)}
-          ]
+          // We use style-loader in development, so we don't need to
+          // create a link tag for the CSS bundle as styles are inlined
+          // into the head tag.
+          if (compilation.options.mode === 'production') {
+            // Create the link tag for the CSS bundle
+            const linkTag = parse5utils.createNode('link')
+            linkTag.attrs = [
+              {name: 'rel', value: 'stylesheet'},
+              {name: 'href', value: getFilePath(feature, '.css', true)}
+            ]
 
-          parse5utils.append(htmlChildNode, linkTag)
+            parse5utils.append(htmlChildNode, linkTag)
+          }
         }
       }
 
