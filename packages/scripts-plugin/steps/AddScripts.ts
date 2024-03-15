@@ -39,7 +39,7 @@ export default class AddScriptsAndStyles {
       }
 
       // 1 - Add the script entries to the compilation.
-      if (scriptImports.length) {
+      if (cssImports.length || scriptImports.length) {
         compiler.options.entry = {
           ...compiler.options.entry,
           // https://webpack.js.org/configuration/entry-context/#entry-descriptor

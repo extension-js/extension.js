@@ -35,8 +35,6 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
     baseDataPath: 'options'
   })
 
-  if (this._compilation?.options.mode === 'production') return source
-
   const url = urlToRequest(this.resourcePath)
 
   const generalReloadCode = `
