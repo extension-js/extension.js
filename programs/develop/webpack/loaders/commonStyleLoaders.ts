@@ -5,7 +5,6 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
 import type webpack from 'webpack'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
@@ -19,7 +18,6 @@ export default function getCommonStyleLoaders(
     opts.mode === 'production'
       ? MiniCssExtractPlugin.loader
       : require.resolve('style-loader'),
-    // Translates CSS into CommonJS
     require.resolve('css-loader'),
     {
       // `postcss-loader` applies autoprefixer to our CSS.
