@@ -22,10 +22,12 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "copyTypesFolder": "node ./scripts/copyTypesFolder.js",
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "yarn copyTypesFolder && tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
+    "compile:types-folder": "node ./scripts/copyTypesFolder.js",
+    "compile:stylelint-config": "node ./scripts/copyStylelintConfig.js",
+    "compile:program": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
+    "compile": "yarn compile:types-folder && yarn compile:stylelint-config && yarn compile:program",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
@@ -57,6 +59,9 @@
     "sass": "^1.70.0",
     "sass-loader": "^14.0.0",
     "style-loader": "^3.3.4",
+    "stylelint": "^16.2.1",
+    "stylelint-config-standard-scss": "^13.0.0",
+    "stylelint-webpack-plugin": "^5.0.0",
     "webextension-polyfill": "^0.10.0",
     "webpack": "~5.89.0",
     "webpack-browser-extension-common-errors": "*",
