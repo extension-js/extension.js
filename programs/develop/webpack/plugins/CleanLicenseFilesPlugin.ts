@@ -4,10 +4,19 @@ import {type Compiler} from 'webpack'
 
 export default class CleanLicenseFilesPlugin {
   apply(compiler: Compiler): void {
-    compiler.hooks.done.tap('CleanLicenseFilesPlugin', () => {
-      const outputPath = compiler.options.output.path || ''
-      this.deleteLicenseFiles(outputPath)
-    })
+    compiler.hooks.additionalPass.tapAsync(
+      'CleanLicenseFilesPlugin',
+      (done) => {
+        const outputPath = compiler.options.output.path
+
+        if (outputPath) {
+          if (fs.existsSync(outputPath)) {
+            this.deleteLicenseFiles(outputPath)
+          }
+        }
+        done()
+      }
+    )
   }
 
   deleteLicenseFiles(directory: string) {
