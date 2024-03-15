@@ -1,3 +1,4 @@
+import path from 'path'
 import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
@@ -30,7 +31,7 @@ interface InjectDynamicCssLoaderContext extends LoaderContext<any> {
 }
 
 const beautifulFileContent = `/** 
- * Welcome to tyour content_scripts CSS file during development!
+ * Welcome to to your content_scripts CSS file during development!
  * To speed up the development process, your styles
  * are being injected directly into the head of the webpage,
  * and will be removed when you build your application, along
@@ -57,12 +58,18 @@ export default function (this: InjectDynamicCssLoaderContext, source: string) {
       // Dynamically generate import statements for CSS files
       const dynamicImports = cssImports
         .map((cssImport) => {
+          const [, contentName] = feature.split('/')
+          const index = contentName.split('-')[1]
+          const filename = path.basename(cssImport)
+          const chunkName = `web_accessible_resources/resource-${index}/${filename.replace('.', '_')}`
           // Ensure to resolve the path relative to the manifest or webpack context
           // const resolvedPath = getRelativePath(options.manifestPath, cssImport)
           // Generate a dynamic import statement for each CSS file
-          return `import(/* webpackChunkName: "${
-            feature + '_'
-          }" */ '${cssImport}').then(css => console.log('content_script.css loaded:', css)).catch(err => console.error(err));`
+          return (
+            `import(/* webpackChunkName: "${chunkName}" */ '${cssImport}')` +
+            `.then(css => console.info('content_script.css loaded', css))` +
+            `.catch(err => console.error(err));`
+          )
         })
         .join('\n')
 
