@@ -13,7 +13,7 @@ const path = require('path')
 const sourceDir = path.resolve(__dirname, '../../develop/integration-configs/')
 const targetDir = path.resolve(__dirname, '../dist')
 
-async function copyTailwindConfigFile(sourcePath, targetPath) {
+async function copyStylelintConfigFile(sourcePath, targetPath) {
   try {
     const sourceData = await fs.readFile(sourcePath, 'utf8')
     let targetData = ''
@@ -48,9 +48,9 @@ async function copyTailwindConfigFile(sourcePath, targetPath) {
 
 ;(async () => {
   try {
-    await copyTailwindConfigFile(
-      path.join(sourceDir, 'tailwind.config.js'),
-      path.join(targetDir, 'tailwind.config.js')
+    await copyStylelintConfigFile(
+      path.join(sourceDir, 'stylelint.config.js'),
+      path.join(targetDir, 'stylelint.config.js')
     )
   } catch (error) {
     console.error(error)
