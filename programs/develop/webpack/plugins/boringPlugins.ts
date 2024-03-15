@@ -4,7 +4,6 @@ import webpack from 'webpack'
 import colors from '@colors/colors/safe'
 import Dotenv from 'dotenv-webpack'
 import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
-import CleanLicenseFilesPlugin from './CleanLicenseFilesPlugin'
 
 import SpecialFoldersPlugin from './SpecialFoldersPlugin'
 import {type DevOptions} from '../../extensionDev'
@@ -44,11 +43,6 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
           defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
           systemvars: true
         } as any).apply(compiler as any)
-      }
-
-      // REMOVE *.LICENSE files from the output folder.
-      if (mode === 'production') {
-        new CleanLicenseFilesPlugin().apply(compiler)
       }
 
       // Since we write files to disk, we need to clean up the hot updates
