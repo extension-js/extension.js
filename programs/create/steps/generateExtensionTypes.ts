@@ -31,10 +31,6 @@ export default async function generateExtensionTypes(
 /// <reference types="${typePath}/polyfill.d.ts" />
 `
 
-  console.log(
-    'lkskdlsdklskdslkdlskdskldskldskldksldlksdkslkdskdskldks',
-    typePath
-  )
   try {
     await fs.mkdir(projectPath, {recursive: true})
 

@@ -15,6 +15,5 @@ function initial() {
   // Use `createRoot` to create a root, then render the <App /> component
   // Note that `createRoot` takes the container DOM node, not the React element
   const root = ReactDOM.createRoot(rootDiv)
-  console.log('root', rootDiv, root)
   root.render(<ContentApp />)
 }
