@@ -20,8 +20,8 @@ export default function getCommonStyleLoaders(
     // is able to replace the MiniCssExtractPlugin, it cannot
     // handle content_scripts.css, so we still use MiniCssExtractPlugin
     // for that.
-      MiniCssExtractPlugin.loader,
-    // require.resolve('style-loader'),
+    // MiniCssExtractPlugin.loader,
+    require.resolve('style-loader'),
     // Translates CSS into CommonJS
     require.resolve('css-loader'),
     {
