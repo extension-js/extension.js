@@ -43,7 +43,11 @@ export default async function installDependencies(
         }
       })
       child.on('error', (error) => {
-        console.log(error)
+        console.error(
+          `🧩 ${bold(`extension-create`)} ${red(
+            `✖︎✖︎✖︎`
+          )} Can't install dependencies for ${bold(projectName)}. ${error}`
+        )
         reject(error)
       })
     })
