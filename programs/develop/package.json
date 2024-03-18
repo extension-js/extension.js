@@ -3,13 +3,13 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/cezaraugusto/extension-create.git",
-    "directory": "develop"
+    "directory": "programs/develop"
   },
   "engines": {
     "node": ">=18"
   },
   "name": "@extension-create/develop",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "The develop step of extension-create",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
