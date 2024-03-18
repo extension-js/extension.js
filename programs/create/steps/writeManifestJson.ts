@@ -21,7 +21,7 @@ export default async function writeManifestJson(
 
   const manifestMetadata = {
     ...manifestJson,
-    name: path.basename(projectPath),
+    name: path.basename(projectPath)
   }
 
   try {

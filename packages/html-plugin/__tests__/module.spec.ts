@@ -99,7 +99,9 @@ describe('HtmlPlugin (default behavior)', () => {
     it('should resolve paths of CSS files for HTML paths defined in MANIFEST.JSON', async () => {
       // Handle CSS file that is also a manifest.json features
       // Durign development we do not output CSS files and follow wathever style-loader does.
-      await assertFileIsNotEmitted(path.join(outputPath, 'sandbox', 'page-0.css'))
+      await assertFileIsNotEmitted(
+        path.join(outputPath, 'sandbox', 'page-0.css')
+      )
     })
 
     it('should resolve paths of CSS files for HTML paths defined in INCLUDE option', async () => {
