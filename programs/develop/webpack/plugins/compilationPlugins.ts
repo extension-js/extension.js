@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import {PathData, type Compiler} from 'webpack'
+import {type PathData, type Compiler} from 'webpack'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin'
 import StylelintPlugin from 'stylelint-webpack-plugin'
@@ -15,8 +15,7 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 import {type DevOptions} from '../../extensionDev'
 import {isUsingTypeScript, tsCheckerOptions} from '../options/typescript'
-import {isUsingStylelint} from '../options/stylelint'
-import {getStylelintConfigFile} from '../options/stylelint'
+import {isUsingStylelint,getStylelintConfigFile} from '../options/stylelint'
 
 export default function compilationPlugins(
   projectDir: string,
