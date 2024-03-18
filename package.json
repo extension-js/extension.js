@@ -32,6 +32,7 @@
   "name": "extension-create",
   "packageManager": "yarn@1.22.19",
   "workspaces": [
+    "aliases/*",
     "packages/*",
     "programs/*",
     "browser-extension-test-data",
