@@ -46,8 +46,7 @@ export default async function writePackageJson(
   packageJson.devDependencies = {
     ...(packageJson.devDependencies || {}),
     // During development, we want to use the local version of extension-create
-    'extension':
-      process.env.EXTENSION_ENV === 'development' ? '*' : 'latest'
+    extension: process.env.EXTENSION_ENV === 'development' ? '*' : 'latest'
   }
 
   const packageMetadata = {

@@ -15,7 +15,7 @@ import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 import {type DevOptions} from '../../extensionDev'
 import {isUsingTypeScript, tsCheckerOptions} from '../options/typescript'
-import {isUsingStylelint,getStylelintConfigFile} from '../options/stylelint'
+import {isUsingStylelint, getStylelintConfigFile} from '../options/stylelint'
 
 export default function compilationPlugins(
   projectDir: string,
