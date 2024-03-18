@@ -15,6 +15,7 @@ import installDependencies from './steps/installDependencies'
 import abortAndClean from './steps/abortProjectAndClean'
 // import isExternalTemplate from './helpers/isExternalTemplate'
 import writeReadmeFile from './steps/writeReadmeFile'
+import writeManifestJson from './steps/writeManifestJson'
 import generateExtensionTypes from './steps/generateExtensionTypes'
 import isTypeScriptTemplate from './helpers/isTypeScriptTemplate'
 
@@ -56,6 +57,7 @@ export default async function createExtension(
     await writePackageJson(projectPath, projectName, template)
     await installDependencies(projectPath, projectName)
     await writeReadmeFile(projectPath, projectName, template)
+    await writeManifestJson(projectPath, projectName, template)
 
     if (isTypeScriptTemplate(template)) {
       await generateExtensionTypes(projectPath, projectName)
