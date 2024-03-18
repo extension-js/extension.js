@@ -17,7 +17,7 @@ export default async function generateExtensionTypes(
   const typePath =
     process.env.EXTENSION_ENV === 'development'
       ? path.resolve(process.cwd(), 'programs/develop/types')
-      : 'extension-create/develop/types'
+      : '@extension-create/develop/dist/types'
 
   const fileContent = `\
 // Required extension-create types for TypeScript projects.
