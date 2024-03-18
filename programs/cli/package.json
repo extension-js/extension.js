@@ -8,7 +8,7 @@
   "engines": {
     "node": ">=18"
   },
-  "name": "extension-create",
+  "name": "extension",
   "version": "1.2.1",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
