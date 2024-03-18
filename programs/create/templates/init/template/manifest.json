@@ -2,5 +2,5 @@
   "manifest_version": 3,
   "version": "1.0",
   "name": "Default Extension",
-  "description": "A default extension"
+  "description": "A minimum extension template. This template includes only a manifest file."
 }

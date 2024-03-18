@@ -2,7 +2,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/content-template.git",
+    "url": "https://github.com/cezaraugusto/extension-create.git",
     "directory": "packages/create/templates/content"
   },
   "name": "content-template",
