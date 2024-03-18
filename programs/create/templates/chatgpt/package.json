@@ -2,8 +2,8 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/chatgpt-template.git",
-    "directory": "packages/create/templates/chatgpt"
+    "url": "https://github.com/cezaraugusto/extension-create.git",
+    "directory": "programs/create/templates/chatgpt"
   },
   "name": "chatgpt-template",
   "description": "The ChatGPT template for extension-create.",
