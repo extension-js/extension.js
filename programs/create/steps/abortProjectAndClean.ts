@@ -14,7 +14,9 @@ export default async function abortProjectAndClean(
   projectName: string
 ) {
   console.log(
-    `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Aborting installation of ${projectName}.`
+    `🧩 ${bold(`extension-create`)} ${red(
+      `✖︎✖︎✖︎`
+    )} Aborting installation of ${projectName}.`
   )
 
   if (error.command) {

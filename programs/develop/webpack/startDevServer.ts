@@ -13,8 +13,7 @@ import devServerConfig from './webpack-dev-server'
 import webpackConfig from './webpack-config'
 
 function closeAll(devServer: WebpackDevServer) {
-  // devServer.stop()
-  devServer.close()
+  devServer.stop()
   process.exit()
 }
 
@@ -22,7 +21,7 @@ export default async function startDevServer(
   projectPath: string,
   {...devOptions}: DevOptions
 ) {
-  const compilerConfig = webpackConfig(projectPath, 'development', devOptions)
+  const compilerConfig = webpackConfig(projectPath, devOptions)
   const serverConfig = devServerConfig(projectPath, devOptions)
   const compiler = webpack(compilerConfig)
 

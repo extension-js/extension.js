@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import type webpack from 'webpack'
+import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 import {isUsingTailwind} from '../options/tailwind'
 
@@ -14,9 +15,9 @@ export default function getCommonStyleLoaders(
   opts: any
 ): any {
   const styleLoaders: webpack.RuleSetUse = [
-    // Creates `style` nodes from JS strings
-    require.resolve('style-loader'),
-    // Translates CSS into CommonJS
+    opts.mode === 'production'
+      ? MiniCssExtractPlugin.loader
+      : require.resolve('style-loader'),
     require.resolve('css-loader'),
     {
       // `postcss-loader` applies autoprefixer to our CSS.

@@ -134,7 +134,11 @@ export function isUsingTypeScript(projectDir: string) {
               manifest.version
             }) `
           ) +
-            `is using ${bold(blue('TypeScript'))} but no config file was found. Creating ${yellow('tsconfig.json')}...`
+            `is using ${bold(
+              blue('TypeScript')
+            )} but no config file was found. Creating ${yellow(
+              'tsconfig.json'
+            )}...`
         )
 
         writeTsConfig(projectDir)

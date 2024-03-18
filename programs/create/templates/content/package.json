@@ -1,0 +1,26 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/content-template.git",
+    "directory": "packages/create/templates/content"
+  },
+  "name": "content-template",
+  "description": "The content_scripts template for extension-create.",
+  "version": "0.0.0",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "files": [
+    "template",
+    "template.json"
+  ],
+  "keywords": [
+    "extension-create",
+    "browser-extension",
+    "web-extension",
+    "template"
+  ]
+}

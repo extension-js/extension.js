@@ -12,7 +12,7 @@ import {isUsingReact} from '../options/react'
 
 export default function reloadPlugins(projectPath: string, {mode}: DevOptions) {
   return {
-    name: 'reloadPlugins',
+    constructor: {name: 'ReloadPlugins'},
     apply: (compiler: webpack.Compiler) => {
       if (mode !== 'development') return
 

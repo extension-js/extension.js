@@ -28,11 +28,6 @@ export default async function extensionStart(
 
   try {
     if (isUsingTypeScript(projectPath)) {
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(
-          '[extension-create setup] 🔷 - Using TypeScript config file: `tsconfig.json`'
-        )
-      }
       await generateExtensionTypes(projectPath)
     }
 

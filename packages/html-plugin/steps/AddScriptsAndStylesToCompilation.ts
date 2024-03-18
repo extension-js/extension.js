@@ -42,6 +42,7 @@ export default class AddScriptsAndStylesToCompilation {
         )
 
         if (compiler.options.mode === 'development') {
+          // you can't HMR without a .js file, so we add a minimum script file.
           const hmrScript = path.resolve(__dirname, 'minimum-script-file.mjs')
           fileAssets.push(hmrScript)
         }

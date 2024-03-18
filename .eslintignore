@@ -40,4 +40,6 @@ __tests__
 **/copyTypesFolder.js
 **/copyMarkdownFilesToCli.js
 **/copyTailwindConfig.js
+**/copyStylelintConfig.js
+**/content.tsx
 **/content.tsx

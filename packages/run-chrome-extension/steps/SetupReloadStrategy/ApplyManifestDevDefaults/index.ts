@@ -69,9 +69,6 @@ class ApplyManifestDevDefaultsPlugin {
       (compilation) => {
         const Error = compiler.webpack.WebpackError
 
-        // This plugin only works during development
-        if (compiler.options.mode === 'production') return
-
         compilation.hooks.processAssets.tap(
           {
             name: 'RunChromeExtension (ApplyManifestDevDefaults)',

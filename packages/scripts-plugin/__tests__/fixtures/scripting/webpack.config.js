@@ -18,7 +18,7 @@ const config = {
   },
   plugins: [
     new ScriptsPlugin({
-      manifestPath: path.join(__dirname, './manifest.json'),
+      manifestPath: path.join(__dirname, 'manifest.json'),
       include: [path.join(__dirname, 'scripts', 'content-script.js')],
       exclude: [
         path.join(__dirname, 'public', 'css', 'file.css'),

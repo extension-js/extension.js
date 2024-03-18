@@ -2,7 +2,8 @@ import path from 'path'
 import type webpack from 'webpack'
 
 import {type IncludeList, type ScriptsPluginInterface} from './types'
-import AddScriptsAndStyles from './steps/AddScriptsAndStyles'
+import AddScripts from './steps/AddScripts'
+import AddStyles from './steps/AddStyles'
 import AddHmrAcceptCode from './steps/AddHmrAcceptCode'
 
 /**
@@ -47,14 +48,26 @@ export default class ScriptsPlugin {
 
   public apply(compiler: webpack.Compiler): void {
     // 1 - Adds the scripts entries from the manifest file
-    // (and stylesheets for content_scripts) and also
-    // from the extra scripts defined in this.include
+    // and from the extra scripts defined in this.include
     // to the compilation.
-    new AddScriptsAndStyles({
+    // In production: Adds the CSS files to the entry points
+    // along with other content_script files.
+    // In development: Extracts the content_scripts css files
+    // from content_scripts and injects them as dynamic imports
+    // so we can benefit from HMR.
+    new AddScripts({
       manifestPath: this.manifestPath,
       includeList: this.parseIncludes(this.include || []),
       exclude: this.exclude || []
     }).apply(compiler)
+
+    if (compiler.options.mode === 'development') {
+      new AddStyles({
+        manifestPath: this.manifestPath,
+        includeList: this.parseIncludes(this.include || []),
+        exclude: this.exclude || []
+      }).apply(compiler)
+    }
 
     // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
     AddHmrAcceptCode(compiler, this.manifestPath)

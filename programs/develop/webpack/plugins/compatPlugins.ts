@@ -16,7 +16,7 @@ export default function compatPlugins(
   {polyfill, browser}: DevOptions
 ) {
   return {
-    name: 'CompatPlugin',
+    constructor: {name: 'CompatPlugin'},
     apply: (compiler: webpack.Compiler) => {
       const manifestPath = path.resolve(projectPath, 'manifest.json')
 

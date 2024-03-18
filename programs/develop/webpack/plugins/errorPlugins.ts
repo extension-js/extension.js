@@ -15,7 +15,7 @@ export default function errorPlugins(
   {mode, browser}: DevOptions
 ) {
   return {
-    name: 'ErrorPlugin',
+    constructor: {name: 'ErrorPlugin'},
     apply: (compiler: webpack.Compiler) => {
       const manifestPath = path.resolve(projectPath, 'manifest.json')
 
