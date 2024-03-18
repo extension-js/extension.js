@@ -52,6 +52,10 @@ const extensionCreate = program
 // for the extension namespace, users will npx extension create <...args>
 const isExtensionCreateNamespace = packageJson.name === 'extension-create'
 
+if (process.env.EXTENSION_ENV === 'development') {
+  console.log(`Running extension-create via ${packageJson.name}...`)
+}
+
 extensionCreate
   .name(packageJson.name)
   .description(packageJson.description)
@@ -77,10 +81,46 @@ extensionCreate
     'specify a template for the created project'
   )
   .action(async function (
-    projectName: string,
-    {template, targetDir}: CreateOptions
+    pathOrRemoteUrl: string,
+    {
+      browser = 'chrome',
+      template,
+      ...otherCommandOptions
+    }: CreateOptions & DevOptions & StartOptions & BuildOptions
   ) {
-    await createExtension(projectName, {targetDir, template})
+    const vendors = browser.split(',')
+
+    switch (pathOrRemoteUrl) {
+      case 'dev':
+        for (const vendor of vendors) {
+          await extensionDev(pathOrRemoteUrl, {
+            mode: 'development',
+            browser: vendor as any,
+            ...otherCommandOptions
+          })
+        }
+        break
+      case 'start':
+        for (const vendor of vendors) {
+          await extensionStart(pathOrRemoteUrl, {
+            mode: 'production',
+            browser: vendor as any,
+            ...otherCommandOptions
+          })
+        }
+        break
+      case 'build':
+        for (const vendor of vendors) {
+          await extensionBuild(pathOrRemoteUrl, {
+            browser: vendor as any,
+            ...otherCommandOptions
+          })
+        }
+        break
+      default:
+        await createExtension(pathOrRemoteUrl, {template})
+        break
+    }
   })
 
 // ██████╗ ███████╗██╗   ██╗
