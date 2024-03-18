@@ -9,7 +9,6 @@
 
 import semver from 'semver'
 import {program} from 'commander'
-import updateNotifier from 'update-notifier'
 
 import messages from './messages'
 import packageJson from './package.json'
@@ -27,8 +26,6 @@ import {
   extensionStart,
   extensionBuild
 } from '@extension-create/develop'
-
-updateNotifier({pkg: packageJson}).notify()
 
 if (semver.lte(process.version, '18.0.0')) {
   messages.unsupportedNodeVersion()
