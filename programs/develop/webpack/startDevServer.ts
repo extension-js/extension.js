@@ -13,8 +13,11 @@ import devServerConfig from './webpack-dev-server'
 import webpackConfig from './webpack-config'
 
 function closeAll(devServer: WebpackDevServer) {
-  devServer.stop()
-  process.exit()
+  devServer.stop().then(() => {
+    process.exit()
+  }).catch((error) => {
+    console.log(`Error in the extension-create runner: ${error.stack || ''}`)
+  })
 }
 
 export default async function startDevServer(

@@ -5,7 +5,6 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-import path from 'path'
 import {spawn} from 'cross-spawn'
 import {bold, red} from '@colors/colors/safe'
 
