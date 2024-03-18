@@ -45,12 +45,6 @@ export default class AddScriptsAndStylesToCompilation {
           // you can't HMR without a .js file, so we add a minimum script file.
           const hmrScript = path.resolve(__dirname, 'minimum-script-file.mjs')
           fileAssets.push(hmrScript)
-
-          // We use style-loader in development to enable HMR for CSS files,
-          // which inlines styles into the page. But HtmlPlugin still expects
-          // a CSS bundle file, so we need to add a minimum CSS file to the compilation.
-          const devCss = path.resolve(__dirname, 'minimum-css-file.css')
-          fileAssets.push(devCss)
         }
 
         if (fs.existsSync(resource?.html)) {
