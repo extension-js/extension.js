@@ -42,7 +42,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
           allowEmptyValues: true,
           defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
           systemvars: true
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
         }).apply(compiler as any)
       }
 
