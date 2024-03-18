@@ -28,7 +28,7 @@ export default function devServerConfig(
     // causes content_scripts to do a full reload instead of a hot reload
     // when using React.
     watchFiles: isUsingReact(projectPath)
-      ? []
+      ? undefined
       : [path.join(projectPath, '**/*.html')],
     client: {
       // Allows to set log level in the browser, e.g. before reloading,
