@@ -51,6 +51,18 @@ export default class CopyStaticFolder {
 
     if (!fs.existsSync(staticDir)) return
 
+    compiler.hooks.afterEmit.tap('CopyStaticFolder', () => {
+      const target = path.join(output, 'public')
+
+      if (!fs.existsSync(target)) fs.mkdirSync(target, {recursive: true})
+
+      if (fs.existsSync(staticDir)) {
+        this.copyFolder(staticDir, target)
+      }
+    })
+
+    if (compiler.options.mode === 'production') return
+
     compiler.hooks.afterPlugins.tap('WatchPagesPlugin', () => {
       const staticPath: string = path.join(projectPath, 'public')
       const watcher = chokidar.watch(staticPath, {ignoreInitial: true})
@@ -71,16 +83,6 @@ export default class CopyStaticFolder {
       compiler.hooks.watchClose.tap('WatchPagesPlugin', () => {
         watcher.close().catch(console.error)
       })
-    })
-
-    compiler.hooks.afterEmit.tap('CopyStaticFolder', () => {
-      const target = path.join(output, 'public')
-
-      if (!fs.existsSync(target)) fs.mkdirSync(target, {recursive: true})
-
-      if (fs.existsSync(staticDir)) {
-        this.copyFolder(staticDir, target)
-      }
     })
   }
 }
