@@ -118,7 +118,7 @@ export function isUsingTypeScript(projectDir: string) {
     packageJson.dependencies && packageJson.dependencies.typescript
 
   if (!userMessageDelivered) {
-    if (!!(TypeScriptAsDevDep || TypeScriptAsDep)) {
+    if (TypeScriptAsDevDep || TypeScriptAsDep) {
       if (configFile) {
         console.log(
           bold(
