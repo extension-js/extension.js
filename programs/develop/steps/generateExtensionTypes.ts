@@ -48,7 +48,7 @@ export default async function generateExtensionTypes(projectDir: string) {
         }) `
       ) +
         `${blue(
-          'TypeScript'
+          bold('TypeScript')
         )} install detected. Writing extension type definitions...`
     )
     try {
