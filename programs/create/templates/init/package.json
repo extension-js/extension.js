@@ -2,11 +2,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/default-template.git",
-    "directory": "packages/default-template"
+    "url": "https://github.com/cezaraugusto/extension-create.git",
+    "directory": "programs/create/templates/new"
   },
-  "name": "default-template",
-  "description": "The web template for extension-create.",
+  "name": "init-template",
+  "description": "The init template for extension-create.",
   "version": "0.0.0",
   "author": {
     "name": "Cezar Augusto",
