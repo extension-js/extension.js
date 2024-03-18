@@ -28,7 +28,7 @@ export default async function directoryHasConflicts(
   for (const file of conflictingFiles) {
     const stats = await fs.lstat(path.join(projectPath, file))
 
-    console.error(stats.isDirectory() ? `📁 - ${file}` : `    📄 - ${file}`)
+    console.error(stats.isDirectory() ? `📁 - ${file}` : `📄 - ${file}`)
   }
 
   console.error(
