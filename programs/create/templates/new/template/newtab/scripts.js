@@ -1,5 +1,10 @@
-function sum(a, b) {
-  return a + b
+function getManifest() {
+  return chrome.runtime.getManifest()
 }
+const manifest = getManifest()
 
-console.log('Hello from newtab/index.ts!', sum(1, 2))
+console.table({
+  name: manifest.name,
+  version: manifest.version,
+  description: manifest.description
+})

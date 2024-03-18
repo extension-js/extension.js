@@ -11,8 +11,8 @@ export default class ApplyCommonFileLoaders {
   private loaders() {
     const getFilename = (runtime: string, folderPath: string) => {
       if (runtime.startsWith('content_scripts')) {
-        const [, filename] = runtime.split('/')
-        const index = filename.split('-')[1]
+        const [, contentName] = runtime.split('/')
+        const index = contentName.split('-')[1]
 
         return `web_accessible_resources/resource-${index}/[name][ext]`
       }
@@ -26,7 +26,7 @@ export default class ApplyCommonFileLoaders {
         type: 'asset/resource',
         generator: {
           filename: ({runtime}: {runtime: string}) =>
-            getFilename(runtime, 'images')
+            getFilename(runtime, 'assets')
         },
         parser: {
           dataUrlCondition: {
@@ -40,7 +40,7 @@ export default class ApplyCommonFileLoaders {
         type: 'asset/resource',
         generator: {
           filename: ({runtime}: {runtime: string}) =>
-            getFilename(runtime, 'fonts')
+            getFilename(runtime, 'assets')
         }
       },
       {

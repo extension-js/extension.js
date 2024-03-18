@@ -36,11 +36,10 @@ import {getWebpackStats} from './config/logging'
 
 export default function webpackConfig(
   projectPath: string,
-  mode: 'development' | 'production',
   {...devOptions}: DevOptions
 ): webpack.Configuration {
   return {
-    mode,
+    mode: devOptions.mode,
     entry: {},
     target: 'web',
     context: projectPath,
@@ -66,8 +65,22 @@ export default function webpackConfig(
         bigIntLiteral: true,
         dynamicImport: true
       },
-      cssFilename(pathData) {
-        return pathData.chunk?.name + '.css' || '[name].css'
+      chunkFilename: (pathData) => {
+        const runtime = (pathData.chunk as any)?.runtime
+
+        if (runtime.startsWith('content_scripts')) {
+          const [, contentName] = runtime.split('/')
+          const index = contentName.split('-')[1]
+
+          return `web_accessible_resources/resource-${index}/[name].js`
+        }
+
+        // Chunks are stored within their caller's directory,
+        // So a dynamic import of a CSS action page will be stored
+        // as action/[filename]_.css.
+        // The JS counterpart of this is defined in MiniCssExtractPlugin
+        // options.chunkFilename function.
+        return `${runtime}/[name].js`
       }
     },
     resolve: {
@@ -95,7 +108,7 @@ export default function webpackConfig(
       boringPlugins(projectPath, devOptions)
     ],
     optimization: {
-      minimize: mode === 'production'
+      minimize: devOptions.mode === 'production'
       // WARN: This can have side-effects.
       // See https://webpack.js.org/guides/code-splitting/#entry-dependencies
       // runtimeChunk: true,

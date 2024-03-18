@@ -14,7 +14,7 @@ import generateExtensionTypes from './steps/generateExtensionTypes'
 import startDevServer from './webpack/startDevServer'
 
 export interface DevOptions {
-  mode?: 'development' | 'production' | 'test'
+  mode?: 'development' | 'production' | 'none' | undefined
   browser?: 'chrome' | 'edge' | 'firefox' | 'all'
   port?: number
   noOpen?: boolean
