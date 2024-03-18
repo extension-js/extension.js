@@ -21,6 +21,7 @@ import isTypeScriptTemplate from './helpers/isTypeScriptTemplate'
 
 export interface CreateOptions {
   template?: string
+  // TODO cezaraugusto deprecated
   targetDir?: string
 }
 
