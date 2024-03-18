@@ -21,7 +21,7 @@ export default async function createSymlink(projectPath: string) {
     })
 
     linkExtensionCreate.on('close', (code) => {
-      const linkProcess = spawn(command, [...args, 'extension-create'], {
+      const linkProcess = spawn(command, [...args, '@extension-create/cli'], {
         stdio: 'inherit',
         cwd: projectPath
       })
