@@ -2,6 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import type webpack from 'webpack'
 import WebExtension from 'webpack-target-webextension'
+import {red, bold} from '@colors/colors/safe'
 import {type RunChromeExtensionInterface, type Manifest} from '../../../types'
 import messages from '../../../helpers/messages'
 
@@ -26,7 +27,8 @@ class TargetWebExtensionPlugin {
             'background.service_worker',
             serviceWorkerPath
           )
-          throw Error(fieldError)
+          console.error(red(bold(fieldError)))
+          process.exit(1)
         }
       }
     }

@@ -14,7 +14,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
   const projectVersion = project.version
 
   return {
-    name: 'BoringPlugin',
+    constructor: {name: 'BoringPlugin'},
     apply: (compiler: webpack.Compiler) => {
       // Writes the project name and version to the terminal
       compiler.hooks.done.tap('BoringPlugin', (stats) => {
@@ -29,12 +29,12 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
         manifestPath: path.join(projectPath, 'manifest.json')
       }).apply(compiler)
 
+      // Support .env files
       if (
         fs.existsSync(path.join(projectPath, '.env')) ||
         fs.existsSync(path.join(projectPath, '.env.example')) ||
         fs.existsSync(path.join(projectPath, '.env.defaults'))
       ) {
-        // Support .env files
         new Dotenv({
           path: fs.existsSync(path.join(projectPath, '.env'))
             ? path.join(projectPath, '.env')

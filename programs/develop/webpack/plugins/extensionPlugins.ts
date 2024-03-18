@@ -62,7 +62,7 @@ export default function extensionPlugins(
   const scriptsList = generateScriptsEntries(allScripts)
 
   return {
-    name: 'ExtensionPlugin',
+    constructor: {name: 'ExtensionPlugin'},
     apply: (compiler: webpack.Compiler) => {
       new ResolvePlugin({
         manifestPath,

@@ -40,7 +40,7 @@ export default function browserPlugins(
   }
 
   return {
-    name: 'BrowserPlugin',
+    constructor: {name: 'BrowserPlugin'},
     apply: (compiler: webpack.Compiler) => {
       switch (devOptions.browser) {
         case 'chrome':
