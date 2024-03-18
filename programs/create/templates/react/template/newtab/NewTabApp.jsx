@@ -1,10 +1,10 @@
-import React from "react";
-import reactLogo from "../public/react.png";
-import typescriptLogo from "../public/typescript.png";
-import tailwindLogo from "../public/tailwind.png";
-import chromeWindowBg from "../public/chromeWindow.png";
+import React from 'react'
+import reactLogo from '../public/react.png'
+import typescriptLogo from '../public/typescript.png'
+import tailwindLogo from '../public/tailwind.png'
+import chromeWindowBg from '../public/chromeWindow.png'
 
-export default function SidePanelApp() {
+export default function NewTabApp() {
   return (
     <div className="h-[100vh] items-center relative isolate overflow-hidden bg-gray-900 shadow-2xl sm:px-16 md:pt-24 lg:flex lg:gap-x-20 lg:px-24 lg:pt-0">
       <svg
@@ -27,7 +27,7 @@ export default function SidePanelApp() {
         </defs>
       </svg>
       <div className="mx-auto max-w-md text-center lg:mx-0 lg:flex-auto lg:py-32 lg:text-left">
-        <div className="flex items-center justify-center space-x-4 mx-auto mt-10 mb-4">
+        <div className="flex items-center justify-center lg:justify-start space-x-4 mx-auto mt-10 mb-4">
           <img
             alt="React logo"
             src={reactLogo}
