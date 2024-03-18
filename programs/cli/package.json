@@ -2,13 +2,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/extension-create.git"
+    "url": "https://github.com/cezaraugusto/extension-create.git",
+    "directory": "programs/cli"
   },
   "engines": {
     "node": ">=18"
   },
   "name": "@extension-create/cli",
-  "version": "1.1.0-beta.2",
+  "version": "1.1.2",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
@@ -24,11 +25,10 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "compile:readme-files": "node ./scripts/copyMarkdownFilesToCli.js",
     "compile:tailwind-config": "node ./scripts/copyTailwindConfig.js",
     "compile:stylelint-config": "node ./scripts/copyStylelintConfig.js",
     "compile:cli": "tsup-node ./cli.ts --format cjs --dts --target=node18",
-    "compile": "yarn compile:readme-files && yarn compile:tailwind-config && yarn compile:stylelint-config && yarn compile:cli",
+    "compile": "yarn compile:tailwind-config && yarn compile:stylelint-config && yarn compile:cli",
     "clean": "rm -rf dist",
     "test": "jest"
   },

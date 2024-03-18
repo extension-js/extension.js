@@ -15,16 +15,16 @@ import isExternalTemplate from '../helpers/isExternalTemplate'
 const extensionCreatePackageJsonScripts = {
   dev:
     process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/extension-create dev'
-      : 'extension-create dev',
+      ? 'node node_modules/@extension-create/cli dev'
+      : 'extension dev',
   start:
     process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/extension-create start'
-      : 'extension-create start',
+      ? 'node node_modules/@extension-create/cli start'
+      : 'extension start',
   build:
     process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/extension-create build'
-      : 'extension-create build'
+      ? 'node node_modules/@extension-create/cli build'
+      : 'extension build'
 }
 
 export default async function writePackageJson(
@@ -46,7 +46,7 @@ export default async function writePackageJson(
   packageJson.devDependencies = {
     ...(packageJson.devDependencies || {}),
     // During development, we want to use the local version of extension-create
-    'extension-create':
+    'extension':
       process.env.EXTENSION_ENV === 'development' ? '*' : 'latest'
   }
 
