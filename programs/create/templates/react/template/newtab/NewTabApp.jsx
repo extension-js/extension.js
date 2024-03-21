@@ -1,6 +1,5 @@
 import React from 'react'
 import reactLogo from '../public/react.png'
-import typescriptLogo from '../public/typescript.png'
 import tailwindLogo from '../public/tailwind.png'
 import chromeWindowBg from '../public/chromeWindow.png'
 
@@ -35,19 +34,13 @@ export default function NewTabApp() {
           />
           <div className="text-3xl text-white">+</div>
           <img
-            alt="TypeScript logo"
-            src={typescriptLogo}
-            className="relative inline-block w-12"
-          />
-          <div className="text-3xl text-white">+</div>
-          <img
             alt="Tailwind logo"
             src={tailwindLogo}
             className="relative inline-block w-12"
           />
         </div>
         <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-          This is a new tab page running React, TypeScript, and Tailwind.css.
+          This is a new tab page running React and Tailwind.css.
         </h2>
         <p className="mt-6 text-lg leading-8 text-gray-300">
           Learn more about creating browser extensions at{' '}
