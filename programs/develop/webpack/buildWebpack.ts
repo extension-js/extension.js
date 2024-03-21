@@ -9,7 +9,7 @@ import webpack from 'webpack'
 import path from 'path'
 import fs from 'fs'
 import {log, error} from 'console'
-import {blue, green, bold, red, underline} from '@colors/colors/safe'
+import {yellow, green, bold, red, underline} from '@colors/colors/safe'
 import compilerConfig from './webpack-config'
 import {type BuildOptions} from '../extensionBuild'
 
@@ -33,14 +33,23 @@ function printTree(node: Record<string, any>, prefix = '') {
   })
 }
 
-function getAssetInfo(assets: Array<{name: string; size: number}> | undefined) {
+// • Filename: chrome_url_overrides/history.js, Size: 1.62KB
+//   ▪ /Users/cezaraugusto/local/my-extensions/my-extension/chrome_url_overrides/history.js
+// • Filename: chrome_url_overrides/history.css, Size: 1.23KB
+//   ▪ /Users/cezaraugusto/local/my-extensions/my-extension/chrome_url_overrides/history.css
+// • Filename: chrome_url_overrides/history.html, Size: 1.18KB
+//   ▪ /Users/cezaraugusto/local/my-extensions/my-extension/chrome_url_overrides/history.html
+
+function getAssetInfo(
+  outputPath: string,
+  assets: Array<{name: string; size: number}> | undefined
+) {
   log('\n')
   assets?.forEach((asset) => {
     const sizeInKB = getFileSize(asset.size)
     log(
-      `• ${bold('Filename:')} ${asset.name}, ${bold(
-        'Size:'
-      )} ${sizeInKB}, ${bold('Path:')} ${underline(`${asset.name}`)}`
+      `• ${bold('Filename:')} ${yellow(asset.name)}, ${bold('Size:')} ${sizeInKB}` +
+        `\n  ${bold('└─')} ${underline(`${path.join(outputPath, asset.name)}`)}`
     )
   })
 }
@@ -110,6 +119,7 @@ export default function buildWebpack(
       fs.readFileSync(manifestPath, 'utf8')
     )
     const assets = statsJson?.assets
+    const outputPath = webpackConfigNoBrowser.output?.path as string
     const heading = `🧩 ${bold('extension-create')} ${green(
       '►►►'
     )} Building ${bold(manifest.name)} extension using ${bold(
@@ -123,13 +133,13 @@ export default function buildWebpack(
     }`
     const version = `Version: ${manifest.version}`
     const size = `Size: ${getAssetsSize(assets)}`
-    const ready = blue(
+    const ready = green(
       'No errors or warnings found. Your extension is ready for deployment.'
     )
 
     log(heading)
     getAssetsTree(assets)
-    getAssetInfo(assets)
+    getAssetInfo(outputPath, assets)
     log(buildTime)
     log(buildStatus)
     log(version)

@@ -4,6 +4,7 @@ import type webpack from 'webpack'
 import colors from '@colors/colors/safe'
 import Dotenv from 'dotenv-webpack'
 import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
+import {bold, blue, yellow} from '@colors/colors/safe'
 
 import SpecialFoldersPlugin from './SpecialFoldersPlugin'
 import {type DevOptions} from '../../extensionDev'
@@ -33,12 +34,21 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
       if (
         fs.existsSync(path.join(projectPath, '.env')) ||
         fs.existsSync(path.join(projectPath, '.env.example')) ||
+        fs.existsSync(path.join(projectPath, '.env.local')) ||
         fs.existsSync(path.join(projectPath, '.env.defaults'))
       ) {
+      console.log(
+        bold(
+          `🧩 extension-create ${blue('►►►')} ${projectName} (v${projectVersion}) `
+        ) + `${bold(yellow('env'))} file found.`
+      )
+
         new Dotenv({
           path: fs.existsSync(path.join(projectPath, '.env'))
             ? path.join(projectPath, '.env')
-            : path.join(projectPath, '.env.example'),
+            : fs.existsSync(path.join(projectPath, '.env.local'))
+              ? path.join(projectPath, '.env.local')
+              : path.join(projectPath, '.env.example'),
           allowEmptyValues: true,
           defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
           systemvars: true
