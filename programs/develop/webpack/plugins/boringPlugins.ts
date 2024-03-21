@@ -37,11 +37,11 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
         fs.existsSync(path.join(projectPath, '.env.local')) ||
         fs.existsSync(path.join(projectPath, '.env.defaults'))
       ) {
-      console.log(
-        bold(
-          `🧩 extension-create ${blue('►►►')} ${projectName} (v${projectVersion}) `
-        ) + `${bold(yellow('env'))} file found.`
-      )
+        console.log(
+          bold(
+            `🧩 extension-create ${blue('►►►')} ${projectName} (v${projectVersion}) `
+          ) + `${bold(yellow('env'))} file found.`
+        )
 
         new Dotenv({
           path: fs.existsSync(path.join(projectPath, '.env'))
