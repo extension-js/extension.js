@@ -1,10 +1,9 @@
 import fs from 'fs'
 import path from 'path'
 import type webpack from 'webpack'
-import colors from '@colors/colors/safe'
+import colors, {bold, blue, yellow} from '@colors/colors/safe'
 import Dotenv from 'dotenv-webpack'
 import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
-import {bold, blue, yellow} from '@colors/colors/safe'
 
 import SpecialFoldersPlugin from './SpecialFoldersPlugin'
 import {type DevOptions} from '../../extensionDev'
