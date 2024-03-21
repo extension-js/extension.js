@@ -27,12 +27,6 @@ function getWebResourcesFolderPath(projectPath: string) {
   return path.join(projectPath, 'web_accessible_resources')
 }
 
-function getPort(port: number = 8000) {
-  // TODO: cezaraugusto scan available ports
-  // const nextPort = await getNextAvailablePort(port)
-  return port
-}
-
 function getOverlay() {
   return {
     errors: false,
@@ -61,7 +55,6 @@ export {
   getPagesFolderPath,
   getScriptsFolderPath,
   getWebResourcesFolderPath,
-  getPort,
   getOverlay,
   getOutputFilePath
 }

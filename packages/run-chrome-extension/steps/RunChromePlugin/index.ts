@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {exec} from 'child_process'
-import {bgWhite, black, green, red} from '@colors/colors/safe'
+import {bgWhite, black, green, red, blue} from '@colors/colors/safe'
 // @ts-ignore
 import chrome from 'chrome-location'
 import browserConfig from './chrome/browser.config'
@@ -28,11 +28,12 @@ export default class ChromeExtensionLauncherPlugin {
       ? `"${chrome}" "${this.options.startingUrl}"`
       : `"${chrome}"`
 
-    if (!fs.existsSync(path.resolve(chrome as string))) {
+    if (!fs.existsSync(chrome as string) || '') {
       console.error(
-        `${bgWhite(black(` chrome-browser `))} ${red(
-          `✖︎✖︎✖︎`
-        )} Chrome not found at ${chrome}`
+        `${bgWhite(black(` chrome-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
+          `Chrome browser ${typeof chrome === 'undefined' ? 'is not installed.' : `is not found at ${chrome}`}. ` +
+          // `Either install Chrome or set the CHROME environment variable to the path of the Chrome executable.`
+          `Either install Chrome or choose a different browser via ${blue('--browser')}.`
       )
       process.exit()
     }

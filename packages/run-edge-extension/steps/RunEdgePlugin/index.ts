@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {exec} from 'child_process'
-import {bgCyan, bold, green, white, red} from '@colors/colors/safe'
+import {bgCyan, bold, green, white, red, blue} from '@colors/colors/safe'
 // @ts-ignore
 import edge from 'edge-location'
 import browserConfig from './edge/browser.config'
@@ -34,6 +34,16 @@ export default class EdgeExtensionLauncherPlugin {
         `${bgCyan(white(bold(` edge-browser `)))} ${red(
           `✖︎✖︎✖︎`
         )} Edge not found at ${msEdge}`
+      )
+      process.exit()
+    }
+
+    if (!fs.existsSync(msEdge as string) || '') {
+      console.error(
+        `${bgCyan(white(bold(` edge-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+          `Chrome browser ${typeof chrome === 'undefined' ? 'is not installed.' : `is not found at ${msEdge}`}. ` +
+          // `Either install Edge or set the EDGE environment variable to the path of the Edge executable.`
+          `Either install Edge or choose a different browser via ${blue('--browser')}.`
       )
       process.exit()
     }
