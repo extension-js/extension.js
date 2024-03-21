@@ -8,7 +8,7 @@
 import path from 'path'
 import type WebpackDevServer from 'webpack-dev-server'
 import type {DevOptions} from '../extensionDev'
-import {getOverlay, getPort, getPublicFolderPath} from './config/userOptions'
+import {getOverlay, getPublicFolderPath} from './config/userOptions'
 import {isUsingReact} from './options/react'
 
 export default function devServerConfig(
@@ -43,7 +43,7 @@ export default function devServerConfig(
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
-    port: getPort(port),
+    port: 'auto',
     // WARN: Setting TRUE here causes the content_script
     // entry of a react extension to be reloaded infinitely.
     hot: 'only'
