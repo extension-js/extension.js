@@ -14,7 +14,7 @@
     "types": "tsc --noEmit --project tsconfig.json",
     "version-packages": "changeset version",
     "publish-packages": "turbo run compile lint test && changeset version && changeset publish",
-    "watch": "yarn compile && dotenv -- turbo run watch --filter={./packages/*,./programs/*} --concurrency=24"
+    "watch": "yarn compile && dotenv -- turbo run watch --filter=./packages/* --filter=./programs/* --concurrency=24"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
