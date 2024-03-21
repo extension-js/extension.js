@@ -1,5 +1,4 @@
 import fs from 'fs'
-import path from 'path'
 import {type Compiler} from 'webpack'
 import {exec} from 'child_process'
 import {bgWhite, black, green, red, blue} from '@colors/colors/safe'

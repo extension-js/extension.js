@@ -38,7 +38,7 @@ export default class EdgeExtensionLauncherPlugin {
       process.exit()
     }
 
-    if (!fs.existsSync(msEdge as string) || '') {
+    if (!fs.existsSync(msEdge) || '') {
       console.error(
         `${bgCyan(white(bold(` edge-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
           `Chrome browser ${typeof chrome === 'undefined' ? 'is not installed.' : `is not found at ${msEdge}`}. ` +
