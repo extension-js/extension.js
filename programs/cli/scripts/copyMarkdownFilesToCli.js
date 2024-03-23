@@ -52,10 +52,6 @@ async function copyMarkdownFilesToCli(sourcePath, targetPath) {
       path.join(sourceDir, 'README.md'),
       path.join(targetDir, 'README.md')
     )
-    await copyMarkdownFilesToCli(
-      path.join(sourceDir, 'OPTIONS_TABLE.md'),
-      path.join(targetDir, 'OPTIONS_TABLE.md')
-    )
   } catch (error) {
     console.error(error)
   }

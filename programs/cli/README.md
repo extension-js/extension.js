@@ -102,10 +102,6 @@ If you want to target a specific browser, just pass the `--browser` flag to the 
 
 That's it!
 
-## Program Options Table
-
-For a list of all commands available, see [OPTIONS_TABLE.md](OPTIONS_TABLE.md).
-
 ## License
 
 MIT (c) Cezar Augusto.
