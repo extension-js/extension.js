@@ -12,7 +12,7 @@ import {log, error} from 'console'
 import {yellow, green, bold, red, underline} from '@colors/colors/safe'
 import compilerConfig from './webpack-config'
 import {type BuildOptions} from '../extensionBuild'
-import { getOutputPath } from './config/getPath'
+import {getOutputPath} from './config/getPath'
 
 function getFileSize(fileSizeInBytes: number): string {
   return `${(fileSizeInBytes / 1024).toFixed(2)}KB`
@@ -120,7 +120,8 @@ export default function buildWebpack(
       fs.readFileSync(manifestPath, 'utf8')
     )
     const assets = statsJson?.assets
-    const outputPath = webpackConfigNoBrowser.output?.path || getOutputPath(projectDir, browser)
+    const outputPath =
+      webpackConfigNoBrowser.output?.path || getOutputPath(projectDir, browser)
     const heading = `🧩 ${bold('extension-create')} ${green(
       '►►►'
     )} Building ${bold(manifest.name)} extension using ${bold(

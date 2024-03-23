@@ -10,8 +10,7 @@
 import semver from 'semver'
 import {program} from 'commander'
 
-import messages from './messages'
-import packageJson from './package.json'
+import checkUpdates from './check-updates'
 
 // Types
 import type {CreateOptions} from '@extension-create/create'
@@ -26,6 +25,12 @@ import {
   extensionStart,
   extensionBuild
 } from '@extension-create/develop'
+
+import messages from './messages'
+import packageJson from './package.json'
+
+// Before all, check for updates.
+checkUpdates(packageJson)
 
 if (semver.lte(process.version, '18.0.0')) {
   messages.unsupportedNodeVersion()
