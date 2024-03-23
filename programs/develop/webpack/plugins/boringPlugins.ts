@@ -45,7 +45,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
         console.log(
           bold(
             `🧩 extension-create ${blue('►►►')} ${projectName} (v${projectVersion}) `
-          ) + `${bold(yellow('env'))} file found.`
+          ) + `${bold(yellow('env'))} file loaded.`
         )
 
         new Dotenv({
