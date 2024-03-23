@@ -10,13 +10,12 @@
 import semver from 'semver'
 import {program} from 'commander'
 
-import checkUpdates from './check-updates'
-
 // Types
 import type {CreateOptions} from '@extension-create/create'
 import type {DevOptions} from '@extension-create/develop/extensionDev'
 import type {StartOptions} from '@extension-create/develop/extensionStart'
 import type {BuildOptions} from '@extension-create/develop/extensionBuild'
+import type {BrowsersSupported} from './types'
 
 // Modules
 import createExtension from '@extension-create/create'
@@ -26,6 +25,7 @@ import {
   extensionBuild
 } from '@extension-create/develop'
 
+import checkUpdates from './check-updates'
 import messages from './messages'
 import packageJson from './package.json'
 
@@ -55,7 +55,7 @@ const extensionCreate = program
 // If users are using extension-create, prevents from writing
 // extension-create create <...args> and do extension-create <...args> instead.
 // for the extension namespace, users will npx extension create <...args>
-const isExtensionCreateNamespace = packageJson.name === 'extension-create'
+const isExtensionCreateNamespace = packageJson.name !== 'extension'
 
 if (process.env.EXTENSION_ENV === 'development') {
   console.log(`Running extension-create via ${packageJson.name}...`)
@@ -73,6 +73,9 @@ extensionCreate
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
+
+const vendors = (browser: BrowsersSupported) =>
+  browser === 'all' ? 'chrome,edge'.split(',') : browser.split(',')
 
 extensionCreate
   // Pprevent users form using
@@ -93,11 +96,9 @@ extensionCreate
       ...otherCommandOptions
     }: CreateOptions & DevOptions & StartOptions & BuildOptions
   ) {
-    const vendors = browser.split(',')
-
     switch (pathOrRemoteUrl) {
       case 'dev':
-        for (const vendor of vendors) {
+        for (const vendor of vendors(browser)) {
           await extensionDev(pathOrRemoteUrl, {
             mode: 'development',
             browser: vendor as any,
@@ -106,7 +107,7 @@ extensionCreate
         }
         break
       case 'start':
-        for (const vendor of vendors) {
+        for (const vendor of vendors(browser)) {
           await extensionStart(pathOrRemoteUrl, {
             mode: 'production',
             browser: vendor as any,
@@ -115,7 +116,7 @@ extensionCreate
         }
         break
       case 'build':
-        for (const vendor of vendors) {
+        for (const vendor of vendors(browser)) {
           await extensionBuild(pathOrRemoteUrl, {
             browser: vendor as any,
             ...otherCommandOptions
@@ -160,8 +161,7 @@ extensionCreate
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...devOptions}: DevOptions
   ) {
-    const vendors = browser.split(',')
-    for (const vendor of vendors) {
+    for (const vendor of vendors(browser)) {
       await extensionDev(pathOrRemoteUrl, {
         mode: 'development',
         browser: vendor as any,
@@ -202,8 +202,7 @@ extensionCreate
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...startOptions}: StartOptions
   ) {
-    const vendors = browser.split(',')
-    for (const vendor of vendors) {
+    for (const vendor of vendors(browser)) {
       await extensionStart(pathOrRemoteUrl, {
         mode: 'production',
         browser: vendor as any,
@@ -236,8 +235,7 @@ extensionCreate
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...buildOptions}: BuildOptions
   ) {
-    const vendors = browser.split(',')
-    for (const vendor of vendors) {
+    for (const vendor of vendors(browser)) {
       await extensionBuild(pathOrRemoteUrl, {
         browser: vendor as any,
         ...buildOptions

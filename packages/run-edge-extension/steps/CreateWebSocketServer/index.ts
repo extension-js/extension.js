@@ -25,8 +25,8 @@ export default class CreateWebSocketServer {
     rewriteFirstRunVariable()
 
     // Start webSocket server to communicate with the extension.
-    const startConfig = this.options.stats
-    const wss = startServer(compiler, startConfig, this.options.port)
+    const statConfig = this.options.stats
+    const wss = startServer(compiler, statConfig, this.options.port)
 
     compiler.hooks.watchRun.tapAsync(
       'RunEdgeExtensionPlugin (CreateWebSocketServer)',

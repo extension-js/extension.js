@@ -8,6 +8,7 @@ import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
 import SpecialFoldersPlugin from './SpecialFoldersPlugin'
 import {type DevOptions} from '../../extensionDev'
 
+let statsHasRun = false
 export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
   const project = require(`${projectPath}/manifest.json`)
   const projectName = project.name
@@ -21,7 +22,12 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
         const divider = stats.hasErrors()
           ? colors.red('✖︎✖︎✖︎')
           : colors.green('►►►')
-        stats.compilation.name = `🧩 extension-create ${divider} ${projectName} (v${projectVersion})`
+
+        if (statsHasRun) {
+          stats.compilation.name = `🧩 extension-create ${divider} ${projectName} (v${projectVersion})`
+        }
+
+        statsHasRun = true
       })
 
       // Plugin to add special folders (public, pages, scripts) to the extension

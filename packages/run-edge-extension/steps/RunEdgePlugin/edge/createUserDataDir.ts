@@ -4,6 +4,7 @@
 
 import path from 'path'
 import fs from 'fs'
+import {bold} from '@colors/colors/safe'
 import addProgressBar from '../../../helpers/addProgressBar'
 import masterPreferences from './masterPreferences'
 
@@ -21,7 +22,7 @@ export default function createUserDataDir(
   const userProfile = JSON.stringify(masterPreferences)
 
   if (!silent) {
-    addProgressBar('👤 Creating user data directory...', () => {
+    addProgressBar(`👤 Creating ${bold('Edge')} user data directory...`, () => {
       const outputPath = path.resolve(__dirname, 'run-edge-data-dir')
       const preferences = path.join(outputPath, 'Default')
 

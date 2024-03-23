@@ -32,7 +32,9 @@ chrome.tabs.query({active: true}, ([initialTab]) => {
     chrome.tabs.update({url: 'edge://extensions/'})
     // WARN: This is generated at runtime by rewriteFirstRunVariable function.
     if (__IS_FIRST_RUN__) {
-      chrome.tabs.create({url: 'welcome.html'})
+      setTimeout(() => {
+        chrome.tabs.create({url: 'welcome.html'})
+      }, 1000)
     }
   } else {
     createEdgeExtensionsTab(initialTab, 'edge://extensions/')

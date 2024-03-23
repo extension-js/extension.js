@@ -11,6 +11,8 @@ import RunEdgeExtension from 'webpack-run-edge-extension'
 import {type DevOptions} from '../../extensionDev'
 import {getManifestPath, getOutputPath} from '../config/getPath'
 
+let statsHasRun = false
+
 export default function browserPlugins(
   projectPath: string,
   devOptions: DevOptions
@@ -27,7 +29,7 @@ export default function browserPlugins(
     extensionPath: getOutputPath(projectPath, devOptions.browser),
     autoReload: true,
     browserFlags: ['--enable-benchmarking'],
-    stats: true
+    stats: !statsHasRun
   }
 
   const edgeConfig = {
@@ -36,7 +38,9 @@ export default function browserPlugins(
     // If all browsers are being used, we don't need to show the stats
     // for each browser. This is because the stats will be the same for
     // each browser.
-    stats: devOptions.browser !== 'all'
+    // Note that a comma means that more than once browser is selected,
+    // so we show the user extension manifest output only once.
+    stats: !statsHasRun
   }
 
   return {
@@ -56,6 +60,8 @@ export default function browserPlugins(
           new RunChromeExtension(chromeConfig).apply(compiler)
           break
       }
+
+      statsHasRun = true
     }
   }
 }
