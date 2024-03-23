@@ -15,7 +15,7 @@ export default async function generateExtensionTypes(projectDir: string) {
   const typePath =
     process.env.EXTENSION_ENV === 'development'
       ? '../../programs/develop/types'
-      : '@extension-create/develop/dist/types'
+      : `@extension-create/develop/dist/types`
 
   const fileContent = `\
 // Required extension-create types for TypeScript projects.
@@ -23,8 +23,10 @@ export default async function generateExtensionTypes(projectDir: string) {
 // If you need extra types, consider creating a new *.d.ts and
 // referencing it in the "include" array in your tsconfig.json file.
 // See https://www.typescriptlang.org/tsconfig#include for info.
-/// <reference types="${typePath}" />
+/// <reference types="${typePath}/index.d.ts" />
 
+// Polyfill types for browser.* APIs.
+/// <reference types="${typePath}/polyfill.d.ts" />
 `
 
   const manifest = require(path.join(projectDir, 'manifest.json'))
