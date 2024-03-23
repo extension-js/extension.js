@@ -109,9 +109,13 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
       blue(`chrome://extensions/?id=${id}`)
     )}\n`
   )
+}
 
+function stdoutData(compiler: Compiler, message: {data?: Data}) {
+  const compilerOptions = compiler.options
+  const management = message.data?.management
   const crRuntime = bgWhite(black(bold(` chrome-browser `)))
-  // 🟠brave ⚪️chrome 🔵edge ⭕️opera 🔴firefox 🟣safari 🟢edge 🟡
+  // 🦁brave ⚪️chrome 🔵edge ⭕️opera 🦊firefox 🧭safari🟡
   // const edgeRuntime = bgCyan(black(bold(` edge-browser `)))
   // const ffRuntime = bgRed(white(bold(` firefox-runtime `)))
   // const operaRuntime = bgWhite(red(bold(` opera-runtime `)))
@@ -122,21 +126,23 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   log(
     `${crRuntime} ${green('►►►')} Running Chrome in ${
       compilerOptions.mode
-    } mode. Browser ${management.type} ${
-      management.enabled ? 'enabled' : 'disabled'
+    } mode. Browser ${management?.type} ${
+      management?.enabled ? 'enabled' : 'disabled'
     }.`
   )
+}
 
-  if (isFirstRun) {
-    log('')
-    log('This is your first run using extension-create. Welcome! 🎉')
-    log(
-      `To start developing your extension, terminate this process and run ${bold(
-        blue(prefersYarn() ? `yarn dev` : `npm run dev`)
-      )}.`
-    )
-    log(`\n🧩 More at ${blue(underline(`https://docs.extensioncreate.com`))}`)
-  }
+function isFirstRun() {
+  log('')
+  log('This is your first run using extension-create. Welcome! 🎉')
+  log(
+    `To start developing your extension, terminate this process and run ${bold(
+      blue(prefersYarn() ? `yarn dev` : `npm run dev`)
+    )}.`
+  )
+  log(
+    `\n🧩 Learn more at ${blue(underline(`https://docs.extensioncreate.com`))}`
+  )
 }
 
 function watchModeClosed(code: number, reason: Buffer) {
@@ -180,6 +186,8 @@ export default {
   manifestFieldError,
   manifestNotFound,
   extensionData,
+  stdoutData,
+  isFirstRun,
   watchModeClosed,
   browserNotFound,
   webSocketError,
