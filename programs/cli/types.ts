@@ -1,4 +1,4 @@
-export type BrowsersSupported = 'chrome' | 'edge' | 'all'
+export type BrowsersSupported = 'chrome' | 'edge' | 'firefox' | 'all'
 
 export interface CreateOptions {
   template?: string

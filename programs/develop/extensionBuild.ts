@@ -10,7 +10,7 @@ import getProjectPath from './steps/getProjectPath'
 import buildWebpack from './webpack/buildWebpack'
 
 export interface BuildOptions {
-  browser?: 'chrome' | 'edge'
+  browser?: 'chrome' | 'edge' | 'firefox' | 'all'
   polyfill?: boolean
 }
 

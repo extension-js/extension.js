@@ -46,6 +46,18 @@ export default function (
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           messages.extensionData(compiler, message, isUserFirstRun)
         }
+
+        messages.stdoutData(compiler, message)
+
+        if (statsConfig === true) {
+          if (isUserFirstRun) {
+            // Add a delay to ensure the message is sent
+            // after other runner messages.
+            setTimeout(() => {
+              messages.isFirstRun()
+            }, 2500)
+          }
+        }
       }
     })
   })
