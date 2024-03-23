@@ -1,6 +1,6 @@
 # [projectName]
 
-> This project was bootstrapped with extension-create using the TypeScript template.
+> This project was bootstrapped with extension-create using the Tailwind template.
 
 ## Scripts Available
 
