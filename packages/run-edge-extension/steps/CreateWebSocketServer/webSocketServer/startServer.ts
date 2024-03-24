@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
 import messages from '../../../helpers/messages'
 import {type StatsPreset} from '../../../types'
-import {type ManifestBase } from '../../../manifest-types'
+import {type ManifestBase} from '../../../manifest-types'
 import isFirstRun from '../../RunEdgePlugin/edge/isFirstRun'
 
 interface Data {
