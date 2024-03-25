@@ -20,13 +20,14 @@ Create cross-browser extensions with no build configuration.
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
-- [I have an extension](#i-have-an-extension) - Use only specific parts of `extension-create`.
+- [I have An Extension](#i-have-an-extension) - Use only specific parts of `extension-create`.
 
 `extension-create` is a development tool for browser extensions with built-in support for TypeScript, WebAssembly, React, and modern JavaScript.
 
 ## Create A New Extension
 
 ```sh
+# You can also add it globally via 
 npx extension@latest create my-extension
 cd my-extension-hello
 npm run dev
@@ -61,6 +62,10 @@ Dive right into development by starting with a sample from the Chrome Extension 
 
 See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
+```sh
+npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder --browser=edge
+```
+
 <div>
     <a href="https://www.loom.com/share/34fc48f3f7954bfa990e767c6a7172f0">
       <p>🔥 Get Started Immediately - Watch Video</p>
@@ -84,6 +89,11 @@ See the example below where we request the sample [page-redder](https://github.c
 
 > See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from  from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) using Edge as the runtime browser.
 
+
+```sh
+npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball --browser=edge
+```
+
 <div>
     <a href="https://www.loom.com/share/284d706379a84adabfdde6bd341b8d24">
       <p>Get Started Immediately (using Edge) - Watch Video</p>
@@ -105,6 +115,10 @@ Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
    This will fetch a Mozilla Add-On and adapt it for Edge.
 
 > See the example below where we request the sample [Apply CSS](https://github.com/mdn/webextensions-examples/tree/main/apply-css) from [MDN WebExtensions Examples](https://github.com/mdn/webextensions-examples) using Edge as the runtime browser.
+
+```sh
+npx extension dev https://github.com/mdn/webextensions-examples/tree/main/apply-css
+```
 
 <div>
     <a href="https://www.loom.com/share/6eb724aad822413fb4fe9f52afec5576">
