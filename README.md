@@ -176,7 +176,14 @@ Done. You are all set!
 
 If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension-create dev --browser=edge`.
 
-That's it!
+> Hint
+> Pass --browser="all" to load all available browsers at once.
+
+```sh
+extension dev --browser=all
+```
+
+<img width="1440" alt="Screenshot 2024-03-25 at 13 06 15" src="https://github.com/cezaraugusto/docs.extensioncreate.com/assets/4672033/01a90694-4705-416e-898c-20bf845984e7">
 
 ## License
 
