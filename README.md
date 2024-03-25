@@ -18,16 +18,16 @@
 
 Create cross-browser extensions with no build configuration.
 
-- [Creating an extension](#creating-an-extension) — How to create a new extension.
-- [Getting started immediately](#getting-started-immediately) — Get work done in no time.
+- [Create A New Extension](#create-a-new-extension) — How to create a new extension.
+- [Get Started Immediately](#get-started-immediately) — Get work done in no time.
 - [I have an extension](#i-have-an-extension) - Use only specific parts of `extension-create`.
 
-`extension-create` helps you develop cross-browser extensions with built-in support for module imports/exports, auto-reload, and more.
+`extension-create` is a development tool for browser extensions with built-in support for TypeScript, WebAssembly, React, and modern JavaScript.
 
-## Creating an Extension
+## Create A New Extension
 
 ```sh
-npx extension-create@latest create my-extension-hello
+npx extension@latest create my-extension
 cd my-extension-hello
 npm run dev
 ```
@@ -36,69 +36,145 @@ A new browser instance will open up with your extension ready for development.
 
 You are done. Time to hack on your extension!
 
-<p align="center">
-<img src="https://user-images.githubusercontent.com/4672033/106184765-ba0c2b80-6180-11eb-9d0f-d9d00d168290.gif" width="720" alt="npm start">
-</p>
+<div>
+    <a href="https://www.loom.com/share/58e21900d693417db1e0e59c0a96c4b3">
+      <p>Create A New Extension - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/58e21900d693417db1e0e59c0a96c4b3">
+      <img style="max-width:700px;" src="https://cdn.loom.com/sessions/thumbnails/58e21900d693417db1e0e59c0a96c4b3-1711317353826-with-play.gif">
+    </a>
+  </div>
 
-## Getting Started Immediately
+## Get Started Immediately
 
-### Kickstart any sample from Chrome Extension Samples
+## Kickstart Any Sample from Chrome Extension Samples
 
-The [chrome-extensions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/) project is a great way to kickstart developing your extension.
+Dive right into development by starting with a sample from the Chrome Extension Samples repository. It's a great way to get acquainted with best practices and save time:
 
-If we go to the samples repository and look for an extension sample to work, let's say the [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) sample, all we need is to copy and paste it's URL as an argument for the start command:
+1. Open your terminal.
+2. Navigate to the directory where you want your project.
+3. Run the command:
+   ```bash
+   npx extension dev <sample-name>
+   ```
+   Replace `<sample-name>` with the name of the sample you wish to use from [Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
-#### Command
+See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
-```sh
-# This command will:
-# 1. Download the Chrome extension sample URL to the current working directory
-# 2. Bundle the downloaded extension using extension-create
-# 3. Enable the extension in Chrome using a fresh user profile
-npx extension-create dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
-```
-
-<p align="center">
-<img src="https://user-images.githubusercontent.com/4672033/106188671-04dc7200-6186-11eb-940a-52aebab46f31.gif" width="720" alt="npm start">
-</p>
-
-Will not only download the extension but also kickstart a Chrome instance in a fresh profile with your sample extension loaded and default auto-reload support. Try it yourself!
+<div>
+    <a href="https://www.loom.com/share/34fc48f3f7954bfa990e767c6a7172f0">
+      <p>🔥 Get Started Immediately - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/34fc48f3f7954bfa990e767c6a7172f0">
+      <img style="max-width:700px;" src="https://cdn.loom.com/sessions/thumbnails/34fc48f3f7954bfa990e767c6a7172f0-1711318521320-with-play.gif">
+    </a>
+  </div>
 
 ### Use `Microsoft Edge` to kickstart any sample from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/)
 
-**You read it!** Just run the command above with the `--browser=edge` flag:
+`extension-create` supports a variety of browsers, including Microsoft Edge. To start an Edge-compatible extension, simply:
+
+1. Open your terminal.
+2. Navigate to your desired project directory.
+3. Execute:
+   ```bash
+   npx extension dev  <sample-name> --browser=edge
+   ```
+   Tailor your command by replacing `<sample-name>` with the specific sample you're interested in.
+
+> See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from  from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) using Edge as the runtime browser.
+
+<div>
+    <a href="https://www.loom.com/share/284d706379a84adabfdde6bd341b8d24">
+      <p>Get Started Immediately (using Edge) - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/284d706379a84adabfdde6bd341b8d24">
+      <img style="max-width:700px;" src="https://cdn.loom.com/sessions/thumbnails/284d706379a84adabfdde6bd341b8d24-1711318805218-with-play.gif">
+    </a>
+  </div>
+
+### Run Mozilla Add-Ons Using Edge 
+
+Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
+
+1. Navigate to your project directory.
+2. Use the command:
+   ```bash
+   npx extension dev <addon-name> --browser=edge --polyfill=true 
+   ```
+   This will fetch a Mozilla Add-On and adapt it for Edge.
+
+> See the example below where we request the sample [Apply CSS](https://github.com/mdn/webextensions-examples/tree/main/apply-css) from [MDN WebExtensions Examples](https://github.com/mdn/webextensions-examples) using Edge as the runtime browser.
+
+<div>
+    <a href="https://www.loom.com/share/6eb724aad822413fb4fe9f52afec5576">
+      <p>Get Started Immediately (Using A Mozilla Add-On on Edge) - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/6eb724aad822413fb4fe9f52afec5576">
+      <img style="max-width:700px;" src="https://cdn.loom.com/sessions/thumbnails/6eb724aad822413fb4fe9f52afec5576-1711319191911-with-play.gif">
+    </a>
+  </div>
+
+## I have An Extension
+
+<div>
+    <a href="https://www.loom.com/share/c7ae4fc7cdfc47c39334c7efe3175dd9">
+      <p>Usage With An Existing Extension - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/c7ae4fc7cdfc47c39334c7efe3175dd9">
+      <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/c7ae4fc7cdfc47c39334c7efe3175dd9-1711318289851-with-play.gif">
+    </a>
+  </div>
+
+If you have an existing extension which is using a package manager, you can install the `extension-create` package and manually create the scripts used to run your extension. See the demo above or follow these instructions to get it done:
+
+**Step 1 - Install extension-create as a `devDependency`**
 
 ```sh
-npx extension-create dev --browser=edge https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder
+npm install extension --save-dev
 ```
 
-And see a Chrome Extension sample running automatically. On Edge!
+**Step 2 - Link your npm scripts with the executable `extension-create` commands**
 
-## I have an extension
-
-Just add `extension-create` to your npm scripts. Here's how it should look in your `package.json`:
-
-```js
+```json
 {
-  // ...npm stuff,
   "scripts": {
-    "start": "npx extension-create start",
-    "dev": "npx extension-create dev",
-    "build": "npx extension-create build"
+    "build": "extension build",
+    "dev": "extension dev",
+    "start": "extension start"
   },
   "devDependencies": {
-    "extension-create": "latest"
+    // ...other deps,
+    "extension": "latest"
   }
 }
 ```
 
-#### Using a specific browser for development
+Done. You are all set!
 
-| <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" alt="Chrome browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" alt="Microsoft Edge browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" alt="Mozilla Firefox browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg" alt="Apple Safari browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" alt="Opera browser logo"> | <img width=120 src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chromium/chromium.svg" alt="Chromium browser logo"> |
-| -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| Google Chrome ✅                                                                                                                 | Microsoft Edge ✅                                                                                                                    | Mozilla Firefox ⛔️                                                                                                                         | Apple Safari ⛔️                                                                                                                       | Opera browser ⛔️                                                                                                             | Chromium (forks) 🤔                                                                                                                    |
+- To develop the extension, run `npm run dev`.
+- To visualize the extension in production mode, run `npm run start`.
+- To build the extension in production mode, run `npm run build`.
 
-If you want to target a specific browser, just pass the `--browser` flag to the dev/start command (Chrome or Edge, soon others), like `npx extension-create dev --browser=edge`.
+## Using a specific browser for development
+
+### Desktop Browsers
+
+☑️ = Likely works but no browser runner support yet.
+
+| ![Brave Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg) | ![Google Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg) | ![Microsoft Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg) | ![Mozilla Firefox](https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg) | ![Opera Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg) | <img width="110" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg">| ![Vivaldi Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg) |
+|-|-|-|-|-|-|-|
+| Brave Browser | Google Chrome | Microsoft Edge | Mozilla Firefox | Opera Browser | Apple Safari | Vivaldi Browser |
+| ☑️ | ✅ | ✅ | ⛔️ | ☑️ | ⛔️ | ☑️ |
+
+### Mobile Browsers
+
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari-ios/safari-ios.svg" width="100"> | 
+|-|-|
+| Firefox For Android | Safari On iOS | 
+| ⛔️ | ⛔️ |
+
+If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension-create dev --browser=edge`.
 
 That's it!
 
