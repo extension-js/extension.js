@@ -12,6 +12,8 @@
 [fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create.svg?type=shield
 [fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension-create?ref=badge_large
 
+<a href="https://www.producthunt.com/posts/extension-create?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-extension&#0045;create" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=446776&theme=light" alt="extension&#0045;create - Create&#0032;cross&#0045;browser&#0032;extensions&#0032;with&#0032;no&#0032;build&#0032;configuration&#0046; | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+
 # extension-create [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
@@ -27,7 +29,6 @@ Create cross-browser extensions with no build configuration.
 ## Create A New Extension
 
 ```sh
-# You can also add it globally via 
 npx extension@latest create my-extension
 cd my-extension-hello
 npm run dev
