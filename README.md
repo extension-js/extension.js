@@ -30,7 +30,7 @@ Create cross-browser extensions with no build configuration.
 
 ```sh
 npx extension@latest create my-extension
-cd my-extension-hello
+cd my-extension
 npm run dev
 ```
 
@@ -38,14 +38,7 @@ A new browser instance will open up with your extension ready for development.
 
 You are done. Time to hack on your extension!
 
-<div>
-    <a href="https://www.loom.com/share/58e21900d693417db1e0e59c0a96c4b3">
-      <p>Create A New Extension - Watch Video</p>
-    </a>
-    <a href="https://www.loom.com/share/58e21900d693417db1e0e59c0a96c4b3">
-      <img style="max-width:700px;" src="https://cdn.loom.com/sessions/thumbnails/58e21900d693417db1e0e59c0a96c4b3-1711317353826-with-play.gif">
-    </a>
-  </div>
+https://github.com/cezaraugusto/extension-create/assets/4672033/7263d368-99c4-434f-a60a-72c489672586
 
 ## Get Started Immediately
 
@@ -67,14 +60,7 @@ See the example below where we request the sample [page-redder](https://github.c
 npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder --browser=edge
 ```
 
-<div>
-    <a href="https://www.loom.com/share/34fc48f3f7954bfa990e767c6a7172f0">
-      <p>🔥 Get Started Immediately - Watch Video</p>
-    </a>
-    <a href="https://www.loom.com/share/34fc48f3f7954bfa990e767c6a7172f0">
-      <img style="max-width:700px;" src="https://cdn.loom.com/sessions/thumbnails/34fc48f3f7954bfa990e767c6a7172f0-1711318521320-with-play.gif">
-    </a>
-  </div>
+https://github.com/cezaraugusto/extension-create/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1
 
 ### Use `Microsoft Edge` to kickstart any sample from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/)
 
@@ -95,14 +81,7 @@ npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree
 npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball --browser=edge
 ```
 
-<div>
-    <a href="https://www.loom.com/share/284d706379a84adabfdde6bd341b8d24">
-      <p>Get Started Immediately (using Edge) - Watch Video</p>
-    </a>
-    <a href="https://www.loom.com/share/284d706379a84adabfdde6bd341b8d24">
-      <img style="max-width:700px;" src="https://cdn.loom.com/sessions/thumbnails/284d706379a84adabfdde6bd341b8d24-1711318805218-with-play.gif">
-    </a>
-  </div>
+https://github.com/cezaraugusto/extension-create/assets/4672033/2db2a1f6-3110-4380-9a49-dc9d034146aa
 
 ### Run Mozilla Add-Ons Using Edge 
 
@@ -121,25 +100,11 @@ Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
 npx extension dev https://github.com/mdn/webextensions-examples/tree/main/apply-css
 ```
 
-<div>
-    <a href="https://www.loom.com/share/6eb724aad822413fb4fe9f52afec5576">
-      <p>Get Started Immediately (Using A Mozilla Add-On on Edge) - Watch Video</p>
-    </a>
-    <a href="https://www.loom.com/share/6eb724aad822413fb4fe9f52afec5576">
-      <img style="max-width:700px;" src="https://cdn.loom.com/sessions/thumbnails/6eb724aad822413fb4fe9f52afec5576-1711319191911-with-play.gif">
-    </a>
-  </div>
+https://github.com/cezaraugusto/extension-create/assets/4672033/130cb430-1567-419c-8c90-23fddcf20f00
 
 ## I have An Extension
 
-<div>
-    <a href="https://www.loom.com/share/c7ae4fc7cdfc47c39334c7efe3175dd9">
-      <p>Usage With An Existing Extension - Watch Video</p>
-    </a>
-    <a href="https://www.loom.com/share/c7ae4fc7cdfc47c39334c7efe3175dd9">
-      <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/c7ae4fc7cdfc47c39334c7efe3175dd9-1711318289851-with-play.gif">
-    </a>
-  </div>
+https://github.com/cezaraugusto/extension-create/assets/4672033/48694a23-b7f1-4098-9c5d-eff49983739c
 
 If you have an existing extension which is using a package manager, you can install the `extension-create` package and manually create the scripts used to run your extension. See the demo above or follow these instructions to get it done:
 
