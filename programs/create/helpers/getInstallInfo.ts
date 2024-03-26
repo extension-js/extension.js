@@ -14,10 +14,3 @@ export function getInstallCommand() {
 
   return 'npm'
 }
-
-export function getInstallArgs(projectPath: string) {
-  if (getInstallCommand() === 'yarn') {
-    return ['install', '--cwd', projectPath, '--silent']
-  }
-  return ['install', '--prefix', projectPath, '--silent']
-}
