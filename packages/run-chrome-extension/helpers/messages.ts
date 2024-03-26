@@ -9,7 +9,9 @@ import {
   blue,
   red,
   yellow,
-  black
+  black,
+  magenta,
+  cyan
 } from '@colors/colors/safe'
 // @ts-ignore
 import prefersYarn from 'prefers-yarn'
@@ -123,12 +125,14 @@ function stdoutData(compiler: Compiler, message: {data?: Data}) {
   // const vivaldiRuntime = bgMagenta(white(bold(` vivaldi-runtime `)))
   // const safariRuntime = bgWhite(blue(bold(` safari-runtime `)))
 
+  const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
+
   log(
-    `${crRuntime} ${green('►►►')} Running Chrome in ${
-      compilerOptions.mode
-    } mode. Browser ${management?.type} ${
+    `${crRuntime} ${green('►►►')} Running Chrome in ${bold(
+      modeColor(compilerOptions.mode || 'unknown')
+    )} mode. Browser ${management?.type} ${bold(
       management?.enabled ? 'enabled' : 'disabled'
-    }.`
+    )}.`
   )
 }
 
