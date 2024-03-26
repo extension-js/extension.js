@@ -39,7 +39,7 @@ export default async function writeReadmeFile(
     console.error(
       `🧩 ${bold(`extension-create`)} ${red(
         `✖︎✖︎✖︎`
-      )} Can't install dependencies for ${bold(projectName)}. ${error}`
+      )} Can't write the README.md file for ${bold(projectName)}. ${error}`
     )
 
     process.exit(1)
