@@ -5,18 +5,26 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
+import path from 'path'
 import {spawn} from 'cross-spawn'
+import {execSync} from 'child_process'
 import {bold, red} from '@colors/colors/safe'
 
-import {getInstallCommand, getInstallArgs} from '../helpers/getInstallInfo'
+import {getInstallCommand} from '../helpers/getInstallInfo'
 import createSymlink from './symlinkExtensionCreate'
+
+function getInstallArgs() {
+  return ['install', '--silent']
+}
 
 export default async function installDependencies(
   projectPath: string,
   projectName: string
 ) {
+  const nodeModulesPath = path.join(projectPath, 'node_modules')
+
   const command = getInstallCommand()
-  const dependenciesArgs = getInstallArgs(projectPath)
+  const dependenciesArgs = getInstallArgs()
 
   console.log('🛠  - Installing dependencies...')
 
@@ -26,26 +34,40 @@ export default async function installDependencies(
   }
 
   try {
+    const originalDirectory = process.cwd()
+
+    // Change to the project directory
+    process.chdir(projectPath)
+
+    // Create the node_modules directory if it doesn't exist
+    execSync(`mkdir -p ${nodeModulesPath}`)
+
     const child = spawn(command, dependenciesArgs, {stdio: 'inherit'})
 
     await new Promise<void>((resolve, reject) => {
       child.on('close', (code) => {
+        // Change back to the original directory
+        process.chdir(originalDirectory)
+
         if (code !== 0) {
           reject(
             new Error(
-              // eslint-disable-next-line @typescript-eslint/no-base-to-string
-              {command: `${command} ${dependenciesArgs.join(' ')}`}.toString()
+              `Command ${command} ${dependenciesArgs.join(' ')} failed with exit code ${code}`
             )
           )
         } else {
           resolve()
         }
       })
+
       child.on('error', (error) => {
+        // Change back to the original directory
+        process.chdir(originalDirectory)
+
         console.error(
           `🧩 ${bold(`extension-create`)} ${red(
             `✖︎✖︎✖︎`
-          )} Can't install dependencies for ${bold(projectName)}. ${JSON.stringify(error)}`
+          )} Child process error: Can't install dependencies for ${bold(projectName)}. ${error.message}`
         )
         reject(error)
       })
@@ -54,7 +76,7 @@ export default async function installDependencies(
     console.error(
       `🧩 ${bold(`extension-create`)} ${red(
         `✖︎✖︎✖︎`
-      )} Can't install dependencies for ${bold(projectName)}. ${JSON.stringify(error)}`
+      )} Can't install dependencies for ${bold(projectName)}. ${error.message || error.toString()}`
     )
 
     process.exit(1)
