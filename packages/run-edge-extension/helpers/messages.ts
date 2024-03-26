@@ -9,7 +9,9 @@ import {
   blue,
   red,
   yellow,
-  white
+  white,
+  magenta,
+  cyan
 } from '@colors/colors/safe'
 // @ts-ignore
 import prefersYarn from 'prefers-yarn'
@@ -115,13 +117,14 @@ function stdoutData(compiler: Compiler, message: {data?: Data}) {
   const compilerOptions = compiler.options
   const management = message.data?.management
   const edgeRuntime = bgCyan(white(bold(` edge-browser `)))
+  const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
 
   log(
-    `${edgeRuntime} ${green('►►►')} Running Edge in ${
-      compilerOptions.mode
-    } mode. Browser ${management?.type} ${
+    `${edgeRuntime} ${green('►►►')} Running Edge in ${bold(
+      modeColor(compilerOptions.mode || 'unknown')
+    )} mode. Browser ${management?.type} ${bold(
       management?.enabled ? 'enabled' : 'disabled'
-    }.`
+    )}.`
   )
 }
 
