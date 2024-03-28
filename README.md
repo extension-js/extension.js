@@ -50,14 +50,14 @@ Dive right into development by starting with a sample from the Chrome Extension 
 2. Navigate to the directory where you want your project.
 3. Run the command:
    ```bash
-   npx extension dev <sample-name>
+   npx extension@latest dev <sample-name>
    ```
    Replace `<sample-name>` with the name of the sample you wish to use from [Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
 See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
 ```sh
-npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder --browser=edge
+npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder --browser=edge
 ```
 
 https://github.com/cezaraugusto/extension-create/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1
@@ -70,7 +70,7 @@ https://github.com/cezaraugusto/extension-create/assets/4672033/ee221a94-6ec7-4e
 2. Navigate to your desired project directory.
 3. Execute:
    ```bash
-   npx extension dev  <sample-name> --browser=edge
+   npx extension@latest dev  <sample-name> --browser=edge
    ```
    Tailor your command by replacing `<sample-name>` with the specific sample you're interested in.
 
@@ -78,7 +78,7 @@ https://github.com/cezaraugusto/extension-create/assets/4672033/ee221a94-6ec7-4e
 
 
 ```sh
-npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball --browser=edge
+npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball --browser=edge
 ```
 
 https://github.com/cezaraugusto/extension-create/assets/4672033/2db2a1f6-3110-4380-9a49-dc9d034146aa
@@ -90,14 +90,14 @@ Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
 1. Navigate to your project directory.
 2. Use the command:
    ```bash
-   npx extension dev <addon-name> --browser=edge --polyfill=true 
+   npx extension@latest dev <addon-name> --browser=edge --polyfill=true 
    ```
    This will fetch a Mozilla Add-On and adapt it for Edge.
 
 > See the example below where we request the sample [Apply CSS](https://github.com/mdn/webextensions-examples/tree/main/apply-css) from [MDN WebExtensions Examples](https://github.com/mdn/webextensions-examples) using Edge as the runtime browser.
 
 ```sh
-npx extension dev https://github.com/mdn/webextensions-examples/tree/main/apply-css
+npx extension@latest dev https://github.com/mdn/webextensions-examples/tree/main/apply-css --browser=edge --polyfill=true
 ```
 
 https://github.com/cezaraugusto/extension-create/assets/4672033/130cb430-1567-419c-8c90-23fddcf20f00
@@ -154,7 +154,7 @@ Done. You are all set!
 | Firefox For Android | Safari On iOS | 
 | ⛔️ | ⛔️ |
 
-If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension-create dev --browser=edge`.
+If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension@latest dev path/to/extension --browser=edge`.
 
 > Hint
 > Pass --browser="all" to load all available browsers at once.
