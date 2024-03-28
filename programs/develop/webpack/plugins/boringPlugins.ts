@@ -23,7 +23,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
           ? colors.red('✖︎✖︎✖︎')
           : colors.green('►►►')
 
-        if (statsHasRun) {
+        if (!statsHasRun) {
           stats.compilation.name = `🧩 extension-create ${divider} ${projectName} (v${projectVersion})`
         }
 
