@@ -9,9 +9,8 @@
 [prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
 [prs-url]: https://github.com/cezaraugusto/extension/blob/main/CONTRIBUTING.md
 [vunlerabilities]: https://snyk.io/test/github/cezaraugusto/extension/badge.svg
-[fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%extension.svg?type=shield
-[fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%extension?ref=badge_large
-
+[fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension.svg?type=shield&issueType=license
+[fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension?ref=badge_shield&issueType=license
 
 # npx extension [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
