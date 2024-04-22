@@ -7,10 +7,22 @@
 
 import path from 'path'
 import goGitIt from 'go-git-it'
-import {blue, red, green, white, bold, underline} from '@colors/colors/safe'
+import {blue, green, white, bold, underline} from '@colors/colors/safe'
+import downloadAndExtractZip from './extractFromZip'
 
-async function importUrlSource(pathOrRemoteUrl: string, text: string) {
+async function importUrlSourceFromGithub(
+  pathOrRemoteUrl: string,
+  text: string
+) {
   await goGitIt(pathOrRemoteUrl, process.cwd(), text)
+
+  return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))
+}
+
+async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
+  await downloadAndExtractZip(pathOrRemoteUrl, process.cwd())
+  // remove all query params from url
+  pathOrRemoteUrl = pathOrRemoteUrl.split('?')[0]
 
   return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))
 }
@@ -24,12 +36,9 @@ export default async function getProjectPath(
 
   if (pathOrRemoteUrl.startsWith('http')) {
     if (!pathOrRemoteUrl.startsWith('https://github.com')) {
-      console.log(
-        `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} ${bold(
-          'The remote extension URL must be stored on GitHub.'
-        )}`
-      )
-      process.exit(1)
+      const urlSource = await importUrlSourceFromZip(pathOrRemoteUrl)
+
+      return urlSource
     }
 
     const urlData = new URL(pathOrRemoteUrl).pathname.split('/')
@@ -44,7 +53,10 @@ export default async function getProjectPath(
     const downloadingText = `🧩 ${bold(`extension-create`)} ${green(
       `►►►`
     )} Downloading ${bold(projectName)}...`
-    const urlSource = await importUrlSource(pathOrRemoteUrl, downloadingText)
+    const urlSource = await importUrlSourceFromGithub(
+      pathOrRemoteUrl,
+      downloadingText
+    )
     console.log(
       `🧩 ${bold(`extension-create`)} ${green(
         `►►►`

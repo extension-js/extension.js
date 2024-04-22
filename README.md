@@ -79,8 +79,7 @@ https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553
    ```
    Tailor your command by replacing `<sample-name>` with the specific sample you're interested in.
 
-> See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from  from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) using Edge as the runtime browser.
-
+> See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) using Edge as the runtime browser.
 
 ```sh
 npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball --browser=edge
@@ -88,7 +87,7 @@ npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree
 
 https://github.com/cezaraugusto/extension/assets/4672033/2db2a1f6-3110-4380-9a49-dc9d034146aa
 
-### Run Mozilla Add-Ons Using Edge 
+### Run Mozilla Add-Ons Using Edge
 
 Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
 
@@ -129,7 +128,7 @@ npm install extension --save-dev
     "start": "extension start"
   },
   "devDependencies": {
-    // ...other deps,
+    // ...other deps,s
     "extension": "latest"
   }
 }
@@ -149,15 +148,6 @@ Done. You are all set!
 
 | ![Brave Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg) | ![Google Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg) | ![Microsoft Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg) | ![Mozilla Firefox](https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg) | ![Opera Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg) | <img width="110" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg">| ![Vivaldi Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg) |
 |-|-|-|-|-|-|-|
-| Brave Browser | Google Chrome | Microsoft Edge | Mozilla Firefox | Opera Browser | Apple Safari | Vivaldi Browser |
-| ☑️ | ✅ | ✅ | ⛔️ | ☑️ | ⛔️ | ☑️ |
-
-### Mobile Browsers
-
-| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari-ios/safari-ios.svg" width="100"> | 
-|-|-|
-| Firefox For Android | Safari On iOS | 
-| ⛔️ | ⛔️ |
 
 If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension dev path/to/extension --browser=edge`.
 
