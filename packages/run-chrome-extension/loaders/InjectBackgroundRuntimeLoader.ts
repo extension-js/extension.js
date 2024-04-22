@@ -23,7 +23,6 @@ interface InjectBackgroundAcceptContext extends LoaderContext<any> {
   }
 }
 
-let defaultBgEmitted = false
 export default function (this: InjectBackgroundAcceptContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
@@ -108,22 +107,6 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
       )
       if (url.includes(absoluteUrl)) {
         return `${generalReloadCode}${source}`
-      }
-    }
-  }
-
-  if (!manifest.background) {
-    if (manifest.manifest_version === 2) {
-      if (!defaultBgEmitted) {
-        this.emitFile('background/script' + '.js', generalReloadCode)
-        defaultBgEmitted = true
-      }
-    }
-
-    if (manifest.manifest_version === 3) {
-      if (!defaultBgEmitted) {
-        this.emitFile('background/service_worker' + '.js', generalReloadCode)
-        defaultBgEmitted = true
       }
     }
   }
