@@ -1,4 +1,4 @@
-import fs from 'fs'
+import fs from 'fs/promises'
 import path from 'path'
 import {green, white, bold, underline} from '@colors/colors/safe'
 import axios from 'axios'
@@ -26,7 +26,7 @@ export default async function downloadAndExtractZip(
 
     const filename = path.basename(urlNoSearchParams)
     const zipFilePath = path.join(targetPath, `${filename}.zip`)
-    fs.writeFileSync(zipFilePath, response.data as string)
+    await fs.writeFile(zipFilePath, response.data as string)
 
     console.log(
       `🧩 ${bold(`extension-create`)} ${green(
@@ -39,14 +39,15 @@ export default async function downloadAndExtractZip(
     zip.extractAllTo(targetPath, true)
 
     // Step 3: Cleanup
-    fs.unlinkSync(zipFilePath)
+    await fs.unlink(zipFilePath)
 
     console.log(
       `🧩 ${bold(`extension-create`)} ${green(
         `►►►`
-      )} Browser extension unpackaged successfully. Compilling...`
+      )} Browser extension unpackaged successfully. Compiling...`
     )
   } catch (error) {
     console.error(`Failed to download or extract ZIP file: ${error}`)
+    throw error
   }
 }

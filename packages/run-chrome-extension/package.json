@@ -19,7 +19,9 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "compile": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node18 && node ./copyExtensions.js",
+    "compile:plugin": "tsup-node ./module.ts ./loaders/* --format cjs --dts --target=node18 --minify && node ./copyExtensions.js",
+    "compile:web": "tsup-node ./minimum-background-file.ts --format esm --dts --target=node18 --minify --config=tsconfig.web.json",
+    "compile": "yarn compile:plugin && yarn compile:web",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0",
     "test:fixture": "yarn --cwd=./fixtures/dev-server-no-hmr dev",
@@ -63,6 +65,7 @@
     "eslint-config-extension-create": "*",
     "html-webpack-plugin": "^5.6.0",
     "tsconfig": "*",
+    "tsup": "^8.0.1",
     "webpack": "~5.89.0",
     "webpack-cli": "^5.1.4"
   }
