@@ -25,8 +25,8 @@
     "watch": "yarn compile --watch",
     "compile:plugin": "tsup-node ./module.ts ./loaders/InjectHmrAcceptLoader.ts --format cjs --dts --target=node18 --minify",
     "compile:web": "tsup-node ./minimum-script-file.ts --format esm --dts --target=node18 --minify --config=tsconfig.web.json",
-    "compile:css": "copyfiles -f './minimum-css-file.css' dist",
-    "compile": "yarn compile:plugin && yarn compile:web && yarn compile:css",
+    "compile:css": "copy-file './minimum-css-file.css' dist/minimum-css-file.css",
+    "compile": "yarn compile:web && yarn compile:css && yarn compile:plugin",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "jest"
   },
@@ -57,8 +57,8 @@
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
     "@types/jest": "^29.5.12",
+    "copy-file-util": "^1.2.1",
     "copy-webpack-plugin": "^12.0.2",
-    "copyfiles": "^2.4.1",
     "eslint": "^8.56.0",
     "eslint-config-extension-create": "*",
     "fs-extra": "^11.2.0",
