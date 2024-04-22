@@ -35,8 +35,11 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
+    "@types/adm-zip": "^0.5.5",
     "@types/chrome": "^0.0.258",
     "@types/webextension-polyfill": "^0.10.7",
+    "adm-zip": "^0.5.12",
+    "axios": "^1.6.8",
     "babel-loader": "^9.1.3",
     "babel-preset-modern-browser-extension": "^0.7.0",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
