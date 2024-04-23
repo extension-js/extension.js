@@ -49,7 +49,6 @@ class TargetWebExtensionPlugin {
   }
 
   private addDefaultEntry(compiler: webpack.Compiler, name: string, defaultScript: string) {
-    console.log(`Adding default script for ${name}`);
     compiler.options.entry = {
       ...compiler.options.entry,
       [name]: { import: [defaultScript] }
