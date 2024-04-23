@@ -147,8 +147,17 @@ Done. You are all set!
 
 ☑️ = Likely works but no browser runner support yet.
 
-| ![Brave Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg) | ![Google Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg) | ![Microsoft Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg) | ![Mozilla Firefox](https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg) | ![Opera Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg) | <img width="110" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg"> | ![Vivaldi Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg) |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" width="100" height="100"> | <img width="100" height="100" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg">| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg" width="100" height="100"> |
+|-|-|-|-|-|-|-|
+| Brave Browser | Google Chrome | Microsoft Edge | Mozilla Firefox | Opera Browser | Apple Safari | Vivaldi Browser |
+| ☑️ | ✅ | ✅ | ⛔️ | ☑️ | ⛔️ | ☑️ |
+
+### Mobile Browsers
+
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari-ios/safari-ios.svg" width="100" height="100"> | 
+|-|-|
+| Firefox For Android | Safari On iOS | 
+| ⛔️ | ⛔️ |
 
 If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension dev path/to/extension --browser=edge`.
 

@@ -12,7 +12,7 @@
 [fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension.svg?type=shield&issueType=license
 [fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension?ref=badge_shield&issueType=license
 
-# extension [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
+# npx extension [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
 > Plug-and-play, zero-config, cross-browser extension development tool.
 
@@ -147,8 +147,17 @@ Done. You are all set!
 
 ☑️ = Likely works but no browser runner support yet.
 
-| ![Brave Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg) | ![Google Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg) | ![Microsoft Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg) | ![Mozilla Firefox](https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg) | ![Opera Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg) | <img width="110" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg"> | ![Vivaldi Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg) |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" width="100" height="100"> | <img width="100" height="100" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg">| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg" width="100" height="100"> |
+|-|-|-|-|-|-|-|
+| Brave Browser | Google Chrome | Microsoft Edge | Mozilla Firefox | Opera Browser | Apple Safari | Vivaldi Browser |
+| ☑️ | ✅ | ✅ | ⛔️ | ☑️ | ⛔️ | ☑️ |
+
+### Mobile Browsers
+
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari-ios/safari-ios.svg" width="100" height="100"> | 
+|-|-|
+| Firefox For Android | Safari On iOS | 
+| ⛔️ | ⛔️ |
 
 If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension dev path/to/extension --browser=edge`.
 
