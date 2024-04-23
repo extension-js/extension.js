@@ -22,13 +22,14 @@
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
-__Create cross-browser extensions with no build configuration.__
+**Create cross-browser extensions with no build configuration.**
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
 - [I have An Extension](#i-have-an-extension) - Use only specific parts of `extension`.
 
 <!-- `extension` is a development tool for browser extensions with built-in support for TypeScript, WebAssembly, React, and modern JavaScript.  -->
+
 `extension` is a plug-and-play, zero-config, cross-browser extension development tool with built-in support for TypeScript, WebAssembly, React, and modern JavaScript.
 
 ## Create A New Extension
@@ -94,7 +95,7 @@ Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
 1. Navigate to your project directory.
 2. Use the command:
    ```bash
-   npx extension dev <addon-name> --browser=edge --polyfill=true 
+   npx extension dev <addon-name> --browser=edge --polyfill=true
    ```
    This will fetch a Mozilla Add-On and adapt it for Edge.
 
@@ -146,8 +147,8 @@ Done. You are all set!
 
 ☑️ = Likely works but no browser runner support yet.
 
-| ![Brave Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg) | ![Google Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg) | ![Microsoft Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg) | ![Mozilla Firefox](https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg) | ![Opera Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg) | <img width="110" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg">| ![Vivaldi Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg) |
-|-|-|-|-|-|-|-|
+| ![Brave Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg) | ![Google Chrome](https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg) | ![Microsoft Edge](https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg) | ![Mozilla Firefox](https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg) | ![Opera Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg) | <img width="110" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg"> | ![Vivaldi Browser](https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg) |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
 
 If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension dev path/to/extension --browser=edge`.
 
