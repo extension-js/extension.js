@@ -14,45 +14,55 @@ class TargetWebExtensionPlugin {
   }
 
   private handleBackground(compiler: webpack.Compiler, manifest: Manifest) {
-    const minimumBgScript = path.resolve(__dirname, 'minimum-background-file.mjs');
-    const dirname = path.dirname(this.manifestPath!);
+    const minimumBgScript = path.resolve(
+      __dirname,
+      'minimum-background-file.mjs'
+    )
+    const dirname = path.dirname(this.manifestPath!)
     const manifestBg = manifest.background
 
     if (manifest.manifest_version === 3) {
-      const serviceWorker: string | null = manifestBg && manifestBg.service_worker
+      const serviceWorker: string | null =
+        manifestBg && manifestBg.service_worker
       if (serviceWorker) {
-        const serviceWorkerPath = path.join(dirname, serviceWorker);
-        this.ensureFileExists(serviceWorkerPath, 'background.service_worker');
+        const serviceWorkerPath = path.join(dirname, serviceWorker)
+        this.ensureFileExists(serviceWorkerPath, 'background.service_worker')
       } else {
-        this.addDefaultEntry(compiler, 'background/service_worker', minimumBgScript);
+        this.addDefaultEntry(
+          compiler,
+          'background/service_worker',
+          minimumBgScript
+        )
       }
     } else if (manifest.manifest_version === 2) {
-      const backgroundScripts: string[] | null = manifestBg && manifestBg.scripts
+      const backgroundScripts: string[] | null =
+        manifestBg && manifestBg.scripts
       if (backgroundScripts && backgroundScripts.length > 0) {
-        const backgroundScriptPath = path.join(dirname, backgroundScripts[0]);
-        this.ensureFileExists(backgroundScriptPath, 'background.scripts');
+        const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
+        this.ensureFileExists(backgroundScriptPath, 'background.scripts')
       } else {
-        this.addDefaultEntry(compiler, 'background/script', minimumBgScript);
+        this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     }
   }
 
   private ensureFileExists(filePath: string, fieldName: string) {
     if (!fs.existsSync(filePath)) {
-      const fieldError = messages.manifestFieldError(
-        fieldName,
-        filePath
-      )
-      console.error(red(bold(fieldError)));
-      throw new Error(fieldError);
+      const fieldError = messages.manifestFieldError(fieldName, filePath)
+      console.error(red(bold(fieldError)))
+      throw new Error(fieldError)
     }
   }
 
-  private addDefaultEntry(compiler: webpack.Compiler, name: string, defaultScript: string) {
+  private addDefaultEntry(
+    compiler: webpack.Compiler,
+    name: string,
+    defaultScript: string
+  ) {
     compiler.options.entry = {
       ...compiler.options.entry,
-      [name]: { import: [defaultScript] }
-    };
+      [name]: {import: [defaultScript]}
+    }
   }
 
   private getEntryName(manifest: Manifest) {
