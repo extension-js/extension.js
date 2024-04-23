@@ -13,8 +13,8 @@ export default async function checkUpdates(packageJson: Record<string, any>) {
   }
 
   if (update) {
-    console.log(
-      `Your 🧩 ${bold('extension-create')} version is ${red('outdated')}.\nThe latest version is ${bold(update.latest)}. Please update!`
-    )
+    console.log(`
+Your 🧩 ${bold('extension-create')} version is ${red('outdated')}.\nThe latest version is ${bold(update.latest)}. Please update!
+`)
   }
 }
