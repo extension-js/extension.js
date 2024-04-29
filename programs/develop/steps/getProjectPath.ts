@@ -50,7 +50,7 @@ export default async function getProjectPath(
         underline(`https://github.com/${owner}/${project}`)
       )}`
     )
-    const downloadingText = `🧩 ${bold(`extension`)} ${green(
+    const downloadingText = `🧩 ${bold(`Extension`)} ${green(
       `►►►`
     )} Downloading ${bold(projectName)}...`
     const urlSource = await importUrlSourceFromGithub(

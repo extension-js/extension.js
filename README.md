@@ -12,7 +12,7 @@
 [fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension.svg?type=shield&issueType=license
 [fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension?ref=badge_shield&issueType=license
 
-# Extension [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
+# Extension.js [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
 > Plug-and-play, zero-config, cross-browser extension development tool.
 
@@ -26,11 +26,11 @@
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
-- [I have An Extension](#i-have-an-extension) - Use only specific parts of `extension`.
+- [I have An Extension](#i-have-an-extension) - Use only specific parts of `Extension.js`.
 
-<!-- `extension` is a development tool for browser extensions with built-in support for TypeScript, WebAssembly, React, and modern JavaScript.  -->
+<!-- `Extension.js` is a development tool for browser extensions with built-in support for TypeScript, WebAssembly, React, and modern JavaScript.  -->
 
-`extension` is a plug-and-play, zero-config, cross-browser extension development tool with built-in support for TypeScript, WebAssembly, React, and modern JavaScript.
+`Extension.js` is a plug-and-play, zero-config, cross-browser extension development tool with built-in support for TypeScript, WebAssembly, React, and modern JavaScript.
 
 ## Create A New Extension
 
@@ -70,7 +70,7 @@ https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553
 
 ### Use `Microsoft Edge` to kickstart any sample from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/)
 
-`extension` supports a variety of browsers, including Microsoft Edge. To start an Edge-compatible extension, simply:
+`Extension.js` supports a variety of browsers, including Microsoft Edge. To start an Edge-compatible extension, simply:
 
 1. Open your terminal.
 2. Navigate to your desired project directory.
@@ -111,7 +111,7 @@ https://github.com/cezaraugusto/extension/assets/4672033/130cb430-1567-419c-8c90
 
 https://github.com/cezaraugusto/extension/assets/4672033/48694a23-b7f1-4098-9c5d-eff49983739c
 
-If you have an existing extension which is using a package manager, you can install the `extension` package and manually create the scripts used to run your extension. See the demo above or follow these instructions to get it done:
+If you have an existing extension which is using a package manager, you can install the `Extension.js` package and manually create the scripts used to run your extension. See the demo above or follow these instructions to get it done:
 
 **Step 1 - Install extension as a `devDependency`**
 
@@ -119,7 +119,7 @@ If you have an existing extension which is using a package manager, you can inst
 npm install extension --save-dev
 ```
 
-**Step 2 - Link your npm scripts with the executable `extension` commands**
+**Step 2 - Link your npm scripts with the executable `Extension.js` commands**
 
 ```json
 {
