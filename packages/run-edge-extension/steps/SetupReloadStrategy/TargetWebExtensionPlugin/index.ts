@@ -13,46 +13,60 @@ class TargetWebExtensionPlugin {
     this.manifestPath = options.manifestPath
   }
 
-  private handleMissingBackground(manifest: Manifest) {
+  private handleBackground(compiler: webpack.Compiler, manifest: Manifest) {
+    const minimumBgScript = path.resolve(
+      __dirname,
+      'minimum-background-file.mjs'
+    )
+    const dirname = path.dirname(this.manifestPath!)
+    const manifestBg = manifest.background
+
     if (manifest.manifest_version === 3) {
-      if (manifest.background.service_worker) {
-        const serviceWorker = manifest.background.service_worker as string
-        const serviceWorkerPath = path.join(
-          path.dirname(this.manifestPath!),
-          serviceWorker
+      const serviceWorker: string | null =
+        manifestBg && manifestBg.service_worker
+      if (serviceWorker) {
+        const serviceWorkerPath = path.join(dirname, serviceWorker)
+        this.ensureFileExists(serviceWorkerPath, 'background.service_worker')
+      } else {
+        this.addDefaultEntry(
+          compiler,
+          'background/service_worker',
+          minimumBgScript
         )
-
-        if (!fs.existsSync(serviceWorkerPath)) {
-          const fieldError = messages.manifestFieldError(
-            'background.service_worker',
-            serviceWorkerPath
-          )
-          console.error(red(bold(fieldError)))
-          process.exit(1)
-        }
       }
-    }
-
-    if (manifest.background.scripts) {
-      const backgroundScripts = manifest.background.scripts as string[]
-      const backgroundPath = path.join(
-        path.dirname(this.manifestPath!),
-        backgroundScripts[0]
-      )
-
-      if (!fs.existsSync(backgroundPath)) {
-        const fieldError = messages.manifestFieldError(
-          'background.scripts',
-          backgroundPath
-        )
-        throw Error(fieldError)
+    } else if (manifest.manifest_version === 2) {
+      const backgroundScripts: string[] | null =
+        manifestBg && manifestBg.scripts
+      if (backgroundScripts && backgroundScripts.length > 0) {
+        const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
+        this.ensureFileExists(backgroundScriptPath, 'background.scripts')
+      } else {
+        this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     }
   }
 
-  private getEntryName(manifestPath: string) {
-    const manifest = require(manifestPath)
+  private ensureFileExists(filePath: string, fieldName: string) {
+    if (!fs.existsSync(filePath)) {
+      const fieldError = messages.manifestFieldError(fieldName, filePath)
+      console.error(red(bold(fieldError)))
+      throw new Error(fieldError)
+    }
+  }
 
+  private addDefaultEntry(
+    compiler: webpack.Compiler,
+    name: string,
+    defaultScript: string
+  ) {
+    console.log(`Adding default script for ${name}`)
+    compiler.options.entry = {
+      ...compiler.options.entry,
+      [name]: {import: [defaultScript]}
+    }
+  }
+
+  private getEntryName(manifest: Manifest) {
     if (manifest.background) {
       if (manifest.manifest_version === 3) {
         return {serviceWorkerEntry: 'background/service_worker'}
@@ -73,12 +87,10 @@ class TargetWebExtensionPlugin {
 
     const manifest: Manifest = require(this.manifestPath)
 
-    if (manifest.background) {
-      this.handleMissingBackground(manifest)
-    }
+    this.handleBackground(compiler, manifest)
 
     new WebExtension({
-      background: this.getEntryName(this.manifestPath),
+      background: this.getEntryName(manifest),
       weakRuntimeCheck: true
     }).apply(compiler)
   }
