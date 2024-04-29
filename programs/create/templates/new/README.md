@@ -1,3 +1,3 @@
-# extension-create Web Template
+# Extension Web Template
 
-> Web template for [extension-create](https://github.com/cezaraugusto/extension-create).
+> Web template for [Extension](https://github.com/cezaraugusto/extension).

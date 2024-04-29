@@ -18,7 +18,7 @@ export function noURLWithoutStart(argument: string) {
     The default \`create\` command does not accept URLs.
     Are you forgetting a \`start\` command? Maybe:
 
-    npx extension-create \`start\` ${argument}
+    npx extension \`start\` ${argument}
   `
 }
 

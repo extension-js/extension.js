@@ -1,8 +1,8 @@
-# @extension-create/create
+# @extension/create
 
-> The **create** part of [extension-create](https://github.com/cezaraugusto/extension-create). Available as a standalone package.
+> The **create** part of [Extension](https://github.com/cezaraugusto/extension). Available as a standalone package.
 
-This package stores all logic needed by `extension-create` to create new projects.
+This package stores all logic needed by `extension` to create new projects.
 
 ## Installation
 

@@ -1,3 +1,3 @@
-# extension-create Tailwind Template
+# Extension Tailwind Template
 
-> Tailwind template for [extension-create](https://github.com/cezaraugusto/extension-create).
+> Tailwind template for [Extension](https://github.com/cezaraugusto/extension).

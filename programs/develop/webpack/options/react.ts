@@ -30,9 +30,7 @@ export function isUsingReact(projectDir: string) {
     if (!userMessageDelivered) {
       console.log(
         bold(
-          `🧩 extension-create ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) `
+          `🧩 Extension ${blue('►►►')} ${manifest.name} (v${manifest.version}) `
         ) + `is using ${bold(cyan('React'))}.`
       )
 

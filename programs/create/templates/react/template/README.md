@@ -1,6 +1,6 @@
 # [projectName]
 
-> This project was bootstrapped with extension-create using the TypeScript template.
+> This project was bootstrapped using the Extension TypeScript template.
 
 ## Scripts Available
 
@@ -34,4 +34,4 @@ In the project directory, you can run:
 
 ## Learn More
 
-You can learn more in the [extension-create](https://extension.js.org) documentation.
+You can learn more in the [Extension](https://extension.js.org) documentation.

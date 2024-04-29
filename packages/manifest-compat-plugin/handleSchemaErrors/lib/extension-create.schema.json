@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://json.schemastore.org/chrome-manifest-v2.json",
-  "title": "JSON schema for Google Chrome extension manifest files using extension-create",
+  "title": "JSON schema for Google Chrome extension manifest files using the Extension package",
   "type": "object",
   "required": ["manifest_version", "name", "version"],
   "additionalProperties": false

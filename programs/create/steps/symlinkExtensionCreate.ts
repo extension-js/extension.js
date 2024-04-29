@@ -15,13 +15,13 @@ export default async function createSymlink(projectPath: string) {
   const args = ['link']
 
   await new Promise<void>((resolve, reject) => {
-    // Link extension-create CLI to the project
+    // Link Extension to the project
     const linkExtensionCreate = spawn(command, args, {
       cwd: extensionCreateCliDir
     })
 
     linkExtensionCreate.on('close', (code) => {
-      const linkProcess = spawn(command, [...args, '@extension-create/cli'], {
+      const linkProcess = spawn(command, [...args, 'extension'], {
         stdio: 'inherit',
         cwd: projectPath
       })

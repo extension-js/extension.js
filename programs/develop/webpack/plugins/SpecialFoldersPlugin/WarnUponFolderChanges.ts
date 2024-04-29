@@ -20,7 +20,7 @@ class WatchPagesPlugin {
     const addedOrRemoved = isAddition ? 'added' : 'removed'
     const typeOfAsset = folder === 'pages' ? 'HTML pages' : 'script files'
     const errorMessage =
-      `\n🧩 ${bold('extension-create')} ${red(
+      `\n🧩 ${bold('Extension')} ${red(
         '✖︎✖︎✖︎'
       )} ${addingOrRemoving} ${typeOfAsset} ` +
       `in the ${underline(

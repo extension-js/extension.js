@@ -1,6 +1,6 @@
 # Contributing 🧩
 
-`extension-create` is a monorepo consisting of multiple programs and packages.
+`extension` is a monorepo consisting of multiple programs and packages.
 
 - Programs: Each CLI command (including the CLI itself) is a program.
 - Packages: Helper libraries and built-in webpack plugins.
@@ -11,7 +11,7 @@
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | [`browser-extension-manifest-fields`](/packages/browser-extension-manifest-fields) | Library to output manifest asset paths.                                        |
 | [`common-errors-plugin`](/packages/common-errors-plugin)                           | Plugin to handle common compilation errors.                                    |
-| [`eslint-config-extension-create`](/packages/eslint-config-extension-create)       | Preset of eslint rules for extension-create.                                   |
+| [`eslint-config-extension-create`](/packages/eslint-config-extension-create)       | Preset of eslint rules for `extension`.                                        |
 | [`html-plugin`](/packages/html-plugin)                                             | Plugin to handle and compile HTML fields (and its assets) from the manifest.   |
 | [`icons-plugin`](/packages/icons-plugin)                                           | Plugin to handle and compile icon fields from the manifest.                    |
 | [`json-plugin`](/packages/json-plugin)                                             | Plugin to handle and compile JSON fields from the manifest.                    |
@@ -27,18 +27,18 @@
 
 ## Programs
 
-`extension-create` includes several command line programs, each serving a specific purpose in the extension development lifecycle:
+`extension` includes several command line programs, each serving a specific purpose in the extension development lifecycle:
 
 | Program   | Description                                                                                  |
 | --------- | -------------------------------------------------------------------------------------------- |
-| `cli`     | The Command Line Interface that executes the extension-create programs.                      |
+| `cli`     | The Command Line Interface that executes the Extension programs.                             |
 | `create`  | Create extensions from built-in templates.                                                   |
 | `develop` | Wrapper around the webpack config that consists of the `dev`, `start`, and `build` commands. |
 | `publish` | This is empty for now.                                                                       |
 
 ## Installation
 
-1. Clone the project `git@github.com:cezaraugusto/extension-create.git` && `cd extension-create`.
+1. Clone the project `git@github.com:cezaraugusto/extension.git` && `cd extension`.
 2. Install dependencies (will symlink files where appropriate) `yarn install`
 3. Create an `.env` file at the project root and add `EXTENSION_ENV=development`
 
@@ -60,7 +60,7 @@ yarn watch
 ### Terminal 2: Use it to actually execute the commands you want to test.
 
 The CLI is available internally as an npm script `yarn extension <command> [argument]`.
-Use it to experiment with the multiple extension-create CLI commands.
+Use it to experiment with the multiple Extension CLI commands.
 
 ```sh
 yarn extension <command> [argument]
@@ -73,7 +73,7 @@ and are needed for the project development.
 
 ### Extension
 
-This is the same command users run when they do `npx extension-create <command>
+This is the same command users run when they do `npx extension <command>
 
 ```sh
 yarn extension <command> [args] [flags]
