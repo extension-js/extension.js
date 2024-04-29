@@ -11,10 +11,10 @@ document.body.innerHTML += `
   <p class="content_script-description">
     Learn more about creating browser extensions at <a
       className="underline hover:no-underline"
-      href="https://docs.extensioncreate.com"
+      href="https://extension.js.org"
       target="_blank"
     >
-    https://docs.extensioncreate.com
+    https://extension.js.org
     </a>
   </p>
 </div>

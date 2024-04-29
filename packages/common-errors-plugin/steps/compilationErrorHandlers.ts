@@ -28,7 +28,7 @@ export function handleCantResolveError(
   const cantResolveMsg = 'Module not found: Error:'
 
   if (error.message.includes(cantResolveMsg)) {
-    const link = 'https://docs.extensioncreate.com/n/features/special-folders'
+    const link = 'https://extension.js.org/n/features/special-folders'
     const customMessage =
       `[${manifest.name}]:${error.message.replace(cantResolveMsg, '')}. ` +
       `Make sure to import the file correctly and that it exists in your extension's directory.` +

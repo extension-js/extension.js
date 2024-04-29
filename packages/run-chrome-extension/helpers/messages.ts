@@ -145,7 +145,7 @@ function isFirstRun() {
     )}.`
   )
   log(
-    `\n🧩 Learn more at ${blue(underline(`https://docs.extensioncreate.com`))}`
+    `\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`
   )
 }
 
