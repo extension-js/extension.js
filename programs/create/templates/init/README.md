@@ -1,3 +1,3 @@
-# extension-create Default Template
+# Extension Default Template
 
-> Default template for [extension-create](https://github.com/cezaraugusto/extension-create).
+> Default template for [Extension](https://github.com/cezaraugusto/extension).

@@ -2,7 +2,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/extension-create.git",
+    "url": "https://github.com/cezaraugusto/extension.git",
     "directory": "programs/create"
   },
   "engines": {
@@ -10,7 +10,7 @@
   },
   "name": "@extension-create/create",
   "version": "1.3.0",
-  "description": "The create step of extension-create",
+  "description": "The Extension create step",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
   "files": [

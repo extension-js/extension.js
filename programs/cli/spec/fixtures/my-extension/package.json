@@ -1,11 +1,11 @@
 {
   "devDependencies": {
-    "extension-create": "*"
+    "extension": "*"
   },
   "scripts": {
-    "dev": "node node_modules/extension-create dev",
-    "start": "node node_modules/extension-create start",
-    "build": "node node_modules/extension-create build"
+    "dev": "node node_modules/extension dev",
+    "start": "node node_modules/extension start",
+    "build": "node node_modules/extension build"
   },
   "dependencies": {},
   "name": "my-extension",

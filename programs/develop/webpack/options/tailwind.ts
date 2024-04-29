@@ -48,9 +48,7 @@ export function isUsingTailwind(projectDir: string) {
       // This message is shown for each CSS loader we have, so we only want to show it once.
       console.log(
         bold(
-          `🧩 extension-create ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) `
+          `🧩 Extension ${blue('►►►')} ${manifest.name} (v${manifest.version}) `
         ) + `is using ${bold(magenta('Tailwind'))} config file.`
       )
 

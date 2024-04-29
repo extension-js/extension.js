@@ -54,7 +54,7 @@ export default function browserPlugins(
           new RunEdgeExtension(edgeConfig).apply(compiler)
           break
         case 'firefox':
-          console.warn('[extension-create]: firefox browser not supported yet')
+          console.warn('[Extension]: firefox browser not supported yet')
           break
         default:
           new RunChromeExtension(chromeConfig).apply(compiler)

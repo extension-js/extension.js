@@ -26,13 +26,13 @@ async function copyTailwindConfigFile(sourcePath, targetPath) {
     if (sourceData !== targetData) {
       await fs.writeFile(targetPath, sourceData, 'utf8')
       console.log(
-        `[extension-create setup] File ${path.basename(
+        `[Extension setup] File ${path.basename(
           sourcePath
         )} copied to ${targetPath}`
       )
     } else {
       console.log(
-        `[extension-create setup] File ${path.basename(
+        `[Extension setup] File ${path.basename(
           sourcePath
         )} haven't changed. Skipping copy...`
       )

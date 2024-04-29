@@ -2,7 +2,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/extension-create.git",
+    "url": "https://github.com/cezaraugusto/extension.git",
     "directory": "programs/cli"
   },
   "engines": {
@@ -18,8 +18,7 @@
     "README.md"
   ],
   "bin": {
-    "extension": "./dist/cli.js",
-    "extension-create": "./dist/cli.js"
+    "extension": "./dist/cli.js"
   },
   "author": {
     "name": "Cezar Augusto",
