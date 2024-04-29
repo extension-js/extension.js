@@ -15,15 +15,15 @@ import isExternalTemplate from '../helpers/isExternalTemplate'
 const extensionCreatePackageJsonScripts = {
   dev:
     process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/@extension-create/cli dev'
+      ? 'node node_modules/extension dev'
       : 'extension dev',
   start:
     process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/@extension-create/cli start'
+      ? 'node node_modules/extension start'
       : 'extension start',
   build:
     process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/@extension-create/cli build'
+      ? 'node node_modules/extension build'
       : 'extension build'
 }
 
@@ -45,7 +45,7 @@ export default async function writePackageJson(
   packageJson.dependencies = packageJson.dependencies || {}
   packageJson.devDependencies = {
     ...(packageJson.devDependencies || {}),
-    // During development, we want to use the local version of extension-create
+    // During development, we want to use the local version of Extension
     extension: process.env.EXTENSION_ENV === 'development' ? '*' : 'latest'
   }
 
@@ -70,7 +70,7 @@ export default async function writePackageJson(
     )
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension-create`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
+      `🧩 ${bold(`extension`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
         `package.json`
       )} for ${bold(projectName)}. ${error}`
     )

@@ -1,3 +1,3 @@
-# extension-create Content Scripts Template
+# Extension Content Scripts Template
 
-> content_scripts template for [extension-create](https://github.com/cezaraugusto/extension-create).
+> content_scripts template for [Extension](https://github.com/cezaraugusto/extension).

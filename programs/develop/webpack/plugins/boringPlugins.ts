@@ -24,7 +24,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
           : colors.green('►►►')
 
         if (!statsHasRun) {
-          stats.compilation.name = `🧩 extension-create ${divider} ${projectName} (v${projectVersion})`
+          stats.compilation.name = `🧩 Extension ${divider} ${projectName} (v${projectVersion})`
         }
 
         statsHasRun = true
@@ -44,7 +44,7 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
       ) {
         console.log(
           bold(
-            `🧩 extension-create ${blue('►►►')} ${projectName} (v${projectVersion}) `
+            `🧩 Extension ${blue('►►►')} ${projectName} (v${projectVersion}) `
           ) + `${bold(yellow('env'))} file loaded.`
         )
 

@@ -53,12 +53,12 @@ const extensionCreate = program
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 // If users are using extension-create, prevents from writing
-// extension-create create <...args> and do extension-create <...args> instead.
+// extension create <...args> and do extension <...args> instead.
 // for the extension namespace, users will npx extension create <...args>
 const isExtensionCreateNamespace = packageJson.name !== 'extension'
 
 if (process.env.EXTENSION_ENV === 'development') {
-  console.log(`Running extension-create via ${packageJson.name}...`)
+  console.log(`Running extension via ${packageJson.name}...`)
 }
 
 extensionCreate
@@ -78,9 +78,7 @@ const vendors = (browser: BrowsersSupported) =>
   browser === 'all' ? 'chrome,edge'.split(',') : browser.split(',')
 
 extensionCreate
-  // Pprevent users form using
-  // the redundant `npx extension-create create` command.
-  .command('create', {isDefault: isExtensionCreateNamespace})
+  .command('create')
   .arguments('<project-name|project-path>')
   .usage('create <project-name|project-path> [options]')
   .description('Creates a new extension.')
@@ -155,7 +153,7 @@ extensionCreate
   )
   .option(
     '-p, --port <number>',
-    'what port should extension-create/develop run. Defaults to `3000`'
+    'what port should Extension run. Defaults to `3000`'
   )
   .action(async function (
     pathOrRemoteUrl: string,
@@ -196,7 +194,7 @@ extensionCreate
   )
   .option(
     '-p, --port <number>',
-    'what port should extension-create/develop run. Defaults to `3000`'
+    'what port should Extension run. Defaults to `3000`'
   )
   .action(async function (
     pathOrRemoteUrl: string,

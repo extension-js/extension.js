@@ -61,8 +61,7 @@ export default function ContentApp() {
             Tailwind.css.
           </h2>
           <p className="mt-6 text-lg leading-8 text-gray-300">
-            Learn more about creating cross-browser extensions with
-            extension-create by{' '}
+            Learn more about creating cross-browser extensions by{' '}
             <button
               onClick={() => setIsDialogOpen(false)}
               className="underline hover:no-underline

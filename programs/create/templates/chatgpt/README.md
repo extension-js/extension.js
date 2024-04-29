@@ -1,3 +1,3 @@
-# extension-create ChatGPT Template
+# Extension ChatGPT Template
 
-> ChatGPT template for [extension-create](https://github.com/cezaraugusto/extension-create).
+> ChatGPT template for [Extension](https://github.com/cezaraugusto/extension).

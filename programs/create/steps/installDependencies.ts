@@ -28,7 +28,7 @@ export default async function installDependencies(
 
   console.log('🛠  - Installing dependencies...')
 
-  // Symlink extension-create for development
+  // Symlink Extension for development
   if (process.env.EXTENSION_ENV === 'development') {
     await createSymlink(projectPath)
   }
@@ -65,7 +65,7 @@ export default async function installDependencies(
         process.chdir(originalDirectory)
 
         console.error(
-          `🧩 ${bold(`extension-create`)} ${red(
+          `🧩 ${bold(`Extension`)} ${red(
             `✖︎✖︎✖︎`
           )} Child process error: Can't install dependencies for ${bold(projectName)}. ${error.message}`
         )
@@ -74,7 +74,7 @@ export default async function installDependencies(
     })
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension-create`)} ${red(
+      `🧩 ${bold(`Extension`)} ${red(
         `✖︎✖︎✖︎`
       )} Can't install dependencies for ${bold(projectName)}. ${error.message || error.toString()}`
     )

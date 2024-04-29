@@ -122,7 +122,7 @@ export function isUsingTypeScript(projectDir: string) {
       if (configFile) {
         console.log(
           bold(
-            `🧩 extension-create ${blue('►►►')} ${manifest.name} (v${
+            `🧩 Extension ${blue('►►►')} ${manifest.name} (v${
               manifest.version
             }) `
           ) + `is using ${bold(blue('TypeScript'))} config file.`
@@ -130,7 +130,7 @@ export function isUsingTypeScript(projectDir: string) {
       } else {
         console.log(
           bold(
-            `🧩 extension-create ${blue('►►►')} ${manifest.name} (v${
+            `🧩 Extension ${blue('►►►')} ${manifest.name} (v${
               manifest.version
             }) `
           ) +

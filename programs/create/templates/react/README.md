@@ -1,3 +1,3 @@
-# extension-create React Template
+# Extension React Template
 
-> React template for [extension-create](https://github.com/cezaraugusto/extension-create).
+> React template for [Extension](https://github.com/cezaraugusto/extension).

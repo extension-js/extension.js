@@ -1,3 +1,3 @@
-# extension-create TypeScript Template
+# Extension TypeScript Template
 
-> TypeScript template for [extension-create](https://github.com/cezaraugusto/extension-create).
+> TypeScript template for [Extension](https://github.com/cezaraugusto/extension).

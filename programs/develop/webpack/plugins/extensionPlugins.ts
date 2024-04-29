@@ -42,7 +42,7 @@ export default function extensionPlugins(
 ) {
   const manifestPath = path.resolve(projectPath, 'manifest.json')
 
-  // All extension-create special folders
+  // All Extension special folders
   // public/ - static assets. Copy/paste all files to the output folder
   const publicFolder = getPublicFolderPath(projectPath)
   // pages/ - Add every .html file inside pages/ to the compilation
