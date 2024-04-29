@@ -10,7 +10,7 @@ export default async function downloadAndExtractZip(
 ): Promise<void> {
   const urlNoSearchParams = url.split('?')[0]
   try {
-    const downloadingText = `🧩 ${bold(`extension-create`)} ${green(
+    const downloadingText = `🧩 ${bold(`Extension`)} ${green(
       `►►►`
     )} Downloading extension from ${bold(urlNoSearchParams)}...`
 
@@ -29,7 +29,7 @@ export default async function downloadAndExtractZip(
     await fs.writeFile(zipFilePath, response.data as string)
 
     console.log(
-      `🧩 ${bold(`extension-create`)} ${green(
+      `🧩 ${bold(`Extension`)} ${green(
         `►►►`
       )} Unpackaging browser extension from ${white(underline(zipFilePath))}`
     )
@@ -42,7 +42,7 @@ export default async function downloadAndExtractZip(
     await fs.unlink(zipFilePath)
 
     console.log(
-      `🧩 ${bold(`extension-create`)} ${green(
+      `🧩 ${bold(`Extension`)} ${green(
         `►►►`
       )} Browser extension unpackaged successfully. Compiling...`
     )

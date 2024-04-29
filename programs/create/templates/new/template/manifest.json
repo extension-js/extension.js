@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "version": "1.0",
   "name": "New Template",
-  "description": "An extension template using web technologies. This template includes a new tab override.",
+  "description": "An Extension template using web technologies. This template includes a new tab override.",
   "icons": {
     "16": "images/icons/icon_16.png",
     "48": "images/icons/icon_48.png"
