@@ -1,6 +1,6 @@
 # Contributing 🧩
 
-`extension` is a monorepo consisting of multiple programs and packages.
+`Extension.js` is a monorepo consisting of multiple programs and packages.
 
 - Programs: Each CLI command (including the CLI itself) is a program.
 - Packages: Helper libraries and built-in webpack plugins.
@@ -11,7 +11,7 @@
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | [`browser-extension-manifest-fields`](/packages/browser-extension-manifest-fields) | Library to output manifest asset paths.                                        |
 | [`common-errors-plugin`](/packages/common-errors-plugin)                           | Plugin to handle common compilation errors.                                    |
-| [`eslint-config-extension-create`](/packages/eslint-config-extension-create)       | Preset of eslint rules for `extension`.                                        |
+| [`eslint-config-extension-create`](/packages/eslint-config-extension-create)       | Preset of eslint rules for `Extension`.                                        |
 | [`html-plugin`](/packages/html-plugin)                                             | Plugin to handle and compile HTML fields (and its assets) from the manifest.   |
 | [`icons-plugin`](/packages/icons-plugin)                                           | Plugin to handle and compile icon fields from the manifest.                    |
 | [`json-plugin`](/packages/json-plugin)                                             | Plugin to handle and compile JSON fields from the manifest.                    |
@@ -27,7 +27,7 @@
 
 ## Programs
 
-`extension` includes several command line programs, each serving a specific purpose in the extension development lifecycle:
+`Extension` includes several command line programs, each serving a specific purpose in the extension development lifecycle:
 
 | Program   | Description                                                                                  |
 | --------- | -------------------------------------------------------------------------------------------- |

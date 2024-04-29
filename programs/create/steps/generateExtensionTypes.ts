@@ -39,7 +39,7 @@ export default async function generateExtensionTypes(
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`extension`)} ${red(
+      `🧩 ${bold(`Extension`)} ${red(
         `✖︎✖︎✖︎`
       )} Failed to write the extension type definition. ${error}`
     )

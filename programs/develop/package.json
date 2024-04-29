@@ -10,7 +10,7 @@
   },
   "name": "@extension-create/develop",
   "version": "1.4.6",
-  "description": "The develop step of extension-create",
+  "description": "The develop step of Extension",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
   "files": [

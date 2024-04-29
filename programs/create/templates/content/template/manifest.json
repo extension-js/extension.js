@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "version": "1.0",
   "name": "Content Template",
-  "description": "An extension template using web technologies. This template includes a content script.",
+  "description": "An Extension template using web technologies. This template includes a content script.",
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
