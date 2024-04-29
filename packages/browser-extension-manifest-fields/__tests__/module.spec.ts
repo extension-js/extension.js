@@ -185,18 +185,15 @@ describe('manifestFields', () => {
       },
       icons: {
         action: 'action/icon.png',
-        browser_action:
-          '/Users/cezaraugusto/local/00-extension-create/browser_action/icon16.png',
+        browser_action: 'browser_action/icon16.png',
         'browser_action/theme_icons': [
           {
-            dark: '/Users/cezaraugusto/local/00-extension-create/browser_action/icon16-dark.png',
-            light:
-              '/Users/cezaraugusto/local/00-extension-create/browser_action/icon16-light.png'
+            dark: 'browser_action/icon16-dark.png',
+            light: 'browser_action/icon16-light.png'
           },
           {
-            dark: '/Users/cezaraugusto/local/00-extension-create/browser_action/icon16-dark.png',
-            light:
-              '/Users/cezaraugusto/local/00-extension-create/browser_action/icon16-light.png'
+            dark: 'browser_action/icon16-dark.png',
+            light: 'browser_action/icon16-light.png'
           }
         ],
         icons: ['icons/icon16.png', 'icons/icon48.png', 'icons/icon128.png'],
