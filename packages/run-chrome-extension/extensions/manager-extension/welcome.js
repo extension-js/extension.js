@@ -27,7 +27,7 @@ async function onStartup() {
 
   const learnMore = document.getElementById('learnMore')
   learnMore.addEventListener('click', () => {
-    chrome.tabs.create({url: 'https://docs.extensioncreate.com/'})
+    chrome.tabs.create({url: 'https://extension.js.org/'})
   })
 }
 

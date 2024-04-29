@@ -13,8 +13,8 @@ export default function NewTabApp() {
       </h1>
       <p>
         Learn more about creating browser extensions at{' '}
-        <a href="https://docs.extensioncreate.com" target="_blank">
-          https://docs.extensioncreate.com
+        <a href="https://extension.js.org" target="_blank">
+          https://extension.js.org
         </a>
         .
       </p>
