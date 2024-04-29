@@ -29,8 +29,9 @@
     "ts-node": "^10.9.2",
     "turbo": "^1.10.11"
   },
-  "name": "extension-create",
+  "name": "extension",
   "packageManager": "yarn@1.22.19",
+  "description": "The monorepo of all things Extension, including the Extension CLI, its programs, packages, website, and documentation.",
   "workspaces": [
     "aliases/*",
     "packages/*",

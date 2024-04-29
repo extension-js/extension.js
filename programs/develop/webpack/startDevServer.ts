@@ -19,7 +19,7 @@ function closeAll(devServer: WebpackDevServer) {
       process.exit()
     })
     .catch((error) => {
-      console.log(`Error in the extension-create runner: ${error.stack || ''}`)
+      console.log(`Error in the Extension runner: ${error.stack || ''}`)
     })
 }
 
@@ -35,7 +35,7 @@ export default async function startDevServer(
 
   devServer.startCallback((error) => {
     if (error != null) {
-      console.log(`Error in the extension-create runner: ${error.stack || ''}`)
+      console.log(`Error in the Extension runner: ${error.stack || ''}`)
     }
   })
 

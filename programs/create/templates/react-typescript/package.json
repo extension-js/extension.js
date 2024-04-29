@@ -2,11 +2,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/extension-create.git",
+    "url": "https://github.com/cezaraugusto/extension.git",
     "directory": "programs/create/templates/react-typescript"
   },
   "name": "react-typescript-template",
-  "description": "The React + TypeScript template for extension-create.",
+  "description": "The Extension React + TypeScript template.",
   "version": "0.0.0",
   "author": {
     "name": "Cezar Augusto",
@@ -18,7 +18,7 @@
     "template.json"
   ],
   "keywords": [
-    "extension-create",
+    "extension",
     "browser-extension",
     "web-extension",
     "template"

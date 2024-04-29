@@ -54,7 +54,7 @@ yarn-error.log*
 # vercel
 .vercel
 
-# extension-create (alpha)
+# Extension (alpha)
 packages/*/demo
 packages/*/spec
 browser-extension-test-data
