@@ -16,7 +16,7 @@
 
 > Plug-and-play, zero-config, cross-browser extension development tool.
 
-<img width="1440" alt="Screenshot 2024-03-25 at 13 06 15" src="https://github.com/cezaraugusto/docs.extensioncreate.com/assets/4672033/01a90694-4705-416e-898c-20bf845984e7">
+<img width="1440" alt="Screenshot 2024-03-25 at 13 06 15" src="https://github.com/cezaraugusto/extension.js.org/assets/4672033/01a90694-4705-416e-898c-20bf845984e7">
 
 <hr>
 
@@ -168,7 +168,7 @@ If you want to target a specific browser, just pass the `--browser` flag to the 
 extension dev --browser=all
 ```
 
-<img width="1440" alt="Screenshot 2024-03-25 at 13 06 15" src="https://github.com/cezaraugusto/docs.extensioncreate.com/assets/4672033/01a90694-4705-416e-898c-20bf845984e7">
+<img width="1440" alt="Screenshot 2024-03-25 at 13 06 15" src="https://github.com/cezaraugusto/extension.js.org/assets/4672033/01a90694-4705-416e-898c-20bf845984e7">
 
 ## License
 
