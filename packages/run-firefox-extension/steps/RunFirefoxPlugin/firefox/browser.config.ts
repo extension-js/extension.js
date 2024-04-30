@@ -1,5 +1,5 @@
 import path from 'path'
-import {type RunChromeExtensionInterface} from '../../../types'
+import {type RunFirefoxExtensionInterface} from '../../../types'
 import createUserDataDir from './createUserDataDir'
 
 const managerExtension = path.resolve(
@@ -14,7 +14,7 @@ const reloadExtension = path.resolve(
 )
 
 export default function browserConfig(
-  configOptions: RunChromeExtensionInterface
+  configOptions: RunFirefoxExtensionInterface
 ) {
   const userBrowserExtension = configOptions.extensionPath?.replace(
     'manifest.json',
@@ -27,14 +27,15 @@ export default function browserConfig(
     extensionsToLoad.push(reloadExtension)
   }
 
+  const profile = createUserDataDir(configOptions.userDataDir)
+
+  profile.addExtensions(extensionsToLoad, function () {})
+
   // Flags set by default:
-  // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
+  // https://github.com/GoogleFirefox/firefox-launcher/blob/master/src/flags.ts
   return [
-    `--load-extension=${extensionsToLoad.join()}`,
-    `--user-data-dir=${createUserDataDir(configOptions.userDataDir)}`,
-    // Disable Chrome's native first run experience.
-    '--no-first-run',
-    // Flags to pass to Chrome
+    `--user-data-dir=${profile.path()}`,
+    // Flags to pass to Firefox
     // Any of http://peter.sh/experiments/chromium-command-line-switches/
     ...(configOptions.browserFlags || [])
   ].join(' ')

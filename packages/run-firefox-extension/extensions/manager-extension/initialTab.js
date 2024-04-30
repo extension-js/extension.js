@@ -1,28 +1,28 @@
 /* global chrome */
 // Ideas here are adapted from
-// https://github.com/jeremyben/webpack-chrome-extension-launcher
+// https://github.com/jeremyben/webpack-firefox-extension-launcher
 // Released under MIT license.
 
 // Create a new tab and set it to background.
 // We want the user-selected page to be active,
 // not chrome://extensions.
-function createChromeExtensionsTab(initialTab, url) {
+function createFirefoxExtensionsTab(initialTab, url) {
   // Check if url tab is open
-  chrome.tabs.query({url: 'chrome://extensions/'}, (tabs) => {
+  browser.tabs.query({url: 'about:addons'}, (tabs) => {
     const extensionsTabExist = tabs.length > 0
 
     // Return if url exists
     if (extensionsTabExist) return
 
     // Create an inactive tab
-    chrome.tabs.create(
+    browser.tabs.create(
       {url, active: false},
       function setBackgroundTab(extensionsTab) {
         // Get current url tab and move it left.
         // This action auto-activates the tab
-        chrome.tabs.move(extensionsTab.id, {index: 0}, () => {
+        browser.tabs.move(extensionsTab.id, {index: 0}, () => {
           // Get user-selected initial page tab and activate the right tab
-          chrome.tabs.update(initialTab.id, {active: true})
+          browser.tabs.update(initialTab.id, {active: true})
         })
       }
     )
@@ -31,16 +31,16 @@ function createChromeExtensionsTab(initialTab, url) {
 
 const __IS_FIRST_RUN__ = false
 
-chrome.tabs.query({active: true}, ([initialTab]) => {
+browser.tabs.query({active: true}, ([initialTab]) => {
   if (initialTab.url === 'chrome://newtab/') {
-    chrome.tabs.update({url: 'chrome://extensions/'})
+    browser.tabs.update({url: 'about:addons'})
     // WARN: This is generated at runtime by rewriteFirstRunVariable function.
     if (__IS_FIRST_RUN__) {
       setTimeout(() => {
-        chrome.tabs.create({url: 'welcome.html'})
+        browser.tabs.create({url: 'welcome.html'})
       }, 1000)
     }
   } else {
-    createChromeExtensionsTab(initialTab, 'chrome://extensions/')
+    createFirefoxExtensionsTab(initialTab, 'about:addons')
   }
 })

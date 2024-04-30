@@ -24,7 +24,7 @@ export interface ManifestAction {
   default_popup?: string | undefined
 }
 
-// Source: https://developer.edge.com/docs/extensions/mv3/declare_permissions/
+// Source: https://developer.google.com/docs/extensions/mv3/declare_permissions/
 export type ManifestPermissions =
   | 'activeTab'
   | 'alarms'

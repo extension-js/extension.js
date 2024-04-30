@@ -22,6 +22,7 @@
 | [`resources-plugin`](/packages/resources-plugin)                                   | Plugin to handle and compile static across the extension features.             |
 | [`run-chrome-extension`](/packages/run-chrome-extension)                           | Plugin to run the Chrome browser during development.                           |
 | [`run-edge-extension`](/packages/run-edge-extension)                               | Plugin to run the Edge browser during development.                             |
+| [`run-firefox-extension`](/packages/run-firefox-extension)                         | Plugin to run the Firefox browser during development.                          |
 | [`scripts-plugin`](/packages/scripts-plugin)                                       | Plugin to handle and compile script fields from the manifest.                  |
 | [`tsconfig`](/packages/tsconfig)                                                   | The shared tsconfig to handle the project TypeScript files during compilation. |
 

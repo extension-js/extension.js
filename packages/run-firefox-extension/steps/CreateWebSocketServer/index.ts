@@ -1,15 +1,15 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
-import {type RunChromeExtensionInterface} from '../../types'
+import {type RunFirefoxExtensionInterface} from '../../types'
 import messageDispatcher from './webSocketServer/messageDispatcher'
 import startServer from './webSocketServer/startServer'
 import rewriteReloadPort from './rewriteReloadPort'
 import rewriteFirstRunVariable from './rewriteFirstRunVariable'
 
 export default class CreateWebSocketServer {
-  private readonly options: RunChromeExtensionInterface
+  private readonly options: RunFirefoxExtensionInterface
 
-  constructor(options: RunChromeExtensionInterface) {
+  constructor(options: RunFirefoxExtensionInterface) {
     this.options = options
   }
 
@@ -29,7 +29,7 @@ export default class CreateWebSocketServer {
     const wss = startServer(compiler, statConfig, this.options.port)
 
     compiler.hooks.watchRun.tapAsync(
-      'RunChromeExtensionPlugin (CreateWebSocketServer)',
+      'RunFirefoxExtensionPlugin (CreateWebSocketServer)',
       (compiler, done) => {
         const files = compiler.modifiedFiles || new Set()
         const changedFile: string | undefined = files.values().next().value

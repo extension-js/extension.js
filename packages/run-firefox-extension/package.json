@@ -2,14 +2,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/webpack-run-chrome-extension.git"
+    "url": "https://github.com/cezaraugusto/webpack-run-firefox-extension.git"
   },
   "engines": {
     "node": ">=18"
   },
-  "name": "webpack-run-chrome-extension",
+  "name": "webpack-run-firefox-extension",
   "version": "1.1.7",
-  "description": "Run your extension on Google Chrome with auto-reload support",
+  "description": "Run your add-on on Firefox with auto-reload support",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
   "author": {
@@ -33,7 +33,7 @@
   "keywords": [
     "webpack",
     "plugin",
-    "chrome",
+    "firefox",
     "run",
     "open",
     "plugin",
@@ -49,12 +49,14 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "browser-extension-manifest-fields": "*",
-    "chrome-location": "^1.2.1",
     "content-security-policy-parser": "^0.4.1",
+    "firefox-location": "^1.0.2",
+    "firefox-profile": "^4.6.0",
     "loader-utils": "^3.2.1",
     "prefers-yarn": "^1.0.1",
     "progress": "^2.0.3",
     "schema-utils": "^4.2.0",
+    "webextension-polyfill-ts": "^0.26.0",
     "webpack-target-webextension": "^1.1.1",
     "ws": "^8.16.0"
   },

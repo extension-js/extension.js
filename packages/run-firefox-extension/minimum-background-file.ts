@@ -1,8 +1,9 @@
-chrome.runtime.onMessageExternal.addListener(
+import {browser} from 'webextension-polyfill-ts'
+;(browser.runtime.onMessageExternal as any).addListener(
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  async (request, _sender, sendResponse) => {
-    const managementInfo = await new Promise((resolve) => {
-      chrome.management.getSelf(resolve)
+  async (request: any, _sender: any, sendResponse: any) => {
+    const managementInfo = await new Promise(() => {
+      browser.management.getSelf()
     })
 
     // Ping-pong between the user extension background page(this)
@@ -11,8 +12,8 @@ chrome.runtime.onMessageExternal.addListener(
     // (startServer.ts) so it can display the extension info.
     if (request.initialLoadData) {
       sendResponse({
-        id: chrome.runtime.id,
-        manifest: chrome.runtime.getManifest(),
+        id: browser.runtime.id,
+        manifest: browser.runtime.getManifest(),
         management: managementInfo
       })
       return true
@@ -27,23 +28,23 @@ chrome.runtime.onMessageExternal.addListener(
     ) {
       setTimeout(() => {
         sendResponse({reloaded: true})
-        chrome.runtime.reload()
+        browser.runtime.reload()
       }, 750)
     }
 
     // // Reload all tabs if the contextMenus code changes.
     // if (request.changedFile === 'contextMenus') {
     //   sendResponse({reloaded: true})
-    //   chrome.tabs.query({}, (tabs) => {
+    //   browser.tabs.query({}, (tabs) => {
     //     if (!tabs) return
-    //     tabs.forEach((tab) => chrome.tabs.reload(tab.id!))
+    //     tabs.forEach((tab) => browser.tabs.reload(tab.id!))
     //   })
     // }
 
     // Reload all tabs if the declarative_net_request code changes.
     if (request.changedFile === 'declarative_net_request') {
       sendResponse({reloaded: true})
-      chrome.runtime.reload()
+      browser.runtime.reload()
     }
 
     return true

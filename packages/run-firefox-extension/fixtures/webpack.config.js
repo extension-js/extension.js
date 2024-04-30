@@ -1,6 +1,6 @@
 const path = require('path')
 
-const OpenChromeExtension = require('../module')
+const OpenFirefoxExtension = require('../module')
 
 module.exports = {
   cache: false,
@@ -8,7 +8,7 @@ module.exports = {
   watch: true,
   entry: {},
   plugins: [
-    new OpenChromeExtension({
+    new OpenFirefoxExtension({
       extensionPath: path.resolve(__dirname, './demo-extension'),
       // The fields below are not required
       browserFlags: [

@@ -3,12 +3,13 @@ import {type Compiler} from 'webpack'
 import messages from '../../../helpers/messages'
 import {type StatsPreset} from '../../../types'
 import {type ManifestBase} from '../../../manifest-types'
-import isFirstRun from '../../RunChromePlugin/chrome/isFirstRun'
+import isFirstRun from '../../RunFirefoxPlugin/firefox/isFirstRun'
+import browser from 'webextension-polyfill-ts'
 
 interface Data {
   id: string
   manifest: ManifestBase
-  management: chrome.management.ExtensionInfo
+  management: browser.Management.ExtensionInfo
 }
 
 interface Message {

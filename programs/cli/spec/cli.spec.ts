@@ -160,6 +160,7 @@ describe('CLI Commands', () => {
      * can start an extension in a custom output directory
      * can launch using chrome
      * can launch using edge
+     * can launch using firefox
      * can launch with a custom user data dir
      * can launch without a polyfill (TODO)
      * can launch with a custom port
@@ -173,6 +174,7 @@ describe('CLI Commands', () => {
      * can start an extension in a custom output directory
      * can launch using chrome
      * can launch using edge
+     * can launch using firefox
      * can launch with a custom user data dir
      * can launch without a polyfill
      * can launch with a custom port
@@ -184,6 +186,7 @@ describe('CLI Commands', () => {
      * can build an extension
      * can build an extension with chrome
      * can build an extension with edge
+     * can build an extension with firefox
      * can build without a polyfill
      */
   })

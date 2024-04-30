@@ -1,10 +1,10 @@
 async function getUserExtension() {
-  const allExtensions = await chrome.management.getAll()
+  const allExtensions = await browser.management.getAll()
 
   return allExtensions.filter((extension) => {
     return (
       // Do not include itself
-      extension.id !== chrome.runtime.id &&
+      extension.id !== browser.runtime.id &&
       // Reload extension
       extension.id !== 'igcijhgmihmjbbahdabahfbpffalcfnn' &&
       // Show only unpackaged extensions
@@ -27,7 +27,7 @@ async function onStartup() {
 
   const learnMore = document.getElementById('learnMore')
   learnMore.addEventListener('click', () => {
-    chrome.tabs.create({url: 'https://extension.js.org/'})
+    browser.tabs.create({url: 'https://extension.js.org/'})
   })
 }
 

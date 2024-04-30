@@ -1,13 +1,13 @@
 import type webpack from 'webpack'
-import {type RunChromeExtensionInterface} from './types'
+import {type RunFirefoxExtensionInterface} from './types'
 import CreateWebSocketServer from './steps/CreateWebSocketServer'
 import SetupReloadStrategy from './steps/SetupReloadStrategy'
-import RunChromePlugin from './steps/RunChromePlugin'
+import RunFirefoxPlugin from './steps/RunFirefoxPlugin'
 
-export default class RunChromeExtension {
-  private readonly options: RunChromeExtensionInterface
+export default class RunFirefoxExtension {
+  private readonly options: RunFirefoxExtensionInterface
 
-  constructor(options: RunChromeExtensionInterface) {
+  constructor(options: RunFirefoxExtensionInterface) {
     this.options = {
       manifestPath: options.manifestPath,
       extensionPath: options.extensionPath,
@@ -21,7 +21,7 @@ export default class RunChromeExtension {
   }
 
   /**
-   * RunChromeExtension works by creating a WebSockets server
+   * RunFirefoxExtension works by creating a WebSockets server
    * that listens to changes triggered by the user extension
    * via webpack. When a change is detected, the server sends
    * a message to an extension called reload-extension, which
@@ -41,11 +41,11 @@ export default class RunChromeExtension {
    * - Background script - HMR enabled
    * - Content scripts (js) - HMR enabled
    * - Content scripts (css) - HMR enabled
-   * - Context Menu (API) - Full extension reload (chrome.runtime.reload)
-   * - declarative_net_request (API) - Full extension reload (chrome.runtime.reload)
-   * - _locales - Full extension reload (chrome.runtime.reload)
-   * - Service worker - Full extension reload (chrome.runtime.reload)
-   * - manifest.json - Full extension reload (chrome.runtime.reload)
+   * - Context Menu (API) - Full extension reload (browser.runtime.reload)
+   * - declarative_net_request (API) - Full extension reload (browser.runtime.reload)
+   * - _locales - Full extension reload (browser.runtime.reload)
+   * - Service worker - Full extension reload (browser.runtime.reload)
+   * - manifest.json - Full extension reload (browser.runtime.reload)
    */
   apply(compiler: webpack.Compiler) {
     // 1 - Creates a WebSockets server to communicate with the browser.
@@ -66,6 +66,6 @@ export default class RunChromeExtension {
     // requests to the user extension. The manager extension is responsible
     // for everything else, for now opening the chrome://extension page on startup.
     // It starts a new browser instance with the user extension loaded.
-    new RunChromePlugin(this.options).apply(compiler)
+    new RunFirefoxPlugin(this.options).apply(compiler)
   }
 }

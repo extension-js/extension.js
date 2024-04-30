@@ -1,8 +1,13 @@
 {
   "extends": "../../packages/tsconfig/base.json",
-  "compilerOptions": {
-    "module": "esnext"
-  },
   "include": ["."],
+  "compilerOptions": {
+    "module": "esnext",
+    "typeRoots": [
+      "node_modules/@types",
+      "node_modules/webextension-polyfill-ts"
+    ],
+    "types": ["webextension-polyfill-ts"]
+  },
   "exclude": ["dist", "node_modules"]
 }

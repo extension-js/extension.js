@@ -3,13 +3,13 @@ import path from 'path'
 import type webpack from 'webpack'
 import WebExtension from 'webpack-target-webextension'
 import {red, bold} from '@colors/colors/safe'
-import {type RunChromeExtensionInterface, type Manifest} from '../../../types'
+import {type RunFirefoxExtensionInterface, type Manifest} from '../../../types'
 import messages from '../../../helpers/messages'
 
 class TargetWebExtensionPlugin {
   private readonly manifestPath?: string
 
-  constructor(options: RunChromeExtensionInterface) {
+  constructor(options: RunFirefoxExtensionInterface) {
     this.manifestPath = options.manifestPath
   }
 

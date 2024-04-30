@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import isFirstRun from '../RunChromePlugin/chrome/isFirstRun'
+import isFirstRun from '../RunFirefoxPlugin/firefox/isFirstRun'
 
 export default function rewriteFirstRunVariable() {
   const firstRun = isFirstRun()
