@@ -1,7 +1,7 @@
 import path from 'path'
 import WebSocket from 'ws'
 import manifestFields from 'browser-extension-manifest-fields'
-import {type RunChromeExtensionInterface} from '../../../types'
+import {type RunFirefoxExtensionInterface} from '../../../types'
 
 function dispatchMessage(
   server: WebSocket.Server<typeof WebSocket, any>,
@@ -18,7 +18,7 @@ function dispatchMessage(
 
 export default function messageDispatcher(
   server: WebSocket.Server<typeof WebSocket, any>,
-  options: RunChromeExtensionInterface,
+  options: RunFirefoxExtensionInterface,
   updatedFile: string
 ) {
   if (!updatedFile || !options.manifestPath) return

@@ -1,5 +1,3 @@
-/* global chrome */
-
 function handleShown() {
   console.log('panel visible')
 }
@@ -8,8 +6,8 @@ function handleHidden() {
   console.log('panel invisible')
 }
 
-chrome.devtools.panels.create(
-  'Extension Panel',
+browser.devtools.panels.create(
+  'Add-On Panel',
   'public/icon/test_32.png',
   'devtools/devtools.html',
   (newPanel) => {

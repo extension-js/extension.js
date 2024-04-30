@@ -1,5 +1,5 @@
 import type webpack from 'webpack'
-import {type RunChromeExtensionInterface} from '../../types'
+import {type RunFirefoxExtensionInterface} from '../../types'
 import ApplyManifestDevDefaults from './ApplyManifestDevDefaults'
 import TargetWebExtensionPlugin from './TargetWebExtensionPlugin'
 import AddRuntimeListener from './AddRuntimeListener'
@@ -7,7 +7,7 @@ import AddRuntimeListener from './AddRuntimeListener'
 class SetupReloadStrategy {
   private readonly manifestPath?: string
 
-  constructor(options: RunChromeExtensionInterface) {
+  constructor(options: RunFirefoxExtensionInterface) {
     this.manifestPath = options.manifestPath
   }
 

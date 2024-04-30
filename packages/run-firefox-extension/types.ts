@@ -1,6 +1,6 @@
 import {type ManifestBase} from './manifest-types'
 
-export interface RunChromeExtensionInterface extends PluginOptions {
+export interface RunFirefoxExtensionInterface extends PluginOptions {
   manifestPath?: string
   extensionPath?: string
   stats?: StatsPreset

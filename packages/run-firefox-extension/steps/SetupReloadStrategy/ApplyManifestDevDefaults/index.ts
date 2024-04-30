@@ -5,12 +5,12 @@ import {patchWebResourcesV2, patchWebResourcesV3} from './patchWebResources'
 import patchBackground from './patchBackground'
 import patchExternallyConnectable from './patchExternallyConnectable'
 import * as utils from '../../../helpers/utils'
-import {type RunChromeExtensionInterface} from '../../../types'
+import {type RunFirefoxExtensionInterface} from '../../../types'
 
 class ApplyManifestDevDefaultsPlugin {
   private readonly manifestPath?: string
 
-  constructor(options: RunChromeExtensionInterface) {
+  constructor(options: RunFirefoxExtensionInterface) {
     this.manifestPath = options.manifestPath
   }
 
@@ -65,13 +65,13 @@ class ApplyManifestDevDefaultsPlugin {
 
   apply(compiler: webpack.Compiler) {
     compiler.hooks.thisCompilation.tap(
-      'RunChromeExtension (ApplyManifestDevDefaults)',
+      'RunFirefoxExtension (ApplyManifestDevDefaults)',
       (compilation) => {
         const Error = compiler.webpack.WebpackError
 
         compilation.hooks.processAssets.tap(
           {
-            name: 'RunChromeExtension (ApplyManifestDevDefaults)',
+            name: 'RunFirefoxExtension (ApplyManifestDevDefaults)',
             // Summarize the list of existing assets.
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
@@ -83,7 +83,7 @@ class ApplyManifestDevDefaultsPlugin {
               if (!!compilation && !!Error) {
                 compilation.errors.push(
                   new Error(
-                    `[RunChromeExtension (ApplyManifestDevDefaults)]: ${errorMessage}`
+                    `[RunFirefoxExtension (ApplyManifestDevDefaults)]: ${errorMessage}`
                   )
                 )
               }
