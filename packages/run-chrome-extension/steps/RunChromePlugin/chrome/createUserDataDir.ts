@@ -25,8 +25,8 @@ export default function createUserDataDir(
     addProgressBar(
       `👤 Creating ${bold('Chrome')} user data directory...`,
       () => {
-        const outputPath = path.resolve(__dirname, 'run-chrome-data-dir')
-        const preferences = path.join(outputPath, 'Default')
+        const profilePath = path.resolve(__dirname, 'run-chrome-data-dir')
+        const preferences = path.join(profilePath, 'Default')
 
         // Ensure directory exists
         fs.mkdirSync(preferences, {recursive: true})

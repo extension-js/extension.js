@@ -37,10 +37,10 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
   const url = urlToRequest(this.resourcePath)
 
   const generalReloadCode = `
-  ;chrome.runtime.onMessageExternal.addListener(
+  ;browser.runtime.onMessageExternal.addListener(
     async (request, _sender, sendResponse) => {
       const managementInfo = await new Promise((resolve) => {
-        chrome.management.getSelf(resolve);
+        browser.management.getSelf(resolve);
       });
  
       // Ping-pong between the user extension background page(this)
@@ -49,8 +49,8 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
       // (startServer.ts) so it can display the extension info.
       if (request.initialLoadData) {
         sendResponse({
-          id: chrome.runtime.id,
-          manifest: chrome.runtime.getManifest(),
+          id: browser.runtime.id,
+          manifest: browser.runtime.getManifest(),
           management: managementInfo,
         })
         return true
@@ -65,23 +65,23 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
       ) {
         setTimeout(() => {
           sendResponse({reloaded: true})
-          chrome.runtime.reload()
+          browser.runtime.reload()
         }, 750)
       }
 
       // Reload all tabs if the contextMenus code changes.
       if (request.changedFile === 'contextMenus') {
         sendResponse({reloaded: true})
-        chrome.tabs.query({}, (tabs) => {
+        browser.tabs.query({}, (tabs) => {
           if (!tabs) return
-          tabs.forEach((tab) => chrome.tabs.reload(tab.id))
+          tabs.forEach((tab) => browser.tabs.reload(tab.id))
         })
       }
 
       // Reload all tabs if the declarative_net_request code changes.
       if (request.changedFile === 'declarative_net_request') {
         sendResponse({reloaded: true})
-        chrome.runtime.reload()
+        browser.runtime.reload()
       }
   
       return true

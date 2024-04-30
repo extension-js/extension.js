@@ -3,7 +3,7 @@
 const TEN_SECONDS_MS = 10 * 1000
 let webSocket = null
 
-chrome.runtime.onInstalled.addListener(async () => {
+browser.runtime.onInstalled.addListener(async () => {
   if (webSocket) {
     disconnect()
   } else {
@@ -60,13 +60,13 @@ function disconnect() {
 
 async function getDevExtensions() {
   const allExtensions = await new Promise((resolve) => {
-    chrome.management.getAll(resolve)
+    browser.management.getAll(resolve)
   })
 
   return allExtensions.filter((extension) => {
     return (
       // Do not include itself
-      extension.id !== chrome.runtime.id &&
+      extension.id !== browser.runtime.id &&
       // Manager extension
       extension.id !== 'hkklidinfhnfidkjiknmmbmcloigimco' &&
       // Show only unpackaged extensions
@@ -82,9 +82,9 @@ async function messageAllExtensions(changedFile) {
   if (isExtensionReady) {
     const devExtensions = await getDevExtensions()
     const reloadAll = devExtensions.map((extension) => {
-      chrome.runtime.sendMessage(extension.id, {changedFile}, (response) => {
+      browser.runtime.sendMessage(extension.id, {changedFile}, (response) => {
         if (response) {
-          console.info('[Reload Service] Extension reloaded and ready.')
+          console.info('[Reload Service] Add-On reloaded and ready.')
         }
       })
 
@@ -102,13 +102,13 @@ async function requestInitialLoadData() {
 
   const messagePromises = devExtensions.map(async (extension) => {
     return await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
+      browser.runtime.sendMessage(
         extension.id,
         {initialLoadData: true},
         (response) => {
-          if (chrome.runtime.lastError) {
+          if (browser.runtime.lastError) {
             console.error(
-              `Error sending message to ${extension.id}: ${chrome.runtime.lastError.message}`
+              `Error sending message to ${extension.id}: ${browser.runtime.lastError.message}`
             )
             resolve(null)
           } else {

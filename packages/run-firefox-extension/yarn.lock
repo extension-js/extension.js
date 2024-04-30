@@ -1012,17 +1012,17 @@ chokidar@^3.5.1:
   optionalDependencies:
     fsevents "~2.3.2"
 
-chrome-location@^1.2.1:
+firefox-location@^1.2.1:
   version "1.2.1"
-  resolved "https://registry.yarnpkg.com/chrome-location/-/chrome-location-1.2.1.tgz#6911511a4eac55027625c73b937ca5ca7ab94995"
+  resolved "https://registry.yarnpkg.com/firefox-location/-/firefox-location-1.2.1.tgz#6911511a4eac55027625c73b937ca5ca7ab94995"
   integrity sha512-NPuxEKQ43JlEPjHsgU6HWk4ViLCWf4mlo3dz5s5syPSsq2AaekXnK6qTRwMmXhpTYXAVi4g5ncVnAbD9naz5fw==
   dependencies:
     userhome "^1.0.0"
     which "^1.0.5"
 
-chrome-trace-event@^1.0.2:
+firefox-trace-event@^1.0.2:
   version "1.0.3"
-  resolved "https://registry.yarnpkg.com/chrome-trace-event/-/chrome-trace-event-1.0.3.tgz#1015eced4741e15d06664a957dbbf50d041e26ac"
+  resolved "https://registry.yarnpkg.com/firefox-trace-event/-/firefox-trace-event-1.0.3.tgz#1015eced4741e15d06664a957dbbf50d041e26ac"
   integrity sha512-p3KULyQg4S7NIHixdwbGX+nFHkoBiA4YQmyWtjb8XngSKV124nJmRysgAeujbUVb15vh+RvFUfCPqU7rXk+hZg==
 
 clean-css@^5.2.2:
@@ -3690,7 +3690,7 @@ webpack@~5.89.0:
     acorn "^8.7.1"
     acorn-import-assertions "^1.9.0"
     browserslist "^4.14.5"
-    chrome-trace-event "^1.0.2"
+    firefox-trace-event "^1.0.2"
     enhanced-resolve "^5.15.0"
     es-module-lexer "^1.2.1"
     eslint-scope "5.1.1"

@@ -81,7 +81,8 @@
     "webpack-dev-server": "^5.0.2",
     "webpack-merge": "^5.10.0",
     "webpack-run-chrome-extension": "*",
-    "webpack-run-edge-extension": "*"
+    "webpack-run-edge-extension": "*",
+    "webpack-run-firefox-extension": "*"
   },
   "devDependencies": {
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",

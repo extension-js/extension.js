@@ -70,7 +70,7 @@ https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553
 
 ### Use `Microsoft Edge` to kickstart any sample from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/)
 
-`Esxtension` supports a variety of browsers, including Microsoft Edge. To start an Edge-compatible extension, simply:
+`Extension.js` supports a variety of browsers, including Microsoft Edge. To start an Edge-compatible extension, simply:
 
 1. Open your terminal.
 2. Navigate to your desired project directory.
@@ -147,17 +147,17 @@ Done. You are all set!
 
 ☑️ = Likely works but no browser runner support yet.
 
-| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" width="100" height="100"> | <img width="100" height="100" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg">| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg" width="100" height="100"> |
-|-|-|-|-|-|-|-|
-| Brave Browser | Google Chrome | Microsoft Edge | Mozilla Firefox | Opera Browser | Apple Safari | Vivaldi Browser |
-| ☑️ | ✅ | ✅ | ⛔️ | ☑️ | ⛔️ | ☑️ |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" width="100" height="100"> | <img width="100" height="100" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg" width="100" height="100"> |
+| ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Brave Browser                                                                                                       | Google Chrome                                                                                                         | Microsoft Edge                                                                                                    | Mozilla Firefox                                                                                                         | Opera Browser                                                                                                       | Apple Safari                                                                                                          | Vivaldi Browser                                                                                                         |
+| ☑️                                                                                                                  | ✅                                                                                                                    | ✅                                                                                                                | ✅                                                                                                                      | ☑️                                                                                                                  | ⛔️                                                                                                                   | ☑️                                                                                                                      |
 
 ### Mobile Browsers
 
-| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari-ios/safari-ios.svg" width="100" height="100"> | 
-|-|-|
-| Firefox For Android | Safari On iOS | 
-| ⛔️ | ⛔️ |
+| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari-ios/safari-ios.svg" width="100" height="100"> |
+| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Firefox For Android                                                                                                     | Safari On iOS                                                                                                                 |
+| ⛔️                                                                                                                     | ⛔️                                                                                                                           |
 
 If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension dev path/to/extension --browser=edge`.
 

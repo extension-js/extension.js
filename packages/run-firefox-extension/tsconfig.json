@@ -1,8 +1,11 @@
 {
   "extends": "../../packages/tsconfig/base.json",
-  "include": [
-    ".",
-    "../browser-extension-manifest-fields/helpers/getPagesPath.ts"
-  ],
+  "include": [".", "../../.github/_sources"],
+  "compilerOptions": {
+    "typeRoots": [
+      "node_modules/@types",
+      "node_modules/webextension-polyfill-ts"
+    ]
+  },
   "exclude": ["dist", "node_modules"]
 }

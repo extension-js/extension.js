@@ -12,6 +12,7 @@
  * can launch without a browser
  * can launch using chrome
  * can launch using edge
+ * can launch using firefox
  * can launch with a custom user data dir
  * can launch without a polyfill
  * can launch with a custom port
@@ -24,6 +25,7 @@
  * can launch without a browser
  * can launch using chrome
  * can launch using edge
+ * can launch using firefox
  * can launch with a custom user data dir
  * can launch without a polyfill
  * can launch with a custom port

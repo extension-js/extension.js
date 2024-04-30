@@ -8,6 +8,7 @@
 import type webpack from 'webpack'
 import RunChromeExtension from 'webpack-run-chrome-extension'
 import RunEdgeExtension from 'webpack-run-edge-extension'
+import RunFirefoxExtension from 'webpack-run-firefox-extension'
 import {type DevOptions} from '../../extensionDev'
 import {getManifestPath, getOutputPath} from '../config/getPath'
 
@@ -35,6 +36,12 @@ export default function browserPlugins(
   const edgeConfig = {
     ...chromeConfig,
     port: 8001,
+    stats: !statsHasRun
+  }
+
+  const firefoxConfig = {
+    ...chromeConfig,
+    port: 8002,
     // If all browsers are being used, we don't need to show the stats
     // for each browser. This is because the stats will be the same for
     // each browser.
@@ -54,7 +61,7 @@ export default function browserPlugins(
           new RunEdgeExtension(edgeConfig).apply(compiler)
           break
         case 'firefox':
-          console.warn('[Extension]: firefox browser not supported yet')
+          new RunFirefoxExtension(firefoxConfig).apply(compiler)
           break
         default:
           new RunChromeExtension(chromeConfig).apply(compiler)

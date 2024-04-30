@@ -190,9 +190,7 @@ export interface ManifestBase {
               type: string
             }>
           | undefined
-        conditions?:
-          | chrome.declarativeContent.PageStateMatcherProperties[]
-          | undefined
+        conditions?: any[] | undefined
       }>
     | undefined
   externally_connectable?:

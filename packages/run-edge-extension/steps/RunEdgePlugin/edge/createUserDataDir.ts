@@ -23,8 +23,8 @@ export default function createUserDataDir(
 
   if (!silent) {
     addProgressBar(`👤 Creating ${bold('Edge')} user data directory...`, () => {
-      const outputPath = path.resolve(__dirname, 'run-edge-data-dir')
-      const preferences = path.join(outputPath, 'Default')
+      const profilePath = path.resolve(__dirname, 'run-edge-data-dir')
+      const preferences = path.join(profilePath, 'Default')
 
       // Ensure directory exists
       fs.mkdirSync(preferences, {recursive: true})
