@@ -150,7 +150,7 @@ Done. You are all set!
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100" height="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" width="100" height="100"> | <img width="100" height="100" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg">| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg" width="100" height="100"> |
 |-|-|-|-|-|-|-|
 | Brave Browser | Google Chrome | Microsoft Edge | Mozilla Firefox | Opera Browser | Apple Safari | Vivaldi Browser |
-| ☑️ | ✅ | ✅ | ⛔️ | ☑️ | ⛔️ | ☑️ |
+| ☑️ | ✅ | ✅ | ✅ | ☑️ | ⛔️ | ☑️ |
 
 ### Mobile Browsers
 

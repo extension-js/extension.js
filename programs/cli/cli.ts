@@ -37,7 +37,7 @@ if (semver.lte(process.version, '18.0.0')) {
   process.exit(1)
 }
 
-const extensionCreate = program
+const extensionJs = program
 
 // ███████╗██╗  ██╗████████╗███████╗███╗   ██╗███████╗██╗ ██████╗ ███╗   ██╗
 // ██╔════╝╚██╗██╔╝╚══██╔══╝██╔════╝████╗  ██║██╔════╝██║██╔═══██╗████╗  ██║
@@ -52,16 +52,11 @@ const extensionCreate = program
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-// If users are using extension-create, prevents from writing
-// extension create <...args> and do extension <...args> instead.
-// for the extension namespace, users will npx extension create <...args>
-const isExtensionCreateNamespace = packageJson.name !== 'extension'
-
 if (process.env.EXTENSION_ENV === 'development') {
   console.log(`Running extension via ${packageJson.name}...`)
 }
 
-extensionCreate
+extensionJs
   .name(packageJson.name)
   .description(packageJson.description)
   .version(packageJson.version)
@@ -75,9 +70,9 @@ extensionCreate
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 const vendors = (browser: BrowsersSupported) =>
-  browser === 'all' ? 'chrome,edge'.split(',') : browser.split(',')
+  browser === 'all' ? 'chrome,edge,firefox'.split(',') : browser.split(',')
 
-extensionCreate
+extensionJs
   .command('create')
   .arguments('<project-name|project-path>')
   .usage('create <project-name|project-path> [options]')
@@ -134,7 +129,7 @@ extensionCreate
 // ██████╔╝███████╗ ╚████╔╝
 // ╚═════╝ ╚══════╝  ╚═══╝
 
-extensionCreate
+extensionJs
   .command('dev')
   .arguments('[project-path|remote-url]')
   .usage('dev [project-path|remote-url] [options]')
@@ -175,7 +170,7 @@ extensionCreate
 // ███████║   ██║   ██║  ██║██║  ██║   ██║
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
 
-extensionCreate
+extensionJs
   .command('start')
   .arguments('[project-path|remote-url]')
   .usage('start [project-path|remote-url] [options]')
@@ -216,7 +211,7 @@ extensionCreate
 // ██████╔╝╚██████╔╝██║███████╗██████╔╝
 // ╚═════╝  ╚═════╝ ╚═╝╚══════╝╚═════╝
 
-extensionCreate
+extensionJs
   .command('build')
   .arguments('[project-name]')
   .usage('build [path-to-remote-extension] [options]')
@@ -241,4 +236,4 @@ extensionCreate
     }
   })
 
-extensionCreate.parse()
+extensionJs.parse()
