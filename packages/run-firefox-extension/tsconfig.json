@@ -1,0 +1,8 @@
+{
+  "extends": "../../packages/tsconfig/base.json",
+  "include": [
+    ".",
+    "../browser-extension-manifest-fields/helpers/getPagesPath.ts"
+  ],
+  "exclude": ["dist", "node_modules"]
+}
