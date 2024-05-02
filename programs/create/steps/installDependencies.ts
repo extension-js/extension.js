@@ -11,7 +11,7 @@ import {execSync} from 'child_process'
 import {bold, red} from '@colors/colors/safe'
 
 import {getInstallCommand} from '../helpers/getInstallInfo'
-import createSymlink from './symlinkExtensionCreate'
+import createSymlink from './symlinkExtensionJs'
 
 function getInstallArgs() {
   return ['install', '--silent']

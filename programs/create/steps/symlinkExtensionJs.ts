@@ -10,17 +10,17 @@ import {spawn} from 'cross-spawn'
 import {getInstallCommand} from '../helpers/getInstallInfo'
 
 export default async function createSymlink(projectPath: string) {
-  const extensionCreateCliDir = path.join(__dirname, '../../cli')
+  const extensionJsCliDir = path.join(__dirname, '../../cli')
   const command = getInstallCommand()
   const args = ['link']
 
   await new Promise<void>((resolve, reject) => {
     // Link Extension to the project
-    const linkExtensionCreate = spawn(command, args, {
-      cwd: extensionCreateCliDir
+    const linkExtensionJs = spawn(command, args, {
+      cwd: extensionJsCliDir
     })
 
-    linkExtensionCreate.on('close', (code) => {
+    linkExtensionJs.on('close', (code) => {
       const linkProcess = spawn(command, [...args, 'extension'], {
         stdio: 'inherit',
         cwd: projectPath

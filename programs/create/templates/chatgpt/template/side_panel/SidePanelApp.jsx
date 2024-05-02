@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import OpenAI from "openai";
 import chatgptLogo from '../images/chatgpt.png'
-import extensionCreateLogo from '../images/extensioncreate.png'
+import extensionJsLogo from '../images/extensionjs.png'
 
 const openai = new OpenAI({
   apiKey: process.env.EXTENSION_OPENAI_API_KEY,
@@ -61,7 +61,7 @@ function SidebarApp() {
                 <div className={`chat ${msg.role === 'assistant' ? 'chat-start' : 'chat-end'}`} key={'chatKey' + i}>
                   <div className="chat-image avatar">
                     <div className="w-10 rounded-full">
-                      <img src={msg.role === 'assistant' ? chatgptLogo : extensionCreateLogo} />
+                      <img src={msg.role === 'assistant' ? chatgptLogo : extensionJsLogo} />
                     </div>
                   </div>
                   <div className="chat-bubble">{msg.content}</div>
