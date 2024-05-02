@@ -8,7 +8,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://*.extensioncreate.com/*"],
+      "matches": ["https://extension.js.org/*"],
       "js": ["./content/content.tsx"]
     }
   ],

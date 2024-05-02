@@ -1,9 +1,9 @@
-import extensionCreateLogo from './images/extensioncreate.svg'
+import extensionJsLogo from './images/extensionjs.svg'
 import('./content.css')
 
 document.body.innerHTML += `
 <div class="content_script-box">
-  <img class="content_script-logo" src=${extensionCreateLogo} />
+  <img class="content_script-logo" src=${extensionJsLogo} />
   <h1 class="content_script-title">
     Change the background-color ⬇
   </h1>

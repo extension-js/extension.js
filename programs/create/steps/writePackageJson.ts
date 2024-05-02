@@ -12,7 +12,7 @@ import {bold, red, yellow} from '@colors/colors/safe'
 import getTemplatePath from '../helpers/getTemplatePath'
 import isExternalTemplate from '../helpers/isExternalTemplate'
 
-const extensionCreatePackageJsonScripts = {
+const extensionJsPackageJsonScripts = {
   dev:
     process.env.EXTENSION_ENV === 'development'
       ? 'node node_modules/extension dev'
@@ -56,7 +56,7 @@ export default async function writePackageJson(
     version: '0.0.0',
     scripts: {
       ...packageJson.scripts,
-      ...extensionCreatePackageJsonScripts
+      ...extensionJsPackageJsonScripts
     },
     dependencies: packageJson.dependencies,
     devDependencies: packageJson.devDependencies
