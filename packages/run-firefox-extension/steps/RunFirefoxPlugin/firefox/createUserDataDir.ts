@@ -1,7 +1,3 @@
-// Ideas here are adapted from
-// https://github.com/jeremyben/webpack-firefox-extension-launcher
-// Released under MIT license.
-
 import path from 'path'
 import fs from 'fs'
 import {bold} from '@colors/colors/safe'
@@ -28,28 +24,24 @@ export default function createUserDataDir(
 ): FirefoxProfile {
   const defaultProfileDir = path.resolve(__dirname, 'run-firefox-data-dir')
 
-  if (!fs.existsSync(defaultProfileDir)) {
-    fs.mkdirSync(defaultProfileDir, {recursive: true})
-  }
+  // Ensure that either the specified data directory or the default directory exists
+  const profileDirectory = dataDirPath || defaultProfileDir
 
-  if (dataDirPath) {
-    if (!fs.existsSync(dataDirPath)) {
-      fs.mkdirSync(dataDirPath, {recursive: true})
+  console.log({profileDirectory})
+  if (!fs.existsSync(profileDirectory)) {
+    fs.mkdirSync(profileDirectory, {recursive: true})
+    if (!silent) {
+      addProgressBar(
+        `👤 Creating ${bold(
+          'Firefox'
+        )} user data directory at ${profileDirectory}...`,
+        () => {}
+      )
     }
   }
 
-  const profileDirectory = dataDirPath || defaultProfileDir
-  const browserProfile = new FirefoxProfile({profileDirectory})
-  const profilePath = configureProfile(browserProfile).path()
-
-  if (!silent) {
-    addProgressBar(
-      `👤 Creating ${bold('Firefox')} user data directory...`,
-      () => {
-        fs.mkdirSync(profilePath, {recursive: true})
-      }
-    )
-  }
-
+  const browserProfile = new FirefoxProfile({
+    destinationDirectory: profileDirectory
+  })
   return configureProfile(browserProfile)
 }
