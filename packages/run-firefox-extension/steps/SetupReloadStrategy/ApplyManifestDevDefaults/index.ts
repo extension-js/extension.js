@@ -1,11 +1,13 @@
 import type webpack from 'webpack'
 import {Compilation, sources} from 'webpack'
 import {patchV2CSP, patchV3CSP} from './patchCSP'
+import patchGeckoId from './patchGeckoId'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patchWebResources'
 import patchBackground from './patchBackground'
 import patchExternallyConnectable from './patchExternallyConnectable'
 import * as utils from '../../../helpers/utils'
 import {type RunFirefoxExtensionInterface} from '../../../types'
+import {ManifestBase} from '../../../manifest-types'
 
 class ApplyManifestDevDefaultsPlugin {
   private readonly manifestPath?: string
@@ -17,9 +19,10 @@ class ApplyManifestDevDefaultsPlugin {
   private generateManifestPatches(compilation: webpack.Compilation) {
     const manifest = utils.getManifestContent(compilation, this.manifestPath!)
 
-    const patchedManifest = {
+    const patchedManifest: ManifestBase = {
       // Preserve all other user entries
       ...manifest,
+
       // Allow usig source map based on eval, using Manifest V2.
       // script-src 'self' 'unsafe-eval';
       // See https://github.com/awesome-webextension/webpack-target-webextension#source-map.
@@ -54,6 +57,20 @@ class ApplyManifestDevDefaultsPlugin {
           ? patchWebResourcesV3(manifest)
           : patchWebResourcesV2(manifest)
     }
+
+    // Firefox require temporary extensions to have a defined ID
+    // id: patchGeckoId(this.manifestPath!),
+    // if (!patchedManifest.id) {
+    //   if (!patchedManifest.applications.gecko.id) {
+    //     patchedManifest.push({
+    //       browser_specific_settings: {
+    //         gecko: {
+    //           id: patchGeckoId(this.manifestPath!)
+    //         }
+    //       }
+    //     })
+    //   }
+    // }
 
     const source = JSON.stringify(patchedManifest, null, 2)
     const rawSource = new sources.RawSource(source)

@@ -23,22 +23,26 @@ export default class FirefoxExtensionLauncherPlugin {
   }
 
   private launchFirefox() {
-    const firefoxLaunchPath = this.options.startingUrl
-      ? `"${firefox}" "${this.options.startingUrl}"`
-      : `"${firefox}"`
+    const profilePath = browserConfig(this.options).path()
+    const startingUrl = this.options.startingUrl || 'about:blank'
+    const firefoxLaunchPath = `"${firefox}" -profile "${profilePath}" -no-remote --url "${startingUrl}"`
 
-    if (!fs.existsSync(firefox as string) || '') {
+    if (!fs.existsSync(firefox as string)) {
       console.error(
         `${bgWhite(black(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Firefox browser ${typeof firefox === 'undefined' ? 'is not installed.' : `is not found at ${firefox}`}. ` +
-          // `Either install Firefox or set the CHROME environment variable to the path of the Firefox executable.`
-          `Either install Firefox or choose a different browser via ${blue('--browser')}.`
+          `Firefox browser ${
+            typeof firefox === 'undefined'
+              ? 'is not installed.'
+              : `is not found at ${firefox}`
+          }. ` +
+          `Either install Firefox or choose a different browser via ${blue(
+            '--browser'
+          )}.`
       )
       process.exit()
     }
 
-    const firefoxConfig = browserConfig(this.options)
-    const cmd = `${firefoxLaunchPath} ${firefoxConfig}`
+    const cmd = `${firefoxLaunchPath}`
 
     const child = exec(cmd, (error, _stdout, stderr) => {
       if (error != null) throw error
