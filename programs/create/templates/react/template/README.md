@@ -20,7 +20,7 @@ In the project directory, you can run:
 ```
 // Runs the app in the production mode.
 // Will open a new browser instance with your extension loaded.
-// This is how your browser extension will work once publihed.
+// This is how your browser extension will work once published.
 [projectPackageManager] start
 ```
 
