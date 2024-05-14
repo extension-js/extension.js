@@ -33,12 +33,10 @@ async function handleTabOnExtensionLoad() {
       currentWindow: true
     })
 
-    console.log({kkkL: 'ok', initurl: initialTab.url, __IS_FIRST_RUN__})
     if (initialTab.url === 'about:blank') {
       // This check is generated at runtime by a hypothetical function,
       // handle accordingly if it's the first run
-      if (true) {
-        console.log('i am reached')
+      if (__IS_FIRST_RUN__) {
         setTimeout(async () => {
           await browser.tabs.create({url: './pages/welcome.html'})
         }, 1000)

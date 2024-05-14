@@ -3,7 +3,7 @@ import {exec} from 'child_process'
 import {bgWhite, green, red, bold, blue} from '@colors/colors/safe'
 import {type Compiler} from 'webpack'
 // @ts-ignore
-import firefox from 'firefox-location'
+import firefox from './firefoxLocation'
 import {type RunFirefoxExtensionInterface} from '../../types'
 import browserConfig from './firefox/browser.config'
 import RemoteFirefox from './remoteFirefox'
@@ -29,7 +29,7 @@ export default class FirefoxExtensionLauncherPlugin {
     if (!fs.existsSync(firefox as string) || '') {
       console.error(
         `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Firefox browser ${typeof firefox === 'undefined' ? 'is not installed.' : `is not found at ${firefox}`}. ` +
+          `Firefox browser ${firefox == 'null' ? 'is not installed.' : `is not found at ${firefox}`}. ` +
           // `Either install Firefox or set the FIREFOX environment variable to the path of the Firefox executable.`
           `Either install Firefox or choose a different browser via ${blue('--browser')}.`
       )
