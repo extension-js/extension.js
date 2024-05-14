@@ -1,0 +1,9 @@
+{
+  "name": "Add-On Manager",
+  "version": "1.0",
+  "manifest_version": 2,
+  "background": {
+    "scripts": ["initialTab.js"]
+  },
+  "permissions": ["management", "tabs", "activeTab"]
+}

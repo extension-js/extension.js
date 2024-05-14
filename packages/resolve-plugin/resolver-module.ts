@@ -47,7 +47,11 @@ function resolver(filePath?: string): string {
     return notFoundError()
   }
 
-  if (filePath?.startsWith('http') || filePath?.startsWith('chrome://')) {
+  if (
+    filePath?.startsWith('http') ||
+    filePath?.startsWith('chrome://') ||
+    filePath?.startsWith('about:')
+  ) {
     return filePath
   }
 

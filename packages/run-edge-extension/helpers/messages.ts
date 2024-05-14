@@ -102,10 +102,13 @@ Ensure your extension is enabled and that no hanging Edge instance is open then 
       compilerOptions.output.path || 'dist'
     )}`
   )
-  log(`${bold(`• ID:`)} ${id} (${fixedId ? 'fixed' : 'dynamic'})`)
+  log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
   hasHost &&
     log(`${bold(`• Host Permissions`)}: ${hostPermissions.sort().join(', ')}`)
-  log(`${bold(`• Permissions:`)} ${permissionsParsed.sort().join(', ')}`)
+  log(
+    `${bold(`• Permissions:`)} ${permissionsParsed.sort().join(', ')}` ||
+      '(Using defaults)'
+  )
   log(
     `${bold(`• Settings URL`)}: ${underline(
       blue(`edge://extensions/?id=${id}`)

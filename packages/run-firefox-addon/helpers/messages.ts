@@ -9,7 +9,6 @@ import {
   blue,
   red,
   yellow,
-  black,
   magenta,
   cyan
 } from '@colors/colors/safe'
@@ -17,11 +16,12 @@ import {
 import prefersYarn from 'prefers-yarn'
 import getDirectorySize from '../steps/calculateDirSize'
 import {type ManifestBase} from '../manifest-types'
+import browser from 'webextension-polyfill-ts'
 
 interface Data {
   id: string
   manifest: ManifestBase
-  management: chrome.management.ExtensionInfo
+  management: browser.Management.ExtensionInfo
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
@@ -56,11 +56,11 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
+    error(`[⛔️] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
       '✖︎✖︎✖︎'
     )} No data received from client.
 
-Ensure your extension is enabled and that no hanging Chrome instance is open then try again.`)
+Ensure your extension is enabled and that no hanging Firefox instance is open then try again.`)
 
     process.exit(1)
   }
@@ -71,7 +71,7 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
       error(
-        `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${green(
+        `[⛔️] ${bgWhite(red(bold(` firefox-browser `)))} ${green(
           '►►►'
         )} No management API info received from client. Investigate.`
       )
@@ -82,6 +82,9 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
 
   const manifestPath = path.join(compilerOptions.context || '', 'manifest.json')
   const manifestFromCompiler = require(manifestPath)
+  const hostPermissionsParsed = hostPermissions?.filter(
+    (permission) => !permission.startsWith('moz-extension://')
+  )
   const permissionsBefore: string[] = manifestFromCompiler.permissions || []
   const permissionsAfter: string[] = permissions || []
   // If a permission is used in the post compilation but not
@@ -91,7 +94,7 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
     return `${permission} (dev only)`
   })
   const fixedId = manifestFromCompiler.id === id
-  const hasHost = hostPermissions && hostPermissions.length
+  const hasHost = hostPermissionsParsed && hostPermissionsParsed.length
 
   log('')
   log(`${bold(`• Name:`)} ${name}`)
@@ -104,34 +107,24 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   )
   log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
   hasHost &&
-    log(`${bold(`• Host Permissions`)}: ${hostPermissions.sort().join(', ')}`)
+    log(
+      `${bold(`• Host Permissions`)}: ${hostPermissionsParsed?.sort().join(', ')}`
+    )
   log(
     `${bold(`• Permissions:`)} ${permissionsParsed.sort().join(', ')}` ||
       '(Using defaults)'
-  )
-  log(
-    `${bold(`• Settings URL`)}: ${underline(
-      blue(`chrome://extensions/?id=${id}`)
-    )}\n`
   )
 }
 
 function stdoutData(compiler: Compiler, message: {data?: Data}) {
   const compilerOptions = compiler.options
   const management = message.data?.management
-  const crRuntime = bgWhite(black(bold(` chrome-browser `)))
-  // 🦁brave ⚪️chrome 🔵edge ⭕️opera 🦊firefox 🧭safari🟡
-  // const edgeRuntime = bgCyan(black(bold(` edge-browser `)))
-  // const ffRuntime = bgRed(white(bold(` firefox-runtime `)))
-  // const operaRuntime = bgWhite(red(bold(` opera-runtime `)))
-  // const braveRuntime = bgBlack(white(bold(` brave-runtime `)))
-  // const vivaldiRuntime = bgMagenta(white(bold(` vivaldi-runtime `)))
-  // const safariRuntime = bgWhite(blue(bold(` safari-runtime `)))
+  const crRuntime = bgWhite(red(bold(` firefox-browser `)))
 
   const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
 
   log(
-    `${crRuntime} ${green('►►►')} Running Chrome in ${bold(
+    `\n${crRuntime} ${green('►►►')} Running Firefox in ${bold(
       modeColor(compilerOptions.mode || 'unknown')
     )} mode. Browser ${management?.type} ${bold(
       management?.enabled ? 'enabled' : 'disabled'
@@ -150,11 +143,11 @@ function isFirstRun() {
   log(`\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`)
 }
 
-function watchModeClosed(code: number, reason: Buffer) {
+function watchModeClosed(code: number, reason: any) {
   const message = reason.toString()
 
   log(
-    `[😓] ${bgWhite(bold(` chrome-browser `))} ${red(
+    `[😓] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
       '✖︎✖︎✖︎'
     )} Watch mode closed (code ${code}). ${
       message && '\n\nReason ' + message + '\n'
@@ -164,15 +157,15 @@ function watchModeClosed(code: number, reason: Buffer) {
 
 function browserNotFound(chromePath: string) {
   error(
-    `${bgWhite(bold(` chrome-browser `))} ${red(
+    `${bgWhite(red(bold(` firefox-browser `)))} ${red(
       '✖︎✖︎✖︎'
-    )} Chrome not found at ${chromePath}`
+    )} Firefox not found at ${chromePath}`
   )
 }
 
 function webSocketError(error: any) {
   error(
-    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
+    `[⛔️] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
       '✖︎✖︎✖︎'
     )} WebSocket error`,
     error
@@ -181,7 +174,7 @@ function webSocketError(error: any) {
 
 function parseFileError(error: any, filepath: string) {
   error(
-    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
+    `[⛔️] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
       '✖︎✖︎✖︎'
     )} Error parsing file: ${filepath}. Reason: ${error.message}`
   )
