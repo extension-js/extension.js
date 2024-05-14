@@ -18,7 +18,7 @@ export default class CreateWebSocketServer {
 
     // Before all, rewrite the reload service file
     // with the user-provided port.
-    rewriteReloadPort(this.options.port || 8001)
+    rewriteReloadPort(this.options.port || 8002)
 
     // And also rewrite the first run variable.
     // This will change the user active tab on first run.
@@ -57,7 +57,5 @@ export default class CreateWebSocketServer {
         done()
       }
     )
-
-    return wss
   }
 }

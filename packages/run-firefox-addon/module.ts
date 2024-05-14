@@ -11,7 +11,7 @@ export default class RunFirefoxExtension {
     this.options = {
       manifestPath: options.manifestPath,
       extensionPath: options.extensionPath,
-      port: options.port || 8000,
+      port: options.port || 8002,
       browserFlags: options.browserFlags || [],
       userDataDir: options.userDataDir,
       startingUrl: options.startingUrl,
@@ -21,10 +21,14 @@ export default class RunFirefoxExtension {
   }
 
   /**
-   * RunFirefoxExtension works by creating a remote desktop server
+   * RunFirefoxExtension works by creating a WebSockets server
    * that listens to changes triggered by the user extension
    * via webpack. When a change is detected, the server sends
-   * a remote command to the browser. The HMR part is
+   * a message to an extension called reload-extension, which
+   * is injected into the browser. This extension is responsible
+   * for sending messages to the user extension. We do that by
+   * injecting a script into the background page that listens
+   * to messages from the reload-extension. The HMR part is
    * done by webpack-target-webextension, which patches the
    * manifest file and modifies the background script to accept
    * both extension runtime updates (service_worker, manifest.json)

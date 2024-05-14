@@ -1,7 +1,6 @@
 // This messaging client acts similar to the web-ext rdp-client.
 // https://github.com/mozilla/web-ext/blob/master/src/firefox/rdp-client.js.
-// For some reason it seems Firefox requires a remote client
-// to add temporary
+// For some reason it seems Firefox requires a remote client to add temporary add-ons.
 
 import net from 'net'
 import EventEmitter from 'events'

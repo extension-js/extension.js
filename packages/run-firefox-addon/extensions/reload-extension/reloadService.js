@@ -6,7 +6,6 @@ browser.runtime.onInstalled.addListener(async () => {
     disconnect()
   } else {
     await connect()
-    keepAlive()
   }
 })
 
@@ -132,15 +131,4 @@ async function checkExtensionReadiness() {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function keepAlive() {
-  const keepAliveIntervalId = setInterval(() => {
-    // if (webSocket) {
-    //   webSocket.send(JSON.stringify({status: 'ping'}))
-    //   console.info('[Reload Service] Listening for changes...')
-    // } else {
-    //   clearInterval(keepAliveIntervalId)
-    // }
-  }, TEN_SECONDS_MS)
 }

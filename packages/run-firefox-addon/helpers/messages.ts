@@ -111,8 +111,7 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
       `${bold(`• Host Permissions`)}: ${hostPermissionsParsed?.sort().join(', ')}`
     )
   log(
-    `${bold(`• Permissions:`)} ${permissionsParsed.sort().join(', ')}` ||
-      '(Using defaults)'
+    `${bold(`• Permissions:`)} ${permissionsParsed.length ? permissionsParsed.sort().join(', ') : '(Using defaults)'}`
   )
 }
 
