@@ -5,7 +5,7 @@ import {type StatsPreset} from '../../../types'
 import {type ManifestBase} from '../../../manifest-types'
 import httpsServer from './httpsServer'
 import isFirstRun from '../../RunFirefoxPlugin/firefox/isFirstRun'
-import browser from 'webextension-polyfill-ts'
+import type browser from 'webextension-polyfill-ts'
 
 interface Data {
   id: string
