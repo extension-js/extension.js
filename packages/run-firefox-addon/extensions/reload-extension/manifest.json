@@ -1,0 +1,15 @@
+{
+  "name": "Reload Service",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "reload@extension-js"
+    }
+  },
+  "content_security_policy": "default-src 'self'; connect-src 'self' wss://127.0.0.1:8002;",
+  "version": "1.0",
+  "manifest_version": 2,
+  "background": {
+    "scripts": ["reloadService.js"]
+  },
+  "permissions": ["management", "tabs"]
+}

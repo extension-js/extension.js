@@ -8,7 +8,7 @@
 import type webpack from 'webpack'
 import RunChromeExtension from 'webpack-run-chrome-extension'
 import RunEdgeExtension from 'webpack-run-edge-extension'
-import RunFirefoxExtension from 'webpack-run-firefox-extension'
+import RunFirefoxAddon from 'webpack-run-firefox-addon'
 import {type DevOptions} from '../../extensionDev'
 import {getManifestPath, getOutputPath} from '../config/getPath'
 
@@ -61,7 +61,7 @@ export default function browserPlugins(
           new RunEdgeExtension(edgeConfig).apply(compiler)
           break
         case 'firefox':
-          new RunFirefoxExtension(firefoxConfig).apply(compiler)
+          new RunFirefoxAddon(firefoxConfig).apply(compiler)
           break
         default:
           new RunChromeExtension(chromeConfig).apply(compiler)
