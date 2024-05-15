@@ -13,14 +13,14 @@ function configureProfile(
   const preferenceKeys = Object.keys(preferences)
 
   preferenceKeys.forEach((preference) => {
-    profile.setPreference(preference, preferences[preference])
+    profile.setPreference(preference, preferences[preference] as string)
   })
 
   const customPreferenceKeys = Object.keys(customPreferences)
 
   if (customPreferenceKeys.length > 0) {
     customPreferenceKeys.forEach((custom) => {
-      profile.setPreference(custom, customPreferences[custom])
+      profile.setPreference(custom, customPreferences[custom] as string)
     })
   }
 

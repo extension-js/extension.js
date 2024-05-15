@@ -19,7 +19,7 @@ interface Deferred {
 
 function parseMessage(data: Buffer): {
   remainingData: Buffer
-  parsedMessage?: any
+  parsedMessage?: Message
   error?: Error
   fatal?: boolean
 } {
@@ -62,15 +62,17 @@ function parseMessage(data: Buffer): {
 
 export default class MessagingClient extends EventEmitter {
   private incomingData: Buffer = Buffer.alloc(0)
-  private pendingRequests: {request: any; deferred: Deferred}[] = []
-  private activeRequests: Map<string, Deferred> = new Map()
+  private pendingRequests: Array<{request: any; deferred: Deferred}> = []
+  private readonly activeRequests = new Map<string, Deferred>()
   private connection?: net.Socket
 
-  connect(port: number): Promise<void> {
-    return new Promise((resolve, reject) => {
+  async connect(port: number): Promise<void> {
+    await new Promise<void>((resolve, reject) => {
       try {
         const connectionOptions = {port, host: '127.0.0.1'}
-        const conn = net.createConnection(connectionOptions, () => resolve())
+        const conn = net.createConnection(connectionOptions, () => {
+          resolve()
+        })
         this.connection = conn
 
         conn.on('data', this.onData.bind(this))
@@ -96,13 +98,17 @@ export default class MessagingClient extends EventEmitter {
   }
 
   private rejectAllRequests(error: Error): void {
-    this.activeRequests.forEach((deferred) => deferred.reject(error))
+    this.activeRequests.forEach((deferred) => {
+      deferred.reject(error)
+    })
     this.activeRequests.clear()
-    this.pendingRequests.forEach(({deferred}) => deferred.reject(error))
+    this.pendingRequests.forEach(({deferred}) => {
+      deferred.reject(error)
+    })
     this.pendingRequests = []
   }
 
-  request(requestProps: any): Promise<any> {
+  async request(requestProps: any): Promise<any> {
     const request =
       typeof requestProps === 'string'
         ? {to: 'root', type: requestProps}
@@ -114,7 +120,7 @@ export default class MessagingClient extends EventEmitter {
           `Unexpected MessagingClient request without target actor: ${request.type}`
       )
     }
-    return new Promise((resolve, reject) => {
+    return await new Promise((resolve, reject) => {
       const deferred = {resolve, reject}
       this.pendingRequests.push({request, deferred})
       this.flushPendingRequests()
@@ -123,7 +129,7 @@ export default class MessagingClient extends EventEmitter {
 
   private flushPendingRequests(): void {
     this.pendingRequests = this.pendingRequests.filter(
-      ({request, deferred}) => {
+      ({request, deferred}: {request: {to: string}; deferred: Deferred}) => {
         if (this.activeRequests.has(request.to)) return true
         if (!this.connection) {
           throw new Error(

@@ -26,10 +26,10 @@ export default class FirefoxExtensionLauncherPlugin {
   private async launchFirefox() {
     const firefoxLaunchPath = `fx-runner start --binary "${firefox}" --foreground --no-remote`
 
-    if (!fs.existsSync(firefox as string) || '') {
+    if (!fs.existsSync(firefox!) || '') {
       console.error(
         `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Firefox browser ${firefox == 'null' ? 'is not installed.' : `is not found at ${firefox}`}. ` +
+          `Firefox browser ${firefox !== 'null' ? `is not found at ${firefox}` : 'is not installed.'}. ` +
           // `Either install Firefox or set the FIREFOX environment variable to the path of the Firefox executable.`
           `Either install Firefox or choose a different browser via ${blue('--browser')}.`
       )
@@ -40,7 +40,14 @@ export default class FirefoxExtensionLauncherPlugin {
     const cmd = `${firefoxLaunchPath} ${firefoxConfig}`
 
     // Inject the add-ons code into Firefox profile.
-    new RemoteFirefox(this.options).installAddons()
+    new RemoteFirefox(this.options).installAddons().catch((error) => {
+      console.error(
+        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+          `Error injecting add-ons code into Firefox profile.`
+      )
+      console.error(error)
+      process.exit()
+    })
 
     const child = exec(cmd, (error, _stdout, stderr) => {
       if (error != null) throw error
@@ -80,7 +87,15 @@ export default class FirefoxExtensionLauncherPlugin {
           done()
           return
         }
-        this.launchFirefox()
+        this.launchFirefox().catch((error) => {
+          console.error(
+            `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+              `Error launching Firefox.`
+          )
+          console.error(error)
+          process.exit()
+        })
+
         firefoxDidLaunch = true
         done()
       }

@@ -1,4 +1,3 @@
-const TEN_SECONDS_MS = 10 * 1000
 let webSocket = null
 
 browser.runtime.onInstalled.addListener(async () => {
@@ -27,6 +26,7 @@ async function connect() {
   }
 
   webSocket.onmessage = async (event) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const message = JSON.parse(event.data)
 
     if (message.status === 'serverReady') {
@@ -63,8 +63,7 @@ async function getDevExtensions() {
       // Do not include itself
       extension.id !== browser.runtime.id &&
       // Manager extension
-      extension.browser_specific_settings?.gecko?.id !==
-        'manager@extension-js' &&
+      extension.name !== 'Add-On Manager' &&
       // Show only unpackaged extensions
       extension.installType === 'development'
     )
@@ -78,6 +77,7 @@ async function messageAllExtensions(changedFile) {
   if (isExtensionReady) {
     const devExtensions = await getDevExtensions()
     for (const extension of devExtensions) {
+      console.log({extension})
       try {
         await browser.runtime.sendMessage(extension.id, {changedFile})
         console.info('[Reload Service] Add-On reloaded and ready.')
@@ -98,9 +98,11 @@ async function requestInitialLoadData() {
   const responses = await Promise.all(
     devExtensions.map(async (extension) => {
       try {
-        return await browser.runtime.sendMessage(extension.id, {
+        const result = await browser.runtime.sendMessage(extension.id, {
           initialLoadData: true
         })
+
+        return result
       } catch (error) {
         console.error(
           `Error sending message to ${extension.id}: ${error.message}`
@@ -129,6 +131,12 @@ async function checkExtensionReadiness() {
   return true
 }
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+async function delay(ms) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+  return await new Promise((resolve) => setTimeout(resolve, ms)).catch(
+    (error) => {
+      console.error(`Error delaying: ${error.message}`)
+    }
+  )
 }

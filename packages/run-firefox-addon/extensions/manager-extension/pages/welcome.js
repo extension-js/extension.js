@@ -31,4 +31,4 @@ async function onStartup() {
   })
 }
 
-onStartup()
+onStartup().catch(console.error)
