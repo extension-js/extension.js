@@ -16,7 +16,7 @@ import {
 import prefersYarn from 'prefers-yarn'
 import getDirectorySize from '../steps/calculateDirSize'
 import {type ManifestBase} from '../manifest-types'
-import browser from 'webextension-polyfill-ts'
+import type browser from 'webextension-polyfill-ts'
 
 interface Data {
   id: string

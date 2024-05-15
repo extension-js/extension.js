@@ -3,7 +3,11 @@ import {browser} from 'webextension-polyfill-ts'
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   async (request: any, _sender: any, sendResponse: any) => {
     const managementInfo = await new Promise(() => {
-      browser.management.getSelf()
+      browser.management.getSelf().catch((error: any) => {
+        console.error(error)
+      })
+    }).catch((error: any) => {
+      console.error(error)
     })
 
     // Ping-pong between the user extension background page(this)

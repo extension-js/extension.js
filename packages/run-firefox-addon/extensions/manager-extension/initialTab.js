@@ -24,6 +24,7 @@ async function createFirefoxAddonsTab(initialTab, url) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/naming-convention
 const __IS_FIRST_RUN__ = false
 
 async function handleTabOnExtensionLoad() {
@@ -37,16 +38,16 @@ async function handleTabOnExtensionLoad() {
       // This check is generated at runtime by a hypothetical function,
       // handle accordingly if it's the first run
       if (__IS_FIRST_RUN__) {
-        setTimeout(async () => {
-          await browser.tabs.create({url: './pages/welcome.html'})
+        setTimeout(() => {
+          browser.tabs.create({url: './pages/welcome.html'})
         }, 1000)
       }
     } else {
-      createFirefoxAddonsTab(initialTab, 'about:blank')
+      await createFirefoxAddonsTab(initialTab, 'about:blank')
     }
   } catch (error) {
     console.error('Error handling tabs on extension load:', error)
   }
 }
 
-handleTabOnExtensionLoad()
+handleTabOnExtensionLoad().catch(console.error)

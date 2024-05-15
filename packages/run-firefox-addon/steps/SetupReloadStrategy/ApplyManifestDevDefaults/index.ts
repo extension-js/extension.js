@@ -7,7 +7,7 @@ import patchBackground from './patchBackground'
 import patchExternallyConnectable from './patchExternallyConnectable'
 import * as utils from '../../../helpers/utils'
 import {type RunFirefoxExtensionInterface} from '../../../types'
-import {ManifestBase} from '../../../manifest-types'
+import {type ManifestBase} from '../../../manifest-types'
 
 class ApplyManifestDevDefaultsPlugin {
   private readonly manifestPath?: string
