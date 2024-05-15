@@ -1,7 +1,7 @@
 import path from 'path'
 import {bgWhite, red, bold} from '@colors/colors/safe'
 import MessagingClient from './MessagingClient'
-import {RunFirefoxExtensionInterface} from '../../../types'
+import {type RunFirefoxExtensionInterface} from '../../../types'
 import {isErrorWithCode, requestErrorToMessage} from './messageUtils'
 
 const MAX_RETRIES = 150
@@ -19,7 +19,7 @@ const reloadExtension = path.resolve(
 )
 
 export default class RemoteFirefox {
-  private options: RunFirefoxExtensionInterface
+  private readonly options: RunFirefoxExtensionInterface
 
   constructor(configOptions: RunFirefoxExtensionInterface) {
     this.options = configOptions
@@ -28,7 +28,8 @@ export default class RemoteFirefox {
   private async connectClient(port: number) {
     let lastError
 
-    for (const _retries of Array.from({length: MAX_RETRIES})) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    for (const _ of Array.from({length: MAX_RETRIES})) {
       try {
         const client = new MessagingClient()
         await client.connect(port)
@@ -73,7 +74,7 @@ export default class RemoteFirefox {
         await client.request({
           to: addons.addonsActor,
           type: 'installTemporaryAddon',
-          addonPath: addonPath,
+          addonPath,
           openDevTools: isDevtoolsEnabled
         })
       } catch (err) {

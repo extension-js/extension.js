@@ -51,7 +51,7 @@ export function requestErrorToMessage(err: any) {
 }
 
 export function isErrorWithCode(codeWanted: any, error: any) {
-  if (Array.isArray(codeWanted) && codeWanted.indexOf(error.code) !== -1) {
+  if (Array.isArray(codeWanted) && codeWanted.includes(error.code)) {
     return true
   } else if (error.code === codeWanted) {
     return true
