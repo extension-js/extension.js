@@ -10,12 +10,14 @@ import {type PathData, type Compiler} from 'webpack'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin'
 import StylelintPlugin from 'stylelint-webpack-plugin'
+import {VueLoaderPlugin} from 'vue-loader'
 
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 import {type DevOptions} from '../../extensionDev'
 import {isUsingTypeScript, tsCheckerOptions} from '../options/typescript'
 import {isUsingStylelint, getStylelintConfigFile} from '../options/stylelint'
+import {isUsingVue} from '../options/vue'
 
 export default function compilationPlugins(
   projectDir: string,
@@ -67,6 +69,10 @@ export default function compilationPlugins(
             return `${runtime}/[name].css`
           }
         }).apply(compiler)
+      }
+
+      if (isUsingVue(projectDir)) {
+        new VueLoaderPlugin().apply(compiler)
       }
     }
   }
