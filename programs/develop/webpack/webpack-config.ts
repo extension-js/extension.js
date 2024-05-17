@@ -20,7 +20,6 @@ import {
 import assetLoaders from './loaders/assetLoaders'
 import jsLoaders from './loaders/jsLoaders'
 import styleLoaders from './loaders/styleLoaders'
-import vueLoaders from './loaders/vueLoaders'
 
 // Plugins
 import compilationPlugins from './plugins/compilationPlugins'
@@ -96,8 +95,7 @@ export default function webpackConfig(
       rules: [
         ...jsLoaders(projectPath, devOptions),
         ...styleLoaders(projectPath, devOptions),
-        ...assetLoaders,
-        ...vueLoaders(projectPath),
+        ...assetLoaders
       ]
     },
     plugins: [
