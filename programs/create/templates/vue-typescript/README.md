@@ -1,3 +1,3 @@
 # Extension Vue TypeScript Template
 
-> Vue + TypeScript template for [Extension](https://github.com/cezaraugusto/extension).
+> Vue + TypeScript template for [Extension.js](https://github.com/cezaraugusto/extension).
