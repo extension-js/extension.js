@@ -6,7 +6,7 @@
     "directory": "packages/create/templates/content"
   },
   "name": "content-template",
-  "description": "The Extension content_scripts template.",
+  "description": "The Extension.js content_scripts template.",
   "version": "0.0.0",
   "author": {
     "name": "Cezar Augusto",

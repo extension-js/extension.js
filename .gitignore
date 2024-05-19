@@ -53,7 +53,7 @@ yarn-error.log*
 # vercel
 .vercel
 
-# Extension (alpha)
+# Extension.js (beta)
 packages/*/demo
 packages/*/spec
 browser-extension-test-data

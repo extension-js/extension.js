@@ -45,7 +45,7 @@ export default async function writePackageJson(
   packageJson.dependencies = packageJson.dependencies || {}
   packageJson.devDependencies = {
     ...(packageJson.devDependencies || {}),
-    // During development, we want to use the local version of Extension
+    // During development, we want to use the local version of Extension.js
     extension: process.env.EXTENSION_ENV === 'development' ? '*' : 'latest'
   }
 
@@ -70,7 +70,7 @@ export default async function writePackageJson(
     )
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
+      `🧩 ${bold(`Extension.js`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
         `package.json`
       )} for ${bold(projectName)}. ${error}`
     )

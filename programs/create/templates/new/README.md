@@ -1,3 +1,3 @@
-# Extension Web Template
+# Extension.js Web Template
 
-> Web template for [Extension](https://github.com/cezaraugusto/extension).
+> Web template for [Extension.js](https://github.com/cezaraugusto/extension).

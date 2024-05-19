@@ -1,8 +1,8 @@
 # @extension/create
 
-> The **create** part of [Extension](https://github.com/cezaraugusto/extension). Available as a standalone package.
+> The **create** part of [Extension.js](https://github.com/cezaraugusto/extension). Available as a standalone package.
 
-This package stores all logic needed by `Extension` to create new projects.
+This package stores all logic needed by Extension.js to create new projects.
 
 ## Installation
 

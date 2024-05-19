@@ -31,7 +31,7 @@
   },
   "name": "extension",
   "packageManager": "yarn@1.22.19",
-  "description": "The monorepo of all things Extension, including the Extension CLI, its programs, packages, website, and documentation.",
+  "description": "The monorepo of all things Extension.js, including the Extension.js CLI, its programs, packages, website, and documentation.",
   "workspaces": [
     "aliases/*",
     "packages/*",

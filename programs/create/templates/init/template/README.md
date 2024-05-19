@@ -1,6 +1,6 @@
 # [projectName]
 
-> This project was bootstrapped using the Extension web template.
+> This project was bootstrapped using the Extension.js web template.
 
 ## Directory Structure:
 
@@ -57,4 +57,4 @@ In the project directory, you can run:
 
 ## Learn More
 
-You can learn more in the [Extension](https://extension.js.org) documentation.
+You can learn more in the [Extension.js](https://extension.js.org) documentation.

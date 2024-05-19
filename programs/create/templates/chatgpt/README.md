@@ -1,3 +1,3 @@
-# Extension ChatGPT Template
+# Extension.js ChatGPT Template
 
-> ChatGPT template for [Extension](https://github.com/cezaraugusto/extension).
+> ChatGPT template for [Extension.js](https://github.com/cezaraugusto/extension).

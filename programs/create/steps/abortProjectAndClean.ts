@@ -14,19 +14,19 @@ export default async function abortProjectAndClean(
   projectName: string
 ) {
   console.log(
-    `🧩 ${bold(`Extension`)} ${red(
+    `🧩 ${bold(`Extension.js`)} ${red(
       `✖︎✖︎✖︎`
     )} Aborting installation of ${projectName}.`
   )
 
   if (error.command) {
     console.log(
-      `🧩 ${bold(`Extension`)} ${red(`✖︎✖︎✖︎`)} ${error.command} has failed.`
+      `🧩 ${bold(`Extension.js`)} ${red(`✖︎✖︎✖︎`)} ${error.command} has failed.`
     )
   } else {
     console.log(
       `🧩 ${bold(
-        `Extension`
+        `Extension.js`
       )} 🚨🚨🚨 Unexpected creation error. This is a bug. ` +
         `Please report: "${error}"`
     )

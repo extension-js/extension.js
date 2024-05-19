@@ -122,7 +122,7 @@ export default function buildWebpack(
     const assets = statsJson?.assets
     const outputPath =
       webpackConfigNoBrowser.output?.path || getOutputPath(projectDir, browser)
-    const heading = `🧩 ${bold('Extension')} ${green(
+    const heading = `🧩 ${bold('Extension.js')} ${green(
       '►►►'
     )} Building ${bold(manifest.name)} extension using ${bold(
       vendor

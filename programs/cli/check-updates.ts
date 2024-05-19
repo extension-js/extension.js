@@ -14,7 +14,7 @@ export default async function checkUpdates(packageJson: Record<string, any>) {
 
   if (update) {
     console.log(
-      `\nYour 🧩 ${bold('Extension')} version is ${red('outdated')}.\nThe latest version is ${bold(update.latest)}. Please update!\n`
+      `\nYour 🧩 ${bold('Extension.js')} version is ${red('outdated')}.\nThe latest version is ${bold(update.latest)}. Please update!\n`
     )
   }
 }

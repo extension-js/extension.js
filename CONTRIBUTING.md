@@ -11,7 +11,7 @@
 | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
 | [`browser-extension-manifest-fields`](/packages/browser-extension-manifest-fields) | Library to output manifest asset paths.                                        |
 | [`common-errors-plugin`](/packages/common-errors-plugin)                           | Plugin to handle common compilation errors.                                    |
-| [`eslint-config-extension-create`](/packages/eslint-config-extension-create)       | Preset of eslint rules for `Extension`.                                        |
+| [`eslint-config-extension-create`](/packages/eslint-config-extension-create)       | Preset of eslint rules for Extension.js.                                        |
 | [`html-plugin`](/packages/html-plugin)                                             | Plugin to handle and compile HTML fields (and its assets) from the manifest.   |
 | [`icons-plugin`](/packages/icons-plugin)                                           | Plugin to handle and compile icon fields from the manifest.                    |
 | [`json-plugin`](/packages/json-plugin)                                             | Plugin to handle and compile JSON fields from the manifest.                    |
@@ -28,11 +28,11 @@
 
 ## Programs
 
-`Extension` includes several command line programs, each serving a specific purpose in the extension development lifecycle:
+Extension.js includes several command line programs, each serving a specific purpose in the extension development lifecycle:
 
 | Program   | Description                                                                                  |
 | --------- | -------------------------------------------------------------------------------------------- |
-| `cli`     | The Command Line Interface that executes the Extension programs.                             |
+| `cli`     | The Command Line Interface that executes the Extension.js programs.                             |
 | `create`  | Create extensions from built-in templates.                                                   |
 | `develop` | Wrapper around the webpack config that consists of the `dev`, `start`, and `build` commands. |
 | `publish` | This is empty for now.                                                                       |
@@ -61,7 +61,7 @@ yarn watch
 ### Terminal 2: Use it to actually execute the commands you want to test.
 
 The CLI is available internally as an npm script `yarn extension <command> [argument]`.
-Use it to experiment with the multiple Extension CLI commands.
+Use it to experiment with the multiple Extension.js CLI commands.
 
 ```sh
 yarn extension <command> [argument]
@@ -72,7 +72,7 @@ yarn extension <command> [argument]
 The monorepo's `package.json` includes scripts that affect all programs and packages at once
 and are needed for the project development.
 
-### Extension
+### `extension`
 
 This is the same command users run when they do `npx extension <command>
 
@@ -80,7 +80,7 @@ This is the same command users run when they do `npx extension <command>
 yarn extension <command> [args] [flags]
 ```
 
-### Compile
+### `compile`
 
 Compiles (builds) packages and programns. This npm script generates the `/dist` folder that other packages may consume.
 
@@ -88,7 +88,7 @@ Compiles (builds) packages and programns. This npm script generates the `/dist` 
 yarn compile
 ```
 
-### Watch
+### `watch`
 
 Like compile, but listens for code changes, where it compiles again.
 
@@ -98,7 +98,7 @@ Like compile, but listens for code changes, where it compiles again.
 yarn watch
 ```
 
-### Lint
+### `lint`
 
 Iterates over all projects and lint them using ESLint.
 
@@ -106,7 +106,7 @@ Iterates over all projects and lint them using ESLint.
 yarn lint
 ```
 
-### Test
+### `test`
 
 Run the test suite of each package and program (where available).
 
@@ -114,7 +114,7 @@ Run the test suite of each package and program (where available).
 yarn test
 ```
 
-### Clean
+### `clean`
 
 Deletes cache, dist/ and node_modules/ across packages and programs .
 

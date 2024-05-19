@@ -20,7 +20,7 @@ async function copyTailwindConfig(sourcePath, targetPath) {
     const sourceStats = await fs.stat(sourcePath)
     if (sourceStats.isDirectory()) {
       await fs.mkdir(targetPath, {recursive: true})
-      console.log(`[Extension setup] Created folder: ${targetPath}`)
+      console.log(`[Extension.js setup] Created folder: ${targetPath}`)
       const files = await fs.readdir(sourcePath)
       await Promise.all(
         files.map(async (file) => {
@@ -33,7 +33,7 @@ async function copyTailwindConfig(sourcePath, targetPath) {
       const sourceData = await fs.readFile(sourcePath, 'utf8')
       await fs.writeFile(targetPath, sourceData, 'utf8')
       console.log(
-        `[Extension setup] File ${path.basename(
+        `[Extension.js setup] File ${path.basename(
           sourcePath
         )} copied to ${targetPath}`
       )
