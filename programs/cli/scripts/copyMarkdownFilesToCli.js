@@ -26,13 +26,13 @@ async function copyMarkdownFilesToCli(sourcePath, targetPath) {
     if (sourceData !== targetData) {
       await fs.writeFile(targetPath, sourceData, 'utf8')
       console.log(
-        `[Extension setup] File ${path.basename(
+        `[Extension.js setup] File ${path.basename(
           sourcePath
         )} copied to ${targetPath}`
       )
     } else {
       console.log(
-        `[Extension setup] File ${path.basename(
+        `[Extension.js setup] File ${path.basename(
           sourcePath
         )} haven't changed. Skipping copy...`
       )

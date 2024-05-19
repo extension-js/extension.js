@@ -141,7 +141,7 @@ function stdoutData(compiler: Compiler, message: {data?: Data}) {
 
 function isFirstRun() {
   log('')
-  log('This is your first run using 🧩 Extension. Welcome! 🎉')
+  log('This is your first run using 🧩 Extension.js. Welcome! 🎉')
   log(
     `To start developing your extension, terminate this process and run ${bold(
       blue(prefersYarn() ? `yarn dev` : `npm run dev`)

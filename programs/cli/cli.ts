@@ -148,7 +148,7 @@ extensionJs
   )
   .option(
     '-p, --port <number>',
-    'what port should Extension run. Defaults to `3000`'
+    'what port should Extension.js run. Defaults to `3000`'
   )
   .action(async function (
     pathOrRemoteUrl: string,
@@ -189,7 +189,7 @@ extensionJs
   )
   .option(
     '-p, --port <number>',
-    'what port should Extension run. Defaults to `3000`'
+    'what port should Extension.js run. Defaults to `3000`'
   )
   .action(async function (
     pathOrRemoteUrl: string,

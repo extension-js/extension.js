@@ -12,7 +12,7 @@ export default function programHelp() {
 ## The \`<project-directory>\` argument (required).
 
 The project's directory where your extension will be installed.
-\`🧩 Extension\` can't install files without this information.
+\`🧩 Extension.js\` can't install files without this information.
 
 ## The \`--template\` _<template-name>_ flag
 

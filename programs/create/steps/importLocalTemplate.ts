@@ -27,7 +27,7 @@ export default async function importLocalTemplate(
     await copyDirectory(localTemplatePath, projectPath)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension`)} ${red(
+      `🧩 ${bold(`Extension.js`)} ${red(
         `✖︎✖︎✖︎`
       )} Can't copy template ${blue(bold(template))} for ${bold(
         projectName

@@ -1,3 +1,3 @@
-# Extension Default Template
+# Extension.js Default Template
 
-> Default template for [Extension](https://github.com/cezaraugusto/extension).
+> Default template for [Extension.js](https://github.com/cezaraugusto/extension).

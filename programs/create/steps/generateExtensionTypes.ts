@@ -20,7 +20,7 @@ export default async function generateExtensionTypes(
       : '@extension-create/develop/dist/types'
 
   const fileContent = `\
-// Required Extension types for TypeScript projects.
+// Required Extension.js types for TypeScript projects.
 // This file auto-generated and should not be excluded.
 // If you need extra types, consider creating a new *.d.ts and
 // referencing it in the "include" array in your tsconfig.json file.
@@ -39,7 +39,7 @@ export default async function generateExtensionTypes(
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension`)} ${red(
+      `🧩 ${bold(`Extension.js`)} ${red(
         `✖︎✖︎✖︎`
       )} Failed to write the extension type definition. ${error}`
     )

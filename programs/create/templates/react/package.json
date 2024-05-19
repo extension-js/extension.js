@@ -6,7 +6,7 @@
     "directory": "programs/create/templates/react"
   },
   "name": "react-template",
-  "description": "The Extension React template.",
+  "description": "The Extension.js React template.",
   "version": "0.0.0",
   "author": {
     "name": "Cezar Augusto",

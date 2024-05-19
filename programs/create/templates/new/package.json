@@ -6,7 +6,7 @@
     "directory": "programs/create/templates/new"
   },
   "name": "new-template",
-  "description": "The Extension new template.",
+  "description": "The Extension.js new template.",
   "version": "0.0.0",
   "author": {
     "name": "Cezar Augusto",

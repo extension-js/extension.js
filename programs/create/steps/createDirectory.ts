@@ -57,7 +57,7 @@ export default async function createDirectory(
     }
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension`)} ${red(
+      `🧩 ${bold(`Extension.js`)} ${red(
         `✖︎✖︎✖︎`
       )} Can't create directory ${bold(projectName)}. ${error}`
     )

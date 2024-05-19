@@ -33,7 +33,7 @@ export default async function extensionDev(
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
   ) {
     console.log(
-      `🧩 ${bold(`Extension`)} ${red('✖︎✖︎✖︎')} Manifest file ${red(
+      `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} Manifest file ${red(
         bold('not found')
       )}. Path ${underline(projectPath)} must include a ${yellow(
         'manifest.json'
@@ -50,7 +50,7 @@ export default async function extensionDev(
     await startDevServer(projectPath, {...devOptions})
   } catch (error: any) {
     console.log(
-      `🧩 ${bold(`Extension`)} ${red('✖︎✖︎✖︎')} ` +
+      `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +
         `Error while developing the extension:\n\n${red(
           bold((error as string) || '')
         )}`

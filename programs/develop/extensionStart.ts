@@ -34,7 +34,7 @@ export default async function extensionStart(
     await startDevServer(projectPath, {...startOptions})
   } catch (error: any) {
     console.log(
-      `🧩 ${bold(`Extension`)} ${red('✖︎✖︎✖︎')} ` +
+      `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +
         `Error while developing the extension:\n\n${red(
           bold((error as string) || '')
         )}`

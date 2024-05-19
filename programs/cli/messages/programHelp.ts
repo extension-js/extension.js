@@ -7,7 +7,7 @@
 
 export default function programHelp() {
   return `
-# Help center for the 🧩 Extension program
+# Help center for the 🧩 Extension.js program
 
 ## Usage: \`extension [command] [options]\`
 
