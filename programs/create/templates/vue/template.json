@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "vue": "^3.4.27",
+    "sakura.css": "^1.5.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "version": "1.0",
+  "name": "Vue+TypeScript Template",
+  "description": "An extension template using Vue and TypeScript. This template includes a content script using Tailwind.css. To see it in action, visit https://extension.js.org.",
+  "background": {
+    "service_worker": "./background.ts"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://extension.js.org/*"],
+      "js": ["./content/content.ts"]
+    }
+  ],
+  "icons": {
+    "16": "public/icon/icon_16.png",
+    "48": "public/icon/icon_48.png"
+  }
+}
