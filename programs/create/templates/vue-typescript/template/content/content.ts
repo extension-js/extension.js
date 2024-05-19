@@ -1,6 +1,6 @@
 import './base.css'
 import './content.css'
-
+// @ts-ignore
 import {createApp} from 'vue'
 import ContentApp from './ContentApp.vue'
 
