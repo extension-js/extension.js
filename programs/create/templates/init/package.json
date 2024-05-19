@@ -6,7 +6,7 @@
     "directory": "programs/create/templates/new"
   },
   "name": "init-template",
-  "description": "The Extension init template.",
+  "description": "The Extension.js init template.",
   "version": "0.0.0",
   "author": {
     "name": "Cezar Augusto",

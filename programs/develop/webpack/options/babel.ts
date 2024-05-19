@@ -20,7 +20,7 @@ export function getBabelConfigFile(projectDir: string) {
     if (fs.existsSync(configFile)) {
       console.log(
         bold(
-          `🧩 Extension ${blue('►►►')} ${manifest.name} (v${manifest.version}) `
+          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${manifest.version}) `
         ) + `is using ${bold(yellow('Babel'))} config file.`
       )
       return configFile

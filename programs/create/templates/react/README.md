@@ -1,3 +1,3 @@
-# Extension React Template
+# Extension.js React Template
 
-> React template for [Extension](https://github.com/cezaraugusto/extension).
+> React template for [Extension.js](https://github.com/cezaraugusto/extension).

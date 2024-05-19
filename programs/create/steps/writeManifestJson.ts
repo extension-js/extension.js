@@ -32,7 +32,7 @@ export default async function writeManifestJson(
     )
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
+      `🧩 ${bold(`Extension.js`)} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
         `manifest.json`
       )} for ${bold(projectName)}. ${error}`
     )

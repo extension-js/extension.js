@@ -37,7 +37,7 @@ export default async function writeReadmeFile(
     await fs.writeFile(path.join(projectPath, 'README.md'), readmeFileEdited)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension`)} ${red(
+      `🧩 ${bold(`Extension.js`)} ${red(
         `✖︎✖︎✖︎`
       )} Can't write the README.md file for ${bold(projectName)}. ${error}`
     )
