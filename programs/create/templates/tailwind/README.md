@@ -1,3 +1,3 @@
-# Extension Tailwind Template
+# Extension.js Tailwind Template
 
-> Tailwind template for [Extension](https://github.com/cezaraugusto/extension).
+> Tailwind template for [Extension.js](https://github.com/cezaraugusto/extension).

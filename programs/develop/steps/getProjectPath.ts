@@ -46,11 +46,11 @@ export default async function getProjectPath(
     const project = urlData.slice(1, 3)[1]
     const projectName = path.basename(pathOrRemoteUrl)
     console.log(
-      `🧩 ${bold(`Extension`)} ${green(`►►►`)} Fetching data from ${blue(
+      `🧩 ${bold(`Extension.js`)} ${green(`►►►`)} Fetching data from ${blue(
         underline(`https://github.com/${owner}/${project}`)
       )}`
     )
-    const downloadingText = `🧩 ${bold(`Extension`)} ${green(
+    const downloadingText = `🧩 ${bold(`Extension.js`)} ${green(
       `►►►`
     )} Downloading ${bold(projectName)}...`
     const urlSource = await importUrlSourceFromGithub(
@@ -58,7 +58,7 @@ export default async function getProjectPath(
       downloadingText
     )
     console.log(
-      `🧩 ${bold(`Extension`)} ${green(
+      `🧩 ${bold(`Extension.js`)} ${green(
         `►►►`
       )} Creating a new browser extension in ${white(
         underline(`${process.cwd()}/${projectName}`)

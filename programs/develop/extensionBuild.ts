@@ -24,7 +24,7 @@ export default async function extensionBuild(
     buildWebpack(projectPath, {...buildOptions})
   } catch (error: any) {
     console.log(
-      `🧩 ${bold(`Extension`)} ${red('✖︎✖︎✖︎')} ` +
+      `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +
         `Error while developing the extension:\n\n${red(
           bold((error as string) || '')
         )}`
