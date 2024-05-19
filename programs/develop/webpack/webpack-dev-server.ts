@@ -10,6 +10,7 @@ import type WebpackDevServer from 'webpack-dev-server'
 import type {DevOptions} from '../extensionDev'
 import {getOverlay, getPublicFolderPath} from './config/userOptions'
 import {isUsingReact} from './options/react'
+import {isUsingVue} from './options/vue'
 
 export default function devServerConfig(
   projectPath: string,
@@ -26,10 +27,11 @@ export default function devServerConfig(
     // liveReload: true,
     // WARN: for some reason, adding HTML as a watch file
     // causes content_scripts to do a full reload instead of a hot reload
-    // when using React.
-    watchFiles: isUsingReact(projectPath)
-      ? undefined
-      : [path.join(projectPath, '**/*.html')],
+    // when using React or Vue.
+    watchFiles:
+      isUsingReact(projectPath) || isUsingVue(projectPath)
+        ? undefined
+        : [path.join(projectPath, '**/*.html')],
     client: {
       // Allows to set log level in the browser, e.g. before reloading,
       // before an error or when Hot Module Replacement is enabled.
