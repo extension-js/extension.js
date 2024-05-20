@@ -10,14 +10,27 @@ h1 {
 }
 
 .vue {
-  animation: spin 5s linear infinite;
+  animation: heartbeat 1s linear infinite;
 }
 
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
+@keyframes heartbeat {
+  0% {
+    transform: scale(0.9);
   }
-  to {
-    transform: rotate(360deg);
+
+  20% {
+    transform: scale(1);
+  }
+
+  30% {
+    transform: scale(0.9);
+  }
+
+  40% {
+    transform: scale(1);
+  }
+
+  100% {
+    transform: scale(0.9);
   }
 }
