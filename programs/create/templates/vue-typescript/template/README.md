@@ -34,4 +34,4 @@ In the project directory, you can run:
 
 ## Learn More
 
-You can learn more in the [Extension](https://extension.js.org) documentation.
+You can learn more in the [Extension.js](https://extension.js.org) documentation.
