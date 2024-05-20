@@ -71,6 +71,11 @@ export default class CopyStaticFolder {
         const target = path.join(output, path.relative(projectPath, filePath))
         this.copyFile(filePath, target)
       })
+      
+      watcher.on('change', (filePath: string) => {
+        const target = path.join(output, path.relative(projectPath, filePath))
+        this.copyFile(filePath, target)
+      })
 
       watcher.on('unlink', (filePath: string) => {
         const target = path.join(output, path.relative(projectPath, filePath))
