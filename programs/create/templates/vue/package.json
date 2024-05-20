@@ -6,7 +6,7 @@
     "directory": "programs/create/templates/vue"
   },
   "name": "vue-template",
-  "description": "The Extension Vue template.",
+  "description": "The Extension.js Vue template.",
   "version": "0.0.0",
   "author": {
     "name": "OSpoon",
