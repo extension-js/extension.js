@@ -33,6 +33,7 @@
     "test": "echo \"Note: no test specified\" && exit 0"
   },
   "dependencies": {
+    "@babel/core": "^7.24.5",
     "@colors/colors": "^1.6.0",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.11",
     "@types/adm-zip": "^0.5.5",
