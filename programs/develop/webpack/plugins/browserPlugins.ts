@@ -12,8 +12,6 @@ import RunFirefoxAddon from 'webpack-run-firefox-addon'
 import {type DevOptions} from '../../extensionDev'
 import {getManifestPath, getOutputPath} from '../config/getPath'
 
-let statsHasRun = false
-
 export default function browserPlugins(
   projectPath: string,
   devOptions: DevOptions
@@ -30,13 +28,13 @@ export default function browserPlugins(
     extensionPath: getOutputPath(projectPath, devOptions.browser),
     autoReload: true,
     browserFlags: ['--enable-benchmarking'],
-    stats: !statsHasRun
+    stats: true
   }
 
   const edgeConfig = {
     ...chromeConfig,
     port: 8001,
-    stats: !statsHasRun
+    stats: true
   }
 
   const firefoxConfig = {
@@ -47,7 +45,7 @@ export default function browserPlugins(
     // each browser.
     // Note that a comma means that more than once browser is selected,
     // so we show the user extension manifest output only once.
-    stats: !statsHasRun
+    stats: true
   }
 
   return {
@@ -67,8 +65,6 @@ export default function browserPlugins(
           new RunChromeExtension(chromeConfig).apply(compiler)
           break
       }
-
-      statsHasRun = true
     }
   }
 }
