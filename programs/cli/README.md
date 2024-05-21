@@ -16,7 +16,7 @@
 
 > Plug-and-play, zero-config, cross-browser extension development tool.
 
-<img width="1440" alt="Screenshot 2024-03-25 at 13 06 15" src="https://github.com/cezaraugusto/extension.js.org/assets/4672033/01a90694-4705-416e-898c-20bf845984e7">
+<img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96">
 
 <hr>
 
@@ -49,8 +49,8 @@ https://github.com/cezaraugusto/extension/assets/4672033/7263d368-99c4-434f-a60a
 For a preview of extensions running these technologies, see documentation about [Templates](https://extension.js.org/n/getting-started/templates/).
 
 | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/a9e2541a-96f0-4caa-9fc9-5fc5c3e901c8" width="80"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/b42c5330-9e2a-4045-99c3-1f7d264dfaf4" width="80"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/f19edff3-9005-4f50-b05c-fba615896a7f" width="80"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/ff64721d-d145-4213-930d-e70193f8d57e" width="80"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/15f1314a-aa65-4ce2-a3f3-cf53c4f730cf" width="80"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/c5f8a127-3c2a-4ceb-bb46-948cf2c8bd89" width="80"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/de1082fd-7cf6-4202-8c12-a5c3cd3e5b42" width="80"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/78e5fe3d-dc79-4aa2-954e-1a5973d1d9db" width="80"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/8807efd9-93e5-4db5-a1d2-9ac524f7ecc2" width="80"> |
-|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| ECMAScript<br>✅ | TypeScript<br>✅ | WebAssembly<br>✅ | React<br>✅ | Vue<br>✅ | Angular<br>👋 | Svelte<br>👋 | Solid<br>👋 | Preact<br>👋 |
+| :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: |
+|                                                    ECMAScript<br>✅                                                     |                                                    TypeScript<br>✅                                                     |                                                    WebAssembly<br>✅                                                    |                                                       React<br>✅                                                       |                                                        Vue<br>✅                                                        |                                                      Angular<br>👋                                                      |                                                      Svelte<br>👋                                                       |                                                       Solid<br>👋                                                       |                                                      Preact<br>👋                                                       |
 
 👋 = PR Welcome!
 
@@ -131,14 +131,14 @@ npm install extension --save-dev
 
 ```json5
 {
-  "scripts": {
-    "build": "extension build",
-    "dev": "extension dev",
-    "start": "extension start"
+  scripts: {
+    build: 'extension build',
+    dev: 'extension dev',
+    start: 'extension start'
   },
-  "devDependencies": {
+  devDependencies: {
     // ...other dependencies
-    "extension": "latest"
+    extension: 'latest'
   }
 }
 ```
@@ -149,23 +149,21 @@ Done. You are all set!
 - To visualize the extension in production mode, run `npm run start`.
 - To build the extension in production mode, run `npm run build`.
 
-
 ## Using a specific browser for development
 
 ### Desktop Browsers
 
 | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/6ce53a31-c6f6-4a1c-b927-e9ec7fd2df78" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/brave/brave.svg" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chromium/chromium.svg" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" width="100"> | <img width="100" src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/vivaldi/vivaldi.svg" width="100"> |
-|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
-| Arc<br>☑️ | Brave<br>☑️ | Chrome<br>✅ | Chromium<br>☑️ |  Edge<br>✅ | Firefox<br>✅ | Opera<br>☑️ | Safari<br>⛔️ | Vivaldi<br>☑️ |
+| :----------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------: |
+|                                                        Arc<br>☑️                                                         |                                              Brave<br>☑️                                               |                                               Chrome<br>✅                                               |                                                Chromium<br>☑️                                                |                                              Edge<br>✅                                              |                                               Firefox<br>✅                                                |                                              Opera<br>☑️                                               |                                              Safari<br>⛔️                                               |                                               Vivaldi<br>☑️                                                |
 
 ☑️ = It is theoretically possible to load all Chromium forks given the current support for Chrome. There is a request ticket for [supporting all Chromium-based browsers](https://github.com/cezaraugusto/extension.js/issues/59). Most requested features are added first, so thumbs up it to speed-up the development process.
 
 ### Mobile Browsers
 
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="100"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari-ios/safari-ios.svg" width="100"> |
-|:-:|:-:|
-| Firefox (Android)<br>⛔️ | Safari (iOS)<br>⛔️ |
-
+| :--------------------------------------------------------------------------------------------------------: | :--------------------------------------------------------------------------------------------------------------: |
+|                                          Firefox (Android)<br>⛔️                                          |                                               Safari (iOS)<br>⛔️                                                |
 
 If you want to target a specific browser, just pass the `--browser` flag to the `dev`/`start` command (based on the list available above), like `npx extension dev path/to/extension --browser=edge`.
 
@@ -176,7 +174,7 @@ If you want to target a specific browser, just pass the `--browser` flag to the 
 extension dev --browser=all
 ```
 
-<img width="1440" alt="Screenshot 2024-03-25 at 13 06 15" src="https://github.com/cezaraugusto/extension.js.org/assets/4672033/01a90694-4705-416e-898c-20bf845984e7">
+<img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96">
 
 ## License
 
