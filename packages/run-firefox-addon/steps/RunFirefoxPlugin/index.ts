@@ -39,16 +39,6 @@ export default class FirefoxExtensionLauncherPlugin {
     const firefoxConfig = await browserConfig(this.options)
     const cmd = `${firefoxLaunchPath} ${firefoxConfig}`
 
-    // Inject the add-ons code into Firefox profile.
-    new RemoteFirefox(this.options).installAddons().catch((error) => {
-      console.error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Error injecting add-ons code into Firefox profile.`
-      )
-      console.error(error)
-      process.exit()
-    })
-
     const child = exec(cmd, (error, _stdout, stderr) => {
       if (error != null) throw error
       if (stderr.includes('Unable to move the cache')) {
@@ -71,6 +61,10 @@ export default class FirefoxExtensionLauncherPlugin {
       child.stdout?.pipe(process.stdout)
       child.stderr?.pipe(process.stderr)
     }
+
+    // Inject the add-ons code into Firefox profile.
+    const remoteFirefox = new RemoteFirefox(this.options)
+    remoteFirefox.installAddons()
   }
 
   apply(compiler: Compiler) {
