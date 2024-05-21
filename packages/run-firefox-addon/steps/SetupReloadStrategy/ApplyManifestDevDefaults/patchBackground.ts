@@ -1,25 +1,46 @@
+import {bgWhite, red, yellow, blue, underline, bold} from '@colors/colors/safe'
 export default function patchBackground(manifest: any) {
   if (!manifest.background) {
-    return {
-      background: {
-        ...manifest.background,
-        scripts: ['background/script.js']
+    if (manifest.manifest_version === 2) {
+      return {
+        background: {
+          ...manifest.background,
+          scripts: ['background/script.js']
+        }
+      }
+    }
+
+    // If the manifest version is 3, ScriptsPlugin
+    // will output a service worker script, but since
+    // Firefox does not support service workers in background,
+    // we need to patch the manifest to use a background script.
+    if (manifest.manifest_version === 3) {
+      return {
+        background: {
+          ...manifest.background,
+          scripts: ['background/service_worker.js']
+        }
       }
     }
   }
 
-  // Firefox does not support service workers in background scripts
+  // For user-defined service workers, warn users that Firefox
+  // does not support service workers in background scripts,
+  // and adapt to use a background script instead.
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1573659
   if (manifest.background.service_worker) {
     console.warn(
-      'Firefox does not support service workers in background scripts yet. ' +
-        'See https://bugzilla.mozilla.org/show_bug.cgi?id=1573659. Ignoring...'
+      `${bgWhite(red(bold(` firefox-browser `)))} ${yellow(`✋✋✋`)}` +
+        'Firefox does not support service workers in background scripts yet. ' +
+        `See ${blue(underline('https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'))}.\n` +
+        'Local development will run, but the service worker will not be registered.\n' +
+        `Update your ${yellow(manifest.json)} to use a background script instead.`
     )
 
     return {
       background: {
         ...manifest.background,
-        scripts: ['background/script.js']
+        scripts: ['background/service_worker.js']
       }
     }
   }

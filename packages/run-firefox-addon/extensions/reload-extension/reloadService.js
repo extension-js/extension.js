@@ -77,7 +77,6 @@ async function messageAllExtensions(changedFile) {
   if (isExtensionReady) {
     const devExtensions = await getDevExtensions()
     for (const extension of devExtensions) {
-      console.log({extension})
       try {
         await browser.runtime.sendMessage(extension.id, {changedFile})
         console.info('[Reload Service] Add-On reloaded and ready.')
