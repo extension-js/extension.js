@@ -1,8 +1,10 @@
+import path from 'path'
 import type webpack from 'webpack'
 import {type RunFirefoxExtensionInterface} from './types'
 import CreateWebSocketServer from './steps/CreateWebSocketServer'
 import SetupReloadStrategy from './steps/SetupReloadStrategy'
 import RunFirefoxPlugin from './steps/RunFirefoxPlugin'
+import MkcertPlugin from 'webpack-mkcert-plugin'
 
 export default class RunFirefoxExtension {
   private readonly options: RunFirefoxExtensionInterface
@@ -60,6 +62,17 @@ export default class RunFirefoxExtension {
     // and HMR updates (background, content scripts). The HMR part is done by
     // webpack-target-webextension.
     new SetupReloadStrategy(this.options).apply(compiler)
+
+    // 3 - Ensure localhost certificates are created. This is neeeded becauses
+    // Firefox requires a secure connection to communicate with local websocket servers.
+    new MkcertPlugin(
+      {
+      hosts: ['localhost'],
+      key: 'localhost.key',
+      cert: 'localhost.cert',
+      outputDir: path.join(__dirname, 'dist', 'certs'),
+    }
+  ).apply(compiler)
 
     // 3 - Bundle the reloader and manager extensions. The reloader extension
     // is injected into the browser and is responsible for sending reload
