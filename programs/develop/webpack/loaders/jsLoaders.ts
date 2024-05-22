@@ -9,9 +9,7 @@ import {babelConfig} from '../options/babel'
 import {isUsingTypeScript} from '../options/typescript'
 import {isUsingVue} from '../options/vue'
 
-type Loader = {
-  [index: string]: any
-}
+type Loader = Record<string, any>
 
 const vueLoaders = (projectDir: string): Loader[] => {
   const vueLoaders: Loader[] = [
