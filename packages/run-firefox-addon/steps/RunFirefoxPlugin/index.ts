@@ -64,7 +64,14 @@ export default class FirefoxExtensionLauncherPlugin {
 
     // Inject the add-ons code into Firefox profile.
     const remoteFirefox = new RemoteFirefox(this.options)
-    remoteFirefox.installAddons()
+    remoteFirefox.installAddons().catch((error) => {
+      console.error(
+        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+          `Error injecting add-ons code into Firefox profile.`
+      )
+      console.error(error)
+      process.exit()
+    })
   }
 
   apply(compiler: Compiler) {

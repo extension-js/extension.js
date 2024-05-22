@@ -34,7 +34,7 @@ export default function patchBackground(manifest: any) {
         'Firefox does not support service workers in background scripts yet. ' +
         `See ${blue(underline('https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'))}.\n` +
         'Local development will run, but the service worker will not be registered.\n' +
-        `Update your ${yellow(manifest.json)} to use a background script instead.`
+        `Update your ${yellow(manifest.json as string)} to use a background script instead.`
     )
 
     return {
