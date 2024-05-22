@@ -5,8 +5,8 @@ import {bold, bgWhite, red} from '@colors/colors/safe'
 
 export default function httpsServer(defaultPort = 8002) {
   const options = {
-    key: fs.readFileSync(path.join(__dirname, 'certs', 'localhost+2-key.pem')),
-    cert: fs.readFileSync(path.join(__dirname, 'certs', 'localhost+2.pem'))
+    key: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.key')),
+    cert: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.cert'))
   }
 
   const server = https.createServer(options, (req, res) => {
