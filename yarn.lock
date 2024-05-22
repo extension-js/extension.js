@@ -4425,9 +4425,9 @@ ee-first@1.1.1:
   integrity sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==
 
 electron-to-chromium@^1.4.668:
-  version "1.4.775"
-  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.775.tgz#176e9cc439b76a4c768f44c821eaedd32d055503"
-  integrity sha512-JpOfl1aNAiZ88wFzjPczTLwYIoPIsij8S9/XQH9lqMpiJOf23kxea68B8wje4f68t4rOIq4Bh+vP4I65njiJBw==
+  version "1.4.776"
+  resolved "https://registry.yarnpkg.com/electron-to-chromium/-/electron-to-chromium-1.4.776.tgz#1580009f42f9f2ffc1b238e3d8d6e6baa7ca1682"
+  integrity sha512-s694bi3+gUzlliqxjPHpa9NRTlhzTgB34aan+pVKZmOTGy2xoZXl+8E1B8i5p5rtev3PKMK/H4asgNejC+YHNg==
 
 emittery@^0.13.1:
   version "0.13.1"
@@ -7115,7 +7115,7 @@ minimist-options@^4.0.2:
     is-plain-obj "^1.1.0"
     kind-of "^6.0.3"
 
-minimist@^1.2.0, minimist@^1.2.5, minimist@^1.2.6:
+minimist@^1.2.0, minimist@^1.2.5, minimist@^1.2.6, minimist@^1.2.7:
   version "1.2.8"
   resolved "https://registry.yarnpkg.com/minimist/-/minimist-1.2.8.tgz#c1a464e7693302e082a075cee0c057741ac4772c"
   integrity sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==
@@ -7129,6 +7129,15 @@ mixme@^0.5.1:
   version "0.5.10"
   resolved "https://registry.yarnpkg.com/mixme/-/mixme-0.5.10.tgz#d653b2984b75d9018828f1ea333e51717ead5f51"
   integrity sha512-5H76ANWinB1H3twpJ6JY8uvAtpmFvHNArpilJAjXRKXSDDLPIMoZArw5SH0q9z+lLs8IrMw7Q2VWpWimFKFT1Q==
+
+mkcert-cli@^1.0.0:
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/mkcert-cli/-/mkcert-cli-1.5.0.tgz#cad45feeeddfabef5c1920737f9d0dcc73f22b9d"
+  integrity sha512-GwYDbAxgmFZoQLfXCztpDqtbdXqzDMrXQBOHOOd8B7ICN4hp0/yhrOhJVXV3lH7sjT3hXkohs06aoUkTvT8gsA==
+  dependencies:
+    minimist "^1.2.7"
+    picocolors "^1.0.0"
+    semver-compare "^1.0.0"
 
 mock-fs@^5.2.0:
   version "5.2.0"
@@ -8593,6 +8602,11 @@ selfsigned@^2.4.1:
     "@types/node-forge" "^1.3.0"
     node-forge "^1"
 
+semver-compare@^1.0.0:
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/semver-compare/-/semver-compare-1.0.0.tgz#0dee216a1c941ab37e9efb1788f6afc5ff5537fc"
+  integrity sha512-YM3/ITh2MJ5MtzaM429anh+x2jiLVjqILF4m4oyQB18W7Ggea7BfqdH/wGMK7dDiMghv/6WG7znWMwUDzJiXow==
+
 "semver@2 || 3 || 4 || 5", semver@^5.6.0:
   version "5.7.2"
   resolved "https://registry.yarnpkg.com/semver/-/semver-5.7.2.tgz#48d55db737c3287cd4835e17fa13feace1c41ef8"
@@ -9416,9 +9430,9 @@ ts-interface-checker@^0.1.9:
   integrity sha512-Y/arvbn+rrz3JCKl9C4kVNfTfSm2/mEp5FSz5EsZSANGPSlQrpRI5M4PKF+mJnE52jOO90PnPSc3Ur3bTQw0gA==
 
 ts-jest@^29.1.2:
-  version "29.1.2"
-  resolved "https://registry.yarnpkg.com/ts-jest/-/ts-jest-29.1.2.tgz#7613d8c81c43c8cb312c6904027257e814c40e09"
-  integrity sha512-br6GJoH/WUX4pu7FbZXuWGKGNDuU7b8Uj77g/Sp7puZV6EXzuByl6JrECvm0MzVzSTkSHWTihsXt+5XYER5b+g==
+  version "29.1.3"
+  resolved "https://registry.yarnpkg.com/ts-jest/-/ts-jest-29.1.3.tgz#2bab16ba5ab0f4896684985f9618acc2cf1197e9"
+  integrity sha512-6L9qz3ginTd1NKhOxmkP0qU3FyKjj5CPoY+anszfVn6Pmv/RIKzhiMCsH7Yb7UvJR9I2A64rm4zQl531s2F1iw==
   dependencies:
     bs-logger "0.x"
     fast-json-stable-stringify "2.x"
@@ -9929,6 +9943,32 @@ webpack-merge@^5.10.0, webpack-merge@^5.7.3:
     flat "^5.0.2"
     wildcard "^2.0.0"
 
+webpack-mkcert-plugin@^0.1.1:
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/webpack-mkcert-plugin/-/webpack-mkcert-plugin-0.1.1.tgz#2c0587dd9fdca6f514d779be2d64733a3f1634e7"
+  integrity sha512-knKxJXLnrzz/Cjq+Brgs7YjMVc1T3XB4WMBky55sm+2bfHrEmpwFDmZAnELkbMViNeDF2uYgysE/m8FfQtFERw==
+  dependencies:
+    "@colors/colors" "^1.6.0"
+    semver-compare "^1.0.0"
+
+webpack-run-firefox-addon@*:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/webpack-run-firefox-addon/-/webpack-run-firefox-addon-1.1.0.tgz#4d96651f4b56203fc4c02248ce0999c4ddca5821"
+  integrity sha512-OJJClFcL/nwL5UstRKDb+8coe+SO2+H5M/KsjorYrOrvwmBfBdKohEqD/Vnw3GtIzV8YONIs38NwIJN8o9kFmw==
+  dependencies:
+    "@colors/colors" "^1.6.0"
+    browser-extension-manifest-fields "*"
+    content-security-policy-parser "^0.4.1"
+    firefox-location "^1.0.2"
+    firefox-profile "^4.6.0"
+    fx-runner "1.4.0"
+    prefers-yarn "^1.0.1"
+    progress "^2.0.3"
+    schema-utils "^4.2.0"
+    webextension-polyfill-ts "^0.26.0"
+    webpack-target-webextension "^1.1.1"
+    ws "8.16.0"
+
 webpack-sources@^3.2.3:
   version "3.2.3"
   resolved "https://registry.yarnpkg.com/webpack-sources/-/webpack-sources-3.2.3.tgz#2d4daab8451fd4b240cc27055ff6a0c2ccea0cde"
@@ -10128,6 +10168,7 @@ word-wrap@^1.2.5:
   integrity sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==
 
 "wrap-ansi-cjs@npm:wrap-ansi@^7.0.0", wrap-ansi@^7.0.0:
+  name wrap-ansi-cjs
   version "7.0.0"
   resolved "https://registry.yarnpkg.com/wrap-ansi/-/wrap-ansi-7.0.0.tgz#67e145cff510a6a6984bdf1152911d69d2eb9e43"
   integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
