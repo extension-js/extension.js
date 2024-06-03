@@ -13,7 +13,8 @@ import {
   getOutputPath,
   getModulesToResolve,
   getWebpackPublicPath,
-  getExtensionsToResolve
+  getExtensionsToResolve,
+  getAliasToResolve
 } from './config/getPath'
 
 // Loaders
@@ -85,6 +86,7 @@ export default function webpackConfig(
     },
     resolve: {
       mainFields: ['browser', 'module', 'main'],
+      alias: getAliasToResolve(projectPath),
       modules: getModulesToResolve(projectPath),
       extensions: getExtensionsToResolve(projectPath)
     },

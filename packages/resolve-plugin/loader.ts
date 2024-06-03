@@ -57,7 +57,10 @@ export default function (this: ResolvePluginContext, source: string) {
 
     const plugins: any[] = []
 
-    if (utils.isUsingReact(this.rootContext)) {
+    if (
+      utils.isUsingReact(this.rootContext) ||
+      utils.isUsingPreact(this.rootContext)
+    ) {
       plugins.push('jsx')
     }
 
