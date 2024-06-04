@@ -3,10 +3,19 @@ import https from 'https'
 import fs from 'fs'
 import {bold, bgWhite, red} from '@colors/colors/safe'
 
+const ensureFile = (filePath: string) => {
+  if (!fs.existsSync(filePath)) {
+    return undefined
+  }
+
+  const basename = path.basename(filePath)
+  return fs.readFileSync(path.join(__dirname, 'certs', basename))
+}
+
 export default function httpsServer(defaultPort = 8002) {
   const options = {
-    key: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.key')),
-    cert: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.cert'))
+    key: ensureFile(path.join(__dirname, 'certs', 'localhost.key')),
+    cert: ensureFile(path.join(__dirname, 'certs', 'localhost.cert'))
   }
 
   const server = https.createServer(options, (req, res) => {

@@ -1,9 +1,10 @@
 import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
 import messages from '../../../helpers/messages'
-import {type StatsPreset} from '../../../types'
+import {RunFirefoxExtensionInterface, type StatsPreset} from '../../../types'
 import {type ManifestBase} from '../../../manifest-types'
 import httpsServer from './httpsServer'
+
 import isFirstRun from '../../RunFirefoxPlugin/firefox/isFirstRun'
 import type browser from 'webextension-polyfill-ts'
 
@@ -20,12 +21,12 @@ interface Message {
 
 export default function (
   compiler: Compiler,
-  statsConfig: StatsPreset | undefined,
-  port?: number
+  options: RunFirefoxExtensionInterface
 ) {
   const webSocketServer = new WebSocket.Server({
-    server: httpsServer(port)
+    server: httpsServer(options.port)
   })
+
   const isUserFirstRun = isFirstRun()
 
   webSocketServer.on('connection', (ws) => {
@@ -55,14 +56,14 @@ export default function (
       const message: Message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
-        if (statsConfig === true) {
+        if (options.stats === true) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           messages.extensionData(compiler, message, isUserFirstRun)
         }
 
         messages.stdoutData(compiler, message)
 
-        if (statsConfig === true) {
+        if (options.stats === true) {
           if (isUserFirstRun) {
             // Add a delay to ensure the message is sent
             // after other runner messages.
