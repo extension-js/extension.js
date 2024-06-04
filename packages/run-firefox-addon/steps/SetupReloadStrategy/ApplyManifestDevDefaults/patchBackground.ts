@@ -30,11 +30,11 @@ export default function patchBackground(manifest: any) {
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1573659
   if (manifest.background.service_worker) {
     console.warn(
-      `${bgWhite(red(bold(` firefox-browser `)))} ${yellow(`✋✋✋`)}` +
-        'Firefox does not support service workers in background scripts yet. ' +
-        `See ${blue(underline('https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'))}.\n` +
-        'Local development will run, but the service worker will not be registered.\n' +
-        `Update your ${yellow(manifest.json as string)} to use a background script instead.`
+      `${bgWhite(red(bold(` firefox-browser `)))} ${yellow(`►►►`)} ` +
+        `Firefox does not support the ${yellow('background.service_worker')} field yet.\n` +
+        `See ${blue(underline('https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'))}.\n\n` +
+        'This program applies a workaround to make it run, but the service worker will not be registered.\n' +
+        `Update your ${yellow('manifest.json')} file to use ${yellow('background.scripts')} instead.`
     )
 
     return {

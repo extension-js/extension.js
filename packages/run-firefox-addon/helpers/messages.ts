@@ -139,6 +139,20 @@ function isFirstRun() {
       blue(prefersYarn() ? `yarn dev` : `npm run dev`)
     )}.`
   )
+  log(
+    `\nNote: By default, your ${yellow('manifest.json')} file is not being watched.`
+  )
+  log('This is because Firefox requires a secure server to load extensions.')
+  log(`\nTo enable this feature, run:`)
+  log(`
+  npx -y ${bold('mkcert-cli')} \\
+    ${green('--outDir')} ${path.join(process.cwd(), 'node_modules/webpack-run-firefox-addon/dist/certs')} \\
+    ${green('--cert')} ${'localhost.cert'} \\
+    ${green('--key')} ${'localhost.key'}
+  `)
+  log(
+    `This will create a certificate for the localhost server via ${bold('mkcert')} and enable the secure connection for Firefox.`
+  )
   log(`\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`)
 }
 
