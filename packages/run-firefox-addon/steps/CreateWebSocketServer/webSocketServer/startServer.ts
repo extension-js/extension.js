@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
 import messages from '../../../helpers/messages'
-import {RunFirefoxExtensionInterface, type StatsPreset} from '../../../types'
+import {type RunFirefoxExtensionInterface} from '../../../types'
 import {type ManifestBase} from '../../../manifest-types'
 import httpsServer from './httpsServer'
 

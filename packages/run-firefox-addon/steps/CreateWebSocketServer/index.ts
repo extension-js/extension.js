@@ -1,7 +1,7 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {type RunFirefoxExtensionInterface} from '../../types'
-import {ManifestBase} from '../../manifest-types'
+import {type ManifestBase} from '../../manifest-types'
 import messageDispatcher from './webSocketServer/messageDispatcher'
 import startServer from './webSocketServer/startServer'
 import rewriteReloadPort from './rewriteReloadPort'
@@ -33,9 +33,7 @@ export default class CreateWebSocketServer {
     // message with the extension data for the first run, and inform users that they
     // can run a command like `npx mkcert-cli` to create a certificate for the extension.
     if (isFirstRun()) {
-      const manifest = require(
-        this.options.manifestPath as string
-      ) as ManifestBase
+      const manifest: ManifestBase = require(this.options.manifestPath)
 
       setTimeout(() => {
         const hardcodedMessage = {
