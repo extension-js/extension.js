@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-run-firefox-addon",
-  "version": "1.2.0-beta.2",
+  "version": "1.2.0",
   "description": "Run your add-on on Firefox with auto-reload support",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -53,12 +53,10 @@
     "firefox-location": "^1.0.2",
     "firefox-profile": "^4.6.0",
     "fx-runner": "1.4.0",
-    "mkcert-cli": "^1.0.0",
     "prefers-yarn": "^1.0.1",
     "progress": "^2.0.3",
     "schema-utils": "^4.2.0",
     "webextension-polyfill-ts": "^0.26.0",
-    "webpack-mkcert-plugin": "^0.1.1",
     "webpack-target-webextension": "^1.1.1",
     "ws": "8.16.0"
   },
