@@ -42,9 +42,9 @@
   },
   "dependencies": {
     "@babel/generator": "^7.23.6",
-    "@babel/parser": "7.23.6",
-    "@babel/traverse": "7.23.7",
-    "@babel/types": "7.23.6",
+    "@babel/parser": "7.24.5",
+    "@babel/traverse": "7.24.5",
+    "@babel/types": "7.24.5",
     "schema-utils": "^4.2.0"
   },
   "devDependencies": {
