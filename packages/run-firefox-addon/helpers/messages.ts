@@ -140,9 +140,11 @@ function isFirstRun() {
     )}.`
   )
   log(
-    `\nNote: By default, your ${yellow('manifest.json')} file is not being watched.`
+    '\nNote: Firefox requires a certificate for secure WebSocket connections on localhost, '
   )
-  log('This is because Firefox requires a secure server to load extensions.')
+  log(
+    `needed for the reloader to work. By default, your ${yellow('manifest.json')} file is not being watched.`
+  )
   log(`\nTo enable this feature, run:`)
   log(`
   npx -y ${bold('mkcert-cli')} \\
@@ -151,7 +153,7 @@ function isFirstRun() {
     ${green('--key')} ${'localhost.key'}
   `)
   log(
-    `This will create a certificate for the localhost server via ${bold('mkcert')} and enable the secure connection for Firefox.`
+    `This will create a certificate in the plugin path via ${bold('mkcert')} and enable the secure connection for Firefox.`
   )
   log(`\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`)
 }
