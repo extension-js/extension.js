@@ -7,7 +7,7 @@
 
 import path from 'path'
 import {spawn} from 'cross-spawn'
-import {execSync} from 'child_process'
+import fs from 'fs'
 import {bold, red} from '@colors/colors/safe'
 
 import {getInstallCommand} from '../helpers/getInstallInfo'
@@ -40,7 +40,7 @@ export default async function installDependencies(
     process.chdir(projectPath)
 
     // Create the node_modules directory if it doesn't exist
-    execSync(`mkdir -p ${nodeModulesPath}`)
+    await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
     const child = spawn(command, dependenciesArgs, {stdio: 'inherit'})
 
