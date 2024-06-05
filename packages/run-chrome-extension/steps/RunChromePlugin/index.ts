@@ -1,7 +1,8 @@
 import fs from 'fs'
+import path from 'path'
 import {type Compiler} from 'webpack'
-import {exec} from 'child_process'
-import {bgWhite, black, green, red, blue} from '@colors/colors/safe'
+import {spawn} from 'child_process'
+import {bgWhite, bold, black, red, blue} from '@colors/colors/safe'
 // @ts-ignore
 import chrome from 'chrome-location'
 import browserConfig from './chrome/browser.config'
@@ -23,40 +24,34 @@ export default class ChromeExtensionLauncherPlugin {
   }
 
   private launchChrome() {
-    const chromeLaunchPath = this.options.startingUrl
-      ? `"${chrome}" "${this.options.startingUrl}"`
-      : `"${chrome}"`
-
-    if (!fs.existsSync(chrome as string) || '') {
+    if (!fs.existsSync(path.resolve(chrome))) {
       console.error(
-        `${bgWhite(black(` chrome-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Chrome browser ${typeof chrome === 'undefined' ? 'is not installed.' : `is not found at ${chrome}`}. ` +
-          // `Either install Chrome or set the CHROME environment variable to the path of the Chrome executable.`
-          `Either install Chrome or choose a different browser via ${blue('--browser')}.`
+        `${bgWhite(black(bold(` chrome-browser `)))} ${red(
+          '✖︎✖︎✖︎'
+        )} Chrome not found at ${chrome}`
+      )
+      process.exit()
+    }
+
+    if (!fs.existsSync(chrome) || '') {
+      console.error(
+        `${bgWhite(black(bold(` chrome-browser `)))} ${red('✖︎✖︎✖︎')} ` +
+          `Chrome browser ${
+            typeof chrome === 'undefined'
+              ? 'is not installed.'
+              : `is not found at ${chrome}`
+          }. ` +
+          // `Either install Chrome or set the Chrome environment variable to the path of the Chrome executable.`
+          `Either install Chrome or choose a different browser via ${blue(
+            '--browser'
+          )}.`
       )
       process.exit()
     }
 
     const chromeConfig = browserConfig(this.options)
-    const cmd = `${chromeLaunchPath} ${chromeConfig}`
-
-    const child = exec(cmd, (error, _stdout, stderr) => {
-      if (error != null) throw error
-      if (stderr.includes('Unable to move the cache')) {
-        console.log(
-          `${bgWhite(black(` chrome-browser `))} ${green(
-            `►►►`
-          )} Chrome instance already running.`
-        )
-      } else {
-        console.log(
-          `${bgWhite(black(` chrome-browser `))} ${green(
-            `►►►`
-          )} Chrome instance exited.`
-        )
-        process.exit()
-      }
-    })
+    const launchArgs = [this.options.startingUrl || '', ...chromeConfig]
+    const child = spawn(chrome, launchArgs, {stdio: 'inherit'})
 
     if (process.env.EXTENSION_ENV === 'development') {
       child.stdout?.pipe(process.stdout)

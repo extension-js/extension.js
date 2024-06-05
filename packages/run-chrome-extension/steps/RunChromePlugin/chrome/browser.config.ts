@@ -21,7 +21,7 @@ export default function browserConfig(
     ''
   )
 
-  const extensionsToLoad = [`"${userBrowserExtension}"`, managerExtension]
+  const extensionsToLoad = [userBrowserExtension, managerExtension]
 
   if (configOptions.autoReload) {
     extensionsToLoad.push(reloadExtension)
@@ -37,5 +37,5 @@ export default function browserConfig(
     // Flags to pass to Chrome
     // Any of http://peter.sh/experiments/chromium-command-line-switches/
     ...(configOptions.browserFlags || [])
-  ].join(' ')
+  ]
 }

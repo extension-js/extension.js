@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import {type Compiler} from 'webpack'
-import {exec} from 'child_process'
+import {spawn} from 'child_process'
 import {bgCyan, bold, green, white, red, blue} from '@colors/colors/safe'
 // @ts-ignore
 import edge from 'edge-location'
@@ -25,9 +25,6 @@ export default class EdgeExtensionLauncherPlugin {
 
   private launchEdge() {
     const msEdge: string = edge()
-    const edgeLaunchPath = this.options.startingUrl
-      ? `"${msEdge}" "${this.options.startingUrl}"`
-      : `"${msEdge}"`
 
     if (!fs.existsSync(path.resolve(msEdge))) {
       console.error(
@@ -49,25 +46,8 @@ export default class EdgeExtensionLauncherPlugin {
     }
 
     const edgeConfig = browserConfig(this.options)
-    const cmd = `${edgeLaunchPath} ${edgeConfig}`
-
-    const child = exec(cmd, (error, _stdout, stderr) => {
-      if (error != null) throw error
-      if (stderr.includes('Unable to move the cache')) {
-        console.log(
-          `${bgCyan(white(bold(` edge-browser `)))} ${green(
-            `►►►`
-          )} Edge instance already running.`
-        )
-      } else {
-        console.log(
-          `${bgCyan(white(bold(` edge-browser `)))} ${green(
-            `►►►`
-          )} Edge instance exited.`
-        )
-        process.exit()
-      }
-    })
+    const launchArgs = [this.options.startingUrl || '', ...edgeConfig]
+    const child = spawn(msEdge, launchArgs, {stdio: 'inherit'})
 
     if (process.env.EXTENSION_ENV === 'development') {
       child.stdout?.pipe(process.stdout)
