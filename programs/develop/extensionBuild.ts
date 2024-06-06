@@ -11,6 +11,9 @@ import buildWebpack from './webpack/buildWebpack'
 
 export interface BuildOptions {
   browser?: 'chrome' | 'edge' | 'firefox' | 'all'
+  zipFilename?: string
+  zip?: boolean
+  zipSource?: boolean
   polyfill?: boolean
 }
 
