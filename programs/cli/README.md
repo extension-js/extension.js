@@ -14,15 +14,16 @@
 
 # Extension.js [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
-> Plug-and-play, zero-config, cross-browser extension development tool.
+<!-- > Plug-and-play, zero-config, cross-browser extension development tool. -->
+> Make it very easy to develop cross-browser extensions.
 
-<img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96">
-
+<img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96"> 
 <hr>
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
-**Create cross-browser extensions with no build configuration.**
+<!-- **Create cross-browser extensions with no build configuration.** -->
+> Create cross-browser extensions with no build configuration.
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
@@ -32,7 +33,7 @@ Extension.js is a plug-and-play, zero-config, cross-browser extension developmen
 
 ## Create A New Extension
 
-```sh
+```bash
 npx extension create my-extension
 cd my-extension
 npm run dev
@@ -56,94 +57,68 @@ For a preview of extensions running these technologies, see documentation about 
 
 ## Get Started Immediately
 
-## Kickstart Any Sample from Chrome Extension Samples
+### Use Chrome to start developing an extension from Chrome Extension Samples 
 
-Dive right into development by starting with a sample from the Chrome Extension Samples repository. It's a great way to get acquainted with best practices and save time:
+> See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
-1. Open your terminal.
-2. Navigate to the directory where you want your project.
-3. Run the command:
-   ```bash
-   npx extension dev <sample-name>
-   ```
-   Replace `<sample-name>` with the name of the sample you wish to use from [Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
-
-See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
-
-```sh
+```bash
 npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder --browser=edge
 ```
 
 https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1
+</details>
 
-### Use `Microsoft Edge` to kickstart any sample from [chrome-extesions-sample](https://github.com/GoogleChrome/chrome-extensions-samples/)
+<details>
+   <summary>   
+   🔥 Use Edge to start developing an extension from Chrome Extension Samples 
+   </summary>
 
-Extension.js supports a variety of browsers, including Microsoft Edge. To start an Edge-compatible extension, simply:
+> See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) with Edge as the runtime browser.
 
-1. Open your terminal.
-2. Navigate to your desired project directory.
-3. Execute:
-   ```bash
-   npx extension dev  <sample-name> --browser=edge
-   ```
-   Tailor your command by replacing `<sample-name>` with the specific sample you're interested in.
-
-> See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) using Edge as the runtime browser.
-
-```sh
+```bash
 npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball --browser=edge
 ```
 
 https://github.com/cezaraugusto/extension/assets/4672033/2db2a1f6-3110-4380-9a49-dc9d034146aa
+</details>
 
-### Run Mozilla Add-Ons Using Edge
-
-Bridge the gap between Firefox and Edge by running Mozilla Add-Ons using Edge:
-
-1. Navigate to your project directory.
-2. Use the command:
-   ```bash
-   npx extension dev <addon-name> --browser=edge --polyfill=true
-   ```
-   This will fetch a Mozilla Add-On and adapt it for Edge.
+<details>
+   <summary>
+   🔥🔥 Use Edge to start developing a Mozilla Add-On from MDN WebExtensions Examples
+   </summary>
 
 > See the example below where we request the sample [Apply CSS](https://github.com/mdn/webextensions-examples/tree/main/apply-css) from [MDN WebExtensions Examples](https://github.com/mdn/webextensions-examples) using Edge as the runtime browser.
 
-```sh
+```bash
 npx extension dev https://github.com/mdn/webextensions-examples/tree/main/apply-css --browser=edge --polyfill=true
 ```
 
 https://github.com/cezaraugusto/extension/assets/4672033/130cb430-1567-419c-8c90-23fddcf20f00
+</details>
 
-### Run Mozilla Add-Ons On Firefox And Chrome
-
-Need to run Firefox and Chrome at once? _Sem problemas_.
-
-1. Navigate to your project directory.
-2. Use the command:
-   ```bash
-   # Ensure you either have a polyfill installed or --polyfill is set.
-   npx extension dev <addon-name> --browser=chrome,firefox --polyfill=true
-   ```
-   This will fetch a Mozilla Add-On and adapt it for Chrome, or vice-versa.
+<details>
+   <summary>
+   🔥🔥🔥 Use Chrome and Firefox to start developing a Mozilla Add-On from MDN WebExtensions Examples
+   </summary>
 
 > See the example below where we request the sample [firefox-code-search](https://github.com/mdn/webextensions-examples/tree/main/firefox-code-search) from [MDN WebExtensions Examples](https://github.com/mdn/webextensions-examples) using Chrome and Firefox as the runtime browsers.
 
-```sh
+```bash
 npx extension dev https://github.com/mdn/webextensions-examples/tree/main/firefox-code-search --browser=chrome,firefox --polyfill=true
 ```
 
 https://github.com/cezaraugusto/extension.js/assets/4672033/ac94b608-c936-40df-bce7-63ffd7fe31c5
+</details>
 
 ## I have An Extension
 
-https://github.com/cezaraugusto/extension/assets/4672033/48694a23-b7f1-4098-9c5d-eff49983739c
+If you have an existing project with a `package.json`, you can install the Extension.js package and manually create the scripts used to run your extension.
 
-If you have an existing extension which is using a package manager, you can install the Extension.js package and manually create the scripts used to run your extension. See the demo above or follow these instructions to get it done:
+https://github.com/cezaraugusto/extension/assets/4672033/48694a23-b7f1-4098-9c5d-eff49983739c
 
 **Step 1 - Install extension as a `devDependency`**
 
-```sh
+```bash
 npm install extension --save-dev
 ```
 
@@ -151,15 +126,15 @@ npm install extension --save-dev
 
 ```json5
 {
-  scripts: {
-    build: 'extension build',
-    dev: 'extension dev',
-    start: 'extension start'
+  "scripts": {
+    "build": "extension build",
+    "dev": "extension dev",
+    "start": "extension start",
   },
-  devDependencies: {
+  "devDependencies": {
     // ...other dependencies
-    extension: 'latest'
-  }
+    "extension": "latest",
+  },
 }
 ```
 
