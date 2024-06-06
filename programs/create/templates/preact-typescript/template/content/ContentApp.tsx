@@ -1,22 +1,22 @@
-import { Component } from "preact";
-import { signal } from "@preact/signals";
+import {Component} from 'preact'
+import {signal} from '@preact/signals'
 
-import preactLogo from "../public/preact.png";
-import tailwindBg from "../public/tailwind_bg.png";
-import typescriptLogo from "../public/typescript.png";
-import tailwindLogo from "../public/tailwind.png";
-import chromeWindowBg from "../public/chromeWindow.png";
+import preactLogo from '../public/preact.png'
+import tailwindBg from '../public/tailwind_bg.png'
+import typescriptLogo from '../public/typescript.png'
+import tailwindLogo from '../public/tailwind.png'
+import chromeWindowBg from '../public/chromeWindow.png'
 
 export default class ContentApp extends Component {
-  private isdialogOpen = signal(true);
+  private isdialogOpen = signal(true)
 
   constructor() {
-    super();
-    this.setIsDialogOpen(true);
+    super()
+    this.setIsDialogOpen(true)
   }
 
   setIsDialogOpen(bool: boolean) {
-    this.isdialogOpen.value = bool;
+    this.isdialogOpen.value = bool
   }
 
   render() {
@@ -60,7 +60,7 @@ export default class ContentApp extends Component {
               Tailwind.css.
             </h2>
             <p className="mt-6 text-lg leading-8 text-gray-300">
-              Learn more about creating cross-browser extensions by{" "}
+              Learn more about creating cross-browser extensions by{' '}
               <button
                 onClick={() => this.setIsDialogOpen(false)}
                 className="underline hover:no-underline
@@ -91,6 +91,6 @@ export default class ContentApp extends Component {
           🧩 Open content script hint <span aria-hidden="true">+</span>
         </button>
       </div>
-    );
+    )
   }
 }
