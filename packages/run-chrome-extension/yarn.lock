@@ -1083,10 +1083,10 @@ concat-map@0.0.1:
   resolved "https://registry.yarnpkg.com/concat-map/-/concat-map-0.0.1.tgz#d8a96bd77fd68df7793a73036a3ba0d5405d477b"
   integrity sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==
 
-content-security-policy-parser@^0.4.1:
-  version "0.4.1"
-  resolved "https://registry.yarnpkg.com/content-security-policy-parser/-/content-security-policy-parser-0.4.1.tgz#27b507649b1b75bc75f179df91919a869ee116b5"
-  integrity sha512-NNJS8XPnx3OKr/CUOSwDSJw+lWTrZMYnclLKj0Y9CYOfJNJTWLFGPg3u2hYgbXMXKVRkZR2fbyReNQ1mUff/Qg==
+content-security-policy-parser@^0.6.0:
+  version "0.6.0"
+  resolved "https://registry.yarnpkg.com/content-security-policy-parser/-/content-security-policy-parser-0.6.0.tgz#b361d8587dee0e92def19d308cb23e8d32cc26f6"
+  integrity sha512-wejtC/p+HLNQ7uaWgg1o3CKHhE8QXC9fJ2GCY0X82L5HUNtZSq1dmUvNSHHEb6R7LS02fpmRBq/vP8i4/+9KCg==
 
 copy-webpack-plugin@^12.0.2:
   version "12.0.2"

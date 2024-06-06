@@ -50,7 +50,7 @@
     "@colors/colors": "^1.6.0",
     "browser-extension-manifest-fields": "*",
     "chrome-location": "^1.2.1",
-    "content-security-policy-parser": "^0.4.1",
+    "content-security-policy-parser": "^0.6.0",
     "loader-utils": "^3.2.1",
     "prefers-yarn": "^1.0.1",
     "progress": "^2.0.3",
