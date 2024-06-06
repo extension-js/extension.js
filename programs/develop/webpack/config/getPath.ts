@@ -7,6 +7,7 @@
 
 import path from 'path'
 import {isUsingTypeScript} from '../options/typescript'
+import {isUsingPreact} from '../options/preact'
 
 function getManifestPath(projectPath: string) {
   return path.resolve(projectPath, 'manifest.json')
@@ -43,11 +44,23 @@ function getExtensionsToResolve(projectPath: string) {
   return [...getScriptResolveExtensions(projectPath), '.json', '.wasm']
 }
 
+function getAliasToResolve(projectPath: string) {
+  return isUsingPreact(projectPath)
+    ? {
+        react: 'preact/compat',
+        'react-dom/test-utils': 'preact/test-utils',
+        'react-dom': 'preact/compat', // 必须放在 test-utils 下面
+        'react/jsx-runtime': 'preact/jsx-runtime'
+      }
+    : undefined
+}
+
 export {
   getManifestPath,
   getOutputPath,
   getWebpackPublicPath,
   getModulesToResolve,
   getScriptResolveExtensions,
-  getExtensionsToResolve
+  getExtensionsToResolve,
+  getAliasToResolve
 }
