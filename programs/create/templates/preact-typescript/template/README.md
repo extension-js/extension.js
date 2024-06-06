@@ -1,6 +1,6 @@
 # [projectName]
 
-> This project was bootstrapped using the Extension.js React-TypeScript template.
+> This project was bootstrapped using the Extension.js Preact-TypeScript template.
 
 ## Scripts Available
 
