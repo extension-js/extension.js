@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "preact": "^10.22.0",
+    "sakura.css": "^1.5.0"
+  }
+}

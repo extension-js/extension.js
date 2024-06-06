@@ -11,6 +11,7 @@ import type {DevOptions} from '../extensionDev'
 import {getOverlay, getPublicFolderPath} from './config/userOptions'
 import {isUsingReact} from './options/react'
 import {isUsingVue} from './options/vue'
+import {isUsingPreact} from './options/preact'
 
 export default function devServerConfig(
   projectPath: string,
@@ -29,7 +30,9 @@ export default function devServerConfig(
     // causes content_scripts to do a full reload instead of a hot reload
     // when using React or Vue.
     watchFiles:
-      isUsingReact(projectPath) || isUsingVue(projectPath)
+      isUsingReact(projectPath) ||
+      isUsingVue(projectPath) ||
+      isUsingPreact(projectPath)
         ? undefined
         : [path.join(projectPath, '**/*.html')],
     client: {
