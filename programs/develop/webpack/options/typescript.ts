@@ -9,6 +9,7 @@ import path from 'path'
 import fs from 'fs'
 import {isUsingReact} from './react'
 import {bold, blue, yellow} from '@colors/colors/safe'
+import {isUsingPreact} from './preact'
 
 export function defaultTypeScriptConfig(projectDir: string, _opts?: any) {
   return {
@@ -27,7 +28,10 @@ export function defaultTypeScriptConfig(projectDir: string, _opts?: any) {
       // inlineSources: false,
       // Controls how JSX constructs are emitted in JavaScript files.
       // This only affects output of JS files that started in .tsx files.
-      jsx: isUsingReact(projectDir) ? 'react-jsx' : 'preserve',
+      jsx:
+        isUsingReact(projectDir) || isUsingPreact(projectDir)
+          ? 'react-jsx'
+          : 'preserve',
       // Include typings for latest ECMAScript features and DOM APIs
       lib: ['dom', 'dom.iterable', 'esnext'],
       // Use Node's module resolution algorithm; useful if using
