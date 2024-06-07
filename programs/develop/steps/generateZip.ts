@@ -1,8 +1,19 @@
 import path from 'path'
-import {green, blue, white, yellow, bold, underline} from '@colors/colors/safe'
+import {blue, white, yellow, bold, underline} from '@colors/colors/safe'
 import AdmZip from 'adm-zip'
 import slugify from 'slugify'
 import {BuildOptions} from '../extensionBuild'
+import fs from 'fs'
+import ignore from 'ignore'
+import {glob} from 'glob'
+
+function readFileSync(filePath: string): string {
+  try {
+    return fs.readFileSync(filePath, 'utf8')
+  } catch (error) {
+    return ''
+  }
+}
 
 function sanitizeString(input: string): string {
   return slugify(input, {
@@ -36,6 +47,23 @@ function capitalizeBrowserName(browser: string): string {
   return browser.charAt(0).toUpperCase() + browser.slice(1)
 }
 
+function getFilesToZip(projectDir: string): string[] {
+  const gitignorePath = path.join(projectDir, '.gitignore')
+  const gitignoreContent = readFileSync(gitignorePath)
+  const ig = ignore()
+
+  if (gitignoreContent) {
+    ig.add(gitignoreContent)
+  } else {
+    console.log(
+      `No ${yellow('.gitignore')} found, zipping all the content inside ${underline(projectDir)}`
+    )
+  }
+
+  const files = glob.sync('**/*', {cwd: projectDir, dot: true, nodir: true})
+  return files.filter((file) => !ig.ignores(file))
+}
+
 export default function generateZip(
   projectDir: string,
   {browser = 'chrome', ...options}: BuildOptions
@@ -53,10 +81,12 @@ export default function generateZip(
 
     if (options.zipSource) {
       console.log(
-        `\nPackaging extension source files to ${white(underline(sourceZipPath))}. This might take a while...`
+        `\nPackaging source files to ${white(underline(sourceZipPath))}. `+
+        `Files in ${yellow('.gitignore')} will be excluded...`
       )
       const zip = new AdmZip()
-      zip.addLocalFolder(projectDir)
+      const files = getFilesToZip(projectDir)
+      files.forEach((file) => zip.addLocalFile(path.join(projectDir, file)))
       zip.writeZip(sourceZipPath)
     }
 
