@@ -81,12 +81,14 @@ export default function generateZip(
 
     if (options.zipSource) {
       console.log(
-        `\nPackaging source files to ${white(underline(sourceZipPath))}. `+
-        `Files in ${yellow('.gitignore')} will be excluded...`
+        `\nPackaging source files to ${white(underline(sourceZipPath))}. ` +
+          `Files in ${yellow('.gitignore')} will be excluded...`
       )
       const zip = new AdmZip()
       const files = getFilesToZip(projectDir)
-      files.forEach((file) => zip.addLocalFile(path.join(projectDir, file)))
+      files.forEach((file) =>
+        zip.addLocalFile(path.join(projectDir, file), path.dirname(file))
+      )
       zip.writeZip(sourceZipPath)
     }
 
