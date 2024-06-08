@@ -139,11 +139,11 @@ extensionJs
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
-    '-b, --browser <chrome | edge>',
+    '-b, --browser <chrome | edge | firefox>',
     'specify a browser to run your extension in development mode'
   )
   .option(
-    '--polyfill <boolean>',
+    '--polyfill [boolean]',
     'whether or not to apply the cross-browser polyfill. Defaults to `true`'
   )
   .option(
@@ -180,11 +180,11 @@ extensionJs
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
-    '-b, --browser <chrome | edge>',
+    '-b, --browser <chrome | edge | firefox>',
     'specify a browser to run your extension in development mode'
   )
   .option(
-    '--polyfill <boolean>',
+    '--polyfill [boolean]',
     'whether or not to apply the cross-browser polyfill. Defaults to `true`'
   )
   .option(
@@ -217,12 +217,24 @@ extensionJs
   .usage('build [path-to-remote-extension] [options]')
   .description('Builds the extension for production')
   .option(
-    '-b, --browser <chrome | edge>',
+    '-b, --browser <chrome | edge | firefox>',
     'specify a browser to run your extension in development mode'
   )
   .option(
-    '--polyfill <boolean>',
+    '--polyfill [boolean]',
     'whether or not to apply the cross-browser polyfill. Defaults to `false`'
+  )
+  .option(
+    '--zip [boolean]',
+    'whether or not to compress the extension into a ZIP file. Defaults to `false`'
+  )
+  .option(
+    '--zip-source [boolean]',
+    'whether or not to include the source files in the ZIP file. Defaults to `false`'
+  )
+  .option(
+    '--zip-filename <string>',
+    'specify the name of the ZIP file. Defaults to the extension name and version'
   )
   .action(async function (
     pathOrRemoteUrl: string,
