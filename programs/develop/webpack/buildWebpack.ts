@@ -13,6 +13,7 @@ import {yellow, green, bold, red, underline} from '@colors/colors/safe'
 import compilerConfig from './webpack-config'
 import {type BuildOptions} from '../extensionBuild'
 import {getOutputPath} from './config/getPath'
+import generateZip from '../steps/generateZip'
 
 function getFileSize(fileSizeInBytes: number): string {
   return `${(fileSizeInBytes / 1024).toFixed(2)}KB`
@@ -91,15 +92,19 @@ function getAssetsSize(assets: any[] | undefined) {
 
 export default function buildWebpack(
   projectDir: string,
-  {browser}: BuildOptions
+  options: BuildOptions
 ) {
+  const browser = options.browser || 'chrome'
   const webpackConfig = compilerConfig(projectDir, {
     mode: 'production',
-    browser
+    browser: browser
   })
 
   const webpackConfigNoBrowser = {
     ...webpackConfig,
+    infrastructureLogging: {
+      level: 'info' as 'info'
+    },
     plugins: webpackConfig.plugins?.filter(
       // BrowserPlugin can run in production but never in the build command.
       (plugin) => plugin?.constructor.name !== 'BrowserPlugin'
@@ -112,7 +117,6 @@ export default function buildWebpack(
       process.exit(1)
     }
 
-    const vendor = browser || 'chrome'
     // Convert stats object to JSON format
     const statsJson = stats?.toJson()
     const manifestPath = path.join(projectDir, 'manifest.json')
@@ -125,7 +129,7 @@ export default function buildWebpack(
     const heading = `🧩 ${bold('Extension.js')} ${green(
       '►►►'
     )} Building ${bold(manifest.name)} extension using ${bold(
-      vendor
+      browser
     )} defaults...\n`
     const buildTime = `\nBuild completed in ${(
       (statsJson?.time || 0) / 1000
@@ -136,7 +140,7 @@ export default function buildWebpack(
     const version = `Version: ${manifest.version}`
     const size = `Size: ${getAssetsSize(assets)}`
     const ready = green(
-      'No errors or warnings found. Your extension is ready for deployment.'
+      '\nNo errors or warnings found. Your extension is ready for deployment.'
     )
 
     log(heading)
@@ -146,6 +150,13 @@ export default function buildWebpack(
     log(buildStatus)
     log(version)
     log(size)
+
+    if (options.zip || options.zipSource) {
+      generateZip(projectDir, {
+        ...options,
+        browser
+      })
+    }
 
     if (!stats?.hasErrors()) {
       log(ready)
