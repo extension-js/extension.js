@@ -69,7 +69,7 @@
     "stylelint-webpack-plugin": "^5.0.0",
     "ts-loader": "^9.5.1",
     "vue-loader": "^17.4.2",
-    "webextension-polyfill": "^0.10.0",
+    "webextension-polyfill": "^0.12.0",
     "webpack": "~5.89.0",
     "webpack-browser-extension-common-errors": "*",
     "webpack-browser-extension-html": "*",
