@@ -42,7 +42,7 @@
     "validate"
   ],
   "peerDependencies": {
-    "webpack": "^5.0.0"
+    "webpack": "~5.91.0"
   },
   "dependencies": {
     "@mdn/browser-compat-data": "^5.5.7",
@@ -55,7 +55,7 @@
     "eslint-config-extension-create": "*",
     "tsconfig": "*",
     "tsup": "^8.0.1",
-    "webpack": "~5.89.0",
+    "webpack": "~5.91.0",
     "webpack-cli": "^5.1.4"
   }
 }
