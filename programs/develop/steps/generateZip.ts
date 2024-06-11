@@ -2,7 +2,7 @@ import path from 'path'
 import {blue, white, yellow, bold, underline} from '@colors/colors/safe'
 import AdmZip from 'adm-zip'
 import slugify from 'slugify'
-import {BuildOptions} from '../extensionBuild'
+import {type BuildOptions} from '../extensionBuild'
 import fs from 'fs'
 import ignore from 'ignore'
 import {glob} from 'glob'
@@ -36,7 +36,10 @@ function getExtensionExtension(vendor: string): string {
   }
 }
 
-function getPackageName(manifest: any, options: BuildOptions): string {
+function getPackageName(
+  manifest: Record<string, string>,
+  options: BuildOptions
+): string {
   const sanitizedStr = sanitizeString(options.zipFilename || manifest.name)
   if (options.zipFilename) return sanitizedStr
 
@@ -72,7 +75,9 @@ export default function generateZip(
     const outputDir = path.join(projectDir, 'dist', browser)
     // We collect data from the projectDir if the user wants to zip the source files.
     const dataDir = options.zipSource ? projectDir : outputDir
-    const manifest = require(path.join(dataDir, 'manifest.json'))
+    const manifest: Record<string, string> = require(
+      path.join(dataDir, 'manifest.json')
+    )
     const name = getPackageName(manifest, options)
     const ext = getExtensionExtension(browser)
     const distZipPath = path.join(outputDir, `${name}.${ext}`)
@@ -86,9 +91,9 @@ export default function generateZip(
       )
       const zip = new AdmZip()
       const files = getFilesToZip(projectDir)
-      files.forEach((file) =>
+      files.forEach((file) => {
         zip.addLocalFile(path.join(projectDir, file), path.dirname(file))
-      )
+      })
       zip.writeZip(sourceZipPath)
     }
 
