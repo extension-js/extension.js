@@ -56,7 +56,15 @@ export default function webpackConfig(
       maxEntrypointSize: 999000
     },
     output: {
-      clean: true,
+      clean: {
+        keep(asset) {
+          // Avoids deleting the hot-update files for the content scripts.
+          // This is a workaround for the issue described
+          // in https://github.com/cezaraugusto/extension.js/issues/35.
+          // These HMR assets are eventually deleted by CleanHotUpdatesPlugin when webpack starts.
+          return !asset.startsWith('hot/background')
+        }
+      },
       path: getOutputPath(projectPath, devOptions.browser),
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: getWebpackPublicPath(projectPath),
