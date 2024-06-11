@@ -12,6 +12,7 @@ import downloadAndExtractZip from './extractFromZip'
 
 const isUrl = (url: string) => {
   try {
+    // eslint-disable-next-line no-new
     new URL(url)
     return true
   } catch (e) {

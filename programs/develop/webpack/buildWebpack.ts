@@ -97,7 +97,7 @@ export default function buildWebpack(
   const browser = options.browser || 'chrome'
   const webpackConfig = compilerConfig(projectDir, {
     mode: 'production',
-    browser: browser
+    browser
   })
 
   const webpackConfigNoBrowser = {

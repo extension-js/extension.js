@@ -39,7 +39,7 @@ export default class CreateWebSocketServer {
         const hardcodedMessage = {
           data: {
             id: manifest.browser_specific_settings?.gecko?.id,
-            manifest: manifest,
+            manifest,
             management: {
               id: manifest.browser_specific_settings?.gecko?.id,
               mayDisable: true,
