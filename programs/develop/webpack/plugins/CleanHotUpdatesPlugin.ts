@@ -1,6 +1,6 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import {Compilation, Compiler} from 'webpack'
+import fs from 'fs'
+import path from 'path'
+import {type Compiler} from 'webpack'
 
 export default class CleanHotUpdatesPlugin {
   apply(compiler: Compiler): void {

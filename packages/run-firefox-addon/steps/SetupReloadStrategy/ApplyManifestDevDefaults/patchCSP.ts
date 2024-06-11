@@ -11,7 +11,7 @@ export function patchV2CSP(manifest: ManifestBase) {
     )
   }
 
-  let csp = parse(policy)
+  const csp = parse(policy)
   policy = ''
 
   // Modification logic remains the same

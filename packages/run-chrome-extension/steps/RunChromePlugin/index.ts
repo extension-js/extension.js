@@ -4,7 +4,7 @@ import {type Compiler} from 'webpack'
 import {spawn} from 'child_process'
 import {bgWhite, bold, black, red, blue} from '@colors/colors/safe'
 // @ts-ignore
-import chrome from 'chrome-location'
+import chromeLocation from 'chrome-location'
 import browserConfig from './chrome/browser.config'
 import {type PluginOptions} from '../../types'
 
@@ -24,6 +24,7 @@ export default class ChromeExtensionLauncherPlugin {
   }
 
   private launchChrome() {
+    const chrome: string = chromeLocation
     if (!fs.existsSync(path.resolve(chrome))) {
       console.error(
         `${bgWhite(black(bold(` chrome-browser `)))} ${red(
