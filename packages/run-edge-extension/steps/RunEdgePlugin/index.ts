@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {spawn} from 'child_process'
-import {bgCyan, bold, green, white, red, blue} from '@colors/colors/safe'
+import {bgCyan, bold, white, red, blue} from '@colors/colors/safe'
 // @ts-ignore
 import edge from 'edge-location'
 import browserConfig from './edge/browser.config'
