@@ -15,6 +15,7 @@
 # Extension.js [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
 
 <!-- > Plug-and-play, zero-config, cross-browser extension development tool. -->
+
 > Make it very easy to develop cross-browser extensions.
 
 <img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96"> 
@@ -23,6 +24,7 @@
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 
 <!-- **Create cross-browser extensions with no build configuration.** -->
+
 > Create cross-browser extensions with no build configuration.
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
@@ -57,7 +59,7 @@ For a preview of extensions running these technologies, see documentation about 
 
 ## Get Started Immediately
 
-### Use Chrome to start developing an extension from Chrome Extension Samples 
+### Use Chrome to start developing an extension from Chrome Extension Samples
 
 > See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
@@ -66,6 +68,7 @@ npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree
 ```
 
 https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1
+
 </details>
 
 <details>
@@ -80,6 +83,7 @@ npx extension dev https://github.com/GoogleChrome/chrome-extensions-samples/tree
 ```
 
 https://github.com/cezaraugusto/extension/assets/4672033/2db2a1f6-3110-4380-9a49-dc9d034146aa
+
 </details>
 
 <details>
@@ -94,6 +98,7 @@ npx extension dev https://github.com/mdn/webextensions-examples/tree/main/apply-
 ```
 
 https://github.com/cezaraugusto/extension/assets/4672033/130cb430-1567-419c-8c90-23fddcf20f00
+
 </details>
 
 <details>
@@ -108,6 +113,7 @@ npx extension dev https://github.com/mdn/webextensions-examples/tree/main/firefo
 ```
 
 https://github.com/cezaraugusto/extension.js/assets/4672033/ac94b608-c936-40df-bce7-63ffd7fe31c5
+
 </details>
 
 ## I have An Extension
