@@ -130,12 +130,12 @@ export default function webpackConfig(
       css: true,
       // Support the new WebAssembly according to the updated specification,
       // it makes a WebAssembly module an async module.
-      asyncWebAssembly: true,
+      asyncWebAssembly: true
       // Once enabled, webpack will output ECMAScript module syntax whenever possible.
       // For instance, import() to load chunks, ESM exports to expose chunk data, among others.
       // TODO: cezaraugusto as we mature the ManifestPlugin to handle files without hardcoded names,
       // we can enable this feature as long as we have tests to cover it.
-      outputModule: false
+      // outputModule: false
     }
   }
 }
