@@ -17,7 +17,10 @@ export default function browserPlugins(
   devOptions: DevOptions
 ) {
   if (!devOptions?.mode || process.env.NODE_ENV === 'test') {
-    return
+    return {
+      constructor: {name: 'BrowserPlugin'},
+      apply: () => {}
+    }
   }
 
   const chromeConfig = {
