@@ -15,8 +15,8 @@ export default function handleInsecureCSPValueError(
     const parsedCSP = parseCSP(cspString)
 
     if (
-      parsedCSP['script-src'] &&
-      parsedCSP['script-src'].includes("'unsafe-eval'")
+      parsedCSP.get('script-src') &&
+      parsedCSP.get('script-src')?.includes("'unsafe-eval'")
     ) {
       return bold(
         `[manifest.json]: Insecure ${yellow(
