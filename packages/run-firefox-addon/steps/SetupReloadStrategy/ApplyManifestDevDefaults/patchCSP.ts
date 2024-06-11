@@ -7,26 +7,25 @@ export function patchV2CSP(manifest: ManifestBase) {
   if (!policy) {
     return (
       "script-src 'self' 'unsafe-eval' blob: filesystem:; " +
-      "object-src 'self' blob: filesystem:; " // +
+      "object-src 'self' blob: filesystem:; "
     )
   }
 
-  const csp = parse(policy)
+  let csp = parse(policy)
   policy = ''
 
   // Modification logic remains the same
-  if (!csp['script-src']) {
-    csp['script-src'] = ["'self' 'unsafe-eval' blob: filesystem:"]
+  if (!csp.get('script-src')) {
+    csp.set('script-src', ["'self' 'unsafe-eval' blob: filesystem:"])
   }
-  if (!csp['script-src'].includes("'unsafe-eval'")) {
-    csp['script-src'].push("'unsafe-eval'")
+  if (!csp.get('script-src')?.includes("'unsafe-eval'")) {
+    csp.set('script-src', ['unsafe-eval'])
   }
 
   for (const k in csp) {
-    policy += `${k} ${csp[k].join(' ')};`
+    policy += `${k} ${csp.get(k)?.join(' ')};`
   }
 
-  // Update the CSP in the manifest
   return policy
 }
 
@@ -35,23 +34,19 @@ export function patchV3CSP(manifest: ManifestBase) {
   const policy: {extension_pages: string} | undefined =
     manifest.content_security_policy
 
-  // Check if a policy exists, if not, apply a default one
   if (!policy) {
     return {
-      extension_pages: "script-src 'self'; " + "object-src 'self'; " // + "connect-src 'self' ws:;"
+      extension_pages: "script-src 'self'; " + "object-src 'self'; "
     }
   }
 
-  // Parse the CSP to a manageable format
   const csp = parse(policy.extension_pages)
   let extensionPagesPolicy = ''
 
-  // Rebuild the CSP string
   for (const directive in csp) {
-    extensionPagesPolicy += `${directive} ${csp[directive].join(' ')}; `
+    extensionPagesPolicy += `${directive} ${csp.get(directive)?.join(' ')}; `
   }
 
-  // Update the manifest's CSP
   return {
     extension_pages: extensionPagesPolicy.trim()
   }
