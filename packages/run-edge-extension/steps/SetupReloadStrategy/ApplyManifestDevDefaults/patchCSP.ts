@@ -11,19 +11,19 @@ export function patchV2CSP(manifest: ManifestBase) {
     )
   }
 
-  const csp = parse(policy)
+  let csp = parse(policy)
   policy = ''
 
   // Modification logic remains the same
-  if (!csp['script-src']) {
-    csp['script-src'] = ["'self' 'unsafe-eval' blob: filesystem:"]
+  if (!csp.get('script-src')) {
+    csp.set('script-src', ["'self' 'unsafe-eval' blob: filesystem:"])
   }
-  if (!csp['script-src'].includes("'unsafe-eval'")) {
-    csp['script-src'].push("'unsafe-eval'")
+  if (!csp.get('script-src')?.includes("'unsafe-eval'")) {
+    csp.set('script-src', ['unsafe-eval'])
   }
 
   for (const k in csp) {
-    policy += `${k} ${csp[k].join(' ')};`
+    policy += `${k} ${csp.get(k)?.join(' ')};`
   }
 
   return policy
@@ -44,7 +44,7 @@ export function patchV3CSP(manifest: ManifestBase) {
   let extensionPagesPolicy = ''
 
   for (const directive in csp) {
-    extensionPagesPolicy += `${directive} ${csp[directive].join(' ')}; `
+    extensionPagesPolicy += `${directive} ${csp.get(directive)?.join(' ')}; `
   }
 
   return {
