@@ -1,6 +1,6 @@
 {
   "devDependencies": {
-    "extension": "*"
+    "extension": "latest"
   },
   "scripts": {
     "dev": "node node_modules/extension dev",
