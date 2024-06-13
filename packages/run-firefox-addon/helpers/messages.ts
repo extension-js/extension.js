@@ -135,11 +135,6 @@ function isFirstRun() {
   log('')
   log('This is your first run using 🧩 Extension.js. Welcome! 🎉')
   log(
-    `To start developing your extension, terminate this process and run ${bold(
-      blue(prefersYarn() ? `yarn dev` : `npm run dev`)
-    )}.`
-  )
-  log(
     '\nNote: Firefox requires a certificate for secure WebSocket connections on localhost, '
   )
   log(
