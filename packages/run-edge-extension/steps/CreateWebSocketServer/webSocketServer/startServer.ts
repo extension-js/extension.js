@@ -35,16 +35,7 @@ export default function (
       webSocketServer.close()
     })
 
-    ws.on('close', (code, reason) => {
-      // TODO: cezaraugusto there is some sort of bug that closes the
-      // WebSocket connection and the process exits with code 1001.
-      // This error breaks the watch mode and the user has to restart
-      // the process. This is a temporary fix to avoid the error message.
-      // The fix so far is to run the process again.
-      if (!isUserFirstRun) {
-        messages.watchModeClosed(code, reason)
-      }
-
+    ws.on('close', () => {
       webSocketServer.close()
     })
 
