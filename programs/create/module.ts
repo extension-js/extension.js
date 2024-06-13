@@ -27,7 +27,7 @@ export interface CreateOptions {
 
 export default async function createExtension(
   projectNameInput: string | undefined,
-  {template = 'new'}: CreateOptions
+  {template = 'init'}: CreateOptions
 ) {
   if (!projectNameInput) {
     messages.noProjectName()

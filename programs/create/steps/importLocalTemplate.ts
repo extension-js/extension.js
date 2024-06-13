@@ -18,12 +18,12 @@ export default async function importLocalTemplate(
 ) {
   const localTemplatePath = path.join(templatesDir, template, 'template')
 
+  const isTemplate = template && template !== 'init'
+  const fromTemplate = isTemplate
+    ? ` from ${blue(bold(template))} template`
+    : ''
   try {
-    console.log(
-      `🧰 - Installing ${bold(projectName)} from ${blue(
-        bold(template)
-      )} template...`
-    )
+    console.log(`🧰 - Installing ${bold(projectName)}` + fromTemplate + '...')
     await copyDirectory(localTemplatePath, projectPath)
   } catch (error: any) {
     console.error(
