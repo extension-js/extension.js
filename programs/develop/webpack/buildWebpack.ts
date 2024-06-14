@@ -92,7 +92,7 @@ function getAssetsSize(assets: any[] | undefined) {
 
 export default function buildWebpack(
   projectDir: string,
-  options: BuildOptions
+  options: BuildOptions & {noOpen?: boolean}
 ) {
   const browser = options.browser || 'chrome'
   const webpackConfig = compilerConfig(projectDir, {
@@ -103,12 +103,17 @@ export default function buildWebpack(
   const webpackConfigNoBrowser = {
     ...webpackConfig,
     infrastructureLogging: {
-      level: 'info' as 'info'
+      level: options.silent ? ('info' as 'info') : undefined
     },
-    plugins: webpackConfig.plugins?.filter(
-      // BrowserPlugin can run in production but never in the build command.
-      (plugin) => plugin?.constructor.name !== 'BrowserPlugin'
-    )
+    plugins: webpackConfig.plugins?.filter((plugin) => {
+      // Do not run browser plugins during build step if "noOpen" is set.
+      // While the "build" command defaults to "false",
+      // the build command defaults to "true".
+      if (options.noOpen) {
+        return plugin?.constructor.name !== 'BrowserPlugin'
+      }
+      return true
+    })
   }
 
   webpack(webpackConfigNoBrowser).run((err, stats) => {
@@ -143,13 +148,15 @@ export default function buildWebpack(
       '\nNo errors or warnings found. Your extension is ready for deployment.'
     )
 
-    log(heading)
-    getAssetsTree(assets)
-    getAssetInfo(outputPath, assets)
-    log(buildTime)
-    log(buildStatus)
-    log(version)
-    log(size)
+    if (!options.silent) {
+      log(heading)
+      getAssetsTree(assets)
+      getAssetInfo(outputPath, assets)
+      log(buildTime)
+      log(buildStatus)
+      log(version)
+      log(size)
+    }
 
     if (options.zip || options.zipSource) {
       generateZip(projectDir, {
@@ -159,7 +166,9 @@ export default function buildWebpack(
     }
 
     if (!stats?.hasErrors()) {
-      log(ready)
+      if (!options.silent) {
+        log(ready)
+      }
     } else {
       console.log(stats.toString({colors: true}))
       process.exit(1)
