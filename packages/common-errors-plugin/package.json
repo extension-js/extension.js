@@ -38,7 +38,7 @@
     "manifest.json"
   ],
   "peerDependencies": {
-    "webpack": "~5.91.0"
+    "webpack": "~5.92.0"
   },
   "dependencies": {
     "@colors/colors": "^1.6.0",
@@ -50,7 +50,7 @@
     "eslint-config-extension-create": "*",
     "tsconfig": "*",
     "tsup": "^8.0.1",
-    "webpack": "~5.91.0",
+    "webpack": "~5.92.0",
     "webpack-cli": "^5.1.4"
   }
 }
