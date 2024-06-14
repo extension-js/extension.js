@@ -23,7 +23,7 @@ export default class FirefoxExtensionLauncherPlugin {
     this.options = options
   }
 
-  private async launchFirefox() {
+  private async launchFirefox(compiler: Compiler) {
     const firefoxLaunchPath = `fx-runner start --binary "${firefox}" --foreground --no-remote`
 
     if (!fs.existsSync(firefox!) || '') {
@@ -64,7 +64,7 @@ export default class FirefoxExtensionLauncherPlugin {
 
     // Inject the add-ons code into Firefox profile.
     const remoteFirefox = new RemoteFirefox(this.options)
-    remoteFirefox.installAddons().catch((error) => {
+    remoteFirefox.installAddons(compiler).catch((error) => {
       console.error(
         `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
           `Error injecting add-ons code into Firefox profile.`
@@ -88,7 +88,7 @@ export default class FirefoxExtensionLauncherPlugin {
           done()
           return
         }
-        this.launchFirefox().catch((error) => {
+        this.launchFirefox(compiler).catch((error) => {
           console.error(
             `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
               `Error launching Firefox.`

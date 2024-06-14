@@ -15,6 +15,7 @@ export interface BuildOptions {
   zip?: boolean
   zipSource?: boolean
   polyfill?: boolean
+  silent?: boolean
 }
 
 export default async function extensionBuild(
@@ -24,7 +25,7 @@ export default async function extensionBuild(
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
   try {
-    buildWebpack(projectPath, {...buildOptions})
+    buildWebpack(projectPath, {...buildOptions, noOpen: true})
   } catch (error: any) {
     console.log(
       `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +

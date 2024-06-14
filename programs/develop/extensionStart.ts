@@ -7,9 +7,7 @@
 
 import {bold, red} from '@colors/colors/safe'
 import getProjectPath from './steps/getProjectPath'
-import {isUsingTypeScript} from './webpack/options/typescript'
-import generateExtensionTypes from './steps/generateExtensionTypes'
-import startDevServer from './webpack/startDevServer'
+import buildWebpack from './webpack/buildWebpack'
 
 export interface StartOptions {
   mode?: 'development' | 'production'
@@ -22,16 +20,17 @@ export interface StartOptions {
 
 export default async function extensionStart(
   pathOrRemoteUrl: string | undefined,
-  {...startOptions}: StartOptions = {mode: 'production'}
+  {...startOptions}: StartOptions = {
+    mode: 'production'
+  }
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
   try {
-    if (isUsingTypeScript(projectPath)) {
-      await generateExtensionTypes(projectPath)
-    }
-
-    await startDevServer(projectPath, {...startOptions})
+    buildWebpack(projectPath, {
+      ...startOptions,
+      silent: true
+    })
   } catch (error: any) {
     console.log(
       `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +

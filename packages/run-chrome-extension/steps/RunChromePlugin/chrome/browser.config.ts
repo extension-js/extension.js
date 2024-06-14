@@ -1,4 +1,5 @@
 import path from 'path'
+import {Compiler} from 'webpack'
 import {type RunChromeExtensionInterface} from '../../../types'
 import createUserDataDir from './createUserDataDir'
 
@@ -14,6 +15,7 @@ const reloadExtension = path.resolve(
 )
 
 export default function browserConfig(
+  compiler: Compiler,
   configOptions: RunChromeExtensionInterface
 ) {
   const userBrowserExtension = configOptions.extensionPath?.replace(
@@ -21,10 +23,16 @@ export default function browserConfig(
     ''
   )
 
-  const extensionsToLoad = [userBrowserExtension, managerExtension]
+  const extensionsToLoad = [userBrowserExtension]
 
-  if (configOptions.autoReload) {
-    extensionsToLoad.push(reloadExtension)
+  if (compiler.options.mode === 'development') {
+    if (configOptions.autoReload) {
+      extensionsToLoad.push(reloadExtension)
+    }
+  }
+
+  if (compiler.options.mode === 'development') {
+    extensionsToLoad.push(managerExtension)
   }
 
   // Flags set by default:
