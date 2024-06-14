@@ -1,4 +1,5 @@
 import path from 'path'
+import {Compiler} from 'webpack'
 import {bgWhite, red, bold} from '@colors/colors/safe'
 import MessagingClient from './MessagingClient'
 import {type RunFirefoxExtensionInterface} from '../../../types'
@@ -53,15 +54,20 @@ export default class RemoteFirefox {
     throw lastError
   }
 
-  public async installAddons() {
+  public async installAddons(compiler: Compiler) {
     const {extensionPath, autoReload, port, devtools} = this.options
     const userBrowserExtension = extensionPath?.replace('manifest.json', '')
-    const extensionsToLoad = [userBrowserExtension!, managerExtension]
+    const extensionsToLoad = [userBrowserExtension!]
 
-    if (autoReload) {
-      extensionsToLoad.push(reloadExtension)
+    if (compiler.options.mode === 'development') {
+      if (autoReload) {
+        extensionsToLoad.push(reloadExtension)
+      }
     }
 
+    if (compiler.options.mode === 'development') {
+      extensionsToLoad.push(managerExtension)
+    }
     const client = await this.connectClient(port! + 100)
 
     for (const [index, extension] of extensionsToLoad.entries()) {
