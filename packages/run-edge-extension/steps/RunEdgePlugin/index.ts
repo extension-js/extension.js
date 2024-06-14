@@ -47,7 +47,10 @@ export default class EdgeExtensionLauncherPlugin {
 
     const edgeConfig = browserConfig(this.options)
     const launchArgs = [this.options.startingUrl || '', ...edgeConfig]
-    const child = spawn(msEdge, launchArgs, {stdio: 'inherit'})
+
+    const stdio =
+      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+    const child = spawn(edge, launchArgs, {stdio})
 
     if (process.env.EXTENSION_ENV === 'development') {
       child.stdout?.pipe(process.stdout)
