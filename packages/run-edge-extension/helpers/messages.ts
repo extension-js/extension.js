@@ -133,7 +133,7 @@ function stdoutData(compiler: Compiler, message: {data?: Data}) {
 
 function isFirstRun() {
   log('')
-  log('This is your first run using 🧩 Extension.js. Welcome! 🎉')
+  log('This is your first run using Extension.js. Welcome! 🎉')
   log(`\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`)
 }
 
