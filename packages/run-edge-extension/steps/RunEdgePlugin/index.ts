@@ -23,7 +23,7 @@ export default class EdgeExtensionLauncherPlugin {
     this.options = options
   }
 
-  private launchEdge() {
+  private launchEdge(compiler: Compiler) {
     const msEdge: string = edge()
 
     if (!fs.existsSync(path.resolve(msEdge))) {
@@ -45,7 +45,7 @@ export default class EdgeExtensionLauncherPlugin {
       process.exit()
     }
 
-    const edgeConfig = browserConfig(this.options)
+    const edgeConfig = browserConfig(compiler, this.options)
     const launchArgs = [this.options.startingUrl || '', ...edgeConfig]
 
     const stdio =
@@ -72,7 +72,7 @@ export default class EdgeExtensionLauncherPlugin {
           done()
           return
         }
-        this.launchEdge()
+        this.launchEdge(compiler)
         edgeDidLaunch = true
         done()
       }

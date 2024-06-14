@@ -23,7 +23,7 @@ export default class ChromeExtensionLauncherPlugin {
     this.options = options
   }
 
-  private launchChrome() {
+  private launchChrome(compiler: Compiler) {
     const chrome: string = chromeLocation
     if (!fs.existsSync(path.resolve(chrome))) {
       console.error(
@@ -50,7 +50,7 @@ export default class ChromeExtensionLauncherPlugin {
       process.exit()
     }
 
-    const chromeConfig = browserConfig(this.options)
+    const chromeConfig = browserConfig(compiler, this.options)
     const launchArgs = [this.options.startingUrl || '', ...chromeConfig]
 
     const stdio =
@@ -77,7 +77,7 @@ export default class ChromeExtensionLauncherPlugin {
           done()
           return
         }
-        this.launchChrome()
+        this.launchChrome(compiler)
         chromeDidLaunch = true
         done()
       }

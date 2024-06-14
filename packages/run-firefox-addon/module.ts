@@ -53,13 +53,17 @@ export default class RunFirefoxExtension {
     // which is a browser extension that is injected into the browser called
     // reload-extension. This extension is responsible for sending messages
     // to the user extension.
-    new CreateWebSocketServer(this.options).apply(compiler)
+    if (compiler.options.mode === 'development') {
+      new CreateWebSocketServer(this.options).apply(compiler)
+    }
 
     // 2 - Patches the manifest file, modifies the background script to
     // accept both extension runtime updates (service_worker, manifest.json)
     // and HMR updates (background, content scripts). The HMR part is done by
     // webpack-target-webextension.
-    new SetupReloadStrategy(this.options).apply(compiler)
+    if (compiler.options.mode === 'development') {
+      new SetupReloadStrategy(this.options).apply(compiler)
+    }
 
     // 3 - Bundle the reloader and manager extensions. The reloader extension
     // is injected into the browser and is responsible for sending reload
