@@ -42,7 +42,9 @@ export default async function installDependencies(
     // Create the node_modules directory if it doesn't exist
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
-    const child = spawn(command, dependenciesArgs, {stdio: 'inherit'})
+    const stdio =
+      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+    const child = spawn(command, dependenciesArgs, {stdio})
 
     await new Promise<void>((resolve, reject) => {
       child.on('close', (code) => {

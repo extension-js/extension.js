@@ -133,7 +133,7 @@ function stdoutData(compiler: Compiler, message: {data?: Data}) {
 
 function isFirstRun() {
   log('')
-  log('This is your first run using 🧩 Extension.js. Welcome! 🎉')
+  log('This is your first run using Extension.js. Welcome! 🎉')
   log(
     '\nNote: Firefox requires a certificate for secure WebSocket connections on localhost, '
   )

@@ -52,7 +52,10 @@ export default class ChromeExtensionLauncherPlugin {
 
     const chromeConfig = browserConfig(this.options)
     const launchArgs = [this.options.startingUrl || '', ...chromeConfig]
-    const child = spawn(chrome, launchArgs, {stdio: 'inherit'})
+
+    const stdio =
+      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+    const child = spawn(chrome, launchArgs, {stdio})
 
     if (process.env.EXTENSION_ENV === 'development') {
       child.stdout?.pipe(process.stdout)
