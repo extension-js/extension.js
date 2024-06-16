@@ -130,17 +130,17 @@ npm install extension --save-dev
 
 **Step 2 - Link your npm scripts with the executable Extension.js commands**
 
-```json5
+```json
 {
   "scripts": {
     "build": "extension build",
     "dev": "extension dev",
-    "start": "extension start",
+    "start": "extension start"
   },
   "devDependencies": {
     // ...other dependencies
-    "extension": "latest",
-  },
+    "extension": "latest"
+  }
 }
 ```
 
