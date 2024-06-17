@@ -6,9 +6,13 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import fs from 'fs'
+import {DevOptions} from '../../extensionDev'
 
 // https://webpack.js.org/configuration/devtool/
-export default function getDevToolOption(projectPath: string) {
+export default function getDevToolOption(
+  projectPath: string,
+  mode: DevOptions['mode']
+) {
   const manifestPath = `${projectPath}/manifest.json`
   const manifestExists = fs.lstatSync(manifestPath)
 
@@ -20,6 +24,8 @@ export default function getDevToolOption(projectPath: string) {
   }
 
   const manifest = require(manifestPath)
+
+  if (mode === 'production') return undefined
 
   // MV3 doesn't allow eval.
   // Ref https://github.com/awesome-webextension/webpack-target-webextension/blob/master/examples/hmr-mv3/webpack.config.js#L7

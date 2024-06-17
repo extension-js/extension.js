@@ -11,7 +11,6 @@ import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import ForkTsCheckerWebpackPlugin from 'fork-ts-checker-webpack-plugin'
 import StylelintPlugin from 'stylelint-webpack-plugin'
 import {VueLoaderPlugin} from 'vue-loader'
-
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
 import {type DevOptions} from '../../extensionDev'
@@ -63,7 +62,7 @@ export default function compilationPlugins(
 
             // Chunks are stored within their caller's directory,
             // So a dynamic import of a CSS action page will be stored
-            // as action/[filename]_.css.
+            // as action/[filename].css.
             // The JS counterpart of this is defined in webpack-config's
             // options.chunkFilename function.
             return `${runtime}/[name].css`

@@ -44,7 +44,7 @@ export default function webpackConfig(
     entry: {},
     target: 'web',
     context: projectPath,
-    devtool: getDevToolOption(projectPath),
+    devtool: getDevToolOption(projectPath, devOptions.mode),
     stats: getWebpackStats(),
     infrastructureLogging: {
       level: 'none'
@@ -86,7 +86,7 @@ export default function webpackConfig(
 
         // Chunks are stored within their caller's directory,
         // So a dynamic import of a CSS action page will be stored
-        // as action/[filename]_.css.
+        // as action/[filename].css.
         // The JS counterpart of this is defined in MiniCssExtractPlugin
         // options.chunkFilename function.
         return `${runtime}/[name].js`
