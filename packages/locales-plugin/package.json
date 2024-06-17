@@ -39,7 +39,7 @@
     "manifest.json"
   ],
   "peerDependencies": {
-    "webpack": "~5.91.0"
+    "webpack": "~5.92.0"
   },
   "dependencies": {
     "browser-extension-manifest-fields": "*"
@@ -54,7 +54,7 @@
     "ts-jest": "^29.1.2",
     "tsconfig": "*",
     "tsup": "^8.0.1",
-    "webpack": "~5.91.0",
+    "webpack": "~5.92.0",
     "webpack-cli": "^5.1.4"
   }
 }
