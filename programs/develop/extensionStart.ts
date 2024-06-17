@@ -5,9 +5,12 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
+import webpack from 'webpack'
 import {bold, red} from '@colors/colors/safe'
 import getProjectPath from './steps/getProjectPath'
-import buildWebpack from './webpack/buildWebpack'
+import compilerConfig from './webpack/webpack-config'
+import * as messages from './messages/startMessage'
 
 export interface StartOptions {
   mode?: 'development' | 'production'
@@ -20,21 +23,42 @@ export interface StartOptions {
 
 export default async function extensionStart(
   pathOrRemoteUrl: string | undefined,
-  {...startOptions}: StartOptions = {
+  startOptions: StartOptions = {
     mode: 'production'
   }
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
   try {
-    buildWebpack(projectPath, {
-      ...startOptions,
-      silent: true
+    const browser = startOptions.browser || 'chrome'
+    const webpackConfig = compilerConfig(projectPath, {
+      mode: 'production',
+      browser
+    })
+
+    messages.building(startOptions)
+
+    webpack(webpackConfig).run((err, stats) => {
+      if (err) {
+        console.error(err.stack || err)
+        process.exit(1)
+      }
+      
+      messages.startWebpack(projectPath, startOptions)
+
+      if (!stats?.hasErrors()) {
+        setTimeout(() => {
+          messages.ready(projectPath, startOptions)
+        }, 750)
+      } else {
+        console.log(stats.toString({colors: true}))
+        process.exit(1)
+      }
     })
   } catch (error: any) {
     console.log(
       `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +
-        `Error while developing the extension:\n\n${red(
+        `Error while starting the extension:\n\n${red(
           bold((error as string) || '')
         )}`
     )
