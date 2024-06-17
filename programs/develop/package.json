@@ -73,7 +73,7 @@
     "ts-loader": "^9.5.1",
     "vue-loader": "^17.4.2",
     "webextension-polyfill": "^0.10.0",
-    "webpack": "~5.91.0",
+    "webpack": "~5.92.0",
     "webpack-browser-extension-common-errors": "*",
     "webpack-browser-extension-html": "*",
     "webpack-browser-extension-icons": "*",
