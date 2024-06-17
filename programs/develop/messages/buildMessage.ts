@@ -8,26 +8,18 @@
 import webpack from 'webpack'
 import path from 'path'
 import fs from 'fs'
-import {log, error} from 'console'
 import {yellow, green, bold, red, underline} from '@colors/colors/safe'
-import compilerConfig from './webpack-config'
-import {type BuildOptions} from '../extensionBuild'
-import {getOutputPath} from './config/getPath'
-import generateZip from '../steps/generateZip'
-
-function getFileSize(fileSizeInBytes: number): string {
-  return `${(fileSizeInBytes / 1024).toFixed(2)}KB`
-}
+import {getAssetsSize, getFileSize} from './sizes'
 
 // Function to recursively print the tree structure
-function printTree(node: Record<string, any>, prefix = '') {
+export function printTree(node: Record<string, any>, prefix = '') {
   Object.keys(node).forEach((key, index, array) => {
     const isLast = index === array.length - 1
     const connector = isLast ? '└─' : '├─'
     const sizeInKB = node[key].size
       ? ` (${getFileSize(node[key].size as number)})`
       : ''
-    log(`${prefix}${connector} ${bold(key)}${sizeInKB}`)
+    console.log(`${prefix}${connector} ${bold(key)}${sizeInKB}`)
     if (typeof node[key] === 'object' && !node[key].size) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       printTree(node[key], `${prefix}${isLast ? '   ' : '|  '}`)
@@ -42,21 +34,21 @@ function printTree(node: Record<string, any>, prefix = '') {
 // • Filename: chrome_url_overrides/history.html, Size: 1.18KB
 //   ▪ /Users/cezaraugusto/local/my-extensions/my-extension/chrome_url_overrides/history.html
 
-function getAssetInfo(
+export function getAssetInfo(
   outputPath: string,
   assets: Array<{name: string; size: number}> | undefined
 ) {
-  log('\n')
+  console.log('\n')
   assets?.forEach((asset) => {
     const sizeInKB = getFileSize(asset.size)
-    log(
+    console.log(
       `• ${bold('Filename:')} ${yellow(asset.name)}, ${bold('Size:')} ${sizeInKB}` +
         `\n  ${bold('└─')} ${underline(`${path.join(outputPath, asset.name)}`)}`
     )
   })
 }
 
-function getAssetsTree(assets: webpack.StatsAsset[] | undefined) {
+export function getAssetsTree(assets: webpack.StatsAsset[] | undefined) {
   const assetTree: Record<string, {size: number}> = {}
 
   assets?.forEach((asset) => {
@@ -77,101 +69,50 @@ function getAssetsTree(assets: webpack.StatsAsset[] | undefined) {
     })
   })
 
-  log('.')
+  console.log('.')
   printTree(assetTree)
 }
 
-function getAssetsSize(assets: any[] | undefined) {
-  let totalSize = 0
-  assets?.forEach((asset) => {
-    totalSize += asset.size
-  })
+export function buildWebpack(
+  projectDir: string,
+  stats: any,
+  outputPath: string,
+  browser: string
+) {
+  // Convert stats object to JSON format
+  const statsJson = stats?.toJson()
+  const manifestPath = path.join(projectDir, 'manifest.json')
+  const manifest: Record<string, string> = JSON.parse(
+    fs.readFileSync(manifestPath, 'utf8')
+  )
+  const assets = statsJson?.assets
+  const heading = `🧩 ${bold('Extension.js')} ${green(
+    '►►►'
+  )} Building ${bold(manifest.name)} extension using ${bold(
+    browser
+  )} defaults...\n`
+  const buildTime = `\nBuild completed in ${(
+    (statsJson?.time || 0) / 1000
+  ).toFixed(2)} seconds.`
+  const buildStatus = `Build Status: ${
+    stats?.hasErrors() ? red('Failed') : green('Success')
+  }`
+  const version = `Version: ${manifest.version}`
+  const size = `Size: ${getAssetsSize(assets)}`
 
-  return getFileSize(totalSize)
+  console.log(heading)
+  getAssetsTree(assets)
+  getAssetInfo(outputPath, assets)
+  console.log(buildTime)
+  console.log(buildStatus)
+  console.log(version)
+  console.log(size)
 }
 
-export default function buildWebpack(
-  projectDir: string,
-  options: BuildOptions & {noOpen?: boolean}
-) {
-  const browser = options.browser || 'chrome'
-  const webpackConfig = compilerConfig(projectDir, {
-    mode: 'production',
-    browser
-  })
-
-  const webpackConfigNoBrowser = {
-    ...webpackConfig,
-    infrastructureLogging: {
-      level: options.silent ? ('info' as 'info') : undefined
-    },
-    plugins: webpackConfig.plugins?.filter((plugin) => {
-      // Do not run browser plugins during build step if "noOpen" is set.
-      // While the "build" command defaults to "false",
-      // the build command defaults to "true".
-      if (options.noOpen) {
-        return plugin?.constructor.name !== 'BrowserPlugin'
-      }
-      return true
-    })
-  }
-
-  webpack(webpackConfigNoBrowser).run((err, stats) => {
-    if (err) {
-      error(err.stack || err)
-      process.exit(1)
-    }
-
-    // Convert stats object to JSON format
-    const statsJson = stats?.toJson()
-    const manifestPath = path.join(projectDir, 'manifest.json')
-    const manifest: Record<string, string> = JSON.parse(
-      fs.readFileSync(manifestPath, 'utf8')
-    )
-    const assets = statsJson?.assets
-    const outputPath =
-      webpackConfigNoBrowser.output?.path || getOutputPath(projectDir, browser)
-    const heading = `🧩 ${bold('Extension.js')} ${green(
-      '►►►'
-    )} Building ${bold(manifest.name)} extension using ${bold(
-      browser
-    )} defaults...\n`
-    const buildTime = `\nBuild completed in ${(
-      (statsJson?.time || 0) / 1000
-    ).toFixed(2)} seconds.`
-    const buildStatus = `Build Status: ${
-      stats?.hasErrors() ? red('Failed') : green('Success')
-    }`
-    const version = `Version: ${manifest.version}`
-    const size = `Size: ${getAssetsSize(assets)}`
-    const ready = green(
+export function ready() {
+  console.log(
+    green(
       '\nNo errors or warnings found. Your extension is ready for deployment.'
     )
-
-    if (!options.silent) {
-      log(heading)
-      getAssetsTree(assets)
-      getAssetInfo(outputPath, assets)
-      log(buildTime)
-      log(buildStatus)
-      log(version)
-      log(size)
-    }
-
-    if (options.zip || options.zipSource) {
-      generateZip(projectDir, {
-        ...options,
-        browser
-      })
-    }
-
-    if (!stats?.hasErrors()) {
-      if (!options.silent) {
-        log(ready)
-      }
-    } else {
-      console.log(stats.toString({colors: true}))
-      process.exit(1)
-    }
-  })
+  )
 }
