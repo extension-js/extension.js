@@ -1,6 +1,7 @@
 import type webpack from 'webpack'
 import handleInsecureCSPValueError from './handleInsecureCSPValueError'
 import handleWrongWebResourceFormatError from './handleWrongWebResourceFormatError'
+import handleFirefoxRunningServiceWorkerError from './handleFirefoxRunningServiceWorkerError'
 import {type ManifestBase} from '../manifest-types'
 
 export default function handleRuntimeErrors(
@@ -13,6 +14,8 @@ export default function handleRuntimeErrors(
     manifest,
     browser
   )
+  const firefoxRunningServiceWorkerError =
+    handleFirefoxRunningServiceWorkerError(manifest, browser)
 
   if (insecureCSPValueError) {
     compilation.errors.push(insecureCSPValueError)
@@ -20,5 +23,11 @@ export default function handleRuntimeErrors(
 
   if (wrongWebResourceFormatError) {
     compilation.errors.push(wrongWebResourceFormatError)
+  }
+
+  if (firefoxRunningServiceWorkerError) {
+    if (compilation.options.mode === 'production') {
+      compilation.errors.push(firefoxRunningServiceWorkerError)
+    }
   }
 }
