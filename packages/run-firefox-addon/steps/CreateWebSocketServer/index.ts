@@ -1,12 +1,9 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {type RunFirefoxExtensionInterface} from '../../types'
-import {type ManifestBase} from '../../manifest-types'
 import messageDispatcher from './webSocketServer/messageDispatcher'
 import startServer from './webSocketServer/startServer'
 import rewriteReloadPort from './rewriteReloadPort'
-import messages from '../../helpers/messages'
-import isFirstRun from '../RunFirefoxPlugin/firefox/isFirstRun'
 
 export default class CreateWebSocketServer {
   private readonly options: RunFirefoxExtensionInterface
