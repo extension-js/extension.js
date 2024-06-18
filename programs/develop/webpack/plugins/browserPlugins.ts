@@ -5,12 +5,32 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
+import os from 'os'
 import type webpack from 'webpack'
 import RunChromeExtension from 'webpack-run-chrome-extension'
 import RunEdgeExtension from 'webpack-run-edge-extension'
 import RunFirefoxAddon from 'webpack-run-firefox-addon'
 import {type DevOptions} from '../../extensionDev'
 import {getManifestPath, getOutputPath} from '../config/getPath'
+
+function getProfilePath(devOptions: DevOptions) {
+  if (devOptions?.userDataDir) {
+    return devOptions.userDataDir
+  }
+
+  // Ensure `start` runs in a fresh profile by default.
+  if (devOptions.mode === 'production') {
+    return path.join(
+      os.tmpdir(),
+      'extension-js',
+      devOptions.browser!,
+      'profile'
+    )
+  }
+
+  return devOptions?.userDataDir
+}
 
 export default function browserPlugins(
   projectPath: string,
@@ -31,6 +51,7 @@ export default function browserPlugins(
     extensionPath: getOutputPath(projectPath, devOptions.browser),
     autoReload: true,
     browserFlags: ['--enable-benchmarking'],
+    userDataDir: getProfilePath(devOptions),
     stats: true
   }
 
