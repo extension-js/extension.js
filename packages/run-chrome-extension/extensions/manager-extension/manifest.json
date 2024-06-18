@@ -7,5 +7,5 @@
     "service_worker": "initialTab.js",
     "type": "module"
   },
-  "permissions": ["management", "tabs"]
+  "permissions": ["management", "tabs", "storage"]
 }

@@ -5,5 +5,5 @@
   "background": {
     "scripts": ["initialTab.js"]
   },
-  "permissions": ["management", "tabs", "activeTab"]
+  "permissions": ["management", "tabs", "activeTab", "storage"]
 }
