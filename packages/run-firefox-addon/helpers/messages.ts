@@ -94,7 +94,6 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
   description && log(`${bold(`• Description:`)} ${description}`)
   log(`${bold(`• Version:`)} ${version}`)
   log(`${bold(`• Size:`)} ${getDirectorySize(outputPath)}`)
-  // log(`${bold(`• Size:`)} ${getDirectorySize(projectPath)}`)
   log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
   hasHost &&
     log(
