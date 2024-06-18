@@ -15,6 +15,7 @@ import type {CreateOptions} from '@extension-create/create'
 import type {DevOptions} from '@extension-create/develop/extensionDev'
 import type {StartOptions} from '@extension-create/develop/extensionStart'
 import type {BuildOptions} from '@extension-create/develop/extensionBuild'
+import type {PreviewOptions} from '@extension-create/develop/extensionPreview'
 import type {BrowsersSupported} from './types'
 
 // Modules
@@ -22,7 +23,8 @@ import createExtension from '@extension-create/create'
 import {
   extensionDev,
   extensionStart,
-  extensionBuild
+  extensionBuild,
+  extensionPreview
 } from '@extension-create/develop'
 
 import checkUpdates from './check-updates'
@@ -87,7 +89,7 @@ extensionJs
       browser = 'chrome',
       template,
       ...otherCommandOptions
-    }: CreateOptions & DevOptions & StartOptions & BuildOptions
+    }: CreateOptions & DevOptions & StartOptions & BuildOptions & PreviewOptions
   ) {
     switch (pathOrRemoteUrl) {
       case 'dev':
@@ -200,6 +202,34 @@ extensionJs
         mode: 'production',
         browser: vendor as any,
         ...startOptions
+      })
+    }
+  })
+
+// ██████╗ ██████╗ ███████╗██╗   ██╗██╗███████╗██╗    ██╗
+// ██╔══██╗██╔══██╗██╔════╝██║   ██║██║██╔════╝██║    ██║
+// ██████╔╝██████╔╝█████╗  ██║   ██║██║█████╗  ██║ █╗ ██║
+// ██╔═══╝ ██╔══██╗██╔══╝  ╚██╗ ██╔╝██║██╔══╝  ██║███╗██║
+// ██║     ██║  ██║███████╗ ╚████╔╝ ██║███████╗╚███╔███╔╝
+// ╚═╝     ╚═╝  ╚═╝╚══════╝  ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝
+
+extensionJs
+  .command('preview')
+  .arguments('[project-name]')
+  .usage('preview [path-to-remote-extension] [options]')
+  .description('Builds the extension for production')
+  .option(
+    '-b, --browser <chrome | edge | firefox>',
+    'specify a browser to preview your extension in production mode'
+  )
+  .action(async function (
+    pathOrRemoteUrl: string,
+    {browser = 'chrome', ...previewOptions}: BuildOptions
+  ) {
+    for (const vendor of vendors(browser)) {
+      await extensionPreview(pathOrRemoteUrl, {
+        browser: vendor as any,
+        ...previewOptions
       })
     }
   })
