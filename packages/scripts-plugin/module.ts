@@ -6,6 +6,7 @@ import AddScripts from './steps/AddScripts'
 import AddStyles from './steps/AddStyles'
 import AddHmrAcceptCode from './steps/AddHmrAcceptCode'
 import AddPublicPathRuntimeModule from './steps/AddPublicPathRuntimeModule'
+import AddDynamicPublicPath from './steps/AddDynamicPublicPath'
 
 /**
  * ScriptsPlugin is responsible for handiling all possible JavaScript
@@ -80,5 +81,9 @@ export default class ScriptsPlugin {
     if (compiler.options.mode === 'production') {
       new AddPublicPathRuntimeModule().apply(compiler)
     }
+
+    // Fix the issue where assets imported via content_scripts
+    // running in the MAIN world could not find the correct public path.
+    AddDynamicPublicPath(compiler, this.manifestPath)
   }
 }

@@ -1,10 +1,7 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 
-export default function AddHmrAcceptCode(
-  compiler: Compiler,
-  manifestPath: string
-) {
+export default function AddDynamicPublicPath(compiler: Compiler, manifestPath: string) {
   compiler.options.module.rules.push({
     test: /\.(m?js|m?ts)x?$/,
     use: [
