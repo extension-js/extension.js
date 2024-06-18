@@ -44,10 +44,7 @@ one of the options above, and try again.
 `)
 }
 
-function extensionData(
-  compiler: Compiler,
-  message: {data?: Data},
-) {
+function extensionData(compiler: Compiler, message: {data?: Data}) {
   if (!message.data) {
     // TODO: cezaraugusto this happens when the extension
     // can't reach the background script. This can be many
@@ -99,7 +96,7 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
   log(`${bold(`• Version:`)} ${version}`)
   log(
     `${bold(`• Size:`)} ${getDirectorySize(
-      compilerOptions.output.path || 'dist'    
+      compilerOptions.output.path || 'dist'
     )}`
   )
   log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)

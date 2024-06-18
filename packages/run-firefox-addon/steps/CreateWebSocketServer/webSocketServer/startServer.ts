@@ -105,7 +105,6 @@ export default function (
 
       messages.stdoutData(compiler, hardcodedMessage)
     })
-
   })
 
   // Set a timeout to send the hardcoded message if no other message is received
