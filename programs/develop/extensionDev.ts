@@ -18,7 +18,7 @@ export interface DevOptions {
   browser?: 'chrome' | 'edge' | 'firefox' | 'all'
   port?: number
   noOpen?: boolean
-  userDataDir?: string | boolean
+  userDataDir?: string
   polyfill?: boolean
 }
 
