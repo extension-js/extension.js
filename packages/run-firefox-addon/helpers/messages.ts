@@ -44,7 +44,7 @@ one of the options above, and try again.
 `)
 }
 
-function extensionData(compiler: Compiler, message: {data?: Data}) {
+function extensionData(projectPath: string, message: {data?: Data}) {
   if (!message.data) {
     // TODO: cezaraugusto this happens when the extension
     // can't reach the background script. This can be many
@@ -59,7 +59,6 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
     process.exit(1)
   }
 
-  const compilerOptions = compiler.options
   const {id, management} = message.data
 
   if (!management) {
@@ -74,8 +73,8 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
 
   const {name, description, version, hostPermissions, permissions} = management
 
-  const manifestPath = path.join(compilerOptions.context || '', 'manifest.json')
-  const manifestFromCompiler = require(manifestPath)
+  const outputPath = path.join(projectPath, 'dist', 'firefox')
+  const manifestFromCompiler = require(path.join(outputPath, 'manifest.json'))
   const hostPermissionsParsed = hostPermissions?.filter(
     (permission) => !permission.startsWith('moz-extension://')
   )
@@ -94,11 +93,8 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
   log(`${bold(`• Name:`)} ${name}`)
   description && log(`${bold(`• Description:`)} ${description}`)
   log(`${bold(`• Version:`)} ${version}`)
-  log(
-    `${bold(`• Size:`)} ${getDirectorySize(
-      compilerOptions.output.path || 'dist'
-    )}`
-  )
+  log(`${bold(`• Size:`)} ${getDirectorySize(outputPath)}`)
+  // log(`${bold(`• Size:`)} ${getDirectorySize(projectPath)}`)
   log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
   hasHost &&
     log(

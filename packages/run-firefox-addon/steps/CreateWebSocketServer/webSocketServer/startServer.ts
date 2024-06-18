@@ -1,21 +1,22 @@
 import path from 'path'
 import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
+import type browser from 'webextension-polyfill-ts'
+import httpsServer from './httpsServer'
 import messages from '../../../helpers/messages'
 import {type RunFirefoxExtensionInterface} from '../../../types'
 import {type ManifestBase} from '../../../manifest-types'
-import httpsServer from './httpsServer'
-
 import isFirstRun from '../../RunFirefoxPlugin/firefox/isFirstRun'
-import type browser from 'webextension-polyfill-ts'
 
 function getHardcodedMessage(manifest: ManifestBase) {
+  const manifestName = manifest.name.replace(/ /g, '-').toLowerCase()
+
   return {
     data: {
-      id: manifest.browser_specific_settings?.gecko?.id,
+      id: `${manifestName}@extension-js`,
       manifest,
       management: {
-        id: manifest.browser_specific_settings?.gecko?.id,
+        id: `${manifestName}@extension-js`,
         mayDisable: true,
         optionsUrl: '',
         installType: 'development' as 'development',
@@ -50,8 +51,6 @@ export default function (
     server: httpsServer(options.port)
   })
 
-  const isUserFirstRun = isFirstRun()
-
   webSocketServer.on('connection', (ws) => {
     ws.send(JSON.stringify({status: 'serverReady'}))
 
@@ -73,9 +72,12 @@ export default function (
       const message: Message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
+        const isUserFirstRun = isFirstRun()
+
         if (options.stats === true) {
+          const projectDir = compiler.options.context || ''
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          messages.extensionData(compiler, message, isUserFirstRun)
+          messages.extensionData(projectDir, message)
         }
 
         messages.stdoutData(compiler, message)
@@ -85,37 +87,20 @@ export default function (
             messages.isFirstRun()
           }
         }
-        return
       }
-
-      const outputPath = compiler.options.output?.path || 'dist'
-      const manifestPath = path.join(outputPath, 'manifest.json')
-      const manifest = require(manifestPath)
-
-      // The initial stdout of this plugin where the extension info is provided
-      // is handled by the reload service. However Firefox requires a secure connection
-      // to authorize the websocket message passing. In this case, show a hardcoded
-      // message with the extension data for the first run, and inform users that they
-      // can run a command like `npx mkcert-cli` to create a certificate for the extension.
-      const hardcodedMessage = getHardcodedMessage(manifest)
-
-      if (options.stats === true) {
-        messages.extensionData(compiler, hardcodedMessage, true)
-      }
-
-      messages.stdoutData(compiler, hardcodedMessage)
     })
   })
 
   // Set a timeout to send the hardcoded message if no other message is received
+  const context = compiler.options.context || ''
+  const manifestPath = path.join(context, 'manifest.json')
+  const manifest: ManifestBase = require(manifestPath)
+
   const hardcodedMessageTimeout = setTimeout(() => {
-    const outputPath = compiler.options.output?.path || 'dist'
-    const manifestPath = path.join(outputPath, 'manifest.json')
-    const manifest = require(manifestPath)
     const hardcodedMessage = getHardcodedMessage(manifest)
 
     if (options.stats === true) {
-      messages.extensionData(compiler, hardcodedMessage, true)
+      messages.extensionData(context, hardcodedMessage)
     }
 
     messages.stdoutData(compiler, hardcodedMessage)

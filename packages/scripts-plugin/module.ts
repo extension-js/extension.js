@@ -5,6 +5,7 @@ import {type IncludeList, type ScriptsPluginInterface} from './types'
 import AddScripts from './steps/AddScripts'
 import AddStyles from './steps/AddStyles'
 import AddHmrAcceptCode from './steps/AddHmrAcceptCode'
+import AddPublicPathRuntimeModule from './steps/AddPublicPathRuntimeModule'
 
 /**
  * ScriptsPlugin is responsible for handiling all possible JavaScript
@@ -71,5 +72,13 @@ export default class ScriptsPlugin {
 
     // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
     AddHmrAcceptCode(compiler, this.manifestPath)
+
+    // Fix the issue with the public path not being
+    // available for content_scripts in the production build.
+    // See https://github.com/cezaraugusto/extension.js/issues/95
+    // See https://github.com/cezaraugusto/extension.js/issues/96
+    if (compiler.options.mode === 'production') {
+      new AddPublicPathRuntimeModule().apply(compiler)
+    }
   }
 }
