@@ -43,13 +43,12 @@ export default async function extensionStart(
         console.error(err.stack || err)
         process.exit(1)
       }
-      
       messages.startWebpack(projectPath, startOptions)
 
       if (!stats?.hasErrors()) {
         setTimeout(() => {
-          messages.ready(projectPath, startOptions)
-        }, 750)
+          messages.ready(startOptions)
+        }, 1500)
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)

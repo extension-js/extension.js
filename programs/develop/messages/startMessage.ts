@@ -1,7 +1,31 @@
+import fs from 'fs'
 import path from 'path'
-import {bold, blue} from '@colors/colors/safe'
+import {bold, blue, magenta, bgWhite, green} from '@colors/colors/safe'
 import getDirectorySize from './sizes'
 import {StartOptions} from '../extensionStart'
+
+function getLocales(projectPath: string, manifest: Record<string, any>) {
+  const defaultLocale = manifest.default_locale
+
+  // Get the list of all locale folders
+  const localesDir = path.join(projectPath, '_locales')
+
+  if (!fs.existsSync(localesDir)) {
+    return {
+      defaultLocale: 'EN',
+      otherLocales: []
+    }
+  }
+
+  const localeFolders = fs
+    .readdirSync(localesDir)
+    .filter((folder) => folder !== defaultLocale)
+
+  return {
+    defaultLocale,
+    otherLocales: localeFolders
+  }
+}
 
 export function startWebpack(projectDir: string, options: StartOptions) {
   const outputPath = path.join(projectDir, 'dist', options.browser || 'chrome')
@@ -11,9 +35,9 @@ export function startWebpack(projectDir: string, options: StartOptions) {
   const {name, description, version, hostPermissions, permissions} = manifest
 
   const manifestFromCompiler = require(manifestPath)
-  // If a permission is used in the post compilation but not
-  // in the pre-compilation step, add a "dev only" string to it.
-  const id = manifestFromCompiler.id
+  const defaultLocale = getLocales(projectDir, manifest).defaultLocale
+  const otherLocales = getLocales(projectDir, manifest).otherLocales.join(', ')
+  const locales = `${defaultLocale} (default) ${otherLocales && ', ' + otherLocales}`
   const hasHost = hostPermissions && hostPermissions.length
   const hasPermissions = permissions && permissions.length
 
@@ -22,29 +46,30 @@ export function startWebpack(projectDir: string, options: StartOptions) {
   description && console.log(`${bold(`• Description:`)} ${description}`)
   console.log(`${bold(`• Version:`)} ${version}`)
   console.log(`${bold(`• Size:`)} ${getDirectorySize(outputPath)}`)
-  id && console.log(`${bold(`• ID:`)} ${manifestFromCompiler.id}`)
-  hasHost &&
-    console.log(
-      `${bold(`• Host Permissions`)}: ${hostPermissions.sort().join(', ')}`
-    )
-  hasPermissions &&
-    console.log(
-      `${bold(`• Permissions:`)} ${permissions.sort().join(', ')}` ||
-        '(Using defaults)'
-    )
+  console.log(`${bold(`• Locales:`)} ${locales}`)
+
+  console.log(
+    `${bold(`• Host Permissions`)}: ${
+      hasHost ? hostPermissions.sort().join(', ') : 'Browser defaults'
+    }`
+  )
+
+  console.log(
+    `${bold(`• Permissions:`)} ${
+      hasPermissions ? permissions.sort().join(', ') : 'Browser defaults'
+    }`
+  )
+
+  console.log('')
 }
 
-export function ready(projectDir: string, options: StartOptions) {
-  const outputPath = path.join(projectDir, 'dist', options.browser || 'chrome')
-  const manifestPath = path.join(outputPath, 'manifest.json')
-  const manifest = require(manifestPath)
+export function ready(options: StartOptions) {
   const capitalizedBrowserName =
     options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
 
   console.log(
-    bold(
-      `\n🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${manifest.version}) `
-    ) + ` preview is ready. Starting ${bold(capitalizedBrowserName)}...`
+    `${bold(`🧩 Extension.js ${green('►►►')}`)} ` +
+      `Running ${capitalizedBrowserName} in ${magenta(bold('production'))} mode. Browser extension ${bold('enabled')}...`
   )
 }
 
@@ -53,7 +78,7 @@ export function building(options: StartOptions) {
     options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
 
   console.log(
-    `${bold(`🧩 Extension.js ${blue('►►►')}`)}` +
-    `Building the extension package against ${bold(capitalizedBrowserName)}...`
+    `${bold(`🧩 Extension.js ${blue('►►►')}`)} ` +
+      `Building the extension package against ${bold(capitalizedBrowserName)}...`
   )
 }
