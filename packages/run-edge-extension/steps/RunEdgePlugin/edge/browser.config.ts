@@ -1,6 +1,6 @@
 import path from 'path'
-import {Compiler} from 'webpack'
-import {type RunChromeExtensionInterface} from '../../../types'
+import {type Compiler} from 'webpack'
+import {type RunEdgeExtensionInterface} from '../../../types'
 import createUserDataDir from './createUserDataDir'
 
 const managerExtension = path.resolve(
@@ -16,7 +16,7 @@ const reloadExtension = path.resolve(
 
 export default function browserConfig(
   compiler: Compiler,
-  configOptions: RunChromeExtensionInterface
+  configOptions: RunEdgeExtensionInterface
 ) {
   const userBrowserExtension = configOptions.extensionPath?.replace(
     'manifest.json',
