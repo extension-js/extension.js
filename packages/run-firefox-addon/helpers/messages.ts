@@ -12,8 +12,6 @@ import {
   magenta,
   cyan
 } from '@colors/colors/safe'
-// @ts-ignore
-import prefersYarn from 'prefers-yarn'
 import getDirectorySize from '../steps/calculateDirSize'
 import {type ManifestBase} from '../manifest-types'
 import type browser from 'webextension-polyfill-ts'
@@ -49,7 +47,6 @@ one of the options above, and try again.
 function extensionData(
   compiler: Compiler,
   message: {data?: Data},
-  isFirstRun?: boolean
 ) {
   if (!message.data) {
     // TODO: cezaraugusto this happens when the extension
@@ -102,7 +99,7 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
   log(`${bold(`• Version:`)} ${version}`)
   log(
     `${bold(`• Size:`)} ${getDirectorySize(
-      compilerOptions.output.path || 'dist'
+      compilerOptions.output.path || 'dist'    
     )}`
   )
   log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
@@ -111,7 +108,7 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
       `${bold(`• Host Permissions`)}: ${hostPermissionsParsed?.sort().join(', ')}`
     )
   log(
-    `${bold(`• Permissions:`)} ${permissionsParsed.length ? permissionsParsed.sort().join(', ') : '(Using defaults)'}`
+    `${bold(`• Permissions:`)} ${permissionsParsed.length ? permissionsParsed.sort().join(', ') : 'Browser defaults'}`
   )
 }
 
@@ -131,7 +128,7 @@ function stdoutData(compiler: Compiler, message: {data?: Data}) {
   )
 }
 
-function isFirstRun() {
+function certRequired() {
   log('')
   log('This is your first run using Extension.js. Welcome! 🎉')
   log(
@@ -151,6 +148,11 @@ function isFirstRun() {
     `This will create a certificate in the plugin path via ${bold('mkcert')} and enable the secure connection for Firefox.`
   )
   log(`\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`)
+}
+
+function isFirstRun() {
+  log('')
+  log('This is your first run using Extension.js. Welcome! 🎉')
 }
 
 function watchModeClosed(code: number, reason: any) {
@@ -196,6 +198,7 @@ export default {
   extensionData,
   stdoutData,
   isFirstRun,
+  certRequired,
   watchModeClosed,
   browserNotFound,
   webSocketError,

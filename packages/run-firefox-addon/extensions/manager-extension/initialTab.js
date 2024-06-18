@@ -1,3 +1,20 @@
+/* global browser */
+
+async function getDevExtension() {
+  const allExtensions = await browser.management.getAll()
+
+  return allExtensions.filter((extension) => {
+    return (
+      // Do not include itself
+      extension.id !== browser.runtime.id &&
+      // Reload extension
+      extension.name !== 'Reload Service' &&
+      // Show only unpackaged extensions
+      extension.installType === 'development'
+    )
+  })
+}
+
 // Create a new tab and set it to background.
 // We want the user-selected page to be active,
 // not about:blank.
@@ -24,8 +41,22 @@ async function createFirefoxAddonsTab(initialTab, url) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/naming-convention
-const __IS_FIRST_RUN__ = false
+// Function to handle first run logic
+async function handleFirstRun() {
+  // browser.tabs.update({url: 'about://debugging/'})
+
+  const devExtension = await getDevExtension()
+
+  browser.storage.local.get(devExtension.id, (result) => {
+    if (result[devExtension.id] && result[devExtension.id].didRun) {
+      return
+    }
+
+    browser.tabs.create({url: './pages/welcome.html'})
+    // Ensure the welcome page shows only once per extension installation
+    browser.storage.local.set({[devExtension.id]: {didRun: true}})
+  })
+}
 
 async function handleTabOnExtensionLoad() {
   try {
@@ -34,14 +65,11 @@ async function handleTabOnExtensionLoad() {
       currentWindow: true
     })
 
-    if (initialTab.url === 'about:blank') {
-      // This check is generated at runtime by a hypothetical function,
-      // handle accordingly if it's the first run
-      if (__IS_FIRST_RUN__) {
-        setTimeout(() => {
-          browser.tabs.create({url: './pages/welcome.html'})
-        }, 1000)
-      }
+    if (
+      initialTab.url === 'about:blank' ||
+      initialTab.url === 'about:welcome'
+    ) {
+      await handleFirstRun()
     } else {
       await createFirefoxAddonsTab(initialTab, 'about:blank')
     }
