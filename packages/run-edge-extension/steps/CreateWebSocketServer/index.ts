@@ -4,7 +4,6 @@ import {type RunEdgeExtensionInterface} from '../../types'
 import messageDispatcher from './webSocketServer/messageDispatcher'
 import startServer from './webSocketServer/startServer'
 import rewriteReloadPort from './rewriteReloadPort'
-import rewriteFirstRunVariable from './rewriteFirstRunVariable'
 
 export default class CreateWebSocketServer {
   private readonly options: RunEdgeExtensionInterface
@@ -19,10 +18,6 @@ export default class CreateWebSocketServer {
     // Before all, rewrite the reload service file
     // with the user-provided port.
     rewriteReloadPort(this.options.port || 8001)
-
-    // And also rewrite the first run variable.
-    // This will change the user active tab on first run.
-    rewriteFirstRunVariable()
 
     // Start webSocket server to communicate with the extension.
     const statConfig = this.options.stats

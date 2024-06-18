@@ -107,7 +107,7 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
     log(`${bold(`• Host Permissions`)}: ${hostPermissions.sort().join(', ')}`)
   log(
     `${bold(`• Permissions:`)} ${permissionsParsed.sort().join(', ')}` ||
-      '(Using defaults)'
+      'Browser defaults'
   )
   log(
     `${bold(`• Settings URL`)}: ${underline(
