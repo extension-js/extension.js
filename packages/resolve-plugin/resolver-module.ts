@@ -97,7 +97,13 @@ function resolver(filePath?: string): string {
     return resolvedValue[0]
   }
 
-  resolverError(filePath)
+  // Avoid catching the parameter of chrome.runtime.getURL('/')
+  // which is a valid call to get the extension URL.
+  // See https://github.com/cezaraugusto/extension.js/issues/67
+  if (filePath !== '/') {
+    resolverError(filePath)
+  }
+
   return filePath
 }
 
