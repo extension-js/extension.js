@@ -1,4 +1,24 @@
 /* global chrome */
+
+async function getDevExtension() {
+  const allExtensions = await new Promise((resolve) => {
+    chrome.management.getAll(resolve)
+  })
+
+  const devExtensions = allExtensions.filter((extension) => {
+    return (
+      // Do not include itself
+      extension.id !== chrome.runtime.id &&
+      // Reload extension
+      extension.id !== 'igcijhgmihmjbbahdabahfbpffalcfnn' &&
+      // Show only unpackaged extensions
+      extension.installType === 'development'
+    )
+  })
+
+  return devExtensions[0]
+}
+
 // Ideas here are adapted from
 // https://github.com/jeremyben/webpack-chrome-extension-launcher
 // Released under MIT license.
@@ -22,24 +42,38 @@ function createChromeExtensionsTab(initialTab, url) {
         // This action auto-activates the tab
         chrome.tabs.move(extensionsTab.id, {index: 0}, () => {
           // Get user-selected initial page tab and activate the right tab
-          chrome.tabs.update(initialTab.id, {active: true})
+          setTimeout(() => {
+            chrome.tabs.update(initialTab.id, {active: true})
+          }, 500)
         })
       }
     )
   })
 }
 
-const __IS_FIRST_RUN__ = false
+// Function to handle first run logic
+async function handleFirstRun() {
+  chrome.tabs.update({url: 'chrome://extensions/'})
 
-chrome.tabs.query({active: true}, ([initialTab]) => {
-  if (initialTab.url === 'chrome://newtab/') {
-    chrome.tabs.update({url: 'chrome://extensions/'})
-    // WARN: This is generated at runtime by rewriteFirstRunVariable function.
-    if (__IS_FIRST_RUN__) {
-      setTimeout(() => {
-        chrome.tabs.create({url: 'welcome.html'})
-      }, 1000)
+  const devExtension = await getDevExtension()
+
+  chrome.storage.local.get(devExtension.id, (result) => {
+    if (result[devExtension.id] && result[devExtension.id].didRun) {
+      return
     }
+
+    chrome.tabs.create({url: 'pages/welcome.html'})
+    // Ensure the welcome page shows only once per extension installation
+    chrome.storage.local.set({[devExtension.id]: {didRun: true}})
+  })
+}
+
+chrome.tabs.query({active: true}, async ([initialTab]) => {
+  if (
+    initialTab.url === 'chrome://newtab/' ||
+    initialTab.url === 'chrome://welcome/'
+  ) {
+    await handleFirstRun()
   } else {
     createChromeExtensionsTab(initialTab, 'chrome://extensions/')
   }
