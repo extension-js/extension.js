@@ -43,3 +43,4 @@ __tests__
 **/copyStylelintConfig.js
 **/content.tsx
 **/content.tsx
+programs/create/templates/**

@@ -13,8 +13,6 @@ import {
   magenta,
   cyan
 } from '@colors/colors/safe'
-// @ts-ignore
-import prefersYarn from 'prefers-yarn'
 import getDirectorySize from '../steps/calculateDirSize'
 import {type ManifestBase} from '../manifest-types'
 
