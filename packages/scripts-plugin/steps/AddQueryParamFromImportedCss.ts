@@ -1,7 +1,7 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 
-export default function AddDynamicPublicPath(
+export default function RemoveQueryParamFromImportedCss(
   compiler: Compiler,
   manifestPath: string
 ) {
@@ -9,7 +9,7 @@ export default function AddDynamicPublicPath(
     test: /\.(m?js|m?ts)x?$/,
     use: [
       {
-        loader: path.resolve(__dirname, './loaders/InjectHMRAcceptLoader'),
+        loader: path.resolve(__dirname, './loaders/InjectQueryParamLoader'),
         options: {
           manifestPath
         }

@@ -3,7 +3,6 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {isUsingReact} from '../helpers/utils'
 
 const schema: Schema = {
   type: 'object',
@@ -33,34 +32,29 @@ export default function (
   const manifest = require(manifestPath)
 
   validate(schema, options, {
-    name: 'Inject the dynamic webpack publicPath code',
+    name: 'Add a is_content_css_import=true query param to css imports in content_scripts',
     baseDataPath: 'options'
   })
 
-  if (this._compilation?.options.mode === 'production') return source
-
   const url = urlToRequest(this.resourcePath)
-  const reloadCode = `
-;__webpack_public_path__ = chrome.extension.getURL('/');
-  `
 
-  if (manifest.background) {
-    if (manifest.background.scripts) {
-      for (const bgScript of manifest.background.scripts) {
-        const absoluteUrl = path.resolve(projectPath, bgScript as string)
+  if (manifest.content_scripts) {
+    for (const contentScript of manifest.content_scripts) {
+      if (!contentScript.js) continue
+
+      for (const js of contentScript.js) {
+        const absoluteUrl = path.resolve(projectPath, js as string)
+
         if (url.includes(absoluteUrl)) {
-          return `${reloadCode}${source}`
-        }
-      }
-    }
+          // Find every CSS imports in the source and add a query param to them
+          // so we can identify them later in the styleLoaders
+          source = source.replace(
+            /import\s+['"](.+\.css)['"]/g,
+            "import '$1?is_content_css_import=true'"
+          )
 
-    if (manifest.background.service_worker) {
-      const absoluteUrl = path.resolve(
-        projectPath,
-        manifest.background.service_worker
-      )
-      if (url.includes(absoluteUrl)) {
-        return `${reloadCode}${source}`
+          return source
+        }
       }
     }
   }

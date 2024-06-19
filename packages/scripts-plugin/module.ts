@@ -7,6 +7,7 @@ import AddStyles from './steps/AddStyles'
 import AddHmrAcceptCode from './steps/AddHmrAcceptCode'
 import AddPublicPathRuntimeModule from './steps/AddPublicPathRuntimeModule'
 import AddDynamicPublicPath from './steps/AddDynamicPublicPath'
+import AddQueryParamFromImportedCss from './steps/AddQueryParamFromImportedCss'
 
 /**
  * ScriptsPlugin is responsible for handiling all possible JavaScript
@@ -72,9 +73,11 @@ export default class ScriptsPlugin {
     }
 
     // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
-    AddHmrAcceptCode(compiler, this.manifestPath)
+    if (compiler.options.mode === 'development') {
+      AddHmrAcceptCode(compiler, this.manifestPath)
+    }
 
-    // Fix the issue with the public path not being
+    // 3 - Fix the issue with the public path not being
     // available for content_scripts in the production build.
     // See https://github.com/cezaraugusto/extension.js/issues/95
     // See https://github.com/cezaraugusto/extension.js/issues/96
@@ -82,8 +85,15 @@ export default class ScriptsPlugin {
       new AddPublicPathRuntimeModule().apply(compiler)
     }
 
-    // Fix the issue where assets imported via content_scripts
+    // 4 - Fix the issue where assets imported via content_scripts
     // running in the MAIN world could not find the correct public path.
     AddDynamicPublicPath(compiler, this.manifestPath)
+
+    // 5 - Fix the issue of content_scripts not being able to import
+    // CSS files via import statements. This loader adds the
+    // is_content_css_import=true query param to CSS imports in
+    // content_scripts. This skips the MiniCssExtractPlugin loader
+    // and allows the CSS to be injected in the DOM via <style> tags.
+    AddQueryParamFromImportedCss(compiler, this.manifestPath)
   }
 }
