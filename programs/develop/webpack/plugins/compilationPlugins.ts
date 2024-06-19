@@ -43,32 +43,30 @@ export default function compilationPlugins(
         // failOnWarning: true
       }).apply(compiler)
 
-      if (opts.mode === 'production') {
-        new MiniCssExtractPlugin({
-          chunkFilename: (pathData: PathData) => {
-            const runtime = (pathData.chunk as any)?.runtime
+      new MiniCssExtractPlugin({
+        chunkFilename: (pathData: PathData) => {
+          const runtime = (pathData.chunk as any)?.runtime
 
-            // Chunks are stored within their caller's directory,
-            // but assets imported in content_scripts must be set
-            // as a web_accessible_resource, so the dynamic import
-            // of a CSS content_script will be stored as
-            // web_accessible_resource/resource-{index}/[name].css.
-            if (runtime.startsWith('content_scripts')) {
-              const [, contentName] = runtime.split('/')
-              const index = contentName.split('-')[1]
+          // Chunks are stored within their caller's directory,
+          // but assets imported in content_scripts must be set
+          // as a web_accessible_resource, so the dynamic import
+          // of a CSS content_script will be stored as
+          // web_accessible_resource/resource-{index}/[name].css.
+          if (runtime.startsWith('content_scripts')) {
+            const [, contentName] = runtime.split('/')
+            const index = contentName.split('-')[1]
 
-              return `web_accessible_resources/resource-${index}/[name].css`
-            }
-
-            // Chunks are stored within their caller's directory,
-            // So a dynamic import of a CSS action page will be stored
-            // as action/[filename].css.
-            // The JS counterpart of this is defined in webpack-config's
-            // options.chunkFilename function.
-            return `${runtime}/[name].css`
+            return `web_accessible_resources/resource-${index}/[name].css`
           }
-        }).apply(compiler)
-      }
+
+          // Chunks are stored within their caller's directory,
+          // So a dynamic import of a CSS action page will be stored
+          // as action/[filename].css.
+          // The JS counterpart of this is defined in webpack-config's
+          // options.chunkFilename function.
+          return `${runtime}/[name].css`
+        }
+      }).apply(compiler)
 
       if (isUsingVue(projectDir)) {
         new VueLoaderPlugin().apply(compiler)
