@@ -15,7 +15,7 @@ export default function getCommonStyleLoaders(
   opts: any
 ): any {
   const styleLoaders: webpack.RuleSetUse = [
-    opts.mode === 'production'
+    opts.useMiniCssExtractPlugin
       ? MiniCssExtractPlugin.loader
       : require.resolve('style-loader'),
     require.resolve('css-loader'),
@@ -31,7 +31,6 @@ export default function getCommonStyleLoaders(
             ...(isUsingTailwind(projectDir)
               ? [require.resolve('tailwindcss', {paths: [projectDir]})]
               : []),
-
             require.resolve('postcss-flexbugs-fixes'),
             [
               require.resolve('postcss-preset-env'),

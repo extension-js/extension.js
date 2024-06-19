@@ -5,6 +5,7 @@
     "**/dist",
     "node_modules",
     "browser-extension-test-data",
-    "__TEST__"
+    "__TEST__",
+    "programs/create/templates/**"
   ]
 }

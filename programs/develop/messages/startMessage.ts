@@ -34,7 +34,6 @@ export function startWebpack(projectDir: string, options: StartOptions) {
 
   const {name, description, version, hostPermissions, permissions} = manifest
 
-  const manifestFromCompiler = require(manifestPath)
   const defaultLocale = getLocales(projectDir, manifest).defaultLocale
   const otherLocales = getLocales(projectDir, manifest).otherLocales.join(', ')
   const locales = `${defaultLocale} (default) ${otherLocales && ', ' + otherLocales}`
