@@ -31,7 +31,7 @@ export default async function extensionBuild(
     const browser = buildOptions.browser || 'chrome'
     const webpackConfig = compilerConfig(projectPath, {
       mode: 'production',
-      browser: browser
+      browser
     })
 
     // BrowserPlugin can run in production but never in the build command.

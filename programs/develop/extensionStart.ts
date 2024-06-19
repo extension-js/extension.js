@@ -5,7 +5,6 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
 import webpack from 'webpack'
 import {bold, red} from '@colors/colors/safe'
 import getProjectPath from './steps/getProjectPath'

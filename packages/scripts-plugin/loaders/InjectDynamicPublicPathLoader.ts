@@ -3,7 +3,6 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {isUsingReact} from '../helpers/utils'
 
 const schema: Schema = {
   type: 'object',
@@ -57,7 +56,7 @@ export default function (
     if (manifest.background.service_worker) {
       const absoluteUrl = path.resolve(
         projectPath,
-        manifest.background.service_worker
+        manifest.background.service_worker as string
       )
       if (url.includes(absoluteUrl)) {
         return `${reloadCode}${source}`

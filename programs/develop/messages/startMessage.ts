@@ -1,11 +1,11 @@
 import fs from 'fs'
 import path from 'path'
-import {bold, blue, magenta, bgWhite, green} from '@colors/colors/safe'
+import {bold, blue, magenta, green} from '@colors/colors/safe'
 import getDirectorySize from './sizes'
-import {StartOptions} from '../extensionStart'
+import {type StartOptions} from '../extensionStart'
 
 function getLocales(projectPath: string, manifest: Record<string, any>) {
-  const defaultLocale = manifest.default_locale
+  const defaultLocale = manifest.default_locale as string
 
   // Get the list of all locale folders
   const localesDir = path.join(projectPath, '_locales')
@@ -30,7 +30,7 @@ function getLocales(projectPath: string, manifest: Record<string, any>) {
 export function startWebpack(projectDir: string, options: StartOptions) {
   const outputPath = path.join(projectDir, 'dist', options.browser || 'chrome')
   const manifestPath = path.join(outputPath, 'manifest.json')
-  const manifest = require(manifestPath)
+  const manifest: Record<string, any> = require(manifestPath)
 
   const {name, description, version, hostPermissions, permissions} = manifest
 

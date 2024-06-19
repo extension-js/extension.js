@@ -5,7 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import webpack from 'webpack'
+import type webpack from 'webpack'
 import path from 'path'
 import fs from 'fs'
 import {yellow, green, bold, red, underline} from '@colors/colors/safe'
@@ -85,7 +85,7 @@ export function buildWebpack(
   const manifest: Record<string, string> = JSON.parse(
     fs.readFileSync(manifestPath, 'utf8')
   )
-  const assets = statsJson?.assets
+  const assets: any[] = statsJson?.assets
   const heading = `🧩 ${bold('Extension.js')} ${green(
     '►►►'
   )} Building ${bold(manifest.name)} extension using ${bold(
