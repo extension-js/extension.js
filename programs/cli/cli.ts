@@ -24,7 +24,7 @@ import {
   extensionDev,
   extensionStart,
   extensionBuild,
-  extensionPreview
+  // extensionPreview
 } from '@extension-create/develop'
 
 import checkUpdates from './check-updates'
@@ -213,26 +213,26 @@ extensionJs
 // ██║     ██║  ██║███████╗ ╚████╔╝ ██║███████╗╚███╔███╔╝
 // ╚═╝     ╚═╝  ╚═╝╚══════╝  ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝
 
-extensionJs
-  .command('preview')
-  .arguments('[project-name]')
-  .usage('preview [path-to-remote-extension] [options]')
-  .description('Builds the extension for production')
-  .option(
-    '-b, --browser <chrome | edge | firefox>',
-    'specify a browser to preview your extension in production mode'
-  )
-  .action(async function (
-    pathOrRemoteUrl: string,
-    {browser = 'chrome', ...previewOptions}: BuildOptions
-  ) {
-    for (const vendor of vendors(browser)) {
-      await extensionPreview(pathOrRemoteUrl, {
-        browser: vendor as any,
-        ...previewOptions
-      })
-    }
-  })
+// extensionJs
+//   .command('preview')
+//   .arguments('[project-name]')
+//   .usage('preview [path-to-remote-extension] [options]')
+//   .description('Builds the extension for production')
+//   .option(
+//     '-b, --browser <chrome | edge | firefox>',
+//     'specify a browser to preview your extension in production mode'
+//   )
+//   .action(async function (
+//     pathOrRemoteUrl: string,
+//     {browser = 'chrome', ...previewOptions}: BuildOptions
+//   ) {
+//     for (const vendor of vendors(browser)) {
+//       await extensionPreview(pathOrRemoteUrl, {
+//         browser: vendor as any,
+//         ...previewOptions
+//       })
+//     }
+//   })
 
 // ██████╗ ██╗   ██╗██╗██╗     ██████╗
 // ██╔══██╗██║   ██║██║██║     ██╔══██╗
