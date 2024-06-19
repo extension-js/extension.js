@@ -1,6 +1,6 @@
-import {Compiler, Compilation, sources} from 'webpack'
+import {type Compiler, Compilation, sources} from 'webpack'
 import manifestFields from 'browser-extension-manifest-fields'
-import {WebResourcesPluginInterface, Manifest} from '../../types'
+import {type WebResourcesPluginInterface, type Manifest} from '../../types'
 
 interface ContentData {
   feature: string
@@ -74,7 +74,8 @@ export default class UpdateManifest {
           (assets) => {
             if (compilation.errors.length > 0) return
 
-            const manifestSource = assets['manifest.json']
+            // TODO: cezaraugusto this is fragile
+            const manifestSource: string = assets['manifest.json']
               ? assets['manifest.json'].source().toString()
               : require(this.manifestPath)
 
