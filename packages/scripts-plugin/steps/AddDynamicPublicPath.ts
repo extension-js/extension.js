@@ -1,7 +1,7 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 
-export default function AddHmrAcceptCode(
+export default function AddDynamicPublicPath(
   compiler: Compiler,
   manifestPath: string
 ) {
