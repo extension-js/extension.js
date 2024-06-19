@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "name": "webpack-run-firefox-addon",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Run your add-on on Firefox with auto-reload support",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
