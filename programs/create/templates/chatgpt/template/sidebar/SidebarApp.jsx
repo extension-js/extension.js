@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import OpenAI from "openai";
-import chatgptLogo from '../images/chatgpt.png'
-import extensionJsLogo from '../images/extensionjs.png'
+import chatgptLogo from '../public/chatgpt.png'
+import extensionJsLogo from '../public/extension.png'
 
 const openai = new OpenAI({
   apiKey: process.env.EXTENSION_OPENAI_API_KEY,

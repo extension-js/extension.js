@@ -23,7 +23,7 @@ import createExtension from '@extension-create/create'
 import {
   extensionDev,
   extensionStart,
-  extensionBuild,
+  extensionBuild
   // extensionPreview
 } from '@extension-create/develop'
 
