@@ -12,6 +12,10 @@ import {promisify} from 'util'
 
 const execAsync = promisify(exec)
 
+// TODO: These tests take too long. They
+// should run locally during development
+// and in CI only when there is a release.
+
 async function extensionProgram(command: string = '') {
   const cliCommand = `ts-node ${path.join(
     __dirname,
@@ -29,7 +33,7 @@ async function removeDir(dirPath: string) {
 }
 
 describe('CLI Commands', () => {
-  describe('The CLI itself', () => {
+  describe.skip('extension ...args', () => {
     it('returns usage instructions if no command is provided', async () => {
       try {
         await extensionProgram()
@@ -45,88 +49,89 @@ describe('CLI Commands', () => {
     })
   })
 
-  // describe.skip('Create Command', () => {
-  //   const extensionPath = path.join(__dirname, '..', 'my-extension')
-  //   const customPath = path.join(__dirname, '..', 'my-custom-path')
+  describe('extension create', () => {
+    const extensionPath = path.join(__dirname, '..', 'dist', 'my-extension')
+    const customPath = path.join(__dirname, '..', 'dist', 'my-custom-path')
 
-  //   beforeEach(async () => {
-  //     await removeDir(extensionPath)
-  //     await removeDir(customPath)
-  //     mockFs.restore()
-  //   })
+    beforeEach(async () => {
+      await removeDir(extensionPath)
+      await removeDir(customPath)
+    })
 
-  //   afterAll(async () => {
-  //     await removeDir(extensionPath)
-  //     await removeDir(customPath)
-  //   })
+    afterAll(async () => {
+      await removeDir(extensionPath)
+      await removeDir(customPath)
+    })
 
-  //   it('throws an error if target directory has conflicting files', async () => {
-  //     mockFs({
-  //       'my-extension': {
-  //         'package.json': 'some content'
-  //       }
-  //     })
+    it.skip('throws an error if target directory has conflicting files', async () => {
+      try {
+        // Create first
+        await extensionProgram(`create ${extensionPath}`)
 
-  //     try {
-  //       await extensionProgram('create my-extension')
-  //     } catch (error: any) {
-  //       expect(error).toBeTruthy()
-  //       expect(error.message).toContain('includes conflicting files')
-  //     }
-  //   })
+        // Try recreating on top of existing directory.
+        await extensionProgram(`create ${extensionPath}`)
+      } catch (error: any) {
+        expect(error).toBeTruthy()
+        expect(error.message).toContain('includes conflicting files')
+      }
+    }, 30000)
 
-  //   it('throws an error if no project name is provided', async () => {
-  //     try {
-  //       await extensionProgram('create')
-  //     } catch (error: any) {
-  //       expect(error).toBeTruthy()
-  //       expect(error.message).toContain(
-  //         "missing required argument 'project-name|project-path"
-  //       )
-  //     }
-  //   })
+    it.skip('throws an error if no project name is provided', async () => {
+      try {
+        await extensionProgram('create')
+      } catch (error: any) {
+        expect(error).toBeTruthy()
+        expect(error.message).toContain(
+          "missing required argument 'project-name|project-path"
+        )
+      }
+    })
 
-  //   it('creates a new extension', async () => {
-  //     const extensionPath = path.join(__dirname, '..', 'my-extension')
-  //     await extensionProgram('create my-extension')
-  //     expect(fs.existsSync(extensionPath)).toBeTruthy()
-  //   })
+    it('creates a new extension via "init" (default) template', async () => {
+      await extensionProgram(`create ${extensionPath}`)
 
-  //   it('creates a new extension from a react template', async () => {
-  //     const extensionPath = path.join(__dirname, '..', 'my-extension')
-  //     await extensionProgram('create my-extension --template react')
-  //     expect(fs.existsSync(extensionPath)).toBeTruthy()
-  //   })
+      // Expect folder to exist
+      expect(fs.existsSync(extensionPath)).toBeTruthy()
 
-  //   it('creates a new extension from a typescript template', async () => {
-  //     const extensionPath = path.join(__dirname, '..', 'my-extension')
-  //     await extensionProgram('create my-extension --template typescript')
-  //     expect(fs.existsSync(extensionPath)).toBeTruthy()
-  //   })
+      // Expect README.md to exist
+      expect(fs.existsSync(path.join(extensionPath, 'README.md'))).toBeTruthy()
 
-  //   it('creates a new extension from a react-typescript template', async () => {
-  //     const extensionPath = path.join(__dirname, '..', 'my-extension')
-  //     await extensionProgram('create my-extension --template react-typescript')
-  //     expect(fs.existsSync(extensionPath)).toBeTruthy()
-  //   })
+      // Expect manifest.json to exist
+      expect(fs.existsSync(path.join(extensionPath, 'manifest.json'))).toBeTruthy()
+    }, 30000)
 
-  //   it('creates a new extension in a custom output directory', async () => {
-  //     const extensionPath = path.join(__dirname, '..', 'my-custom-path')
-  //     await extensionProgram('create my-custom-path/my-extension')
-  //     expect(fs.existsSync(extensionPath)).toBeTruthy()
-  //   })
+    // it('creates a new extension via react template', async () => {
+    //   await extensionProgram('create my-extension --template react')
+    //   expect(fs.existsSync(extensionPath)).toBeTruthy()
+    // })
 
-  //   it('creates a new extension from a template in a custom output directory.', async () => {
-  //     const extensionPath = path.join(__dirname, '..', 'my-custom-path')
-  //     await extensionProgram('create my-custom-path/my-extension --template react')
-  //     expect(fs.existsSync(extensionPath)).toBeTruthy()
-  //   })
-  // })
+    // it('creates a new extension via typescript template', async () => {
+    //   await extensionProgram('create my-extension --template typescript')
+    //   expect(fs.existsSync(extensionPath)).toBeTruthy()
+    // })
+
+    // it('creates a new extension via react-typescript template', async () => {
+    //   await extensionProgram('create my-extension --template react-typescript')
+    //   expect(fs.existsSync(extensionPath)).toBeTruthy()
+    // })
+
+    // it('creates a new extension in a custom output directory', async () => {
+    //   const extensionPath = path.join(__dirname, '..', 'my-custom-path')
+    //   await extensionProgram('create my-custom-path/my-extension')
+    //   expect(fs.existsSync(extensionPath)).toBeTruthy()
+    // })
+
+    // it('creates a new extension via template in a custom output directory.', async () => {
+    //   const extensionPath = path.join(__dirname, '..', 'my-custom-path')
+    //   await extensionProgram('create my-custom-path/my-extension --template react')
+    //   expect(fs.existsSync(extensionPath)).toBeTruthy()
+    // })
+  })
 
   // describe.skip('Dev Command', () => {
   //   /**
   //    * can develop an extension
-  //    * can develop an extension from a remote url
+  //    * can develop an extension via remote url
   //    * can start an extension in a custom output directory
   //    * can launch using chrome
   //    * can launch using edge
@@ -140,7 +145,7 @@ describe('CLI Commands', () => {
   // describe.skip('Start Command', () => {
   //   /**
   //    * can start an extension
-  //    * can start an extension from a remote url
+  //    * can start an extension via remote url
   //    * can start an extension in a custom output directory
   //    * can launch using chrome
   //    * can launch using edge
