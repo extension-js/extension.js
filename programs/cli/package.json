@@ -26,6 +26,7 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
+    "watch": "yarn compile --watch",
     "compile:readme-files": "node ./scripts/copyMarkdownFilesToCli.js",
     "compile:tailwind-config": "node ./scripts/copyTailwindConfig.js",
     "compile:stylelint-config": "node ./scripts/copyStylelintConfig.js",
