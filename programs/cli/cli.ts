@@ -15,7 +15,7 @@ import type {CreateOptions} from '@extension-create/create'
 import type {DevOptions} from '@extension-create/develop/extensionDev'
 import type {StartOptions} from '@extension-create/develop/extensionStart'
 import type {BuildOptions} from '@extension-create/develop/extensionBuild'
-import type {PreviewOptions} from '@extension-create/develop/extensionPreview'
+// import type {PreviewOptions} from '@extension-create/develop/extensionPreview'
 import type {BrowsersSupported} from './types'
 
 // Modules
@@ -34,29 +34,14 @@ import packageJson from './package.json'
 // Before all, check for updates.
 checkUpdates(packageJson)
 
-if (semver.lte(process.version, '18.0.0')) {
-  messages.unsupportedNodeVersion()
-  process.exit(1)
-}
-
 const extensionJs = program
 
-// ███████╗██╗  ██╗████████╗███████╗███╗   ██╗███████╗██╗ ██████╗ ███╗   ██╗
-// ██╔════╝╚██╗██╔╝╚══██╔══╝██╔════╝████╗  ██║██╔════╝██║██╔═══██╗████╗  ██║
-// █████╗   ╚███╔╝    ██║   █████╗  ██╔██╗ ██║███████╗██║██║   ██║██╔██╗ ██║
-// ██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║╚██╗██║╚════██║██║██║   ██║██║╚██╗██║
-// ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║
-// ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
-//  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
-// ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
-// ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
-// ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
-// ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
-//  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-
-if (process.env.EXTENSION_ENV === 'development') {
-  console.log(`Running extension via ${packageJson.name}...`)
-}
+// ███████╗██╗  ██╗████████╗███████╗███╗   ██╗███████╗██╗ ██████╗ ███╗   ██╗        ██╗███████╗
+// ██╔════╝╚██╗██╔╝╚══██╔══╝██╔════╝████╗  ██║██╔════╝██║██╔═══██╗████╗  ██║        ██║██╔════╝
+// █████╗   ╚███╔╝    ██║   █████╗  ██╔██╗ ██║███████╗██║██║   ██║██╔██╗ ██║        ██║███████╗
+// ██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║╚██╗██║╚════██║██║██║   ██║██║╚██╗██║   ██   ██║╚════██║
+// ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║██╗╚█████╔╝███████║
+// ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝ ╚════╝ ╚══════╝
 
 extensionJs
   .name(packageJson.name)
@@ -83,45 +68,8 @@ extensionJs
     '-t, --template <template-name>',
     'specify a template for the created project'
   )
-  .action(async function (
-    pathOrRemoteUrl: string,
-    {
-      browser = 'chrome',
-      template,
-      ...otherCommandOptions
-    }: CreateOptions & DevOptions & StartOptions & BuildOptions & PreviewOptions
-  ) {
-    switch (pathOrRemoteUrl) {
-      case 'dev':
-        for (const vendor of vendors(browser)) {
-          await extensionDev(pathOrRemoteUrl, {
-            mode: 'development',
-            browser: vendor as any,
-            ...otherCommandOptions
-          })
-        }
-        break
-      case 'start':
-        for (const vendor of vendors(browser)) {
-          await extensionStart(pathOrRemoteUrl, {
-            mode: 'production',
-            browser: vendor as any,
-            ...otherCommandOptions
-          })
-        }
-        break
-      case 'build':
-        for (const vendor of vendors(browser)) {
-          await extensionBuild(pathOrRemoteUrl, {
-            browser: vendor as any,
-            ...otherCommandOptions
-          })
-        }
-        break
-      default:
-        await createExtension(pathOrRemoteUrl, {template})
-        break
-    }
+  .action(async function (pathOrRemoteUrl: string, {template}: CreateOptions) {
+    await createExtension(pathOrRemoteUrl, {template})
   })
 
 // ██████╗ ███████╗██╗   ██╗
