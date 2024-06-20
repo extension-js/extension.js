@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "version": "1.0",
-  "name": "ChatGPT Template",
+  "name": "my-gpt",
   "description": "An Extension.js template integrated with ChatGPT. This template includes a sidebar panel.",
   "icons": {
     "16": "public/icons/icon_16.png",
