@@ -1,9 +1,17 @@
 import {type Compilation} from 'webpack'
 import {type Manifest} from '../types'
 
+/**
+ * Change the path from win style to unix style
+ */
+function unixify(path: string) {
+  return path.replace(/\\/g, '/');
+}
+
 function shouldExclude(path: string, ignorePatterns: string[]): boolean {
   return ignorePatterns.some((pattern) => {
-    return path.includes(pattern)
+    const _pattern = unixify(pattern)
+    return path.includes(_pattern.startsWith('/') ? _pattern.slice(1) : _pattern)
   })
 }
 
@@ -23,6 +31,7 @@ function getManifestContent(
 }
 
 export default {
+  unixify,
   shouldExclude,
   getManifestContent
 }
