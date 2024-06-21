@@ -7,41 +7,15 @@
 
 import path from 'path'
 import fs from 'fs'
-import {exec} from 'child_process'
-import {promisify} from 'util'
 import {
-  ALL_TEMPLATES,
-  BROWSERS,
   CUSTOM_TEMPLATES,
   DEFAULT_TEMPLATE
-} from './constants'
-
-const execAsync = promisify(exec)
-
-async function extensionProgram(command: string = '') {
-  const cliCommand = `ts-node ${path.join(
-    __dirname,
-    '..',
-    'dist',
-    'cli.js'
-  )} ${command}`
-  return await execAsync(cliCommand)
-}
-
-async function removeDir(dirPath: string) {
-  if (fs.existsSync(dirPath)) {
-    await fs.promises.rm(dirPath, {recursive: true})
-  }
-}
+} from './fixtures/constants'
+import extensionProgram, * as helpers from './fixtures/helpers'
 
 describe('extension create', () => {
   beforeEach(async () => {
-    ALL_TEMPLATES.map(async (template) => {
-      const templatePath = path.join(__dirname, '..', 'dist', template)
-
-      await removeDir(templatePath)
-      return true
-    })
+    await helpers.removeAllTemplateFolders()
   })
 
   it('throws an error if target directory has conflicting files', async () => {

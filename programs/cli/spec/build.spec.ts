@@ -7,41 +7,16 @@
 
 import path from 'path'
 import fs from 'fs'
-import {exec} from 'child_process'
-import {promisify} from 'util'
 import {
-  ALL_TEMPLATES,
   BROWSERS,
   DEFAULT_TEMPLATE,
   CUSTOM_TEMPLATES
-} from './constants'
-
-const execAsync = promisify(exec)
-
-async function extensionProgram(command: string = '') {
-  const cliCommand = `ts-node ${path.join(
-    __dirname,
-    '..',
-    'dist',
-    'cli.js'
-  )} ${command}`
-  return await execAsync(cliCommand)
-}
-
-async function removeDir(dirPath: string) {
-  if (fs.existsSync(dirPath)) {
-    await fs.promises.rm(dirPath, {recursive: true})
-  }
-}
+} from './fixtures/constants'
+import extensionProgram, * as helpers from './fixtures/helpers'
 
 describe('extension build', () => {
   beforeEach(async () => {
-    ALL_TEMPLATES.map(async (template) => {
-      const templatePath = path.join(__dirname, 'fixtures', template, 'dist')
-
-      await removeDir(templatePath)
-      return true
-    })
+    await helpers.removeAllTemplateFolders()
   })
 
   describe('running built-in templates', () => {

@@ -5,21 +5,8 @@
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
 
-import path from 'path'
-import {exec} from 'child_process'
-import {promisify} from 'util'
 
-const execAsync = promisify(exec)
-
-async function extensionProgram(command: string = '') {
-  const cliCommand = `ts-node ${path.join(
-    __dirname,
-    '..',
-    'dist',
-    'cli.js'
-  )} ${command}`
-  return await execAsync(cliCommand)
-}
+import extensionProgram from './fixtures/helpers'
 
 describe('CLI Commands', () => {
   it('returns usage instructions if no command is provided', async () => {
