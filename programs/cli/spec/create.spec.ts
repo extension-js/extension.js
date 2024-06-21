@@ -45,14 +45,14 @@ describe('extension create', () => {
   })
 
   it('throws an error if target directory has conflicting files', async () => {
-    const extensionPath = path.join(__dirname, '..', 'dist', 'init')
+    const templatePath = path.join(__dirname, '..', 'dist', 'init')
 
     try {
       // Create first
-      await extensionProgram(`create ${extensionPath}`)
+      await extensionProgram(`create ${templatePath}`)
 
       // Try recreating on top of existing directory.
-      await extensionProgram(`create ${extensionPath}`)
+      await extensionProgram(`create ${templatePath}`)
     } catch (error: any) {
       expect(error).toBeTruthy()
       expect(error.message).toContain('includes conflicting files')
@@ -73,7 +73,7 @@ describe('extension create', () => {
   it.each([DEFAULT_TEMPLATE])(
     'creates a new extension via "%s" template',
     async (template) => {
-      const templatePath = path.join(__dirname, 'fixtures', template)
+      const templatePath = path.join(__dirname, '..', 'dist', template)
 
       await extensionProgram(`create ${templatePath}`)
 
@@ -106,7 +106,7 @@ describe('extension create', () => {
     it.each(CUSTOM_TEMPLATES)(
       `creates the "%s" extension template`,
       async (template) => {
-        const templatePath = path.join(__dirname, 'fixtures', template)
+        const templatePath = path.join(__dirname, '..', 'dist', template)
 
         await extensionProgram(
           `create ${templatePath} --template="${template}"`

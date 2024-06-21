@@ -10,5 +10,7 @@
   "side_panel": {
     "default_path": "sidebar/index.html"
   },
-  "permissions": ["sidePanel"]
+  "permissions": [
+    "sidePanel"
+  ]
 }
