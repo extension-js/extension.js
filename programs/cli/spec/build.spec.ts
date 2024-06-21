@@ -139,19 +139,19 @@ describe('extension build', () => {
     )
   })
 
-  // describe('using the --polyfill flag', () => {
-  //   it.each([CUSTOM_TEMPLATES])(
-  //     `builds an extension created via "%s" template with the polyfill code`,
-  //     async (template) => {
-  //       const templatePath = path.join(__dirname, 'fixtures', template)
+  describe.skip('using the --polyfill flag', () => {
+    it.each([CUSTOM_TEMPLATES])(
+      `builds an extension created via "%s" template with the polyfill code`,
+      async (template) => {
+        const templatePath = path.join(__dirname, 'fixtures', template)
 
-  //       await extensionProgram(`build ${templatePath} --polyfill`)
+        await extensionProgram(`build ${templatePath} --polyfill`)
 
-  //       // TODO
-  //     },
-  //     50000
-  //   )
-  // })
+        // TODO
+      },
+      50000
+    )
+  })
 
   describe('using the --zip flag', () => {
     it.each([DEFAULT_TEMPLATE])(

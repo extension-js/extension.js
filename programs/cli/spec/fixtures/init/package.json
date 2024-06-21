@@ -8,7 +8,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "my-extension",
+  "name": "my-init",
   "private": true,
   "version": "0.0.0"
 }

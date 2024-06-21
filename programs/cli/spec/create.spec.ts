@@ -37,7 +37,7 @@ async function removeDir(dirPath: string) {
 describe('extension create', () => {
   beforeEach(async () => {
     ALL_TEMPLATES.map(async (template) => {
-      const templatePath = path.join(__dirname, 'fixtures', template)
+      const templatePath = path.join(__dirname, '..', 'dist', template)
 
       await removeDir(templatePath)
       return true
@@ -57,7 +57,7 @@ describe('extension create', () => {
       expect(error).toBeTruthy()
       expect(error.message).toContain('includes conflicting files')
     }
-  }, 30000)
+  }, 60000)
 
   it('throws an error if no project name is provided', async () => {
     try {

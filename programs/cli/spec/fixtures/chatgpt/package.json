@@ -15,7 +15,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "chatgpt",
+  "name": "my-chatgpt",
   "private": true,
   "version": "0.0.0"
 }
