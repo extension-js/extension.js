@@ -20,23 +20,5 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-
-[feature]-[ui_context]-[tailwind?]
-[feature]/
-  - public/
-    - icons/
-      - icon_16.png
-      - icon_48.png
-    - [ui_context].png
-    - extension.png
-  - [ui_context]/
-    index.html (only for non content_scripts)
-    [ui_context].ts
-    [ui_contextApp].ts
-    styles.css
-  - env.example (optional)
-  - manifest.json
-  - postcss.config.js (only for tailwind templates)
-  - README.md
-  - tailwind.config.js (only for tailwind templates)
-  - .gitignore (optional)
+yarn.lock
+package-lock.json
