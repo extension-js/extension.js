@@ -1,5 +1,5 @@
 const BROWSERS = ['chrome', 'edge', 'firefox']
-const DEFAULT_TEMPLATES = ['init']
+const DEFAULT_TEMPLATE = 'init'
 const JS_TEMPLATES = ['content', 'new']
 const WASM_TEMPLATES: string[] = []
 const TS_TEMPLATES = ['typescript']
@@ -14,6 +14,7 @@ const FRAMEWORK_TEMPLATES = [
 ]
 const TAILWIND_TEMPLATES = ['tailwind']
 const ALL_TEMPLATES = [
+  DEFAULT_TEMPLATE,
   ...JS_TEMPLATES,
   ...WASM_TEMPLATES,
   ...TS_TEMPLATES,
@@ -34,7 +35,7 @@ const UI_CONTEXTS = [
 
 export {
   BROWSERS,
-  DEFAULT_TEMPLATES,
+  DEFAULT_TEMPLATE,
   JS_TEMPLATES,
   WASM_TEMPLATES,
   TS_TEMPLATES,

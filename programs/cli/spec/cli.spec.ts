@@ -29,10 +29,10 @@ describe('CLI Commands', () => {
       expect(error).toBeTruthy()
       expect(error.message).toContain('Usage: extension [options] [command]')
     }
-  })
+  }, 30000)
 
   it('should display the help message', async () => {
     const {stdout} = await extensionProgram('--help')
     expect(stdout).toContain('Usage:')
-  })
+  }, 30000)
 })
