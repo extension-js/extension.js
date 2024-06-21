@@ -33,7 +33,8 @@
     "compile:cli": "tsup-node ./cli.ts --format cjs --dts --target=node18",
     "compile": "yarn compile:readme-files && yarn compile:tailwind-config && yarn compile:stylelint-config &&yarn compile:cli",
     "clean": "rm -rf dist",
-    "test": "jest"
+    "before:test": "./spec/install-npm-deps-for-fixtures.sh",
+    "test": "npm run before:test && jest"
   },
   "keywords": [
     "zero-config",
