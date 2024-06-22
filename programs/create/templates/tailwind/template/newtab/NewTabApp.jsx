@@ -1,7 +1,7 @@
 import React from 'react'
-import reactLogo from '../public/react.png'
-import tailwindLogo from '../public/tailwind.png'
-import chromeWindowBg from '../public/chromeWindow.png'
+import reactLogo from '../images/react.png'
+import tailwindLogo from '../images/tailwind.png'
+import chromeWindowBg from '../images/chromeWindow.png'
 
 export default function NewTabApp() {
   return (

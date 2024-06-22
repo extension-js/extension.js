@@ -1,7 +1,6 @@
 import {render} from 'preact'
 import ContentApp from './ContentApp'
-import './base.css'
-import './content.css'
+import './styles.css'
 
 setTimeout(initial, 1000)
 

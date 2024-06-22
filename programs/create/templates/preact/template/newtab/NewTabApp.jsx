@@ -1,6 +1,6 @@
 import {Component} from 'preact'
 import 'sakura.css'
-import './base.css'
+import './styles.css'
 import Logo from './logo'
 
 export default class NewTabApp extends Component {

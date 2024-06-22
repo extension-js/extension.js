@@ -1,7 +1,7 @@
 import React from 'react'
 import 'sakura.css'
-import './base.css'
-import reactLogo from '../public/react.png'
+import './styles.css'
+import reactLogo from '../images/react.png'
 
 export default function NewTabApp() {
   return (

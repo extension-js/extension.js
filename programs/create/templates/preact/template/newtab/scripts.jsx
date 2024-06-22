@@ -1,5 +1,5 @@
 import {render} from 'preact'
 import NewTabApp from './NewTabApp'
-import './base.css'
+import './styles.css'
 
 render(<NewTabApp />, document.getElementById('root'))

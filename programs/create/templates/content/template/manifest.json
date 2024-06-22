@@ -6,12 +6,12 @@
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "service-worker.js"
+    "service_worker": "background.js"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["content/scripts.js"]
     }
   ],
   "icons": {

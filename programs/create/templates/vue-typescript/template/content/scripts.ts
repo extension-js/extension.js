@@ -1,7 +1,6 @@
-import './base.css'
-import './content.css'
 import {createApp} from 'vue'
 import ContentApp from './ContentApp.vue'
+import './styles.css'
 
 function initial() {
   const rootDiv = document.createElement('div')

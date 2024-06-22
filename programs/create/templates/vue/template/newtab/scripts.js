@@ -1,5 +1,5 @@
 import 'sakura.css'
-import './base.css'
+import './styles.css'
 
 import {createApp} from 'vue'
 import NewTabApp from './NewTabApp.vue'

@@ -1,11 +1,11 @@
 import {Component} from 'preact'
 import {signal} from '@preact/signals'
 
-import preactLogo from '../public/preact.png'
-import tailwindBg from '../public/tailwind_bg.png'
-import typescriptLogo from '../public/typescript.png'
-import tailwindLogo from '../public/tailwind.png'
-import chromeWindowBg from '../public/chromeWindow.png'
+import preactLogo from '../images/preact.png'
+import tailwindBg from '../images/tailwind_bg.png'
+import typescriptLogo from '../images/typescript.png'
+import tailwindLogo from '../images/tailwind.png'
+import chromeWindowBg from '../images/chromeWindow.png'
 
 export default function ContentApp() {
   const isdialogOpen = signal(true)

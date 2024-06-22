@@ -1,5 +1,5 @@
-import extensionJsLogo from './images/extensionjs.svg'
-import './content.css'
+import extensionJsLogo from '../images/extension.png'
+import './styles.css'
 
 document.body.innerHTML += `
 <div class="content_script-box">

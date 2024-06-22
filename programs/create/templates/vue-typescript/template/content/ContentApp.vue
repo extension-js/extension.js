@@ -16,7 +16,7 @@ const setIsDialogOpen = (value: boolean) => (isdialogOpen.value = value)
           <div className="w-[108rem] flex-none flex justify-end">
             <picture>
               <img
-                src="../public/tailwind_bg.png"
+                src="../images/tailwind_bg.png"
                 alt=""
                 className="w-[90rem] flex-none max-w-none hidden dark:block"
                 decoding="async"
@@ -32,19 +32,19 @@ const setIsDialogOpen = (value: boolean) => (isdialogOpen.value = value)
           >
             <img
               alt="Vue logo"
-              src="../public/vue.svg"
+              src="../images/vue.svg"
               className="relative inline-block w-12"
             />
             <div className="text-3xl text-white">+</div>
             <img
               alt="TypeScript logo"
-              src="../public/typescript.png"
+              src="../images/typescript.png"
               className="relative inline-block w-12"
             />
             <div className="text-3xl text-white">+</div>
             <img
               alt="Tailwind logo"
-              src="../public/tailwind.png"
+              src="../images/tailwind.png"
               className="relative inline-block w-12"
             />
           </div>
@@ -68,7 +68,7 @@ const setIsDialogOpen = (value: boolean) => (isdialogOpen.value = value)
         <div className="relative mt-16 h-80 lg:mt-8">
           <img
             className="absolute left-0 top-0 w-[57rem] max-w-none rounded-md bg-white/5 ring-1 ring-white/10"
-            src="../public/chromeWindow.png"
+            src="../images/chromeWindow.png"
             alt="Chrome window screenshot"
             width="1824"
             height="1080"
