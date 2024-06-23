@@ -1,4 +1,4 @@
-name: extension build command
+name: extension:build
 on: push
 jobs:
   build:

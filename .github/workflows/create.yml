@@ -1,4 +1,4 @@
-name: extension create command
+name: extension:create
 on: push
 jobs:
   build:
