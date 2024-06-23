@@ -1,0 +1,15 @@
+{
+  "devDependencies": {
+    "typescript": "5.3.3",
+    "extension": "latest"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "dependencies": {},
+  "name": "typescript",
+  "private": true,
+  "version": "0.0.0"
+}

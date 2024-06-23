@@ -29,6 +29,19 @@ export function fileExists(template: string, filePath?: string): boolean {
   return fs.existsSync(path.join(templatePath, filePath || ''))
 }
 
+export function distFileExists(template: string, 
+  browser: string,
+  filePath?: string): boolean {
+  const templatePath = path.join(
+    __dirname,
+    template,
+    'dist',
+    browser
+  )
+
+  return fs.existsSync(path.join(templatePath, filePath || ''))
+}
+
 export async function removeDir(dirPath: string) {
   if (fs.existsSync(dirPath)) {
     await fs.promises.rm(dirPath, {recursive: true})

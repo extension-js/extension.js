@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "extension": "latest"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "dependencies": {},
+  "name": "content",
+  "private": true,
+  "version": "0.0.0"
+}

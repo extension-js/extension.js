@@ -1,0 +1,10 @@
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 26px);
+}
+
+h1 {
+  font-size: 4.7em;
+}
