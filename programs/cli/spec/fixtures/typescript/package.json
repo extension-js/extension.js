@@ -9,7 +9,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "typescript",
+  "name": "my-typescript",
   "private": true,
   "version": "0.0.0"
 }

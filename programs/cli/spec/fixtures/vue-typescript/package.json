@@ -11,7 +11,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "vue-typescript",
+  "name": "my-vue-typescript",
   "private": true,
   "version": "0.0.0"
 }

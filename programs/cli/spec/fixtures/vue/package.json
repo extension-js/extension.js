@@ -10,7 +10,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "vue",
+  "name": "my-vue",
   "private": true,
   "version": "0.0.0"
 }

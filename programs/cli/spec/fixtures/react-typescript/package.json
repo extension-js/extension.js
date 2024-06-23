@@ -14,7 +14,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "react-typescript",
+  "name": "my-react-typescript",
   "private": true,
   "version": "0.0.0"
 }

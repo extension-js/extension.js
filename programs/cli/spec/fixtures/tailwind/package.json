@@ -13,7 +13,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "tailwind",
+  "name": "my-tailwind",
   "private": true,
   "version": "0.0.0"
 }

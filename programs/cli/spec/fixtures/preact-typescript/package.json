@@ -12,7 +12,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "preact-typescript",
+  "name": "my-preact-typescript",
   "private": true,
   "version": "0.0.0"
 }

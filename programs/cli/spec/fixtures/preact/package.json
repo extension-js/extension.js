@@ -10,7 +10,7 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "name": "preact",
+  "name": "my-preact",
   "private": true,
   "version": "0.0.0"
 }
