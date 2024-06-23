@@ -5,8 +5,7 @@
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
 
-
-import extensionProgram from './fixtures/helpers'
+import {extensionProgram} from './fixtures/helpers'
 
 describe('CLI Commands', () => {
   it('returns usage instructions if no command is provided', async () => {

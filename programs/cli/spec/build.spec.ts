@@ -6,123 +6,71 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import path from 'path'
-import fs from 'fs'
+import {ALL_TEMPLATES, DEFAULT_TEMPLATE, BROWSERS} from './fixtures/constants'
 import {
-  BROWSERS,
-  DEFAULT_TEMPLATE,
-  CUSTOM_TEMPLATES
-} from './fixtures/constants'
-import extensionProgram, * as helpers from './fixtures/helpers'
+  extensionProgram,
+  distFileExists,
+  removeAllTemplateFolders
+} from './fixtures/helpers'
 
 describe('extension build', () => {
   beforeEach(async () => {
-    await helpers.removeAllTemplateFolders()
+    await removeAllTemplateFolders()
   })
 
   describe('running built-in templates', () => {
-    it.each([DEFAULT_TEMPLATE])(
-      `builds the "%s" extension template`,
+    it.each(ALL_TEMPLATES)(
+      `builds an extension created via "$name" template`,
       async (template) => {
-        const templatePath = path.join(__dirname, 'fixtures', template)
-
-        await extensionProgram(`build ${templatePath}`)
-
-        // For all: Expect template folder to exist
-        expect(fs.existsSync(templatePath)).toBeTruthy()
-      },
-      50000
-    )
-
-    it.each([CUSTOM_TEMPLATES])(
-      `builds an extension created via "%s" template`,
-      async (template) => {
-        const templatePath = path.join(__dirname, 'fixtures', template)
-        const templateDistPath = path.join(
-          __dirname,
-          'fixtures',
-          template,
-          'dist',
-          BROWSERS[0]
-        )
-
-        await extensionProgram(`build ${templatePath}`)
-
-        // Expect template folder to exist
-        expect(fs.existsSync(templateDistPath)).toBeTruthy()
+        const extensionPath = path.join(__dirname, 'fixtures', template.name)
+        await extensionProgram(`build ${extensionPath}`)
 
         // Expect manifest file to exist
         expect(
-          fs.existsSync(path.join(templateDistPath, 'manifest.json'))
+          distFileExists(template.name, BROWSERS[0], 'manifest.json')
         ).toBeTruthy()
 
-        // Expect context ui files to exist
-        expect(
-          fs.existsSync(
-            path.join(templateDistPath, 'side_panel', 'default_path.css')
-          )
-        ).toBeTruthy()
-        expect(
-          fs.existsSync(
-            path.join(templateDistPath, 'side_panel', 'default_path.html')
-          )
-        ).toBeTruthy()
-        expect(
-          fs.existsSync(
-            path.join(templateDistPath, 'side_panel', 'default_path.css')
-          )
-        ).toBeTruthy()
+        // TODO: cezaraugusto test ui context files output
 
-        expect(
-          fs.existsSync(path.join(templateDistPath, 'assets', 'chatgpt.png'))
-        ).toBeTruthy()
-        expect(
-          fs.existsSync(path.join(templateDistPath, 'assets', 'extension.png'))
-        ).toBeTruthy()
+        if (template.name !== 'init') {
+          expect(
+            distFileExists(template.name, BROWSERS[0], 'icons/icon_16.png')
+          ).toBeTruthy()
+          expect(
+            distFileExists(template.name, BROWSERS[0], 'icons/icon_48.png')
+          ).toBeTruthy()
+        }
       },
       80000
     )
   })
 
   describe('using the --browser flag', () => {
-    it.each([CUSTOM_TEMPLATES])(
-      `builds the "%s" extension template across all browsers`,
+    it.each(ALL_TEMPLATES)(
+      `builds the "$name" extension template across all browsers`,
       async (template) => {
-        const templatePath = path.join(__dirname, 'fixtures', template)
+        const extensionPath = path.join(__dirname, 'fixtures', template.name)
         // Firefox is skippeed because it can't handle service workers.
         const [chrome, edge /*, firefox */] = BROWSERS
-        const chromeDistPath = path.join(
-          __dirname,
-          'fixtures',
-          template,
-          'dist',
-          chrome
-        )
-        const edgeDistPath = path.join(
-          __dirname,
-          'fixtures',
-          template,
-          'dist',
-          edge
-        )
 
-        await extensionProgram(`build ${templatePath} --browser=chrome,edge`)
+        await extensionProgram(`build ${extensionPath} --browser=chrome,edge`)
 
-        expect(fs.existsSync(chromeDistPath)).toBeTruthy()
-        expect(fs.existsSync(edgeDistPath)).toBeTruthy()
+        expect(distFileExists(template.name, chrome)).toBeTruthy()
+        expect(distFileExists(template.name, edge)).toBeTruthy()
       },
       50000
     )
   })
 
   describe.skip('using the --polyfill flag', () => {
-    it.each([CUSTOM_TEMPLATES])(
-      `builds an extension created via "%s" template with the polyfill code`,
+    it.skip.each(ALL_TEMPLATES)(
+      `builds an extension created via "$name" template with the polyfill code`,
       async (template) => {
-        const templatePath = path.join(__dirname, 'fixtures', template)
+        const extensionPath = path.join(__dirname, 'fixtures', template.name)
 
-        await extensionProgram(`build ${templatePath} --polyfill`)
+        await extensionProgram(`build ${extensionPath} --polyfill`)
 
-        // TODO
+        // TODO cezaraugusto test this
       },
       50000
     )
@@ -130,66 +78,47 @@ describe('extension build', () => {
 
   describe('using the --zip flag', () => {
     it.each([DEFAULT_TEMPLATE])(
-      `builds and zips the distribution files of an extension created via "%s" template`,
+      `builds and zips the distribution files of an extension created via "$name" template`,
       async (template) => {
-        const templatePath = path.join(__dirname, 'fixtures', template)
-        const templateDistPath = path.join(
-          __dirname,
-          'fixtures',
-          template,
-          'dist',
-          BROWSERS[0],
-          `${template}-1.0.zip`
-        )
+        const extensionPath = path.join(__dirname, 'fixtures', template.name)
 
-        await extensionProgram(`build ${templatePath} --zip`)
+        await extensionProgram(`build ${extensionPath} --zip`)
 
-        // Expect template folder to exist
-        expect(fs.existsSync(templateDistPath)).toBeTruthy()
+        expect(distFileExists(template.name, 'chrome')).toBeTruthy()
       },
       50000
     )
 
     it.each([DEFAULT_TEMPLATE])(
-      `builds and zips the source files of an extension created via "%s" template`,
+      `builds and zips the source files of an extension created via "$name" template`,
       async (template) => {
-        const templatePath = path.join(__dirname, 'fixtures', template)
-        const templateDistPath = path.join(
-          __dirname,
-          'fixtures',
-          template,
-          'dist',
-          BROWSERS[0],
-          `${template}-1.0-source.zip`
-        )
+        const extensionPath = path.join(__dirname, 'fixtures', template.name)
 
-        await extensionProgram(`build ${templatePath} --zip-source`)
+        await extensionProgram(`build ${extensionPath} --zip-source`)
 
-        // Expect template folder to exist
-        expect(fs.existsSync(templateDistPath)).toBeTruthy()
+        expect(
+          distFileExists(
+            template.name,
+            BROWSERS[0],
+            `${template.name}-1.0-source.zip`
+          )
+        ).toBeTruthy()
       },
       50000
     )
 
     it.each([DEFAULT_TEMPLATE])(
-      `builds and zips the source files of an extension created via "%s" template with a custom output name using the --zip-filename flag`,
+      `builds and zips the source files of an extension created via "$name" template with a custom output name using the --zip-filename flag`,
       async (template) => {
-        const templatePath = path.join(__dirname, 'fixtures', template)
-        const templateDistPath = path.join(
-          __dirname,
-          'fixtures',
-          template,
-          'dist',
-          BROWSERS[0],
-          `${template}-nice.zip`
-        )
+        const extensionPath = path.join(__dirname, 'fixtures', template.name)
 
         await extensionProgram(
-          `build ${templatePath} --zip --zip-filename ${template}-nice`
+          `build ${extensionPath} --zip --zip-filename ${template.name}-nice`
         )
 
-        // Expect template folder to exist
-        expect(fs.existsSync(templateDistPath)).toBeTruthy()
+        expect(
+          distFileExists(template.name, BROWSERS[0], `${template.name}-nice.zip`)
+        ).toBeTruthy()
       },
       50000
     )

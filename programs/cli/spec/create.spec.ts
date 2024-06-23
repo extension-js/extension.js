@@ -9,7 +9,7 @@ import path from 'path'
 import {
   ALL_TEMPLATES,
   ALL_TEMPLATES_BUT_DEFAULT,
-  DEFAULT_TEMPLATE,
+  DEFAULT_TEMPLATE
 } from './fixtures/constants'
 import {
   extensionProgram,
@@ -22,7 +22,7 @@ describe('extension create', () => {
     await removeAllTemplateFolders()
   })
 
-  it.skip('throws an error if target directory has conflicting files', async () => {
+  it('throws an error if target directory has conflicting files', async () => {
     const templatePath = path.join(__dirname, '..', 'dist', 'init')
 
     try {
@@ -37,7 +37,7 @@ describe('extension create', () => {
     }
   }, 60000)
 
-  it.skip('throws an error if no project name is provided', async () => {
+  it('throws an error if no project name is provided', async () => {
     try {
       await extensionProgram('create')
     } catch (error: any) {
@@ -48,33 +48,8 @@ describe('extension create', () => {
     }
   }, 30000)
 
-  it.each([DEFAULT_TEMPLATE])(
-    'creates a new extension via "%s" template',
-    async (template) => {
-      const extensionPath = path.join(__dirname, '..', 'dist', template.name)
-
-      await extensionProgram(`create ${extensionPath}`)
-
-      // Expect folder to exist
-      expect(fileExists(template.name)).toBeTruthy()
-
-      // Expect .gitignore to exist
-      expect(fileExists(template.name, '.gitignore')).toBeTruthy()
-
-      // Expect README.md to exist
-      expect(fileExists(template.name, 'README.md')).toBeTruthy()
-
-      // Expect package.json to exist
-      expect(fileExists(template.name, 'package.json')).toBeTruthy()
-
-      // Expect manifest.json to exist
-      expect(fileExists(template.name, 'manifest.json')).toBeTruthy()
-    },
-    50000
-  )
-
   describe('using the --template flag', () => {
-    it.each(ALL_TEMPLATES_BUT_DEFAULT)(
+    it.each(ALL_TEMPLATES)(
       `creates the "$name" extension template`,
       async (template) => {
         const extensionPath = path.join(__dirname, '..', 'dist', template.name)
@@ -134,19 +109,14 @@ describe('extension create', () => {
         })
 
         // Expect images/icons/icon_16.png and expect images/icons/icon_16.png
-        expect(
-          fileExists(template.name, 'images/icons/icon_16.png')
-        ).toBeTruthy()
-        expect(
-          fileExists(template.name, 'images/icons/icon_48.png')
-        ).toBeTruthy()
-
-        // Expect images/[feature].png
-        // TODO: cezaraugusto think about how to have
-        // all frameworks have the a predictable image name
-        // expect(
-        //   fileExists(template.name, `images/${template.name}.png`)
-        // ).toBeTruthy()
+        if (template.name !== 'init') {
+          expect(
+            fileExists(template.name, 'images/icons/icon_16.png')
+          ).toBeTruthy()
+          expect(
+            fileExists(template.name, 'images/icons/icon_48.png')
+          ).toBeTruthy()
+        }
 
         // Expect manifest.json to exist
         expect(fileExists(template.name, 'manifest.json')).toBeTruthy()
