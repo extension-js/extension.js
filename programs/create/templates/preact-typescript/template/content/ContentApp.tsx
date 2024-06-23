@@ -63,7 +63,7 @@ export default function ContentApp() {
             />
           </div>
           <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            This is a content script running React, TypeScript, and
+            This is a content script running Preact, TypeScript, and
             Tailwind.css.
           </h2>
           <p className="mt-6 text-lg leading-8 text-gray-300">
