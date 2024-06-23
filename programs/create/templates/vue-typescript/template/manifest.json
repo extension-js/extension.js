@@ -13,7 +13,7 @@
     }
   ],
   "icons": {
-    "16": "images/icon/icon_16.png",
-    "48": "images/icon/icon_48.png"
+    "16": "images/icons/icon_16.png",
+    "48": "images/icons/icon_48.png"
   }
 }

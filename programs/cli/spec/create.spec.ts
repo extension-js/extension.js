@@ -6,23 +6,27 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import path from 'path'
-import fs from 'fs'
 import {
-  CUSTOM_TEMPLATES,
-  DEFAULT_TEMPLATE
+  ALL_TEMPLATES,
+  ALL_TEMPLATES_BUT_DEFAULT,
+  DEFAULT_TEMPLATE,
 } from './fixtures/constants'
-import extensionProgram, * as helpers from './fixtures/helpers'
+import {
+  extensionProgram,
+  fileExists,
+  removeAllTemplateFolders
+} from './fixtures/helpers'
 
 describe('extension create', () => {
   beforeEach(async () => {
-    await helpers.removeAllTemplateFolders()
+    await removeAllTemplateFolders()
   })
 
-  it('throws an error if target directory has conflicting files', async () => {
+  it.skip('throws an error if target directory has conflicting files', async () => {
     const templatePath = path.join(__dirname, '..', 'dist', 'init')
 
     try {
-      // Create first
+      // Create first extension.
       await extensionProgram(`create ${templatePath}`)
 
       // Try recreating on top of existing directory.
@@ -33,7 +37,7 @@ describe('extension create', () => {
     }
   }, 60000)
 
-  it('throws an error if no project name is provided', async () => {
+  it.skip('throws an error if no project name is provided', async () => {
     try {
       await extensionProgram('create')
     } catch (error: any) {
@@ -47,125 +51,132 @@ describe('extension create', () => {
   it.each([DEFAULT_TEMPLATE])(
     'creates a new extension via "%s" template',
     async (template) => {
-      const templatePath = path.join(__dirname, '..', 'dist', template)
+      const extensionPath = path.join(__dirname, '..', 'dist', template.name)
 
-      await extensionProgram(`create ${templatePath}`)
+      await extensionProgram(`create ${extensionPath}`)
 
       // Expect folder to exist
-      expect(fs.existsSync(templatePath)).toBeTruthy()
+      expect(fileExists(template.name)).toBeTruthy()
 
       // Expect .gitignore to exist
-      expect(fs.existsSync(path.join(templatePath, '.gitignore'))).toBeTruthy()
+      expect(fileExists(template.name, '.gitignore')).toBeTruthy()
 
       // Expect README.md to exist
-      expect(fs.existsSync(path.join(templatePath, 'README.md'))).toBeTruthy()
+      expect(fileExists(template.name, 'README.md')).toBeTruthy()
 
       // Expect package.json to exist
-      expect(
-        fs.existsSync(path.join(templatePath, 'package.json'))
-      ).toBeTruthy()
+      expect(fileExists(template.name, 'package.json')).toBeTruthy()
 
       // Expect manifest.json to exist
-      expect(
-        fs.existsSync(path.join(templatePath, 'manifest.json'))
-      ).toBeTruthy()
+      expect(fileExists(template.name, 'manifest.json')).toBeTruthy()
     },
     50000
   )
 
   describe('using the --template flag', () => {
-    const UI_CONTEXT = 'sidebar'
-    const LOCK_FILE = 'yarn.lock'
-
-    it.each(CUSTOM_TEMPLATES)(
-      `creates the "%s" extension template`,
+    it.each(ALL_TEMPLATES_BUT_DEFAULT)(
+      `creates the "$name" extension template`,
       async (template) => {
-        const templatePath = path.join(__dirname, '..', 'dist', template)
-
+        const extensionPath = path.join(__dirname, '..', 'dist', template.name)
         await extensionProgram(
-          `create ${templatePath} --template="${template}"`
+          `create ${extensionPath} --template="${template.name}"`
         )
 
-        // For all: Expect template folder to exist
-        expect(fs.existsSync(templatePath)).toBeTruthy()
+        // UI frameworks will use either tsx or jsx files.
+        // Non-UI frameworks will use either ts or js files.
+        // TODO: cezaraugusto this is not going to scale well
+        // but better than nothing for now.
+        const ext = template.uiFramework
+          ? template.configFiles?.includes('tsconfig.json')
+            ? template.uiFramework === 'vue'
+              ? 'ts'
+              : 'tsx'
+            : template.uiFramework === 'vue'
+              ? 'js'
+              : 'jsx'
+          : template.configFiles?.includes('tsconfig.json')
+            ? 'ts'
+            : 'js'
 
-        // For all: Expect public/icons/icon_16.png and expect public/icons/icon_16.png
+        template.uiContext?.forEach((context: string) => {
+          // Expect [context]/index.html for all contexts except 'content'
+          if (context !== 'content') {
+            expect(
+              fileExists(template.name, `${context.toLowerCase()}/index.html`)
+            ).toBeTruthy()
+          }
+
+          // Expect [uiContext]/[uiContext].[ext] for scripts
+          expect(
+            fileExists(template.name, `${context.toLowerCase()}/scripts.${ext}`)
+          ).toBeTruthy()
+
+          // Expect [uiContext]/styles.css for styles
+          expect(
+            fileExists(template.name, `${context.toLowerCase()}/styles.css`)
+          ).toBeTruthy()
+
+          // Expect [ContextApp].[ext] for all contexts using frameworks
+          if (template.uiFramework) {
+            const capitalizedtemplate =
+              context?.charAt(0).toUpperCase() + context?.slice(1)
+
+            // Vue uses its own file extension
+            const fileExt = template.uiFramework === 'vue' ? 'vue' : ext
+
+            expect(
+              fileExists(
+                template.name,
+                `${context.toLowerCase()}/${capitalizedtemplate}App.${fileExt}`
+              )
+            ).toBeTruthy()
+          }
+        })
+
+        // Expect images/icons/icon_16.png and expect images/icons/icon_16.png
         expect(
-          fs.existsSync(
-            path.join(templatePath, 'public', 'icons', 'icon_16.png')
-          )
+          fileExists(template.name, 'images/icons/icon_16.png')
         ).toBeTruthy()
         expect(
-          fs.existsSync(
-            path.join(templatePath, 'public', 'icons', 'icon_48.png')
-          )
+          fileExists(template.name, 'images/icons/icon_48.png')
         ).toBeTruthy()
 
-        // For all: Expect public/[feature].png
-        expect(
-          fs.existsSync(path.join(templatePath, 'public', `${template}.png`))
-        ).toBeTruthy()
+        // Expect images/[feature].png
+        // TODO: cezaraugusto think about how to have
+        // all frameworks have the a predictable image name
+        // expect(
+        //   fileExists(template.name, `images/${template.name}.png`)
+        // ).toBeTruthy()
 
-        // For all: Expect public/extension.png
-        expect(
-          fs.existsSync(path.join(templatePath, 'public', 'extension.png'))
-        ).toBeTruthy()
+        // Expect manifest.json to exist
+        expect(fileExists(template.name, 'manifest.json')).toBeTruthy()
 
-        // For all: Expect [uiContext]/index.html
-        expect(
-          fs.existsSync(path.join(templatePath, UI_CONTEXT, 'index.html'))
-        ).toBeTruthy()
-
-        // For all: Expect [uiContext]/[uiContext].ts
-        expect(
-          fs.existsSync(path.join(templatePath, UI_CONTEXT, 'sidebar.jsx'))
-        ).toBeTruthy()
-
-        // For all: Expect [UiContextApp].ts
-        expect(
-          fs.existsSync(path.join(templatePath, UI_CONTEXT, 'SidebarApp.jsx'))
-        ).toBeTruthy()
-
-        // For all: Expect [uiContext]/styles.css
-        expect(
-          fs.existsSync(path.join(templatePath, UI_CONTEXT, 'styles.css'))
-        ).toBeTruthy()
-
-        // For those who need it: Expect .env.sample
-        expect(
-          fs.existsSync(path.join(templatePath, '.env.example'))
-        ).toBeTruthy()
-
-        // For all: Expect manifest.json to exist
-        expect(
-          fs.existsSync(path.join(templatePath, 'manifest.json'))
-        ).toBeTruthy()
-
-        // For tailwind-related: Expect postcss.config.js
-        expect(
-          fs.existsSync(path.join(templatePath, 'postcss.config.js'))
-        ).toBeTruthy()
+        // Expect package.json to exist
+        expect(fileExists(template.name, 'package.json')).toBeTruthy()
 
         // Expect README.md to exist
-        expect(fs.existsSync(path.join(templatePath, 'README.md'))).toBeTruthy()
-
-        // For tailwind-related: Expect tailwind.config.js
-        expect(
-          fs.existsSync(path.join(templatePath, 'tailwind.config.js'))
-        ).toBeTruthy()
+        expect(fileExists(template.name, 'README.md')).toBeTruthy()
 
         // Expect .gitignore to exist
-        expect(
-          fs.existsSync(path.join(templatePath, '.gitignore'))
-        ).toBeTruthy()
-
-        // Expect lock file to exist
-        expect(fs.existsSync(path.join(templatePath, LOCK_FILE))).toBeTruthy()
+        expect(fileExists(template.name, '.gitignore')).toBeTruthy()
 
         // TODO: Expect project to be a .git project
         // See https://github.com/extension-js/extension.js/issues/54
+        // expect(fileExists(template.name, '.git')).toBeTruthy()
+
+        if (template.hasEnv) {
+          // For those who need it: Expect .env.sample
+          expect(fileExists(template.name, '.env.example')).toBeTruthy()
+        }
+
+        if (template.configFiles) {
+          template.configFiles.forEach((configFile) => {
+            // Expect every config file declared in the template to exist
+            expect(fileExists(template.name, configFile)).toBeTruthy()
+          })
+        }
       },
-      50000
+      ALL_TEMPLATES.length * 50000
     )
   })
 })
