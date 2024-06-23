@@ -29,15 +29,12 @@ export function fileExists(template: string, filePath?: string): boolean {
   return fs.existsSync(path.join(templatePath, filePath || ''))
 }
 
-export function distFileExists(template: string, 
+export function distFileExists(
+  template: string,
   browser: string,
-  filePath?: string): boolean {
-  const templatePath = path.join(
-    __dirname,
-    template,
-    'dist',
-    browser
-  )
+  filePath?: string
+): boolean {
+  const templatePath = path.join(__dirname, template, 'dist', browser)
 
   return fs.existsSync(path.join(templatePath, filePath || ''))
 }
