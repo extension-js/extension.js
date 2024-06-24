@@ -11,8 +11,10 @@
 [vunlerabilities]: https://snyk.io/test/github/cezaraugusto/extension/badge.svg
 [fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension.svg?type=shield&issueType=license
 [fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension?ref=badge_shield&issueType=license
+[discord-image]: https://dcbadge.limes.pink/api/server/kr9rjDmy?style=flat&compact=true
+[discord-url]: https://discord.gg/zkspfFwqDg
 
-# Extension.js [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![PR's welcome][prs]][prs-url]
+# Extension.js [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![downloads][discord-image]][discord-url]
 
 <!-- > Plug-and-play, zero-config, cross-browser extension development tool. -->
 
