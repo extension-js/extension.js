@@ -2,13 +2,13 @@
   "manifest_version": 3,
   "version": "1.0",
   "name": "ChatGPT Template",
-  "description": "An Extension.js template integrated with ChatGPT. This template includes a side panel.",
+  "description": "An Extension.js template integrated with ChatGPT. This template includes a sidebar panel.",
   "icons": {
     "16": "images/icons/icon_16.png",
     "48": "images/icons/icon_48.png"
   },
   "side_panel": {
-    "default_path": "side_panel/index.html"
+    "default_path": "sidebar/index.html"
   },
   "permissions": ["sidePanel"]
 }
