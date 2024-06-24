@@ -106,6 +106,8 @@ export default function browserConfig(
     '--disable-features=DialMediaRouteProvider',
     // Don't send hyperlink auditing pings
     '--no-pings',
+    // Ensure the side panel is visible. This is used for testing the side panel feature.
+    '--enable-features=SidePanelUpdates',
 
     // Flags to pass to Chrome
     // Any of http://peter.sh/experiments/chromium-command-line-switches/

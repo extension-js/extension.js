@@ -1,0 +1,13 @@
+name: extension:cli
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install modules
+      run: yarn
+    - name: Run compiler
+      run: yarn compile
+    - name: Run `extenion` cli without arguments
+      run: yarn test:cli

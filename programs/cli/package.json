@@ -26,13 +26,17 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
+    "watch": "yarn compile --watch",
     "compile:readme-files": "node ./scripts/copyMarkdownFilesToCli.js",
     "compile:tailwind-config": "node ./scripts/copyTailwindConfig.js",
     "compile:stylelint-config": "node ./scripts/copyStylelintConfig.js",
     "compile:cli": "tsup-node ./cli.ts --format cjs --dts --target=node18",
     "compile": "yarn compile:readme-files && yarn compile:tailwind-config && yarn compile:stylelint-config &&yarn compile:cli",
     "clean": "rm -rf dist",
-    "test": "jest"
+    "before:test": "./spec/fixtures/install-npm-deps-for-fixtures.sh",
+    "test:build": "npm run before:test && jest spec/build.spec.ts",
+    "test:cli": "npm run before:test && jest spec/cli.spec.ts",
+    "test:create": "npm run before:test && jest spec/create.spec.ts"
   },
   "keywords": [
     "zero-config",
