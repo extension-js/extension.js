@@ -1779,69 +1779,6 @@
   resolved "https://registry.yarnpkg.com/@eslint/js/-/js-8.57.0.tgz#a5417ae8427873f1dd08b70b3574b453e67b5f7f"
   integrity sha512-Ys+3g2TaW7gADOJzPt83SJtCDhMjndcDMFVQ/Tj9iA1BfJzFKD9mAUXT3OenpuPHbI6P/myECxRJrofUsDx/5g==
 
-"@extension-create/develop@*":
-  version "1.7.0"
-  resolved "https://registry.yarnpkg.com/@extension-create/develop/-/develop-1.7.0.tgz#63a9ee0de6db7679d46fcd3759917333b2f2df5e"
-  integrity sha512-fI6lMVQnbqzHaLL8sl/dgMhio7zIkXxw55aBbKPrqISRBll8/1djF9C1S+N0DHKHeI4ShkdchNqSNw3Dh5u5ow==
-  dependencies:
-    "@babel/core" "^7.24.5"
-    "@colors/colors" "^1.6.0"
-    "@pmmmwh/react-refresh-webpack-plugin" "^0.5.11"
-    "@types/adm-zip" "^0.5.5"
-    "@types/chrome" "^0.0.268"
-    "@types/webextension-polyfill" "^0.10.7"
-    "@vue/compiler-sfc" "^3.4.27"
-    adm-zip "^0.5.12"
-    axios "^1.6.8"
-    babel-loader "^9.1.3"
-    babel-preset-modern-browser-extension "^0.7.0"
-    case-sensitive-paths-webpack-plugin "^2.4.0"
-    chokidar "^3.6.0"
-    css-loader "^6.10.0"
-    csv-loader "^3.0.5"
-    dotenv-webpack "^8.0.1"
-    fork-ts-checker-webpack-plugin "^9.0.2"
-    glob "^10.4.1"
-    go-git-it "^1.2.2"
-    ignore "^5.3.1"
-    less "^4.2.0"
-    less-loader "^12.1.0"
-    mini-css-extract-plugin "^2.8.1"
-    postcss "^8.4.33"
-    postcss-flexbugs-fixes "^5.0.2"
-    postcss-loader "^8.0.0"
-    postcss-normalize "^10.0.1"
-    postcss-preset-env "^9.3.0"
-    postcss-scss "^4.0.9"
-    react-refresh "^0.14.0"
-    sass "^1.70.0"
-    sass-loader "^14.0.0"
-    slugify "^1.6.6"
-    style-loader "^3.3.4"
-    stylelint "^16.2.1"
-    stylelint-config-standard-scss "^13.0.0"
-    stylelint-webpack-plugin "^5.0.0"
-    ts-loader "^9.5.1"
-    vue-loader "^17.4.2"
-    webextension-polyfill "^0.10.0"
-    webpack "~5.91.0"
-    webpack-browser-extension-common-errors "*"
-    webpack-browser-extension-html "*"
-    webpack-browser-extension-icons "*"
-    webpack-browser-extension-json "*"
-    webpack-browser-extension-locales "*"
-    webpack-browser-extension-manifest "*"
-    webpack-browser-extension-manifest-compat "*"
-    webpack-browser-extension-polyfill "^2.0.2"
-    webpack-browser-extension-resolve "*"
-    webpack-browser-extension-resources "*"
-    webpack-browser-extension-scripts "*"
-    webpack-dev-server "^5.0.2"
-    webpack-merge "^5.10.0"
-    webpack-run-chrome-extension "*"
-    webpack-run-edge-extension "*"
-    webpack-run-firefox-addon "*"
-
 "@humanwhocodes/config-array@^0.11.14":
   version "0.11.14"
   resolved "https://registry.yarnpkg.com/@humanwhocodes/config-array/-/config-array-0.11.14.tgz#d78e481a039f7566ecc9660b4ea7fe6b1fec442b"
@@ -3064,11 +3001,6 @@ accepts@~1.3.4, accepts@~1.3.5, accepts@~1.3.8:
   dependencies:
     mime-types "~2.1.34"
     negotiator "0.6.3"
-
-acorn-import-assertions@^1.9.0:
-  version "1.9.0"
-  resolved "https://registry.yarnpkg.com/acorn-import-assertions/-/acorn-import-assertions-1.9.0.tgz#507276249d684797c84e0734ef84860334cfb1ac"
-  integrity sha512-cmMwop9x+8KFhxvKrKfPYmN6/pKTYYHBqLa0DfvVZcKMJWNyWLnaqND7dx/qn66R7ewM1UX5XMaDVP5wlVTaVA==
 
 acorn-import-attributes@^1.9.5:
   version "1.9.5"
@@ -4491,7 +4423,7 @@ encodeurl@~1.0.2:
   resolved "https://registry.yarnpkg.com/encodeurl/-/encodeurl-1.0.2.tgz#ad3ff4c86ec2d029322f5a02c3a9a606c95b3f59"
   integrity sha512-TPJXq8JqFaVYm2CWmPvnP2Iyo4ZSM7/QKcSmuMLDObfpH5fi7RUGmd/rTDf+rut/saiDiQEeVTNgAmJEdAOx0w==
 
-enhanced-resolve@^5.0.0, enhanced-resolve@^5.16.0, enhanced-resolve@^5.17.0:
+enhanced-resolve@^5.0.0, enhanced-resolve@^5.17.0:
   version "5.17.0"
   resolved "https://registry.yarnpkg.com/enhanced-resolve/-/enhanced-resolve-5.17.0.tgz#d037603789dd9555b89aaec7eb78845c49089bc5"
   integrity sha512-dwDPwZL0dmye8Txp2gzFmA6sxALaSvdRDjPH0viLcKrtlOL3tw62nWWweVD1SdILDTJrbrL6tdWVN58Wo6U3eA==
@@ -9799,36 +9731,6 @@ webpack@^5, webpack@~5.92.0:
     watchpack "^2.4.1"
     webpack-sources "^3.2.3"
 
-webpack@~5.91.0:
-  version "5.91.0"
-  resolved "https://registry.yarnpkg.com/webpack/-/webpack-5.91.0.tgz#ffa92c1c618d18c878f06892bbdc3373c71a01d9"
-  integrity sha512-rzVwlLeBWHJbmgTC/8TvAcu5vpJNII+MelQpylD4jNERPwpBJOE2lEcko1zJX3QJeLjTTAnQxn/OJ8bjDzVQaw==
-  dependencies:
-    "@types/eslint-scope" "^3.7.3"
-    "@types/estree" "^1.0.5"
-    "@webassemblyjs/ast" "^1.12.1"
-    "@webassemblyjs/wasm-edit" "^1.12.1"
-    "@webassemblyjs/wasm-parser" "^1.12.1"
-    acorn "^8.7.1"
-    acorn-import-assertions "^1.9.0"
-    browserslist "^4.21.10"
-    chrome-trace-event "^1.0.2"
-    enhanced-resolve "^5.16.0"
-    es-module-lexer "^1.2.1"
-    eslint-scope "5.1.1"
-    events "^3.2.0"
-    glob-to-regexp "^0.4.1"
-    graceful-fs "^4.2.11"
-    json-parse-even-better-errors "^2.3.1"
-    loader-runner "^4.2.0"
-    mime-types "^2.1.27"
-    neo-async "^2.6.2"
-    schema-utils "^3.2.0"
-    tapable "^2.1.1"
-    terser-webpack-plugin "^5.3.10"
-    watchpack "^2.4.1"
-    webpack-sources "^3.2.3"
-
 websocket-driver@>=0.5.1, websocket-driver@^0.7.4:
   version "0.7.4"
   resolved "https://registry.yarnpkg.com/websocket-driver/-/websocket-driver-0.7.4.tgz#89ad5295bbf64b480abcba31e4953aca706f5760"
@@ -9953,6 +9855,7 @@ word-wrap@^1.2.5:
   integrity sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA==
 
 "wrap-ansi-cjs@npm:wrap-ansi@^7.0.0", wrap-ansi@^7.0.0:
+  name wrap-ansi-cjs
   version "7.0.0"
   resolved "https://registry.yarnpkg.com/wrap-ansi/-/wrap-ansi-7.0.0.tgz#67e145cff510a6a6984bdf1152911d69d2eb9e43"
   integrity sha512-YVGIj2kamLSTxw6NsZjoBxfSwsn0ycdesmc4p+Q21c5zPuZ1pl+NfxVdxPtdHvmNVOQ6XSYG4AUtyt/Fi7D16Q==
