@@ -1,0 +1,18 @@
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 26px);
+}
+
+h1 {
+  font-size: 3.7em;
+}
+
+.typescript {
+	transition: all 400ms cubic-bezier(.47,1.64,.41,.8);
+}
+
+.typescript:hover {
+  transform: scale(1.5);
+}

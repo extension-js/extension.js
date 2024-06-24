@@ -1,0 +1,25 @@
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 26px);
+}
+
+h1 {
+  font-size: 4.7em;
+}
+
+.new {
+  border-radius: 24px;
+  border: 4px solid;
+  background: white;
+  border-color: #ccc;
+  border-radius: 24px;
+  filter: grayscale(1);
+  transition: filter 2s, border-color 2s;
+}
+
+.new:hover {
+  filter: grayscale(0);
+  border-color: aquamarine;
+}

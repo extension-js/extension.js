@@ -9,11 +9,11 @@
   "content_scripts": [
     {
       "matches": ["https://extension.js.org/*"],
-      "js": ["./content/content.ts"]
+      "js": ["./content/scripts.ts"]
     }
   ],
   "icons": {
-    "16": "public/icon/icon_16.png",
-    "48": "public/icon/icon_48.png"
+    "16": "images/icons/icon_16.png",
+    "48": "images/icons/icon_48.png"
   }
 }
