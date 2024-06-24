@@ -7,7 +7,6 @@
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
 
-import semver from 'semver'
 import {program} from 'commander'
 
 // Types
