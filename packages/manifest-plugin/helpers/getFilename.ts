@@ -11,19 +11,19 @@ export default function getFilename(
   // Do not attempt to rewrite the asset path if it's in the exclude list.
   const shouldSkipRewrite = utils.shouldExclude(filepath, exclude)
 
-  const fileOutputpath = shouldSkipRewrite ? path.normalize(filepath) : feature
+  let fileOutputpath = shouldSkipRewrite ? path.normalize(filepath) : feature
 
   if (['.js', '.jsx', '.tsx', '.ts'].includes(entryExt)) {
-    return fileOutputpath.replace(entryExt, '.js')
+    fileOutputpath = fileOutputpath.replace(entryExt, '.js')
   }
 
   if (['.html', '.njk', '.nunjucks'].includes(entryExt)) {
-    return fileOutputpath.replace(entryExt, '.html')
+    fileOutputpath = fileOutputpath.replace(entryExt, '.html')
   }
 
   if (['.css', '.scss', '.sass', '.less'].includes(entryExt)) {
-    return fileOutputpath.replace(entryExt, '.css')
+    fileOutputpath = fileOutputpath.replace(entryExt, '.css')
   }
 
-  return fileOutputpath
+  return utils.unixify(fileOutputpath)
 }
