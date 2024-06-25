@@ -1,5 +1,6 @@
 import path from 'path'
 import fs from 'fs-extra'
+import os from 'os'
 
 export const getFixturesPath = (demoDir: string) =>
   path.join(__dirname, 'fixtures', demoDir, 'manifest.json')
@@ -19,3 +20,7 @@ export const findStringInFile = async (filePath: string, string: string) => {
     expect(data).toContain(string)
   })
 }
+
+export const dirname = (dir: string) => path.dirname(dir)
+
+export const win32 = () => os.platform() === 'win32'
