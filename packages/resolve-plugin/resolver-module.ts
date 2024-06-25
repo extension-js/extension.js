@@ -153,8 +153,12 @@ function solve(apiArgument?: SolveType) {
     // chrome.tabs.create({..., url: string})
     // chrome.tabs.executeScript({..., url: string})
     // chrome.tabs.insertCSS({..., url: string})
-    // chrome.windows.create({..., url: string})
-    ...(obj?.url && {url: resolver(obj.url)}),
+    // chrome.windows.create({..., url: string || string[]})
+    ...(obj?.url && {
+      url: Array.isArray(obj?.url)
+        ? obj?.url.map((currentUrl: string) => resolver(currentUrl))
+        : resolver(obj?.url)
+    }),
 
     // chrome.notifications.create
     // https://developer.chrome.com/docs/extensions/reference/api/notifications#property-NotificationOptions-iconUrl

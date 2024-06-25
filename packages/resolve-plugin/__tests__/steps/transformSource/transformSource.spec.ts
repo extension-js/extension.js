@@ -65,4 +65,26 @@ describe('transformSource Tests', () => {
     expect(firstArg.type).toBe('CallExpression')
     expect(firstArg.callee.name).toBe('r.solve')
   })
+
+  // https://developer.chrome.com/docs/extensions/reference/api/windows#property-create-createData-url
+  test('should transform chrome.windows.create when URL argument is an array', () => {
+    const code = `chrome.windows.create({url: ['https://www.extension.js.org/']})`
+    const ast = parse(code)
+    transformSource(ast, code)
+    // Check if the first argument of the first expression is a call to resolveString
+    const firstArg = (ast.program.body[0] as any).expression.arguments[0]
+    expect(firstArg.type).toBe('CallExpression')
+    expect(firstArg.callee.name).toBe('r.solve')
+  })
+
+  test('should transform chrome.windows.create when URL argument is a string', () => {
+    const code = `chrome.windows.create({url: 'https://www.extension.js.org/'})`
+    const ast = parse(code)
+    transformSource(ast, code)
+    // Check if the first argument of the first expression is a call to resolveString
+    const firstArg = (ast.program.body[0] as any).expression.arguments[0]
+    expect(firstArg.type).toBe('CallExpression')
+    expect(firstArg.callee.name).toBe('r.solve')
+  })
 })
+
