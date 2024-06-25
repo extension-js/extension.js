@@ -1,9 +1,16 @@
 import manifestOverries from '../../manifest-overrides'
-import {getFixturesPath} from '../__utils__'
+import {dirname, getFixturesPath, win32} from '../__utils__'
 
 describe('manifestOverries', () => {
   const manifestPath = getFixturesPath('super-manifest')
-  const exclude = ['/public/some/file']
+  const context = dirname(manifestPath)
+  const exclude = win32()
+    ? [
+        `${context}\\icons\\icon16.png`,
+        `${context}\\icons\\icon48.png`,
+        `${context}\\icons\\icon128.png`
+      ]
+    : ['icons/icon16.png', 'icons/icon48.png', 'icons/icon128.png']
 
   it('should transform manifest action details correctly', () => {
     const result = manifestOverries(manifestPath, undefined, exclude)
@@ -19,7 +26,7 @@ describe('manifestOverries', () => {
         service_worker: 'background/service_worker.js'
       },
       browser_action: {
-        default_icon: 'browser_action/icon16.png',
+        default_icon: 'icons/icon16.png',
         default_popup: 'browser_action/default_popup.html',
         theme_icons: [
           {
@@ -77,7 +84,7 @@ describe('manifestOverries', () => {
         page: 'options_ui/page.html'
       },
       page_action: {
-        default_icon: 'page_action/icon16.png',
+        default_icon: 'icons/icon16.png',
         default_popup: 'page_action/default_popup.html'
       },
       sandbox: {
@@ -85,7 +92,7 @@ describe('manifestOverries', () => {
       },
       sidebar_action: {
         default_panel: 'sidebar_action/default_panel.html',
-        default_icon: 'sidebar_action/icon16.png'
+        default_icon: 'icons/icon16.png'
       },
       storage: {
         managed_schema: 'storage/managed_schema.json'
