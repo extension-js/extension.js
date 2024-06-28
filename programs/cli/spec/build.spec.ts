@@ -99,7 +99,6 @@ describe('extension build', () => {
         expect(
           distFileExists(
             template.name,
-            BROWSERS[0],
             `${template.name}-1.0-source.zip`
           )
         ).toBeTruthy()
@@ -119,7 +118,6 @@ describe('extension build', () => {
         expect(
           distFileExists(
             template.name,
-            BROWSERS[0],
             `${template.name}-nice.zip`
           )
         ).toBeTruthy()
