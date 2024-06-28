@@ -51,7 +51,9 @@ export default class ChromeExtensionLauncherPlugin {
     }
 
     const chromeConfig = browserConfig(compiler, this.options)
-    const launchArgs = [this.options.startingUrl || '', ...chromeConfig]
+    const launchArgs = this.options.startingUrl
+      ? [this.options.startingUrl, ...chromeConfig]
+      : [...chromeConfig]
 
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'

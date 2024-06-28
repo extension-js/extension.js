@@ -46,7 +46,9 @@ export default class EdgeExtensionLauncherPlugin {
     }
 
     const edgeConfig = browserConfig(compiler, this.options)
-    const launchArgs = [this.options.startingUrl || '', ...edgeConfig]
+    const launchArgs = this.options.startingUrl
+      ? [this.options.startingUrl, ...edgeConfig]
+      : [...edgeConfig]
 
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
