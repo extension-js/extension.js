@@ -18,6 +18,7 @@ import writeReadmeFile from './steps/writeReadmeFile'
 import writeManifestJson from './steps/writeManifestJson'
 import generateExtensionTypes from './steps/generateExtensionTypes'
 import isTypeScriptTemplate from './helpers/isTypeScriptTemplate'
+import initializeGitRepository from './steps/initializeGitRepository'
 
 export interface CreateOptions {
   template?: string
@@ -59,6 +60,7 @@ export default async function createExtension(
     await installDependencies(projectPath, projectName)
     await writeReadmeFile(projectPath, projectName, template)
     await writeManifestJson(projectPath, projectName, template)
+    await initializeGitRepository(projectPath, projectName)
 
     if (isTypeScriptTemplate(template)) {
       await generateExtensionTypes(projectPath, projectName)
