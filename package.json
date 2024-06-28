@@ -33,7 +33,7 @@
     "turbo": "^2.0.4"
   },
   "name": "extension",
-  "packageManager": "yarn@1.22.19",
+  "packageManager": "yarn@1.22.22",
   "description": "The monorepo of all things Extension.js, including the Extension.js CLI, its programs, packages, website, and documentation.",
   "workspaces": [
     "aliases/*",
