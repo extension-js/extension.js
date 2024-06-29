@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import path from 'path'
+import fs from 'fs'
 import {ALL_TEMPLATES, DEFAULT_TEMPLATE, BROWSERS} from './fixtures/constants'
 import {
   extensionProgram,
@@ -93,14 +94,18 @@ describe('extension build', () => {
       `builds and zips the source files of an extension created via "$name" template`,
       async (template) => {
         const extensionPath = path.join(__dirname, 'fixtures', template.name)
+        const outputPath = path.join(
+          __dirname,
+          'fixtures',
+          template.name,
+          'dist'
+        )
 
         await extensionProgram(`build ${extensionPath} --zip-source`)
 
         expect(
-          distFileExists(
-            template.name,
-            BROWSERS[0],
-            `${template.name}-1.0-source.zip`
+          fs.existsSync(
+            path.join(outputPath, `${template.name}-1.0-source.zip`)
           )
         ).toBeTruthy()
       },
@@ -108,7 +113,7 @@ describe('extension build', () => {
     )
 
     it.each([DEFAULT_TEMPLATE])(
-      `builds and zips the source files of an extension created via "$name" template with a custom output name using the --zip-filename flag`,
+      `builds and zips the distribution files of an extension created via "$name" template with a custom output name using the --zip-filename flag`,
       async (template) => {
         const extensionPath = path.join(__dirname, 'fixtures', template.name)
 
@@ -117,11 +122,7 @@ describe('extension build', () => {
         )
 
         expect(
-          distFileExists(
-            template.name,
-            BROWSERS[0],
-            `${template.name}-nice.zip`
-          )
+          distFileExists(template.name, BROWSERS[0], `${template.name}-nice.zip`)
         ).toBeTruthy()
       },
       50000
