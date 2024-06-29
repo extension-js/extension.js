@@ -20,7 +20,7 @@ describe('extension build', () => {
   })
 
   describe('running built-in templates', () => {
-    it.skip.each(ALL_TEMPLATES)(
+    it.each(ALL_TEMPLATES)(
       `builds an extension created via "$name" template`,
       async (template) => {
         const extensionPath = path.join(__dirname, 'fixtures', template.name)
@@ -47,7 +47,7 @@ describe('extension build', () => {
   })
 
   describe('using the --browser flag', () => {
-    it.skip.each(ALL_TEMPLATES)(
+    it.each(ALL_TEMPLATES)(
       `builds the "$name" extension template across all browsers`,
       async (template) => {
         const extensionPath = path.join(__dirname, 'fixtures', template.name)
@@ -78,7 +78,7 @@ describe('extension build', () => {
   })
 
   describe('using the --zip flag', () => {
-    it.skip.each([DEFAULT_TEMPLATE])(
+    it.each([DEFAULT_TEMPLATE])(
       `builds and zips the distribution files of an extension created via "$name" template`,
       async (template) => {
         const extensionPath = path.join(__dirname, 'fixtures', template.name)
@@ -94,7 +94,12 @@ describe('extension build', () => {
       `builds and zips the source files of an extension created via "$name" template`,
       async (template) => {
         const extensionPath = path.join(__dirname, 'fixtures', template.name)
-        const outputPath = path.join(__dirname, 'fixtures', template.name, 'dist')
+        const outputPath = path.join(
+          __dirname,
+          'fixtures',
+          template.name,
+          'dist'
+        )
 
         await extensionProgram(`build ${extensionPath} --zip-source`)
 
@@ -107,7 +112,7 @@ describe('extension build', () => {
       50000
     )
 
-    it.skip.each([DEFAULT_TEMPLATE])(
+    it.each([DEFAULT_TEMPLATE])(
       `builds and zips the distribution files of an extension created via "$name" template with a custom output name using the --zip-filename flag`,
       async (template) => {
         const extensionPath = path.join(__dirname, 'fixtures', template.name)
@@ -117,7 +122,7 @@ describe('extension build', () => {
         )
 
         expect(
-          distFileExists(template.name, `${template.name}-nice.zip`)
+          distFileExists(template.name, BROWSERS[0], `${template.name}-nice.zip`)
         ).toBeTruthy()
       },
       50000
