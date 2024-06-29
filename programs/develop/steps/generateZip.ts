@@ -72,7 +72,8 @@ export default function generateZip(
   {browser = 'chrome', ...options}: BuildOptions
 ) {
   try {
-    const outputDir = path.join(projectDir, 'dist', browser)
+    const distDir = path.join(projectDir, 'dist')
+    const outputDir = path.join(distDir, browser)
     // We collect data from the projectDir if the user wants to zip the source files.
     const dataDir = options.zipSource ? projectDir : outputDir
     const manifest: Record<string, string> = require(
@@ -80,8 +81,10 @@ export default function generateZip(
     )
     const name = getPackageName(manifest, options)
     const ext = getExtensionExtension(browser)
+    // Dist zips are stored in dist/[browser]/[name].zip
     const distZipPath = path.join(outputDir, `${name}.${ext}`)
-    const sourceZipPath = path.join(outputDir, `${name}-source.${ext}`)
+    // Source zips are stored in dist/[name]-source.zip
+    const sourceZipPath = path.join(distDir, `${name}-source.${ext}`)
     const capitalizedBrowser = capitalizeBrowserName(browser)
 
     if (options.zipSource) {
