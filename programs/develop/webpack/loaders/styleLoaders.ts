@@ -20,7 +20,7 @@ export default function styleLoaders(projectDir: string, opts: any) {
           use: getCommonStyleLoaders(projectDir, {
             regex: /\.css$/,
             mode: opts.mode,
-            useMiniCssExtractPlugin: true
+            useMiniCssExtractPlugin: opts.mode === 'production'
           })
         }
       ]
