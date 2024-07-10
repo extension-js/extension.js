@@ -7,7 +7,7 @@ export default function handleFirefoxRunningServiceWorkerError(
   browser: string
 ): webpack.WebpackError | null {
   if (browser === 'firefox') {
-    if (manifest.background.service_worker) {
+    if (manifest.background?.service_worker) {
       return new webpack.WebpackError(
         `${bgWhite(red(bold(` firefox-browser `)))} ${red(`►►►`)} ` +
           `Firefox does not support the ${yellow('background.service_worker')} field yet.\n` +
