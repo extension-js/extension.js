@@ -112,10 +112,12 @@ export default function webpackConfig(
     plugins: [
       compilationPlugins(projectPath, devOptions),
       extensionPlugin(projectPath, devOptions),
+      compatPlugin(projectPath, devOptions),
+      errorPlugin(projectPath, devOptions),
       new ReloadPlugin({
         manifestPath: path.join(projectPath, 'manifest.json'),
         browser: 'chrome',
-        // port: opts.port,
+        port: devOptions.port,
         stats: true
       }),
       new BrowsersPlugin({
@@ -131,8 +133,6 @@ export default function webpackConfig(
         // startingUrl: devOptions.startingUrl,
         // browserFlags: devOptions.browserFlags
       }),
-      compatPlugin(projectPath, devOptions),
-      errorPlugin(projectPath, devOptions),
       boringPlugins(projectPath, devOptions)
     ],
     optimization: {
