@@ -60,9 +60,9 @@ execute_command() {
 # Copy required files to dist directory
 copy_files_to_dist() {
   local files=(
-    "tailwind.config.js"
-    "stylelint.config.js"
-    "commands/dev/types"
+    # "tailwind.config.js"
+    # "stylelint.config.js"
+    # "commands/dev/types"
     "plugin-reload/extensions"
   )
   for file in "${files[@]}"; do
