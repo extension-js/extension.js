@@ -27,11 +27,10 @@ import styleLoaders from './loaders/styleLoaders'
 import boringPlugins from './plugin-compilation/boringPlugins'
 import compilationPlugins from './plugin-compilation/compilationPlugins'
 import extensionPlugin from './plugin-extension/extensionPlugins'
-// import reloadPlugin from './_plugin-reload'
-import {ReloadPlugin} from './plugin-reload'
+import {ReloadPlugin} from '../plugin-reload'
 import compatPlugin from './plugin-compat'
 import errorPlugin from './plugin-errors'
-import {BrowsersPlugin} from './plugin-browsers'
+import {BrowsersPlugin} from '../plugin-browsers'
 
 // Checks
 import getDevToolOption from './config/getDevtoolOption'

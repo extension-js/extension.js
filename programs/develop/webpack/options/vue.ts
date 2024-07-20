@@ -30,7 +30,9 @@ export function isUsingVue(projectDir: string) {
     if (!userMessageDelivered) {
       console.log(
         bold(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${manifest.version}) `
+          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+            manifest.version
+          }) `
         ) + `is using ${bold(cyan('Vue'))}.`
       )
 
