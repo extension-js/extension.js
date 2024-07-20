@@ -31,7 +31,7 @@ import extensionPlugin from './plugin-extension/extensionPlugins'
 import {ReloadPlugin} from './plugin-reload'
 import compatPlugin from './plugin-compat'
 import errorPlugin from './plugin-errors'
-import browserPlugin from './plugin-browsers'
+import {BrowsersPlugin} from './plugin-browsers'
 
 // Checks
 import getDevToolOption from './config/getDevtoolOption'
@@ -119,7 +119,19 @@ export default function webpackConfig(
         // port: opts.port,
         stats: true
       }),
-      // browserPlugin(projectPath, devOptions),
+      new BrowsersPlugin({
+        browser: devOptions.browser || 'chrome',
+        extension: [
+          getOutputPath(projectPath, devOptions.browser),
+          // Output by the reload plugin
+          path.join(__dirname, 'extensions', 'manager-extension'),
+          path.join(__dirname, 'extensions', 'reload-extension')
+        ]
+        // profile: devOptions.profile || devOptions.userDataDir,
+        // preferences: devOptions.preferences,
+        // startingUrl: devOptions.startingUrl,
+        // browserFlags: devOptions.browserFlags
+      }),
       compatPlugin(projectPath, devOptions),
       errorPlugin(projectPath, devOptions),
       boringPlugins(projectPath, devOptions)

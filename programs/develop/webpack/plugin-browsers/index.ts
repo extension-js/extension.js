@@ -1,93 +1,93 @@
-// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
-// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
-// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
-// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
-// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
-// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+import os from 'os';
+import path from 'path';
+import { type Compiler } from 'webpack';
+import { type PluginInterface } from './types';
+import { RunChromiumPlugin } from './run-chromium';
+// import { RunFirefoxPlugin } from './run-firefox';
 
-import path from 'path'
-import os from 'os'
-import type webpack from 'webpack'
-import RunChromeExtension from 'webpack-run-chrome-extension'
-import RunEdgeExtension from 'webpack-run-edge-extension'
-import RunFirefoxAddon from 'webpack-run-firefox-addon'
-import {type DevOptions} from '../../extensionDev'
-import {getManifestPath, getOutputPath} from '../config/getPath'
+/**
+ * RunChromiumPlugin works by creating a WebSockets server
+ * that listens to changes triggered by the user extension
+ * via webpack. When a change is detected, the server sends
+ * a message to an extension called reload-extension, which
+ * is injected into the browser. This extension is responsible
+ * for sending messages to the user extension. We do that by
+ * injecting a script into the background page that listens
+ * to messages from the reload-extension.
+ *
+ * Features supported:
+ * - Service worker - Full extension reload (chrome.runtime.reload)
+ * - manifest.json - Full extension reload (chrome.runtime.reload)
+ */
+export class BrowsersPlugin {
+  public readonly extension: string | string[];
+  public readonly browser: string;
+  public readonly browserFlags: string[];
+  public readonly userDataDir?: string;
+  public readonly profile: string;
+  public readonly preferences: string;
+  public readonly startingUrl: string;
 
-function getProfilePath(devOptions: DevOptions) {
-  if (devOptions?.userDataDir) {
-    return devOptions.userDataDir
+  constructor(options: PluginInterface) {
+    this.extension = options.extension;
+    this.browser = options.browser || 'chrome';
+    this.browserFlags = options.browserFlags || [];
+    this.userDataDir = options.userDataDir;
+    this.profile = options.profile || '';
+    this.preferences = options.preferences || '';
+    this.startingUrl = options.startingUrl || '';
   }
 
-  // Ensure `start` runs in a fresh profile by default.
-  if (devOptions.mode === 'production') {
-    return path.join(
-      os.tmpdir(),
-      'extension-js',
-      devOptions.browser!,
-      'profile'
-    )
-  }
-
-  return devOptions?.userDataDir
-}
-
-export default function browserPlugins(
-  projectPath: string,
-  devOptions: DevOptions
-) {
-  if (!devOptions?.mode || process.env.NODE_ENV === 'test') {
-    return {
-      constructor: {name: 'BrowserPlugin'},
-      apply: () => {}
+  private getProfilePath(
+    compiler: Compiler,
+    browser: string,
+    profile: string | undefined,
+  ) {
+    if (profile) {
+      return profile;
     }
+
+    // Ensure `start` runs in a fresh profile by default.
+    if (compiler.options.mode === 'production') {
+      return path.join(os.tmpdir(), 'extension-js', browser, 'profile');
+    }
+
+    return path.resolve(__dirname, `run-${browser}-profile`);
   }
 
-  const chromeConfig = {
-    port: 8000,
-    manifestPath: getManifestPath(projectPath),
-    // The final folder where the extension manifest file is located.
-    // This is used to load the extension into the browser.
-    extensionPath: getOutputPath(projectPath, devOptions.browser),
-    autoReload: true,
-    browserFlags: ['--enable-benchmarking'],
-    userDataDir: getProfilePath(devOptions),
-    stats: true
-  }
+  apply(compiler: Compiler) {
+    const config = {
+      stats: true,
+      extension: this.extension,
+      browser: this.browser,
+      browserFlags: this.browserFlags || [],
+      userDataDir: this.getProfilePath(
+        compiler,
+        this.browser || 'chrome',
+        this.userDataDir || this.profile,
+      ),
+    };
 
-  const edgeConfig = {
-    ...chromeConfig,
-    port: 8001,
-    stats: true
-  }
+    // 1 - Bundle the reloader and manager extensions. The reloader extension
+    // is injected into the browser and is responsible for sending reload
+    // requests to the user extension. The manager extension is responsible
+    // for everything else, for now opening the chrome://extension page on startup.
+    // It starts a new browser instance with the user extension loaded.
+    switch (this.browser) {
+      case 'chrome': {
+        new RunChromiumPlugin({ ...config, browser: 'chrome' }).apply(compiler);
+        break;
+      }
 
-  const firefoxConfig = {
-    ...chromeConfig,
-    port: 8002,
-    // If all browsers are being used, we don't need to show the stats
-    // for each browser. This is because the stats will be the same for
-    // each browser.
-    // Note that a comma means that more than once browser is selected,
-    // so we show the user extension manifest output only once.
-    stats: true
-  }
-
-  return {
-    constructor: {name: 'BrowserPlugin'},
-    apply: (compiler: webpack.Compiler) => {
-      switch (devOptions.browser) {
-        case 'chrome':
-          new RunChromeExtension(chromeConfig).apply(compiler)
-          break
-        case 'edge':
-          new RunEdgeExtension(edgeConfig).apply(compiler)
-          break
-        case 'firefox':
-          new RunFirefoxAddon(firefoxConfig).apply(compiler)
-          break
-        default:
-          new RunChromeExtension(chromeConfig).apply(compiler)
-          break
+      // case 'edge':
+      //   new RunChromiumPlugin({ ...config, browser: 'edge' }).apply(compiler);
+      //   break;
+      // case 'firefox':
+      //   new RunFirefoxPlugin({...config, browser: 'firefox'}).apply(compiler);
+      //   break;
+      default: {
+        new RunChromiumPlugin({ ...config, browser: 'chrome' }).apply(compiler);
+        break;
       }
     }
   }
