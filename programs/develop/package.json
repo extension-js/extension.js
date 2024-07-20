@@ -25,11 +25,7 @@
     "postinstall": "sh ./install-scripts.sh",
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile:types-folder": "node ./scripts/copyTypesFolder.js",
-    "compile:stylelint-config": "node ./scripts/copyStylelintConfig.js",
-    "compile:tailwind-config": "node ./scripts/copyTailwindConfig.js",
-    "compile:program": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
-    "compile": "yarn compile:types-folder && yarn compile:stylelint-config && yarn compile:tailwind-config && yarn compile:program",
+    "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify",
     "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
