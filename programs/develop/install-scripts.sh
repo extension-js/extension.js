@@ -75,20 +75,20 @@ copy_files_to_dist() {
   done
 }
 
-echo 'Executing commands for HTML plugin files'
-for entry in "${html_plugin_files[@]}"; do
-  execute_command "$entry" "cjs"
-done
+# echo 'Executing commands for HTML plugin files'
+# for entry in "${html_plugin_files[@]}"; do
+#   execute_command "$entry" "cjs"
+# done
 
-echo 'Executing commands for Resolve plugin files'
-for entry in "${resolve_plugin_files[@]}"; do
-  execute_command "$entry" "cjs"
-done
+# echo 'Executing commands for Resolve plugin files'
+# for entry in "${resolve_plugin_files[@]}"; do
+#   execute_command "$entry" "cjs"
+# done
 
-echo 'Executing commands for Scripts plugin files'
-for entry in "${scripts_plugin_files[@]}"; do
-  execute_command "$entry" "cjs"
-done
+# echo 'Executing commands for Scripts plugin files'
+# for entry in "${scripts_plugin_files[@]}"; do
+#   execute_command "$entry" "cjs"
+# done
 
 echo 'Executing commands for Reload plugin files'
 for entry in "${reload_plugin_files[@]}"; do
@@ -100,8 +100,8 @@ for entry in "${minimum_files[@]}"; do
   execute_command "$entry" "esm"
 done
 
-echo 'Building core module'
-execute_command "$(dirname "$0")/module.ts" "cjs"
+# echo 'Building core module'
+# execute_command "$(dirname "$0")/module.ts" "cjs"
 
 echo 'Copying files to dist directory'
 copy_files_to_dist
