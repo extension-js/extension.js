@@ -27,14 +27,14 @@ scripts_plugin_files=(
 )
 
 reload_plugin_files=(
-  "$(plugin_loader_path 'webpack' 'plugin-reload' 'inject-background-runtime-loader.ts')"
+  # "$(plugin_loader_path 'plugin-reload' '' 'inject-background-runtime-loader.ts')"
 )
 
 # Separate minimum files for esm format
 minimum_files=(
   # "$(plugin_loader_path 'plugin-extension' 'feature-html' 'minimum-script-file.ts')"
   # "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'minimum-content-file.ts')"
-  "$(plugin_loader_path 'webpack' 'plugin-reload' 'minimum-background-file.ts')"
+  "$(plugin_loader_path 'plugin-reload' '' 'minimum-background-file.ts')"
 )
 
 tsup() {
@@ -60,9 +60,9 @@ execute_command() {
 # Copy required files to dist directory
 copy_files_to_dist() {
   local files=(
-    # "tailwind.config.js"
-    # "stylelint.config.js"
-    # "commands/dev/types"
+    "tailwind.config.js"
+    "stylelint.config.js"
+    "commands/dev/types"
     "plugin-reload/extensions"
   )
   for file in "${files[@]}"; do

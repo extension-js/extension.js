@@ -18,6 +18,7 @@ import LocalesPlugin from 'webpack-browser-extension-locales'
 import JsonPlugin from 'webpack-browser-extension-json'
 import IconsPlugin from 'webpack-browser-extension-icons'
 import ResourcesPlugin from 'webpack-browser-extension-resources'
+import SpecialFoldersPlugin from '../plugin-extension/SpecialFoldersPlugin'
 
 // Handle special folders feature
 import {
@@ -117,6 +118,11 @@ export default function extensionPlugins(
       new ResourcesPlugin({
         manifestPath,
         exclude: allPublic
+      }).apply(compiler)
+
+      // Plugin to add special folders (public, pages, scripts) to the extension
+      new SpecialFoldersPlugin({
+        manifestPath: path.join(projectPath, 'manifest.json')
       }).apply(compiler)
     }
   }

@@ -42,7 +42,9 @@ export function getAssetInfo(
   assets?.forEach((asset) => {
     const sizeInKB = getFileSize(asset.size)
     console.log(
-      `• ${bold('Filename:')} ${yellow(asset.name)}, ${bold('Size:')} ${sizeInKB}` +
+      `• ${bold('Filename:')} ${yellow(asset.name)}, ${bold(
+        'Size:'
+      )} ${sizeInKB}` +
         `\n  ${bold('└─')} ${underline(`${path.join(outputPath, asset.name)}`)}`
     )
   })
@@ -86,11 +88,9 @@ export function buildWebpack(
     fs.readFileSync(manifestPath, 'utf8')
   )
   const assets: any[] = statsJson?.assets
-  const heading = `🧩 ${bold('Extension.js')} ${green(
-    '►►►'
-  )} Building ${bold(manifest.name)} extension using ${bold(
-    browser
-  )} defaults...\n`
+  const heading = `🧩 ${bold('Extension.js')} ${green('►►►')} Building ${bold(
+    manifest.name
+  )} extension using ${bold(browser)} defaults...\n`
   const buildTime = `\nBuild completed in ${(
     (statsJson?.time || 0) / 1000
   ).toFixed(2)} seconds.`

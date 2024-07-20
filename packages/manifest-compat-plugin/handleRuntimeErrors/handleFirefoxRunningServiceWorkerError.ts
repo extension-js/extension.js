@@ -10,9 +10,15 @@ export default function handleFirefoxRunningServiceWorkerError(
     if (manifest.background?.service_worker) {
       return new webpack.WebpackError(
         `${bgWhite(red(bold(` firefox-browser `)))} ${red(`►►►`)} ` +
-          `Firefox does not support the ${yellow('background.service_worker')} field yet.\n` +
-          `See ${blue(underline('https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'))}.\n\n` +
-          `Update your ${yellow('manifest.json')} file to use ${yellow('background.scripts')} instead.`
+          `Firefox does not support the ${yellow(
+            'background.service_worker'
+          )} field yet.\n` +
+          `See ${blue(
+            underline('https://bugzilla.mozilla.org/show_bug.cgi?id=1573659')
+          )}.\n\n` +
+          `Update your ${yellow('manifest.json')} file to use ${yellow(
+            'background.scripts'
+          )} instead.`
       )
     }
   }

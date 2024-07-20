@@ -38,9 +38,15 @@ export default class EdgeExtensionLauncherPlugin {
     if (!fs.existsSync(msEdge) || '') {
       console.error(
         `${bgCyan(white(bold(` edge-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Edge browser ${typeof msEdge === 'undefined' ? 'is not installed.' : `is not found at ${msEdge}`}. ` +
+          `Edge browser ${
+            typeof msEdge === 'undefined'
+              ? 'is not installed.'
+              : `is not found at ${msEdge}`
+          }. ` +
           // `Either install Edge or set the EDGE environment variable to the path of the Edge executable.`
-          `Either install Edge or choose a different browser via ${blue('--browser')}.`
+          `Either install Edge or choose a different browser via ${blue(
+            '--browser'
+          )}.`
       )
       process.exit()
     }

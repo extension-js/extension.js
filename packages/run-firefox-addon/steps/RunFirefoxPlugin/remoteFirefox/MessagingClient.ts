@@ -36,7 +36,9 @@ function parseMessage(data: Buffer): {
     return {
       remainingData: data,
       error: new Error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} Error parsing message length.`
+        `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+          `✖︎✖︎✖︎`
+        )} Error parsing message length.`
       ),
       fatal: true
     }
@@ -92,7 +94,9 @@ export default class MessagingClient extends EventEmitter {
     this.connection.end()
     this.rejectAllRequests(
       new Error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} MessagingClient connection closed.`
+        `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+          `✖︎✖︎✖︎`
+        )} MessagingClient connection closed.`
       )
     )
   }
@@ -133,11 +137,15 @@ export default class MessagingClient extends EventEmitter {
         if (this.activeRequests.has(request.to)) return true
         if (!this.connection) {
           throw new Error(
-            `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} MessagingClient connection closed.`
+            `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+              `✖︎✖︎✖︎`
+            )} MessagingClient connection closed.`
           )
         }
         try {
-          const messageString = `${Buffer.from(JSON.stringify(request)).length}:${JSON.stringify(request)}`
+          const messageString = `${
+            Buffer.from(JSON.stringify(request)).length
+          }:${JSON.stringify(request)}`
           this.connection.write(messageString)
           this.expectReply(request.to, deferred)
         } catch (err) {
@@ -173,7 +181,9 @@ export default class MessagingClient extends EventEmitter {
       this.emit(
         'error',
         new Error(
-          `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} Error parsing packet: ${error}`
+          `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+            `✖︎✖︎✖︎`
+          )} Error parsing packet: ${error}`
         )
       )
       if (fatal) this.disconnect()
@@ -191,7 +201,9 @@ export default class MessagingClient extends EventEmitter {
         'error',
         new Error(
           `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
-            `Message received without a sender actor: ${JSON.stringify(message)}`
+            `Message received without a sender actor: ${JSON.stringify(
+              message
+            )}`
         )
       )
       return

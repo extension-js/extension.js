@@ -61,7 +61,10 @@ export default function (this: InjectDynamicCssLoaderContext, source: string) {
           const [, contentName] = feature.split('/')
           const index = contentName.split('-')[1]
           const filename = path.basename(cssImport)
-          const chunkName = `web_accessible_resources/resource-${index}/${filename.replace('.', '_')}`
+          const chunkName = `web_accessible_resources/resource-${index}/${filename.replace(
+            '.',
+            '_'
+          )}`
           // Ensure to resolve the path relative to the manifest or webpack context
           // const resolvedPath = getRelativePath(options.manifestPath, cssImport)
           // Generate a dynamic import statement for each CSS file

@@ -36,7 +36,9 @@ export function startWebpack(projectDir: string, options: StartOptions) {
 
   const defaultLocale = getLocales(projectDir, manifest).defaultLocale
   const otherLocales = getLocales(projectDir, manifest).otherLocales.join(', ')
-  const locales = `${defaultLocale} (default) ${otherLocales && ', ' + otherLocales}`
+  const locales = `${defaultLocale} (default) ${
+    otherLocales && ', ' + otherLocales
+  }`
   const hasHost = hostPermissions && hostPermissions.length
   const hasPermissions = permissions && permissions.length
 
@@ -68,7 +70,9 @@ export function ready(options: StartOptions) {
 
   console.log(
     `${bold(`🧩 Extension.js ${green('►►►')}`)} ` +
-      `Running ${capitalizedBrowserName} in ${magenta(bold('production'))} mode. Browser extension ${bold('enabled')}...`
+      `Running ${capitalizedBrowserName} in ${magenta(
+        bold('production')
+      )} mode. Browser extension ${bold('enabled')}...`
   )
 }
 
@@ -78,6 +82,8 @@ export function building(options: StartOptions) {
 
   console.log(
     `${bold(`🧩 Extension.js ${blue('►►►')}`)} ` +
-      `Building the extension package against ${bold(capitalizedBrowserName)}...`
+      `Building the extension package against ${bold(
+        capitalizedBrowserName
+      )}...`
   )
 }

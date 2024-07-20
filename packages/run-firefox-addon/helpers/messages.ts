@@ -97,10 +97,16 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
   log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
   hasHost &&
     log(
-      `${bold(`• Host Permissions`)}: ${hostPermissionsParsed?.sort().join(', ')}`
+      `${bold(`• Host Permissions`)}: ${hostPermissionsParsed
+        ?.sort()
+        .join(', ')}`
     )
   log(
-    `${bold(`• Permissions:`)} ${permissionsParsed.length ? permissionsParsed.sort().join(', ') : 'Browser defaults'}`
+    `${bold(`• Permissions:`)} ${
+      permissionsParsed.length
+        ? permissionsParsed.sort().join(', ')
+        : 'Browser defaults'
+    }`
   )
 }
 
@@ -127,17 +133,24 @@ function certRequired() {
     '\nNote: Firefox requires a certificate for secure WebSocket connections on localhost, '
   )
   log(
-    `needed for the reloader to work. By default, your ${yellow('manifest.json')} file is not being watched.`
+    `needed for the reloader to work. By default, your ${yellow(
+      'manifest.json'
+    )} file is not being watched.`
   )
   log(`\nTo enable this feature, run:`)
   log(`
   npx -y ${bold('mkcert-cli')} \\
-    ${green('--outDir')} ${path.join(process.cwd(), 'node_modules/webpack-run-firefox-addon/dist/certs')} \\
+    ${green('--outDir')} ${path.join(
+    process.cwd(),
+    'node_modules/webpack-run-firefox-addon/dist/certs'
+  )} \\
     ${green('--cert')} ${'localhost.cert'} \\
     ${green('--key')} ${'localhost.key'}
   `)
   log(
-    `This will create a certificate in the plugin path via ${bold('mkcert')} and enable the secure connection for Firefox.`
+    `This will create a certificate in the plugin path via ${bold(
+      'mkcert'
+    )} and enable the secure connection for Firefox.`
   )
   log(`\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`)
 }

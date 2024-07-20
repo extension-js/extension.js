@@ -35,7 +35,9 @@ export default async function initializeGitRepository(
         if (code !== 0) {
           reject(
             new Error(
-              `Command ${gitCommand} ${gitArgs.join(' ')} failed with exit code ${code}`
+              `Command ${gitCommand} ${gitArgs.join(
+                ' '
+              )} failed with exit code ${code}`
             )
           )
         } else {
@@ -50,16 +52,18 @@ export default async function initializeGitRepository(
         console.error(
           `🧩 ${bold(`Extension.js`)} ${red(
             `✖︎✖︎✖︎`
-          )} Child process error: Can't initialize ${yellow('git')} for ${bold(projectName)}. ${error.message}`
+          )} Child process error: Can't initialize ${yellow('git')} for ${bold(
+            projectName
+          )}. ${error.message}`
         )
         reject(error)
       })
     })
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(
-        `✖︎✖︎✖︎`
-      )} Can't initialize ${yellow('git')} for ${bold(projectName)}. ${error.message || error.toString()}`
+      `🧩 ${bold(`Extension.js`)} ${red(`✖︎✖︎✖︎`)} Can't initialize ${yellow(
+        'git'
+      )} for ${bold(projectName)}. ${error.message || error.toString()}`
     )
 
     process.exit(1)

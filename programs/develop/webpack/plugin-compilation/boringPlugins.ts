@@ -5,7 +5,6 @@ import colors, {bold, blue, yellow} from '@colors/colors/safe'
 import Dotenv from 'dotenv-webpack'
 import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
 
-import SpecialFoldersPlugin from '../plugin-extension/SpecialFoldersPlugin'
 import {type DevOptions} from '../../extensionDev'
 
 export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
@@ -25,11 +24,6 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
         stats.compilation.name = `🧩 Extension.js ${divider} ${projectName} (v${projectVersion})`
       })
 
-      // Plugin to add special folders (public, pages, scripts) to the extension
-      new SpecialFoldersPlugin({
-        manifestPath: path.join(projectPath, 'manifest.json')
-      }).apply(compiler)
-
       // Support .env files
       if (
         fs.existsSync(path.join(projectPath, '.env')) ||
@@ -39,7 +33,9 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
       ) {
         console.log(
           bold(
-            `🧩 Extension.js ${blue('►►►')} ${projectName} (v${projectVersion}) `
+            `🧩 Extension.js ${blue(
+              '►►►'
+            )} ${projectName} (v${projectVersion}) `
           ) + `${bold(yellow('env'))} file loaded.`
         )
 
@@ -47,8 +43,8 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
           path: fs.existsSync(path.join(projectPath, '.env'))
             ? path.join(projectPath, '.env')
             : fs.existsSync(path.join(projectPath, '.env.local'))
-              ? path.join(projectPath, '.env.local')
-              : path.join(projectPath, '.env.example'),
+            ? path.join(projectPath, '.env.local')
+            : path.join(projectPath, '.env.example'),
           allowEmptyValues: true,
           defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
           systemvars: true
