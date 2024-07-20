@@ -29,12 +29,12 @@ export default function devServerConfig(
     // WARN: for some reason, adding HTML as a watch file
     // causes content_scripts to do a full reload instead of a hot reload
     // when using React or Vue.
-    watchFiles:
-      isUsingReact(projectPath) ||
-      isUsingVue(projectPath) ||
-      isUsingPreact(projectPath)
-        ? undefined
-        : [path.join(projectPath, '**/*.html')],
+    // watchFiles: false,
+      // isUsingReact(projectPath) ||
+      // isUsingVue(projectPath) ||
+      // isUsingPreact(projectPath)
+      //   ? undefined
+      //   : [path.join(projectPath, '**/*.html')],
     client: {
       // Allows to set log level in the browser, e.g. before reloading,
       // before an error or when Hot Module Replacement is enabled.

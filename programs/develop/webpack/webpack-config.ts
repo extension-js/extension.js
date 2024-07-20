@@ -5,6 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
 import type webpack from 'webpack'
 import {type DevOptions} from '../extensionDev'
 
@@ -26,7 +27,8 @@ import styleLoaders from './loaders/styleLoaders'
 import boringPlugins from './plugin-compilation/boringPlugins'
 import compilationPlugins from './plugin-compilation/compilationPlugins'
 import extensionPlugin from './plugin-extension/extensionPlugins'
-import reloadPlugin from './plugin-reload'
+// import reloadPlugin from './_plugin-reload'
+import {ReloadPlugin} from './plugin-reload'
 import compatPlugin from './plugin-compat'
 import errorPlugin from './plugin-errors'
 import browserPlugin from './plugin-browsers'
@@ -111,8 +113,13 @@ export default function webpackConfig(
     plugins: [
       compilationPlugins(projectPath, devOptions),
       extensionPlugin(projectPath, devOptions),
-      reloadPlugin(projectPath, devOptions),
-      browserPlugin(projectPath, devOptions),
+      new ReloadPlugin({
+        manifestPath: path.join(projectPath, 'manifest.json'),
+        browser: 'chrome',
+        // port: opts.port,
+        stats: true
+      }),
+      // browserPlugin(projectPath, devOptions),
       compatPlugin(projectPath, devOptions),
       errorPlugin(projectPath, devOptions),
       boringPlugins(projectPath, devOptions)
