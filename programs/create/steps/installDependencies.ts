@@ -54,7 +54,9 @@ export default async function installDependencies(
         if (code !== 0) {
           reject(
             new Error(
-              `Command ${command} ${dependenciesArgs.join(' ')} failed with exit code ${code}`
+              `Command ${command} ${dependenciesArgs.join(
+                ' '
+              )} failed with exit code ${code}`
             )
           )
         } else {
@@ -69,7 +71,9 @@ export default async function installDependencies(
         console.error(
           `🧩 ${bold(`Extension.js`)} ${red(
             `✖︎✖︎✖︎`
-          )} Child process error: Can't install dependencies for ${bold(projectName)}. ${error.message}`
+          )} Child process error: Can't install dependencies for ${bold(
+            projectName
+          )}. ${error.message}`
         )
         reject(error)
       })
@@ -78,7 +82,9 @@ export default async function installDependencies(
     console.error(
       `🧩 ${bold(`Extension.js`)} ${red(
         `✖︎✖︎✖︎`
-      )} Can't install dependencies for ${bold(projectName)}. ${error.message || error.toString()}`
+      )} Can't install dependencies for ${bold(projectName)}. ${
+        error.message || error.toString()
+      }`
     )
 
     process.exit(1)

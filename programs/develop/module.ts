@@ -5,9 +5,9 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import extensionDev from './extensionDev'
-import extensionStart from './extensionStart'
-import extensionBuild from './extensionBuild'
-import extensionPreview from './extensionPreview'
+import extensionDev from './commands/dev'
+import extensionStart from './commands/start'
+import extensionBuild from './commands/build'
+import extensionPreview from './commands/preview'
 
 export {extensionStart, extensionDev, extensionBuild, extensionPreview}

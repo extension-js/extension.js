@@ -19,7 +19,9 @@ export function parseMessage(data: Buffer): {
     return {
       remainingData: data,
       error: new Error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} Error parsing message length.`
+        `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+          `✖︎✖︎✖︎`
+        )} Error parsing message length.`
       ),
       fatal: true
     }

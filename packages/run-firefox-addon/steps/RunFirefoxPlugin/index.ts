@@ -29,9 +29,15 @@ export default class FirefoxExtensionLauncherPlugin {
     if (!fs.existsSync(firefox!) || '') {
       console.error(
         `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Firefox browser ${firefox !== 'null' ? `is not found at ${firefox}` : 'is not installed.'}. ` +
+          `Firefox browser ${
+            firefox !== 'null'
+              ? `is not found at ${firefox}`
+              : 'is not installed.'
+          }. ` +
           // `Either install Firefox or set the FIREFOX environment variable to the path of the Firefox executable.`
-          `Either install Firefox or choose a different browser via ${blue('--browser')}.`
+          `Either install Firefox or choose a different browser via ${blue(
+            '--browser'
+          )}.`
       )
       process.exit()
     }

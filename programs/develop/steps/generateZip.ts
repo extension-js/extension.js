@@ -59,7 +59,9 @@ function getFilesToZip(projectDir: string): string[] {
     ig.add(gitignoreContent)
   } else {
     console.log(
-      `No ${yellow('.gitignore')} found, zipping all the content inside ${underline(projectDir)}`
+      `No ${yellow(
+        '.gitignore'
+      )} found, zipping all the content inside ${underline(projectDir)}`
     )
   }
 
@@ -76,9 +78,10 @@ export default function generateZip(
     const outputDir = path.join(distDir, browser)
     // We collect data from the projectDir if the user wants to zip the source files.
     const dataDir = options.zipSource ? projectDir : outputDir
-    const manifest: Record<string, string> = require(
-      path.join(dataDir, 'manifest.json')
-    )
+    const manifest: Record<string, string> = require(path.join(
+      dataDir,
+      'manifest.json'
+    ))
     const name = getPackageName(manifest, options)
     const ext = getExtensionExtension(browser)
     // Dist zips are stored in dist/[browser]/[name].zip
@@ -102,7 +105,9 @@ export default function generateZip(
 
     if (options.zip) {
       console.log(
-        `\nPackaging extension distribution files to ${white(underline(distZipPath))}...`
+        `\nPackaging extension distribution files to ${white(
+          underline(distZipPath)
+        )}...`
       )
 
       const zip = new AdmZip()
@@ -112,24 +117,32 @@ export default function generateZip(
 
     if (options.zip && options.zipSource) {
       console.log(
-        `\n${bold('📦 Package name:')} ${yellow(`${name}`)}, ${bold('Target Browser:')} ${`${capitalizedBrowser}`}` +
+        `\n${bold('📦 Package name:')} ${yellow(`${name}`)}, ${bold(
+          'Target Browser:'
+        )} ${`${capitalizedBrowser}`}` +
           `\n   ${bold('└─')} ${underline(`${sourceZipPath}`)} (source)` +
           `\n   ${bold('└─')} ${underline(`${distZipPath}`)} (distribution)`
       )
     } else if (options.zip) {
       console.log(
-        `\n${bold('📦 Package name:')} ${yellow(`${name}.${ext}`)}, ${bold('Target Browser:')} ${`${capitalizedBrowser}`}` +
+        `\n${bold('📦 Package name:')} ${yellow(`${name}.${ext}`)}, ${bold(
+          'Target Browser:'
+        )} ${`${capitalizedBrowser}`}` +
           `\n   ${bold('└─')} ${underline(`${distZipPath}`)} (distribution)`
       )
     } else if (options.zipSource) {
       console.log(
-        `\n${bold('📦 Package name:')} ${yellow(`${name}-source.${ext}`)}, ${bold('Target Browser:')} ${`${capitalizedBrowser}`}` +
+        `\n${bold('📦 Package name:')} ${yellow(
+          `${name}-source.${ext}`
+        )}, ${bold('Target Browser:')} ${`${capitalizedBrowser}`}` +
           `\n   ${bold('└─')} ${underline(`${sourceZipPath}`)} (source)`
       )
     }
   } catch (error) {
     console.error(
-      `🧩 ${bold('Extension.js')} ${blue('✖︎✖︎✖︎')} Failed to compress extension package: ${error}`
+      `🧩 ${bold('Extension.js')} ${blue(
+        '✖︎✖︎✖︎'
+      )} Failed to compress extension package: ${error}`
     )
     throw error
   }
