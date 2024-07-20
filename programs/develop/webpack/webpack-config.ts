@@ -23,13 +23,13 @@ import jsLoaders from './loaders/jsLoaders'
 import styleLoaders from './loaders/styleLoaders'
 
 // Plugins
-import compilationPlugins from './plugins/compilationPlugins'
-import extensionPlugins from './plugins/extensionPlugins'
-import reloadPlugins from './plugins/reloadPlugins'
-import compatPlugins from './plugins/compatPlugins'
-import errorPlugins from './plugins/errorPlugins'
-import browserPlugins from './plugins/browserPlugins'
-import boringPlugins from './plugins/boringPlugins'
+import boringPlugins from './plugin-compilation/boringPlugins'
+import compilationPlugins from './plugin-compilation/compilationPlugins'
+import extensionPlugin from './plugin-extension/extensionPlugins'
+import reloadPlugin from './plugin-reload'
+import compatPlugin from './plugin-compat'
+import errorPlugin from './plugin-errors'
+import browserPlugin from './plugin-browsers'
 
 // Checks
 import getDevToolOption from './config/getDevtoolOption'
@@ -110,11 +110,11 @@ export default function webpackConfig(
     },
     plugins: [
       compilationPlugins(projectPath, devOptions),
-      extensionPlugins(projectPath, devOptions),
-      reloadPlugins(projectPath, devOptions),
-      browserPlugins(projectPath, devOptions),
-      compatPlugins(projectPath, devOptions),
-      errorPlugins(projectPath, devOptions),
+      extensionPlugin(projectPath, devOptions),
+      reloadPlugin(projectPath, devOptions),
+      browserPlugin(projectPath, devOptions),
+      compatPlugin(projectPath, devOptions),
+      errorPlugin(projectPath, devOptions),
       boringPlugins(projectPath, devOptions)
     ],
     optimization: {

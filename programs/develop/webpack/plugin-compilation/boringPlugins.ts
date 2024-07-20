@@ -5,7 +5,7 @@ import colors, {bold, blue, yellow} from '@colors/colors/safe'
 import Dotenv from 'dotenv-webpack'
 import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
 
-import SpecialFoldersPlugin from './SpecialFoldersPlugin'
+import SpecialFoldersPlugin from '../plugin-extension/SpecialFoldersPlugin'
 import {type DevOptions} from '../../extensionDev'
 
 export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
