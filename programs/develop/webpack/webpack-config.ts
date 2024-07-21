@@ -19,15 +19,15 @@ import {
 } from './config/getPath'
 
 // Loaders
-import assetLoaders from './loaders/assetLoaders'
-import jsLoaders from './loaders/jsLoaders'
-import styleLoaders from './loaders/styleLoaders'
+import assetLoaders from './loaders/asset-loaders'
+import jsLoaders from './loaders/js-loaders'
+import styleLoaders from './loaders/style-loaders'
 
 // Plugins
 import boringPlugins from './plugin-compilation/boringPlugins'
 import compilationPlugins from './plugin-compilation/compilationPlugins'
 import extensionPlugin from './plugin-extension/extensionPlugins'
-import {ReloadPlugin} from '../plugin-reload'
+import {ReloadPlugin} from './plugin-reload'
 import compatPlugin from './plugin-compat'
 import errorPlugin from './plugin-errors'
 import {BrowsersPlugin} from '../plugin-browsers'

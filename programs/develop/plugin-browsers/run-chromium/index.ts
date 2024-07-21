@@ -45,7 +45,7 @@ export class RunChromiumPlugin {
     if (!fs.existsSync(browserBinaryLocation) || '') {
       console.error(
         `${bgWhite(black(bold(` ${browser}-browser `)))} ${red('✖︎✖︎✖︎')} ` +
-          `{browser} browser ${
+          `${browser} browser ${
             typeof browserBinaryLocation === 'undefined'
               ? 'is not installed.'
               : `is not found at ${browserBinaryLocation}`

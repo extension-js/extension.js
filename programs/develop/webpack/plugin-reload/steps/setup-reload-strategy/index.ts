@@ -1,8 +1,8 @@
 import type webpack from 'webpack'
-import {type PluginInterface} from '../../types'
-import ApplyManifestDevDefaults from './ApplyManifestDevDefaults'
-import TargetWebExtensionPlugin from './TargetWebExtensionPlugin'
-import AddRuntimeListener from './AddRuntimeListener'
+import {type PluginInterface} from '../../reload-types'
+import AddRuntimeListener from '../add-runtime-listener'
+import ApplyManifestDevDefaults from './apply-manifest-dev-defaults'
+import TargetWebExtensionPlugin from './target-web-extension-plugin'
 
 class SetupReloadStrategy {
   private readonly manifestPath: string
