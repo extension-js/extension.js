@@ -7,8 +7,8 @@
 
 import path from 'path'
 import type webpack from 'webpack'
-import CommonErrorsPlugin from 'webpack-browser-extension-common-errors'
 import {type DevOptions} from '../../types'
+import {CommonErrorsPlugin} from './common-errors'
 
 export default function errorPlugins(
   projectPath: string,
