@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "version": "1.0",
+  "name": "new",
+  "description": "An Extension.js template using web technologies. This template includes a new tab override.",
+  "chrome_url_overrides": {
+    "newtab": "newtab/index.html"
+  }
+}
