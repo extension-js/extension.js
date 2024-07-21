@@ -10,7 +10,7 @@ import {
   magenta,
   blue
 } from '@colors/colors/safe'
-import {StartOptions} from '../types'
+import {Manifest, StartOptions} from '../types'
 import {StatsAsset} from 'webpack'
 
 // Utility function for logging prefixes
@@ -19,10 +19,10 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
     type === 'warn'
       ? yellow('►►►')
       : type === 'info'
-      ? blue('►►►')
-      : type === 'error'
-      ? red('✖︎✖︎✖︎')
-      : green('►►►')
+        ? blue('►►►')
+        : type === 'error'
+          ? red('✖︎✖︎✖︎')
+          : green('►►►')
   return `🧩 ${bold('Extension.js')} ${arrow} `
 }
 
@@ -458,4 +458,10 @@ export function errorWhileDeveloping(error: any) {
       bold((error as string) || '')
     )}`
   )
+}
+
+export function boring(stats: any) {
+  const divider = stats.hasErrors() ? 'error' : 'success'
+
+  return `${getLoggingPrefix(divider)}`
 }
