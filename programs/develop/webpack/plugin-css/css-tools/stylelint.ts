@@ -10,17 +10,17 @@ import fs from 'fs'
 import {bold, blue, bgBlack, white} from '@colors/colors'
 import {execSync} from 'child_process'
 
-export function getStylelintConfigFile(projectDir: string) {
-  const stylelintConfigJs = path.join(projectDir, 'stylelint.config.js')
-  const stylelintConfigDotJs = path.join(projectDir, '.stylelintrc.js file')
-  const stylelintConfigMjs = path.join(projectDir, 'stylelint.config.mjs')
-  const stylelintConfigDotMjs = path.join(projectDir, '.stylelintrc.mjs')
-  const stylelintConfigCjs = path.join(projectDir, 'stylelint.config.cjs')
-  const stylelintConfigDotCjs = path.join(projectDir, '.stylelintrc.cjs')
-  const stylelintConfigJson = path.join(projectDir, '.stylelintrc.json')
-  const stylelintConfigDotJson = path.join(projectDir, '.stylelintrc')
-  const stylelintConfigYml = path.join(projectDir, '.stylelintrc.yml')
-  const stylelintConfigDotYml = path.join(projectDir, '.stylelintrc.yaml')
+export function getStylelintConfigFile(projectPath: string) {
+  const stylelintConfigJs = path.join(projectPath, 'stylelint.config.js')
+  const stylelintConfigDotJs = path.join(projectPath, '.stylelintrc.js file')
+  const stylelintConfigMjs = path.join(projectPath, 'stylelint.config.mjs')
+  const stylelintConfigDotMjs = path.join(projectPath, '.stylelintrc.mjs')
+  const stylelintConfigCjs = path.join(projectPath, 'stylelint.config.cjs')
+  const stylelintConfigDotCjs = path.join(projectPath, '.stylelintrc.cjs')
+  const stylelintConfigJson = path.join(projectPath, '.stylelintrc.json')
+  const stylelintConfigDotJson = path.join(projectPath, '.stylelintrc')
+  const stylelintConfigYml = path.join(projectPath, '.stylelintrc.yml')
+  const stylelintConfigDotYml = path.join(projectPath, '.stylelintrc.yaml')
 
   if (fs.existsSync(stylelintConfigJs)) return stylelintConfigJs
   if (fs.existsSync(stylelintConfigDotJs)) return stylelintConfigDotJs
@@ -38,15 +38,15 @@ export function getStylelintConfigFile(projectDir: string) {
 
 let userMessageDelivered = false
 
-export function isUsingStylelint(projectDir: string) {
-  const packageJsonPath = path.join(projectDir, 'package.json')
-  const manifestJsonPath = path.join(projectDir, 'manifest.json')
+export function isUsingStylelint(projectPath: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
   }
 
-  const configFile = getStylelintConfigFile(projectDir)
+  const configFile = getStylelintConfigFile(projectPath)
   const packageJson = require(packageJsonPath)
 
   const stylelintAsDevDep =
@@ -83,8 +83,8 @@ function installStylelint() {
   console.log('React and related loaders installed successfully.')
 }
 
-export function maybeUseStylelintPlugin(projectDir: string, opts: any) {
-  if (isUsingStylelint(projectDir)) {
+export function maybeUseStylelintPlugin(projectPath: string, opts: any) {
+  if (isUsingStylelint(projectPath)) {
     try {
       require.resolve('stylelint')
     } catch (e) {
@@ -95,12 +95,12 @@ export function maybeUseStylelintPlugin(projectDir: string, opts: any) {
 
     return [
       new StylelintPlugin({
-        context: projectDir,
-        configFile: isUsingStylelint(projectDir)
-          ? getStylelintConfigFile(projectDir)
+        context: projectPath,
+        configFile: isUsingStylelint(projectPath)
+          ? getStylelintConfigFile(projectPath)
           : path.join(__dirname, 'stylelint.config.js'),
         files: '**/*.{css,scss,sass,less}',
-        exclude: ['node_modules', path.join(projectDir, 'node_modules')]
+        exclude: ['node_modules', path.join(projectPath, 'node_modules')]
       })
     ]
   }

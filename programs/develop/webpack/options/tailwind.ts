@@ -9,10 +9,10 @@ import path from 'path'
 import fs from 'fs'
 import {bold, blue, magenta} from '@colors/colors'
 
-export function getTailwindConfigFile(projectDir: string) {
-  const configFileMjs = path.join(projectDir, 'tailwind.config.mjs')
-  const configFileCjs = path.join(projectDir, 'tailwind.config.cjs')
-  const configFileJs = path.join(projectDir, 'tailwind.config.js')
+export function getTailwindConfigFile(projectPath: string) {
+  const configFileMjs = path.join(projectPath, 'tailwind.config.mjs')
+  const configFileCjs = path.join(projectPath, 'tailwind.config.cjs')
+  const configFileJs = path.join(projectPath, 'tailwind.config.js')
 
   if (fs.existsSync(configFileMjs)) return configFileMjs
   if (fs.existsSync(configFileCjs)) return configFileCjs
@@ -23,15 +23,15 @@ export function getTailwindConfigFile(projectDir: string) {
 
 let userMessageDelivered = false
 
-export function isUsingTailwind(projectDir: string) {
-  const packageJsonPath = path.join(projectDir, 'package.json')
-  const manifestJsonPath = path.join(projectDir, 'manifest.json')
+export function isUsingTailwind(projectPath: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
   }
 
-  const configFile = getTailwindConfigFile(projectDir)
+  const configFile = getTailwindConfigFile(projectPath)
   const packageJson = require(packageJsonPath)
 
   const tailwindAsDevDep =

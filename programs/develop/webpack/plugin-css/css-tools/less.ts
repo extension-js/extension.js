@@ -7,9 +7,9 @@ import {DevOptions} from '../../../types'
 
 let userMessageDelivered = false
 
-export function isUsingLess(projectDir: string): boolean {
-  const packageJsonPath = path.join(projectDir, 'package.json')
-  const manifestJsonPath = path.join(projectDir, 'manifest.json')
+export function isUsingLess(projectPath: string): boolean {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -47,10 +47,10 @@ function installLess(): void {
 type Loader = Record<string, any>
 
 export function maybeUseLess(
-  projectDir: string,
-  opts: {mode: DevOptions['mode']}
+  projectPath: string,
+  mode: DevOptions['mode']
 ): Loader[] {
-  if (isUsingLess(projectDir)) {
+  if (isUsingLess(projectPath)) {
     try {
       require.resolve('less')
     } catch (e) {
@@ -65,18 +65,18 @@ export function maybeUseLess(
         oneOf: [
           {
             resourceQuery: /is_content_css_import=true/,
-            use: commonStyleLoaders(projectDir, {
+            use: commonStyleLoaders(projectPath, {
               regex: /\.less$/,
               loader: require.resolve('less-loader'),
-              mode: opts.mode,
+              mode,
               useMiniCssExtractPlugin: false
             })
           },
           {
-            use: commonStyleLoaders(projectDir, {
+            use: commonStyleLoaders(projectPath, {
               regex: /\.less$/,
               loader: require.resolve('less-loader'),
-              mode: opts.mode,
+              mode,
               useMiniCssExtractPlugin: true
             })
           }
