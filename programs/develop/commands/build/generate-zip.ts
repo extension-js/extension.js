@@ -5,7 +5,7 @@ import {glob} from 'glob'
 import AdmZip from 'adm-zip'
 import slugify from 'slugify'
 import {blue, white, yellow, bold, underline} from '@colors/colors/safe'
-import {type BuildOptions} from '../../types'
+import {type BuildOptions} from '../../develop-types'
 
 function readFileSync(filePath: string): string {
   try {

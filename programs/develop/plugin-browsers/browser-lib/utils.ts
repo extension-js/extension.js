@@ -1,10 +1,9 @@
 import {type Compilation} from 'webpack'
-import {type Manifest} from '../../types'
 
 export function getManifestContent(
   compilation: Compilation,
   manifestPath: string
-): Manifest {
+) {
   if (
     compilation.getAsset('manifest.json') ||
     compilation.assets['manifest.json']

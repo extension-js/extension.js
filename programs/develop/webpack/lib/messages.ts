@@ -1,5 +1,6 @@
 import path from 'path'
 import fs from 'fs'
+import {StatsAsset} from 'webpack'
 import {
   bold,
   bgWhite,
@@ -11,8 +12,8 @@ import {
   blue,
   cyan
 } from '@colors/colors/safe'
-import {Manifest, StartOptions} from '../types'
-import {StatsAsset} from 'webpack'
+import {Manifest} from '../types'
+import {StartOptions} from '../../develop-types'
 
 // Utility function for logging prefixes
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {

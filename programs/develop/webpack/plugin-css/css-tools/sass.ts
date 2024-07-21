@@ -2,8 +2,8 @@ import path from 'path'
 import fs from 'fs'
 import {execSync} from 'child_process'
 import {commonStyleLoaders} from '../common-style-loaders'
-import {DevOptions} from '../../../types'
-import * as messages from '../../../lib/messages'
+import {DevOptions} from '../../../develop-types'
+import * as messages from '../../lib/messages'
 
 let userMessageDelivered = false
 

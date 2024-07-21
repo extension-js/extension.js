@@ -4,8 +4,8 @@ import type webpack from 'webpack'
 import WebExtension from 'webpack-target-webextension'
 import {red, bold} from '@colors/colors/safe'
 import {type PluginInterface} from '../../../reload-types'
-import {type Manifest} from '../../../../../types'
-import * as messages from '../../../../../lib/messages'
+import {type Manifest} from '../../../../types'
+import * as messages from '../../../../lib/messages'
 
 class TargetWebExtensionPlugin {
   private readonly manifestPath?: string

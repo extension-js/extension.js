@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
-import {type Compiler, type Compilation} from 'webpack'
-import {type Manifest, type FilepathList} from '../types'
+import {type Compilation} from 'webpack'
+import {type Manifest} from '../types'
 
 export function getResolvedPath(
   context: string,
@@ -21,7 +21,7 @@ export function getResolvedPath(
 
 export function isFromFilepathList(
   filePath: string,
-  filepathList?: FilepathList
+  filepathList?: Record<string, string | string[] | undefined>
 ): boolean {
   return Object.values(filepathList || {}).some((value) => {
     return value === filePath
@@ -64,7 +64,7 @@ export function unixify(filepath: string) {
 
 export function shouldExclude(
   path: string,
-  ignorePatterns?: FilepathList
+  ignorePatterns?: Record<string, string | string[] | undefined>
 ): boolean {
   if (!ignorePatterns) {
     return false

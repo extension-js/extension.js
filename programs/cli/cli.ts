@@ -16,7 +16,7 @@ import type {
   StartOptions,
   BuildOptions
   // PreviewOptions
-} from '@extension-create/develop/types'
+} from '@extension-create/develop/develop-types'
 import type {BrowsersSupported} from './types'
 
 // Modules

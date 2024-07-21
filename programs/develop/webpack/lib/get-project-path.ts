@@ -1,7 +1,7 @@
 import path from 'path'
 import goGitIt from 'go-git-it'
 import {blue, green, white, bold, underline} from '@colors/colors/safe'
-import {downloadAndExtractZip} from '../commands/dev/extract-from-zip'
+import {downloadAndExtractZip} from '../../commands/dev/extract-from-zip'
 
 const isUrl = (url: string) => {
   try {
