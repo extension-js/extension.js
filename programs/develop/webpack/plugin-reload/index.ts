@@ -1,8 +1,8 @@
 import type webpack from 'webpack'
-import {type PluginInterface} from './types'
-import CreateWebSocketServer from './steps/CreateWebSocketServer'
-import SetupReloadStrategy from './steps/SetupReloadStrategy'
-import {DevOptions} from '../types'
+import {type PluginInterface} from './reload-types'
+import CreateWebSocketServer from './steps/create-web-socket-server'
+import SetupReloadStrategy from './steps/setup-reload-strategy'
+import {DevOptions} from '../../types'
 
 export class ReloadPlugin {
   private readonly manifestPath: string

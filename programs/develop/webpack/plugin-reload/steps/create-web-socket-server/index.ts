@@ -1,9 +1,9 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
-import {PluginInterface} from '../../types'
-import messageDispatcher from './webSocketServer/messageDispatcher'
-import startServer from './webSocketServer/startServer'
-import rewriteReloadPort from './rewriteReloadPort'
+import {PluginInterface} from '../../reload-types'
+import messageDispatcher from './web-socket-server/message-dispatcher'
+import startServer from './web-socket-server/start-server'
+import rewriteReloadPort from './rewrite-reload-port'
 
 export default class CreateWebSocketServer {
   private readonly manifestPath: string

@@ -43,8 +43,8 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
           path: fs.existsSync(path.join(projectPath, '.env'))
             ? path.join(projectPath, '.env')
             : fs.existsSync(path.join(projectPath, '.env.local'))
-              ? path.join(projectPath, '.env.local')
-              : path.join(projectPath, '.env.example'),
+            ? path.join(projectPath, '.env.local')
+            : path.join(projectPath, '.env.example'),
           allowEmptyValues: true,
           defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
           systemvars: true

@@ -1,5 +1,5 @@
 import {type Compilation} from 'webpack'
-import {type Manifest} from '../../types'
+import {type Manifest} from '../../../types'
 
 export function getManifestContent(
   compilation: Compilation,

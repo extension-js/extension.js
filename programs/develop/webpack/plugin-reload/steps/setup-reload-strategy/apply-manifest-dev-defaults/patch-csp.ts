@@ -1,5 +1,5 @@
 import parse from 'content-security-policy-parser'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../../types'
 
 export function patchV2CSP(manifest: Manifest) {
   let policy: string | undefined = manifest.content_security_policy

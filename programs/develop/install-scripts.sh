@@ -6,7 +6,7 @@ plugin_loader_path() {
   local base_folder=$1
   local plugin_folder=$2
   local filename=$3
-  echo "$(dirname "$0")/$base_folder/$plugin_folder/steps/$filename"
+  echo "$(dirname "$0")/webpack/$base_folder/$plugin_folder/steps/$filename"
 }
 
 # Define the files
@@ -27,15 +27,16 @@ scripts_plugin_files=(
 )
 
 reload_plugin_files=(
-  # "$(plugin_loader_path 'plugin-reload' '' 'inject-background-runtime-loader.ts')"
+  # "$(plugin_loader_path 'plugin-reload' 'add-runtime-listener' 'inject-background-runtime-loader.ts')"
+    "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/inject-background-runtime-loader.ts"
 )
 
 # Separate minimum files for esm format
 minimum_files=(
   # "$(plugin_loader_path 'plugin-extension' 'feature-html' 'minimum-script-file.ts')"
   # "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'minimum-content-file.ts')"
-  # "$(plugin_loader_path 'plugin-reload' '' 'minimum-background-file.ts')"
-  "$(dirname "$0")/plugin-reload/steps/minimum-background-file.ts"
+  # "$(plugin_loader_path 'plugin-reload' 'add-runtime-listener' 'minimum-background-file.ts')"
+  "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/minimum-background-file.ts"
 )
 
 tsup() {
@@ -64,7 +65,7 @@ copy_files_to_dist() {
     "tailwind.config.js"
     "stylelint.config.js"
     "commands/dev/types"
-    "plugin-reload/extensions"
+    "webpack/plugin-reload/extensions"
   )
   for file in "${files[@]}"; do
     if [ -e "$file" ]; then

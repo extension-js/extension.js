@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
 import * as messages from '../../../reload-lib/messages'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../../types'
 import {isFirstRun} from '../../../reload-lib/is-first-run'
 
 interface Data {
