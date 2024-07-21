@@ -10,10 +10,10 @@ import fs from 'fs'
 import {bold, blue, magenta} from '@colors/colors'
 import {execSync} from 'child_process'
 
-export function getTailwindConfigFile(projectDir: string) {
-  const configFileMjs = path.join(projectDir, 'tailwind.config.mjs')
-  const configFileCjs = path.join(projectDir, 'tailwind.config.cjs')
-  const configFileJs = path.join(projectDir, 'tailwind.config.js')
+export function getTailwindConfigFile(projectPath: string) {
+  const configFileMjs = path.join(projectPath, 'tailwind.config.mjs')
+  const configFileCjs = path.join(projectPath, 'tailwind.config.cjs')
+  const configFileJs = path.join(projectPath, 'tailwind.config.js')
 
   if (fs.existsSync(configFileMjs)) return configFileMjs
   if (fs.existsSync(configFileCjs)) return configFileCjs
@@ -24,15 +24,15 @@ export function getTailwindConfigFile(projectDir: string) {
 
 let userMessageDelivered = false
 
-export function isUsingTailwind(projectDir: string) {
-  const packageJsonPath = path.join(projectDir, 'package.json')
-  const manifestJsonPath = path.join(projectDir, 'manifest.json')
+export function isUsingTailwind(projectPath: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
   }
 
-  const configFile = getTailwindConfigFile(projectDir)
+  const configFile = getTailwindConfigFile(projectPath)
   const packageJson = require(packageJsonPath)
 
   const tailwindAsDevDep =
@@ -68,8 +68,8 @@ function installTailwind() {
   console.log('React and related loaders installed successfully.')
 }
 
-export function maybeUseTailwindPlugin(projectDir: string, opts: any) {
-  if (isUsingTailwind(projectDir)) {
+export function maybeUseTailwindPlugin(projectPath: string, opts: any) {
+  if (isUsingTailwind(projectPath)) {
     try {
       require.resolve('tailwindcss')
     } catch (e) {
@@ -78,8 +78,8 @@ export function maybeUseTailwindPlugin(projectDir: string, opts: any) {
     }
 
     return [
-      ...(isUsingTailwind(projectDir)
-        ? [require.resolve('tailwindcss', {paths: [projectDir]})]
+      ...(isUsingTailwind(projectPath)
+        ? [require.resolve('tailwindcss', {paths: [projectPath]})]
         : [])
     ]
   }

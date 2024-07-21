@@ -11,9 +11,9 @@ import {bold, blue, cyan} from '@colors/colors/safe'
 
 let userMessageDelivered = false
 
-export function isUsingPreact(projectDir: string) {
-  const packageJsonPath = path.join(projectDir, 'package.json')
-  const manifestJsonPath = path.join(projectDir, 'manifest.json')
+export function isUsingPreact(projectPath: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
   const manifest = require(manifestJsonPath)
 
   if (!fs.existsSync(packageJsonPath)) {

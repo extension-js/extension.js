@@ -11,7 +11,7 @@ import {isUsingVue} from '../options/vue'
 
 type Loader = Record<string, any>
 
-const vueLoaders = (projectDir: string): Loader[] => {
+const vueLoaders = (projectPath: string): Loader[] => {
   const vueLoaders: Loader[] = [
     {
       test: /\.vue$/,
@@ -20,7 +20,7 @@ const vueLoaders = (projectDir: string): Loader[] => {
   ]
 
   // use vue and typescript, need to add ts-loader
-  if (isUsingTypeScript(projectDir)) {
+  if (isUsingTypeScript(projectPath)) {
     vueLoaders.push({
       test: /\.ts?$/,
       loader: require.resolve('ts-loader'),
@@ -34,9 +34,9 @@ const vueLoaders = (projectDir: string): Loader[] => {
   return vueLoaders
 }
 
-export default function jsLoaders(projectDir: string, opts: any) {
+export default function jsLoaders(projectPath: string, opts: any) {
   // Prevent users from running ts/tsx files when not using TypeScript
-  const files = isUsingTypeScript(projectDir)
+  const files = isUsingTypeScript(projectPath)
     ? /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/
     : /\.(js|mjs|jsx|mjsx)$/
 
@@ -45,18 +45,18 @@ export default function jsLoaders(projectDir: string, opts: any) {
     // https://babeljs.io/docs/en/babel-loader
     {
       test: files,
-      include: projectDir,
+      include: projectPath,
       exclude: /node_modules/,
       loader: require.resolve('babel-loader'),
-      options: babelConfig(projectDir, {
+      options: babelConfig(projectPath, {
         mode: opts.mode,
-        typescript: isUsingTypeScript(projectDir)
+        typescript: isUsingTypeScript(projectPath)
       })
     }
   ]
 
   // Add vue-loader when using vue
-  isUsingVue(projectDir) && jsLoaders.push(...vueLoaders(projectDir))
+  isUsingVue(projectPath) && jsLoaders.push(...vueLoaders(projectPath))
 
   return jsLoaders
 }

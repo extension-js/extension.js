@@ -11,7 +11,7 @@ import {isUsingReact} from './react'
 import {bold, blue, yellow} from '@colors/colors/safe'
 import {isUsingPreact} from './preact'
 
-export function defaultTypeScriptConfig(projectDir: string, _opts?: any) {
+export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
   return {
     compilerOptions: {
       // Allow JavaScript files to be imported inside your project,
@@ -29,7 +29,7 @@ export function defaultTypeScriptConfig(projectDir: string, _opts?: any) {
       // Controls how JSX constructs are emitted in JavaScript files.
       // This only affects output of JS files that started in .tsx files.
       jsx:
-        isUsingReact(projectDir) || isUsingPreact(projectDir)
+        isUsingReact(projectPath) || isUsingPreact(projectPath)
           ? 'react-jsx'
           : 'preserve',
       // Include typings for latest ECMAScript features and DOM APIs
@@ -57,15 +57,15 @@ export function defaultTypeScriptConfig(projectDir: string, _opts?: any) {
   }
 }
 
-export function getUserTypeScriptConfigFile(projectDir: string) {
-  const configFile = path.join(projectDir, 'tsconfig.json')
+export function getUserTypeScriptConfigFile(projectPath: string) {
+  const configFile = path.join(projectPath, 'tsconfig.json')
 
   if (fs.existsSync(configFile)) return configFile
 
   return undefined
 }
 
-export function getTypeScriptConfigOverrides(projectDir: string, opts: any) {
+export function getTypeScriptConfigOverrides(projectPath: string, opts: any) {
   return {
     compilerOptions: {
       // Generate source maps for debugging
@@ -92,11 +92,11 @@ export function getTypeScriptConfigOverrides(projectDir: string, opts: any) {
   }
 }
 
-function writeTsConfig(projectDir: string) {
+function writeTsConfig(projectPath: string) {
   fs.writeFileSync(
-    path.join(projectDir, 'tsconfig.json'),
+    path.join(projectPath, 'tsconfig.json'),
     JSON.stringify(
-      defaultTypeScriptConfig(projectDir, {mode: 'development'}),
+      defaultTypeScriptConfig(projectPath, {mode: 'development'}),
       null,
       2
     )
@@ -105,16 +105,16 @@ function writeTsConfig(projectDir: string) {
 
 let userMessageDelivered = false
 
-export function isUsingTypeScript(projectDir: string) {
-  const packageJsonPath = path.join(projectDir, 'package.json')
+export function isUsingTypeScript(projectPath: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
   }
 
-  const configFile = getUserTypeScriptConfigFile(projectDir)
+  const configFile = getUserTypeScriptConfigFile(projectPath)
   const packageJson = require(packageJsonPath)
-  const manifest = require(path.join(projectDir, 'manifest.json'))
+  const manifest = require(path.join(projectPath, 'manifest.json'))
 
   const TypeScriptAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies.typescript
@@ -145,7 +145,7 @@ export function isUsingTypeScript(projectDir: string) {
             )}...`
         )
 
-        writeTsConfig(projectDir)
+        writeTsConfig(projectPath)
       }
     }
 
@@ -155,16 +155,16 @@ export function isUsingTypeScript(projectDir: string) {
   return !!configFile && !!(TypeScriptAsDevDep || TypeScriptAsDep)
 }
 
-export function tsCheckerOptions(projectDir: string, opts: any) {
+export function tsCheckerOptions(projectPath: string, opts: any) {
   return {
     async: opts.mode === 'development',
     typescript: {
-      context: projectDir,
-      configFile: getUserTypeScriptConfigFile(projectDir),
-      configOverwrite: getTypeScriptConfigOverrides(projectDir, {
+      context: projectPath,
+      configFile: getUserTypeScriptConfigFile(projectPath),
+      configOverwrite: getTypeScriptConfigOverrides(projectPath, {
         mode: 'development'
       }),
-      typescriptPath: require.resolve('typescript', {paths: [projectDir]}),
+      typescriptPath: require.resolve('typescript', {paths: [projectPath]}),
       // Measures and prints timings related to the TypeScript performance.
       profile: false
     },

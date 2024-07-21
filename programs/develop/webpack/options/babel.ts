@@ -12,10 +12,10 @@ import presetModernExtensions from 'babel-preset-modern-browser-extension'
 
 const projectWideBabelConfigFiles = ['babel.config.json', 'babel.config.js']
 
-export function getBabelConfigFile(projectDir: string) {
-  const manifest = require(path.join(projectDir, 'manifest.json'))
+export function getBabelConfigFile(projectPath: string) {
+  const manifest = require(path.join(projectPath, 'manifest.json'))
   for (const file of projectWideBabelConfigFiles) {
-    const configFile = path.join(projectDir, file)
+    const configFile = path.join(projectPath, file)
 
     if (fs.existsSync(configFile)) {
       console.log(
@@ -32,7 +32,7 @@ export function getBabelConfigFile(projectDir: string) {
   return undefined
 }
 
-export function babelConfig(projectDir: string, opts: any) {
+export function babelConfig(projectPath: string, opts: any) {
   return {
     // When set, the given directory will be used to cache the results
     // of the loader. Future webpack builds will attempt to read from
@@ -48,7 +48,7 @@ export function babelConfig(projectDir: string, opts: any) {
     // project may benefit from this if it transpiles thousands of files.
     cacheCompression: false,
     babelrc: false,
-    configFile: getBabelConfigFile(projectDir),
+    configFile: getBabelConfigFile(projectPath),
     compact: opts.mode === 'production',
     overrides: [presetModernExtensions(opts).overrides],
     presets: [...presetModernExtensions(opts).presets],

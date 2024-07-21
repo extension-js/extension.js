@@ -5,7 +5,7 @@ import {isUsingSass} from './css-tools/sass'
 import {isUsingLess} from './css-tools/less'
 
 export function commonStyleLoaders(
-  projectDir: string,
+  projectPath: string,
   opts: any
 ): RuleSetRule['use'] {
   const styleLoaders: RuleSetRule['use'] = [
@@ -16,9 +16,9 @@ export function commonStyleLoaders(
   ]
 
   if (
-    isUsingTailwind(projectDir) ||
-    isUsingSass(projectDir) ||
-    isUsingLess(projectDir)
+    isUsingTailwind(projectPath) ||
+    isUsingSass(projectPath) ||
+    isUsingLess(projectPath)
   ) {
     styleLoaders.push({
       // `postcss-loader` applies autoprefixer to our CSS.
@@ -29,7 +29,7 @@ export function commonStyleLoaders(
           ident: 'postcss',
           config: false,
           plugins: [
-            maybeUseTailwindPlugin(projectDir, opts),
+            maybeUseTailwindPlugin(projectPath, opts),
             require.resolve('postcss-flexbugs-fixes'),
             [
               require.resolve('postcss-preset-env'),

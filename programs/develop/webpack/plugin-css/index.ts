@@ -3,6 +3,8 @@ import {type PathData, type Compiler, type RuleSetRule} from 'webpack'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import {commonStyleLoaders} from './common-style-loaders'
 import {DevOptions, PluginInterface} from '../../types'
+import {isUsingLess, maybeUseLess} from './css-tools/less'
+import {isUsingSass, maybeUseSass} from './css-tools/sass'
 
 export class CssPlugin {
   public readonly manifestPath: string
@@ -71,17 +73,14 @@ export class CssPlugin {
       }
     ]
 
-    // if (isUsingLess) {
-    //   loaders.push(...maybeUseLess(projectPath, opts));
-    // }
-
-    // if (isUsingSass) {
-    //   loaders.push(...maybeUseSass(projectPath, opts));
-    // }
+    loaders.push(...maybeUseLess(projectPath, this.mode))
+    loaders.push(...maybeUseSass(projectPath, this.mode))
 
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
       ...loaders
     ]
+
+    console.log({rules: compiler.options.module.rules})
   }
 }

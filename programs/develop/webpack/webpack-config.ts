@@ -112,9 +112,9 @@ export default function webpackConfig(
         manifestPath: path.join(projectPath, 'manifest.json'),
         mode: devOptions.mode
       }),
-      extensionPlugin(projectPath, devOptions),
-      compatPlugin(projectPath, devOptions),
       errorPlugin(projectPath, devOptions),
+      compatPlugin(projectPath, devOptions),
+      extensionPlugin(projectPath, devOptions),
       new ReloadPlugin({
         manifestPath: path.join(projectPath, 'manifest.json'),
         browser: 'chrome',

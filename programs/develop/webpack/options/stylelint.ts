@@ -9,17 +9,17 @@ import path from 'path'
 import fs from 'fs'
 import {bold, blue, bgBlack, white} from '@colors/colors'
 
-export function getStylelintConfigFile(projectDir: string) {
-  const stylelintConfigJs = path.join(projectDir, 'stylelint.config.js')
-  const stylelintConfigDotJs = path.join(projectDir, '.stylelintrc.js file')
-  const stylelintConfigMjs = path.join(projectDir, 'stylelint.config.mjs')
-  const stylelintConfigDotMjs = path.join(projectDir, '.stylelintrc.mjs')
-  const stylelintConfigCjs = path.join(projectDir, 'stylelint.config.cjs')
-  const stylelintConfigDotCjs = path.join(projectDir, '.stylelintrc.cjs')
-  const stylelintConfigJson = path.join(projectDir, '.stylelintrc.json')
-  const stylelintConfigDotJson = path.join(projectDir, '.stylelintrc')
-  const stylelintConfigYml = path.join(projectDir, '.stylelintrc.yml')
-  const stylelintConfigDotYml = path.join(projectDir, '.stylelintrc.yaml')
+export function getStylelintConfigFile(projectPath: string) {
+  const stylelintConfigJs = path.join(projectPath, 'stylelint.config.js')
+  const stylelintConfigDotJs = path.join(projectPath, '.stylelintrc.js file')
+  const stylelintConfigMjs = path.join(projectPath, 'stylelint.config.mjs')
+  const stylelintConfigDotMjs = path.join(projectPath, '.stylelintrc.mjs')
+  const stylelintConfigCjs = path.join(projectPath, 'stylelint.config.cjs')
+  const stylelintConfigDotCjs = path.join(projectPath, '.stylelintrc.cjs')
+  const stylelintConfigJson = path.join(projectPath, '.stylelintrc.json')
+  const stylelintConfigDotJson = path.join(projectPath, '.stylelintrc')
+  const stylelintConfigYml = path.join(projectPath, '.stylelintrc.yml')
+  const stylelintConfigDotYml = path.join(projectPath, '.stylelintrc.yaml')
 
   if (fs.existsSync(stylelintConfigJs)) return stylelintConfigJs
   if (fs.existsSync(stylelintConfigDotJs)) return stylelintConfigDotJs
@@ -37,15 +37,15 @@ export function getStylelintConfigFile(projectDir: string) {
 
 let userMessageDelivered = false
 
-export function isUsingStylelint(projectDir: string) {
-  const packageJsonPath = path.join(projectDir, 'package.json')
-  const manifestJsonPath = path.join(projectDir, 'manifest.json')
+export function isUsingStylelint(projectPath: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
   }
 
-  const configFile = getStylelintConfigFile(projectDir)
+  const configFile = getStylelintConfigFile(projectPath)
   const packageJson = require(packageJsonPath)
 
   const stylelintAsDevDep =

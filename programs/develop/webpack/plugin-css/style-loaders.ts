@@ -1,7 +1,7 @@
 import {type RuleSetRule} from 'webpack'
 import {commonStyleLoaders} from './common-style-loaders'
 
-export function styleLoaders(projectDir: string, opts: any): RuleSetRule[] {
+export function styleLoaders(projectPath: string, opts: any): RuleSetRule[] {
   const loaders: RuleSetRule[] = [
     {
       test: /\.css$/,
@@ -11,14 +11,14 @@ export function styleLoaders(projectDir: string, opts: any): RuleSetRule[] {
       oneOf: [
         {
           resourceQuery: /is_content_css_import=true/,
-          use: commonStyleLoaders(projectDir, {
+          use: commonStyleLoaders(projectPath, {
             regex: /\.css$/,
             mode: opts.mode,
             useMiniCssExtractPlugin: false
           })
         },
         {
-          use: commonStyleLoaders(projectDir, {
+          use: commonStyleLoaders(projectPath, {
             regex: /\.css$/,
             mode: opts.mode,
             useMiniCssExtractPlugin: opts.mode === 'production'
@@ -33,14 +33,14 @@ export function styleLoaders(projectDir: string, opts: any): RuleSetRule[] {
       oneOf: [
         {
           resourceQuery: /is_content_css_import=true/,
-          use: commonStyleLoaders(projectDir, {
+          use: commonStyleLoaders(projectPath, {
             regex: /\.module\.css$/,
             mode: opts.mode,
             useMiniCssExtractPlugin: false
           })
         },
         {
-          use: commonStyleLoaders(projectDir, {
+          use: commonStyleLoaders(projectPath, {
             regex: /\.module\.css$/,
             mode: opts.mode,
             useMiniCssExtractPlugin: opts.mode === 'production'
@@ -51,11 +51,11 @@ export function styleLoaders(projectDir: string, opts: any): RuleSetRule[] {
   ]
 
   // if (isUsingLess) {
-  //   loaders.push(...maybeUseLess(projectDir, opts));
+  //   loaders.push(...maybeUseLess(projectPath, opts));
   // }
 
   // if (isUsingSass) {
-  //   loaders.push(...maybeUseSass(projectDir, opts));
+  //   loaders.push(...maybeUseSass(projectPath, opts));
   // }
 
   return loaders

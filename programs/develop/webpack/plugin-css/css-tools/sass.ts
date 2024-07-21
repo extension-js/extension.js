@@ -1,15 +1,15 @@
 import path from 'path'
 import fs from 'fs'
-import {bold, blue, cyan} from '@colors/colors/safe'
 import {execSync} from 'child_process'
 import {commonStyleLoaders} from '../common-style-loaders'
 import {DevOptions} from '../../../types'
+import * as messages from '../../../lib/messages'
 
 let userMessageDelivered = false
 
-export function isUsingSass(projectDir: string): boolean {
-  const packageJsonPath = path.join(projectDir, 'package.json')
-  const manifestJsonPath = path.join(projectDir, 'manifest.json')
+export function isUsingSass(projectPath: string): boolean {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -23,13 +23,8 @@ export function isUsingSass(projectDir: string): boolean {
   if (sassAsDevDep || sassAsDep) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
-      console.log(
-        bold(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) `
-        ) + `is using ${bold(cyan('sass'))}.`
-      )
+      console.log(messages.isUsingTechnology(manifest, 'SASS'))
+
       userMessageDelivered = true
     }
     return true
@@ -38,7 +33,7 @@ export function isUsingSass(projectDir: string): boolean {
   return false
 }
 
-function installSass(): void {
+function installSass() {
   console.log('Sass is not installed. Installing...')
   execSync('npm install sass', {stdio: 'inherit'})
   console.log('Sass and related loaders installed successfully.')
@@ -47,71 +42,70 @@ function installSass(): void {
 type Loader = Record<string, any>
 
 export function maybeUseSass(
-  projectDir: string,
-  opts: {mode: DevOptions['mode']}
+  projectPath: string,
+  mode: DevOptions['mode']
 ): Loader[] {
-  if (isUsingSass(projectDir)) {
-    try {
-      require.resolve('sass')
-    } catch (e) {
-      installSass()
-    }
+  if (!isUsingSass(projectPath)) return []
 
-    return [
-      {
-        test: /\.(scss|sass)$/,
-        exclude: /\.module\.css$/,
-        // https://stackoverflow.com/a/60482491/4902448
-        oneOf: [
-          {
-            resourceQuery: /is_content_css_import=true/,
-            use: commonStyleLoaders(projectDir, {
-              regex: /\.(scss|sass)$/,
-              loader: require.resolve('sass-loader'),
-              mode: opts.mode,
-              useMiniCssExtractPlugin: false
-            })
-          },
-          {
-            use: commonStyleLoaders(projectDir, {
-              regex: /\.(scss|sass)$/,
-              loader: require.resolve('sass-loader'),
-              mode: opts.mode,
-              useMiniCssExtractPlugin: true
-            })
-          }
-        ]
-      },
-      {
-        test: /\.module\.(scss|sass)$/,
-        // https://stackoverflow.com/a/60482491/4902448
-        oneOf: [
-          {
-            resourceQuery: /is_content_css_import=true/,
-            use: commonStyleLoaders(projectDir, {
-              regex: /\.(scss|sass)$/,
-              loader: require.resolve('sass-loader'),
-              mode: opts.mode,
-              useMiniCssExtractPlugin: false
-            })
-          },
-          {
-            use: commonStyleLoaders(projectDir, {
-              regex: /\.(scss|sass)$/,
-              loader: require.resolve('sass-loader'),
-              mode: opts.mode,
-              useMiniCssExtractPlugin: true
-            })
-          }
-        ],
-        use: commonStyleLoaders(projectDir, {
-          regex: /\.module\.(scss|sass)$/,
-          loader: require.resolve('sass-loader'),
-          mode: opts.mode,
-          useMiniCssExtractPlugin: true
-        })
-      }
-    ]
-  }
-  return []
+  // try {
+  //   require.resolve('sass')
+  // } catch (e) {
+  //   installSass()
+  // }
+
+  return [
+    {
+      test: /\.(scss|sass)$/,
+      exclude: /\.module\.css$/,
+      // https://stackoverflow.com/a/60482491/4902448
+      oneOf: [
+        {
+          resourceQuery: /is_content_css_import=true/,
+          use: commonStyleLoaders(projectPath, {
+            regex: /\.(scss|sass)$/,
+            loader: require.resolve('sass-loader'),
+            mode,
+            useMiniCssExtractPlugin: false
+          })
+        },
+        {
+          use: commonStyleLoaders(projectPath, {
+            regex: /\.(scss|sass)$/,
+            loader: require.resolve('sass-loader'),
+            mode,
+            useMiniCssExtractPlugin: true
+          })
+        }
+      ]
+    },
+    {
+      test: /\.module\.(scss|sass)$/,
+      // https://stackoverflow.com/a/60482491/4902448
+      oneOf: [
+        {
+          resourceQuery: /is_content_css_import=true/,
+          use: commonStyleLoaders(projectPath, {
+            regex: /\.(scss|sass)$/,
+            loader: require.resolve('sass-loader'),
+            mode,
+            useMiniCssExtractPlugin: false
+          })
+        },
+        {
+          use: commonStyleLoaders(projectPath, {
+            regex: /\.(scss|sass)$/,
+            loader: require.resolve('sass-loader'),
+            mode,
+            useMiniCssExtractPlugin: true
+          })
+        }
+      ],
+      use: commonStyleLoaders(projectPath, {
+        regex: /\.module\.(scss|sass)$/,
+        loader: require.resolve('sass-loader'),
+        mode,
+        useMiniCssExtractPlugin: true
+      })
+    }
+  ]
 }
