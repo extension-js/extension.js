@@ -1,4 +1,4 @@
-import {type Manifest} from '../../../../../types'
+import {type Manifest} from '../../../../types'
 
 export default function patchExternallyConnectable(manifest: Manifest) {
   // If the externally_connectable key is not declared in your extension's

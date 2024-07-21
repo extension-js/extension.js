@@ -9,7 +9,7 @@ import webpack from 'webpack'
 import WebpackDevServer from 'webpack-dev-server'
 import webpackConfig from './webpack-config'
 import {getOverlay, getPublicFolderPath} from './config/userOptions'
-import type {DevOptions} from '../types'
+import type {DevOptions} from '../develop-types'
 
 function closeAll(devServer: WebpackDevServer) {
   devServer

@@ -7,7 +7,7 @@
 
 import path from 'path'
 import type webpack from 'webpack'
-import {type DevOptions} from '../types'
+import {type DevOptions} from '../develop-types'
 
 // Option files for plugins
 import {
@@ -25,7 +25,7 @@ import {CssPlugin} from './plugin-css'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
-import extensionPlugin from './plugin-extension/extensionPlugins'
+import {ExtensionPlugin} from './plugin-extension'
 import {ReloadPlugin} from './plugin-reload'
 import compatPlugin from './plugin-compat'
 import errorPlugin from './plugin-errors'
@@ -39,6 +39,8 @@ export default function webpackConfig(
   projectPath: string,
   {...devOptions}: DevOptions
 ): webpack.Configuration {
+  const manifestPath = path.join(projectPath, 'manifest.json')
+
   return {
     mode: devOptions.mode,
     entry: {},
@@ -106,32 +108,34 @@ export default function webpackConfig(
     },
     plugins: [
       new CompilationPlugin({
-        manifestPath: path.join(projectPath, 'manifest.json')
+        manifestPath
       }),
       new CssPlugin({
-        manifestPath: path.join(projectPath, 'manifest.json'),
+        manifestPath,
         mode: devOptions.mode
       }),
       errorPlugin(projectPath, devOptions),
       compatPlugin(projectPath, devOptions),
-      extensionPlugin(projectPath, devOptions),
+      new ExtensionPlugin({
+        browser: devOptions.browser,
+        manifestPath
+      }),
       new ReloadPlugin({
-        manifestPath: path.join(projectPath, 'manifest.json'),
-        browser: 'chrome',
-        port: devOptions.port,
-        stats: true
+        browser: devOptions.browser,
+        manifestPath,
+        port: devOptions.port
       }),
       new BrowsersPlugin({
-        browser: devOptions.browser || 'chrome',
+        browser: devOptions.browser,
+        // startingUrl: devOptions.startingUrl,
+        // profile: devOptions.profile || devOptions.userDataDir,
+        // preferences: devOptions.preferences,
         extension: [
           getOutputPath(projectPath, devOptions.browser),
-          // Output by the reload plugin
+          // Extensions output by the ReloadPlugin
           path.join(__dirname, 'extensions', 'manager-extension'),
           path.join(__dirname, 'extensions', 'reload-extension')
         ]
-        // profile: devOptions.profile || devOptions.userDataDir,
-        // preferences: devOptions.preferences,
-        // startingUrl: devOptions.startingUrl,
         // browserFlags: devOptions.browserFlags
       })
     ],

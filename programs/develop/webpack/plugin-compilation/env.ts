@@ -3,7 +3,7 @@ import path from 'path'
 import colors, {bold, blue, yellow} from '@colors/colors/safe'
 import Dotenv from 'dotenv-webpack'
 import {type Compiler} from 'webpack'
-import {type Manifest} from '../../types'
+import {type Manifest} from '../types'
 
 export class EnvPlugin {
   public readonly manifestPath: string

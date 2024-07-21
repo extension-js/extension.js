@@ -10,8 +10,8 @@ import path from 'path'
 import {bold, red, yellow, underline} from '@colors/colors/safe'
 import {devServer} from '../../webpack/dev-server'
 import {isUsingTypeScript} from '../../webpack/options/typescript'
-import {getProjectPath} from '../../lib/get-project-path'
-import * as messages from '../../lib/messages'
+import {getProjectPath} from '../../webpack/lib/get-project-path'
+import * as messages from '../../webpack/lib/messages'
 import generateExtensionTypes from './generate-extension-types'
 
 export interface DevOptions {

@@ -4,7 +4,7 @@ import {
   handleTopLevelAwaitError,
   handleCantResolveError
 } from './steps/compilation-error-handlers'
-import {type PluginInterface} from '../../../types'
+import {type PluginInterface} from '../../types'
 
 export class CommonErrorsPlugin {
   public readonly manifestPath: string

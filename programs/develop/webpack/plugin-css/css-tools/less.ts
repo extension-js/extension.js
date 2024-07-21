@@ -3,7 +3,7 @@ import fs from 'fs'
 import {bold, blue, cyan} from '@colors/colors/safe'
 import {execSync} from 'child_process'
 import {commonStyleLoaders} from '../common-style-loaders'
-import {DevOptions} from '../../../types'
+import {DevOptions} from '../../../develop-types'
 
 let userMessageDelivered = false
 

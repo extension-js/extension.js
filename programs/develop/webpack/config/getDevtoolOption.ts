@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import fs from 'fs'
-import {type DevOptions} from '../../types'
+import {type DevOptions} from '../../develop-types'
 
 // https://webpack.js.org/configuration/devtool/
 export default function getDevToolOption(

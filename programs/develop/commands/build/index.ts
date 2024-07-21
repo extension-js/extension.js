@@ -8,8 +8,8 @@
 import {bold, red} from '@colors/colors/safe'
 import webpack from 'webpack'
 import compilerConfig from '../../webpack/webpack-config'
-import {getProjectPath} from '../../lib/get-project-path'
-import * as messages from '../../lib/messages'
+import {getProjectPath} from '../../webpack/lib/get-project-path'
+import * as messages from '../../webpack/lib/messages'
 import {getOutputPath} from '../../webpack/config/getPath'
 import {generateZip} from './generate-zip'
 
