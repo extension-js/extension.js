@@ -1,5 +1,4 @@
 import {PathData, Compiler} from 'webpack'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
 import {CleanHotUpdatesPlugin} from './clean-hot-updates'
@@ -15,13 +14,6 @@ export class CompilationPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    new MiniCssExtractPlugin({
-      chunkFilename: (pathData: PathData) => {
-        const runtime = (pathData.chunk as any)?.runtime
-        return `${runtime}/[name].css`
-      }
-    }).apply(compiler)
-
     new CaseSensitivePathsPlugin().apply(compiler)
 
     new EnvPlugin({manifestPath: this.manifestPath}).apply(compiler)
