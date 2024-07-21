@@ -1,11 +1,11 @@
 import path from 'path'
-import {blue, white, yellow, bold, underline} from '@colors/colors/safe'
-import AdmZip from 'adm-zip'
-import slugify from 'slugify'
-import {type BuildOptions} from '../extensionBuild'
 import fs from 'fs'
 import ignore from 'ignore'
 import {glob} from 'glob'
+import AdmZip from 'adm-zip'
+import slugify from 'slugify'
+import {blue, white, yellow, bold, underline} from '@colors/colors/safe'
+import {type BuildOptions} from '../../types'
 
 function readFileSync(filePath: string): string {
   try {
@@ -65,11 +65,15 @@ function getFilesToZip(projectDir: string): string[] {
     )
   }
 
-  const files = glob.sync('**/*', {cwd: projectDir, dot: true, nodir: true})
+  const files: string[] = glob.sync('**/*', {
+    cwd: projectDir,
+    dot: true,
+    nodir: true
+  })
   return files.filter((file) => !ig.ignores(file))
 }
 
-export default function generateZip(
+export function generateZip(
   projectDir: string,
   {browser = 'chrome', ...options}: BuildOptions
 ) {
@@ -78,10 +82,9 @@ export default function generateZip(
     const outputDir = path.join(distDir, browser)
     // We collect data from the projectDir if the user wants to zip the source files.
     const dataDir = options.zipSource ? projectDir : outputDir
-    const manifest: Record<string, string> = require(path.join(
-      dataDir,
-      'manifest.json'
-    ))
+    const manifest: Record<string, string> = require(
+      path.join(dataDir, 'manifest.json')
+    )
     const name = getPackageName(manifest, options)
     const ext = getExtensionExtension(browser)
     // Dist zips are stored in dist/[browser]/[name].zip

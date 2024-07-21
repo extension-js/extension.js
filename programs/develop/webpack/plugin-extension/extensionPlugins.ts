@@ -7,7 +7,7 @@
 
 import path from 'path'
 import type webpack from 'webpack'
-import type {DevOptions} from '../../extensionDev'
+import type {DevOptions} from '../../types'
 
 // Plugins
 import ResolvePlugin from 'webpack-browser-extension-resolve'

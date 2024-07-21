@@ -13,7 +13,7 @@ import StylelintPlugin from 'stylelint-webpack-plugin'
 import {VueLoaderPlugin} from 'vue-loader'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 
-import {type DevOptions} from '../../extensionDev'
+import {type DevOptions} from '../../types'
 import {isUsingTypeScript, tsCheckerOptions} from '../options/typescript'
 import {isUsingStylelint, getStylelintConfigFile} from '../options/stylelint'
 import {isUsingVue} from '../options/vue'

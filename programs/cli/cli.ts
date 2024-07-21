@@ -11,10 +11,12 @@ import {program} from 'commander'
 
 // Types
 import type {CreateOptions} from '@extension-create/create'
-import type {DevOptions} from '@extension-create/develop/extensionDev'
-import type {StartOptions} from '@extension-create/develop/extensionStart'
-import type {BuildOptions} from '@extension-create/develop/extensionBuild'
-// import type {PreviewOptions} from '@extension-create/develop/extensionPreview'
+import type {
+  DevOptions,
+  StartOptions,
+  BuildOptions
+  // PreviewOptions
+} from '@extension-create/develop/types'
 import type {BrowsersSupported} from './types'
 
 // Modules
