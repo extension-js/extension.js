@@ -1,0 +1,16 @@
+{
+  "devDependencies": {
+    "extension": "latest"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "dependencies": {
+    "sass": "^1.77.8"
+  },
+  "name": "my-new",
+  "private": true,
+  "version": "0.0.0"
+}

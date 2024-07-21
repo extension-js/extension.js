@@ -11,9 +11,9 @@ import {bold, blue, cyan} from '@colors/colors/safe'
 
 let userMessageDelivered = false
 
-export function isUsingVue(projectDir: string) {
-  const packageJsonPath = path.join(projectDir, 'package.json')
-  const manifestJsonPath = path.join(projectDir, 'manifest.json')
+export function isUsingVue(projectPath: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
   const manifest = require(manifestJsonPath)
 
   if (!fs.existsSync(packageJsonPath)) {

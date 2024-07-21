@@ -47,5 +47,4 @@ programs/create/templates/**
 programs/develop/stylelint.config.js
 programs/develop/tailwind.config.js
 tailwind.config.js
-programs/develop/plugin-reload/extensions/manager-extension/
-programs/develop/plugin-reload/extensions/reload-extension/
+programs/develop/webpack/plugin-reload/extensions/**

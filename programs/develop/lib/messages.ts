@@ -8,7 +8,8 @@ import {
   green,
   underline,
   magenta,
-  blue
+  blue,
+  cyan
 } from '@colors/colors/safe'
 import {Manifest, StartOptions} from '../types'
 import {StatsAsset} from 'webpack'
@@ -457,6 +458,14 @@ export function errorWhileDeveloping(error: any) {
     `Error while developing the extension:\n\n${red(
       bold((error as string) || '')
     )}`
+  )
+}
+
+export function isUsingTechnology(manifest: Manifest, technology: any) {
+  return (
+    `${getLoggingPrefix('info')}` +
+    `${manifest.name} (v${manifest.version}) ` +
+    `is using ${cyan(technology)}.`
   )
 }
 
