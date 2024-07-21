@@ -1,11 +1,11 @@
 import type webpack from 'webpack'
 import {Compilation, sources} from 'webpack'
-import {patchV2CSP, patchV3CSP} from './patchCSP'
-import {patchWebResourcesV2, patchWebResourcesV3} from './patchWebResources'
-import patchBackground from './patchBackground'
-import patchExternallyConnectable from './patchExternallyConnectable'
+import {patchV2CSP, patchV3CSP} from './patch-csp'
+import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'
+import patchBackground from './patch-background'
+import patchExternallyConnectable from './patch-externally-connectable'
 import * as utils from '../../../reload-lib/utils'
-import {type PluginInterface} from '../../../types'
+import {type PluginInterface} from '../../../reload-types'
 
 class ApplyManifestDevDefaultsPlugin {
   private readonly manifestPath?: string
