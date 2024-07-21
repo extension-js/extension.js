@@ -21,11 +21,10 @@ import {
 // Loaders
 import assetLoaders from './loaders/asset-loaders'
 import jsLoaders from './loaders/js-loaders'
-import styleLoaders from './loaders/style-loaders'
+import {CssPlugin} from './plugin-css'
 
 // Plugins
-import boringPlugins from './plugin-compilation/boringPlugins'
-import compilationPlugins from './plugin-compilation/compilationPlugins'
+import {CompilationPlugin} from './plugin-compilation'
 import extensionPlugin from './plugin-extension/extensionPlugins'
 import {ReloadPlugin} from './plugin-reload'
 import compatPlugin from './plugin-compat'
@@ -103,14 +102,16 @@ export default function webpackConfig(
       ignored: /node_modules|dist/
     },
     module: {
-      rules: [
-        ...jsLoaders(projectPath, devOptions),
-        ...styleLoaders(projectPath, devOptions),
-        ...assetLoaders
-      ]
+      rules: [...jsLoaders(projectPath, devOptions), ...assetLoaders]
     },
     plugins: [
-      compilationPlugins(projectPath, devOptions),
+      new CompilationPlugin({
+        manifestPath: path.join(projectPath, 'manifest.json')
+      }),
+      new CssPlugin({
+        manifestPath: path.join(projectPath, 'manifest.json'),
+        mode: devOptions.mode
+      }),
       extensionPlugin(projectPath, devOptions),
       compatPlugin(projectPath, devOptions),
       errorPlugin(projectPath, devOptions),
@@ -132,8 +133,7 @@ export default function webpackConfig(
         // preferences: devOptions.preferences,
         // startingUrl: devOptions.startingUrl,
         // browserFlags: devOptions.browserFlags
-      }),
-      boringPlugins(projectPath, devOptions)
+      })
     ],
     optimization: {
       minimize: devOptions.mode === 'production'
