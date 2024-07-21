@@ -9,7 +9,7 @@ import path from 'path'
 import type webpack from 'webpack'
 import PolyfillPlugin from 'webpack-browser-extension-polyfill'
 import ManifestCompatPlugin from 'webpack-browser-extension-manifest-compat'
-import {type DevOptions} from '../../extensionDev'
+import {type DevOptions} from '../../types'
 
 export default function compatPlugins(
   projectPath: string,

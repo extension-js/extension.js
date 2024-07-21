@@ -1,11 +1,11 @@
 {
   "extends": "./packages/tsconfig/base.json",
-  "include": ["."],
+  "include": ["./packages", "./programs"],
   "exclude": [
     "**/dist",
+    "**/spec",
     "node_modules",
     "browser-extension-test-data",
-    "__TEST__",
     "programs/create/templates/**"
   ]
 }

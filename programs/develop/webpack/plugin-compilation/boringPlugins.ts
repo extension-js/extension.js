@@ -5,7 +5,7 @@ import colors, {bold, blue, yellow} from '@colors/colors/safe'
 import Dotenv from 'dotenv-webpack'
 import CleanHotUpdatesPlugin from './CleanHotUpdatesPlugin'
 
-import {type DevOptions} from '../../extensionDev'
+import {type DevOptions} from '../../types'
 
 export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
   const project = require(`${projectPath}/manifest.json`)
@@ -43,8 +43,8 @@ export default function boringPlugins(projectPath: string, {mode}: DevOptions) {
           path: fs.existsSync(path.join(projectPath, '.env'))
             ? path.join(projectPath, '.env')
             : fs.existsSync(path.join(projectPath, '.env.local'))
-            ? path.join(projectPath, '.env.local')
-            : path.join(projectPath, '.env.example'),
+              ? path.join(projectPath, '.env.local')
+              : path.join(projectPath, '.env.example'),
           allowEmptyValues: true,
           defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
           systemvars: true

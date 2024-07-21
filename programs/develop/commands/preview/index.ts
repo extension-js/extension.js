@@ -7,9 +7,9 @@
 
 import webpack from 'webpack'
 import {bold, red} from '@colors/colors/safe'
-import getProjectPath from '../../steps/getProjectPath'
 import compilerConfig from '../../webpack/webpack-config'
-import * as messages from '../../messages/startMessage'
+import * as messages from '../../lib/messages'
+import {getProjectPath} from '../../lib/get-project-path'
 
 export interface PreviewOptions {
   mode?: 'development' | 'production'
@@ -45,7 +45,7 @@ export default async function extensionStart(
       plugins: onlyBrowserRunners
     }
 
-    messages.building(previewOptions)
+    console.log(messages.previewing(previewOptions))
 
     webpack(webpackConfigOnlyBrowser).run((err, stats) => {
       if (err) {
@@ -65,12 +65,7 @@ export default async function extensionStart(
       }
     })
   } catch (error: any) {
-    console.log(
-      `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +
-        `Error while starting the extension:\n\n${red(
-          bold((error as string) || '')
-        )}`
-    )
+    console.log(messages.errorWhilePreviewing(error))
     process.exit(1)
   }
 }

@@ -5,15 +5,31 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import type WebpackDevServer from 'webpack-dev-server'
-import type {DevOptions} from '../extensionDev'
+import webpack from 'webpack'
+import WebpackDevServer from 'webpack-dev-server'
+import webpackConfig from './webpack-config'
 import {getOverlay, getPublicFolderPath} from './config/userOptions'
+import type {DevOptions} from '../types'
 
-export default function devServerConfig(
+function closeAll(devServer: WebpackDevServer) {
+  devServer
+    .stop()
+    .then(() => {
+      process.exit()
+    })
+    .catch((error) => {
+      console.log(`Error in the Extension.js runner: ${error.stack || ''}`)
+    })
+}
+
+export async function devServer(
   projectPath: string,
-  {port}: DevOptions
-): WebpackDevServer.Configuration {
-  return {
+  {...devOptions}: DevOptions
+) {
+  const compilerConfig = webpackConfig(projectPath, devOptions)
+  const compiler = webpack(compilerConfig)
+
+  const serverConfig: WebpackDevServer.Configuration = {
     host: '127.0.0.1',
     allowedHosts: 'all',
     static: getPublicFolderPath(projectPath),
@@ -40,4 +56,22 @@ export default function devServerConfig(
     // entry of a react extension to be reloaded infinitely.
     hot: 'only'
   }
+
+  const devServer = new WebpackDevServer(serverConfig, compiler)
+
+  devServer.startCallback((error) => {
+    if (error != null) {
+      console.log(`Error in the Extension.js runner: ${error.stack || ''}`)
+    }
+  })
+
+  process.on('ERROR', () => {
+    closeAll(devServer)
+  })
+  process.on('SIGINT', () => {
+    closeAll(devServer)
+  })
+  process.on('SIGTERM', () => {
+    closeAll(devServer)
+  })
 }

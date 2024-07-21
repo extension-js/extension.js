@@ -8,10 +8,11 @@
 import fs from 'fs'
 import path from 'path'
 import {bold, red, yellow, underline} from '@colors/colors/safe'
-import getProjectPath from '../../steps/getProjectPath'
+import {devServer} from '../../webpack/dev-server'
 import {isUsingTypeScript} from '../../webpack/options/typescript'
-import generateExtensionTypes from '../../steps/generateExtensionTypes'
-import startDevServer from '../../webpack/startDevServer'
+import {getProjectPath} from '../../lib/get-project-path'
+import * as messages from '../../lib/messages'
+import generateExtensionTypes from './generate-extension-types'
 
 export interface DevOptions {
   mode?: 'development' | 'production' | 'none' | undefined
@@ -32,13 +33,7 @@ export default async function extensionDev(
     !pathOrRemoteUrl?.startsWith('http') &&
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
   ) {
-    console.log(
-      `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} Manifest file ${red(
-        bold('not found')
-      )}. Path ${underline(projectPath)} must include a ${yellow(
-        'manifest.json'
-      )}.`
-    )
+    console.log(messages.manifestNotFound())
     process.exit(1)
   }
 
@@ -47,14 +42,9 @@ export default async function extensionDev(
       await generateExtensionTypes(projectPath)
     }
 
-    await startDevServer(projectPath, {...devOptions})
+    await devServer(projectPath, {...devOptions})
   } catch (error: any) {
-    console.log(
-      `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +
-        `Error while developing the extension:\n\n${red(
-          bold((error as string) || '')
-        )}`
-    )
+    console.log(messages.errorWhileStarting(error))
     process.exit(1)
   }
 }
