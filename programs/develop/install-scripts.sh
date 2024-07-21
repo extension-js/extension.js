@@ -34,7 +34,8 @@ reload_plugin_files=(
 minimum_files=(
   # "$(plugin_loader_path 'plugin-extension' 'feature-html' 'minimum-script-file.ts')"
   # "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'minimum-content-file.ts')"
-  "$(plugin_loader_path 'plugin-reload' '' 'minimum-background-file.ts')"
+  # "$(plugin_loader_path 'plugin-reload' '' 'minimum-background-file.ts')"
+  "$(dirname "$0")/plugin-reload/steps/minimum-background-file.ts"
 )
 
 tsup() {

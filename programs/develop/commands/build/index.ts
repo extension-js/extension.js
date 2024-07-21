@@ -6,12 +6,12 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import {bold, red} from '@colors/colors/safe'
-import getProjectPath from '../../steps/getProjectPath'
 import webpack from 'webpack'
 import compilerConfig from '../../webpack/webpack-config'
+import {getProjectPath} from '../../lib/get-project-path'
+import * as messages from '../../lib/messages'
 import {getOutputPath} from '../../webpack/config/getPath'
-import generateZip from '../../steps/generateZip'
-import * as messages from '../../messages/buildMessage'
+import {generateZip} from './generate-zip'
 
 export interface BuildOptions {
   browser?: 'chrome' | 'edge' | 'firefox' | 'all'
@@ -35,6 +35,7 @@ export default async function extensionBuild(
     })
 
     // BrowserPlugin can run in production but never in the build command.
+    // TODO: cezaraugusto this is fragile
     const allPluginsButBrowserRunners = webpackConfig.plugins?.filter(
       (plugin) => plugin?.constructor.name !== 'BrowserPlugin'
     )
@@ -54,26 +55,23 @@ export default async function extensionBuild(
         webpackConfigNoBrowser.output?.path ||
         getOutputPath(projectPath, browser)
 
-      messages.buildWebpack(projectPath, stats, outputPath, browser)
+      console.log(
+        messages.buildWebpack(projectPath, stats, outputPath, browser)
+      )
 
       if (buildOptions.zip || buildOptions.zipSource) {
         generateZip(projectPath, {...buildOptions, browser})
       }
 
       if (!stats?.hasErrors()) {
-        messages.ready()
+        console.log(messages.ready(buildOptions))
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)
       }
     })
   } catch (error: any) {
-    console.log(
-      `🧩 ${bold(`Extension.js`)} ${red('✖︎✖︎✖︎')} ` +
-        `Error while building the extension:\n\n${red(
-          bold((error as string) || '')
-        )}`
-    )
+    console.log(messages.errorWhileBuilding(error))
     process.exit(1)
   }
 }

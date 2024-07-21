@@ -19,10 +19,10 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
     type === 'warn'
       ? yellow('►►►')
       : type === 'info'
-      ? blue('►►►')
-      : type === 'error'
-      ? red('✖︎✖︎✖︎')
-      : green('►►►')
+        ? blue('►►►')
+        : type === 'error'
+          ? red('✖︎✖︎✖︎')
+          : green('►►►')
   return `🧩 ${bold('Extension.js')} ${arrow} `
 }
 
@@ -259,6 +259,16 @@ export function building(options: StartOptions): string {
   return (
     `${getLoggingPrefix('info')}` +
     `Building the extension package against ${bold(capitalizedBrowserName)}...`
+  )
+}
+
+export function previewing(options: StartOptions): string {
+  const capitalizedBrowserName =
+    options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
+
+  return (
+    `${getLoggingPrefix('info')}` +
+    `Previewing the extension on ${bold(capitalizedBrowserName)}...`
   )
 }
 
