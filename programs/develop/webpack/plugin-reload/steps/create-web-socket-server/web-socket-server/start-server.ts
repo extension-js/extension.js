@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
 import * as messages from '../../../reload-lib/messages'
-import {type Manifest} from '../../../../../types'
+import {type Manifest} from '../../../../types'
 import {isFirstRun} from '../../../reload-lib/is-first-run'
 
 interface Data {
@@ -43,7 +43,6 @@ export default function (
       const message: Message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
-        console.log('client is ready', statsConfig)
         if (statsConfig === true) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
           console.log(messages.extensionData(compiler, browser, message))

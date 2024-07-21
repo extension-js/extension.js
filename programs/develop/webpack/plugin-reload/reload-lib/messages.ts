@@ -13,7 +13,7 @@ import {
 } from '@colors/colors/safe'
 
 import {getDirectorySize} from './calculate-dir-size'
-import {type Manifest} from '../../../types'
+import {type Manifest} from '../../types'
 
 interface Data {
   id: string
