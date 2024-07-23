@@ -31,11 +31,7 @@ export function pageAction(manifest: Manifest, exclude: string[]) {
                   ).map(([size, icon]) => {
                     return [
                       size,
-                      getFilename(
-                        `icons/${getBasename(icon)}`,
-                        icon,
-                        exclude
-                      )
+                      getFilename(`icons/${getBasename(icon)}`, icon, exclude)
                     ]
                   })
                 )

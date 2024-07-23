@@ -10,7 +10,7 @@
 const fs = require('fs/promises')
 const path = require('path')
 
-const sourceDir = path.resolve(__dirname, '../../develop/integration-configs/')
+const sourceDir = path.resolve(__dirname, '../../develop/')
 const targetDir = path.resolve(__dirname, '../dist')
 
 async function copyTailwindConfigFile(sourcePath, targetPath) {
