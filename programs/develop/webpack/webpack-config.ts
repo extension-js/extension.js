@@ -138,7 +138,7 @@ export default function webpackConfig(
         ]
         // browserFlags: devOptions.browserFlags
       })
-    ],
+    ].filter(Boolean),
     optimization: {
       minimize: devOptions.mode === 'production'
       // WARN: This can have side-effects.

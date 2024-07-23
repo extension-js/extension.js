@@ -3,7 +3,7 @@ import path from 'path'
 import {type Compiler} from 'webpack'
 import {type PluginInterface} from './types'
 import {RunChromiumPlugin} from './run-chromium'
-// import { RunFirefoxPlugin } from './run-firefox';
+import RunFirefoxPlugin from 'webpack-run-firefox-addon'
 
 /**
  * RunChromiumPlugin works by creating a WebSockets server
@@ -79,12 +79,27 @@ export class BrowsersPlugin {
         break
       }
 
-      // case 'edge':
-      //   new RunChromiumPlugin({ ...config, browser: 'edge' }).apply(compiler);
-      //   break;
-      // case 'firefox':
-      //   new RunFirefoxPlugin({...config, browser: 'firefox'}).apply(compiler);
-      //   break;
+      case 'edge':
+        new RunChromiumPlugin({...config, browser: 'edge'}).apply(compiler)
+        break
+
+      case 'firefox':
+        // TODO: Use updated Firefox plugin
+        new RunFirefoxPlugin({
+          port: 8002,
+          manifestPath: path.join(this.extension[0], 'manifest.json'),
+          // The final folder where the extension manifest file is located.
+          // This is used to load the extension into the browser.
+          extensionPath: path.join(this.extension[0], 'dist', this.browser),
+          autoReload: true,
+          userDataDir: this.getProfilePath(
+            compiler,
+            'firefox',
+            this.userDataDir || this.profile
+          ),
+          stats: true
+        }).apply(compiler)
+        break
       default: {
         new RunChromiumPlugin({...config, browser: 'chrome'}).apply(compiler)
         break
