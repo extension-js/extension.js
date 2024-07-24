@@ -29,7 +29,7 @@ export function commonStyleLoaders(
           ident: 'postcss',
           config: false,
           plugins: [
-            maybeUseTailwindPlugin(projectPath, opts),
+            ...maybeUseTailwindPlugin(projectPath, opts),
             require.resolve('postcss-flexbugs-fixes'),
             [
               require.resolve('postcss-preset-env'),
@@ -41,9 +41,9 @@ export function commonStyleLoaders(
               }
             ],
             require.resolve('postcss-normalize')
-          ].filter(Boolean)
+          ]
         },
-        sourceMap: false
+        sourceMap: opts.mode === 'development'
       }
     })
   }
@@ -54,20 +54,19 @@ export function commonStyleLoaders(
         {
           loader: require.resolve('resolve-url-loader'),
           options: {
-            sourceMap: opts.mode === 'production',
+            sourceMap: opts.mode === 'development',
             root: projectPath
           }
         },
         {
-          loader: opts.loader,
+          loader: require.resolve(opts.loader),
           options: {
             sourceMap: opts.mode === 'development'
-          } as any
-        },
-        {}
+          }
+        }
       ]
     )
   }
 
-  return styleLoaders
+  return styleLoaders.filter(Boolean)
 }
