@@ -20,23 +20,21 @@ resolve_plugin_files=(
 )
 
 scripts_plugin_files=(
-  # "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'inject-content-css-during-dev.ts')"
-  # "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-hmr-accept-code.ts')"
-  # "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-dynamic-public-path.ts')"
-  # "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-query-param-to-imported-css.ts')"
+  "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'inject-content-css-during-dev.ts')"
+  "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-hmr-accept-code.ts')"
+  "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-dynamic-public-path.ts')"
+  "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-query-param-to-imported-css.ts')"
 )
 
 reload_plugin_files=(
-  # "$(plugin_loader_path 'plugin-reload' 'add-runtime-listener' 'inject-background-runtime-loader.ts')"
-    "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/inject-background-runtime-loader.ts"
+  "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/inject-background-runtime-loader.ts"
 )
 
 # Separate minimum files for esm format
 minimum_files=(
-  # "$(plugin_loader_path 'plugin-extension' 'feature-html' 'minimum-script-file.ts')"
-  # "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'minimum-content-file.ts')"
-  # "$(plugin_loader_path 'plugin-reload' 'add-runtime-listener' 'minimum-background-file.ts')"
+  "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/minimum-content-file.ts"
   "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/minimum-background-file.ts"
+  # "$(plugin_loader_path 'plugin-extension' 'feature-html' 'minimum-script-file.ts')"
 )
 
 tsup() {
@@ -77,33 +75,33 @@ copy_files_to_dist() {
   done
 }
 
-# echo 'Executing commands for HTML plugin files'
-# for entry in "${html_plugin_files[@]}"; do
-#   execute_command "$entry" "cjs"
-# done
+echo '►►► Executing commands for HTML plugin files'
+for entry in "${html_plugin_files[@]}"; do
+  execute_command "$entry" "cjs"
+done
 
-# echo 'Executing commands for Resolve plugin files'
-# for entry in "${resolve_plugin_files[@]}"; do
-#   execute_command "$entry" "cjs"
-# done
+echo '►►► Executing commands for Resolve plugin files'
+for entry in "${resolve_plugin_files[@]}"; do
+  execute_command "$entry" "cjs"
+done
 
-# echo 'Executing commands for Scripts plugin files'
-# for entry in "${scripts_plugin_files[@]}"; do
-#   execute_command "$entry" "cjs"
-# done
+echo '►►► Executing commands for Scripts plugin files'
+for entry in "${scripts_plugin_files[@]}"; do
+  execute_command "$entry" "cjs"
+done
 
-echo 'Executing commands for Reload plugin files'
+echo '►►► Executing commands for Reload plugin files'
 for entry in "${reload_plugin_files[@]}"; do
   execute_command "$entry" "cjs"
 done
 
-echo 'Executing commands for Minimum files with ESM format'
+echo '►►► Executing commands for Minimum files with ESM format'
 for entry in "${minimum_files[@]}"; do
   execute_command "$entry" "esm"
 done
 
-# echo 'Building core module'
+# echo '►►► Building core module'
 # execute_command "$(dirname "$0")/module.ts" "cjs"
 
-echo 'Copying files to dist directory'
+echo '►►► Copying files to dist directory'
 copy_files_to_dist
