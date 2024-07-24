@@ -1,5 +1,3 @@
-// import path from 'path'
-// import glob from 'glob'
 import {type Manifest, type ManifestData} from '../../types'
 
 export default function getWebAccessibleResources(

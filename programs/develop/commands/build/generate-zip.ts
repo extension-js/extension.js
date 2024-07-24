@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import ignore from 'ignore'
-import {glob} from 'glob'
+import glob from 'tiny-glob'
 import AdmZip from 'adm-zip'
 import slugify from 'slugify'
 import {blue, white, yellow, bold, underline} from '@colors/colors/safe'
@@ -50,7 +50,7 @@ function capitalizeBrowserName(browser: string): string {
   return browser.charAt(0).toUpperCase() + browser.slice(1)
 }
 
-function getFilesToZip(projectDir: string): string[] {
+async function getFilesToZip(projectDir: string): Promise<string[]> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const gitignoreContent = readFileSync(gitignorePath)
   const ig = ignore()
@@ -65,15 +65,14 @@ function getFilesToZip(projectDir: string): string[] {
     )
   }
 
-  const files: string[] = glob.sync('**/*', {
+  const files: string[] = await glob('**/*', {
     cwd: projectDir,
-    dot: true,
-    nodir: true
+    dot: true
   })
   return files.filter((file) => !ig.ignores(file))
 }
 
-export function generateZip(
+export async function generateZip(
   projectDir: string,
   {browser = 'chrome', ...options}: BuildOptions
 ) {
@@ -99,7 +98,7 @@ export function generateZip(
           `Files in ${yellow('.gitignore')} will be excluded...`
       )
       const zip = new AdmZip()
-      const files = getFilesToZip(projectDir)
+      const files = await getFilesToZip(projectDir)
       files.forEach((file) => {
         zip.addLocalFile(path.join(projectDir, file), path.dirname(file))
       })

@@ -36,7 +36,6 @@
     "assets"
   ],
   "dependencies": {
-    "glob": "^11.0.0",
     "parse5": "7.1.2",
     "parse5-utils": "2.0.0"
   },
