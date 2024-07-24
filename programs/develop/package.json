@@ -59,6 +59,7 @@
     "postcss-preset-env": "^9.3.0",
     "postcss-scss": "^4.0.9",
     "react-refresh": "^0.14.0",
+    "resolve-url-loader": "^5.0.0",
     "sass": "^1.70.0",
     "sass-loader": "^14.0.0",
     "slugify": "^1.6.6",

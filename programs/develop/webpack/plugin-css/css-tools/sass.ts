@@ -46,7 +46,6 @@ export function maybeUseSass(
   mode: DevOptions['mode']
 ): Loader[] {
   if (!isUsingSass(projectPath)) return []
-
   // try {
   //   require.resolve('sass')
   // } catch (e) {
