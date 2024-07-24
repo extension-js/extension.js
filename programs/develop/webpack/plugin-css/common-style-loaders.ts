@@ -49,12 +49,24 @@ export function commonStyleLoaders(
   }
 
   if (opts.loader) {
-    styleLoaders.push({
-      loader: opts.loader,
-      options: {
-        sourceMap: opts.mode === 'development'
-      } as any
-    })
+    styleLoaders.push(
+      ...[
+        {
+          loader: require.resolve('resolve-url-loader'),
+          options: {
+            sourceMap: opts.mode === 'production',
+            root: projectPath
+          }
+        },
+        {
+          loader: opts.loader,
+          options: {
+            sourceMap: opts.mode === 'development'
+          } as any
+        },
+        {}
+      ]
+    )
   }
 
   return styleLoaders

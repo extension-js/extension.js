@@ -21,10 +21,10 @@ import {
 // Loaders
 import assetLoaders from './loaders/asset-loaders'
 import jsLoaders from './loaders/js-loaders'
-import {CssPlugin} from './plugin-css'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
+import {CssPlugin} from './plugin-css'
 import {ExtensionPlugin} from './plugin-extension'
 import {ReloadPlugin} from './plugin-reload'
 import compatPlugin from './plugin-compat'
@@ -40,7 +40,6 @@ export default function webpackConfig(
   {...devOptions}: DevOptions
 ): webpack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
-
   return {
     mode: devOptions.mode,
     entry: {},
