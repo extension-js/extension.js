@@ -5,6 +5,14 @@ import messageDispatcher from './web-socket-server/message-dispatcher'
 import startServer from './web-socket-server/start-server'
 import rewriteReloadPort from './rewrite-reload-port'
 
+process.on('SIGINT', () => {
+  process.exit()
+})
+
+process.on('SIGTERM', () => {
+  process.exit()
+})
+
 export default class CreateWebSocketServer {
   private readonly manifestPath: string
   private readonly browser: string
