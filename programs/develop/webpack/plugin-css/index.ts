@@ -22,6 +22,17 @@ export class CssPlugin {
     new MiniCssExtractPlugin({
       chunkFilename: (pathData: PathData) => {
         const runtime = (pathData.chunk as any)?.runtime
+
+        // TODO: cezaraugusto this should be handled by the resource plugin
+        // by adding the import from content_scripts as an index to the
+        // web_accessible_resources array.
+        if (runtime.startsWith('content_scripts')) {
+          const [, contentName] = runtime.split('/')
+          const index = contentName.split('-')[1]
+
+          return `web_accessible_resources/resource-${index}/[name].js`
+        }
+
         return `${runtime}/[name].css`
       }
     }).apply(compiler)
@@ -30,7 +41,7 @@ export class CssPlugin {
       {
         test: /\.css$/,
         exclude: /\.module\.css$/,
-        type: 'javascript/auto',
+        // type: 'javascript/auto',
         // https://stackoverflow.com/a/60482491/4902448
         oneOf: [
           {
@@ -52,7 +63,7 @@ export class CssPlugin {
       },
       {
         test: /\.module\.css$/,
-        type: 'javascript/auto',
+        // type: 'javascript/auto',
         // https://stackoverflow.com/a/60482491/4902448
         oneOf: [
           {
@@ -81,7 +92,5 @@ export class CssPlugin {
       ...compiler.options.module.rules,
       ...loaders
     ]
-
-    console.log({rules: compiler.options.module.rules})
   }
 }
