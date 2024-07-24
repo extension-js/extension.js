@@ -6,17 +6,19 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import {Compiler} from 'webpack'
+import {getManifestFieldsData} from './data/manifest-fields'
+import {getSpecialFoldersData} from './data/special-folders'
 
 // Plugins
 import ResolvePlugin from 'webpack-browser-extension-resolve'
 import {ManifestPlugin} from './feature-manifest'
 import HtmlPlugin from 'webpack-browser-extension-html'
-import ScriptsPlugin from 'webpack-browser-extension-scripts'
+import {ScriptsPlugin} from './feature-scripts'
 import LocalesPlugin from 'webpack-browser-extension-locales'
 import JsonPlugin from 'webpack-browser-extension-json'
 import IconsPlugin from 'webpack-browser-extension-icons'
 import ResourcesPlugin from 'webpack-browser-extension-resources'
-import SpecialFoldersPlugin from './SpecialFoldersPlugin'
+import {SpecialFoldersPlugin} from './feature-special-folders'
 import {PluginInterface} from '../types'
 
 // Handle special folders feature
@@ -69,6 +71,9 @@ export class ExtensionPlugin {
     const pagesList = generatePagesEntries(allPages)
     const scriptsList = generateScriptsEntries(allScripts)
 
+    const manifestFieldsData = getManifestFieldsData({manifestPath})
+    const specialFoldersData = getSpecialFoldersData({manifestPath})
+
     new ResolvePlugin({
       manifestPath,
       // In addition to manifest fields, ensure we can
@@ -97,8 +102,14 @@ export class ExtensionPlugin {
     // Get all scripts (bg, content, sw) declared in manifest
     new ScriptsPlugin({
       manifestPath,
-      include: allScripts,
-      exclude: [...allPublic, ...allPages]
+      includeList: {
+        ...manifestFieldsData.scripts,
+        ...specialFoldersData.scripts
+      },
+      excludeList: {
+        ...specialFoldersData.public,
+        ...specialFoldersData.pages
+      }
     }).apply(compiler)
 
     // Get locales
