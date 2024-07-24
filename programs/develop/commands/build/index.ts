@@ -5,7 +5,6 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import {bold, red} from '@colors/colors/safe'
 import webpack from 'webpack'
 import compilerConfig from '../../webpack/webpack-config'
 import {getProjectPath} from '../../webpack/lib/get-project-path'
@@ -45,7 +44,7 @@ export default async function extensionBuild(
       plugins: allPluginsButBrowserRunners
     }
 
-    webpack(webpackConfigNoBrowser).run((err, stats) => {
+    webpack(webpackConfigNoBrowser).run(async (err, stats) => {
       if (err) {
         console.error(err.stack || err)
         process.exit(1)
@@ -60,7 +59,7 @@ export default async function extensionBuild(
       )
 
       if (buildOptions.zip || buildOptions.zipSource) {
-        generateZip(projectPath, {...buildOptions, browser})
+        await generateZip(projectPath, {...buildOptions, browser})
       }
 
       if (!stats?.hasErrors()) {
