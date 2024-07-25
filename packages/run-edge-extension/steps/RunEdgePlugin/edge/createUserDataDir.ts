@@ -22,7 +22,7 @@ export default function createUserDataDir(
   const userProfile = JSON.stringify(masterPreferences)
 
   if (!silent) {
-    addProgressBar(`👤 Creating ${bold('Edge')} user data directory...`, () => {
+    addProgressBar(`👤 Creating ${'Edge'} user data directory...`, () => {
       const profilePath = path.resolve(__dirname, 'run-edge-data-dir')
       const preferences = path.join(profilePath, 'Default')
 
