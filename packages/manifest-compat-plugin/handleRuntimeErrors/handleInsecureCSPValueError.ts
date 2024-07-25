@@ -18,13 +18,9 @@ export default function handleInsecureCSPValueError(
       parsedCSP.get('script-src') &&
       parsedCSP.get('script-src')?.includes("'unsafe-eval'")
     ) {
-      return bold(
-        `[manifest.json]: Insecure ${yellow(
-          'content-security-policy'
-        )} value "'${cyan('unsafe-eval')}'" in directive '${blue(
-          'script-src'
-        )}'.`
-      )
+      return `[manifest.json]: Insecure ${yellow(
+        'content-security-policy'
+      )} value "'${cyan('unsafe-eval')}'" in directive '${blue('script-src')}'.`
     }
   }
 
