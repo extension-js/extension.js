@@ -29,11 +29,9 @@ export function isUsingVue(projectPath: string) {
   if (vueAsDevDep || vueAsDep) {
     if (!userMessageDelivered) {
       console.log(
-        bold(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) `
-        ) + `is using ${bold(cyan('Vue'))}.`
+        `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+          manifest.version
+        }) ` + `is using ${cyan('Vue')}.`
       )
 
       userMessageDelivered = true

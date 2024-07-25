@@ -76,7 +76,7 @@ export default function createUserDataDir(
   } else {
     if (!silent) {
       addProgressBar(
-        `👤 Creating ${bold('Firefox')} user data directory...`,
+        `👤 Creating ${'Firefox'} user data directory...`,
         () => {}
       )
     }

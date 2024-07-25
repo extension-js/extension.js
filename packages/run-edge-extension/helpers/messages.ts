@@ -23,9 +23,9 @@ interface Data {
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the ${bold(
+  const hintMessage = `Check the ${
     feature
-  )} field in your manifest.json file and try again.`
+  } field in your manifest.json file and try again.`
 
   const errorMessage = `[manifest.json] File path ${underline(
     htmlFilePath
@@ -35,7 +35,7 @@ function manifestFieldError(feature: string, htmlFilePath: string) {
 
 function manifestNotFound() {
   log(`
-${bold("Error! Can't find the project's manifest file.")}
+${"Error! Can't find the project's manifest file."}
 
 Check your extension ${yellow(
     'manifest.json'
@@ -54,7 +54,7 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${red(
+    error(`[⛔️] ${bgCyan(white(` edge-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} No data received from client.
 
@@ -69,7 +69,7 @@ Ensure your extension is enabled and that no hanging Edge instance is open then 
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
       error(
-        `[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${green(
+        `[⛔️] ${bgCyan(white(` edge-browser `))} ${green(
           '►►►'
         )} No management API info received from client. Investigate.`
       )
@@ -92,40 +92,34 @@ Ensure your extension is enabled and that no hanging Edge instance is open then 
   const hasHost = hostPermissions && hostPermissions.length
 
   log('')
-  log(`${bold(`• Name:`)} ${name}`)
-  description && log(`${bold(`• Description:`)} ${description}`)
-  log(`${bold(`• Version:`)} ${version}`)
-  log(
-    `${bold(`• Size:`)} ${getDirectorySize(
-      compilerOptions.output.path || 'dist'
-    )}`
-  )
-  log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
+  log(`${`• Name:`} ${name}`)
+  description && log(`${`• Description:`} ${description}`)
+  log(`${`• Version:`} ${version}`)
+  log(`${`• Size:`} ${getDirectorySize(compilerOptions.output.path || 'dist')}`)
+  log(`${`• ID:`} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
   hasHost &&
-    log(`${bold(`• Host Permissions`)}: ${hostPermissions.sort().join(', ')}`)
+    log(`${`• Host Permissions`}: ${hostPermissions.sort().join(', ')}`)
   log(
-    `${bold(`• Permissions:`)} ${permissionsParsed.sort().join(', ')}` ||
+    `${`• Permissions:`} ${permissionsParsed.sort().join(', ')}` ||
       '(Using defaults)'
   )
   log(
-    `${bold(`• Settings URL`)}: ${underline(
-      blue(`edge://extensions/?id=${id}`)
-    )}\n`
+    `${`• Settings URL`}: ${underline(blue(`edge://extensions/?id=${id}`))}\n`
   )
 }
 
 function stdoutData(compiler: Compiler, message: {data?: Data}) {
   const compilerOptions = compiler.options
   const management = message.data?.management
-  const edgeRuntime = bgCyan(white(bold(` edge-browser `)))
+  const edgeRuntime = bgCyan(white(` edge-browser `))
   const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
 
   log(
-    `${edgeRuntime} ${green('►►►')} Running Edge in ${bold(
-      modeColor(compilerOptions.mode || 'unknown')
-    )} mode. Browser ${management?.type} ${bold(
+    `${edgeRuntime} ${green('►►►')} Running Edge in ${modeColor(
+      compilerOptions.mode || 'unknown'
+    )} mode. Browser ${management?.type} ${
       management?.enabled ? 'enabled' : 'disabled'
-    )}.`
+    }.`
   )
 }
 
@@ -139,7 +133,7 @@ function watchModeClosed(code: number, reason: Buffer) {
   const message = reason.toString()
 
   log(
-    `[😓] ${bgCyan(white(bold(` edge-browser `)))} ${red(
+    `[😓] ${bgCyan(white(` edge-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Watch mode closed (code ${code}). ${
       message && '\n\nReason!!! ' + message + '\n'
@@ -149,7 +143,7 @@ function watchModeClosed(code: number, reason: Buffer) {
 
 function browserNotFound(edgePath: string) {
   error(
-    `${bgCyan(white(bold(` edge-browser `)))} ${red(
+    `${bgCyan(white(` edge-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Edge not found at ${edgePath}`
   )
@@ -157,7 +151,7 @@ function browserNotFound(edgePath: string) {
 
 function webSocketError(error: any) {
   error(
-    `[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${red(
+    `[⛔️] ${bgCyan(white(` edge-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} WebSocket error`,
     error
@@ -166,7 +160,7 @@ function webSocketError(error: any) {
 
 function parseFileError(error: any, filepath: string) {
   error(
-    `[⛔️] ${bgCyan(white(bold(` edge-browser `)))} ${red(
+    `[⛔️] ${bgCyan(white(` edge-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Error parsing file: ${filepath}. Reason: ${error.message}`
   )

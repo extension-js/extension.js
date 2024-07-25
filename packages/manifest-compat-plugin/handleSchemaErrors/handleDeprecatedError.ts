@@ -30,7 +30,7 @@ export default function handleDeprecatedError(
 ) {
   compilation.warnings.push(
     new WebpackError(
-      bold(`[manifest.json]: ${deprecatedMessage(browser, errorData)}`)
+      `[manifest.json]: ${deprecatedMessage(browser, errorData)}`
     )
   )
 }

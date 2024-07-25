@@ -125,21 +125,17 @@ export function isUsingTypeScript(projectPath: string) {
     if (TypeScriptAsDevDep || TypeScriptAsDep) {
       if (configFile) {
         console.log(
-          bold(
-            `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-              manifest.version
-            }) `
-          ) + `is using ${bold(blue('TypeScript'))} config file.`
+          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+            manifest.version
+          }) ` + `is using ${blue('TypeScript')} config file.`
         )
       } else {
         console.log(
-          bold(
-            `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-              manifest.version
-            }) `
-          ) +
-            `is using ${bold(
-              blue('TypeScript')
+          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+            manifest.version
+          }) ` +
+            `is using ${blue(
+              'TypeScript'
             )} but no config file was found. Creating ${yellow(
               'tsconfig.json'
             )}...`

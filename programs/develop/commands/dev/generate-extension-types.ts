@@ -35,22 +35,18 @@ export default async function generateExtensionTypes(projectDir: string) {
     // Check if the file exists
     await fs.access(extensionEnvFile)
     console.log(
-      bold(
-        `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-          manifest.version
-        }) `
-      ) + `${yellow('extension-env.d.ts')} already exists.`
+      `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+        manifest.version
+      }) ` + `${yellow('extension-env.d.ts')} already exists.`
     )
   } catch (err) {
     // File does not exist, continue to write it
     console.log(
-      bold(
-        `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-          manifest.version
-        }) `
-      ) +
+      `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+        manifest.version
+      }) ` +
         `${blue(
-          bold('TypeScript')
+          'TypeScript'
         )} install detected. Writing extension type definitions...`
     )
     try {

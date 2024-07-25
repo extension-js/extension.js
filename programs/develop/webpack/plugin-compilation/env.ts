@@ -35,11 +35,10 @@ export class EnvPlugin {
       fs.existsSync(path.join(projectPath, '.env.defaults'))
     ) {
       console.log(
-        bold(
-          `🧩 Extension.js ${blue(
-            '►►►'
-          )} ${manifestName} (v${manifestVersion}) `
-        ) + `${bold(yellow('env'))} file loaded.`
+        `🧩 Extension.js ${blue(
+          '►►►'
+        )} ${manifestName} (v${manifestVersion}) ` +
+          `${yellow('env')} file loaded.`
       )
 
       new Dotenv({

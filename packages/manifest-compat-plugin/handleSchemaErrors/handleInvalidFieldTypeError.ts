@@ -23,8 +23,6 @@ export default function handleInvalidFieldTypeError(
   browser: string
 ) {
   compilation.warnings.push(
-    new WebpackError(
-      bold(`[manifest.json]: ${invalidFieldType(errorData, browser)}`)
-    )
+    new WebpackError(`[manifest.json]: ${invalidFieldType(errorData, browser)}`)
   )
 }

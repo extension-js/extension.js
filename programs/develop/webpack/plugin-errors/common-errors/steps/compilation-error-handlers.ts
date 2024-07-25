@@ -40,7 +40,7 @@ export function handleCantResolveError(
       )} folder. ` +
       `Read more about ${'special folders'} ${underline(blue(link))}.`
 
-    return new webpack.WebpackError(bold(customMessage))
+    return new webpack.WebpackError(customMessage)
   }
 
   return null
@@ -59,7 +59,7 @@ export function handleTopLevelAwaitError(
 
   if (error.message.includes(topLevelAwaitMsg)) {
     const customMessage = `[${manifest.name}] ${red(
-      bold(topLevelAwaitMsg + '.\n' + additionalInfo)
+      topLevelAwaitMsg + '.\n' + additionalInfo
     )}`
 
     return new webpack.WebpackError(customMessage)
