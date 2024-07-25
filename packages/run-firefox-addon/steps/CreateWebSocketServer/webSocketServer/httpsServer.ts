@@ -27,7 +27,7 @@ export default function httpsServer(defaultPort = 8002) {
   server.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       console.error(
-        `[😓] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
+        `[😓] ${bgWhite(red(` firefox-browser `))} ${red(
           '✖︎✖︎✖︎'
         )} Default port ${defaultPort} in use, choose a new port. + '\n'
         }Exiting...\n`

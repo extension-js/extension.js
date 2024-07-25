@@ -49,13 +49,13 @@ export default class FirefoxExtensionLauncherPlugin {
       if (error != null) throw error
       if (stderr.includes('Unable to move the cache')) {
         console.log(
-          `${bgWhite(red(bold(` firefox-browser `)))} ${green(
+          `${bgWhite(red(` firefox-browser `))} ${green(
             `►►►`
           )} Firefox instance already running.`
         )
       } else {
         console.log(
-          `${bgWhite(red(bold(` firefox-browser `)))} ${green(
+          `${bgWhite(red(` firefox-browser `))} ${green(
             `►►►`
           )} Firefox instance exited.`
         )
@@ -72,7 +72,7 @@ export default class FirefoxExtensionLauncherPlugin {
     const remoteFirefox = new RemoteFirefox(this.options)
     remoteFirefox.installAddons(compiler).catch((error) => {
       console.error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+        `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
           `Error injecting add-ons code into Firefox profile.`
       )
       console.error(error)
@@ -96,7 +96,7 @@ export default class FirefoxExtensionLauncherPlugin {
         }
         this.launchFirefox(compiler).catch((error) => {
           console.error(
-            `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+            `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
               `Error launching Firefox.`
           )
           console.error(error)

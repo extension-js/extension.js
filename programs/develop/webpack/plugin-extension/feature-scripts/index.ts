@@ -41,58 +41,58 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // // In production: Adds the CSS files to the entry points
-    // // along with other content_script files.
-    // // In development: Extracts the content_scripts css files
-    // // from content_scripts and injects them as dynamic imports
-    // // so we can benefit from HMR.
-    // if (compiler.options.mode === 'development') {
-    //   compiler.options.module.rules.push({
-    //     test: /\.(m?js|m?ts)x?$/,
-    //     use: [
-    //       {
-    //         loader: require.resolve(
-    //           path.join(__dirname, 'inject-content-css-during-dev.js')
-    //         ),
-    //         options: {
-    //           manifestPath: this.manifestPath,
-    //           includeList: this.includeList || {},
-    //           excludeList: this.excludeList || {},
-    //         },
-    //       },
-    //     ],
-    //   });
-    // }
+    // In production: Adds the CSS files to the entry points
+    // along with other content_script files.
+    // In development: Extracts the content_scripts css files
+    // from content_scripts and injects them as dynamic imports
+    // so we can benefit from HMR.
+    if (compiler.options.mode === 'development') {
+      compiler.options.module.rules.push({
+        test: /\.(m?js|m?ts)x?$/,
+        use: [
+          {
+            loader: require.resolve(
+              path.join(__dirname, 'inject-content-css-during-dev.js')
+            ),
+            options: {
+              manifestPath: this.manifestPath,
+              includeList: this.includeList || {},
+              excludeList: this.excludeList || {}
+            }
+          }
+        ]
+      })
+    }
 
-    // // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
-    // if (compiler.options.mode === 'development') {
-    //   compiler.options.module.rules.push({
-    //     test: /\.(m?js|m?ts)x?$/,
-    //     use: [
-    //       {
-    //         loader: require.resolve(
-    //           path.join(__dirname, 'add-hmr-accept-code.js')
-    //         ),
-    //         options: {
-    //           manifestPath: this.manifestPath,
-    //           includeList: this.includeList || {},
-    //           excludeList: this.excludeList || {},
-    //         },
-    //       },
-    //     ],
-    //   });
-    // }
+    // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
+    if (compiler.options.mode === 'development') {
+      compiler.options.module.rules.push({
+        test: /\.(m?js|m?ts)x?$/,
+        use: [
+          {
+            loader: require.resolve(
+              path.join(__dirname, 'add-hmr-accept-code.js')
+            ),
+            options: {
+              manifestPath: this.manifestPath,
+              includeList: this.includeList || {},
+              excludeList: this.excludeList || {}
+            }
+          }
+        ]
+      })
+    }
 
-    // // 3 - Fix the issue with the public path not being
-    // // available for content_scripts in the production build.
-    // // See https://github.com/cezaraugusto/extension.js/issues/95
-    // // See https://github.com/cezaraugusto/extension.js/issues/96
-    // if (compiler.options.mode === 'production') {
-    //   new AddPublicPathRuntimeModule().apply(compiler);
-    // }
+    // 3 - Fix the issue with the public path not being
+    // available for content_scripts in the production build.
+    // See https://github.com/cezaraugusto/extension.js/issues/95
+    // See https://github.com/cezaraugusto/extension.js/issues/96
+    if (compiler.options.mode === 'production') {
+      new AddPublicPathRuntimeModule().apply(compiler)
+    }
 
-    // // 4 - Fix the issue where assets imported via content_scripts
-    // // running in the MAIN world could not find the correct public path.
+    // 4 - Fix the issue where assets imported via content_scripts
+    // running in the MAIN world could not find the correct public path.
     // compiler.options.module.rules.push({
     //   test: /\.(m?js|m?ts)x?$/,
     //   use: [
@@ -107,26 +107,26 @@ export class ScriptsPlugin {
     //   ],
     // });
 
-    // // 5 - Fix the issue of content_scripts not being able to import
-    // // CSS files via import statements. This loader adds the
-    // // is_content_css_import=true query param to CSS imports in
-    // // content_scripts. This skips the MiniCssExtractPlugin loader
-    // // and allows the CSS to be injected in the DOM via <style> tags.
-    // compiler.options.module.rules.push({
-    //   test: /\.(m?js|m?ts)x?$/,
-    //   use: [
-    //     {
-    //       loader: path.resolve(
-    //         __dirname,
-    //         './add-query-param-to-imported-css.js'
-    //       ),
-    //       options: {
-    //         manifestPath: this.manifestPath,
-    //         includeList: this.includeList || {},
-    //         excludeList: this.excludeList || {},
-    //       },
-    //     },
-    //   ],
-    // });
+    // 5 - Fix the issue of content_scripts not being able to import
+    // CSS files via import statements. This loader adds the
+    // is_content_css_import=true query param to CSS imports in
+    // content_scripts. This skips the MiniCssExtractPlugin loader
+    // and allows the CSS to be injected in the DOM via <style> tags.
+    compiler.options.module.rules.push({
+      test: /\.(m?js|m?ts)x?$/,
+      use: [
+        {
+          loader: path.resolve(
+            __dirname,
+            './add-query-param-to-imported-css.js'
+          ),
+          options: {
+            manifestPath: this.manifestPath,
+            includeList: this.includeList || {},
+            excludeList: this.excludeList || {}
+          }
+        }
+      ]
+    })
   }
 }

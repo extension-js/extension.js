@@ -119,30 +119,26 @@ export async function generateZip(
 
     if (options.zip && options.zipSource) {
       console.log(
-        `\n${bold('📦 Package name:')} ${yellow(`${name}`)}, ${bold(
-          'Target Browser:'
-        )} ${`${capitalizedBrowser}`}` +
-          `\n   ${bold('└─')} ${underline(`${sourceZipPath}`)} (source)` +
-          `\n   ${bold('└─')} ${underline(`${distZipPath}`)} (distribution)`
+        `\n${'📦 Package name:'} ${yellow(`${name}`)}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
+          `\n   ${'└─'} ${underline(`${sourceZipPath}`)} (source)` +
+          `\n   ${'└─'} ${underline(`${distZipPath}`)} (distribution)`
       )
     } else if (options.zip) {
       console.log(
-        `\n${bold('📦 Package name:')} ${yellow(`${name}.${ext}`)}, ${bold(
-          'Target Browser:'
-        )} ${`${capitalizedBrowser}`}` +
-          `\n   ${bold('└─')} ${underline(`${distZipPath}`)} (distribution)`
+        `\n${'📦 Package name:'} ${yellow(`${name}.${ext}`)}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
+          `\n   ${'└─'} ${underline(`${distZipPath}`)} (distribution)`
       )
     } else if (options.zipSource) {
       console.log(
-        `\n${bold('📦 Package name:')} ${yellow(
+        `\n${'📦 Package name:'} ${yellow(
           `${name}-source.${ext}`
-        )}, ${bold('Target Browser:')} ${`${capitalizedBrowser}`}` +
-          `\n   ${bold('└─')} ${underline(`${sourceZipPath}`)} (source)`
+        )}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
+          `\n   ${'└─'} ${underline(`${sourceZipPath}`)} (source)`
       )
     }
   } catch (error) {
     console.error(
-      `🧩 ${bold('Extension.js')} ${blue(
+      `🧩 ${'Extension.js'} ${blue(
         '✖︎✖︎✖︎'
       )} Failed to compress extension package: ${error}`
     )

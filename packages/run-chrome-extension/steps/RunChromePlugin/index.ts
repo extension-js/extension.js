@@ -27,7 +27,7 @@ export default class ChromeExtensionLauncherPlugin {
     const chrome: string = chromeLocation
     if (!fs.existsSync(path.resolve(chrome))) {
       console.error(
-        `${bgWhite(black(bold(` chrome-browser `)))} ${red(
+        `${bgWhite(black(` chrome-browser `))} ${red(
           '✖︎✖︎✖︎'
         )} Chrome not found at ${chrome}`
       )
@@ -36,7 +36,7 @@ export default class ChromeExtensionLauncherPlugin {
 
     if (!fs.existsSync(chrome) || '') {
       console.error(
-        `${bgWhite(black(bold(` chrome-browser `)))} ${red('✖︎✖︎✖︎')} ` +
+        `${bgWhite(black(` chrome-browser `))} ${red('✖︎✖︎✖︎')} ` +
           `Chrome browser ${
             typeof chrome === 'undefined'
               ? 'is not installed.'

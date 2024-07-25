@@ -24,27 +24,23 @@ export default function handleWrongWebResourceFormatError(
 
     if (manifest.manifest_version === 2 && !mv2Format) {
       return new webpack.WebpackError(
-        bold(
-          `[manifest.json]: ${yellow(
-            'web_accessible_resources'
-          )} must be a string array in Manifest version 2.
+        `[manifest.json]: ${yellow(
+          'web_accessible_resources'
+        )} must be a string array in Manifest version 2.
 
 Read more about using ${namespace} in the manifest file:
 ${getManifestDocumentationURL(browser)}`
-        )
       )
     }
 
     if (manifest.manifest_version === 3 && !mv3Format) {
       return new webpack.WebpackError(
-        bold(
-          `[manifest.json]: ${yellow(
-            'web_accessible_resources'
-          )} must be an array of objects in Manifest version 3.
+        `[manifest.json]: ${yellow(
+          'web_accessible_resources'
+        )} must be an array of objects in Manifest version 3.
 
 Read more about using ${namespace} in the manifest file:
 ${getManifestDocumentationURL(browser)}`
-        )
       )
     }
   }

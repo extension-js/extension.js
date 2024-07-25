@@ -69,20 +69,20 @@ export default async function installDependencies(
         process.chdir(originalDirectory)
 
         console.error(
-          `🧩 ${bold(`Extension.js`)} ${red(
+          `🧩 ${`Extension.js`} ${red(
             `✖︎✖︎✖︎`
-          )} Child process error: Can't install dependencies for ${bold(
+          )} Child process error: Can't install dependencies for ${
             projectName
-          )}. ${error.message}`
+          }. ${error.message}`
         )
         reject(error)
       })
     })
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(
+      `🧩 ${`Extension.js`} ${red(
         `✖︎✖︎✖︎`
-      )} Can't install dependencies for ${bold(projectName)}. ${
+      )} Can't install dependencies for ${projectName}. ${
         error.message || error.toString()
       }`
     )

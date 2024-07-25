@@ -30,7 +30,7 @@ export default function patchBackground(manifest: any) {
   // https://bugzilla.mozilla.org/show_bug.cgi?id=1573659
   if (manifest.background.service_worker) {
     console.warn(
-      `${bgWhite(red(bold(` firefox-browser `)))} ${yellow(`►►►`)} ` +
+      `${bgWhite(red(` firefox-browser `))} ${yellow(`►►►`)} ` +
         `Firefox does not support the ${yellow(
           'background.service_worker'
         )} field yet.\n` +

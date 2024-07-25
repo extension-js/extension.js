@@ -30,11 +30,9 @@ export function isUsingPreact(projectPath: string) {
   if (preactAsDevDep || preactAsDep) {
     if (!userMessageDelivered) {
       console.log(
-        bold(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) `
-        ) + `is using ${bold(cyan('Preact'))}.`
+        `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+          manifest.version
+        }) ` + `is using ${cyan('Preact')}.`
       )
 
       userMessageDelivered = true

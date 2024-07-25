@@ -16,14 +16,12 @@ export default function successfullInstall(
 ) {
   const relativePath = path.relative(process.cwd(), projectPath)
 
-  console.log(
-    `🧩 - ${bold(green('Success!'))} Extension ${bold(projectName)} created.`
-  )
+  console.log(`🧩 - ${green('Success!')} Extension ${projectName} created.`)
 
   const packageManager = prefersYarn() ? 'yarn' : 'npm run'
   console.log(`
 Now ${blue(`cd ${underline(relativePath)}`)} and ${blue(
-    bold(`${packageManager} dev`)
+    `${packageManager} dev`
   )} to open a new browser instance
 with your extension installed, loaded, and enabled for development.
 

@@ -16,12 +16,10 @@ export default async function directoryHasConflicts(
   const projectName = path.basename(projectPath)
 
   console.error(
-    bold(
-      red(
-        `\nConflict! Path to ${underline(
-          projectName
-        )} includes conflicting files:\n`
-      )
+    red(
+      `\nConflict! Path to ${underline(
+        projectName
+      )} includes conflicting files:\n`
     )
   )
 
@@ -37,6 +35,6 @@ export default async function directoryHasConflicts(
   )
 
   console.error(
-    `\n${bold('Path to conflicting directory')}: \`${underline(projectPath)}\``
+    `\n${'Path to conflicting directory'}: \`${underline(projectPath)}\``
   )
 }

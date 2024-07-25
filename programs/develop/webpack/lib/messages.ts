@@ -2,7 +2,6 @@ import path from 'path'
 import fs from 'fs'
 import {StatsAsset} from 'webpack'
 import {
-  bold,
   bgWhite,
   red,
   yellow,
@@ -25,7 +24,7 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
         : type === 'error'
           ? red('✖︎✖︎✖︎')
           : green('►►►')
-  return `🧩 ${bold('Extension.js')} ${arrow} `
+  return `🧩 ${'Extension.js'} ${arrow}`
 }
 
 export function serverRestartRequiredFromHtml(
@@ -155,7 +154,7 @@ export function calculateDirectorySize(dirPath: string): number {
 
 export function manifestNotFound() {
   return (
-    `${bold("Error! Can't find the project's manifest file.")}` +
+    `${"Error! Can't find the project's manifest file."}` +
     `Check your extension ${yellow('manifest.json')} ` +
     `file and ensure its path points to one of the options above, and try again.`
   )
@@ -163,21 +162,21 @@ export function manifestNotFound() {
 
 export function browserNotFound(chromePath: string) {
   return (
-    `${bgWhite(bold(` chrome-browser `))} ` +
+    `${bgWhite(` chrome-browser `)} ` +
     `${red('✖︎✖︎✖︎')} Chrome not found at ${chromePath}`
   )
 }
 
 export function webSocketError(error: NodeJS.ErrnoException) {
   return (
-    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ` +
+    `[⛔️] ${bgWhite(` chrome-browser `)} ` +
     `${red('✖︎✖︎✖︎')} WebSocket error ${error}`
   )
 }
 
 export function parseFileError(error: NodeJS.ErrnoException, filepath: string) {
   return (
-    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red('✖︎✖︎✖︎')} ` +
+    `[⛔️] ${bgWhite(` chrome-browser `)} ${red('✖︎✖︎✖︎')} ` +
     `Error parsing file: ${filepath}. Reason: ${error.message}`
   )
 }
@@ -228,15 +227,15 @@ export function startWebpack(
   const hasPermissions = permissions && permissions.length
 
   return `
-${bold(`• Name:`)} ${name}
-${description ? `${bold(`• Description:`)} ${description}\n` : ''}
-${bold(`• Version:`)} ${version}
-${bold(`• Size:`)} ${getDirectorySize(outputPath)}
-${bold(`• Locales:`)} ${locales}
-${bold(`• Host Permissions:`)} ${
+${`• Name:`} ${name}
+${description ? `${`• Description:`} ${description}\n` : ''}
+${`• Version:`} ${version}
+${`• Size:`} ${getDirectorySize(outputPath)}
+${`• Locales:`} ${locales}
+${`• Host Permissions:`} ${
     hasHost ? hostPermissions.sort().join(', ') : 'Browser defaults'
   }
-${bold(`• Permissions:`)} ${
+${`• Permissions:`} ${
     hasPermissions ? permissions.sort().join(', ') : 'Browser defaults'
   }
   `
@@ -247,10 +246,10 @@ export function ready(options: StartOptions): string {
     options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
 
   return (
-    `${getLoggingPrefix('success')}` +
+    `${getLoggingPrefix('success')} ` +
     `Running ${capitalizedBrowserName} in ${magenta(
-      bold('production')
-    )} mode. Browser extension ${bold('enabled')}...`
+      'production'
+    )} mode. Browser extension ${'enabled'}...`
   )
 }
 
@@ -259,8 +258,8 @@ export function building(options: StartOptions): string {
     options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
 
   return (
-    `${getLoggingPrefix('info')}` +
-    `Building the extension package against ${bold(capitalizedBrowserName)}...`
+    `${getLoggingPrefix('info')} ` +
+    `Building the extension package against ${capitalizedBrowserName}...`
   )
 }
 
@@ -269,8 +268,8 @@ export function previewing(options: StartOptions): string {
     options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
 
   return (
-    `${getLoggingPrefix('info')}` +
-    `Previewing the extension on ${bold(capitalizedBrowserName)}...`
+    `${getLoggingPrefix('info')} ` +
+    `Previewing the extension on ${capitalizedBrowserName}...`
   )
 }
 
@@ -328,7 +327,7 @@ export function printTree(node: Record<string, any>, prefix = ''): string {
     const sizeInKB = node[key].size
       ? ` (${getFileSize(node[key].size as number)})`
       : ''
-    output += `${prefix}${connector} ${bold(key)}${sizeInKB}\n`
+    output += `${prefix}${connector} ${key}${sizeInKB}\n`
     if (typeof node[key] === 'object' && !node[key].size) {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       output += printTree(node[key], `${prefix}${isLast ? '   ' : '|  '}`)
@@ -351,12 +350,8 @@ export function getAssetInfo(
   let output = '\n'
   assets?.forEach((asset) => {
     const sizeInKB = getFileSize(asset.size)
-    output += `• ${bold('Filename:')} ${yellow(asset.name)}, ${bold(
-      'Size:'
-    )} ${sizeInKB}\n`
-    output += `  ${bold('└─')} ${underline(
-      `${path.join(outputPath, asset.name)}`
-    )}\n`
+    output += `• ${'Filename:'} ${yellow(asset.name)}, ${'Size:'} ${sizeInKB}\n`
+    output += `  ${'└─'} ${underline(`${path.join(outputPath, asset.name)}`)}\n`
   })
   return output
 }
@@ -397,9 +392,9 @@ export function buildWebpack(
     fs.readFileSync(manifestPath, 'utf8')
   )
   const assets: any[] = statsJson?.assets
-  const heading = `${getLoggingPrefix('info')} Building ${bold(
+  const heading = `${getLoggingPrefix('info')} Building ${
     manifest.name
-  )} extension using ${bold(browser)} defaults...\n`
+  } extension using ${browser} defaults...\n`
   const buildTime = `\nBuild completed in ${(
     (statsJson?.time || 0) / 1000
   ).toFixed(2)} seconds.`
@@ -429,42 +424,34 @@ export function buildReady() {
 
 export function errorWhileBuilding(error: any) {
   return (
-    `${getLoggingPrefix('error')}` +
-    `Error while building the extension:\n\n${red(
-      bold((error as string) || '')
-    )}`
+    `${getLoggingPrefix('error')} ` +
+    `Error while building the extension:\n\n${red((error as string) || '')}`
   )
 }
 
 export function errorWhilePreviewing(error: any) {
   return (
-    `${getLoggingPrefix('error')}` +
-    `Error while previewing the extension:\n\n${red(
-      bold((error as string) || '')
-    )}`
+    `${getLoggingPrefix('error')} ` +
+    `Error while previewing the extension:\n\n${red((error as string) || '')}`
   )
 }
 export function errorWhileStarting(error: any) {
   return (
-    `${getLoggingPrefix('error')}` +
-    `Error while starting the extension:\n\n${red(
-      bold((error as string) || '')
-    )}`
+    `${getLoggingPrefix('error')} ` +
+    `Error while starting the extension:\n\n${red((error as string) || '')}`
   )
 }
 
 export function errorWhileDeveloping(error: any) {
   return (
-    `${getLoggingPrefix('error')}` +
-    `Error while developing the extension:\n\n${red(
-      bold((error as string) || '')
-    )}`
+    `${getLoggingPrefix('error')} ` +
+    `Error while developing the extension:\n\n${red((error as string) || '')}`
   )
 }
 
 export function isUsingTechnology(manifest: Manifest, technology: any) {
   return (
-    `${getLoggingPrefix('info')}` +
+    `${getLoggingPrefix('info')} ` +
     `${manifest.name} (v${manifest.version}) ` +
     `is using ${cyan(technology)}.`
   )
@@ -474,4 +461,19 @@ export function boring(stats: any) {
   const divider = stats.hasErrors() ? 'error' : 'success'
 
   return `${getLoggingPrefix(divider)}`
+}
+
+export function serverRestartRequiredFromWebpack(
+  addingOrRemoving: string,
+  addedOrRemoved: string,
+  folder: string,
+  typeOfAsset: string,
+  pathRelative: string
+) {
+  return (
+    `${getLoggingPrefix('info')} Entry Point Modification Found\n\n` +
+    `${addingOrRemoving} ${typeOfAsset} in the ${underline(folder + '/')} folder after compilation requires a server restart.\n` +
+    `\n\n- File ${addedOrRemoved}: ${underline(pathRelative)}\n\n` +
+    `To apply these changes, restart the program.`
+  )
 }

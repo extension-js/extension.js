@@ -22,6 +22,7 @@ export class WarnUponFolderChanges {
     const errorMessage = messages.serverRestartRequiredFromWebpack(
       addingOrRemoving,
       addedOrRemoved,
+      folder,
       typeOfAsset,
       pathRelative
     )

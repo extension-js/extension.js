@@ -63,11 +63,9 @@ export function isUsingStylelint(projectPath: string) {
     if (!userMessageDelivered) {
       // This message is shown for each CSS loader we have, so we only want to show it once.
       console.log(
-        bold(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) `
-        ) + `is using ${bgBlack(bold(white('Stylelint')))} config file.`
+        `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+          manifest.version
+        }) ` + `is using ${bgBlack(white('Stylelint'))} config file.`
       )
 
       userMessageDelivered = true
