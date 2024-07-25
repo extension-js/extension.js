@@ -23,9 +23,9 @@ interface Data {
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the ${bold(
+  const hintMessage = `Check the ${
     feature
-  )} field in your manifest.json file and try again.`
+  } field in your manifest.json file and try again.`
 
   const errorMessage = `[manifest.json] File path ${underline(
     htmlFilePath
@@ -35,7 +35,7 @@ function manifestFieldError(feature: string, htmlFilePath: string) {
 
 function manifestNotFound() {
   log(`
-${bold("Error! Can't find the project's manifest file.")}
+${"Error! Can't find the project's manifest file."}
 
 Check your extension ${yellow(
     'manifest.json'
@@ -50,7 +50,7 @@ function extensionData(projectPath: string, message: {data?: Data}) {
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
+    error(`[⛔️] ${bgWhite(red(` firefox-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} No data received from client.
 
@@ -64,7 +64,7 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
       error(
-        `[⛔️] ${bgWhite(red(bold(` firefox-browser `)))} ${green(
+        `[⛔️] ${bgWhite(red(` firefox-browser `))} ${green(
           '►►►'
         )} No management API info received from client. Investigate.`
       )
@@ -90,19 +90,15 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
   const hasHost = hostPermissionsParsed && hostPermissionsParsed.length
 
   log('')
-  log(`${bold(`• Name:`)} ${name}`)
-  description && log(`${bold(`• Description:`)} ${description}`)
-  log(`${bold(`• Version:`)} ${version}`)
-  log(`${bold(`• Size:`)} ${getDirectorySize(outputPath)}`)
-  log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
+  log(`${`• Name:`} ${name}`)
+  description && log(`${`• Description:`} ${description}`)
+  log(`${`• Version:`} ${version}`)
+  log(`${`• Size:`} ${getDirectorySize(outputPath)}`)
+  log(`${`• ID:`} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
   hasHost &&
-    log(
-      `${bold(`• Host Permissions`)}: ${hostPermissionsParsed
-        ?.sort()
-        .join(', ')}`
-    )
+    log(`${`• Host Permissions`}: ${hostPermissionsParsed?.sort().join(', ')}`)
   log(
-    `${bold(`• Permissions:`)} ${
+    `${`• Permissions:`} ${
       permissionsParsed.length
         ? permissionsParsed.sort().join(', ')
         : 'Browser defaults'
@@ -113,16 +109,16 @@ Ensure your extension is enabled and that no hanging Firefox instance is open th
 function stdoutData(compiler: Compiler, message: {data?: Data}) {
   const compilerOptions = compiler.options
   const management = message.data?.management
-  const crRuntime = bgWhite(red(bold(` firefox-browser `)))
+  const crRuntime = bgWhite(red(` firefox-browser `))
 
   const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
 
   log(
-    `\n${crRuntime} ${green('►►►')} Running Firefox in ${bold(
-      modeColor(compilerOptions.mode || 'unknown')
-    )} mode. Browser ${management?.type} ${bold(
+    `\n${crRuntime} ${green('►►►')} Running Firefox in ${modeColor(
+      compilerOptions.mode || 'unknown'
+    )} mode. Browser ${management?.type} ${
       management?.enabled ? 'enabled' : 'disabled'
-    )}.`
+    }.`
   )
 }
 
@@ -139,7 +135,7 @@ function certRequired() {
   )
   log(`\nTo enable this feature, run:`)
   log(`
-  npx -y ${bold('mkcert-cli')} \\
+  npx -y ${'mkcert-cli'} \\
     ${green('--outDir')} ${path.join(
       process.cwd(),
       'node_modules/webpack-run-firefox-addon/dist/certs'
@@ -148,9 +144,7 @@ function certRequired() {
     ${green('--key')} ${'localhost.key'}
   `)
   log(
-    `This will create a certificate in the plugin path via ${bold(
-      'mkcert'
-    )} and enable the secure connection for Firefox.`
+    `This will create a certificate in the plugin path via ${'mkcert'} and enable the secure connection for Firefox.`
   )
   log(`\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`)
 }
@@ -164,7 +158,7 @@ function watchModeClosed(code: number, reason: any) {
   const message = reason.toString()
 
   log(
-    `[😓] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
+    `[😓] ${bgWhite(red(` firefox-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Watch mode closed (code ${code}). ${
       message && '\n\nReason ' + message + '\n'
@@ -174,7 +168,7 @@ function watchModeClosed(code: number, reason: any) {
 
 function browserNotFound(chromePath: string) {
   error(
-    `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+    `${bgWhite(red(` firefox-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Firefox not found at ${chromePath}`
   )
@@ -182,7 +176,7 @@ function browserNotFound(chromePath: string) {
 
 function webSocketError(error: any) {
   error(
-    `[⛔️] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
+    `[⛔️] ${bgWhite(red(` firefox-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} WebSocket error`,
     error
@@ -191,7 +185,7 @@ function webSocketError(error: any) {
 
 function parseFileError(error: any, filepath: string) {
   error(
-    `[⛔️] ${bgWhite(red(bold(` firefox-browser `)))} ${red(
+    `[⛔️] ${bgWhite(red(` firefox-browser `))} ${red(
       '✖︎✖︎✖︎'
     )} Error parsing file: ${filepath}. Reason: ${error.message}`
   )

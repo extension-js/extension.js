@@ -41,7 +41,7 @@ export default class RemoteFirefox {
           lastError = error
         } else {
           console.error(
-            `${bgWhite(red(bold(` firefox-browser `)))} ${red('✖︎✖︎✖︎')} ${
+            `${bgWhite(red(` firefox-browser `))} ${red('✖︎✖︎✖︎')} ${
               error.stack
             }`
           )
@@ -51,7 +51,7 @@ export default class RemoteFirefox {
     }
 
     console.error(
-      `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+      `${bgWhite(red(` firefox-browser `))} ${red(
         '✖︎✖︎✖︎'
       )} Unable to connect to Firefox. Too many retries.`
     )
@@ -91,7 +91,7 @@ export default class RemoteFirefox {
         const message = requestErrorToMessage(err)
         throw new Error(
           `${bgWhite(
-            red(bold(` firefox-browser `))
+            red(` firefox-browser `)
           )} Error while installing temporary addon: ${message}`
         )
       }

@@ -27,7 +27,7 @@ export function createProfile(
 
   if (!silent) {
     addProgressBar(
-      `👤 Creating ${bold(capitalBrowsername)} user data directory...`,
+      `👤 Creating ${capitalBrowsername} user data directory...`,
       () => {
         const profilePath = path.resolve(__dirname, `run-${browser}-profile`)
         const preferences = path.join(profilePath, 'Default')

@@ -29,11 +29,9 @@ export function isUsingReact(projectPath: string) {
   if (reactAsDevDep || reactAsDep) {
     if (!userMessageDelivered) {
       console.log(
-        bold(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) `
-        ) + `is using ${bold(cyan('React'))}.`
+        `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
+          manifest.version
+        }) ` + `is using ${cyan('React')}.`
       )
 
       userMessageDelivered = true

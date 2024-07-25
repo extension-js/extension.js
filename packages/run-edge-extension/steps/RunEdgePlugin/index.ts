@@ -28,7 +28,7 @@ export default class EdgeExtensionLauncherPlugin {
 
     if (!fs.existsSync(path.resolve(msEdge))) {
       console.error(
-        `${bgCyan(white(bold(` edge-browser `)))} ${red(
+        `${bgCyan(white(` edge-browser `))} ${red(
           `✖︎✖︎✖︎`
         )} Edge not found at ${msEdge}`
       )
@@ -37,7 +37,7 @@ export default class EdgeExtensionLauncherPlugin {
 
     if (!fs.existsSync(msEdge) || '') {
       console.error(
-        `${bgCyan(white(bold(` edge-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+        `${bgCyan(white(` edge-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
           `Edge browser ${
             typeof msEdge === 'undefined'
               ? 'is not installed.'

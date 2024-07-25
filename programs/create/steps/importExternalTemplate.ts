@@ -21,14 +21,10 @@ export default async function importExternalTemplate(
     await fs.mkdir(projectPath, {recursive: true})
 
     console.log(
-      `🧰 - Installing ${bold(projectName)} from template ${blue(
-        bold(templateName)
-      )}`
+      `🧰 - Installing ${projectName} from template ${blue(templateName)}`
     )
   } catch (error: any) {
-    console.error(
-      `😕❓ Can't find template ${blue(bold(templateName))}. ${error}`
-    )
+    console.error(`😕❓ Can't find template ${blue(templateName)}. ${error}`)
     process.exit(1)
   }
 }

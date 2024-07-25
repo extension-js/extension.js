@@ -36,7 +36,7 @@ function parseMessage(data: Buffer): {
     return {
       remainingData: data,
       error: new Error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+        `${bgWhite(red(` firefox-browser `))} ${red(
           `✖︎✖︎✖︎`
         )} Error parsing message length.`
       ),
@@ -94,7 +94,7 @@ export default class MessagingClient extends EventEmitter {
     this.connection.end()
     this.rejectAllRequests(
       new Error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+        `${bgWhite(red(` firefox-browser `))} ${red(
           `✖︎✖︎✖︎`
         )} MessagingClient connection closed.`
       )
@@ -120,7 +120,7 @@ export default class MessagingClient extends EventEmitter {
 
     if (!request.to) {
       throw new Error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+        `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
           `Unexpected MessagingClient request without target actor: ${request.type}`
       )
     }
@@ -137,7 +137,7 @@ export default class MessagingClient extends EventEmitter {
         if (this.activeRequests.has(request.to)) return true
         if (!this.connection) {
           throw new Error(
-            `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+            `${bgWhite(red(` firefox-browser `))} ${red(
               `✖︎✖︎✖︎`
             )} MessagingClient connection closed.`
           )
@@ -159,7 +159,7 @@ export default class MessagingClient extends EventEmitter {
   private expectReply(targetActor: string, deferred: Deferred): void {
     if (this.activeRequests.has(targetActor)) {
       throw new Error(
-        `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+        `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
           `Target actor ${targetActor} already has an active request.`
       )
     }
@@ -181,7 +181,7 @@ export default class MessagingClient extends EventEmitter {
       this.emit(
         'error',
         new Error(
-          `${bgWhite(red(bold(` firefox-browser `)))} ${red(
+          `${bgWhite(red(` firefox-browser `))} ${red(
             `✖︎✖︎✖︎`
           )} Error parsing packet: ${error}`
         )
@@ -200,7 +200,7 @@ export default class MessagingClient extends EventEmitter {
       this.emit(
         'error',
         new Error(
-          `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+          `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
             `Message received without a sender actor: ${JSON.stringify(
               message
             )}`
@@ -222,7 +222,7 @@ export default class MessagingClient extends EventEmitter {
       this.emit(
         'error',
         new Error(
-          `${bgWhite(red(bold(` firefox-browser `)))} ${red(`✖︎✖︎✖︎`)} ` +
+          `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
             `Received unexpected message: ${JSON.stringify(message)}`
         )
       )

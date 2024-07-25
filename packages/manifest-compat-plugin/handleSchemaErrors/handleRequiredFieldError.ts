@@ -23,9 +23,7 @@ export default function handleRequiredFieldError(
   const missingProperty = errorData?.params.missingProperty as string
   compilation.errors.push(
     new WebpackError(
-      bold(
-        `[manifest.json]: ${missingRequiredMessage(browser, missingProperty)}`
-      )
+      `[manifest.json]: ${missingRequiredMessage(browser, missingProperty)}`
     )
   )
 }

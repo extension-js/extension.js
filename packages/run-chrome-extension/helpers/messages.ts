@@ -23,9 +23,9 @@ interface Data {
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the ${bold(
+  const hintMessage = `Check the ${
     feature
-  )} field in your manifest.json file and try again.`
+  } field in your manifest.json file and try again.`
 
   const errorMessage = `[manifest.json] File path ${underline(
     htmlFilePath
@@ -35,7 +35,7 @@ function manifestFieldError(feature: string, htmlFilePath: string) {
 
 function manifestNotFound() {
   log(`
-${bold("Error! Can't find the project's manifest file.")}
+${"Error! Can't find the project's manifest file."}
 
 Check your extension ${yellow(
     'manifest.json'
@@ -54,7 +54,7 @@ function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    error(`[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
+    error(`[⛔️] ${bgWhite(` chrome-browser `)} ${red(
       '✖︎✖︎✖︎'
     )} No data received from client.
 
@@ -69,7 +69,7 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
       error(
-        `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${green(
+        `[⛔️] ${bgWhite(` chrome-browser `)} ${green(
           '►►►'
         )} No management API info received from client. Investigate.`
       )
@@ -92,54 +92,48 @@ Ensure your extension is enabled and that no hanging Chrome instance is open the
   const hasHost = hostPermissions && hostPermissions.length
 
   log('')
-  log(`${bold(`• Name:`)} ${name}`)
-  description && log(`${bold(`• Description:`)} ${description}`)
-  log(`${bold(`• Version:`)} ${version}`)
-  log(
-    `${bold(`• Size:`)} ${getDirectorySize(
-      compilerOptions.output.path || 'dist'
-    )}`
-  )
-  log(`${bold(`• ID:`)} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
+  log(`${`• Name:`} ${name}`)
+  description && log(`${`• Description:`} ${description}`)
+  log(`${`• Version:`} ${version}`)
+  log(`${`• Size:`} ${getDirectorySize(compilerOptions.output.path || 'dist')}`)
+  log(`${`• ID:`} ${id} (${fixedId ? 'permantent' : 'temporary'})`)
   hasHost &&
-    log(`${bold(`• Host Permissions`)}: ${hostPermissions.sort().join(', ')}`)
+    log(`${`• Host Permissions`}: ${hostPermissions.sort().join(', ')}`)
   log(
-    `${bold(`• Permissions:`)} ${permissionsParsed.sort().join(', ')}` ||
+    `${`• Permissions:`} ${permissionsParsed.sort().join(', ')}` ||
       'Browser defaults'
   )
   log(
-    `${bold(`• Settings URL`)}: ${underline(
-      blue(`chrome://extensions/?id=${id}`)
-    )}\n`
+    `${`• Settings URL`}: ${underline(blue(`chrome://extensions/?id=${id}`))}\n`
   )
 }
 
 function stdoutData(compiler: Compiler, message: {data?: Data}) {
   const compilerOptions = compiler.options
   const management = message.data?.management
-  const crRuntime = bgWhite(black(bold(` chrome-browser `)))
+  const crRuntime = bgWhite(black(` chrome-browser `))
   // 🦁brave ⚪️chrome 🔵edge ⭕️opera 🦊firefox 🧭safari🟡
-  // const edgeRuntime = bgCyan(black(bold(` edge-browser `)))
-  // const ffRuntime = bgRed(white(bold(` firefox-runtime `)))
-  // const operaRuntime = bgWhite(red(bold(` opera-runtime `)))
-  // const braveRuntime = bgBlack(white(bold(` brave-runtime `)))
-  // const vivaldiRuntime = bgMagenta(white(bold(` vivaldi-runtime `)))
-  // const safariRuntime = bgWhite(blue(bold(` safari-runtime `)))
+  // const edgeRuntime = bgCyan(black((` edge-browser `)))
+  // const ffRuntime = bgRed(white((` firefox-runtime `)))
+  // const operaRuntime = bgWhite(red((` opera-runtime `)))
+  // const braveRuntime = bgBlack(white((` brave-runtime `)))
+  // const vivaldiRuntime = bgMagenta(white((` vivaldi-runtime `)))
+  // const safariRuntime = bgWhite(blue((` safari-runtime `)))
 
   const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
 
   log(
-    `${crRuntime} ${green('►►►')} Running Chrome in ${bold(
-      modeColor(compilerOptions.mode || 'unknown')
-    )} mode. Browser ${management?.type} ${bold(
+    `${crRuntime} ${green('►►►')} Running Chrome in ${modeColor(
+      compilerOptions.mode || 'unknown'
+    )} mode. Browser ${management?.type} ${
       management?.enabled ? 'enabled' : 'disabled'
-    )}.`
+    }.`
   )
 }
 
 function isFirstRun() {
   log('')
-  log(`This is your first run using ${bold('Extension.js')}. Welcome! 🎉`)
+  log(`This is your first run using ${'Extension.js'}. Welcome! 🎉`)
   log(`\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`)
 }
 
@@ -147,7 +141,7 @@ function watchModeClosed(code: number, reason: Buffer) {
   const message = reason.toString()
 
   log(
-    `[😓] ${bgWhite(bold(` chrome-browser `))} ${red(
+    `[😓] ${bgWhite(` chrome-browser `)} ${red(
       '✖︎✖︎✖︎'
     )} Watch mode closed (code ${code}). ${
       message && '\n\nReason ' + message + '\n'
@@ -157,7 +151,7 @@ function watchModeClosed(code: number, reason: Buffer) {
 
 function browserNotFound(chromePath: string) {
   error(
-    `${bgWhite(bold(` chrome-browser `))} ${red(
+    `${bgWhite(` chrome-browser `)} ${red(
       '✖︎✖︎✖︎'
     )} Chrome not found at ${chromePath}`
   )
@@ -165,16 +159,14 @@ function browserNotFound(chromePath: string) {
 
 function webSocketError(error: any) {
   error(
-    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
-      '✖︎✖︎✖︎'
-    )} WebSocket error`,
+    `[⛔️] ${bgWhite(` chrome-browser `)} ${red('✖︎✖︎✖︎')} WebSocket error`,
     error
   )
 }
 
 function parseFileError(error: any, filepath: string) {
   error(
-    `[⛔️] ${bgWhite(bold(` chrome-browser `))} ${red(
+    `[⛔️] ${bgWhite(` chrome-browser `)} ${red(
       '✖︎✖︎✖︎'
     )} Error parsing file: ${filepath}. Reason: ${error.message}`
   )

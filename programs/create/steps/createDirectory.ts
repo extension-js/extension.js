@@ -17,9 +17,7 @@ export default async function createDirectory(
   projectPath: string,
   projectName: string
 ) {
-  console.log(
-    `🐣 - Starting a new browser extension named ${bold(projectName)}...`
-  )
+  console.log(`🐣 - Starting a new browser extension named ${projectName}...`)
 
   try {
     const isCurrentDirWriteable = await isDirectoryWriteable(
@@ -57,9 +55,9 @@ export default async function createDirectory(
     }
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(
+      `🧩 ${`Extension.js`} ${red(
         `✖︎✖︎✖︎`
-      )} Can't create directory ${bold(projectName)}. ${error}`
+      )} Can't create directory ${projectName}. ${error}`
     )
     process.exit(1)
   }

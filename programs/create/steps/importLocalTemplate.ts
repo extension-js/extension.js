@@ -19,17 +19,15 @@ export default async function importLocalTemplate(
   const localTemplatePath = path.join(templatesDir, template, 'template')
 
   const isTemplate = template && template !== 'init'
-  const fromTemplate = isTemplate
-    ? ` from ${blue(bold(template))} template`
-    : ''
+  const fromTemplate = isTemplate ? ` from ${blue(template)} template` : ''
   try {
-    console.log(`🧰 - Installing ${bold(projectName)}` + fromTemplate + '...')
+    console.log(`🧰 - Installing ${projectName}` + fromTemplate + '...')
     await copyDirectory(localTemplatePath, projectPath)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(`✖︎✖︎✖︎`)} Can't copy template ${blue(
-        bold(template)
-      )} for ${bold(projectName)}. ${error}`
+      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't copy template ${blue(
+        template
+      )} for ${projectName}. ${error}`
     )
     process.exit(1)
   }
