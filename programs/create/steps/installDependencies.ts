@@ -71,9 +71,9 @@ export default async function installDependencies(
         console.error(
           `🧩 ${`Extension.js`} ${red(
             `✖︎✖︎✖︎`
-          )} Child process error: Can't install dependencies for ${
-            projectName
-          }. ${error.message}`
+          )} Child process error: Can't install dependencies for ${projectName}. ${
+            error.message
+          }`
         )
         reject(error)
       })

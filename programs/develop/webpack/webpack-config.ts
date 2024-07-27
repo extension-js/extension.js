@@ -145,10 +145,6 @@ export default function webpackConfig(
       // runtimeChunk: true,
     },
     experiments: {
-      // Enable native CSS support. Note that it's an experimental feature still under development
-      // and will be enabled by default in webpack v6, however you can track the progress on GitHub
-      // here: https://github.com/webpack/webpack/issues/14893.
-      css: true,
       // Support the new WebAssembly according to the updated specification,
       // it makes a WebAssembly module an async module.
       asyncWebAssembly: true
