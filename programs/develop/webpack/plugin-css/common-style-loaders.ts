@@ -1,18 +1,25 @@
 import {type RuleSetRule} from 'webpack'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-import {isUsingTailwind, maybeUseTailwindPlugin} from './css-tools/tailwind'
+import {DevOptions} from '../../commands/dev'
+import {isUsingTailwind} from './css-tools/tailwind'
 import {isUsingSass} from './css-tools/sass'
 import {isUsingLess} from './css-tools/less'
+import {maybeUsePostCss} from './css-tools/postcss'
 
-export function commonStyleLoaders(
+export interface StyleLoaderOptions {
+  mode: DevOptions['mode']
+  useMiniCssExtractPlugin: boolean
+  loader?: string
+}
+
+export async function commonStyleLoaders(
   projectPath: string,
-  opts: any
-): RuleSetRule['use'] {
+  opts: StyleLoaderOptions
+): Promise<RuleSetRule['use']> {
+  const miniCssLoader = MiniCssExtractPlugin.loader
   const styleLoaders: RuleSetRule['use'] = [
-    opts.useMiniCssExtractPlugin
-      ? MiniCssExtractPlugin.loader
-      : require.resolve('style-loader'),
-    require.resolve('css-loader')
+    opts.useMiniCssExtractPlugin ? miniCssLoader : 'style-loader',
+    'css-loader'
   ]
 
   if (
@@ -20,32 +27,10 @@ export function commonStyleLoaders(
     isUsingSass(projectPath) ||
     isUsingLess(projectPath)
   ) {
-    styleLoaders.push({
-      // `postcss-loader` applies autoprefixer to our CSS.
-      loader: require.resolve('postcss-loader'),
-      options: {
-        postcssOptions: {
-          parser: require.resolve('postcss-scss'),
-          ident: 'postcss',
-          config: false,
-          plugins: [
-            ...maybeUseTailwindPlugin(projectPath, opts),
-            require.resolve('postcss-flexbugs-fixes'),
-            [
-              require.resolve('postcss-preset-env'),
-              {
-                autoprefixer: {
-                  flexbox: 'no-2009'
-                },
-                stage: 3
-              }
-            ],
-            require.resolve('postcss-normalize')
-          ]
-        },
-        sourceMap: opts.mode === 'development'
-      }
-    })
+    const maybeInstallPostCss = await maybeUsePostCss(projectPath, opts)
+    if (maybeInstallPostCss.loader) {
+      styleLoaders.push(maybeInstallPostCss)
+    }
   }
 
   if (opts.loader) {

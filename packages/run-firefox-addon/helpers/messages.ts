@@ -23,9 +23,7 @@ interface Data {
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the ${
-    feature
-  } field in your manifest.json file and try again.`
+  const hintMessage = `Check the ${feature} field in your manifest.json file and try again.`
 
   const errorMessage = `[manifest.json] File path ${underline(
     htmlFilePath
@@ -137,9 +135,9 @@ function certRequired() {
   log(`
   npx -y ${'mkcert-cli'} \\
     ${green('--outDir')} ${path.join(
-      process.cwd(),
-      'node_modules/webpack-run-firefox-addon/dist/certs'
-    )} \\
+    process.cwd(),
+    'node_modules/webpack-run-firefox-addon/dist/certs'
+  )} \\
     ${green('--cert')} ${'localhost.cert'} \\
     ${green('--key')} ${'localhost.key'}
   `)

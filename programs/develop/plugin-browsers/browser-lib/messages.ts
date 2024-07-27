@@ -12,16 +12,14 @@ export function watchModeClosed(browser: string, code: number, reason: Buffer) {
 
 export function browserNotFound(browser: string, binaryPath: string) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
-  return `${bgWhite(` ${browser}-browser `)} ${red(
-    '✖︎✖︎✖︎'
-  )} ${capitalize(browser)} not found at ${binaryPath}`
+  return `${bgWhite(` ${browser}-browser `)} ${red('✖︎✖︎✖︎')} ${capitalize(
+    browser
+  )} not found at ${binaryPath}`
 }
 
 export function webSocketError(browser: string, error: any) {
   error(
-    `[⛔️] ${bgWhite(` ${browser}-browser `)} ${red(
-      '✖︎✖︎✖︎'
-    )} WebSocket error`,
+    `[⛔️] ${bgWhite(` ${browser}-browser `)} ${red('✖︎✖︎✖︎')} WebSocket error`,
     error
   )
 }

@@ -1,9 +1,9 @@
 import path from 'path'
 import fs from 'fs'
-import {execSync} from 'child_process'
 import {commonStyleLoaders} from '../common-style-loaders'
-import {DevOptions} from '../../../develop-types'
 import * as messages from '../../lib/messages'
+import {installOptionalDependencies} from '../../lib/utils'
+import {DevOptions} from '../../../commands/dev'
 
 let userMessageDelivered = false
 
@@ -33,44 +33,53 @@ export function isUsingSass(projectPath: string): boolean {
   return false
 }
 
-function installSass() {
-  console.log('Sass is not installed. Installing...')
-  execSync('npm install sass', {stdio: 'inherit'})
-  console.log('Sass and related loaders installed successfully.')
-}
-
 type Loader = Record<string, any>
 
-export function maybeUseSass(
+export async function maybeUseSass(
   projectPath: string,
   mode: DevOptions['mode']
-): Loader[] {
+): Promise<Loader[]> {
   if (!isUsingSass(projectPath)) return []
-  // try {
-  //   require.resolve('sass')
-  // } catch (e) {
-  //   installSass()
-  // }
+
+  try {
+    require.resolve('sass-loader')
+  } catch (e) {
+    const postCssDependencies = [
+      'postcss-loader',
+      'postcss-scss',
+      'postcss-flexbugs-fixes',
+      'postcss-preset-env',
+      'postcss-normalize'
+    ]
+
+    await installOptionalDependencies('PostCSS', postCssDependencies)
+
+    const sassDependencies = ['sass', 'sass-loader', 'resolve-url-loader']
+
+    await installOptionalDependencies('SASS', sassDependencies)
+
+    // The compiler will exit after installing the dependencies
+    // as it can't read the new dependencies without a restart.
+    console.log(messages.youAreAllSet('SASS'))
+    process.exit(0)
+  }
 
   return [
     {
-      test: /\.(scss|sass)$/,
-      exclude: /\.module\.css$/,
-      // https://stackoverflow.com/a/60482491/4902448
+      test: /\.(s(a|c)ss)$/,
+      exclude: /\.module\.(s(a|c)ss)$/,
       oneOf: [
         {
           resourceQuery: /is_content_css_import=true/,
-          use: commonStyleLoaders(projectPath, {
-            regex: /\.(scss|sass)$/,
-            loader: require.resolve('sass-loader'),
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'sass-loader',
             mode,
             useMiniCssExtractPlugin: false
           })
         },
         {
-          use: commonStyleLoaders(projectPath, {
-            regex: /\.(scss|sass)$/,
-            loader: require.resolve('sass-loader'),
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'sass-loader',
             mode,
             useMiniCssExtractPlugin: true
           })
@@ -78,33 +87,24 @@ export function maybeUseSass(
       ]
     },
     {
-      test: /\.module\.(scss|sass)$/,
-      // https://stackoverflow.com/a/60482491/4902448
+      test: /\.module\.(s(a|c)ss)$/,
       oneOf: [
         {
           resourceQuery: /is_content_css_import=true/,
-          use: commonStyleLoaders(projectPath, {
-            regex: /\.(scss|sass)$/,
-            loader: require.resolve('sass-loader'),
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'sass-loader',
             mode,
             useMiniCssExtractPlugin: false
           })
         },
         {
-          use: commonStyleLoaders(projectPath, {
-            regex: /\.(scss|sass)$/,
-            loader: require.resolve('sass-loader'),
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'sass-loader',
             mode,
             useMiniCssExtractPlugin: true
           })
         }
-      ],
-      use: commonStyleLoaders(projectPath, {
-        regex: /\.module\.(scss|sass)$/,
-        loader: require.resolve('sass-loader'),
-        mode,
-        useMiniCssExtractPlugin: true
-      })
+      ]
     }
   ]
 }

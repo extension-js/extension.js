@@ -20,10 +20,10 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
     type === 'warn'
       ? yellow('►►►')
       : type === 'info'
-        ? blue('►►►')
-        : type === 'error'
-          ? red('✖︎✖︎✖︎')
-          : green('►►►')
+      ? blue('►►►')
+      : type === 'error'
+      ? red('✖︎✖︎✖︎')
+      : green('►►►')
   return `🧩 ${'Extension.js'} ${arrow}`
 }
 
@@ -472,8 +472,48 @@ export function serverRestartRequiredFromWebpack(
 ) {
   return (
     `${getLoggingPrefix('info')} Entry Point Modification Found\n\n` +
-    `${addingOrRemoving} ${typeOfAsset} in the ${underline(folder + '/')} folder after compilation requires a server restart.\n` +
+    `${addingOrRemoving} ${typeOfAsset} in the ${underline(
+      folder + '/'
+    )} folder after compilation requires a server restart.\n` +
     `\n\n- File ${addedOrRemoved}: ${underline(pathRelative)}\n\n` +
     `To apply these changes, restart the program.`
+  )
+}
+
+export function featureNotInstalled(feature: string, packageManeger: string) {
+  return (
+    `${getLoggingPrefix('info')} ` +
+    `This is your first time running a project using ${yellow(feature)}.\n` +
+    `Installing required dependencies via ${blue(packageManeger)}. ` +
+    `This is a one time operation...`
+  )
+}
+
+export function installingRootDependencies() {
+  return (
+    `${getLoggingPrefix('info')} ` +
+    'Installing dependencies in the project root. This is only happens for authors and contributors...'
+  )
+}
+
+export function featureInstalledSuccessfully(feature: string) {
+  return (
+    `${getLoggingPrefix('success')} ` +
+    `${feature} and related dependencies installed successfully...`
+  )
+}
+
+export function youAreAllSet(feature: string) {
+  return (
+    `${getLoggingPrefix('success')} ` +
+    `You are all set! Run the program again to start hacking, now with ${feature} support.`
+  )
+}
+
+export function failedToinstallFeature(error: unknown) {
+  return (
+    `${getLoggingPrefix('error')} ` +
+    'Failed to detect package manager or install packages: ' +
+    error?.toString()
   )
 }
