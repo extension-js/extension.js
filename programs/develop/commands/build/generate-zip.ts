@@ -81,9 +81,10 @@ export async function generateZip(
     const outputDir = path.join(distDir, browser)
     // We collect data from the projectDir if the user wants to zip the source files.
     const dataDir = options.zipSource ? projectDir : outputDir
-    const manifest: Record<string, string> = require(
-      path.join(dataDir, 'manifest.json')
-    )
+    const manifest: Record<string, string> = require(path.join(
+      dataDir,
+      'manifest.json'
+    ))
     const name = getPackageName(manifest, options)
     const ext = getExtensionExtension(browser)
     // Dist zips are stored in dist/[browser]/[name].zip
@@ -119,13 +120,17 @@ export async function generateZip(
 
     if (options.zip && options.zipSource) {
       console.log(
-        `\n${'📦 Package name:'} ${yellow(`${name}`)}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
+        `\n${'📦 Package name:'} ${yellow(
+          `${name}`
+        )}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
           `\n   ${'└─'} ${underline(`${sourceZipPath}`)} (source)` +
           `\n   ${'└─'} ${underline(`${distZipPath}`)} (distribution)`
       )
     } else if (options.zip) {
       console.log(
-        `\n${'📦 Package name:'} ${yellow(`${name}.${ext}`)}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
+        `\n${'📦 Package name:'} ${yellow(
+          `${name}.${ext}`
+        )}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
           `\n   ${'└─'} ${underline(`${distZipPath}`)} (distribution)`
       )
     } else if (options.zipSource) {

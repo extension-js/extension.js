@@ -52,9 +52,9 @@ export default async function initializeGitRepository(
         console.error(
           `🧩 ${`Extension.js`} ${red(
             `✖︎✖︎✖︎`
-          )} Child process error: Can't initialize ${yellow('git')} for ${
-            projectName
-          }. ${error.message}`
+          )} Child process error: Can't initialize ${yellow(
+            'git'
+          )} for ${projectName}. ${error.message}`
         )
         reject(error)
       })

@@ -23,9 +23,7 @@ interface Data {
 }
 
 function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the ${
-    feature
-  } field in your manifest.json file and try again.`
+  const hintMessage = `Check the ${feature} field in your manifest.json file and try again.`
 
   const errorMessage = `[manifest.json] File path ${underline(
     htmlFilePath
@@ -151,9 +149,7 @@ function browserNotFound(edgePath: string) {
 
 function webSocketError(error: any) {
   error(
-    `[⛔️] ${bgCyan(white(` edge-browser `))} ${red(
-      '✖︎✖︎✖︎'
-    )} WebSocket error`,
+    `[⛔️] ${bgCyan(white(` edge-browser `))} ${red('✖︎✖︎✖︎')} WebSocket error`,
     error
   )
 }

@@ -1,9 +1,9 @@
 import path from 'path'
 import fs from 'fs'
-import {bold, blue, cyan} from '@colors/colors/safe'
-import {execSync} from 'child_process'
 import {commonStyleLoaders} from '../common-style-loaders'
-import {DevOptions} from '../../../develop-types'
+import * as messages from '../../lib/messages'
+import {installOptionalDependencies} from '../../lib/utils'
+import {DevOptions} from '../../../commands/dev'
 
 let userMessageDelivered = false
 
@@ -23,13 +23,8 @@ export function isUsingLess(projectPath: string): boolean {
   if (lessAsDevDep || lessAsDep) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
-      console.log(
-        bold(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) `
-        ) + `is using ${bold(cyan('less'))}.`
-      )
+      console.log(messages.isUsingTechnology(manifest, 'LESS'))
+
       userMessageDelivered = true
     }
     return true
@@ -38,52 +33,47 @@ export function isUsingLess(projectPath: string): boolean {
   return false
 }
 
-function installLess(): void {
-  console.log('Less is not installed. Installing...')
-  execSync('npm install less', {stdio: 'inherit'})
-  console.log('Less and related loaders installed successfully.')
-}
-
 type Loader = Record<string, any>
 
-export function maybeUseLess(
+export async function maybeUseLess(
   projectPath: string,
   mode: DevOptions['mode']
-): Loader[] {
-  if (isUsingLess(projectPath)) {
-    try {
-      require.resolve('less')
-    } catch (e) {
-      installLess()
-    }
+): Promise<Loader[]> {
+  if (!isUsingLess(projectPath)) return []
 
-    return [
-      {
-        test: /\.less$/,
-        exclude: /\.module\.css$/,
-        // https://stackoverflow.com/a/60482491/4902448
-        oneOf: [
-          {
-            resourceQuery: /is_content_css_import=true/,
-            use: commonStyleLoaders(projectPath, {
-              regex: /\.less$/,
-              loader: require.resolve('less-loader'),
-              mode,
-              useMiniCssExtractPlugin: false
-            })
-          },
-          {
-            use: commonStyleLoaders(projectPath, {
-              regex: /\.less$/,
-              loader: require.resolve('less-loader'),
-              mode,
-              useMiniCssExtractPlugin: true
-            })
-          }
-        ]
-      }
-    ]
+  try {
+    require.resolve('less-loader')
+  } catch (e) {
+    const lessDependencies = ['less', 'less-loader', 'resolve-url-loader']
+
+    await installOptionalDependencies('LESS', lessDependencies)
+
+    // The compiler will exit after installing the dependencies
+    // as it can't read the new dependencies without a restart.
+    console.log(messages.youAreAllSet('LESS'))
+    process.exit(0)
   }
 
-  return []
+  return [
+    {
+      test: /\.less$/,
+      oneOf: [
+        {
+          resourceQuery: /is_content_css_import=true/,
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'less-loader',
+            mode,
+            useMiniCssExtractPlugin: false
+          })
+        },
+        {
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'less-loader',
+            mode,
+            useMiniCssExtractPlugin: true
+          })
+        }
+      ]
+    }
+  ]
 }

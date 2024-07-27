@@ -41,6 +41,5 @@
     "programs/*",
     "browser-extension-test-data",
     "__TEST__/*"
-  ],
-  "dependencies": {}
+  ]
 }

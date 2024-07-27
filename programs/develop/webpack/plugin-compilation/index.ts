@@ -4,7 +4,7 @@ import {EnvPlugin} from './env'
 import {CleanHotUpdatesPlugin} from './clean-hot-updates'
 import * as messages from '../lib/messages'
 
-import {type PluginInterface} from '../types'
+import {type PluginInterface, type Manifest} from '../types'
 
 export class CompilationPlugin {
   public readonly manifestPath: string
@@ -20,8 +20,10 @@ export class CompilationPlugin {
 
     new CleanHotUpdatesPlugin().apply(compiler)
 
+    const manifest: Manifest = require(this.manifestPath)
+
     compiler.hooks.done.tap('develop:brand', (stats) => {
-      stats.compilation.name = `${messages.boring(stats)}`
+      stats.compilation.name = `${messages.boring(stats)} ${manifest.name}`
     })
   }
 }

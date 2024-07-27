@@ -7,8 +7,10 @@
 
 import path from 'path'
 import fs from 'fs'
-import {bold, blue, bgBlack, white} from '@colors/colors'
-import {execSync} from 'child_process'
+import {type WebpackPluginInstance} from 'webpack'
+import * as messages from '../../lib/messages'
+import {installOptionalDependencies} from '../../lib/utils'
+import {DevOptions} from '../../../commands/dev'
 
 export function getStylelintConfigFile(projectPath: string) {
   const stylelintConfigJs = path.join(projectPath, 'stylelint.config.js')
@@ -43,30 +45,17 @@ export function isUsingStylelint(projectPath: string) {
   const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
+    console.log('donbt exist')
     return false
   }
 
   const configFile = getStylelintConfigFile(projectPath)
-  const packageJson = require(packageJsonPath)
-
-  const stylelintAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.stylelint
-
-  const stylelintAsDep =
-    packageJson.dependencies && packageJson.dependencies.stylelint
-
-  const manifest = require(manifestJsonPath)
-  const isUsingStylelint =
-    !!configFile && !!(stylelintAsDevDep || stylelintAsDep)
+  const isUsingStylelint = !!configFile
 
   if (isUsingStylelint) {
     if (!userMessageDelivered) {
-      // This message is shown for each CSS loader we have, so we only want to show it once.
-      console.log(
-        `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-          manifest.version
-        }) ` + `is using ${bgBlack(white('Stylelint'))} config file.`
-      )
+      const manifest = require(manifestJsonPath)
+      console.log(messages.isUsingTechnology(manifest, 'Stylelint'))
 
       userMessageDelivered = true
     }
@@ -75,33 +64,39 @@ export function isUsingStylelint(projectPath: string) {
   return isUsingStylelint
 }
 
-function installStylelint() {
-  console.log('Stylelint is not installed. Installing...')
-  execSync('npm install stylelint', {stdio: 'inherit'})
-  console.log('React and related loaders installed successfully.')
-}
+export async function maybeUseStylelint(
+  projectPath: string,
+  mode: DevOptions['mode']
+): Promise<WebpackPluginInstance[]> {
+  if (!isUsingStylelint(projectPath)) return []
 
-export function maybeUseStylelintPlugin(projectPath: string, opts: any) {
-  if (isUsingStylelint(projectPath)) {
-    try {
-      require.resolve('stylelint')
-    } catch (e) {
-      installStylelint()
-    }
-
-    const StylelintPlugin = require('stylelint-webpack-plugin')
-
-    return [
-      new StylelintPlugin({
-        context: projectPath,
-        configFile: isUsingStylelint(projectPath)
-          ? getStylelintConfigFile(projectPath)
-          : path.join(__dirname, 'stylelint.config.js'),
-        files: '**/*.{css,scss,sass,less}',
-        exclude: ['node_modules', path.join(projectPath, 'node_modules')]
-      })
+  try {
+    require.resolve('stylelint')
+  } catch (e) {
+    const stylelintDependencies = [
+      'stylelint',
+      'stylelint-webpack-plugin',
+      'stylelint-config-standard-scss'
     ]
+
+    await installOptionalDependencies('Stylelint', stylelintDependencies)
+
+    // The compiler will exit after installing the dependencies
+    // as it can't read the new dependencies without a restart.
+    console.log(messages.youAreAllSet('Stylelint'))
+    process.exit(0)
   }
 
-  return []
+  const StylelintPlugin = require('stylelint-webpack-plugin')
+
+  return [
+    new StylelintPlugin({
+      context: projectPath,
+      configFile: isUsingStylelint(projectPath)
+        ? getStylelintConfigFile(projectPath)
+        : path.join(__dirname, 'stylelint.config.js'),
+      files: '**/*.{css,scss,sass,less}',
+      exclude: ['node_modules', path.join(projectPath, 'node_modules')]
+    })
+  ]
 }

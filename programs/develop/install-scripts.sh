@@ -9,7 +9,6 @@ plugin_loader_path() {
   echo "$(dirname "$0")/webpack/$base_folder/$plugin_folder/steps/$filename"
 }
 
-# Define the files
 html_plugin_files=(
   # "$(plugin_loader_path 'plugin-extension' 'feature-html' 'ensure-hmr-for-scripts.ts')"
 )
@@ -48,13 +47,11 @@ execute_command() {
   local entry=$1
   local format=$2
   command=$(tsup "$entry" "$format")
-  echo "Executing: $command"
-
-  # Execute the command
-  $command
+  # Execute the command and redirect output to /dev/null
+  $command > /dev/null 2>&1
 
   code=$?
-  echo "[develop] process exited with code $code for entry: $entry"
+  # echo "[develop] process exited with code $code for entry: $entry"
 }
 
 # Copy required files to dist directory
@@ -67,7 +64,7 @@ copy_files_to_dist() {
   )
   for file in "${files[@]}"; do
     if [ -e "$file" ]; then
-      echo "Copying $file to dist/"
+      # echo "Copying $file to dist/"
       cp -r "$file" dist/
     else
       echo "File $file does not exist"
@@ -75,27 +72,27 @@ copy_files_to_dist() {
   done
 }
 
-echo '►►► Executing commands for HTML plugin files'
+echo '►►► Setting up HTML loaders'
 for entry in "${html_plugin_files[@]}"; do
   execute_command "$entry" "cjs"
 done
 
-echo '►►► Executing commands for Resolve plugin files'
+echo '►►► Setting up resolver loaders'
 for entry in "${resolve_plugin_files[@]}"; do
   execute_command "$entry" "cjs"
 done
 
-echo '►►► Executing commands for Scripts plugin files'
+echo '►►► Setting up script loaders'
 for entry in "${scripts_plugin_files[@]}"; do
   execute_command "$entry" "cjs"
 done
 
-echo '►►► Executing commands for Reload plugin files'
+echo '►►► Setting up reload loaders'
 for entry in "${reload_plugin_files[@]}"; do
   execute_command "$entry" "cjs"
 done
 
-echo '►►► Executing commands for Minimum files with ESM format'
+echo '►►► Setting up minimum required files (ESM format)'
 for entry in "${minimum_files[@]}"; do
   execute_command "$entry" "esm"
 done
@@ -103,5 +100,5 @@ done
 # echo '►►► Building core module'
 # execute_command "$(dirname "$0")/module.ts" "cjs"
 
-echo '►►► Copying files to dist directory'
+echo '►►► Setting up client helper files'
 copy_files_to_dist

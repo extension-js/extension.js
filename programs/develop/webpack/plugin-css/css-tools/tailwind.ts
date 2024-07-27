@@ -7,20 +7,9 @@
 
 import path from 'path'
 import fs from 'fs'
-import {bold, blue, magenta} from '@colors/colors'
-import {execSync} from 'child_process'
-
-export function getTailwindConfigFile(projectPath: string) {
-  const configFileMjs = path.join(projectPath, 'tailwind.config.mjs')
-  const configFileCjs = path.join(projectPath, 'tailwind.config.cjs')
-  const configFileJs = path.join(projectPath, 'tailwind.config.js')
-
-  if (fs.existsSync(configFileMjs)) return configFileMjs
-  if (fs.existsSync(configFileCjs)) return configFileCjs
-  if (fs.existsSync(configFileJs)) return configFileJs
-
-  return undefined
-}
+import * as messages from '../../lib/messages'
+import {installOptionalDependencies} from '../../lib/utils'
+import {StyleLoaderOptions} from '../common-style-loaders'
 
 let userMessageDelivered = false
 
@@ -41,17 +30,12 @@ export function isUsingTailwind(projectPath: string) {
   const tailwindAsDep =
     packageJson.dependencies && packageJson.dependencies.tailwindcss
 
-  const manifest = require(manifestJsonPath)
   const isUsingTailwind = !!configFile && !!(tailwindAsDevDep || tailwindAsDep)
 
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
-      // This message is shown for each CSS loader we have, so we only want to show it once.
-      console.log(
-        `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-          manifest.version
-        }) ` + `is using ${magenta('Tailwind')} config file.`
-      )
+      const manifest = require(manifestJsonPath)
+      console.log(messages.isUsingTechnology(manifest, 'SASS'))
 
       userMessageDelivered = true
     }
@@ -60,19 +44,44 @@ export function isUsingTailwind(projectPath: string) {
   return isUsingTailwind
 }
 
-function installTailwind() {
-  console.log('Tailwind is not installed. Installing...')
-  execSync('npm install tailwindcss', {stdio: 'inherit'})
-  console.log('React and related loaders installed successfully.')
+export function getTailwindConfigFile(projectPath: string) {
+  const configFileMjs = path.join(projectPath, 'tailwind.config.mjs')
+  const configFileCjs = path.join(projectPath, 'tailwind.config.cjs')
+  const configFileJs = path.join(projectPath, 'tailwind.config.js')
+
+  if (fs.existsSync(configFileMjs)) return configFileMjs
+  if (fs.existsSync(configFileCjs)) return configFileCjs
+  if (fs.existsSync(configFileJs)) return configFileJs
+
+  return undefined
 }
 
-export function maybeUseTailwindPlugin(projectPath: string, opts: any) {
+export async function maybeUseTailwind(
+  projectPath: string,
+  mode: StyleLoaderOptions['mode']
+) {
   if (isUsingTailwind(projectPath)) {
     try {
       require.resolve('tailwindcss')
     } catch (e) {
-      installTailwind()
-      return []
+      const postCssDependencies = [
+        'postcss-loader',
+        'postcss-scss',
+        'postcss-flexbugs-fixes',
+        'postcss-preset-env',
+        'postcss-normalize'
+      ]
+
+      await installOptionalDependencies('PostCSS', postCssDependencies)
+
+      const tailwindDependencies = ['tailwindcss']
+
+      await installOptionalDependencies('Tailwind', tailwindDependencies)
+
+      // The compiler will exit after installing the dependencies
+      // as it can't read the new dependencies without a restart.
+      console.log(messages.youAreAllSet('Tailwind'))
+      process.exit(0)
     }
 
     return [
