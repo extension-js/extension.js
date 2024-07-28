@@ -39,6 +39,8 @@ import {
 } from '../config/userOptions'
 
 export class ExtensionPlugin {
+  public static readonly name: string = 'plugin-extension'
+
   public readonly manifestPath: string
   public readonly browser: string
 
@@ -89,7 +91,15 @@ export class ExtensionPlugin {
     new ManifestPlugin({
       browser,
       manifestPath,
-      excludeList: publicList
+      includeList: {
+        ...manifestFieldsData.html,
+        ...specialFoldersData.pages,
+        // ...manifestFieldsData.icons,
+        ...manifestFieldsData.json,
+        ...manifestFieldsData.scripts,
+        ...specialFoldersData.scripts
+      },
+      excludeList: specialFoldersData.public
     }).apply(compiler)
 
     // Get every field in manifest that allows an .html file

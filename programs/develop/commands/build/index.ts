@@ -35,8 +35,15 @@ export default async function extensionBuild(
 
     // BrowserPlugin can run in production but never in the build command.
     // TODO: cezaraugusto this is fragile
+    // console.log({plugins: webpackConfig.plugins})
+    // process.exit(0)
     const allPluginsButBrowserRunners = webpackConfig.plugins?.filter(
-      (plugin) => plugin?.constructor.name !== 'BrowserPlugin'
+      (plugin) => {
+        return (
+          plugin?.constructor.name !== 'plugin-browsers' &&
+          plugin?.constructor.name !== 'plugin-reload'
+        )
+      }
     )
 
     const webpackConfigNoBrowser = {
@@ -70,7 +77,7 @@ export default async function extensionBuild(
       }
     })
   } catch (error: any) {
-    console.log(messages.errorWhileBuilding(error))
+    console.log(error)
     process.exit(1)
   }
 }

@@ -5,11 +5,13 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
 import webpack from 'webpack'
 import WebpackDevServer from 'webpack-dev-server'
 import webpackConfig from './webpack-config'
 import {getOverlay, getPublicFolderPath} from './config/userOptions'
 import type {DevOptions} from '../develop-types'
+import {isUsingJSFramework} from './lib/utils'
 
 function closeAll(devServer: WebpackDevServer) {
   devServer
@@ -37,7 +39,15 @@ export async function devServer(
     devMiddleware: {
       writeToDisk: true
     },
-    watchFiles: undefined,
+    watchFiles: isUsingJSFramework(projectPath)
+      ? undefined
+      : {
+          paths: [path.join(projectPath, '**/*.html')],
+          options: {
+            usePolling: true,
+            interval: 1000
+          }
+        },
     client: {
       // Allows to set log level in the browser, e.g. before reloading,
       // before an error or when Hot Module Replacement is enabled.

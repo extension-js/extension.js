@@ -9,7 +9,7 @@ import fs from 'fs'
 import path from 'path'
 import {bold, red, yellow, underline} from '@colors/colors/safe'
 import {devServer} from '../../webpack/dev-server'
-import {isUsingTypeScript} from '../../webpack/options/typescript'
+import {isUsingTypeScript} from '../../webpack/plugin-js-frameworks/js-tools/typescript'
 import {getProjectPath} from '../../webpack/lib/get-project-path'
 import * as messages from '../../webpack/lib/messages'
 import generateExtensionTypes from './generate-extension-types'
@@ -33,6 +33,7 @@ export default async function extensionDev(
     !pathOrRemoteUrl?.startsWith('http') &&
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
   ) {
+    console.log({projectPath})
     console.log(messages.manifestNotFound())
     process.exit(1)
   }
@@ -43,8 +44,8 @@ export default async function extensionDev(
     }
 
     await devServer(projectPath, {...devOptions})
-  } catch (error: any) {
-    console.log(messages.errorWhileStarting(error))
+  } catch (error) {
+    console.log(error)
     process.exit(1)
   }
 }

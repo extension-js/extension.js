@@ -15,6 +15,8 @@ interface SpecialFoldersPluginOptions {
  * - /public - Static files not included in the manifest
  */
 export class SpecialFoldersPlugin {
+  public static readonly name: string = 'plugin-special-folders'
+
   private readonly options: SpecialFoldersPluginOptions
 
   constructor(options: SpecialFoldersPluginOptions) {
