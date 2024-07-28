@@ -1,0 +1,12 @@
+{
+  "name": "scripting",
+  "version": "1.0",
+  "manifest_version": 3,
+  "description": "Inject JavaScript into web pages via chrome.scripting API.",
+  "background": {
+    "service_worker": "sw.js"
+  },
+  "permissions": ["scripting", "webNavigation", "storage"],
+  "host_permissions": ["https://extension.js.org/*"],
+  "action": {}
+}
