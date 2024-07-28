@@ -1,6 +1,9 @@
 import path from 'path'
 import fs from 'fs'
 import {type Compilation} from 'webpack'
+import {execSync} from 'child_process'
+import {detect} from 'detect-package-manager'
+import * as messages from './messages'
 import {type Manifest} from '../types'
 
 export function getResolvedPath(
@@ -107,4 +110,88 @@ export function getRelativePath(from: string, to: string) {
     relativePath = './' + relativePath
   }
   return relativePath
+}
+
+export async function installOptionalDependencies(
+  feature: string,
+  dependencies: string[]
+) {
+  try {
+    const pm = await detect()
+    console.log(messages.featureNotInstalled(feature, pm))
+
+    let installCommand = ''
+    if (pm === 'yarn') {
+      installCommand = `yarn --silent add ${dependencies.join(
+        ' '
+      )} --cwd ${__dirname} --optional`
+    } else if (pm === 'npm') {
+      installCommand = `npm  --silent install ${dependencies.join(
+        ' '
+      )} --prefix ${__dirname} --save-optional`
+    } else if (pm === 'pnpm') {
+      installCommand = `pnpm  --silent add ${dependencies.join(
+        ' '
+      )} --prefix ${__dirname} --save-optional`
+    } else {
+      installCommand = `${pm} --silent install ${dependencies.join(
+        ' '
+      )} --cwd ${__dirname} --optional`
+    }
+
+    execSync(installCommand, {stdio: 'inherit'})
+
+    // Adding a delay to ensure the modules are installed and available
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
+    // if (process.env.EXTENSION_ENV === 'development') {
+    //   console.log(messages.installingRootDependencies())
+
+    //   if (pm === 'yarn') {
+    //     installCommand = `yarn install --silent > /dev/null 2>&1`
+    //   } else if (pm === 'npm') {
+    //     installCommand = `npm install --silent > /dev/null 2>&1`
+    //   } else if (pm === 'pnpm') {
+    //     installCommand = `pnpm install --silent > /dev/null 2>&1`
+    //   } else {
+    //     installCommand = `${pm} install --silent > /dev/null 2>&1`
+    //   }
+
+    //   execSync(installCommand, {stdio: 'inherit'})
+    // }
+
+    console.log(messages.featureInstalledSuccessfully(feature))
+  } catch (error) {
+    console.error(messages.failedToinstallFeature(error))
+  }
+}
+
+export function isUsingJSFramework(projectPath: string): boolean {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+
+  if (!fs.existsSync(packageJsonPath)) {
+    return false
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+
+  const frameworks = [
+    'react',
+    'vue',
+    '@angular/core',
+    'svelte',
+    'solid-js',
+    'preact'
+  ]
+
+  const dependencies = packageJson.dependencies || {}
+  const devDependencies = packageJson.devDependencies || {}
+
+  for (const framework of frameworks) {
+    if (dependencies[framework] || devDependencies[framework]) {
+      return true
+    }
+  }
+
+  return false
 }

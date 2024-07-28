@@ -1,9 +1,39 @@
+import fs from 'fs'
 import path from 'path'
 import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {type LoaderContext} from '../../../types'
-// import { isUsingReact } from '../helpers/utils';
+
+function isUsingJSFramework(projectPath: string): boolean {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+
+  if (!fs.existsSync(packageJsonPath)) {
+    return false
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+
+  const frameworks = [
+    'react',
+    'vue',
+    '@angular/core',
+    'svelte',
+    'solid-js',
+    'preact'
+  ]
+
+  const dependencies = packageJson.dependencies || {}
+  const devDependencies = packageJson.devDependencies || {}
+
+  for (const framework of frameworks) {
+    if (dependencies[framework] || devDependencies[framework]) {
+      return true
+    }
+  }
+
+  return false
+}
 
 const schema: Schema = {
   type: 'object',
@@ -58,17 +88,17 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
     // or the webpack-target-webextension plugin.
     // TODO: cezaraugusto because of this, entry files of content_scripts
     // written in JSX doesn't reload. This is a bug.
-    // if (!isUsingReact(projectPath)) {
-    for (const contentScript of manifest.content_scripts) {
-      if (!contentScript.js) continue
-      for (const js of contentScript.js) {
-        const absoluteUrl = path.resolve(projectPath, js as string)
-        if (url.includes(absoluteUrl)) {
-          return `${reloadCode}${source}`
+    if (!isUsingJSFramework(projectPath)) {
+      for (const contentScript of manifest.content_scripts) {
+        if (!contentScript.js) continue
+        for (const js of contentScript.js) {
+          const absoluteUrl = path.resolve(projectPath, js as string)
+          if (url.includes(absoluteUrl)) {
+            return `${reloadCode}${source}`
+          }
         }
       }
     }
-    // }
   }
 
   // 3 - Handle user_scripts.

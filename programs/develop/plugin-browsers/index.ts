@@ -20,6 +20,8 @@ import RunFirefoxPlugin from 'webpack-run-firefox-addon'
  * - manifest.json - Full extension reload (chrome.runtime.reload)
  */
 export class BrowsersPlugin {
+  public static readonly name: string = 'plugin-browsers'
+
   public readonly extension: string | string[]
   public readonly browser: string
   public readonly browserFlags: string[]

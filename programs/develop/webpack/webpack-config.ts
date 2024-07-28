@@ -18,13 +18,10 @@ import {
   getAliasToResolve
 } from './config/getPath'
 
-// Loaders
-import assetLoaders from './loaders/asset-loaders'
-import jsLoaders from './loaders/js-loaders'
-
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
 import {CssPlugin} from './plugin-css'
+import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {ReloadPlugin} from './plugin-reload'
 import compatPlugin from './plugin-compat'
@@ -102,14 +99,15 @@ export default function webpackConfig(
     watchOptions: {
       ignored: /node_modules|dist/
     },
-    module: {
-      rules: [...jsLoaders(projectPath, devOptions), ...assetLoaders]
-    },
     plugins: [
       new CompilationPlugin({
         manifestPath
       }),
       new CssPlugin({
+        manifestPath,
+        mode: devOptions.mode
+      }),
+      new JsFrameworksPlugin({
         manifestPath,
         mode: devOptions.mode
       }),
@@ -137,7 +135,39 @@ export default function webpackConfig(
         ]
         // browserFlags: devOptions.browserFlags
       })
-    ].filter(Boolean),
+    ],
+    module: {
+      rules: [
+        {
+          test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp|svg)$/i,
+          type: 'asset/resource',
+          parser: {
+            dataUrlCondition: {
+              // inline images < 2 KB
+              maxSize: 2 * 1024
+            }
+          }
+        },
+        {
+          test: /\.(woff|woff2|eot|ttf|otf)$/i,
+          type: 'asset/resource'
+        },
+        {
+          test: /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i,
+          type: 'asset/resource',
+          parser: {
+            dataUrlCondition: {
+              // inline images < 2 KB
+              maxSize: 2 * 1024
+            }
+          }
+        },
+        {
+          test: /\.(csv|tsv)$/i,
+          use: [require.resolve('csv-loader')]
+        }
+      ]
+    },
     optimization: {
       minimize: devOptions.mode === 'production'
       // WARN: This can have side-effects.
@@ -145,6 +175,10 @@ export default function webpackConfig(
       // runtimeChunk: true,
     },
     experiments: {
+      // Enable native CSS support. Note that it's an experimental feature still under development
+      // and will be enabled by default in webpack v6, however you can track the progress on GitHub
+      // here: https://github.com/webpack/webpack/issues/14893.
+      css: devOptions.mode === 'production',
       // Support the new WebAssembly according to the updated specification,
       // it makes a WebAssembly module an async module.
       asyncWebAssembly: true

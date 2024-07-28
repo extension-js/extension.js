@@ -7,6 +7,8 @@ import * as messages from '../lib/messages'
 import {type PluginInterface, type Manifest} from '../types'
 
 export class CompilationPlugin {
+  public static readonly name: string = 'plugin-compilation'
+
   public readonly manifestPath: string
 
   constructor(options: PluginInterface) {

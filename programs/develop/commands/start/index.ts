@@ -53,8 +53,8 @@ export default async function extensionStart(
         process.exit(1)
       }
     })
-  } catch (error: any) {
-    console.log(messages.errorWhileStarting(error))
+  } catch (error) {
+    console.log(error)
     process.exit(1)
   }
 }

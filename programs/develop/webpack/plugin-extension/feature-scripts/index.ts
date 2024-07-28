@@ -112,21 +112,23 @@ export class ScriptsPlugin {
     // is_content_css_import=true query param to CSS imports in
     // content_scripts. This skips the MiniCssExtractPlugin loader
     // and allows the CSS to be injected in the DOM via <style> tags.
-    compiler.options.module.rules.push({
-      test: /\.(m?js|m?ts)x?$/,
-      use: [
-        {
-          loader: path.resolve(
-            __dirname,
-            './add-query-param-to-imported-css.js'
-          ),
-          options: {
-            manifestPath: this.manifestPath,
-            includeList: this.includeList || {},
-            excludeList: this.excludeList || {}
+    if (compiler.options.mode === 'development') {
+      compiler.options.module.rules.push({
+        test: /\.(m?js|m?ts)x?$/,
+        use: [
+          {
+            loader: path.resolve(
+              __dirname,
+              './add-query-param-to-imported-css.js'
+            ),
+            options: {
+              manifestPath: this.manifestPath,
+              includeList: this.includeList || {},
+              excludeList: this.excludeList || {}
+            }
           }
-        }
-      ]
-    })
+        ]
+      })
+    }
   }
 }

@@ -65,7 +65,7 @@ export default async function extensionStart(
       }
     })
   } catch (error: any) {
-    console.log(messages.errorWhilePreviewing(error))
+    console.log(error)
     process.exit(1)
   }
 }

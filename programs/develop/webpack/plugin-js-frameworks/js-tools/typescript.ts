@@ -8,8 +8,44 @@
 import path from 'path'
 import fs from 'fs'
 import {isUsingReact} from './react'
-import {bold, blue, yellow} from '@colors/colors/safe'
 import {isUsingPreact} from './preact'
+import * as messages from '../../lib/messages'
+import {installOptionalDependencies} from '../../lib/utils'
+import {DevOptions} from '../../../commands/dev'
+
+let userMessageDelivered = false
+
+export function isUsingTypeScript(projectPath: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+
+  if (!fs.existsSync(packageJsonPath)) {
+    return false
+  }
+
+  const configFile = getUserTypeScriptConfigFile(projectPath)
+  const packageJson = require(packageJsonPath)
+  const manifest = require(path.join(projectPath, 'manifest.json'))
+
+  const TypeScriptAsDevDep =
+    packageJson.devDependencies && packageJson.devDependencies.typescript
+  const TypeScriptAsDep =
+    packageJson.dependencies && packageJson.dependencies.typescript
+
+  if (!userMessageDelivered) {
+    if (TypeScriptAsDevDep || TypeScriptAsDep) {
+      if (configFile) {
+        console.log(messages.isUsingTechnology(manifest, 'TypeScript'))
+      } else {
+        console.log(messages.creatingTSConfig(manifest))
+        writeTsConfig(projectPath)
+      }
+    }
+
+    userMessageDelivered = true
+  }
+
+  return !!configFile && !!(TypeScriptAsDevDep || TypeScriptAsDep)
+}
 
 export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
   return {
@@ -103,54 +139,6 @@ function writeTsConfig(projectPath: string) {
   )
 }
 
-let userMessageDelivered = false
-
-export function isUsingTypeScript(projectPath: string) {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const configFile = getUserTypeScriptConfigFile(projectPath)
-  const packageJson = require(packageJsonPath)
-  const manifest = require(path.join(projectPath, 'manifest.json'))
-
-  const TypeScriptAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.typescript
-  const TypeScriptAsDep =
-    packageJson.dependencies && packageJson.dependencies.typescript
-
-  if (!userMessageDelivered) {
-    if (TypeScriptAsDevDep || TypeScriptAsDep) {
-      if (configFile) {
-        console.log(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) ` + `is using ${blue('TypeScript')} config file.`
-        )
-      } else {
-        console.log(
-          `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-            manifest.version
-          }) ` +
-            `is using ${blue(
-              'TypeScript'
-            )} but no config file was found. Creating ${yellow(
-              'tsconfig.json'
-            )}...`
-        )
-
-        writeTsConfig(projectPath)
-      }
-    }
-
-    userMessageDelivered = true
-  }
-
-  return !!configFile && !!(TypeScriptAsDevDep || TypeScriptAsDep)
-}
-
 export function tsCheckerOptions(projectPath: string, opts: any) {
   return {
     async: opts.mode === 'development',
@@ -169,4 +157,26 @@ export function tsCheckerOptions(projectPath: string, opts: any) {
       error: console.error
     }
   }
+}
+
+export async function maybeUseTypeScript(
+  projectPath: string,
+  mode: DevOptions['mode']
+): Promise<boolean> {
+  if (!isUsingTypeScript(projectPath)) return false
+
+  try {
+    require.resolve('typescript')
+  } catch (e) {
+    const typescriptDependencies = ['typescript']
+
+    await installOptionalDependencies('TypeScript', typescriptDependencies)
+
+    // The compiler will exit after installing the dependencies
+    // as it can't read the new dependencies without a restart.
+    console.log(messages.youAreAllSet('TypeScript'))
+    process.exit(0)
+  }
+
+  return true
 }

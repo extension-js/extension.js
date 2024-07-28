@@ -14,16 +14,15 @@ import {
 import {Manifest} from '../types'
 import {StartOptions} from '../../develop-types'
 
-// Utility function for logging prefixes
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const arrow =
     type === 'warn'
       ? yellow('►►►')
       : type === 'info'
-      ? blue('►►►')
-      : type === 'error'
-      ? red('✖︎✖︎✖︎')
-      : green('►►►')
+        ? blue('►►►')
+        : type === 'error'
+          ? red('✖︎✖︎✖︎')
+          : green('►►►')
   return `🧩 ${'Extension.js'} ${arrow}`
 }
 
@@ -59,54 +58,53 @@ export function manifestFieldRequiredError(requiredField: string) {
   return `[manifest.json]: ${errorMessage}`
 }
 
-export function manifestFieldError(feature: string, htmlFilePath: string) {
-  const hintMessage = `Check the ${feature} field in your manifest.json file.`
-  const pagesMessage = `Check the \`pages\` folder in your project root directory.`
+export function manifestFieldError(feature: string, filePath: string) {
+  const hintMessage = `Check the ${underline(feature)} field in your manifest.json file.`
+  const pagesMessage = `Check the ${underline('pages')} folder in your project root directory.`
   const isPage = feature.startsWith('pages')
-  const errorMessage = `File path \`${htmlFilePath}\` not found. ${
-    isPage ? pagesMessage : hintMessage
-  }`
-  return `[manifest.json]: ${errorMessage}`
+  const errorMessage = `[manifest.json] ${red('✖︎✖︎✖︎')} File not found. ${isPage ? pagesMessage : hintMessage}\n\n${red('✖︎')} ${underline(filePath)}`
+
+  return `${errorMessage}`
 }
 
 export function javaScriptError(
   manifestPath: string,
-  htmlFilePath: string,
+  filePath: string,
   inputFilepath: string
 ) {
-  const pathRelative = path.relative(manifestPath, htmlFilePath)
-  const hintMessage = `Check your <script> tags in \`${htmlFilePath}\`.`
+  const pathRelative = path.relative(manifestPath, filePath)
+  const hintMessage = `Check your <script> tags in \`${filePath}\`.`
   const errorMessage = `File not found\n- \`${inputFilepath}\` (not found)\n\n${hintMessage}`
   return `[${pathRelative}] ${errorMessage}`
 }
 
 export function cssError(
   manifestPath: string,
-  htmlFilePath: string,
+  filePath: string,
   inputFilepath: string
 ) {
-  const pathRelative = path.relative(manifestPath, htmlFilePath)
-  const hintMessage = `Check your <link> tags in \`${htmlFilePath}\`.`
+  const pathRelative = path.relative(manifestPath, filePath)
+  const hintMessage = `Check your <link> tags in \`${filePath}\`.`
   const errorMessage = `File not found\n- \`${inputFilepath}\` (not found)\n\n${hintMessage}`
   return `[${pathRelative}] ${errorMessage}`
 }
 
 export function staticAssetErrorMessage(
   manifestPath: string,
-  htmlFilePath: string,
+  filePath: string,
   inputFilepath: string
 ) {
   const extname = path.extname(inputFilepath)
-  const pathRelative = path.relative(manifestPath, htmlFilePath)
-  const hintMessage = `Check your *${extname} assets in \`${htmlFilePath}\`.`
+  const pathRelative = path.relative(manifestPath, filePath)
+  const hintMessage = `Check your *${extname} assets in \`${filePath}\`.`
   const errorMessage = `File not found\n- \`${inputFilepath}\` (not found)\n${hintMessage}`
   return `[${pathRelative}] ${errorMessage}`
 }
 
-export function entryNotFoundWarn(feature: string, iconFilePath: string) {
+export function entryNotFoundWarn(feature: string, filePath: string) {
   const hintMessage = `Check the \`${feature}\` field in your \`manifest.json\` file.`
-  const errorMessage = `File path \`${iconFilePath}\` not found. ${hintMessage}`
-  return `[manifest.json]: ${errorMessage}`
+  const errorMessage = `File not found:\n- ${filePath}.\n${hintMessage}`
+  return `${getLoggingPrefix('error')} ${errorMessage}`
 }
 
 export function serverRestartRequiredFromManifest() {
@@ -154,9 +152,8 @@ export function calculateDirectorySize(dirPath: string): number {
 
 export function manifestNotFound() {
   return (
-    `${"Error! Can't find the project's manifest file."}` +
-    `Check your extension ${yellow('manifest.json')} ` +
-    `file and ensure its path points to one of the options above, and try again.`
+    `${getLoggingPrefix('error')} ` +
+    `Manifest file not found. Ensure the path to your extension exists and try again.`
   )
 }
 
@@ -435,12 +432,6 @@ export function errorWhilePreviewing(error: any) {
     `Error while previewing the extension:\n\n${red((error as string) || '')}`
   )
 }
-export function errorWhileStarting(error: any) {
-  return (
-    `${getLoggingPrefix('error')} ` +
-    `Error while starting the extension:\n\n${red((error as string) || '')}`
-  )
-}
 
 export function errorWhileDeveloping(error: any) {
   return (
@@ -483,8 +474,9 @@ export function serverRestartRequiredFromWebpack(
 export function featureNotInstalled(feature: string, packageManeger: string) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `This is your first time running a project using ${yellow(feature)}.\n` +
-    `Installing required dependencies via ${blue(packageManeger)}. ` +
+    `Installing ${yellow(feature)} required dependencies via ${blue(
+      packageManeger
+    )}. ` +
     `This is a one time operation...`
   )
 }
@@ -506,7 +498,9 @@ export function featureInstalledSuccessfully(feature: string) {
 export function youAreAllSet(feature: string) {
   return (
     `${getLoggingPrefix('success')} ` +
-    `You are all set! Run the program again to start hacking, now with ${feature} support.`
+    `You are all set! Run the program again to start hacking, now with ${cyan(
+      feature
+    )} support.`
   )
 }
 
@@ -516,4 +510,15 @@ export function failedToinstallFeature(error: unknown) {
     'Failed to detect package manager or install packages: ' +
     error?.toString()
   )
+}
+
+export function creatingTSConfig(manifest: Manifest) {
+  return isUsingTechnology(manifest, 'TypesScript').replace(
+    '.',
+    `but no config file was found. Creating ${yellow('tsconfig.json')}...`
+  )
+}
+
+export function writingTypeDefinitions(manifest: Manifest) {
+  return `${getLoggingPrefix('info')} Writing type definitions...`
 }
