@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "version": "1.0",
+  "name": "Preact+TypeScript Template",
+  "description": "An extension template using Preact and TypeScript. This template includes a content script using Tailwind.css. To see it in action, visit https://extension.js.org.",
+  "background": {
+    "chromium:service_worker": "background.ts",
+    "firefox:scripts": ["background.ts"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://extension.js.org/*"],
+      "js": ["./content/scripts.tsx"]
+    }
+  ],
+  "icons": {
+    "16": "images/icons/icon_16.png",
+    "48": "images/icons/icon_48.png"
+  }
+}

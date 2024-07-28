@@ -1,0 +1,26 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/extension.git",
+    "directory": "programs/create/templates/vue-typescript"
+  },
+  "name": "vue-typescript-template",
+  "description": "The Extension.js Vue + TypeScript template.",
+  "version": "0.0.0",
+  "author": {
+    "name": "OSpoon",
+    "email": "zxin088@gmail.com",
+    "url": "https://hw404.cn"
+  },
+  "files": [
+    "template",
+    "template.json"
+  ],
+  "keywords": [
+    "extension",
+    "browser-extension",
+    "web-extension",
+    "template"
+  ]
+}

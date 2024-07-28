@@ -1,0 +1,15 @@
+{
+  "devDependencies": {
+    "extension": "latest"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "dependencies": {},
+  "type": "module",
+  "name": "my-content-typescript",
+  "private": true,
+  "version": "0.0.0"
+}
