@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import {isUsingTypeScript} from '../options/typescript'
-import {isUsingPreact} from '../options/preact'
+import {isUsingTypeScript} from '../plugin-js-frameworks/js-tools/typescript'
+import {isUsingPreact} from '../plugin-js-frameworks/js-tools/preact'
 
 function getManifestPath(projectPath: string) {
   return path.resolve(projectPath, 'manifest.json')

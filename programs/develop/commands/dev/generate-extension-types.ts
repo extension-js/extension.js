@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, blue, yellow} from '@colors/colors/safe'
+import * as messages from '../../webpack/lib/messages'
 
 export default async function generateExtensionTypes(projectDir: string) {
   const extensionEnvFile = path.join(projectDir, 'extension-env.d.ts')
@@ -21,7 +21,7 @@ export default async function generateExtensionTypes(projectDir: string) {
 // Required Extension.js types for TypeScript projects.
 // This file is auto-generated and should not be excluded.
 // If you need extra types, consider creating a new *.d.ts and
-// referencing it in the "include" array in your tsconfig.json file.
+// referencing it in the "include" array of your tsconfig.json file.
 // See https://www.typescriptlang.org/tsconfig#include for info.
 /// <reference types="${typePath}/index.d.ts" />
 
@@ -29,26 +29,13 @@ export default async function generateExtensionTypes(projectDir: string) {
 /// <reference types="${typePath}/polyfill.d.ts" />
 `
 
-  const manifest = require(path.join(projectDir, 'manifest.json'))
-
   try {
     // Check if the file exists
     await fs.access(extensionEnvFile)
-    console.log(
-      `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-        manifest.version
-      }) ` + `${yellow('extension-env.d.ts')} already exists.`
-    )
   } catch (err) {
     // File does not exist, continue to write it
-    console.log(
-      `🧩 Extension.js ${blue('►►►')} ${manifest.name} (v${
-        manifest.version
-      }) ` +
-        `${blue(
-          'TypeScript'
-        )} install detected. Writing extension type definitions...`
-    )
+    const manifest = require(path.join(projectDir, 'manifest.json'))
+    console.log(messages.writingTypeDefinitions(manifest))
     try {
       await fs.writeFile(extensionEnvFile, fileContent)
     } catch (writeErr) {

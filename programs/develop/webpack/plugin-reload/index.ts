@@ -5,6 +5,8 @@ import SetupReloadStrategy from './steps/setup-reload-strategy'
 import {DevOptions} from '../../develop-types'
 
 export class ReloadPlugin {
+  public static readonly name: string = 'plugin-reload'
+
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
   private readonly port?: number
