@@ -156,7 +156,6 @@ export function handleScriptsErrors(
   includesList: FilepathList,
   WebpackError: typeof webpack.WebpackError
 ) {
-
   const scriptsFields = Object.entries(includesList || {})
 
   for (const [field, value] of scriptsFields) {

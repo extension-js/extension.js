@@ -33,7 +33,6 @@ export default async function extensionDev(
     !pathOrRemoteUrl?.startsWith('http') &&
     !fs.existsSync(path.join(projectPath, 'manifest.json'))
   ) {
-    console.log({projectPath})
     console.log(messages.manifestNotFound())
     process.exit(1)
   }

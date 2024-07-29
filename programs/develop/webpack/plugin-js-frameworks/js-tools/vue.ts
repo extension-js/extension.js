@@ -7,9 +7,11 @@
 
 import path from 'path'
 import fs from 'fs'
+import {Compiler} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {isUsingTypeScript} from './typescript'
+import {JsFramework} from '../../types'
 
 let userMessageDelivered = false
 
@@ -38,10 +40,11 @@ export function isUsingVue(projectPath: string) {
   return vueAsDevDep || vueAsDep
 }
 
-type Loader = Record<string, any>
-
-export async function maybeUseVue(projectPath: string): Promise<Loader[]> {
-  if (!isUsingVue(projectPath)) return []
+export async function maybeUseVue(
+  compiler: Compiler,
+  projectPath: string
+): Promise<JsFramework | undefined> {
+  if (!isUsingVue(projectPath)) return undefined
 
   try {
     require.resolve('vue-loader')
@@ -50,7 +53,12 @@ export async function maybeUseVue(projectPath: string): Promise<Loader[]> {
 
     await installOptionalDependencies('TypeScript', typeScriptDependencies)
 
-    const vueDependencies = ['vue-loader']
+    const vueDependencies = [
+      'vue-loader',
+      '@vue/compiler-sfc',
+      'vue-template-compiler',
+      'vue-style-loader'
+    ]
 
     await installOptionalDependencies('Vue', vueDependencies)
 
@@ -60,10 +68,11 @@ export async function maybeUseVue(projectPath: string): Promise<Loader[]> {
     process.exit(0)
   }
 
-  const vueLoaders: Loader[] = [
+  const vueLoaders: JsFramework['loaders'] = [
     {
       test: /\.vue$/,
-      loader: require.resolve('vue-loader')
+      loader: 'vue-loader',
+      include: path.resolve(__dirname, 'src')
     }
   ]
 
@@ -71,7 +80,7 @@ export async function maybeUseVue(projectPath: string): Promise<Loader[]> {
   if (isUsingTypeScript(projectPath)) {
     vueLoaders.push({
       test: /\.ts?$/,
-      loader: require.resolve('ts-loader'),
+      loader: 'ts-loader',
       options: {
         appendTsSuffixTo: [/\.vue$/],
         // Skip type checking
@@ -80,5 +89,15 @@ export async function maybeUseVue(projectPath: string): Promise<Loader[]> {
     })
   }
 
-  return vueLoaders
+  // const {VueLoaderPlugin} = require('vue-loader')
+  // new VueLoaderPlugin().apply(compiler)
+  const vuePlugins: JsFramework['plugins'] = [
+    new (require('vue-loader').VueLoaderPlugin)() //.apply(compiler)
+  ]
+
+  return {
+    plugins: vuePlugins,
+    loaders: vueLoaders,
+    alias: undefined
+  }
 }

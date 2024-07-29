@@ -7,12 +7,14 @@
 
 import path from 'path'
 import fs from 'fs'
+import {Compiler} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {isUsingReact} from './react'
 import {isUsingPreact} from './preact'
 import {DevOptions} from '../../../commands/dev'
 import {isUsingTypeScript, maybeUseTypeScript} from './typescript'
+import {JsFramework} from '../../types'
 
 let userMessageDelivered = false
 
@@ -116,12 +118,12 @@ export function babelConfig(
 type Loader = Record<string, any>
 
 export async function maybeUseBabel(
-  projectPath: string,
-  mode: DevOptions['mode']
-): Promise<Loader[]> {
+  compiler: Compiler,
+  projectPath: string
+): Promise<JsFramework | undefined> {
   // TODO: cezaraugusto add it back once we have
   // the esbuild or swc loader working.
-  // if (!isUsingBabel(projectPath)) return []
+  // if (!isUsingBabel(projectPath)) return undefined
 
   try {
     require.resolve('babel-loader')
@@ -145,20 +147,25 @@ export async function maybeUseBabel(
     ? /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/
     : /\.(js|mjs|jsx|mjsx)$/
 
+  const mode = compiler.options.mode
   const maybeInstallTypeScript = await maybeUseTypeScript(projectPath, mode)
 
-  return [
-    // https://webpack.js.org/loaders/babel-loader/
-    // https://babeljs.io/docs/en/babel-loader
-    {
-      test: files,
-      include: projectPath,
-      exclude: /node_modules/,
-      loader: require.resolve('babel-loader'),
-      options: babelConfig(projectPath, {
-        mode,
-        typescript: maybeInstallTypeScript
-      })
-    }
-  ]
+  return {
+    plugins: undefined,
+    loaders: [
+      // https://webpack.js.org/loaders/babel-loader/
+      // https://babeljs.io/docs/en/babel-loader
+      {
+        test: files,
+        include: projectPath,
+        exclude: /node_modules/,
+        loader: require.resolve('babel-loader'),
+        options: babelConfig(projectPath, {
+          mode,
+          typescript: maybeInstallTypeScript
+        })
+      }
+    ],
+    alias: undefined
+  }
 }
