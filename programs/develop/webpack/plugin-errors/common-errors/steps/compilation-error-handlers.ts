@@ -1,5 +1,5 @@
 import webpack from 'webpack'
-import {bold, red, underline, blue} from '@colors/colors/safe'
+import {yellow, red, underline} from '@colors/colors/safe'
 
 export function handleMultipleAssetsError(
   manifestPath: string,
@@ -29,16 +29,18 @@ export function handleCantResolveError(
 
   if (error.message.includes(cantResolveMsg)) {
     const link = 'https://extension.js.org/n/features/special-folders'
+    const noPrefixMsg = error.message.replace(cantResolveMsg, '')
+    // Error message comes into the format
+    // Module not found: Error: Can't resolve 'dep' in 'dep_path'.
+    // We just want the 'dep' part.
+    const moduleName = noPrefixMsg.split("'")[2]
     const customMessage =
-      `[${manifest.name}]:${error.message.replace(cantResolveMsg, '')}. ` +
-      `Make sure to import the file correctly and that it exists in your extension's directory.` +
-      `\n\nIf you need to handle assets not supported by ${underline(
-        'manifest.json'
-      )}, add them to the ` +
-      `${underline('public/')} (for static content) or ${underline(
-        'scripts/'
-      )} folder. ` +
-      `Read more about ${'special folders'} ${underline(blue(link))}.`
+      `${manifest.name} ${red('✖︎✖︎✖︎')} Module ${yellow(moduleName)} not found. ` +
+      `Make sure file exists in the extension directory.\n\n` +
+      `If you need to handle entries not supported by manifest.json, ` +
+      `add them to the ${underline('public/')} (for static content) or ` +
+      `${underline('scripts/')} folder.` +
+      `\n\nRead more about special folders: ${underline((link))}.`
 
     return new webpack.WebpackError(customMessage)
   }

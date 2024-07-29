@@ -24,14 +24,12 @@ export class JsFrameworksPlugin {
   public async apply(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
-    const plugins: WebpackPluginInstance[] = []
-
     const maybeInstallReact = await maybeUseReact(projectPath, this.mode)
-    plugins.push(...maybeInstallReact)
 
-    compiler.options.plugins = [...compiler.options.plugins, ...plugins].filter(
-      Boolean
-    )
+    if (maybeInstallReact) {
+      const ReactRefreshPlugin = require('@pmmmwh/react-refresh-webpack-plugin')
+      new ReactRefreshPlugin().apply(compiler)
+    }
 
     const maybeInstallBabel = await maybeUseBabel(projectPath, this.mode)
     const maybeInstallVue = await maybeUseVue(projectPath)
