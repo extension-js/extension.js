@@ -118,25 +118,25 @@ export default function webpackConfig(
       new ExtensionPlugin({
         browser: devOptions.browser,
         manifestPath
+      }),
+      new ReloadPlugin({
+        browser: devOptions.browser,
+        manifestPath,
+        port: devOptions.port
+      }),
+      new BrowsersPlugin({
+        browser: devOptions.browser,
+        // startingUrl: devOptions.startingUrl,
+        // profile: devOptions.profile || devOptions.userDataDir,
+        // preferences: devOptions.preferences,
+        extension: [
+          getOutputPath(projectPath, devOptions.browser),
+          // Extensions output by the ReloadPlugin
+          path.join(__dirname, 'extensions', 'manager-extension'),
+          path.join(__dirname, 'extensions', 'reload-extension')
+        ]
+        // browserFlags: devOptions.browserFlags
       })
-      // new ReloadPlugin({
-      //   browser: devOptions.browser,
-      //   manifestPath,
-      //   port: devOptions.port
-      // }),
-      // new BrowsersPlugin({
-      //   browser: devOptions.browser,
-      //   // startingUrl: devOptions.startingUrl,
-      //   // profile: devOptions.profile || devOptions.userDataDir,
-      //   // preferences: devOptions.preferences,
-      //   extension: [
-      //     getOutputPath(projectPath, devOptions.browser),
-      //     // Extensions output by the ReloadPlugin
-      //     path.join(__dirname, 'extensions', 'manager-extension'),
-      //     path.join(__dirname, 'extensions', 'reload-extension')
-      //   ]
-      //   // browserFlags: devOptions.browserFlags
-      // })
     ],
     module: {
       rules: [
