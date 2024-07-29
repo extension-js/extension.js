@@ -7,10 +7,10 @@
 
 import path from 'path'
 import fs from 'fs'
-import {type WebpackPluginInstance} from 'webpack'
+import {type Compiler, type WebpackPluginInstance} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
-import {DevOptions} from '../../../commands/dev'
+import {JsFramework} from '../../types'
 
 let userMessageDelivered = false
 
@@ -41,10 +41,10 @@ export function isUsingReact(projectPath: string) {
 }
 
 export async function maybeUseReact(
-  projectPath: string,
-  mode: DevOptions['mode']
-): Promise<boolean> {
-  if (!isUsingReact(projectPath)) return false
+  compiler: Compiler,
+  projectPath: string
+): Promise<JsFramework | undefined> {
+  if (!isUsingReact(projectPath)) return undefined
 
   try {
     require.resolve('@pmmmwh/react-refresh-webpack-plugin')
@@ -63,5 +63,13 @@ export async function maybeUseReact(
     process.exit(0)
   }
 
-  return true
+  const reactPlugins: WebpackPluginInstance[] = [
+    new (require('@pmmmwh/react-refresh-webpack-plugin'))() //.apply(compiler)
+  ]
+
+  return {
+    plugins: reactPlugins,
+    loaders: undefined,
+    alias: undefined
+  }
 }

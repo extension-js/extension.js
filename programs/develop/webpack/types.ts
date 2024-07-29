@@ -1,4 +1,5 @@
 import {type LoaderContext as WebpackLoaderContext} from 'webpack'
+import {type WebpackPluginInstance} from 'webpack'
 
 export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
   Partial<chrome.runtime.ManifestV3> & {
@@ -59,4 +60,10 @@ export interface LoaderContext {
     includeList?: FilepathList
     excludeList?: FilepathList
   }
+}
+
+export interface JsFramework {
+  plugins: WebpackPluginInstance[] | undefined
+  loaders: Record<string, any>[] | undefined
+  alias: Record<string, string> | undefined
 }

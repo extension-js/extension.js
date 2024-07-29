@@ -35,7 +35,7 @@ export function isUsingTailwind(projectPath: string) {
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
-      console.log(messages.isUsingTechnology(manifest, 'SASS'))
+      console.log(messages.isUsingTechnology(manifest, 'Tailwind'))
 
       userMessageDelivered = true
     }
