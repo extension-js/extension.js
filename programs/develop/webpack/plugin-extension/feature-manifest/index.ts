@@ -36,9 +36,7 @@ export class ManifestPlugin {
     // it's emitted to the assets bundle so other plugins
     // can modify it.
     new EmitManifest({
-      manifestPath: this.manifestPath,
-      includeList: this.includeList,
-      excludeList: this.excludeList
+      manifestPath: this.manifestPath
     }).apply(compiler)
 
     // 2 - Ensure the files defined in the manifest have valid paths,
@@ -53,7 +51,6 @@ export class ManifestPlugin {
     // manifest with the output path of relevant files.
     new UpdateManifest({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
       excludeList: this.excludeList
     }).apply(compiler)
 
@@ -66,8 +63,7 @@ export class ManifestPlugin {
     // throw an error if any of those files change.
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
-      excludeList: this.excludeList
+      includeList: this.includeList
     }).apply(compiler)
   }
 }

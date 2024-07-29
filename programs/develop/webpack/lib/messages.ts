@@ -9,7 +9,8 @@ import {
   underline,
   magenta,
   blue,
-  cyan
+  cyan,
+  bold
 } from '@colors/colors/safe'
 import {Manifest} from '../types'
 import {StartOptions} from '../../develop-types'
@@ -33,7 +34,7 @@ export function serverRestartRequiredFromHtml(
   const basename = path.relative(projectDir, filePath)
   const errorMessage = `[${basename}] Entry Point Modification Found
 
-Changing <script> or <link rel="stylesheet"> source paths after compilation requires a server restart. Restart the program and try again.`
+Changing <script> or <link rel="stylesheet"> source paths after compilation requires a server restart. Restart the program and run the program again.`
 
   return errorMessage
 }
@@ -59,10 +60,18 @@ export function manifestFieldRequiredError(requiredField: string) {
 }
 
 export function manifestFieldError(feature: string, filePath: string) {
-  const hintMessage = `Check the ${underline(feature)} field in your manifest.json file.`
+  const featureName = feature.startsWith('content_scripts')
+    ? `content_scripts`
+    : feature.replace('/', '.')
+  const hintMessage =
+    `Check the ${underline(featureName)} ` +
+    (featureName === 'content_scripts'
+      ? `(index ${feature.split('-')[1]}) `
+      : '') +
+    `field in your manifest.json file.`
   const pagesMessage = `Check the ${underline('pages')} folder in your project root directory.`
   const isPage = feature.startsWith('pages')
-  const errorMessage = `[manifest.json] ${red('✖︎✖︎✖︎')} File not found. ${isPage ? pagesMessage : hintMessage}\n\n${red('✖︎')} ${underline(filePath)}`
+  const errorMessage = `manifest.json ${red('✖︎✖︎✖︎')} File not found. ${isPage ? pagesMessage : hintMessage}\n\n${red('(not found)')} ${underline(filePath)}`
 
   return `${errorMessage}`
 }
@@ -109,10 +118,8 @@ export function entryNotFoundWarn(feature: string, filePath: string) {
 
 export function serverRestartRequiredFromManifest() {
   const errorMessage =
-    `[manifest.json] Entry Point Modification Found.\n` +
-    `Changing the path of non-static assets defined in manifest.json` +
-    `requires a server restart. To apply these changes, restart ` +
-    `the program and try again.`
+    `manifest.json ${red('✖︎✖︎✖︎')} Changing the path of non-static ` +
+    `fields during development requires a server restart.`
 
   return errorMessage
 }
@@ -153,7 +160,7 @@ export function calculateDirectorySize(dirPath: string): number {
 export function manifestNotFound() {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Manifest file not found. Ensure the path to your extension exists and try again.`
+    `Manifest file not found. Ensure the path to your extension exists and run the program again.`
   )
 }
 
@@ -521,4 +528,11 @@ export function creatingTSConfig(manifest: Manifest) {
 
 export function writingTypeDefinitions(manifest: Manifest) {
   return `${getLoggingPrefix('info')} Writing type definitions...`
+}
+
+export function backgroundIsRequred(feature: string, filePath: string) {
+  const hintMessage = `Check the ${underline(feature.replace('/', '.'))} field in your manifest.json file.`
+  const errorMessage = `\n\n${`${bold(red('ERROR'))} in [manifest.json] ${red('✖✖✖')}`} File not found. ${hintMessage}\n\n${red('(not found)')} ${underline(filePath)}\n`
+
+  return `${errorMessage}`
 }
