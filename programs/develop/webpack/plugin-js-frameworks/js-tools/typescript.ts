@@ -168,7 +168,7 @@ export async function maybeUseTypeScript(
   try {
     require.resolve('typescript')
   } catch (e) {
-    const typescriptDependencies = ['typescript']
+    const typescriptDependencies = ['typescript', 'ts-loader']
 
     await installOptionalDependencies('TypeScript', typescriptDependencies)
 

@@ -34,7 +34,7 @@ export function serverRestartRequiredFromHtml(
   const basename = path.relative(projectDir, filePath)
   const errorMessage = `[${basename}] Entry Point Modification Found
 
-Changing <script> or <link rel="stylesheet"> source paths after compilation requires a server restart. Restart the program and run the program again.`
+Changing <script> or <link rel="stylesheet"> source paths after compilation requires a server restart. Restart the program and try again.`
 
   return errorMessage
 }
@@ -132,7 +132,7 @@ export function manifestNotFoundError() {
 }
 
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
-  const hintMessage = `Update your manifest file and run the program again.`
+  const hintMessage = `Update your manifest file and try again.`
   const errorMessage = `[manifest.json] ${error}. ${hintMessage}`
 
   return errorMessage
@@ -160,7 +160,7 @@ export function calculateDirectorySize(dirPath: string): number {
 export function manifestNotFound() {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Manifest file not found. Ensure the path to your extension exists and run the program again.`
+    `Manifest file not found. Ensure the path to your extension exists and try again.`
   )
 }
 
@@ -527,7 +527,10 @@ export function creatingTSConfig(manifest: Manifest) {
 }
 
 export function writingTypeDefinitions(manifest: Manifest) {
-  return `${getLoggingPrefix('info')} Writing type definitions...`
+  return (
+    `${getLoggingPrefix('info')} ${manifest.name} (v${manifest.version}) ` +
+    `has no type definitions. Writing...`
+  )
 }
 
 export function backgroundIsRequred(feature: string, filePath: string) {

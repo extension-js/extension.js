@@ -1,5 +1,5 @@
 import path from 'path'
-import {type WebpackPluginInstance, type Compiler} from 'webpack'
+import {type Compiler} from 'webpack'
 import {PluginInterface} from '../types'
 import {DevOptions} from '../../develop-types'
 import {maybeUseBabel} from './js-tools/babel'
@@ -24,24 +24,29 @@ export class JsFrameworksPlugin {
   public async apply(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
-    const maybeInstallReact = await maybeUseReact(projectPath, this.mode)
+    const maybeInstallBabel = await maybeUseBabel(compiler, projectPath)
+    const maybeInstallReact = await maybeUseReact(compiler, projectPath)
+    const maybeInstallPreact = await maybeUsePreact(compiler, projectPath)
+    const maybeInstallVue = await maybeUseVue(compiler, projectPath)
 
-    if (maybeInstallReact) {
-      const ReactRefreshPlugin = require('@pmmmwh/react-refresh-webpack-plugin')
-      new ReactRefreshPlugin().apply(compiler)
+    compiler.options.resolve.alias = {
+      ...compiler.options.resolve.alias,
+      ...(maybeInstallBabel?.alias || {}),
+      ...(maybeInstallReact?.alias || {}),
+      ...(maybeInstallPreact?.alias || {}),
+      ...(maybeInstallVue?.alias || {})
     }
-
-    const maybeInstallBabel = await maybeUseBabel(projectPath, this.mode)
-    const maybeInstallVue = await maybeUseVue(projectPath)
 
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
-      ...maybeInstallBabel,
-      ...maybeInstallVue
+      ...(maybeInstallBabel?.loaders || []),
+      ...(maybeInstallReact?.loaders || []),
+      ...(maybeInstallPreact?.loaders || []),
+      ...(maybeInstallVue?.loaders || [])
     ].filter(Boolean)
 
-    const maybeInstallPreact = maybeUsePreact(projectPath)
-
-    compiler.options.resolve.alias = maybeInstallPreact
+    maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))
+    maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
+    maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
   }
 }
