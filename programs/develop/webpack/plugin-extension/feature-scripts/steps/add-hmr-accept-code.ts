@@ -82,12 +82,6 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
 
   // 2 - Handle content_scripts.
   if (manifest.content_scripts) {
-    // If React exists, let the react reload logic handle the reload.
-    // WARN: Removing this check will cause the content script to pile up
-    // in the browser. This is something related to the react reload plugin
-    // or the webpack-target-webextension plugin.
-    // TODO: cezaraugusto because of this, entry files of content_scripts
-    // written in JSX doesn't reload. This is a bug.
     if (!isUsingJSFramework(projectPath)) {
       for (const contentScript of manifest.content_scripts) {
         if (!contentScript.js) continue

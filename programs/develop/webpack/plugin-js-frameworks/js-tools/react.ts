@@ -43,8 +43,8 @@ export function isUsingReact(projectPath: string) {
 export async function maybeUseReact(
   projectPath: string,
   mode: DevOptions['mode']
-): Promise<WebpackPluginInstance[]> {
-  if (!isUsingReact(projectPath)) return []
+): Promise<boolean> {
+  if (!isUsingReact(projectPath)) return false
 
   try {
     require.resolve('@pmmmwh/react-refresh-webpack-plugin')
@@ -63,7 +63,5 @@ export async function maybeUseReact(
     process.exit(0)
   }
 
-  const ReactRefreshPlugin = require('@pmmmwh/react-refresh-webpack-plugin')
-
-  return [new ReactRefreshPlugin()]
+  return true
 }
