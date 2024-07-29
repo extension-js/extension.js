@@ -2,17 +2,13 @@ import fs from 'fs'
 import {Compiler, Compilation} from 'webpack'
 import {sources} from 'webpack'
 import * as errors from '../../../lib/errors'
-import {type FilepathList, type PluginInterface} from '../../../types'
+import {type PluginInterface} from '../../../types'
 
 export class EmitManifest {
   public readonly manifestPath: string
-  public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.includeList = options.includeList
-    this.excludeList = options.excludeList
   }
 
   apply(compiler: Compiler): void {

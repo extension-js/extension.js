@@ -76,7 +76,7 @@ export class RunChromiumPlugin {
     let chromiumDidLaunch = false
 
     compiler.hooks.done.tapAsync('run-chromium:module', (compilation, done) => {
-      if (compilation.hasErrors.length > 0) {
+      if (compilation.compilation.errors.length > 0) {
         done()
         return
       }

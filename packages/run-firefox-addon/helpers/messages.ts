@@ -135,9 +135,9 @@ function certRequired() {
   log(`
   npx -y ${'mkcert-cli'} \\
     ${green('--outDir')} ${path.join(
-    process.cwd(),
-    'node_modules/webpack-run-firefox-addon/dist/certs'
-  )} \\
+      process.cwd(),
+      'node_modules/webpack-run-firefox-addon/dist/certs'
+    )} \\
     ${green('--cert')} ${'localhost.cert'} \\
     ${green('--key')} ${'localhost.key'}
   `)

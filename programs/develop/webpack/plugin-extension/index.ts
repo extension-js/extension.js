@@ -19,7 +19,7 @@ import JsonPlugin from 'webpack-browser-extension-json'
 import IconsPlugin from 'webpack-browser-extension-icons'
 import ResourcesPlugin from 'webpack-browser-extension-resources'
 import {SpecialFoldersPlugin} from './feature-special-folders'
-import {PluginInterface} from '../types'
+import {PluginInterface, FilepathList} from '../types'
 
 // Handle special folders feature
 import {
@@ -93,11 +93,9 @@ export class ExtensionPlugin {
       manifestPath,
       includeList: {
         ...manifestFieldsData.html,
-        ...specialFoldersData.pages,
-        // ...manifestFieldsData.icons,
+        ...(manifestFieldsData.icons as FilepathList),
         ...manifestFieldsData.json,
-        ...manifestFieldsData.scripts,
-        ...specialFoldersData.scripts
+        ...manifestFieldsData.scripts
       },
       excludeList: specialFoldersData.public
     }).apply(compiler)

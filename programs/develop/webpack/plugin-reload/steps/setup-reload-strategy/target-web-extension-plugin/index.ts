@@ -47,7 +47,7 @@ class TargetWebExtensionPlugin {
 
   private ensureFileExists(filePath: string, fieldName: string) {
     if (!fs.existsSync(filePath)) {
-      const fieldError = messages.manifestFieldError(fieldName, filePath)
+      const fieldError = messages.backgroundIsRequred(fieldName, filePath)
       console.error(fieldError)
       throw new Error(fieldError)
     }

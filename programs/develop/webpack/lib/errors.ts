@@ -156,9 +156,10 @@ export function handleScriptsErrors(
   includesList: FilepathList,
   WebpackError: typeof webpack.WebpackError
 ) {
-  const scriptsFields = includesList
 
-  for (const [field, value] of Object.entries(scriptsFields)) {
+  const scriptsFields = Object.entries(includesList || {})
+
+  for (const [field, value] of scriptsFields) {
     if (value) {
       const valueArr = Array.isArray(value) ? value : [value]
 
@@ -166,16 +167,22 @@ export function handleScriptsErrors(
         if (field.startsWith('content_scripts')) {
           const [featureName, index] = field.split('-')
           const prettyFeature = `${featureName} (index ${index})`
-          const fieldError = messages.manifestFieldError(prettyFeature, script)
+          const fieldError = messages.manifestFieldError(
+            prettyFeature,
+            script as string
+          )
 
-          if (!fs.existsSync(script)) {
+          if (!fs.existsSync(script as string)) {
             compilation.errors.push(new WebpackError(fieldError))
           }
         } else {
-          const fieldError = messages.manifestFieldError(field, script)
+          const fieldError = messages.manifestFieldError(
+            field,
+            script as string
+          )
 
-          if (!fs.existsSync(script)) {
-            compilation.errors.push(new WebpackError(fieldError))
+          if (!fs.existsSync(script as string)) {
+            compilation.errors.push(new WebpackError(fieldError + 'xxxx'))
           }
         }
       }

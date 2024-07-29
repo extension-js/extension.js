@@ -22,12 +22,13 @@ document.body.innerHTML += `
 </div>
 `
 
-document.getElementById('colorPicker').addEventListener('input', (event) => {
+document.getElementById('colorPicker')?.addEventListener('input', (event) => {
   // eslint-disable-next-line no-undef
   chrome.runtime
     .sendMessage({
       action: 'changeBackgroundColor',
-      color: event.target.value
+      // @ts-expect-error
+      color: event.target?.value
     })
     .catch(console.error)
 })
