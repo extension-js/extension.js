@@ -6,12 +6,12 @@
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "background2.ts"
+    "service_worker": "background.ts"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/scripts2.ts"]
+      "js": ["content/scripts.ts"]
     }
   ]
 }

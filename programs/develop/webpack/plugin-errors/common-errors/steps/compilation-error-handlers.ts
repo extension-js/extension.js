@@ -11,7 +11,7 @@ export function handleMultipleAssetsError(
   if (error.message.includes(actualMsg)) {
     const filename = error.message.replace(actualMsg, '')
     const extFilename = filename.split('.').pop()
-    const errorMsg = `[${manifest.name}'s content_scripts] One of your \`${extFilename}\` file imports is also defined as a content_script in manifest.json. Remove the duplicate entry and try again.`
+    const errorMsg = `[${manifest.name}'s content_scripts] One of your \`${extFilename}\` file imports is also defined as a content_script in manifest.json. Remove the duplicate entry and run the program again.`
 
     if (filename.startsWith('content_scripts')) {
       return new webpack.WebpackError(errorMsg)
