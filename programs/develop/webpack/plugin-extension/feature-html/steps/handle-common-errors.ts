@@ -1,30 +1,30 @@
-import fs from 'fs';
-import { WebpackError, type Compiler } from 'webpack';
+import fs from 'fs'
+import {WebpackError, type Compiler} from 'webpack'
 
-import { type FilepathList, type PluginInterface } from '../../../types';
-import { getAssetsFromHtml } from '../html-lib/utils';
-import * as messages from '../../../lib/messages';
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import {getAssetsFromHtml} from '../html-lib/utils'
+import * as messages from '../../../lib/messages'
 
 function handleCantResolveError(
   manifestPath: string,
   includesList: FilepathList,
   error: NodeJS.ErrnoException
 ) {
-  const cantResolveMsg = "Module not found: Error: Can't resolve ";
-  const customError = error.message.replace(cantResolveMsg, '');
-  const wrongFilename = customError.split("'")[1];
+  const cantResolveMsg = "Module not found: Error: Can't resolve "
+  const customError = error.message.replace(cantResolveMsg, '')
+  const wrongFilename = customError.split("'")[1]
 
   if (error.message.includes(cantResolveMsg)) {
     for (const field of Object.entries(includesList)) {
-      const [, resource] = field;
+      const [, resource] = field
 
       // Resources from the manifest lib can come as undefined.
       if (resource) {
-        if (!fs.existsSync(resource as string)) return null;
+        if (!fs.existsSync(resource as string)) return null
 
-        const htmlAssets = getAssetsFromHtml(resource as string);
-        const jsAssets = htmlAssets?.js || [];
-        const cssAssets = htmlAssets?.css || [];
+        const htmlAssets = getAssetsFromHtml(resource as string)
+        const jsAssets = htmlAssets?.js || []
+        const cssAssets = htmlAssets?.css || []
 
         if (
           jsAssets.includes(wrongFilename) ||
@@ -34,23 +34,23 @@ function handleCantResolveError(
             manifestPath,
             resource as string,
             wrongFilename
-          );
-          return new WebpackError(errorMsg);
+          )
+          return new WebpackError(errorMsg)
         }
       }
     }
   }
 
-  return null;
+  return null
 }
 
 export class HandleCommonErrors {
-  public readonly manifestPath: string;
-  public readonly includeList?: FilepathList;
+  public readonly manifestPath: string
+  public readonly includeList?: FilepathList
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath;
-    this.includeList = options.includeList;
+    this.manifestPath = options.manifestPath
+    this.includeList = options.includeList
   }
 
   apply(compiler: Compiler) {
@@ -69,14 +69,14 @@ export class HandleCommonErrors {
                 this.manifestPath,
                 this.includeList || {},
                 error
-              );
+              )
               if (cantResolveError) {
-                compilation.errors[index] = cantResolveError;
+                compilation.errors[index] = cantResolveError
               }
-            });
+            })
           }
-        );
+        )
       }
-    );
+    )
   }
 }

@@ -1,6 +1,6 @@
 import webpack, {type Compiler} from 'webpack'
 import fs from 'fs'
-import {type PluginInterface, type Manifest} from '../../types'
+import {type PluginInterface, type Manifest} from '../../webpack-types'
 import {insecureCSPValueError} from './insecure-csp-value-errors'
 import {wrongWebResourceFormatError} from './wrong-web-resource-format-error'
 import {firefoxRunningServiceWorkerError} from './firefox-service-worker-error'

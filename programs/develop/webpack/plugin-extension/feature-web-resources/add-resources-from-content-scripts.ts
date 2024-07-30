@@ -1,45 +1,45 @@
-import type webpack from 'webpack';
-import manifestFields from 'browser-extension-manifest-fields';
-import { shouldExclude } from '../../lib/utils';
-import { type FilepathList, type PluginInterface } from '../../types';
+import type webpack from 'webpack'
+import manifestFields from 'browser-extension-manifest-fields'
+import {shouldExclude} from '../../lib/utils'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
 
 export class OutputWebAccessibleResourcesFolder {
-  private readonly manifestPath: string;
-  private readonly includeList?: FilepathList;
-  private readonly excludeList?: FilepathList;
+  private readonly manifestPath: string
+  private readonly includeList?: FilepathList
+  private readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath;
-    this.includeList = options.includeList;
-    this.excludeList = options.excludeList;
+    this.manifestPath = options.manifestPath
+    this.includeList = options.includeList
+    this.excludeList = options.excludeList
   }
 
   private getContentScriptsCss() {
-    const manifestScripts = manifestFields(this.manifestPath).scripts;
-    const contentScriptsEntries = Object.entries(manifestScripts);
+    const manifestScripts = manifestFields(this.manifestPath).scripts
+    const contentScriptsEntries = Object.entries(manifestScripts)
     const contentScripts = contentScriptsEntries.filter(([key]) => {
-      return key.startsWith('content_scripts');
-    });
+      return key.startsWith('content_scripts')
+    })
     const contentScriptsCss = contentScripts.filter(([key]) => {
       return (
         key.endsWith('.css') ||
         key.endsWith('.scss') ||
         key.endsWith('.sass') ||
         key.endsWith('.less')
-      );
-    });
+      )
+    })
 
-    return contentScriptsCss;
+    return contentScriptsCss
   }
 
   apply(compiler: webpack.Compiler) {
     compiler.hooks.afterCompile.tapAsync(
       'WebResourcesPlugin (AutoParseWebResourcesFolder)',
       (compilation, done) => {
-        const { web_accessible_resources: webAccResources } = manifestFields(
+        const {web_accessible_resources: webAccResources} = manifestFields(
           this.manifestPath
-        );
-        const contentScriptsCss = this.getContentScriptsCss();
+        )
+        const contentScriptsCss = this.getContentScriptsCss()
 
         if (webAccResources?.length) {
           for (const resource of webAccResources) {
@@ -47,12 +47,12 @@ export class OutputWebAccessibleResourcesFolder {
             if (typeof resource === 'string') {
               const isContentCss = contentScriptsCss?.some(
                 ([key]) => key === resource
-              );
+              )
 
               if (!isContentCss) {
                 if (!shouldExclude(resource, this.excludeList)) {
                   compilation.assets[`web_accessible_resources/${resource}`] =
-                    compilation.assets[resource];
+                    compilation.assets[resource]
                 }
               }
             } else {
@@ -60,22 +60,22 @@ export class OutputWebAccessibleResourcesFolder {
               resource.forEach((resourcePath, index) => {
                 const isContentCss = contentScriptsCss?.some(
                   ([key]) => key === resourcePath
-                );
+                )
 
                 if (!isContentCss) {
                   if (!shouldExclude(resourcePath, this.excludeList)) {
                     compilation.assets[
                       `web_accessible_resources/resource-${index}/${resourcePath}`
-                    ] = compilation.assets[resourcePath];
+                    ] = compilation.assets[resourcePath]
                   }
                 }
-              });
+              })
             }
           }
         }
 
-        done();
+        done()
       }
-    );
+    )
   }
 }

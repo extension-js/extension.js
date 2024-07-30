@@ -1,6 +1,6 @@
 import {type Compiler, Compilation, sources} from 'webpack'
 import {getManifestContent} from '../lib/utils'
-import {type PluginInterface, type Manifest} from '../types'
+import {type PluginInterface, type Manifest} from '../webpack-types'
 
 export class BrowserFieldsPlugin {
   private readonly browser: string

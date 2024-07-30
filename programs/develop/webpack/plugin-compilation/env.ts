@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import {type Compiler} from 'webpack'
 import Dotenv from 'dotenv-webpack'
-import {type Manifest} from '../types'
+import {type Manifest} from '../webpack-types'
 import * as messages from '../lib/messages'
 
 export class EnvPlugin {

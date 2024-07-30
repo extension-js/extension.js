@@ -1,18 +1,18 @@
-import fs from 'fs';
-import path from 'path';
-import { type Compiler } from 'webpack';
-import { sources, Compilation } from 'webpack';
-import { type FilepathList, type PluginInterface } from '../../../types';
-import { getAssetsFromHtml, isFromIncludeList } from '../html-lib/utils';
-import * as errors from '../../../lib/errors';
+import fs from 'fs'
+import path from 'path'
+import webpack, {type Compiler} from 'webpack'
+import {sources, Compilation} from 'webpack'
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import {getAssetsFromHtml, isFromIncludeList} from '../html-lib/utils'
+import * as messages from '../../../lib/messages'
 
 export class AddAssetsToCompilation {
-  public readonly manifestPath: string;
-  public readonly includeList?: FilepathList;
+  public readonly manifestPath: string
+  public readonly includeList?: FilepathList
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath;
-    this.includeList = options.includeList;
+    this.manifestPath = options.manifestPath
+    this.includeList = options.includeList
   }
 
   public apply(compiler: Compiler): void {
@@ -23,32 +23,30 @@ export class AddAssetsToCompilation {
           {
             name: 'html:add-assets-to-compilation',
             // Derive new assets from the existing assets.
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL,
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
           },
           () => {
-            if (compilation.errors.length > 0) return;
+            if (compilation.errors.length > 0) return
 
-            const htmlFields = Object.entries(this.includeList || {});
+            const htmlFields = Object.entries(this.includeList || {})
 
             for (const field of htmlFields) {
-              const [feature, resource] = field;
-              const featureWithHtml = feature + '.html';
+              const [feature, resource] = field
+              const featureWithHtml = feature + '.html'
 
               // Resources from the manifest lib can come as undefined.
               if (resource) {
-                const compilationAsset = compilation.getAsset(featureWithHtml);
+                const compilationAsset = compilation.getAsset(featureWithHtml)
 
                 if (compilationAsset) {
-                  const htmlSource = compilationAsset.source
-                    .source()
-                    .toString();
+                  const htmlSource = compilationAsset.source.source().toString()
 
                   const staticAssets = getAssetsFromHtml(
                     resource as string,
                     htmlSource
-                  )?.static;
+                  )?.static
 
-                  const fileAssets = [...new Set(staticAssets)];
+                  const fileAssets = [...new Set(staticAssets)]
 
                   for (const asset of fileAssets) {
                     if (!asset.includes('public/')) {
@@ -59,7 +57,7 @@ export class AddAssetsToCompilation {
                         const FilepathListEntry = isFromIncludeList(
                           asset,
                           this.includeList
-                        );
+                        )
 
                         // If this asset is an asset emitted by some other plugin,
                         // we don't want to emit it again. This is the case for
@@ -73,24 +71,25 @@ export class AddAssetsToCompilation {
                           // if the path is a hash, as it's a reference to
                           // an in-page asset (like an ID reference for anchors).
                           if (!path.basename(asset).startsWith('#')) {
-                            errors.fileNotFoundWarn(
-                              compilation,
+                            const errorMessage = messages.fileNotFound(
                               this.manifestPath,
                               resource as string,
                               asset
-                            );
-                            return;
+                            )
+
+                            compilation.warnings.push(
+                              new webpack.WebpackError(errorMessage)
+                            )
+
+                            return
                           }
                         }
                       }
 
-                      const source = fs.readFileSync(asset);
-                      const rawSource = new sources.RawSource(source);
+                      const source = fs.readFileSync(asset)
+                      const rawSource = new sources.RawSource(source)
 
-                      const filepath = path.join(
-                        'assets',
-                        path.basename(asset)
-                      );
+                      const filepath = path.join('assets', path.basename(asset))
                       if (!compilation.getAsset(filepath)) {
                         // If for some reason the HTML file reached this condition,
                         // it means it is not defined in the manifest file nor
@@ -98,30 +97,30 @@ export class AddAssetsToCompilation {
                         // any other resource, it will be emitted as an asset.
                         // Here we also emit the assets referenced in the HTML file.
                         if (asset.endsWith('.html')) {
-                          const htmlAssets = getAssetsFromHtml(asset);
+                          const htmlAssets = getAssetsFromHtml(asset)
                           const assetsFromHtml = [
                             ...(htmlAssets?.js || []),
                             ...(htmlAssets?.css || []),
-                            ...(htmlAssets?.static || []),
-                          ];
+                            ...(htmlAssets?.static || [])
+                          ]
 
                           // Emit the HTML itself
-                          compilation.emitAsset(filepath, rawSource);
+                          compilation.emitAsset(filepath, rawSource)
                           assetsFromHtml.forEach((assetFromHtml) => {
-                            const source = fs.readFileSync(assetFromHtml);
-                            const rawSource = new sources.RawSource(source);
+                            const source = fs.readFileSync(assetFromHtml)
+                            const rawSource = new sources.RawSource(source)
 
                             const filepath = path.join(
                               'assets',
                               path.basename(assetFromHtml)
-                            );
+                            )
 
                             if (!compilation.getAsset(filepath)) {
-                              compilation.emitAsset(filepath, rawSource);
+                              compilation.emitAsset(filepath, rawSource)
                             }
-                          });
+                          })
                         } else {
-                          compilation.emitAsset(filepath, rawSource);
+                          compilation.emitAsset(filepath, rawSource)
                         }
                       }
                     }
@@ -130,8 +129,8 @@ export class AddAssetsToCompilation {
               }
             }
           }
-        );
+        )
       }
-    );
+    )
   }
 }

@@ -5,26 +5,36 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import fs from 'fs'
 import path from 'path'
 import webpack from 'webpack'
-import compilerConfig from '../../webpack/webpack-config'
-import {getProjectPath} from '../get-project-path'
-import * as messages from '../../webpack/lib/messages'
-import {generateZip} from './generate-zip'
+import compilerConfig from '../webpack/webpack-config'
+import {getProjectPath} from './commands-lib/get-project-path'
+import * as messages from './commands-lib/messages'
+import {generateZip} from './commands-lib/generate-zip'
+import {DevOptions} from './dev'
 
 export interface BuildOptions {
-  browser?: 'chrome' | 'edge' | 'firefox' | 'all'
+  browser?: DevOptions['browser']
   zipFilename?: string
   zip?: boolean
   zipSource?: boolean
   polyfill?: boolean
 }
 
-export default async function extensionBuild(
+export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
   buildOptions: BuildOptions
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
+
+  if (
+    !pathOrRemoteUrl?.startsWith('http') &&
+    !fs.existsSync(path.join(projectPath, 'manifest.json'))
+  ) {
+    console.log(messages.manifestNotFound())
+    process.exit(1)
+  }
 
   try {
     const browser = buildOptions.browser || 'chrome'

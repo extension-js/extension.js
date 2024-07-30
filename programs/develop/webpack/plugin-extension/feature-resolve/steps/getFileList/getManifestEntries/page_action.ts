@@ -1,4 +1,4 @@
-import { type ManifestData } from './types.js';
+import {type ManifestData} from './types.js'
 
 export function pageAction(manifest: ManifestData) {
   if (
@@ -6,12 +6,12 @@ export function pageAction(manifest: ManifestData) {
     !manifest.page_action ||
     !manifest.page_action.default_popup
   ) {
-    return undefined;
+    return undefined
   }
 
-  const pageActionPage = manifest.page_action.default_popup;
+  const pageActionPage = manifest.page_action.default_popup
 
-  const pageActionPageAbsolutePath = pageActionPage;
+  const pageActionPageAbsolutePath = pageActionPage
 
-  return pageActionPageAbsolutePath;
+  return pageActionPageAbsolutePath
 }

@@ -1,13 +1,13 @@
-import { type ManifestData } from './types.js';
+import {type ManifestData} from './types.js'
 
 export function action(manifest: ManifestData) {
   if (!manifest || !manifest.action || !manifest.action.default_popup) {
-    return undefined;
+    return undefined
   }
 
-  const actionPage = manifest.action.default_popup;
+  const actionPage = manifest.action.default_popup
 
-  const actionPageAbsolutePath = actionPage;
+  const actionPageAbsolutePath = actionPage
 
-  return actionPageAbsolutePath;
+  return actionPageAbsolutePath
 }

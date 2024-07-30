@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import {type Compiler} from 'webpack'
-import {PluginInterface} from '../types'
+import {PluginInterface} from '../webpack-types'
 import {PolyfillPlugin} from './feature-polyfill'
 import {BrowserFieldsPlugin} from './feature-browser-fields'
 import {type DevOptions} from '../../commands/dev'

@@ -12,7 +12,7 @@ import {
   cyan,
   bold
 } from '@colors/colors/safe'
-import {Manifest} from '../types'
+import {Manifest} from '../webpack-types'
 import {StartOptions} from '../../commands/start'
 import {DevOptions} from '../../commands/dev'
 
@@ -39,10 +39,10 @@ export function boring(
 }
 
 export function serverRestartRequiredFromHtml(
-  projectDir: string,
+  projectPath: string,
   filePath: string
 ) {
-  const basename = path.relative(projectDir, filePath)
+  const basename = path.relative(projectPath, filePath)
   const errorMessage = `[${basename}] Entry Point Modification Found
 
 Changing <script> or <link rel="stylesheet"> source paths after compilation requires a server restart. Restart the program and try again.`
@@ -188,36 +188,36 @@ export function fileNotFound(
     throw new Error('This operation is impossible. Please report a bug.')
   }
 
-  const projectDir = path.dirname(manifestPath)
+  const projectPath = path.dirname(manifestPath)
 
   switch (path.extname(filePath)) {
     case '.js':
     case '.ts':
     case '.jsx':
     case '.tsx':
-      return javaScriptError(projectDir, feature, filePath)
+      return javaScriptError(projectPath, feature, filePath)
     case '.css':
     case '.scss':
     case '.sass':
     case '.less':
-      return cssError(projectDir, feature, filePath)
+      return cssError(projectPath, feature, filePath)
     default:
-      return staticAssetErrorMessage(projectDir, feature, filePath)
+      return staticAssetErrorMessage(projectPath, feature, filePath)
   }
 }
 
 export function startWebpack(
-  projectDir: string,
+  projectPath: string,
   options: StartOptions
 ): string {
-  const outputPath = path.join(projectDir, 'dist', options.browser || 'chrome')
+  const outputPath = path.join(projectPath, 'dist', options.browser || 'chrome')
   const manifestPath = path.join(outputPath, 'manifest.json')
   const manifest: Record<string, any> = require(manifestPath)
 
   const {name, description, version, hostPermissions, permissions} = manifest
 
-  const defaultLocale = getLocales(projectDir, manifest).defaultLocale
-  const otherLocales = getLocales(projectDir, manifest).otherLocales.join(', ')
+  const defaultLocale = getLocales(projectPath, manifest).defaultLocale
+  const otherLocales = getLocales(projectPath, manifest).otherLocales.join(', ')
   const locales = `${defaultLocale} (default)${
     otherLocales && ', ' + otherLocales
   }`
@@ -245,8 +245,8 @@ export function capitalizedBrowserName(browser: DevOptions['browser']) {
 export function ready(browser: DevOptions['browser']): string {
   return (
     `${getLoggingPrefix('success')} ` +
-    `Running ${capitalizedBrowserName(browser)} in ${magenta('production')} mode. `
-    + `Browser extension enabled...`
+    `Running ${capitalizedBrowserName(browser)} in ${magenta('production')} mode. ` +
+    `Browser extension enabled...`
   )
 }
 
@@ -371,14 +371,14 @@ export function getAssetsTree(assets: StatsAsset[] | undefined): string {
 }
 
 export function buildWebpack(
-  projectDir: string,
+  projectPath: string,
   stats: any,
   outputPath: string,
   browser: string
 ): string {
   // Convert stats object to JSON format
   const statsJson = stats?.toJson()
-  const manifestPath = path.join(projectDir, 'manifest.json')
+  const manifestPath = path.join(projectPath, 'manifest.json')
   const manifest: Record<string, string> = JSON.parse(
     fs.readFileSync(manifestPath, 'utf8')
   )
@@ -685,11 +685,11 @@ export function failedToDownloadOrExtractZIPFile(error: string) {
   return `${getLoggingPrefix('error')} Failed to download or extract ZIP file: ${error}`
 }
 
-export function noGitIgnoreFound(projectDir: string) {
+export function noGitIgnoreFound(projectPath: string) {
   return (
     `${getLoggingPrefix('success')} ` +
     `No ${yellow('.gitignore')} found, zipping all the content ` +
-    `inside ${underline(projectDir)}`
+    `inside ${underline(projectPath)}`
   )
 }
 

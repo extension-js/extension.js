@@ -3,7 +3,7 @@ import path from 'path'
 import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {type LoaderContext} from '../../../types'
+import {type LoaderContext} from '../../../webpack-types'
 
 function isUsingJSFramework(projectPath: string): boolean {
   const packageJsonPath = path.join(projectPath, 'package.json')

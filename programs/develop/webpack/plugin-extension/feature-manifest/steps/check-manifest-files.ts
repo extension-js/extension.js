@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import webpack, {Compilation, Compiler} from 'webpack'
 import * as messages from '../../../lib/messages'
-import {PluginInterface, FilepathList} from '../../../types'
+import {PluginInterface, FilepathList} from '../../../webpack-types'
 
 export class CheckManifestFiles {
   public readonly manifestPath: string

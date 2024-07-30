@@ -4,7 +4,7 @@ import {browserActionThemeIcons} from './browser_action.theme_icons'
 import {icons} from './icons'
 import {pageAction} from './page_action'
 import {sidebarAction} from './sidebar_action'
-import {type Manifest, type ThemeIcon} from '../../../../types'
+import {type Manifest, type ThemeIcon} from '../../../../webpack-types'
 
 export function iconFields(
   context: string,

@@ -24,11 +24,9 @@ export default function webpackConfig(
   {...devOptions}: DevOptions
 ): webpack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
-  const outputPath = path.join(
-    projectPath,
-    `dist/${devOptions.browser || 'chrome'}`
-  )
+  const outputPath = path.join(projectPath, `dist/${devOptions.browser}`)
   const manifest = require(manifestPath)
+
   return {
     mode: devOptions.mode,
     entry: {},
@@ -143,31 +141,31 @@ export default function webpackConfig(
         browser: devOptions.browser
       }),
       new CompatibilityPlugin({
-        polyfill: devOptions.polyfill,
+        manifestPath,
         browser: devOptions.browser,
-        manifestPath
+        polyfill: devOptions.polyfill
       }),
       new ExtensionPlugin({
-        browser: devOptions.browser,
-        manifestPath
+        manifestPath,
+        browser: devOptions.browser
       }),
       new ReloadPlugin({
-        browser: devOptions.browser,
         manifestPath,
+        browser: devOptions.browser,
         port: devOptions.port
       }),
       new BrowsersPlugin({
-        browser: devOptions.browser,
-        // startingUrl: devOptions.startingUrl,
-        // profile: devOptions.profile || devOptions.userDataDir,
-        // preferences: devOptions.preferences,
-        // browserFlags: devOptions.browserFlags,
         extension: [
           outputPath,
           // Extensions output by the ReloadPlugin
           path.join(__dirname, 'extensions', 'manager-extension'),
           path.join(__dirname, 'extensions', 'reload-extension')
-        ]
+        ],
+        browser: devOptions.browser,
+        startingUrl: devOptions.startingUrl,
+        profile: devOptions.profile || devOptions.userDataDir,
+        preferences: devOptions.preferences,
+        browserFlags: devOptions.browserFlags
       })
     ],
     stats: {

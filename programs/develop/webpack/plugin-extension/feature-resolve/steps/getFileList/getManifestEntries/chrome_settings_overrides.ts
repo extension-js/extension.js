@@ -1,4 +1,4 @@
-import { type ManifestData } from './types.js';
+import {type ManifestData} from './types.js'
 
 export function chromeSettingsOverrides(manifest: ManifestData) {
   if (
@@ -8,12 +8,12 @@ export function chromeSettingsOverrides(manifest: ManifestData) {
     // Do nothing if homepage is a URL
     manifest.chrome_settings_overrides.homepage.startsWith('http')
   ) {
-    return undefined;
+    return undefined
   }
 
-  const settingsPage = manifest.chrome_settings_overrides.homepage;
+  const settingsPage = manifest.chrome_settings_overrides.homepage
 
-  const settingsPageAbsolutePath = settingsPage;
+  const settingsPageAbsolutePath = settingsPage
 
-  return settingsPageAbsolutePath;
+  return settingsPageAbsolutePath
 }

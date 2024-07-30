@@ -1,6 +1,6 @@
 import path from 'path'
 import type webpack from 'webpack'
-import {type FilepathList, type PluginInterface} from '../../types'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 

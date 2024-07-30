@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 
 export function webResourcesFields(
   context: string,
