@@ -2,7 +2,7 @@ import type webpack from 'webpack'
 import {type PluginInterface} from './reload-types'
 import CreateWebSocketServer from './steps/create-web-socket-server'
 import SetupReloadStrategy from './steps/setup-reload-strategy'
-import {DevOptions} from '../../develop-types'
+import {type DevOptions} from '../../commands/dev'
 
 export class ReloadPlugin {
   public static readonly name: string = 'plugin-reload'

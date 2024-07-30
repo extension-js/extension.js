@@ -37,12 +37,13 @@ import {
   getScriptsFolderPath,
   getPublicFolderPath
 } from '../config/userOptions'
+import {DevOptions} from '../../commands/dev'
 
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
 
   public readonly manifestPath: string
-  public readonly browser: string
+  public readonly browser: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -52,7 +53,6 @@ export class ExtensionPlugin {
   public apply(compiler: Compiler): void {
     const projectPath = compiler.options.context || ''
     const manifestPath = this.manifestPath
-    const browser = this.browser
 
     // All Extension special folders
     // public/ - static assets. Copy/paste all files to the output folder
@@ -89,7 +89,7 @@ export class ExtensionPlugin {
 
     // Generate a manifest file with all the assets we need
     new ManifestPlugin({
-      browser,
+      browser: this.browser,
       manifestPath,
       includeList: {
         ...manifestFieldsData.html,

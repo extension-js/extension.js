@@ -1,8 +1,8 @@
 import fs from 'fs/promises'
 import path from 'path'
-import {green, white, bold, underline} from '@colors/colors/safe'
 import axios from 'axios'
 import AdmZip from 'adm-zip'
+import * as messages from '../../webpack/lib/messages'
 
 export async function downloadAndExtractZip(
   url: string,
@@ -10,11 +10,7 @@ export async function downloadAndExtractZip(
 ): Promise<void> {
   const urlNoSearchParams = url.split('?')[0]
   try {
-    const downloadingText = `🧩 ${`Extension.js`} ${green(
-      `►►►`
-    )} Downloading extension from ${urlNoSearchParams}...`
-
-    console.log(downloadingText)
+    console.log(messages.downloadingText(urlNoSearchParams))
 
     // Step 1: Download the ZIP file
     const response = await axios({
@@ -28,11 +24,7 @@ export async function downloadAndExtractZip(
     const zipFilePath = path.join(targetPath, `${filename}.zip`)
     await fs.writeFile(zipFilePath, response.data as string)
 
-    console.log(
-      `🧩 ${`Extension.js`} ${green(
-        `►►►`
-      )} Unpackaging browser extension from ${white(underline(zipFilePath))}`
-    )
+    console.log(messages.unpackagingExtension(zipFilePath))
 
     // Step 2: Extract the ZIP file
     const zip = new AdmZip(zipFilePath)
@@ -41,13 +33,9 @@ export async function downloadAndExtractZip(
     // Step 3: Cleanup
     await fs.unlink(zipFilePath)
 
-    console.log(
-      `🧩 ${`Extension.js`} ${green(
-        `►►►`
-      )} Browser extension unpackaged successfully. Compiling...`
-    )
+    console.log(messages.unpackagedSuccessfully())
   } catch (error) {
-    console.error(`Failed to download or extract ZIP file: ${error}`)
+    // console.error(error)
     throw error
   }
 }

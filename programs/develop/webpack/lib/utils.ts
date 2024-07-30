@@ -144,21 +144,21 @@ export async function installOptionalDependencies(
     // Adding a delay to ensure the modules are installed and available
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
-    // if (process.env.EXTENSION_ENV === 'development') {
-    //   console.log(messages.installingRootDependencies())
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(messages.installingRootDependencies())
 
-    //   if (pm === 'yarn') {
-    //     installCommand = `yarn install --silent > /dev/null 2>&1`
-    //   } else if (pm === 'npm') {
-    //     installCommand = `npm install --silent > /dev/null 2>&1`
-    //   } else if (pm === 'pnpm') {
-    //     installCommand = `pnpm install --silent > /dev/null 2>&1`
-    //   } else {
-    //     installCommand = `${pm} install --silent > /dev/null 2>&1`
-    //   }
+      if (pm === 'yarn') {
+        installCommand = `yarn install --silent > /dev/null 2>&1`
+      } else if (pm === 'npm') {
+        installCommand = `npm install --silent > /dev/null 2>&1`
+      } else if (pm === 'pnpm') {
+        installCommand = `pnpm install --silent > /dev/null 2>&1`
+      } else {
+        installCommand = `${pm} install --silent > /dev/null 2>&1`
+      }
 
-    //   execSync(installCommand, {stdio: 'inherit'})
-    // }
+      execSync(installCommand, {stdio: 'inherit'})
+    }
 
     console.log(messages.featureInstalledSuccessfully(feature))
   } catch (error) {

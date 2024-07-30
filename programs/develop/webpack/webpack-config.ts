@@ -7,16 +7,7 @@
 
 import path from 'path'
 import type webpack from 'webpack'
-import {type DevOptions} from '../develop-types'
-
-// Option files for plugins
-import {
-  getOutputPath,
-  getModulesToResolve,
-  getWebpackPublicPath,
-  getExtensionsToResolve,
-  getAliasToResolve
-} from './config/getPath'
+import {type DevOptions} from '../commands/dev'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -24,35 +15,28 @@ import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {ReloadPlugin} from './plugin-reload'
-import compatPlugin from './plugin-compat'
-import errorPlugin from './plugin-errors'
+import {CompatibilityPlugin} from './plugin-compat'
+import {ErrorsPlugin} from './plugin-errors'
 import {BrowsersPlugin} from '../plugin-browsers'
-
-// Checks
-import getDevToolOption from './config/getDevtoolOption'
-import {getWebpackStats} from './config/logging'
 
 export default function webpackConfig(
   projectPath: string,
   {...devOptions}: DevOptions
 ): webpack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
+  const outputPath = path.join(
+    projectPath,
+    `dist/${devOptions.browser || 'chrome'}`
+  )
   return {
     mode: devOptions.mode,
     entry: {},
     target: 'web',
     context: projectPath,
-    devtool: getDevToolOption(projectPath, devOptions.mode),
-    stats: getWebpackStats(),
-    infrastructureLogging: {
-      level: 'none'
-    },
-    cache: false,
-    performance: {
-      hints: false,
-      maxAssetSize: 999000,
-      maxEntrypointSize: 999000
-    },
+    devtool:
+      manifest.manifest_version === 3
+        ? 'cheap-source-map'
+        : 'eval-cheap-source-map',
     output: {
       clean: {
         keep(asset) {
@@ -63,9 +47,9 @@ export default function webpackConfig(
           return !asset.startsWith('hot/background')
         }
       },
-      path: getOutputPath(projectPath, devOptions.browser),
+      path: outputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
-      publicPath: getWebpackPublicPath(projectPath),
+      publicPath: '/',
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
       hotUpdateMainFilename: 'hot/[runtime].[fullhash].hot-update.json',
       environment: {
@@ -92,9 +76,19 @@ export default function webpackConfig(
     },
     resolve: {
       mainFields: ['browser', 'module', 'main'],
-      alias: getAliasToResolve(projectPath),
-      modules: getModulesToResolve(projectPath),
-      extensions: getExtensionsToResolve(projectPath)
+      modules: ['node_modules', path.join(projectPath, 'node_modules')],
+      extensions: [
+        '.js',
+        '.mjs',
+        '.jsx',
+        '.mjsx',
+        '.ts',
+        '.mts',
+        '.tsx',
+        '.mtsx',
+        '.json',
+        '.wasm'
+      ]
     },
     watchOptions: {
       ignored: /node_modules|dist/
@@ -128,7 +122,7 @@ export default function webpackConfig(
         {
           test: /\.(csv|tsv)$/i,
           use: [require.resolve('csv-loader')]
-        },
+        }
       ]
     },
     plugins: [
@@ -143,10 +137,15 @@ export default function webpackConfig(
         manifestPath,
         mode: devOptions.mode
       }),
-      errorPlugin(projectPath, devOptions),
-      // TODO: this is conflicting with CheckManifestFiles
-      // from manifest-plugin
-      // compatPlugin(projectPath, devOptions),
+      new ErrorsPlugin({
+        manifestPath,
+        browser: devOptions.browser
+      }),
+      new CompatibilityPlugin({
+        polyfill: devOptions.polyfill,
+        browser: devOptions.browser,
+        manifestPath
+      }),
       new ExtensionPlugin({
         browser: devOptions.browser,
         manifestPath
@@ -161,15 +160,33 @@ export default function webpackConfig(
         // startingUrl: devOptions.startingUrl,
         // profile: devOptions.profile || devOptions.userDataDir,
         // preferences: devOptions.preferences,
+        // browserFlags: devOptions.browserFlags,
         extension: [
-          getOutputPath(projectPath, devOptions.browser),
+          outputPath,
           // Extensions output by the ReloadPlugin
           path.join(__dirname, 'extensions', 'manager-extension'),
           path.join(__dirname, 'extensions', 'reload-extension')
         ]
-        // browserFlags: devOptions.browserFlags
       })
     ],
+    stats: {
+      children: true,
+      errorDetails: true,
+      entrypoints: false,
+      colors: true,
+      assets: false,
+      chunks: false,
+      modules: false
+    },
+    infrastructureLogging: {
+      level: 'none'
+    },
+    cache: false,
+    performance: {
+      hints: false,
+      maxAssetSize: 999000,
+      maxEntrypointSize: 999000
+    },
     optimization: {
       minimize: devOptions.mode === 'production'
       // WARN: This can have side-effects.

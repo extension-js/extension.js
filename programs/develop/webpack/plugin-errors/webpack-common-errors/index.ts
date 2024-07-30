@@ -3,10 +3,10 @@ import {
   handleMultipleAssetsError,
   handleTopLevelAwaitError,
   handleCantResolveError
-} from './steps/compilation-error-handlers'
+} from './compilation-error-handlers'
 import {type PluginInterface} from '../../types'
 
-export class CommonErrorsPlugin {
+export class WebpackCommonErrorsPlugin {
   public readonly manifestPath: string
 
   constructor(options: PluginInterface) {
@@ -20,10 +20,7 @@ export class CommonErrorsPlugin {
         // as multiple assets with the same name,
         // or missing dependencies.
         compilation.errors.forEach((error, index) => {
-          const multipleAssetsError = handleMultipleAssetsError(
-            this.manifestPath,
-            error
-          )
+          const multipleAssetsError = handleMultipleAssetsError(error)
           const topLevelAwaitError = handleTopLevelAwaitError(
             this.manifestPath,
             error

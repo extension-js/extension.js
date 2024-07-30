@@ -9,8 +9,7 @@ import path from 'path'
 import webpack from 'webpack'
 import WebpackDevServer from 'webpack-dev-server'
 import webpackConfig from './webpack-config'
-import {getOverlay, getPublicFolderPath} from './config/userOptions'
-import type {DevOptions} from '../develop-types'
+import type {DevOptions} from '../commands/dev'
 import {isUsingJSFramework} from './lib/utils'
 
 function closeAll(devServer: WebpackDevServer) {
@@ -34,7 +33,7 @@ export async function devServer(
   const serverConfig: WebpackDevServer.Configuration = {
     host: '127.0.0.1',
     allowedHosts: 'all',
-    static: getPublicFolderPath(projectPath),
+    static: path.join(projectPath, 'public'),
     compress: true,
     devMiddleware: {
       writeToDisk: true
@@ -56,7 +55,10 @@ export async function devServer(
       progress: false,
       // Shows a full-screen overlay in the browser
       // when there are compiler errors or warnings.
-      overlay: getOverlay()
+      overlay: {
+        errors: false,
+        warnings: false
+      }
     },
     headers: {
       'Access-Control-Allow-Origin': '*'

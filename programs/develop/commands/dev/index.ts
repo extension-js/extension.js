@@ -7,10 +7,9 @@
 
 import fs from 'fs'
 import path from 'path'
-import {bold, red, yellow, underline} from '@colors/colors/safe'
 import {devServer} from '../../webpack/dev-server'
 import {isUsingTypeScript} from '../../webpack/plugin-js-frameworks/js-tools/typescript'
-import {getProjectPath} from '../../webpack/lib/get-project-path'
+import {getProjectPath} from '../get-project-path'
 import * as messages from '../../webpack/lib/messages'
 import generateExtensionTypes from './generate-extension-types'
 

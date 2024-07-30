@@ -45,7 +45,6 @@ export function isUsingStylelint(projectPath: string) {
   const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
-    console.log('donbt exist')
     return false
   }
 

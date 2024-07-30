@@ -5,11 +5,11 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
 import webpack from 'webpack'
 import compilerConfig from '../../webpack/webpack-config'
-import {getProjectPath} from '../../webpack/lib/get-project-path'
+import {getProjectPath} from '../get-project-path'
 import * as messages from '../../webpack/lib/messages'
-import {getOutputPath} from '../../webpack/config/getPath'
 import {generateZip} from './generate-zip'
 
 export interface BuildOptions {
@@ -33,10 +33,6 @@ export default async function extensionBuild(
       browser
     })
 
-    // BrowserPlugin can run in production but never in the build command.
-    // TODO: cezaraugusto this is fragile
-    // console.log({plugins: webpackConfig.plugins})
-    // process.exit(0)
     const allPluginsButBrowserRunners = webpackConfig.plugins?.filter(
       (plugin) => {
         return (
@@ -59,7 +55,7 @@ export default async function extensionBuild(
 
       const outputPath =
         webpackConfigNoBrowser.output?.path ||
-        getOutputPath(projectPath, browser)
+        path.join(projectPath, 'dist', browser)
 
       console.log(
         messages.buildWebpack(projectPath, stats, outputPath, browser)
@@ -76,8 +72,8 @@ export default async function extensionBuild(
         process.exit(1)
       }
     })
-  } catch (error: any) {
-    console.log(error)
+  } catch (error) {
+    // console.log(error)
     process.exit(1)
   }
 }

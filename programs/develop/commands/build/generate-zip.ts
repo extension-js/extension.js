@@ -4,8 +4,8 @@ import ignore from 'ignore'
 import glob from 'tiny-glob'
 import AdmZip from 'adm-zip'
 import slugify from 'slugify'
-import {blue, white, yellow, bold, underline} from '@colors/colors/safe'
-import {type BuildOptions} from '../../develop-types'
+import {type BuildOptions} from './index'
+import * as messages from '../../webpack/lib/messages'
 
 function readFileSync(filePath: string): string {
   try {
@@ -58,11 +58,7 @@ async function getFilesToZip(projectDir: string): Promise<string[]> {
   if (gitignoreContent) {
     ig.add(gitignoreContent)
   } else {
-    console.log(
-      `No ${yellow(
-        '.gitignore'
-      )} found, zipping all the content inside ${underline(projectDir)}`
-    )
+    console.log(messages.noGitIgnoreFound(projectDir))
   }
 
   const files: string[] = await glob('**/*', {
@@ -93,10 +89,8 @@ export async function generateZip(
     const capitalizedBrowser = capitalizeBrowserName(browser)
 
     if (options.zipSource) {
-      console.log(
-        `\nPackaging source files to ${white(underline(sourceZipPath))}. ` +
-          `Files in ${yellow('.gitignore')} will be excluded...`
-      )
+      console.log(messages.packagingSourceFiles(capitalizedBrowser))
+
       const zip = new AdmZip()
       const files = await getFilesToZip(projectDir)
       files.forEach((file) => {
@@ -106,11 +100,7 @@ export async function generateZip(
     }
 
     if (options.zip) {
-      console.log(
-        `\nPackaging extension distribution files to ${white(
-          underline(distZipPath)
-        )}...`
-      )
+      console.log(messages.packagingDistributionFiles(capitalizedBrowser))
 
       const zip = new AdmZip()
       zip.addLocalFolder(outputDir)
@@ -119,33 +109,34 @@ export async function generateZip(
 
     if (options.zip && options.zipSource) {
       console.log(
-        `\n${'📦 Package name:'} ${yellow(
-          `${name}`
-        )}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
-          `\n   ${'└─'} ${underline(`${sourceZipPath}`)} (source)` +
-          `\n   ${'└─'} ${underline(`${distZipPath}`)} (distribution)`
+        messages.treeWithSourceAndDistFiles(
+          capitalizedBrowser,
+          name,
+          sourceZipPath,
+          distZipPath
+        )
       )
     } else if (options.zip) {
       console.log(
-        `\n${'📦 Package name:'} ${yellow(
-          `${name}.${ext}`
-        )}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
-          `\n   ${'└─'} ${underline(`${distZipPath}`)} (distribution)`
+        messages.treeWithDistFilesbrowser(
+          name,
+          ext,
+          capitalizedBrowser,
+          distZipPath
+        )
       )
     } else if (options.zipSource) {
       console.log(
-        `\n${'📦 Package name:'} ${yellow(
-          `${name}-source.${ext}`
-        )}, ${'Target Browser:'} ${`${capitalizedBrowser}`}` +
-          `\n   ${'└─'} ${underline(`${sourceZipPath}`)} (source)`
+        messages.treeWithSourceFiles(
+          name,
+          ext,
+          capitalizedBrowser,
+          sourceZipPath
+        )
       )
     }
   } catch (error) {
-    console.error(
-      `🧩 ${'Extension.js'} ${blue(
-        '✖︎✖︎✖︎'
-      )} Failed to compress extension package: ${error}`
-    )
+    console.error(messages.failedToCompress(error))
     throw error
   }
 }
