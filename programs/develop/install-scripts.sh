@@ -2,27 +2,20 @@
 
 set -e
 
-plugin_loader_path() {
-  local base_folder=$1
-  local plugin_folder=$2
-  local filename=$3
-  echo "$(dirname "$0")/webpack/$base_folder/$plugin_folder/steps/$filename"
-}
-
 html_plugin_files=(
-  # "$(plugin_loader_path 'plugin-extension' 'feature-html' 'ensure-hmr-for-scripts.ts')"
+  "$(dirname "$0")/webpack/plugin-extension/feature-html/steps/ensure-hmr-for-scripts.ts"
 )
 
 resolve_plugin_files=(
-  # "$(plugin_loader_path 'plugin-extension' 'feature-resolve' 'resolver-loader.ts')"
-  # "$(plugin_loader_path 'plugin-extension' 'feature-resolve' 'resolver-module.ts')"
+  "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-loader.ts"
+  "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-module.ts"
 )
 
 scripts_plugin_files=(
-  "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'inject-content-css-during-dev.ts')"
-  "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-hmr-accept-code.ts')"
-  "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-dynamic-public-path.ts')"
-  "$(plugin_loader_path 'plugin-extension' 'feature-scripts' 'add-query-param-to-imported-css.ts')"
+  "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/inject-content-css-during-dev.ts"
+  "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/add-hmr-accept-code.ts"
+  "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/add-dynamic-public-path.ts"
+  "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/add-query-param-to-imported-css.ts"
 )
 
 reload_plugin_files=(
@@ -33,7 +26,7 @@ reload_plugin_files=(
 minimum_files=(
   "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/minimum-content-file.ts"
   "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/minimum-background-file.ts"
-  # "$(plugin_loader_path 'plugin-extension' 'feature-html' 'minimum-script-file.ts')"
+  "$(dirname "$0")/webpack/plugin-html/steps/minimum-script-file.ts"
 )
 
 tsup() {
@@ -77,10 +70,10 @@ for entry in "${html_plugin_files[@]}"; do
   execute_command "$entry" "cjs"
 done
 
-echo '►►► Setting up resolver loaders'
-for entry in "${resolve_plugin_files[@]}"; do
-  execute_command "$entry" "cjs"
-done
+# echo '►►► Setting up resolver loaders'
+# for entry in "${resolve_plugin_files[@]}"; do
+#   execute_command "$entry" "cjs"
+# done
 
 echo '►►► Setting up script loaders'
 for entry in "${scripts_plugin_files[@]}"; do

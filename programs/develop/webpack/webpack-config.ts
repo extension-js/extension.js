@@ -15,7 +15,7 @@ import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {ReloadPlugin} from './plugin-reload'
-import {CompatibilityPlugin} from './plugin-compat'
+import {CompatibilityPlugin} from './plugin-compatibility'
 import {ErrorsPlugin} from './plugin-errors'
 import {BrowsersPlugin} from '../plugin-browsers'
 
