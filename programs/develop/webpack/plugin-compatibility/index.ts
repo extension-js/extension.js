@@ -5,41 +5,40 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import webpack, {Compiler} from 'webpack'
-import {type PluginInterface} from '../types'
-import {DevOptions} from '../../commands/dev'
-import {ManifestRuntimeErrorsPlugin} from './manifest-runtime-errors'
-import {ManifestSchemaErrorsPlugin} from './manifest-schema-errors'
-import {WebpackCommonErrorsPlugin} from './webpack-common-errors'
+import {type Compiler} from 'webpack'
+import {PluginInterface} from '../types'
+import {PolyfillPlugin} from './feature-polyfill'
+import {BrowserFieldsPlugin} from './feature-browser-fields'
+import {type DevOptions} from '../../commands/dev'
 
-export class ErrorsPlugin {
-  public static readonly name: string = 'plugin-errors'
+export class CompatibilityPlugin {
+  public static readonly name: string = 'plugin-compatibility'
 
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
+  public readonly polyfill: DevOptions['polyfill']
 
-  constructor(options: PluginInterface) {
+  constructor(options: PluginInterface & {polyfill: DevOptions['polyfill']}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.polyfill = options.polyfill || false
   }
 
-  public apply(compiler: Compiler): void {
-    // TODO: Combine common config errors and output a nice error display.
-    // new ErrorLayerPlugin().apply(compiler)
+  public async apply(compiler: Compiler) {
+    // Allow browser polyfill as needed
+    if (this.polyfill) {
+      if (this.browser !== 'firefox') {
+        new PolyfillPlugin({
+          manifestPath: this.manifestPath,
+          browser: this.browser || 'chrome'
+        }).apply(compiler)
+      }
+    }
 
-    new ManifestRuntimeErrorsPlugin({
+    // Handle manifest compatibilities across browser vendors.
+    new BrowserFieldsPlugin({
       manifestPath: this.manifestPath,
       browser: this.browser || 'chrome'
-    }).apply(compiler)
-
-    new ManifestSchemaErrorsPlugin({
-      manifestPath: this.manifestPath,
-      browser: this.browser || 'chrome'
-    }).apply(compiler)
-
-    // Handle common user mistakes and webpack errors.
-    new WebpackCommonErrorsPlugin({
-      manifestPath: this.manifestPath
     }).apply(compiler)
   }
 }

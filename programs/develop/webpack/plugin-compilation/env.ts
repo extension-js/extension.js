@@ -1,9 +1,9 @@
 import fs from 'fs'
 import path from 'path'
-import colors, {bold, blue, yellow} from '@colors/colors/safe'
-import Dotenv from 'dotenv-webpack'
 import {type Compiler} from 'webpack'
+import Dotenv from 'dotenv-webpack'
 import {type Manifest} from '../types'
+import * as messages from '../lib/messages'
 
 export class EnvPlugin {
   public readonly manifestPath: string
@@ -13,20 +13,8 @@ export class EnvPlugin {
   }
 
   apply(compiler: Compiler) {
-    const manifest: Manifest = require(this.manifestPath)
-    const manifestName = manifest.name
-    const manifestVersion = manifest.version
-
-    // Writes the project name and version to the terminal
-    compiler.hooks.done.tap('BoringPlugin', (stats) => {
-      const divider = stats.hasErrors()
-        ? colors.red('✖︎✖︎✖︎')
-        : colors.green('►►►')
-
-      stats.compilation.name = `🧩 Extension.js ${divider} ${manifestName} (v${manifestVersion})`
-    })
-
     const projectPath = path.dirname(this.manifestPath)
+
     // Support .env files
     if (
       fs.existsSync(path.join(projectPath, '.env')) ||
@@ -34,12 +22,11 @@ export class EnvPlugin {
       fs.existsSync(path.join(projectPath, '.env.local')) ||
       fs.existsSync(path.join(projectPath, '.env.defaults'))
     ) {
-      console.log(
-        `🧩 Extension.js ${blue(
-          '►►►'
-        )} ${manifestName} (v${manifestVersion}) ` +
-          `${yellow('env')} file loaded.`
-      )
+      const manifest: Manifest = require(this.manifestPath)
+      const manifestName = manifest.name || ''
+      const manifestVersion = manifest.version || ''
+
+      console.log(messages.envFileLoaded(manifestName, manifestVersion))
 
       new Dotenv({
         path: fs.existsSync(path.join(projectPath, '.env'))

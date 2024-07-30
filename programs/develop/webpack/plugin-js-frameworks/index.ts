@@ -1,7 +1,7 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {PluginInterface} from '../types'
-import {DevOptions} from '../../develop-types'
+import {type DevOptions} from '../../commands/dev'
 import {maybeUseBabel} from './js-tools/babel'
 import {maybeUsePreact} from './js-tools/preact'
 import {maybeUseReact} from './js-tools/react'

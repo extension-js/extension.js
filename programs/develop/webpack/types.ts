@@ -1,5 +1,6 @@
 import {type LoaderContext as WebpackLoaderContext} from 'webpack'
 import {type WebpackPluginInstance} from 'webpack'
+import {DevOptions} from '../commands/dev'
 
 export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
   Partial<chrome.runtime.ManifestV3> & {
@@ -18,7 +19,7 @@ export interface ThemeIcon {
 
 export type PluginInterface = {
   manifestPath: string
-  browser?: string
+  browser?: DevOptions['browser']
   includeList?: FilepathList
   excludeList?: FilepathList
 }

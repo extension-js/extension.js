@@ -8,7 +8,7 @@ import {
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import {commonStyleLoaders} from './common-style-loaders'
 import {PluginInterface} from '../types'
-import {DevOptions} from '../../develop-types'
+import {type DevOptions} from '../../commands/dev'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
