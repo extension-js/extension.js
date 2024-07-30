@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "@extension-create/develop",
-  "version": "1.0.0-alpha.0",
+  "version": "1.10.0",
   "description": "The develop step of Extension.js",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",

@@ -15,7 +15,7 @@ function dispatchMessage(
   })
 }
 
-export default function messageDispatcher(
+export function messageDispatcher(
   server: WebSocket.Server<typeof WebSocket, any>,
   manifestPath: string,
   updatedFile: string

@@ -1,9 +1,9 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {PluginInterface} from '../../reload-types'
-import messageDispatcher from './web-socket-server/message-dispatcher'
-import startServer from './web-socket-server/start-server'
-import rewriteReloadPort from './rewrite-reload-port'
+import {messageDispatcher} from './web-socket-server/message-dispatcher'
+import {startServer} from './web-socket-server/start-server'
+import {replacePortInFile} from './rewrite-reload-port'
 import {DevOptions} from '../../../../module'
 
 process.on('SIGINT', () => {
@@ -32,11 +32,10 @@ export default class CreateWebSocketServer {
 
     // Before all, rewrite the reload service file
     // with the user-provided port.
-    rewriteReloadPort(this.port)
+    replacePortInFile(this.port)
 
     // Start webSocket server to communicate with the extension.
-    const statConfig = this.stats
-    const wss = startServer(compiler, this.browser, statConfig, this.port)
+    const wss = startServer(compiler, {...this, stats: this.stats})
 
     compiler.hooks.watchRun.tapAsync(
       'reload:create-web-socket-server',

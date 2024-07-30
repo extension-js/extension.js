@@ -1,3 +1,4 @@
+import path from 'path'
 import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
 import * as messages from '../../../reload-lib/messages'
@@ -16,21 +17,21 @@ interface Message {
   status: string
 }
 
-export default function (
-  compiler: Compiler,
-  browser: DevOptions['browser'],
-  statsConfig: boolean | undefined,
-  port?: number
-) {
+export function startServer(compiler: Compiler, options: DevOptions) {
+  const context = compiler.options.context || ''
+  const packageJsonPath = path.join(context, 'package.json')
+  const packageJson = require(packageJsonPath)
+  const packageName = packageJson.name
+
   const webSocketServer = new WebSocket.Server({
     host: 'localhost',
-    port
+    port: options.port
   })
   webSocketServer.on('connection', (ws) => {
     ws.send(JSON.stringify({status: 'serverReady'}))
 
     ws.on('error', (error) => {
-      console.log(messages.webSocketError(browser, error))
+      console.log(messages.webSocketError(packageName, error))
       webSocketServer.close()
     })
 
@@ -44,21 +45,17 @@ export default function (
       const message: Message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
-        if (statsConfig === true) {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-          console.log(messages.extensionData(compiler, browser, message))
-        }
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        console.log(messages.extensionData(compiler, packageName, message))
 
-        console.log(messages.stdoutData(compiler, browser, message))
+        console.log(messages.stdoutData(compiler, options.browser))
 
-        if (statsConfig === true) {
-          if (isFirstRun(browser)) {
-            // Add a delay to ensure the message is sent
-            // after other runner messages.
-            setTimeout(() => {
-              console.log(messages.isFirstRun())
-            }, 2500)
-          }
+        if (isFirstRun(options.browser)) {
+          // Add a delay to ensure the message is sent
+          // after other runner messages.
+          setTimeout(() => {
+            console.log(messages.isFirstRun(options.browser))
+          }, 2500)
         }
       }
     })
