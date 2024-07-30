@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, red, yellow} from '@colors/colors/safe'
+import {red, yellow} from '@colors/colors/safe'
 
 export default async function writeManifestJson(
   projectPath: string,

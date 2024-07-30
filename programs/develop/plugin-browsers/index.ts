@@ -27,7 +27,7 @@ export class BrowsersPlugin {
   public readonly browserFlags: string[]
   public readonly userDataDir?: string
   public readonly profile: string
-  public readonly preferences: string
+  public readonly preferences: Record<string, any>
   public readonly startingUrl: string
 
   constructor(options: PluginInterface) {
@@ -36,7 +36,7 @@ export class BrowsersPlugin {
     this.browserFlags = options.browserFlags || []
     this.userDataDir = options.userDataDir
     this.profile = options.profile || ''
-    this.preferences = options.preferences || ''
+    this.preferences = options.preferences || {}
     this.startingUrl = options.startingUrl || ''
   }
 

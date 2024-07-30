@@ -1,23 +1,9 @@
-import path from 'path'
-import fs from 'fs'
-import {type Compiler} from 'webpack'
 import {type PluginInterface} from '../types'
 import {createProfile} from './create-profile'
 
 export function browserConfig(
-  compiler: Compiler,
   configOptions: PluginInterface
 ) {
-  const userBrowserExtension =
-    compiler.options.output.path ||
-    path.join(process.cwd(), `dist/${configOptions.browser}`)
-
-  if (!fs.existsSync(userBrowserExtension)) {
-    throw new Error(
-      `The ${configOptions.browser} extension is not found at ${userBrowserExtension}.`
-    )
-  }
-
   const extensionsToLoad = Array.isArray(configOptions.extension)
     ? configOptions.extension
     : [configOptions.extension]

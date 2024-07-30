@@ -1,5 +1,5 @@
 import checkForUpdate from 'update-check'
-import {bold, red} from '@colors/colors/safe'
+import {red} from '@colors/colors/safe'
 
 export default async function checkUpdates(packageJson: Record<string, any>) {
   let update = null

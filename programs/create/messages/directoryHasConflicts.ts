@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, red, underline} from '@colors/colors/safe'
+import {red, underline} from '@colors/colors/safe'
 
 export default async function directoryHasConflicts(
   projectPath: string,

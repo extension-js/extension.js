@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import fs from 'fs/promises'
-import {bold, underline, blue, red} from '@colors/colors/safe'
+import {underline, blue, red} from '@colors/colors/safe'
 
 export default async function abortProjectAndClean(
   error: any,

@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import path from 'path'
-import {bold, red, blue} from '@colors/colors/safe'
+import {red, blue} from '@colors/colors/safe'
 import copyDirectory from '../helpers/copyDirectory'
 
 const templatesDir = path.resolve(__dirname, 'templates')

@@ -8,7 +8,7 @@
 import path from 'path'
 // @ts-ignore
 import prefersYarn from 'prefers-yarn'
-import {bold, blue, green, underline} from '@colors/colors/safe'
+import {blue, green, underline} from '@colors/colors/safe'
 
 export default function successfullInstall(
   projectPath: string,
