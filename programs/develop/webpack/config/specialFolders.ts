@@ -1,6 +1,5 @@
 import fs from 'fs'
 import path from 'path'
-import {getScriptResolveExtensions} from './getPath'
 
 export function scanHtmlFilesInFolder(dirPath: string): string[] {
   if (!fs.existsSync(dirPath) || !fs.statSync(dirPath).isDirectory()) {
@@ -41,7 +40,18 @@ export function scanScriptFilesInFolder(
 
     for (const entry of entries) {
       const ext = path.extname(entry.name)
-      const hasValidExt = getScriptResolveExtensions(projectPath).includes(ext)
+      const hasValidExt = [
+        '.js',
+        '.mjs',
+        '.jsx',
+        '.mjsx',
+        '.ts',
+        '.mts',
+        '.tsx',
+        '.mtsx',
+        '.json',
+        '.wasm'
+      ].includes(ext)
       const entryPath = path.join(currentPath, entry.name)
       if (entry.isDirectory()) {
         recurse(entryPath)

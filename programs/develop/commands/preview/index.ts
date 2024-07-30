@@ -6,10 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import webpack from 'webpack'
-import {bold, red} from '@colors/colors/safe'
 import compilerConfig from '../../webpack/webpack-config'
 import * as messages from '../../webpack/lib/messages'
-import {getProjectPath} from '../../webpack/lib/get-project-path'
+import {getProjectPath} from '../get-project-path'
 
 export interface PreviewOptions {
   mode?: 'development' | 'production'

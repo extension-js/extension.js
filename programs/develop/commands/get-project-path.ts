@@ -1,7 +1,7 @@
 import path from 'path'
 import goGitIt from 'go-git-it'
-import {blue, green, white, bold, underline} from '@colors/colors/safe'
-import {downloadAndExtractZip} from '../../commands/dev/extract-from-zip'
+import * as messages from '../webpack/lib/messages'
+import {downloadAndExtractZip} from './dev/extract-from-zip'
 
 const isUrl = (url: string) => {
   try {
@@ -48,26 +48,17 @@ export async function getProjectPath(pathOrRemoteUrl: string | undefined) {
       const urlData = url.pathname.split('/')
       const owner = urlData.slice(1, 3)[0]
       const project = urlData.slice(1, 3)[1]
+
+      console.log(messages.fetchingProjectPath(owner, project))
+
       const projectName = path.basename(url.pathname)
-      console.log(
-        `🧩 ${`Extension.js`} ${green(`►►►`)} Fetching data from ${blue(
-          underline(`https://github.com/${owner}/${project}`)
-        )}`
-      )
-      const downloadingText = `🧩 ${`Extension.js`} ${green(
-        `►►►`
-      )} Downloading ${projectName}...`
+
       const urlSource = await importUrlSourceFromGithub(
         pathOrRemoteUrl,
-        downloadingText
+        messages.downloadingProjectPath(projectName)
       )
-      console.log(
-        `🧩 ${`Extension.js`} ${green(
-          `►►►`
-        )} Creating a new browser extension in ${white(
-          underline(`${process.cwd()}/${projectName}`)
-        )}`
-      )
+
+      console.log(messages.creatingProjectPath(projectName))
 
       return urlSource
     }

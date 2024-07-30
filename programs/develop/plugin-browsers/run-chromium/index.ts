@@ -1,7 +1,7 @@
 import fs from 'fs'
 import {type Compiler} from 'webpack'
 import {spawn} from 'child_process'
-import {bgWhite, bold, black, red, blue} from '@colors/colors/safe'
+import {bgWhite, black, red, blue} from '@colors/colors/safe'
 import {browserConfig} from './browser-config'
 import {PluginInterface} from '../types'
 

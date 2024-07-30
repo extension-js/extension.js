@@ -1,6 +1,5 @@
 import path from 'path'
 import fs from 'fs'
-import {bold} from '@colors/colors/safe'
 import {addProgressBar} from '../browser-lib/add-progress-bar'
 import {
   chromeMasterPreferences,

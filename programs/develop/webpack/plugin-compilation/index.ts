@@ -25,7 +25,7 @@ export class CompilationPlugin {
     const manifest: Manifest = require(this.manifestPath)
 
     compiler.hooks.done.tap('develop:brand', (stats) => {
-      stats.compilation.name = `${messages.boring(stats)} ${manifest.name}`
+      stats.compilation.name = `${messages.boring(stats, manifest.name, manifest.version)}`
     })
   }
 }

@@ -8,6 +8,7 @@ import {CheckManifestFiles} from './steps/check-manifest-files'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile'
 
 import {type FilepathList, type PluginInterface} from '../../types'
+import {DevOptions} from '../../../commands/dev'
 
 /**
  * ManifestPlugin is responsible for handling the manifest.json file.
@@ -24,7 +25,7 @@ export class ManifestPlugin {
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
 
-  constructor(options: PluginInterface & {browser: string}) {
+  constructor(options: PluginInterface & {browser: DevOptions['browser']}) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.excludeList = options.excludeList

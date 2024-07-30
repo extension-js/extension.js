@@ -1,4 +1,4 @@
-import {bold, bgWhite, red} from '@colors/colors/safe'
+import {bgWhite, red} from '@colors/colors/safe'
 
 export function watchModeClosed(browser: string, code: number, reason: Buffer) {
   const message = reason.toString()

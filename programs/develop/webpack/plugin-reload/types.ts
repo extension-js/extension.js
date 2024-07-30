@@ -1,4 +1,4 @@
-import {DevOptions} from '../../develop-types'
+import {type DevOptions} from '../../commands/dev'
 
 export interface PluginInterface extends PluginOptions {
   manifestPath: string
