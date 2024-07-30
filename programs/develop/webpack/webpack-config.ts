@@ -28,6 +28,7 @@ export default function webpackConfig(
     projectPath,
     `dist/${devOptions.browser || 'chrome'}`
   )
+  const manifest = require(manifestPath)
   return {
     mode: devOptions.mode,
     entry: {},
