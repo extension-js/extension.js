@@ -7,7 +7,7 @@ import {AddDependencies} from './steps/add-dependencies'
 import {CheckManifestFiles} from './steps/check-manifest-files'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile'
 
-import {type FilepathList, type PluginInterface} from '../../types'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {DevOptions} from '../../../commands/dev'
 
 /**

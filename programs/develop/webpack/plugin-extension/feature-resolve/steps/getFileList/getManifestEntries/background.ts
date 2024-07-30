@@ -1,19 +1,19 @@
-import { type ManifestData } from './types.js';
+import {type ManifestData} from './types.js'
 
 export function backgroundScripts(manifest: ManifestData) {
   if (!manifest || !manifest.background) {
-    return undefined;
+    return undefined
   }
 
-  const scripts: string[] = manifest.background.scripts;
+  const scripts: string[] = manifest.background.scripts
 
   if (scripts) {
     return scripts.map((script: string) => {
-      const scriptAbsolutePath = script;
+      const scriptAbsolutePath = script
 
-      return scriptAbsolutePath;
-    });
+      return scriptAbsolutePath
+    })
   }
 
-  return undefined;
+  return undefined
 }

@@ -5,9 +5,18 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import extensionDev from './commands/dev'
-import extensionStart from './commands/start'
-import extensionBuild from './commands/build'
-import extensionPreview from './commands/preview'
+import {extensionBuild, type BuildOptions} from './commands/build'
+import {extensionDev, type DevOptions} from './commands/dev'
+import {extensionPreview, type PreviewOptions} from './commands/preview'
+import {extensionStart, type StartOptions} from './commands/start'
 
-export {extensionStart, extensionDev, extensionBuild, extensionPreview}
+export {
+  extensionBuild,
+  BuildOptions,
+  extensionDev,
+  DevOptions,
+  extensionStart,
+  StartOptions,
+  extensionPreview,
+  PreviewOptions
+}

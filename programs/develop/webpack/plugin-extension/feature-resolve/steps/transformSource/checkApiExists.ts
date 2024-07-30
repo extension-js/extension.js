@@ -1,28 +1,28 @@
 export interface Callee {
-  type: string;
+  type: string
   object: {
-    type: string;
+    type: string
     object?: {
-      type: string;
-      name: string;
-    };
+      type: string
+      name: string
+    }
     property?: {
-      type: string;
-      name: string;
-    };
-  };
+      type: string
+      name: string
+    }
+  }
   property?: {
-    type: string;
-    name: string;
-  };
+    type: string
+    name: string
+  }
 }
 
 function isMethodChain(callee: Callee, chain: string[]): boolean {
-  let current: any = callee;
+  let current: any = callee
   for (let i = chain.length - 1; i >= 0; i--) {
     if (i === 0) {
       // The last element should be an Identifier at the top of the chain
-      return current.type === 'Identifier' && current.name === chain[i];
+      return current.type === 'Identifier' && current.name === chain[i]
     } else {
       // Intermediate elements should be MemberExpressions
       if (
@@ -30,16 +30,16 @@ function isMethodChain(callee: Callee, chain: string[]): boolean {
         current.property.type !== 'Identifier' ||
         current.property.name !== chain[i]
       ) {
-        return false;
+        return false
       }
-      current = current.object;
+      current = current.object
     }
   }
-  return true;
+  return true
 }
 
 export function has(callee: Callee, method: string): boolean {
-  const methodArr = method.split('.');
+  const methodArr = method.split('.')
 
-  return isMethodChain(callee, methodArr);
+  return isMethodChain(callee, methodArr)
 }

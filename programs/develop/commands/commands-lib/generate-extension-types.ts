@@ -7,14 +7,18 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import * as messages from '../../webpack/lib/messages'
+import * as messages from './messages'
 
 export default async function generateExtensionTypes(projectDir: string) {
   const extensionEnvFile = path.join(projectDir, 'extension-env.d.ts')
+  const relativeTypePath = path.relative(
+    projectDir,
+    path.join(__dirname, 'types')
+  )
 
   const typePath =
     process.env.EXTENSION_ENV === 'development'
-      ? '../../programs/develop/types'
+      ? relativeTypePath
       : `@extension-create/develop/dist/types`
 
   const fileContent = `\
@@ -39,10 +43,7 @@ export default async function generateExtensionTypes(projectDir: string) {
     try {
       await fs.writeFile(extensionEnvFile, fileContent)
     } catch (writeErr) {
-      console.log(
-        '🔴 - Failed to write the extension type definition.',
-        writeErr
-      )
+      console.log(messages.writeTypeDefinitionsError(writeErr))
     }
   }
 }

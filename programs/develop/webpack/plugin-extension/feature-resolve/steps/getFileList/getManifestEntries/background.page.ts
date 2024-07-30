@@ -1,13 +1,13 @@
-import { type ManifestData } from './types.js';
+import {type ManifestData} from './types.js'
 
 export function background(manifest: ManifestData) {
   if (!manifest || !manifest.background || !manifest.background.page) {
-    return undefined;
+    return undefined
   }
 
-  const backgroundPage = manifest.background.page;
+  const backgroundPage = manifest.background.page
 
-  const backgroundAbsolutePath = backgroundPage;
+  const backgroundAbsolutePath = backgroundPage
 
-  return backgroundAbsolutePath;
+  return backgroundAbsolutePath
 }

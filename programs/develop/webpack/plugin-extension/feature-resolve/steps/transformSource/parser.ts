@@ -1,16 +1,16 @@
 export function resolvePropertyArg(path: any, resolverFunctionName: string) {
-  if (path.arguments.length === 0) return;
+  if (path.arguments.length === 0) return
 
-  const arg = path.arguments[0];
+  const arg = path.arguments[0]
   path.arguments[0] = {
     type: 'CallExpression',
-    callee: { type: 'Identifier', name: resolverFunctionName },
-    arguments: [arg],
-  };
+    callee: {type: 'Identifier', name: resolverFunctionName},
+    arguments: [arg]
+  }
 }
 
 export function resolveStringArg(path: any, api: string) {
-  if (path.arguments.length === 0) return;
+  if (path.arguments.length === 0) return
 
   if (
     api === 'chrome.devtools.panels.create' ||
@@ -18,14 +18,14 @@ export function resolveStringArg(path: any, api: string) {
   ) {
     path.arguments[1] = {
       type: 'CallExpression',
-      callee: { type: 'Identifier', name: 'r.solve' },
-      arguments: [path.arguments[1]],
-    };
+      callee: {type: 'Identifier', name: 'r.solve'},
+      arguments: [path.arguments[1]]
+    }
     path.arguments[2] = {
       type: 'CallExpression',
-      callee: { type: 'Identifier', name: 'r.solve' },
-      arguments: [path.arguments[2]],
-    };
+      callee: {type: 'Identifier', name: 'r.solve'},
+      arguments: [path.arguments[2]]
+    }
   } else if (
     api === 'chrome.runtime.getURL' ||
     api === 'browser.runtime.getURL'
@@ -34,12 +34,12 @@ export function resolveStringArg(path: any, api: string) {
       path.arguments[0].type === 'Literal' &&
       path.arguments[0].value.includes('/_favicon/')
     ) {
-      return;
+      return
     }
     path.arguments[0] = {
       type: 'CallExpression',
-      callee: { type: 'Identifier', name: 'r.solve' },
-      arguments: [path.arguments[0]],
-    };
+      callee: {type: 'Identifier', name: 'r.solve'},
+      arguments: [path.arguments[0]]
+    }
   }
 }

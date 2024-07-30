@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import {shouldExclude} from '../../../lib/utils'
-import {FilepathList} from '../../../types'
+import {FilepathList} from '../../../webpack-types'
 
 export function getScriptEntries(
   scriptPath: string | string[] | undefined,

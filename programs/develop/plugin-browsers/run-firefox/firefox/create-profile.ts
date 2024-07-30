@@ -4,7 +4,7 @@ import FirefoxProfile from 'firefox-profile'
 import {getPreferences} from './master-preferences'
 import * as messages from '../../browser-lib/messages'
 import {addProgressBar} from '../../browser-lib/add-progress-bar'
-import { DevOptions } from '../../../commands/dev'
+import {DevOptions} from '../../../commands/dev'
 
 function configureProfile(
   profile: FirefoxProfile,
@@ -61,7 +61,7 @@ function getProfile(
   return profileConfigured
 }
 
-export default function createUserDataDir(
+export function createUserDataDir(
   browser: DevOptions['browser'],
   dataDirPath: string | undefined,
   preferences?: Record<string, any>,
@@ -74,10 +74,7 @@ export default function createUserDataDir(
     profile = getProfile(browser, dataDir, preferences || {})
   } else {
     if (!silent) {
-      addProgressBar(
-        messages.creatingUserProfile(browser),
-        () => {}
-      )
+      addProgressBar(messages.creatingUserProfile(browser), () => {})
     }
 
     fs.mkdirSync(dataDir, {recursive: true})

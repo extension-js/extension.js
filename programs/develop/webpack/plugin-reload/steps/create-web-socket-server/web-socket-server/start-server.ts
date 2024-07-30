@@ -1,8 +1,9 @@
 import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
 import * as messages from '../../../reload-lib/messages'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 import {isFirstRun} from '../../../reload-lib/is-first-run'
+import {DevOptions} from '../../../../../module'
 
 interface Data {
   id: string
@@ -17,7 +18,7 @@ interface Message {
 
 export default function (
   compiler: Compiler,
-  browser: string,
+  browser: DevOptions['browser'],
   statsConfig: boolean | undefined,
   port?: number
 ) {
@@ -29,7 +30,7 @@ export default function (
     ws.send(JSON.stringify({status: 'serverReady'}))
 
     ws.on('error', (error) => {
-      console.log(messages.webSocketError(error))
+      console.log(messages.webSocketError(browser, error))
       webSocketServer.close()
     })
 

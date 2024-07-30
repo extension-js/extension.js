@@ -1,5 +1,5 @@
 import path from 'path'
-import {PluginInterface} from '../../../types'
+import {PluginInterface} from '../../../webpack-types'
 import {scanFilesInFolder, generateEntries} from './generate-entries'
 
 export function getSpecialFoldersData({manifestPath}: PluginInterface) {

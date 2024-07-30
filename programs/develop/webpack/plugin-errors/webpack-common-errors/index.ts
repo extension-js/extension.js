@@ -4,7 +4,7 @@ import {
   handleTopLevelAwaitError,
   handleCantResolveError
 } from './compilation-error-handlers'
-import {type PluginInterface} from '../../types'
+import {type PluginInterface} from '../../webpack-types'
 
 export class WebpackCommonErrorsPlugin {
   public readonly manifestPath: string

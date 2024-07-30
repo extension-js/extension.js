@@ -4,8 +4,8 @@ import ignore from 'ignore'
 import glob from 'tiny-glob'
 import AdmZip from 'adm-zip'
 import slugify from 'slugify'
-import {type BuildOptions} from './index'
-import * as messages from '../../webpack/lib/messages'
+import {type BuildOptions} from '../build'
+import * as messages from './messages'
 
 function readFileSync(filePath: string): string {
   try {

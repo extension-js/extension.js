@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)

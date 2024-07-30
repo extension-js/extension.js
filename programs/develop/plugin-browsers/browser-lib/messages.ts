@@ -20,42 +20,6 @@ export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
-export function watchModeClosed(
-  browser: DevOptions['browser'],
-  code: number,
-  reason: Buffer
-) {
-  const message = reason.toString()
-  return (
-    `${getLoggingPrefix(browser, 'error')} Watch mode closed (code ${code}). ` +
-    `${message && '\n\nReason ' + message + '\n'}Exiting...\n`
-  )
-}
-
-export function browserNotFound(
-  browser: DevOptions['browser'],
-  binaryPath: string
-) {
-  return `${getLoggingPrefix(browser, 'error')} ${capitalizedBrowserName(
-    browser
-  )} not found at ${binaryPath}`
-}
-
-export function webSocketError(browser: DevOptions['browser'], error: any) {
-  error(`[⛔️] ${getLoggingPrefix(browser, 'error')} WebSocket error`, error)
-}
-
-export function parseFileError(
-  browser: DevOptions['browser'],
-  error: any,
-  filepath: string
-) {
-  return (
-    `${getLoggingPrefix(browser, 'error')} ` +
-    `Error parsing file: ${filepath}. Reason: ${error.message}`
-  )
-}
-
 export function browserNameCapitalized(browser: DevOptions['browser']) {
   return browser?.charAt(0).toUpperCase() + (browser?.slice(1) || '')
 }
@@ -124,14 +88,60 @@ export function errorInstallingAddOn(
   return `${getLoggingPrefix(browser, 'error')} Error while installing temporary addon: ${message}`
 }
 
-export function errorParsingMessage(browser: DevOptions['browser']) {
-  return `${getLoggingPrefix(browser, 'error')} Error parsing message length.`
-}
-
-export function pathIsNotDir(browser: DevOptions['browser'], profilePath: string) {
+export function pathIsNotDir(
+  browser: DevOptions['browser'],
+  profilePath: string
+) {
   return (
     `${getLoggingPrefix(browser, 'error')} ` +
     `The path ${profilePath} is not a directory. ` +
     `Please provide a valid directory path.`
   )
+}
+
+export function parseMessageLengthError(browser: DevOptions['browser']) {
+  return `${getLoggingPrefix(browser, 'error')} Error parsing message length.`
+}
+
+export function messagingClientClosed(browser: DevOptions['browser']) {
+  return `${getLoggingPrefix(browser, 'error')} MessagingClient connection closed.`
+}
+
+export function requestWithoutTargetActor(
+  browser: DevOptions['browser'],
+  requestType: string
+) {
+  return `${getLoggingPrefix(browser, 'error')} Unexpected MessagingClient request without target actor: ${requestType}`
+}
+
+export function connectionClosed(browser: DevOptions['browser']) {
+  return `${getLoggingPrefix(browser, 'error')} MessagingClient connection closed.`
+}
+
+export function targetActorHasActiveRequest(
+  browser: DevOptions['browser'],
+  targetActor: string
+) {
+  return `${getLoggingPrefix(browser, 'error')} Target actor ${targetActor} already has an active request.`
+}
+
+export function errorParsingPacket(browser: DevOptions['browser'], error: any) {
+  return `${getLoggingPrefix(browser, 'error')} Error parsing packet: ${error}`
+}
+export function messageWithoutSender(
+  browser: DevOptions['browser'],
+  message: {
+    from?: string
+    type?: string
+    error?: any
+  }
+) {
+  return `${getLoggingPrefix(browser, 'error')} Message received without a sender actor: ${JSON.stringify(message)}`
+}
+
+export function unexpectedMessageReceived(
+  browser: DevOptions['browser'],
+  message: string
+) {
+  return `${getLoggingPrefix(browser, 'error')} Received unexpected message: ${message}`
 }

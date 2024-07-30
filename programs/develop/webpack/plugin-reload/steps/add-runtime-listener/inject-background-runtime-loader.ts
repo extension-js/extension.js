@@ -3,7 +3,7 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {type Manifest} from '../../../types'
+import {type Manifest} from '../../../webpack-types'
 
 const schema: Schema = {
   type: 'object',

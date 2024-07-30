@@ -10,7 +10,7 @@ import fs from 'fs'
 import {type Compiler, type WebpackPluginInstance} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
-import {JsFramework} from '../../types'
+import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false
 

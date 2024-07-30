@@ -2,13 +2,14 @@
 
 set -e
 
+# Define plugin file paths
 html_plugin_files=(
   "$(dirname "$0")/webpack/plugin-extension/feature-html/steps/ensure-hmr-for-scripts.ts"
 )
 
 resolve_plugin_files=(
-  "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-loader.ts"
-  "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-module.ts"
+  # "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-loader.ts"
+  # "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-module.ts"
 )
 
 scripts_plugin_files=(
@@ -26,9 +27,10 @@ reload_plugin_files=(
 minimum_files=(
   "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/minimum-content-file.ts"
   "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/minimum-background-file.ts"
-  "$(dirname "$0")/webpack/plugin-html/steps/minimum-script-file.ts"
+  "$(dirname "$0")/webpack/plugin-extension/feature-html/steps/minimum-script-file.ts"
 )
 
+# Define the tsup function
 tsup() {
   local entrypoint=$1
   local format=$2
@@ -44,54 +46,60 @@ execute_command() {
   $command > /dev/null 2>&1
 
   code=$?
-  # echo "[develop] process exited with code $code for entry: $entry"
+  if [ $code -ne 0 ]; then
+    echo "[ERROR] Command failed with exit code $code for entry: $entry"
+    exit $code
+  fi
 }
 
-# Copy required files to dist directory
-copy_files_to_dist() {
-  local files=(
-    "tailwind.config.js"
-    "stylelint.config.js"
-    "commands/dev/types"
-    "webpack/plugin-reload/extensions"
-  )
-  for file in "${files[@]}"; do
-    if [ -e "$file" ]; then
-      # echo "Copying $file to dist/"
-      cp -r "$file" dist/
-    else
-      echo "File $file does not exist"
-    fi
-  done
-}
+# Ensure dist directory exists
+mkdir -p "$(dirname "$0")/dist/"
 
 echo '►►► Setting up HTML loaders'
 for entry in "${html_plugin_files[@]}"; do
+  # echo "Processing HTML loader: $entry"
   execute_command "$entry" "cjs"
 done
 
-# echo '►►► Setting up resolver loaders'
-# for entry in "${resolve_plugin_files[@]}"; do
-#   execute_command "$entry" "cjs"
-# done
+echo '►►► Setting up resolver loaders'
+for entry in "${resolve_plugin_files[@]}"; do
+  # echo "Processing resolver loader: $entry"
+  execute_command "$entry" "cjs"
+done
 
 echo '►►► Setting up script loaders'
 for entry in "${scripts_plugin_files[@]}"; do
+  # echo "Processing script loader: $entry"
   execute_command "$entry" "cjs"
 done
 
 echo '►►► Setting up reload loaders'
 for entry in "${reload_plugin_files[@]}"; do
+  # echo "Processing reload loader: $entry"
   execute_command "$entry" "cjs"
 done
 
 echo '►►► Setting up minimum required files (ESM format)'
 for entry in "${minimum_files[@]}"; do
+  # echo "Processing minimum file: $entry"
   execute_command "$entry" "esm"
 done
 
-# echo '►►► Building core module'
-# execute_command "$(dirname "$0")/module.ts" "cjs"
-
 echo '►►► Setting up client helper files'
-copy_files_to_dist
+static_files=(
+  "$(dirname "$0")/tailwind.config.js"
+  "$(dirname "$0")/stylelint.config.js"
+  "$(dirname "$0")/types"
+  "$(dirname "$0")/webpack/plugin-reload/extensions"
+)
+
+for file in "${static_files[@]}"; do
+  if [ -e "$file" ]; then
+    # echo "Copying $file to $(dirname "$0")/dist/"
+    cp -r "$file" "$(dirname "$0")/dist/"
+  else
+    echo "File $file does not exist"
+  fi
+done
+
+echo '►►► All tasks completed'

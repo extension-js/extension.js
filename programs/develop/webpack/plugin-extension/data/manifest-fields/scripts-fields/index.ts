@@ -2,7 +2,7 @@ import {backgroundScripts} from './background'
 import {serviceWorker} from './service_worker'
 import {contentScripts} from './content_scripts'
 import {userScripts} from './user_scripts'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 
 export function scriptsFields(
   context: string,

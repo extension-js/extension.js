@@ -6,7 +6,7 @@ import {
 } from './master-preferences'
 import * as messages from '../browser-lib/messages'
 import {addProgressBar} from '../browser-lib/add-progress-bar'
-import { DevOptions } from '../../commands/dev'
+import {DevOptions} from '../../commands/dev'
 
 export function createProfile(
   browser: DevOptions['browser'],
@@ -26,21 +26,18 @@ export function createProfile(
   const userProfile = JSON.stringify(preferences)
 
   if (!silent) {
-    addProgressBar(
-      messages.creatingUserProfile(browser),
-      () => {
-        const profilePath = path.resolve(__dirname, `run-${browser}-profile`)
-        const preferences = path.join(profilePath, 'Default')
+    addProgressBar(messages.creatingUserProfile(browser), () => {
+      const profilePath = path.resolve(__dirname, `run-${browser}-profile`)
+      const preferences = path.join(profilePath, 'Default')
 
-        // Ensure directory exists
-        fs.mkdirSync(preferences, {recursive: true})
+      // Ensure directory exists
+      fs.mkdirSync(preferences, {recursive: true})
 
-        const preferencesPath = path.join(preferences, 'Preferences')
+      const preferencesPath = path.join(preferences, 'Preferences')
 
-        // Actually write the user preferences
-        fs.writeFileSync(preferencesPath, userProfile, 'utf8')
-      }
-    )
+      // Actually write the user preferences
+      fs.writeFileSync(preferencesPath, userProfile, 'utf8')
+    })
   }
 
   return path.resolve(__dirname, `run-${browser}-profile`)

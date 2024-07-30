@@ -4,6 +4,7 @@ import {PluginInterface} from '../../reload-types'
 import messageDispatcher from './web-socket-server/message-dispatcher'
 import startServer from './web-socket-server/start-server'
 import rewriteReloadPort from './rewrite-reload-port'
+import {DevOptions} from '../../../../module'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -15,7 +16,7 @@ process.on('SIGTERM', () => {
 
 export default class CreateWebSocketServer {
   private readonly manifestPath: string
-  private readonly browser: string
+  private readonly browser: DevOptions['browser']
   private readonly port: number
   private readonly stats: boolean | undefined
 
@@ -35,15 +36,10 @@ export default class CreateWebSocketServer {
 
     // Start webSocket server to communicate with the extension.
     const statConfig = this.stats
-    const wss = startServer(
-      compiler,
-      this.browser || 'chrome',
-      statConfig,
-      this.port
-    )
+    const wss = startServer(compiler, this.browser, statConfig, this.port)
 
     compiler.hooks.watchRun.tapAsync(
-      'RunChromeExtensionPlugin (CreateWebSocketServer)',
+      'reload:create-web-socket-server',
       (compiler, done) => {
         const files = compiler.modifiedFiles || new Set()
         const changedFile: string | undefined = files.values().next().value

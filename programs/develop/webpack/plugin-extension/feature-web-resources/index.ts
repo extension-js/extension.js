@@ -1,7 +1,7 @@
-import type webpack from 'webpack';
-import { type FilepathList, type PluginInterface } from '../../types';
+import type webpack from 'webpack'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
 // import AddResourcesFromContentScripts from './steps/add-resources-from-content-scripts'
-import { UpdateManifest } from './update-manifest';
+import {UpdateManifest} from './update-manifest'
 
 /**
  * ResourcesPlugin is responsible for adding resources required
@@ -13,14 +13,14 @@ import { UpdateManifest } from './update-manifest';
  * - Assets imported from content_scripts files.
  */
 export class WebResourcesPlugin {
-  public readonly manifestPath: string;
-  public readonly includeList?: FilepathList;
-  public readonly excludeList?: FilepathList;
+  public readonly manifestPath: string
+  public readonly includeList?: FilepathList
+  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath;
-    this.includeList = options.includeList;
-    this.excludeList = options.excludeList;
+    this.manifestPath = options.manifestPath
+    this.includeList = options.includeList
+    this.excludeList = options.excludeList
   }
 
   apply(compiler: webpack.Compiler) {
@@ -38,7 +38,7 @@ export class WebResourcesPlugin {
     new UpdateManifest({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
-    }).apply(compiler);
+      excludeList: this.excludeList
+    }).apply(compiler)
   }
 }

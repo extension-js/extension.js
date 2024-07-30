@@ -3,7 +3,7 @@
 // If you need extra types, consider creating a new *.d.ts and
 // referencing it in the "include" array in your tsconfig.json file.
 // See https://www.typescriptlang.org/tsconfig#include for info.
-/// <reference types="../../programs/develop/types/index.d.ts" />
+/// <reference types="../../../commands/dev/types/index.d.ts" />
 
 // Polyfill types for browser.* APIs.
-/// <reference types="../../programs/develop/types/polyfill.d.ts" />
+/// <reference types="../../../commands/dev/types/polyfill.d.ts" />

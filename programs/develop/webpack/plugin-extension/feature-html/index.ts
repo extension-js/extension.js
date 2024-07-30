@@ -1,14 +1,14 @@
-import path from 'path';
-import { type Compiler } from 'webpack';
+import path from 'path'
+import {type Compiler} from 'webpack'
 
-import { type FilepathList, type PluginInterface } from '../../types';
-import { EmitHtmlFile } from './steps/emit-html-file';
-import { AddAssetsToCompilation } from './steps/add-assets-to-compilation';
-import { AddScriptsAndStylesToCompilation } from './steps/add-scripts-and-styles-to-compilation';
-import { UpdateHtmlFile } from './steps/update-html-file';
-import { AddToFileDependencies } from './steps/add-to-file-dependencies';
-import { ThrowIfRecompileIsNeeded } from './steps/throw-if-recompile-is-needed';
-import { HandleCommonErrors } from './steps/handle-common-errors';
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
+import {EmitHtmlFile} from './steps/emit-html-file'
+import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'
+import {AddScriptsAndStylesToCompilation} from './steps/add-scripts-and-styles-to-compilation'
+import {UpdateHtmlFile} from './steps/update-html-file'
+import {AddToFileDependencies} from './steps/add-to-file-dependencies'
+import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
+import {HandleCommonErrors} from './steps/handle-common-errors'
 
 /**
  * HtmlPlugin is responsible for handling the HTML file
@@ -38,14 +38,14 @@ import { HandleCommonErrors } from './steps/handle-common-errors';
  * sidebar_action.default_panel - HMR enabled
  */
 export class HtmlPlugin {
-  public readonly manifestPath: string;
-  public readonly includeList?: FilepathList;
-  public readonly excludeList?: FilepathList;
+  public readonly manifestPath: string
+  public readonly includeList?: FilepathList
+  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath;
-    this.includeList = options.includeList;
-    this.excludeList = options.excludeList;
+    this.manifestPath = options.manifestPath
+    this.includeList = options.includeList
+    this.excludeList = options.excludeList
   }
 
   public apply(compiler: Compiler): void {
@@ -53,31 +53,31 @@ export class HtmlPlugin {
     new EmitHtmlFile({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
-    }).apply(compiler);
+      excludeList: this.excludeList
+    }).apply(compiler)
 
     // 2 - Adds the assets within the HTML file to the compilation,
     // such as <img>, <iframe>, <link>, <script> etc.
     new AddAssetsToCompilation({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
-    }).apply(compiler);
+      excludeList: this.excludeList
+    }).apply(compiler)
 
     // 3 - Adds the scripts and stylesheets within the HTML file
     // to the compilation.
     new AddScriptsAndStylesToCompilation({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
-    }).apply(compiler as any);
+      excludeList: this.excludeList
+    }).apply(compiler as any)
 
     // 4 - Updates the HTML file with the new assets and entrypoints.
     new UpdateHtmlFile({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
-    }).apply(compiler);
+      excludeList: this.excludeList
+    }).apply(compiler)
 
     // 5 - Ensure scripts within the HTML file are HMR enabled.
     compiler.options.module.rules.push({
@@ -90,18 +90,18 @@ export class HtmlPlugin {
           options: {
             manifestPath: this.manifestPath,
             includeList: this.includeList,
-            excludeList: this.excludeList,
-          },
-        },
-      ],
-    });
+            excludeList: this.excludeList
+          }
+        }
+      ]
+    })
 
     // 6 - Ensure HTML file is recompiled upon changes.
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
-    }).apply(compiler);
+      excludeList: this.excludeList
+    }).apply(compiler)
 
     // 7 - Suggest user to recompile if any style
     // or script path within the HTML file has changed.
@@ -110,14 +110,14 @@ export class HtmlPlugin {
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
-    }).apply(compiler);
+      excludeList: this.excludeList
+    }).apply(compiler)
 
     // 8 - Handle common errors.
     new HandleCommonErrors({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
-    }).apply(compiler);
+      excludeList: this.excludeList
+    }).apply(compiler)
   }
 }

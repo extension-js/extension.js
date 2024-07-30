@@ -1,6 +1,6 @@
 import type webpack from 'webpack'
 
-import {type FilepathList, type PluginInterface} from '../../../types'
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
 
 export class AddScripts {

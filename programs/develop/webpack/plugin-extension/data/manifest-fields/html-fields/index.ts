@@ -7,7 +7,7 @@ import {pageAction} from './page_action'
 import {sandbox} from './sandbox'
 import {sidePanel} from './side_panel'
 import {sidebarAction} from './sidebar_action'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 
 export function htmlFields(
   context: string,

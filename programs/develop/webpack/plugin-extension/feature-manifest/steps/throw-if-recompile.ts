@@ -1,6 +1,6 @@
 import webpack, {Compilation} from 'webpack'
 import * as messages from '../../../lib/messages'
-import {PluginInterface, FilepathList, Manifest} from '../../../types'
+import {PluginInterface, FilepathList, Manifest} from '../../../webpack-types'
 import {htmlFields} from '../../data/manifest-fields/html-fields'
 import {scriptsFields} from '../../data/manifest-fields/scripts-fields'
 

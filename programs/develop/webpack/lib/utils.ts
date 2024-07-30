@@ -4,7 +4,7 @@ import {type Compilation} from 'webpack'
 import {execSync} from 'child_process'
 import {detect} from 'detect-package-manager'
 import * as messages from './messages'
-import {type Manifest} from '../types'
+import {type Manifest} from '../webpack-types'
 
 export function getResolvedPath(
   context: string,

@@ -15,7 +15,7 @@ export class ReloadPlugin {
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.browser = options.browser
+    this.browser = options.browser || 'chrome'
     this.port = options.port
     this.stats = options.stats
     this.autoReload = options.autoReload

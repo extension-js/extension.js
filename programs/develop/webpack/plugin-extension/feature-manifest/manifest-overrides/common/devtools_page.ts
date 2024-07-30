@@ -1,4 +1,4 @@
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 // A DevTools extension adds functionality to the Chrome DevTools.

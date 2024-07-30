@@ -4,7 +4,8 @@
 
 import net from 'net'
 import EventEmitter from 'events'
-import {bgWhite, red} from '@colors/colors/safe'
+import * as messages from '../../browser-lib/messages'
+import {DevOptions} from '../../../module'
 
 interface Message {
   from?: string
@@ -17,7 +18,10 @@ interface Deferred {
   reject: (reason?: any) => void
 }
 
-function parseMessage(data: Buffer): {
+function parseMessage(
+  browser: DevOptions['browser'],
+  data: Buffer
+): {
   remainingData: Buffer
   parsedMessage?: Message
   error?: Error
@@ -35,11 +39,7 @@ function parseMessage(data: Buffer): {
   if (isNaN(messageLength)) {
     return {
       remainingData: data,
-      error: new Error(
-        `${bgWhite(red(` firefox-browser `))} ${red(
-          `✖︎✖︎✖︎`
-        )} Error parsing message length.`
-      ),
+      error: new Error(messages.parseMessageLengthError(browser)),
       fatal: true
     }
   }
@@ -92,13 +92,7 @@ export class MessagingClient extends EventEmitter {
     if (!this.connection) return
     this.connection.removeAllListeners()
     this.connection.end()
-    this.rejectAllRequests(
-      new Error(
-        `${bgWhite(red(` firefox-browser `))} ${red(
-          `✖︎✖︎✖︎`
-        )} MessagingClient connection closed.`
-      )
-    )
+    this.rejectAllRequests(new Error(messages.messagingClientClosed('firefox')))
   }
 
   private rejectAllRequests(error: Error): void {
@@ -120,8 +114,7 @@ export class MessagingClient extends EventEmitter {
 
     if (!request.to) {
       throw new Error(
-        `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Unexpected MessagingClient request without target actor: ${request.type}`
+        messages.requestWithoutTargetActor('firefox', request.type)
       )
     }
     return await new Promise((resolve, reject) => {
@@ -136,11 +129,7 @@ export class MessagingClient extends EventEmitter {
       ({request, deferred}: {request: {to: string}; deferred: Deferred}) => {
         if (this.activeRequests.has(request.to)) return true
         if (!this.connection) {
-          throw new Error(
-            `${bgWhite(red(` firefox-browser `))} ${red(
-              `✖︎✖︎✖︎`
-            )} MessagingClient connection closed.`
-          )
+          throw new Error(messages.connectionClosed('firefox'))
         }
         try {
           const messageString = `${
@@ -159,8 +148,7 @@ export class MessagingClient extends EventEmitter {
   private expectReply(targetActor: string, deferred: Deferred): void {
     if (this.activeRequests.has(targetActor)) {
       throw new Error(
-        `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-          `Target actor ${targetActor} already has an active request.`
+        messages.targetActorHasActiveRequest('firefox', targetActor)
       )
     }
     this.activeRequests.set(targetActor, deferred)
@@ -173,6 +161,7 @@ export class MessagingClient extends EventEmitter {
 
   private readMessage(): boolean {
     const {remainingData, parsedMessage, error, fatal} = parseMessage(
+      'firefox',
       this.incomingData
     )
     this.incomingData = remainingData
@@ -180,11 +169,7 @@ export class MessagingClient extends EventEmitter {
     if (error) {
       this.emit(
         'error',
-        new Error(
-          `${bgWhite(red(` firefox-browser `))} ${red(
-            `✖︎✖︎✖︎`
-          )} Error parsing packet: ${error}`
-        )
+        new Error(messages.errorParsingPacket('firefox', error))
       )
       if (fatal) this.disconnect()
       return !fatal
@@ -199,12 +184,7 @@ export class MessagingClient extends EventEmitter {
     if (!message.from) {
       this.emit(
         'error',
-        new Error(
-          `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-            `Message received without a sender actor: ${JSON.stringify(
-              message
-            )}`
-        )
+        new Error(messages.messageWithoutSender('firefox', message))
       )
       return
     }
@@ -222,8 +202,7 @@ export class MessagingClient extends EventEmitter {
       this.emit(
         'error',
         new Error(
-          `${bgWhite(red(` firefox-browser `))} ${red(`✖︎✖︎✖︎`)} ` +
-            `Received unexpected message: ${JSON.stringify(message)}`
+          messages.unexpectedMessageReceived('firefox', JSON.stringify(message))
         )
       )
     }

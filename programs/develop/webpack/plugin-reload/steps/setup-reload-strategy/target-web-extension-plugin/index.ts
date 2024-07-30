@@ -3,7 +3,7 @@ import path from 'path'
 import type webpack from 'webpack'
 import WebExtension from 'webpack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 import * as messages from '../../../../lib/messages'
 
 class TargetWebExtensionPlugin {

@@ -1,60 +1,54 @@
 // @ts-ignore
-import parse5utils from 'parse5-utils';
+import parse5utils from 'parse5-utils'
 
 function isUrl(src: string) {
   try {
     // eslint-disable-next-line no-new
-    new URL(src);
-    return true;
+    new URL(src)
+    return true
   } catch (err) {
-    return false;
+    return false
   }
 }
 
 interface OnResourceFoundOptions {
-  filePath: string;
-  childNode: any;
-  assetType: 'script' | 'css' | 'staticSrc' | 'staticHref';
+  filePath: string
+  childNode: any
+  assetType: 'script' | 'css' | 'staticSrc' | 'staticHref'
 }
 
 export function parseHtml(
   node: any,
   onResourceFound: (options: OnResourceFoundOptions) => void
 ) {
-  const { childNodes = [] } = node;
+  const {childNodes = []} = node
 
   for (const childNode of childNodes) {
     // Handle <script> tags
     if (childNode.nodeName === 'script') {
-      const src: string | undefined = parse5utils.getAttribute(
-        childNode,
-        'src'
-      );
+      const src: string | undefined = parse5utils.getAttribute(childNode, 'src')
 
       // Some scripts have no src
-      if (!src) continue;
+      if (!src) continue
       // Do nothing for urls
-      if (isUrl(src)) continue;
+      if (isUrl(src)) continue
 
       onResourceFound({
         filePath: src,
         childNode,
-        assetType: 'script',
-      });
+        assetType: 'script'
+      })
     } else if (childNode.nodeName === 'link') {
       const href: string | undefined = parse5utils.getAttribute(
         childNode,
         'href'
-      );
-      const rel: string | undefined = parse5utils.getAttribute(
-        childNode,
-        'rel'
-      );
+      )
+      const rel: string | undefined = parse5utils.getAttribute(childNode, 'rel')
 
       // Some links have no href
-      if (!href) continue;
+      if (!href) continue
       // Do nothing for urls
-      if (isUrl(href)) continue;
+      if (isUrl(href)) continue
 
       // Assume users ignored the "stylesheet" attribute,
       // but ensure it's not an icon or something else.
@@ -72,14 +66,14 @@ export function parseHtml(
         onResourceFound({
           filePath: href,
           childNode,
-          assetType: 'staticHref',
-        });
+          assetType: 'staticHref'
+        })
       } else {
         onResourceFound({
           filePath: href,
           childNode,
-          assetType: 'css',
-        });
+          assetType: 'css'
+        })
       }
 
       // Handle static assets
@@ -89,18 +83,18 @@ export function parseHtml(
         const href: string | undefined = parse5utils.getAttribute(
           childNode,
           'href'
-        );
+        )
 
         // Some elements have no href
-        if (!href) continue;
+        if (!href) continue
         // Do nothing for urls
-        if (isUrl(href)) continue;
+        if (isUrl(href)) continue
 
         onResourceFound({
           filePath: href,
           childNode,
-          assetType: 'staticHref',
-        });
+          assetType: 'staticHref'
+        })
 
         // Static assets with src attribute
       } else if (
@@ -116,22 +110,22 @@ export function parseHtml(
         const src: string | undefined = parse5utils.getAttribute(
           childNode,
           'src'
-        );
+        )
 
         // Some elements have no src
-        if (!src) continue;
+        if (!src) continue
         // Do nothing for urls
-        if (isUrl(src)) continue;
+        if (isUrl(src)) continue
 
         onResourceFound({
           filePath: src,
           childNode,
-          assetType: 'staticSrc',
-        });
+          assetType: 'staticSrc'
+        })
 
         // Handle child nodes recursively
       } else {
-        parseHtml(childNode, onResourceFound);
+        parseHtml(childNode, onResourceFound)
       }
     }
   }

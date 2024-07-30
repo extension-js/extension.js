@@ -1,7 +1,7 @@
 import webpack from 'webpack'
 import parseCSP from 'content-security-policy-parser'
 import * as messages from '../../lib/messages'
-import {type Manifest} from '../../types'
+import {type Manifest} from '../../webpack-types'
 
 export function insecureCSPValueError(
   manifest: Manifest

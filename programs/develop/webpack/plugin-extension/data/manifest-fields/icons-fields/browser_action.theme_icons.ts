@@ -1,5 +1,5 @@
 import path from 'path'
-import {ThemeIcon, type Manifest} from '../../../../types'
+import {ThemeIcon, type Manifest} from '../../../../webpack-types'
 
 export function browserActionThemeIcons(
   context: string,

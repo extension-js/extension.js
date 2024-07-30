@@ -1,4 +1,4 @@
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 // Defines an collection of app or extension pages that are to be served

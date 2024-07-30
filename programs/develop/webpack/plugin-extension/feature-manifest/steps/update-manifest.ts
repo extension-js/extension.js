@@ -5,7 +5,7 @@ import {
   type FilepathList,
   type PluginInterface,
   type Manifest
-} from '../../../types'
+} from '../../../webpack-types'
 
 export class UpdateManifest {
   public readonly manifestPath: string

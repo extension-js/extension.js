@@ -1,6 +1,6 @@
-import path from 'path';
-import webpack from 'webpack';
-import { type FilepathList, type PluginInterface } from '../../types';
+import path from 'path'
+import webpack from 'webpack'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
 
 /**
  * ResolvePlugin is responsible for resolving paths for
@@ -36,27 +36,27 @@ import { type FilepathList, type PluginInterface } from '../../types';
  * - chrome.notifications.create
  */
 interface LoaderOptions {
-  jsx?: boolean;
-  typescript?: boolean;
+  jsx?: boolean
+  typescript?: boolean
 }
 
 export class ResolvePlugin {
-  public readonly manifestPath: string;
-  public readonly includeList?: FilepathList;
-  public readonly excludeList?: FilepathList;
-  public readonly loaderOptions?: LoaderOptions;
+  public readonly manifestPath: string
+  public readonly includeList?: FilepathList
+  public readonly excludeList?: FilepathList
+  public readonly loaderOptions?: LoaderOptions
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath;
-    this.includeList = options.includeList;
-    this.excludeList = options.excludeList;
-    this.loaderOptions = (options as any).loaderOptions;
+    this.manifestPath = options.manifestPath
+    this.includeList = options.includeList
+    this.excludeList = options.excludeList
+    this.loaderOptions = (options as any).loaderOptions
   }
 
   public apply(compiler: webpack.Compiler): void {
     new webpack.ProvidePlugin({
-      r: [path.resolve(__dirname, './resolver-module.mjs'), 'default'],
-    }).apply(compiler);
+      r: [path.resolve(__dirname, './resolver-module.mjs'), 'default']
+    }).apply(compiler)
 
     // 1 - Add the resolver loader.
     // This loader will be used to transform the API methods
@@ -70,8 +70,8 @@ export class ResolvePlugin {
         jsx: this.loaderOptions ? this.loaderOptions['jsx'] : false,
         typescript: this.loaderOptions
           ? this.loaderOptions['typescript']
-          : false,
-      },
-    });
+          : false
+      }
+    })
   }
 }

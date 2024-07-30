@@ -1,4 +1,4 @@
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 
 export function webAccessibleResources(manifest: Manifest, exclude: string[]) {
   return (

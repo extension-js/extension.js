@@ -1,6 +1,6 @@
 import {declarativeNetRequest} from './declarative_net_request'
 import {storage} from './storage'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 
 export function jsonFields(
   context: string,

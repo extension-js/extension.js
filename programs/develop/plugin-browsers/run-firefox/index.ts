@@ -5,7 +5,7 @@ import {firefoxLocation} from './firefox-location'
 import {browserConfig} from './firefox/browser-config'
 import {RemoteFirefox} from './remote-firefox'
 import * as messages from '../browser-lib/messages'
-import {type PluginInterface} from '../types'
+import {type PluginInterface} from '../command-types'
 import {DevOptions} from '../../commands/dev'
 
 process.on('SIGINT', () => {
