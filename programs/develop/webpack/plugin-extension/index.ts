@@ -12,13 +12,14 @@ import {getSpecialFoldersData} from './data/special-folders'
 // Plugins
 import ResolvePlugin from 'webpack-browser-extension-resolve'
 import {ManifestPlugin} from './feature-manifest'
-import HtmlPlugin from 'webpack-browser-extension-html'
+import {HtmlPlugin} from './feature-html'
 import {ScriptsPlugin} from './feature-scripts'
-import LocalesPlugin from 'webpack-browser-extension-locales'
-import JsonPlugin from 'webpack-browser-extension-json'
-import IconsPlugin from 'webpack-browser-extension-icons'
-import ResourcesPlugin from 'webpack-browser-extension-resources'
+import {LocalesPlugin} from './feature-locales'
+import {JsonPlugin} from './feature-json'
+import {IconsPlugin} from './feature-icons'
+import {WebResourcesPlugin} from './feature-web-resources'
 import {SpecialFoldersPlugin} from './feature-special-folders'
+
 import {PluginInterface, FilepathList} from '../types'
 
 // Handle special folders feature
@@ -87,6 +88,15 @@ export class ExtensionPlugin {
       }
     }).apply(compiler)
 
+    // new ResolvePlugin({
+    //   manifestPath,
+    //   includeList: {
+    //     ...(manifestFieldsData?.html || {}),
+    //     ...(manifestFieldsData?.scripts || {}),
+    //   },
+    //   excludeList: specialFoldersData.public,
+    // }).apply(compiler);
+
     // Generate a manifest file with all the assets we need
     new ManifestPlugin({
       browser: this.browser,
@@ -103,8 +113,14 @@ export class ExtensionPlugin {
     // Get every field in manifest that allows an .html file
     new HtmlPlugin({
       manifestPath,
-      include: allPages,
-      exclude: [...allPublic, ...allScripts]
+      includeList: {
+        ...manifestFieldsData.html,
+        ...specialFoldersData.pages
+      },
+      excludeList: {
+        ...specialFoldersData.public,
+        ...specialFoldersData.scripts
+      }
     }).apply(compiler)
 
     // Get all scripts (bg, content, sw) declared in manifest
@@ -121,26 +137,30 @@ export class ExtensionPlugin {
     }).apply(compiler)
 
     // Get locales
-    new LocalesPlugin({manifestPath}).apply(compiler)
+    new LocalesPlugin({
+      manifestPath
+    }).apply(compiler)
 
     // Grab all JSON assets from manifest except _locales
     new JsonPlugin({
       manifestPath,
-      exclude: allPublic
+      includeList: manifestFieldsData.json,
+      excludeList: specialFoldersData.public
     }).apply(compiler)
 
     // Grab all icon assets from manifest including popup icons
     new IconsPlugin({
       manifestPath,
-      exclude: allPublic
+      includeList: manifestFieldsData.icons as FilepathList,
+      excludeList: specialFoldersData.public
     }).apply(compiler)
 
     // Grab all resources from script files
     // (background, content_scripts, service_worker)
     // and add them to the assets bundle.
-    new ResourcesPlugin({
+    new WebResourcesPlugin({
       manifestPath,
-      exclude: allPublic
+      excludeList: specialFoldersData.public
     }).apply(compiler)
 
     // Plugin to add special folders (public, pages, scripts) to the extension
