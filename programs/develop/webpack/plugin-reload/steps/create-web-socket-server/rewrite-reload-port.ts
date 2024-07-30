@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 
-export default function replacePortInFile(port: number) {
+export function replacePortInFile(port: number) {
   const filePath = path.resolve(
     __dirname,
     './extensions/reload-extension/reloadService.js'
