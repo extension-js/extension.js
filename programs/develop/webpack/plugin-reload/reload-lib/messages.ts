@@ -1,18 +1,16 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {
-  bold,
-  bgWhite,
   red,
   underline,
   green,
   blue,
-  black,
+  yellow,
   magenta,
-  cyan
+  cyan,
+  gray
 } from '@colors/colors/safe'
 
-import {getDirectorySize} from './calculate-dir-size'
 import {type Manifest} from '../../webpack-types'
 import {DevOptions} from '../../../module'
 
@@ -26,11 +24,25 @@ export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
+function getLoggingPrefix(
+  packageName: string,
+  type: 'warn' | 'info' | 'error' | 'success'
+): string {
+  const arrow =
+    type === 'warn'
+      ? yellow('►►►')
+      : type === 'info'
+        ? blue('►►►')
+        : type === 'error'
+          ? red('✖︎✖︎✖︎')
+          : green('►►►')
+  return `${packageName} ${arrow}`
+}
+
 export function extensionData(
   compiler: Compiler,
-  browser: string,
-  message: {data?: Data},
-  isFirstRun?: boolean
+  packageName: string,
+  message: {data?: Data}
 ) {
   if (!message.data) {
     // TODO: cezaraugusto this happens when the extension
@@ -38,7 +50,7 @@ export function extensionData(
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
     return (
-      `[⛔️] ${bgWhite(` ${browser}-browser `)} ${red('✖︎✖︎✖︎')} No data received from client.\n` +
+      `${getLoggingPrefix(packageName, 'error')} No data received from client.\n` +
       `Ensure your extension is enabled and that no hanging browser instance is open then try again.`
     )
   }
@@ -49,13 +61,13 @@ export function extensionData(
   if (!management) {
     if (process.env.EXTENSION_ENV === 'development') {
       return (
-        `[⛔️] ${bgWhite(` ${browser}-browser `)} ${green('►►►')} ` +
+        `${getLoggingPrefix(packageName, 'error')} ` +
         `No management API info received from client. Investigate.`
       )
     }
   }
 
-  const {name, description, version, hostPermissions, permissions} = management
+  const {name, version, hostPermissions, permissions, enabled} = management
 
   const manifestPath = path.join(compilerOptions.context || '', 'manifest.json')
   const manifestFromCompiler = require(manifestPath)
@@ -71,38 +83,33 @@ export function extensionData(
   const hasHost = hostPermissions && hostPermissions.length
 
   return `
-${`• Name:`} ${name}
-${description && `• Description:`} ${description}
-${`• Version:`} ${version}
-${`• Size:`} ${getDirectorySize(compilerOptions.output.path || 'dist')}
-${`• ID:`} ${id} ${fixedId ? '(permantent)' : '(temporary)'}
-${hasHost && `• Host Permissions:`} ${hostPermissions.sort().join(', ')}
-${`• Permissions:`} ${permissionsParsed.sort().join(', ') || 'Browser defaults'}
-${`• Settings URL:`} ${underline(blue(`${browser}://extensions/?id=${id}`))}\n`
+${`🧩 ${gray('Extension.js')}`}
+${`   Name:`} ${name}
+${`   Version:`} ${version}
+${`   ID:`} ${id} ${fixedId ? '(permantent)' : '(temporary)'}
+${`   Host Permissions: ${hasHost ? hostPermissions.sort().join(', ') : 'n/a'}`} 
+${`   Permissions:`} ${permissionsParsed.sort().join(', ') || 'n/a'}
+${`   Enabled:`} ${enabled ? green('Yes') : red('No')}
+`
 }
 
-export function stdoutData(
-  compiler: Compiler,
-  browser: DevOptions['browser'],
-  message: {data?: Data}
-) {
+export function stdoutData(compiler: Compiler, browser: DevOptions['browser']) {
   const compilerOptions = compiler.options
-  const management = message.data?.management
-  const crRuntime = bgWhite(black(` ${browser}-browser `))
-
   const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
+
   return (
-    `${crRuntime} ${green('►►►')} Running ${capitalizedBrowserName(browser)} ` +
-    `in ${modeColor(compilerOptions.mode || 'unknown')} mode. ` +
-    `Browser ${management?.type} ${management?.enabled ? 'enabled' : 'disabled'}.`
+    `Running extension in ${modeColor(compilerOptions.mode || 'unknown')} mode ` +
+    `via ${capitalizedBrowserName(browser)}. `
   )
 }
 
-export function isFirstRun() {
-  ;`This is your first run using ${'Extension.js'}. Welcome! 🎉\n` +
-    `\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`
+export function isFirstRun(browser: DevOptions['browser']) {
+  return (
+    `This is your first run using Extension.js via ${capitalizedBrowserName(browser)}. Welcome! 🎉\n` +
+    `\n🧩 Learn more at ${underline(`https://extension.js.org`)}`
+  )
 }
 
-export function webSocketError(browser: DevOptions['browser'], error: any) {
-  return `${browser} ${red('✖︎✖︎✖︎')} WebSocket error: ${error}`
+export function webSocketError(packageName: string, error: any) {
+  return `${getLoggingPrefix(packageName, 'error')} WebSocket error: ${error}`
 }
