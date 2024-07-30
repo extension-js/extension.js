@@ -3,7 +3,6 @@ import fs from 'fs'
 import {Stats, StatsAsset} from 'webpack'
 import {type ErrorObject} from 'ajv'
 import {
-  bgWhite,
   red,
   yellow,
   green,
@@ -15,6 +14,7 @@ import {
 } from '@colors/colors/safe'
 import {Manifest} from '../types'
 import {StartOptions} from '../../commands/start'
+import {DevOptions} from '../../commands/dev'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const arrow =
@@ -179,27 +179,6 @@ export function manifestNotFound() {
   )
 }
 
-export function browserNotFound(chromePath: string) {
-  return (
-    `${bgWhite(` chrome-browser `)} ` +
-    `${red('✖︎✖︎✖︎')} Chrome not found at ${chromePath}`
-  )
-}
-
-export function webSocketError(error: NodeJS.ErrnoException) {
-  return (
-    `[⛔️] ${bgWhite(` chrome-browser `)} ` +
-    `${red('✖︎✖︎✖︎')} WebSocket error ${error}`
-  )
-}
-
-export function parseFileError(error: NodeJS.ErrnoException, filepath: string) {
-  return (
-    `[⛔️] ${bgWhite(` chrome-browser `)} ${red('✖︎✖︎✖︎')} ` +
-    `Error parsing file: ${filepath}. Reason: ${error.message}`
-  )
-}
-
 export function fileNotFound(
   manifestPath: string,
   feature: string | undefined,
@@ -259,36 +238,29 @@ ${`• Permissions:`} ${
   }
   `
 }
+export function capitalizedBrowserName(browser: DevOptions['browser']) {
+  return browser!.charAt(0).toUpperCase() + browser!.slice(1)
+}
 
-export function ready(options: StartOptions): string {
-  const capitalizedBrowserName =
-    options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
-
+export function ready(browser: DevOptions['browser']): string {
   return (
     `${getLoggingPrefix('success')} ` +
-    `Running ${capitalizedBrowserName} in ${magenta(
-      'production'
-    )} mode. Browser extension ${'enabled'}...`
+    `Running ${capitalizedBrowserName(browser)} in ${magenta('production')} mode. `
+    + `Browser extension enabled...`
   )
 }
 
-export function building(options: StartOptions): string {
-  const capitalizedBrowserName =
-    options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
-
+export function building(browser: DevOptions['browser']): string {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Building the extension package against ${capitalizedBrowserName}...`
+    `Building the extension package against ${capitalizedBrowserName(browser)}...`
   )
 }
 
-export function previewing(options: StartOptions): string {
-  const capitalizedBrowserName =
-    options.browser!.charAt(0).toUpperCase() + options.browser!.slice(1)
-
+export function previewing(browser: DevOptions['browser']): string {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Previewing the extension on ${capitalizedBrowserName}...`
+    `Previewing the extension on ${capitalizedBrowserName(browser)}...`
   )
 }
 

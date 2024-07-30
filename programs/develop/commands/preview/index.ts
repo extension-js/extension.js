@@ -44,7 +44,7 @@ export default async function extensionStart(
       plugins: onlyBrowserRunners
     }
 
-    console.log(messages.previewing(previewOptions))
+    console.log(messages.previewing(browser))
 
     webpack(webpackConfigOnlyBrowser).run((err, stats) => {
       if (err) {
@@ -56,7 +56,7 @@ export default async function extensionStart(
 
       if (!stats?.hasErrors()) {
         setTimeout(() => {
-          messages.ready(previewOptions)
+          messages.ready(browser)
         }, 750)
       } else {
         console.log(stats.toString({colors: true}))

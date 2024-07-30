@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, red, yellow} from '@colors/colors/safe'
+import {red, yellow} from '@colors/colors/safe'
 
 import getTemplatePath from '../helpers/getTemplatePath'
 import isExternalTemplate from '../helpers/isExternalTemplate'

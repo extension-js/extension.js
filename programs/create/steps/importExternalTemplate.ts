@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, blue} from '@colors/colors/safe'
+import {blue} from '@colors/colors/safe'
 
 export default async function importExternalTemplate(
   workingDir: string,

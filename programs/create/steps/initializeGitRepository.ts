@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import {spawn} from 'cross-spawn'
-import {bold, yellow, red} from '@colors/colors/safe'
+import {yellow, red} from '@colors/colors/safe'
 
 export default async function initializeGitRepository(
   projectPath: string,

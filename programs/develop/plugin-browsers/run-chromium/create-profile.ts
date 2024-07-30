@@ -1,13 +1,15 @@
 import path from 'path'
 import fs from 'fs'
-import {addProgressBar} from '../browser-lib/add-progress-bar'
 import {
   chromeMasterPreferences,
   edgeMasterPreferences
 } from './master-preferences'
+import * as messages from '../browser-lib/messages'
+import {addProgressBar} from '../browser-lib/add-progress-bar'
+import { DevOptions } from '../../commands/dev'
 
 export function createProfile(
-  browser: string,
+  browser: DevOptions['browser'],
   profilePath?: string,
   silent?: boolean
 ) {
@@ -22,11 +24,10 @@ export function createProfile(
     browser === 'chrome' ? chromeMasterPreferences : edgeMasterPreferences
 
   const userProfile = JSON.stringify(preferences)
-  const capitalBrowsername = browser.charAt(0).toUpperCase() + browser.slice(1)
 
   if (!silent) {
     addProgressBar(
-      `👤 Creating ${capitalBrowsername} user data directory...`,
+      messages.creatingUserProfile(browser),
       () => {
         const profilePath = path.resolve(__dirname, `run-${browser}-profile`)
         const preferences = path.join(profilePath, 'Default')

@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, red} from '@colors/colors/safe'
+import {red} from '@colors/colors/safe'
 import * as messages from '../messages'
 import isDirectoryWriteable from '../helpers/isDirectoryWriteable'
 
