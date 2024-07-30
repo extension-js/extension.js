@@ -52,14 +52,7 @@
     "ts-loader": "^9.5.1",
     "webextension-polyfill": "^0.12.0",
     "webpack": "~5.92.0",
-    "webpack-browser-extension-html": "*",
-    "webpack-browser-extension-icons": "*",
-    "webpack-browser-extension-json": "*",
-    "webpack-browser-extension-locales": "*",
-    "webpack-browser-extension-manifest-compat": "*",
-    "webpack-browser-extension-polyfill": "^2.0.2",
     "webpack-browser-extension-resolve": "*",
-    "webpack-browser-extension-resources": "*",
     "webpack-dev-server": "^5.0.2",
     "webpack-run-firefox-addon": "*"
   },
@@ -97,7 +90,7 @@
     "stylelint-config-standard-scss": "^13.1.0",
     "stylelint-webpack-plugin": "^5.0.1",
     "ts-loader": "^9.5.1",
-    "typescript": "^5.5.4",
+    "typescript": "^5.3.3",
     "vue-loader": "^17.4.2",
     "vue-style-loader": "^4.1.3",
     "vue-template-compiler": "^2.7.16"
