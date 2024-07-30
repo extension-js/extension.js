@@ -20,7 +20,7 @@ import {IconsPlugin} from './feature-icons'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {SpecialFoldersPlugin} from './feature-special-folders'
 
-import {PluginInterface, FilepathList} from '../types'
+import {PluginInterface, FilepathList} from '../webpack-types'
 
 // Handle special folders feature
 import {

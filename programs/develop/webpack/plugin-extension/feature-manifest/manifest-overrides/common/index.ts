@@ -13,7 +13,7 @@ import {storage} from './storage'
 import {theme} from './theme'
 import {userScripts} from './user_scripts'
 import {webAccessibleResources} from './web_accessible_resources'
-import {type Manifest} from '../../../../types'
+import {type Manifest} from '../../../../webpack-types'
 
 export function manifestCommon(manifest: Manifest, exclude: string[]) {
   return {

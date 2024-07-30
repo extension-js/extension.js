@@ -1,18 +1,18 @@
-import { backgroundScripts } from './background';
-import { serviceWorker } from './service_worker';
-import { contentScripts } from './content_scripts';
-import { userScripts } from './user_scripts';
-import { action } from './action';
-import { background } from './background.page';
-import { browserAction } from './browser_action';
-import { chromeUrlOverrides } from './chrome_url_overrides';
-import { devtoolsPage } from './devtools_page';
-import { optionsUi } from './options_ui';
-import { pageAction } from './page_action';
-import { sandbox } from './sandbox';
-import { sidePanel } from './side_panel';
-import { sidebarAction } from './sidebar_action';
-import { type ManifestData } from './types';
+import {backgroundScripts} from './background'
+import {serviceWorker} from './service_worker'
+import {contentScripts} from './content_scripts'
+import {userScripts} from './user_scripts'
+import {action} from './action'
+import {background} from './background.page'
+import {browserAction} from './browser_action'
+import {chromeUrlOverrides} from './chrome_url_overrides'
+import {devtoolsPage} from './devtools_page'
+import {optionsUi} from './options_ui'
+import {pageAction} from './page_action'
+import {sandbox} from './sandbox'
+import {sidePanel} from './side_panel'
+import {sidebarAction} from './sidebar_action'
+import {type ManifestData} from './types'
 
 export function getManifestEntries(
   manifest: ManifestData
@@ -34,6 +34,6 @@ export function getManifestEntries(
     // read as sandbox/page-0.html
     ...sandbox(manifest),
     [`side_panel/default_path.html`]: sidePanel(manifest),
-    [`sidebar_action/default_panel.html`]: sidebarAction(manifest),
-  };
+    [`sidebar_action/default_panel.html`]: sidebarAction(manifest)
+  }
 }

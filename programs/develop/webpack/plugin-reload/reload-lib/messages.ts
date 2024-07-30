@@ -13,12 +13,17 @@ import {
 } from '@colors/colors/safe'
 
 import {getDirectorySize} from './calculate-dir-size'
-import {type Manifest} from '../../types'
+import {type Manifest} from '../../webpack-types'
+import {DevOptions} from '../../../module'
 
 interface Data {
   id: string
   manifest: Manifest
   management: chrome.management.ExtensionInfo
+}
+
+export function capitalizedBrowserName(browser: DevOptions['browser']) {
+  return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
 export function extensionData(
@@ -32,11 +37,10 @@ export function extensionData(
     // can't reach the background script. This can be many
     // things such as a mismatch config or if after an error
     // the extension starts disabled. Improve this error.
-    return `[⛔️] ${bgWhite(` ${browser}-browser `)} ${red(
-      '✖︎✖︎✖︎'
-    )} No data received from client.
-
-Ensure your extension is enabled and that no hanging browser instance is open then try again.`
+    return (
+      `[⛔️] ${bgWhite(` ${browser}-browser `)} ${red('✖︎✖︎✖︎')} No data received from client.\n` +
+      `Ensure your extension is enabled and that no hanging browser instance is open then try again.`
+    )
   }
 
   const compilerOptions = compiler.options
@@ -79,7 +83,7 @@ ${`• Settings URL:`} ${underline(blue(`${browser}://extensions/?id=${id}`))}\n
 
 export function stdoutData(
   compiler: Compiler,
-  browser: string,
+  browser: DevOptions['browser'],
   message: {data?: Data}
 ) {
   const compilerOptions = compiler.options
@@ -87,14 +91,10 @@ export function stdoutData(
   const crRuntime = bgWhite(black(` ${browser}-browser `))
 
   const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
-  const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
   return (
-    `${crRuntime} ${green('►►►')} Running ${capitalize(browser)} in ${modeColor(
-      compilerOptions.mode || 'unknown'
-    )} mode. ` +
-    `Browser ${management?.type} ${
-      management?.enabled ? 'enabled' : 'disabled'
-    }.`
+    `${crRuntime} ${green('►►►')} Running ${capitalizedBrowserName(browser)} ` +
+    `in ${modeColor(compilerOptions.mode || 'unknown')} mode. ` +
+    `Browser ${management?.type} ${management?.enabled ? 'enabled' : 'disabled'}.`
   )
 }
 
@@ -103,18 +103,6 @@ export function isFirstRun() {
     `\n🧩 Learn more at ${blue(underline(`https://extension.js.org`))}`
 }
 
-export function watchModeClosed(code: number, reason: Buffer) {
-  const message = reason.toString()
-
-  return `[😓] ${bgWhite(` chrome-browser `)} ${red(
-    '✖︎✖︎✖︎'
-  )} Watch mode closed (code ${code}). ${
-    message && '\n\nReason ' + message + '\n'
-  }Exiting...\n`
-}
-
-export function webSocketError(error: any) {
-  return `[⛔️] ${bgWhite(` chrome-browser `)} ${red(
-    '✖︎✖︎✖︎'
-  )} WebSocket error: ${error}`
+export function webSocketError(browser: DevOptions['browser'], error: any) {
+  return `${browser} ${red('✖︎✖︎✖︎')} WebSocket error: ${error}`
 }

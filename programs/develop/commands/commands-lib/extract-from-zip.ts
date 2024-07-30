@@ -2,7 +2,7 @@ import fs from 'fs/promises'
 import path from 'path'
 import axios from 'axios'
 import AdmZip from 'adm-zip'
-import * as messages from '../../webpack/lib/messages'
+import * as messages from './messages'
 
 export async function downloadAndExtractZip(
   url: string,
@@ -34,8 +34,8 @@ export async function downloadAndExtractZip(
     await fs.unlink(zipFilePath)
 
     console.log(messages.unpackagedSuccessfully())
-  } catch (error) {
-    // console.error(error)
+  } catch (error: any) {
+    console.error(messages.failedToDownloadOrExtractZIPFile(error))
     throw error
   }
 }

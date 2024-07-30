@@ -1,9 +1,9 @@
-import fs from 'fs';
-import type webpack from 'webpack';
-import { sources, Compilation } from 'webpack';
-import { type FilepathList, type PluginInterface } from '../../types';
-import * as utils from '../../lib/utils';
-import * as errors from '../../lib/errors';
+import fs from 'fs'
+import webpack from 'webpack'
+import {sources, Compilation} from 'webpack'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
+import * as utils from '../../lib/utils'
+import * as messages from '../../lib/messages'
 
 /**
  * JsonPlugin is responsible for handling the JSON files defined
@@ -15,14 +15,14 @@ import * as errors from '../../lib/errors';
  * - storage.managed_schema
  */
 export class JsonPlugin {
-  public readonly manifestPath: string;
-  public readonly includeList?: FilepathList;
-  public readonly excludeList?: FilepathList;
+  public readonly manifestPath: string
+  public readonly includeList?: FilepathList
+  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath;
-    this.includeList = options.includeList;
-    this.excludeList = options.excludeList;
+    this.manifestPath = options.manifestPath
+    this.includeList = options.includeList
+    this.excludeList = options.excludeList
   }
 
   public apply(compiler: webpack.Compiler): void {
@@ -34,21 +34,21 @@ export class JsonPlugin {
         {
           name: 'json:module',
           // Add additional assets to the compilation.
-          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS,
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
         () => {
-          if (compilation.errors.length > 0) return;
+          if (compilation.errors.length > 0) return
 
-          const jsonFields = this.includeList || {};
+          const jsonFields = this.includeList || {}
 
           for (const field of Object.entries(jsonFields)) {
-            const [feature, resource] = field;
+            const [feature, resource] = field
 
             const resourceArr: Array<string | undefined> = Array.isArray(
               resource
             )
               ? resource
-              : [resource];
+              : [resource]
 
             for (const thisResource of resourceArr) {
               // Resources from the manifest lib can come as undefined.
@@ -58,25 +58,25 @@ export class JsonPlugin {
                 // and output the file accordingly.
                 if (!utils.shouldExclude(thisResource, this.excludeList)) {
                   if (!fs.existsSync(thisResource)) {
-                    errors.entryNotFoundWarn(
-                      compilation,
-                      feature,
-                      thisResource
-                    );
-                    return;
+                    compilation.warnings.push(
+                      new webpack.WebpackError(
+                        messages.entryNotFoundWarn(feature, thisResource)
+                      )
+                    )
+                    return
                   }
 
-                  const source = fs.readFileSync(thisResource);
-                  const rawSource = new sources.RawSource(source);
+                  const source = fs.readFileSync(thisResource)
+                  const rawSource = new sources.RawSource(source)
 
-                  compilation.emitAsset(feature + '.json', rawSource);
+                  compilation.emitAsset(feature + '.json', rawSource)
                 }
               }
             }
           }
         }
-      );
-    });
+      )
+    })
 
     // Ensure this JSON file and its assets are stored as file
     // dependencies so webpack can watch and trigger changes.
@@ -84,31 +84,31 @@ export class JsonPlugin {
       compilation.hooks.processAssets.tap(
         {
           name: 'json:module',
-          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS,
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
         (assets) => {
-          if (compilation.errors?.length) return;
+          if (compilation.errors?.length) return
 
-          const jsonFields = this.includeList || {};
+          const jsonFields = this.includeList || {}
 
           for (const field of Object.entries(jsonFields)) {
-            const [, resource] = field;
+            const [, resource] = field
 
             const resourceArr: Array<string | undefined> = Array.isArray(
               resource
             )
               ? resource
-              : [resource];
+              : [resource]
 
             for (const thisResource of resourceArr) {
               if (thisResource) {
-                const fileDependencies = new Set(compilation.fileDependencies);
+                const fileDependencies = new Set(compilation.fileDependencies)
 
                 if (!utils.shouldExclude(thisResource, this.excludeList)) {
                   if (fs.existsSync(thisResource)) {
                     if (!fileDependencies.has(thisResource)) {
-                      fileDependencies.add(thisResource);
-                      compilation.fileDependencies.add(thisResource);
+                      fileDependencies.add(thisResource)
+                      compilation.fileDependencies.add(thisResource)
                     }
                   }
                 }
@@ -116,7 +116,7 @@ export class JsonPlugin {
             }
           }
         }
-      );
-    });
+      )
+    })
   }
 }

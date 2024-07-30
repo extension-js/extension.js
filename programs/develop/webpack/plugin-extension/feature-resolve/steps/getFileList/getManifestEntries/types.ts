@@ -1,1 +1,1 @@
-export type ManifestData = Record<string, any>;
+export type ManifestData = Record<string, any>

@@ -5,27 +5,38 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import fs from 'fs'
+import path from 'path'
 import webpack from 'webpack'
-import compilerConfig from '../../webpack/webpack-config'
-import * as messages from '../../webpack/lib/messages'
-import {getProjectPath} from '../get-project-path'
+import compilerConfig from '../webpack/webpack-config'
+import * as messages from './commands-lib/messages'
+import {getProjectPath} from './commands-lib/get-project-path'
+import {DevOptions} from './dev'
 
 export interface PreviewOptions {
   mode?: 'development' | 'production'
-  browser?: 'chrome' | 'edge' | 'firefox' | 'all'
+  browser?: DevOptions['browser']
   port?: number
   noOpen?: boolean
   userDataDir?: string | boolean
   polyfill?: boolean
 }
 
-export default async function extensionStart(
+export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
   previewOptions: PreviewOptions = {
     mode: 'production'
   }
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
+
+  if (
+    !pathOrRemoteUrl?.startsWith('http') &&
+    !fs.existsSync(path.join(projectPath, 'manifest.json'))
+  ) {
+    console.log(messages.manifestNotFound())
+    process.exit(1)
+  }
 
   try {
     const browser = previewOptions.browser || 'chrome'
@@ -52,19 +63,19 @@ export default async function extensionStart(
         process.exit(1)
       }
 
-      messages.startWebpack(projectPath, previewOptions)
+      console.log(messages.previewWebpack(projectPath, previewOptions))
 
       if (!stats?.hasErrors()) {
         setTimeout(() => {
-          messages.ready(browser)
+          console.log(messages.ready(browser))
         }, 750)
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)
       }
     })
-  } catch (error: any) {
-    console.log(error)
+  } catch (error) {
+    // console.log(error)
     process.exit(1)
   }
 }

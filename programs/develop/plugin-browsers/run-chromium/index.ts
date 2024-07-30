@@ -3,8 +3,8 @@ import {type Compiler} from 'webpack'
 import {spawn} from 'child_process'
 import {browserConfig} from './browser-config'
 import * as messages from '../browser-lib/messages'
-import {PluginInterface} from '../types'
-import { DevOptions } from '../../commands/dev'
+import {PluginInterface} from '../command-types'
+import {DevOptions} from '../../commands/dev'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -28,7 +28,7 @@ export class RunChromiumPlugin {
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
-    this.browser = options.browser || 'chrome'
+    this.browser = options.browser
     this.browserFlags = options.browserFlags || []
     this.userDataDir = options.userDataDir
     this.profile = options.profile
@@ -40,7 +40,9 @@ export class RunChromiumPlugin {
     const browserBinaryLocation: string = require(`${browser}-location`)
 
     if (!fs.existsSync(browserBinaryLocation) || '') {
-      console.error(messages.browserNotInstalled(browser, browserBinaryLocation))
+      console.error(
+        messages.browserNotInstalled(browser, browserBinaryLocation)
+      )
       process.exit()
     }
 

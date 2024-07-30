@@ -1,9 +1,7 @@
-import {type PluginInterface} from '../types'
+import {type PluginInterface} from '../command-types'
 import {createProfile} from './create-profile'
 
-export function browserConfig(
-  configOptions: PluginInterface
-) {
+export function browserConfig(configOptions: PluginInterface) {
   const extensionsToLoad = Array.isArray(configOptions.extension)
     ? configOptions.extension
     : [configOptions.extension]
@@ -14,7 +12,7 @@ export function browserConfig(
   return [
     `--load-extension=${extensionsToLoad.join()}`,
     `--user-data-dir=${createProfile(
-      configOptions.browser || 'chrome',
+      configOptions.browser,
       configOptions.userDataDir || configOptions.profile
     )}`,
     // Disable Chrome's native first run experience.

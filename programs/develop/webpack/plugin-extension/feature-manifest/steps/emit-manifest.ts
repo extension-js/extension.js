@@ -1,8 +1,8 @@
 import fs from 'fs'
-import {Compiler, Compilation} from 'webpack'
+import webpack, {Compiler, Compilation} from 'webpack'
 import {sources} from 'webpack'
-import * as errors from '../../../lib/errors'
-import {type PluginInterface} from '../../../types'
+import * as messages from '../../../lib/messages'
+import {type PluginInterface} from '../../../webpack-types'
 
 export class EmitManifest {
   public readonly manifestPath: string
@@ -29,7 +29,9 @@ export class EmitManifest {
               const content = fs.readFileSync(manifestPath, 'utf-8')
               jsonContent = JSON.parse(content)
             } catch (error: any) {
-              errors.manifestInvalidError(compilation, error)
+              compilation.errors.push(
+                new webpack.WebpackError(messages.manifestInvalidError(error))
+              )
               return
             }
 

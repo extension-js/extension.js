@@ -1,16 +1,16 @@
-import fs from 'fs';
-import { type Compiler } from 'webpack';
-import { Compilation } from 'webpack';
-import { type FilepathList, type PluginInterface } from '../../../types';
-import { getAssetsFromHtml } from '../html-lib/utils';
+import fs from 'fs'
+import {type Compiler} from 'webpack'
+import {Compilation} from 'webpack'
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import {getAssetsFromHtml} from '../html-lib/utils'
 
 export class AddToFileDependencies {
-  public readonly manifestPath: string;
-  public readonly includeList?: FilepathList;
+  public readonly manifestPath: string
+  public readonly includeList?: FilepathList
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath;
-    this.includeList = options.includeList;
+    this.manifestPath = options.manifestPath
+    this.includeList = options.includeList
   }
 
   public apply(compiler: Compiler): void {
@@ -20,32 +20,32 @@ export class AddToFileDependencies {
         compilation.hooks.processAssets.tap(
           {
             name: 'html:add-to-file-dependencies',
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS,
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
-            if (compilation.errors?.length) return;
+            if (compilation.errors?.length) return
 
-            const allEntries = this.includeList || {};
+            const allEntries = this.includeList || {}
 
             for (const field of Object.entries(allEntries)) {
-              const [, resource] = field;
+              const [, resource] = field
 
               if (resource) {
-                const resourceData = getAssetsFromHtml(resource as string);
-                const fileDependencies = new Set(compilation.fileDependencies);
+                const resourceData = getAssetsFromHtml(resource as string)
+                const fileDependencies = new Set(compilation.fileDependencies)
 
                 if (fs.existsSync(resource as string)) {
                   const fileResources = [
                     resource as string,
-                    ...(resourceData?.static || []),
-                  ];
+                    ...(resourceData?.static || [])
+                  ]
 
                   for (const thisResource of fileResources) {
                     if (!fileDependencies.has(thisResource)) {
-                      fileDependencies.add(thisResource);
+                      fileDependencies.add(thisResource)
 
                       if (thisResource === resource) {
-                        compilation.fileDependencies.add(thisResource);
+                        compilation.fileDependencies.add(thisResource)
                       }
                     }
                   }
@@ -53,8 +53,8 @@ export class AddToFileDependencies {
               }
             }
           }
-        );
+        )
       }
-    );
+    )
   }
 }

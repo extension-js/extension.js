@@ -2,7 +2,7 @@ import path from 'path'
 import {manifestV2} from './mv2'
 import {manifestV3} from './mv3'
 import {manifestCommon} from './common'
-import {type Manifest, type FilepathList} from '../../../types'
+import {type Manifest, type FilepathList} from '../../../webpack-types'
 
 export function getManifestOverrides(
   manifestPath: string,

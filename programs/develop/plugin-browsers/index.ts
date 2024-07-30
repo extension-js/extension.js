@@ -1,9 +1,10 @@
 import os from 'os'
 import path from 'path'
 import {type Compiler} from 'webpack'
-import {type PluginInterface} from './types'
+import {type PluginInterface} from './command-types'
 import {RunChromiumPlugin} from './run-chromium'
-import RunFirefoxPlugin from 'webpack-run-firefox-addon'
+import {RunFirefoxPlugin} from './run-firefox'
+import {DevOptions} from '../commands/dev'
 
 /**
  * RunChromiumPlugin works by creating a WebSockets server
@@ -23,7 +24,7 @@ export class BrowsersPlugin {
   public static readonly name: string = 'plugin-browsers'
 
   public readonly extension: string | string[]
-  public readonly browser: string
+  public readonly browser: DevOptions['browser']
   public readonly browserFlags: string[]
   public readonly userDataDir?: string
   public readonly profile: string
@@ -32,7 +33,7 @@ export class BrowsersPlugin {
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
-    this.browser = options.browser || 'chrome'
+    this.browser = options.browser
     this.browserFlags = options.browserFlags || []
     this.userDataDir = options.userDataDir
     this.profile = options.profile || ''
@@ -42,7 +43,7 @@ export class BrowsersPlugin {
 
   private getProfilePath(
     compiler: Compiler,
-    browser: string,
+    browser: DevOptions['browser'],
     profile: string | undefined
   ) {
     if (profile) {
@@ -65,7 +66,7 @@ export class BrowsersPlugin {
       browserFlags: this.browserFlags || [],
       userDataDir: this.getProfilePath(
         compiler,
-        this.browser || 'chrome',
+        this.browser,
         this.userDataDir || this.profile
       )
     }
@@ -86,24 +87,28 @@ export class BrowsersPlugin {
         break
 
       case 'firefox':
+        new RunFirefoxPlugin({...config, browser: 'firefox'}).apply(compiler)
         // TODO: Use updated Firefox plugin
-        new RunFirefoxPlugin({
-          port: 8002,
-          manifestPath: path.join(this.extension[0], 'manifest.json'),
-          // The final folder where the extension manifest file is located.
-          // This is used to load the extension into the browser.
-          extensionPath: path.join(this.extension[0], 'dist', this.browser),
-          autoReload: true,
-          userDataDir: this.getProfilePath(
-            compiler,
-            'firefox',
-            this.userDataDir || this.profile
-          ),
-          stats: true
-        }).apply(compiler)
+        // new RunFirefoxPlugin({
+        //   port: 8002,
+        //   manifestPath: path.join(this.extension[0], 'manifest.json'),
+        //   // The final folder where the extension manifest file is located.
+        //   // This is used to load the extension into the browser.
+        //   extensionPath: path.join(this.extension[0], 'dist', this.browser),
+        //   autoReload: true,
+        //   userDataDir: this.getProfilePath(
+        //     compiler,
+        //     'firefox',
+        //     this.userDataDir || this.profile
+        //   ),
+        //   stats: true
+        // }).apply(compiler)
         break
       default: {
-        new RunChromiumPlugin({...config, browser: 'chrome'}).apply(compiler)
+        // TODO: cezaraugusto Attempt to run with any user-declared path
+        new RunChromiumPlugin({...config, browser: this.browser}).apply(
+          compiler
+        )
         break
       }
     }

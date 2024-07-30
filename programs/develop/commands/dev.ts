@@ -5,55 +5,50 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import webpack from 'webpack'
-import compilerConfig from '../../webpack/webpack-config'
-import * as messages from '../../webpack/lib/messages'
-import {getProjectPath} from '../get-project-path'
-import { DevOptions } from '../dev'
+import fs from 'fs'
+import path from 'path'
+import {devServer} from '../webpack/dev-server'
+import generateExtensionTypes from './commands-lib/generate-extension-types'
+import {isUsingTypeScript} from '../webpack/plugin-js-frameworks/js-tools/typescript'
+import {getProjectPath} from './commands-lib/get-project-path'
+import * as messages from './commands-lib/messages'
 
-export interface StartOptions {
-  mode?: 'development' | 'production'
-  browser?: DevOptions['browser']
+export interface DevOptions {
+  browser: 'chrome' | 'edge' | 'firefox'
+  mode: 'development' | 'production' | 'none' | undefined
   port?: number
   noOpen?: boolean
-  userDataDir?: string | boolean
+  userDataDir?: string
+  profile?: string
+  preferences?: Record<string, any>
+  browserFlags?: string[]
+  startingUrl?: string
   polyfill?: boolean
 }
 
-export default async function extensionStart(
+export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
-  startOptions: StartOptions = {
-    mode: 'production'
+  {...devOptions}: DevOptions = {
+    browser: 'chrome',
+    mode: 'development'
   }
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
+  if (
+    !pathOrRemoteUrl?.startsWith('http') &&
+    !fs.existsSync(path.join(projectPath, 'manifest.json'))
+  ) {
+    console.log(messages.manifestNotFound())
+    process.exit(1)
+  }
+
   try {
-    const browser = startOptions.browser || 'chrome'
-    const webpackConfig = compilerConfig(projectPath, {
-      mode: 'production',
-      browser
-    })
+    if (isUsingTypeScript(projectPath)) {
+      await generateExtensionTypes(projectPath)
+    }
 
-    console.log(messages.building(browser))
-
-    webpack(webpackConfig).run((err, stats) => {
-      if (err) {
-        console.error(err.stack || err)
-        process.exit(1)
-      }
-
-      if (!stats?.hasErrors()) {
-        console.log(messages.startWebpack(projectPath, startOptions))
-
-        setTimeout(() => {
-          console.log(messages.ready(browser))
-        }, 1500)
-      } else {
-        console.log(stats.toString({colors: true}))
-        process.exit(1)
-      }
-    })
+    await devServer(projectPath, {...devOptions})
   } catch (error) {
     console.log(error)
     process.exit(1)

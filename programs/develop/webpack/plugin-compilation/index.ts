@@ -4,7 +4,7 @@ import {EnvPlugin} from './env'
 import {CleanHotUpdatesPlugin} from './clean-hot-updates'
 import * as messages from '../lib/messages'
 
-import {type PluginInterface, type Manifest} from '../types'
+import {type PluginInterface, type Manifest} from '../webpack-types'
 
 export class CompilationPlugin {
   public static readonly name: string = 'plugin-compilation'

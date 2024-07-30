@@ -1,6 +1,6 @@
 import webpack from 'webpack'
 import * as messages from '../../lib/messages'
-import {type Manifest} from '../../types'
+import {type Manifest} from '../../webpack-types'
 
 export function wrongWebResourceFormatError(
   manifest: Manifest,

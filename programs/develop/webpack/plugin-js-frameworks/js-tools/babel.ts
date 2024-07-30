@@ -14,7 +14,7 @@ import {isUsingReact} from './react'
 import {isUsingPreact} from './preact'
 import {DevOptions} from '../../../commands/dev'
 import {isUsingTypeScript, maybeUseTypeScript} from './typescript'
-import {JsFramework} from '../../types'
+import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false
 

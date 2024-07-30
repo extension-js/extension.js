@@ -7,24 +7,26 @@
 
 import fs from 'fs'
 import path from 'path'
-import {devServer} from '../../webpack/dev-server'
-import {isUsingTypeScript} from '../../webpack/plugin-js-frameworks/js-tools/typescript'
-import {getProjectPath} from '../get-project-path'
-import * as messages from '../../webpack/lib/messages'
-import generateExtensionTypes from './generate-extension-types'
+import webpack from 'webpack'
+import compilerConfig from '../webpack/webpack-config'
+import {getProjectPath} from './commands-lib/get-project-path'
+import * as messages from './commands-lib/messages'
+import {DevOptions} from './dev'
 
-export interface DevOptions {
-  mode?: 'development' | 'production' | 'none' | undefined
-  browser?: 'chrome' | 'edge' | 'firefox' | 'all'
+export interface StartOptions {
+  mode?: 'development' | 'production'
+  browser?: DevOptions['browser']
   port?: number
   noOpen?: boolean
-  userDataDir?: string
+  userDataDir?: string | boolean
   polyfill?: boolean
 }
 
-export default async function extensionDev(
+export async function extensionStart(
   pathOrRemoteUrl: string | undefined,
-  {...devOptions}: DevOptions = {mode: 'development'}
+  startOptions: StartOptions = {
+    mode: 'production'
+  }
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
@@ -37,13 +39,33 @@ export default async function extensionDev(
   }
 
   try {
-    if (isUsingTypeScript(projectPath)) {
-      await generateExtensionTypes(projectPath)
-    }
+    const browser = startOptions.browser || 'chrome'
+    const webpackConfig = compilerConfig(projectPath, {
+      mode: 'production',
+      browser
+    })
 
-    await devServer(projectPath, {...devOptions})
+    console.log(messages.building(browser))
+
+    webpack(webpackConfig).run((err, stats) => {
+      if (err) {
+        console.error(err.stack || err)
+        process.exit(1)
+      }
+
+      if (!stats?.hasErrors()) {
+        console.log(messages.startWebpack(projectPath, startOptions))
+
+        setTimeout(() => {
+          console.log(messages.ready(browser))
+        }, 1500)
+      } else {
+        console.log(stats.toString({colors: true}))
+        process.exit(1)
+      }
+    })
   } catch (error) {
-    console.log(error)
+    // console.log(error)
     process.exit(1)
   }
 }

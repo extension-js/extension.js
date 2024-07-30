@@ -11,7 +11,7 @@ import {Compiler} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {isUsingTypeScript} from './typescript'
-import {JsFramework} from '../../types'
+import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false
 

@@ -1,50 +1,50 @@
-import * as messages from '../resolve-lib/messages';
+import * as messages from '../resolve-lib/messages'
 
 function notFoundError() {
-  console.error(messages.notFoundError);
-  return '';
+  console.error(messages.notFoundError)
+  return ''
 }
 
 function pathNormalize(path: string): string {
-  const parts = path.split('/');
-  const stack: string[] = [];
+  const parts = path.split('/')
+  const stack: string[] = []
 
   for (const part of parts) {
     if (part === '..' || part === '.') {
       // Ignore '..' and '.' segments
-      continue;
+      continue
     } else if (part !== '') {
-      stack.push(part);
+      stack.push(part)
     }
   }
 
-  return stack.join('/');
+  return stack.join('/')
 }
 
 function resolverError(filePath?: string) {
   if (filePath?.endsWith('.html')) {
-    console.error(messages.resolverHtmlError(filePath));
-    return filePath;
+    console.error(messages.resolverHtmlError(filePath))
+    return filePath
   }
   if (filePath?.endsWith('.js')) {
-    console.error(messages.resolverJsError(filePath));
-    return filePath;
+    console.error(messages.resolverJsError(filePath))
+    return filePath
   }
 
-  console.error(messages.resolverStaticError(filePath));
+  console.error(messages.resolverStaticError(filePath))
 
-  return filePath;
+  return filePath
 }
 
 // includeList is a map of the file path to the key
 // This is used to resolve the file path to the key.
 // emitResolverModule is responsible for generating this map,
 // which is done at runtime.
-const includeList = { data: '__RESOLVER_MODULE_FILE_LIST__' };
+const includeList = {data: '__RESOLVER_MODULE_FILE_LIST__'}
 
 function resolver(filePath?: string): string {
   if (!filePath) {
-    return notFoundError();
+    return notFoundError()
   }
 
   if (
@@ -52,78 +52,78 @@ function resolver(filePath?: string): string {
     filePath?.startsWith('chrome://') ||
     filePath?.startsWith('about:')
   ) {
-    return filePath;
+    return filePath
   }
 
   if (filePath?.startsWith('chrome-extension://')) {
-    const extensionUrl = chrome.runtime.getURL('');
+    const extensionUrl = chrome.runtime.getURL('')
 
     if (filePath.startsWith(extensionUrl)) {
-      const urlPath = filePath.replace(extensionUrl, '');
+      const urlPath = filePath.replace(extensionUrl, '')
 
-      return chrome.runtime.getURL(resolver(urlPath));
+      return chrome.runtime.getURL(resolver(urlPath))
     }
 
-    return filePath;
+    return filePath
   }
 
   // Special case for favicon
-  if (filePath?.startsWith('/_favicon')) return filePath;
+  if (filePath?.startsWith('/_favicon')) return filePath
 
   const resolvedValue = Object.entries(includeList.data).find(
     ([key, value]) => {
-      const filepathNormalized = pathNormalize(filePath);
+      const filepathNormalized = pathNormalize(filePath)
 
       if (
         value === filepathNormalized ||
         value === `pages/${filepathNormalized}` ||
         value === `scripts/${filepathNormalized}`
       ) {
-        return key;
+        return key
       }
 
       // TODO: cezaraugusto - this was not tested
-      return false;
+      return false
     }
-  );
+  )
 
-  const pathNorlaized = pathNormalize(filePath);
+  const pathNorlaized = pathNormalize(filePath)
 
   if (pathNorlaized.includes('public/')) {
-    return '/' + pathNorlaized;
+    return '/' + pathNorlaized
   }
 
   if (resolvedValue && resolvedValue.length) {
-    return resolvedValue[0];
+    return resolvedValue[0]
   }
 
   // Avoid catching the parameter of chrome.runtime.getURL('/')
   // which is a valid call to get the extension URL.
   // See https://github.com/cezaraugusto/extension.js/issues/67
   if (filePath !== '/') {
-    resolverError(filePath);
+    resolverError(filePath)
   }
 
-  return filePath;
+  return filePath
 }
 
-type SolveType = Record<string, any> | Array<Record<string, any>> | string;
+type SolveType = Record<string, any> | Array<Record<string, any>> | string
 
 function solve(apiArgument?: SolveType) {
   // - chrome.devtools.panels.create(..., stringPath, stringPath, ...)
   // - chrome.runtime.getURL(stringPath)
   if (typeof apiArgument === 'string') {
-    return resolver(apiArgument);
+    return resolver(apiArgument)
   }
 
   const propertyResolver = (obj: {
-    path?: string | Record<string, string>;
-    popup?: string;
-    url?: string;
-    iconUrl?: string;
-    files?: string[];
-    js?: string | string[];
-    css?: string | string[];
+    path?: string | Record<string, string>
+    popup?: string
+    url?: string
+    iconUrl?: string
+    files?: string[]
+    js?: string | string[]
+    css?: string | string[]
   }) => ({
     ...obj,
     // chrome.sidePanel.setOptions({..., path: string})
@@ -138,16 +138,16 @@ function solve(apiArgument?: SolveType) {
           ? resolver(obj.path)
           : Object.entries(obj.path).reduce((acc, [key, value]) => {
               // Apply the resolver to each value in the path object
-              (acc as Record<string, string>)[key] = resolver(value);
-              return acc;
-            }, {}),
+              ;(acc as Record<string, string>)[key] = resolver(value)
+              return acc
+            }, {})
     }),
 
     // chrome.action.setPopup({..., popup: string})
     // chrome.browserAction.setPopup({..., popup: string})
     // chrome.pageAction.setPopup({..., popup: string})
     // chrome.scriptBadge.setPopup({..., popup: string})
-    ...(obj?.popup && { popup: resolver(obj.popup) }),
+    ...(obj?.popup && {popup: resolver(obj.popup)}),
 
     // chrome.downloads.download({..., url: string})
     // chrome.tabs.create({..., url: string})
@@ -157,12 +157,12 @@ function solve(apiArgument?: SolveType) {
     ...(obj?.url && {
       url: Array.isArray(obj?.url)
         ? obj?.url.map((currentUrl: string) => resolver(currentUrl))
-        : resolver(obj?.url),
+        : resolver(obj?.url)
     }),
 
     // chrome.notifications.create
     // https://developer.chrome.com/docs/extensions/reference/api/notifications#property-NotificationOptions-iconUrl
-    ...(obj?.iconUrl && { iconUrl: resolver(obj.iconUrl) }),
+    ...(obj?.iconUrl && {iconUrl: resolver(obj.iconUrl)}),
 
     // chrome.scripting.insertCSS(..., files: string[])
     // chrome.scripting.removeCSS(..., files: string[])
@@ -170,7 +170,7 @@ function solve(apiArgument?: SolveType) {
     // chrome.scripting.registerContentScript(..., files: string[])
     // chrome.scripting.unregisterContentScript(..., files: string[])
     ...(obj?.files && {
-      files: obj.files.map((file: string) => resolver(file)),
+      files: obj.files.map((file: string) => resolver(file))
     }),
 
     // chrome.declarativeContent.RequestContentScript (css array)
@@ -180,7 +180,7 @@ function solve(apiArgument?: SolveType) {
     ...(obj?.js && {
       js: Array.isArray(obj.js)
         ? obj.js.map((file: string) => resolver(file))
-        : obj.js,
+        : obj.js
     }),
 
     // chrome.declarativeContent.RequestContentScript (css array)
@@ -190,18 +190,18 @@ function solve(apiArgument?: SolveType) {
     ...(obj?.css && {
       css: Array.isArray(obj.css)
         ? obj.css.map((file: string) => resolver(file))
-        : obj.css,
-    }),
-  });
+        : obj.css
+    })
+  })
 
   if (Array.isArray(apiArgument)) {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    return apiArgument.map((arg) => propertyResolver(arg));
+    return apiArgument.map((arg) => propertyResolver(arg))
   }
 
   return {
-    ...propertyResolver(apiArgument || {}),
-  };
+    ...propertyResolver(apiArgument || {})
+  }
 }
 
-export { solve };
+export {solve}

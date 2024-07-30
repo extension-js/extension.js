@@ -1,7 +1,7 @@
-import { DevOptions } from "../commands/dev"
+import {DevOptions} from '../commands/dev'
 
 export interface PluginInterface extends PluginOptions {
-  browser?: DevOptions['browser']
+  browser: DevOptions['browser']
   extension: string | string[]
 }
 
