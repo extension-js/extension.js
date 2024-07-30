@@ -98,8 +98,8 @@ export function stdoutData(compiler: Compiler, browser: DevOptions['browser']) {
   const modeColor = compilerOptions.mode === 'production' ? magenta : cyan
 
   return (
-    `Running extension in ${modeColor(compilerOptions.mode || 'unknown')} mode ` +
-    `via ${capitalizedBrowserName(browser)}. `
+    `Running browser extension in ${modeColor(compilerOptions.mode || 'unknown')} mode ` +
+    `via ${capitalizedBrowserName(browser)} browser.`
   )
 }
 

@@ -11,10 +11,8 @@ import * as messages from './messages'
 
 export default async function generateExtensionTypes(projectDir: string) {
   const extensionEnvFile = path.join(projectDir, 'extension-env.d.ts')
-  const relativeTypePath = path.relative(
-    projectDir,
-    path.join(__dirname, 'types')
-  )
+  const typesFolderPath = path.join(__dirname, 'types')
+  const relativeTypePath = path.relative(projectDir, typesFolderPath)
 
   const typePath =
     process.env.EXTENSION_ENV === 'development'
