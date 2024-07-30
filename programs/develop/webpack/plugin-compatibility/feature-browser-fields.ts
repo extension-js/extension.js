@@ -1,6 +1,6 @@
 import {type Compiler, Compilation, sources} from 'webpack'
 import {getManifestContent} from '../lib/utils'
-import {type PluginInterface} from '../types'
+import {type PluginInterface, type Manifest} from '../types'
 
 export class BrowserFieldsPlugin {
   private readonly browser: string
@@ -12,12 +12,12 @@ export class BrowserFieldsPlugin {
     this.browser = options.browser || 'chrome'
   }
 
-  patchManifest(manifestSource: string) {
+  patchManifest(manifest: Manifest) {
     const chromiumBasedBrowsers = this.chromiumBasedBrowsers
     const browser = this.browser
 
     const patchedManifest = JSON.parse(
-      manifestSource,
+      JSON.stringify(manifest),
       function reviver(this: any, key: string, value: any) {
         const indexOfColon = key.indexOf(':')
 
@@ -28,6 +28,7 @@ export class BrowserFieldsPlugin {
 
         // Replace browser:key keys.
         const prefix = key.substring(0, indexOfColon)
+
         if (
           prefix === browser ||
           (prefix === 'chromium' && chromiumBasedBrowsers.includes(browser))
@@ -55,9 +56,7 @@ export class BrowserFieldsPlugin {
           },
           () => {
             const manifest = getManifestContent(compilation, this.manifestPath)
-            const patchedSource = this.patchManifest(
-              (manifest || '{}').toString()
-            )
+            const patchedSource = this.patchManifest(manifest)
             const rawSource = new sources.RawSource(patchedSource)
 
             compilation.updateAsset('manifest.json', rawSource)
