@@ -9,10 +9,11 @@ import webpack from 'webpack'
 import compilerConfig from '../../webpack/webpack-config'
 import * as messages from '../../webpack/lib/messages'
 import {getProjectPath} from '../get-project-path'
+import { DevOptions } from '../dev'
 
 export interface StartOptions {
   mode?: 'development' | 'production'
-  browser?: 'chrome' | 'edge' | 'firefox' | 'all'
+  browser?: DevOptions['browser']
   port?: number
   noOpen?: boolean
   userDataDir?: string | boolean
@@ -34,7 +35,7 @@ export default async function extensionStart(
       browser
     })
 
-    console.log(messages.building(startOptions))
+    console.log(messages.building(browser))
 
     webpack(webpackConfig).run((err, stats) => {
       if (err) {
@@ -46,7 +47,7 @@ export default async function extensionStart(
         console.log(messages.startWebpack(projectPath, startOptions))
 
         setTimeout(() => {
-          console.log(messages.ready(startOptions))
+          console.log(messages.ready(browser))
         }, 1500)
       } else {
         console.log(stats.toString({colors: true}))

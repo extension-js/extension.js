@@ -8,7 +8,7 @@
 import path from 'path'
 import {spawn} from 'cross-spawn'
 import fs from 'fs'
-import {bold, red} from '@colors/colors/safe'
+import {red} from '@colors/colors/safe'
 
 import {getInstallCommand} from '../helpers/getInstallInfo'
 import createSymlink from './symlinkExtensionJs'

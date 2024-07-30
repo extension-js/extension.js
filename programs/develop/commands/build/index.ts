@@ -66,7 +66,7 @@ export default async function extensionBuild(
       }
 
       if (!stats?.hasErrors()) {
-        console.log(messages.ready(buildOptions))
+        console.log(messages.ready(browser))
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)

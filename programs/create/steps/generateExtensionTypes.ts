@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, red} from '@colors/colors/safe'
+import {red} from '@colors/colors/safe'
 
 export default async function generateExtensionTypes(
   projectPath: string,
