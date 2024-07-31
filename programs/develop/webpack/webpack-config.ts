@@ -19,6 +19,10 @@ import {CompatibilityPlugin} from './plugin-compatibility'
 import {ErrorsPlugin} from './plugin-errors'
 import {BrowsersPlugin} from '../plugin-browsers'
 
+export const getAssetFilename = (folderPath: string) => {
+  return `${folderPath}/[name][ext]`
+}
+
 export default function webpackConfig(
   projectPath: string,
   {...devOptions}: DevOptions
@@ -58,23 +62,16 @@ export default function webpackConfig(
       chunkFilename: (pathData) => {
         const runtime = (pathData.chunk as any)?.runtime
 
-        if (runtime.startsWith('content_scripts')) {
-          const [, contentName] = runtime.split('/')
-          const index = contentName.split('-')[1]
-
-          return `web_accessible_resources/resource-${index}/[name].js`
-        }
-
         // Chunks are stored within their caller's directory,
         // So a dynamic import of a CSS action page will be stored
         // as action/[filename].css.
         // The JS counterpart of this is defined in MiniCssExtractPlugin
         // options.chunkFilename function.
-        return `${runtime}/[name].js`
+        return getAssetFilename(runtime)
       }
     },
     resolve: {
-      mainFields: ['browser', 'module', 'main'],
+      // mainFields: ['browser', 'module', 'main'],
       modules: ['node_modules', path.join(projectPath, 'node_modules')],
       extensions: [
         '.js',
@@ -97,6 +94,9 @@ export default function webpackConfig(
         {
           test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp|svg)$/i,
           type: 'asset/resource',
+          generator: {
+            filename: () => getAssetFilename('assets')
+          },
           parser: {
             dataUrlCondition: {
               // inline images < 2 KB
@@ -106,11 +106,17 @@ export default function webpackConfig(
         },
         {
           test: /\.(woff|woff2|eot|ttf|otf)$/i,
-          type: 'asset/resource'
+          type: 'asset/resource',
+          generator: {
+            filename: () => getAssetFilename('assets')
+          }
         },
         {
           test: /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i,
           type: 'asset/resource',
+          generator: {
+            filename: () => getAssetFilename('assets')
+          },
           parser: {
             dataUrlCondition: {
               // inline images < 2 KB
@@ -120,7 +126,10 @@ export default function webpackConfig(
         },
         {
           test: /\.(csv|tsv)$/i,
-          use: [require.resolve('csv-loader')]
+          use: [require.resolve('csv-loader')],
+          generator: {
+            filename: () => getAssetFilename('assets')
+          }
         }
       ]
     },
@@ -180,7 +189,7 @@ export default function webpackConfig(
     infrastructureLogging: {
       level: 'none'
     },
-    cache: false,
+    // cache: false,
     performance: {
       hints: false,
       maxAssetSize: 999000,
