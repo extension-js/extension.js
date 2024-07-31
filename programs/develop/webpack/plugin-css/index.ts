@@ -12,6 +12,7 @@ import {type DevOptions} from '../../commands/dev'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
+import {getAssetFilename} from '../webpack-config'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -32,17 +33,7 @@ export class CssPlugin {
         chunkFilename: (pathData: PathData) => {
           const runtime = (pathData.chunk as any)?.runtime
 
-          // TODO: cezaraugusto this should be handled by the resource plugin
-          // by adding the import from content_scripts as an index to the
-          // web_accessible_resources array.
-          if (runtime.startsWith('content_scripts')) {
-            const [, contentName] = runtime.split('/')
-            const index = contentName.split('-')[1]
-
-            return `web_accessible_resources/resource-${index}/[name].js`
-          }
-
-          return `${runtime}/[name].css`
+          return getAssetFilename(runtime)
         }
       })
     ]

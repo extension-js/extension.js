@@ -91,8 +91,8 @@ export class ExtensionPlugin {
     // new ResolvePlugin({
     //   manifestPath,
     //   includeList: {
-    //     ...(manifestFieldsData?.html || {}),
-    //     ...(manifestFieldsData?.scripts || {}),
+    //     ...(specialFoldersData?.pages || {}),
+    //     ...(specialFoldersData?.scripts || {}),
     //   },
     //   excludeList: specialFoldersData.public,
     // }).apply(compiler);
@@ -160,6 +160,10 @@ export class ExtensionPlugin {
     // and add them to the assets bundle.
     new WebResourcesPlugin({
       manifestPath,
+      includeList: {
+        ...manifestFieldsData.scripts,
+        ...specialFoldersData.scripts
+      },
       excludeList: specialFoldersData.public
     }).apply(compiler)
 
