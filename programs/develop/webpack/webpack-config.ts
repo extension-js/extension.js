@@ -71,7 +71,6 @@ export default function webpackConfig(
       }
     },
     resolve: {
-      // mainFields: ['browser', 'module', 'main'],
       modules: ['node_modules', path.join(projectPath, 'node_modules')],
       extensions: [
         '.js',
@@ -165,16 +164,22 @@ export default function webpackConfig(
       }),
       new BrowsersPlugin({
         extension: [
+          // This is your extension :P
           outputPath,
-          // Extensions output by the ReloadPlugin
+          // Extensions output by the ReloadPlugin. These are our extensions :P
           path.join(__dirname, 'extensions', 'manager-extension'),
           path.join(__dirname, 'extensions', 'reload-extension')
+          // TODO: Add possible extensions required by the user via --load-extension
         ],
         browser: devOptions.browser,
         startingUrl: devOptions.startingUrl,
         profile: devOptions.profile || devOptions.userDataDir,
         preferences: devOptions.preferences,
-        browserFlags: devOptions.browserFlags
+        // Prevent users from passing a flag to
+        // add extensions to the browser as it (should be) handled by the "extension" option.
+        browserFlags: devOptions.browserFlags?.filter(
+          (flag) => !flag.startsWith('--load-extension=')
+        )
       })
     ],
     stats: {
@@ -197,9 +202,6 @@ export default function webpackConfig(
     },
     optimization: {
       minimize: devOptions.mode === 'production'
-      // WARN: This can have side-effects.
-      // See https://webpack.js.org/guides/code-splitting/#entry-dependencies
-      // runtimeChunk: true,
     },
     experiments: {
       // Enable native CSS support. Note that it's an experimental feature still under development
