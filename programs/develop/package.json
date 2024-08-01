@@ -30,8 +30,11 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "@swc/core": "^1.7.3",
+    "acorn": "^8.12.1",
+    "acorn-walk": "^8.3.3",
     "adm-zip": "^0.5.12",
     "ajv": "^8.17.1",
+    "astring": "^1.8.6",
     "axios": "^1.6.8",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "chokidar": "^3.6.0",

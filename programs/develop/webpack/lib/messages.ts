@@ -153,6 +153,22 @@ export function manifestInvalidError(error: NodeJS.ErrnoException) {
   return errorMessage
 }
 
+export function pathNotFoundError() {
+  return `Could not resolve file path. Ensure the file exists in the "public" or "pages" directory.`
+}
+
+export function resolverHtmlError(filePath: string) {
+  return `Could not resolve path ${filePath}. Either add it to the "public" directory or create a page in the "pages" directory.`
+}
+
+export function resolverJsError(filePath: string) {
+  return `Could not resolve path ${filePath}. Either add it to the "public" directory or create a script in the "scripts" directory.`
+}
+
+export function resolverStaticError(filePath: string) {
+  return `Could not resolve path ${filePath}. If you want to preserve this file path, add the file to the "public" directory.`
+}
+
 export function calculateDirectorySize(dirPath: string): number {
   let totalSize = 0
 
@@ -632,7 +648,7 @@ export function handleCantResolveError(
   manifestName: string,
   moduleName: string
 ) {
-  const link = 'https://extension.js.org/n/features/special-folders'
+  const link = 'https://extension.js.org/n/development/special-folders'
   return (
     `${manifestName} ${red('✖︎✖︎✖︎')} Module ${yellow(moduleName)} not found. ` +
     `Make sure file exists in the extension directory.\n\n` +

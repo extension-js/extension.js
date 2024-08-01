@@ -4,14 +4,17 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "jsx": "preserve",
+    "isolatedModules": true,
+    "jsx": "react-jsx",
     "lib": ["dom", "dom.iterable", "esnext"],
     "moduleResolution": "node",
     "module": "esnext",
     "resolveJsonModule": true,
     "strict": true,
     "target": "esnext",
-    "isolatedModules": false
+    "verbatimModuleSyntax": true,
+    "useDefineForClassFields": true,
+    "skipLibCheck": true
   },
   "include": ["./"],
   "exclude": ["node_modules", "dist"]

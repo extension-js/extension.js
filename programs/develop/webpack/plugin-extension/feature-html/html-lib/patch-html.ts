@@ -147,17 +147,17 @@ export function patchHtml(
           // and it inlines the styles into the page.
           // In production mode we use MiniCssExtractPlugin to extract the CSS
           // into a separate file.
-          // if (compilation.options.mode === 'production') {
-          const linkTag: {attrs: {name: string; value: string}[]} =
-            parse5utils.createNode('link')
-          linkTag.attrs = [
-            {name: 'rel', value: 'stylesheet'},
-            {name: 'href', value: getFilePath(feature, '.css', true)}
-          ]
+          if (compilation.options.mode === 'production') {
+            const linkTag: {attrs: {name: string; value: string}[]} =
+              parse5utils.createNode('link')
+            linkTag.attrs = [
+              {name: 'rel', value: 'stylesheet'},
+              {name: 'href', value: getFilePath(feature, '.css', true)}
+            ]
 
-          parse5utils.append(htmlChildNode, linkTag)
+            parse5utils.append(htmlChildNode, linkTag)
+          }
         }
-        // }
       }
 
       // Create the script tag for the JS bundle

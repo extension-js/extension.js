@@ -8,8 +8,8 @@ html_plugin_files=(
 )
 
 resolve_plugin_files=(
-  # "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-loader.ts"
-  # "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-module.ts"
+  "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-loader.ts"
+  "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-module.ts"
 )
 
 scripts_plugin_files=(

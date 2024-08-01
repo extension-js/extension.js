@@ -1,6 +1,6 @@
 import path from 'path'
 import {type FilepathList, type Manifest} from '../../../../webpack-types'
-import {getManifestEntries} from './getManifestEntries'
+import {getManifestEntries} from './get-manifest-entries'
 
 function parseIncludeList(
   manifestPath: string,
