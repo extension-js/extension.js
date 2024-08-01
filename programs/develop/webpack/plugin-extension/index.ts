@@ -10,7 +10,7 @@ import {getManifestFieldsData} from './data/manifest-fields'
 import {getSpecialFoldersData} from './data/special-folders'
 
 // Plugins
-import ResolvePlugin from 'webpack-browser-extension-resolve'
+import {ResolvePlugin} from './feature-resolve'
 import {ManifestPlugin} from './feature-manifest'
 import {HtmlPlugin} from './feature-html'
 import {ScriptsPlugin} from './feature-scripts'
@@ -22,22 +22,6 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 
 import {PluginInterface, FilepathList} from '../webpack-types'
 
-// Handle special folders feature
-import {
-  generatePublicEntries,
-  generatePagesEntries,
-  generateScriptsEntries,
-  scanPublicFilesInFolder,
-  scanHtmlFilesInFolder,
-  scanScriptFilesInFolder
-} from '../config/specialFolders'
-
-// FUTURE: extension.config.js
-import {
-  getPagesFolderPath,
-  getScriptsFolderPath,
-  getPublicFolderPath
-} from '../config/userOptions'
 import {DevOptions} from '../../commands/dev'
 
 export class ExtensionPlugin {
@@ -52,41 +36,9 @@ export class ExtensionPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    const projectPath = compiler.options.context || ''
     const manifestPath = this.manifestPath
-
-    // All Extension special folders
-    // public/ - static assets. Copy/paste all files to the output folder
-    const publicFolder = getPublicFolderPath(projectPath)
-    // pages/ - Add every .html file inside pages/ to the compilation
-    const pagesFolder = getPagesFolderPath(projectPath)
-    // pages/ - Add every .js-like (see webpack module extensions)
-    // file inside sxripts/ to the compilation
-    const scriptsFolder = getScriptsFolderPath(projectPath)
-
-    // All files in each special folder
-    const allPublic = scanPublicFilesInFolder(publicFolder)
-    const allPages = scanHtmlFilesInFolder(pagesFolder)
-    const allScripts = scanScriptFilesInFolder(projectPath, scriptsFolder)
-
-    // resolve-plugin expects a key-value pair of all files
-    const publicList = generatePublicEntries(projectPath, allPublic)
-    const pagesList = generatePagesEntries(allPages)
-    const scriptsList = generateScriptsEntries(allScripts)
-
     const manifestFieldsData = getManifestFieldsData({manifestPath})
     const specialFoldersData = getSpecialFoldersData({manifestPath})
-
-    new ResolvePlugin({
-      manifestPath,
-      // In addition to manifest fields, ensure we can
-      // resolve files from /script and /pages
-      includeList: {
-        ...pagesList,
-        ...scriptsList,
-        ...publicList
-      }
-    }).apply(compiler)
 
     // new ResolvePlugin({
     //   manifestPath,
