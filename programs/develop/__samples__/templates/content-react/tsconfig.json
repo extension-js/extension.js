@@ -14,7 +14,7 @@
     "target": "esnext",
     "verbatimModuleSyntax": true,
     "useDefineForClassFields": true,
-    "skipLibCheck": true,
+    "skipLibCheck": true
   },
   "include": ["./"],
   "exclude": ["node_modules", "dist"]

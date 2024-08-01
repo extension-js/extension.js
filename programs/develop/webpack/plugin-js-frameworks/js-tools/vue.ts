@@ -49,7 +49,7 @@ export async function maybeUseVue(
   try {
     require.resolve('vue-loader')
   } catch (e) {
-    const typeScriptDependencies = ['typescript', 'ts-loader']
+    const typeScriptDependencies = ['typescript']
 
     await installOptionalDependencies('TypeScript', typeScriptDependencies)
 
@@ -72,25 +72,10 @@ export async function maybeUseVue(
     {
       test: /\.vue$/,
       loader: 'vue-loader',
-      include: path.resolve(__dirname, 'src')
+      include: projectPath
     }
   ]
 
-  // use vue and typescript, need to add ts-loader
-  if (isUsingTypeScript(projectPath)) {
-    vueLoaders.push({
-      test: /\.ts?$/,
-      loader: 'ts-loader',
-      options: {
-        appendTsSuffixTo: [/\.vue$/],
-        // Skip type checking
-        transpileOnly: true
-      }
-    })
-  }
-
-  // const {VueLoaderPlugin} = require('vue-loader')
-  // new VueLoaderPlugin().apply(compiler)
   const vuePlugins: JsFramework['plugins'] = [
     new (require('vue-loader').VueLoaderPlugin)() //.apply(compiler)
   ]

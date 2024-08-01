@@ -20,9 +20,9 @@ function patchWebResourcesV2(manifest: Manifest) {
 }
 
 function patchWebResourcesV3(manifest: Manifest) {
-  const defaultResources = ['/*.json', '/*.js', '/*.css']    
+  const defaultResources = ['/*.json', '/*.js', '/*.css']
   return [
-    ...manifest.web_accessible_resources || [],
+    ...(manifest.web_accessible_resources || []),
     {
       resources: defaultResources,
       matches: ['<all_urls>']

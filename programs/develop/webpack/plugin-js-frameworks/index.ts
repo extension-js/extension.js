@@ -30,19 +30,46 @@ export class JsFrameworksPlugin {
     const maybeInstallVue = await maybeUseVue(compiler, projectPath)
 
     compiler.options.resolve.alias = {
-      ...compiler.options.resolve.alias,
       ...(maybeInstallBabel?.alias || {}),
       ...(maybeInstallReact?.alias || {}),
       ...(maybeInstallPreact?.alias || {}),
-      ...(maybeInstallVue?.alias || {})
+      ...(maybeInstallVue?.alias || {}),
+      ...compiler.options.resolve.alias
     }
 
     compiler.options.module.rules = [
-      ...compiler.options.module.rules,
+      {
+        test: /\.(ts|tsx)$/,
+        exclude: /node_modules/,
+        use: {
+          loader: require.resolve('swc-loader'),
+          options: {
+            module: {
+              type: 'es6'
+            },
+            minify: this.mode === 'production',
+            isModule: true,
+            jsc: {
+              target: 'es2016',
+              parser: {
+                syntax: 'typescript',
+                tsx: true,
+                dynamicImport: true
+              },
+              transform: {
+                react: {
+                  runtime: 'automatic'
+                }
+              }
+            }
+          }
+        }
+      },
       ...(maybeInstallBabel?.loaders || []),
       ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
-      ...(maybeInstallVue?.loaders || [])
+      ...(maybeInstallVue?.loaders || []),
+      ...compiler.options.module.rules
     ].filter(Boolean)
 
     maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))

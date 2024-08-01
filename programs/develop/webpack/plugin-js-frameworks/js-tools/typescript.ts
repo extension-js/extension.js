@@ -87,7 +87,8 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
       target: 'esnext',
       // Ensure each file can be safely transpiled without relying
       // on other imports
-      isolatedModules: false
+      isolatedModules: false,
+      skipLibCheck: true
     },
     exclude: ['node_modules', 'dist']
   }
@@ -168,7 +169,7 @@ export async function maybeUseTypeScript(
   try {
     require.resolve('typescript')
   } catch (e) {
-    const typescriptDependencies = ['typescript', 'ts-loader']
+    const typescriptDependencies = ['typescript']
 
     await installOptionalDependencies('TypeScript', typescriptDependencies)
 
