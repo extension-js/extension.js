@@ -1,11 +1,17 @@
-import {transformSync} from 'esbuild'
-import {parse} from 'acorn'
+import {transformSync} from '@swc/core'
+import {parse, Expression, Super} from 'acorn'
 import * as walk from 'acorn-walk'
 import {generate} from 'astring'
-import {Callee, has} from './checkApiExists'
+import {has} from './check-api-exists'
 import {resolvePropertyArg, resolveStringArg} from './parser'
+import {LoaderOptions} from '../../index'
 
-function checkMethod(callee: Callee, args: any, path: any, namespace: string) {
+function checkMethod(
+  callee: Expression | Super,
+  args: any,
+  path: any,
+  namespace: string
+) {
   if (
     has(callee, `${namespace}.action.setIcon`) ||
     has(callee, `${namespace}.browserAction.setIcon`) ||
@@ -70,24 +76,32 @@ function checkMethod(callee: Callee, args: any, path: any, namespace: string) {
   }
 }
 
-export function transformSource(source: string) {
-  // Use esbuild to transform the source
-  const esbuildResult = transformSync(source, {
-    loader: 'ts',
-    format: 'esm'
+export function transformSource(source: string, options: LoaderOptions) {
+  // Use swc to transform the source
+  const swcResult = transformSync(source, {
+    jsc: {
+      parser: {
+        syntax: options.typescript ? 'typescript' : 'ecmascript',
+        tsx: options.jsx
+      },
+      target: 'es2016'
+    },
+    module: {
+      type: 'es6'
+    }
   })
 
   // Parse the transformed source to an AST
-  const ast = parse(esbuildResult.code, {
+  const ast = parse(swcResult.code, {
     sourceType: 'module',
     ecmaVersion: 'latest'
   })
 
   // Traverse and modify the AST
   walk.simple(ast, {
-    CallExpression(node: any) {
+    CallExpression(node) {
       const namespaces = ['chrome', 'browser']
-      const callee: Callee = node.callee
+      const callee = node.callee
       const args = node.arguments
 
       namespaces.forEach((namespace) => {
