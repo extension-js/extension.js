@@ -35,7 +35,7 @@ import {type FilepathList, type PluginInterface} from '../../webpack-types'
  * - chrome.sidePanel.setOptions
  * - chrome.notifications.create
  */
-interface LoaderOptions {
+export interface LoaderOptions {
   jsx?: boolean
   typescript?: boolean
 }
@@ -46,16 +46,16 @@ export class ResolvePlugin {
   public readonly excludeList?: FilepathList
   public readonly loaderOptions?: LoaderOptions
 
-  constructor(options: PluginInterface) {
+  constructor(options: PluginInterface & {loaderOptions?: LoaderOptions}) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.excludeList = options.excludeList
-    this.loaderOptions = (options as any).loaderOptions
+    this.loaderOptions = options.loaderOptions
   }
 
   public apply(compiler: webpack.Compiler): void {
     new webpack.ProvidePlugin({
-      r: [path.resolve(__dirname, './resolver-module.mjs'), 'default']
+      r: [path.resolve(__dirname, './resolver-module.js'), 'default']
     }).apply(compiler)
 
     // 1 - Add the resolver loader.

@@ -1,24 +1,7 @@
-export interface Callee {
-  type: string
-  object: {
-    type: string
-    object?: {
-      type: string
-      name: string
-    }
-    property?: {
-      type: string
-      name: string
-    }
-  }
-  property?: {
-    type: string
-    name: string
-  }
-}
+import {Expression, Super} from 'acorn'
 
-function isMethodChain(callee: Callee, chain: string[]): boolean {
-  let current: any = callee
+function isMethodChain(callee: Expression | Super, chain: string[]): boolean {
+  let current = callee
   for (let i = chain.length - 1; i >= 0; i--) {
     if (i === 0) {
       // The last element should be an Identifier at the top of the chain
@@ -38,7 +21,7 @@ function isMethodChain(callee: Callee, chain: string[]): boolean {
   return true
 }
 
-export function has(callee: Callee, method: string): boolean {
+export function has(callee: Expression | Super, method: string): boolean {
   const methodArr = method.split('.')
 
   return isMethodChain(callee, methodArr)

@@ -5,6 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
 import {Compiler} from 'webpack'
 import {getManifestFieldsData} from './data/manifest-fields'
 import {getSpecialFoldersData} from './data/special-folders'
@@ -23,6 +24,10 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 import {PluginInterface, FilepathList} from '../webpack-types'
 
 import {DevOptions} from '../../commands/dev'
+import {isUsingReact} from '../plugin-js-frameworks/js-tools/react'
+import {isUsingPreact} from '../plugin-js-frameworks/js-tools/preact'
+import {isUsingTypeScript} from '../plugin-js-frameworks/js-tools/typescript'
+import {isUsingVue} from '../plugin-js-frameworks/js-tools/vue'
 
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
@@ -40,14 +45,21 @@ export class ExtensionPlugin {
     const manifestFieldsData = getManifestFieldsData({manifestPath})
     const specialFoldersData = getSpecialFoldersData({manifestPath})
 
-    // new ResolvePlugin({
-    //   manifestPath,
-    //   includeList: {
-    //     ...(specialFoldersData?.pages || {}),
-    //     ...(specialFoldersData?.scripts || {}),
-    //   },
-    //   excludeList: specialFoldersData.public,
-    // }).apply(compiler);
+    new ResolvePlugin({
+      manifestPath,
+      includeList: {
+        ...(specialFoldersData?.pages || {}),
+        ...(specialFoldersData?.scripts || {})
+      },
+      excludeList: specialFoldersData.public,
+      loaderOptions: {
+        jsx:
+          isUsingReact(path.dirname(this.manifestPath)) ||
+          isUsingPreact(path.dirname(this.manifestPath)) ||
+          isUsingVue(path.dirname(this.manifestPath)),
+        typescript: isUsingTypeScript(path.dirname(this.manifestPath))
+      }
+    }).apply(compiler)
 
     // Generate a manifest file with all the assets we need
     new ManifestPlugin({

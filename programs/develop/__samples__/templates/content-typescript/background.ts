@@ -12,17 +12,15 @@ function changeBackgroundColor(color: string, tabId: number | undefined) {
     return
   }
 
-  // eslint-disable-next-line no-undef
   chrome.scripting
     .executeScript({
       target: {tabId},
-      // @ts-expect-error
-      function: setPageBackgroundColor,
+      func: setPageBackgroundColor,
       args: [color]
     })
     .catch(console.error)
 }
 
-async function setPageBackgroundColor(color: string) {
+function setPageBackgroundColor(color: string) {
   document.body.style.backgroundColor = color
 }

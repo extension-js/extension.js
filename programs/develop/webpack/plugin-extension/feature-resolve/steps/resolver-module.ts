@@ -31,7 +31,9 @@ function resolverError(filePath?: string) {
     return filePath
   }
 
-  console.error(messages.resolverStaticError(filePath))
+  if (filePath) {
+    console.error(messages.resolverStaticError(filePath))
+  }
 
   return filePath
 }

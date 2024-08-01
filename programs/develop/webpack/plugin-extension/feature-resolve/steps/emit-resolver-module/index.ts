@@ -1,6 +1,6 @@
 import fs from 'fs'
 import {type ResolvePluginContext} from '../loader-types'
-import {getFileList} from '../getFileList'
+import {getFileList} from '../get-file-list'
 
 export function emitResolverModule(
   loader: ResolvePluginContext,

@@ -29,7 +29,10 @@ export default function webpackConfig(
   {...devOptions}: DevOptions
 ): webpack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
-  const userExtensionOutputPath = path.join(projectPath, `dist/${devOptions.browser}`)
+  const userExtensionOutputPath = path.join(
+    projectPath,
+    `dist/${devOptions.browser}`
+  )
   const manifest = require(manifestPath)
 
   return {
@@ -77,11 +80,9 @@ export default function webpackConfig(
         '.js',
         '.mjs',
         '.jsx',
-        '.mjsx',
         '.ts',
         '.mts',
         '.tsx',
-        '.mtsx',
         '.json',
         '.wasm'
       ]
