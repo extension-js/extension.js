@@ -67,13 +67,11 @@ class ApplyManifestDevDefaultsPlugin {
 
   apply(compiler: webpack.Compiler) {
     compiler.hooks.thisCompilation.tap(
-      'RunChromeExtension (ApplyManifestDevDefaults)',
+      'run-chromium:apply-manifest-dev-defaults',
       (compilation) => {
-        const Error = compiler.webpack.WebpackError
-
         compilation.hooks.processAssets.tap(
           {
-            name: 'RunChromeExtension (ApplyManifestDevDefaults)',
+            name: 'run-chromium:apply-manifest-dev-defaults',
             // Summarize the list of existing assets.
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
@@ -82,10 +80,10 @@ class ApplyManifestDevDefaultsPlugin {
               const errorMessage =
                 'No manifest.json found in your extension bundle. Unable to patch manifest.json.'
 
-              if (!!compilation && !!Error) {
+              if (!!compilation && !!compiler.webpack.WebpackError) {
                 compilation.errors.push(
-                  new Error(
-                    `[RunChromeExtension (ApplyManifestDevDefaults)]: ${errorMessage}`
+                  new compiler.webpack.WebpackError(
+                    `run-chromium: ${errorMessage}`
                   )
                 )
               }

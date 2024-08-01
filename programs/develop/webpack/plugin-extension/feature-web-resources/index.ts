@@ -33,18 +33,12 @@ export class WebResourcesPlugin {
     const manifest = utils.getManifestContent(compilation, this.manifestPath!)
 
     const webAccessibleResourcesV3: {resources: string[]; matches: string[]}[] =
-      []
-    const webAccessibleResourcesV2: string[] = []
+      manifest.web_accessible_resources || []
+    const webAccessibleResourcesV2: string[] =
+      manifest.web_accessible_resources || []
 
     for (const [entryName, resources] of Object.entries(entryImports)) {
       const contentScript = manifest.content_scripts?.find((script) => {
-        console.log({
-          script,
-          entryName,
-          includes: script.js?.some((jsFile: string) =>
-            jsFile.includes(entryName)
-          )
-        })
         return (
           script.js &&
           script.js.some((jsFile: string) => jsFile.includes(entryName))
@@ -54,14 +48,31 @@ export class WebResourcesPlugin {
       if (contentScript) {
         const matches = contentScript.matches || []
         if (manifest.manifest_version === 3) {
-          webAccessibleResourcesV3.push({
-            resources: resources.filter(
-              (resource) => !resource.endsWith('.map')
-            ),
-            matches
-          })
+          const existingResource = webAccessibleResourcesV3.find(
+            (resourceEntry) =>
+              resourceEntry.matches.some((match) => matches.includes(match))
+          )
+
+          if (existingResource) {
+            resources.forEach((resource) => {
+              if (!existingResource.resources.includes(resource)) {
+                existingResource.resources.push(resource)
+              }
+            })
+          } else {
+            webAccessibleResourcesV3.push({
+              resources: resources.filter(
+                (resource) => !resource.endsWith('.map')
+              ),
+              matches
+            })
+          }
         } else {
-          webAccessibleResourcesV2.push(...resources)
+          resources.forEach((resource) => {
+            if (!webAccessibleResourcesV2.includes(resource)) {
+              webAccessibleResourcesV2.push(resource)
+            }
+          })
         }
       }
     }
@@ -70,7 +81,7 @@ export class WebResourcesPlugin {
       manifest.web_accessible_resources =
         webAccessibleResourcesV3 as Manifest['web_accessible_resources']
     } else {
-      // @ts-expect-error web_accessible_resources v2 is not in the manifest v3 type
+      // @ts-expect-error - web_accessible_resources is a string[] in V2
       manifest.web_accessible_resources = Array.from(
         new Set(webAccessibleResourcesV2)
       )
