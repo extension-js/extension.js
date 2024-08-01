@@ -20,7 +20,8 @@ export class WebpackCommonErrorsPlugin {
         // as multiple assets with the same name,
         // or missing dependencies.
         compilation.errors.forEach((error, index) => {
-          const multipleAssetsError = handleMultipleAssetsError(error)
+          const manifest = require(this.manifestPath)
+          const multipleAssetsError = handleMultipleAssetsError(manifest, error)
           const topLevelAwaitError = handleTopLevelAwaitError(
             this.manifestPath,
             error

@@ -2,6 +2,7 @@ import webpack from 'webpack'
 import * as messages from '../../lib/messages'
 
 export function handleMultipleAssetsError(
+  manifest: {name: string},
   error: webpack.WebpackError
 ): webpack.WebpackError | null {
   const actualMsg =

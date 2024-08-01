@@ -194,7 +194,6 @@ export default function webpackConfig(
     infrastructureLogging: {
       level: 'none'
     },
-    // cache: false,
     performance: {
       hints: false,
       maxAssetSize: 999000,

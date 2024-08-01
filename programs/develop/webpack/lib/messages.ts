@@ -592,9 +592,9 @@ export function handleMultipleAssetsError(
 ) {
   const extFilename = filename.split('.').pop()
   const errorMsg =
-    `[${manifestName}'s content_scripts] One of your ${extFilename} ` +
-    `file imports is also defined as a content_script in manifest.json. Remove the ` +
-    `duplicate entry and try again.`
+    `content_scripts: One of your ${extFilename?.toUpperCase()} ` +
+    `imports is also a content_script CSS in manifest.json.\n\n` +
+    `Remove the duplicate entry and try again.`
 
   if (filename.startsWith('content_scripts')) {
     return errorMsg
