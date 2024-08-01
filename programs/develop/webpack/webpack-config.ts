@@ -12,6 +12,7 @@ import {type DevOptions} from '../commands/dev'
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
 import {CssPlugin} from './plugin-css'
+import {StaticAssetsPlugin} from './plugin-static-assets'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {ReloadPlugin} from './plugin-reload'
@@ -28,7 +29,7 @@ export default function webpackConfig(
   {...devOptions}: DevOptions
 ): webpack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
-  const outputPath = path.join(projectPath, `dist/${devOptions.browser}`)
+  const userExtensionOutputPath = path.join(projectPath, `dist/${devOptions.browser}`)
   const manifest = require(manifestPath)
 
   return {
@@ -50,7 +51,7 @@ export default function webpackConfig(
           return !asset.startsWith('hot/background')
         }
       },
-      path: outputPath,
+      path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
@@ -88,53 +89,13 @@ export default function webpackConfig(
     watchOptions: {
       ignored: /node_modules|dist/
     },
-    module: {
-      rules: [
-        {
-          test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp|svg)$/i,
-          type: 'asset/resource',
-          generator: {
-            filename: () => getAssetFilename('assets')
-          },
-          parser: {
-            dataUrlCondition: {
-              // inline images < 2 KB
-              maxSize: 2 * 1024
-            }
-          }
-        },
-        {
-          test: /\.(woff|woff2|eot|ttf|otf)$/i,
-          type: 'asset/resource',
-          generator: {
-            filename: () => getAssetFilename('assets')
-          }
-        },
-        {
-          test: /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i,
-          type: 'asset/resource',
-          generator: {
-            filename: () => getAssetFilename('assets')
-          },
-          parser: {
-            dataUrlCondition: {
-              // inline images < 2 KB
-              maxSize: 2 * 1024
-            }
-          }
-        },
-        {
-          test: /\.(csv|tsv)$/i,
-          use: [require.resolve('csv-loader')],
-          generator: {
-            filename: () => getAssetFilename('assets')
-          }
-        }
-      ]
-    },
     plugins: [
       new CompilationPlugin({
         manifestPath
+      }),
+      new StaticAssetsPlugin({
+        manifestPath,
+        mode: devOptions.mode
       }),
       new CssPlugin({
         manifestPath,
@@ -164,9 +125,7 @@ export default function webpackConfig(
       }),
       new BrowsersPlugin({
         extension: [
-          // This is your extension :P
-          outputPath,
-          // Extensions output by the ReloadPlugin. These are our extensions :P
+          userExtensionOutputPath,
           path.join(__dirname, 'extensions', 'manager-extension'),
           path.join(__dirname, 'extensions', 'reload-extension')
           // TODO: Add possible extensions required by the user via --load-extension
@@ -176,7 +135,7 @@ export default function webpackConfig(
         profile: devOptions.profile || devOptions.userDataDir,
         preferences: devOptions.preferences,
         // Prevent users from passing a flag to
-        // add extensions to the browser as it (should be) handled by the "extension" option.
+        // add extensions to the browser – as it (should be) handled by the "extension" option.
         browserFlags: devOptions.browserFlags?.filter(
           (flag) => !flag.startsWith('--load-extension=')
         )
