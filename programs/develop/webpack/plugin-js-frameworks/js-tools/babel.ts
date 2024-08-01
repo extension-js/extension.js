@@ -121,9 +121,7 @@ export async function maybeUseBabel(
   compiler: Compiler,
   projectPath: string
 ): Promise<JsFramework | undefined> {
-  // TODO: cezaraugusto add it back once we have
-  // the esbuild or swc loader working.
-  // if (!isUsingBabel(projectPath)) return undefined
+  if (!isUsingBabel(projectPath)) return undefined
 
   try {
     require.resolve('babel-loader')

@@ -1,6 +1,8 @@
-function patchWebResourcesV2(manifest: Record<string, any>) {
+import {type Manifest} from '../../../../../types'
+
+function patchWebResourcesV2(manifest: Manifest) {
   const defaultResources = ['/*.json', '/*.js', '/*.css']
-  const resources: string[] | null = manifest.web_accessible_resources
+  const resources = manifest.web_accessible_resources as string[] | null
 
   if (!resources || resources.length === 0) {
     return defaultResources
@@ -9,45 +11,23 @@ function patchWebResourcesV2(manifest: Record<string, any>) {
   const webResources = new Set(resources)
 
   for (const resource of defaultResources) {
-    webResources.add(resource)
+    if (!webResources.has(resource)) {
+      webResources.add(resource)
+    }
   }
 
   return Array.from(webResources)
 }
 
-interface ResourceEntry {
-  resources: string[]
-  matches: string[]
-}
-
-function patchWebResourcesV3(manifest: any) {
-  const defaultResources = ['/*.json', '/*.js', '/*.css']
-  const resources: ResourceEntry[] | null = manifest.web_accessible_resources
-
-  if (!resources || resources.length === 0) {
-    return [
-      {
-        resources: defaultResources,
-        matches: ['<all_urls>']
-      }
-    ]
-  }
-
-  const updatedResources = resources.map((entry) => {
-    const resourceSet = new Set(entry.resources)
-
-    defaultResources.forEach((resource) => {
-      if (entry && entry.resources) {
-        if (!entry.resources.includes(resource)) {
-          resourceSet.add(resource)
-        }
-      }
-    })
-
-    return {...entry, resources: Array.from(resourceSet)}
-  })
-
-  return updatedResources
+function patchWebResourcesV3(manifest: Manifest) {
+  const defaultResources = ['/*.json', '/*.js', '/*.css']    
+  return [
+    ...manifest.web_accessible_resources || [],
+    {
+      resources: defaultResources,
+      matches: ['<all_urls>']
+    }
+  ]
 }
 
 export {patchWebResourcesV2, patchWebResourcesV3}
