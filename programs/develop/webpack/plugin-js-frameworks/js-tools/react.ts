@@ -37,7 +37,7 @@ export function isUsingReact(projectPath: string) {
     }
   }
 
-  return reactAsDevDep || reactAsDep
+  return !!reactAsDevDep || !!reactAsDep
 }
 
 export async function maybeUseReact(
@@ -52,6 +52,7 @@ export async function maybeUseReact(
     const reactDependencies = [
       'react-refresh',
       '@pmmmwh/react-refresh-webpack-plugin',
+      '@svgr/webpack',
       'react-refresh-typescript'
     ]
 

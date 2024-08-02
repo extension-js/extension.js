@@ -84,11 +84,17 @@ export function transformSource(source: string, options: LoaderOptions) {
         syntax: options.typescript ? 'typescript' : 'ecmascript',
         tsx: options.jsx
       },
-      target: 'es2016'
+      target: 'es2016',
+      transform: {
+        react: {
+          runtime: 'automatic',
+          importSource: 'react'
+        }
+      }
     },
     module: {
       type: 'es6'
-    }
+    },
   })
 
   // Parse the transformed source to an AST
