@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import {getManifestFieldsData} from './index'
+import {getManifestFieldsData} from '../../manifest-fields/index'
 
 const fakeManifestV2: chrome.runtime.ManifestV2 = {
   manifest_version: 2,

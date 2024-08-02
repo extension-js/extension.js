@@ -1,28 +1,48 @@
-import {getManifestOverrides} from '../manifest-overrides/index'
-import {dirname, getFixturesPath, win32} from './__utils__'
-// import {FilepathList} from '../../../types'
+import path from 'path'
+import fs from 'fs'
+import os from 'os'
+import {getManifestOverrides} from '../../manifest-overrides'
+import {FilepathList} from '../../../../webpack-types'
 
-describe('manifestOverries', () => {
+export const getFixturesPath = (demoDir: string) =>
+  path.join(__dirname, 'fixtures', demoDir, 'manifest.json')
+
+export const assertFileIsEmitted = async (filePath: string) => {
+  await fs.promises.access(filePath, fs.constants.F_OK)
+}
+
+export const assertFileIsNotEmitted = async (filePath: string) => {
+  await fs.promises.access(filePath, fs.constants.F_OK).catch((err) => {
+    expect(err).toBeTruthy()
+  })
+}
+
+export const findStringInFile = async (filePath: string, string: string) => {
+  const data = await fs.promises.readFile(filePath, 'utf8')
+  expect(data).toContain(string)
+}
+
+export const dirname = (dir: string) => path.dirname(dir)
+
+export const win32 = () => os.platform() === 'win32'
+
+describe('getManifestOverrides', () => {
   const manifestPath = getFixturesPath('super-manifest')
   const context = dirname(manifestPath)
-  const exclude = win32()
+  const exclude: FilepathList = win32()
     ? {
-        icon: `${context}\\icons\\icon16.png`,
-        icon2: `${context}\\icons\\icon48.png`,
-        icon3: `${context}\\icons\\icon128.png`
+        fileA: `${context}\\icons\\icon16.png`,
+        fileB: `${context}\\icons\\icon48.png`,
+        fileC: `${context}\\icons\\icon128.png`
       }
     : {
-        icon1: 'icons/icon16.png',
-        icon2: 'icons/icon48.png',
-        icon3: 'icons/icon128.png'
+        fileA: 'icons/icon16.png',
+        fileB: 'icons/icon48.png',
+        fileC: 'icons/icon128.png'
       }
 
   it('should transform manifest action details correctly', () => {
-    const result = getManifestOverrides(
-      manifestPath,
-      require(manifestPath),
-      exclude
-    )
+    const result = getManifestOverrides(manifestPath, {}, exclude)
 
     expect(JSON.parse(result)).toEqual({
       action: {
