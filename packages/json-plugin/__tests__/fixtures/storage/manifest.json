@@ -1,9 +1,0 @@
-{
-  "name": "Stylizr",
-  "description": "Demonstrates how to use the chrome.storage API.",
-  "version": "1.0",
-  "manifest_version": 3,
-  "storage": {
-    "managed_schema": "schema.json"
-  }
-}
