@@ -21,7 +21,26 @@ export class StaticAssetsPlugin {
 
     const loaders: RuleSetRule[] = [
       {
-        test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp|svg)$/i,
+        test: /\.svg$/i,
+        type: 'asset',
+        // *.svg?url
+        resourceQuery: /url/,
+        generator: {
+          filename: () => getAssetFilename('assets')
+        }
+      },
+      {
+        test: /\.svg$/i,
+        issuer: /\.[jt]sx?$/,
+        // exclude react component if *.svg?url
+        resourceQuery: {not: [/url/]},
+        use: ['@svgr/webpack'],
+        generator: {
+          filename: () => getAssetFilename('assets')
+        }
+      },
+      {
+        test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
         type: 'asset/resource',
         generator: {
           filename: () => getAssetFilename('assets')
