@@ -2,11 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import webpack from 'webpack'
 import {sources, Compilation} from 'webpack'
-import {
-  type FilepathList,
-  type PluginInterface,
-  type Manifest
-} from '../../webpack-types'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from '../../lib/messages'
 import {shouldExclude} from '../../lib/utils'
 import {getLocales} from './get-locales'

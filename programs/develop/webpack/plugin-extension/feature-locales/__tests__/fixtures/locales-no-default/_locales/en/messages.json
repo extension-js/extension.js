@@ -1,0 +1,11 @@
+{
+  "extName": {
+    "message": "Demo extension"
+  },
+  "extDesc": {
+    "message": "A demo extension."
+  },
+  "ext_default_title": {
+    "message": "Demo extension title"
+  }
+}

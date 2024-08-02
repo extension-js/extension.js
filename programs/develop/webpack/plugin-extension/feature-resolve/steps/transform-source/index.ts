@@ -94,7 +94,7 @@ export function transformSource(source: string, options: LoaderOptions) {
     },
     module: {
       type: 'es6'
-    },
+    }
   })
 
   // Parse the transformed source to an AST

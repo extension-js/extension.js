@@ -1,0 +1,9 @@
+{
+  "manifest_version": 2,
+  "version": "0.1",
+  "name": "Testing extension",
+  "author": "Cezar Augusto",
+  "sidebar_action": {
+    "default_icon": "test_16.png"
+  }
+}
