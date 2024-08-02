@@ -58,7 +58,8 @@ export class JsFrameworksPlugin {
               },
               transform: {
                 react: {
-                  runtime: 'automatic'
+                  runtime: 'automatic',
+                  importSource: 'react'
                 }
               }
             }

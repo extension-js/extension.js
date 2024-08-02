@@ -650,7 +650,7 @@ export function handleCantResolveError(
 ) {
   const link = 'https://extension.js.org/n/development/special-folders'
   return (
-    `${manifestName} ${red('✖︎✖︎✖︎')} Module ${yellow(moduleName)} not found. ` +
+    `${manifestName} ${red('✖︎✖︎✖︎')} Module ${yellow(moduleName)} not found.\n` +
     `Make sure file exists in the extension directory.\n\n` +
     `If you need to handle entries not supported by manifest.json, ` +
     `consider adding them to a special folder.` +

@@ -37,7 +37,7 @@ export function isUsingVue(projectPath: string) {
     }
   }
 
-  return vueAsDevDep || vueAsDep
+  return !!vueAsDevDep || !!vueAsDep
 }
 
 export async function maybeUseVue(
