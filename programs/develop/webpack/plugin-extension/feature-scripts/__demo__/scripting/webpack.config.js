@@ -1,5 +1,4 @@
 const path = require('path')
-const webpack = require('webpack')
 const ScriptsPlugin = require('../../../dist/module').default
 
 /** @type {webpack.Configuration} */
