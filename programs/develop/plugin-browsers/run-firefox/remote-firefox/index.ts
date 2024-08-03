@@ -2,8 +2,8 @@ import path from 'path'
 import {type Compiler} from 'webpack'
 import {MessagingClient} from './messaging-client'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
-import {type PluginInterface} from '../../command-types'
-import * as messages from '../../browser-lib/messages'
+import {type PluginInterface} from '../../browsers-types'
+import * as messages from '../../browsers-lib/messages'
 
 const MAX_RETRIES = 150
 const RETRY_INTERVAL = 1000

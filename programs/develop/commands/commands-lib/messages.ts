@@ -100,6 +100,13 @@ export function building(browser: DevOptions['browser']): string {
   )
 }
 
+export function buildReady(): string {
+  return (
+    'No errors or warnings found. Your extension is ready for deployment.'
+  )
+}
+
+
 export function previewing(browser: DevOptions['browser']): string {
   return (
     `${getLoggingPrefix('info')} ` +
@@ -216,8 +223,7 @@ export function getAssetsTree(assets: StatsAsset[] | undefined): string {
 export function buildWebpack(
   projectDir: string,
   stats: any,
-  outputPath: string,
-  browser: string
+  browser: DevOptions['browser']
 ): string {
   // Convert stats object to JSON format
   const statsJson = stats?.toJson()
@@ -231,21 +237,23 @@ export function buildWebpack(
   } extension using ${browser} defaults...\n`
   const buildTime = `\nBuild completed in ${(
     (statsJson?.time || 0) / 1000
-  ).toFixed(2)} seconds.`
+  ).toFixed(2)} seconds.\n`
+  const buildTarget = `Build Target: ${capitalizedBrowserName(browser)}\n`
   const buildStatus = `Build Status: ${
     stats?.hasErrors() ? red('Failed') : green('Success')
-  }`
-  const version = `Version: ${manifest.version}`
-  const size = `Size: ${getAssetsSize(assets)}`
+  }\n`
+  const version = `Version: ${manifest.version}\n`
+  const size = `Size: ${getAssetsSize(assets)}\n`
 
   let output = ''
   output += heading
   output += getAssetsTree(assets)
-  output += getAssetInfo(outputPath, assets)
-  output += buildTime
-  output += buildStatus
+  // output += getAssetInfo(outputPath, assets)
   output += version
   output += size
+  output += buildTime
+  output += buildTarget
+  output += buildStatus
 
   return output
 }

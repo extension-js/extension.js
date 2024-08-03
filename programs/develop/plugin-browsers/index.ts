@@ -1,7 +1,7 @@
 import os from 'os'
 import path from 'path'
 import {type Compiler} from 'webpack'
-import {type PluginInterface} from './command-types'
+import {type PluginInterface} from './browsers-types'
 import {RunChromiumPlugin} from './run-chromium'
 import {RunFirefoxPlugin} from './run-firefox'
 import {DevOptions} from '../commands/dev'

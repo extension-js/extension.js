@@ -2,8 +2,8 @@ import path from 'path'
 import fs from 'fs'
 import FirefoxProfile from 'firefox-profile'
 import {getPreferences} from './master-preferences'
-import * as messages from '../../browser-lib/messages'
-import {addProgressBar} from '../../browser-lib/add-progress-bar'
+import * as messages from '../../browsers-lib/messages'
+import {addProgressBar} from '../../browsers-lib/add-progress-bar'
 import {DevOptions} from '../../../commands/dev'
 
 function configureProfile(

@@ -4,8 +4,8 @@ import {type Compiler} from 'webpack'
 import {firefoxLocation} from './firefox-location'
 import {browserConfig} from './firefox/browser-config'
 import {RemoteFirefox} from './remote-firefox'
-import * as messages from '../browser-lib/messages'
-import {type PluginInterface} from '../command-types'
+import * as messages from '../browsers-lib/messages'
+import {type PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/dev'
 
 process.on('SIGINT', () => {

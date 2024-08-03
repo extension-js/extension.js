@@ -2,8 +2,8 @@ import fs from 'fs'
 import {type Compiler} from 'webpack'
 import {spawn} from 'child_process'
 import {browserConfig} from './browser-config'
-import * as messages from '../browser-lib/messages'
-import {PluginInterface} from '../command-types'
+import * as messages from '../browsers-lib/messages'
+import {PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/dev'
 
 process.on('SIGINT', () => {
