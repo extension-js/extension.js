@@ -8,7 +8,6 @@
     "start": "extension start",
     "build": "extension build"
   },
-  "type": "module",
   "name": "content-sass",
   "private": true,
   "version": "0.0.1",

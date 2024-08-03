@@ -3,24 +3,15 @@
   "version": "0.0.1",
   "name": "content-typescript",
   "description": "An Extension.js example.",
-  "permissions": [
-    "activeTab",
-    "scripting"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "background.ts"
   },
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content/scripts.ts"
-      ]
+      "matches": ["<all_urls>"],
+      "js": ["content/scripts.ts"]
     }
   ]
 }

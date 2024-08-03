@@ -42,6 +42,7 @@ export function patchHtml(
             path.resolve(htmlDir, filePath),
             excludeList
           )
+
           const excludedFilePath = path.join('/', path.normalize(filePath))
           // Check if the file is in the compilation entry map.
           const isFilepathListEntry = isFromFilepathList(

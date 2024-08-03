@@ -9,7 +9,17 @@ import {exec} from 'child_process'
 //   curr: path.resolve(__dirname, '..', '__demo__', 'demoDir')
 // })
 const getFixturesPath = (demoDir: string) =>
-  path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'examples', demoDir)
+  path.resolve(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'examples',
+    demoDir
+  )
 
 const assertFileIsEmitted = async (filePath: string) => {
   await fs.promises.access(filePath, fs.constants.F_OK)
