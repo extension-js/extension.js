@@ -1,4 +1,4 @@
-import {type PluginInterface} from '../command-types'
+import {type PluginInterface} from '../browsers-types'
 import {createProfile} from './create-profile'
 
 export function browserConfig(configOptions: PluginInterface) {

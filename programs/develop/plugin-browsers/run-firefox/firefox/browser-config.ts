@@ -1,6 +1,6 @@
 import {Compiler} from 'webpack'
 import {createUserDataDir} from './create-profile'
-import {type PluginInterface} from '../../command-types'
+import {type PluginInterface} from '../../browsers-types'
 
 export async function browserConfig(
   compiler: Compiler,
