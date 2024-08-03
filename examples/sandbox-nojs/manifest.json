@@ -1,0 +1,11 @@
+{
+  "name": "sandbox-nojs",
+  "version": "0.0.1",
+  "manifest_version": 3,
+  "description": "An Extension.js example.",
+  "sandbox": {
+    "pages": [
+      "sandboxed.html"
+    ]
+  }
+}
