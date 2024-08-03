@@ -7,10 +7,8 @@
 
 import path from 'path'
 import fs from 'fs'
-import {Compiler} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
-import {isUsingTypeScript} from './typescript'
 import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false
@@ -41,7 +39,6 @@ export function isUsingVue(projectPath: string) {
 }
 
 export async function maybeUseVue(
-  compiler: Compiler,
   projectPath: string
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined

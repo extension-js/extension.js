@@ -1,4 +1,4 @@
-import {PathData, Compiler} from 'webpack'
+import {Compiler} from 'webpack'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
 import {CleanHotUpdatesPlugin} from './clean-hot-updates'

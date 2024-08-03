@@ -38,9 +38,7 @@ export default function ContentApp() {
         </div>
         <div className="mx-auto max-w-md text-center lg:py-12 lg:mx-0 lg:flex-auto lg:text-left">
           <div className="flex items-center justify-center space-x-4 my-4 mx-auto">
-            <ReactLogo
-              className="relative inline-block w-12"
-            />
+            <ReactLogo className="relative inline-block w-12" />
             <div className="text-3xl text-white">+</div>
             <img
               alt="TypeScript logo"

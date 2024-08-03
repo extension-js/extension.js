@@ -63,7 +63,7 @@ export async function extensionPreview(
         process.exit(1)
       }
 
-      console.log(messages.previewWebpack(projectPath, previewOptions))
+      console.log(messages.previewWebpack())
 
       if (!stats?.hasErrors()) {
         setTimeout(() => {

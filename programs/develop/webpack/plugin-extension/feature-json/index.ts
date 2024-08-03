@@ -86,7 +86,7 @@ export class JsonPlugin {
           name: 'json:module',
           stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
-        (assets) => {
+        () => {
           if (compilation.errors?.length) return
 
           const jsonFields = this.includeList || {}

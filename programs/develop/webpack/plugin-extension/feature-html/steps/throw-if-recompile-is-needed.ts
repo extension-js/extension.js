@@ -57,7 +57,7 @@ export class ThrowIfRecompileIsNeeded {
 
     compiler.hooks.make.tapAsync(
       'html:throw-if-recompile-is-needed',
-      (compilation, done) => {
+      (_compilation, done) => {
         const files = compiler.modifiedFiles || new Set<string>()
         const changedFile = Array.from(files)[0]
 

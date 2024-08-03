@@ -2,7 +2,6 @@ import fs from 'fs'
 import path from 'path'
 import {type Compiler} from 'webpack'
 import Dotenv from 'dotenv-webpack'
-import {type Manifest} from '../webpack-types'
 import * as messages from '../lib/messages'
 
 export class EnvPlugin {
@@ -22,11 +21,7 @@ export class EnvPlugin {
       fs.existsSync(path.join(projectPath, '.env.local')) ||
       fs.existsSync(path.join(projectPath, '.env.defaults'))
     ) {
-      const manifest: Manifest = require(this.manifestPath)
-      const manifestName = manifest.name || ''
-      const manifestVersion = manifest.version || ''
-
-      console.log(messages.envFileLoaded(manifestName, manifestVersion))
+      console.log(messages.envFileLoaded())
 
       new Dotenv({
         path: fs.existsSync(path.join(projectPath, '.env'))

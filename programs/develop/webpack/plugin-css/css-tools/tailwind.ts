@@ -9,7 +9,6 @@ import path from 'path'
 import fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
-import {StyleLoaderOptions} from '../common-style-loaders'
 
 let userMessageDelivered = false
 
@@ -56,10 +55,7 @@ export function getTailwindConfigFile(projectPath: string) {
   return undefined
 }
 
-export async function maybeUseTailwind(
-  projectPath: string,
-  mode: StyleLoaderOptions['mode']
-) {
+export async function maybeUseTailwind(projectPath: string) {
   if (isUsingTailwind(projectPath)) {
     try {
       require.resolve('tailwindcss')
