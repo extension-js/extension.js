@@ -31,6 +31,6 @@ export function manifestCommon(manifest: Manifest, exclude: string[]) {
     ...storage(manifest, exclude),
     ...theme(manifest, exclude),
     ...userScripts(manifest, exclude),
-    ...webAccessibleResources(manifest, exclude)
+    ...webAccessibleResources(manifest)
   }
 }

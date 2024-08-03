@@ -23,7 +23,7 @@ document.body.innerHTML += `
 `
 
 document.getElementById('colorPicker').addEventListener('input', (event) => {
-  // eslint-disable-next-line no-undef
+   
   chrome.runtime
     .sendMessage({
       action: 'changeBackgroundColor',

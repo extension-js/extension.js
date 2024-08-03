@@ -20,7 +20,7 @@ export default async function createSymlink(projectPath: string) {
       cwd: extensionJsCliDir
     })
 
-    linkExtensionJs.on('close', (code) => {
+    linkExtensionJs.on('close', () => {
       const linkProcess = spawn(command, [...args, 'extension'], {
         stdio: 'inherit',
         cwd: projectPath

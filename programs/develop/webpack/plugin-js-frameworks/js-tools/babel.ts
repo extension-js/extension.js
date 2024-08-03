@@ -115,8 +115,6 @@ export function babelConfig(
   }
 }
 
-type Loader = Record<string, any>
-
 export async function maybeUseBabel(
   compiler: Compiler,
   projectPath: string
@@ -146,7 +144,7 @@ export async function maybeUseBabel(
     : /\.(js|mjs|jsx|mjsx)$/
 
   const mode = compiler.options.mode
-  const maybeInstallTypeScript = await maybeUseTypeScript(projectPath, mode)
+  const maybeInstallTypeScript = await maybeUseTypeScript(projectPath)
 
   return {
     plugins: undefined,

@@ -26,7 +26,7 @@ export function getManifestFieldsData({manifestPath}: PluginInterface) {
     json: jsonFields(context, manifest),
     // locales: localesFields(context, manifestPath),
     scripts: scriptsFields(context, manifest),
-    web_accessible_resources: webResourcesFields(context, manifest)
+    web_accessible_resources: webResourcesFields(manifest)
   }
   return fieldData
 }

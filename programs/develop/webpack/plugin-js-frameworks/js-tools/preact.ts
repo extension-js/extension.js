@@ -7,7 +7,6 @@
 
 import path from 'path'
 import fs from 'fs'
-import {type Compiler, type WebpackPluginInstance} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -17,7 +16,6 @@ let userMessageDelivered = false
 export function isUsingPreact(projectPath: string) {
   const packageJsonPath = path.join(projectPath, 'package.json')
   const manifestJsonPath = path.join(projectPath, 'manifest.json')
-  const manifest = require(manifestJsonPath)
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -43,7 +41,6 @@ export function isUsingPreact(projectPath: string) {
 }
 
 export async function maybeUsePreact(
-  compiler: Compiler,
   projectPath: string
 ): Promise<JsFramework | undefined> {
   if (!isUsingPreact(projectPath)) return undefined

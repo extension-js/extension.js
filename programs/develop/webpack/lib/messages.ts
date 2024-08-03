@@ -602,10 +602,7 @@ export function deprecatedMessage(
   )
 }
 
-export function handleMultipleAssetsError(
-  manifestName: string,
-  filename: string
-) {
+export function handleMultipleAssetsError(filename: string) {
   const extFilename = filename.split('.').pop()
   const errorMsg =
     `content_scripts: One of your ${extFilename?.toUpperCase()} ` +
@@ -681,7 +678,7 @@ export function creatingProjectPath(projectName: string) {
   return `${getLoggingPrefix('success')} Creating a new browser extension in ${underline(`${process.cwd()}/${projectName}`)}`
 }
 
-export function envFileLoaded(manifestName: string, manifestVersion: string) {
+export function envFileLoaded() {
   return `${getLoggingPrefix('info')} ` + `${yellow('env')} file loaded.`
 }
 

@@ -1,5 +1,3 @@
-/* global chrome */
-
 async function getDevExtension() {
   const allExtensions = await new Promise((resolve) => {
     chrome.management.getAll(resolve)
