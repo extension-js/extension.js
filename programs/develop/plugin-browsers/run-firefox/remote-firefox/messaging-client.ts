@@ -4,7 +4,7 @@
 
 import net from 'net'
 import EventEmitter from 'events'
-import * as messages from '../../browser-lib/messages'
+import * as messages from '../../browsers-lib/messages'
 import {DevOptions} from '../../../module'
 
 interface Message {
