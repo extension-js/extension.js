@@ -1,4 +1,0 @@
-.eslintrc.js
-dist
-*.d.ts
-/webpack/plugin-reload/extensions/*

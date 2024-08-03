@@ -1,4 +1,4 @@
-import fs from 'fs-extra'
+import fs from 'fs'
 import path from 'path'
 import {exec} from 'child_process'
 
@@ -6,19 +6,21 @@ export const getFixturesPath = (demoDir: string) =>
   path.join(__dirname, 'fixtures', demoDir)
 
 export const assertFileIsEmitted = async (filePath: string) => {
-  await fs.access(filePath, fs.constants.F_OK)
+  await fs.promises.access(filePath, fs.constants.F_OK)
 }
 
 export const assertFileIsNotEmitted = async (filePath: string) => {
-  await fs.access(filePath, fs.constants.F_OK).catch((err) => {
+  await fs.promises.access(filePath, fs.constants.F_OK).catch((err) => {
     expect(err).toBeTruthy()
   })
 }
 
-export const findStringInFile = async (filePath: string, string: string) => {
-  await fs.readFile(filePath, 'utf8').then((data) => {
-    expect(data).toContain(string)
-  })
+export const findStringInFile = async (
+  filePath: string,
+  searchString: string
+) => {
+  const data = await fs.promises.readFile(filePath, 'utf8')
+  expect(data).toContain(searchString)
 }
 
 describe('JsonPlugin', () => {
@@ -31,7 +33,7 @@ describe('JsonPlugin', () => {
       exec(
         `npx webpack --config ${webpackConfigPath}`,
         {cwd: fixturesPath},
-        (error, stdout, stderr) => {
+        (error, _stdout, _stderr) => {
           if (error) {
             console.error(`exec error: ${error.message}`)
             return done(error)
@@ -43,7 +45,7 @@ describe('JsonPlugin', () => {
 
     afterAll(() => {
       if (fs.existsSync(outputPath)) {
-        fs.removeSync(outputPath)
+        fs.rmSync(outputPath, {recursive: true, force: true})
       }
     })
 
@@ -76,7 +78,7 @@ describe('JsonPlugin', () => {
       exec(
         `npx webpack --config ${webpackConfigPath}`,
         {cwd: fixturesPath},
-        (error, stdout, stderr) => {
+        (error, _stdout, _stderr) => {
           if (error) {
             console.error(`exec error: ${error.message}`)
             return done(error)
@@ -88,7 +90,7 @@ describe('JsonPlugin', () => {
 
     afterAll(() => {
       if (fs.existsSync(outputPath)) {
-        fs.removeSync(outputPath)
+        fs.rmSync(outputPath, {recursive: true, force: true})
       }
     })
 

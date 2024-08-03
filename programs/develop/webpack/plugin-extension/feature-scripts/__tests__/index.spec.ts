@@ -24,7 +24,7 @@ describe('ScriptsPlugin (default behavior)', () => {
     exec(
       `npx webpack --config ${webpackConfigPath}`,
       {cwd: fixturesPath},
-      (error, stdout, stderr) => {
+      (error, _stdout, _stderr) => {
         if (error) {
           console.error(`exec error: ${error.message}`)
           return done(error)
@@ -63,7 +63,7 @@ describe('ScriptsPlugin (edge cases)', () => {
     exec(
       `npx webpack --config ${webpackConfigPath}`,
       {cwd: fixturesPath},
-      (error, stdout, stderr) => {
+      (error, _stdout, _stderr) => {
         if (error) {
           console.error(`exec error: ${error.message}`)
           return done(error)
