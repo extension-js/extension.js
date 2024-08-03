@@ -3,7 +3,6 @@ function getManifest() {
 }
 const manifest = getManifest()
 
-console.log('ok??')
 console.table({
   name: manifest.name,
   version: manifest.version,

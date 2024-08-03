@@ -5,10 +5,7 @@
   },
   "background": {
     "page": "background.html",
-    "scripts": [
-      "background.js",
-      "background2.js"
-    ],
+    "scripts": ["background.js", "background2.js"],
     "service_worker": "service-worker.js"
   },
   "browser_action": {
@@ -34,30 +31,14 @@
   },
   "content_scripts": [
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content1.js",
-        "content2.js"
-      ],
-      "css": [
-        "content1.css",
-        "content2.css"
-      ]
+      "matches": ["<all_urls>"],
+      "js": ["content1.js", "content2.js"],
+      "css": ["content1.css", "content2.css"]
     },
     {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content3.js",
-        "content4.js"
-      ],
-      "css": [
-        "content3.css",
-        "content4.css"
-      ]
+      "matches": ["<all_urls>"],
+      "js": ["content3.js", "content4.js"],
+      "css": ["content3.css", "content4.css"]
     }
   ],
   "declarative_net_request": {
@@ -84,10 +65,7 @@
     "default_popup": "popup.html"
   },
   "sandbox": {
-    "pages": [
-      "sandbox.html",
-      "sandbox2.html"
-    ]
+    "pages": ["sandbox.html", "sandbox2.html"]
   },
   "sidebar_action": {
     "default_panel": "sidebar.html",

@@ -11,16 +11,23 @@ export interface ParsedHtmlAsset {
   static?: string[]
 }
 
-export function getAssetsFromHtml(htmlFilePath: string, htmlContent?: string) {
-  const htmlString =
-    htmlContent || fs.readFileSync(htmlFilePath, {encoding: 'utf8'})
-  const htmlDocument = parse5utils.parse(htmlString)
-
+export function getAssetsFromHtml(
+  htmlFilePath: string | undefined,
+  htmlContent?: string
+) {
   const assets: ParsedHtmlAsset = {
     css: [],
     js: [],
     static: []
   }
+
+  if (!htmlFilePath) {
+    return assets
+  }
+
+  const htmlString =
+    htmlContent || fs.readFileSync(htmlFilePath, {encoding: 'utf8'})
+  const htmlDocument = parse5utils.parse(htmlString)
 
   const getAbsolutePath = (htmlFilePath: string, filePath: string) => {
     return path.join(

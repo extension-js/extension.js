@@ -1,0 +1,15 @@
+{
+  "name": "special-folders-pages",
+  "version": "0.0.1",
+  "manifest_version": 3,
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "description": "An Extension.js example.",
+  "action": {
+    "default_popup": "pages/main.html"
+  },
+  "sandbox": {
+    "pages": ["sandboxed.html"]
+  }
+}
