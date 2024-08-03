@@ -1,4 +1,4 @@
-import fs from 'fs-extra'
+import fs from 'fs'
 import path from 'path'
 import {exec} from 'child_process'
 
@@ -6,19 +6,18 @@ const getFixturesPath = (demoDir: string) =>
   path.join(__dirname, 'fixtures', demoDir)
 
 const assertFileIsEmitted = async (filePath: string) => {
-  await fs.access(filePath, fs.constants.F_OK)
+  await fs.promises.access(filePath, fs.constants.F_OK)
 }
 
 const assertFileIsNotEmitted = async (filePath: string) => {
-  await fs.access(filePath, fs.constants.F_OK).catch((err) => {
+  await fs.promises.access(filePath, fs.constants.F_OK).catch((err) => {
     expect(err).toBeTruthy()
   })
 }
 
-const findStringInFile = async (filePath: string, string: string) => {
-  await fs.readFile(filePath, 'utf8').then((data) => {
-    expect(data).toContain(string)
-  })
+const findStringInFile = async (filePath: string, searchString: string) => {
+  const data = await fs.promises.readFile(filePath, 'utf8')
+  expect(data).toContain(searchString)
 }
 
 describe('HtmlPlugin (default behavior)', () => {
@@ -30,7 +29,7 @@ describe('HtmlPlugin (default behavior)', () => {
     exec(
       `npx webpack --config ${webpackConfigPath}`,
       {cwd: fixturesPath},
-      (error, stdout, stderr) => {
+      (error, _stdout, _stderr) => {
         if (error) {
           console.error(`exec error: ${error.message}`)
           return done(error)
@@ -42,7 +41,7 @@ describe('HtmlPlugin (default behavior)', () => {
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {
-      fs.removeSync(outputPath)
+      fs.rmSync(outputPath, {recursive: true, force: true})
     }
   })
 
@@ -64,17 +63,14 @@ describe('HtmlPlugin (default behavior)', () => {
     })
 
     it('should resolve paths of HTML files for HTML paths defined in MANIFEST.JSON', async () => {
-      // Handle HTML file that is also a manifest.json features
       await findStringInFile(pagesHtml, '/sandbox/page-0.html')
     })
 
     it('should resolve paths of HTML files for HTML paths defined in INCLUDE option', async () => {
-      // Handle HTML file that is also a manifest.json features
       await findStringInFile(sandboxHtml, '/pages/custom.html')
     })
 
     it('should resolve paths of HTML files for HTML paths defined in EXCLUDE option', async () => {
-      // Handle HTML file that is also a manifest.json features
       await findStringInFile(pagesHtml, '/public/html/file.html')
     })
   })
@@ -97,21 +93,14 @@ describe('HtmlPlugin (default behavior)', () => {
     })
 
     it('should resolve paths of CSS files for HTML paths defined in MANIFEST.JSON', async () => {
-      // Handle CSS file that is also a manifest.json features
-      // Durign development we do not output CSS files and follow wathever style-loader does.
-      await assertFileIsNotEmitted(
-        path.join(outputPath, 'sandbox', 'page-0.css')
-      )
+      await assertFileIsNotEmitted(sandboxCss)
     })
 
     it('should resolve paths of CSS files for HTML paths defined in INCLUDE option', async () => {
-      // Handle CSS file that is also a manifest.json features.
-      // Durign development we do not output CSS files and follow wathever style-loader does.
-      await assertFileIsNotEmitted(path.join(outputPath, 'pages', 'main.css'))
+      await assertFileIsNotEmitted(pagesCss)
     })
 
     it('should resolve paths of CSS files for HTML paths defined in EXCLUDE option', async () => {
-      // Handle CSS file that is also a manifest.json features
       await findStringInFile(sandboxHtml, '/public/css/file.css')
     })
   })
@@ -134,17 +123,14 @@ describe('HtmlPlugin (default behavior)', () => {
     })
 
     it('should resolve paths of JS files for HTML paths defined in MANIFEST.JSON', async () => {
-      // Handle JS file that is also a manifest.json features
       await findStringInFile(sandboxHtml, '/sandbox/page-0.js')
     })
 
     it('should resolve paths of JS files for HTML paths defined in INCLUDE option', async () => {
-      // Handle JS file that is also a manifest.json features
       await findStringInFile(pagesHtml, '/pages/main.js')
     })
 
     it('should resolve paths of JS files for HTML paths defined in EXCLUDE option', async () => {
-      // Handle JS file that is also a manifest.json features
       await findStringInFile(sandboxHtml, '/public/js/file.js')
     })
   })
@@ -166,17 +152,14 @@ describe('HtmlPlugin (default behavior)', () => {
     })
 
     it('should resolve paths of PNG files for HTML paths defined in MANIFEST.JSON', async () => {
-      // Handle PNG file that is also a manifest.json features
       await findStringInFile(sandboxHtml, '/sandbox/page-0.js')
     })
 
     it('should resolve paths of PNG files for HTML paths defined in INCLUDE option', async () => {
-      // Handle PNG file that is also a manifest.json features
       await findStringInFile(pagesHtml, '/pages/main.js')
     })
 
     it('should resolve paths of PNG files for HTML paths defined in EXCLUDE option', async () => {
-      // Handle PNG file that is also a manifest.json features
       await findStringInFile(sandboxHtml, '/public/js/file.js')
     })
   })
@@ -191,7 +174,7 @@ describe('HtmlPlugin (edge cases)', () => {
     exec(
       `npx webpack --config ${webpackConfigPath}`,
       {cwd: fixturesPath},
-      (error, stdout, stderr) => {
+      (error, _stdout, _stderr) => {
         if (error) {
           console.error(`exec error: ${error.message}`)
           return done(error)
@@ -203,7 +186,7 @@ describe('HtmlPlugin (edge cases)', () => {
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {
-      fs.removeSync(outputPath)
+      fs.rmSync(outputPath, {recursive: true, force: true})
     }
   })
 

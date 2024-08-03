@@ -1,11 +1,31 @@
 {
-  "extends": "./packages/tsconfig/base.json",
-  "include": ["./packages", "./programs"],
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Default",
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "inlineSources": false,
+    "isolatedModules": true,
+    "moduleResolution": "node",
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "preserveWatchOutput": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "module": "CommonJS"
+  },
+  "include": ["./programs"],
   "exclude": [
     "**/dist",
     "**/spec",
     "node_modules",
-    "browser-extension-test-data",
-    "programs/create/templates/**"
+    "./programs/create/templates/**",
+    "./programs/develop/__samples__/**"
   ]
 }

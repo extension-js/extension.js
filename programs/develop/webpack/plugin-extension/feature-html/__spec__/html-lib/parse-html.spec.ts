@@ -9,7 +9,7 @@ jest.mock('parse5-utils', () => ({
 
 const setupAttributesMock = (attributes: Record<string, string>) => {
   ;(parse5utils.getAttribute as jest.Mock).mockImplementation(
-    (node, attr) => attributes[attr]
+    (_node, attr) => attributes[attr]
   )
 }
 

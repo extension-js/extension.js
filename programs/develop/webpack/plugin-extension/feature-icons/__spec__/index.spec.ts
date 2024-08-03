@@ -1,4 +1,4 @@
-import fs from 'fs-extra'
+import fs from 'fs'
 import path from 'path'
 import {exec} from 'child_process'
 
@@ -6,18 +6,12 @@ const getFixturesPath = (demoDir: string) =>
   path.join(__dirname, 'fixtures', demoDir)
 
 const assertFileIsEmitted = async (filePath: string) => {
-  await fs.access(filePath, fs.constants.F_OK)
+  await fs.promises.access(filePath, fs.constants.F_OK)
 }
 
 const assertFileIsNotEmitted = async (filePath: string) => {
-  await fs.access(filePath, fs.constants.F_OK).catch((err) => {
+  await fs.promises.access(filePath, fs.constants.F_OK).catch((err) => {
     expect(err).toBeTruthy()
-  })
-}
-
-const findStringInFile = async (filePath: string, string: string) => {
-  await fs.readFile(filePath, 'utf8').then((data) => {
-    expect(data).toContain(string)
   })
 }
 
@@ -38,7 +32,7 @@ describe('IconsPlugin', () => {
       exec(
         `npx webpack --config ${webpackConfigPath}`,
         {cwd: fixturesPath},
-        (error, stdout, stderr) => {
+        (error, _stdout, _stderr) => {
           if (error) {
             console.error(`exec error: ${error.message}`)
             return done(error)
@@ -50,7 +44,7 @@ describe('IconsPlugin', () => {
 
     afterAll(() => {
       if (fs.existsSync(outputPath)) {
-        fs.removeSync(outputPath)
+        fs.rmSync(outputPath, {recursive: true, force: true})
       }
     })
 

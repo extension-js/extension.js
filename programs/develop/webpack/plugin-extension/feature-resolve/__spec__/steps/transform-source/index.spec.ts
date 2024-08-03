@@ -1,6 +1,5 @@
 import {transformSource} from '../../../steps/transform-source'
 import {parse} from 'acorn'
-import {generate} from 'astring'
 
 describe('transformSource Tests', () => {
   const transformAndParse = (code: string) => {
