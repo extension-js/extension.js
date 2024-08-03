@@ -21,6 +21,6 @@
     "resolveJsonModule": true,
     "module": "CommonJS"
   },
-  "include": ["."],
+  "include": [".", "../examples"],
   "exclude": ["node_modules", "dist"]
 }
