@@ -1,0 +1,16 @@
+{
+  "devDependencies": {
+    "extension": "latest",
+    "sass": "^1.77.8"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "type": "module",
+  "name": "content-sass",
+  "private": true,
+  "version": "0.0.1",
+  "description": "An Extension.js example."
+}

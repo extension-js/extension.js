@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "content-css-module",
+  "description": "An Extension.js example.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content/scripts.js"
+      ]
+    }
+  ]
+}

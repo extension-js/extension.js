@@ -1,0 +1,16 @@
+{
+  "devDependencies": {
+    "typescript": "5.3.3"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "dependencies": {},
+  "type": "module",
+  "name": "content-typescript",
+  "private": true,
+  "version": "0.0.1",
+  "description": "An Extension.js example."
+}

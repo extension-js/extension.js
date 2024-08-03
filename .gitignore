@@ -54,8 +54,5 @@ yarn-error.log*
 .vercel
 
 # Extension.js (beta)
-packages/*/demo
-packages/*/spec
-browser-extension-test-data
-TODO.yml
+examples/*"
 __TEST__

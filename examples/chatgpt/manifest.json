@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "chatgpt",
+  "description": "An Extension.js example.",
+  "icons": {
+    "16": "images/icons/icon_16.png",
+    "48": "images/icons/icon_48.png"
+  },
+  "side_panel": {
+    "default_path": "sidebar/index.html"
+  },
+  "permissions": [
+    "sidePanel"
+  ]
+}

@@ -22,10 +22,10 @@
   },
   "include": ["./programs"],
   "exclude": [
+    "node_modules",
     "**/dist",
     "**/spec",
-    "node_modules",
-    "./programs/create/templates/**",
-    "./programs/develop/__samples__/**"
+    "**/__demo__",
+    "./programs/create/templates/**"
   ]
 }

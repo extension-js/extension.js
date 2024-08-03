@@ -1,0 +1,13 @@
+{
+  "manifest_version": 2,
+  "version": "0.0.1",
+  "name": "page_action",
+  "author": "Cezar Augusto",
+  "page_action": {
+    "default_icon": {
+      "16": "test_16.png",
+      "48": "test_48.png"
+    }
+  },
+  "description": "An Extension.js example."
+}

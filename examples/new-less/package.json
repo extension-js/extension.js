@@ -1,0 +1,15 @@
+{
+  "devDependencies": {
+    "extension": "latest"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "dependencies": {},
+  "name": "new-less",
+  "private": true,
+  "version": "0.0.1",
+  "description": "An Extension.js example."
+}
