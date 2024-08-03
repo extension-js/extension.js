@@ -9,7 +9,6 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "type": "module",
   "name": "content-less",
   "private": true,
   "version": "0.0.1",

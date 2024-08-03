@@ -5,18 +5,12 @@
   "description": "An Extension.js example.",
   "background": {
     "chromium:service_worker": "background.ts",
-    "firefox:scripts": [
-      "background.ts"
-    ]
+    "firefox:scripts": ["background.ts"]
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://extension.js.org/*"
-      ],
-      "js": [
-        "./content/scripts.tsx"
-      ]
+      "matches": ["https://extension.js.org/*"],
+      "js": ["./content/scripts.tsx"]
     }
   ],
   "icons": {

@@ -8,7 +8,6 @@
     "build": "extension build"
   },
   "dependencies": {},
-  "type": "module",
   "name": "content-css-module",
   "private": true,
   "version": "0.0.1",
