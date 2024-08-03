@@ -5,7 +5,6 @@ import {red, yellow, green, underline, magenta, blue} from '@colors/colors/safe'
 import {Manifest} from '../../types'
 import {StartOptions} from '../start'
 import {DevOptions} from '../dev'
-import {PreviewOptions} from '../preview'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const arrow =
@@ -38,10 +37,7 @@ function calculateDirectorySize(dirPath: string): number {
   return totalSize
 }
 
-export function previewWebpack(
-  projectPath: string,
-  previewOptions: PreviewOptions
-) {
+export function previewWebpack() {
   return `${getLoggingPrefix('info')} ` + `Previewing the extension package...`
 }
 

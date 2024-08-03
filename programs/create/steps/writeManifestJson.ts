@@ -11,8 +11,7 @@ import {red, yellow} from '@colors/colors/safe'
 
 export default async function writeManifestJson(
   projectPath: string,
-  projectName: string,
-  template: string
+  projectName: string
 ) {
   const manifestJsonPath = path.join(projectPath, 'manifest.json')
 

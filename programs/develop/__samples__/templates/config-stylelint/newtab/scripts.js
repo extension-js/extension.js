@@ -1,5 +1,5 @@
 function getManifest() {
-  // eslint-disable-next-line no-undef
+   
   return chrome.runtime.getManifest()
 }
 

@@ -1,8 +1,6 @@
-import path from 'path'
 import {type Manifest} from '../../../../webpack-types'
 
 export function webResourcesFields(
-  context: string,
   manifest: Manifest
 ): Manifest['web_accessible_resources'] | undefined {
   if (

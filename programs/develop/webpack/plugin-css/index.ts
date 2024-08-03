@@ -38,10 +38,7 @@ export class CssPlugin {
       })
     ]
 
-    const maybeInstallStylelint = await maybeUseStylelint(
-      projectPath,
-      this.mode
-    )
+    const maybeInstallStylelint = await maybeUseStylelint(projectPath)
     plugins.push(...maybeInstallStylelint)
 
     const loaders: RuleSetRule[] = [

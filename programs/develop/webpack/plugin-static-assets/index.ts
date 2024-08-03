@@ -1,4 +1,3 @@
-import path from 'path'
 import {type Compiler, type RuleSetRule} from 'webpack'
 import {PluginInterface} from '../webpack-types'
 import {type DevOptions} from '../../commands/dev'

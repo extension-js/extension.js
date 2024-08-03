@@ -33,7 +33,7 @@ export class LocalesPlugin {
           // Add additional assets to the compilation.
           stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
-        (assets) => {
+        () => {
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
             compilation.errors.push(
@@ -88,7 +88,7 @@ export class LocalesPlugin {
           name: 'locales:module',
           stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
-        (assets) => {
+        () => {
           if (compilation.errors?.length) return
 
           const localesFields = getLocales(this.manifestPath)

@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
-import {type Compiler, type WebpackPluginInstance} from 'webpack'
+import {type WebpackPluginInstance} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -41,7 +41,6 @@ export function isUsingReact(projectPath: string) {
 }
 
 export async function maybeUseReact(
-  compiler: Compiler,
   projectPath: string
 ): Promise<JsFramework | undefined> {
   if (!isUsingReact(projectPath)) return undefined

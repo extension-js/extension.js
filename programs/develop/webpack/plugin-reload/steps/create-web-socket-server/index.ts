@@ -4,7 +4,6 @@ import {PluginInterface} from '../../reload-types'
 import {messageDispatcher} from './web-socket-server/message-dispatcher'
 import {startServer} from './web-socket-server/start-server'
 import {replacePortInFile} from './rewrite-reload-port'
-import {DevOptions} from '../../../../module'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -16,13 +15,11 @@ process.on('SIGTERM', () => {
 
 export default class CreateWebSocketServer {
   private readonly manifestPath: string
-  private readonly browser: DevOptions['browser']
   private readonly port: number
   private readonly stats: boolean | undefined
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.browser = options.browser || 'chrome'
     this.port = options.port || 8000
     this.stats = options.stats
   }

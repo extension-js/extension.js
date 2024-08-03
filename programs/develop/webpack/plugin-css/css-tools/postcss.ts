@@ -91,7 +91,7 @@ export async function maybeUsePostCss(
     }
   }
 
-  const maybeInstallTailwind = await maybeUseTailwind(projectPath, opts.mode)
+  const maybeInstallTailwind = await maybeUseTailwind(projectPath)
 
   return {
     loader: require.resolve('postcss-loader'),

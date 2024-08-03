@@ -102,7 +102,7 @@ export function getUserTypeScriptConfigFile(projectPath: string) {
   return undefined
 }
 
-export function getTypeScriptConfigOverrides(projectPath: string, opts: any) {
+export function getTypeScriptConfigOverrides(opts: {mode: DevOptions['mode']}) {
   return {
     compilerOptions: {
       // Generate source maps for debugging
@@ -146,7 +146,7 @@ export function tsCheckerOptions(projectPath: string, opts: any) {
     typescript: {
       context: projectPath,
       configFile: getUserTypeScriptConfigFile(projectPath),
-      configOverwrite: getTypeScriptConfigOverrides(projectPath, {
+      configOverwrite: getTypeScriptConfigOverrides({
         mode: 'development'
       }),
       typescriptPath: require.resolve('typescript', {paths: [projectPath]}),
@@ -161,8 +161,7 @@ export function tsCheckerOptions(projectPath: string, opts: any) {
 }
 
 export async function maybeUseTypeScript(
-  projectPath: string,
-  mode: DevOptions['mode']
+  projectPath: string
 ): Promise<boolean> {
   if (!isUsingTypeScript(projectPath)) return false
 

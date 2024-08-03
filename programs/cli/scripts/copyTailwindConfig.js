@@ -5,8 +5,6 @@
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
 
-/* eslint-disable @typescript-eslint/no-floating-promises */
-
 const fs = require('fs/promises')
 const path = require('path')
 

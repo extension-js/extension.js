@@ -10,7 +10,6 @@ import fs from 'fs'
 import {type WebpackPluginInstance} from 'webpack'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
-import {DevOptions} from '../../../commands/dev'
 
 export function getStylelintConfigFile(projectPath: string) {
   const stylelintConfigJs = path.join(projectPath, 'stylelint.config.js')
@@ -64,8 +63,7 @@ export function isUsingStylelint(projectPath: string) {
 }
 
 export async function maybeUseStylelint(
-  projectPath: string,
-  mode: DevOptions['mode']
+  projectPath: string
 ): Promise<WebpackPluginInstance[]> {
   if (!isUsingStylelint(projectPath)) return []
 

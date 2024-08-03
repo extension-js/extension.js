@@ -1,5 +1,3 @@
-/* global chrome WebSocket */
-
 const TEN_SECONDS_MS = 10 * 1000
 let webSocket = null
 
