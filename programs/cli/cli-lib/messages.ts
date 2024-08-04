@@ -5,7 +5,47 @@
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
 
-export default function programHelp() {
+import {yellow, green} from '@colors/colors/safe'
+
+export function updateFailed(err: any) {
+  return `Failed to check for updates: ${err.message}`
+}
+
+export function checkUpdates(
+  packageJson: Record<string, any>,
+  update: {latest: string}
+) {
+  return (
+    `\n🧩` +
+    `\n${yellow('Notice:')} A new version of ${green('Extension.js')} is available!` +
+    `\nYou are currently using version ${packageJson.version}.` +
+    `\nThe latest stable version is ${update.latest}.` +
+    `\nPlease update to the latest version to enjoy new features and improvements.\n`
+  )
+}
+
+export function unsupportedNodeVersion() {
+  return `
+    You are using an unsupported Node version (${process.version}).
+
+    Please update to a version higher than 18.
+  `
+}
+
+export function noURLWithoutStart(argument: string) {
+  return `
+    The default \`create\` command does not accept URLs.
+    Are you forgetting a \`start\` command? Maybe:
+
+    npx extension \`start\` ${argument}
+  `
+}
+
+export function notImplemented(argument: string) {
+  return `${argument} command not implemented yet.`
+}
+
+export function programHelp() {
   return `
 # Help center for the 🧩 Extension.js program
 
