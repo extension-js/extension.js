@@ -117,7 +117,7 @@ const manifestV2Path = path.join(__dirname, 'manifest-v2.json')
 const manifestV3Path = path.join(__dirname, 'manifest-v3.json')
 
 describe('getManifestFieldsData', () => {
-  beforeAll(() => {
+  afterAll(() => {
     if (fs.existsSync(manifestV2Path)) {
       fs.unlinkSync(manifestV2Path)
     }

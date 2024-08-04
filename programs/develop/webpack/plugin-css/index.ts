@@ -38,6 +38,8 @@ export class CssPlugin {
       })
     ]
 
+    plugins.forEach((plugin) => plugin.apply(compiler))
+
     const maybeInstallStylelint = await maybeUseStylelint(projectPath)
     plugins.push(...maybeInstallStylelint)
 

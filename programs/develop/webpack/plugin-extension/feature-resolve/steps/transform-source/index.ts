@@ -82,7 +82,8 @@ export function transformSource(source: string, options: LoaderOptions) {
     jsc: {
       parser: {
         syntax: options.typescript ? 'typescript' : 'ecmascript',
-        tsx: options.jsx
+        jsx: !options.typescript && options.jsx,
+        tsx: options.typescript && options.jsx
       },
       target: 'es2016',
       transform: {

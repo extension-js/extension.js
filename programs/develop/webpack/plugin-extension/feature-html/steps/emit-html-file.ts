@@ -3,8 +3,8 @@ import webpack, {type Compiler, Compilation} from 'webpack'
 import {sources} from 'webpack'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../../../lib/messages'
-import {getFilePath} from '../html-lib/utils'
 import {shouldExclude} from '../../../lib/utils'
+import {getFilePath} from '../html-lib/utils'
 
 export class EmitHtmlFile {
   public readonly manifestPath: string

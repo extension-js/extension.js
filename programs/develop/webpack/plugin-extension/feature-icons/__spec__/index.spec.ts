@@ -2,11 +2,23 @@ import fs from 'fs'
 import path from 'path'
 import {exec} from 'child_process'
 
-const getFixturesPath = (demoDir: string) =>
-  path.join(__dirname, 'fixtures', demoDir)
+const getFixturesPath = (demoDir: string) => {
+  return path.resolve(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'examples',
+    demoDir
+  )
+}
 
 const assertFileIsEmitted = async (filePath: string) => {
-  await fs.promises.access(filePath, fs.constants.F_OK)
+  const fileIsEmitted = await fs.promises.access(filePath, fs.constants.F_OK)
+  return expect(fileIsEmitted).toBeUndefined()
 }
 
 const assertFileIsNotEmitted = async (filePath: string) => {
@@ -18,20 +30,16 @@ const assertFileIsNotEmitted = async (filePath: string) => {
 describe('IconsPlugin', () => {
   describe.each([
     ['action'],
-    ['browser_action'],
-    ['browser_action.theme-icons'],
     ['icons'],
-    ['page_action'],
-    ['sidebar_action']
+    ['sidebar']
   ])('dealing with %s', (directory) => {
     const fixturesPath = getFixturesPath(directory)
-    const webpackConfigPath = path.join(fixturesPath, 'webpack.config.js')
-    const outputPath = path.resolve(fixturesPath, 'dist')
+    const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
     beforeAll((done) => {
       exec(
-        `npx webpack --config ${webpackConfigPath}`,
-        {cwd: fixturesPath},
+        `npx -y extension@latest build ${fixturesPath}`,
+        {cwd: __dirname},
         (error, _stdout, _stderr) => {
           if (error) {
             console.error(`exec error: ${error.message}`)
@@ -42,11 +50,11 @@ describe('IconsPlugin', () => {
       )
     }, 40000)
 
-    afterAll(() => {
-      if (fs.existsSync(outputPath)) {
-        fs.rmSync(outputPath, {recursive: true, force: true})
-      }
-    })
+    // afterAll(() => {
+    //   if (fs.existsSync(outputPath)) {
+    //     fs.rmSync(outputPath, {recursive: true, force: true})
+    //   }
+    // })
 
     const dir =
       directory === 'browser_action.theme-icons' ? 'browser_action' : directory

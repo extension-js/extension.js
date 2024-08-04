@@ -63,20 +63,14 @@ export async function extensionBuild(
         process.exit(1)
       }
 
-      const outputPath =
-        webpackConfigNoBrowser.output?.path ||
-        path.join(projectPath, 'dist', browser)
-
-      console.log(
-        messages.buildWebpack(projectPath, stats, outputPath, browser)
-      )
+      console.log(messages.buildWebpack(projectPath, stats, browser))
 
       if (buildOptions.zip || buildOptions.zipSource) {
         await generateZip(projectPath, {...buildOptions, browser})
       }
 
       if (!stats?.hasErrors()) {
-        console.log(messages.ready(browser))
+        console.log(messages.buildReady())
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)
