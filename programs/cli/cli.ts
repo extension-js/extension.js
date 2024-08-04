@@ -28,7 +28,7 @@ import {
 } from '@extension-create/develop'
 
 import checkUpdates from './check-updates'
-import messages from './messages'
+import * as messages from './cli-lib/messages'
 import packageJson from './package.json'
 
 // Before all, check for updates.
