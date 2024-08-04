@@ -4,6 +4,7 @@ import {type PluginInterface, type Manifest} from '../../webpack-types'
 import {insecureCSPValueError} from './insecure-csp-value-errors'
 import {wrongWebResourceFormatError} from './wrong-web-resource-format-error'
 import {firefoxRunningServiceWorkerError} from './firefox-service-worker-error'
+import {noDefaultLocaleError} from './no-default-locale-error'
 
 export class ManifestRuntimeErrorsPlugin {
   private readonly options: PluginInterface
@@ -26,6 +27,7 @@ export class ManifestRuntimeErrorsPlugin {
       manifest,
       browser
     )
+    const noDefaultLocale = noDefaultLocaleError(manifest, compilation)
 
     if (insecureCSPValue) {
       compilation.errors.push(insecureCSPValue)
@@ -39,6 +41,10 @@ export class ManifestRuntimeErrorsPlugin {
       if (compilation.options.mode === 'production') {
         compilation.errors.push(firefoxRunningServiceWorker)
       }
+    }
+
+    if (noDefaultLocale) {
+      compilation.errors.push(noDefaultLocale)
     }
   }
 

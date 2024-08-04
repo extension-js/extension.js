@@ -7,10 +7,8 @@
 
 import path from 'path'
 import fs from 'fs'
-import {isUsingReact} from './react'
-import {isUsingPreact} from './preact'
 import * as messages from '../../lib/messages'
-import {installOptionalDependencies} from '../../lib/utils'
+import {installOptionalDependencies, isUsingJSFramework} from '../../lib/utils'
 import {DevOptions} from '../../../commands/dev'
 
 let userMessageDelivered = false
@@ -64,10 +62,7 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
       // inlineSources: false,
       // Controls how JSX constructs are emitted in JavaScript files.
       // This only affects output of JS files that started in .tsx files.
-      jsx:
-        isUsingReact(projectPath) || isUsingPreact(projectPath)
-          ? 'react-jsx'
-          : 'preserve',
+      jsx: isUsingJSFramework(projectPath) ? 'react-jsx' : 'preserve',
       // Include typings for latest ECMAScript features and DOM APIs
       lib: ['dom', 'dom.iterable', 'esnext'],
       // Use Node's module resolution algorithm; useful if using

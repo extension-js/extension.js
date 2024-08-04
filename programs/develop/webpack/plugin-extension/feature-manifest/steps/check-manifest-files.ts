@@ -15,6 +15,34 @@ export class CheckManifestFiles {
     this.excludeList = options.excludeList
   }
 
+  extractPaths(
+    value:
+      | string
+      | string[]
+      | {light: string; dark: string}
+      | {light: string; dark: string}[]
+  ) {
+    const valueArr = Array.isArray(value) ? value : [value]
+
+    if (typeof valueArr[0] === 'string') return valueArr
+
+    const paths: any[] = []
+
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      const icon = value as {light?: string; dark?: string}
+
+      if (icon.light) {
+        paths.push(icon.light)
+      }
+
+      if (icon.dark) {
+        paths.push(icon.dark)
+      }
+    }
+
+    return paths
+  }
+
   private handleErrors(
     compilation: Compilation,
     WebpackError: typeof webpack.WebpackError
@@ -25,10 +53,9 @@ export class CheckManifestFiles {
     const htmlExt = '.html'
 
     const entries = Object.entries(this.includeList || {})
-
     for (const [field, value] of entries) {
       if (value) {
-        const valueArr = Array.isArray(value) ? value : [value]
+        const valueArr = this.extractPaths(value)
 
         for (const item of valueArr) {
           const ext = path.extname(item as string)
@@ -43,24 +70,8 @@ export class CheckManifestFiles {
               compilation.errors.push(new WebpackError(fieldError))
             } else if (ext === htmlExt) {
               compilation.errors.push(new WebpackError(fieldError))
-            } else if (typeof value === 'object' && !Array.isArray(value)) {
-              const icon = value as {light?: string; dark?: string}
-
-              if (icon.light && !fs.existsSync(icon.light)) {
-                const lightError = messages.manifestFieldError(
-                  field,
-                  icon.light
-                )
-                compilation.errors.push(new WebpackError(lightError))
-              }
-
-              if (icon.dark && !fs.existsSync(icon.dark)) {
-                const darkError = messages.manifestFieldError(field, icon.dark)
-                compilation.errors.push(new WebpackError(darkError))
-              }
             } else {
-              const unknownExtError = messages.manifestFieldError(field, item)
-              compilation.errors.push(new WebpackError(unknownExtError))
+              compilation.errors.push(new WebpackError(fieldError))
             }
           }
         }
@@ -71,11 +82,13 @@ export class CheckManifestFiles {
   apply(compiler: Compiler) {
     compiler.hooks.compilation.tap(
       'manifest:check-manifest-files',
-      (compilation) => {
+      (compilation: Compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'manifest:check-manifest-files',
-            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COMPATIBILITY
+            name: 'compatibility:check-manifest-files',
+            // One after PROCESS_ASSETS_STAGE_OPTIMIZE, where
+            // feature-browser-fields cuts off the browser-specific field prefixes.
+            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COUNT
           },
           () => {
             const WebpackError = webpack.WebpackError

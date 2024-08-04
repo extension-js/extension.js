@@ -26,8 +26,8 @@ export function getSpecialFoldersData({manifestPath}: PluginInterface) {
   // Generate entries for each folder
   const entries = {
     public: generateEntries(projectPath, allFiles.public),
-    pages: generateEntries(projectPath, allFiles.pages, 'pages', '.html'),
-    scripts: generateEntries(projectPath, allFiles.scripts, 'scripts', '.js')
+    pages: generateEntries(projectPath, allFiles.pages, 'pages'),
+    scripts: generateEntries(projectPath, allFiles.scripts, 'scripts')
   }
 
   return entries

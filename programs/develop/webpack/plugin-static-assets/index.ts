@@ -39,7 +39,7 @@ export class StaticAssetsPlugin {
         }
       },
       {
-        test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
+        test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp|svg)$/i,
         type: 'asset/resource',
         generator: {
           filename: () => getAssetFilename('assets')

@@ -101,11 +101,8 @@ export function building(browser: DevOptions['browser']): string {
 }
 
 export function buildReady(): string {
-  return (
-    'No errors or warnings found. Your extension is ready for deployment.'
-  )
+  return 'No errors or warnings found. Your extension is ready for deployment.'
 }
-
 
 export function previewing(browser: DevOptions['browser']): string {
   return (

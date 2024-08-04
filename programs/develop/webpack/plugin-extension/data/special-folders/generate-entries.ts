@@ -33,8 +33,7 @@ type IncludeList = Record<string, string>
 export function generateEntries(
   projectPath: string,
   includes: string[] | undefined,
-  folderName: string = '',
-  extension: string = ''
+  folderName: string = ''
 ): IncludeList {
   if (!includes || !includes.length) return {}
 
@@ -42,7 +41,7 @@ export function generateEntries(
     const extname = path.extname(include)
     const filename = path.basename(include, extname)
     const key = folderName
-      ? `${folderName}/${filename}${extension}`
+      ? `${folderName}/${filename}`
       : path.relative(projectPath, include)
 
     return {

@@ -2,8 +2,19 @@ import fs from 'fs'
 import path from 'path'
 import {exec} from 'child_process'
 
-export const getFixturesPath = (demoDir: string) =>
-  path.join(__dirname, 'fixtures', demoDir)
+const getFixturesPath = (demoDir: string) => {
+  return path.resolve(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'examples',
+    demoDir
+  )
+}
 
 export const assertFileIsEmitted = async (filePath: string) => {
   await fs.promises.access(filePath, fs.constants.F_OK)
@@ -24,14 +35,13 @@ export const findStringInFile = async (
 }
 
 describe('LocalesPlugin', () => {
-  const fixturesPath = getFixturesPath('locales-default')
-  const webpackConfigPath = path.join(fixturesPath, 'webpack.config.js')
-  const outputPath = path.resolve(fixturesPath, 'dist')
+  const fixturesPath = getFixturesPath('locales')
+  const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
   beforeAll((done) => {
     exec(
-      `npx webpack --config ${webpackConfigPath}`,
-      {cwd: fixturesPath},
+      `npx -y extension@latest build ${fixturesPath}`,
+      {cwd: __dirname},
       (error, _stdout, _stderr) => {
         if (error) {
           console.error(`exec error: ${error.message}`)

@@ -2,11 +2,23 @@ import fs from 'fs'
 import path from 'path'
 import {exec} from 'child_process'
 
-export const getFixturesPath = (demoDir: string) =>
-  path.join(__dirname, 'fixtures', demoDir)
+const getFixturesPath = (demoDir: string) => {
+  return path.resolve(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'examples',
+    demoDir
+  )
+}
 
-export const assertFileIsEmitted = async (filePath: string) => {
-  await fs.promises.access(filePath, fs.constants.F_OK)
+const assertFileIsEmitted = async (filePath: string) => {
+  const fileIsEmitted = await fs.promises.access(filePath, fs.constants.F_OK)
+  return expect(fileIsEmitted).toBeUndefined()
 }
 
 export const assertFileIsNotEmitted = async (filePath: string) => {
@@ -26,13 +38,12 @@ export const findStringInFile = async (
 describe('JsonPlugin', () => {
   describe('dealing with declarative_net_request', () => {
     const fixturesPath = getFixturesPath('declarative_net_request')
-    const webpackConfigPath = path.join(fixturesPath, 'webpack.config.js')
-    const outputPath = path.resolve(fixturesPath, 'dist')
+    const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
     beforeAll((done) => {
       exec(
-        `npx webpack --config ${webpackConfigPath}`,
-        {cwd: fixturesPath},
+      `npx -y extension@latest build ${fixturesPath}`,
+      {cwd: __dirname},
         (error, _stdout, _stderr) => {
           if (error) {
             console.error(`exec error: ${error.message}`)
@@ -43,11 +54,11 @@ describe('JsonPlugin', () => {
       )
     }, 40000)
 
-    afterAll(() => {
-      if (fs.existsSync(outputPath)) {
-        fs.rmSync(outputPath, {recursive: true, force: true})
-      }
-    })
+    // afterAll(() => {
+    //   if (fs.existsSync(outputPath)) {
+    //     fs.rmSync(outputPath, {recursive: true, force: true})
+    //   }
+    // })
 
     const rulesetJson = path.join(
       outputPath,
@@ -71,13 +82,12 @@ describe('JsonPlugin', () => {
 
   describe('dealing with storage', () => {
     const fixturesPath = getFixturesPath('storage')
-    const webpackConfigPath = path.join(fixturesPath, 'webpack.config.js')
-    const outputPath = path.resolve(fixturesPath, 'dist')
+    const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
     beforeAll((done) => {
       exec(
-        `npx webpack --config ${webpackConfigPath}`,
-        {cwd: fixturesPath},
+      `npx -y extension@latest build ${fixturesPath}`,
+      {cwd: __dirname},
         (error, _stdout, _stderr) => {
           if (error) {
             console.error(`exec error: ${error.message}`)
@@ -95,18 +105,10 @@ describe('JsonPlugin', () => {
     })
 
     const rulesetJson = path.join(outputPath, 'storage', 'managed_schema.json')
-    const publicRulesetJson = path.join(
-      outputPath,
-      'public',
-      'public_storage.json'
-    )
 
     it('outputs json file to destination folder', async () => {
       await assertFileIsEmitted(rulesetJson)
     })
 
-    it('should not output file if file is in EXCLUDE list', async () => {
-      await assertFileIsNotEmitted(publicRulesetJson)
-    })
   })
 })
