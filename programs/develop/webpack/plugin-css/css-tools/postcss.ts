@@ -83,12 +83,12 @@ export async function maybeUsePostCss(
       ]
 
       await installOptionalDependencies('PostCSS', postCssDependencies)
-
-      // The compiler will exit after installing the dependencies
-      // as it can't read the new dependencies without a restart.
-      console.log(messages.youAreAllSet('PostCSS'))
-      process.exit(0)
     }
+
+    // The compiler will exit after installing the dependencies
+    // as it can't read the new dependencies without a restart.
+    console.log(messages.youAreAllSet('PostCSS'))
+    process.exit(0)
   }
 
   const maybeInstallTailwind = await maybeUseTailwind(projectPath)

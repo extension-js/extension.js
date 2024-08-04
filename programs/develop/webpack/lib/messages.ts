@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import {Stats, StatsAsset} from 'webpack'
+import {Stats} from 'webpack'
 import {type ErrorObject} from 'ajv'
 import {
   red,
@@ -89,6 +89,10 @@ export function manifestFieldError(feature: string, filePath: string) {
   }\n\n${red('(not found)')} ${underline(filePath)}`
 
   return `${errorMessage}`
+}
+
+export function noDefaultLocaleError() {
+  return "Localization used, but default_locale wasn't specified in the manifest."
 }
 
 export function javaScriptError(
@@ -343,91 +347,6 @@ export function printTree(node: Record<string, any>, prefix = ''): string {
 
   return output
 }
-// • Filename: chrome_url_overrides/history.js, Size: 1.62KB
-//   ▪ /Users/cezaraugusto/local/my-extensions/my-extension/chrome_url_overrides/history.js
-// • Filename: chrome_url_overrides/history.css, Size: 1.23KB
-//   ▪ /Users/cezaraugusto/local/my-extensions/my-extension/chrome_url_overrides/history.css
-// • Filename: chrome_url_overrides/history.html, Size: 1.18KB
-//   ▪ /Users/cezaraugusto/local/my-extensions/my-extension/chrome_url_overrides/history.html
-
-export function getAssetInfo(
-  outputPath: string,
-  assets: Array<{name: string; size: number}> | undefined
-): string {
-  let output = '\n'
-  assets?.forEach((asset) => {
-    const sizeInKB = getFileSize(asset.size)
-    output += `• ${'Filename:'} ${yellow(asset.name)}, ${'Size:'} ${sizeInKB}\n`
-    output += `  ${'└─'} ${underline(`${path.join(outputPath, asset.name)}`)}\n`
-  })
-  return output
-}
-
-export function getAssetsTree(assets: StatsAsset[] | undefined): string {
-  const assetTree: Record<string, {size: number}> = {}
-
-  assets?.forEach((asset) => {
-    const paths = asset.name.split('/')
-    let currentLevel: any = assetTree
-
-    paths.forEach((part, index) => {
-      if (!currentLevel[part]) {
-        currentLevel[part] = {}
-      }
-      if (index === paths.length - 1) {
-        // Last part of the path, add size info
-        currentLevel[part] = {size: asset.size}
-      } else {
-        currentLevel = currentLevel[part]
-      }
-    })
-  })
-
-  return `.\n${printTree(assetTree)}`
-}
-
-export function buildWebpack(
-  projectPath: string,
-  stats: any,
-  outputPath: string,
-  browser: string
-): string {
-  // Convert stats object to JSON format
-  const statsJson = stats?.toJson()
-  const manifestPath = path.join(projectPath, 'manifest.json')
-  const manifest: Record<string, string> = JSON.parse(
-    fs.readFileSync(manifestPath, 'utf8')
-  )
-  const assets: any[] = statsJson?.assets
-  const heading = `${getLoggingPrefix('info')} Building ${
-    manifest.name
-  } extension using ${browser} defaults...\n`
-  const buildTime = `\nBuild completed in ${(
-    (statsJson?.time || 0) / 1000
-  ).toFixed(2)} seconds.`
-  const buildStatus = `Build Status: ${
-    stats?.hasErrors() ? red('Failed') : green('Success')
-  }`
-  const version = `Version: ${manifest.version}`
-  const size = `Size: ${getAssetsSize(assets)}`
-
-  let output = ''
-  output += heading
-  output += getAssetsTree(assets)
-  output += getAssetInfo(outputPath, assets)
-  output += buildTime
-  output += buildStatus
-  output += version
-  output += size
-
-  return output
-}
-
-export function buildReady() {
-  return green(
-    '\nNo errors or warnings found. Your extension is ready for deployment.'
-  )
-}
 
 export function errorWhileBuilding(error: any) {
   return (
@@ -647,7 +566,7 @@ export function handleCantResolveError(
 ) {
   const link = 'https://extension.js.org/n/development/special-folders'
   return (
-    `${manifestName} ${red('✖︎✖︎✖︎')} Module ${yellow(moduleName)} not found.\n` +
+    `${manifestName} ${red('✖︎✖︎✖︎')} Module ${yellow(moduleName)} not found. ` +
     `Make sure file exists in the extension directory.\n\n` +
     `If you need to handle entries not supported by manifest.json, ` +
     `consider adding them to a special folder.` +
