@@ -53,7 +53,8 @@ export function isUsingStylelint(projectPath: string) {
   if (isUsingStylelint) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
-      console.log(messages.isUsingTechnology(manifest, 'Stylelint'))
+      const manifestName = manifest.name || 'Extension.js'
+      console.log(messages.isUsingIntegration(manifestName, 'Stylelint'))
 
       userMessageDelivered = true
     }
@@ -75,12 +76,17 @@ export async function maybeUseStylelint(
       'stylelint-webpack-plugin',
       'stylelint-config-standard-scss'
     ]
-
-    await installOptionalDependencies('Stylelint', stylelintDependencies)
+    const projectName = require(path.join(projectPath, 'package.json')).name
+    await installOptionalDependencies(
+      projectName,
+      'Stylelint',
+      stylelintDependencies
+    )
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('Stylelint'))
+
+    console.log(messages.youAreAllSet(projectName, 'Stylelint'))
     process.exit(0)
   }
 

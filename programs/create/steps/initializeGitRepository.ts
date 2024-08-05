@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import {spawn} from 'cross-spawn'
-import {yellow, red} from '@colors/colors/safe'
+import {brightYellow, red} from '@colors/colors/safe'
 
 export default async function initializeGitRepository(
   projectPath: string,
@@ -52,7 +52,7 @@ export default async function initializeGitRepository(
         console.error(
           `🧩 ${`Extension.js`} ${red(
             `✖︎✖︎✖︎`
-          )} Child process error: Can't initialize ${yellow(
+          )} Child process error: Can't initialize ${brightYellow(
             'git'
           )} for ${projectName}. ${error.message}`
         )
@@ -61,7 +61,7 @@ export default async function initializeGitRepository(
     })
   } catch (error: any) {
     console.error(
-      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't initialize ${yellow(
+      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't initialize ${brightYellow(
         'git'
       )} for ${projectName}. ${error.message || error.toString()}`
     )

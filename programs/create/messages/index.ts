@@ -9,7 +9,7 @@ import path from 'path'
 import fs from 'fs/promises'
 // @ts-ignore
 import prefersYarn from 'prefers-yarn'
-import {blue, green, underline} from '@colors/colors/safe'
+import {brightBlue, brightGreen, underline} from '@colors/colors/safe'
 
 export function destinationNotWriteable(workingDir: string) {
   const workingDirFolder = path.basename(workingDir)
@@ -25,7 +25,9 @@ export async function directoryHasConflicts(
   conflictingFiles: string[]
 ) {
   const projectName = path.basename(projectPath)
-  let message = `\nConflict! Path to ${underline(projectName)} includes conflicting files:\n`
+  let message = `\nConflict! Path to ${underline(
+    projectName
+  )} includes conflicting files:\n`
 
   for (const file of conflictingFiles) {
     const stats = await fs.lstat(path.join(projectPath, file))
@@ -53,8 +55,10 @@ export function successfullInstall(projectPath: string, projectName: string) {
 
   const packageManager = prefersYarn() ? 'yarn' : 'npm run'
   return (
-    `🧩 - ${green('Success!')} Extension ${projectName} created.\n` +
-    `Now ${blue(`cd ${underline(relativePath)}`)} and ${blue(`${packageManager} dev`)} to open a new browser instance\n` +
+    `🧩 - ${brightGreen('Success!')} Extension ${projectName} created.\n` +
+    `Now ${brightBlue(`cd ${underline(relativePath)}`)} and ${brightBlue(
+      `${packageManager} dev`
+    )} to open a new browser instance\n` +
     'with your extension installed, loaded, and enabled for development.\n' +
     '\nYou are ready. Time to hack on your extension!'
   )

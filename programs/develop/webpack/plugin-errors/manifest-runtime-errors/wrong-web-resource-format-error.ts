@@ -1,10 +1,11 @@
 import webpack from 'webpack'
 import * as messages from '../../lib/messages'
 import {type Manifest} from '../../webpack-types'
+import {DevOptions} from '../../../module'
 
 export function wrongWebResourceFormatError(
   manifest: Manifest,
-  browser: string
+  browser: DevOptions['browser']
 ): webpack.WebpackError | null {
   const webResources = manifest.web_accessible_resources as string[]
 
@@ -19,15 +20,17 @@ export function wrongWebResourceFormatError(
       )
     })
 
+    const manifestName = manifest.name || 'Extension.js'
+
     if (manifest.manifest_version === 2 && !mv2Format) {
       return new webpack.WebpackError(
-        messages.webAccessibleResourcesV2Type(browser)
+        messages.webAccessibleResourcesV2Type(manifestName, browser)
       )
     }
 
     if (manifest.manifest_version === 3 && !mv3Format) {
       return new webpack.WebpackError(
-        messages.webAccessibleResourcesV3Type(browser)
+        messages.webAccessibleResourcesV3Type(manifestName, browser)
       )
     }
   }

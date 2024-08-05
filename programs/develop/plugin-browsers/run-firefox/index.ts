@@ -68,19 +68,28 @@ export class RunFirefoxPlugin {
 
     // Inject the add-ons code into Firefox profile.
     const remoteFirefox = new RemoteFirefox(this)
+
     remoteFirefox.installAddons(compiler).catch((error) => {
-      console.error(messages.errorInjectingAddOns(this.browser))
-      console.error(error)
-      process.exit()
+      if (
+        error
+          ?.toString()
+          .includes('background.service_worker is currently disabled')
+      ) {
+        console.error(messages.firefoxServiceWorkerError(this.browser))
+        process.exit(1)
+      }
+
+      console.error(messages.errorLaunchingBrowser(this.browser, error))
+      process.exit(1)
     })
   }
 
   apply(compiler: Compiler) {
     let firefoxDidLaunch = false
-    compiler.hooks.afterEmit.tapAsync(
-      'RunFirefoxExtensionPlugin (FirefoxExtensionLauncher)',
-      (compilation, done) => {
-        if (compilation.errors.length > 0) {
+    compiler.hooks.done.tapAsync(
+      'run-chromium:module',
+      async (compilation, done) => {
+        if (compilation.compilation.errors.length > 0) {
           done()
           return
         }
@@ -89,12 +98,12 @@ export class RunFirefoxPlugin {
           done()
           return
         }
-        this.launchFirefox(compiler).catch((error) => {
-          console.error(messages.errorLaunchingBrowser(this.browser))
-          console.error(error)
-          process.exit()
-        })
 
+        await this.launchFirefox(compiler)
+        // .catch((error) => {
+        //   console.error(messages.errorLaunchingBrowser(this.browser, error))
+        //   process.exit(1)
+        // })
         firefoxDidLaunch = true
         done()
       }

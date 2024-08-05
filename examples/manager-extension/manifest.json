@@ -1,0 +1,16 @@
+{
+  "name": "Extension.js Developer Tools",
+  "description": "Utility for developers to manage their extensions.",
+  "version": "1.0",
+  "manifest_version": 3,
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "./public/logo.png",
+    "48": "./public/logo.png",
+    "128": "./public/logo.png"
+  },
+  "permissions": ["management", "tabs", "storage"]
+}

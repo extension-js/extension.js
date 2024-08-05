@@ -50,7 +50,11 @@ export default async function createDirectory(
 
     // If directory has conflicting files, abort
     if (conflictingFiles.length > 0) {
-      await messages.directoryHasConflicts(projectPath, conflictingFiles)
+      const conflictMessage = await messages.directoryHasConflicts(
+        projectPath,
+        conflictingFiles
+      )
+      console.log(conflictMessage)
       process.exit(1)
     }
   } catch (error: any) {

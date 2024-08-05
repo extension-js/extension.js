@@ -24,7 +24,7 @@ async function getDevExtension() {
 // Create a new tab and set it to background.
 // We want the user-selected page to be active,
 // not chrome://extensions.
-function createChromeExtensionsTab(initialTab, url) {
+export function createExtensionsPageTab(initialTab, url) {
   // Check if url tab is open
   chrome.tabs.query({url: 'chrome://extensions/'}, (tabs) => {
     const extensionsTabExist = tabs.length > 0
@@ -50,7 +50,7 @@ function createChromeExtensionsTab(initialTab, url) {
 }
 
 // Function to handle first run logic
-async function handleFirstRun() {
+export async function handleFirstRun() {
   chrome.tabs.update({url: 'chrome://extensions/'})
 
   const devExtension = await getDevExtension()
@@ -66,13 +66,3 @@ async function handleFirstRun() {
   })
 }
 
-chrome.tabs.query({active: true}, async ([initialTab]) => {
-  if (
-    initialTab.url === 'chrome://newtab/' ||
-    initialTab.url === 'chrome://welcome/'
-  ) {
-    await handleFirstRun()
-  } else {
-    createChromeExtensionsTab(initialTab, 'chrome://extensions/')
-  }
-})

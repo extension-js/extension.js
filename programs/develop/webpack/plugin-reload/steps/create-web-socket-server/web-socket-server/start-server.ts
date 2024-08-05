@@ -1,9 +1,9 @@
 import path from 'path'
 import WebSocket from 'ws'
 import {type Compiler} from 'webpack'
-import * as messages from '../../../reload-lib/messages'
+import * as messages from '../../../../lib/messages'
 import {type Manifest} from '../../../../webpack-types'
-import {isFirstRun} from '../../../reload-lib/is-first-run'
+import {isFirstRun} from '../../../../lib/utils'
 import {DevOptions} from '../../../../../module'
 
 interface Data {
@@ -18,10 +18,9 @@ interface Message {
 }
 
 export function startServer(compiler: Compiler, options: DevOptions) {
-  const context = compiler.options.context || ''
-  const packageJsonPath = path.join(context, 'package.json')
-  const packageJson = require(packageJsonPath)
-  const packageName = packageJson.name
+  const projectPath = compiler.options.context || ''
+  const manifest = require(path.join(projectPath, 'manifest.json'))
+  const manifestName = manifest.name || 'Extension.js'
 
   const webSocketServer = new WebSocket.Server({
     host: 'localhost',
@@ -31,7 +30,7 @@ export function startServer(compiler: Compiler, options: DevOptions) {
     ws.send(JSON.stringify({status: 'serverReady'}))
 
     ws.on('error', (error) => {
-      console.log(messages.webSocketError(packageName, error))
+      console.log(messages.webSocketError(manifestName, error))
       webSocketServer.close()
     })
 
@@ -45,10 +44,18 @@ export function startServer(compiler: Compiler, options: DevOptions) {
       const message: Message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-        console.log(messages.extensionData(compiler, packageName, message))
-
-        console.log(messages.stdoutData(compiler, options.browser))
+        const manifest: Manifest = require(
+          path.join(projectPath, 'manifest.json')
+        )
+        console.log(messages.runningInDevelopment(manifest, options, message))
+        console.log('')
+        console.log(
+          messages.stdoutData(
+            options.mode,
+            options.browser,
+            message.data?.management.enabled || false
+          )
+        )
 
         if (isFirstRun(options.browser)) {
           // Add a delay to ensure the message is sent
