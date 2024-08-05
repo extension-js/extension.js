@@ -38,7 +38,11 @@ export class ThrowIfRecompileIsNeeded {
 
       if (htmlFile) {
         if (!fs.existsSync(htmlFile)) {
-          console.error(messages.manifestFieldError(key, htmlFile))
+          const manifest = require(this.manifestPath)
+          const manifestName = manifest.name || 'Extension.js'
+          console.error(
+            messages.manifestFieldError(manifestName, key, htmlFile)
+          )
           process.exit(1)
         }
 

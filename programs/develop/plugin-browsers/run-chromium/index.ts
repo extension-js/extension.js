@@ -37,8 +37,21 @@ export class RunChromiumPlugin {
   }
 
   private launchChromium(browser: DevOptions['browser']) {
-    const browserBinaryLocation: string = require(`${browser}-location`)
+    let browserBinaryLocation: string
 
+    switch (browser) {
+      case 'chrome':
+        browserBinaryLocation = require(`${browser}-location`)
+        break;
+
+      case 'edge':
+        browserBinaryLocation = require(`${browser}-location`)()
+        break;
+    
+      default:
+        browserBinaryLocation = require(`${browser}`)
+        break;
+    }
     if (!fs.existsSync(browserBinaryLocation) || '') {
       console.error(
         messages.browserNotInstalled(browser, browserBinaryLocation)

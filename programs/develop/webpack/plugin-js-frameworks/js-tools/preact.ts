@@ -31,7 +31,8 @@ export function isUsingPreact(projectPath: string) {
   if (preactAsDevDep || preactAsDep) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
-      console.log(messages.isUsingTechnology(manifest, 'Preact'))
+      const manifestName = manifest.name || 'Extension.js'
+      console.log(messages.isUsingIntegration(manifestName, 'Preact'))
 
       userMessageDelivered = true
     }
@@ -54,12 +55,14 @@ export async function maybeUsePreact(
       '@svgr/webpack',
       'react-refresh-typescript'
     ]
+    const manifest = require(path.join(projectPath, 'manifest.json'))
+    const manifestName = manifest.name || 'Extension.js'
 
-    await installOptionalDependencies('Preact', reactDependencies)
+    await installOptionalDependencies(manifestName, 'Preact', reactDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('Preact'))
+    console.log(messages.youAreAllSet(manifestName, 'Preact'))
     process.exit(0)
   }
 

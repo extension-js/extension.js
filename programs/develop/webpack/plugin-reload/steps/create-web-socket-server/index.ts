@@ -3,7 +3,7 @@ import {type Compiler} from 'webpack'
 import {PluginInterface} from '../../reload-types'
 import {messageDispatcher} from './web-socket-server/message-dispatcher'
 import {startServer} from './web-socket-server/start-server'
-import {replacePortInFile} from './rewrite-reload-port'
+import {replaceDataInFile} from './rewrite-reload-port'
 import {DevOptions} from '../../../../module'
 
 process.on('SIGINT', () => {
@@ -32,11 +32,12 @@ export default class CreateWebSocketServer {
 
     // Before all, rewrite the reload service file
     // with the user-provided port.
-    replacePortInFile(this.port)
+    replaceDataInFile(this.port)
 
     // Start webSocket server to communicate with the extension.
     const wss = startServer(compiler, {
       ...this,
+      mode: compiler.options.mode,
       browser: this.browser,
       stats: this.stats
     })

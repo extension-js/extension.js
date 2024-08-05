@@ -2,6 +2,7 @@ import webpack from 'webpack'
 import * as messages from '../../lib/messages'
 
 export function handleMultipleAssetsError(
+  packageJsonPath: string,
   error: webpack.WebpackError
 ): webpack.WebpackError | null {
   const actualMsg =
@@ -11,7 +12,7 @@ export function handleMultipleAssetsError(
 
     if (filename.startsWith('content_scripts')) {
       return new webpack.WebpackError(
-        messages.handleMultipleAssetsError(filename)
+        messages.handleMultipleAssetsError(packageJsonPath, filename)
       )
     }
   }
@@ -19,10 +20,10 @@ export function handleMultipleAssetsError(
 }
 
 export function handleCantResolveError(
-  manifestPath: string,
+  packageJsonPath: string,
   error: webpack.WebpackError
 ): webpack.WebpackError | null {
-  const manifest = require(manifestPath)
+  const manifest = require(packageJsonPath)
   const cantResolveMsg = 'Module not found: Error:'
 
   if (error.message.includes(cantResolveMsg)) {
@@ -40,10 +41,10 @@ export function handleCantResolveError(
 }
 
 export function handleTopLevelAwaitError(
-  manifestPath: string,
+  packageJsonPath: string,
   error: webpack.WebpackError
 ): webpack.WebpackError | null {
-  const manifest = require(manifestPath)
+  const manifest = require(packageJsonPath)
   const topLevelAwaitMsg =
     'Top-level-await is only supported in EcmaScript Modules'
 

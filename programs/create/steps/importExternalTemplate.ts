@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {blue} from '@colors/colors/safe'
+import {brightBlue} from '@colors/colors/safe'
 
 export default async function importExternalTemplate(
   workingDir: string,
@@ -21,10 +21,12 @@ export default async function importExternalTemplate(
     await fs.mkdir(projectPath, {recursive: true})
 
     console.log(
-      `🧰 - Installing ${projectName} from template ${blue(templateName)}`
+      `🧰 - Installing ${projectName} from template ${brightBlue(templateName)}`
     )
   } catch (error: any) {
-    console.error(`😕❓ Can't find template ${blue(templateName)}. ${error}`)
+    console.error(
+      `😕❓ Can't find template ${brightBlue(templateName)}. ${error}`
+    )
     process.exit(1)
   }
 }

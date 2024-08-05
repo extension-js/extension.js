@@ -1,508 +1,258 @@
 import path from 'path'
-import fs from 'fs'
-import {Stats} from 'webpack'
 import {type ErrorObject} from 'ajv'
 import {
   red,
-  yellow,
-  green,
+  brightGreen,
   underline,
-  blue,
+  brightBlue,
   cyan,
-  bold
+  bold,
+  green,
+  gray,
+  brightYellow,
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
-import {StartOptions} from '../../commands/start'
 import {DevOptions} from '../../commands/dev'
+import {CERTIFICATE_DESTINATION_PATH} from './constants'
 
-function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
+type PrefixType = 'warn' | 'info' | 'error' | 'success'
+
+function getLoggingPrefix(filename: string, type: PrefixType): string {
   const arrow =
     type === 'warn'
-      ? yellow('►►►')
+      ? brightYellow('►►►')
       : type === 'info'
-        ? blue('►►►')
+        ? brightBlue('►►►')
         : type === 'error'
           ? red('✖︎✖︎✖︎')
-          : green('►►►')
-  return `🧩 ${'Extension.js'} ${arrow}`
+          : brightGreen('►►►')
+  return `${arrow} ${gray(filename)}`
 }
 
-export function boring(
-  stats: Stats,
-  manifestName: string | undefined,
-  manifestVersion: string | undefined
-) {
-  const divider = stats.hasErrors() ? 'error' : 'success'
-
-  return `${getLoggingPrefix(divider)} ${manifestName} (v${manifestVersion})`
-}
-
-export function serverRestartRequiredFromHtml(
-  projectPath: string,
-  filePath: string
-) {
-  const basename = path.relative(projectPath, filePath)
-  const errorMessage = `[${basename}] Entry Point Modification Found
-
-Changing <script> or <link rel="stylesheet"> source paths after compilation requires a server restart. Restart the program and try again.`
-
-  return errorMessage
-}
-
-export function reloadAfterErrorRequiredMessage() {
-  const hintMessage = `and run the program again.`
-  const errorMessage = `Ensure \`<script>\` sources are valid ${hintMessage}`
-
-  return errorMessage
-}
-
-export function manifestMissingError() {
-  const hintMessage = `A manifest file is required for this plugin to run.`
-  const errorMessage = `File \`manifest.json\` not found. ${hintMessage}`
-  return `manifest.json: ${errorMessage}`
-}
-
-export function manifestFieldRequiredError(requiredField: string) {
-  const hintMessage = `Update your manifest.json file to run your extension.`
-  const errorMessage = `Field \`${requiredField}\` is required. ${hintMessage}`
-
-  return `manifest.json: ${errorMessage}`
-}
-
-export function manifestFieldError(feature: string, filePath: string) {
-  const featureName = feature.startsWith('content_scripts')
-    ? `content_scripts`
-    : feature.replace('/', '.')
-  const hintMessage =
-    `Check the ${underline(featureName)} ` +
-    (featureName === 'content_scripts'
-      ? `(index ${feature.split('-')[1]}) `
-      : '') +
-    `field in your manifest.json file.`
-  const pagesMessage = `Check the ${underline(
-    'pages'
-  )} folder in your project root directory.`
-  const isPage = feature.startsWith('pages')
-  const errorMessage = `manifest.json ${red('✖︎✖︎✖︎')} File not found. ${
-    isPage ? pagesMessage : hintMessage
-  }\n\n${red('(not found)')} ${underline(filePath)}`
-
-  return `${errorMessage}`
-}
-
-export function noDefaultLocaleError() {
-  return "Localization used, but default_locale wasn't specified in the manifest."
-}
-
-export function javaScriptError(
-  manifestPath: string,
-  filePath: string,
-  inputFilepath: string
-) {
-  const pathRelative = path.relative(manifestPath, filePath)
-  const hintMessage = `Check your <script> tags in \`${filePath}\`.`
-  const errorMessage = `File not found\n- \`${inputFilepath}\` (not found)\n\n${hintMessage}`
-  return `[${pathRelative}] ${errorMessage}`
-}
-
-export function cssError(
-  manifestPath: string,
-  filePath: string,
-  inputFilepath: string
-) {
-  const pathRelative = path.relative(manifestPath, filePath)
-  const hintMessage = `Check your <link> tags in \`${filePath}\`.`
-  const errorMessage = `File not found\n- \`${inputFilepath}\` (not found)\n\n${hintMessage}`
-  return `[${pathRelative}] ${errorMessage}`
-}
-
-export function staticAssetErrorMessage(
-  manifestPath: string,
-  filePath: string,
-  inputFilepath: string
-) {
-  const extname = path.extname(inputFilepath)
-  const pathRelative = path.relative(manifestPath, filePath)
-  const hintMessage = `Check your *${extname} assets in \`${filePath}\`.`
-  const errorMessage = `File not found\n- \`${inputFilepath}\` (not found)\n${hintMessage}`
-  return `[${pathRelative}] ${errorMessage}`
-}
-
-export function entryNotFoundWarn(feature: string, filePath: string) {
-  const hintMessage = `Check the \`${feature}\` field in your \`manifest.json\` file.`
-  const errorMessage = `File not found:\n- ${filePath}.\n${hintMessage}`
-  return `${getLoggingPrefix('error')} ${errorMessage}`
-}
-
-export function serverRestartRequiredFromManifest() {
-  const errorMessage =
-    `manifest.json ${red('✖︎✖︎✖︎')} Changing the path of non-static ` +
-    `fields during development requires a server restart.`
-
-  return errorMessage
-}
-
-export function manifestNotFoundError() {
-  const hintMessage = `Ensure you have a manifest.json file at the root direcotry of your project.`
-  const errorMessage = `manifest.json A manifest file is required. ${hintMessage}`
-
-  return errorMessage
-}
-
-export function manifestInvalidError(error: NodeJS.ErrnoException) {
-  const hintMessage = `Update your manifest file and try again.`
-  const errorMessage = `manifest.json ${error}. ${hintMessage}`
-
-  return errorMessage
-}
-
-export function pathNotFoundError() {
-  return `Could not resolve file path. Ensure the file exists in the "public" or "pages" directory.`
-}
-
-export function resolverHtmlError(filePath: string) {
-  return `Could not resolve path ${filePath}. Either add it to the "public" directory or create a page in the "pages" directory.`
-}
-
-export function resolverJsError(filePath: string) {
-  return `Could not resolve path ${filePath}. Either add it to the "public" directory or create a script in the "scripts" directory.`
-}
-
-export function resolverStaticError(filePath: string) {
-  return `Could not resolve path ${filePath}. If you want to preserve this file path, add the file to the "public" directory.`
-}
-
-export function calculateDirectorySize(dirPath: string): number {
-  let totalSize = 0
-
-  const items = fs.readdirSync(dirPath)
-
-  for (const item of items) {
-    const fullPath = path.join(dirPath, item)
-    const stats = fs.statSync(fullPath)
-
-    if (stats.isFile()) {
-      totalSize += stats.size
-    } else if (stats.isDirectory()) {
-      totalSize += calculateDirectorySize(fullPath)
-    }
-  }
-
-  return totalSize
-}
-
-export function manifestNotFound() {
-  return (
-    `${getLoggingPrefix('error')} ` +
-    `Manifest file not found. Ensure the path to your extension exists and try again.`
-  )
-}
-
-export function fileNotFound(
-  manifestPath: string,
-  feature: string | undefined,
-  filePath: string
-) {
-  if (!feature) {
-    throw new Error('This operation is impossible. Please report a bug.')
-  }
-
-  const projectPath = path.dirname(manifestPath)
-
-  switch (path.extname(filePath)) {
-    case '.js':
-    case '.ts':
-    case '.jsx':
-    case '.tsx':
-      return javaScriptError(projectPath, feature, filePath)
-    case '.css':
-    case '.scss':
-    case '.sass':
-    case '.less':
-      return cssError(projectPath, feature, filePath)
-    default:
-      return staticAssetErrorMessage(projectPath, feature, filePath)
-  }
-}
-
-export function startWebpack(
-  projectPath: string,
-  options: StartOptions
-): string {
-  const outputPath = path.join(projectPath, 'dist', options.browser || 'chrome')
-  const manifestPath = path.join(outputPath, 'manifest.json')
-  const manifest: Record<string, any> = require(manifestPath)
-
-  const {name, description, version, hostPermissions, permissions} = manifest
-
-  const defaultLocale = getLocales(projectPath, manifest).defaultLocale
-  const otherLocales = getLocales(projectPath, manifest).otherLocales.join(', ')
-  const locales = `${defaultLocale} (default)${
-    otherLocales && ', ' + otherLocales
-  }`
-  const hasHost = hostPermissions && hostPermissions.length
-  const hasPermissions = permissions && permissions.length
-
-  return `
-${`• Name:`} ${name}
-${description ? `${`• Description:`} ${description}\n` : ''}
-${`• Version:`} ${version}
-${`• Size:`} ${getDirectorySize(outputPath)}
-${`• Locales:`} ${locales}
-${`• Host Permissions:`} ${
-    hasHost ? hostPermissions.sort().join(', ') : 'Browser defaults'
-  }
-${`• Permissions:`} ${
-    hasPermissions ? permissions.sort().join(', ') : 'Browser defaults'
-  }
-  `
-}
 export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
-function getLocales(projectPath: string, manifest: Record<string, any>) {
-  const defaultLocale = manifest.default_locale as string
+export function boring(manifestName: string, duration: number) {
+  // const divider = stats.hasErrors() ? red : brightGreen
+  let didShow = false
 
-  // Get the list of all locale folders
-  const localesDir = path.join(projectPath, '_locales')
-
-  if (!fs.existsSync(localesDir)) {
-    return {
-      defaultLocale: 'EN',
-      otherLocales: []
-    }
+  if (!didShow) {
+    return `${getLoggingPrefix(manifestName, 'info')} compiled ${brightGreen(
+      'successfully'
+    )} in ${duration} ms`
   }
 
-  const localeFolders = fs
-    .readdirSync(localesDir)
-    .filter((folder) => folder !== defaultLocale)
-
-  return {
-    defaultLocale,
-    otherLocales: localeFolders
-  }
+  return undefined
 }
 
-export function getFileSize(fileSizeInBytes: number): string {
-  return `${(fileSizeInBytes / 1024).toFixed(2)}KB`
-}
-
-export function getAssetsSize(assets: any[] | undefined) {
-  let totalSize = 0
-  assets?.forEach((asset) => {
-    totalSize += asset.size
-  })
-
-  return getFileSize(totalSize)
-}
-
-export default function getDirectorySize(filepath: string): string {
-  const fileSizeInBytes = calculateDirectorySize(filepath)
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-  const sizeType = Math.floor(Math.log(fileSizeInBytes) / Math.log(1024))
-  const size = (fileSizeInBytes / Math.pow(1024, sizeType)).toFixed(1)
-
-  return `${size} ${sizes[sizeType]}`
-}
-
-export function printTree(node: Record<string, any>, prefix = ''): string {
-  let output = ''
-
-  Object.keys(node).forEach((key, index, array) => {
-    const isLast = index === array.length - 1
-    const connector = isLast ? '└─' : '├─'
-    const sizeInKB = node[key].size
-      ? ` (${getFileSize(node[key].size as number)})`
-      : ''
-    output += `${prefix}${connector} ${key}${sizeInKB}\n`
-    if (typeof node[key] === 'object' && !node[key].size) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      output += printTree(node[key], `${prefix}${isLast ? '   ' : '|  '}`)
-    }
-  })
-
-  return output
-}
-
-export function errorWhileBuilding(error: any) {
-  return (
-    `${getLoggingPrefix('error')} ` +
-    `Error while building the extension:\n\n${red((error as string) || '')}`
-  )
-}
-
-export function errorWhilePreviewing(error: any) {
-  return (
-    `${getLoggingPrefix('error')} ` +
-    `Error while previewing the extension:\n\n${red((error as string) || '')}`
-  )
-}
-
-export function errorWhileDeveloping(error: any) {
-  return (
-    `${getLoggingPrefix('error')} ` +
-    `Error while developing the extension:\n\n${red((error as string) || '')}`
-  )
-}
-
-export function isUsingTechnology(manifest: Manifest, technology: any) {
-  return (
-    `${getLoggingPrefix('info')} ` +
-    `${manifest.name} (v${manifest.version}) ` +
-    `is using ${cyan(technology)}.`
-  )
-}
-
-export function serverRestartRequiredFromWebpack(
-  addingOrRemoving: string,
-  addedOrRemoved: string,
-  folder: string,
-  typeOfAsset: string,
-  pathRelative: string
+export function integrationNotInstalled(
+  manifestName: string,
+  integration: string,
+  packageManager: string
 ) {
   return (
-    `${getLoggingPrefix('info')} Entry Point Modification Found\n\n` +
-    `${addingOrRemoving} ${typeOfAsset} in the ${underline(
-      folder + '/'
-    )} folder after compilation requires a server restart.\n` +
-    `\n\n- File ${addedOrRemoved}: ${underline(pathRelative)}\n\n` +
-    `To apply these changes, restart the program.`
-  )
-}
-
-export function featureNotInstalled(feature: string, packageManeger: string) {
-  return (
-    `${getLoggingPrefix('info')} ` +
-    `Installing ${yellow(feature)} required dependencies via ${blue(
-      packageManeger
+    `${getLoggingPrefix(manifestName, 'info')} ${cyan(
+      integration
+    )} Integration Found\n\n` +
+    `Installing required setup dependencies via ${brightYellow(
+      packageManager
     )}. ` +
     `This is a one time operation...`
   )
 }
 
-export function installingRootDependencies() {
+export function envFileLoaded(manifestName: string) {
   return (
-    `${getLoggingPrefix('info')} ` +
-    'Installing dependencies in the project root. This is only happens for authors and contributors...'
+    `${getLoggingPrefix(manifestName, 'info')} loaded ${brightYellow('env')} ` +
+    `file successfully.`
   )
 }
 
-export function featureInstalledSuccessfully(feature: string) {
+export function isUsingIntegration(manifestName: string, integration: any) {
   return (
-    `${getLoggingPrefix('success')} ` +
-    `${feature} and related dependencies installed successfully...`
+    `${getLoggingPrefix(manifestName, 'info')} ` +
+    `is using ${cyan(integration)}.`
   )
 }
 
-export function youAreAllSet(feature: string) {
+export function youAreAllSet(manifestName: string, integration: string) {
   return (
-    `${getLoggingPrefix('success')} ` +
-    `You are all set! Run the program again to start hacking, now with ${cyan(
-      feature
-    )} support.`
+    `${getLoggingPrefix(manifestName, 'success')} You Are All Set\n\n` +
+    `Run the program again to start hacking with ${cyan(integration)} support.`
   )
 }
 
-export function failedToinstallFeature(error: unknown) {
+export function installingRootDependencies(
+  manifestName: string,
+  integration: string
+) {
   return (
-    `${getLoggingPrefix('error')} ` +
-    'Failed to detect package manager or install packages: ' +
-    error?.toString()
+    `${getLoggingPrefix(
+      manifestName,
+      'info'
+    )} Installing Root Dependencies\n\n` +
+    `Installing ${cyan(integration)} Dependencies in Extension.js root. ` +
+    `This only happens for authors and contributors.`
   )
 }
 
-export function creatingTSConfig(manifest: Manifest) {
-  return isUsingTechnology(manifest, 'TypesScript').replace(
-    '.',
-    `but no config file was found. Creating ${yellow('tsconfig.json')}...`
-  )
-}
-
-export function writingTypeDefinitions(manifest: Manifest) {
+export function integrationInstalledSuccessfully(
+  manifestName: string,
+  integration: string
+) {
   return (
-    `${getLoggingPrefix('info')} ${manifest.name} (v${manifest.version}) ` +
-    `has no type definitions. Writing...`
+    `${getLoggingPrefix(manifestName, 'success')} ${integration} ` +
+    `Dependencies Installed ${brightGreen('Successfully')}.`
   )
 }
 
-export function backgroundIsRequred(feature: string, filePath: string) {
-  const hintMessage = `Check the ${underline(
-    feature.replace('/', '.')
-  )} field in your manifest.json file.`
+export function failedToInstallIntegration(
+  manifestName: string,
+  integration: string,
+  error: unknown
+) {
   return (
-    `\n\n${`${bold(red('ERROR'))} in manifest.json ${red('✖✖✖')}`} ` +
-    `File not found. ${hintMessage}\n\n${red('(not found)')} ${underline(filePath)}\n`
+    `${getLoggingPrefix(manifestName, 'error')} ${cyan(
+      integration
+    )} Installation Error\n\n` +
+    `Failed to detect package ` +
+    `manager or install ${cyan(integration)} dependencies: ${red(
+      error?.toString() || ''
+    )}`
   )
 }
 
-export function firefoxServiceWorkerError() {
+export function firefoxServiceWorkerError(manifestName: string) {
   return (
-    `${getLoggingPrefix('error')}` +
-    `Firefox does not support the ${underline('background.service_worker')} field yet.\n` +
-    `See ${underline('https://bugzilla.mozilla.org/show_bug.cgi?id=1573659')}.\n\n` +
-    `Update your manifest.json file to use ${underline('background.scripts')} instead.`
+    `${getLoggingPrefix(manifestName, 'error')} No Service Worker Support\n\n` +
+    `Firefox does not support the ${brightYellow(
+      'background.service_worker'
+    )} field yet.\n` +
+    `Update your manifest.json file to use ${brightYellow(
+      'background.scripts'
+    )} instead.\n\n` +
+    `Read more: ${underline(
+      'https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'
+    )}.`
   )
 }
 
-export function insecurePolicy() {
+export function insecurePolicy(manifestName: string) {
   return (
-    `manifest.json: Insecure ${yellow('content-security-policy')} value " ` +
-    `'${yellow('unsafe-eval')}'" in directive '${blue('script-src')}'.`
+    `${getLoggingPrefix(
+      manifestName,
+      'error'
+    )} Insecure Content-Security-Policy\n\n` +
+    `Manifest includes insecure content-security-policy value ` +
+    `${brightYellow("'unsafe-eval'")} in directive ${brightBlue(
+      "'script-src'"
+    )}.`
   )
 }
 
-export function getManifestDocumentationURL(browser: string) {
+export function noDefaultLocaleError(manifestName: string) {
+  return (
+    `${getLoggingPrefix(
+      manifestName,
+      'error'
+    )} No Default Locale Specified\n\n` +
+    `Localization used, but ${brightYellow('default_locale')} ` +
+    `wasn't specified in the manifest.`
+  )
+}
+
+function getManifestDocumentationURL(browser: DevOptions['browser']) {
   const isChrome = browser === 'chrome'
   const chromeUrl =
     'https://developer.chrome.com/docs/extensions/reference/manifest'
-  const mdnUrl = `https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json`
+  const mdnUrl =
+    'https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json'
 
-  return isChrome ? blue(underline(chromeUrl)) : blue(underline(mdnUrl || ''))
+  return isChrome ? underline(chromeUrl) : underline(mdnUrl)
 }
 
-export function webAccessibleResourcesV2Type(browser: string) {
-  return `manifest.json: ${underline(
-    'web_accessible_resources'
-  )} must be a string array in Manifest version 2.
-    
-    Read more about using ${underline(
-      'web_accessible_resources'
-    )} in the manifest file:
-    ${getManifestDocumentationURL(browser)}`
-}
-
-export function webAccessibleResourcesV3Type(browser: string) {
+export function webAccessibleResourcesV2Type(
+  manifestName: string,
+  browser: DevOptions['browser']
+) {
   return (
-    `manifest.json: ${underline('web_accessible_resources')} must be an array of ` +
-    `objects in Manifest version 3.\n\n` +
-    `Read more about using ${underline('web_accessible_resources')} in the manifest file: ` +
-    `${getManifestDocumentationURL(browser)}`
+    `${getLoggingPrefix(manifestName, 'error')} Wrong Manifest Field Type\n\n` +
+    `Field ${brightYellow('web_accessible_resources')} must be a ` +
+    `string array in Manifest version 2.\n\n` +
+    `Read more: ${getManifestDocumentationURL(browser)}`
+  )
+}
+
+export function webAccessibleResourcesV3Type(
+  manifestName: string,
+  browser: DevOptions['browser']
+) {
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} Wrong Manifest Field Type\n\n` +
+    `Field ${brightYellow('web_accessible_resources')} must be an ` +
+    `array of objects in Manifest version 3.\n\n` +
+    `Read more: ${getManifestDocumentationURL(browser)}`
   )
 }
 
 export function deprecatedMessage(
-  browser: string,
+  manifestName: string,
+  browser: DevOptions['browser'],
   errorData: ErrorObject<string, Record<string, any>, unknown> | undefined
 ) {
   const schemaPath = errorData?.schemaPath
   const splitSchemaPath = schemaPath?.split('/')
   const field = splitSchemaPath?.slice(splitSchemaPath.length - 2).shift()
-  const namespace = yellow(field?.split('.')[0] || '')
 
   return (
-    `Field ${yellow(field || '')} is deprecated in Manifest V3. ` +
+    `${getLoggingPrefix(manifestName, 'error')} Deprecated Field\n\n` +
+    `Field ${brightYellow(field || '')} is deprecated in Manifest V3. ` +
     `Update your manifest.json file to run your extension.\n\n` +
-    `Read more about using ${namespace} in the manifest file: ` +
-    `${getManifestDocumentationURL(browser)}`
+    `Read more: ${getManifestDocumentationURL(browser)}`
   )
 }
 
-export function handleMultipleAssetsError(filename: string) {
+export function invalidFieldType(
+  manifestName: string,
+  errorData: ErrorObject | undefined,
+  browser: DevOptions['browser']
+) {
+  const field = errorData?.instancePath.replaceAll('/', '.').slice(1) || ''
+  const type: string = errorData?.params.type
+
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} Invalid Manifest Field\n\n` +
+    `Field ${brightYellow(field)} must be of type ${cyan(type)}.\n\n` +
+    `Read more: ${getManifestDocumentationURL(browser)}`
+  )
+}
+
+export function missingRequiredMessage(
+  manifestName: string,
+  browser: DevOptions['browser'],
+  message: string | undefined
+) {
+  const hintMessage = `Update your manifest.json file to run your extension.`
+  const errorMessage =
+    `${getLoggingPrefix(
+      manifestName,
+      'error'
+    )} Missing Required Manifest Field\n\n` +
+    `Field ${brightYellow(message || '')} is required. ${hintMessage}\n\n` +
+    `Read more: ${getManifestDocumentationURL(browser)}`
+  return errorMessage
+}
+
+export function handleMultipleAssetsError(
+  manifestName: string,
+  filename: string
+) {
   const extFilename = filename.split('.').pop()
   const errorMsg =
-    `content_scripts: One of your ${extFilename?.toUpperCase()} ` +
-    `imports is also a content_script CSS in manifest.json.\n\n` +
+    `${getLoggingPrefix(manifestName, 'error')} Content Script Import\n\n` +
+    `One of your ${extFilename?.toUpperCase()} ` +
+    `imports is also a content_script CSS in manifest.json.\n` +
     `Remove the duplicate entry and try again.`
 
   if (filename.startsWith('content_scripts')) {
@@ -510,153 +260,394 @@ export function handleMultipleAssetsError(filename: string) {
   }
 }
 
-export function missingRequiredMessage(
-  browser: string,
-  message: string | undefined
-) {
-  const hintMessage = `Update your manifest.json file to run your extension.`
-  const namespace = yellow(message?.split('.')[0] || '')
-  const errorMessage = `Field ${yellow(message || '')} is required. ${hintMessage}
-
-Read more about using ${namespace} in the manifest file:
-${getManifestDocumentationURL(browser)}`
-  return errorMessage
-}
-
-export function invalidFieldType(
-  errorData: ErrorObject | undefined,
-  browser: string
-) {
-  const field = errorData?.instancePath.replaceAll('/', '.').slice(1) || ''
-  const type: string = errorData?.params.type
-  const namespace = yellow(field?.split('.')[0] || '')
-
-  return `Field ${yellow(field)} must be of type ${cyan(type)}.
-
-Read more about using ${namespace} in the manifest file:
-${getManifestDocumentationURL(browser)}`
-}
-
 export function handleCantResolveError(
   manifestName: string,
   moduleName: string
 ) {
   const link = 'https://extension.js.org/n/development/special-folders'
-  return (
-    `${manifestName} ${red('✖︎✖︎✖︎')} Module ${yellow(moduleName)} not found. ` +
-    `Make sure file exists in the extension directory.\n\n` +
-    `If you need to handle entries not supported by manifest.json, ` +
-    `consider adding them to a special folder.` +
-    `\n\nRead more: ${underline(link)}.`
-  )
+  const isLocalModule = moduleName.startsWith('.')
+  return `${getLoggingPrefix(manifestName, 'error')} ` +
+    `${manifestName} ${red('✖︎✖︎✖︎')} Module ${brightYellow(
+      moduleName
+    )} Not Found\n\n` +
+    isLocalModule
+    ? `Make sure the file exists in the extension directory. `
+    : `Make sure module is installed via package manager. ` +
+        `If you need to handle entries not declared in manifest.json, ` +
+        `add them to a special folder.\n\nRead more: ${underline(link)}.`
 }
 
 export function handleTopLevelAwaitError(manifestName: string) {
-  const topLevelAwaitMsg =
-    'Top-level-await is only supported in EcmaScript Modules'
-
-  const additionalInfo =
-    'Make sure to set the module type to "module" in your package.json or ' +
-    'use the .mjs extension for your files.'
-
-  return `${manifestName} ${red('✖︎✖︎✖︎')} ${topLevelAwaitMsg + '.\n' + additionalInfo}`
-}
-
-export function fetchingProjectPath(owner: string, project: string) {
-  return `${getLoggingPrefix('success')} Fetching data from ${underline(`https://github.com/${owner}/${project}`)}`
-}
-
-export function downloadingProjectPath(projectName: string) {
-  return `${getLoggingPrefix('success')} Downloading ${projectName}...`
-}
-
-export function creatingProjectPath(projectName: string) {
-  return `${getLoggingPrefix('success')} Creating a new browser extension in ${underline(`${process.cwd()}/${projectName}`)}`
-}
-
-export function envFileLoaded() {
-  return `${getLoggingPrefix('info')} ` + `${yellow('env')} file loaded.`
-}
-
-export function downloadingText(url: string) {
-  return `${getLoggingPrefix('success')} Downloading extension from ${url}...`
-}
-
-export function unpackagingExtension(zipFilePath: string) {
-  return `${getLoggingPrefix('success')} Unpackaging browser extension from ${underline(zipFilePath)}`
-}
-
-export function unpackagedSuccessfully() {
-  return `${getLoggingPrefix('success')} Browser extension unpackaged successfully. Compiling...`
-}
-
-export function failedToDownloadOrExtractZIPFile(error: string) {
-  return `${getLoggingPrefix('error')} Failed to download or extract ZIP file: ${error}`
-}
-
-export function noGitIgnoreFound(projectPath: string) {
   return (
-    `${getLoggingPrefix('success')} ` +
-    `No ${yellow('.gitignore')} found, zipping all the content ` +
-    `inside ${underline(projectPath)}`
+    `${getLoggingPrefix(
+      manifestName,
+      'error'
+    )} Top Level Await In Non-ECMAScript Module\n\n` +
+    'Top-level await is only supported in ECMAScript modules.\n' +
+    `To use it in your extension, make sure to set ${brightYellow(
+      '"type": "module"'
+    )}\n` +
+    `in your package.json or use the ${brightYellow(
+      '.mjs'
+    )} extension for your script files.`
   )
 }
 
-export function packagingSourceFiles(zipPath: string) {
+export function fileNotFound(
+  manifestName: string,
+  errorSourcePath: string | undefined,
+  missingFilePath: string
+) {
+  if (!errorSourcePath) {
+    throw new Error('This operation is impossible. Please report a bug.')
+  }
+
+  switch (path.extname(missingFilePath)) {
+    case '.js':
+    case '.ts':
+    case '.jsx':
+    case '.tsx':
+      return javaScriptError(manifestName, errorSourcePath, missingFilePath)
+    case '.css':
+    case '.scss':
+    case '.sass':
+    case '.less':
+      return cssError(manifestName, errorSourcePath, missingFilePath)
+    default:
+      return staticAssetError(manifestName, errorSourcePath, missingFilePath)
+  }
+}
+
+export function manifestFieldError(
+  manifestName: string,
+  manifestField: string,
+  filePath: string
+) {
+  const manifestFieldName = manifestField.startsWith('content_scripts')
+    ? `content_scripts`
+    : manifestField.replace('/', '.')
+  const contentIndex = manifestField.split('-')[1]
+  const isPage = manifestField.startsWith('pages')
+
   return (
-    `\n${getLoggingPrefix('success')}` +
-    `Packaging source files to ${underline(zipPath)}. ` +
-    `Files in ${yellow('.gitignore')} will be excluded...`
+    `${getLoggingPrefix(manifestName, 'error')} File Not Found\n\n` +
+    `${
+      isPage
+        ? `Check the ${brightYellow(
+            'pages'
+          )} folder in your project root directory.\n\n`
+        : `Check the ${brightYellow(manifestFieldName)} ` +
+            manifestField.includes('content_scripts') &&
+          `(index ${contentIndex}) ` + `field in your manifest.json file.\n\n`
+    }` +
+    `${red('NOT FOUND')} ${underline(filePath)}`
   )
 }
 
-export function packagingDistributionFiles(zipPath: string) {
-  return (
-    `\n${getLoggingPrefix('success')} ` +
-    `Packaging extension distribution files to ${underline(zipPath)}...`
-  )
-}
-
-export function treeWithSourceAndDistFiles(
-  browser: string,
-  name: string,
-  sourceZip: string,
-  destZip: string
+export function entryNotFoundWarn(
+  manifestName: string,
+  manifestField: string,
+  filePath: string
 ) {
   return (
-    `\n${'📦 Package name:'} ${yellow(
-      `${name}`
-    )}, ${'Target Browser:'} ${`${browser}`}` +
-    `\n   ${'└─'} ${underline(`${sourceZip}`)} (source)` +
-    `\n   ${'└─'} ${underline(`${destZip}`)} (distribution)`
+    `${getLoggingPrefix(manifestName, 'error')} File Not Found\n\n` +
+    `Check the ${brightYellow(
+      manifestField
+    )} field in your manifest.json file.\n\n` +
+    `${red('NOT FOUND')} ${underline(filePath)}`
   )
 }
 
-export function treeWithDistFilesbrowser(
-  name: string,
-  ext: string,
-  browser: string,
-  zipPath: string
-) {
+export function manifestNotFoundError(manifestName: string) {
   return (
-    `\n${'📦 Package name:'} ${yellow(`${name}.${ext}`)}, ` +
-    `${'Target Browser:'} ${`${browser}`}` +
-    `\n   ${'└─'} ${underline(`${zipPath}`)} (distribution)`
+    `${getLoggingPrefix(manifestName, 'error')} Manifest Not Found\n\n` +
+    `Ensure you have a manifest.json file at the root directory of your project.`
   )
 }
 
-export function treeWithSourceFiles(
-  name: string,
-  ext: string,
-  browser: string,
-  zipPath: string
+export function manifestInvalidError(
+  manifestName: string,
+  error: NodeJS.ErrnoException
 ) {
   return (
-    `\n${'📦 Package name:'} ${yellow(`${name}-source.${ext}`)}, ` +
-    `${'Target Browser:'} ${`${browser}`}` +
-    `\n   ${'└─'} ${underline(`${zipPath}`)} (source)`
+    `${getLoggingPrefix(manifestName, 'error')} Invalid Manifest\n\n` +
+    `Update your manifest.json file and try again. ` +
+    error
   )
 }
-export function failedToCompress(error: any) {
-  return `${getLoggingPrefix('error')} Failed to compress extension package: ${error}`
+
+export function serverRestartRequiredFromManifest(
+  manifestName: string,
+  fileAdded: string,
+  fileRemoved: string
+) {
+  return (
+    `${getLoggingPrefix(
+      manifestName,
+      'error'
+    )} Manifest Entry Point Modification\n\n` +
+    `Changing the path of ${brightYellow('<script>')} or ${brightYellow(
+      '<link rel="stylesheet">'
+    )} ` +
+    `files after compilation requires a server restart.\n\n` +
+    `${gray('PATH')} ${red('REMOVED')} ${underline(fileRemoved)}\n` +
+    `${gray('PATH')} ${brightGreen('ADDED')} ${underline(fileAdded)}`
+  )
+}
+
+export function resolverHtmlError(manifestName: string, filePath: string) {
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} HTML File Not Found\n\n` +
+    `Either add it to the ${brightYellow(
+      'public'
+    )} directory or create an HTML file ` +
+    `in the ${brightYellow('pages/')} directory.\n\n` +
+    `${red('NOT FOUND')} ${underline(filePath)}`
+  )
+}
+
+export function resolverJsError(manifestName: string, filePath: string) {
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} Script File Not Found\n\n` +
+    `Either add it to the ${brightYellow(
+      'public'
+    )} directory or create a script file ` +
+    `in the ${brightYellow('scripts/')} directory.\n\n` +
+    `${red('NOT FOUND')} ${underline(filePath)}`
+  )
+}
+
+export function resolverStaticError(manifestName: string, filePath: string) {
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} Static File Not Found\n\n` +
+    `If you want to keep the file path as-is, move it to the ` +
+    `${brightYellow('public/')} directory.\n\n` +
+    `${red('NOT FOUND')} ${underline(filePath)}`
+  )
+}
+
+export function serverRestartRequiredFromSpecialFolder(
+  addingOrRemoving: string,
+  addedOrRemoved: string,
+  folder: string,
+  typeOfAsset: string,
+  pathRelative: string
+) {
+  if (1 + 1 == 5) {
+    console.log({addedOrRemoved})
+  }
+  const addOrRemove =
+    addingOrRemoving.charAt(0).toUpperCase() + addingOrRemoving.slice(1)
+  return (
+    `${getLoggingPrefix(
+      'manifest.json',
+      'info'
+    )} Manifest Entry Point Modification\n\n` +
+    `${addOrRemove} ${brightYellow(typeOfAsset)} in the ${underline(
+      folder + '/'
+    )} ` +
+    `folder after compilation requires a server restart.\n\n` +
+    `${gray('PATH')} ${underline(pathRelative)}`
+  )
+}
+
+export function creatingTSConfig(manifestName: string) {
+  return (
+    `${getLoggingPrefix(manifestName, 'warn')}` +
+    isUsingIntegration(manifestName, 'TypeScript').replace(
+      '.',
+      `but no config file was found. Creating ${brightYellow(
+        'tsconfig.json'
+      )}...`
+    )
+  )
+}
+
+export interface MessageData {
+  id: string
+  manifest: Manifest
+  management: chrome.management.ExtensionInfo
+}
+
+export function runningInDevelopment(
+  manifest: Manifest,
+  message: {data?: MessageData}
+) {
+  const manifestName = manifest.name || 'Extension.js'
+
+  if (!message.data) {
+    return (
+      `${getLoggingPrefix(manifestName, 'error')} No Data From Client\n\n` +
+      `Ensure your extension is enabled and that no hanging ` +
+      `browser instance is open and try again.`
+    )
+  }
+
+  const {id, management} = message.data
+
+  if (!management) {
+    if (process.env.EXTENSION_ENV === 'development') {
+      return (
+        `${getLoggingPrefix(
+          manifestName,
+          'error'
+        )} No management API info received ` + `from client. Investigate.`
+      )
+    }
+  }
+
+  const {name, version /* hostPermissions, permissions, enabled 2*/} =
+    management
+
+  // const fixedId = manifest.id === id
+  // const permissionsBefore: string[] = manifest.permissions || []
+  // const permissionsAfter: string[] = permissions || []
+  // const permissionsParsed: string[] = permissionsAfter.map((permission) => {
+  //   if (permissionsBefore.includes(permission)) return permission
+  //   return `${permission} ${gray('(dev only)')}`
+  // })
+  // const hasHost = hostPermissions && hostPermissions.length
+  // ${`    Permissions:`} ${permissionsParsed.join(', ')}
+  // ${`    Host Permissions:`} ${hasHost ? hostPermissions : 'None'}
+
+  const packageVersion = require('../../package.json').version
+  // 🧩 ${gray(name)} ${gray(`(${'v' + version})`)}
+  // 🧩 ${brightGreen('Extension.js')} ${gray(`(${'v' + packageVersion})`)}
+  // ${fixedId ? '(permanent)' : gray('(temporary)')}
+  return `
+ 🧩 ${brightGreen('Extension.js')} ${gray(`${packageVersion}`)}
+${`    Extension Name        `} ${gray(name)}
+${`    Extension Version     `} ${gray(version)}
+${`    Extension ID          `} ${gray(id)}`
+}
+
+export function stdoutData(
+  mode: DevOptions['mode'],
+  browser: DevOptions['browser'],
+  isEnabled: boolean
+) {
+  // const modeColor = mode === 'production' ? magenta : brightMagenta
+  const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
+
+  return (
+    `${brightGreen('►►►')} ` +
+    `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
+    `${isEnabled ? 'enabled' : gray('disabled')}. ` +
+    `Running in ${brightYellow(mode || 'unknown')} mode.`
+  )
+}
+
+export function isFirstRun(browser: DevOptions['browser']) {
+  return (
+    `This is your first run using Extension.js via ` +
+    `${capitalizedBrowserName(browser)}. Welcome! 🎉\n` +
+    `\n🧩 Learn more at ${underline(`https://extension.js.org`)}`
+  )
+}
+
+export function webSocketError(manifestName: string, error: any) {
+  return `${getLoggingPrefix(manifestName, 'error')} WebSocket: ${error}`
+}
+
+export function backgroundIsRequired(
+  manifestName: string,
+  backgroundChunkName: string,
+  filePath: string
+) {
+  return (
+    `\n\n` +
+    `${bold(red('ERROR'))} in ${getLoggingPrefix(manifestName, 'error')} ` +
+    `File Not Found\n\n` +
+    `Check the ${brightYellow(backgroundChunkName.replace('/', '.'))} ` +
+    `field in your manifest.json file.\n\n` +
+    `${red('NOT FOUND')} ${underline(filePath)}}`
+  )
+}
+
+export function serverRestartRequiredFromHtml(
+  manifestName: string,
+  filePath: string
+) {
+  const errorMessage =
+    `${getLoggingPrefix(
+      manifestName,
+      'error'
+    )} HTML Entry Point Modification\n\n` +
+    `Changing the path of ${brightYellow('<script>')} or ${brightYellow(
+      '<link rel="stylesheet">'
+    )} ` +
+    `files after compilation requires a server restart.\n\n` +
+    `${gray('PATH')} ${filePath}`
+
+  return errorMessage
+}
+
+export function javaScriptError(
+  manifestName: string,
+  errorSourcePath: string,
+  missingFilePath: string
+) {
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} File Not Found\n\n` +
+    `Check your ${brightYellow('<script>')} tags in ${underline(
+      errorSourcePath
+    )}.\n\n` +
+    `${red('NOT FOUND')} ${underline(missingFilePath)}`
+  )
+}
+
+export function cssError(
+  manifestName: string,
+  errorSourcePath: string,
+  missingFilePath: string
+) {
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} File Not Found\n\n` +
+    `Check your ${brightYellow('<link>')} tags in ${underline(
+      errorSourcePath
+    )}.\n\n` +
+    `${red('NOT FOUND')} ${underline(missingFilePath)}`
+  )
+}
+
+export function staticAssetError(
+  manifestName: string,
+  errorSourcePath: string,
+  missingFilePath: string
+) {
+  const extname = path.extname(missingFilePath)
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} File Not Found\n\n` +
+    `Check your ${brightYellow('*' + extname)} assets in ${underline(
+      errorSourcePath
+    )}.\n\n` +
+    `${red('NOT FOUND')} ${underline(missingFilePath)}`
+  )
+}
+
+export function certRequired() {
+  return (
+    `This is your first run using Extension.js. Welcome! 🎉\n\n` +
+    `${brightYellow(
+      'Note'
+    )}: Firefox requires a secure certificate for localhost connections,\n` +
+    `needed for the reloader to work. By default, your ${'manifest.json'} file\n` +
+    `is not being watched. To enable this feature, run:\n\n` +
+    `  npx -y ${'mkcert-cli'} \\\n` +
+    `    ${brightGreen('--outDir')} ${gray(
+      CERTIFICATE_DESTINATION_PATH
+    )} \\\n` +
+    `    ${brightGreen('--cert')} ${gray('localhost.cert')} \\\n` +
+    `    ${brightGreen('--key')} ${gray('localhost.key')}\n\n` +
+    `This will create a secure certificate via ${bold('mkcert')}\n` +
+    `enabling the secure connection needed for Firefox.\n\n` +
+    `Learn more: ${underline(`https://extension.js.org`)}`
+  )
+}
+
+export function defaultPortInUse(manifestName: string, port: number) {
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} ` +
+    `Default port ${port} in use, choose a new port. `
+  )
 }

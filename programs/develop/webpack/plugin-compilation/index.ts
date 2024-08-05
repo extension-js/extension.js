@@ -22,10 +22,16 @@ export class CompilationPlugin {
 
     new CleanHotUpdatesPlugin().apply(compiler)
 
-    const manifest: Manifest = require(this.manifestPath)
-
     compiler.hooks.done.tap('develop:brand', (stats) => {
-      stats.compilation.name = `${messages.boring(stats, manifest.name, manifest.version)}`
+      stats.compilation.name = undefined
+
+      const manifest: Manifest = require(this.manifestPath)
+      const manifestName = manifest.name || 'Extension.js'
+      // const manifestVersion = manifest.version || 'Unknown'
+      // Calculate compilation time
+      const duration = stats.endTime - stats.startTime
+
+      console.log(messages.boring(`${manifestName}`, duration))
     })
   }
 }

@@ -29,8 +29,12 @@ export class EmitManifest {
               const content = fs.readFileSync(manifestPath, 'utf-8')
               jsonContent = JSON.parse(content)
             } catch (error: any) {
+              const manifest = require(this.manifestPath)
+              const manifestName = manifest.name || 'Extension.js'
               compilation.errors.push(
-                new webpack.WebpackError(messages.manifestInvalidError(error))
+                new webpack.WebpackError(
+                  messages.manifestInvalidError(manifestName, error)
+                )
               )
               return
             }

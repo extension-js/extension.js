@@ -88,22 +88,8 @@ export class BrowsersPlugin {
 
       case 'firefox':
         new RunFirefoxPlugin({...config, browser: 'firefox'}).apply(compiler)
-        // TODO: Use updated Firefox plugin
-        // new RunFirefoxPlugin({
-        //   port: 8002,
-        //   manifestPath: path.join(this.extension[0], 'manifest.json'),
-        //   // The final folder where the extension manifest file is located.
-        //   // This is used to load the extension into the browser.
-        //   extensionPath: path.join(this.extension[0], 'dist', this.browser),
-        //   autoReload: true,
-        //   userDataDir: this.getProfilePath(
-        //     compiler,
-        //     'firefox',
-        //     this.userDataDir || this.profile
-        //   ),
-        //   stats: true
-        // }).apply(compiler)
         break
+
       default: {
         // TODO: cezaraugusto Attempt to run with any user-declared path
         new RunChromiumPlugin({...config, browser: this.browser}).apply(

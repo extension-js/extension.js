@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import fs from 'fs/promises'
-import {underline, blue, red} from '@colors/colors/safe'
+import {underline, brightBlue, red} from '@colors/colors/safe'
 
 export default async function abortProjectAndClean(
   error: any,
@@ -29,7 +29,7 @@ export default async function abortProjectAndClean(
         `Please report: "${error}"`
     )
     console.log(
-      blue(underline('https://github.com/cezaraugusto/extension/issues/'))
+      brightBlue(underline('https://github.com/cezaraugusto/extension/issues/'))
     )
   }
 

@@ -8,6 +8,7 @@ import {invalidFieldTypeErrors} from './invalid-field-type-errors'
 
 import handleDeprecatedError from './deprecated-errors'
 import {type PluginInterface, type Manifest} from '../../webpack-types'
+import {DevOptions} from '../../../module'
 
 export class ManifestSchemaErrorsPlugin {
   private readonly options: PluginInterface
@@ -19,7 +20,7 @@ export class ManifestSchemaErrorsPlugin {
   handleSchemaErrors(
     compilation: Compilation,
     manifest: Manifest,
-    browser: string
+    browser: DevOptions['browser']
   ) {
     const ajv = new Ajv()
     addCustomFormats(ajv)

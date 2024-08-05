@@ -29,7 +29,9 @@ export function isUsingVue(projectPath: string) {
   if (vueAsDevDep || vueAsDep) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
-      console.log(messages.isUsingTechnology(manifest, 'Vue'))
+      const manifestName = manifest.name || 'Extension.js'
+
+      console.log(messages.isUsingIntegration(manifestName, 'Vue'))
 
       userMessageDelivered = true
     }
@@ -48,7 +50,14 @@ export async function maybeUseVue(
   } catch (e) {
     const typeScriptDependencies = ['typescript']
 
-    await installOptionalDependencies('TypeScript', typeScriptDependencies)
+    const manifest = require(path.join(projectPath, 'manifest.json'))
+    const manifestName = manifest.name || 'Extension.js'
+
+    await installOptionalDependencies(
+      manifestName,
+      'TypeScript',
+      typeScriptDependencies
+    )
 
     const vueDependencies = [
       'vue-loader',
@@ -57,11 +66,11 @@ export async function maybeUseVue(
       'vue-style-loader'
     ]
 
-    await installOptionalDependencies('Vue', vueDependencies)
+    await installOptionalDependencies(manifestName, 'Vue', vueDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('Vue'))
+    console.log(messages.youAreAllSet(manifestName, 'Vue'))
     process.exit(0)
   }
 

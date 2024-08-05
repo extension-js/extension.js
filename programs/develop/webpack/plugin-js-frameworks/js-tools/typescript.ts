@@ -23,6 +23,7 @@ export function isUsingTypeScript(projectPath: string) {
   const configFile = getUserTypeScriptConfigFile(projectPath)
   const packageJson = require(packageJsonPath)
   const manifest = require(path.join(projectPath, 'manifest.json'))
+  const manifestName = manifest.name || 'Extension.js'
 
   const TypeScriptAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies.typescript
@@ -32,7 +33,7 @@ export function isUsingTypeScript(projectPath: string) {
   if (!userMessageDelivered) {
     if (TypeScriptAsDevDep || TypeScriptAsDep) {
       if (configFile) {
-        console.log(messages.isUsingTechnology(manifest, 'TypeScript'))
+        console.log(messages.isUsingIntegration(manifestName, 'TypeScript'))
       } else {
         console.log(messages.creatingTSConfig(manifest))
         writeTsConfig(projectPath)
@@ -165,11 +166,17 @@ export async function maybeUseTypeScript(
   } catch (e) {
     const typescriptDependencies = ['typescript']
 
-    await installOptionalDependencies('TypeScript', typescriptDependencies)
+    const manifest = require(path.join(projectPath, 'manifest.json'))
+    const manifestName = manifest.name || 'Extension.js'
+    await installOptionalDependencies(
+      manifestName,
+      'TypeScript',
+      typescriptDependencies
+    )
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('TypeScript'))
+    console.log(messages.youAreAllSet(manifestName, 'TypeScript'))
     process.exit(0)
   }
 

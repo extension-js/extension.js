@@ -34,10 +34,15 @@ export class LocalesPlugin {
           stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
         () => {
+          const manifest = require(this.manifestPath)
+          const manifestName = manifest.name || 'Extension.js'
+
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
             compilation.errors.push(
-              new webpack.WebpackError(messages.manifestNotFoundError())
+              new webpack.WebpackError(
+                messages.manifestNotFoundError(manifestName)
+              )
             )
             return
           }
@@ -58,7 +63,11 @@ export class LocalesPlugin {
               if (!fs.existsSync(thisResource)) {
                 compilation.warnings.push(
                   new webpack.WebpackError(
-                    messages.entryNotFoundWarn(feature, thisResource)
+                    messages.entryNotFoundWarn(
+                      manifestName,
+                      feature,
+                      thisResource
+                    )
                   )
                 )
                 return

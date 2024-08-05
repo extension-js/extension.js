@@ -5,6 +5,7 @@ import {insecureCSPValueError} from './insecure-csp-value-errors'
 import {wrongWebResourceFormatError} from './wrong-web-resource-format-error'
 import {firefoxRunningServiceWorkerError} from './firefox-service-worker-error'
 import {noDefaultLocaleError} from './no-default-locale-error'
+import {DevOptions} from '../../../module'
 
 export class ManifestRuntimeErrorsPlugin {
   private readonly options: PluginInterface
@@ -16,7 +17,7 @@ export class ManifestRuntimeErrorsPlugin {
   handleRuntimeErrors(
     compilation: webpack.Compilation,
     manifest: Manifest,
-    browser: string
+    browser: DevOptions['browser']
   ) {
     const insecureCSPValue = insecureCSPValueError(manifest)
     const wrongWebResourceFormat = wrongWebResourceFormatError(

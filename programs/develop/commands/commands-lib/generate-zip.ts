@@ -46,10 +46,6 @@ function getPackageName(
   return `${sanitizedStr}-${manifest.version}`
 }
 
-function capitalizeBrowserName(browser: string): string {
-  return browser.charAt(0).toUpperCase() + browser.slice(1)
-}
-
 async function getFilesToZip(projectDir: string): Promise<string[]> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const gitignoreContent = readFileSync(gitignorePath)
@@ -86,10 +82,10 @@ export async function generateZip(
     const distZipPath = path.join(outputDir, `${name}.${ext}`)
     // Source zips are stored in dist/[name]-source.zip
     const sourceZipPath = path.join(distDir, `${name}-source.${ext}`)
-    const capitalizedBrowser = capitalizeBrowserName(browser)
 
     if (options.zipSource) {
-      console.log(messages.packagingSourceFiles(capitalizedBrowser))
+      console.log('')
+      console.log(messages.packagingSourceFiles(browser))
 
       const zip = new AdmZip()
       const files = await getFilesToZip(projectDir)
@@ -100,7 +96,8 @@ export async function generateZip(
     }
 
     if (options.zip) {
-      console.log(messages.packagingDistributionFiles(capitalizedBrowser))
+      console.log('')
+      console.log(messages.packagingDistributionFiles(browser))
 
       const zip = new AdmZip()
       zip.addLocalFolder(outputDir)
@@ -108,31 +105,24 @@ export async function generateZip(
     }
 
     if (options.zip && options.zipSource) {
+      console.log('')
       console.log(
         messages.treeWithSourceAndDistFiles(
-          capitalizedBrowser,
+          browser,
           name,
           sourceZipPath,
           distZipPath
         )
       )
     } else if (options.zip) {
+      console.log('')
       console.log(
-        messages.treeWithDistFilesbrowser(
-          name,
-          ext,
-          capitalizedBrowser,
-          distZipPath
-        )
+        messages.treeWithDistFilesbrowser(name, ext, browser, distZipPath)
       )
     } else if (options.zipSource) {
+      console.log('')
       console.log(
-        messages.treeWithSourceFiles(
-          name,
-          ext,
-          capitalizedBrowser,
-          sourceZipPath
-        )
+        messages.treeWithSourceFiles(name, ext, browser, sourceZipPath)
       )
     }
   } catch (error) {

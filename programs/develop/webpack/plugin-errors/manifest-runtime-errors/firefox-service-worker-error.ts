@@ -8,7 +8,10 @@ export function firefoxRunningServiceWorkerError(
 ): webpack.WebpackError | null {
   if (browser === 'firefox') {
     if (manifest.background?.service_worker) {
-      return new webpack.WebpackError(messages.firefoxServiceWorkerError())
+      const manifestName = manifest.name || 'Extension.js'
+      return new webpack.WebpackError(
+        messages.firefoxServiceWorkerError(manifestName)
+      )
     }
   }
 

@@ -24,6 +24,7 @@ export class ThrowIfRecompileIsNeeded {
         const files = compiler.modifiedFiles || new Set<string>()
         if (files.has(this.manifestPath)) {
           const context = compiler.options.context || ''
+          const projectName = require(`${context}/package.json`).name
           const manifest: Manifest = require(this.manifestPath)
           const initialHtml = this.flattenAndSort(
             Object.values(htmlFields(context, manifest))
@@ -55,8 +56,18 @@ export class ThrowIfRecompileIsNeeded {
                     initialScripts.toString() !== updatedScripts.toString() ||
                     initialHtml.toString() !== updatedHtml.toString()
                   ) {
+                    const fileRemoved = initialHtml.filter(
+                      (file) => !updatedHtml.includes(file)
+                    )[0]
+                    const fileAdded = updatedHtml.filter(
+                      (file) => !initialHtml.includes(file)
+                    )[0]
                     const errorMessage =
-                      messages.serverRestartRequiredFromManifest()
+                      messages.serverRestartRequiredFromManifest(
+                        projectName,
+                        fileAdded,
+                        fileRemoved
+                      )
                     compilation.errors.push(
                       new webpack.WebpackError(errorMessage)
                     )

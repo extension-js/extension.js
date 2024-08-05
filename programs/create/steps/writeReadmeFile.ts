@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {red, yellow} from '@colors/colors/safe'
+import {red, brightYellow} from '@colors/colors/safe'
 
 import {getInstallCommand} from '../helpers/getInstallInfo'
 import isExternalTemplate from '../helpers/isExternalTemplate'
@@ -33,7 +33,7 @@ export default async function writeReadmeFile(
     .replaceAll('[projectPackageManager]', getInstallCommand())
 
   try {
-    console.log(`📝 - Writing ${yellow(`README.md`)} metadata...`)
+    console.log(`📝 - Writing ${brightYellow(`README.md`)} metadata...`)
     await fs.writeFile(path.join(projectPath, 'README.md'), readmeFileEdited)
   } catch (error: any) {
     console.error(

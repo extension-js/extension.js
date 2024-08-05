@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {red, yellow} from '@colors/colors/safe'
+import {red, brightYellow} from '@colors/colors/safe'
 
 export default async function writeManifestJson(
   projectPath: string,
@@ -24,14 +24,14 @@ export default async function writeManifestJson(
   }
 
   try {
-    console.log(`📜 - Writing ${yellow(`manifest.json`)} metadata...`)
+    console.log(`📜 - Writing ${brightYellow(`manifest.json`)} metadata...`)
     await fs.writeFile(
       path.join(projectPath, 'manifest.json'),
       JSON.stringify(manifestMetadata, null, 2)
     )
   } catch (error: any) {
     console.error(
-      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
+      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't write ${brightYellow(
         `manifest.json`
       )} for ${projectName}. ${error}`
     )

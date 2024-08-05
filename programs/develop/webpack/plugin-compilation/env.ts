@@ -3,6 +3,7 @@ import path from 'path'
 import {type Compiler} from 'webpack'
 import Dotenv from 'dotenv-webpack'
 import * as messages from '../lib/messages'
+import {type Manifest} from '../webpack-types'
 
 export class EnvPlugin {
   public readonly manifestPath: string
@@ -13,6 +14,8 @@ export class EnvPlugin {
 
   apply(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
+    const manifest: Manifest = require(this.manifestPath)
+    const manifestName = manifest.name || 'Extension.js'
 
     // Support .env files
     if (
@@ -21,7 +24,7 @@ export class EnvPlugin {
       fs.existsSync(path.join(projectPath, '.env.local')) ||
       fs.existsSync(path.join(projectPath, '.env.defaults'))
     ) {
-      console.log(messages.envFileLoaded())
+      console.log(messages.envFileLoaded(manifestName))
 
       new Dotenv({
         path: fs.existsSync(path.join(projectPath, '.env'))

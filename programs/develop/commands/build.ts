@@ -70,14 +70,13 @@ export async function extensionBuild(
       }
 
       if (!stats?.hasErrors()) {
-        console.log(messages.buildReady())
+        console.log(messages.buildSuccess())
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)
       }
     })
   } catch (error) {
-    // console.log(error)
     process.exit(1)
   }
 }

@@ -26,7 +26,7 @@ export const getAssetFilename = (folderPath: string) => {
 
 export default function webpackConfig(
   projectPath: string,
-  {...devOptions}: DevOptions
+  devOptions: DevOptions
 ): webpack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
   const userExtensionOutputPath = path.join(
@@ -128,7 +128,7 @@ export default function webpackConfig(
         extension: [
           userExtensionOutputPath,
           path.join(__dirname, 'extensions', 'manager-extension'),
-          path.join(__dirname, 'extensions', 'reload-extension')
+          // path.join(__dirname, 'extensions', 'reload-extension')
           // TODO: Add possible extensions required by the user via --load-extension
         ],
         browser: devOptions.browser,
@@ -143,13 +143,16 @@ export default function webpackConfig(
       })
     ],
     stats: {
-      children: true,
-      errorDetails: true,
-      entrypoints: false,
-      colors: true,
-      assets: false,
-      chunks: false,
-      modules: false
+      all: false,
+    errors: true,
+    warnings: true,
+      // children: true,
+      // errorDetails: true,
+      // entrypoints: false,
+      // colors: true,
+      // assets: false,
+      // chunks: false,
+      // modules: false
     },
     infrastructureLogging: {
       level: 'none'

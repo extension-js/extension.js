@@ -5,6 +5,7 @@ import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {LoaderInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'
+import {isUsingJSFramework} from '../../../lib/utils'
 
 const schema: Schema = {
   type: 'object',
@@ -41,14 +42,8 @@ export default function ensureHMRForScripts(
   const reloadCode = `
 if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
   `
-  // Let the react reload plugin handle the reload.
-  // WARN: Removing this check will cause the content script to pile up
-  // in the browser. This is something related to the react reload plugin
-  // or the webpack-target-webextension plugin.
-  // TODO: cezaraugusto because of this, entry files of content_scripts
-  // written in JSX doesn't reload. This is a bug.
-  // TODO: cezaraugust oundo this
-  // if (isUsingReact(projectPath)) return source;
+
+  if (isUsingJSFramework(projectPath)) return source
 
   const allEntries = options.includeList || {}
 

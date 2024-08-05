@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {red, yellow} from '@colors/colors/safe'
+import {red, brightYellow} from '@colors/colors/safe'
 
 import getTemplatePath from '../helpers/getTemplatePath'
 import isExternalTemplate from '../helpers/isExternalTemplate'
@@ -63,14 +63,14 @@ export default async function writePackageJson(
   }
 
   try {
-    console.log(`📝 - Writing ${yellow(`package.json`)} metadata...`)
+    console.log(`📝 - Writing ${brightYellow(`package.json`)} metadata...`)
     await fs.writeFile(
       path.join(projectPath, 'package.json'),
       JSON.stringify(packageMetadata, null, 2)
     )
   } catch (error: any) {
     console.error(
-      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't write ${yellow(
+      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't write ${brightYellow(
         `package.json`
       )} for ${projectName}. ${error}`
     )

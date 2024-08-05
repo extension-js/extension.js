@@ -18,6 +18,9 @@ export class EmitHtmlFile {
   }
 
   public apply(compiler: Compiler): void {
+    const manifest = require(this.manifestPath)
+    const manifestName = manifest.name || 'Extension.js'
+
     compiler.hooks.thisCompilation.tap('html:emit-html-file', (compilation) => {
       compilation.hooks.processAssets.tap(
         {
@@ -37,6 +40,7 @@ export class EmitHtmlFile {
               // run again and update the file accordingly.
               if (!fs.existsSync(resource as string)) {
                 const errorMessage = messages.manifestFieldError(
+                  manifestName,
                   featureName,
                   resource as string
                 )

@@ -113,12 +113,13 @@ export function getRelativePath(from: string, to: string) {
 }
 
 export async function installOptionalDependencies(
-  feature: string,
+  packageName: string,
+  integration: string,
   dependencies: string[]
 ) {
   try {
     const pm = await detect()
-    console.log(messages.featureNotInstalled(feature, pm))
+    console.log(messages.integrationNotInstalled(packageName, integration, pm))
 
     let installCommand = ''
     if (pm === 'yarn') {
@@ -145,7 +146,7 @@ export async function installOptionalDependencies(
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
     if (process.env.EXTENSION_ENV === 'development') {
-      console.log(messages.installingRootDependencies())
+      console.log(messages.installingRootDependencies(packageName, integration))
 
       if (pm === 'yarn') {
         installCommand = `yarn install --silent > /dev/null 2>&1`
@@ -160,9 +161,13 @@ export async function installOptionalDependencies(
       execSync(installCommand, {stdio: 'inherit'})
     }
 
-    console.log(messages.featureInstalledSuccessfully(feature))
+    console.log(
+      messages.integrationInstalledSuccessfully(packageName, integration)
+    )
   } catch (error) {
-    console.error(messages.failedToinstallFeature(error))
+    console.error(
+      messages.failedToInstallIntegration(packageName, integration, error)
+    )
   }
 }
 
@@ -194,4 +199,40 @@ export function isUsingJSFramework(projectPath: string): boolean {
   }
 
   return false
+}
+
+export function isFirstRun(browser: string) {
+  return !fs.existsSync(path.resolve(__dirname, `run-${browser}-profile`))
+}
+
+export function getHardcodedMessage(manifest: Manifest): {
+  data: messages.MessageData
+} {
+  const manifestName = manifest.name?.replace(/ /g, '-').toLowerCase()
+
+  return {
+    data: {
+      id: `${manifestName}@extension-js`,
+      manifest,
+      management: {
+        id: `${manifestName}@extension-js`,
+        mayDisable: true,
+        optionsUrl: '',
+        installType: 'development' as 'development',
+        type: 'extension' as 'extension',
+        enabled: true,
+        name: manifest.name || '',
+        description: manifest.description || '',
+        version: manifest.version || '',
+        hostPermissions: manifest.host_permissions || [],
+        permissions: manifest.permissions || [],
+        offlineEnabled: manifest.offline_enabled || false,
+        shortName: manifest.short_name || '',
+        isApp:
+          manifest.app &&
+          manifest.app.background &&
+          manifest.app.background.scripts
+      }
+    }
+  }
 }

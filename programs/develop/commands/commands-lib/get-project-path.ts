@@ -1,6 +1,6 @@
 import path from 'path'
 import goGitIt from 'go-git-it'
-import * as messages from '../../webpack/lib/messages'
+import * as messages from './messages'
 import {downloadAndExtractZip} from './extract-from-zip'
 
 const isUrl = (url: string) => {
