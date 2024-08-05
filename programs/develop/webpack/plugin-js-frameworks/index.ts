@@ -3,9 +3,10 @@ import {type Compiler} from 'webpack'
 import {PluginInterface} from '../webpack-types'
 import {type DevOptions} from '../../commands/dev'
 import {maybeUseBabel} from './js-tools/babel'
-import {maybeUsePreact} from './js-tools/preact'
-import {maybeUseReact} from './js-tools/react'
+import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
+import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
+import {isUsingTypeScript} from './js-tools/typescript'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSvelte} from './js-tools/svelte'
 // import {maybeUseSolid} from './js-tools/solid'
@@ -44,6 +45,7 @@ export class JsFrameworksPlugin {
         use: {
           loader: require.resolve('swc-loader'),
           options: {
+            sync: true,
             module: {
               type: 'es6'
             },
@@ -52,8 +54,15 @@ export class JsFrameworksPlugin {
             jsc: {
               target: 'es2016',
               parser: {
-                syntax: 'typescript',
-                tsx: true,
+                syntax: isUsingTypeScript(projectPath)
+                  ? 'typescript'
+                  : 'ecmascript',
+                tsx:
+                  isUsingTypeScript(projectPath) &&
+                  (isUsingReact(projectPath) || isUsingPreact(projectPath)),
+                jsx:
+                  !isUsingTypeScript(projectPath) &&
+                  (isUsingReact(projectPath) || isUsingPreact(projectPath)),
                 dynamicImport: true
               },
               transform: {
