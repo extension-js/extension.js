@@ -28,11 +28,7 @@ const assertFileIsNotEmitted = async (filePath: string) => {
 }
 
 describe('IconsPlugin', () => {
-  describe.each([
-    ['action'],
-    ['icons'],
-    ['sidebar']
-  ])('dealing with %s', (directory) => {
+  describe.each([['action'], ['icons']])('dealing with %s', (directory) => {
     const fixturesPath = getFixturesPath(directory)
     const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 

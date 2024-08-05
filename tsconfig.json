@@ -20,12 +20,11 @@
     "resolveJsonModule": true,
     "module": "CommonJS"
   },
-  "include": ["./programs"],
+  "include": ["./programs", "./examples"],
   "exclude": [
     "node_modules",
     "**/dist",
     "**/spec",
-    "**/__demo__",
     "./programs/create/templates/**"
   ]
 }

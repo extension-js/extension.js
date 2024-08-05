@@ -88,7 +88,11 @@ const SUPER_MANIFEST: Manifest = {
   user_scripts: {
     api_script: 'api.js'
   },
-  web_accessible_resources: ['images/my-image.png', 'script.js', 'styles.css'] as any,
+  web_accessible_resources: [
+    'images/my-image.png',
+    'script.js',
+    'styles.css'
+  ] as any,
   side_panel: {
     default_icon: 'icons/icon16.png',
     default_path: 'panel.html'
@@ -133,7 +137,11 @@ describe('getManifestOverrides', () => {
       }
 
   it('should transform manifest action details correctly', () => {
-    const result = getManifestOverrides('NOT_AVAILABLE', SUPER_MANIFEST, exclude)
+    const result = getManifestOverrides(
+      'NOT_AVAILABLE',
+      SUPER_MANIFEST,
+      exclude
+    )
 
     expect(JSON.parse(result)).toEqual({
       name: 'super-manifest',

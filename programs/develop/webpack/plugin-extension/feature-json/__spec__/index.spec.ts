@@ -42,8 +42,8 @@ describe('JsonPlugin', () => {
 
     beforeAll((done) => {
       exec(
-      `npx -y extension@latest build ${fixturesPath}`,
-      {cwd: __dirname},
+        `npx -y extension@latest build ${fixturesPath}`,
+        {cwd: __dirname},
         (error, _stdout, _stderr) => {
           if (error) {
             console.error(`exec error: ${error.message}`)
@@ -86,8 +86,8 @@ describe('JsonPlugin', () => {
 
     beforeAll((done) => {
       exec(
-      `npx -y extension@latest build ${fixturesPath}`,
-      {cwd: __dirname},
+        `npx -y extension@latest build ${fixturesPath}`,
+        {cwd: __dirname},
         (error, _stdout, _stderr) => {
           if (error) {
             console.error(`exec error: ${error.message}`)
@@ -109,6 +109,5 @@ describe('JsonPlugin', () => {
     it('outputs json file to destination folder', async () => {
       await assertFileIsEmitted(rulesetJson)
     })
-
   })
 })
