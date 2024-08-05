@@ -1,4 +1,3 @@
-import {Component} from 'preact'
 import {signal} from '@preact/signals'
 
 import preactLogo from '../images/preact.png'

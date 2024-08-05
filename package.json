@@ -4,7 +4,7 @@
     "clean": "turbo clean && rm -rf node_modules",
     "changeset": "changeset",
     "compile": "dotenv -- turbo run compile",
-    "cleanInstall": "yarn cache clean && yarn clean && rm -rf yarn.lock && yarn install && yarn compile && yarn format && yarn lint && yarn tsc --noEmit && yarn test",
+    "cleanInstall": "yarn cache clean && yarn clean && rm -rf yarn.lock && yarn install && yarn compile && yarn format && yarn lint && yarn types && yarn test",
     "extension": "dotenv -- ts-node ./programs/cli/dist/cli.js",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
     "lint": "eslint .",
@@ -14,7 +14,7 @@
     "test:create": "dotenv -- turbo run test:create",
     "test:cli": "dotenv -- turbo run test:cli",
     "test:watch": "dotenv -- turbo run test:watch",
-    "types": "tsc --noEmit --project tsconfig.json",
+    "types": "tsc --noEmit --jsx react-jsx",
     "version-packages": "changeset version",
     "publish-packages": "turbo run compile lint test && changeset version && changeset publish",
     "watch": "yarn compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5"

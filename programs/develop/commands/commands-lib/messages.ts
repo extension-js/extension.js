@@ -345,6 +345,7 @@ export function treeWithSourceFiles(
     `\n   ${'└─'} ${underline(`${zipPath}`)} (source)`
   )
 }
+
 export function failedToCompress(error: any) {
   return `${getLoggingPrefix('error')} Failed to compress extension package: ${error}`
 }

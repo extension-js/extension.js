@@ -68,7 +68,7 @@ export async function maybeUseVue(
   const vueLoaders: JsFramework['loaders'] = [
     {
       test: /\.vue$/,
-      loader: 'vue-loader',
+      loader: require.resolve('vue-loader'),
       include: projectPath
     }
   ]

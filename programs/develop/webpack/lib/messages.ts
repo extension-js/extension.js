@@ -7,7 +7,6 @@ import {
   yellow,
   green,
   underline,
-  magenta,
   blue,
   cyan,
   bold
@@ -260,28 +259,6 @@ ${`• Permissions:`} ${
 }
 export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
-}
-
-export function ready(browser: DevOptions['browser']): string {
-  return (
-    `${getLoggingPrefix('success')} ` +
-    `Running ${capitalizedBrowserName(browser)} in ${magenta('production')} mode. ` +
-    `Browser extension enabled...`
-  )
-}
-
-export function building(browser: DevOptions['browser']): string {
-  return (
-    `${getLoggingPrefix('info')} ` +
-    `Building the extension package against ${capitalizedBrowserName(browser)}...`
-  )
-}
-
-export function previewing(browser: DevOptions['browser']): string {
-  return (
-    `${getLoggingPrefix('info')} ` +
-    `Previewing the extension on ${capitalizedBrowserName(browser)}...`
-  )
 }
 
 function getLocales(projectPath: string, manifest: Record<string, any>) {
