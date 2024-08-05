@@ -6,11 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import path from 'path'
-import {
-  ALL_TEMPLATES,
-  ALL_TEMPLATES_BUT_DEFAULT,
-  DEFAULT_TEMPLATE
-} from './fixtures/constants'
+import {ALL_TEMPLATES} from './fixtures/constants'
 import {
   extensionProgram,
   fileExists,

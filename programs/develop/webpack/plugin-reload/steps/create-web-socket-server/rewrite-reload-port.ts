@@ -1,19 +1,21 @@
 import path from 'path'
 import fs from 'fs'
 
-export function replacePortInFile(port: number) {
-  const filePath = path.resolve(
+export function replaceDataInFile(
+  port: number
+) {
+  const reloadServiceFilePath = path.resolve(
     __dirname,
-    './extensions/reload-extension/reloadService.js'
+    './extensions/manager-extension/setup-reload-service.js'
   )
 
-  fs.readFile(filePath, 'utf8', (err, data) => {
+  fs.readFile(reloadServiceFilePath, 'utf8', (err, data) => {
     if (err) {
       console.error(`Error reading file: ${err.message}`)
       return
     }
     const updatedData = data.replace(/__RELOAD_PORT__/g, port.toString())
-    fs.writeFile(filePath, updatedData, 'utf8', (err) => {
+    fs.writeFile(reloadServiceFilePath, updatedData, 'utf8', (err) => {
       if (err) {
         console.error(`Error writing to file: ${err.message}`)
       }

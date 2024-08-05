@@ -18,7 +18,8 @@ export function insecureCSPValueError(
       parsedCSP.get('script-src') &&
       parsedCSP.get('script-src')?.includes("'unsafe-eval'")
     ) {
-      return messages.insecurePolicy()
+      const manifestName = manifest.name || 'Extension.js'
+      return messages.insecurePolicy(manifestName)
     }
   }
 

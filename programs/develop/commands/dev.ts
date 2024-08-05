@@ -50,7 +50,6 @@ export async function extensionDev(
 
     await devServer(projectPath, {...devOptions})
   } catch (error) {
-    console.log(error)
     process.exit(1)
   }
 }

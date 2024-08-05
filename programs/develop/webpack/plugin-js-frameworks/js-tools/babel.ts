@@ -54,7 +54,8 @@ export function isUsingBabel(projectPath: string): boolean {
   if (isUsingBabel) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
-      console.log(messages.isUsingTechnology(manifest, 'Babel'))
+      const manifestName = manifest.name || 'Extension.js'
+      console.log(messages.isUsingIntegration(manifestName, 'Babel'))
 
       userMessageDelivered = true
     }
@@ -129,11 +130,14 @@ export async function maybeUseBabel(
       'babel-preset-modern-browser-extension'
     ]
 
-    await installOptionalDependencies('Babel', babelDependencies)
+    const manifest = require(path.join(projectPath, 'manifest.json'))
+    const manifestName = manifest.name || 'Extension.js'
+
+    await installOptionalDependencies(manifestName, 'Babel', babelDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('Babel'))
+    console.log(messages.youAreAllSet(manifestName, 'Babel'))
     process.exit(0)
   }
 

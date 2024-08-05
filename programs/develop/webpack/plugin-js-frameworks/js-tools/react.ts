@@ -31,7 +31,8 @@ export function isUsingReact(projectPath: string) {
   if (reactAsDevDep || reactAsDep) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
-      console.log(messages.isUsingTechnology(manifest, 'React'))
+      const manifestName = manifest.name || 'Extension.js'
+      console.log(messages.isUsingIntegration(manifestName, 'React'))
 
       userMessageDelivered = true
     }
@@ -55,11 +56,14 @@ export async function maybeUseReact(
       'react-refresh-typescript'
     ]
 
-    await installOptionalDependencies('React', reactDependencies)
+    const manifest = require(path.join(projectPath, 'manifest.json'))
+    const manifestName = manifest.name || 'Extension.js'
+
+    await installOptionalDependencies(manifestName, 'React', reactDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('React'))
+    console.log(messages.youAreAllSet(manifestName, 'React'))
     process.exit(0)
   }
 

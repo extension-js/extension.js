@@ -45,9 +45,8 @@ export async function extensionPreview(
       browser
     })
 
-    // BrowserPlugin can run in production but never in the build command.
     const onlyBrowserRunners = webpackConfig.plugins?.filter(
-      (plugin) => plugin?.constructor.name === 'BrowserPlugin'
+      (plugin) => plugin?.constructor.name === 'plugin-browsers'
     )
 
     const webpackConfigOnlyBrowser = {
@@ -67,7 +66,7 @@ export async function extensionPreview(
 
       if (!stats?.hasErrors()) {
         setTimeout(() => {
-          console.log(messages.ready(browser))
+          console.log(messages.ready('production', browser))
         }, 750)
       } else {
         console.log(stats.toString({colors: true}))
@@ -75,7 +74,6 @@ export async function extensionPreview(
       }
     })
   } catch (error) {
-    // console.log(error)
     process.exit(1)
   }
 }

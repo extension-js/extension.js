@@ -54,10 +54,10 @@ export async function extensionStart(
       }
 
       if (!stats?.hasErrors()) {
-        console.log(messages.startWebpack(projectPath, startOptions))
+        console.log(messages.runningInProduction(projectPath, startOptions))
 
         setTimeout(() => {
-          console.log(messages.ready(browser))
+          console.log(messages.ready('production', browser))
         }, 1500)
       } else {
         console.log(stats.toString({colors: true}))
@@ -65,7 +65,6 @@ export async function extensionStart(
       }
     })
   } catch (error) {
-    // console.log(error)
     process.exit(1)
   }
 }

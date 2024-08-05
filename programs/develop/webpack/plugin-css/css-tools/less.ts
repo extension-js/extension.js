@@ -4,12 +4,15 @@ import {commonStyleLoaders} from '../common-style-loaders'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {DevOptions} from '../../../commands/dev'
+import {Manifest} from '../../webpack-types'
 
 let userMessageDelivered = false
 
 export function isUsingLess(projectPath: string): boolean {
   const packageJsonPath = path.join(projectPath, 'package.json')
   const manifestJsonPath = path.join(projectPath, 'manifest.json')
+  const manifest: Manifest = require(manifestJsonPath)
+  const manifestName = manifest.name || 'Extension.js'
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -22,8 +25,7 @@ export function isUsingLess(projectPath: string): boolean {
 
   if (lessAsDevDep || lessAsDep) {
     if (!userMessageDelivered) {
-      const manifest = require(manifestJsonPath)
-      console.log(messages.isUsingTechnology(manifest, 'LESS'))
+      console.log(messages.isUsingIntegration(manifestName, 'LESS'))
 
       userMessageDelivered = true
     }
@@ -44,13 +46,15 @@ export async function maybeUseLess(
   try {
     require.resolve('less-loader')
   } catch (e) {
+    const projectName = require(path.join(projectPath, 'package.json')).name
+
     const lessDependencies = ['less', 'less-loader', 'resolve-url-loader']
 
-    await installOptionalDependencies('LESS', lessDependencies)
+    await installOptionalDependencies(projectName, 'LESS', lessDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('LESS'))
+    console.log(messages.youAreAllSet(projectName, 'LESS'))
     process.exit(0)
   }
 
