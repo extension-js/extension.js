@@ -39,7 +39,8 @@ export default class CreateWebSocketServer {
       ...this,
       mode: compiler.options.mode,
       browser: this.browser,
-      stats: this.stats
+      stats: this.stats,
+      port: this.port
     })
 
     compiler.hooks.watchRun.tapAsync(

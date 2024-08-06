@@ -17,13 +17,13 @@ const schema: Schema = {
   }
 }
 
-interface InjectBackgroundAcceptContext extends LoaderContext<any> {
+interface InjectBackgroundClientContext extends LoaderContext<any> {
   getOptions: () => {
     manifestPath: string
   }
 }
 
-export default function (this: InjectBackgroundAcceptContext, source: string) {
+export default function (this: InjectBackgroundClientContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
   const projectPath = path.dirname(manifestPath)
@@ -88,7 +88,6 @@ export default function (this: InjectBackgroundAcceptContext, source: string) {
     }
   );
   `
-  // Let the react reload plugin handle the reload.
   if (manifest.background) {
     if (manifest.background.scripts) {
       for (const bgScript of [manifest.background.scripts[0]]) {

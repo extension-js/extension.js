@@ -34,7 +34,6 @@ export default function webpackConfig(
     `dist/${devOptions.browser}`
   )
   const manifest = require(manifestPath)
-
   return {
     mode: devOptions.mode,
     entry: {},
@@ -122,13 +121,15 @@ export default function webpackConfig(
       new ReloadPlugin({
         manifestPath,
         browser: devOptions.browser,
-        port: devOptions.port
+        stats: true,
+        port: devOptions.port || 8000
       }),
       new BrowsersPlugin({
         extension: [
           userExtensionOutputPath,
-          path.join(__dirname, 'extensions', 'manager-extension'),
-          // path.join(__dirname, 'extensions', 'reload-extension')
+          devOptions.browser === 'firefox'
+            ? path.join(__dirname, 'extensions', 'manager-extension-firefox')
+            : path.join(__dirname, 'extensions', 'manager-extension')
           // TODO: Add possible extensions required by the user via --load-extension
         ],
         browser: devOptions.browser,
@@ -144,8 +145,8 @@ export default function webpackConfig(
     ],
     stats: {
       all: false,
-    errors: true,
-    warnings: true,
+      errors: true,
+      warnings: true
       // children: true,
       // errorDetails: true,
       // entrypoints: false,

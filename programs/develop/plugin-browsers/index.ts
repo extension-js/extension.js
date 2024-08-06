@@ -7,7 +7,7 @@ import {RunFirefoxPlugin} from './run-firefox'
 import {DevOptions} from '../commands/dev'
 
 /**
- * RunChromiumPlugin works by creating a WebSockets server
+ * BrowsersPlugin works by creating a WebSockets server
  * that listens to changes triggered by the user extension
  * via webpack. When a change is detected, the server sends
  * a message to an extension called reload-extension, which
@@ -78,23 +78,33 @@ export class BrowsersPlugin {
     // It starts a new browser instance with the user extension loaded.
     switch (this.browser) {
       case 'chrome': {
-        new RunChromiumPlugin({...config, browser: 'chrome'}).apply(compiler)
+        new RunChromiumPlugin({
+          ...config,
+          browser: 'chrome'
+        }).apply(compiler)
         break
       }
 
       case 'edge':
-        new RunChromiumPlugin({...config, browser: 'edge'}).apply(compiler)
+        new RunChromiumPlugin({
+          ...config,
+          browser: 'edge'
+        }).apply(compiler)
         break
 
       case 'firefox':
-        new RunFirefoxPlugin({...config, browser: 'firefox'}).apply(compiler)
+        new RunFirefoxPlugin({
+          ...config,
+          browser: 'firefox'
+        }).apply(compiler)
         break
 
       default: {
-        // TODO: cezaraugusto Attempt to run with any user-declared path
-        new RunChromiumPlugin({...config, browser: this.browser}).apply(
-          compiler
-        )
+        // TODO: cezaraugusto add attempt to run with any user-declared path
+        new RunChromiumPlugin({
+          ...config,
+          browser: this.browser
+        }).apply(compiler)
         break
       }
     }

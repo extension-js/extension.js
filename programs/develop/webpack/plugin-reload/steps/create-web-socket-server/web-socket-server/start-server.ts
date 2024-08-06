@@ -1,10 +1,13 @@
 import path from 'path'
+import fs from 'fs'
 import WebSocket from 'ws'
-import {type Compiler} from 'webpack'
+import {Compiler} from 'webpack'
 import * as messages from '../../../../lib/messages'
 import {type Manifest} from '../../../../webpack-types'
-import {isFirstRun} from '../../../../lib/utils'
+import {getHardcodedMessage, isFirstRun} from '../../../../lib/utils'
 import {DevOptions} from '../../../../../module'
+import {CERTIFICATE_DESTINATION_PATH} from '../../../../lib/constants'
+import {httpsServer} from './https-server'
 
 interface Data {
   id: string
@@ -22,10 +25,18 @@ export function startServer(compiler: Compiler, options: DevOptions) {
   const manifest = require(path.join(projectPath, 'manifest.json'))
   const manifestName = manifest.name || 'Extension.js'
 
-  const webSocketServer = new WebSocket.Server({
-    host: 'localhost',
-    port: options.port
-  })
+  let webSocketServer: WebSocket.Server
+
+  if (options.browser === 'firefox') {
+    const {server} = httpsServer(manifestName, options.port as number)
+    webSocketServer = new WebSocket.Server({server})
+  } else {
+    webSocketServer = new WebSocket.Server({
+      host: 'localhost',
+      port: options.port
+    })
+  }
+
   webSocketServer.on('connection', (ws) => {
     ws.send(JSON.stringify({status: 'serverReady'}))
 
@@ -40,14 +51,13 @@ export function startServer(compiler: Compiler, options: DevOptions) {
 
     // We're only ready when the extension says so
     ws.on('message', (msg) => {
-      // eslint-disable-next-line @typescript-eslint/no-base-to-string
       const message: Message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
         const manifest: Manifest = require(
           path.join(projectPath, 'manifest.json')
         )
-        console.log(messages.runningInDevelopment(manifest, options, message))
+        console.log(messages.runningInDevelopment(manifest, message))
         console.log('')
         console.log(
           messages.stdoutData(
@@ -58,8 +68,6 @@ export function startServer(compiler: Compiler, options: DevOptions) {
         )
 
         if (isFirstRun(options.browser)) {
-          // Add a delay to ensure the message is sent
-          // after other runner messages.
           setTimeout(() => {
             console.log(messages.isFirstRun(options.browser))
           }, 2500)
@@ -67,6 +75,19 @@ export function startServer(compiler: Compiler, options: DevOptions) {
       }
     })
   })
+
+  if (options.browser === 'firefox') {
+    if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
+      const hardcodedMessage = getHardcodedMessage(manifest)
+      console.log(messages.runningInDevelopment(manifest, hardcodedMessage))
+      console.log('')
+
+      if (isFirstRun('firefox')) {
+        console.log(messages.certRequired())
+        console.log('')
+      }
+    }
+  }
 
   return webSocketServer
 }

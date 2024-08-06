@@ -17,7 +17,6 @@ process.on('SIGTERM', () => {
 export class RunChromiumPlugin {
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
-  public readonly port?: number
   public readonly browserFlags?: string[]
   public readonly userDataDir?: string
   public readonly profile?: string
@@ -42,15 +41,15 @@ export class RunChromiumPlugin {
     switch (browser) {
       case 'chrome':
         browserBinaryLocation = require(`${browser}-location`)
-        break;
+        break
 
       case 'edge':
         browserBinaryLocation = require(`${browser}-location`)()
-        break;
-    
+        break
+
       default:
         browserBinaryLocation = require(`${browser}`)
-        break;
+        break
     }
     if (!fs.existsSync(browserBinaryLocation) || '') {
       console.error(

@@ -1,10 +1,11 @@
-import {createExtensionsPageTab, handleFirstRun} from './define-initial-tab.js'
-import {connect, disconnect, keepAlive} from './reload-service.js'
+import {createFirefoxAddonsTab, handleFirstRun} from './define-initial-tab.js'
+import {connect, disconnect} from './reload-service.js'
 
 function bgGreen(str) {
   return `background: #0A0C10; color: #26FFB8; ${str}`
 }
-chrome.tabs.query({active: true}, async ([initialTab]) => {
+
+async function handleTabOnExtensionLoad() {
   console.log(
     `%c
 ██████████████████████████████████████████████████████████
@@ -34,17 +35,28 @@ chrome.tabs.query({active: true}, async ([initialTab]) => {
     bgGreen('')
   )
 
-  if (
-    initialTab.url === 'chrome://newtab/' ||
-    initialTab.url === 'chrome://welcome/'
-  ) {
-    await handleFirstRun()
-  } else {
-    createExtensionsPageTab(initialTab, 'chrome://extensions/')
-  }
-})
+  try {
+    const [initialTab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true
+    })
 
-chrome.runtime.onInstalled.addListener(async () => {
+    if (
+      initialTab.url === 'about:blank' ||
+      initialTab.url === 'about:welcome'
+    ) {
+      await handleFirstRun()
+    } else {
+      await createFirefoxAddonsTab(initialTab, 'about:blank')
+    }
+  } catch (error) {
+    console.error('Error handling tabs on extension load:', error)
+  }
+}
+
+handleTabOnExtensionLoad().catch(console.error)
+
+browser.runtime.onInstalled.addListener(async () => {
   let isConnected = false
 
   if (isConnected) {

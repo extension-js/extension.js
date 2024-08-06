@@ -6,12 +6,15 @@ import patchBackground from './patch-background'
 import patchExternallyConnectable from './patch-externally-connectable'
 import * as utils from '../../../../lib/utils'
 import {type PluginInterface} from '../../../reload-types'
+import {DevOptions} from '../../../../../module'
 
 class ApplyManifestDevDefaultsPlugin {
   private readonly manifestPath?: string
+  private readonly browser: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
   }
 
   private generateManifestPatches(compilation: webpack.Compilation) {
@@ -42,7 +45,7 @@ class ApplyManifestDevDefaultsPlugin {
           {}),
 
       // Use the background script to inject the reload handler.
-      ...patchBackground(manifest),
+      ...patchBackground(manifest, this.browser),
 
       // A misuse of external_connectable can break communication
       // across extension reloads, so we ensure that the extension

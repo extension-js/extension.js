@@ -1,11 +1,11 @@
 // import {createExtensionsPageTab, handleFirstRun} from './define-initial-tab.js'
-// import {connect, disconnect, keepAlive} from './setup-reload-service.js'
+// import {connect, disconnect, keepAlive} from './reload-service.js'
 
 function bgbrightGreen(str) {
   return `background: #0A0C10; color: #26FFB8; ${str}`
 }
 // chrome.tabs.query({active: true}, async ([initialTab]) => {
-  console.log(
+console.log(
   `%c
 ██████████████████████████████████████████████████████████
 ██████████████████████████████████████████████████████████
@@ -32,8 +32,8 @@ function bgbrightGreen(str) {
 ██████████████████████████████████████████████████████████
 
 Extension.js (c) Cezar Augusto and the Extension.js authors.`,
-    bgbrightGreen('')
-  )
+  bgbrightGreen('')
+)
 
 //   if (
 //     initialTab.url === 'chrome://newtab/' ||

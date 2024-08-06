@@ -19,7 +19,6 @@ process.on('SIGTERM', () => {
 export class RunFirefoxPlugin {
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
-  public readonly port?: number
   public readonly browserFlags?: string[]
   public readonly userDataDir?: string
   public readonly profile?: string
@@ -69,23 +68,23 @@ export class RunFirefoxPlugin {
     // Inject the add-ons code into Firefox profile.
     const remoteFirefox = new RemoteFirefox(this)
 
-    remoteFirefox.installAddons(compiler).catch((error) => {
-      if (
-        error
-          ?.toString()
-          .includes('background.service_worker is currently disabled')
-      ) {
+    try {
+      await remoteFirefox.installAddons(compiler)
+    } catch (error) {
+      const strErr = error?.toString()
+      if (strErr?.includes('background.service_worker is currently disabled')) {
         console.error(messages.firefoxServiceWorkerError(this.browser))
         process.exit(1)
       }
 
       console.error(messages.errorLaunchingBrowser(this.browser, error))
       process.exit(1)
-    })
+    }
   }
 
   apply(compiler: Compiler) {
     let firefoxDidLaunch = false
+
     compiler.hooks.done.tapAsync(
       'run-chromium:module',
       async (compilation, done) => {
@@ -100,10 +99,6 @@ export class RunFirefoxPlugin {
         }
 
         await this.launchFirefox(compiler)
-        // .catch((error) => {
-        //   console.error(messages.errorLaunchingBrowser(this.browser, error))
-        //   process.exit(1)
-        // })
         firefoxDidLaunch = true
         done()
       }

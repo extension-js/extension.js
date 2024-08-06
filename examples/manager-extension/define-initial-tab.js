@@ -65,4 +65,3 @@ export async function handleFirstRun() {
     chrome.storage.local.set({[devExtension.id]: {didRun: true}})
   })
 }
-

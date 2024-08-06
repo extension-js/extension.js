@@ -1,7 +1,7 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 
-export default function AddRuntimeListener(
+export default function SetupReloadClient(
   compiler: Compiler,
   manifestPath?: string
 ) {
@@ -9,7 +9,7 @@ export default function AddRuntimeListener(
     test: /\.(t|j)sx?$/,
     use: [
       {
-        loader: path.resolve(__dirname, './inject-background-runtime-loader'),
+        loader: path.resolve(__dirname, './inject-firefox-client-loader'),
         options: {
           manifestPath
         }
