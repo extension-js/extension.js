@@ -20,13 +20,15 @@ scripts_plugin_files=(
 )
 
 reload_plugin_files=(
-  "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/inject-background-runtime-loader.ts"
+  "$(dirname "$0")/webpack/plugin-reload/steps/setup-chromium-reload-client/inject-chromium-client-loader.ts"
+  "$(dirname "$0")/webpack/plugin-reload/steps/setup-firefox-reload-client/inject-firefox-client-loader.ts"
 )
 
 # Separate minimum files for esm format
 minimum_files=(
   "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/minimum-content-file.ts"
-  "$(dirname "$0")/webpack/plugin-reload/steps/add-runtime-listener/minimum-background-file.ts"
+  "$(dirname "$0")/webpack/plugin-reload/steps/setup-chromium-reload-client/minimum-chromium-file.ts"
+  "$(dirname "$0")/webpack/plugin-reload/steps/setup-firefox-reload-client/minimum-firefox-file.ts"
   "$(dirname "$0")/webpack/plugin-extension/feature-html/steps/minimum-script-file.ts"
 )
 
