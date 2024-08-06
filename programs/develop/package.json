@@ -31,6 +31,7 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "@swc/core": "^1.7.3",
+    "@types/firefox-webext-browser": "^120.0.4",
     "acorn": "^8.12.1",
     "acorn-walk": "^8.3.3",
     "adm-zip": "^0.5.12",

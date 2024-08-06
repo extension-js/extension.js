@@ -23,7 +23,9 @@ class TargetWebExtensionPlugin {
   ) {
     const minimumBgScript = path.resolve(
       __dirname,
-      'minimum-background-file.mjs'
+      browser === 'firefox'
+        ? 'minimum-firefox-file.mjs'
+        : 'minimum-chromium-file.mjs'
     )
     const dirname = path.dirname(this.manifestPath!)
     const manifestBg = manifest.background
@@ -33,10 +35,8 @@ class TargetWebExtensionPlugin {
 
       if (backgroundScripts && backgroundScripts.length > 0) {
         const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
-        console.log('reached???1')
         this.ensureFileExists(backgroundScriptPath, 'background.scripts')
       } else {
-        console.log('reached???2')
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     } else {

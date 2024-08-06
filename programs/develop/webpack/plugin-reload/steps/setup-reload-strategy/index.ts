@@ -1,9 +1,10 @@
 import type webpack from 'webpack'
 import {type PluginInterface} from '../../reload-types'
-import AddRuntimeListener from '../add-runtime-listener'
+import SetupChromiumReloadClient from '../setup-chromium-reload-client'
+import SetupFirefoxReloadClient from '../setup-firefox-reload-client'
 import ApplyManifestDevDefaults from './apply-manifest-dev-defaults'
 import TargetWebExtensionPlugin from './target-web-extension-plugin'
-import { DevOptions } from '../../../../module'
+import {DevOptions} from '../../../../module'
 
 class SetupReloadStrategy {
   private readonly manifestPath: string
@@ -17,7 +18,13 @@ class SetupReloadStrategy {
   public apply(compiler: webpack.Compiler) {
     // 1 - Ensure the background scripts (and service_worker) can
     // receive messages from the extension reload plugin.
-    AddRuntimeListener(compiler, this.manifestPath)
+    if (this.browser === 'chrome' || this.browser === 'edge') {
+      SetupChromiumReloadClient(compiler, this.manifestPath)
+    }
+
+    if (this.browser === 'firefox') {
+      SetupFirefoxReloadClient(compiler, this.manifestPath)
+    }
 
     // 2 - Patch the manifest with useful transforms during development,
     // such as bypassing CSP, adding useful defaults to web_accessible_resources,

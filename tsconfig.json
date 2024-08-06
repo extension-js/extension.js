@@ -4,6 +4,7 @@
   "compilerOptions": {
     "target": "es2022",
     "lib": ["es2022", "dom"],
+    "types": ["chrome", "firefox-webext-browser", "jest"],
     "composite": false,
     "declaration": true,
     "declarationMap": true,
