@@ -34,10 +34,8 @@
     "prefers-yarn": "^1.0.1"
   },
   "devDependencies": {
-    "@preact/signals": "^1.2.3",
     "@types/cross-spawn": "^6.0.6",
     "@types/react-dom": "^18.2.18",
-    "preact": "^10.22.0",
     "tsconfig": "*",
     "tsup": "^8.0.1",
     "typescript": "5.3.3"
