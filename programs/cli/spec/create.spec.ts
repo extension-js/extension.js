@@ -19,7 +19,9 @@ describe('extension create', () => {
   })
 
   it('throws an error if target directory has conflicting files', async () => {
-    const templatePath = path.join(__dirname, '..', 'dist', 'init')
+    const templatePath = path.join(__dirname, '..', 'dist', 'init-newest')
+
+    expect.assertions(2)
 
     try {
       // Create first extension.
