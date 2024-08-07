@@ -9,7 +9,7 @@ import {
   bold,
   green,
   gray,
-  brightYellow,
+  brightYellow
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
@@ -496,24 +496,9 @@ export function runningInDevelopment(
     }
   }
 
-  const {name, version /* hostPermissions, permissions, enabled 2*/} =
-    management
-
-  // const fixedId = manifest.id === id
-  // const permissionsBefore: string[] = manifest.permissions || []
-  // const permissionsAfter: string[] = permissions || []
-  // const permissionsParsed: string[] = permissionsAfter.map((permission) => {
-  //   if (permissionsBefore.includes(permission)) return permission
-  //   return `${permission} ${gray('(dev only)')}`
-  // })
-  // const hasHost = hostPermissions && hostPermissions.length
-  // ${`    Permissions:`} ${permissionsParsed.join(', ')}
-  // ${`    Host Permissions:`} ${hasHost ? hostPermissions : 'None'}
+  const {name, version} = management
 
   const packageVersion = require('../../package.json').version
-  // 🧩 ${gray(name)} ${gray(`(${'v' + version})`)}
-  // 🧩 ${brightGreen('Extension.js')} ${gray(`(${'v' + packageVersion})`)}
-  // ${fixedId ? '(permanent)' : gray('(temporary)')}
   return `
  🧩 ${brightGreen('Extension.js')} ${gray(`${packageVersion}`)}
 ${`    Extension Name        `} ${gray(name)}
@@ -526,13 +511,12 @@ export function stdoutData(
   browser: DevOptions['browser'],
   isEnabled: boolean
 ) {
-  // const modeColor = mode === 'production' ? magenta : brightMagenta
   const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
 
   return (
-    `${brightGreen('►►►')} ` +
+    `${gray('►►►')} ` +
     `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
-    `${isEnabled ? 'enabled' : gray('disabled')}. ` +
+    `${isEnabled ? brightGreen('enabled') : gray('disabled')}. ` +
     `Running in ${brightYellow(mode || 'unknown')} mode.`
   )
 }
