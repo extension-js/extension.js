@@ -20,61 +20,95 @@ interface Message {
   status: string
 }
 
-export function startServer(compiler: Compiler, options: DevOptions) {
+function isPortInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = require('net').createServer()
+
+    server.once('error', function (err: NodeJS.ErrnoException) {
+      if (err.code === 'EADDRINUSE') {
+        resolve(true)
+      } else {
+        resolve(false)
+      }
+    })
+
+    server.once('listening', function () {
+      server.close()
+      resolve(false)
+    })
+
+    server.listen(port)
+  })
+}
+
+export async function startServer(compiler: Compiler, options: DevOptions) {
   const projectPath = compiler.options.context || ''
   const manifest = require(path.join(projectPath, 'manifest.json'))
   const manifestName = manifest.name || 'Extension.js'
 
-  let webSocketServer: WebSocket.Server
+  let webSocketServer: WebSocket.Server | undefined
 
   if (options.browser === 'firefox') {
     const {server} = httpsServer(manifestName, options.port as number)
     webSocketServer = new WebSocket.Server({server})
   } else {
-    webSocketServer = new WebSocket.Server({
-      host: 'localhost',
-      port: options.port
-    })
+    const portInUse = await isPortInUse(options.port as number)
+
+    if (!portInUse) {
+      webSocketServer = new WebSocket.Server({
+        host: 'localhost',
+        port: options.port
+      })
+    } else {
+      // Port is already in use. Connect to the existing server.
+      webSocketServer = new WebSocket.Server({
+        noServer: true
+      })
+    }
   }
 
-  webSocketServer.on('connection', (ws) => {
-    ws.send(JSON.stringify({status: 'serverReady'}))
+  if (webSocketServer) {
+    webSocketServer.on('connection', (ws) => {
+      ws.send(JSON.stringify({status: 'serverReady'}))
 
-    ws.on('error', (error) => {
-      console.log(messages.webSocketError(manifestName, error))
-      webSocketServer.close()
-    })
+      ws.on('error', (error) => {
+        console.log(messages.webSocketError(manifestName, error))
+        webSocketServer.close()
+      })
 
-    ws.on('close', () => {
-      webSocketServer.close()
-    })
+      ws.on('close', () => {
+        webSocketServer.close()
+      })
 
-    // We're only ready when the extension says so
-    ws.on('message', (msg) => {
-      const message: Message = JSON.parse(msg.toString())
+      // We're only ready when the extension says so
+      ws.on('message', (msg) => {
+        const message: Message = JSON.parse(msg.toString())
 
-      if (message.status === 'clientReady') {
-        const manifest: Manifest = require(
-          path.join(projectPath, 'manifest.json')
-        )
-        console.log(messages.runningInDevelopment(manifest, message))
-        console.log('')
-        console.log(
-          messages.stdoutData(
-            options.mode,
-            options.browser,
-            message.data?.management.enabled || false
+        if (message.status === 'clientReady') {
+          const manifest: Manifest = require(
+            path.join(projectPath, 'manifest.json')
           )
-        )
+          console.log(messages.runningInDevelopment(manifest, message))
+          console.log('')
+          console.log(
+            messages.stdoutData(
+              options.mode,
+              options.browser,
+              message.data?.management.enabled || false
+            )
+          )
 
-        if (isFirstRun(options.browser)) {
-          setTimeout(() => {
-            console.log(messages.isFirstRun(options.browser))
-          }, 2500)
+          if (isFirstRun(options.browser)) {
+            setTimeout(() => {
+              console.log(messages.isFirstRun(options.browser))
+            }, 2500)
+          }
         }
-      }
+      })
     })
-  })
+  } else {
+    console.log('Failed to start WebSocket server.')
+  }
 
   if (options.browser === 'firefox') {
     if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
