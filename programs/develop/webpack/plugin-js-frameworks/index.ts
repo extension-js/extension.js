@@ -22,7 +22,7 @@ export class JsFrameworksPlugin {
     this.mode = options.mode
   }
 
-  public async apply(compiler: Compiler) {
+  private async configureOptions(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
     const maybeInstallBabel = await maybeUseBabel(compiler, projectPath)
@@ -85,5 +85,13 @@ export class JsFrameworksPlugin {
     maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
+  }
+
+  public async apply(compiler: Compiler) {
+    if(this.mode === 'production'){
+      compiler.hooks.beforeRun.tapPromise(JsFrameworksPlugin.name, async () => await this.configureOptions(compiler))
+      return
+    }
+    await this.configureOptions(compiler)
   }
 }
