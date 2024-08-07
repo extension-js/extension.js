@@ -1,5 +1,3 @@
-/* global browser */
-
 async function getDevExtension() {
   const allExtensions = await browser.management.getAll()
 

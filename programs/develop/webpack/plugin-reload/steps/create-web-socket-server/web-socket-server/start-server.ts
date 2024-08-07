@@ -73,11 +73,11 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
       ws.on('error', (error) => {
         console.log(messages.webSocketError(manifestName, error))
-        webSocketServer.close()
+        webSocketServer?.close()
       })
 
       ws.on('close', () => {
-        webSocketServer.close()
+        webSocketServer?.close()
       })
 
       // We're only ready when the extension says so

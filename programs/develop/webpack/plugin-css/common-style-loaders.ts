@@ -19,8 +19,11 @@ export async function commonStyleLoaders(
 ): Promise<RuleSetRule['use']> {
   const miniCssLoader = MiniCssExtractPlugin.loader
   const styleLoaders: RuleSetRule['use'] = [
-    opts.useMiniCssExtractPlugin ? miniCssLoader : 
-    isUsingVue(projectPath) ? 'vue-style-loader' : 'style-loader',
+    opts.useMiniCssExtractPlugin
+      ? miniCssLoader
+      : isUsingVue(projectPath)
+        ? 'vue-style-loader'
+        : 'style-loader',
     'css-loader'
   ].filter(Boolean)
 
