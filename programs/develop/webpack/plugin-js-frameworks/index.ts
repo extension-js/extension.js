@@ -88,8 +88,11 @@ export class JsFrameworksPlugin {
   }
 
   public async apply(compiler: Compiler) {
-    if(this.mode === 'production'){
-      compiler.hooks.beforeRun.tapPromise(JsFrameworksPlugin.name, async () => await this.configureOptions(compiler))
+    if (this.mode === 'production') {
+      compiler.hooks.beforeRun.tapPromise(
+        JsFrameworksPlugin.name,
+        async () => await this.configureOptions(compiler)
+      )
       return
     }
     await this.configureOptions(compiler)

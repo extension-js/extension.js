@@ -7,7 +7,6 @@ import {
   brightBlue,
   cyan,
   bold,
-  green,
   gray,
   brightYellow
 } from '@colors/colors/safe'

@@ -64,6 +64,5 @@ browser.runtime.onInstalled.addListener(async () => {
   } else {
     await connect()
     isConnected = true
-    keepAlive()
   }
 })
