@@ -24,6 +24,7 @@
     "template"
   ],
   "dependencies": {
+    "@preact/signals": "^1.3.0",
     "preact": "^10.22.0",
     "sakura.css": "^1.5.0"
   },

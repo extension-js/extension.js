@@ -1,18 +1,20 @@
 {
   "compilerOptions": {
-    "types": ["webpack/module"],
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "isolatedModules": false,
-    "jsx": "preserve",
+    "isolatedModules": true,
+    "jsx": "react-jsx",
     "lib": ["dom", "dom.iterable", "esnext"],
     "moduleResolution": "node",
     "module": "esnext",
     "resolveJsonModule": true,
     "strict": true,
-    "target": "esnext"
+    "target": "esnext",
+    "verbatimModuleSyntax": true,
+    "useDefineForClassFields": true,
+    "skipLibCheck": true
   },
   "include": ["./"],
   "exclude": ["node_modules", "dist"]
