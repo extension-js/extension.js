@@ -25,7 +25,7 @@ export class CssPlugin {
     this.mode = options.mode
   }
 
-  public async apply(compiler: Compiler) {
+  private async configureOptions(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
     const plugins: WebpackPluginInstance[] = [
@@ -96,5 +96,13 @@ export class CssPlugin {
       ...compiler.options.module.rules,
       ...loaders
     ].filter(Boolean)
+  }
+
+  public async apply(compiler: Compiler) {
+    if(this.mode === 'production'){
+      compiler.hooks.beforeRun.tapPromise(CssPlugin.name, async () => await this.configureOptions(compiler))
+      return
+    }
+    await this.configureOptions(compiler)
   }
 }
