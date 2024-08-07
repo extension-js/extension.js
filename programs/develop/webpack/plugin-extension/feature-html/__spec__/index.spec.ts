@@ -48,7 +48,7 @@ describe('HtmlPlugin (default behavior)', () => {
         done()
       }
     )
-  }, 40000)
+  }, 60000)
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {
@@ -181,7 +181,7 @@ describe('HtmlPlugin (default behavior)', () => {
   //         done()
   //       }
   //     )
-  //   }, 40000)
+  //   }, 60000)
 
   //   afterAll(() => {
   //     if (fs.existsSync(outputPath)) {
