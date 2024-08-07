@@ -83,7 +83,11 @@ export default function webpackConfig(
         '.mts',
         '.tsx',
         '.json',
-        '.wasm'
+        '.wasm',
+        '.less',
+        '.css',
+        '.sass',
+        '.scss'
       ]
     },
     watchOptions: {
