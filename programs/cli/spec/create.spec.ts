@@ -9,6 +9,7 @@ import path from 'path'
 import {ALL_TEMPLATES} from './fixtures/constants'
 import {
   extensionProgram,
+  localExtensionProgram,
   fileExists,
   removeAllTemplateFolders
 } from './fixtures/helpers'
@@ -51,7 +52,7 @@ describe('extension create', () => {
       `creates the "$name" extension template`,
       async (template) => {
         const extensionPath = path.join(__dirname, '..', 'dist', template.name)
-        await extensionProgram(
+        await localExtensionProgram(
           `create ${extensionPath} --template="${template.name}"`
         )
 

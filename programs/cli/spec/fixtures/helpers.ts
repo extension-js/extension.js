@@ -18,6 +18,17 @@ export async function extensionProgram(command: string = '') {
   return await execAsync(cliCommand)
 }
 
+export async function localExtensionProgram(command: string = '') {
+  const cliCommand = `node ${path.join(
+    __dirname,
+    '..',
+    '..',
+    'dist',
+    'cli.js'
+  )} ${command}`
+  return await execAsync(cliCommand)
+}
+
 export function fileExists(template: string, filePath?: string): boolean {
   const templatePath = path.join(__dirname, '..', '..', 'dist', template)
   return fs.existsSync(path.join(templatePath, filePath || ''))
