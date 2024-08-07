@@ -112,12 +112,12 @@ export function buildWebpack(
   const buildTime = `\nBuild completed in ${(
     (statsJson?.time || 0) / 1000
   ).toFixed(2)} seconds.\n`
-  const buildTarget = `Build Target: ${capitalizedBrowserName(browser)}\n`
+  const buildTarget = `Build Target: ${gray(capitalizedBrowserName(browser))}\n`
   const buildStatus = `Build Status: ${
     stats?.hasErrors() ? red('Failed') : brightGreen('Success')
   }\n`
-  const version = `\nVersion: ${manifest.version}\n`
-  const size = `Size: ${getAssetsSize(assets)}\n`
+  const version = `\nVersion: ${gray(manifest.version)}\n`
+  const size = `Size: ${gray(getAssetsSize(assets))}\n`
 
   let output = ''
   output += heading
@@ -134,7 +134,7 @@ export function buildWebpack(
 export function buildSuccess() {
   return `${getLoggingPrefix(
     'success'
-  )} No errors or warnings found. Your extension is ready for deployment.`
+  )} No errors or warnings found. Your extension is ${brightGreen('ready for deployment')}.`
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
@@ -346,7 +346,7 @@ function printTree(node: Record<string, any>, prefix = ''): string {
     const sizeInKB = node[key].size
       ? ` (${getFileSize(node[key].size as number)})`
       : ''
-    output += `${prefix}${connector} ${key}${sizeInKB}\n`
+    output += `${gray(prefix)}${gray(connector)} ${key}${gray(sizeInKB)}\n`
     if (typeof node[key] === 'object' && !node[key].size) {
       output += printTree(node[key], `${prefix}${isLast ? '   ' : '|  '}`)
     }

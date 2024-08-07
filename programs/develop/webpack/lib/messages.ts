@@ -26,7 +26,7 @@ function getLoggingPrefix(filename: string, type: PrefixType): string {
         : type === 'error'
           ? red('✖︎✖︎✖︎')
           : brightGreen('►►►')
-  return `${arrow} ${gray(filename)}`
+  return `${gray(filename)} ${arrow}`
 }
 
 export function capitalizedBrowserName(browser: DevOptions['browser']) {
