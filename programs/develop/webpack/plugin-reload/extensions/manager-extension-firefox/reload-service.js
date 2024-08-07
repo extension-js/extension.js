@@ -18,7 +18,6 @@ export async function connect() {
   }
 
   webSocket.onmessage = async (event) => {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
     const message = JSON.parse(event.data)
 
     if (message.status === 'serverReady') {
@@ -122,9 +121,7 @@ async function checkExtensionReadiness() {
   return true
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-argument
 async function delay(ms) {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
   return await new Promise((resolve) => setTimeout(resolve, ms)).catch(
     (error) => {
       console.error(`Error delaying: ${error.message}`)
