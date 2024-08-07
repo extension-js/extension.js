@@ -10,7 +10,8 @@
   "content_scripts": [
     {
       "matches": ["https://extension.js.org/*"],
-      "js": ["./content/scripts.ts"]
+      "js": ["./content/scripts.ts"],
+      "css": ["./content/styles.css"]
     }
   ],
   "icons": {
