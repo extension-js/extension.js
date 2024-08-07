@@ -27,7 +27,7 @@ export default class CreateWebSocketServer {
     this.stats = options.stats
   }
 
-  apply(compiler: Compiler) {
+  async apply(compiler: Compiler) {
     if (!this.manifestPath) return
 
     // Before all, rewrite the reload service file
@@ -35,7 +35,7 @@ export default class CreateWebSocketServer {
     replaceDataInFile(this.port)
 
     // Start webSocket server to communicate with the extension.
-    const wss = startServer(compiler, {
+    const wss = await startServer(compiler, {
       ...this,
       mode: compiler.options.mode,
       browser: this.browser,
