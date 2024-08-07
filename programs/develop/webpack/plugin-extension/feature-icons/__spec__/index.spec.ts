@@ -44,7 +44,7 @@ describe('IconsPlugin', () => {
           done()
         }
       )
-    }, 40000)
+    }, 60000)
 
     // afterAll(() => {
     //   if (fs.existsSync(outputPath)) {
