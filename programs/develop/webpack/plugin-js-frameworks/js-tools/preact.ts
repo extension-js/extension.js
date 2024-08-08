@@ -10,6 +10,7 @@ import fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
+import {WebpackPluginInstance} from 'webpack'
 
 let userMessageDelivered = false
 
@@ -66,8 +67,12 @@ export async function maybeUsePreact(
     process.exit(0)
   }
 
+  const preactPlugins: WebpackPluginInstance[] = [
+    new (require('@pmmmwh/react-refresh-webpack-plugin'))() //.apply(compiler)
+  ]
+
   return {
-    plugins: undefined,
+    plugins: preactPlugins,
     loaders: undefined,
     alias: {
       react: 'preact/compat',
