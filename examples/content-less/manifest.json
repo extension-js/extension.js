@@ -6,7 +6,8 @@
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
   "background": {
-    "service_worker": "background.js"
+    "chromium:service_worker": "background.js",
+    "firefox:scripts": ["background.js"]
   },
   "content_scripts": [
     {
