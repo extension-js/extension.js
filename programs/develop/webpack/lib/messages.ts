@@ -17,15 +17,19 @@ import {CERTIFICATE_DESTINATION_PATH} from './constants'
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 
 function getLoggingPrefix(filename: string, type: PrefixType): string {
+  // For errors we invert the order
+  if (type === 'error') {
+    return `${filename} ${red('✖︎✖︎✖︎')}`
+  }
+
   const arrow =
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
         ? brightBlue('►►►')
-        : type === 'error'
-          ? red('✖︎✖︎✖︎')
-          : brightGreen('►►►')
-  return `${gray(filename)} ${arrow}`
+        : brightGreen('►►►')
+
+  return `${arrow} ${filename}`
 }
 
 export function capitalizedBrowserName(browser: DevOptions['browser']) {
@@ -37,7 +41,7 @@ export function boring(manifestName: string, duration: number) {
   let didShow = false
 
   if (!didShow) {
-    return `${getLoggingPrefix(manifestName, 'info')} compiled ${brightGreen(
+    return `${getLoggingPrefix(manifestName, 'success')} compiled ${brightGreen(
       'successfully'
     )} in ${duration} ms`
   }
@@ -503,21 +507,6 @@ export function runningInDevelopment(
 ${`    Extension Name        `} ${gray(name)}
 ${`    Extension Version     `} ${gray(version)}
 ${`    Extension ID          `} ${gray(id)}`
-}
-
-export function stdoutData(
-  mode: DevOptions['mode'],
-  browser: DevOptions['browser'],
-  isEnabled: boolean
-) {
-  const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
-
-  return (
-    `${gray('►►►')} ` +
-    `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
-    `${isEnabled ? brightGreen('enabled') : gray('disabled')}. ` +
-    `Running in ${brightYellow(mode || 'unknown')} mode.`
-  )
 }
 
 export function isFirstRun(browser: DevOptions['browser']) {
