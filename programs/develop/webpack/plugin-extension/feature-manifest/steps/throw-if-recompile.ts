@@ -1,3 +1,4 @@
+import fs from 'fs'
 import webpack, {Compilation} from 'webpack'
 import * as messages from '../../../lib/messages'
 import {PluginInterface, FilepathList, Manifest} from '../../../webpack-types'
@@ -24,7 +25,14 @@ export class ThrowIfRecompileIsNeeded {
         const files = compiler.modifiedFiles || new Set<string>()
         if (files.has(this.manifestPath)) {
           const context = compiler.options.context || ''
-          const projectName = require(`${context}/package.json`).name
+          const packageJsonPath = `${context}/package.json`
+
+          if (!fs.existsSync(packageJsonPath)) {
+            done()
+            return
+          }
+
+          const projectName = require(packageJsonPath).name
           const manifest: Manifest = require(this.manifestPath)
           const initialHtml = this.flattenAndSort(
             Object.values(htmlFields(context, manifest))
