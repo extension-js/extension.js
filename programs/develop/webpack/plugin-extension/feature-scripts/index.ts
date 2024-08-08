@@ -48,7 +48,9 @@ export class ScriptsPlugin {
     // so we can benefit from HMR.
     if (compiler.options.mode === 'development') {
       compiler.options.module.rules.push({
-        test: /\.(m?js|m?ts)x?$/,
+        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: /node_modules/,
         use: [
           {
             loader: require.resolve(
@@ -67,7 +69,9 @@ export class ScriptsPlugin {
     // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
     if (compiler.options.mode === 'development') {
       compiler.options.module.rules.push({
-        test: /\.(m?js|m?ts)x?$/,
+        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: /node_modules/,
         use: [
           {
             loader: require.resolve(
@@ -94,18 +98,20 @@ export class ScriptsPlugin {
     // 4 - Fix the issue where assets imported via content_scripts
     // running in the MAIN world could not find the correct public path.
     // compiler.options.module.rules.push({
-    //   test: /\.(m?js|m?ts)x?$/,
+    //   test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+    //   include: [path.dirname(this.manifestPath)],
+    //   exclude: [path.join(path.dirname(this.manifestPath), 'node_modules')],
     //   use: [
     //     {
     //       loader: path.resolve(__dirname, './add-dynamic-public-path.js'),
     //       options: {
     //         manifestPath: this.manifestPath,
     //         includeList: this.includeList || {},
-    //         excludeList: this.excludeList || {},
-    //       },
-    //     },
-    //   ],
-    // });
+    //         excludeList: this.excludeList || {}
+    //       }
+    //     }
+    //   ]
+    // })
 
     // 5 - Fix the issue of content_scripts not being able to import
     // CSS files via import statements. This loader adds the
@@ -114,7 +120,9 @@ export class ScriptsPlugin {
     // and allows the CSS to be injected in the DOM via <style> tags.
     if (compiler.options.mode === 'development') {
       compiler.options.module.rules.push({
-        test: /\.(m?js|m?ts)x?$/,
+        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: /node_modules/,
         use: [
           {
             loader: path.resolve(

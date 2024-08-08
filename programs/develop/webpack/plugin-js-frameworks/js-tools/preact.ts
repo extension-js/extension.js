@@ -68,7 +68,7 @@ export async function maybeUsePreact(
   }
 
   const preactPlugins: WebpackPluginInstance[] = [
-    new (require('@pmmmwh/react-refresh-webpack-plugin'))() 
+    new (require('@pmmmwh/react-refresh-webpack-plugin'))()
   ]
 
   return {

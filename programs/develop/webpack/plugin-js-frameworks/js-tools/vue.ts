@@ -78,12 +78,13 @@ export async function maybeUseVue(
     {
       test: /\.vue$/,
       loader: require.resolve('vue-loader'),
-      include: projectPath
+      include: projectPath,
+      exclude: /node_modules/
     }
   ]
 
   const vuePlugins: JsFramework['plugins'] = [
-    new (require('vue-loader').VueLoaderPlugin)() //.apply(compiler)
+    new (require('vue-loader').VueLoaderPlugin)()
   ]
 
   return {

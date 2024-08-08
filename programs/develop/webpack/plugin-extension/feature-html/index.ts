@@ -81,7 +81,9 @@ export class HtmlPlugin {
 
     // 5 - Ensure scripts within the HTML file are HMR enabled.
     compiler.options.module.rules.push({
-      test: /\.(t|j)sx?$/,
+      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      include: [path.dirname(this.manifestPath)],
+      exclude: /node_modules/,
       use: [
         {
           loader: require.resolve(
