@@ -74,7 +74,7 @@ export async function maybeUseLess(
           use: await commonStyleLoaders(projectPath, {
             loader: 'less-loader',
             mode,
-            useMiniCssExtractPlugin: true
+            useMiniCssExtractPlugin: mode === 'production'
           })
         }
       ]
