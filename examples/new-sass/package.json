@@ -1,7 +1,4 @@
 {
-  "devDependencies": {
-    "extension": "latest"
-  },
   "scripts": {
     "dev": "extension dev",
     "start": "extension start",

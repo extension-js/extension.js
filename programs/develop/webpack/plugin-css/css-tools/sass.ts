@@ -87,7 +87,7 @@ export async function maybeUseSass(
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
             mode,
-            useMiniCssExtractPlugin: true
+            useMiniCssExtractPlugin: mode === 'production'
           })
         }
       ]
