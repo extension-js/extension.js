@@ -15,7 +15,6 @@ export default [
   {
     ignores: [
       '__TEST__',
-      '**/__demo__',
       '**/dist/',
       '**/webpack.config.js',
       '**/postcss.config.js',
