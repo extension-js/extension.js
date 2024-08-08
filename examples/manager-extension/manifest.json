@@ -4,7 +4,8 @@
   "version": "1.0",
   "manifest_version": 3,
   "background": {
-    "service_worker": "background.js",
+    "chromium:service_worker": "background.js",
+    "firefox:scripts": ["background.js"],
     "type": "module"
   },
   "icons": {

@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "manifest_version": 3,
   "background": {
-    "service_worker": "service-worker.js"
+    "chromium:service_worker": "background.js",
+    "firefox:scripts": ["background.js"]
   },
   "description": "An Extension.js example.",
   "action": {
