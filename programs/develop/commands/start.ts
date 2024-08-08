@@ -65,6 +65,9 @@ export async function extensionStart(
       }
     })
   } catch (error) {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.error(error)
+    }
     process.exit(1)
   }
 }

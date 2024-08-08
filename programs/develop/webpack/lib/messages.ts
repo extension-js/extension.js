@@ -13,6 +13,7 @@ import {
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
+import { Stats } from 'webpack'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 
@@ -26,7 +27,7 @@ function getLoggingPrefix(filename: string, type: PrefixType): string {
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-        ? brightBlue('►►►')
+        ? gray('►►►')
         : brightGreen('►►►')
 
   return `${arrow} ${filename}`
@@ -36,12 +37,11 @@ export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
-export function boring(manifestName: string, duration: number) {
-  // const divider = stats.hasErrors() ? red : brightGreen
+export function boring(manifestName: string, duration: number, stats: Stats) {
   let didShow = false
 
   if (!didShow) {
-    return `${getLoggingPrefix(manifestName, 'success')} compiled ${brightGreen(
+    return `${getLoggingPrefix(manifestName, stats.hasErrors() ? 'error' : 'info')} compiled ${brightGreen(
       'successfully'
     )} in ${duration} ms`
   }
