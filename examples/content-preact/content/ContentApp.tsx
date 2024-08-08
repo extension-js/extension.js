@@ -1,4 +1,4 @@
-import {signal} from '@preact/signals'
+import {useSignal} from '@preact/signals'
 
 import preactLogo from '../images/preact.png'
 import tailwindBg from '../images/tailwind_bg.png'
@@ -7,13 +7,13 @@ import tailwindLogo from '../images/tailwind.png'
 import chromeWindowBg from '../images/chromeWindow.png'
 
 export default function ContentApp() {
-  const isdialogOpen = signal(true)
+  const isdialogOpen = useSignal(true)
 
   const setIsDialogOpen = (bool: boolean) => {
     isdialogOpen.value = bool
   }
 
-  if (!isdialogOpen) {
+  if (!isdialogOpen.value) {
     return (
       <div className="mx-auto p-6">
         <button
