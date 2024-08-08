@@ -50,6 +50,9 @@ export async function extensionDev(
 
     await devServer(projectPath, {...devOptions})
   } catch (error) {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.error(error)
+    }
     process.exit(1)
   }
 }
