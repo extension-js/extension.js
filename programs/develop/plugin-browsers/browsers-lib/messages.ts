@@ -29,6 +29,21 @@ export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
+export function stdoutData(
+  name: string,
+  browser: DevOptions['browser'],
+  mode: DevOptions['mode']
+) {
+  const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
+
+  return (
+    `${getLoggingPrefix(browser, 'success')} ` +
+    `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
+    `${name} ` +
+    `running in ${brightYellow('development' || 'unknown')} mode.`
+  )
+}
+
 export function browserNotInstalled(
   browser: DevOptions['browser'],
   browserBinaryLocation: string
