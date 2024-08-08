@@ -3,10 +3,12 @@ import {type Compiler} from 'webpack'
 
 export default function SetupReloadClient(
   compiler: Compiler,
-  manifestPath?: string
+  manifestPath: string
 ) {
   compiler.options.module.rules.push({
-    test: /\.(t|j)sx?$/,
+    test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+    include: [path.dirname(manifestPath)],
+    exclude: /node_modules/,
     use: [
       {
         loader: path.resolve(__dirname, './inject-firefox-client-loader'),
