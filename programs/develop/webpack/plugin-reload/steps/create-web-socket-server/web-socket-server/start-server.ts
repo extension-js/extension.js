@@ -49,7 +49,7 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
   let webSocketServer: WebSocket.Server | undefined
 
   if (options.browser === 'firefox') {
-    const {server} = httpsServer(manifestName, options.port as number)
+    const {server} = httpsServer(manifestName, options.port as number + 1)
     webSocketServer = new WebSocket.Server({server})
   } else {
     const portInUse = await isPortInUse(options.port as number)
@@ -90,13 +90,6 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
           )
           console.log(messages.runningInDevelopment(manifest, message))
           console.log('')
-          console.log(
-            messages.stdoutData(
-              options.mode,
-              options.browser,
-              message.data?.management.enabled || false
-            )
-          )
 
           if (isFirstRun(options.browser)) {
             setTimeout(() => {

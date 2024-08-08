@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import {type Compiler} from 'webpack'
 import {spawn} from 'child_process'
 import {browserConfig} from './browser-config'
@@ -88,6 +89,19 @@ export class RunChromiumPlugin {
       }
 
       this.launchChromium(this.browser)
+      const extension = this.extension[0]
+      const extensionManifest = require(path.join(extension, 'manifest.json'))
+
+      setTimeout(() => {
+        console.log(
+          messages.stdoutData(
+            extensionManifest.name,
+            this.browser,
+            compilation.compilation.options.mode
+          )
+        )
+      }, 2000)
+
       chromiumDidLaunch = true
       done()
     })

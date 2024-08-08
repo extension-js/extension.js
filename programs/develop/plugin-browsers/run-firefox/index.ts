@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import {exec} from 'child_process'
 import {type Compiler} from 'webpack'
 import {firefoxLocation} from './firefox-location'
@@ -99,6 +100,16 @@ export class RunFirefoxPlugin {
         }
 
         await this.launchFirefox(compiler)
+        const extension = this.extension[0]
+        const extensionManifest = require(path.join(extension, 'manifest.json'))
+
+        console.log(
+          messages.stdoutData(
+            extensionManifest.name,
+            this.browser,
+            compilation.compilation.options.mode
+          )
+        )
         firefoxDidLaunch = true
         done()
       }

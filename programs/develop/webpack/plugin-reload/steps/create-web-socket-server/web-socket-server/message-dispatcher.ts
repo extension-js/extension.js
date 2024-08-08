@@ -16,7 +16,7 @@ function dispatchMessage(
 }
 
 export function messageDispatcher(
-  server: WebSocket.Server<typeof WebSocket, any>,
+  server: WebSocket.Server<typeof WebSocket, any> | undefined,
   manifestPath: string,
   updatedFile: string
 ) {
@@ -26,8 +26,16 @@ export function messageDispatcher(
   const manifestScripts = manifestFields(manifestPath).scripts
   const jsonScripts = manifestFields(manifestPath).json
 
-  // Ensure the manifest itself is watched.
+  if (!server) {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.error('WebSocket server is not running.')
+    }
+
+    return
+  }
+
   if (path.basename(updatedFile) === 'manifest.json') {
+    // Ensure the manifest itself is watched.
     dispatchMessage(server, {
       changedFile: 'manifest.json'
     })
