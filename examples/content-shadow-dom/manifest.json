@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "content-main-world",
+  "name": "content-shadow-dom",
   "description": "An Extension.js example.",
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
@@ -10,7 +10,6 @@
   },
   "content_scripts": [
     {
-      "world": "MAIN",
       "matches": ["<all_urls>"],
       "js": ["content/scripts.js"]
     }
