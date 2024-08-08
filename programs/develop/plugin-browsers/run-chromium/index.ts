@@ -92,7 +92,6 @@ export class RunChromiumPlugin {
       const extension = this.extension[0]
       const extensionManifest = require(path.join(extension, 'manifest.json'))
 
-      setTimeout(() => {
         console.log(
           messages.stdoutData(
             extensionManifest.name,
@@ -100,7 +99,6 @@ export class RunChromiumPlugin {
             compilation.compilation.options.mode
           )
         )
-      }, 2000)
 
       chromiumDidLaunch = true
       done()
