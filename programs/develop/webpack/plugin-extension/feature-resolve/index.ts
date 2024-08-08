@@ -38,6 +38,7 @@ import {type FilepathList, type PluginInterface} from '../../webpack-types'
 export interface LoaderOptions {
   jsx?: boolean
   typescript?: boolean
+  minify?: boolean
 }
 
 export class ResolvePlugin {
@@ -62,15 +63,17 @@ export class ResolvePlugin {
     // This loader will be used to transform the API methods
     // to use the resolver module.
     compiler.options.module?.rules.push({
-      test: /\.(t|j)sx?$/,
+      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       loader: require.resolve(path.resolve(__dirname, './resolver-loader.js')),
+      include: [path.dirname(this.manifestPath)],
       options: {
         manifestPath: this.manifestPath,
         includeList: this.includeList,
         jsx: this.loaderOptions ? this.loaderOptions['jsx'] : false,
         typescript: this.loaderOptions
           ? this.loaderOptions['typescript']
-          : false
+          : false,
+        minify: this.loaderOptions ? this.loaderOptions['minify'] : false
       }
     })
   }

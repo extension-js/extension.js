@@ -120,7 +120,8 @@ export default function webpackConfig(
       }),
       new ExtensionPlugin({
         manifestPath,
-        browser: devOptions.browser
+        browser: devOptions.browser,
+        mode: devOptions.mode
       }),
       new ReloadPlugin({
         manifestPath,

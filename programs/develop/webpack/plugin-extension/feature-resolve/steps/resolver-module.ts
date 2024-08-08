@@ -1,8 +1,24 @@
-import * as messages from '../resolve-lib/messages'
+const messages = {
+  resolverNotFoundError() {
+    console.error(
+      `Could not resolve file path. Ensure the file exists in the "public" or "pages" directory.`
+    )
+  },
 
-function notFoundError() {
-  console.error(messages.notFoundError)
-  return ''
+  resolverHtmlError: (filePath: string) => {
+    console.error(
+      `Could not resolve path ${filePath}. Either add it to the "public" directory or create a page in the "pages" directory.`
+    )
+    return filePath
+  },
+
+  resolverJsError: (filePath: string) => {
+    return `Could not resolve path ${filePath}. Either add it to the "public" directory or create a script in the "scripts" directory.`
+  },
+
+  resolverStaticError: (filePath: string) => {
+    return `Could not resolve path ${filePath}. If you want to preserve this file path, add the file to the "public" directory.`
+  }
 }
 
 function pathNormalize(path: string): string {
@@ -46,7 +62,8 @@ const includeList = {data: '__RESOLVER_MODULE_FILE_LIST__'}
 
 function resolver(filePath?: string): string {
   if (!filePath) {
-    return notFoundError()
+    messages.resolverNotFoundError()
+    return ''
   }
 
   if (
@@ -206,4 +223,6 @@ function solve(apiArgument?: SolveType) {
   }
 }
 
-export {solve}
+const r = {solve}
+
+export default r

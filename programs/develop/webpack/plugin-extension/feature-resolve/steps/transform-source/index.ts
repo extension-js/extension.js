@@ -79,22 +79,25 @@ function checkMethod(
 export function transformSource(source: string, options: LoaderOptions) {
   // Use swc to transform the source
   const swcResult = transformSync(source, {
+    module: {
+      type: 'es6'
+    },
+    minify: options.minify,
     jsc: {
+      loose: true,
+      target: 'es2016',
       parser: {
         syntax: options.typescript ? 'typescript' : 'ecmascript',
         jsx: !options.typescript && options.jsx,
-        tsx: options.typescript && options.jsx
+        tsx: options.typescript && options.jsx,
+        dynamicImport: true
       },
-      target: 'es2016',
       transform: {
         react: {
           runtime: 'automatic',
           importSource: 'react'
         }
       }
-    },
-    module: {
-      type: 'es6'
     }
   })
 

@@ -36,10 +36,9 @@ export default function resolveLoader(
     ) {
       return source
     }
-
     const transformedSource = transformSource(source, options)
-
     const resolverAbsolutePath = path.join(__dirname, resolverName)
+
     emitResolverModule(this, resolverAbsolutePath)
 
     return transformedSource
