@@ -97,21 +97,21 @@ export class ScriptsPlugin {
 
     // 4 - Fix the issue where assets imported via content_scripts
     // running in the MAIN world could not find the correct public path.
-    compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [path.dirname(this.manifestPath)],
-      exclude: [path.join(path.dirname(this.manifestPath), 'node_modules')],
-      use: [
-        {
-          loader: path.resolve(__dirname, './add-dynamic-public-path.js'),
-          options: {
-            manifestPath: this.manifestPath,
-            includeList: this.includeList || {},
-            excludeList: this.excludeList || {}
-          }
-        }
-      ]
-    })
+    // compiler.options.module.rules.push({
+    //   test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+    //   include: [path.dirname(this.manifestPath)],
+    //   exclude: [path.join(path.dirname(this.manifestPath), 'node_modules')],
+    //   use: [
+    //     {
+    //       loader: path.resolve(__dirname, './add-dynamic-public-path.js'),
+    //       options: {
+    //         manifestPath: this.manifestPath,
+    //         includeList: this.includeList || {},
+    //         excludeList: this.excludeList || {}
+    //       }
+    //     }
+    //   ]
+    // })
 
     // 5 - Fix the issue of content_scripts not being able to import
     // CSS files via import statements. This loader adds the
