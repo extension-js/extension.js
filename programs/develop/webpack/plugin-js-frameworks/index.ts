@@ -40,7 +40,8 @@ export class JsFrameworksPlugin {
 
     compiler.options.module.rules = [
       {
-        test: /\.(ts|tsx)$/,
+        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [path.dirname(this.manifestPath)],
         exclude: /node_modules/,
         use: {
           loader: require.resolve('swc-loader'),
