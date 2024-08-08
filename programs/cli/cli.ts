@@ -15,7 +15,7 @@ import type {} from // BuildOptions,
 // DevOptions,
 // PreviewOptions,
 // StartOptions
-'@extension-create/develop'
+'extension-develop'
 import type {BrowsersSupported} from './types'
 
 // Modules
@@ -25,7 +25,7 @@ import {
   extensionStart,
   extensionBuild
   // extensionPreview
-} from '@extension-create/develop'
+} from 'extension-develop'
 
 import checkUpdates from './check-updates'
 import * as messages from './cli-lib/messages'

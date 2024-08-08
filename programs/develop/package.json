@@ -8,8 +8,8 @@
   "engines": {
     "node": ">=18"
   },
-  "name": "@extension-create/develop",
-  "version": "1.10.0",
+  "name": "extension-develop",
+  "version": "1.8.0-beta.2",
   "description": "The develop step of Extension.js",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -25,7 +25,6 @@
     "clean": "rm -rf dist",
     "watch": "tsup-node ./module.ts --format cjs --dts --target=node18 --watch",
     "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify && bash install_scripts.sh",
-    "lint": "eslint \"./**/*.ts*\"",
     "test": "jest"
   },
   "dependencies": {
