@@ -77,6 +77,9 @@ export async function extensionBuild(
       }
     })
   } catch (error) {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.error(error)
+    }
     process.exit(1)
   }
 }

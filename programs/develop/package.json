@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "extension-develop",
-  "version": "1.8.0-beta.2",
+  "version": "1.9.0",
   "description": "The develop step of Extension.js",
   "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
@@ -49,7 +49,7 @@
     "edge-location": "^1.0.0",
     "firefox-profile": "^4.6.0",
     "fx-runner": "^1.4.0",
-    "go-git-it": "^1.2.6",
+    "go-git-it": "^2.0.0",
     "ignore": "^5.3.1",
     "loader-utils": "^3.3.1",
     "mini-css-extract-plugin": "^2.8.1",
