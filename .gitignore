@@ -53,6 +53,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# swc
+.swc
+
 # Extension.js (beta)
 examples/*"
 __TEST__

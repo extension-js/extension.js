@@ -68,7 +68,7 @@ export async function maybeUseReact(
   }
 
   const reactPlugins: WebpackPluginInstance[] = [
-    new (require('@pmmmwh/react-refresh-webpack-plugin'))() //.apply(compiler)
+    new (require('@pmmmwh/react-refresh-webpack-plugin'))() 
   ]
 
   return {
