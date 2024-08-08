@@ -13,6 +13,10 @@ export function isUsingPostCss(projectPath: string): boolean {
   const packageJsonPath = path.join(projectPath, 'package.json')
   const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
+  if (!fs.existsSync(packageJsonPath)) {
+    return false
+  }
+
   const postCssConfigFiles = [
     '.postcssrc',
     '.postcssrc.json',

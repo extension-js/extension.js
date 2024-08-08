@@ -152,7 +152,7 @@ export function downloadingProjectPath(projectName: string) {
 
 export function creatingProjectPath(projectName: string) {
   return (
-    `${getLoggingPrefix('success')} Creating a new browser extension...\n\n` +
+    `\n${getLoggingPrefix('success')} Creating a new browser extension...\n\n` +
     `${gray('PATH')} ${underline(`${process.cwd()}/${projectName}`)}`
   )
 }

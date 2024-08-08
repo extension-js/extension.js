@@ -1,3 +1,4 @@
+import fs from 'fs'
 import path from 'path'
 import type webpack from 'webpack'
 import {
@@ -19,6 +20,11 @@ export class WebpackCommonErrorsPlugin {
       path.dirname(this.manifestPath),
       'package.json'
     )
+
+    if (!fs.existsSync(packageJsonPath)) {
+      return
+    }
+
     const packageName = require(packageJsonPath).name
 
     compiler.hooks.compilation.tap('develop:common-errors', (compilation) => {
