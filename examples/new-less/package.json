@@ -1,6 +1,5 @@
 {
   "devDependencies": {
-    "extension": "latest",
     "less": "^4.2.0"
   },
   "scripts": {
