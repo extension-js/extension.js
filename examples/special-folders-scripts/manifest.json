@@ -4,7 +4,8 @@
   "manifest_version": 3,
   "description": "An Extension.js example.",
   "background": {
-    "service_worker": "background.js"
+    "chromium:service_worker": "background.js",
+    "firefox:scripts": ["background.js"]
   },
   "permissions": ["scripting", "webNavigation", "storage"],
   "host_permissions": ["https://extension.js.org/*"],
