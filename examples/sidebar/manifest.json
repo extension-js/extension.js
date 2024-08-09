@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "sidebar_action",
+  "author": "Cezar Augusto",
+  "description": "An Extension.js example.",
+  "chromium:side_panel": {
+    "default_path": "sidebar/index.html",
+    "default_title": "Sidebar Action",
+    "default_icon": "test_16.png"
+  },
+  "firefox:sidebar_action": {
+    "default_icon": "test_16.png",
+    "default_title": "Sidebar Action",
+    "default_panel": "sidebar/index.html"
+  },
+  "permissions": ["sidePanel"]
+}

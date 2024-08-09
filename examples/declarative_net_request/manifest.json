@@ -1,0 +1,26 @@
+{
+  "name": "declarative_net_request",
+  "version": "0.0.1",
+  "manifest_version": 3,
+  "description": "An Extension.js example.",
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules_1.json"
+      },
+      {
+        "id": "public_rule_1",
+        "enabled": true,
+        "path": "public/public_ruleset.json"
+      }
+    ]
+  },
+  "permissions": [
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "declarativeNetRequestWithHostAccess"
+  ],
+  "host_permissions": ["https://developer.chrome.com/"]
+}

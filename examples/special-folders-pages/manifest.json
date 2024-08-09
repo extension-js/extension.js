@@ -1,0 +1,16 @@
+{
+  "name": "special-folders-pages",
+  "version": "0.0.1",
+  "manifest_version": 3,
+  "background": {
+    "chromium:service_worker": "background.js",
+    "firefox:scripts": ["background.js"]
+  },
+  "description": "An Extension.js example.",
+  "action": {
+    "default_popup": "pages/main.html"
+  },
+  "sandbox": {
+    "pages": ["sandboxed.html"]
+  }
+}

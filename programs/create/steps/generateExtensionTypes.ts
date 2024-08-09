@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, red} from '@colors/colors/safe'
+import {red} from '@colors/colors/safe'
 
 export default async function generateExtensionTypes(
   projectPath: string,
@@ -17,7 +17,7 @@ export default async function generateExtensionTypes(
   const typePath =
     process.env.EXTENSION_ENV === 'development'
       ? path.resolve(process.cwd(), 'programs/develop/types')
-      : '@extension-create/develop/dist/types'
+      : 'extension-develop/dist/types'
 
   const fileContent = `\
 // Required Extension.js types for TypeScript projects.
@@ -39,7 +39,7 @@ export default async function generateExtensionTypes(
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(
+      `🧩 ${`Extension.js`} ${red(
         `✖︎✖︎✖︎`
       )} Failed to write the extension type definition. ${error}`
     )

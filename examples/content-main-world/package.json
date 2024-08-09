@@ -1,0 +1,15 @@
+{
+  "devDependencies": {
+    "extension": "latest"
+  },
+  "scripts": {
+    "dev": "extension dev",
+    "start": "extension start",
+    "build": "extension build"
+  },
+  "dependencies": {},
+  "name": "content-main-world",
+  "description": "An Extension.js example.",
+  "private": true,
+  "version": "0.0.1"
+}

@@ -11,10 +11,11 @@ import {program} from 'commander'
 
 // Types
 import type {CreateOptions} from '@extension-create/create'
-import type {DevOptions} from '@extension-create/develop/extensionDev'
-import type {StartOptions} from '@extension-create/develop/extensionStart'
-import type {BuildOptions} from '@extension-create/develop/extensionBuild'
-// import type {PreviewOptions} from '@extension-create/develop/extensionPreview'
+import type {} from // BuildOptions,
+// DevOptions,
+// PreviewOptions,
+// StartOptions
+'extension-develop'
 import type {BrowsersSupported} from './types'
 
 // Modules
@@ -24,10 +25,10 @@ import {
   extensionStart,
   extensionBuild
   // extensionPreview
-} from '@extension-create/develop'
+} from 'extension-develop'
 
 import checkUpdates from './check-updates'
-import messages from './messages'
+import * as messages from './cli-lib/messages'
 import packageJson from './package.json'
 
 // Before all, check for updates.
@@ -101,7 +102,7 @@ extensionJs
   )
   .action(async function (
     pathOrRemoteUrl: string,
-    {browser = 'chrome', ...devOptions}: DevOptions
+    {browser = 'chrome', ...devOptions}: any // DevOptions
   ) {
     for (const vendor of vendors(browser)) {
       await extensionDev(pathOrRemoteUrl, {
@@ -142,7 +143,7 @@ extensionJs
   )
   .action(async function (
     pathOrRemoteUrl: string,
-    {browser = 'chrome', ...startOptions}: StartOptions
+    {browser = 'chrome', ...startOptions}: any // StartOptions
   ) {
     for (const vendor of vendors(browser)) {
       await extensionStart(pathOrRemoteUrl, {
@@ -171,7 +172,7 @@ extensionJs
 //   )
 //   .action(async function (
 //     pathOrRemoteUrl: string,
-//     {browser = 'chrome', ...previewOptions}: BuildOptions
+//     {browser = 'chrome', ...previewOptions}: any // BuildOptions
 //   ) {
 //     for (const vendor of vendors(browser)) {
 //       await extensionPreview(pathOrRemoteUrl, {
@@ -215,7 +216,7 @@ extensionJs
   )
   .action(async function (
     pathOrRemoteUrl: string,
-    {browser = 'chrome', ...buildOptions}: BuildOptions
+    {browser = 'chrome', ...buildOptions}: any // BuildOptions
   ) {
     for (const vendor of vendors(browser)) {
       await extensionBuild(pathOrRemoteUrl, {

@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "new-preact",
+  "description": "An Extension.js example.",
+  "icons": {
+    "16": "images/icons/icon_16.png",
+    "48": "images/icons/icon_48.png"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab/index.html"
+  }
+}

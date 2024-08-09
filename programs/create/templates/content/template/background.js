@@ -1,4 +1,4 @@
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((request, sender) => {
   if (request.action === 'changeBackgroundColor') {
     changeBackgroundColor(request.color, sender.tab.id)
   }

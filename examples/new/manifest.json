@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "new",
+  "description": "An Extension.js example.",
+  "chrome_url_overrides": {
+    "newtab": "newtab/index.html"
+  }
+}

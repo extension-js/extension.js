@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs/promises'
-import {bold, red} from '@colors/colors/safe'
+import {red} from '@colors/colors/safe'
 import * as messages from '../messages'
 import isDirectoryWriteable from '../helpers/isDirectoryWriteable'
 
@@ -17,9 +17,7 @@ export default async function createDirectory(
   projectPath: string,
   projectName: string
 ) {
-  console.log(
-    `🐣 - Starting a new browser extension named ${bold(projectName)}...`
-  )
+  console.log(`🐣 - Starting a new browser extension named ${projectName}...`)
 
   try {
     const isCurrentDirWriteable = await isDirectoryWriteable(
@@ -52,14 +50,18 @@ export default async function createDirectory(
 
     // If directory has conflicting files, abort
     if (conflictingFiles.length > 0) {
-      await messages.directoryHasConflicts(projectPath, conflictingFiles)
+      const conflictMessage = await messages.directoryHasConflicts(
+        projectPath,
+        conflictingFiles
+      )
+      console.log(conflictMessage)
       process.exit(1)
     }
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(
+      `🧩 ${`Extension.js`} ${red(
         `✖︎✖︎✖︎`
-      )} Can't create directory ${bold(projectName)}. ${error}`
+      )} Can't create directory ${projectName}. ${error}`
     )
     process.exit(1)
   }

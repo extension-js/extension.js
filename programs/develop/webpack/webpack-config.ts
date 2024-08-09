@@ -5,56 +5,44 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
 import type webpack from 'webpack'
-import {type DevOptions} from '../extensionDev'
-
-// Option files for plugins
-import {
-  getOutputPath,
-  getModulesToResolve,
-  getWebpackPublicPath,
-  getExtensionsToResolve,
-  getAliasToResolve
-} from './config/getPath'
-
-// Loaders
-import assetLoaders from './loaders/assetLoaders'
-import jsLoaders from './loaders/jsLoaders'
-import styleLoaders from './loaders/styleLoaders'
+import {type DevOptions} from '../commands/dev'
 
 // Plugins
-import compilationPlugins from './plugins/compilationPlugins'
-import extensionPlugins from './plugins/extensionPlugins'
-import reloadPlugins from './plugins/reloadPlugins'
-import compatPlugins from './plugins/compatPlugins'
-import errorPlugins from './plugins/errorPlugins'
-import browserPlugins from './plugins/browserPlugins'
-import boringPlugins from './plugins/boringPlugins'
+import {CompilationPlugin} from './plugin-compilation'
+import {CssPlugin} from './plugin-css'
+import {StaticAssetsPlugin} from './plugin-static-assets'
+import {JsFrameworksPlugin} from './plugin-js-frameworks'
+import {ExtensionPlugin} from './plugin-extension'
+import {ReloadPlugin} from './plugin-reload'
+import {CompatibilityPlugin} from './plugin-compatibility'
+import {ErrorsPlugin} from './plugin-errors'
+import {BrowsersPlugin} from '../plugin-browsers'
 
-// Checks
-import getDevToolOption from './config/getDevtoolOption'
-import {getWebpackStats} from './config/logging'
+export const getAssetFilename = (folderPath: string) => {
+  return `${folderPath}/[name][ext]`
+}
 
 export default function webpackConfig(
   projectPath: string,
-  {...devOptions}: DevOptions
+  devOptions: DevOptions
 ): webpack.Configuration {
+  const manifestPath = path.join(projectPath, 'manifest.json')
+  const userExtensionOutputPath = path.join(
+    projectPath,
+    `dist/${devOptions.browser}`
+  )
+  const manifest = require(manifestPath)
   return {
     mode: devOptions.mode,
     entry: {},
     target: 'web',
     context: projectPath,
-    devtool: getDevToolOption(projectPath, devOptions.mode),
-    stats: getWebpackStats(),
-    infrastructureLogging: {
-      level: 'none'
-    },
-    cache: false,
-    performance: {
-      hints: false,
-      maxAssetSize: 999000,
-      maxEntrypointSize: 999000
-    },
+    devtool:
+      manifest.manifest_version === 3
+        ? 'cheap-source-map'
+        : 'eval-cheap-source-map',
     output: {
       clean: {
         keep(asset) {
@@ -65,9 +53,9 @@ export default function webpackConfig(
           return !asset.startsWith('hot/background')
         }
       },
-      path: getOutputPath(projectPath, devOptions.browser),
+      path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
-      publicPath: getWebpackPublicPath(projectPath),
+      publicPath: '/',
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
       hotUpdateMainFilename: 'hot/[runtime].[fullhash].hot-update.json',
       environment: {
@@ -77,57 +65,117 @@ export default function webpackConfig(
       chunkFilename: (pathData) => {
         const runtime = (pathData.chunk as any)?.runtime
 
-        if (runtime.startsWith('content_scripts')) {
-          const [, contentName] = runtime.split('/')
-          const index = contentName.split('-')[1]
-
-          return `web_accessible_resources/resource-${index}/[name].js`
-        }
-
         // Chunks are stored within their caller's directory,
         // So a dynamic import of a CSS action page will be stored
         // as action/[filename].css.
         // The JS counterpart of this is defined in MiniCssExtractPlugin
         // options.chunkFilename function.
-        return `${runtime}/[name].js`
+        return getAssetFilename(runtime)
       }
     },
     resolve: {
-      mainFields: ['browser', 'module', 'main'],
-      alias: getAliasToResolve(projectPath),
-      modules: getModulesToResolve(projectPath),
-      extensions: getExtensionsToResolve(projectPath)
+      modules: ['node_modules', path.join(projectPath, 'node_modules')],
+      extensions: [
+        '.js',
+        '.mjs',
+        '.jsx',
+        '.ts',
+        '.mts',
+        '.tsx',
+        '.json',
+        '.wasm',
+        '.less',
+        '.css',
+        '.sass',
+        '.scss'
+      ]
     },
     watchOptions: {
       ignored: /node_modules|dist/
     },
-    module: {
-      rules: [
-        ...jsLoaders(projectPath, devOptions),
-        ...styleLoaders(projectPath, devOptions),
-        ...assetLoaders
-      ]
-    },
     plugins: [
-      compilationPlugins(projectPath, devOptions),
-      extensionPlugins(projectPath, devOptions),
-      reloadPlugins(projectPath, devOptions),
-      browserPlugins(projectPath, devOptions),
-      compatPlugins(projectPath, devOptions),
-      errorPlugins(projectPath, devOptions),
-      boringPlugins(projectPath, devOptions)
+      new CompilationPlugin({
+        manifestPath
+      }),
+      new StaticAssetsPlugin({
+        manifestPath,
+        mode: devOptions.mode
+      }),
+      new CssPlugin({
+        manifestPath,
+        mode: devOptions.mode
+      }),
+      new JsFrameworksPlugin({
+        manifestPath,
+        mode: devOptions.mode
+      }),
+      new ErrorsPlugin({
+        manifestPath,
+        browser: devOptions.browser
+      }),
+      new CompatibilityPlugin({
+        manifestPath,
+        browser: devOptions.browser,
+        polyfill: devOptions.polyfill
+      }),
+      new ExtensionPlugin({
+        manifestPath,
+        browser: devOptions.browser,
+        mode: devOptions.mode
+      }),
+      new ReloadPlugin({
+        manifestPath,
+        browser: devOptions.browser,
+        stats: true,
+        port: devOptions.port || 8000
+      }),
+      new BrowsersPlugin({
+        extension: [
+          userExtensionOutputPath,
+          devOptions.browser === 'firefox'
+            ? path.join(__dirname, 'extensions', 'manager-extension-firefox')
+            : path.join(__dirname, 'extensions', 'manager-extension')
+          // TODO: Add possible extensions required by the user via --load-extension
+        ],
+        browser: devOptions.browser,
+        startingUrl: devOptions.startingUrl,
+        profile: devOptions.profile || devOptions.userDataDir,
+        preferences: devOptions.preferences,
+        // Prevent users from passing a flag to
+        // add extensions to the browser – as it (should be) handled by the "extension" option.
+        browserFlags: devOptions.browserFlags?.filter(
+          (flag) => !flag.startsWith('--load-extension=')
+        )
+      })
     ],
+    stats: {
+      all: false,
+      errors: true,
+      warnings: true
+      // children: true,
+      // errorDetails: true,
+      // entrypoints: false,
+      // colors: true,
+      // assets: false,
+      // chunks: false,
+      // modules: false
+    },
+    infrastructureLogging: {
+      level: 'none'
+    },
+    performance: {
+      hints: false,
+      maxAssetSize: 999000,
+      maxEntrypointSize: 999000
+    },
     optimization: {
       minimize: devOptions.mode === 'production'
-      // WARN: This can have side-effects.
-      // See https://webpack.js.org/guides/code-splitting/#entry-dependencies
-      // runtimeChunk: true,
     },
     experiments: {
       // Enable native CSS support. Note that it's an experimental feature still under development
       // and will be enabled by default in webpack v6, however you can track the progress on GitHub
       // here: https://github.com/webpack/webpack/issues/14893.
-      css: true,
+      css: devOptions.mode === 'production',
       // Support the new WebAssembly according to the updated specification,
       // it makes a WebAssembly module an async module.
       asyncWebAssembly: true
