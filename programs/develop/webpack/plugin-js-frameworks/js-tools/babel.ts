@@ -109,7 +109,7 @@ export function babelConfig(
       ...presetModernExtensions(opts).plugins,
       process.env.NODE_ENV !== 'test' &&
         opts.mode === 'development' &&
-        (isUsingReact(projectPath) || isUsingPreact(projectPath)) &&
+        isUsingPreact(projectPath) &&
         require.resolve('react-refresh/babel')
     ].filter(Boolean)
   }
