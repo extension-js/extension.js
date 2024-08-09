@@ -13,7 +13,7 @@ import {
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
-import { Stats } from 'webpack'
+import {Stats} from 'webpack'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 

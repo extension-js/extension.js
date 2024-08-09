@@ -1,27 +1,20 @@
-/** @type {import('extension-develop').Config} */
+/** @type {import('extension-develop').ConfigFile} */
 module.exports = {
-  dev: {
-    config: (config) => {
+  config: (config) => {
+    config.module.rules.push(
+      {
+        test: /\.svg$/i,
+        type: 'asset',
+        resourceQuery: /url/ // *.svg?url
+      },
+      {
+        test: /\.svg$/i,
+        issuer: /\.[jt]sx?$/,
+        resourceQuery: {not: [/url/]}, // exclude react component if *.svg?url
+        use: [require.resolve('@svgr/webpack')]
+      }
+    )
 
-      config.module.rules.push({
-          test: /\.svg$/i,
-          issuer: /\.[jt]sx?$/,
-          // exclude react component if *.svg?url
-          resourceQuery: {not: [/url/]},
-          use: [require.resolve('@svgr/webpack')]
-      })
-
-      return config
-    }
-  },
-  preview: {
-    config: (config) => {
-      return config
-    }
-  },
-  build: {
-    config: (config) => {
-      return config
-    }
+    return config
   }
 }

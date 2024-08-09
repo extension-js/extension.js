@@ -52,7 +52,6 @@ export async function maybeUseReact(
     const reactDependencies = [
       'react-refresh',
       '@pmmmwh/react-refresh-webpack-plugin',
-      '@svgr/webpack',
       'react-refresh-typescript'
     ]
 
