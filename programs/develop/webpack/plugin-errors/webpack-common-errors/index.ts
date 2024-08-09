@@ -41,7 +41,7 @@ export class WebpackCommonErrorsPlugin {
             packageName,
             error
           )
-          const cantResolveError = handleCantResolveError(packageName, error)
+          // const cantResolveError = handleCantResolveError(packageName, error)
 
           if (multipleAssetsError) {
             compilation.errors[index] = multipleAssetsError
@@ -51,9 +51,9 @@ export class WebpackCommonErrorsPlugin {
             compilation.errors[index] = topLevelAwaitError
           }
 
-          if (cantResolveError) {
-            compilation.errors[index] = cantResolveError
-          }
+          // if (cantResolveError) {
+          //   compilation.errors[index] = cantResolveError
+          // }
         })
 
         done()

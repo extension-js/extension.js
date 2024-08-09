@@ -29,20 +29,6 @@ import {isUsingPreact} from '../plugin-js-frameworks/js-tools/preact'
 import {isUsingTypeScript} from '../plugin-js-frameworks/js-tools/typescript'
 import {isUsingVue} from '../plugin-js-frameworks/js-tools/vue'
 
-// function measurePluginExecution(plugin: any, name: string) {
-//   return {
-//     apply: (compiler: Compiler) => {
-//       compiler.hooks.compile.tap(name, () => {
-//         console.time(name)
-//       })
-//       plugin.apply(compiler)
-//       compiler.hooks.done.tap(name, () => {
-//         console.timeEnd(name)
-//       })
-//     }
-//   }
-// }
-
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
 
