@@ -53,7 +53,6 @@ export async function maybeUsePreact(
     const reactDependencies = [
       'react-refresh',
       '@pmmmwh/react-refresh-webpack-plugin',
-      '@svgr/webpack',
       'react-refresh-typescript'
     ]
     const manifest = require(path.join(projectPath, 'manifest.json'))

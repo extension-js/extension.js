@@ -93,6 +93,9 @@ export default function webpackConfig(
     watchOptions: {
       ignored: /node_modules|dist/
     },
+    module: {
+      rules: []
+    },
     plugins: [
       new CompilationPlugin({
         manifestPath
@@ -109,10 +112,10 @@ export default function webpackConfig(
         manifestPath,
         mode: devOptions.mode
       }),
-      new ErrorsPlugin({
-        manifestPath,
-        browser: devOptions.browser
-      }),
+      // new ErrorsPlugin({
+      //   manifestPath,
+      //   browser: devOptions.browser
+      // }),
       new CompatibilityPlugin({
         manifestPath,
         browser: devOptions.browser,
@@ -152,13 +155,6 @@ export default function webpackConfig(
       all: false,
       errors: true,
       warnings: true
-      // children: true,
-      // errorDetails: true,
-      // entrypoints: false,
-      // colors: true,
-      // assets: false,
-      // chunks: false,
-      // modules: false
     },
     infrastructureLogging: {
       level: 'none'
