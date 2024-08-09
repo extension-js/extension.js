@@ -1,6 +1,0 @@
-{
-  "spec_dir": "spec",
-  "spec_files": ["**/manifest.v2.spec.js"],
-  "stopSpecOnExpectationFailure": false,
-  "random": true
-}

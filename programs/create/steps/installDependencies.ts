@@ -8,7 +8,7 @@
 import path from 'path'
 import {spawn} from 'cross-spawn'
 import fs from 'fs'
-import {bold, red} from '@colors/colors/safe'
+import {red} from '@colors/colors/safe'
 
 import {getInstallCommand} from '../helpers/getInstallInfo'
 import createSymlink from './symlinkExtensionJs'
@@ -54,7 +54,9 @@ export default async function installDependencies(
         if (code !== 0) {
           reject(
             new Error(
-              `Command ${command} ${dependenciesArgs.join(' ')} failed with exit code ${code}`
+              `Command ${command} ${dependenciesArgs.join(
+                ' '
+              )} failed with exit code ${code}`
             )
           )
         } else {
@@ -67,18 +69,22 @@ export default async function installDependencies(
         process.chdir(originalDirectory)
 
         console.error(
-          `🧩 ${bold(`Extension.js`)} ${red(
+          `🧩 ${`Extension.js`} ${red(
             `✖︎✖︎✖︎`
-          )} Child process error: Can't install dependencies for ${bold(projectName)}. ${error.message}`
+          )} Child process error: Can't install dependencies for ${projectName}. ${
+            error.message
+          }`
         )
         reject(error)
       })
     })
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(
+      `🧩 ${`Extension.js`} ${red(
         `✖︎✖︎✖︎`
-      )} Can't install dependencies for ${bold(projectName)}. ${error.message || error.toString()}`
+      )} Can't install dependencies for ${projectName}. ${
+        error.message || error.toString()
+      }`
     )
 
     process.exit(1)

@@ -122,7 +122,11 @@ describe('extension build', () => {
         )
 
         expect(
-          distFileExists(template.name, BROWSERS[0], `${template.name}-nice.zip`)
+          distFileExists(
+            template.name,
+            BROWSERS[0],
+            `${template.name}-nice.zip`
+          )
         ).toBeTruthy()
       },
       50000

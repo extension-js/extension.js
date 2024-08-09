@@ -1,5 +1,27 @@
 {
-  "extends": "../../packages/tsconfig/base.json",
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Default",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "target": "es2022",
+    "lib": ["es2022", "dom"],
+    "types": ["chrome", "firefox-webext-browser", "jest"],
+    "composite": false,
+    "declaration": true,
+    "declarationMap": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "inlineSources": false,
+    "isolatedModules": false,
+    "moduleResolution": "node",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "preserveWatchOutput": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "resolveJsonModule": true,
+    "module": "CommonJS"
+  },
   "include": ["."],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["node_modules", "dist"]
 }

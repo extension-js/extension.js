@@ -1,0 +1,11 @@
+{
+  "manifest_version": 2,
+  "version": "0.0.1",
+  "name": "icons",
+  "author": "Cezar Augusto",
+  "icons": {
+    "16": "test_16.png",
+    "48": "test_48.png"
+  },
+  "description": "An Extension.js example."
+}
