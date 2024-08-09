@@ -1,5 +1,10 @@
 import checkForUpdate from 'update-check'
-import {bold, red} from '@colors/colors/safe'
+import * as messages from './cli-lib/messages'
+
+function isStableVersion(version: string) {
+  // Check if the version string contains "alpha", "beta", or any other pre-release identifiers
+  return !/[a-zA-Z]/.test(version)
+}
 
 export default async function checkUpdates(packageJson: Record<string, any>) {
   let update = null
@@ -8,13 +13,11 @@ export default async function checkUpdates(packageJson: Record<string, any>) {
     update = await checkForUpdate(packageJson)
   } catch (err) {
     if (process.env.EXTENSION_ENV === 'development') {
-      console.error(bold(red(`Failed to check for updates: ${err}`)))
+      console.error(messages.updateFailed(err))
     }
   }
 
-  if (update) {
-    console.log(
-      `\nYour 🧩 ${bold('Extension.js')} version is ${red('outdated')}.\nThe latest version is ${bold(update.latest)}. Please update!\n`
-    )
+  if (update && isStableVersion(update.latest)) {
+    console.log(messages.checkUpdates(packageJson, update))
   }
 }

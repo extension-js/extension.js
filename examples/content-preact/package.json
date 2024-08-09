@@ -1,0 +1,35 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/extension.git",
+    "directory": "programs/create/templates/preact-typescript"
+  },
+  "name": "content-preact",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "OSpoon",
+    "email": "zxin088@gmail.com",
+    "url": "https://hw404.cn"
+  },
+  "files": [
+    "template",
+    "template.json"
+  ],
+  "keywords": [
+    "extension",
+    "browser-extension",
+    "web-extension",
+    "template"
+  ],
+  "dependencies": {
+    "@preact/signals": "^1.2.3",
+    "preact": "^10.22.0",
+    "tailwindcss": "^3.4.1"
+  },
+  "devDependencies": {
+    "@babel/plugin-transform-react-jsx": "^7.25.2",
+    "typescript": "5.3.3"
+  }
+}
