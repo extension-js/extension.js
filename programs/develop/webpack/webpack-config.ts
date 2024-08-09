@@ -109,10 +109,11 @@ export default function webpackConfig(
         manifestPath,
         mode: devOptions.mode
       }),
-      new ErrorsPlugin({
-        manifestPath,
-        browser: devOptions.browser
-      }),
+      process.env.EXTENSION_ENV === 'development' &&
+        new ErrorsPlugin({
+          manifestPath,
+          browser: devOptions.browser
+        }),
       new CompatibilityPlugin({
         manifestPath,
         browser: devOptions.browser,
@@ -147,7 +148,7 @@ export default function webpackConfig(
           (flag) => !flag.startsWith('--load-extension=')
         )
       })
-    ],
+    ].filter(Boolean),
     stats: {
       all: false,
       errors: true,
