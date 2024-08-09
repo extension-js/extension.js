@@ -8,9 +8,11 @@
 import path from 'path'
 import webpack from 'webpack'
 import WebpackDevServer from 'webpack-dev-server'
+import {merge} from 'webpack-merge'
 import webpackConfig from './webpack-config'
 import type {DevOptions} from '../commands/dev'
-import {isUsingJSFramework} from './lib/utils'
+import * as utils from './lib/utils'
+import {loadExtensionConfig} from '../commands/commands-lib/get-extension-config'
 
 function closeAll(devServer: WebpackDevServer) {
   devServer
@@ -27,7 +29,10 @@ export async function devServer(
   projectPath: string,
   {...devOptions}: DevOptions
 ) {
-  const compilerConfig = webpackConfig(projectPath, devOptions)
+  const baseConfig = webpackConfig(projectPath, devOptions)
+  const userExtensionConfig = loadExtensionConfig(projectPath)
+  const userConfig = userExtensionConfig(baseConfig)
+  const compilerConfig = merge(userConfig)
   const compiler = webpack(compilerConfig)
 
   const serverConfig: WebpackDevServer.Configuration = {
@@ -38,7 +43,7 @@ export async function devServer(
     devMiddleware: {
       writeToDisk: true
     },
-    watchFiles: isUsingJSFramework(projectPath)
+    watchFiles: utils.isUsingJSFramework(projectPath)
       ? undefined
       : {
           paths: [path.join(projectPath, '**/*.html')],
