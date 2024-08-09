@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import path from 'path'
-import {bold, red, blue} from '@colors/colors/safe'
+import {red, brightBlue} from '@colors/colors/safe'
 import copyDirectory from '../helpers/copyDirectory'
 
 const templatesDir = path.resolve(__dirname, 'templates')
@@ -20,18 +20,16 @@ export default async function importLocalTemplate(
 
   const isTemplate = template && template !== 'init'
   const fromTemplate = isTemplate
-    ? ` from ${blue(bold(template))} template`
+    ? ` from ${brightBlue(template)} template`
     : ''
   try {
-    console.log(`🧰 - Installing ${bold(projectName)}` + fromTemplate + '...')
+    console.log(`🧰 - Installing ${projectName}` + fromTemplate + '...')
     await copyDirectory(localTemplatePath, projectPath)
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(
-        `✖︎✖︎✖︎`
-      )} Can't copy template ${blue(bold(template))} for ${bold(
-        projectName
-      )}. ${error}`
+      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't copy template ${brightBlue(
+        template
+      )} for ${projectName}. ${error}`
     )
     process.exit(1)
   }

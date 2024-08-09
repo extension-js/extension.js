@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import fs from 'fs/promises'
-import {bold, underline, blue, red} from '@colors/colors/safe'
+import {underline, brightBlue, red} from '@colors/colors/safe'
 
 export default async function abortProjectAndClean(
   error: any,
@@ -14,24 +14,22 @@ export default async function abortProjectAndClean(
   projectName: string
 ) {
   console.log(
-    `🧩 ${bold(`Extension.js`)} ${red(
+    `🧩 ${`Extension.js`} ${red(
       `✖︎✖︎✖︎`
     )} Aborting installation of ${projectName}.`
   )
 
   if (error.command) {
     console.log(
-      `🧩 ${bold(`Extension.js`)} ${red(`✖︎✖︎✖︎`)} ${error.command} has failed.`
+      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} ${error.command} has failed.`
     )
   } else {
     console.log(
-      `🧩 ${bold(
-        `Extension.js`
-      )} 🚨🚨🚨 Unexpected creation error. This is a bug. ` +
+      `🧩 ${`Extension.js`} 🚨🚨🚨 Unexpected creation error. This is a bug. ` +
         `Please report: "${error}"`
     )
     console.log(
-      blue(underline('https://github.com/cezaraugusto/extension/issues/'))
+      brightBlue(underline('https://github.com/cezaraugusto/extension/issues/'))
     )
   }
 

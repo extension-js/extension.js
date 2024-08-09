@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import {spawn} from 'cross-spawn'
-import {bold, yellow, red} from '@colors/colors/safe'
+import {brightYellow, red} from '@colors/colors/safe'
 
 export default async function initializeGitRepository(
   projectPath: string,
@@ -15,7 +15,7 @@ export default async function initializeGitRepository(
   const gitCommand = 'git'
   const gitArgs = ['init']
 
-  console.log(`🌲 - Initializing git repository for ${bold(projectName)}...`)
+  console.log(`🌲 - Initializing git repository for ${projectName}...`)
 
   try {
     const originalDirectory = process.cwd()
@@ -35,7 +35,9 @@ export default async function initializeGitRepository(
         if (code !== 0) {
           reject(
             new Error(
-              `Command ${gitCommand} ${gitArgs.join(' ')} failed with exit code ${code}`
+              `Command ${gitCommand} ${gitArgs.join(
+                ' '
+              )} failed with exit code ${code}`
             )
           )
         } else {
@@ -48,18 +50,20 @@ export default async function initializeGitRepository(
         process.chdir(originalDirectory)
 
         console.error(
-          `🧩 ${bold(`Extension.js`)} ${red(
+          `🧩 ${`Extension.js`} ${red(
             `✖︎✖︎✖︎`
-          )} Child process error: Can't initialize ${yellow('git')} for ${bold(projectName)}. ${error.message}`
+          )} Child process error: Can't initialize ${brightYellow(
+            'git'
+          )} for ${projectName}. ${error.message}`
         )
         reject(error)
       })
     })
   } catch (error: any) {
     console.error(
-      `🧩 ${bold(`Extension.js`)} ${red(
-        `✖︎✖︎✖︎`
-      )} Can't initialize ${yellow('git')} for ${bold(projectName)}. ${error.message || error.toString()}`
+      `🧩 ${`Extension.js`} ${red(`✖︎✖︎✖︎`)} Can't initialize ${brightYellow(
+        'git'
+      )} for ${projectName}. ${error.message || error.toString()}`
     )
 
     process.exit(1)

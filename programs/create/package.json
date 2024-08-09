@@ -25,7 +25,6 @@
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
     "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify && node ./copyTemplates.js",
-    "lint": "eslint \"./**/*.ts*\"",
     "test": "echo \"Note: no test specified\" && exit 0"
   },
   "dependencies": {
@@ -34,10 +33,8 @@
     "prefers-yarn": "^1.0.1"
   },
   "devDependencies": {
-    "@preact/signals": "^1.2.3",
     "@types/cross-spawn": "^6.0.6",
     "@types/react-dom": "^18.2.18",
-    "preact": "^10.22.0",
     "tsconfig": "*",
     "tsup": "^8.0.1",
     "typescript": "5.3.3"

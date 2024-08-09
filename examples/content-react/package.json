@@ -1,0 +1,36 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cezaraugusto/extension.git",
+    "directory": "programs/create/templates/react-typescript"
+  },
+  "name": "content-react",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "files": [
+    "template",
+    "template.json"
+  ],
+  "keywords": [
+    "extension",
+    "browser-extension",
+    "web-extension",
+    "template"
+  ],
+  "dependencies": {
+    "react": "^18.1.0",
+    "react-dom": "^18.1.0",
+    "tailwindcss": "^3.4.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.9",
+    "@types/react-dom": "^18.0.5",
+    "typescript": "5.3.3"
+  }
+}

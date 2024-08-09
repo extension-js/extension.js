@@ -14,7 +14,12 @@ import {ALL_TEMPLATES} from './constants'
 const execAsync = promisify(exec)
 
 export async function extensionProgram(command: string = '') {
-  const cliCommand = `ts-node ${path.join(
+  const cliCommand = `npx -y extension@latest ${command}`
+  return await execAsync(cliCommand)
+}
+
+export async function localExtensionProgram(command: string = '') {
+  const cliCommand = `node ${path.join(
     __dirname,
     '..',
     '..',

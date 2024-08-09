@@ -1,0 +1,13 @@
+{
+  "name": "special-folders-scripts",
+  "version": "0.0.1",
+  "manifest_version": 3,
+  "description": "An Extension.js example.",
+  "background": {
+    "chromium:service_worker": "background.js",
+    "firefox:scripts": ["background.js"]
+  },
+  "permissions": ["scripting", "webNavigation", "storage"],
+  "host_permissions": ["https://extension.js.org/*"],
+  "action": {}
+}

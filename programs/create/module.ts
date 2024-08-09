@@ -59,7 +59,7 @@ export default async function createExtension(
     await writePackageJson(projectPath, projectName, template)
     await installDependencies(projectPath, projectName)
     await writeReadmeFile(projectPath, projectName, template)
-    await writeManifestJson(projectPath, projectName, template)
+    await writeManifestJson(projectPath, projectName)
     await initializeGitRepository(projectPath, projectName)
 
     if (isTypeScriptTemplate(template)) {

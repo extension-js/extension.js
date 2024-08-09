@@ -6,13 +6,10 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import path from 'path'
-import {
-  ALL_TEMPLATES,
-  ALL_TEMPLATES_BUT_DEFAULT,
-  DEFAULT_TEMPLATE
-} from './fixtures/constants'
+import {ALL_TEMPLATES} from './fixtures/constants'
 import {
   extensionProgram,
+  localExtensionProgram,
   fileExists,
   removeAllTemplateFolders
 } from './fixtures/helpers'
@@ -23,7 +20,9 @@ describe('extension create', () => {
   })
 
   it('throws an error if target directory has conflicting files', async () => {
-    const templatePath = path.join(__dirname, '..', 'dist', 'init')
+    const templatePath = path.join(__dirname, '..', 'dist', 'init-newest')
+
+    expect.assertions(2)
 
     try {
       // Create first extension.
@@ -53,7 +52,7 @@ describe('extension create', () => {
       `creates the "$name" extension template`,
       async (template) => {
         const extensionPath = path.join(__dirname, '..', 'dist', template.name)
-        await extensionProgram(
+        await localExtensionProgram(
           `create ${extensionPath} --template="${template.name}"`
         )
 

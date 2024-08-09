@@ -1,0 +1,113 @@
+import fs from 'fs'
+import path from 'path'
+import {exec} from 'child_process'
+
+const getFixturesPath = (demoDir: string) => {
+  return path.resolve(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'examples',
+    demoDir
+  )
+}
+
+const assertFileIsEmitted = async (filePath: string) => {
+  const fileIsEmitted = await fs.promises.access(filePath, fs.constants.F_OK)
+  return expect(fileIsEmitted).toBeUndefined()
+}
+
+export const assertFileIsNotEmitted = async (filePath: string) => {
+  await fs.promises.access(filePath, fs.constants.F_OK).catch((err) => {
+    expect(err).toBeTruthy()
+  })
+}
+
+export const findStringInFile = async (
+  filePath: string,
+  searchString: string
+) => {
+  const data = await fs.promises.readFile(filePath, 'utf8')
+  expect(data).toContain(searchString)
+}
+
+describe('JsonPlugin', () => {
+  describe('dealing with declarative_net_request', () => {
+    const fixturesPath = getFixturesPath('declarative_net_request')
+    const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
+
+    beforeAll((done) => {
+      exec(
+        `npx -y extension@latest build ${fixturesPath}`,
+        {cwd: __dirname},
+        (error, _stdout, _stderr) => {
+          if (error) {
+            console.error(`exec error: ${error.message}`)
+            return done(error)
+          }
+          done()
+        }
+      )
+    }, 60000)
+
+    // afterAll(() => {
+    //   if (fs.existsSync(outputPath)) {
+    //     fs.rmSync(outputPath, {recursive: true, force: true})
+    //   }
+    // })
+
+    const rulesetJson = path.join(
+      outputPath,
+      'declarative_net_request',
+      'ruleset_1.json'
+    )
+    const publicRulesetJson = path.join(
+      outputPath,
+      'public',
+      'public_ruleset.json'
+    )
+
+    it('outputs json file to destination folder', async () => {
+      await assertFileIsEmitted(rulesetJson)
+    })
+
+    it('should not output file if file is in EXCLUDE list', async () => {
+      await assertFileIsNotEmitted(publicRulesetJson)
+    })
+  })
+
+  describe('dealing with storage', () => {
+    const fixturesPath = getFixturesPath('storage')
+    const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
+
+    beforeAll((done) => {
+      exec(
+        `npx -y extension@latest build ${fixturesPath}`,
+        {cwd: __dirname},
+        (error, _stdout, _stderr) => {
+          if (error) {
+            console.error(`exec error: ${error.message}`)
+            return done(error)
+          }
+          done()
+        }
+      )
+    }, 60000)
+
+    afterAll(() => {
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath, {recursive: true, force: true})
+      }
+    })
+
+    const rulesetJson = path.join(outputPath, 'storage', 'managed_schema.json')
+
+    it('outputs json file to destination folder', async () => {
+      await assertFileIsEmitted(rulesetJson)
+    })
+  })
+})

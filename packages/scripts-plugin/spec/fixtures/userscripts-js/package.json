@@ -1,5 +1,0 @@
-{
-  "scripts": {
-    "build": "npx webpack --mode production"
-  }
-}
