@@ -84,6 +84,7 @@
   "optionalDependencies": {
     "@babel/core": "^7.24.9",
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15",
+    "@prefresh/webpack": "^4.0.1",
     "@svgr/webpack": "^8.1.0",
     "@vue/compiler-sfc": "^3.4.34",
     "babel-loader": "^9.1.3",
