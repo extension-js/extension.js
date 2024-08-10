@@ -92,13 +92,13 @@ export class RunChromiumPlugin {
       const extension = this.extension[0]
       const extensionManifest = require(path.join(extension, 'manifest.json'))
 
-        console.log(
-          messages.stdoutData(
-            extensionManifest.name,
-            this.browser,
-            compilation.compilation.options.mode
-          )
+      console.log(
+        messages.stdoutData(
+          extensionManifest.name,
+          this.browser,
+          compilation.compilation.options.mode
         )
+      )
 
       chromiumDidLaunch = true
       done()

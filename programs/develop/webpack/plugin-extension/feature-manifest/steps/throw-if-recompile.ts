@@ -70,9 +70,10 @@ export class ThrowIfRecompileIsNeeded {
                     const fileAdded = updatedHtml.filter(
                       (file) => !initialHtml.includes(file)
                     )[0]
+                    const manifestName = require(this.manifestPath).name
                     const errorMessage =
                       messages.serverRestartRequiredFromManifest(
-                        projectName,
+                        manifestName,
                         fileAdded,
                         fileRemoved
                       )

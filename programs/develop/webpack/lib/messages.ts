@@ -13,7 +13,7 @@ import {
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
-import { Stats } from 'webpack'
+import {Stats} from 'webpack'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 
@@ -332,6 +332,9 @@ export function manifestFieldError(
   const contentIndex = manifestField.split('-')[1]
   const isPage = manifestField.startsWith('pages')
 
+  const field = manifestName.includes('content_scripts')
+    ? `(index ${contentIndex})\n\n`
+    : manifestFieldName
   return (
     `${getLoggingPrefix(manifestName, 'error')} File Not Found\n\n` +
     `${
@@ -339,9 +342,8 @@ export function manifestFieldError(
         ? `Check the ${brightYellow(
             'pages'
           )} folder in your project root directory.\n\n`
-        : `Check the ${brightYellow(manifestFieldName)} ` +
-            manifestField.includes('content_scripts') &&
-          `(index ${contentIndex}) ` + `field in your manifest.json file.\n\n`
+        : `Check the ${brightYellow(field)} ` +
+          `field in your manifest.json file.\n\n`
     }` +
     `${red('NOT FOUND')} ${underline(filePath)}`
   )
