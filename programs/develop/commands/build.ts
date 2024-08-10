@@ -24,8 +24,8 @@ export interface BuildOptions {
 
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
-  buildOptions: BuildOptions
-) {
+  buildOptions?: BuildOptions
+): Promise<void> {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
   if (
@@ -37,7 +37,7 @@ export async function extensionBuild(
   }
 
   try {
-    const browser = buildOptions.browser || 'chrome'
+    const browser = buildOptions?.browser || 'chrome'
     const webpackConfig = compilerConfig(projectPath, {
       mode: 'production',
       browser
@@ -57,24 +57,28 @@ export async function extensionBuild(
       plugins: allPluginsButBrowserRunners
     }
 
-    webpack(webpackConfigNoBrowser).run(async (err, stats) => {
-      if (err) {
-        console.error(err.stack || err)
-        process.exit(1)
-      }
+    return new Promise((resolve, reject) => {
+      webpack(webpackConfigNoBrowser).run(async (err, stats) => {
+        if (err) {
+          console.error(err.stack || err)
+          return reject(err)
+        }
 
-      console.log(messages.buildWebpack(projectPath, stats, browser))
+        console.log(messages.buildWebpack(projectPath, stats, browser))
 
-      if (buildOptions.zip || buildOptions.zipSource) {
-        await generateZip(projectPath, {...buildOptions, browser})
-      }
+        if (buildOptions?.zip || buildOptions?.zipSource) {
+          await generateZip(projectPath, {...buildOptions, browser})
+        }
 
-      if (!stats?.hasErrors()) {
-        console.log(messages.buildSuccess())
-      } else {
-        console.log(stats.toString({colors: true}))
-        process.exit(1)
-      }
+        if (!stats?.hasErrors()) {
+          console.log(messages.buildSuccess())
+        } else {
+          console.log(stats.toString({colors: true}))
+          return reject(new Error('Build failed'))
+        }
+
+        resolve()
+      })
     })
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {

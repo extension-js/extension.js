@@ -1,8 +1,7 @@
 {
   "devDependencies": {
     "extension": "latest",
-    "stylelint": "^16.7.0",
-    "stylelint-config-standard": "^36.0.1"
+    "stylelint": "^16.7.0"
   },
   "scripts": {
     "dev": "extension dev",

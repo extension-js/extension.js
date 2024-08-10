@@ -5,6 +5,8 @@
   "description": "An Extension.js example.",
   "author": "Cezar Augusto",
   "action": {
+    "default_popup": "action/index.html",
+    "default_title": "Action",
     "default_icon": {
       "16": "test_16.png",
       "48": "test_48.png",

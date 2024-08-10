@@ -75,9 +75,9 @@ export class ThrowIfRecompileIsNeeded {
             this.hasEntriesChanged(updatedCssEntries, css) ||
             this.hasEntriesChanged(updatedJsEntries, js)
           ) {
-            const projectPath = path.dirname(this.manifestPath)
+            const manifestName = require(this.manifestPath).name
             console.log(
-              messages.serverRestartRequiredFromHtml(projectPath, changedFile)
+              messages.serverRestartRequiredFromHtml(manifestName, changedFile)
             )
           }
         }
