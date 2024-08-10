@@ -28,10 +28,19 @@ class TargetWebExtensionPlugin {
         : 'minimum-chromium-file.mjs'
     )
     const dirname = path.dirname(this.manifestPath!)
-    const manifestBg = manifest.background
+
+    let manifestBg: Record<string, any> | undefined = manifest.background
 
     if (browser === 'firefox') {
-      const backgroundScripts = manifestBg && manifestBg.scripts
+      manifestBg =
+        manifest['gecko:background'] ||
+        manifest['firefox:background'] ||
+        manifestBg
+
+      const backgroundScripts =
+        manifestBg?.scripts ||
+        manifestBg?.['gecko:scripts'] ||
+        manifestBg?.['firefox:scripts']
 
       if (backgroundScripts && backgroundScripts.length > 0) {
         const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
@@ -40,9 +49,18 @@ class TargetWebExtensionPlugin {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     } else {
-      // Applies to all browsers except Firefox
+      manifestBg =
+        manifest[`chromium:background`] ||
+        manifest[`chrome:background`] ||
+        manifest[`edge:background`] ||
+        manifestBg
+
       if (manifest.manifest_version === 3) {
-        const serviceWorker = manifestBg && manifestBg.service_worker
+        const serviceWorker =
+          manifestBg?.service_worker ||
+          manifestBg?.['chromium:service_worker'] ||
+          manifestBg?.['chrome:service_worker'] ||
+          manifestBg?.['edge:service_worker']
 
         if (serviceWorker) {
           const serviceWorkerPath = path.join(dirname, serviceWorker)
@@ -55,7 +73,12 @@ class TargetWebExtensionPlugin {
           )
         }
       } else if (manifest.manifest_version === 2) {
-        const backgroundScripts = manifestBg && manifestBg.scripts
+        const backgroundScripts =
+          manifestBg?.scripts ||
+          manifestBg?.['chromium:scripts'] ||
+          manifestBg?.['chrome:scripts'] ||
+          manifestBg?.['edge:scripts']
+
         if (backgroundScripts && backgroundScripts.length > 0) {
           const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
           this.ensureFileExists(backgroundScriptPath, 'background.scripts')
