@@ -20,22 +20,23 @@ const schema: Schema = {
 interface InjectBackgroundClientContext extends LoaderContext<any> {
   getOptions: () => {
     manifestPath: string
+    browser: string
   }
 }
 
 export default function (this: InjectBackgroundClientContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
+  const browser = options.browser
   const projectPath = path.dirname(manifestPath)
   const manifest: Manifest = require(manifestPath)
 
   validate(schema, options, {
-    name: 'Inject Reload (background.scripts and background.service_worker) Script',
+    name: 'reload:inject-background-client',
     baseDataPath: 'options'
   })
 
   const url = urlToRequest(this.resourcePath)
-
   const generalReloadCode = `
   ;chrome.runtime.onMessageExternal.addListener(
     async (request, _sender, sendResponse) => {
@@ -88,24 +89,58 @@ export default function (this: InjectBackgroundClientContext, source: string) {
     }
   );
   `
-  if (manifest.background) {
-    if (manifest.background.scripts) {
-      for (const bgScript of [manifest.background.scripts[0]]) {
-        const absoluteUrl = path.resolve(projectPath, bgScript as string)
 
-        if (url.includes(absoluteUrl)) {
-          return `${generalReloadCode}${source}`
+  let manifestBg: Record<string, any> | undefined = manifest.background
+
+  // Handling for specific browsers
+  if (browser === 'firefox') {
+    manifestBg =
+      manifest['gecko:background'] ||
+      manifest['firefox:background'] ||
+      manifestBg
+  } else {
+    manifestBg =
+      manifest[`chromium:background`] ||
+      manifest[`chrome:background`] ||
+      manifest[`edge:background`] ||
+      manifestBg
+  }
+
+  // Check for background scripts
+  if (manifestBg) {
+    const backgroundScripts =
+      manifestBg?.scripts ||
+      manifestBg?.['gecko:scripts'] ||
+      manifestBg?.['firefox:scripts'] ||
+      manifestBg?.['chromium:scripts'] ||
+      manifestBg?.['chrome:scripts'] ||
+      manifestBg?.['edge:scripts']
+
+    if (backgroundScripts) {
+      if (manifest.manifest_version === 2 || browser === 'firefox') {
+        for (const bgScript of [backgroundScripts[0]]) {
+          const absoluteUrl = path.resolve(projectPath, bgScript as string)
+
+          if (url.includes(absoluteUrl)) {
+            return `${generalReloadCode}${source}`
+          }
         }
       }
-    }
 
-    if (manifest.background.service_worker) {
-      const absoluteUrl = path.resolve(
-        projectPath,
-        manifest.background.service_worker as string
-      )
-      if (url.includes(absoluteUrl)) {
-        return `${generalReloadCode}${source}`
+      const serviceWorker =
+        manifestBg?.service_worker ||
+        manifestBg?.['chromium:service_worker'] ||
+        manifestBg?.['chrome:service_worker'] ||
+        manifestBg?.['edge:service_worker']
+
+      // Check for service workers
+      if (serviceWorker) {
+        if (manifest.manifest_version === 3) {
+          const absoluteUrl = path.resolve(projectPath, serviceWorker as string)
+          if (url.includes(absoluteUrl)) {
+            return `${generalReloadCode}${source}`
+          }
+        }
       }
     }
   }

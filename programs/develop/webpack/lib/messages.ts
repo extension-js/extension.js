@@ -480,9 +480,15 @@ export function runningInDevelopment(
 
   if (!message.data) {
     return (
-      `${getLoggingPrefix(manifestName, 'error')} No Data From Client\n\n` +
-      `Ensure your extension is enabled and that no hanging ` +
-      `browser instance is open and try again.`
+      `\n\n` +
+      `${bold(red('ERROR'))} in ${getLoggingPrefix(manifestName, 'error')} ` +
+      `No data received from the extension client.\n\n` +
+      `This error happens when the program can\'t get the data from your extension.\n` +
+      `Ensure your extension is enabled in your browser and that no hanging browser\n` +
+      `instance is open. If that is not the case, restart the extension package in\n` +
+      `the browser and try again.\n\n` +
+      `If nothing helps and the issue persists, please report a bug:\n\n` +
+      underline(`https://github.com/extension-js/extension.js/issues`)
     )
   }
 
