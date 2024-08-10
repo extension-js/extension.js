@@ -31,7 +31,7 @@ function handleCantResolveError(
           cssAssets.includes(wrongFilename)
         ) {
           const errorMsg = messages.fileNotFound(
-            manifestPath,
+            require(manifestPath).name,
             resource as string,
             wrongFilename
           )
