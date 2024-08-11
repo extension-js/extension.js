@@ -29,16 +29,17 @@ const JS_TEMPLATES: Template[] = [
   //   hasEnv: false,
   //   configFiles: ['babel.config.json']
   // },
-  // {
-  //   name: 'config-extension-config',
-  //   uiContext: ['newTab'],
-  //   uiFramework: undefined,
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: [
-  //     'extension.config.js'
-  //   ]
-  // },
+  {
+    name: 'config-extension-config',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: [
+      'extension.config.js'
+    ]
+  },
   {
     name: 'config-stylelint',
     uiContext: ['newTab'],
@@ -147,15 +148,15 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  // {
-  //   name: 'sidebar',
-  //   uiContext: ['sidebar'],
-  //   uiFramework: undefined,
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: undefined
-  // },
+  {
+    name: 'sidebar',
+    uiContext: ['sidebar'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
+  },
   {
     name: 'special-folders-pages',
     uiContext: undefined,
@@ -303,10 +304,10 @@ const ALL_TEMPLATES: Template[] = [
   DEFAULT_TEMPLATE,
   ...JS_TEMPLATES,
   ...WASM_TEMPLATES,
-  ...TS_TEMPLATES
-  // ...CUSTOM_TEMPLATES,
-  // ...FRAMEWORK_TEMPLATES,
-  // ...TAILWIND_TEMPLATES
+  ...TS_TEMPLATES,
+  ...CUSTOM_TEMPLATES,
+  ...FRAMEWORK_TEMPLATES,
+  ...TAILWIND_TEMPLATES
 ]
 
 const ALL_TEMPLATES_BUT_DEFAULT = ALL_TEMPLATES.filter(

@@ -11,7 +11,7 @@ import {extensionCreate} from '../dist/module'
 import {fileExists, removeAllTemplateFolders} from './helpers'
 
 describe('extension create', () => {
-  beforeEach(async () => {
+  beforeAll(async () => {
     await removeAllTemplateFolders()
   })
 

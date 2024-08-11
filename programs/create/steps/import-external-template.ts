@@ -24,10 +24,13 @@ export async function importExternalTemplate(
   try {
     await fs.mkdir(projectPath, {recursive: true})
 
+    console.log(messages.installingFromTemplate(projectName, template))
+
     if (process.env.EXTENSION_ENV === 'development') {
-      await fs.copyFile(
+      await fs.cp(
         path.join(__dirname, '..', '..', '..', 'examples', templateName),
-        path.join(installationPath, templateName)
+        path.join(installationPath, templateName),
+        {recursive: true}
       )
     } else {
       await goGitIt(
