@@ -48,18 +48,17 @@ export async function maybeUsePreact(
   if (!isUsingPreact(projectPath)) return undefined
 
   try {
-    require.resolve('react-refresh')
+    // Fast-refresh for Preact!
+    // https://github.com/preactjs/prefresh
+    require.resolve('@prefresh/webpack')
   } catch (e) {
-    const reactDependencies = [
-      'react-refresh',
-      '@pmmmwh/react-refresh-webpack-plugin',
-      '@svgr/webpack',
-      'react-refresh-typescript'
+    const preactDependencies = [
+      '@prefresh/webpack'
     ]
     const manifest = require(path.join(projectPath, 'manifest.json'))
     const manifestName = manifest.name || 'Extension.js'
 
-    await installOptionalDependencies(manifestName, 'Preact', reactDependencies)
+    await installOptionalDependencies(manifestName, 'Preact', preactDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
@@ -68,7 +67,7 @@ export async function maybeUsePreact(
   }
 
   const preactPlugins: WebpackPluginInstance[] = [
-    new (require('@pmmmwh/react-refresh-webpack-plugin'))()
+    new (require('@prefresh/webpack'))()
   ]
 
   return {
