@@ -4,8 +4,7 @@ import {
   brightYellow,
   brightGreen,
   red,
-  cyan,
-  magenta
+  brightBlue
 } from '@colors/colors/safe'
 import {DevOptions} from '../../commands/dev'
 
@@ -19,7 +18,7 @@ function getLoggingPrefix(
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-        ? gray('►►►')
+        ? brightBlue('►►►')
         : type === 'error'
           ? red('✖︎✖︎✖︎')
           : brightGreen('►►►')
@@ -36,12 +35,11 @@ export function stdoutData(
   mode: DevOptions['mode']
 ) {
   const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
-  const modeColor = mode === 'development' ? cyan : magenta
   return (
     `${getLoggingPrefix(browser, 'info')} ` +
     `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
-    // `${name} ` +
-    `running in ${modeColor(mode || 'unknown')} mode.`
+    // `${cyan(name)} ` +
+    `running in ${brightBlue(mode || 'unknown')} mode.`
   )
 }
 

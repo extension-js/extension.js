@@ -8,7 +8,7 @@ import {
   brightGreen,
   underline,
   magenta,
-  brightBlue
+  cyan
 } from '@colors/colors/safe'
 import {Manifest} from '../../types'
 import {StartOptions} from '../start'
@@ -19,7 +19,7 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-        ? brightBlue('►►►')
+        ? gray('►►►')
         : type === 'error'
           ? red('✖︎✖︎✖︎')
           : brightGreen('►►►')
@@ -66,8 +66,12 @@ export function runningInProduction(
 ${`    Extension Name        `} ${gray(name)}
 ${`    Extension Version     `} ${gray(version)}
 ${`    Locales               `} ${gray(locales)}
-${`    Host Permissions      `} ${gray(hasHost ? hostPermissions.join(', ') : 'Browser defaults')}
-${`    Permissions           `} ${gray(hasPermissions ? permissions.join(', ') : 'Browser defaults')}
+${`    Host Permissions      `} ${gray(
+    hasHost ? hostPermissions.join(', ') : 'Browser defaults'
+  )}
+${`    Permissions           `} ${gray(
+    hasPermissions ? permissions.join(', ') : 'Browser defaults'
+  )}
 `
 }
 
@@ -106,7 +110,7 @@ export function buildWebpack(
     fs.readFileSync(manifestPath, 'utf8')
   )
   const assets: any[] = statsJson?.assets
-  const heading = `${getLoggingPrefix('info')} Building ${brightGreen(
+  const heading = `${getLoggingPrefix('info')} Building ${cyan(
     manifest.name
   )} extension using ${capitalizedBrowserName(browser)} defaults...\n\n`
   const buildTime = `\nBuild completed in ${(
@@ -134,7 +138,9 @@ export function buildWebpack(
 export function buildSuccess() {
   return `${getLoggingPrefix(
     'success'
-  )} No errors or warnings found. Your extension is ${brightGreen('ready for deployment')}.`
+  )} No errors or warnings found. Your extension is ${brightGreen(
+    'ready for deployment'
+  )}.`
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
@@ -145,9 +151,7 @@ export function fetchingProjectPath(owner: string, project: string) {
 }
 
 export function downloadingProjectPath(projectName: string) {
-  return `${getLoggingPrefix('success')} Downloading ${brightGreen(
-    projectName
-  )}...`
+  return `${getLoggingPrefix('success')} Downloading ${cyan(projectName)}...`
 }
 
 export function creatingProjectPath(projectName: string) {
@@ -348,7 +352,7 @@ function printTree(node: Record<string, any>, prefix = ''): string {
       : ''
     output += `${gray(prefix)}${gray(connector)} ${key}${gray(sizeInKB)}\n`
     if (typeof node[key] === 'object' && !node[key].size) {
-      output += printTree(node[key], `${prefix}${isLast ? '   ' : '|  '}`)
+      output += printTree(node[key], `${prefix}${isLast ? '   ' : gray('|  ')}`)
     }
   })
 

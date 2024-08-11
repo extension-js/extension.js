@@ -3,7 +3,7 @@ import path from 'path'
 import type webpack from 'webpack'
 import {
   handleMultipleAssetsError,
-  handleTopLevelAwaitError,
+  handleTopLevelAwaitError
   // handleCantResolveError
 } from './compilation-error-handlers'
 import {type PluginInterface} from '../../webpack-types'

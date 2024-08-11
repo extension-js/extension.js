@@ -1,15 +1,14 @@
 {
-  "devDependencies": {
-    "extension": "latest",
-    "stylelint": "^16.7.0"
-  },
-  "scripts": {
-    "dev": "extension dev",
-    "start": "extension start",
-    "build": "extension build"
-  },
-  "name": "config-babel",
   "private": true,
+  "name": "config-babel",
+  "description": "An Extension.js example.",
   "version": "0.0.1",
-  "description": "An Extension.js example."
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "devDependencies": {
+    "stylelint": "^16.7.0"
+  }
 }

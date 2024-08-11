@@ -30,7 +30,7 @@ export class RunChromiumPlugin {
     this.browser = options.browser
     this.browserFlags = options.browserFlags || []
     this.userDataDir = options.userDataDir
-    this.profile = options.profile
+    this.profile = options.profile || options.userDataDir
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl
   }
@@ -90,10 +90,7 @@ export class RunChromiumPlugin {
       this.launchChromium(this.browser)
 
       console.log(
-        messages.stdoutData(
-          this.browser,
-          compilation.compilation.options.mode
-        )
+        messages.stdoutData(this.browser, compilation.compilation.options.mode)
       )
 
       chromiumDidLaunch = true

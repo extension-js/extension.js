@@ -8,7 +8,8 @@ import {
   cyan,
   bold,
   gray,
-  brightYellow
+  brightYellow,
+  magenta
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
@@ -17,10 +18,10 @@ import {Stats} from 'webpack'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 
-function getLoggingPrefix(filename: string, type: PrefixType): string {
+function getLoggingPrefix(manifestName: string, type: PrefixType): string {
   // For errors we invert the order
   if (type === 'error') {
-    return `${filename} ${red('✖︎✖︎✖︎')}`
+    return `${manifestName} ${red('✖︎✖︎✖︎')}`
   }
 
   const arrow =
@@ -30,20 +31,25 @@ function getLoggingPrefix(filename: string, type: PrefixType): string {
         ? gray('►►►')
         : brightGreen('►►►')
 
-  return `${arrow} ${filename}`
+  return `${arrow} ${cyan(manifestName)}`
 }
 
 export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
-export function boring(manifestName: string, duration: number, stats: Stats) {
+export function boring(duration: number, stats: Stats) {
   let didShow = false
 
   if (!didShow) {
-    return `${getLoggingPrefix(manifestName, stats.hasErrors() ? 'error' : 'info')} compiled ${brightGreen(
-      'successfully'
-    )} in ${duration} ms`
+    const arrow = stats.hasErrors() ? red('✖︎✖︎✖︎') : brightGreen('►►►')
+
+    return (
+      // `${getLoggingPrefix(manifestName, stats.hasErrors() ? 'error' : 'success')} ` +
+      `${arrow} ${'Extension.js'} ` +
+      // `${getLoggingPrefix('manifestName', stats.hasErrors() ? 'error' : 'success')} ` +
+      `compiled ${stats.hasErrors() ? red('with errors') : brightGreen('successfully')} in ${duration} ms.`
+    )
   }
 
   return undefined
@@ -55,7 +61,7 @@ export function integrationNotInstalled(
   packageManager: string
 ) {
   return (
-    `${getLoggingPrefix(manifestName, 'info')} ${cyan(
+    `${getLoggingPrefix(manifestName, 'info')} ${magenta(
       integration
     )} Integration Found\n\n` +
     `Installing required setup dependencies via ${brightYellow(
@@ -75,14 +81,14 @@ export function envFileLoaded(manifestName: string) {
 export function isUsingIntegration(manifestName: string, integration: any) {
   return (
     `${getLoggingPrefix(manifestName, 'info')} ` +
-    `is using ${cyan(integration)}.`
+    `is using ${magenta(integration)}.`
   )
 }
 
 export function youAreAllSet(manifestName: string, integration: string) {
   return (
     `${getLoggingPrefix(manifestName, 'success')} You Are All Set\n\n` +
-    `Run the program again to start hacking with ${cyan(integration)} support.`
+    `Run the program again to start hacking with ${magenta(integration)} support.`
   )
 }
 
@@ -95,7 +101,7 @@ export function installingRootDependencies(
       manifestName,
       'info'
     )} Installing Root Dependencies\n\n` +
-    `Installing ${cyan(integration)} Dependencies in Extension.js root. ` +
+    `Installing ${magenta(integration)} dependencies in Extension.js root. ` +
     `This only happens for authors and contributors.`
   )
 }
@@ -116,11 +122,11 @@ export function failedToInstallIntegration(
   error: unknown
 ) {
   return (
-    `${getLoggingPrefix(manifestName, 'error')} ${cyan(
+    `${getLoggingPrefix(manifestName, 'error')} ${magenta(
       integration
     )} Installation Error\n\n` +
     `Failed to detect package ` +
-    `manager or install ${cyan(integration)} dependencies: ${red(
+    `manager or install ${magenta(integration)} dependencies: ${red(
       error?.toString() || ''
     )}`
   )
@@ -226,7 +232,7 @@ export function invalidFieldType(
 
   return (
     `${getLoggingPrefix(manifestName, 'error')} Invalid Manifest Field\n\n` +
-    `Field ${brightYellow(field)} must be of type ${cyan(type)}.\n\n` +
+    `Field ${brightYellow(field)} must be of type ${brightBlue(type)}.\n\n` +
     `Read more: ${getManifestDocumentationURL(browser)}`
   )
 }
@@ -386,6 +392,12 @@ export function serverRestartRequiredFromManifest(
   fileAdded: string,
   fileRemoved: string
 ) {
+  const fileRemovedText =
+    fileRemoved &&
+    `${gray('PATH')} ${red('REMOVED')} ${underline(fileRemoved)}\n`
+  const fileAddedText =
+    fileAdded &&
+    `${gray('PATH')} ${brightGreen('ADDED')} ${underline(fileAdded)}`
   return (
     `${getLoggingPrefix(
       manifestName,
@@ -395,8 +407,8 @@ export function serverRestartRequiredFromManifest(
       '<link rel="stylesheet">'
     )} ` +
     `files after compilation requires a server restart.\n\n` +
-    `${gray('PATH')} ${red('REMOVED')} ${underline(fileRemoved)}\n` +
-    `${gray('PATH')} ${brightGreen('ADDED')} ${underline(fileAdded)}`
+    fileRemovedText +
+    fileAddedText
   )
 }
 
@@ -487,7 +499,7 @@ export function runningInDevelopment(
       `No data received from the extension client.\n\n` +
       `This error happens when the program can\'t get the data from your extension.\n` +
       `Ensure your extension is enabled in your browser and that no hanging browser\n` +
-      `instance is open. If that is not the case, restart the extension package in\n` +
+      `instance is open.\n\nIf that is not the case, restart the extension package in\n` +
       `the browser and try again.\n\n` +
       `If nothing helps and the issue persists, please report a bug:\n\n` +
       underline(`https://github.com/extension-js/extension.js/issues`)

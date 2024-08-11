@@ -27,7 +27,7 @@ const JS_TEMPLATES: Template[] = [
   //   css: 'css',
   //   hasBackground: false,
   //   hasEnv: false,
-  //   configFiles: ['babel.config.js']
+  //   configFiles: ['babel.config.json']
   // },
   // {
   //   name: 'config-extension-config',
@@ -46,7 +46,7 @@ const JS_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['stylelint.config.js']
+    configFiles: ['stylelint.config.json']
   },
   {
     name: 'content',
@@ -121,26 +121,8 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'icons',
-    uiContext: undefined,
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
     name: 'locales',
     uiContext: undefined,
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
-    name: 'manager-extension',
-    uiContext: ['newTab'],
     uiFramework: undefined,
     css: 'css',
     hasBackground: false,
@@ -165,15 +147,15 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  {
-    name: 'sidebar',
-    uiContext: ['sidebar'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
+  // {
+  //   name: 'sidebar',
+  //   uiContext: ['sidebar'],
+  //   uiFramework: undefined,
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
   {
     name: 'special-folders-pages',
     uiContext: undefined,
@@ -203,7 +185,7 @@ const JS_TEMPLATES: Template[] = [
   }
 ]
 
-// const WASM_TEMPLATES: Template[]: string[] = []
+const WASM_TEMPLATES: Template[] = []
 
 const TS_TEMPLATES: Template[] = [
   {
@@ -228,14 +210,13 @@ const TS_TEMPLATES: Template[] = [
 
 const CUSTOM_TEMPLATES: Template[] = [
   {
-    name: 'chatgpt',
+    name: 'action-chatgpt',
     uiContext: ['popup'],
     uiFramework: 'react',
     css: 'css',
     hasBackground: false,
     hasEnv: true,
-
-    configFiles: ['postcss.config.js', 'tailwind.config.js']
+    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
   }
 ]
 
@@ -305,7 +286,7 @@ const TAILWIND_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['tailwind.config.js', 'postcss.config.js']
+    configFiles: ['tailwind.config.js', 'postcss.config.js', 'tsconfig.json']
   },
   {
     name: 'new-tailwind',
@@ -314,15 +295,15 @@ const TAILWIND_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js']
+    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
   }
 ]
 
 const ALL_TEMPLATES: Template[] = [
   DEFAULT_TEMPLATE,
-  ...JS_TEMPLATES
-  // ...WASM_TEMPLATES,
-  // ...TS_TEMPLATES,
+  ...JS_TEMPLATES,
+  ...WASM_TEMPLATES,
+  ...TS_TEMPLATES
   // ...CUSTOM_TEMPLATES,
   // ...FRAMEWORK_TEMPLATES,
   // ...TAILWIND_TEMPLATES
@@ -338,7 +319,7 @@ export {
   SUPPORTED_BROWSERS,
   DEFAULT_TEMPLATE,
   JS_TEMPLATES,
-  // WASM_TEMPLATES,
+  WASM_TEMPLATES,
   TS_TEMPLATES,
   CUSTOM_TEMPLATES,
   FRAMEWORK_TEMPLATES,

@@ -1,16 +1,14 @@
 {
-  "devDependencies": {
-    "extension": "latest",
-    "less": "^4.2.0"
-  },
-  "scripts": {
-    "dev": "extension dev",
-    "start": "extension start",
-    "build": "extension build"
-  },
-  "dependencies": {},
-  "name": "content-less",
   "private": true,
+  "name": "content-less",
+  "description": "An Extension.js example.",
   "version": "0.0.1",
-  "description": "An Extension.js example."
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "devDependencies": {
+    "less": "^4.2.0"
+  }
 }

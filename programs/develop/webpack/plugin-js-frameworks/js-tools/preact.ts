@@ -52,13 +52,15 @@ export async function maybeUsePreact(
     // https://github.com/preactjs/prefresh
     require.resolve('@prefresh/webpack')
   } catch (e) {
-    const preactDependencies = [
-      '@prefresh/webpack'
-    ]
+    const preactDependencies = ['@prefresh/webpack']
     const manifest = require(path.join(projectPath, 'manifest.json'))
     const manifestName = manifest.name || 'Extension.js'
 
-    await installOptionalDependencies(manifestName, 'Preact', preactDependencies)
+    await installOptionalDependencies(
+      manifestName,
+      'Preact',
+      preactDependencies
+    )
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.

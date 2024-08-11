@@ -15,7 +15,7 @@ describe('extension build', () => {
 
   describe('running built-in templates', () => {
     it.each(ALL_TEMPLATES)(
-      `builds an extension created viaaaaa "$name" template`,
+      `builds an extension created via "$name" template`,
       async (template) => {
         const templatePath = path.resolve(
           __dirname,
@@ -25,8 +25,6 @@ describe('extension build', () => {
           'examples',
           template.name
         )
-
-        console.log('templatePath', templatePath)
 
         await extensionBuild(templatePath)
 
