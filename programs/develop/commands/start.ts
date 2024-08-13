@@ -8,25 +8,25 @@
 import fs from 'fs'
 import path from 'path'
 import webpack from 'webpack'
-import compilerConfig from '../webpack/webpack-config'
+import {merge} from 'webpack-merge'
+import webpackConfig from '../webpack/webpack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
+import {loadExtensionConfig} from './commands-lib/get-extension-config'
 import {DevOptions} from './dev'
 
 export interface StartOptions {
-  mode?: 'development' | 'production'
-  browser?: DevOptions['browser']
+  mode: 'development' | 'production'
+  browser: DevOptions['browser']
   port?: number
   noOpen?: boolean
-  userDataDir?: string | boolean
+  userDataDir?: string
   polyfill?: boolean
 }
 
 export async function extensionStart(
   pathOrRemoteUrl: string | undefined,
-  startOptions: StartOptions = {
-    mode: 'production'
-  }
+  startOptions: StartOptions
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
@@ -40,14 +40,27 @@ export async function extensionStart(
 
   try {
     const browser = startOptions.browser || 'chrome'
-    const webpackConfig = compilerConfig(projectPath, {
-      mode: 'production',
-      browser
+    const baseConfig = webpackConfig(projectPath, {
+      ...startOptions,
+      browser,
+      mode: 'production'
+    })
+
+    const allPluginsButReloader = baseConfig.plugins?.filter((plugin) => {
+      return plugin?.constructor.name !== 'plugin-reload'
     })
 
     console.log(messages.building(browser))
 
-    webpack(webpackConfig).run((err, stats) => {
+    const userExtensionConfig = loadExtensionConfig(projectPath)
+    const userConfig = userExtensionConfig({
+      ...baseConfig,
+      plugins: allPluginsButReloader
+    })
+    const compilerConfig = merge(userConfig)
+    const compiler = webpack(compilerConfig)
+
+    compiler.run(async (err, stats) => {
       if (err) {
         console.error(err.stack || err)
         process.exit(1)
