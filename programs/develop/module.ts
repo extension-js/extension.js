@@ -9,6 +9,7 @@ import {extensionBuild, type BuildOptions} from './commands/build'
 import {extensionDev, type DevOptions} from './commands/dev'
 import {extensionPreview, type PreviewOptions} from './commands/preview'
 import {extensionStart, type StartOptions} from './commands/start'
+import {type FileConfig} from './commands/commands-lib/config-types'
 
 export {
   extensionBuild,
@@ -18,5 +19,6 @@ export {
   extensionStart,
   StartOptions,
   extensionPreview,
-  PreviewOptions
+  PreviewOptions,
+  FileConfig
 }

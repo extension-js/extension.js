@@ -8,25 +8,21 @@
 import fs from 'fs'
 import path from 'path'
 import webpack from 'webpack'
-import compilerConfig from '../webpack/webpack-config'
-import * as messages from './commands-lib/messages'
+import {merge} from 'webpack-merge'
+import webpackConfig from '../webpack/webpack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
+import * as messages from './commands-lib/messages'
+import {loadExtensionConfig} from './commands-lib/get-extension-config'
 import {DevOptions} from './dev'
 
 export interface PreviewOptions {
-  mode?: 'development' | 'production'
-  browser?: DevOptions['browser']
-  port?: number
-  noOpen?: boolean
-  userDataDir?: string | boolean
-  polyfill?: boolean
+  browser: DevOptions['browser']
+  userDataDir?: string
 }
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
-  previewOptions: PreviewOptions = {
-    mode: 'production'
-  }
+  previewOptions: PreviewOptions
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
@@ -40,34 +36,39 @@ export async function extensionPreview(
 
   try {
     const browser = previewOptions.browser || 'chrome'
-    const webpackConfig = compilerConfig(projectPath, {
-      mode: 'production',
-      browser
+    const baseConfig = webpackConfig(projectPath, {
+      ...previewOptions,
+      browser,
+      mode: 'production'
     })
 
-    const onlyBrowserRunners = webpackConfig.plugins?.filter(
-      (plugin) => plugin?.constructor.name === 'plugin-browsers'
-    )
+    const onlyBrowserRunners = baseConfig.plugins?.filter((plugin) => {
+      return plugin?.constructor.name === 'plugin-browsers'
+    })
 
-    const webpackConfigOnlyBrowser = {
-      ...webpackConfig,
+    console.log(messages.building(browser))
+
+    const userExtensionConfig = loadExtensionConfig(projectPath)
+    const userConfig = userExtensionConfig({
+      ...baseConfig,
       plugins: onlyBrowserRunners
-    }
+    })
+    const compilerConfig = merge(userConfig)
+    const compiler = webpack(compilerConfig)
 
-    console.log(messages.previewing(browser))
-
-    webpack(webpackConfigOnlyBrowser).run((err, stats) => {
+    compiler.run(async (err, stats) => {
       if (err) {
         console.error(err.stack || err)
         process.exit(1)
       }
 
-      console.log(messages.previewWebpack())
-
       if (!stats?.hasErrors()) {
-        setTimeout(() => {
-          console.log(messages.ready('production', browser))
-        }, 750)
+        console.log(
+          messages.runningInProduction(projectPath, {
+            browser,
+            mode: 'production'
+          })
+        )
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)
