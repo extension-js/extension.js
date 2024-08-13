@@ -17,7 +17,6 @@ import {loadExtensionConfig} from './commands-lib/get-extension-config'
 import {DevOptions} from './dev'
 
 export interface BuildOptions {
-  mode: 'development' | 'production'
   browser?: DevOptions['browser']
   zipFilename?: string
   zip?: boolean
@@ -40,7 +39,7 @@ export async function extensionBuild(
   }
 
   try {
-    const browser = buildOptions.browser || 'chrome'
+    const browser = buildOptions?.browser || 'chrome'
     const baseConfig = webpackConfig(projectPath, {
       ...buildOptions,
       browser,
@@ -62,11 +61,12 @@ export async function extensionBuild(
     const compilerConfig = merge(userConfig)
     const compiler = webpack(compilerConfig)
 
-    compiler.run(async (err, stats) => {
-      if (err) {
-        console.error(err.stack || err)
-        process.exit(1)
-      }
+    return new Promise((resolve, reject) => {
+      compiler.run(async (err, stats) => {
+        if (err) {
+          console.error(err.stack || err)
+          return reject(err)
+        }
 
         console.log(messages.buildWebpack(projectPath, stats, browser))
 

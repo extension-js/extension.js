@@ -2119,6 +2119,24 @@
     schema-utils "^4.2.0"
     source-map "^0.7.3"
 
+"@prefresh/core@^1.5.0":
+  version "1.5.2"
+  resolved "https://registry.yarnpkg.com/@prefresh/core/-/core-1.5.2.tgz#750e1936d82f3b0a1199d3cda5c35e3443128490"
+  integrity sha512-A/08vkaM1FogrCII5PZKCrygxSsc11obExBScm3JF1CryK2uDS3ZXeni7FeKCx1nYdUkj4UcJxzPzc1WliMzZA==
+
+"@prefresh/utils@^1.2.0":
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/@prefresh/utils/-/utils-1.2.0.tgz#cbdfe549b207041e38bb6cc382408b30cd24fec8"
+  integrity sha512-KtC/fZw+oqtwOLUFM9UtiitB0JsVX0zLKNyRTA332sqREqSALIIQQxdUCS1P3xR/jT1e2e8/5rwH6gdcMLEmsQ==
+
+"@prefresh/webpack@^4.0.1":
+  version "4.0.1"
+  resolved "https://registry.yarnpkg.com/@prefresh/webpack/-/webpack-4.0.1.tgz#f2572707e70c6c30a5cafbcfc5c9915ff8f0d37c"
+  integrity sha512-BAzEqkNZSm1B82l8oXp+b69ffCQopjca8yeooczmCBSU6ZGhxWf+G2fmRt02CkcMpnDiHuDNDdsBJqEBKRJzOQ==
+  dependencies:
+    "@prefresh/core" "^1.5.0"
+    "@prefresh/utils" "^1.2.0"
+
 "@rollup/rollup-android-arm-eabi@4.20.0":
   version "4.20.0"
   resolved "https://registry.yarnpkg.com/@rollup/rollup-android-arm-eabi/-/rollup-android-arm-eabi-4.20.0.tgz#c3f5660f67030c493a981ac1d34ee9dfe1d8ec0f"
