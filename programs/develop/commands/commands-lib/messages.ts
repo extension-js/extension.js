@@ -377,3 +377,11 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
 
   return `.\n${printTree(assetTree)}`
 }
+
+export function isUsingExtensionConfig(integration: any) {
+  return (
+    `${getLoggingPrefix('info')} ` +
+    `is using ${gray(integration)}. ` +
+    `${brightYellow('This is very experimental')}.`
+  )
+}

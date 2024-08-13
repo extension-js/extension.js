@@ -4,7 +4,7 @@ import type webpack from 'webpack'
 import {
   handleMultipleAssetsError,
   handleTopLevelAwaitError,
-  handleCantResolveError
+  // handleCantResolveError
 } from './compilation-error-handlers'
 import {type PluginInterface} from '../../webpack-types'
 

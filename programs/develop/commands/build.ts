@@ -8,10 +8,12 @@
 import fs from 'fs'
 import path from 'path'
 import webpack from 'webpack'
-import compilerConfig from '../webpack/webpack-config'
+import {merge} from 'webpack-merge'
+import webpackConfig from '../webpack/webpack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {generateZip} from './commands-lib/generate-zip'
+import {loadExtensionConfig} from './commands-lib/get-extension-config'
 import {DevOptions} from './dev'
 
 export interface BuildOptions {
@@ -38,27 +40,29 @@ export async function extensionBuild(
 
   try {
     const browser = buildOptions?.browser || 'chrome'
-    const webpackConfig = compilerConfig(projectPath, {
-      mode: 'production',
-      browser
+    const baseConfig = webpackConfig(projectPath, {
+      ...buildOptions,
+      browser,
+      mode: 'production'
     })
 
-    const allPluginsButBrowserRunners = webpackConfig.plugins?.filter(
-      (plugin) => {
-        return (
-          plugin?.constructor.name !== 'plugin-browsers' &&
-          plugin?.constructor.name !== 'plugin-reload'
-        )
-      }
-    )
+    const allPluginsButBrowserRunners = baseConfig.plugins?.filter((plugin) => {
+      return (
+        plugin?.constructor.name !== 'plugin-browsers' &&
+        plugin?.constructor.name !== 'plugin-reload'
+      )
+    })
 
-    const webpackConfigNoBrowser = {
-      ...webpackConfig,
+    const userExtensionConfig = loadExtensionConfig(projectPath)
+    const userConfig = userExtensionConfig({
+      ...baseConfig,
       plugins: allPluginsButBrowserRunners
-    }
+    })
+    const compilerConfig = merge(userConfig)
+    const compiler = webpack(compilerConfig)
 
     return new Promise((resolve, reject) => {
-      webpack(webpackConfigNoBrowser).run(async (err, stats) => {
+      compiler.run(async (err, stats) => {
         if (err) {
           console.error(err.stack || err)
           return reject(err)

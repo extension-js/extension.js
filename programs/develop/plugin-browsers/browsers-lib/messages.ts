@@ -31,7 +31,7 @@ export function capitalizedBrowserName(browser: DevOptions['browser']) {
 }
 
 export function stdoutData(
-  name: string,
+  // name: string,
   browser: DevOptions['browser'],
   mode: DevOptions['mode']
 ) {
@@ -40,7 +40,7 @@ export function stdoutData(
   return (
     `${getLoggingPrefix(browser, 'info')} ` +
     `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
-    `${name} ` +
+    // `${name} ` +
     `running in ${modeColor(mode || 'unknown')} mode.`
   )
 }

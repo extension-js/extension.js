@@ -18,28 +18,36 @@ export class StaticAssetsPlugin {
       return `${folderPath}/[name][ext]`
     }
 
+    // Define the default SVG rule
+    const defaultSvgRule: RuleSetRule = {
+      test: /\.svg$/i,
+      type: 'asset/resource',
+      generator: {
+        filename: () => getAssetFilename('assets')
+      },
+      parser: {
+        dataUrlCondition: {
+          // inline images < 2 KB
+          maxSize: 2 * 1024
+        }
+      }
+    }
+
+    // Check if any existing rule handles SVG files
+    const hasCustomSvgRule = compiler.options.module.rules.some((rule) => {
+      return (
+        (rule as any) &&
+        (rule as any).test instanceof RegExp &&
+        (rule as any).test.test('.svg') &&
+        (rule as any).use !== undefined
+      )
+    })
+
     const loaders: RuleSetRule[] = [
+      // Only add the default SVG rule if there's no custom SVG rule
+      ...(hasCustomSvgRule ? [] : [defaultSvgRule]),
       {
-        test: /\.svg$/i,
-        type: 'asset',
-        // *.svg?url
-        resourceQuery: /url/,
-        generator: {
-          filename: () => getAssetFilename('assets')
-        }
-      },
-      {
-        test: /\.svg$/i,
-        issuer: /\.[jt]sx?$/,
-        // exclude react component if *.svg?url
-        resourceQuery: {not: [/url/]},
-        use: ['@svgr/webpack'],
-        generator: {
-          filename: () => getAssetFilename('assets')
-        }
-      },
-      {
-        test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp|svg)$/i,
+        test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
         type: 'asset/resource',
         generator: {
           filename: () => getAssetFilename('assets')
@@ -80,6 +88,7 @@ export class StaticAssetsPlugin {
       }
     ]
 
+    // Combine user rules with default rules, ensuring no conflict for SVGs
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
       ...loaders
