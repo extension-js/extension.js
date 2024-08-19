@@ -5,8 +5,28 @@ import {
   DEFAULT_TEMPLATE,
   SUPPORTED_BROWSERS
 } from '../../../examples/data'
-import {distFileExists, removeAllTemplateDistFolders} from './helpers'
+import {removeAllTemplateDistFolders} from './helpers'
 import {extensionBuild} from '../dist/module'
+
+export function distFileExists(
+  templateName: string,
+  browser: string,
+  filePath?: string
+): boolean {
+  const templatePath = path.join(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    'examples',
+    templateName,
+    'dist',
+    browser
+  )
+
+  return fs.existsSync(path.join(templatePath, filePath || ''))
+}
+
 
 describe('extension build', () => {
   beforeEach(async () => {
@@ -31,24 +51,6 @@ describe('extension build', () => {
         expect(
           distFileExists(template.name, SUPPORTED_BROWSERS[0], 'manifest.json')
         ).toBeTruthy()
-
-        // TODO: cezaraugusto test ui context files output
-        // if (template.name !== 'init') {
-        //   expect(
-        //     distFileExists(
-        //       template.name,
-        //       SUPPORTED_BROWSERS[0],
-        //       `icons/icon_16.png`
-        //     )
-        //   ).toBeTruthy()
-        //   expect(
-        //     distFileExists(
-        //       template.name,
-        //       SUPPORTED_BROWSERS[0],
-        //       `icons/icon_48.png`
-        //     )
-        //   ).toBeTruthy()
-        // }
       },
       80000 * ALL_TEMPLATES.length
     )
@@ -67,7 +69,7 @@ describe('extension build', () => {
           template.name
         )
 
-        // Firefox is skippeed because it can't handle service workers.
+        // Firefox is skipped because it can't handle service workers.
         const [chrome, edge, firefox] = SUPPORTED_BROWSERS
 
         await extensionBuild(templatePath, {browser: 'chrome'})

@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {exec} from 'child_process'
+import {extensionBuild} from '../../../../dist/module'
 
 const getFixturesPath = (demoDir: string) => {
   return path.resolve(
@@ -32,18 +32,10 @@ describe('IconsPlugin', () => {
     const fixturesPath = getFixturesPath(directory)
     const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
-    beforeAll((done) => {
-      exec(
-        `npx -y extension@latest build ${fixturesPath}`,
-        {cwd: __dirname},
-        (error, _stdout, _stderr) => {
-          if (error) {
-            console.error(`exec error: ${error.message}`)
-            return done(error)
-          }
-          done()
-        }
-      )
+    beforeAll(async () => {
+      await extensionBuild(fixturesPath, {
+        browser: 'chrome'
+      })
     }, 60000)
 
     // afterAll(() => {
