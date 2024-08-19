@@ -4,7 +4,7 @@ export type ConfigFiles =
   | 'tailwind.config.js'
   | 'tsconfig.json'
   | 'babel.config.js'
-  | 'stylelint.config.js'
+  | 'stylelint.config.json'
   | 'extension.config.js'
 
 export interface Template {

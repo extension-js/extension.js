@@ -1,17 +1,18 @@
 {
-  "devDependencies": {
-    "extension": "latest",
-    "stylelint": "^16.7.0",
-    "stylelint-config-standard": "^36.0.1"
+  "private": true,
+  "name": "config-stylelint",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "dev": "extension dev",
-    "start": "extension start",
-    "build": "extension build",
     "lint:css": "stylelint '**/*.css'"
   },
-  "name": "config-stylelint",
-  "private": true,
-  "version": "0.0.1",
-  "description": "An Extension.js example."
+  "devDependencies": {
+    "stylelint": "^16.7.0",
+    "stylelint-config-standard": "^36.0.1"
+  }
 }

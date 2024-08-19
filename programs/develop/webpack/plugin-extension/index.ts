@@ -93,6 +93,7 @@ export class ExtensionPlugin {
     // Get all scripts (bg, content, sw) declared in manifest
     new ScriptsPlugin({
       manifestPath,
+      browser: this.browser,
       includeList: {
         ...manifestFieldsData.scripts,
         ...specialFoldersData.scripts

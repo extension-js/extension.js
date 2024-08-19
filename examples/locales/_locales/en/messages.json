@@ -1,11 +1,10 @@
 {
-  "extName": {
-    "message": "Demo extension"
+  "title": {
+    "message": "Welcome to your Action Extension",
+    "description": "The title of the extension page"
   },
-  "extDesc": {
-    "message": "A demo extension."
-  },
-  "ext_default_title": {
-    "message": "Demo extension title"
+  "learnMore": {
+    "message": "Learn more about creating cross-browser extensions at ",
+    "description": "The learn more text"
   }
 }

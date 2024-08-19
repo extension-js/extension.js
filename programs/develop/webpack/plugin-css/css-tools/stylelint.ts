@@ -12,7 +12,7 @@ import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 
 export function getStylelintConfigFile(projectPath: string) {
-  const stylelintConfigJs = path.join(projectPath, 'stylelint.config.js')
+  const stylelintConfigJs = path.join(projectPath, 'stylelint.config.json')
   const stylelintConfigDotJs = path.join(projectPath, '.stylelintrc.js file')
   const stylelintConfigMjs = path.join(projectPath, 'stylelint.config.mjs')
   const stylelintConfigDotMjs = path.join(projectPath, '.stylelintrc.mjs')
@@ -97,7 +97,7 @@ export async function maybeUseStylelint(
       context: projectPath,
       configFile: isUsingStylelint(projectPath)
         ? getStylelintConfigFile(projectPath)
-        : path.join(__dirname, 'stylelint.config.js'),
+        : path.join(__dirname, 'stylelint.config.json'),
       files: '**/*.{css,scss,sass,less}',
       exclude: ['node_modules', path.join(projectPath, 'node_modules')]
     })

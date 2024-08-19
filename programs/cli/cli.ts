@@ -8,27 +8,19 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import {program} from 'commander'
-
-// Types
-import type {CreateOptions} from '@extension-create/create'
-import type {} from // BuildOptions,
-// DevOptions,
-// PreviewOptions,
-// StartOptions
-'extension-develop'
-import type {BrowsersSupported} from './types'
-
-// Modules
-import createExtension from '@extension-create/create'
+import {extensionCreate, type CreateOptions} from '@extension-create/create'
 import {
   extensionDev,
+  // type DevOptions,
   extensionStart,
+  // type StartOptions,
   extensionBuild
+  // type BuildOptions
   // extensionPreview
 } from 'extension-develop'
-
-import checkUpdates from './check-updates'
 import * as messages from './cli-lib/messages'
+import type {BrowsersSupported} from './types'
+import checkUpdates from './check-updates'
 import packageJson from './package.json'
 
 // Before all, check for updates.
@@ -69,7 +61,7 @@ extensionJs
     'specify a template for the created project'
   )
   .action(async function (pathOrRemoteUrl: string, {template}: CreateOptions) {
-    await createExtension(pathOrRemoteUrl, {template})
+    await extensionCreate(pathOrRemoteUrl, {template})
   })
 
 // ██████╗ ███████╗██╗   ██╗
