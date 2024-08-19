@@ -61,7 +61,7 @@ export async function devServer(
       // Shows a full-screen overlay in the browser
       // when there are compiler errors or warnings.
       overlay: false
-    },
+    },   
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
