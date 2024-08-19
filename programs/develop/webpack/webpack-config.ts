@@ -20,10 +20,6 @@ import {CompatibilityPlugin} from './plugin-compatibility'
 import {ErrorsPlugin} from './plugin-errors'
 import {BrowsersPlugin} from '../plugin-browsers'
 
-export const getAssetFilename = (folderPath: string) => {
-  return `${folderPath}/[name][ext]`
-}
-
 export default function webpackConfig(
   projectPath: string,
   devOptions: DevOptions
@@ -62,16 +58,6 @@ export default function webpackConfig(
         bigIntLiteral: true,
         dynamicImport: true
       },
-      chunkFilename: (pathData) => {
-        const runtime = (pathData.chunk as any)?.runtime
-
-        // Chunks are stored within their caller's directory,
-        // So a dynamic import of a CSS action page will be stored
-        // as action/[filename].css.
-        // The JS counterpart of this is defined in MiniCssExtractPlugin
-        // options.chunkFilename function.
-        return getAssetFilename(runtime)
-      }
     },
     resolve: {
       modules: ['node_modules', path.join(projectPath, 'node_modules')],
