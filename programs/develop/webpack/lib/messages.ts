@@ -643,3 +643,12 @@ export function defaultPortInUse(manifestName: string, port: number) {
     `Default port ${port} in use, choose a new port. `
   )
 }
+
+export function noExtensionIdError(manifestName: string) {
+  return (
+    `${getLoggingPrefix(manifestName, 'error')} No Extension Id Specified\n\n` +
+    `For MAIN world content scripts, you must specify an extension ID.\n` +
+    `Otherwise, the content script won't reload on changes.\n` +
+    `Add an ${brightYellow('id')} field to your manifest.json file and try again.`
+  )
+}

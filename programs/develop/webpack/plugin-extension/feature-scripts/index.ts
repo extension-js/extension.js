@@ -1,8 +1,14 @@
 import path from 'path'
 import type webpack from 'webpack'
-import {type FilepathList, type PluginInterface} from '../../webpack-types'
+import {
+  type Manifest,
+  type FilepathList,
+  type PluginInterface
+} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
+import {AddPublicPathForMainWorld} from './steps/add-public-path-for-main-world'
+import {DevOptions} from '../../../module'
 
 /**
  * ScriptsPlugin is responsible for handiling all possible JavaScript
@@ -22,11 +28,13 @@ import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module
  */
 export class ScriptsPlugin {
   public readonly manifestPath: string
+  public readonly browser?: DevOptions['browser']
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
     this.excludeList = options.excludeList
   }
@@ -97,21 +105,12 @@ export class ScriptsPlugin {
 
     // 4 - Fix the issue where assets imported via content_scripts
     // running in the MAIN world could not find the correct public path.
-    // compiler.options.module.rules.push({
-    //   test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-    //   include: [path.dirname(this.manifestPath)],
-    //   exclude: [path.join(path.dirname(this.manifestPath), 'node_modules')],
-    //   use: [
-    //     {
-    //       loader: path.resolve(__dirname, './add-dynamic-public-path.js'),
-    //       options: {
-    //         manifestPath: this.manifestPath,
-    //         includeList: this.includeList || {},
-    //         excludeList: this.excludeList || {}
-    //       }
-    //     }
-    //   ]
-    // })
+    new AddPublicPathForMainWorld({
+      manifestPath: this.manifestPath,
+      browser: this.browser || 'chrome',
+      includeList: this.includeList || {},
+      excludeList: this.excludeList || {}
+    }).apply(compiler)
 
     // 5 - Fix the issue of content_scripts not being able to import
     // CSS files via import statements. This loader adds the

@@ -27,9 +27,7 @@ export class CssPlugin {
   private async configureOptions(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
-    const plugins: WebpackPluginInstance[] = [
-      new MiniCssExtractPlugin()
-    ]
+    const plugins: WebpackPluginInstance[] = [new MiniCssExtractPlugin()]
 
     plugins.forEach((plugin) => plugin.apply(compiler))
 

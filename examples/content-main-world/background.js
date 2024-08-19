@@ -1,5 +1,3 @@
-console.log('hello from background script')
-
 chrome.runtime.onMessage.addListener((request, sender) => {
   if (request.action === 'changeBackgroundColor') {
     changeBackgroundColor(request.color, sender.tab.id)

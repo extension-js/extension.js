@@ -57,7 +57,7 @@ export default function webpackConfig(
       environment: {
         bigIntLiteral: true,
         dynamicImport: true
-      },
+      }
     },
     resolve: {
       modules: ['node_modules', path.join(projectPath, 'node_modules')],

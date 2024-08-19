@@ -14,7 +14,6 @@ export class StaticAssetsPlugin {
   }
 
   public async apply(compiler: Compiler) {
-
     // Define the default SVG rule
     const defaultSvgRule: RuleSetRule = {
       test: /\.svg$/i,
