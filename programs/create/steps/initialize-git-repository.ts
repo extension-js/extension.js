@@ -13,7 +13,7 @@ export async function initializeGitRepository(
   projectName: string
 ) {
   const gitCommand = 'git'
-  const gitArgs = ['init']
+  const gitArgs = ['init', '--quiet']
 
   console.log(messages.initializingGitForRepository(projectName))
 

@@ -1,4 +1,4 @@
-export type UIContext = 'sidebar' | 'newTab' | 'content' | 'popup' | 'devTools'
+export type UIContext = 'sidebar' | 'newTab' | 'content' | 'action' | 'devTools'
 export type ConfigFiles =
   | 'postcss.config.js'
   | 'tailwind.config.js'

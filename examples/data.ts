@@ -13,7 +13,7 @@ const DEFAULT_TEMPLATE: Template = {
 const JS_TEMPLATES: Template[] = [
   {
     name: 'action',
-    uiContext: ['popup'],
+    uiContext: ['action'],
     uiFramework: undefined,
     css: 'css',
     hasBackground: false,
@@ -30,14 +30,17 @@ const JS_TEMPLATES: Template[] = [
   //   configFiles: ['babel.config.json']
   // },
   {
-    name: 'config-extension-config',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
+    name: 'content-extension-config',
+    uiContext: ['content'],
+    uiFramework: 'react',
     css: 'css',
-    hasBackground: false,
+    hasBackground: true,
     hasEnv: false,
     configFiles: [
-      'extension.config.js'
+      'extension.config.js',
+      'tsconfig.json',
+      'postcss.config.js',
+      'tailwind.config.js'
     ]
   },
   {
@@ -212,7 +215,7 @@ const TS_TEMPLATES: Template[] = [
 const CUSTOM_TEMPLATES: Template[] = [
   {
     name: 'action-chatgpt',
-    uiContext: ['popup'],
+    uiContext: ['action'],
     uiFramework: 'react',
     css: 'css',
     hasBackground: false,

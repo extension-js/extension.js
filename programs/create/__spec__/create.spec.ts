@@ -126,9 +126,8 @@ describe('extension create', () => {
         // Expect .gitignore to exist
         expect(fileExists(template.name, '.gitignore')).toBeTruthy()
 
-        // TODO: Expect project to be a .git project
-        // See https://github.com/extension-js/extension.js/issues/54
-        // expect(fileExists(template.name, '.git')).toBeTruthy()
+        // Expect project to be a .git project
+        expect(fileExists(template.name, '.git')).toBeTruthy()
 
         if (template.hasEnv) {
           // For those who need it: Expect .env.sample
