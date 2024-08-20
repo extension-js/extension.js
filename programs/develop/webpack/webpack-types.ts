@@ -58,6 +58,7 @@ export interface LoaderContext {
   getOptions: () => {
     test: string
     manifestPath: string
+    browser?: DevOptions['browser']
     includeList?: FilepathList
     excludeList?: FilepathList
   }

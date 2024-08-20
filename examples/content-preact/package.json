@@ -1,10 +1,5 @@
 {
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cezaraugusto/extension.git",
-    "directory": "programs/create/templates/preact-typescript"
-  },
+  "private": true,
   "name": "content-preact",
   "description": "An Extension.js example.",
   "version": "0.0.1",
@@ -13,16 +8,7 @@
     "email": "zxin088@gmail.com",
     "url": "https://hw404.cn"
   },
-  "files": [
-    "template",
-    "template.json"
-  ],
-  "keywords": [
-    "extension",
-    "browser-extension",
-    "web-extension",
-    "template"
-  ],
+  "license": "MIT",
   "dependencies": {
     "@preact/signals": "^1.2.3",
     "preact": "^10.22.0",

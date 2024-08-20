@@ -68,6 +68,8 @@ export class JsFrameworksPlugin {
               },
               transform: {
                 react: {
+                  development: this.mode === 'development',
+                  refresh: this.mode === 'development',
                   runtime: 'automatic',
                   importSource: 'react'
                 }

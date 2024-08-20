@@ -19,7 +19,7 @@ export default [
       '**/webpack.config.js',
       '**/postcss.config.js',
       '**/tailwind.config.js',
-      '**/stylelint.config.js'
+      '**/stylelint.config.json'
     ]
   }
 ]

@@ -10,7 +10,7 @@ h1 {
 }
 
 .react {
-  animation: spin 5s linear infinite;
+  animation: spin 20s linear infinite;
 }
 
 @keyframes spin {
