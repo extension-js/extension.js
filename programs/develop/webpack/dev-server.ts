@@ -39,7 +39,7 @@ export async function devServer(
     host: '127.0.0.1',
     allowedHosts: 'all',
     static: path.join(projectPath, 'public'),
-    compress: true,
+    compress: false,
     devMiddleware: {
       writeToDisk: true
     },
@@ -60,10 +60,7 @@ export async function devServer(
       progress: false,
       // Shows a full-screen overlay in the browser
       // when there are compiler errors or warnings.
-      overlay: {
-        errors: false,
-        warnings: false
-      }
+      overlay: false
     },
     headers: {
       'Access-Control-Allow-Origin': '*'

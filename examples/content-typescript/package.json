@@ -1,15 +1,14 @@
 {
+  "private": true,
+  "name": "content-typescript",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
   "devDependencies": {
     "typescript": "5.3.3"
-  },
-  "scripts": {
-    "dev": "extension dev",
-    "start": "extension start",
-    "build": "extension build"
-  },
-  "dependencies": {},
-  "name": "content-typescript",
-  "private": true,
-  "version": "0.0.1",
-  "description": "An Extension.js example."
+  }
 }

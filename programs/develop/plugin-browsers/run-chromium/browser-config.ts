@@ -13,7 +13,8 @@ export function browserConfig(configOptions: PluginInterface) {
     `--load-extension=${extensionsToLoad.join()}`,
     `--user-data-dir=${createProfile(
       configOptions.browser,
-      configOptions.userDataDir || configOptions.profile
+      configOptions.profile,
+      false
     )}`,
     // Disable Chrome's native first run experience.
     '--no-first-run',

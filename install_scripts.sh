@@ -5,10 +5,10 @@ for dir in ./examples/*/ ; do
   if [ -d "$dir" ]; then
     echo "Entering directory: $dir"
     cd "$dir"
-    echo "Running npm install in $dir"
-    npm install
+    echo "Running yarn in $dir"
+    yarn
     cd - > /dev/null
   fi
 done
 
-echo "npm install completed in all top-level folders within ./examples/"
+echo "yarn completed in all top-level folders within ./examples/"

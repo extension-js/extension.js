@@ -24,17 +24,22 @@
   "scripts": {
     "clean": "rm -rf dist",
     "watch": "yarn compile --watch",
-    "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify && node ./copyTemplates.js",
-    "test": "echo \"Note: no test specified\" && exit 0"
+    "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify && bash install_scripts.sh",
+    "test": "echo \"Note: no test specified\" && exit 0",
+    "test:create": "jest"
   },
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "cross-spawn": "^7.0.3",
-    "prefers-yarn": "^1.0.1"
+    "detect-package-manager": "^3.0.2",
+    "go-git-it": "^2.0.1"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.6",
     "@types/react-dom": "^18.2.18",
+    "globals": "^15.9.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
     "tsconfig": "*",
     "tsup": "^8.0.1",
     "typescript": "5.3.3"

@@ -32,7 +32,6 @@ export class ThrowIfRecompileIsNeeded {
             return
           }
 
-          const projectName = require(packageJsonPath).name
           const manifest: Manifest = require(this.manifestPath)
           const initialHtml = this.flattenAndSort(
             Object.values(htmlFields(context, manifest))
