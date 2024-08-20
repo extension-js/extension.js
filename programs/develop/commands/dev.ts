@@ -28,7 +28,7 @@ export interface DevOptions {
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
-  {...devOptions}: DevOptions = {
+  devOptions: DevOptions = {
     browser: 'chrome',
     mode: 'development'
   }

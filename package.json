@@ -4,7 +4,7 @@
     "clean": "turbo clean && rm -rf node_modules",
     "changeset": "changeset",
     "compile": "dotenv -- turbo run compile",
-    "cleanInstall": "yarn cache clean && yarn clean && rm -rf yarn.lock && yarn install && yarn compile && yarn format && yarn lint && yarn types && yarn test",
+    "cleanInstall": "yarn cache clean && yarn clean && rm -rf yarn.lock && yarn install && yarn compile && yarn format && yarn lint && yarn types",
     "extension": "dotenv -- ts-node ./programs/cli/dist/cli.js",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
     "lint": "eslint .",

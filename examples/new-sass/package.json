@@ -1,14 +1,14 @@
 {
-  "scripts": {
-    "dev": "extension dev",
-    "start": "extension start",
-    "build": "extension build"
+  "private": true,
+  "name": "new-sass",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
   },
   "dependencies": {
     "sass": "^1.77.8"
-  },
-  "name": "new-sass",
-  "private": true,
-  "version": "0.0.1",
-  "description": "An Extension.js example."
+  }
 }

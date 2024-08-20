@@ -15,7 +15,6 @@ resolve_plugin_files=(
 scripts_plugin_files=(
   "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/inject-content-css-during-dev.ts"
   "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/add-hmr-accept-code.ts"
-  "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/add-dynamic-public-path.ts"
   "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/add-query-param-to-imported-css.ts"
 )
 
@@ -90,7 +89,7 @@ done
 echo '►►► Setting up client helper files'
 static_files=(
   "$(dirname "$0")/tailwind.config.js"
-  "$(dirname "$0")/stylelint.config.js"
+  "$(dirname "$0")/stylelint.config.json"
   "$(dirname "$0")/types"
   "$(dirname "$0")/webpack/plugin-reload/extensions"
 )
