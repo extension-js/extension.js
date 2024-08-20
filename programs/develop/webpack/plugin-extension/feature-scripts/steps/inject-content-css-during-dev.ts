@@ -3,11 +3,8 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from '../../../webpack-types'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {
-  getScriptEntries,
-  getCssEntries,
-  getRelativePath
-} from '../scripts-lib/utils'
+import {getRelativePath} from '../../../lib/utils'
+import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
 
 const schema: Schema = {
   type: 'object',

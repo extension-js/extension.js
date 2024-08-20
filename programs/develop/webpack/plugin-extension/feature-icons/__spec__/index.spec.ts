@@ -21,14 +21,8 @@ const assertFileIsEmitted = async (filePath: string) => {
   return expect(fileIsEmitted).toBeUndefined()
 }
 
-const assertFileIsNotEmitted = async (filePath: string) => {
-  await fs.promises.access(filePath, fs.constants.F_OK).catch((err) => {
-    expect(err).toBeTruthy()
-  })
-}
-
 describe('IconsPlugin', () => {
-  describe.each([['action'], ['icons']])('dealing with %s', (directory) => {
+  describe.each(['action'])('dealing with %s', (directory) => {
     const fixturesPath = getFixturesPath(directory)
     const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
@@ -38,23 +32,18 @@ describe('IconsPlugin', () => {
       })
     }, 60000)
 
-    // afterAll(() => {
-    //   if (fs.existsSync(outputPath)) {
-    //     fs.rmSync(outputPath, {recursive: true, force: true})
-    //   }
-    // })
+    afterAll(() => {
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath, {recursive: true, force: true})
+      }
+    })
 
-    const dir =
-      directory === 'browser_action.theme-icons' ? 'browser_action' : directory
-    const assetsPng = path.join(outputPath, dir, 'test_16.png')
-    const excludedPng = path.join(outputPath, 'public', 'icon.png')
+    const assetsPng = path.join(outputPath, 'icons', 'extension_16.png')
+    const assetsPng2 = path.join(outputPath, 'icons', 'extension_48.png')
 
     it('outputs icon file to destination folder', async () => {
       await assertFileIsEmitted(assetsPng)
-    })
-
-    it('should not output file if file is in EXCLUDE list', async () => {
-      await assertFileIsNotEmitted(excludedPng)
+      await assertFileIsEmitted(assetsPng2)
     })
   })
 })

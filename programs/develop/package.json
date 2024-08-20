@@ -25,8 +25,8 @@
     "clean": "rm -rf dist",
     "watch": "tsup-node ./module.ts --format cjs --dts --target=node18 --watch",
     "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify && bash install_scripts.sh",
-    "test": "jest",
-    "test:build": "jest __spec__/build.spec.ts"
+    "test": "jest --no-cache --testPathPattern='webpack/.*/__spec__/.*\\.spec\\.ts'",
+    "test:build": "jest ./build.spec.ts --no-cache"
   },
   "dependencies": {
     "@colors/colors": "^1.6.0",

@@ -2,8 +2,8 @@ import path from 'path'
 import fs from 'fs'
 import type webpack from 'webpack'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import {shouldExclude} from '../../../lib/utils'
-import {getAssetsFromHtml} from '../html-lib/utils'
+import * as utils from '../../../lib/utils'
+import * as htmlUtils from '../html-lib/utils'
 
 export class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string
@@ -26,11 +26,11 @@ export class AddScriptsAndStylesToCompilation {
       if (resource) {
         if (!fs.existsSync(resource as string)) return
 
-        const htmlAssets = getAssetsFromHtml(resource as string)
+        const htmlAssets = htmlUtils.getAssetsFromHtml(resource as string)
         const jsAssets = htmlAssets?.js || []
         const cssAssets = htmlAssets?.css || []
         const fileAssets = [...jsAssets, ...cssAssets].filter(
-          (asset) => !shouldExclude(asset, this.excludeList)
+          (asset) => !utils.shouldExclude(asset, this.excludeList)
         )
 
         if (compiler.options.mode === 'development') {
@@ -40,7 +40,7 @@ export class AddScriptsAndStylesToCompilation {
         }
 
         if (fs.existsSync(resource as string)) {
-          if (!shouldExclude(resource as string, this.excludeList)) {
+          if (!utils.shouldExclude(resource as string, this.excludeList)) {
             compiler.options.entry = {
               ...compiler.options.entry,
               // https://webpack.js.org/configuration/entry-context/#entry-descriptor

@@ -1,31 +1,16 @@
 #!/bin/bash
 
-# Get the absolute path of the root directory
-ROOT_DIR=$(pwd)
-
-# Function to recursively remove .git folders
-remove_git_folders() {
+# Function to remove lock files
+remove_lock_files() {
     local dir="$1"
 
-    # Iterate over all directories in the current directory
-    for subdir in "$dir"/*; do
-        if [ -d "$subdir" ]; then
-            # Skip node_modules directories
-            if [[ $(basename "$subdir") == "node_modules" ]]; then
-                continue
-            fi
-
-            # Remove .git directory if it's not the root level
-            if [[ $(basename "$subdir") == ".git" ]] && [[ "$subdir" != "$ROOT_DIR/.git" ]]; then
-                echo "Removing $subdir"
-                rm -rf "$subdir"
-            fi
-
-            # Recurse into subdirectories
-            remove_git_folders "$subdir"
-        fi
-    done
+    # Find and remove package-lock.json and yarn.lock files
+    find "$dir" -maxdepth 1 -type f \( -name "package-lock.json" -o -name "yarn.lock" \) -exec rm -v {} +
 }
 
-# Start the recursive removal from the current directory
-remove_git_folders "$ROOT_DIR"
+# Start the removal from the ./examples/ directory
+for example_dir in ./examples/*; do
+    if [ -d "$example_dir" ]; then
+        remove_lock_files "$example_dir"
+    fi
+done

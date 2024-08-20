@@ -106,53 +106,53 @@ describe('HtmlPlugin (default behavior)', () => {
     it('should resolve paths of CSS files for HTML paths defined in EXCLUDE option', async () => {
       await findStringInFile(sandboxHtml, '/public/css/file.css')
     })
-    // })
+  })
 
-    describe('js', () => {
-      const sandboxJs = path.join(outputPath, 'sandbox', 'page-0.js')
-      const pagesJs = path.join(outputPath, 'pages', 'main.js')
-      const excludedJs = path.join(outputPath, 'public', 'js', 'file.js')
+  describe('js', () => {
+    const sandboxJs = path.join(outputPath, 'sandbox', 'page-0.js')
+    const pagesJs = path.join(outputPath, 'pages', 'main.js')
+    const excludedJs = path.join(outputPath, 'public', 'js', 'file.js')
 
-      it('should output JS files for HTML paths defined in MANIFEST.JSON', async () => {
-        await assertFileIsEmitted(sandboxJs)
-      })
-
-      it('should output JS files for HTML paths defined in INCLUDE option', async () => {
-        await assertFileIsEmitted(pagesJs)
-      })
-
-      it('should not output JS files if JS file is in EXCLUDE list', async () => {
-        await assertFileIsNotEmitted(excludedJs)
-      })
-
-      it('should resolve paths of JS files for HTML paths defined in MANIFEST.JSON', async () => {
-        await findStringInFile(sandboxHtml, '/sandbox/page-0.js')
-      })
-
-      it('should resolve paths of JS files for HTML paths defined in INCLUDE option', async () => {
-        await findStringInFile(pagesHtml, '/pages/main.js')
-      })
-
-      it('should resolve paths of JS files for HTML paths defined in EXCLUDE option', async () => {
-        await findStringInFile(sandboxHtml, '/public/js/file.js')
-      })
+    it('should output JS files for HTML paths defined in MANIFEST.JSON', async () => {
+      await assertFileIsEmitted(sandboxJs)
     })
 
-    describe('static assets', () => {
-      const assetsPng = path.join(outputPath, 'assets', 'notpublic-file.png')
-      const excludedPng = path.join(outputPath, 'public', 'img', 'icon.png')
+    it('should output JS files for HTML paths defined in INCLUDE option', async () => {
+      await assertFileIsEmitted(pagesJs)
+    })
 
-      it('should output PNG files for HTML paths defined in MANIFEST.JSON', async () => {
-        await assertFileIsEmitted(assetsPng)
-      })
+    it('should not output JS files if JS file is in EXCLUDE list', async () => {
+      await assertFileIsNotEmitted(excludedJs)
+    })
 
-      it('should output PNG files for HTML paths defined in INCLUDE option', async () => {
-        await assertFileIsEmitted(assetsPng)
-      })
+    it('should resolve paths of JS files for HTML paths defined in MANIFEST.JSON', async () => {
+      await findStringInFile(sandboxHtml, '/sandbox/page-0.js')
+    })
 
-      it('should not output PNG files if PNG file is in EXCLUDE list', async () => {
-        await assertFileIsNotEmitted(excludedPng)
-      })
+    it('should resolve paths of JS files for HTML paths defined in INCLUDE option', async () => {
+      await findStringInFile(pagesHtml, '/pages/main.js')
+    })
+
+    it('should resolve paths of JS files for HTML paths defined in EXCLUDE option', async () => {
+      await findStringInFile(sandboxHtml, '/public/js/file.js')
+    })
+  })
+
+  describe('static assets', () => {
+    const assetsPng = path.join(outputPath, 'assets', 'extension_128.png')
+    const pageAssetsPng = path.join(outputPath, 'assets', 'notpublic-file.png')
+    const excludedPng = path.join(outputPath, 'public', 'img', 'icon.png')
+
+    it('should output PNG files for HTML paths defined in MANIFEST.JSON', async () => {
+      await assertFileIsEmitted(assetsPng)
+    })
+
+    it('should output PNG files for HTML paths defined in INCLUDE option', async () => {
+      await assertFileIsEmitted(pageAssetsPng)
+    })
+
+    it('should not output PNG files if PNG file is in EXCLUDE list', async () => {
+      await assertFileIsNotEmitted(excludedPng)
     })
   })
 
