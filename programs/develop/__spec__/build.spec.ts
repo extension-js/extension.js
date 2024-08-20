@@ -7,33 +7,6 @@ import {
 } from '../../../examples/data'
 import {removeAllTemplateDistFolders} from './helpers'
 import {extensionBuild} from '../dist/module'
-import {exec} from 'child_process'
-
-function runYarnInTopLevelFolders(templatePath: string): void {
-  // Read the contents of the templatePath directory
-  const folders = fs
-    .readdirSync(templatePath, {withFileTypes: true})
-    .filter((dirent) => dirent.isDirectory()) // Filter only directories
-    .map((dirent) => dirent.name) // Map to the directory names
-
-  folders.forEach((folder) => {
-    const folderPath = path.join(templatePath, folder)
-
-    console.log(`Running yarn in ${folderPath}...`)
-
-    // Run the yarn command in each top-level folder
-    exec('yarn', {cwd: folderPath}, (error, stdout, stderr) => {
-      if (error) {
-        console.error(`Error running yarn in ${folderPath}:`, error)
-        return
-      }
-      if (stderr) {
-        console.error(`Yarn stderr in ${folderPath}:`, stderr)
-      }
-      console.log(`Yarn output in ${folderPath}:\n${stdout}`)
-    })
-  })
-}
 
 function distFileExists(
   templateName: string,

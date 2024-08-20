@@ -196,8 +196,8 @@ export function treeWithSourceAndDistFiles(
     `${'📦 Package name:'} ${brightYellow(
       `${name}`
     )}, ${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${'└─'} ${underline(`${sourceZip}`)} (source)` +
-    `\n   ${'└─'} ${underline(`${destZip}`)} (distribution)`
+    `\n   ${gray('└─')} ${underline(`${sourceZip}`)} (source)` +
+    `\n   ${gray('└─')} ${underline(`${destZip}`)} (distribution)`
   )
 }
 
@@ -210,7 +210,7 @@ export function treeWithDistFilesbrowser(
   return (
     `${'📦 Package name:'} ${brightYellow(`${name}.${ext}`)}, ` +
     `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${'└─'} ${underline(`${zipPath}`)} (distribution)`
+    `\n   ${gray('└─')} ${underline(`${zipPath}`)} (distribution)`
   )
 }
 
@@ -223,7 +223,7 @@ export function treeWithSourceFiles(
   return (
     `${'📦 Package name:'} ${brightYellow(`${name}-source.${ext}`)}, ` +
     `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${'└─'} ${underline(`${zipPath}`)} (source)`
+    `\n   ${gray('└─')} ${underline(`${zipPath}`)} (source)`
   )
 }
 
@@ -352,7 +352,7 @@ function printTree(node: Record<string, any>, prefix = ''): string {
       : ''
     output += `${gray(prefix)}${gray(connector)} ${key}${gray(sizeInKB)}\n`
     if (typeof node[key] === 'object' && !node[key].size) {
-      output += printTree(node[key], `${prefix}${isLast ? '   ' : gray('|  ')}`)
+      output += printTree(node[key], `${prefix}${isLast ? '   ' : gray('│  ')}`)
     }
   })
 
