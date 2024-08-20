@@ -85,9 +85,10 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
         const message: Message = JSON.parse(msg.toString())
 
         if (message.status === 'clientReady') {
-          const manifest: Manifest = require(
-            path.join(projectPath, 'manifest.json')
-          )
+          const manifest: Manifest = require(path.join(
+            projectPath,
+            'manifest.json'
+          ))
           console.log(messages.runningInDevelopment(manifest, message))
           console.log('')
 

@@ -1,6 +1,6 @@
-import extensionJsLogo from '../images/extension.png'
-import './styles.css'
-import styles from './Logo.module.css'
+import extensionJsLogo from '../images/extension_128.png'
+import './styles.scss'
+import styles from './Logo.module.scss'
 
 console.log('hello from content_scripts')
 

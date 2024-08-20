@@ -1,4 +1,4 @@
-import extensionJsLogo from '../images/extension.png'
+import extensionJsLogo from '../images/extension_128.png'
 import './styles.less'
 
 console.log('hello from content_scripts')

@@ -1,7 +1,6 @@
 import path from 'path'
 import {
   type WebpackPluginInstance,
-  type PathData,
   type Compiler,
   type RuleSetRule
 } from 'webpack'
@@ -12,7 +11,6 @@ import {type DevOptions} from '../../commands/dev'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
-import {getAssetFilename} from '../webpack-config'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -28,15 +26,7 @@ export class CssPlugin {
   private async configureOptions(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
-    const plugins: WebpackPluginInstance[] = [
-      new MiniCssExtractPlugin({
-        chunkFilename: (pathData: PathData) => {
-          const runtime = (pathData.chunk as any)?.runtime
-
-          return getAssetFilename(runtime)
-        }
-      })
-    ]
+    const plugins: WebpackPluginInstance[] = [new MiniCssExtractPlugin()]
 
     plugins.forEach((plugin) => plugin.apply(compiler))
 

@@ -1,5 +1,4 @@
 import fs from 'fs'
-import path from 'path'
 import {type Compiler} from 'webpack'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'

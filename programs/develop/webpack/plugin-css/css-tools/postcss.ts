@@ -32,9 +32,12 @@ export function isUsingPostCss(projectPath: string): boolean {
   const manifestName = manifest.name || 'Extension.js'
   if (fs.existsSync(packageJsonPath)) {
     const packageJson = require(packageJsonPath)
-    if (packageJson.postcss) {
+    if (
+      (packageJson.dependencies && packageJson.dependencies['postcss']) ||
+      (packageJson.devDependencies && packageJson.devDependencies['postcss'])
+    ) {
       if (!userMessageDelivered) {
-        console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+        console.log(messages.isUsingIntegration(manifestName, 'PostCSSzzz'))
         userMessageDelivered = true
       }
       return true
@@ -44,7 +47,7 @@ export function isUsingPostCss(projectPath: string): boolean {
   for (const configFile of postCssConfigFiles) {
     if (fs.existsSync(path.join(projectPath, configFile))) {
       if (!userMessageDelivered) {
-        console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+        console.log(messages.isUsingIntegration(manifestName, 'PostCSSwwww'))
         userMessageDelivered = true
       }
       return true
@@ -53,7 +56,7 @@ export function isUsingPostCss(projectPath: string): boolean {
 
   if (isUsingTailwind(projectPath)) {
     if (!userMessageDelivered) {
-      console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+      console.log(messages.isUsingIntegration(manifestName, 'PostCSSaaaaa'))
       userMessageDelivered = true
     }
     return true
@@ -109,6 +112,7 @@ export async function maybeUsePostCss(
         parser: require.resolve('postcss-scss'),
         ident: 'postcss',
         config: false,
+        // config: path.join(projectPath, 'postcss.config.js'),
         plugins: [
           ...maybeInstallTailwind,
           require.resolve('postcss-flexbugs-fixes'),

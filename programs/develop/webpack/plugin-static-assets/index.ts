@@ -14,16 +14,12 @@ export class StaticAssetsPlugin {
   }
 
   public async apply(compiler: Compiler) {
-    const getAssetFilename = (folderPath: string) => {
-      return `${folderPath}/[name][ext]`
-    }
-
     // Define the default SVG rule
     const defaultSvgRule: RuleSetRule = {
       test: /\.svg$/i,
       type: 'asset/resource',
       generator: {
-        filename: () => getAssetFilename('assets')
+        filename: 'assets/[name][ext]'
       },
       parser: {
         dataUrlCondition: {
@@ -50,7 +46,7 @@ export class StaticAssetsPlugin {
         test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
         type: 'asset/resource',
         generator: {
-          filename: () => getAssetFilename('assets')
+          filename: 'assets/[name][ext]'
         },
         parser: {
           dataUrlCondition: {
@@ -63,14 +59,14 @@ export class StaticAssetsPlugin {
         test: /\.(woff|woff2|eot|ttf|otf)$/i,
         type: 'asset/resource',
         generator: {
-          filename: () => getAssetFilename('assets')
+          filename: 'assets/[name][ext]'
         }
       },
       {
         test: /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i,
         type: 'asset/resource',
         generator: {
-          filename: () => getAssetFilename('assets')
+          filename: 'assets/[name][ext]'
         },
         parser: {
           dataUrlCondition: {
@@ -83,7 +79,7 @@ export class StaticAssetsPlugin {
         test: /\.(csv|tsv)$/i,
         use: [require.resolve('csv-loader')],
         generator: {
-          filename: () => getAssetFilename('assets')
+          filename: 'assets/[name][ext]'
         }
       }
     ]

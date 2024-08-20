@@ -1,16 +1,14 @@
 {
-  "devDependencies": {
-    "extension": "latest",
-    "sass": "^1.77.8"
-  },
-  "scripts": {
-    "dev": "extension dev",
-    "start": "extension start",
-    "build": "extension build"
-  },
-  "dependencies": {},
-  "name": "content-sass-module",
   "private": true,
+  "name": "content-sass-module",
+  "description": "An Extension.js example.",
   "version": "0.0.1",
-  "description": "An Extension.js example."
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "devDependencies": {
+    "sass": "^1.77.8"
+  }
 }

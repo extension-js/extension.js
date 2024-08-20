@@ -4,7 +4,7 @@ import {EnvPlugin} from './env'
 import {CleanHotUpdatesPlugin} from './clean-hot-updates'
 import * as messages from '../lib/messages'
 
-import {type PluginInterface, type Manifest} from '../webpack-types'
+import {type PluginInterface} from '../webpack-types'
 
 export class CompilationPlugin {
   public static readonly name: string = 'plugin-compilation'
@@ -25,13 +25,10 @@ export class CompilationPlugin {
     compiler.hooks.done.tap('develop:brand', (stats) => {
       stats.compilation.name = undefined
 
-      const manifest: Manifest = require(this.manifestPath)
-      const manifestName = manifest.name || 'Extension.js'
-      // const manifestVersion = manifest.version || 'Unknown'
       // Calculate compilation time
       const duration = stats.endTime - stats.startTime
 
-      console.log(messages.boring(`${manifestName}`, duration, stats))
+      console.log(messages.boring(duration, stats))
     })
   }
 }

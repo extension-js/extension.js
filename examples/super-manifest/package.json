@@ -1,11 +1,5 @@
 {
   "private": true,
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/extension-js/extension.git",
-    "directory": "examples/super-manifest"
-  },
   "name": "super-manifest",
   "description": "An Extension.js example.",
   "version": "0.0.1",
@@ -14,10 +8,5 @@
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "keywords": [
-    "extension",
-    "browser-extension",
-    "web-extension",
-    "template"
-  ]
+  "license": "MIT"
 }

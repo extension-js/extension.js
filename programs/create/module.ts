@@ -1,46 +1,34 @@
-//  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
-// ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
-// ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
-// ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
-// ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
-//  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-
 import path from 'path'
-import * as messages from './messages'
-import createDirectory from './steps/createDirectory'
-// import importExternalTemplate from './steps/importExternalTemplate'
-import importLocalTemplate from './steps/importLocalTemplate'
-import writePackageJson from './steps/writePackageJson'
-import installDependencies from './steps/installDependencies'
-import abortAndClean from './steps/abortProjectAndClean'
-// import isExternalTemplate from './helpers/isExternalTemplate'
-import writeReadmeFile from './steps/writeReadmeFile'
-import writeManifestJson from './steps/writeManifestJson'
-import generateExtensionTypes from './steps/generateExtensionTypes'
-import isTypeScriptTemplate from './helpers/isTypeScriptTemplate'
-import initializeGitRepository from './steps/initializeGitRepository'
+import * as messages from './lib/messages'
+import * as utils from './lib/utils'
+import {createDirectory} from './steps/create-directory'
+import {importLocalTemplate} from './steps/import-local-template'
+import {importExternalTemplate} from './steps/import-external-template'
+import {overridePackageJson} from './steps/write-package-json'
+import {installDependencies} from './steps/install-dependencies'
+import {writeReadmeFile} from './steps/write-readme-file'
+import {writeManifestJson} from './steps/write-manifest-json'
+import {generateExtensionTypes} from './steps/generate-extension-types'
+import {initializeGitRepository} from './steps/initialize-git-repository'
 
 export interface CreateOptions {
-  template?: string
-  // TODO cezaraugusto deprecated
-  targetDir?: string
+  template: string
+  noInstall?: boolean
 }
 
-export default async function createExtension(
+export async function extensionCreate(
   projectNameInput: string | undefined,
-  {template = 'init'}: CreateOptions
+  {template = 'init', noInstall = false}: CreateOptions
 ) {
   if (!projectNameInput) {
-    messages.noProjectName()
-    process.exit(1)
+    throw new Error(messages.noProjectName())
   }
 
   if (projectNameInput.startsWith('http')) {
-    messages.noUrlAllowed()
-    process.exit(1)
+    throw new Error(messages.noUrlAllowed())
   }
 
-  // check if path is aboslute
+  // Check if path is absolute
   const projectPath = path.isAbsolute(projectNameInput)
     ? projectNameInput
     : path.join(process.cwd(), projectNameInput)
@@ -50,25 +38,36 @@ export default async function createExtension(
   try {
     await createDirectory(projectPath, projectName)
 
-    // if (isExternalTemplate(template)) {
-    //   await importExternalTemplate(targetDir, projectName, template)
-    // } else {
-    await importLocalTemplate(projectPath, projectName, template)
-    // }
+    if (template === 'init') {
+      await importLocalTemplate(projectPath, projectName, template)
+    } else {
+      await importExternalTemplate(projectPath, projectName, template)
+    }
 
-    await writePackageJson(projectPath, projectName, template)
-    await installDependencies(projectPath, projectName)
-    await writeReadmeFile(projectPath, projectName, template)
+    await overridePackageJson(projectPath, projectName, template)
+
+    if (!noInstall) {
+      await installDependencies(projectPath, projectName)
+    }
+
+    await writeReadmeFile(projectPath, projectName)
     await writeManifestJson(projectPath, projectName)
     await initializeGitRepository(projectPath, projectName)
 
-    if (isTypeScriptTemplate(template)) {
+    if (utils.isTypeScriptTemplate(template)) {
       await generateExtensionTypes(projectPath, projectName)
     }
 
     // All good!
-    messages.successfullInstall(projectPath, projectName)
-  } catch (error: any) {
-    await abortAndClean(error, projectPath, projectName)
+    const successfulInstall = await messages.successfullInstall(
+      projectPath,
+      projectName
+    )
+
+    console.log(successfulInstall)
+  } catch (error) {
+    console.error(error)
+    // Re-throw the error so it can be caught in tests
+    throw error
   }
 }

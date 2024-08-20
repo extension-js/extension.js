@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactLogo from '../images/logo.svg'
+import reactLogo from '../images/react.png'
 import tailwindBg from '../images/tailwind_bg.png'
 import typescriptLogo from '../images/typescript.png'
 import tailwindLogo from '../images/tailwind.png'
@@ -38,7 +38,11 @@ export default function ContentApp() {
         </div>
         <div className="mx-auto max-w-md text-center lg:py-12 lg:mx-0 lg:flex-auto lg:text-left">
           <div className="flex items-center justify-center space-x-4 my-4 mx-auto">
-            <ReactLogo className="relative inline-block w-12" />
+            <img
+              alt="React logo"
+              src={reactLogo}
+              className="relative inline-block w-12"
+            />
             <div className="text-3xl text-white">+</div>
             <img
               alt="TypeScript logo"

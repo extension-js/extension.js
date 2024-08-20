@@ -1,10 +1,5 @@
 {
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/cezaraugusto/extension.git",
-    "directory": "programs/create/templates/vue"
-  },
+  "private": true,
   "name": "new-vue",
   "description": "An Extension.js example.",
   "version": "0.0.1",
@@ -13,18 +8,12 @@
     "email": "zxin088@gmail.com",
     "url": "https://hw404.cn"
   },
-  "files": [
-    "template",
-    "template.json"
-  ],
-  "keywords": [
-    "extension",
-    "browser-extension",
-    "web-extension",
-    "template"
-  ],
+  "license": "MIT",
   "dependencies": {
     "vue": "^3.4.27",
     "sakura.css": "^1.5.0"
+  },
+  "devDependencies": {
+    "typescript": "5.3.3"
   }
 }
