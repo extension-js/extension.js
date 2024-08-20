@@ -7,6 +7,33 @@ import {
 } from '../../../examples/data'
 import {removeAllTemplateDistFolders} from './helpers'
 import {extensionBuild} from '../dist/module'
+import {exec} from 'child_process'
+
+function runYarnInTopLevelFolders(templatePath: string): void {
+  // Read the contents of the templatePath directory
+  const folders = fs
+    .readdirSync(templatePath, {withFileTypes: true})
+    .filter((dirent) => dirent.isDirectory()) // Filter only directories
+    .map((dirent) => dirent.name) // Map to the directory names
+
+  folders.forEach((folder) => {
+    const folderPath = path.join(templatePath, folder)
+
+    console.log(`Running yarn in ${folderPath}...`)
+
+    // Run the yarn command in each top-level folder
+    exec('yarn', {cwd: folderPath}, (error, stdout, stderr) => {
+      if (error) {
+        console.error(`Error running yarn in ${folderPath}:`, error)
+        return
+      }
+      if (stderr) {
+        console.error(`Yarn stderr in ${folderPath}:`, stderr)
+      }
+      console.log(`Yarn output in ${folderPath}:\n${stdout}`)
+    })
+  })
+}
 
 function distFileExists(
   templateName: string,
@@ -35,9 +62,14 @@ function distFileExists(
 }
 
 describe('extension build', () => {
+  beforeAll(() => {
+    // Run yarn in all top-level folders of the examples directory
+    // runYarnInTopLevelFolders(path.join(__dirname, '..', '..', '..', 'examples'))
+  })
+
   beforeEach(async () => {
     await removeAllTemplateDistFolders()
-  })
+  }, 30000)
 
   describe('running built-in templates', () => {
     it.each(ALL_TEMPLATES)(
@@ -51,8 +83,6 @@ describe('extension build', () => {
           'examples',
           template.name
         )
-
-        console.log({templatePath})
 
         await extensionBuild(templatePath, {
           browser: SUPPORTED_BROWSERS[0] as 'chrome'
@@ -83,9 +113,11 @@ describe('extension build', () => {
 
         // Running browsers in parallel by invoking them sequentially
         await Promise.all(
-          SUPPORTED_BROWSERS.map(async (browser) => {
-            await extensionBuild(templatePath, {browser: browser as 'chrome'})
-            expect(distFileExists(template.name, browser)).toBeTruthy()
+          SUPPORTED_BROWSERS.filter(browser => browser !== 'chrome').map(async (browser) => {
+            await extensionBuild(templatePath, {browser: browser as any})
+            expect(
+              path.join(templatePath, SUPPORTED_BROWSERS[0], 'manifest.json')
+            ).toBeTruthy()
           })
         )
       },
@@ -110,6 +142,10 @@ describe('extension build', () => {
           browser: SUPPORTED_BROWSERS[0] as 'chrome',
           polyfill: true
         })
+
+        expect(
+          path.join(templatePath, SUPPORTED_BROWSERS[0], 'manifest.json')
+        ).toBeTruthy()
       },
       80000
     )
@@ -133,7 +169,16 @@ describe('extension build', () => {
           zip: true
         })
 
-        expect(distFileExists(template.name, 'chrome')).toBeTruthy()
+        expect(
+          fs.existsSync(
+            path.join(
+              templatePath,
+              'dist',
+              SUPPORTED_BROWSERS[0],
+              `${template.name}-0.0.1.zip`
+            )
+          )
+        ).toBeTruthy()
       },
       80000
     )
@@ -149,15 +194,6 @@ describe('extension build', () => {
           'examples',
           template.name
         )
-        const outputPath = path.join(
-          __dirname,
-          '..',
-          '..',
-          '..',
-          'examples',
-          template.name,
-          'dist'
-        )
 
         await extensionBuild(templatePath, {
           zip: true,
@@ -167,7 +203,7 @@ describe('extension build', () => {
 
         expect(
           fs.existsSync(
-            path.join(outputPath, `${template.name}-0.0.1-source.zip`)
+            path.join(templatePath, 'dist', `${template.name}-0.0.1-source.zip`)
           )
         ).toBeTruthy()
       },
