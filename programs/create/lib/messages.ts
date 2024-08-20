@@ -88,7 +88,9 @@ export async function successfullInstall(
       command = 'npm run dev'
   }
   return (
-    `🧩 - ${brightGreen('Success!')} Extension ${cyan(projectName)} created.\n\n` +
+    `🧩 - ${brightGreen('Success!')} Extension ${cyan(
+      projectName
+    )} created.\n\n` +
     `Now ${brightBlue(`cd ${underline(relativePath)}`)} and ` +
     `${brightBlue(`${command}`)} to open a new browser instance\n` +
     'with your extension installed, loaded, and enabled for development.\n\n' +
@@ -169,9 +171,7 @@ export function initializingGitForRepositoryProcessError(
   projectName: string,
   error: any
 ) {
-  return `${red(
-    `✖︎✖︎✖︎`
-  )} Child process error: Can't initialize ${brightYellow(
+  return `${red(`✖︎✖︎✖︎`)} Child process error: Can't initialize ${brightYellow(
     'git'
   )} for ${cyan(projectName)}. ${error.message}`
 }
@@ -214,11 +214,9 @@ export function installingDependenciesProcessError(
 }
 
 export function cantInstallDependencies(projectName: string, error: any) {
-  return `${red(
-    `✖︎✖︎✖︎`
-  )} Can't install dependencies for ${cyan(projectName)}. ${
-    error.message || error.toString()
-  }`
+  return `${red(`✖︎✖︎✖︎`)} Can't install dependencies for ${cyan(
+    projectName
+  )}. ${error.message || error.toString()}`
 }
 
 export function symlinkCreated() {
@@ -264,7 +262,9 @@ export function writingReadmeMetaData() {
 export function writingReadmeMetaDataEError(projectName: string, error: any) {
   return (
     `${red(`✖︎✖︎✖︎`)} ` +
-    `Can't write the ${brightYellow('README.md')} file for ${cyan(projectName)}. ${error}`
+    `Can't write the ${brightYellow('README.md')} file for ${cyan(
+      projectName
+    )}. ${error}`
   )
 }
 

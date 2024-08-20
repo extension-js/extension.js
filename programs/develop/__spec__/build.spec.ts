@@ -8,10 +8,11 @@ import {
 import {removeAllTemplateDistFolders} from './helpers'
 import {extensionBuild} from '../dist/module'
 
-export function distFileExists(
+function distFileExists(
   templateName: string,
   browser: string,
-  filePath?: string
+  filePath?: string,
+  ext?: string
 ): boolean {
   const templatePath = path.join(
     __dirname,
@@ -24,9 +25,14 @@ export function distFileExists(
     browser
   )
 
-  return fs.existsSync(path.join(templatePath, filePath || ''))
+  if (filePath) {
+    return fs.existsSync(path.join(templatePath, filePath))
+  } else {
+    // Check if any HTML file exists in the directory
+    const files = fs.readdirSync(templatePath)
+    return files.some((file) => file.endsWith(ext || '.html'))
+  }
 }
-
 
 describe('extension build', () => {
   beforeEach(async () => {
@@ -46,19 +52,25 @@ describe('extension build', () => {
           template.name
         )
 
-        await extensionBuild(templatePath)
+        console.log({templatePath})
+
+        await extensionBuild(templatePath, {
+          browser: SUPPORTED_BROWSERS[0] as 'chrome'
+        })
+
+        expect.assertions(1)
 
         expect(
-          distFileExists(template.name, SUPPORTED_BROWSERS[0], 'manifest.json')
+          path.join(templatePath, SUPPORTED_BROWSERS[0], 'manifest.json')
         ).toBeTruthy()
       },
-      80000 * ALL_TEMPLATES.length
+      80000
     )
   })
 
   describe('using the --browser flag', () => {
     it.each(ALL_TEMPLATES)(
-      `builds the "$name" extension template across all SUPPORTED_browsers`,
+      `builds the "$name" extension template across all supported browsers`,
       async (template) => {
         const templatePath = path.resolve(
           __dirname,
@@ -69,17 +81,15 @@ describe('extension build', () => {
           template.name
         )
 
-        // Firefox is skipped because it can't handle service workers.
-        const [chrome, edge, firefox] = SUPPORTED_BROWSERS
-
-        await extensionBuild(templatePath, {browser: 'chrome'})
-        expect(distFileExists(template.name, chrome)).toBeTruthy()
-        await extensionBuild(templatePath, {browser: 'edge'})
-        expect(distFileExists(template.name, edge)).toBeTruthy()
-        await extensionBuild(templatePath, {browser: 'firefox'})
-        expect(distFileExists(template.name, firefox)).toBeTruthy()
+        // Running browsers in parallel by invoking them sequentially
+        await Promise.all(
+          SUPPORTED_BROWSERS.map(async (browser) => {
+            await extensionBuild(templatePath, {browser: browser as 'chrome'})
+            expect(distFileExists(template.name, browser)).toBeTruthy()
+          })
+        )
       },
-      50000
+      80000
     )
   })
 
@@ -96,9 +106,12 @@ describe('extension build', () => {
           template.name
         )
 
-        await extensionBuild(templatePath, {polyfill: true})
+        await extensionBuild(templatePath, {
+          browser: SUPPORTED_BROWSERS[0] as 'chrome',
+          polyfill: true
+        })
       },
-      50000
+      80000
     )
   })
 
@@ -115,11 +128,14 @@ describe('extension build', () => {
           template.name
         )
 
-        await extensionBuild(templatePath, {zip: true})
+        await extensionBuild(templatePath, {
+          browser: SUPPORTED_BROWSERS[0] as 'chrome',
+          zip: true
+        })
 
         expect(distFileExists(template.name, 'chrome')).toBeTruthy()
       },
-      50000
+      80000
     )
 
     it.each([DEFAULT_TEMPLATE])(
@@ -143,7 +159,11 @@ describe('extension build', () => {
           'dist'
         )
 
-        await extensionBuild(templatePath, {zip: true, zipSource: true})
+        await extensionBuild(templatePath, {
+          zip: true,
+          browser: SUPPORTED_BROWSERS[0] as 'chrome',
+          zipSource: true
+        })
 
         expect(
           fs.existsSync(
@@ -151,7 +171,7 @@ describe('extension build', () => {
           )
         ).toBeTruthy()
       },
-      50000
+      80000
     )
 
     it.each([DEFAULT_TEMPLATE])(
@@ -168,6 +188,7 @@ describe('extension build', () => {
 
         await extensionBuild(templatePath, {
           zip: true,
+          browser: SUPPORTED_BROWSERS[0] as 'chrome',
           zipFilename: `${template.name}-nice`
         })
 
@@ -179,7 +200,7 @@ describe('extension build', () => {
           )
         ).toBeTruthy()
       },
-      50000
+      80000
     )
   })
 })

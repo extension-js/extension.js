@@ -18,6 +18,9 @@ export class StaticAssetsPlugin {
     const defaultSvgRule: RuleSetRule = {
       test: /\.svg$/i,
       type: 'asset/resource',
+      generator: {
+        filename: 'assets/[name][ext]'
+      },
       parser: {
         dataUrlCondition: {
           // inline images < 2 KB
@@ -42,6 +45,9 @@ export class StaticAssetsPlugin {
       {
         test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
         type: 'asset/resource',
+        generator: {
+          filename: 'assets/[name][ext]'
+        },
         parser: {
           dataUrlCondition: {
             // inline images < 2 KB
@@ -51,11 +57,17 @@ export class StaticAssetsPlugin {
       },
       {
         test: /\.(woff|woff2|eot|ttf|otf)$/i,
-        type: 'asset/resource'
+        type: 'asset/resource',
+        generator: {
+          filename: 'assets/[name][ext]'
+        }
       },
       {
         test: /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i,
         type: 'asset/resource',
+        generator: {
+          filename: 'assets/[name][ext]'
+        },
         parser: {
           dataUrlCondition: {
             // inline images < 2 KB
@@ -65,7 +77,10 @@ export class StaticAssetsPlugin {
       },
       {
         test: /\.(csv|tsv)$/i,
-        use: [require.resolve('csv-loader')]
+        use: [require.resolve('csv-loader')],
+        generator: {
+          filename: 'assets/[name][ext]'
+        }
       }
     ]
 

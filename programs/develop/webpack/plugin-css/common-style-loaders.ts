@@ -22,8 +22,8 @@ export async function commonStyleLoaders(
     opts.useMiniCssExtractPlugin
       ? miniCssLoader
       : isUsingVue(projectPath)
-        ? require.resolve('vue-style-loader')
-        : require.resolve('style-loader'),
+      ? require.resolve('vue-style-loader')
+      : require.resolve('style-loader'),
     require.resolve('css-loader')
   ].filter(Boolean)
 

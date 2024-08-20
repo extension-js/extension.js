@@ -53,8 +53,8 @@ describe('extension create', () => {
             ? 'ts'
             : 'tsx'
           : template.configFiles?.includes('tsconfig.json')
-            ? 'ts'
-            : 'js'
+          ? 'ts'
+          : 'js'
 
         template.uiContext?.forEach((context: string) => {
           // Expect [context]/index.html for all contexts except 'content'

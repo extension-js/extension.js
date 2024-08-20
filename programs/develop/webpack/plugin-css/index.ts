@@ -1,7 +1,6 @@
 import path from 'path'
 import {
   type WebpackPluginInstance,
-  type PathData,
   type Compiler,
   type RuleSetRule
 } from 'webpack'

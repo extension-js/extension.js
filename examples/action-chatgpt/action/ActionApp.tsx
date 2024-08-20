@@ -64,7 +64,9 @@ function ActionApp() {
           {messages.length &&
             messages.map((msg, i) => (
               <div
-                className={`chat ${msg.role === 'assistant' ? 'chat-start' : 'chat-end'}`}
+                className={`chat ${
+                  msg.role === 'assistant' ? 'chat-start' : 'chat-end'
+                }`}
                 key={'chatKey' + i}
               >
                 <div className="chat-image avatar">

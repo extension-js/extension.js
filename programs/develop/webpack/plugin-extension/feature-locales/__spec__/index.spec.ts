@@ -38,11 +38,11 @@ describe('LocalesPlugin', () => {
   const fixturesPath = getFixturesPath('locales')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
-    beforeAll(async () => {
-      await extensionBuild(fixturesPath, {
-        browser: 'chrome'
-      })
-    }, 60000)
+  beforeAll(async () => {
+    await extensionBuild(fixturesPath, {
+      browser: 'chrome'
+    })
+  }, 60000)
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {

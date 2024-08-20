@@ -28,8 +28,8 @@ function getLoggingPrefix(manifestName: string, type: PrefixType): string {
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-        ? gray('►►►')
-        : brightGreen('►►►')
+      ? gray('►►►')
+      : brightGreen('►►►')
 
   return `${arrow} ${cyan(manifestName)}`
 }
@@ -48,7 +48,9 @@ export function boring(duration: number, stats: Stats) {
       // `${getLoggingPrefix(manifestName, stats.hasErrors() ? 'error' : 'success')} ` +
       `${arrow} ${'Extension.js'} ` +
       // `${getLoggingPrefix('manifestName', stats.hasErrors() ? 'error' : 'success')} ` +
-      `compiled ${stats.hasErrors() ? red('with errors') : brightGreen('successfully')} in ${duration} ms.`
+      `compiled ${
+        stats.hasErrors() ? red('with errors') : brightGreen('successfully')
+      } in ${duration} ms.`
     )
   }
 
@@ -88,7 +90,9 @@ export function isUsingIntegration(manifestName: string, integration: any) {
 export function youAreAllSet(manifestName: string, integration: string) {
   return (
     `${getLoggingPrefix(manifestName, 'success')} You Are All Set\n\n` +
-    `Run the program again to start hacking with ${magenta(integration)} support.`
+    `Run the program again to start hacking with ${magenta(
+      integration
+    )} support.`
   )
 }
 
@@ -649,6 +653,8 @@ export function noExtensionIdError(manifestName: string) {
     `${getLoggingPrefix(manifestName, 'error')} No Extension Id Specified\n\n` +
     `For MAIN world content scripts, you must specify an extension ID.\n` +
     `Otherwise, the content script won't reload on changes.\n` +
-    `Add an ${brightYellow('id')} field to your manifest.json file and try again.`
+    `Add an ${brightYellow(
+      'id'
+    )} field to your manifest.json file and try again.`
   )
 }

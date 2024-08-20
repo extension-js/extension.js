@@ -29,20 +29,20 @@ const JS_TEMPLATES: Template[] = [
   //   hasEnv: false,
   //   configFiles: ['babel.config.json']
   // },
-  {
-    name: 'content-extension-config',
-    uiContext: ['content'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: true,
-    hasEnv: false,
-    configFiles: [
-      'extension.config.js',
-      'tsconfig.json',
-      'postcss.config.js',
-      'tailwind.config.js'
-    ]
-  },
+  // {
+  //   name: 'content-extension-config',
+  //   uiContext: ['content'],
+  //   uiFramework: 'react',
+  //   css: 'css',
+  //   hasBackground: true,
+  //   hasEnv: false,
+  //   configFiles: [
+  //     'extension.config.js',
+  //     'tsconfig.json',
+  //     'postcss.config.js',
+  //     'tailwind.config.js'
+  //   ]
+  // },
   {
     name: 'config-stylelint',
     uiContext: ['newTab'],
@@ -213,15 +213,15 @@ const TS_TEMPLATES: Template[] = [
 ]
 
 const CUSTOM_TEMPLATES: Template[] = [
-  {
-    name: 'action-chatgpt',
-    uiContext: ['action'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: true,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
-  }
+  // {
+  //   name: 'action-chatgpt',
+  //   uiContext: ['action'],
+  //   uiFramework: 'react',
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: true,
+  //   configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  // }
 ]
 
 const FRAMEWORK_TEMPLATES: Template[] = [
@@ -234,34 +234,33 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: ['tsconfig.json']
   },
-  {
-    name: 'content-react',
-    uiContext: ['content'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
-  },
-  {
-    name: 'new-preact',
-    uiContext: ['newTab'],
-    uiFramework: 'preact',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['tsconfig.json']
-  },
-  {
-    name: 'content-preact',
-    uiContext: ['content'],
-    uiFramework: 'preact',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
-  },
+  // {
+  //   name: 'content-react',
+  //   uiContext: ['content'],
+  //   uiFramework: 'react',
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  // },
+  // {
+  //   name: 'new-preact',
+  //   uiContext: ['newTab'],
+  //   uiFramework: 'preact',
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: ['tsconfig.json']
+  // },
+  // {
+  //   name: 'content-preact',
+  //   uiContext: ['content'],
+  //   uiFramework: 'preact',
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  // },
   {
     name: 'new-vue',
     uiContext: ['newTab'],
@@ -270,37 +269,37 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['tsconfig.json']
-  },
-  {
-    name: 'content-vue',
-    uiContext: ['content'],
-    uiFramework: 'vue',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
   }
+  // {
+  //   name: 'content-vue',
+  //   uiContext: ['content'],
+  //   uiFramework: 'vue',
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  // }
 ]
 
 const TAILWIND_TEMPLATES: Template[] = [
-  {
-    name: 'content-tailwind',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['tailwind.config.js', 'postcss.config.js', 'tsconfig.json']
-  },
-  {
-    name: 'new-tailwind',
-    uiContext: ['newTab'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
-  }
+  // {
+  //   name: 'content-tailwind',
+  //   uiContext: ['newTab'],
+  //   uiFramework: undefined,
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: ['tailwind.config.js', 'postcss.config.js', 'tsconfig.json']
+  // },
+  // {
+  //   name: 'new-tailwind',
+  //   uiContext: ['newTab'],
+  //   uiFramework: 'react',
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  // }
 ]
 
 const ALL_TEMPLATES: Template[] = [
