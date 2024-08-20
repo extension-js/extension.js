@@ -37,7 +37,7 @@
     "adm-zip": "^0.5.12",
     "ajv": "^8.17.1",
     "astring": "^1.8.6",
-    "axios": "^1.6.8",
+    "axios": "^1.7.4",
     "browser-extension-manifest-fields": "^1.0.6",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "chokidar": "^3.6.0",
