@@ -385,7 +385,7 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
 export function isUsingExtensionConfig(integration: any) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `is using ${gray(integration)}. ` +
+    `is using ${magenta(integration)}. ` +
     `${brightYellow('This is very experimental')}.`
   )
 }
