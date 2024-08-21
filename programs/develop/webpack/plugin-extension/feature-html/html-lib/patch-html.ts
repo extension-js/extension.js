@@ -6,7 +6,7 @@ import parse5utils from 'parse5-utils'
 import {parseHtml} from './parse-html'
 import {getExtname, getFilePath, getHtmlPageDeclaredAssetPath} from './utils'
 import {type FilepathList} from '../../../webpack-types'
-import {isFromFilepathList, shouldExclude} from '../../../lib/utils'
+import * as utils from '../../../lib/utils'
 
 export function patchHtml(
   compilation: Compilation,
@@ -38,14 +38,14 @@ export function patchHtml(
           const absolutePath = path.resolve(htmlDir, filePath)
           const extname = getExtname(absolutePath)
           // public/ and script/ paths are excluded from the compilation.
-          const isExcludedPath = shouldExclude(
+          const isExcludedPath = utils.shouldExclude(
             path.resolve(htmlDir, filePath),
             excludeList
           )
 
           const excludedFilePath = path.join('/', path.normalize(filePath))
           // Check if the file is in the compilation entry map.
-          const isFilepathListEntry = isFromFilepathList(
+          const isFilepathListEntry = utils.isFromFilepathList(
             absolutePath,
             includeList
           )

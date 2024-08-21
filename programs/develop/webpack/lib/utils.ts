@@ -4,7 +4,7 @@ import {type Compilation} from 'webpack'
 import {execSync} from 'child_process'
 import {detect} from 'detect-package-manager'
 import * as messages from './messages'
-import {type Manifest} from '../webpack-types'
+import {type Manifest, type FilepathList} from '../webpack-types'
 
 export function getResolvedPath(
   context: string,
@@ -24,7 +24,7 @@ export function getResolvedPath(
 
 export function isFromFilepathList(
   filePath: string,
-  filepathList?: Record<string, string | string[] | undefined>
+  filepathList?: FilepathList
 ): boolean {
   return Object.values(filepathList || {}).some((value) => {
     return value === filePath
@@ -66,26 +66,22 @@ export function unixify(filepath: string) {
 }
 
 export function shouldExclude(
-  path: string,
-  ignorePatterns?: Record<string, string | string[] | undefined>
+  filePath: string,
+  ignorePatterns: FilepathList = {}
 ): boolean {
   if (!ignorePatterns) {
     return false
   }
 
-  const patterns = Array.isArray(ignorePatterns)
-    ? ignorePatterns
-    : [ignorePatterns]
-
-  return patterns.some((pattern) => {
+  const unixifiedFilePath = unixify(filePath)
+  return Object.values(ignorePatterns).some((pattern) => {
     if (typeof pattern !== 'string') {
       return false
     }
 
     const _pattern = unixify(pattern)
-    return path.includes(
-      _pattern.startsWith('/') ? _pattern.slice(1) : _pattern
-    )
+
+    return unixifiedFilePath.endsWith(_pattern)
   })
 }
 

@@ -57,5 +57,8 @@ yarn-error.log*
 .swc
 
 # Extension.js (beta)
-examples/*"
 __TEST__
+
+# Examples
+/examples/**/package-lock.json
+/examples/**/yarn.lock

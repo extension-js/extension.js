@@ -4,9 +4,32 @@ import {
   ALL_TEMPLATES,
   DEFAULT_TEMPLATE,
   SUPPORTED_BROWSERS
-} from '../../../examples/data'
-import {removeAllTemplateDistFolders} from './helpers'
-import {extensionBuild} from '../dist/module'
+} from '../../examples/data'
+import {extensionBuild} from './dist/module'
+
+async function removeDir(dirPath: string) {
+  if (fs.existsSync(dirPath)) {
+    await fs.promises.rm(dirPath, {recursive: true})
+  }
+}
+
+async function removeAllTemplateDistFolders() {
+  await Promise.all(
+    ALL_TEMPLATES.map(async (template) => {
+      const templatePath = path.join(
+        __dirname,
+        '..',
+        '..',
+        'examples',
+        template.name,
+        'dist'
+      )
+
+      await removeDir(templatePath)
+      return true
+    })
+  )
+}
 
 function distFileExists(
   templateName: string,
@@ -16,7 +39,6 @@ function distFileExists(
 ): boolean {
   const templatePath = path.join(
     __dirname,
-    '..',
     '..',
     '..',
     'examples',
@@ -35,11 +57,6 @@ function distFileExists(
 }
 
 describe('extension build', () => {
-  beforeAll(() => {
-    // Run yarn in all top-level folders of the examples directory
-    // runYarnInTopLevelFolders(path.join(__dirname, '..', '..', '..', 'examples'))
-  })
-
   beforeEach(async () => {
     await removeAllTemplateDistFolders()
   }, 30000)
@@ -52,10 +69,18 @@ describe('extension build', () => {
           __dirname,
           '..',
           '..',
-          '..',
           'examples',
           template.name
         )
+
+        const postCssConfig = path.join(templatePath, 'postcss.config.js')
+
+        // Dynamically mock the postcss.config.js file if it exists.
+        // Since the file is dynamically imported in the webpack config,
+        // we need to mock it before the webpack config is created.
+        if (fs.existsSync(postCssConfig)) {
+          jest.mock(postCssConfig, () => jest.fn())
+        }
 
         await extensionBuild(templatePath, {
           browser: SUPPORTED_BROWSERS[0] as 'chrome'
@@ -79,19 +104,20 @@ describe('extension build', () => {
           __dirname,
           '..',
           '..',
-          '..',
           'examples',
           template.name
         )
 
         // Running browsers in parallel by invoking them sequentially
         await Promise.all(
-          SUPPORTED_BROWSERS.filter(browser => browser !== 'chrome').map(async (browser) => {
-            await extensionBuild(templatePath, {browser: browser as any})
-            expect(
-              path.join(templatePath, SUPPORTED_BROWSERS[0], 'manifest.json')
-            ).toBeTruthy()
-          })
+          SUPPORTED_BROWSERS.filter((browser) => browser !== 'chrome').map(
+            async (browser) => {
+              await extensionBuild(templatePath, {browser: browser as any})
+              expect(
+                path.join(templatePath, SUPPORTED_BROWSERS[0], 'manifest.json')
+              ).toBeTruthy()
+            }
+          )
         )
       },
       80000
@@ -104,7 +130,6 @@ describe('extension build', () => {
       async (template) => {
         const templatePath = path.resolve(
           __dirname,
-          '..',
           '..',
           '..',
           'examples',
@@ -130,7 +155,6 @@ describe('extension build', () => {
       async (template) => {
         const templatePath = path.resolve(
           __dirname,
-          '..',
           '..',
           '..',
           'examples',
@@ -163,7 +187,6 @@ describe('extension build', () => {
           __dirname,
           '..',
           '..',
-          '..',
           'examples',
           template.name
         )
@@ -188,7 +211,6 @@ describe('extension build', () => {
       async (template) => {
         const templatePath = path.resolve(
           __dirname,
-          '..',
           '..',
           '..',
           'examples',

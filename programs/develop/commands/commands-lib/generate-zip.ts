@@ -73,10 +73,9 @@ export async function generateZip(
     const outputDir = path.join(distDir, browser)
     // We collect data from the projectDir if the user wants to zip the source files.
     const dataDir = options.zipSource ? projectDir : outputDir
-    const manifest: Record<string, string> = require(path.join(
-      dataDir,
-      'manifest.json'
-    ))
+    const manifest: Record<string, string> = require(
+      path.join(dataDir, 'manifest.json')
+    )
     const name = getPackageName(manifest, options)
     const ext = getExtensionExtension(browser)
     // Dist zips are stored in dist/[browser]/[name].zip
@@ -98,7 +97,7 @@ export async function generateZip(
 
     if (options.zip) {
       console.log('')
-      console.log(messages.packagingDistributionFiles(browser))
+      console.log(messages.packagingDistributionFiles(distZipPath))
 
       const zip = new AdmZip()
       zip.addLocalFolder(outputDir)
