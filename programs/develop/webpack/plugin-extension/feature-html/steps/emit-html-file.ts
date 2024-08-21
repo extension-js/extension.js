@@ -3,7 +3,7 @@ import webpack, {type Compiler, Compilation} from 'webpack'
 import {sources} from 'webpack'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../../../lib/messages'
-import {shouldExclude} from '../../../lib/utils'
+import * as utils from '../../../lib/utils'
 import {getFilePath} from '../html-lib/utils'
 
 export class EmitHtmlFile {
@@ -52,7 +52,7 @@ export class EmitHtmlFile {
 
               const rawHtml = fs.readFileSync(resource as string, 'utf8')
 
-              if (!shouldExclude(resource as string, this.excludeList)) {
+              if (!utils.shouldExclude(resource as string, this.excludeList)) {
                 const rawSource = new sources.RawSource(rawHtml)
                 const filepath = getFilePath(featureName, '.html')
                 compilation.emitAsset(filepath, rawSource)
