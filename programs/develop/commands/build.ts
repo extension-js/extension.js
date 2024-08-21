@@ -58,10 +58,11 @@ export async function extensionBuild(
       ...baseConfig,
       plugins: allPluginsButBrowserRunners
     })
+
     const compilerConfig = merge(userConfig)
     const compiler = webpack(compilerConfig)
 
-    return new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       compiler.run(async (err, stats) => {
         if (err) {
           console.error(err.stack || err)
@@ -76,12 +77,11 @@ export async function extensionBuild(
 
         if (!stats?.hasErrors()) {
           console.log(messages.buildSuccess())
+          resolve()
         } else {
           console.log(stats.toString({colors: true}))
-          return reject(new Error('Build failed'))
+          process.exit(1)
         }
-
-        resolve()
       })
     })
   } catch (error) {

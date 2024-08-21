@@ -3,7 +3,7 @@ import path from 'path'
 import type webpack from 'webpack'
 import {sources, Compilation} from 'webpack'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import {shouldExclude} from '../../../lib/utils'
+import * as utils from '../../../lib/utils'
 
 export class EmitFile {
   public readonly manifestPath: string
@@ -51,7 +51,7 @@ export class EmitFile {
                   continue
                 }
 
-                if (!shouldExclude(entry, this.excludeList)) {
+                if (!utils.shouldExclude(entry, this.excludeList)) {
                   const source = fs.readFileSync(entry)
                   const rawSource = new sources.RawSource(source)
 

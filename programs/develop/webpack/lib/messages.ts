@@ -28,8 +28,8 @@ function getLoggingPrefix(manifestName: string, type: PrefixType): string {
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-      ? gray('►►►')
-      : brightGreen('►►►')
+        ? gray('►►►')
+        : brightGreen('►►►')
 
   return `${arrow} ${cyan(manifestName)}`
 }

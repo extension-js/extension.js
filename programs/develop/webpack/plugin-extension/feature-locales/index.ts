@@ -4,7 +4,7 @@ import webpack from 'webpack'
 import {sources, Compilation} from 'webpack'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from '../../lib/messages'
-import {shouldExclude} from '../../lib/utils'
+import * as utils from '../../lib/utils'
 import {getLocales} from './get-locales'
 
 /**
@@ -78,7 +78,7 @@ export class LocalesPlugin {
               const context =
                 compiler.options.context || path.dirname(this.manifestPath)
 
-              if (!shouldExclude(thisResource, this.excludeList)) {
+              if (!utils.shouldExclude(thisResource, this.excludeList)) {
                 const filename = path.relative(context, thisResource)
 
                 compilation.emitAsset(filename, rawSource)
