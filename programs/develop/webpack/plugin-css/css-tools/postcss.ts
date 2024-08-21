@@ -2,7 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import {StyleLoaderOptions} from '../common-style-loaders'
 import * as messages from '../../lib/messages'
-import {isUsingTailwind, maybeUseTailwind} from './tailwind'
+import {isUsingTailwind} from './tailwind'
 import {isUsingSass} from './sass'
 import {isUsingLess} from './less'
 import {installOptionalDependencies} from '../../lib/utils'
@@ -37,7 +37,7 @@ export function isUsingPostCss(projectPath: string): boolean {
       (packageJson.devDependencies && packageJson.devDependencies['postcss'])
     ) {
       if (!userMessageDelivered) {
-        console.log(messages.isUsingIntegration(manifestName, 'PostCSSzzz'))
+        console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
         userMessageDelivered = true
       }
       return true
@@ -47,7 +47,7 @@ export function isUsingPostCss(projectPath: string): boolean {
   for (const configFile of postCssConfigFiles) {
     if (fs.existsSync(path.join(projectPath, configFile))) {
       if (!userMessageDelivered) {
-        console.log(messages.isUsingIntegration(manifestName, 'PostCSSwwww'))
+        console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
         userMessageDelivered = true
       }
       return true
@@ -56,7 +56,7 @@ export function isUsingPostCss(projectPath: string): boolean {
 
   if (isUsingTailwind(projectPath)) {
     if (!userMessageDelivered) {
-      console.log(messages.isUsingIntegration(manifestName, 'PostCSSaaaaa'))
+      console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
       userMessageDelivered = true
     }
     return true
@@ -103,18 +103,14 @@ export async function maybeUsePostCss(
     process.exit(0)
   }
 
-  const maybeInstallTailwind = await maybeUseTailwind(projectPath)
-
   return {
     loader: require.resolve('postcss-loader'),
     options: {
       postcssOptions: {
         parser: require.resolve('postcss-scss'),
         ident: 'postcss',
-        config: false,
-        // config: path.join(projectPath, 'postcss.config.js'),
+        config: path.resolve(projectPath, 'postcss.config.js'),
         plugins: [
-          ...maybeInstallTailwind,
           require.resolve('postcss-flexbugs-fixes'),
           [
             require.resolve('postcss-preset-env'),
@@ -124,9 +120,9 @@ export async function maybeUsePostCss(
               },
               stage: 3
             }
-          ],
+          ].filter(Boolean),
           require.resolve('postcss-normalize')
-        ]
+        ].filter(Boolean)
       },
       sourceMap: opts.mode === 'development'
     }

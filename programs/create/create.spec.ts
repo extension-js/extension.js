@@ -6,9 +6,33 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import path from 'path'
-import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../../examples/data'
-import {extensionCreate} from '../dist/module'
-import {fileExists, removeAllTemplateFolders} from './helpers'
+import fs from 'fs'
+import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../examples/data'
+import {extensionCreate} from './dist/module'
+
+function fileExists(templateName: string, filePath?: string): boolean {
+  const templatePath = path.resolve(__dirname, '..', 'dist', templateName)
+  return fs.existsSync(path.join(templatePath, filePath || ''))
+}
+
+async function removeDir(dirPath: string) {
+  if (fs.existsSync(dirPath)) {
+    await fs.promises.rm(dirPath, {recursive: true})
+  }
+}
+
+async function removeAllTemplateFolders() {
+  await Promise.all(
+    ALL_TEMPLATES.map(async (template) => {
+      const templatePath = path.resolve(__dirname, '..', 'dist', template.name)
+
+      console.log('Removing template:', templatePath)
+
+      await removeDir(templatePath)
+      return true
+    })
+  )
+}
 
 describe('extension create', () => {
   beforeAll(async () => {
@@ -53,8 +77,8 @@ describe('extension create', () => {
             ? 'ts'
             : 'tsx'
           : template.configFiles?.includes('tsconfig.json')
-          ? 'ts'
-          : 'js'
+            ? 'ts'
+            : 'js'
 
         template.uiContext?.forEach((context: string) => {
           // Expect [context]/index.html for all contexts except 'content'

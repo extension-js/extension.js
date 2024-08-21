@@ -2,7 +2,7 @@ import {type Compiler} from 'webpack'
 import {sources, Compilation} from 'webpack'
 import {patchHtml} from '../html-lib/patch-html'
 import {getFilePath} from '../html-lib/utils'
-import {shouldExclude} from '../../../lib/utils'
+import * as utils from '../../../lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 
 export class UpdateHtmlFile {
@@ -42,7 +42,9 @@ export class UpdateHtmlFile {
                   this.excludeList || {}
                 )
 
-                if (!shouldExclude(resource as string, this.includeList)) {
+                if (
+                  !utils.shouldExclude(resource as string, this.excludeList)
+                ) {
                   if (updatedHtml) {
                     const rawSource = new sources.RawSource(updatedHtml)
                     const filepath = getFilePath(feature, '.html')

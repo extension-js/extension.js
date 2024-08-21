@@ -18,10 +18,10 @@ function getLoggingPrefix(
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-      ? brightBlue('►►►')
-      : type === 'error'
-      ? red('✖︎✖︎✖︎')
-      : brightGreen('►►►')
+        ? brightBlue('►►►')
+        : type === 'error'
+          ? red('✖︎✖︎✖︎')
+          : brightGreen('►►►')
   return `${gray('')}${arrow}`
 }
 

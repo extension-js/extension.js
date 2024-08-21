@@ -12,8 +12,8 @@ import {promisify} from 'util'
 const execAsync = promisify(exec)
 
 export async function extensionProgram(command: string = '') {
-  const cliDir = path.resolve(__dirname, '..', 'dist', 'cli.js')
-  const cliCommand = `node ${cliDir} ${command}`
+  const cliDirectory = path.resolve(__dirname, '..', 'dist', 'cli.js')
+  const cliCommand = `node ${cliDirectory} ${command}`
   return await execAsync(cliCommand)
 }
 

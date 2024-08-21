@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import {shouldExclude} from '../../../lib/utils'
 import {FilepathList} from '../../../webpack-types'
+import * as utils from '../../../lib/utils'
 
 export function getScriptEntries(
   scriptPath: string | string[] | undefined,
@@ -10,16 +10,17 @@ export function getScriptEntries(
   const scriptEntries = Array.isArray(scriptPath)
     ? scriptPath || []
     : scriptPath
-    ? [scriptPath]
-    : []
+      ? [scriptPath]
+      : []
 
   const fileAssets = scriptEntries.filter((scriptAsset) => {
     const validFile =
-      fs.existsSync(scriptAsset) && !shouldExclude(scriptAsset, excludeList)
+      fs.existsSync(scriptAsset) &&
+      !utils.shouldExclude(scriptAsset, excludeList)
 
     const assetExtension = path.extname(scriptAsset)
 
-    return validFile && scriptAsset?.includes(assetExtension)
+    return validFile && scriptAsset.includes(assetExtension)
   })
 
   return fileAssets
@@ -32,27 +33,22 @@ export function getCssEntries(
   const scriptEntries = Array.isArray(scriptPath)
     ? scriptPath || []
     : scriptPath
-    ? [scriptPath]
-    : []
+      ? [scriptPath]
+      : []
 
   const fileAssets = scriptEntries.filter((scriptAsset) => {
     const validFile =
-      fs.existsSync(scriptAsset) && !shouldExclude(scriptAsset, excludeList)
+      fs.existsSync(scriptAsset) &&
+      !utils.shouldExclude(scriptAsset, excludeList)
 
     return (
-      (validFile && scriptAsset.endsWith('.css')) ||
-      scriptAsset.endsWith('.scss') ||
-      scriptAsset.endsWith('.sass') ||
-      scriptAsset.endsWith('.less')
+      validFile &&
+      (scriptAsset.endsWith('.css') ||
+        scriptAsset.endsWith('.scss') ||
+        scriptAsset.endsWith('.sass') ||
+        scriptAsset.endsWith('.less'))
     )
   })
 
   return fileAssets
-}
-export function getRelativePath(from: string, to: string) {
-  let relativePath = path.relative(path.dirname(from), to)
-  if (!relativePath.startsWith('.') && !relativePath.startsWith('..')) {
-    relativePath = './' + relativePath
-  }
-  return relativePath
 }

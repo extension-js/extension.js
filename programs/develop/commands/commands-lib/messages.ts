@@ -19,10 +19,10 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-      ? gray('►►►')
-      : type === 'error'
-      ? red('✖︎✖︎✖︎')
-      : brightGreen('►►►')
+        ? gray('►►►')
+        : type === 'error'
+          ? red('✖︎✖︎✖︎')
+          : brightGreen('►►►')
   // return `🧩 ${'Extension.js'} ${arrow}`
   return `${arrow}`
 }
@@ -385,7 +385,7 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
 export function isUsingExtensionConfig(integration: any) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `is using ${gray(integration)}. ` +
+    `is using ${magenta(integration)}. ` +
     `${brightYellow('This is very experimental')}.`
   )
 }

@@ -60,7 +60,7 @@ export async function extensionStart(
     const compilerConfig = merge(userConfig)
     const compiler = webpack(compilerConfig)
 
-    compiler.run(async (err, stats) => {
+    compiler.run((err, stats) => {
       if (err) {
         console.error(err.stack || err)
         process.exit(1)

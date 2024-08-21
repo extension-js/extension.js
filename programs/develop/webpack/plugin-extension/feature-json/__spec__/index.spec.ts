@@ -46,11 +46,11 @@ describe('JsonPlugin', () => {
       })
     }, 60000)
 
-    // afterAll(() => {
-    //   if (fs.existsSync(outputPath)) {
-    //     fs.rmSync(outputPath, {recursive: true, force: true})
-    //   }
-    // })
+    afterAll(() => {
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath, {recursive: true, force: true})
+      }
+    })
 
     const rulesetJson = path.join(
       outputPath,

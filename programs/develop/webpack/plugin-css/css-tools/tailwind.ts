@@ -59,45 +59,41 @@ export function getTailwindConfigFile(projectPath: string) {
 export async function maybeUseTailwind(projectPath: string) {
   const projectName = require(path.join(projectPath, 'package.json')).name
 
-  if (isUsingTailwind(projectPath)) {
-    try {
-      require.resolve('tailwindcss')
-    } catch (e) {
-      const postCssDependencies = [
-        'postcss-loader',
-        'postcss-scss',
-        'postcss-flexbugs-fixes',
-        'postcss-preset-env',
-        'postcss-normalize'
-      ]
-
-      await installOptionalDependencies(
-        projectName,
-        'PostCSS',
-        postCssDependencies
-      )
-
-      const tailwindDependencies = ['tailwindcss']
-
-      await installOptionalDependencies(
-        projectName,
-        'Tailwind',
-        tailwindDependencies
-      )
-
-      // The compiler will exit after installing the dependencies
-      // as it can't read the new dependencies without a restart.
-
-      console.log(messages.youAreAllSet(projectName, 'Tailwind'))
-      process.exit(0)
-    }
-
-    return [
-      ...(isUsingTailwind(projectPath)
-        ? [require.resolve('tailwindcss', {paths: [projectPath]})]
-        : [])
+  if (!isUsingTailwind(projectPath)) return []
+  try {
+    require.resolve('tailwindcss')
+  } catch (e) {
+    const postCssDependencies = [
+      'postcss-loader',
+      'postcss-scss',
+      'postcss-flexbugs-fixes',
+      'postcss-preset-env',
+      'postcss-normalize'
     ]
+
+    await installOptionalDependencies(
+      projectName,
+      'PostCSS',
+      postCssDependencies
+    )
+
+    const tailwindDependencies = ['tailwindcss']
+
+    await installOptionalDependencies(
+      projectName,
+      'Tailwind',
+      tailwindDependencies
+    )
+
+    // The compiler will exit after installing the dependencies
+    // as it can't read the new dependencies without a restart.
+    console.log(messages.youAreAllSet(projectName, 'Tailwind'))
+    process.exit(0)
   }
 
-  return []
+  return [
+    ...(isUsingTailwind(projectPath)
+      ? [require.resolve('tailwindcss', {paths: [projectPath]})]
+      : [])
+  ]
 }
