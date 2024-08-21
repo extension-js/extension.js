@@ -10,5 +10,5 @@ jobs:
     - name: Run compiler
       run: yarn compile
     - name: Run `extenion build` command
-      run: EXTENSION_ENV=development yarn test:build
+      run: yarn test:build
 
