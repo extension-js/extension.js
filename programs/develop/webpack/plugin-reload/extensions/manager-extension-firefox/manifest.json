@@ -1,6 +1,6 @@
 {
-  "name": "Extension.js Developer Tools (Firefox)",
-  "description": "Utility for developers to manage their extensions using Firefox.",
+  "name": "Extension Manager",
+  "description": "Developer Tools for extension management.",
   "version": "1.0",
   "manifest_version": 2,
   "background": {

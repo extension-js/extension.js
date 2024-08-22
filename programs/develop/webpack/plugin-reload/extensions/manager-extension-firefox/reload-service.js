@@ -54,7 +54,7 @@ async function getDevExtensions() {
       // Do not include itself
       extension.id !== browser.runtime.id &&
       // Manager extension
-      extension.name !== 'Add-On Manager' &&
+      extension.name !== 'Extension Manager' &&
       // Show only unpackaged extensions
       extension.installType === 'development'
     )
