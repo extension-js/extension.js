@@ -1,6 +1,7 @@
 {
   "private": true,
   "scripts": {
+    "postinstall": "bash install_scripts.sh",
     "clean": "turbo clean && rm -rf node_modules",
     "changeset": "changeset",
     "compile": "dotenv -- turbo run compile",
