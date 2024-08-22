@@ -8,7 +8,7 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import {program} from 'commander'
-import {extensionCreate, type CreateOptions} from '@extension-create/create'
+import {extensionCreate, type CreateOptions} from 'extension-create'
 import {
   extensionDev,
   type DevOptions,
