@@ -11,6 +11,7 @@ export interface StyleLoaderOptions {
   mode: DevOptions['mode']
   useMiniCssExtractPlugin: boolean
   loader?: string
+  loaderOptions?: Record<string, any>
 }
 
 export async function commonStyleLoaders(
@@ -56,6 +57,7 @@ export async function commonStyleLoaders(
         {
           loader: require.resolve(opts.loader),
           options: {
+            ...opts.loaderOptions,
             sourceMap: opts.mode === 'development'
           }
         }

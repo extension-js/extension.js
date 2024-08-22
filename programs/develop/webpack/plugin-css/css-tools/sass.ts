@@ -75,6 +75,8 @@ export async function maybeUseSass(
   return [
     {
       test: /\.(s(a|c)ss)$/,
+      // Set to 'css/auto' if you want to support '*.module.less' as CSS Modules, otherwise set type to 'css'
+      type: 'css',
       exclude: /\.module\.(s(a|c)ss)$/,
       oneOf: [
         {
@@ -96,11 +98,19 @@ export async function maybeUseSass(
     },
     {
       test: /\.module\.(s(a|c)ss)$/,
+      // Set to 'css/auto' if you want to support '*.module.less' as CSS Modules, otherwise set type to 'css'
+      type: 'css/auto',
       oneOf: [
         {
           resourceQuery: /is_content_css_import=true/,
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
+            loaderOptions: {
+              // using `modern-compiler` and `sass-embedded` together significantly improve build performance,
+              // requires `sass-loader >= 14.2.1`
+              api: 'modern-compiler',
+              implementation: require.resolve('sass-embedded')
+            },
             mode,
             useMiniCssExtractPlugin: false
           })
