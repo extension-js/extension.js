@@ -88,13 +88,16 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
           const manifest: Manifest = require(
             path.join(projectPath, 'manifest.json')
           )
-          console.log(messages.runningInDevelopment(manifest, message))
-          console.log('')
+
+          setTimeout(() => {
+            console.log(messages.runningInDevelopment(manifest, message))
+            console.log('')
+          }, 2500)
 
           if (isFirstRun(options.browser)) {
             setTimeout(() => {
               console.log(messages.isFirstRun(options.browser))
-            }, 2500)
+            }, 5000)
           }
         }
       })
