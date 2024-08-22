@@ -9,7 +9,7 @@ import {
   bold,
   gray,
   brightYellow,
-  magenta
+  magenta,
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
@@ -28,7 +28,7 @@ function getLoggingPrefix(manifestName: string, type: PrefixType): string {
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-        ? gray('►►►')
+        ? cyan('►►►')
         : brightGreen('►►►')
 
   return `${arrow} ${cyan(manifestName)}`
@@ -462,7 +462,7 @@ export function serverRestartRequiredFromSpecialFolder(
   return (
     `${getLoggingPrefix(
       'manifest.json',
-      'info'
+      'error'
     )} Manifest Entry Point Modification\n\n` +
     `${addOrRemove} ${brightYellow(typeOfAsset)} in the ${underline(
       folder + '/'
@@ -503,7 +503,7 @@ export function runningInDevelopment(
       `No data received from the extension client.\n\n` +
       `This error happens when the program can\'t get the data from your extension.\n` +
       `Ensure your extension is enabled in your browser and that no hanging browser\n` +
-      `instance is open.\n\nIf that is not the case, restart the extension package in\n` +
+      `instance is open.\n\nIf that is not the case, restart the extension package within ` +
       `the browser and try again.\n\n` +
       `If nothing helps and the issue persists, please report a bug:\n\n` +
       underline(`https://github.com/extension-js/extension.js/issues`)
