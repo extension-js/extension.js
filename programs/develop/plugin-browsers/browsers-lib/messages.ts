@@ -65,7 +65,7 @@ export function browserNotInstalled(
 export function creatingUserProfile(browser: DevOptions['browser']) {
   const browsername = capitalizedBrowserName(browser)
   return (
-    `${getLoggingPrefix(browser, 'info')} 👤 Creating ${browsername} ` +
+    `${getLoggingPrefix(browser, 'info')} Creating ${browsername} ` +
     `profile directory...`
   )
 }
