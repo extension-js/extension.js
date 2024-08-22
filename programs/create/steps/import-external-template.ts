@@ -24,12 +24,16 @@ export async function importExternalTemplate(
   try {
     await fs.mkdir(projectPath, {recursive: true})
 
+    let templatePath = ''
+
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.installingFromTemplate(projectName, template))
 
+      templatePath = path.join(installationPath, templateName)
+
       await fs.cp(
         path.join(__dirname, '..', '..', '..', 'examples', templateName),
-        path.join(installationPath, templateName),
+        templatePath,
         {recursive: true}
       )
     } else {
@@ -38,11 +42,15 @@ export async function importExternalTemplate(
         installationPath,
         messages.installingFromTemplate(projectName, templateName)
       )
+
+      templatePath = path.join(installationPath, templateName)
     }
 
-    const templatePath = path.join(installationPath, templateName)
+    // Copy the contents of the template to the desired project path
+    await fs.cp(templatePath, projectPath, {recursive: true})
 
-    await fs.rename(templatePath, projectPath)
+    // Remove the original template directory
+    await fs.rm(templatePath, {recursive: true, force: true})
   } catch (error: any) {
     console.error(
       messages.installingFromTemplateError(projectName, templateName, error)
