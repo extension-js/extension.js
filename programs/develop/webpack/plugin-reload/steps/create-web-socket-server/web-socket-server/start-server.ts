@@ -84,11 +84,9 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
       })
     })
   } else if (webSocketServer) {
-    console.log(`Reusing existing WebSocket server on port ${port}`)
+    // Reusing existing WebSocket server on port.
   } else {
-    console.error(
-      `Port ${port} is already in use but WebSocket server is not initialized.`
-    )
+    // Port is already in use but WebSocket server is not initialized.
     return
   }
 
