@@ -1,4 +1,4 @@
-import {BrowserRouter as Router, Switch, Route, Link} from 'react-router-dom'
+import {HashRouter as Router, Switch, Route, Link} from 'react-router-dom'
 import 'sakura.css'
 import './styles.css'
 import reactLogo from '../images/react.png'
@@ -66,8 +66,6 @@ export default function NewTabApp() {
           <Link to="/users">Users</Link>
         </nav>
 
-        {/* A <Switch> looks through its children <Route>s and
-            renders the first one that matches the current URL. */}
         <Switch>
           <Route path="/about">
             <About />
