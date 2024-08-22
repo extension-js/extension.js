@@ -72,10 +72,8 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
             path.join(projectPath, 'manifest.json')
           )
 
-          setTimeout(() => {
-            console.log(messages.runningInDevelopment(manifest, message))
-            console.log('')
-          }, 2500)
+          console.log(messages.runningInDevelopment(manifest, message))
+          console.log('')
 
           if (isFirstRun(options.browser)) {
             setTimeout(() => {

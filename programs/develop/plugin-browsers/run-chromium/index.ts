@@ -89,9 +89,14 @@ export class RunChromiumPlugin {
 
       this.launchChromium(this.browser)
 
-      console.log(
-        messages.stdoutData(this.browser, compilation.compilation.options.mode)
-      )
+      setTimeout(() => {
+        console.log(
+          messages.stdoutData(
+            this.browser,
+            compilation.compilation.options.mode
+          )
+        )
+      }, 2000)
 
       chromiumDidLaunch = true
       done()
