@@ -13,10 +13,7 @@ export function createProfile(
   profilePath?: string,
   silent?: boolean
 ) {
-  if (
-    profilePath ||
-    fs.existsSync(path.resolve(__dirname, `run-${browser}-profile`))
-  ) {
+  if (fs.existsSync(path.resolve(__dirname, `run-${browser}-profile`))) {
     return profilePath || path.resolve(__dirname, `run-${browser}-profile`)
   }
 

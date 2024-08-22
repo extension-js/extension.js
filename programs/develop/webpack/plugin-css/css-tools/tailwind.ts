@@ -35,8 +35,9 @@ export function isUsingTailwind(projectPath: string) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
       const manifestName = manifest.name || 'Extension.js'
-      console.log(messages.isUsingIntegration(manifestName, 'Tailwind'))
-
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.isUsingIntegration(manifestName, 'Tailwind'))
+      }
       userMessageDelivered = true
     }
   }

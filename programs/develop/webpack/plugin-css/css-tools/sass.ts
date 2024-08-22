@@ -24,7 +24,9 @@ export function isUsingSass(projectPath: string): boolean {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
       const manifestName = manifest.name || 'Extension.js'
-      console.log(messages.isUsingIntegration(manifestName, 'SASS'))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.isUsingIntegration(manifestName, 'SASS'))
+      }
 
       userMessageDelivered = true
     }
