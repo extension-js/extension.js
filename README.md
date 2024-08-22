@@ -1,4 +1,4 @@
-[action-image]: https://github.com/cezaraugusto/extension/actions/workflows/build.yml/badge.svg?branch=main
+[action-image]: https://github.com/cezaraugusto/extension/actions/workflows/cli.yml/badge.svg?branch=main
 [action-url]: https://github.com/cezaraugusto/extension/actions
 [npm-image]: https://img.shields.io/npm/v/extension.svg
 [npm-url]: https://npmjs.org/package/extension
@@ -14,7 +14,7 @@
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
 [discord-url]: https://discord.gg/1253608412890271755
 
-# Extension.js [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![discord][discord-image]][discord-url]
+# Extension.js [![fossa][fossa-image]][fossa-url] [![vunlerabilities][vunlerabilities]][vunlerabilities] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![discord][discord-image]][discord-url]
 
 <!-- > Plug-and-play, zero-config, cross-browser extension development tool. -->
 

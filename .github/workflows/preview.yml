@@ -1,4 +1,4 @@
-name: 🛠️
+name: command:preview
 on: push
 jobs:
   build:
@@ -9,5 +9,5 @@ jobs:
       run: yarn
     - name: Run compiler
       run: yarn compile
-    - name: Run `extenion` cli without arguments
-      run: yarn test:cli
+    # - name: Run preview tests (TODO)
+    #   run: yarn test:preview
