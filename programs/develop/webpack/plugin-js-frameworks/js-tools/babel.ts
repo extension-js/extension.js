@@ -160,7 +160,7 @@ export async function maybeUseBabel(
       {
         test: files,
         include: projectPath,
-        exclude: /node_modules/,
+        exclude: [/[\\/]node_modules[\\/]/],
         loader: require.resolve('babel-loader'),
         options: babelConfig(projectPath, {
           mode,

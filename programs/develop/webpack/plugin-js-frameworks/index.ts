@@ -42,9 +42,9 @@ export class JsFrameworksPlugin {
       {
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: [path.dirname(this.manifestPath)],
-        exclude: /node_modules/,
+        exclude: [/[\\/]node_modules[\\/]/],
         use: {
-          loader: require.resolve('swc-loader'),
+          loader: require.resolve('builtin:swc-loader'),
           options: {
             sync: true,
             module: {
@@ -54,6 +54,7 @@ export class JsFrameworksPlugin {
             isModule: true,
             jsc: {
               target: 'es2016',
+              externalHelpers: true,
               parser: {
                 syntax: isUsingTypeScript(projectPath)
                   ? 'typescript'

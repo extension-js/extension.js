@@ -4,7 +4,7 @@ import {
   type Compiler,
   type RuleSetRule
 } from 'webpack'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import rspack from '@rspack/core'
 import {commonStyleLoaders} from './common-style-loaders'
 import {PluginInterface} from '../webpack-types'
 import {type DevOptions} from '../../commands/dev'
@@ -26,7 +26,9 @@ export class CssPlugin {
   private async configureOptions(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
-    const plugins: WebpackPluginInstance[] = [new MiniCssExtractPlugin()]
+    const plugins: WebpackPluginInstance[] = [
+      new rspack.CssExtractRspackPlugin() as any
+    ]
 
     plugins.forEach((plugin) => plugin.apply(compiler))
 
@@ -37,6 +39,7 @@ export class CssPlugin {
       {
         test: /\.css$/,
         exclude: /\.module\.css$/,
+        type: 'javascript/auto',
         oneOf: [
           {
             resourceQuery: /is_content_css_import=true/,
@@ -55,6 +58,7 @@ export class CssPlugin {
       },
       {
         test: /\.module\.css$/,
+        type: 'javascript/auto',
         oneOf: [
           {
             resourceQuery: /is_content_css_import=true/,

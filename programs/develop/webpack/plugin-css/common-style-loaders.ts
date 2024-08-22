@@ -1,5 +1,5 @@
 import {type RuleSetRule} from 'webpack'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import rspack from '@rspack/core'
 import {DevOptions} from '../../commands/dev'
 import {isUsingTailwind} from './css-tools/tailwind'
 import {isUsingSass} from './css-tools/sass'
@@ -17,7 +17,7 @@ export async function commonStyleLoaders(
   projectPath: string,
   opts: StyleLoaderOptions
 ): Promise<RuleSetRule['use']> {
-  const miniCssLoader = MiniCssExtractPlugin.loader
+  const miniCssLoader = rspack.CssExtractRspackPlugin.loader
   const styleLoaders: RuleSetRule['use'] = [
     opts.useMiniCssExtractPlugin
       ? miniCssLoader

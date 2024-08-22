@@ -81,7 +81,7 @@ export async function maybeUseVue(
       test: /\.vue$/,
       loader: require.resolve('vue-loader'),
       include: projectPath,
-      exclude: /node_modules/
+      exclude: [/[\\/]node_modules[\\/]/]
     }
   ]
 
