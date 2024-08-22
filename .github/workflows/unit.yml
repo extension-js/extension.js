@@ -1,4 +1,4 @@
-name: 🛠️
+name: unit-tests
 on: push
 jobs:
   build:
@@ -9,5 +9,5 @@ jobs:
       run: yarn
     - name: Run compiler
       run: yarn compile
-    - name: Run `extenion` cli without arguments
-      run: yarn test:cli
+    - name: Run core webpack plugin tests
+      run: yarn test
