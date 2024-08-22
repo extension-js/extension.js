@@ -25,7 +25,7 @@ export async function importExternalTemplate(
     await fs.mkdir(projectPath, {recursive: true})
 
     if (process.env.EXTENSION_ENV === 'development') {
-      console.log(messages.installingFromTemplate(projectName, template))  
+      console.log(messages.installingFromTemplate(projectName, template))
 
       await fs.cp(
         path.join(__dirname, '..', '..', '..', 'examples', templateName),

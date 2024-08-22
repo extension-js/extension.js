@@ -1,6 +1,6 @@
 {
   "name": "Extension Manager",
-  "description": "Developer Tools for extension management.",
+  "description": "Extension.js developer tools for tabs and reload management.",
   "version": "1.0",
   "manifest_version": 2,
   "background": {

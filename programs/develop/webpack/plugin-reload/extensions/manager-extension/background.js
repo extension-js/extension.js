@@ -30,7 +30,7 @@ chrome.tabs.query({active: true}, async ([initialTab]) => {
 ██████████████████████████    ████████████████████████████
 ██████████████████████████████████████████████████████████
 ██████████████████████████████████████████████████████████
-   Make it very easy to develop cross-browser extensions.
+MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors.
 `,
     bgGreen('')
   )

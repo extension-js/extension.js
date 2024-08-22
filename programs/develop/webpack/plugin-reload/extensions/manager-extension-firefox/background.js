@@ -31,6 +31,7 @@ async function handleTabOnExtensionLoad() {
 ██████████████████████████    ████████████████████████████
 ██████████████████████████████████████████████████████████
 ██████████████████████████████████████████████████████████
+MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors.
 `,
     bgGreen('')
   )
