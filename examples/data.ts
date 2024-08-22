@@ -1,4 +1,3 @@
-import {DevOptions} from 'extension-develop'
 import {type Template} from './types'
 
 const DEFAULT_TEMPLATE: Template = {
@@ -317,7 +316,7 @@ const ALL_TEMPLATES_BUT_DEFAULT = ALL_TEMPLATES.filter(
   (template) => template.name !== 'init'
 )
 
-const SUPPORTED_BROWSERS: DevOptions['browser'][] = [
+const SUPPORTED_BROWSERS: string[] = [
   'chrome',
   'edge',
   'firefox'

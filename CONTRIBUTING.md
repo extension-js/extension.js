@@ -1,41 +1,14 @@
 # Contributing 🧩
 
-`Extension.js` is a monorepo consisting of multiple programs and packages.
+First off, thanks a lot for taking time to read this part. Extension.js' core phiolosophy is to make it very easy to develop browser extensions, and that includes the program that makes it happen as well. Hope this guide makes it very easy for you to contribute ;)
 
-- Programs: Each CLI command (including the CLI itself) is a program.
-- Packages: Helper libraries and built-in webpack plugins.
+Extension.js runs on top of webpack using custom plugins. The whole Extension.js program consists of three core modules.
 
-## Monorepo Packages
-
-| Package Name                                                                       | Description                                                                    |
-| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| [`browser-extension-manifest-fields`](/packages/browser-extension-manifest-fields) | Library to output manifest asset paths.                                        |
-| [`common-errors-plugin`](/packages/common-errors-plugin)                           | Plugin to handle common compilation errors.                                    |
-| [`eslint-config-extension-create`](/packages/eslint-config-extension-create)       | Preset of eslint rules for Extension.js.                                       |
-| [`html-plugin`](/packages/html-plugin)                                             | Plugin to handle and compile HTML fields (and its assets) from the manifest.   |
-| [`icons-plugin`](/packages/icons-plugin)                                           | Plugin to handle and compile icon fields from the manifest.                    |
-| [`json-plugin`](/packages/json-plugin)                                             | Plugin to handle and compile JSON fields from the manifest.                    |
-| [`locales-plugin`](/packages/locales-plugin)                                       | Plugin to handle and compile locales fields from the manifest.                 |
-| [`manifest-compat-plugin`](/packages/manifest-compat-plugin)                       | Plugin to handle compatibility errors in the manifest.                         |
-| [`manifest-plugin`](/packages/manifest-plugin)                                     | Plugin to handle and compile the manifest file.                                |
-| [`resolve-plugin`](/packages/resolve-plugin)                                       | Plugin to resolve paths for Chrome or browser API namespaces.                  |
-| [`resources-plugin`](/packages/resources-plugin)                                   | Plugin to handle and compile static across the extension features.             |
-| [`run-chrome-extension`](/packages/run-chrome-extension)                           | Plugin to run the Chrome browser during development.                           |
-| [`run-edge-extension`](/packages/run-edge-extension)                               | Plugin to run the Edge browser during development.                             |
-| [`run-firefox-extension`](/packages/run-firefox-extension)                         | Plugin to run the Firefox browser during development.                          |
-| [`scripts-plugin`](/packages/scripts-plugin)                                       | Plugin to handle and compile script fields from the manifest.                  |
-| [`tsconfig`](/packages/tsconfig)                                                   | The shared tsconfig to handle the project TypeScript files during compilation. |
-
-## Programs
-
-Extension.js includes several command line programs, each serving a specific purpose in the extension development lifecycle:
-
-| Program   | Description                                                                                  |
-| --------- | -------------------------------------------------------------------------------------------- |
-| `cli`     | The Command Line Interface that executes the Extension.js programs.                          |
-| `create`  | Create extensions from built-in templates.                                                   |
-| `develop` | Wrapper around the webpack config that consists of the `dev`, `start`, and `build` commands. |
-| `publish` | This is empty for now.                                                                       |
+| Program   | Description                                                                                    |
+| --------- | ---------------------------------------------------------------------------------------------- |
+| `cli`     | The Command Line Interface that executes the Extension.js programs.                            |
+| `create`  | Create extensions from built-in templates. This is what runs when `extension create` is fired. |
+| `develop` | Wrapper around the webpack config that consists of the `dev`, `start`, and `build` commands.   |
 
 ## Installation
 
@@ -47,25 +20,27 @@ Extension.js includes several command line programs, each serving a specific pur
 
 To watch and apply changes to the project, you will need two or more terminals open:
 
-### Terminal 1: Use it to watch file changes (yarn watch)
+### Terminal 1: Watch mode
+
+Use it to watch file changes. Under the hood this runs the compiler (`yarn compile`) infinitely.
 
 ```sh
 yarn watch
 ```
 
-> **NOTE:** The browser runners (`run-chrome-extension` and `run-edge-extension`) are not
-> watched by default, since they trigger the execution of the browser binary. To see changes
-> applied to these packages, apply a `yarn compile` command either globally (at project root)
-> or individually (running `yarn compile` at the package folder level).
+### Terminal 2: Mimick `extension` command behavior.
 
-### Terminal 2: Use it to actually execute the commands you want to test.
-
-The CLI is available internally as an npm script `yarn extension <command> [argument]`.
-Use it to experiment with the multiple Extension.js CLI commands.
+Now that you have the watcher running, running `yarn extension <command> [argument]` will emulate the production `extension <command> [argument]`. Use it to experiment with the multiple Extension.js CLI commands.
 
 ```sh
 yarn extension <command> [argument]
 ```
+
+That's all!
+
+## Templates
+
+Extension.js uses its own templates for testing. If you need to test a React extension behavior for example, running `yarn extension dev ./examples/new-react` will open the `new-react` template and use the defaults applied for a React configuration.
 
 ## Useful Commands
 
@@ -116,7 +91,7 @@ yarn test
 
 ### `clean`
 
-Deletes cache, dist/ and node_modules/ across packages and programs .
+Deletes cache, `dist/` and `node_modules/` across packages and programs.
 
 ```sh
 yarn clean

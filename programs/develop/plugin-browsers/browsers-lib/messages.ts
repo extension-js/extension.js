@@ -4,7 +4,7 @@ import {
   brightYellow,
   brightGreen,
   red,
-  brightBlue
+  cyan
 } from '@colors/colors/safe'
 import {DevOptions} from '../../commands/dev'
 
@@ -18,7 +18,7 @@ function getLoggingPrefix(
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-        ? brightBlue('►►►')
+        ? cyan('►►►')
         : type === 'error'
           ? red('✖︎✖︎✖︎')
           : brightGreen('►►►')
@@ -39,7 +39,7 @@ export function stdoutData(
     `${getLoggingPrefix(browser, 'info')} ` +
     `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
     // `${cyan(name)} ` +
-    `running in ${brightBlue(mode || 'unknown')} mode.`
+    `running in ${cyan(mode || 'unknown')} mode.`
   )
 }
 
