@@ -6,7 +6,7 @@ async function getDevExtension() {
       // Do not include itself
       extension.id !== browser.runtime.id &&
       // Reload extension
-      extension.name !== 'Reload Service' &&
+      extension.name !== 'Extension Manager' &&
       // Show only unpackaged extensions
       extension.installType === 'development'
     )
@@ -14,8 +14,6 @@ async function getDevExtension() {
 }
 
 // Create a new tab and set it to background.
-// We want the user-selected page to be active,
-// not about:blank.
 export async function createFirefoxAddonsTab(initialTab, url) {
   try {
     // Check if an about:blank tab is already open
@@ -41,17 +39,27 @@ export async function createFirefoxAddonsTab(initialTab, url) {
 
 // Function to handle first run logic
 export async function handleFirstRun() {
-  // browser.tabs.update({url: 'about://debugging/'})
+  try {
+    const devExtensions = await getDevExtension()
 
-  const devExtension = await getDevExtension()
+    if (devExtensions.length === 0) {
+      console.warn('No development extensions found')
+      return
+    }
 
-  browser.storage.local.get(devExtension.id, (result) => {
+    const devExtension = await getDevExtension()
+    const result = await browser.storage.local.get(devExtension.id)
+
     if (result[devExtension.id] && result[devExtension.id].didRun) {
       return
     }
 
-    browser.tabs.create({url: './pages/welcome.html'})
+    // Open the welcome page
+    await browser.tabs.create({url: './pages/welcome.html'})
+
     // Ensure the welcome page shows only once per extension installation
-    browser.storage.local.set({[devExtension.id]: {didRun: true}})
-  })
+    await browser.storage.local.set({[devExtension.id]: {didRun: true}})
+  } catch (error) {
+    console.error('Error handling tabs on extension load:', error)
+  }
 }

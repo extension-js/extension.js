@@ -1,6 +1,6 @@
 {
-  "name": "Extension.js Developer Tools",
-  "description": "Utility for developers to manage their extensions.",
+  "name": "Extension Manager",
+  "description": "Developer Tools for extension management.",
   "version": "1.0",
   "manifest_version": 3,
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAolEJq/DBHxY5dBpOqBRWNCl7vRPBvJPlpEzF19fYFVzzaH44AF6+sKjN3jwIKlsgI82F3TIuwoNFiN1yBu5Unf8SVBE4BTO92P02/ACcGYQxicgCLFUGQKlq4uSrwSPaBYl7FHcYl5SERgxnIGCGnaGMdL2vC7waCj2/U/iKoBF9I1lBH9/aKCSjTd3h2UYo7gg6n5nY/ENbzylDt42T3ATmvnVJfYhSNKA9Dv/zryknfnHYYgBKHtz7pDZwWnYdxs78n2VEKwGj7TgbXuIPDpCkrMnU9PTKpHbXFYARA4H9qYORQmYazfIxUZRnKQNSR+GAOGrb8JK+ijeQdwzDAwIDAQAB",

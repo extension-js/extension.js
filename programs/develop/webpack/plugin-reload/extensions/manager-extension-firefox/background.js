@@ -36,27 +36,15 @@ async function handleTabOnExtensionLoad() {
   )
 
   try {
-    const [initialTab] = await browser.tabs.query({
-      active: true,
-      currentWindow: true
-    })
-
-    if (
-      initialTab.url === 'about:blank' ||
-      initialTab.url === 'about:welcome'
-    ) {
-      await handleFirstRun()
-    } else {
-      await createFirefoxAddonsTab(initialTab, 'about:blank')
-    }
+    await handleFirstRun()
   } catch (error) {
     console.error('Error handling tabs on extension load:', error)
   }
 }
 
-handleTabOnExtensionLoad().catch(console.error)
-
 browser.runtime.onInstalled.addListener(async () => {
+  await handleTabOnExtensionLoad()
+
   let isConnected = false
 
   if (isConnected) {
