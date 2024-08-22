@@ -1,5 +1,5 @@
 import fs from 'fs'
-import {exec} from 'child_process'
+import {exec, ChildProcess} from 'child_process'
 import {type Compiler} from 'webpack'
 import {firefoxLocation} from './firefox-location'
 import {browserConfig} from './firefox/browser-config'
@@ -8,11 +8,21 @@ import * as messages from '../browsers-lib/messages'
 import {type PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/dev'
 
+let child: ChildProcess | null = null
+
 process.on('SIGINT', () => {
+  if (child) {
+    // Send SIGINT to the child process
+    child.kill('SIGINT')
+  }
   process.exit()
 })
 
 process.on('SIGTERM', () => {
+  if (child) {
+    // Send SIGTERM to the child process
+    child.kill('SIGTERM')
+  }
   process.exit()
 })
 
@@ -50,7 +60,7 @@ export class RunFirefoxPlugin {
     const firefoxConfig = await browserConfig(compiler, this)
     const cmd = `${firefoxLaunchPath} ${firefoxConfig}`
 
-    const child = exec(cmd, (error, _stdout, stderr) => {
+    child = exec(cmd, (error, _stdout, stderr) => {
       if (error != null) throw error
       if (stderr.includes('Unable to move the cache')) {
         console.log(messages.browserInstanceAlreadyRunning(this.browser))
@@ -86,7 +96,7 @@ export class RunFirefoxPlugin {
     let firefoxDidLaunch = false
 
     compiler.hooks.done.tapAsync(
-      'run-chromium:module',
+      'run-firefox:module',
       async (compilation, done) => {
         if (compilation.compilation.errors.length > 0) {
           done()
