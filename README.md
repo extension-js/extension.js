@@ -14,7 +14,7 @@
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
 [discord-url]: https://discord.gg/1253608412890271755
 
-# Extension.js [![fossa][fossa-image]][fossa-url] [![vunlerabilities][vunlerabilities]][vunlerabilities] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![discord][discord-image]][discord-url]
+# Extension.js [![fossa][fossa-image]][fossa-url] [![vunlerabilities][vunlerabilities]][vunlerabilities] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
 
 <!-- > Plug-and-play, zero-config, cross-browser extension development tool. -->
 
