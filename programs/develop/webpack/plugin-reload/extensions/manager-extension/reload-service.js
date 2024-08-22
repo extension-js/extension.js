@@ -56,8 +56,6 @@ async function getDevExtensions() {
     return (
       // Do not include itself
       extension.id !== chrome.runtime.id &&
-      // Manager extension
-      extension.id !== 'hkklidinfhnfidkjiknmmbmcloigimco' &&
       // Show only unpackaged extensions
       extension.installType === 'development'
     )

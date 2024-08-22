@@ -28,10 +28,7 @@ export interface DevOptions {
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
-  devOptions: DevOptions = {
-    browser: 'chrome',
-    mode: 'development'
-  }
+  devOptions: DevOptions
 ) {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
@@ -48,7 +45,11 @@ export async function extensionDev(
       await generateExtensionTypes(projectPath)
     }
 
-    await devServer(projectPath, {...devOptions})
+    await devServer(projectPath, {
+      ...devOptions,
+      mode: 'development',
+      browser: devOptions.browser || 'chrome'
+    })
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {
       console.error(error)

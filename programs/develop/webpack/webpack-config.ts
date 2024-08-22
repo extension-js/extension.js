@@ -119,24 +119,20 @@ export default function webpackConfig(
         stats: true,
         port: devOptions.port || 8000
       }),
-      new BrowsersPlugin({
-        extension: [
-          userExtensionOutputPath,
-          devOptions.browser === 'firefox'
-            ? path.join(__dirname, 'extensions', 'manager-extension-firefox')
-            : path.join(__dirname, 'extensions', 'manager-extension')
-          // TODO: Add possible extensions required by the user via --load-extension
-        ],
-        browser: devOptions.browser,
-        startingUrl: devOptions.startingUrl,
-        profile: devOptions.profile || devOptions.userDataDir,
-        preferences: devOptions.preferences,
-        // Prevent users from passing a flag to
-        // add extensions to the browser – as it (should be) handled by the "extension" option.
-        browserFlags: devOptions.browserFlags?.filter(
-          (flag) => !flag.startsWith('--load-extension=')
-        )
-      })
+      !devOptions.noOpen &&
+        new BrowsersPlugin({
+          extension: [
+            userExtensionOutputPath,
+            devOptions.browser === 'firefox'
+              ? path.join(__dirname, 'extensions', 'manager-extension-firefox')
+              : path.join(__dirname, 'extensions', 'manager-extension')
+          ],
+          browser: devOptions.browser,
+          startingUrl: devOptions.startingUrl,
+          profile: devOptions.profile || devOptions.userDataDir,
+          preferences: devOptions.preferences,
+          browserFlags: devOptions.browserFlags
+        })
     ].filter(Boolean),
     stats: {
       all: false,
