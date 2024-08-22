@@ -31,7 +31,7 @@ export default function webpackConfig(
   )
   const manifest = require(manifestPath)
   return {
-    mode: devOptions.mode,
+    mode: devOptions.mode || 'development',
     entry: {},
     target: 'web',
     context: projectPath,

@@ -29,7 +29,10 @@ export async function devServer(
   projectPath: string,
   {...devOptions}: DevOptions
 ) {
-  const baseConfig = webpackConfig(projectPath, devOptions)
+  const baseConfig = webpackConfig(projectPath, {
+    ...devOptions,
+    mode: 'development'
+  })
   const userExtensionConfig = loadExtensionConfig(projectPath)
   const userConfig = userExtensionConfig(baseConfig)
   const compilerConfig = merge(userConfig)
