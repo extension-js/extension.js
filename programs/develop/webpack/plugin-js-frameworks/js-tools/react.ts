@@ -32,7 +32,9 @@ export function isUsingReact(projectPath: string) {
     if (!userMessageDelivered) {
       const manifest = require(manifestJsonPath)
       const manifestName = manifest.name || 'Extension.js'
-      console.log(messages.isUsingIntegration(manifestName, 'React'))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.isUsingIntegration(manifestName, 'React'))
+      }
 
       userMessageDelivered = true
     }

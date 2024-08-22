@@ -37,7 +37,10 @@ export function isUsingPostCss(projectPath: string): boolean {
       (packageJson.devDependencies && packageJson.devDependencies['postcss'])
     ) {
       if (!userMessageDelivered) {
-        console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+        }
+
         userMessageDelivered = true
       }
       return true
@@ -47,16 +50,23 @@ export function isUsingPostCss(projectPath: string): boolean {
   for (const configFile of postCssConfigFiles) {
     if (fs.existsSync(path.join(projectPath, configFile))) {
       if (!userMessageDelivered) {
-        console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+        }
+
         userMessageDelivered = true
       }
+
       return true
     }
   }
 
   if (isUsingTailwind(projectPath)) {
     if (!userMessageDelivered) {
-      console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+      }
+
       userMessageDelivered = true
     }
     return true

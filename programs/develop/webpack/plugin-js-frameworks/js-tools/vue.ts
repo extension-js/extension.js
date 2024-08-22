@@ -31,7 +31,9 @@ export function isUsingVue(projectPath: string) {
       const manifest = require(manifestJsonPath)
       const manifestName = manifest.name || 'Extension.js'
 
-      console.log(messages.isUsingIntegration(manifestName, 'Vue'))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.isUsingIntegration(manifestName, 'Vue'))
+      }
 
       userMessageDelivered = true
     }
