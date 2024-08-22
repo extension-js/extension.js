@@ -626,18 +626,17 @@ export function certRequired() {
     `This is your first run using Extension.js. Welcome! 🎉\n\n` +
     `${brightYellow(
       'Note'
-    )}: Firefox requires a secure certificate for localhost connections,\n` +
-    `needed for the reloader to work. By default, your ${'manifest.json'} file\n` +
+    )}: Firefox requires a secure certificate for localhost connections, ` +
+    `needed for the reloader to work.\nBy default, your ${'manifest.json'} file ` +
     `is not being watched. To enable this feature, run:\n\n` +
     `  npx -y ${'mkcert-cli'} \\\n` +
-    `    ${brightGreen('--outDir')} ${gray(
+    `    ${brightGreen('--outDir')} ${underline(
       CERTIFICATE_DESTINATION_PATH
     )} \\\n` +
-    `    ${brightGreen('--cert')} ${gray('localhost.cert')} \\\n` +
-    `    ${brightGreen('--key')} ${gray('localhost.key')}\n\n` +
-    `This will create a secure certificate via ${bold('mkcert')}\n` +
-    `enabling the secure connection needed for Firefox.\n\n` +
-    `Learn more: ${underline(`https://extension.js.org`)}`
+    `    ${brightGreen('--cert')} ${brightYellow('localhost.cert')} \\\n` +
+    `    ${brightGreen('--key')} ${brightYellow('localhost.key')}\n\n` +
+    `This will enable the secure certificate needed for Firefox via ${bold('mkcert')}.\n\n` +
+    `Learn more about ${bold('mkcert')}: ${underline(`https://github.com/FiloSottile/mkcert`)}`
   )
 }
 
