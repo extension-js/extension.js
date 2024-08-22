@@ -1,4 +1,4 @@
-[action-image]: https://github.com/cezaraugusto/extension/actions/workflows/ci.yml/badge.svg?branch=main
+[action-image]: https://github.com/cezaraugusto/extension/actions/workflows/build.yml/badge.svg?branch=main
 [action-url]: https://github.com/cezaraugusto/extension/actions
 [npm-image]: https://img.shields.io/npm/v/extension.svg
 [npm-url]: https://npmjs.org/package/extension
@@ -11,17 +11,17 @@
 [vunlerabilities]: https://snyk.io/test/github/cezaraugusto/extension/badge.svg
 [fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension.svg?type=shield&issueType=license
 [fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension?ref=badge_shield&issueType=license
-[discord-image]: https://dcbadge.limes.pink/api/server/kr9rjDmy?style=flat&compact=true
-[discord-url]: https://discord.gg/zkspfFwqDg
+[discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
+[discord-url]: https://discord.gg/1253608412890271755
 
-# Extension.js [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![downloads][discord-image]][discord-url]
+# Extension.js [![npm][npm-image]][npm-url] [![fossa][fossa-image]][fossa-url] [![workflow][action-image]][action-url] [![downloads][downloads-image]][downloads-url] [![discord][discord-image]][discord-url]
 
 <!-- > Plug-and-play, zero-config, cross-browser extension development tool. -->
 
-> Make it very easy to develop cross-browser extensions.
+<!-- > Make it very easy to develop cross-browser extensions. -->
 
-<img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96"> 
-<hr>
+<!-- <img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96">
+<hr> -->
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />
 

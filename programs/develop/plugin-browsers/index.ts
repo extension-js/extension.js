@@ -32,9 +32,17 @@ export class BrowsersPlugin {
   public readonly startingUrl: string
 
   constructor(options: PluginInterface) {
-    this.extension = options.extension
+    this.extension = [
+      ...options.extension,
+      ...(options.browserFlags?.filter(
+        (flag) => !flag.startsWith('--load-extension=')
+      ) || [])
+    ]
     this.browser = options.browser
-    this.browserFlags = options.browserFlags || []
+    this.browserFlags =
+      options.browserFlags?.filter(
+        (flag) => !flag.startsWith('--load-extension=')
+      ) || []
     this.userDataDir = options.userDataDir
     this.profile = options.profile || ''
     this.preferences = options.preferences || {}

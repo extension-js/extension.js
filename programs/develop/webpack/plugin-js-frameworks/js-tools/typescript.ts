@@ -33,7 +33,9 @@ export function isUsingTypeScript(projectPath: string) {
   if (!userMessageDelivered) {
     if (TypeScriptAsDevDep || TypeScriptAsDep) {
       if (configFile) {
-        console.log(messages.isUsingIntegration(manifestName, 'TypeScript'))
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(messages.isUsingIntegration(manifestName, 'TypeScript'))
+        }
       } else {
         console.log(messages.creatingTSConfig(manifest))
         writeTsConfig(projectPath)
