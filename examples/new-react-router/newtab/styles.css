@@ -1,0 +1,39 @@
+body {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: calc(100vh - 26px);
+}
+
+nav {
+  display: grid;
+  grid-template-columns: repeat(3, 5rem);
+  align-items: center;
+  gap: 2.5rem;
+  height: 5rem;
+  margin-bottom: 5rem;
+}
+
+#root {
+  padding: 1rem;
+  width: 65rem;
+  min-height: 55rem;
+}
+
+h1 {
+  font-size: 4.7em;
+}
+
+.react {
+  animation: spin 20s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
