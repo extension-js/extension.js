@@ -1,4 +1,4 @@
-import {createFirefoxAddonsTab, handleFirstRun} from './define-initial-tab.js'
+import {handleFirstRun} from './define-initial-tab.js'
 import {connect, disconnect} from './reload-service.js'
 
 function bgGreen(str) {

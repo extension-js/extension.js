@@ -98,15 +98,17 @@ export class RunFirefoxPlugin {
           return
         }
 
+        setTimeout(() => {
+          console.log(
+            messages.stdoutData(
+              this.browser,
+              compilation.compilation.options.mode
+            )
+          )
+        }, 2000)
+
         await this.launchFirefox(compiler)
 
-        console.log(
-          messages.stdoutData(
-            // extensionManifest.name,
-            this.browser,
-            compilation.compilation.options.mode
-          )
-        )
         firefoxDidLaunch = true
         done()
       }
