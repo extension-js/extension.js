@@ -46,11 +46,14 @@ export async function importExternalTemplate(
       templatePath = path.join(installationPath, templateName)
     }
 
-    // Copy the contents of the template to the desired project path
-    await fs.cp(templatePath, projectPath, {recursive: true})
+    // Ensure we're not trying to copy the template into itself
+    if (templatePath !== projectPath) {
+      // Copy the contents of the template to the desired project path
+      await fs.cp(templatePath, projectPath, {recursive: true})
 
-    // Remove the original template directory
-    await fs.rm(templatePath, {recursive: true, force: true})
+      // Remove the original template directory
+      await fs.rm(templatePath, {recursive: true, force: true})
+    }
   } catch (error: any) {
     console.error(
       messages.installingFromTemplateError(projectName, templateName, error)
