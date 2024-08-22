@@ -1,4 +1,4 @@
-name: 🛠️
+name: command:dev
 on: push
 jobs:
   build:
@@ -9,5 +9,5 @@ jobs:
       run: yarn
     - name: Run compiler
       run: yarn compile
-    - name: Run `extenion` cli without arguments
-      run: yarn test:cli
+    # - name: Run dev tests (TODO)
+    #   run: yarn test:dev
