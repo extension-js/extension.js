@@ -9,7 +9,7 @@ import {
   bold,
   gray,
   brightYellow,
-  magenta,
+  magenta
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
