@@ -20,7 +20,7 @@
 
 <!-- > Make it very easy to develop cross-browser extensions. -->
 
-<!-- <img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96"> 
+<!-- <img alt="Extension.js with all the browser runners open" src="https://github.com/cezaraugusto/extension.js/assets/4672033/f0f5bbfc-e873-4856-9fdd-db2b42d9ab96">
 <hr> -->
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="25%" />

@@ -11,11 +11,11 @@ import {program} from 'commander'
 import {extensionCreate, type CreateOptions} from '@extension-create/create'
 import {
   extensionDev,
-  // type DevOptions,
+  type DevOptions,
   extensionStart,
-  // type StartOptions,
-  extensionBuild
-  // type BuildOptions
+  type StartOptions,
+  extensionBuild,
+  type BuildOptions
   // extensionPreview
 } from 'extension-develop'
 import * as messages from './cli-lib/messages'
@@ -94,12 +94,11 @@ extensionJs
   )
   .action(async function (
     pathOrRemoteUrl: string,
-    {browser = 'chrome', ...devOptions}: any // DevOptions
+    {browser = 'chrome', ...devOptions}: DevOptions
   ) {
     for (const vendor of vendors(browser)) {
       await extensionDev(pathOrRemoteUrl, {
-        mode: 'development',
-        browser: vendor as any,
+        browser: vendor as DevOptions['browser'],
         ...devOptions
       })
     }
@@ -135,12 +134,11 @@ extensionJs
   )
   .action(async function (
     pathOrRemoteUrl: string,
-    {browser = 'chrome', ...startOptions}: any // StartOptions
+    {browser = 'chrome', ...startOptions}: StartOptions
   ) {
     for (const vendor of vendors(browser)) {
       await extensionStart(pathOrRemoteUrl, {
-        mode: 'production',
-        browser: vendor as any,
+        browser: vendor as StartOptions['browser'],
         ...startOptions
       })
     }
@@ -164,7 +162,7 @@ extensionJs
 //   )
 //   .action(async function (
 //     pathOrRemoteUrl: string,
-//     {browser = 'chrome', ...previewOptions}: any // BuildOptions
+//     {browser = 'chrome', ...previewOptions}: BuildOptions
 //   ) {
 //     for (const vendor of vendors(browser)) {
 //       await extensionPreview(pathOrRemoteUrl, {
@@ -208,11 +206,11 @@ extensionJs
   )
   .action(async function (
     pathOrRemoteUrl: string,
-    {browser = 'chrome', ...buildOptions}: any // BuildOptions
+    {browser = 'chrome', ...buildOptions}: BuildOptions
   ) {
     for (const vendor of vendors(browser)) {
       await extensionBuild(pathOrRemoteUrl, {
-        browser: vendor as any,
+        browser: vendor as BuildOptions['browser'],
         ...buildOptions
       })
     }
