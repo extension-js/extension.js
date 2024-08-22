@@ -41,46 +41,29 @@ function isPortInUse(port: number): Promise<boolean> {
   })
 }
 
+let webSocketServer: WebSocket.Server | null = null
+
 export async function startServer(compiler: Compiler, options: DevOptions) {
   const projectPath = compiler.options.context || ''
   const manifest = require(path.join(projectPath, 'manifest.json'))
   const manifestName = manifest.name || 'Extension.js'
 
-  let webSocketServer: WebSocket.Server | undefined
+  const port = options.port || 8000
+  const portInUse = await isPortInUse(port)
 
-  if (options.browser === 'firefox') {
-    const {server} = httpsServer(manifestName, options.port || 8000)
+  if (!webSocketServer && !portInUse) {
+    const {server} = httpsServer(manifestName, port)
     webSocketServer = new WebSocket.Server({server})
-  } else {
-    const portInUse = await isPortInUse(options.port as number)
 
-    if (!portInUse) {
-      webSocketServer = new WebSocket.Server({
-        host: 'localhost',
-        port: options.port
-      })
-    } else {
-      // Port is already in use. Connect to the existing server.
-      webSocketServer = new WebSocket.Server({
-        noServer: true
-      })
-    }
-  }
+    console.log(`WebSocket server started on port ${port}`)
 
-  if (webSocketServer) {
     webSocketServer.on('connection', (ws) => {
       ws.send(JSON.stringify({status: 'serverReady'}))
 
       ws.on('error', (error) => {
         console.log(messages.webSocketError(manifestName, error))
-        webSocketServer?.close()
       })
 
-      ws.on('close', () => {
-        webSocketServer?.close()
-      })
-
-      // We're only ready when the extension says so
       ws.on('message', (msg) => {
         const message: Message = JSON.parse(msg.toString())
 
@@ -102,11 +85,17 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
         }
       })
     })
+  } else if (webSocketServer) {
+    console.log(`Reusing existing WebSocket server on port ${port}`)
   } else {
-    console.log('Failed to start WebSocket server.')
+    console.error(
+      `Port ${port} is already in use but WebSocket server is not initialized.`
+    )
+    return
   }
 
-  if (options.browser === 'firefox') {
+  // Additional logic specific to Firefox, such as certificate checks
+  if (options.browser === 'firefox' && !portInUse) {
     if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
       const hardcodedMessage = getHardcodedMessage(manifest)
       console.log(messages.runningInDevelopment(manifest, hardcodedMessage))

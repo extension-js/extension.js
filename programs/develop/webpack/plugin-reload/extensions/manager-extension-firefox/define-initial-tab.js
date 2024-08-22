@@ -3,14 +3,12 @@ async function getDevExtension() {
 
   return allExtensions.filter((extension) => {
     return (
-      // Do not include itself
-      extension.id !== browser.runtime.id &&
       // Reload extension
       extension.name !== 'Extension Manager' &&
       // Show only unpackaged extensions
       extension.installType === 'development'
     )
-  })
+  })[0]
 }
 
 // Create a new tab and set it to background.
@@ -40,14 +38,13 @@ export async function createFirefoxAddonsTab(initialTab, url) {
 // Function to handle first run logic
 export async function handleFirstRun() {
   try {
-    const devExtensions = await getDevExtension()
+    const devExtension = await getDevExtension()
 
-    if (devExtensions.length === 0) {
+    if (!devExtension) {
       console.warn('No development extensions found')
       return
     }
 
-    const devExtension = await getDevExtension()
     const result = await browser.storage.local.get(devExtension.id)
 
     if (result[devExtension.id] && result[devExtension.id].didRun) {

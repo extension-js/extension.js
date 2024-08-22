@@ -7,28 +7,38 @@ export async function connect() {
     return
   }
 
-  webSocket = new WebSocket('ws://localhost:__RELOAD_PORT__')
+  try {
+    // Attempt to connect using wss (secure WebSocket)
+    webSocket = new WebSocket('wss://localhost:__RELOAD_PORT__')
+  } catch (error) {
+    console.warn(
+      'Extension.js ►►► Secure WebSocket (wss) failed, falling back to ws.',
+      error
+    )
+    // If wss fails, fallback to ws (non-secure WebSocket)
+    webSocket = new WebSocket('ws://localhost:__RELOAD_PORT__')
+  }
 
   webSocket.onerror = (event) => {
-    console.error(`[Extension.js] Connection error: ${JSON.stringify(event)}`)
+    console.error(`Extension.js ►►► Connection error: ${JSON.stringify(event)}`)
     webSocket.close()
   }
 
   webSocket.onopen = () => {
-    console.info(`[Extension.js] Connection opened.`)
+    console.info(`Extension.js ►►► Connection opened.`)
   }
 
   webSocket.onmessage = async (event) => {
     const message = JSON.parse(event.data)
 
     if (message.status === 'serverReady') {
-      console.info('[Extension.js] Connection ready.')
+      console.info('Extension.js ►►► Connection ready.')
       await requestInitialLoadData()
     }
 
     if (message.changedFile) {
       console.info(
-        `[Extension.js] Changes detected on ${message.changedFile}. Reloading extension...`
+        `Extension.js ►►► Changes detected on ${message.changedFile}. Reloading extension...`
       )
 
       await messageAllExtensions(message.changedFile)
@@ -36,7 +46,7 @@ export async function connect() {
   }
 
   webSocket.onclose = () => {
-    console.info('[Extension.js] Connection closed.')
+    console.info('Extension.js ►►► Connection closed.')
     webSocket = null
   }
 }
@@ -71,7 +81,7 @@ async function messageAllExtensions(changedFile) {
     const reloadAll = devExtensions.map((extension) => {
       chrome.runtime.sendMessage(extension.id, {changedFile}, (response) => {
         if (response) {
-          console.info('[Extension.js] Extension reloaded and ready.')
+          console.info('Extension.js ►►► Extension reloaded and ready.')
         }
       })
 
@@ -80,7 +90,7 @@ async function messageAllExtensions(changedFile) {
 
     await Promise.all(reloadAll)
   } else {
-    console.info('[Extension.js] External extension is not ready.')
+    console.info('Extension.js ►►► External extension is not ready.')
   }
 }
 
@@ -108,7 +118,7 @@ async function requestInitialLoadData() {
 
   const responses = await Promise.all(messagePromises)
 
-  // We received the info from the use extension.
+  // We received the info from the user extension.
   // All good, client is ready. Inform the server.
   if (webSocket && webSocket.readyState === WebSocket.OPEN) {
     const message = JSON.stringify({
@@ -135,7 +145,7 @@ export function keepAlive() {
   const keepAliveIntervalId = setInterval(() => {
     if (webSocket) {
       webSocket.send(JSON.stringify({status: 'ping'}))
-      console.info('[Extension.js] Listening for changes...')
+      console.info('Extension.js ►►► Listening for changes...')
     } else {
       clearInterval(keepAliveIntervalId)
     }
