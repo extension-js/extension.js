@@ -20,7 +20,7 @@ function ActionApp() {
         'Hello there! This is your ChatGPT extension sample, ' +
         'built with React, Tailwind.css, and DaisyUI. ' +
         'For it to work, create a .env file with your EXTENSION_OPENAI_API_KEY. ' +
-        "You can get an API key from OpenAI's website????",
+        "You can get an API key from OpenAI's website",
       role: 'assistant'
     },
     {

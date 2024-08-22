@@ -25,7 +25,9 @@ export function isUsingLess(projectPath: string): boolean {
 
   if (lessAsDevDep || lessAsDep) {
     if (!userMessageDelivered) {
-      console.log(messages.isUsingIntegration(manifestName, 'LESS'))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.isUsingIntegration(manifestName, 'LESS'))
+      }
 
       userMessageDelivered = true
     }

@@ -51,8 +51,8 @@
   ],
   "dependencies": {
     "@colors/colors": "^1.6.0",
-    "@extension-create/create": "*",
-    "extension-develop": "*",
+    "extension-create": "2.0.0-alpha.0",
+    "extension-develop": "2.0.0-alpha.0",
     "commander": "^11.1.0",
     "semver": "^7.5.4",
     "update-check": "^1.5.4"

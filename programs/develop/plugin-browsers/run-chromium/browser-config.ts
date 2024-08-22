@@ -5,17 +5,20 @@ export function browserConfig(configOptions: PluginInterface) {
   const extensionsToLoad = Array.isArray(configOptions.extension)
     ? configOptions.extension
     : [configOptions.extension]
+
+  const userProfilePath = createProfile(
+    configOptions.browser,
+    configOptions.profile,
+    false
+  )
+
   // Flags set by default:
   // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
   // Added useful flags for tooling:
   // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
   return [
     `--load-extension=${extensionsToLoad.join()}`,
-    `--user-data-dir=${createProfile(
-      configOptions.browser,
-      configOptions.profile,
-      false
-    )}`,
+    `--user-data-dir=${userProfilePath}`,
     // Disable Chrome's native first run experience.
     '--no-first-run',
     // Disables client-side phishing detection
