@@ -6,15 +6,15 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import path from 'path'
-import {exec} from 'child_process'
+import {execFile} from 'child_process'
 import {promisify} from 'util'
 
-const execAsync = promisify(exec)
+const execFileAsync = promisify(execFile)
 
 export async function extensionProgram(command: string = '') {
   const cliDirectory = path.resolve(__dirname, '..', 'dist', 'cli.js')
-  const cliCommand = `node ${cliDirectory} ${command}`
-  return await execAsync(cliCommand)
+  const args = command ? command.split(' ') : []
+  return await execFileAsync('node', [cliDirectory, ...args])
 }
 
 describe('CLI Commands', () => {
