@@ -45,7 +45,7 @@ export class JsFrameworksPlugin {
         exclude: [/[\\/]node_modules[\\/]/],
         type: 'javascript/auto',
         use: {
-          loader: require.resolve('builtin:swc-loader'),
+          loader: 'builtin:swc-loader',
           options: {
             sync: true,
             module: {
@@ -53,6 +53,7 @@ export class JsFrameworksPlugin {
             },
             minify: this.mode === 'production',
             isModule: true,
+            sourceMap: this.mode === 'development',
             jsc: {
               target: 'es2016',
               externalHelpers: true,
@@ -84,16 +85,16 @@ export class JsFrameworksPlugin {
           }
         }
       },
-      ...(maybeInstallBabel?.loaders || []),
-      ...(maybeInstallReact?.loaders || []),
-      ...(maybeInstallPreact?.loaders || []),
-      ...(maybeInstallVue?.loaders || []),
+      // ...(maybeInstallBabel?.loaders || []),
+      // ...(maybeInstallReact?.loaders || []),
+      // ...(maybeInstallPreact?.loaders || []),
+      // ...(maybeInstallVue?.loaders || []),
       ...compiler.options.module.rules
     ].filter(Boolean)
 
     maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))
-    maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
-    maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
+    // maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
+    // maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
   }
 
   public async apply(compiler: Compiler) {
