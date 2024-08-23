@@ -90,15 +90,15 @@ export class JsFrameworksPlugin {
         }
       },
       // ...(maybeInstallBabel?.loaders || []),
-      // ...(maybeInstallReact?.loaders || []),
+      ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
-      // ...(maybeInstallVue?.loaders || []),
+      ...(maybeInstallVue?.loaders || []),
       ...compiler.options.module.rules
     ].filter(Boolean)
 
     maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
-    // maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
+    maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
   }
 
   public async apply(compiler: Compiler) {
