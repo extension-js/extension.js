@@ -1,5 +1,5 @@
-[action-image]: https://github.com/cezaraugusto/extension/actions/workflows/cli.yml/badge.svg?branch=main
-[action-url]: https://github.com/cezaraugusto/extension/actions
+[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main
+[action-url]: https://github.com/extension-js/extension.js/actions
 [npm-image]: https://img.shields.io/npm/v/extension.svg
 [npm-url]: https://npmjs.org/package/extension
 [downloads-image]: https://img.shields.io/npm/dm/extension.svg
@@ -7,14 +7,15 @@
 [node]: https://img.shields.io/node/v/extension.svg
 [node-url]: https://nodejs.org
 [prs]: https://img.shields.io/badge/PRs-welcome-brightgreen.svg
-[prs-url]: https://github.com/cezaraugusto/extension/blob/main/CONTRIBUTING.md
-[vunlerabilities]: https://snyk.io/test/github/cezaraugusto/extension/badge.svg
+[prs-url]: https://github.com/extension-js/extension/blob/main/CONTRIBUTING.md
+[snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg
+[snyk-url]: https://snyk.io/test/github/extension-js/extension
 [fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension.svg?type=shield&issueType=license
 [fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension?ref=badge_shield&issueType=license
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
 [discord-url]: https://discord.gg/1253608412890271755
 
-# Extension.js [![fossa][fossa-image]][fossa-url] [![vunlerabilities][vunlerabilities]][vunlerabilities] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
+# Extension.js [![fossa][fossa-image]][fossa-url] [![Known Vulnerabilities][snyk-image]][snyk-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
 
 <!-- > Plug-and-play, zero-config, cross-browser extension development tool. -->
 
@@ -27,7 +28,7 @@
 
 <!-- **Create cross-browser extensions with no build configuration.** -->
 
-> Create cross-browser extensions with no build configuration.
+> Plug-and-play, zero-config, cross-browser extension development tool.
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
