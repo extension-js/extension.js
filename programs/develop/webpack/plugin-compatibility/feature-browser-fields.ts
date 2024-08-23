@@ -1,4 +1,4 @@
-import {type Compiler, Compilation, sources} from 'webpack'
+import {type Compiler, Compilation, sources} from '@rspack/core'
 import {type PluginInterface, type Manifest} from '../webpack-types'
 import {type DevOptions} from '../../commands/dev'
 import {getManifestContent} from '../lib/utils'

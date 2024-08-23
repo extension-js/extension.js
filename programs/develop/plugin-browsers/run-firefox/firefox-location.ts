@@ -22,8 +22,8 @@ function getFirefoxLocation(): string | null {
     return fs.existsSync(regPath)
       ? regPath
       : fs.existsSync(altPath)
-        ? altPath
-        : null
+      ? altPath
+      : null
   } else {
     const suffix = path.join('Mozilla Firefox', 'firefox.exe')
     const possiblePaths = [

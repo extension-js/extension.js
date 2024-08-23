@@ -2,13 +2,13 @@
 
 First off, thanks a lot for taking time to read this part. Extension.js' core phiolosophy is to make it very easy to develop browser extensions, and that includes the program that makes it happen as well. Hope this guide makes it very easy for you to contribute ;)
 
-Extension.js runs on top of webpack using custom plugins. The whole Extension.js program consists of three core modules.
+Extension.js runs on top of Rspack using custom plugins. The whole Extension.js program consists of three core modules.
 
 | Program   | Description                                                                                    |
 | --------- | ---------------------------------------------------------------------------------------------- |
 | `cli`     | The Command Line Interface that executes the Extension.js programs.                            |
 | `create`  | Create extensions from built-in templates. This is what runs when `extension create` is fired. |
-| `develop` | Wrapper around the webpack config that consists of the `dev`, `start`, and `build` commands.   |
+| `develop` | Wrapper around the rspack config that consists of the `dev`, `start`, and `build` commands.    |
 
 ## Installation
 

@@ -1,7 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import webpack from 'webpack'
-import {sources, Compilation} from 'webpack'
+import {sources, Compilation, Compiler, WebpackError} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from '../../lib/messages'
 import * as utils from '../../lib/utils'
@@ -22,7 +21,7 @@ export class LocalesPlugin {
     this.excludeList = options.excludeList
   }
 
-  public apply(compiler: webpack.Compiler): void {
+  public apply(compiler: Compiler): void {
     // Add the locales to the compilation. This is important so other
     // plugins can get it via the compilation.assets object,
     // allowing them to modify it.
@@ -40,9 +39,7 @@ export class LocalesPlugin {
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
             compilation.errors.push(
-              new webpack.WebpackError(
-                messages.manifestNotFoundError(manifestName)
-              )
+              new WebpackError(messages.manifestNotFoundError(manifestName))
             )
             return
           }
@@ -62,7 +59,7 @@ export class LocalesPlugin {
               // and output the file accordingly.
               if (!fs.existsSync(thisResource)) {
                 compilation.warnings.push(
-                  new webpack.WebpackError(
+                  new WebpackError(
                     messages.entryNotFoundWarn(
                       manifestName,
                       feature,

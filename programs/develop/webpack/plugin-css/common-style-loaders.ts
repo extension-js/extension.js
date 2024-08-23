@@ -1,4 +1,4 @@
-import {type RuleSetRule} from 'webpack'
+import {type RuleSetRule} from '@rspack/core'
 import rspack from '@rspack/core'
 import {DevOptions} from '../../commands/dev'
 import {isUsingTailwind} from './css-tools/tailwind'
@@ -23,8 +23,8 @@ export async function commonStyleLoaders(
     opts.useMiniCssExtractPlugin
       ? miniCssLoader
       : isUsingVue(projectPath)
-        ? require.resolve('vue-style-loader')
-        : require.resolve('style-loader'),
+      ? require.resolve('vue-style-loader')
+      : require.resolve('style-loader'),
     {
       loader: require.resolve('css-loader'),
       options: {
@@ -40,6 +40,7 @@ export async function commonStyleLoaders(
   ) {
     const maybeInstallPostCss = await maybeUsePostCss(projectPath, opts)
     if (maybeInstallPostCss.loader) {
+      // @ts-expect-error
       styleLoaders.push(maybeInstallPostCss)
     }
   }

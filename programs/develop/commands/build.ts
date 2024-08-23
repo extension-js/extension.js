@@ -7,9 +7,9 @@
 
 import fs from 'fs'
 import path from 'path'
-import webpack from 'webpack'
+import {rspack} from '@rspack/core'
 import {merge} from 'webpack-merge'
-import webpackConfig from '../webpack/webpack-config'
+import rspackConfig from '../webpack/rspack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {generateZip} from './commands-lib/generate-zip'
@@ -40,7 +40,7 @@ export async function extensionBuild(
 
   try {
     const browser = buildOptions?.browser || 'chrome'
-    const baseConfig = webpackConfig(projectPath, {
+    const baseConfig = rspackConfig(projectPath, {
       ...buildOptions,
       browser,
       mode: 'production'
@@ -60,7 +60,7 @@ export async function extensionBuild(
     })
 
     const compilerConfig = merge(userConfig)
-    const compiler = webpack(compilerConfig)
+    const compiler = rspack(compilerConfig)
 
     await new Promise<void>((resolve, reject) => {
       compiler.run(async (err, stats) => {
@@ -69,7 +69,7 @@ export async function extensionBuild(
           return reject(err)
         }
 
-        console.log(messages.buildWebpack(projectPath, stats, browser))
+        console.log(messages.buildRspack(projectPath, stats, browser))
 
         if (buildOptions?.zip || buildOptions?.zipSource) {
           await generateZip(projectPath, {...buildOptions, browser})

@@ -10,8 +10,8 @@ export function getScriptEntries(
   const scriptEntries = Array.isArray(scriptPath)
     ? scriptPath || []
     : scriptPath
-      ? [scriptPath]
-      : []
+    ? [scriptPath]
+    : []
 
   const fileAssets = scriptEntries.filter((scriptAsset) => {
     const validFile =
@@ -40,8 +40,8 @@ export function getCssEntries(
   const scriptEntries = Array.isArray(scriptPath)
     ? scriptPath || []
     : scriptPath
-      ? [scriptPath]
-      : []
+    ? [scriptPath]
+    : []
 
   const fileAssets = scriptEntries.filter((scriptAsset) => {
     const validFile =

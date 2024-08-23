@@ -1,5 +1,4 @@
-import type webpack from 'webpack'
-import {Compilation, sources} from 'webpack'
+import {Compilation, sources, Compiler} from '@rspack/core'
 import {patchV2CSP, patchV3CSP} from './patch-csp'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'
 import patchBackground from './patch-background'
@@ -17,7 +16,7 @@ export class ApplyManifestDevDefaults {
     this.browser = options.browser || 'chrome'
   }
 
-  private generateManifestPatches(compilation: webpack.Compilation) {
+  private generateManifestPatches(compilation: Compilation) {
     const manifest = utils.getManifestContent(compilation, this.manifestPath!)
 
     const patchedManifest = {
@@ -68,7 +67,7 @@ export class ApplyManifestDevDefaults {
     }
   }
 
-  apply(compiler: webpack.Compiler) {
+  apply(compiler: Compiler) {
     compiler.hooks.thisCompilation.tap(
       'run-chromium:apply-manifest-dev-defaults',
       (compilation) => {

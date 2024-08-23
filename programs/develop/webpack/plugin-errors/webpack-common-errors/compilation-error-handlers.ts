@@ -1,17 +1,14 @@
-import webpack from 'webpack'
+import {WebpackError} from '@rspack/core'
 import * as messages from '../../lib/messages'
 
-export function handleMultipleAssetsError(
-  packageJsonPath: string,
-  error: webpack.WebpackError
-): webpack.WebpackError | null {
+export function handleMultipleAssetsError(packageJsonPath: string, error: any) {
   const actualMsg =
     'Conflict: Multiple assets emit different content to the same filename '
   if (error.message.includes(actualMsg)) {
     const filename = error.message.replace(actualMsg, '')
 
     if (filename.startsWith('content_scripts')) {
-      return new webpack.WebpackError(
+      return new WebpackError(
         messages.handleMultipleAssetsError(packageJsonPath, filename)
       )
     }
@@ -19,10 +16,7 @@ export function handleMultipleAssetsError(
   return null
 }
 
-export function handleCantResolveError(
-  packageJsonPath: string,
-  error: webpack.WebpackError
-): webpack.WebpackError | null {
+export function handleCantResolveError(packageJsonPath: string, error: any) {
   const manifest = require(packageJsonPath)
   const cantResolveMsg = 'Module not found: Error:'
 
@@ -32,7 +26,7 @@ export function handleCantResolveError(
     // Module not found: Error: Can't resolve 'dep' in 'dep_path'.
     // We just want the 'dep' part.
     const moduleName = noPrefixMsg.split("'")[2]
-    return new webpack.WebpackError(
+    return new WebpackError(
       messages.handleCantResolveError(manifest.name, moduleName)
     )
   }
@@ -40,18 +34,13 @@ export function handleCantResolveError(
   return null
 }
 
-export function handleTopLevelAwaitError(
-  packageJsonPath: string,
-  error: webpack.WebpackError
-): webpack.WebpackError | null {
+export function handleTopLevelAwaitError(packageJsonPath: string, error: any) {
   const manifest = require(packageJsonPath)
   const topLevelAwaitMsg =
     'Top-level-await is only supported in EcmaScript Modules'
 
   if (error.message.includes(topLevelAwaitMsg)) {
-    return new webpack.WebpackError(
-      messages.handleTopLevelAwaitError(manifest.name)
-    )
+    return new WebpackError(messages.handleTopLevelAwaitError(manifest.name))
   }
 
   return null

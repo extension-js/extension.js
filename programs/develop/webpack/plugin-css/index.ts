@@ -1,10 +1,10 @@
 import path from 'path'
 import {
-  type WebpackPluginInstance,
+  CssExtractRspackPlugin,
+  type RspackPluginInstance,
   type Compiler,
   type RuleSetRule
-} from 'webpack'
-import rspack from '@rspack/core'
+} from '@rspack/core'
 import {commonStyleLoaders} from './common-style-loaders'
 import {PluginInterface} from '../webpack-types'
 import {type DevOptions} from '../../commands/dev'
@@ -26,8 +26,8 @@ export class CssPlugin {
   private async configureOptions(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
-    const plugins: WebpackPluginInstance[] = [
-      new rspack.CssExtractRspackPlugin() as any
+    const plugins: RspackPluginInstance[] = [
+      new CssExtractRspackPlugin() as any
     ]
 
     plugins.forEach((plugin) => plugin.apply(compiler))

@@ -1,4 +1,4 @@
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 
 // Manifest plugins
 import {EmitManifest} from './steps/emit-manifest'
@@ -33,7 +33,7 @@ export class ManifestPlugin {
     this.excludeList = options.excludeList
   }
 
-  public apply(compiler: webpack.Compiler) {
+  public apply(compiler: Compiler) {
     // 1 - Emit the manifest to the assets bundle.
     // It doesn't change the manifest, it just ensures
     // it's emitted to the assets bundle so other plugins

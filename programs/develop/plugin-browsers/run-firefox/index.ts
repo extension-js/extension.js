@@ -1,6 +1,6 @@
 import fs from 'fs'
 import {exec, ChildProcess} from 'child_process'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {firefoxLocation} from './firefox-location'
 import {browserConfig} from './firefox/browser-config'
 import {RemoteFirefox} from './remote-firefox'

@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 import WebExtension from 'webpack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
 import {type Manifest} from '../../../../webpack-types'
@@ -17,7 +17,7 @@ export class TargetWebExtensionPlugin {
   }
 
   private handleBackground(
-    compiler: webpack.Compiler,
+    compiler: Compiler,
     browser: DevOptions['browser'],
     manifest: Manifest
   ) {
@@ -106,7 +106,7 @@ export class TargetWebExtensionPlugin {
   }
 
   private addDefaultEntry(
-    compiler: webpack.Compiler,
+    compiler: Compiler,
     name: string,
     defaultScript: string
   ) {
@@ -130,7 +130,7 @@ export class TargetWebExtensionPlugin {
     return {pageEntry: 'background'}
   }
 
-  public apply(compiler: webpack.Compiler) {
+  public apply(compiler: Compiler) {
     if (!this.manifestPath || !fs.lstatSync(this.manifestPath).isFile()) {
       return
     }

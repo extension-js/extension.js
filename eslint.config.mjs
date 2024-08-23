@@ -16,7 +16,7 @@ export default [
     ignores: [
       '__TEST__',
       '**/dist/',
-      '**/webpack.config.js',
+      '**/rspack.config.js',
       '**/postcss.config.js',
       '**/tailwind.config.js',
       '**/stylelint.config.json'

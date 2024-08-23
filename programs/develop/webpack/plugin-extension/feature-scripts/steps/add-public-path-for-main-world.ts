@@ -1,4 +1,4 @@
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {
   type FilepathList,
   type PluginInterface,
@@ -20,7 +20,6 @@ export class AddPublicPathForMainWorld {
     this.includeList = options.includeList || {}
     this.excludeList = options.excludeList || {}
   }
-
   public apply(): void {
     const manifest: Manifest = require(this.manifestPath)
     if (

@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {EmitHtmlFile} from './steps/emit-html-file'

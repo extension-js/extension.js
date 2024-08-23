@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {type Compilation} from 'webpack'
+import {type Compilation} from '@rspack/core'
 // @ts-ignore
 import parse5utils from 'parse5-utils'
 import {parseHtml} from './parse-html'

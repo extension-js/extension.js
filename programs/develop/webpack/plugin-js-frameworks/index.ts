@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import {type DevOptions} from '../../commands/dev'
 import {maybeUseBabel} from './js-tools/babel'
@@ -43,6 +43,7 @@ export class JsFrameworksPlugin {
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: [path.dirname(this.manifestPath)],
         exclude: [/[\\/]node_modules[\\/]/],
+        type: 'javascript/auto',
         use: {
           loader: require.resolve('builtin:swc-loader'),
           options: {
@@ -73,6 +74,10 @@ export class JsFrameworksPlugin {
                   refresh: this.mode === 'development',
                   runtime: 'automatic',
                   importSource: 'react'
+                  // pragma: 'React.createElement',
+                  // pragmaFrag: 'React.Fragment',
+                  // throwIfNamespace: true,
+                  // useBuiltins: false,
                 }
               }
             }

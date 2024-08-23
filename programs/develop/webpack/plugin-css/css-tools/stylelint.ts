@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
-import {type WebpackPluginInstance} from 'webpack'
+import {type RspackPluginInstance} from '@rspack/core'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 
@@ -66,7 +66,7 @@ export function isUsingStylelint(projectPath: string) {
 
 export async function maybeUseStylelint(
   projectPath: string
-): Promise<WebpackPluginInstance[]> {
+): Promise<RspackPluginInstance[]> {
   if (!isUsingStylelint(projectPath)) return []
 
   try {

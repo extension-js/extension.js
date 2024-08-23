@@ -1,4 +1,4 @@
-import webpack, {Compilation, Compiler, sources} from 'webpack'
+import {Compilation, Compiler, sources} from '@rspack/core'
 import {
   type FilepathList,
   type PluginInterface,
@@ -27,7 +27,7 @@ export class WebResourcesPlugin {
   }
 
   private generateManifestPatches(
-    compilation: webpack.Compilation,
+    compilation: Compilation,
     entryImports: Record<string, string[]>
   ) {
     const manifest = utils.getManifestContent(compilation, this.manifestPath!)

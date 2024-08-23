@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import Dotenv from 'dotenv-webpack'
 import * as messages from '../lib/messages'
 import {type Manifest} from '../webpack-types'
@@ -30,8 +30,8 @@ export class EnvPlugin {
         path: fs.existsSync(path.join(projectPath, '.env'))
           ? path.join(projectPath, '.env')
           : fs.existsSync(path.join(projectPath, '.env.local'))
-            ? path.join(projectPath, '.env.local')
-            : path.join(projectPath, '.env.example'),
+          ? path.join(projectPath, '.env.local')
+          : path.join(projectPath, '.env.example'),
         allowEmptyValues: true,
         defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
         systemvars: true

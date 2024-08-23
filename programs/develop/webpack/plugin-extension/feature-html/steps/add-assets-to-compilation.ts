@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import webpack, {type Compiler} from 'webpack'
-import {sources, Compilation} from 'webpack'
+import {type Compiler, WebpackError, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml, isFromIncludeList} from '../html-lib/utils'
 import * as messages from '../../../lib/messages'
@@ -78,7 +77,7 @@ export class AddAssetsToCompilation {
                             )
 
                             compilation.warnings.push(
-                              new webpack.WebpackError(errorMessage)
+                              new WebpackError(errorMessage)
                             )
 
                             return

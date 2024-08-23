@@ -14,7 +14,7 @@ import {
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
-import {Stats} from 'webpack'
+import {Stats} from '@rspack/core'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 
@@ -29,8 +29,8 @@ function getLoggingPrefix(manifestName: string, type: PrefixType): string {
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-        ? cyan('►►►')
-        : brightGreen('►►►')
+      ? cyan('►►►')
+      : brightGreen('►►►')
 
   return `${arrow} ${manifestName}`
 }
@@ -659,8 +659,12 @@ export function certRequired() {
     )} \\\n` +
     `    ${brightGreen('--cert')} ${brightYellow('localhost.cert')} \\\n` +
     `    ${brightGreen('--key')} ${brightYellow('localhost.key')}\n\n` +
-    `This will enable the secure certificate needed for Firefox via ${bold('mkcert')}.\n\n` +
-    `Learn more about ${bold('mkcert')}: ${underline(`https://github.com/FiloSottile/mkcert`)}`
+    `This will enable the secure certificate needed for Firefox via ${bold(
+      'mkcert'
+    )}.\n\n` +
+    `Learn more about ${bold('mkcert')}: ${underline(
+      `https://github.com/FiloSottile/mkcert`
+    )}`
   )
 }
 

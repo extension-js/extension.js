@@ -1,5 +1,5 @@
 import path from 'path'
-import {WebpackError, type Compilation} from 'webpack'
+import {WebpackError, type Compilation} from '@rspack/core'
 import {type ErrorObject} from 'ajv'
 import {type Manifest} from '../../webpack-types'
 import * as messages from '../../lib/messages'
