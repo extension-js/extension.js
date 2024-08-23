@@ -2,7 +2,6 @@ import path from 'path'
 import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import {type DevOptions} from '../../commands/dev'
-import {maybeUseBabel} from './js-tools/babel'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
@@ -25,13 +24,11 @@ export class JsFrameworksPlugin {
   private async configureOptions(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
-    const maybeInstallBabel = await maybeUseBabel(compiler, projectPath)
     const maybeInstallReact = await maybeUseReact(projectPath)
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath)
 
     compiler.options.resolve.alias = {
-      ...(maybeInstallBabel?.alias || {}),
       ...(maybeInstallReact?.alias || {}),
       ...(maybeInstallPreact?.alias || {}),
       ...(maybeInstallVue?.alias || {}),
@@ -89,7 +86,6 @@ export class JsFrameworksPlugin {
           }
         }
       },
-      // ...(maybeInstallBabel?.loaders || []),
       ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
       ...(maybeInstallVue?.loaders || []),
