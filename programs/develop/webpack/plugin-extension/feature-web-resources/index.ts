@@ -131,12 +131,11 @@ export class WebResourcesPlugin {
                   )
 
                   modules.forEach((module) => {
-                    chunkGraph.getModuleChunks(module).forEach((chunk) => {
-                      chunk.auxiliaryFiles.forEach((file) => {
-                        if (!importedFiles.includes(file)) {
-                          importedFiles.push(file)
-                        }
-                      })
+                    // Rspack does not provide `getModuleChunks` API.
+                    chunk.files.forEach((file) => {
+                      if (!importedFiles.includes(file)) {
+                        importedFiles.push(file)
+                      }
                     })
                   })
                 })
