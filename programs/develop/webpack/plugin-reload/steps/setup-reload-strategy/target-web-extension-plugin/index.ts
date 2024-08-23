@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import {type Compiler} from '@rspack/core'
-import WebExtension from 'webpack-target-webextension'
+import {WebExtensionPlugin} from './rspack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
 import {type Manifest} from '../../../../webpack-types'
 import {type DevOptions} from '../../../../../commands/dev'
@@ -139,7 +139,7 @@ export class TargetWebExtensionPlugin {
 
     this.handleBackground(compiler, this.browser, manifest)
 
-    new WebExtension({
+    new WebExtensionPlugin({
       background: this.getEntryName(manifest),
       weakRuntimeCheck: true
     }).apply(compiler)
