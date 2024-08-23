@@ -52,9 +52,14 @@ export async function maybeUsePreact(
   try {
     // Fast-refresh for Preact!
     // https://github.com/preactjs/prefresh
-    require.resolve('@prefresh/webpack')
+    require.resolve('@rspack/plugin-preact-refresh')
   } catch (e) {
-    const preactDependencies = ['@prefresh/webpack']
+    const preactDependencies = [
+      '@prefresh/core',
+      '@prefresh/utils',
+      '@rspack/plugin-preact-refresh',
+      'preact'
+    ]
     const manifest = require(path.join(projectPath, 'manifest.json'))
     const manifestName = manifest.name || 'Extension.js'
 
@@ -71,9 +76,8 @@ export async function maybeUsePreact(
   }
 
   const preactPlugins: RspackPluginInstance[] = [
-    new (require('@prefresh/webpack'))()
+    new (require('@rspack/plugin-preact-refresh'))()
   ]
-
   return {
     plugins: preactPlugins,
     loaders: undefined,

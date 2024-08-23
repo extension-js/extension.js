@@ -74,11 +74,15 @@ export class JsFrameworksPlugin {
                   development: this.mode === 'development',
                   refresh: this.mode === 'development',
                   runtime: 'automatic',
-                  importSource: 'react'
-                  // pragma: 'React.createElement',
-                  // pragmaFrag: 'React.Fragment',
-                  // throwIfNamespace: true,
-                  // useBuiltins: false,
+                  importSource: 'react',
+                  ...(isUsingPreact(projectPath)
+                    ? {
+                        pragma: 'h',
+                        pragmaFrag: 'Fragment',
+                        throwIfNamespace: true,
+                        useBuiltins: false
+                      }
+                    : {})
                 }
               }
             }
@@ -87,13 +91,13 @@ export class JsFrameworksPlugin {
       },
       // ...(maybeInstallBabel?.loaders || []),
       // ...(maybeInstallReact?.loaders || []),
-      // ...(maybeInstallPreact?.loaders || []),
+      ...(maybeInstallPreact?.loaders || []),
       // ...(maybeInstallVue?.loaders || []),
       ...compiler.options.module.rules
     ].filter(Boolean)
 
     maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))
-    // maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
+    maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
     // maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
   }
 

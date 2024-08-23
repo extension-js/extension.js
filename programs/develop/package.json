@@ -60,6 +60,7 @@
     "parse5": "^7.1.2",
     "parse5-utils": "^2.0.0",
     "postcss": "^8.4.40",
+    "preact": "^10.23.2",
     "progress": "^2.0.3",
     "sass-embedded": "^1.77.8",
     "schema-utils": "^4.2.0",
@@ -88,7 +89,10 @@
   },
   "optionalDependencies": {
     "@babel/core": "^7.24.9",
+    "@prefresh/core": "^1.5.2",
+    "@prefresh/utils": "^1.2.0",
     "@prefresh/webpack": "^4.0.1",
+    "@rspack/plugin-preact-refresh": "^1.0.0",
     "@rspack/plugin-react-refresh": "^1.0.0",
     "@vue/compiler-sfc": "^3.4.34",
     "babel-loader": "^9.1.3",
