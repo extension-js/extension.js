@@ -26,6 +26,7 @@
     "watch": "tsup-node ./module.ts --format cjs --dts --target=node18 --watch",
     "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify && bash install_scripts.sh",
     "test": "jest --no-cache --testPathPattern='webpack/.*/__spec__/.*\\.spec\\.ts'",
+    "test:coverage": "jest --no-cache --testPathPattern='webpack/.*/__spec__/.*\\.spec\\.ts' --coverage",
     "test:build": "jest ./build.spec.ts --no-cache"
   },
   "dependencies": {

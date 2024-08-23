@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "release": "dotenv -- turbo run compile && changeset publish",
     "test": "dotenv -- turbo run test",
+    "test:coverage": "dotenv -- turbo run test:coverage",
     "test:build": "dotenv -- turbo run test:build",
     "test:create": "dotenv -- turbo run test:create",
     "test:cli": "dotenv -- turbo run test:cli",
