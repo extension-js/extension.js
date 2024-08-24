@@ -55,8 +55,6 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
     const {server} = httpsServer(manifestName, port)
     webSocketServer = new WebSocket.Server({server})
 
-    console.log(`WebSocket server started on port ${port}`)
-
     webSocketServer.on('connection', (ws) => {
       ws.send(JSON.stringify({status: 'serverReady'}))
 
