@@ -189,7 +189,7 @@ export function initializingGitForRepositoryError(
 }
 
 export function installingDependencies() {
-  return '🛠  - Installing dependencies...'
+  return '🛠  - Installing dependencies... (takes a moment)'
 }
 
 export function installingDependenciesFailed(
