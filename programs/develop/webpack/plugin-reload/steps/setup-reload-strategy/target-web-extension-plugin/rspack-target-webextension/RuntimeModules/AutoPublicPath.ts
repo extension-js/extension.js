@@ -1,82 +1,71 @@
-import {type rspack} from '@rspack/core'
+import {rspack, Compilation} from '@rspack/core'
 import BrowserRuntime from '../BrowserRuntime'
 
-/**
- * @returns {import('webpack').RuntimeModule}
- */
 export function AutoPublicPathRuntimeModule(
-  webpack: typeof rspack,
+  rspackLib: typeof rspack,
   acceptWeak: boolean
 ) {
-  const {
-    RuntimeModule,
-    RuntimeGlobals,
-    Template,
-    javascript: {JavascriptModulesPlugin}
-  } = webpack
+  const {Template, RuntimeGlobals} = rspackLib
 
-  class AutoPublicPathRuntimeModule extends RuntimeModule {
-    constructor() {
-      super('publicPath', RuntimeModule.STAGE_BASIC)
-    }
-
-    /**
-     * @returns {string} runtime code
-     */
-    generate() {
-      const {compilation} = this
-
-      if (!compilation)
-        return Template.asString(
-          '/* [webpack-target-webextension] AutoPublicPathRuntimeModule skipped because no compilation is found. */'
-        )
-      const {scriptType, importMetaName} = compilation.outputOptions
-      const chunkName = compilation.getPath(
-        JavascriptModulesPlugin.getChunkFilenameTemplate(
-          this.chunk,
-          compilation.outputOptions
-        ),
-        {
-          chunk: this.chunk,
-          contentHashType: 'javascript'
-        }
+  function generate(compilation: Compilation, chunk: any) {
+    if (!compilation) {
+      return Template.asString(
+        '/* [webpack-target-webextension] AutoPublicPathRuntimeModule skipped because no compilation is found. */'
       )
-      const outputPath = compilation.outputOptions.path
-      if (!outputPath)
-        return Template.asString(
-          '/* [webpack-target-webextension] AutoPublicPathRuntimeModule skipped because no output path is found. */'
-        )
-      const undoPath = getUndoPath(chunkName, outputPath, false)
-
-      return Template.asString([
-        ...BrowserRuntime(acceptWeak),
-        'var scriptUrl;',
-        scriptType === 'module'
-          ? `if (typeof ${importMetaName}.url === "string") scriptUrl = ${importMetaName}.url`
-          : Template.asString([
-              `if (${RuntimeGlobals.global}.importScripts) scriptUrl = ${RuntimeGlobals.global}.location + "";`,
-              `var document = ${RuntimeGlobals.global}.document;`,
-              'if (!scriptUrl && document && document.currentScript) {',
-              Template.indent(`scriptUrl = document.currentScript.src`),
-              '}'
-            ]),
-        '// When supporting browsers where an automatic publicPath is not supported you must specify an output.publicPath manually via configuration',
-        '// or pass an empty string ("") and set the __webpack_public_path__ variable from your code to use your own logic.',
-        'if (!scriptUrl) {',
-        Template.indent([
-          'if (isChrome || isBrowser) scriptUrl = runtime.runtime.getURL("/");',
-          'else throw new Error("Automatic publicPath is not supported in this browser");'
-        ]),
-        '}',
-        'scriptUrl = scriptUrl.replace(/#.*$/, "").replace(/\\?.*$/, "").replace(/\\/[^\\/]+$/, "/");',
-        !undoPath
-          ? `${RuntimeGlobals.publicPath} = scriptUrl;`
-          : `${RuntimeGlobals.publicPath} = scriptUrl + ${JSON.stringify(undoPath)};`
-      ])
     }
+
+    const {
+      scriptType,
+      importMetaName,
+      path: outputPath
+    } = compilation.outputOptions
+    const chunkName = compilation.getPath(
+      chunk.filenameTemplate || compilation.outputOptions.filename,
+      {
+        chunk,
+        contentHash: 'javascript'
+      }
+    )
+
+    if (!outputPath) {
+      return Template.asString(
+        '/* [webpack-target-webextension] AutoPublicPathRuntimeModule skipped because no output path is found. */'
+      )
+    }
+
+    const undoPath = getUndoPath(chunkName, outputPath, false)
+
+    return Template.asString([
+      ...BrowserRuntime(acceptWeak),
+      'var scriptUrl;',
+      scriptType === 'module'
+        ? `if (typeof ${importMetaName}.url === "string") scriptUrl = ${importMetaName}.url`
+        : Template.asString([
+            `if (${RuntimeGlobals.global}.importScripts) scriptUrl = ${RuntimeGlobals.global}.location + "";`,
+            `var document = ${RuntimeGlobals.global}.document;`,
+            'if (!scriptUrl && document && document.currentScript) {',
+            Template.indent(`scriptUrl = document.currentScript.src`),
+            '}'
+          ]),
+      '// When supporting browsers where an automatic publicPath is not supported you must specify an output.publicPath manually via configuration',
+      '// or pass an empty string ("") and set the __webpack_public_path__ variable from your code to use your own logic.',
+      'if (!scriptUrl) {',
+      Template.indent([
+        'if (isChrome || isBrowser) scriptUrl = runtime.runtime.getURL("/");',
+        'else throw new Error("Automatic publicPath is not supported in this browser");'
+      ]),
+      '}',
+      'scriptUrl = scriptUrl.replace(/#.*$/, "").replace(/\\?.*$/, "").replace(/\\/[^\\/]+$/, "/");',
+      !undoPath
+        ? `${RuntimeGlobals.publicPath} = scriptUrl;`
+        : `${RuntimeGlobals.publicPath} = scriptUrl + ${JSON.stringify(undoPath)};`
+    ])
   }
 
-  return new AutoPublicPathRuntimeModule()
+  return {
+    name: 'AutoPublicPathRuntimeModule',
+    generate
+  }
 }
 
 /**

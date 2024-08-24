@@ -1,5 +1,5 @@
-import {Compiler} from '@rspack/core'
-import {createEagerlyLoadChunksRuntimeModule} from './RuntimeModules/EagerlyLoadChunks'
+import {Compiler, Compilation, Chunk, ChunkGroup, sources} from '@rspack/core'
+import {EagerlyLoadChunksPlugin} from './RuntimeModules/EagerlyLoadChunks'
 import {BackgroundOptions} from './types'
 
 export class ServiceWorkerEntryPlugin {
@@ -12,94 +12,92 @@ export class ServiceWorkerEntryPlugin {
   }
 
   apply(compiler: Compiler) {
-    const hook = compiler.hooks.entryOption
-    // Set chunkLoading to import-scripts
-    // @ts-ignore DO NOT add return boolean to this function, this is a BailHook and we don't want to bail.
-    hook.tap(ServiceWorkerEntryPlugin.name, (context, entries) => {
-      if (typeof entries === 'function') {
-        if (this.options.noWarningDynamicEntry) return
+    compiler.hooks.entryOption.tap(
+      ServiceWorkerEntryPlugin.name,
+      (context, entries) => {
+        if (typeof entries === 'function') {
+          if (this.options.noWarningDynamicEntry) return
 
-        console.warn(
-          '[webpack-extension-target] Dynamic entry points not supported yet.\n' +
-            'You must manually set the chuck loading of entry point ${this.entry} to "import-scripts".\n\n' +
-            'See https://webpack.js.org/configuration/entry-context/#entry-descriptor\n\n' +
-            'Set background.noWarningDynamicEntry to true to disable this warning.'
-        )
+          console.warn(
+            `[rspack-extension-target] Dynamic entry points not supported yet.\n` +
+              `You must manually set the chunk loading of entry point ${this.entry} to "import-scripts".\n\n` +
+              `Set background.noWarningDynamicEntry to true to disable this warning.`
+          )
+        }
+
+        // @ts-expect-error entries is an object
+        const selectedEntry = entries[this.entry]
+
+        if (!selectedEntry) {
+          throw new Error(
+            `[rspack-extension-target] There is no entry called ${this.entry}.`
+          )
+        }
+
+        selectedEntry.chunkLoading = 'import-scripts'
       }
+    )
 
-      const selectedEntry = entries[this.entry]
-
-      if (!selectedEntry)
-        throw new Error(
-          `[webpack-extension-target] There is no entry called ${this.entry}.`
-        )
-
-      selectedEntry.chunkLoading = 'import-scripts'
-    })
-
-    // Set all lazy chunks to eagerly loaded
-    // See https://bugs.chromium.org/p/chromium/issues/detail?id=1198822
     if (this.options.eagerChunkLoading !== false) {
       compiler.hooks.compilation.tap(
         ServiceWorkerEntryPlugin.name,
-        (compilation) => {
-          compilation.hooks.afterOptimizeChunkIds.tap(
+        (compilation: Compilation) => {
+          compilation.hooks.optimizeChunkModules.tap(
             ServiceWorkerEntryPlugin.name,
-            () => {
+            (chunks, chunkGraph) => {
               const entryPoint = compilation.entrypoints.get(this.entry)
               if (!entryPoint) return
-              const entryChunk = entryPoint.getEntrypointChunk()
 
-              const children = entryPoint.getChildren()
-
-              /** @typedef {typeof children[0]} ChunkGroup */
-              /** @type {Set<ChunkGroup>} */
-              const visitedChunkGroups = new Set()
-
-              /** @type {Set<import('webpack').Chunk>} */
-              const reachableChunks = new Set(entryPoint.chunks)
-              collectAllChildren(entryPoint)
-
-              const reachableChunkIds = new Set(
-                [...reachableChunks].map((x) => x.id)
-              )
+              const entryChunk = Array.from(entryPoint.chunks)[0]
+              const reachableChunkIds = new Set<string | number>([
+                ...entryChunk.ids
+              ])
 
               for (const id of getInitialChunkIds(
                 entryChunk,
-                compilation.chunkGraph,
+                compilation,
                 chunkHasJs
               )) {
                 reachableChunkIds.delete(id)
               }
 
               if (reachableChunkIds.size) {
-                const EagerlyLoadChunksRuntimeModule =
-                  createEagerlyLoadChunksRuntimeModule(compiler.webpack)
-
-                compilation.hooks.additionalTreeRuntimeRequirements.tap(
-                  EagerlyLoadChunksRuntimeModule.name,
-                  (chunk, set) => {
-                    if (chunk.id !== entryChunk.id) return
-                    set.add(compiler.webpack.RuntimeGlobals.ensureChunkHandlers)
-                    compilation.addRuntimeModule(
-                      entryChunk,
-                      new EagerlyLoadChunksRuntimeModule([...reachableChunkIds])
+                compilation.hooks.processAssets.tap(
+                  {
+                    name: ServiceWorkerEntryPlugin.name,
+                    stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
+                  },
+                  () => {
+                    const eagerlyLoadChunksModule = new EagerlyLoadChunksPlugin(
+                      Array.from(reachableChunkIds)
                     )
+                    const moduleSource = new sources.RawSource(
+                      eagerlyLoadChunksModule.generate()
+                    )
+
+                    const files = [...entryChunk.files]
+                    compilation.updateAsset(files[0], moduleSource)
                   }
                 )
               }
 
-              /** @param {ChunkGroup} chunkGroup */
-              function collectAllChildren(chunkGroup) {
-                for (const x of chunkGroup.getChildren()) {
-                  if (visitedChunkGroups.has(x)) continue
-                  else {
-                    visitedChunkGroups.add(x)
-                    x.chunks.forEach((x) => reachableChunks.add(x))
-                    collectAllChildren(x)
+              function collectAllChildren(chunkGroup: ChunkGroup) {
+                chunkGroup.chunks.forEach((chunk) => {
+                  if (!visitedChunkGroups.has(chunkGroup)) {
+                    visitedChunkGroups.add(chunkGroup)
+                    reachableChunks.add(chunk)
+
+                    // Iterate over each child group (parent group in this case)
+                    for (const parentGroup of chunkGroup.getParents()) {
+                      collectAllChildren(parentGroup)
+                    }
                   }
-                }
+                })
               }
+
+              const visitedChunkGroups = new Set<ChunkGroup>()
+              const reachableChunks = new Set<Chunk>(entryPoint.chunks)
+              collectAllChildren(entryPoint)
             }
           )
         }
@@ -108,29 +106,33 @@ export class ServiceWorkerEntryPlugin {
   }
 }
 
-// webpack/lib/javascript/StartupHelpers.js
-/**
- * @param {import('webpack').Chunk} chunk the chunk
- * @param {import('webpack').ChunkGraph} chunkGraph the chunk graph
- * @param {function(import('webpack').Chunk, import('webpack').ChunkGraph): boolean} filterFn filter function
- * @returns {Set<number | string>} initially fulfilled chunk ids
- */
-function getInitialChunkIds(chunk, chunkGraph, filterFn) {
-  const initialChunkIds = new Set(chunk.ids)
-  for (const c of chunk.getAllInitialChunks()) {
-    if (c === chunk || filterFn(c, chunkGraph)) continue
-    for (const id of c.ids) initialChunkIds.add(id)
+// Helper functions
+function chunkHasJs(chunk: Chunk, compilation: Compilation): boolean {
+  for (const file of chunk.files) {
+    if (file.endsWith('.js')) {
+      return true
+    }
   }
-  return initialChunkIds
+  return false
 }
 
-// webpack/lib/javascript/JavascriptModulesPlugin.js
-/**
- * @param {import('webpack').Chunk} chunk a chunk
- * @param {import('webpack').ChunkGraph} chunkGraph the chunk graph
- * @returns {boolean} true, when a JS file is needed for this chunk
- */
-function chunkHasJs(chunk, chunkGraph) {
-  if (chunkGraph.getNumberOfEntryModules(chunk) > 0) return true
-  return !!chunkGraph.getChunkModulesIterableBySourceType(chunk, 'javascript')
+// Function to get the initial chunk IDs
+function getInitialChunkIds(
+  chunk: Chunk,
+  compilation: Compilation,
+  filterFn: (chunk: Chunk, compilation: Compilation) => boolean
+): Set<string | number> {
+  const initialChunkIds = new Set<string | number>(chunk.ids)
+
+  for (const chunkGroup of compilation.chunkGroups) {
+    if (chunkGroup.chunks.includes(chunk) || filterFn(chunk, compilation)) {
+      continue
+    }
+
+    for (const id of chunkGroup.chunks.flatMap((c) => c.ids)) {
+      initialChunkIds.add(id)
+    }
+  }
+
+  return initialChunkIds
 }

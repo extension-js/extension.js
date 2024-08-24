@@ -27,8 +27,10 @@ export class NoDangerNamePlugin {
           if (file.startsWith('_locales/') || file === '_locales') {
           } else with_.push(String(file))
         }
+
         if (file.includes('~')) withTilde.push(String(file))
       }
+
       if (with_.length) {
         compilation.errors.push(
           new Error(
