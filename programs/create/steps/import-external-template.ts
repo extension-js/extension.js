@@ -22,6 +22,7 @@ export async function importExternalTemplate(
   const templateUrl = `${examplesUrl}/${template}`
 
   try {
+    // Ensure the project path exists
     await fs.mkdir(projectPath, {recursive: true})
 
     let templatePath = ''
@@ -29,7 +30,7 @@ export async function importExternalTemplate(
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.installingFromTemplate(projectName, template))
 
-      templatePath = path.join(installationPath, templateName)
+      templatePath = path.join(projectPath, templateName)
 
       await fs.cp(
         path.join(__dirname, '..', '..', '..', 'examples', templateName),
@@ -46,13 +47,30 @@ export async function importExternalTemplate(
       templatePath = path.join(installationPath, templateName)
     }
 
-    // Ensure we're not trying to copy the template into itself
-    if (templatePath !== projectPath) {
-      // Copy the contents of the template to the desired project path
-      await fs.cp(templatePath, projectPath, {recursive: true})
+    if (projectName !== templateName) {
+      await fs.rename(templatePath, path.join(installationPath, projectName))
+    } else {
+      // Here we are in a templatePath/templateName situation.
+      // We first rename the top-level path to projectName-temp
+      // and then rename the templateName folder to projectName.
 
-      // Remove the original template directory
-      await fs.rm(templatePath, {recursive: true, force: true})
+      // e.g. new-react/new-react is at this moment new-react-temp/new-react
+      await fs.rename(
+        templatePath,
+        path.join(installationPath, projectName + '-temp')
+      )
+
+      // Copy the new-react-temp/new-react to new-react
+      await fs.cp(
+        path.join(installationPath, projectName + '-temp', templateName),
+        path.join(installationPath, projectName),
+        {recursive: true}
+      )
+
+      // Remove the new-react-temp folder
+      await fs.rm(path.join(installationPath, projectName + '-temp'), {
+        recursive: true
+      })
     }
   } catch (error: any) {
     console.error(
