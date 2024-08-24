@@ -9,7 +9,7 @@ import path from 'path'
 import {rspack} from '@rspack/core'
 import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
-import webpackConfig from './rspack-config'
+import rspackConfig from './rspack-config'
 import type {DevOptions} from '../commands/dev'
 import * as utils from './lib/utils'
 import {loadExtensionConfig} from '../commands/commands-lib/get-extension-config'
@@ -29,7 +29,7 @@ export async function devServer(
   projectPath: string,
   {...devOptions}: DevOptions
 ) {
-  const baseConfig = webpackConfig(projectPath, {
+  const baseConfig = rspackConfig(projectPath, {
     ...devOptions,
     mode: 'development'
   })

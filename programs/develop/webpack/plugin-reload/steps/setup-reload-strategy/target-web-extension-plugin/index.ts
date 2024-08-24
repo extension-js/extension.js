@@ -139,9 +139,9 @@ export class TargetWebExtensionPlugin {
 
     this.handleBackground(compiler, this.browser, manifest)
 
-    new WebExtensionPlugin({
-      background: this.getEntryName(manifest),
-      weakRuntimeCheck: true
-    }).apply(compiler)
+    // new WebExtensionPlugin({
+    //   background: this.getEntryName(manifest),
+    //   weakRuntimeCheck: true
+    // }).apply(compiler)
   }
 }

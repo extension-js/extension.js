@@ -114,12 +114,12 @@ export default function rspackConfig(
         browser: devOptions.browser,
         mode: devOptions.mode
       }),
-      // new ReloadPlugin({
-      //   manifestPath,
-      //   browser: devOptions.browser,
-      //   stats: true,
-      //   port: devOptions.port || 8000
-      // }),
+      new ReloadPlugin({
+        manifestPath,
+        browser: devOptions.browser,
+        stats: true,
+        port: devOptions.port || 8000
+      }),
       !devOptions.noOpen &&
         new BrowsersPlugin({
           extension: [
