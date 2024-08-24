@@ -8520,11 +8520,6 @@ webpack-sources@^3.2.3:
   resolved "https://registry.yarnpkg.com/webpack-sources/-/webpack-sources-3.2.3.tgz#2d4daab8451fd4b240cc27055ff6a0c2ccea0cde"
   integrity sha512-/DyMEOrDgLKKIG0fmvtz+4dUX/3Ghozwgm6iPp8KRhvn+eQf9+Q7GWxVNMk3+uCPWfdXYC4ExGBckIXdFEfH1w==
 
-webpack-target-webextension@^1.1.2:
-  version "1.1.2"
-  resolved "https://registry.yarnpkg.com/webpack-target-webextension/-/webpack-target-webextension-1.1.2.tgz#3966d69f754e7e270e253383314e48e2fbfab056"
-  integrity sha512-/BwCTlnkq4BmY4pD3HV2tLZVTMJhM+YslbJFi8Yl4GL8FsPsHvg0jcDs/XGtHwm59A9oK3Oiaz+0y1nJNZESrg==
-
 webpack@^5:
   version "5.94.0"
   resolved "https://registry.yarnpkg.com/webpack/-/webpack-5.94.0.tgz#77a6089c716e7ab90c1c67574a28da518a20970f"
