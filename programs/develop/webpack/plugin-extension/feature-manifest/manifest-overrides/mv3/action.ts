@@ -1,9 +1,9 @@
 import path from 'path'
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)
-export function action(manifest: Manifest, exclude: string[]) {
+export function action(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.action && {
       action: {
@@ -12,7 +12,7 @@ export function action(manifest: Manifest, exclude: string[]) {
           default_popup: getFilename(
             `action/default_popup.html`,
             manifest.action.default_popup as string,
-            exclude
+            excludeList
           )
         }),
 
@@ -24,7 +24,7 @@ export function action(manifest: Manifest, exclude: string[]) {
                     manifest.action.default_icon as string
                   )}`,
                   manifest.action.default_icon as string,
-                  exclude
+                  excludeList
                 )
               : Object.fromEntries(
                   Object.entries(manifest.action.default_icon as string).map(
@@ -34,7 +34,7 @@ export function action(manifest: Manifest, exclude: string[]) {
                         getFilename(
                           `action/${getBasename(icon)}`,
                           icon,
-                          exclude
+                          excludeList
                         )
                       ]
                     }

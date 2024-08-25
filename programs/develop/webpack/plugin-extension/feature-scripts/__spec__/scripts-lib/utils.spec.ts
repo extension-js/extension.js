@@ -52,7 +52,7 @@ describe('File Utilities', () => {
 
     it('returns an empty array if no valid script entries exist', () => {
       const scriptEntries = getScriptEntries(
-        [path.join(testDir, 'invalid.js')],
+        [path.join(testDir, 'script2.js')],
         excludeList
       )
       expect(scriptEntries).toEqual([])
@@ -85,7 +85,7 @@ describe('File Utilities', () => {
 
     it('returns an empty array if no valid CSS entries exist', () => {
       const cssEntries = getCssEntries(
-        [path.join(testDir, 'invalid.css')],
+        [path.join(testDir, 'theme.scss')],
         excludeList
       )
       expect(cssEntries).toEqual([])

@@ -1,7 +1,7 @@
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
-export function backgroundPage(manifest: Manifest, exclude: string[]) {
+export function backgroundPage(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.background &&
     manifest.background.page && {
@@ -11,7 +11,7 @@ export function backgroundPage(manifest: Manifest, exclude: string[]) {
           page: getFilename(
             'background/page.html',
             manifest.background.page as string,
-            exclude
+            excludeList
           )
         })
       }

@@ -1,7 +1,7 @@
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
-export function storage(manifest: Manifest, exclude: string[]) {
+export function storage(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.storage && {
       storage: {
@@ -9,7 +9,7 @@ export function storage(manifest: Manifest, exclude: string[]) {
           managed_schema: getFilename(
             'storage/managed_schema.json',
             manifest.storage.managed_schema,
-            exclude
+            excludeList
           )
         })
       }

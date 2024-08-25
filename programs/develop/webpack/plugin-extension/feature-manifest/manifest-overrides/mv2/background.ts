@@ -1,6 +1,7 @@
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {getFilename} from '../../../../lib/utils'
 
-export function background(manifest: Manifest, exclude: string[]) {
+export function background(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.background &&
     manifest.background.scripts && {
@@ -8,9 +9,8 @@ export function background(manifest: Manifest, exclude: string[]) {
         ...manifest.background,
         ...(manifest.background.scripts && {
           scripts: [
-            'background/scripts.js',
-            ...manifest.background.scripts.filter((script: string) =>
-              exclude.includes(script)
+            ...manifest.background.scripts.map((script) =>
+              getFilename('background/scripts.js', script, excludeList)
             )
           ]
         })

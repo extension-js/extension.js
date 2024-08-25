@@ -1,9 +1,9 @@
 import path from 'path'
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)
-export function pageAction(manifest: Manifest, exclude: string[]) {
+export function pageAction(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.page_action && {
       page_action: {
@@ -12,7 +12,7 @@ export function pageAction(manifest: Manifest, exclude: string[]) {
           default_popup: getFilename(
             'page_action/default_popup.html',
             manifest.page_action.default_popup as string,
-            exclude
+            excludeList
           )
         }),
         ...(manifest.page_action.default_icon && {
@@ -23,7 +23,7 @@ export function pageAction(manifest: Manifest, exclude: string[]) {
                     manifest.page_action.default_icon as string
                   )}`,
                   manifest.page_action.default_icon as string,
-                  exclude
+                  excludeList
                 )
               : Object.fromEntries(
                   Object.entries(
@@ -31,7 +31,11 @@ export function pageAction(manifest: Manifest, exclude: string[]) {
                   ).map(([size, icon]) => {
                     return [
                       size,
-                      getFilename(`icons/${getBasename(icon)}`, icon, exclude)
+                      getFilename(
+                        `icons/${getBasename(icon)}`,
+                        icon,
+                        excludeList
+                      )
                     ]
                   })
                 )
