@@ -33,15 +33,15 @@ export function isFromFilepathList(
 
 export function getFilename(
   feature: string,
-  filepath: string,
-  exclude: string[]
+  filePath: string,
+  excludeList: FilepathList
 ) {
-  const entryExt = path.extname(filepath)
+  const entryExt = path.extname(filePath)
 
   // Do not attempt to rewrite the asset path if it's in the exclude list.
-  const shouldSkipRewrite = shouldExclude(filepath, {exclude})
+  const skipPathResolve = shouldExclude(filePath, excludeList)
 
-  let fileOutputpath = shouldSkipRewrite ? path.normalize(filepath) : feature
+  let fileOutputpath = skipPathResolve ? path.normalize(filePath) : feature
 
   if (['.js', '.jsx', '.tsx', '.ts'].includes(entryExt)) {
     fileOutputpath = fileOutputpath.replace(entryExt, '.js')
@@ -61,8 +61,8 @@ export function getFilename(
 /**
  * Change the path from win style to unix style
  */
-export function unixify(filepath: string) {
-  return filepath.replace(/\\/g, '/')
+export function unixify(filePath: string) {
+  return filePath.replace(/\\/g, '/')
 }
 
 export function shouldExclude(
@@ -74,16 +74,22 @@ export function shouldExclude(
   }
 
   const unixifiedFilePath = unixify(filePath)
-  return Object.values(ignorePatterns).some((pattern) => {
-    if (typeof pattern !== 'string') {
-      return false
+
+  const isFilePathInExcludedList = Object.values(ignorePatterns).some(
+    (pattern) => {
+      if (typeof pattern !== 'string') {
+        return false
+      }
+
+      const _pattern = unixify(pattern).replace(/\/$/, '')
+
+      return unixifiedFilePath.includes(_pattern)
     }
+  )
 
-    const _pattern = unixify(pattern)
-
-    return unixifiedFilePath.endsWith(_pattern)
-  })
+  return isFilePathInExcludedList
 }
+
 
 export function getManifestContent(
   compilation: Compilation,

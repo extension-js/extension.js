@@ -4,7 +4,6 @@ import {type Manifest} from '../../../../webpack-types'
 
 export function jsonFields(
   context: string,
-
   manifest: Manifest
 ): Record<string, string | undefined> {
   return {

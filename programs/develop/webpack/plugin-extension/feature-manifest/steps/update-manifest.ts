@@ -23,7 +23,7 @@ export class UpdateManifest {
       (contentObj: {js: string[]; css: string[]}, index: number) => {
         if (contentObj.css.length && !contentObj.js.length) {
           contentObj.js = [
-            getFilename(`content_scripts-${index}`, 'dev.js', [])
+            getFilename(`content_scripts-${index}`, 'dev.js', {})
           ]
         }
 

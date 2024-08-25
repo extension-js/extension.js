@@ -1,9 +1,9 @@
 import path from 'path'
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)
-export function sidebarAction(manifest: Manifest, exclude: string[]) {
+export function sidebarAction(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.sidebar_action && {
       sidebar_action: {
@@ -12,7 +12,7 @@ export function sidebarAction(manifest: Manifest, exclude: string[]) {
           default_panel: getFilename(
             `sidebar_action/default_panel.html`,
             manifest.sidebar_action.default_panel as string,
-            exclude
+            excludeList
           )
         }),
 
@@ -22,7 +22,7 @@ export function sidebarAction(manifest: Manifest, exclude: string[]) {
               manifest.sidebar_action.default_icon as string
             )}`,
             manifest.sidebar_action.default_icon as string,
-            exclude
+            excludeList
           )
         })
       }

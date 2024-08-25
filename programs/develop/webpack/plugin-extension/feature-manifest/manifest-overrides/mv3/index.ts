@@ -1,12 +1,12 @@
 import {action} from './action'
 import {backgroundServiceWorker} from './background'
 import {sidePanel} from './side_panel'
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 
-export function manifestV3(manifest: Manifest, exclude: string[]) {
+export function manifestV3(manifest: Manifest, excludeList: FilepathList) {
   return {
-    ...action(manifest, exclude),
-    ...backgroundServiceWorker(manifest, exclude),
-    ...sidePanel(manifest, exclude)
+    ...action(manifest, excludeList),
+    ...backgroundServiceWorker(manifest, excludeList),
+    ...sidePanel(manifest, excludeList)
   }
 }

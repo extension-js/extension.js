@@ -1,9 +1,9 @@
 import path from 'path'
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)
-export function browserAction(manifest: Manifest, exclude: string[]) {
+export function browserAction(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.browser_action && {
       browser_action: {
@@ -12,7 +12,7 @@ export function browserAction(manifest: Manifest, exclude: string[]) {
           default_popup: getFilename(
             'browser_action/default_popup.html',
             manifest.browser_action.default_popup as string,
-            exclude
+            excludeList
           )
         }),
         ...(manifest.browser_action.default_icon && {
@@ -23,7 +23,7 @@ export function browserAction(manifest: Manifest, exclude: string[]) {
                     manifest.browser_action.default_icon as string
                   )}`,
                   manifest.browser_action.default_icon as string,
-                  exclude
+                  excludeList
                 )
               : Object.fromEntries(
                   Object.entries(
@@ -31,7 +31,11 @@ export function browserAction(manifest: Manifest, exclude: string[]) {
                   ).map(([size, icon]) => {
                     return [
                       size,
-                      getFilename(`icons/${getBasename(icon)}`, icon, exclude)
+                      getFilename(
+                        `icons/${getBasename(icon)}`,
+                        icon,
+                        excludeList
+                      )
                     ]
                   })
                 )
@@ -45,14 +49,14 @@ export function browserAction(manifest: Manifest, exclude: string[]) {
                   light: getFilename(
                     `browser_action/${getBasename(themeIcon.light)}`,
                     themeIcon.light,
-                    exclude
+                    excludeList
                   )
                 }),
                 ...(themeIcon.dark && {
                   dark: getFilename(
                     `browser_action/${getBasename(themeIcon.dark)}`,
                     themeIcon.dark,
-                    exclude
+                    excludeList
                   )
                 })
               }

@@ -1,17 +1,17 @@
 import path from 'path'
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 
-export function icons(manifest: Manifest, exclude: string[]) {
+export function icons(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.icons && {
       icons: Object.fromEntries(
         Object.entries(manifest.icons).map(([size, icon]) => {
           return [
             size,
-            getFilename(`icons/${getBasename(icon)}`, icon, exclude)
+            getFilename(`icons/${getBasename(icon)}`, icon, excludeList)
           ]
         })
       )

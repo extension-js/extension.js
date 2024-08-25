@@ -1,7 +1,7 @@
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
-export function optionsUi(manifest: Manifest, exclude: string[]) {
+export function optionsUi(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.options_ui && {
       options_ui: {
@@ -10,7 +10,7 @@ export function optionsUi(manifest: Manifest, exclude: string[]) {
           page: getFilename(
             'options_ui/page.html',
             manifest.options_ui.page,
-            exclude
+            excludeList
           )
         })
       }
