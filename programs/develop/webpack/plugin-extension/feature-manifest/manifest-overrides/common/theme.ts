@@ -1,10 +1,10 @@
 import path from 'path'
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 
-export function theme(manifest: Manifest, exclude: string[]) {
+export function theme(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.theme && {
       theme: {
@@ -17,7 +17,7 @@ export function theme(manifest: Manifest, exclude: string[]) {
                 manifest.theme.images.theme_frame as string
               )}`,
               manifest.theme.images.theme_frame as string,
-              exclude
+              excludeList
             )
           }
         })

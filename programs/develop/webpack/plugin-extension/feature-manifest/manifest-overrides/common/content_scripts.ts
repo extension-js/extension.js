@@ -1,4 +1,4 @@
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 interface ContentObj {
@@ -6,7 +6,7 @@ interface ContentObj {
   css?: string[] | undefined
 }
 
-export function contentScripts(manifest: Manifest, exclude: string[]) {
+export function contentScripts(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.content_scripts && {
       content_scripts: manifest.content_scripts.map(
@@ -27,7 +27,7 @@ export function contentScripts(manifest: Manifest, exclude: string[]) {
                 return getFilename(
                   `content_scripts/content-${index}.js`,
                   js,
-                  exclude
+                  excludeList
                 )
               })
             ],
@@ -36,7 +36,7 @@ export function contentScripts(manifest: Manifest, exclude: string[]) {
                 return getFilename(
                   `content_scripts/content-${index}.css`,
                   css,
-                  exclude
+                  excludeList
                 )
               })
             ]

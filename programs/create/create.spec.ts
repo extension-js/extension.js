@@ -56,11 +56,7 @@ describe('extension create', () => {
     it.each(ALL_TEMPLATES)(
       `creates the "$name" extension template`,
       async (template) => {
-        const templatePath = path.join(
-          __dirname,
-          'dist',
-          template.name
-        )
+        const templatePath = path.join(__dirname, 'dist', template.name)
 
         await extensionCreate(templatePath, {
           template: template.name,

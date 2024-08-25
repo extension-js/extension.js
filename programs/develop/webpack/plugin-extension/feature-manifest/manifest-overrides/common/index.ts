@@ -13,24 +13,24 @@ import {storage} from './storage'
 import {theme} from './theme'
 import {userScripts} from './user_scripts'
 import {webAccessibleResources} from './web_accessible_resources'
-import {type Manifest} from '../../../../webpack-types'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 
-export function manifestCommon(manifest: Manifest, exclude: string[]) {
+export function manifestCommon(manifest: Manifest, excludeList: FilepathList) {
   return {
-    ...backgroundPage(manifest, exclude),
-    ...chromeUrlOverrides(manifest, exclude),
-    ...contentScripts(manifest, exclude),
-    ...devtoolsPage(manifest, exclude),
-    ...icons(manifest, exclude),
-    ...optionsPage(manifest, exclude),
-    ...optionsUi(manifest, exclude),
-    ...pageAction(manifest, exclude),
-    ...sandbox(manifest, exclude),
-    ...sidePanel(manifest, exclude),
-    ...sidebarAction(manifest, exclude),
-    ...storage(manifest, exclude),
-    ...theme(manifest, exclude),
-    ...userScripts(manifest, exclude),
+    ...backgroundPage(manifest, excludeList),
+    ...chromeUrlOverrides(manifest, excludeList),
+    ...contentScripts(manifest, excludeList),
+    ...devtoolsPage(manifest, excludeList),
+    ...icons(manifest, excludeList),
+    ...optionsPage(manifest, excludeList),
+    ...optionsUi(manifest, excludeList),
+    ...pageAction(manifest, excludeList),
+    ...sandbox(manifest, excludeList),
+    ...sidePanel(manifest, excludeList),
+    ...sidebarAction(manifest, excludeList),
+    ...storage(manifest, excludeList),
+    ...theme(manifest, excludeList),
+    ...userScripts(manifest, excludeList),
     ...webAccessibleResources(manifest)
   }
 }
