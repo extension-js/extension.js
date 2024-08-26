@@ -27,7 +27,7 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   return `${arrow}`
 }
 
-export function manifestNotFound() {
+export function manifestNotFoundError() {
   return (
     `${getLoggingPrefix('error')} Manifest file not found. ` +
     'Ensure the path to your extension exists and try again.'
@@ -84,8 +84,8 @@ export function ready(
 
   return (
     `${getLoggingPrefix('success')} ` +
-    `${capitalizedBrowserName(browser)} ${extensionOutput} running in ` +
-    `${modeColor(mode || 'unknown')} mode.`
+    `${capitalizedBrowserName(browser)} ${extensionOutput} ready for ` +
+    `${modeColor(mode || 'unknown')}.`
   )
 }
 
@@ -227,7 +227,7 @@ export function treeWithSourceFiles(
   )
 }
 
-export function failedToCompress(error: any) {
+export function failedToCompressError(error: any) {
   return `${getLoggingPrefix(
     'error'
   )} Failed to compress extension package. ${error}`
@@ -266,7 +266,7 @@ export function unpackagedSuccessfully() {
   )} Browser extension unpackaged successfully. Compiling...`
 }
 
-export function failedToDownloadOrExtractZIPFile(error: any) {
+export function failedToDownloadOrExtractZIPFileError(error: any) {
   return (
     `${getLoggingPrefix('error')} ` +
     `Failed to download or extract ZIP file. ${red(error)}`

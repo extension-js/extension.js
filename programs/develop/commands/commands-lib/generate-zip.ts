@@ -126,7 +126,7 @@ export async function generateZip(
       )
     }
   } catch (error) {
-    console.error(messages.failedToCompress(error))
+    console.error(messages.failedToCompressError(error))
     throw error
   }
 }

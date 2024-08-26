@@ -20,12 +20,13 @@ export function getScriptEntries(
 
     const assetExtension = path.extname(scriptAsset)
 
-    return validFile && (
-      assetExtension === '.js' ||
-      assetExtension === '.mjs' ||
-      assetExtension === '.jsx' ||
-      assetExtension === '.ts' ||
-      assetExtension === '.tsx'
+    return (
+      validFile &&
+      (assetExtension === '.js' ||
+        assetExtension === '.mjs' ||
+        assetExtension === '.jsx' ||
+        assetExtension === '.ts' ||
+        assetExtension === '.tsx')
     )
   })
 
@@ -47,7 +48,7 @@ export function getCssEntries(
       fs.existsSync(scriptAsset) &&
       !utils.shouldExclude(scriptAsset, excludeList)
 
-      return (
+    return (
       validFile &&
       (scriptAsset.endsWith('.css') ||
         scriptAsset.endsWith('.scss') ||
