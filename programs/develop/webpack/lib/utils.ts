@@ -5,6 +5,8 @@ import {execSync} from 'child_process'
 import {detect} from 'detect-package-manager'
 import * as messages from './messages'
 import {type Manifest, type FilepathList} from '../webpack-types'
+import { CHROMIUM_BASED_BROWSERS } from './constants'
+import { DevOptions } from '../../module'
 
 export function getResolvedPath(
   context: string,
@@ -89,7 +91,6 @@ export function shouldExclude(
 
   return isFilePathInExcludedList
 }
-
 
 export function getManifestContent(
   compilation: Compilation,
@@ -237,4 +238,32 @@ export function getHardcodedMessage(manifest: Manifest): {
       }
     }
   }
+}
+
+export function removeManifestKeysNotFromCurrentBrowser(manifest: Manifest, browser: DevOptions['browser']) {
+  const patchedManifest = JSON.parse(
+    JSON.stringify(manifest),
+    function reviver(this: any, key: string, value: any) {
+      const indexOfColon = key.indexOf(':')
+
+      // Retain plain keys.
+      if (indexOfColon === -1) {
+        return value
+      }
+
+      // Replace browser:key keys.
+      const prefix = key.substring(0, indexOfColon)
+
+      if (
+        prefix === browser ||
+        (prefix === 'chromium' && CHROMIUM_BASED_BROWSERS.includes(browser))
+      ) {
+        this[key.substring(indexOfColon + 1)] = value
+      }
+
+      // Implicitly delete the key otherwise.
+    }
+  )
+
+  return patchedManifest
 }
