@@ -1,11 +1,12 @@
 import {type Compiler, Compilation, sources} from 'webpack'
-import {getManifestContent} from '../lib/utils'
 import {type PluginInterface, type Manifest} from '../webpack-types'
+import {type DevOptions} from '../../commands/dev'
+import {getManifestContent} from '../lib/utils'
+import * as utils from '../lib/utils'
 
 export class BrowserFieldsPlugin {
-  private readonly browser: string
+  private readonly browser: DevOptions['browser']
   private readonly manifestPath: string
-  private readonly chromiumBasedBrowsers = ['chrome', 'edge', 'opera', 'brave']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -13,31 +14,9 @@ export class BrowserFieldsPlugin {
   }
 
   patchManifest(manifest: Manifest) {
-    const chromiumBasedBrowsers = this.chromiumBasedBrowsers
-    const browser = this.browser
-
-    const patchedManifest = JSON.parse(
-      JSON.stringify(manifest),
-      function reviver(this: any, key: string, value: any) {
-        const indexOfColon = key.indexOf(':')
-
-        // Retain plain keys.
-        if (indexOfColon === -1) {
-          return value
-        }
-
-        // Replace browser:key keys.
-        const prefix = key.substring(0, indexOfColon)
-
-        if (
-          prefix === browser ||
-          (prefix === 'chromium' && chromiumBasedBrowsers.includes(browser))
-        ) {
-          this[key.substring(indexOfColon + 1)] = value
-        }
-
-        // Implicitly delete the key otherwise.
-      }
+    const patchedManifest = utils.removeManifestKeysNotFromCurrentBrowser(
+      manifest,
+      this.browser
     )
 
     return JSON.stringify(patchedManifest, null, 2)
