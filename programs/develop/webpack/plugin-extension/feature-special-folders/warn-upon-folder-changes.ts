@@ -19,7 +19,7 @@ export class WarnUponFolderChanges {
     const addingOrRemoving = isAddition ? 'Adding' : 'Removing'
     const addedOrRemoved = isAddition ? 'added' : 'removed'
     const typeOfAsset = folder === 'pages' ? 'HTML pages' : 'script files'
-    const errorMessage = messages.serverRestartRequiredFromSpecialFolder(
+    const errorMessage = messages.serverRestartRequiredFromSpecialFolderError(
       addingOrRemoving,
       addedOrRemoved,
       folder,
