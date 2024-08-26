@@ -35,7 +35,7 @@ export async function downloadAndExtractZip(
 
     console.log(messages.unpackagedSuccessfully())
   } catch (error: any) {
-    console.error(messages.failedToDownloadOrExtractZIPFile(error))
+    console.error(messages.failedToDownloadOrExtractZIPFileError(error))
     throw error
   }
 }

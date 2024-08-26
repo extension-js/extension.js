@@ -36,7 +36,7 @@ export function stdoutData(
 ) {
   const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
   return (
-    `${getLoggingPrefix(browser, 'info')} ` +
+    `${getLoggingPrefix(browser, 'success')} ` +
     `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
     // `${cyan(name)} ` +
     `running in ${cyan(mode || 'unknown')} mode.`

@@ -31,7 +31,7 @@ function getLoggingPrefix(manifestName: string, type: PrefixType): string {
         ? cyan('►►►')
         : brightGreen('►►►')
 
-  return `${arrow} ${cyan(manifestName)}`
+  return `${arrow} ${manifestName}`
 }
 
 export function capitalizedBrowserName(browser: DevOptions['browser']) {
@@ -391,8 +391,7 @@ export function manifestInvalidError(
   )
 }
 
-export function serverRestartRequiredFromManifest(
-  manifestName: string,
+export function serverRestartRequiredFromManifestError(
   fileAdded: string,
   fileRemoved: string
 ) {
@@ -403,10 +402,7 @@ export function serverRestartRequiredFromManifest(
     fileAdded &&
     `${gray('PATH')} ${brightGreen('ADDED')} ${underline(fileAdded)}`
   return (
-    `${getLoggingPrefix(
-      manifestName,
-      'error'
-    )} Manifest Entry Point Modification\n\n` +
+    `Manifest Entry Point Modification\n\n` +
     `Changing the path of ${brightYellow('<script>')} or ${brightYellow(
       '<link rel="stylesheet">'
     )} ` +
@@ -447,7 +443,7 @@ export function resolverStaticError(manifestName: string, filePath: string) {
   )
 }
 
-export function serverRestartRequiredFromSpecialFolder(
+export function serverRestartRequiredFromSpecialFolderError(
   addingOrRemoving: string,
   addedOrRemoved: string,
   folder: string,
@@ -481,6 +477,14 @@ export function creatingTSConfig(manifestName: string) {
         'tsconfig.json'
       )}...`
     )
+  )
+}
+
+export function serverIsRunning(useHttps: boolean, port: number) {
+  return (
+    `${getLoggingPrefix('Background', 'success')}` +
+    ` server running on ` +
+    underline(`${useHttps ? 'wss' : 'ws'}://localhost:${port}.`)
   )
 }
 
@@ -621,13 +625,14 @@ export function staticAssetError(
   )
 }
 
+// `This is your first run using Extension.js. Welcome! 🎉\n\n` +
+
 export function certRequired() {
   return (
-    `This is your first run using Extension.js. Welcome! 🎉\n\n` +
     `${brightYellow(
       'Note'
     )}: Firefox requires a secure certificate for localhost connections, ` +
-    `needed for the reloader to work.\nBy default, your ${'manifest.json'} file ` +
+    `needed for the reloader to work.\nBy default, your ${brightYellow('manifest.json')} file ` +
     `is not being watched. To enable this feature, run:\n\n` +
     `  npx -y ${'mkcert-cli'} \\\n` +
     `    ${brightGreen('--outDir')} ${underline(
