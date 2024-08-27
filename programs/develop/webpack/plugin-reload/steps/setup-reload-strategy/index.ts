@@ -1,11 +1,11 @@
 import type webpack from 'webpack'
 import {type PluginInterface} from '../../reload-types'
-import SetupChromiumReloadClient from '../setup-chromium-reload-client'
-import SetupFirefoxReloadClient from '../setup-firefox-reload-client'
-import ApplyManifestDevDefaults from './apply-manifest-dev-defaults'
-import TargetWebExtensionPlugin from './target-web-extension-plugin'
-import {DevOptions} from '../../../../module'
-import { CHROMIUM_BASED_BROWSERS } from '../../../lib/constants'
+import {SetupChromiumReloadClient} from '../setup-chromium-reload-client'
+import {SetupFirefoxReloadClient} from '../setup-firefox-reload-client'
+import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
+import {TargetWebExtensionPlugin} from './target-web-extension-plugin'
+import {DevOptions} from '../../../../commands/dev'
+import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
 
 class SetupReloadStrategy {
   private readonly manifestPath: string
@@ -20,11 +20,11 @@ class SetupReloadStrategy {
     // 1 - Ensure the background scripts (and service_worker) can
     // receive messages from the extension reload plugin.
     if (CHROMIUM_BASED_BROWSERS.includes(this.browser)) {
-      SetupChromiumReloadClient(compiler, this.manifestPath)
+      SetupChromiumReloadClient(compiler, this.browser, this.manifestPath)
     }
 
     if (this.browser === 'firefox') {
-      SetupFirefoxReloadClient(compiler, this.manifestPath)
+      SetupFirefoxReloadClient(compiler, this.browser, this.manifestPath)
     }
 
     // 2 - Patch the manifest with useful transforms during development,
