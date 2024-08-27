@@ -123,9 +123,11 @@ export default function webpackConfig(
         new BrowsersPlugin({
           extension: [
             userExtensionOutputPath,
-            devOptions.browser === 'firefox'
-              ? path.join(__dirname, 'extensions', 'manager-extension-firefox')
-              : path.join(__dirname, 'extensions', 'manager-extension')
+            path.join(
+              __dirname,
+              'extensions',
+              `${devOptions.browser}-manager-extension`
+            )
           ],
           browser: devOptions.browser,
           startingUrl: devOptions.startingUrl,
