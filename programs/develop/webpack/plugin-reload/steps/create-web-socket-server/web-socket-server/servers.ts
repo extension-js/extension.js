@@ -1,4 +1,5 @@
 import path from 'path'
+import http from 'http'
 import https from 'https'
 import fs from 'fs'
 
@@ -24,7 +25,19 @@ export function httpsServer(manifestName: string, defaultPort: number) {
     res.end()
   })
 
-  server.listen(defaultPort, '127.0.0.1')
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    console.error(messages.defaultPortInUse(manifestName, defaultPort))
+    throw new Error(err.message)
+  })
+
+  return {server, port: defaultPort}
+}
+
+export function httpServer(manifestName: string, defaultPort: number) {
+  const server = http.createServer((_req, res) => {
+    res.writeHead(200)
+    res.end()
+  })
 
   server.on('error', (err: NodeJS.ErrnoException) => {
     console.error(messages.defaultPortInUse(manifestName, defaultPort))

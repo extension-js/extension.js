@@ -5,6 +5,7 @@ import SetupFirefoxReloadClient from '../setup-firefox-reload-client'
 import ApplyManifestDevDefaults from './apply-manifest-dev-defaults'
 import TargetWebExtensionPlugin from './target-web-extension-plugin'
 import {DevOptions} from '../../../../module'
+import { CHROMIUM_BASED_BROWSERS } from '../../../lib/constants'
 
 class SetupReloadStrategy {
   private readonly manifestPath: string
@@ -18,7 +19,7 @@ class SetupReloadStrategy {
   public apply(compiler: webpack.Compiler) {
     // 1 - Ensure the background scripts (and service_worker) can
     // receive messages from the extension reload plugin.
-    if (this.browser === 'chrome' || this.browser === 'edge') {
+    if (CHROMIUM_BASED_BROWSERS.includes(this.browser)) {
       SetupChromiumReloadClient(compiler, this.manifestPath)
     }
 
