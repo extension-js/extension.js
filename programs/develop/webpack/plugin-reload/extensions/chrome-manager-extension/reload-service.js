@@ -1,3 +1,4 @@
+const TEN_SECONDS_MS = 10 * 1000
 let webSocket = null
 
 export async function connect() {
@@ -6,7 +7,7 @@ export async function connect() {
     return
   }
 
-  webSocket = new WebSocket('wss://127.0.0.1:__RELOAD_PORT__')
+  webSocket = new WebSocket('ws://localhost:__RELOAD_PORT__')
 
   webSocket.onerror = (event) => {
     console.error(`[Reload Service] Connection error: ${JSON.stringify(event)}`)
@@ -47,14 +48,16 @@ export function disconnect() {
 }
 
 async function getDevExtensions() {
-  const allExtensions = await browser.management.getAll()
+  const allExtensions = await new Promise((resolve) => {
+    chrome.management.getAll(resolve)
+  })
 
   return allExtensions.filter((extension) => {
     return (
       // Do not include itself
-      extension.id !== browser.runtime.id &&
+      extension.id !== chrome.runtime.id &&
       // Manager extension
-      extension.name !== 'Extension Manager' &&
+      extension.id !== 'hkklidinfhnfidkjiknmmbmcloigimco' &&
       // Show only unpackaged extensions
       extension.installType === 'development'
     )
@@ -67,16 +70,17 @@ async function messageAllExtensions(changedFile) {
 
   if (isExtensionReady) {
     const devExtensions = await getDevExtensions()
-    for (const extension of devExtensions) {
-      try {
-        await browser.runtime.sendMessage(extension.id, {changedFile})
-        console.info('[Reload Service] Add-On reloaded and ready.')
-      } catch (error) {
-        console.error(
-          `Error sending message to ${extension.id}: ${error.message}`
-        )
-      }
-    }
+    const reloadAll = devExtensions.map((extension) => {
+      chrome.runtime.sendMessage(extension.id, {changedFile}, (response) => {
+        if (response) {
+          console.info('[Reload Service] Extension reloaded and ready.')
+        }
+      })
+
+      return true
+    })
+
+    await Promise.all(reloadAll)
   } else {
     console.info('[Reload Service] External extension is not ready.')
   }
@@ -85,29 +89,33 @@ async function messageAllExtensions(changedFile) {
 async function requestInitialLoadData() {
   const devExtensions = await getDevExtensions()
 
-  const responses = await Promise.all(
-    devExtensions.map(async (extension) => {
-      try {
-        const result = await browser.runtime.sendMessage(extension.id, {
-          initialLoadData: true
-        })
-
-        return result
-      } catch (error) {
-        console.error(
-          `Error sending message to ${extension.id}: ${error.message}`
-        )
-        return null
-      }
+  const messagePromises = devExtensions.map(async (extension) => {
+    return await new Promise((resolve) => {
+      chrome.runtime.sendMessage(
+        extension.id,
+        {initialLoadData: true},
+        (response) => {
+          if (chrome.runtime.lastError) {
+            console.error(
+              `Error sending message to ${extension.id}: ${chrome.runtime.lastError.message}`
+            )
+            resolve(null)
+          } else {
+            resolve(response)
+          }
+        }
+      )
     })
-  )
+  })
+
+  const responses = await Promise.all(messagePromises)
 
   // We received the info from the use extension.
   // All good, client is ready. Inform the server.
   if (webSocket && webSocket.readyState === WebSocket.OPEN) {
     const message = JSON.stringify({
       status: 'clientReady',
-      data: responses.find((response) => response !== null)
+      data: responses[0]
     })
 
     webSocket.send(message)
@@ -122,9 +130,16 @@ async function checkExtensionReadiness() {
 }
 
 async function delay(ms) {
-  return await new Promise((resolve) => setTimeout(resolve, ms)).catch(
-    (error) => {
-      console.error(`Error delaying: ${error.message}`)
+  return await new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+export function keepAlive() {
+  const keepAliveIntervalId = setInterval(() => {
+    if (webSocket) {
+      webSocket.send(JSON.stringify({status: 'ping'}))
+      console.info('[Reload Service] Listening for changes...')
+    } else {
+      clearInterval(keepAliveIntervalId)
     }
-  )
+  }, TEN_SECONDS_MS)
 }

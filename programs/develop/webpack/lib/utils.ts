@@ -5,8 +5,8 @@ import {execSync} from 'child_process'
 import {detect} from 'detect-package-manager'
 import * as messages from './messages'
 import {type Manifest, type FilepathList} from '../webpack-types'
-import { CHROMIUM_BASED_BROWSERS } from './constants'
-import { DevOptions } from '../../module'
+import {CHROMIUM_BASED_BROWSERS} from './constants'
+import {DevOptions} from '../../module'
 
 export function getResolvedPath(
   context: string,
@@ -240,7 +240,10 @@ export function getHardcodedMessage(manifest: Manifest): {
   }
 }
 
-export function removeManifestKeysNotFromCurrentBrowser(manifest: Manifest, browser: DevOptions['browser']) {
+export function removeManifestKeysNotFromCurrentBrowser(
+  manifest: Manifest,
+  browser: DevOptions['browser']
+) {
   const patchedManifest = JSON.parse(
     JSON.stringify(manifest),
     function reviver(this: any, key: string, value: any) {
