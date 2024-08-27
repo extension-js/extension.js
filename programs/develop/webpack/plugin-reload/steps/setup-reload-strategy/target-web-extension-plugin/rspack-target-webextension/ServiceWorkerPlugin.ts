@@ -14,7 +14,7 @@ export class ServiceWorkerEntryPlugin {
   apply(compiler: Compiler) {
     compiler.hooks.entryOption.tap(
       ServiceWorkerEntryPlugin.name,
-      (context, entries) => {
+      (_context, entries) => {
         if (typeof entries === 'function') {
           if (this.options.noWarningDynamicEntry) return
 
@@ -44,7 +44,7 @@ export class ServiceWorkerEntryPlugin {
         (compilation: Compilation) => {
           compilation.hooks.optimizeChunkModules.tap(
             ServiceWorkerEntryPlugin.name,
-            (chunks, chunkGraph) => {
+            () => {
               const entryPoint = compilation.entrypoints.get(this.entry)
               if (!entryPoint) return
 
@@ -107,7 +107,7 @@ export class ServiceWorkerEntryPlugin {
 }
 
 // Helper functions
-function chunkHasJs(chunk: Chunk, compilation: Compilation): boolean {
+function chunkHasJs(chunk: Chunk): boolean {
   for (const file of chunk.files) {
     if (file.endsWith('.js')) {
       return true

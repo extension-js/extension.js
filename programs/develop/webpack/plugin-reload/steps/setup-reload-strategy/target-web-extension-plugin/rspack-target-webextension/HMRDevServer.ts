@@ -1,14 +1,13 @@
-import {Compiler} from '@rspack/core'
+import {Compiler, RspackOptionsNormalized} from '@rspack/core'
 
-// @ts-check
 export class HMRDevServerPlugin {
   apply(compiler: Compiler) {
-    const options = compiler.options
+    const options = compiler.options as RspackOptionsNormalized
     if (!options.devServer) options.devServer = {}
     const devServer = options.devServer
 
     setDefault(devServer, 'devMiddleware', {})
-    // Extensions cannot be loaded over network
+    // Extensions cannot be loaded over the network
     setDefault(devServer.devMiddleware!, 'writeToDisk', true)
 
     if (!devServer.hot) return
@@ -22,13 +21,13 @@ export class HMRDevServerPlugin {
       }
     })
 
-    const devServerClient = devServer.client! as Record<string, any>
-    // Overlay doesn't work well in content script.
+    const devServerClient = devServer.client as Record<string, any>
+    // Overlay doesn't work well in content scripts.
     setDefault(devServerClient, 'overlay', false)
-    // Progress is annoying in console.
+    // Progress is annoying in the console.
     setDefault(devServerClient, 'progress', false)
     // In content script loaded in https:// pages, it will try to use wss:// because of protocol detection.
-    setDefault(devServer!, 'webSocketServer', 'ws')
+    setDefault(devServerClient, 'webSocketTransport', 'ws')
 
     // HMR requires CORS requests in content scripts.
     setDefault(devServer, 'allowedHosts', 'all')
@@ -44,10 +43,16 @@ export class HMRDevServerPlugin {
   }
 }
 
-function setDefault(obj: Record<string, any>, key: string | number, val: any) {
-  if (isObject(obj) && obj[key] === undefined) obj[key] = val
+function setDefault<T extends object, K extends keyof T>(
+  obj: T,
+  key: K,
+  val: T[K]
+) {
+  if (isObject(obj) && obj[key] === undefined) {
+    (obj as any)[key] = val
+  }
 }
 
-function isObject(x: any): x is Record<string, any> {
+function isObject(x: unknown): x is Record<string, unknown> {
   return typeof x === 'object' && x !== null
 }

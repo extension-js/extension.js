@@ -10,7 +10,7 @@ export class AddDependencies {
 
   apply(compiler: Compiler): void {
     compiler.hooks.afterCompile.tap(
-      'ManifestPlugin (AddDependenciesPlugin)',
+      'manifest:add-dependency',
       (compilation) => {
         if (compilation.errors?.length) return
 

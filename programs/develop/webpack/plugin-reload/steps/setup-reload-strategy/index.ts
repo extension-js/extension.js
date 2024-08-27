@@ -36,10 +36,10 @@ class SetupReloadStrategy {
     }).apply(compiler)
 
     // 3 - Add the HMR reloader to the entry point.
-    // new TargetWebExtensionPlugin({
-    //   manifestPath: this.manifestPath,
-    //   browser: this.browser
-    // }).apply(compiler)
+    new TargetWebExtensionPlugin({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
   }
 }
 

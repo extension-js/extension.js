@@ -1,4 +1,4 @@
-import {rspack, Compilation, sources} from '@rspack/core'
+import {rspack, Compilation} from '@rspack/core'
 import BrowserRuntime from '../BrowserRuntime'
 
 export function PublicPathRuntimeModule(

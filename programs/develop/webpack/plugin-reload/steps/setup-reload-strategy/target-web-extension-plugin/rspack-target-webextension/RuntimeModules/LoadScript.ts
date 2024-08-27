@@ -1,5 +1,4 @@
-import {rspack, Compilation, sources} from '@rspack/core'
-import BrowserRuntime from '../BrowserRuntime'
+import {rspack, sources} from '@rspack/core'
 
 // import()
 const DYNAMIC_IMPORT_LOADER = 'dynamicImportLoader'
@@ -13,7 +12,7 @@ export function LoadScriptRuntimeModule(
   rspackLib: typeof rspack,
   supportDynamicImport: boolean | undefined,
   classicLoaderEnabled: boolean | undefined,
-  acceptWeak: boolean
+  _acceptWeak: boolean
 ) {
   const {Template, RuntimeGlobals} = rspackLib
 

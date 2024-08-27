@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import {type Compiler} from '@rspack/core'
-import {WebExtensionPlugin} from './rspack-target-webextension'
+// import {WebExtensionPlugin} from './rspack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
 import {type Manifest} from '../../../../webpack-types'
 import {type DevOptions} from '../../../../../commands/dev'
@@ -116,19 +116,19 @@ export class TargetWebExtensionPlugin {
     }
   }
 
-  private getEntryName(manifest: Manifest) {
-    if (manifest.background) {
-      if (manifest.manifest_version === 3) {
-        return {serviceWorkerEntry: 'background/service_worker'}
-      }
+  // private getEntryName(manifest: Manifest) {
+  //   if (manifest.background) {
+  //     if (manifest.manifest_version === 3) {
+  //       return {serviceWorkerEntry: 'background/service_worker'}
+  //     }
 
-      if (manifest.manifest_version === 2) {
-        return {pageEntry: 'background/script'}
-      }
-    }
+  //     if (manifest.manifest_version === 2) {
+  //       return {pageEntry: 'background/script'}
+  //     }
+  //   }
 
-    return {pageEntry: 'background'}
-  }
+  //   return {pageEntry: 'background'}
+  // }
 
   public apply(compiler: Compiler) {
     if (!this.manifestPath || !fs.lstatSync(this.manifestPath).isFile()) {

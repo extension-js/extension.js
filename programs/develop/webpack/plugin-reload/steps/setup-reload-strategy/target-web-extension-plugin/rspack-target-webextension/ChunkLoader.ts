@@ -15,7 +15,7 @@ export class ChuckLoaderRuntimePlugin {
   }
 
   apply(compiler: Compiler) {
-    const {RuntimeGlobals, Template} = compiler.webpack
+    const {RuntimeGlobals /*, Template */} = compiler.webpack
     const {options} = this
 
     compiler.hooks.compilation.tap(

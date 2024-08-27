@@ -1,6 +1,6 @@
 import path from 'path'
 import {type Compiler} from '@rspack/core'
-import { DevOptions } from '../../../../module'
+import {DevOptions} from '../../../../module'
 
 export function SetupFirefoxReloadClient(
   compiler: Compiler,
