@@ -1,8 +1,10 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
+import {DevOptions} from '../../../../commands/dev'
 
-export default function SetupReloadClient(
+export function SetupChromiumReloadClient(
   compiler: Compiler,
+  browser: DevOptions['browser'],
   manifestPath: string
 ) {
   compiler.options.module.rules.push({
@@ -13,7 +15,8 @@ export default function SetupReloadClient(
       {
         loader: path.resolve(__dirname, './inject-chromium-client-loader'),
         options: {
-          manifestPath
+          manifestPath,
+          browser
         }
       }
     ]

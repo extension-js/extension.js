@@ -8,7 +8,7 @@ import * as utils from '../../../../lib/utils'
 import {type PluginInterface} from '../../../reload-types'
 import {DevOptions} from '../../../../../module'
 
-class ApplyManifestDevDefaultsPlugin {
+export class ApplyManifestDevDefaults {
   private readonly manifestPath?: string
   private readonly browser: DevOptions['browser']
 
@@ -101,5 +101,3 @@ class ApplyManifestDevDefaultsPlugin {
     )
   }
 }
-
-export default ApplyManifestDevDefaultsPlugin

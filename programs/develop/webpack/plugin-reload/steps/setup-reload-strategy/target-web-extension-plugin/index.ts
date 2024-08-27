@@ -7,7 +7,7 @@ import {type Manifest} from '../../../../webpack-types'
 import {type DevOptions} from '../../../../../commands/dev'
 import * as messages from '../../../../lib/messages'
 
-class TargetWebExtensionPlugin {
+export class TargetWebExtensionPlugin {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
 
@@ -145,5 +145,3 @@ class TargetWebExtensionPlugin {
     }).apply(compiler)
   }
 }
-
-export default TargetWebExtensionPlugin

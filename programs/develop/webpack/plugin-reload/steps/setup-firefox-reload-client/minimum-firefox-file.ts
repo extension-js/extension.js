@@ -22,15 +22,13 @@ browser.runtime.onMessageExternal.addListener(async (request, _sender) => {
   ) {
     setTimeout(() => {
       browser.runtime.reload()
-      return {reloaded: true}
     }, 750)
   }
 
   // Reload all tabs if the declarative_net_request code changes.
   if (request.changedFile === 'declarative_net_request') {
     browser.runtime.reload()
-    return {reloaded: true}
   }
 
-  return true
+  return {reloaded: true}
 })
