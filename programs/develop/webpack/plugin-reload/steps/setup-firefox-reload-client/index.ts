@@ -1,8 +1,10 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
+import {DevOptions} from '../../../../module'
 
-export default function SetupReloadClient(
+export function SetupFirefoxReloadClient(
   compiler: Compiler,
+  browser: DevOptions['browser'],
   manifestPath: string
 ) {
   compiler.options.module.rules.push({
@@ -13,7 +15,8 @@ export default function SetupReloadClient(
       {
         loader: path.resolve(__dirname, './inject-firefox-client-loader'),
         options: {
-          manifestPath
+          manifestPath,
+          browser
         }
       }
     ]
