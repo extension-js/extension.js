@@ -110,14 +110,12 @@ export default function (this: InjectBackgroundClientContext, source: string) {
   if (manifestBg) {
     const backgroundScripts =
       manifestBg?.scripts ||
-      manifestBg?.['gecko:scripts'] ||
-      manifestBg?.['firefox:scripts'] ||
       manifestBg?.['chromium:scripts'] ||
       manifestBg?.['chrome:scripts'] ||
       manifestBg?.['edge:scripts']
 
     if (backgroundScripts) {
-      if (manifest.manifest_version === 2 || browser === 'firefox') {
+      if (manifest.manifest_version === 2) {
         for (const bgScript of [backgroundScripts[0]]) {
           const absoluteUrl = path.resolve(projectPath, bgScript as string)
 
