@@ -496,9 +496,25 @@ export interface MessageData {
 
 export function runningInDevelopment(
   manifest: Manifest,
+  browser: DevOptions['browser'],
   message: {data?: MessageData}
 ) {
   const manifestName = manifest.name || 'Extension.js'
+  let browserDevToolsUrl: string
+
+  switch (browser) {
+    case 'chrome':
+      browserDevToolsUrl = 'chrome://extensions'
+      break
+    case 'edge':
+      browserDevToolsUrl = 'edge://extensions'
+      break
+    case 'firefox':
+      browserDevToolsUrl = 'about:debugging#/runtime/this-firefox'
+      break
+    default:
+      browserDevToolsUrl = ''
+  }
 
   if (!message.data) {
     return (
@@ -506,9 +522,11 @@ export function runningInDevelopment(
       `${bold(red('ERROR'))} in ${getLoggingPrefix(manifestName, 'error')} ` +
       `No data received from the extension client.\n\n` +
       `This error happens when the program can\'t get the data from your extension.\n` +
-      `Ensure your extension is enabled in your browser and that no hanging browser\n` +
-      `instance is open.\n\nIf that is not the case, restart the extension package within ` +
-      `the browser and try again.\n\n` +
+      `There are many reasons this might happen. To fix, ensure that:\n\n` +
+      `- Your extension is set as enabled in ${underline(browserDevToolsUrl)}` +
+      `- No previous ${capitalizedBrowserName(browser)} browser instance is open\n` +
+      `If that is not the case, restart the both ${cyan(manifest.name || '')} the ` +
+      `${brightYellow('Manager Extension')} in ${underline(browserDevToolsUrl)} and try again.\n\n` +
       `If nothing helps and the issue persists, please report a bug:\n\n` +
       underline(`https://github.com/extension-js/extension.js/issues`)
     )

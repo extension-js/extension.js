@@ -7,7 +7,7 @@ import {type Manifest} from '../../../../webpack-types'
 import {getHardcodedMessage, isFirstRun} from '../../../../lib/utils'
 import {DevOptions} from '../../../../../module'
 import {CERTIFICATE_DESTINATION_PATH} from '../../../../lib/constants'
-import {httpsServer} from './https-server'
+import {httpsServer} from './servers'
 
 interface Data {
   id: string
@@ -20,85 +20,89 @@ interface Message {
   status: string
 }
 
-function isPortInUse(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const server = require('net').createServer()
+function setupServer(
+  manifestName: string,
+  port: number,
+  browser: DevOptions['browser']
+) {
+  switch (browser) {
+    case 'chrome':
+      return new WebSocket.Server({
+        host: 'localhost',
+        port
+      })
 
-    server.once('error', function (err: NodeJS.ErrnoException) {
-      if (err.code === 'EADDRINUSE') {
-        resolve(true)
-      } else {
-        resolve(false)
-      }
-    })
+    case 'edge':
+      return new WebSocket.Server({
+        host: 'localhost',
+        port: port + 1
+      })
 
-    server.once('listening', function () {
-      server.close()
-      resolve(false)
-    })
+    case 'firefox':
+      return new WebSocket.Server({
+        server: httpsServer(manifestName, port + 2).server
+      })
 
-    server.listen(port)
-  })
+    default:
+      return new WebSocket.Server({
+        host: 'localhost',
+        port: 8888
+      })
+  }
 }
-
-let webSocketServer: WebSocket.Server | null = null
 
 export async function startServer(compiler: Compiler, options: DevOptions) {
   const projectPath = compiler.options.context || ''
   const manifest = require(path.join(projectPath, 'manifest.json'))
   const manifestName = manifest.name || 'Extension.js'
-
   const port = options.port || 8000
-  const portInUse = await isPortInUse(port)
+  const webSocketServer = setupServer(manifestName, port, options.browser)
 
-  if (!webSocketServer && !portInUse) {
-    const {server} = httpsServer(manifestName, port)
-    webSocketServer = new WebSocket.Server({server})
+  webSocketServer.on('connection', (ws) => {
+    ws.send(JSON.stringify({status: 'serverReady'}))
 
-    webSocketServer.on('connection', (ws) => {
-      ws.send(JSON.stringify({status: 'serverReady'}))
-
-      ws.on('error', (error) => {
-        console.log(messages.webSocketError(manifestName, error))
-      })
-
-      ws.on('message', (msg) => {
-        const message: Message = JSON.parse(msg.toString())
-
-        if (message.status === 'clientReady') {
-          const manifest: Manifest = require(
-            path.join(projectPath, 'manifest.json')
-          )
-
-          console.log(messages.runningInDevelopment(manifest, message))
-          console.log('')
-
-          if (isFirstRun(options.browser)) {
-            setTimeout(() => {
-              console.log(messages.isFirstRun(options.browser))
-            }, 5000)
-          }
-        }
-      })
+    ws.on('error', (error) => {
+      console.log(messages.webSocketError(manifestName, error))
     })
-  } else if (webSocketServer) {
-    // Reusing existing WebSocket server on port.
-  } else {
-    // Port is already in use but WebSocket server is not initialized.
-    return
-  }
+
+    ws.on('message', (msg) => {
+      const message: Message = JSON.parse(msg.toString())
+
+      if (message.status === 'clientReady') {
+        const manifest: Manifest = require(
+          path.join(projectPath, 'manifest.json')
+        )
+
+        setTimeout(() => {
+          console.log(
+            messages.runningInDevelopment(manifest, options.browser, message)
+          )
+          console.log('')
+        }, 2500)
+
+        if (isFirstRun(options.browser)) {
+          setTimeout(() => {
+            console.log(messages.isFirstRun(options.browser))
+          }, 5000)
+        }
+      }
+    })
+  })
 
   // Additional logic specific to Firefox, such as certificate checks
-  if (options.browser === 'firefox' && !portInUse) {
+  if (options.browser === 'firefox') {
     if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
       const hardcodedMessage = getHardcodedMessage(manifest)
-      console.log(messages.runningInDevelopment(manifest, hardcodedMessage))
+      console.log(
+        messages.runningInDevelopment(
+          manifest,
+          options.browser,
+          hardcodedMessage
+        )
+      )
       console.log('')
-
-      if (isFirstRun('firefox')) {
-        console.log(messages.certRequired())
-        console.log('')
-      }
+      console.log(messages.certRequired())
+      console.log('')
     }
   }
 

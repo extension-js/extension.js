@@ -22,11 +22,13 @@ import {DevOptions} from '../../../commands/dev'
  */
 export class ManifestPlugin {
   public readonly manifestPath: string
+  public readonly browser: DevOptions['browser']
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface & {browser: DevOptions['browser']}) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
     this.excludeList = options.excludeList
   }
@@ -64,6 +66,7 @@ export class ManifestPlugin {
     // throw an error if any of those files change.
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
+      browser: this.browser,
       includeList: this.includeList
     }).apply(compiler)
   }

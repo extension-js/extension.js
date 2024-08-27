@@ -1,16 +1,20 @@
 import fs from 'fs'
 import webpack, {Compilation} from 'webpack'
 import * as messages from '../../../lib/messages'
+import {DevOptions} from '../../../../commands/dev'
 import {PluginInterface, FilepathList, Manifest} from '../../../webpack-types'
 import {htmlFields} from '../../data/manifest-fields/html-fields'
 import {scriptsFields} from '../../data/manifest-fields/scripts-fields'
+import * as utils from '../../../lib/utils'
 
 export class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
+  public readonly browser: DevOptions['browser']
   public readonly includeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
   }
 
@@ -32,7 +36,11 @@ export class ThrowIfRecompileIsNeeded {
             return
           }
 
-          const manifest: Manifest = require(this.manifestPath)
+          const initialManifest: Manifest = require(this.manifestPath)
+          const manifest = utils.removeManifestKeysNotFromCurrentBrowser(
+            initialManifest,
+            this.browser
+          )
           const initialHtml = this.flattenAndSort(
             Object.values(htmlFields(context, manifest))
           )

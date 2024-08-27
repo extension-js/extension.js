@@ -75,7 +75,7 @@ export function browserInstanceAlreadyRunning(browser: DevOptions['browser']) {
 }
 
 export function browserInstanceExited(browser: DevOptions['browser']) {
-  return `${getLoggingPrefix(browser, 'success')} Instance exited.`
+  return `${getLoggingPrefix(browser, 'info')} Instance exited.`
 }
 
 export function errorInjectingAddOns(
