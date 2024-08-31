@@ -259,6 +259,10 @@ export function writingReadmeMetaData() {
   return `📄 - Writing ${brightYellow(`README.md`)} metadata...`
 }
 
+export function writingGitIgnore() {
+  return `🙈 - Writing ${brightYellow(`.gitignore`)} lines...`
+}
+
 export function writingReadmeMetaDataEError(projectName: string, error: any) {
   return (
     `${red(`✖︎✖︎✖︎`)} ` +
