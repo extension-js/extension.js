@@ -51,7 +51,7 @@
     "edge-location": "^1.0.0",
     "firefox-profile": "^4.6.0",
     "fx-runner": "^1.4.0",
-    "go-git-it": "^2.0.3",
+    "go-git-it": "2.0.4",
     "ignore": "^5.3.1",
     "loader-utils": "^3.3.1",
     "micromatch": "^4.0.7",

@@ -32,7 +32,7 @@
     "@colors/colors": "^1.6.0",
     "cross-spawn": "^7.0.3",
     "detect-package-manager": "^3.0.2",
-    "go-git-it": "^2.0.3"
+    "go-git-it": "2.0.4"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.6",
