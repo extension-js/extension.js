@@ -9,6 +9,7 @@ import {installDependencies} from './steps/install-dependencies'
 import {writeReadmeFile} from './steps/write-readme-file'
 import {writeManifestJson} from './steps/write-manifest-json'
 import {generateExtensionTypes} from './steps/generate-extension-types'
+import {writeGitignore} from './steps/write-gitignore'
 import {initializeGitRepository} from './steps/initialize-git-repository'
 
 export interface CreateOptions {
@@ -53,6 +54,7 @@ export async function extensionCreate(
     await writeReadmeFile(projectPath, projectName)
     await writeManifestJson(projectPath, projectName)
     await initializeGitRepository(projectPath, projectName)
+    await writeGitignore(projectPath)
 
     if (utils.isTypeScriptTemplate(template)) {
       await generateExtensionTypes(projectPath, projectName)
