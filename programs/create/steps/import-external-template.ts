@@ -48,29 +48,37 @@ export async function importExternalTemplate(
     }
 
     if (projectName !== templateName) {
-      await fs.rename(templatePath, path.join(installationPath, projectName))
+      // Instead of renaming, copy the contents and then remove the original folder
+      const destPath = path.join(installationPath, projectName)
+
+      // Copy the contents from templatePath to destPath
+      await fs.mkdir(destPath, {recursive: true})
+      const files = await fs.readdir(templatePath)
+      for (const file of files) {
+        await fs.rename(
+          path.join(templatePath, file),
+          path.join(destPath, file)
+        )
+      }
+
+      // Remove the original templatePath folder
+      await fs.rm(templatePath, {recursive: true, force: true})
     } else {
-      // Here we are in a templatePath/templateName situation.
-      // We first rename the top-level path to projectName-temp
-      // and then rename the templateName folder to projectName.
+      // Handle the templatePath/templateName situation
+      const tempPath = path.join(installationPath, projectName + '-temp')
+      await fs.rename(templatePath, tempPath)
 
-      // e.g. new-react/new-react is at this moment new-react-temp/new-react
-      await fs.rename(
-        templatePath,
-        path.join(installationPath, projectName + '-temp')
-      )
+      // Move the contents of the tempPath/templateName to projectName
+      const srcPath = path.join(tempPath, templateName)
+      const destPath = path.join(installationPath, projectName)
+      await fs.mkdir(destPath, {recursive: true})
+      const files = await fs.readdir(srcPath)
+      for (const file of files) {
+        await fs.rename(path.join(srcPath, file), path.join(destPath, file))
+      }
 
-      // Copy the new-react-temp/new-react to new-react
-      await fs.cp(
-        path.join(installationPath, projectName + '-temp', templateName),
-        path.join(installationPath, projectName),
-        {recursive: true}
-      )
-
-      // Remove the new-react-temp folder
-      await fs.rm(path.join(installationPath, projectName + '-temp'), {
-        recursive: true
-      })
+      // Remove the temporary directory
+      await fs.rm(tempPath, {recursive: true, force: true})
     }
   } catch (error: any) {
     console.error(
