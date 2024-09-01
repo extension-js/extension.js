@@ -2,12 +2,15 @@ name: command:create
 on: push
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
     - uses: actions/checkout@v2
     - name: Install modules
       run: yarn
     - name: Run compiler
       run: yarn compile
-    - name: Run extenion create command
+    - name: Run extension create command
       run: yarn test:create

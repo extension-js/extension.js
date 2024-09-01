@@ -4,8 +4,18 @@ import * as messages from '../lib/messages'
 const globalDependencies = ['# dependencies', '/node_modules']
 const globalTesting = ['# testing', '/coverage']
 const globalProduction = ['# production', '/dist']
-const globalMisc = ['# misc', '.DS_Store', '.env.local', '.env.development.local',
-  '.env.test.local', '.env.production.local', 'npm-debug.log*', 'yarn-debug.log*', 'yarn-error.log*', 'extension.d.ts']
+const globalMisc = [
+  '# misc',
+  '.DS_Store',
+  '.env.local',
+  '.env.development.local',
+  '.env.test.local',
+  '.env.production.local',
+  'npm-debug.log*',
+  'yarn-debug.log*',
+  'yarn-error.log*',
+  'extension.d.ts'
+]
 const globalLockFiles = ['# lock files', 'yarn.lock', 'package-lock.json']
 
 const globalLines = [
