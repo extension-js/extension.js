@@ -240,7 +240,7 @@ export function writingTypeDefinitions(manifest: Manifest) {
   )
 }
 
-export function writeTypeDefinitionsError(error: any) {
+export function writingTypeDefinitionsError(error: any) {
   return `${getLoggingPrefix(
     'error'
   )} Failed to write the extension type definition. ${red(error)}`

@@ -73,13 +73,11 @@ export function isExternalTemplate(templateName: string) {
 }
 
 export function isTypeScriptTemplate(templateName: string) {
-  if (isExternalTemplate(templateName)) {
-    return false
-  }
-
   return (
-    templateName === 'typescript' ||
-    templateName.startsWith('typescript-') ||
-    templateName.endsWith('-typescript')
+    templateName.includes('typescript') ||
+    templateName.includes('react') ||
+    templateName.includes('preact') ||
+    templateName.includes('svelte') ||
+    templateName.includes('solid')
   )
 }
