@@ -31,17 +31,17 @@ export async function copyDirectory(source: string, destination: string) {
 export async function getInstallCommand() {
   const pm = await detect()
 
-  let command = 'npm run'
+  let command = 'npm'
 
   switch (pm) {
     case 'yarn':
       command = 'yarn'
       break
     case 'pnpm':
-      command = 'pnpm run'
+      command = 'pnpm'
       break
     default:
-      command = 'npm run'
+      command = 'npm'
   }
 
   return command
