@@ -72,7 +72,7 @@ describe('extension create', () => {
 
         await extensionCreate(templatePath, {
           template: template.name,
-          noInstall: true
+          install: true
         })
 
         // UI frameworks will use either tsx or jsx files.
