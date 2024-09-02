@@ -38,7 +38,7 @@ export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
-export function boring(duration: number, stats: Stats) {
+export function boring(manifestName: string, duration: number, stats: Stats) {
   let didShow = false
 
   if (!didShow) {
@@ -46,7 +46,7 @@ export function boring(duration: number, stats: Stats) {
 
     return (
       // `${getLoggingPrefix(manifestName, stats.hasErrors() ? 'error' : 'success')} ` +
-      `${arrow} ${'Extension.js'} ` +
+      `${arrow} ${cyan(manifestName)} ` +
       // `${getLoggingPrefix('manifestName', stats.hasErrors() ? 'error' : 'success')} ` +
       `compiled ${
         stats.hasErrors() ? red('with errors') : brightGreen('successfully')
