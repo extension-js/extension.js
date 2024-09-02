@@ -60,8 +60,18 @@ extensionJs
     '-t, --template <template-name>',
     'specify a template for the created project'
   )
-  .action(async function (pathOrRemoteUrl: string, {template}: CreateOptions) {
-    await extensionCreate(pathOrRemoteUrl, {template})
+  .option(
+    '--install',
+    'whether or not to install the dependencies after creating the project'
+  )
+  .action(async function (
+    pathOrRemoteUrl: string,
+    {template, install}: CreateOptions
+  ) {
+    await extensionCreate(pathOrRemoteUrl, {
+      template,
+      install
+    })
   })
 
 // ██████╗ ███████╗██╗   ██╗
