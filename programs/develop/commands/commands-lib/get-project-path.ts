@@ -23,11 +23,13 @@ async function importUrlSourceFromGithub(
 }
 
 async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
-  await downloadAndExtractZip(pathOrRemoteUrl, process.cwd())
-  // remove all query params from url
-  pathOrRemoteUrl = pathOrRemoteUrl.split('?')[0]
+  const zipFilePath = await downloadAndExtractZip(
+    pathOrRemoteUrl,
+    process.cwd()
+  )
 
-  return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))
+  return zipFilePath
+  // return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))
 }
 
 export async function getProjectPath(pathOrRemoteUrl: string | undefined) {
