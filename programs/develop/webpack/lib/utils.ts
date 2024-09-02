@@ -123,16 +123,24 @@ export async function installOptionalDependencies(
     const pm = await detect()
     console.log(messages.integrationNotInstalled(packageName, integration, pm))
 
+    const execPath = process.env._
+
+    if (!execPath) {
+      return null
+    }
+
+    const execTool = execPath.split(path.sep).pop()?.toLowerCase()
+
     let installCommand = ''
     if (pm === 'yarn') {
       installCommand = `yarn --silent add ${dependencies.join(
         ' '
       )} --cwd ${__dirname} --optional`
-    } else if (pm === 'npm') {
+    } else if (pm === 'npm' || execTool === 'npx') {
       installCommand = `npm  --silent install ${dependencies.join(
         ' '
       )} --prefix ${__dirname} --save-optional`
-    } else if (pm === 'pnpm') {
+    } else if (pm === 'pnpm' || execTool === 'pnpx') {
       installCommand = `pnpm  --silent add ${dependencies.join(
         ' '
       )} --prefix ${__dirname} --save-optional`
