@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 
 import path from 'path'
+import fs from 'fs'
 import {execFile} from 'child_process'
 import {promisify} from 'util'
 
@@ -31,4 +32,9 @@ describe('CLI Commands', () => {
     const {stdout} = await extensionProgram('--help')
     expect(stdout).toContain('Usage:')
   }, 30000)
+
+  it('should output the types/ folder by default', async () => {
+    const typesDirectory = path.resolve(__dirname, '..', 'dist', 'types')
+    expect(fs.existsSync(typesDirectory)).toBeTruthy()
+  })
 })

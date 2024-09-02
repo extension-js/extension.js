@@ -31,17 +31,17 @@ export async function copyDirectory(source: string, destination: string) {
 export async function getInstallCommand() {
   const pm = await detect()
 
-  let command = 'npm run'
+  let command = 'npm'
 
   switch (pm) {
     case 'yarn':
       command = 'yarn'
       break
     case 'pnpm':
-      command = 'pnpm run'
+      command = 'pnpm'
       break
     default:
-      command = 'npm run'
+      command = 'npm'
   }
 
   return command
@@ -73,13 +73,11 @@ export function isExternalTemplate(templateName: string) {
 }
 
 export function isTypeScriptTemplate(templateName: string) {
-  if (isExternalTemplate(templateName)) {
-    return false
-  }
-
   return (
-    templateName === 'typescript' ||
-    templateName.startsWith('typescript-') ||
-    templateName.endsWith('-typescript')
+    templateName.includes('typescript') ||
+    templateName.includes('react') ||
+    templateName.includes('preact') ||
+    templateName.includes('svelte') ||
+    templateName.includes('solid')
   )
 }
