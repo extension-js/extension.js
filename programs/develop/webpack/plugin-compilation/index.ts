@@ -28,7 +28,8 @@ export class CompilationPlugin {
       // Calculate compilation time
       const duration = stats.endTime - stats.startTime
 
-      console.log(messages.boring(duration, stats))
+      const manifestName = require(this.manifestPath).name
+      console.log(messages.boring(manifestName, duration, stats))
     })
   }
 }
