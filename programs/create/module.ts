@@ -14,12 +14,12 @@ import {initializeGitRepository} from './steps/initialize-git-repository'
 
 export interface CreateOptions {
   template: string
-  noInstall?: boolean
+  install?: boolean
 }
 
 export async function extensionCreate(
   projectNameInput: string | undefined,
-  {template = 'init', noInstall = false}: CreateOptions
+  {template = 'init', install = true}: CreateOptions
 ) {
   if (!projectNameInput) {
     throw new Error(messages.noProjectName())
@@ -47,7 +47,7 @@ export async function extensionCreate(
 
     await overridePackageJson(projectPath, projectName, template)
 
-    if (!noInstall) {
+    if (!install) {
       await installDependencies(projectPath, projectName)
     }
 
