@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "extension",
-  "version": "2.0.0-alpha.7",
+  "version": "2.0.0-alpha.8",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
@@ -27,11 +27,12 @@
   },
   "scripts": {
     "watch": "yarn compile --watch",
+    "compile:types": "bash install_scripts.sh",
     "compile:readme-files": "node ./scripts/copyMarkdownFilesToCli.js",
     "compile:tailwind-config": "node ./scripts/copyTailwindConfig.js",
     "compile:stylelint-config": "node ./scripts/copyStylelintConfig.js",
     "compile:cli": "tsup-node ./cli.ts --format cjs --dts --target=node18",
-    "compile": "yarn compile:readme-files && yarn compile:tailwind-config && yarn compile:stylelint-config &&yarn compile:cli",
+    "compile": "yarn compile:readme-files && yarn compile:tailwind-config && yarn compile:stylelint-config && yarn compile:cli && yarn compile:types",
     "clean": "rm -rf dist",
     "test": "echo \"Note: no test specified\" && exit 0",
     "test:cli": "jest __spec__/cli.spec.ts"
@@ -51,8 +52,8 @@
   ],
   "dependencies": {
     "@colors/colors": "^1.6.0",
-    "extension-create": "2.0.0-alpha.7",
-    "extension-develop": "2.0.0-alpha.7",
+    "extension-create": "2.0.0-alpha.8",
+    "extension-develop": "2.0.0-alpha.8",
     "commander": "^11.1.0",
     "semver": "^7.5.4",
     "update-check": "^1.5.4"
