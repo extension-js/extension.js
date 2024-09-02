@@ -75,17 +75,16 @@ export function shouldExclude(
     return false
   }
 
-  const unixifiedFilePath = unixify(filePath)
-
+  const unixifiedFilePath = path.normalize(unixify(filePath))
   const isFilePathInExcludedList = Object.values(ignorePatterns).some(
     (pattern) => {
       if (typeof pattern !== 'string') {
         return false
       }
 
-      const _pattern = unixify(pattern).replace(/\/$/, '')
+      const _pattern = unixify(pattern)
 
-      return unixifiedFilePath.includes(_pattern)
+      return _pattern.includes(unixifiedFilePath)
     }
   )
 
