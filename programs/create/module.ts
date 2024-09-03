@@ -47,7 +47,7 @@ export async function extensionCreate(
 
     await overridePackageJson(projectPath, projectName, template)
 
-    if (!install) {
+    if (install) {
       await installDependencies(projectPath, projectName)
     }
 
