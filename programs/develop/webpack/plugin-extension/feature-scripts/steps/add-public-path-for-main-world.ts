@@ -6,6 +6,7 @@ import {
 } from '../../../webpack-types'
 import * as messages from '../../../lib/messages'
 import {DevOptions} from '../../../../module'
+import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
 
 export class AddPublicPathForMainWorld {
   public readonly manifestPath: string
@@ -20,7 +21,7 @@ export class AddPublicPathForMainWorld {
     this.excludeList = options.excludeList || {}
   }
 
-  public apply(compiler: webpack.Compiler): void {
+  public apply(): void {
     const manifest: Manifest = require(this.manifestPath)
     if (
       manifest.content_scripts?.some(
@@ -28,17 +29,10 @@ export class AddPublicPathForMainWorld {
         (cs) => cs.world && cs.world.toLowerCase() === 'main'
       )
     ) {
-      if (!manifest.id) {
+      if (!CHROMIUM_BASED_BROWSERS.includes(this.browser) && manifest.key) {
         console.error(messages.noExtensionIdError(manifest.name || ''))
         process.exit(1)
       }
-
-      if (this.browser === 'firefox') {
-        compiler.options.output.publicPath = `moz-extension://${manifest.id}/`
-        return
-      }
-
-      compiler.options.output.publicPath = `${this.browser}-extension://${manifest.id}/`
     }
   }
 }
