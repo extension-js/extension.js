@@ -1,4 +1,4 @@
-import type webpack from 'webpack'
+import {Compiler} from 'webpack'
 import {
   type FilepathList,
   type PluginInterface,
@@ -21,7 +21,7 @@ export class AddPublicPathForMainWorld {
     this.excludeList = options.excludeList || {}
   }
 
-  public apply(): void {
+  public apply(_compiler: Compiler): void {
     const manifest: Manifest = require(this.manifestPath)
     if (
       manifest.content_scripts?.some(
@@ -29,7 +29,7 @@ export class AddPublicPathForMainWorld {
         (cs) => cs.world && cs.world.toLowerCase() === 'main'
       )
     ) {
-      if (!CHROMIUM_BASED_BROWSERS.includes(this.browser) && manifest.key) {
+      if (CHROMIUM_BASED_BROWSERS.includes(this.browser) && !manifest.key) {
         console.error(messages.noExtensionIdError(manifest.name || ''))
         process.exit(1)
       }
