@@ -523,11 +523,11 @@ export function runningInDevelopment(
       `No data received from the extension client.\n\n` +
       `This error happens when the program can\'t get the data from your extension.\n` +
       `There are many reasons this might happen. To fix, ensure that:\n\n` +
-      `- Your extension is set as enabled in ${underline(browserDevToolsUrl)}` +
-      `- No previous ${capitalizedBrowserName(browser)} browser instance is open\n` +
-      `If that is not the case, restart the both ${cyan(manifest.name || '')} the ` +
+      `- Your extension is set as enabled in ${underline(browserDevToolsUrl)}\n` +
+      `- No previous ${capitalizedBrowserName(browser)} browser instance is open\n\n` +
+      `If that is not the case, restart both the ${cyan(manifest.name || '')} and the\n` +
       `${brightYellow('Manager Extension')} in ${underline(browserDevToolsUrl)} and try again.\n\n` +
-      `If nothing helps and the issue persists, please report a bug:\n\n` +
+      `If the issue still persists, please report a bug:\n\n` +
       underline(`https://github.com/extension-js/extension.js/issues`)
     )
   }
