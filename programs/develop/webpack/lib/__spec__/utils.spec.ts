@@ -98,7 +98,7 @@ describe('utils', () => {
             updateHash: () => {},
             buffer: () => {
               return Buffer.from(JSON.stringify(manifestContent))
-            },            
+            }
           }
         }
       }

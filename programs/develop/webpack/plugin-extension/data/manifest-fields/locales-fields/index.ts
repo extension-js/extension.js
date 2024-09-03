@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 
-export function getLocaleFields(
+export function localesFields(
   context: string,
   manifestPath: string
 ): string[] | undefined {

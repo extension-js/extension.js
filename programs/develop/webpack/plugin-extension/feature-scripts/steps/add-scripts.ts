@@ -17,8 +17,9 @@ export class AddScripts {
   public apply(compiler: webpack.Compiler): void {
     const scriptFields = this.includeList || {}
 
-    for (const field of Object.entries(scriptFields)) {
-      const [feature, scriptPath] = field
+    const newEntries: Record<string, webpack.EntryObject> = {}
+
+    for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       const scriptImports = getScriptEntries(scriptPath, this.excludeList)
       const cssImports = getCssEntries(scriptPath, this.excludeList)
       const entryImports = [...scriptImports]
@@ -32,14 +33,15 @@ export class AddScripts {
         entryImports.push(...cssImports)
       }
 
-      // 1 - Add the script entries to the compilation.
       if (cssImports.length || scriptImports.length) {
-        compiler.options.entry = {
-          ...compiler.options.entry,
-          // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-          [feature]: {import: entryImports}
-        }
+        newEntries[feature] = {import: entryImports}
       }
+    }
+
+    // Add all the new entries to the compilation at once
+    compiler.options.entry = {
+      ...compiler.options.entry,
+      ...newEntries
     }
   }
 }
