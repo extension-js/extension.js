@@ -1,4 +1,4 @@
-import {type Compiler} from '@rspack/core'
+import {Compiler} from '@rspack/core'
 import {
   type FilepathList,
   type PluginInterface,
@@ -20,7 +20,7 @@ export class AddPublicPathForMainWorld {
     this.includeList = options.includeList || {}
     this.excludeList = options.excludeList || {}
   }
-  public apply(): void {
+  public apply(_compiler: Compiler): void {
     const manifest: Manifest = require(this.manifestPath)
     if (
       manifest.content_scripts?.some(
