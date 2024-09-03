@@ -5,7 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import {PolyfillPlugin} from './feature-polyfill'
 import {BrowserFieldsPlugin} from './feature-browser-fields'

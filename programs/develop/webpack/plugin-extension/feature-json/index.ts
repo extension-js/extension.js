@@ -1,6 +1,5 @@
 import fs from 'fs'
-import webpack from 'webpack'
-import {sources, Compilation} from 'webpack'
+import {sources, Compilation, Compiler, WebpackError} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as utils from '../../lib/utils'
 import * as messages from '../../lib/messages'
@@ -25,7 +24,7 @@ export class JsonPlugin {
     this.excludeList = options.excludeList
   }
 
-  public apply(compiler: webpack.Compiler): void {
+  public apply(compiler: Compiler): void {
     // Add the JSON to the compilation. This is important so other
     // plugins can get it via the compilation.assets object,
     // allowing them to modify it.
@@ -62,7 +61,7 @@ export class JsonPlugin {
                     const manifestName = manifest.name || 'Extension.js'
 
                     compilation.warnings.push(
-                      new webpack.WebpackError(
+                      new WebpackError(
                         messages.entryNotFoundWarn(
                           manifestName,
                           feature,

@@ -6,15 +6,15 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import webpack from 'webpack'
-import WebpackDevServer from 'webpack-dev-server'
+import {rspack} from '@rspack/core'
+import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
-import webpackConfig from './webpack-config'
+import rspackConfig from './rspack-config'
 import type {DevOptions} from '../commands/dev'
 import * as utils from './lib/utils'
 import {loadExtensionConfig} from '../commands/commands-lib/get-extension-config'
 
-function closeAll(devServer: WebpackDevServer) {
+function closeAll(devServer: RspackDevServer) {
   devServer
     .stop()
     .then(() => {
@@ -29,19 +29,23 @@ export async function devServer(
   projectPath: string,
   {...devOptions}: DevOptions
 ) {
-  const baseConfig = webpackConfig(projectPath, {
+  const baseConfig = rspackConfig(projectPath, {
     ...devOptions,
     mode: 'development'
   })
   const userExtensionConfig = loadExtensionConfig(projectPath)
   const userConfig = userExtensionConfig(baseConfig)
   const compilerConfig = merge(userConfig)
-  const compiler = webpack(compilerConfig)
+  const compiler = rspack(compilerConfig)
 
-  const serverConfig: WebpackDevServer.Configuration = {
+  const serverConfig: Configuration = {
     host: '127.0.0.1',
     allowedHosts: 'all',
-    static: path.join(projectPath, 'public'),
+    static: {
+      watch: {
+        ignored: /\bnode_modules\b/
+      }
+    },
     compress: false,
     devMiddleware: {
       writeToDisk: true
@@ -74,7 +78,7 @@ export async function devServer(
     hot: 'only'
   }
 
-  const devServer = new WebpackDevServer(serverConfig, compiler)
+  const devServer = new RspackDevServer(serverConfig, compiler)
 
   devServer.startCallback((error) => {
     if (error != null) {

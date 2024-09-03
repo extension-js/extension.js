@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import Dotenv from 'dotenv-webpack'
 import * as messages from '../lib/messages'
 import {type Manifest} from '../webpack-types'

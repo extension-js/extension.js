@@ -1,5 +1,5 @@
 import path from 'path'
-import webpack from 'webpack'
+import {Compiler, ProvidePlugin} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 
 /**
@@ -54,8 +54,8 @@ export class ResolvePlugin {
     this.loaderOptions = options.loaderOptions
   }
 
-  public apply(compiler: webpack.Compiler): void {
-    new webpack.ProvidePlugin({
+  public apply(compiler: Compiler): void {
+    new ProvidePlugin({
       r: [path.resolve(__dirname, './resolver-module.js'), 'default']
     }).apply(compiler)
 
@@ -66,7 +66,7 @@ export class ResolvePlugin {
       test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       loader: require.resolve(path.resolve(__dirname, './resolver-loader.js')),
       include: [path.dirname(this.manifestPath)],
-      exclude: /node_modules/,
+      exclude: [/[\\/]node_modules[\\/]/],
       options: {
         manifestPath: this.manifestPath,
         includeList: this.includeList,

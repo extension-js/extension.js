@@ -1,8 +1,7 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import {type DevOptions} from '../../commands/dev'
-import {maybeUseBabel} from './js-tools/babel'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
@@ -25,13 +24,11 @@ export class JsFrameworksPlugin {
   private async configureOptions(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
 
-    const maybeInstallBabel = await maybeUseBabel(compiler, projectPath)
     const maybeInstallReact = await maybeUseReact(projectPath)
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath)
 
     compiler.options.resolve.alias = {
-      ...(maybeInstallBabel?.alias || {}),
       ...(maybeInstallReact?.alias || {}),
       ...(maybeInstallPreact?.alias || {}),
       ...(maybeInstallVue?.alias || {}),
@@ -42,9 +39,10 @@ export class JsFrameworksPlugin {
       {
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: [path.dirname(this.manifestPath)],
-        exclude: /node_modules/,
+        exclude: [/[\\/]node_modules[\\/]/],
+        type: 'javascript/auto',
         use: {
-          loader: require.resolve('swc-loader'),
+          loader: 'builtin:swc-loader',
           options: {
             sync: true,
             module: {
@@ -52,8 +50,10 @@ export class JsFrameworksPlugin {
             },
             minify: this.mode === 'production',
             isModule: true,
+            sourceMap: this.mode === 'development',
             jsc: {
               target: 'es2016',
+              externalHelpers: true,
               parser: {
                 syntax: isUsingTypeScript(projectPath)
                   ? 'typescript'
@@ -71,14 +71,21 @@ export class JsFrameworksPlugin {
                   development: this.mode === 'development',
                   refresh: this.mode === 'development',
                   runtime: 'automatic',
-                  importSource: 'react'
+                  importSource: 'react',
+                  ...(isUsingPreact(projectPath)
+                    ? {
+                        pragma: 'h',
+                        pragmaFrag: 'Fragment',
+                        throwIfNamespace: true,
+                        useBuiltins: false
+                      }
+                    : {})
                 }
               }
             }
           }
         }
       },
-      ...(maybeInstallBabel?.loaders || []),
       ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
       ...(maybeInstallVue?.loaders || []),

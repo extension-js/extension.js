@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import {StatsAsset} from 'webpack'
+import {StatsAsset} from '@rspack/core'
 import {
   gray,
   red,
@@ -95,11 +95,11 @@ export function previewing(browser: DevOptions['browser']) {
   )} Previewing the extension on ${capitalizedBrowserName(browser)}...`
 }
 
-export function previewWebpack() {
+export function previewRspack() {
   return `${getLoggingPrefix('info')} Previewing the extension package...`
 }
 
-export function buildWebpack(
+export function buildRspack(
   projectDir: string,
   stats: any,
   browser: DevOptions['browser']

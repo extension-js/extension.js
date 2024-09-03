@@ -15,7 +15,6 @@
     "tailwindcss": "^3.4.1"
   },
   "devDependencies": {
-    "@babel/plugin-transform-react-jsx": "^7.25.2",
     "typescript": "5.3.3"
   }
 }

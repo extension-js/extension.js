@@ -2,7 +2,13 @@
 // https://github.com/awesome-webextension/webpack-target-webextension
 // Released under the MIT License.
 
-import {RuntimeGlobals, RuntimeModule, Template, type Compiler} from 'webpack'
+import {
+  Compilation,
+  Compiler,
+  RuntimeGlobals,
+  Template,
+  sources
+} from '@rspack/core'
 
 const basic = [
   `var isBrowser = !!(() => { try { return browser.runtime.getURL("/") } catch(e) {} })()`,
@@ -16,42 +22,41 @@ const weakRuntimeCheck = [
 
 export class AddPublicPathRuntimeModule {
   apply(compiler: Compiler) {
-    const {RuntimeGlobals} = compiler.webpack
+    compiler.hooks.thisCompilation.tap(
+      'scripts:add-public-path-runtime-module',
+      (compilation: Compilation) => {
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'scripts:add-public-path-runtime-module',
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
+          },
+          () => {
+            const publicPath = compilation.outputOptions.publicPath || ''
+            const path = JSON.stringify(
+              compilation.getPath(publicPath, {
+                hash: compilation.hash || 'XXXX'
+              })
+            )
 
-    compiler.hooks.compilation.tap('PublicPathRuntimeModule', (compilation) => {
-      compilation.hooks.runtimeRequirementInTree
-        .for(RuntimeGlobals.publicPath)
-        .tap(AddPublicPathRuntimeModule.name, (chunk) => {
-          const module = PublicPathRuntimeModule()
+            const runtimeSource = Template.asString([
+              ...weakRuntimeCheck,
+              `${RuntimeGlobals.publicPath} = typeof importScripts === 'function' || !(isBrowser || isChrome) ? ${path} : runtime.runtime.getURL(${path});`
+            ])
 
-          compilation.addRuntimeModule(chunk, module)
-
-          return true
-        })
-    })
+            // Iterate through all chunks and inject the runtime code where necessary
+            for (const chunk of compilation.chunks) {
+              for (const file of chunk.files) {
+                const existingSource = compilation.assets[file]
+                const combinedSource = new sources.ConcatSource(
+                  existingSource,
+                  new sources.RawSource(runtimeSource)
+                )
+                compilation.updateAsset(file, combinedSource)
+              }
+            }
+          }
+        )
+      }
+    )
   }
-}
-
-function PublicPathRuntimeModule() {
-  class PublicPathRuntimeModule extends RuntimeModule {
-    constructor() {
-      super('publicPath', RuntimeModule.STAGE_BASIC)
-    }
-
-    generate() {
-      const publicPath = this.compilation?.outputOptions.publicPath
-
-      return Template.asString([
-        ...weakRuntimeCheck,
-        `var path = ${JSON.stringify(
-          this.compilation?.getPath(publicPath || '', {
-            hash: this.compilation.hash || 'XXXX'
-          })
-        )}`,
-        `${RuntimeGlobals.publicPath} = typeof importScripts === 'function' || !(isBrowser || isChrome) ? path : runtime.runtime.getURL(path);`
-      ])
-    }
-  }
-
-  return new PublicPathRuntimeModule()
 }

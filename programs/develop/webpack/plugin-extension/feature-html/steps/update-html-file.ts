@@ -1,5 +1,4 @@
-import {type Compiler} from 'webpack'
-import {sources, Compilation} from 'webpack'
+import {type Compiler, sources, Compilation} from '@rspack/core'
 import {patchHtml} from '../html-lib/patch-html'
 import {getFilePath} from '../html-lib/utils'
 import * as utils from '../../../lib/utils'

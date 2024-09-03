@@ -7,9 +7,9 @@
 
 import fs from 'fs'
 import path from 'path'
-import webpack from 'webpack'
+import {rspack} from '@rspack/core'
 import {merge} from 'webpack-merge'
-import webpackConfig from '../webpack/webpack-config'
+import rspackConfig from '../webpack/rspack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {loadExtensionConfig} from './commands-lib/get-extension-config'
@@ -40,7 +40,7 @@ export async function extensionStart(
 
   try {
     const browser = startOptions.browser || 'chrome'
-    const baseConfig = webpackConfig(projectPath, {
+    const baseConfig = rspackConfig(projectPath, {
       ...startOptions,
       browser,
       mode: 'production'
@@ -58,7 +58,7 @@ export async function extensionStart(
       plugins: allPluginsButReloader
     })
     const compilerConfig = merge(userConfig)
-    const compiler = webpack(compilerConfig)
+    const compiler = rspack(compilerConfig)
 
     compiler.run((err, stats) => {
       if (err) {

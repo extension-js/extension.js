@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import type webpack from 'webpack'
-import WebExtension from 'webpack-target-webextension'
+import {type Compiler} from '@rspack/core'
+// import {WebExtensionPlugin} from './rspack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
 import {type Manifest} from '../../../../webpack-types'
 import {type DevOptions} from '../../../../../commands/dev'
@@ -17,7 +17,7 @@ export class TargetWebExtensionPlugin {
   }
 
   private handleBackground(
-    compiler: webpack.Compiler,
+    compiler: Compiler,
     browser: DevOptions['browser'],
     manifest: Manifest
   ) {
@@ -106,7 +106,7 @@ export class TargetWebExtensionPlugin {
   }
 
   private addDefaultEntry(
-    compiler: webpack.Compiler,
+    compiler: Compiler,
     name: string,
     defaultScript: string
   ) {
@@ -116,21 +116,21 @@ export class TargetWebExtensionPlugin {
     }
   }
 
-  private getEntryName(manifest: Manifest) {
-    if (manifest.background) {
-      if (manifest.manifest_version === 3) {
-        return {serviceWorkerEntry: 'background/service_worker'}
-      }
+  // private getEntryName(manifest: Manifest) {
+  //   if (manifest.background) {
+  //     if (manifest.manifest_version === 3) {
+  //       return {serviceWorkerEntry: 'background/service_worker'}
+  //     }
 
-      if (manifest.manifest_version === 2) {
-        return {pageEntry: 'background/script'}
-      }
-    }
+  //     if (manifest.manifest_version === 2) {
+  //       return {pageEntry: 'background/script'}
+  //     }
+  //   }
 
-    return {pageEntry: 'background'}
-  }
+  //   return {pageEntry: 'background'}
+  // }
 
-  public apply(compiler: webpack.Compiler) {
+  public apply(compiler: Compiler) {
     if (!this.manifestPath || !fs.lstatSync(this.manifestPath).isFile()) {
       return
     }
@@ -139,9 +139,9 @@ export class TargetWebExtensionPlugin {
 
     this.handleBackground(compiler, this.browser, manifest)
 
-    new WebExtension({
-      background: this.getEntryName(manifest),
-      weakRuntimeCheck: true
-    }).apply(compiler)
+    // new WebExtensionPlugin({
+    //   background: this.getEntryName(manifest),
+    //   weakRuntimeCheck: true
+    // }).apply(compiler)
   }
 }

@@ -1,6 +1,6 @@
 import os from 'os'
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './browsers-types'
 import {RunChromiumPlugin} from './run-chromium'
 import {RunFirefoxPlugin} from './run-firefox'
@@ -9,7 +9,7 @@ import {DevOptions} from '../commands/dev'
 /**
  * BrowsersPlugin works by creating a WebSockets server
  * that listens to changes triggered by the user extension
- * via webpack. When a change is detected, the server sends
+ * via rspack. When a change is detected, the server sends
  * a message to an extension called reload-extension, which
  * is injected into the browser. This extension is responsible
  * for sending messages to the user extension. We do that by

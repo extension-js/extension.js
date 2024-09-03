@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import type webpack from 'webpack'
+import type rspack from '@rspack/core'
 import {type DevOptions} from '../commands/dev'
 
 // Plugins
@@ -20,10 +20,10 @@ import {CompatibilityPlugin} from './plugin-compatibility'
 import {ErrorsPlugin} from './plugin-errors'
 import {BrowsersPlugin} from '../plugin-browsers'
 
-export default function webpackConfig(
+export default function rspackConfig(
   projectPath: string,
   devOptions: DevOptions
-): webpack.Configuration {
+): rspack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
   const userExtensionOutputPath = path.join(
     projectPath,
@@ -40,15 +40,16 @@ export default function webpackConfig(
         ? 'cheap-source-map'
         : 'eval-cheap-source-map',
     output: {
-      clean: {
-        keep(asset) {
-          // Avoids deleting the hot-update files for the content scripts.
-          // This is a workaround for the issue described
-          // in https://github.com/cezaraugusto/extension.js/issues/35.
-          // These HMR assets are eventually deleted by CleanHotUpdatesPlugin when webpack starts.
-          return !asset.startsWith('hot/background')
-        }
-      },
+      clean: false,
+      // {
+      //   keep(asset) {
+      //     // Avoids deleting the hot-update files for the content scripts.
+      //     // This is a workaround for the issue described
+      //     // in https://github.com/cezaraugusto/extension.js/issues/35.
+      //     // These HMR assets are eventually deleted by CleanHotUpdatesPlugin when webpack starts.
+      //     return !asset.startsWith('hot/background')
+      //   }
+      // },
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',

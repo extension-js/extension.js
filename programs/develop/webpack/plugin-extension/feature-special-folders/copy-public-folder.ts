@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 import chokidar from 'chokidar'
 
 interface CopyPublicFolderOptions {
@@ -44,7 +44,7 @@ export class CopyPublicFolder {
     })
   }
 
-  apply(compiler: webpack.Compiler): void {
+  apply(compiler: Compiler): void {
     const projectPath = path.dirname(this.options.manifestPath)
     const staticDir = path.join(projectPath, 'public')
     const output = compiler.options.output?.path || ''

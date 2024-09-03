@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {
   handleMultipleAssetsError,
   handleTopLevelAwaitError
@@ -15,7 +15,7 @@ export class WebpackCommonErrorsPlugin {
     this.manifestPath = options.manifestPath
   }
 
-  apply(compiler: webpack.Compiler) {
+  apply(compiler: Compiler) {
     const packageJsonPath = path.join(
       path.dirname(this.manifestPath),
       'package.json'

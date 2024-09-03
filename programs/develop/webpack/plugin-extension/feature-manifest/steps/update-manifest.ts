@@ -1,4 +1,4 @@
-import {type Compiler, Compilation, sources} from 'webpack'
+import {type Compiler, Compilation, sources} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename, getManifestContent} from '../../../lib/utils'
 import {

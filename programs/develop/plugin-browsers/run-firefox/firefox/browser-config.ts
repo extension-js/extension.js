@@ -1,4 +1,4 @@
-import {Compiler} from 'webpack'
+import {Compiler} from '@rspack/core'
 import {createUserDataDir} from './create-profile'
 import {type PluginInterface} from '../../browsers-types'
 

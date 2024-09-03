@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as utils from '../../../lib/utils'
 import * as htmlUtils from '../html-lib/utils'
@@ -16,7 +16,7 @@ export class AddScriptsAndStylesToCompilation {
     this.excludeList = options.excludeList
   }
 
-  public apply(compiler: webpack.Compiler) {
+  public apply(compiler: Compiler) {
     const htmlEntries = this.includeList || {}
 
     for (const field of Object.entries(htmlEntries)) {
@@ -43,7 +43,7 @@ export class AddScriptsAndStylesToCompilation {
           if (!utils.shouldExclude(resource as string, this.excludeList)) {
             compiler.options.entry = {
               ...compiler.options.entry,
-              // https://webpack.js.org/configuration/entry-context/#entry-descriptor
+              // https://js.org/configuration/entry-context/#entry-descriptor
               [feature]: {
                 import: fileAssets
               }

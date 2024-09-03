@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import webpack, {Compilation, Compiler} from 'webpack'
+import {Compilation, Compiler, WebpackError} from '@rspack/core'
 import * as messages from '../../../lib/messages'
 import {PluginInterface, FilepathList} from '../../../webpack-types'
 
@@ -43,10 +43,7 @@ export class CheckManifestFiles {
     return paths
   }
 
-  private handleErrors(
-    compilation: Compilation,
-    WebpackError: typeof webpack.WebpackError
-  ) {
+  private handleErrors(compilation: Compilation, WebpackError: any) {
     const iconExts = ['.png', '.jpg', '.jpeg', '.svg', '.gif', '.webp']
     const jsonExts = ['.json']
     const scriptExts = ['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs']
@@ -97,8 +94,6 @@ export class CheckManifestFiles {
             stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COUNT
           },
           () => {
-            const WebpackError = webpack.WebpackError
-
             // Handle all errors.
             this.handleErrors(compilation, WebpackError)
           }

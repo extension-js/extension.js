@@ -1,6 +1,5 @@
 import fs from 'fs'
-import webpack, {Compiler, Compilation} from 'webpack'
-import {sources} from 'webpack'
+import {Compiler, Compilation, sources, WebpackError} from '@rspack/core'
 import * as messages from '../../../lib/messages'
 import {type PluginInterface} from '../../../webpack-types'
 
@@ -32,7 +31,7 @@ export class EmitManifest {
               const manifest = require(this.manifestPath)
               const manifestName = manifest.name || 'Extension.js'
               compilation.errors.push(
-                new webpack.WebpackError(
+                new WebpackError(
                   messages.manifestInvalidError(manifestName, error)
                 )
               )

@@ -76,8 +76,8 @@ describe('extension build', () => {
         const postCssConfig = path.join(templatePath, 'postcss.config.js')
 
         // Dynamically mock the postcss.config.js file if it exists.
-        // Since the file is dynamically imported in the webpack config,
-        // we need to mock it before the webpack config is created.
+        // Since the file is dynamically imported in the Rspack config,
+        // we need to mock it before the Rspack config is created.
         if (fs.existsSync(postCssConfig)) {
           jest.mock(postCssConfig, () => jest.fn())
         }

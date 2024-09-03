@@ -1,5 +1,4 @@
-import {Compiler} from 'webpack'
-import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
+import {Compiler} from '@rspack/core'
 import {EnvPlugin} from './env'
 import {CleanHotUpdatesPlugin} from './clean-hot-updates'
 import * as messages from '../lib/messages'
@@ -16,8 +15,6 @@ export class CompilationPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    new CaseSensitivePathsPlugin().apply(compiler)
-
     new EnvPlugin({manifestPath: this.manifestPath}).apply(compiler)
 
     new CleanHotUpdatesPlugin().apply(compiler)
@@ -26,7 +23,8 @@ export class CompilationPlugin {
       stats.compilation.name = undefined
 
       // Calculate compilation time
-      const duration = stats.endTime - stats.startTime
+      const duration =
+        (stats.compilation.endTime || 0) - (stats.compilation.startTime || 0)
 
       const manifestName = require(this.manifestPath).name
       console.log(messages.boring(manifestName, duration, stats))

@@ -1,5 +1,5 @@
-import {type RuleSetRule} from 'webpack'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+import {type RuleSetRule} from '@rspack/core'
+import rspack from '@rspack/core'
 import {DevOptions} from '../../commands/dev'
 import {isUsingTailwind} from './css-tools/tailwind'
 import {isUsingSass} from './css-tools/sass'
@@ -11,13 +11,14 @@ export interface StyleLoaderOptions {
   mode: DevOptions['mode']
   useMiniCssExtractPlugin: boolean
   loader?: string
+  loaderOptions?: Record<string, any>
 }
 
 export async function commonStyleLoaders(
   projectPath: string,
   opts: StyleLoaderOptions
 ): Promise<RuleSetRule['use']> {
-  const miniCssLoader = MiniCssExtractPlugin.loader
+  const miniCssLoader = rspack.CssExtractRspackPlugin.loader
   const styleLoaders: RuleSetRule['use'] = [
     opts.useMiniCssExtractPlugin
       ? miniCssLoader
@@ -39,6 +40,7 @@ export async function commonStyleLoaders(
   ) {
     const maybeInstallPostCss = await maybeUsePostCss(projectPath, opts)
     if (maybeInstallPostCss.loader) {
+      // @ts-expect-error
       styleLoaders.push(maybeInstallPostCss)
     }
   }
@@ -56,6 +58,7 @@ export async function commonStyleLoaders(
         {
           loader: require.resolve(opts.loader),
           options: {
+            ...opts.loaderOptions,
             sourceMap: opts.mode === 'development'
           }
         }

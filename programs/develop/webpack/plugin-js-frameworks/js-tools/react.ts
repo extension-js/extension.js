@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
-import {type WebpackPluginInstance} from 'webpack'
+import {type RspackPluginInstance} from '@rspack/core'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -49,13 +49,9 @@ export async function maybeUseReact(
   if (!isUsingReact(projectPath)) return undefined
 
   try {
-    require.resolve('@pmmmwh/react-refresh-webpack-plugin')
+    require.resolve('react-refresh')
   } catch (e) {
-    const reactDependencies = [
-      'react-refresh',
-      '@pmmmwh/react-refresh-webpack-plugin',
-      'react-refresh-typescript'
-    ]
+    const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
 
     const manifest = require(path.join(projectPath, 'manifest.json'))
     const manifestName = manifest.name || 'Extension.js'
@@ -68,8 +64,8 @@ export async function maybeUseReact(
     process.exit(0)
   }
 
-  const reactPlugins: WebpackPluginInstance[] = [
-    new (require('@pmmmwh/react-refresh-webpack-plugin'))({
+  const reactPlugins: RspackPluginInstance[] = [
+    new (require('@rspack/plugin-react-refresh'))({
       overlay: false
     })
   ]

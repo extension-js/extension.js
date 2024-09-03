@@ -1,4 +1,4 @@
-import webpack, {Compilation, Compiler, sources} from 'webpack'
+import {Compilation, Compiler, sources} from '@rspack/core'
 import {
   type FilepathList,
   type PluginInterface,
@@ -27,7 +27,7 @@ export class WebResourcesPlugin {
   }
 
   private generateManifestPatches(
-    compilation: webpack.Compilation,
+    compilation: Compilation,
     entryImports: Record<string, string[]>
   ) {
     const manifest = utils.getManifestContent(compilation, this.manifestPath!)
@@ -130,13 +130,12 @@ export class WebResourcesPlugin {
                     chunkGraph.getChunkModulesIterable(chunk)
                   )
 
-                  modules.forEach((module) => {
-                    chunkGraph.getModuleChunks(module).forEach((chunk) => {
-                      chunk.auxiliaryFiles.forEach((file) => {
-                        if (!importedFiles.includes(file)) {
-                          importedFiles.push(file)
-                        }
-                      })
+                  modules.forEach((_module) => {
+                    // Rspack does not provide `getModuleChunks` API.
+                    chunk.files.forEach((file) => {
+                      if (!importedFiles.includes(file)) {
+                        importedFiles.push(file)
+                      }
                     })
                   })
                 })
