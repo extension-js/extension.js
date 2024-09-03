@@ -229,6 +229,18 @@ describe('utils', () => {
       expect(result).toBe(false)
     })
   })
+
+  describe('isFromNpx', () => {
+    it('should return "npm" if the command is from npx', () => {
+      process.env.npm_execpath = 'npx'
+      const result = utils.isFromNpx()
+      expect(result).toBe('npm')
+    })
+
+    it('should return false if npm_execpath is not set', () => {
+      delete process.env.npm_execpath
+      const result = utils.isFromNpx()
+      expect(result).toBe(false)
+    })
+  })
 })
-
-
