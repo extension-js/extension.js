@@ -93,34 +93,29 @@ export default function (this: InjectBackgroundClientContext, source: string) {
   let manifestBg: Record<string, any> | undefined = manifest.background
 
   // Handling for specific browsers
-  if (browser === 'firefox') {
-    manifestBg =
-      manifest['gecko:background'] ||
-      manifest['firefox:background'] ||
-      manifestBg
-  } else {
+  if (browser !== 'firefox') {
     manifestBg =
       manifest[`chromium:background`] ||
       manifest[`chrome:background`] ||
       manifest[`edge:background`] ||
       manifestBg
-  }
 
-  // Check for background scripts
-  if (manifestBg) {
-    const backgroundScripts =
-      manifestBg?.scripts ||
-      manifestBg?.['chromium:scripts'] ||
-      manifestBg?.['chrome:scripts'] ||
-      manifestBg?.['edge:scripts']
+    // Check for background scripts
+    if (manifestBg) {
+      const backgroundScripts =
+        manifestBg?.scripts ||
+        manifestBg?.['chromium:scripts'] ||
+        manifestBg?.['chrome:scripts'] ||
+        manifestBg?.['edge:scripts']
 
-    if (backgroundScripts) {
-      if (manifest.manifest_version === 2) {
-        for (const bgScript of [backgroundScripts[0]]) {
-          const absoluteUrl = path.resolve(projectPath, bgScript as string)
+      if (backgroundScripts) {
+        if (manifest.manifest_version === 2) {
+          for (const bgScript of [backgroundScripts[0]]) {
+            const absoluteUrl = path.resolve(projectPath, bgScript as string)
 
-          if (url.includes(absoluteUrl)) {
-            return `${generalReloadCode}${source}`
+            if (url.includes(absoluteUrl)) {
+              return `${generalReloadCode}${source}`
+            }
           }
         }
       }
