@@ -1,37 +1,35 @@
-# [projectName]
+# [templateName]
 
 > [templateDescription]
 
-## Scripts Available
+## Available Scripts
 
-In the project directory, you can run:
+In the project directory, you can run the following scripts:
 
 ### [runCommand] dev
 
-```
-// Runs the app in the development mode.
-// Will open a new browser instance with your extension loaded.
-// The page will reload when you make changes.
+**Development Mode**: This command runs your extension in development mode. It will launch a new browser instance with your extension loaded. The page will automatically reload whenever you make changes to your code, allowing for a smooth development experience.
+
+```bash
 [runCommand] dev
 ```
 
 ### [runCommand] start
 
-```
-// Runs the app in the production mode.
-// Will open a new browser instance with your extension loaded.
-// This is how your browser extension will work once published.
+**Production Preview**: This command runs your extension in production mode. It will launch a new browser instance with your extension loaded, simulating the environment and behavior of your extension as it will appear once published.
+
+```bash
 [runCommand] start
 ```
 
 ### [runCommand] build
 
-```
-// Builds the app for production.
-// Bundles your browser extension in production mode for the target browser.
+**Build for Production**: This command builds your extension for production. It optimizes and bundles your extension, preparing it for deployment to the target browser's store.
+
+```bash
 [runCommand] build
 ```
 
 ## Learn More
 
-Learn more about creating cross-browser extensions in the [Extension.js](https://extension.js.org) documentation.
+To learn more about creating cross-browser extensions with Extension.js, visit the [official documentation](https://extension.js.org).
