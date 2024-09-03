@@ -9,5 +9,5 @@ jobs:
       run: yarn
     - name: Run compiler
       run: yarn compile
-    # - name: Run preview tests (TODO)
+    # - name: Run `extension preview` command (TODO)
     #   run: yarn test:preview

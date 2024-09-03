@@ -18,6 +18,7 @@
     "test:build": {},
     "test:create": {},
     "test:cli": {},
+    "test:dev": {},
     "test:watch": {
       "cache": false
     },
