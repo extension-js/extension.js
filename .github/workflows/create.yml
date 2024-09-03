@@ -12,5 +12,5 @@ jobs:
       run: yarn
     - name: Run compiler
       run: yarn compile
-    - name: Run extension create command
+    - name: Run `extension create` command
       run: yarn test:create

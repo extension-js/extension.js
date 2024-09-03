@@ -9,5 +9,5 @@ jobs:
       run: yarn
     - name: Run compiler
       run: yarn compile
-    # - name: Run dev tests (TODO)
-    #   run: yarn test:dev
+    - name: Run `extension dev` command
+      run: yarn test:dev
