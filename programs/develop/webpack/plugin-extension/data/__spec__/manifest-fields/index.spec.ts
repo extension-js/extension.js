@@ -221,7 +221,8 @@ describe('getManifestFieldsData', () => {
         'images/my-image.png',
         'script.js',
         'styles.css'
-      ]
+      ],
+      locales: []
     })
   })
 
