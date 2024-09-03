@@ -21,7 +21,8 @@ type PrefixType = 'warn' | 'info' | 'error' | 'success'
 function getLoggingPrefix(manifestName: string, type: PrefixType): string {
   // For errors we invert the order
   if (type === 'error') {
-    return `${manifestName} ${red('✖︎✖︎✖︎')}`
+    // in ${manifestName}} -`
+    return `${bold(red('ERROR'))}`
   }
 
   const arrow =
@@ -673,10 +674,8 @@ export function defaultPortInUse(manifestName: string, port: number) {
 export function noExtensionIdError(manifestName: string) {
   return (
     `${getLoggingPrefix(manifestName, 'error')} No Extension Id Specified\n\n` +
-    `For MAIN world content scripts, you must specify an extension ID.\n` +
-    `Otherwise, the content script won't reload on changes.\n` +
-    `Add an ${brightYellow(
-      'id'
-    )} field to your manifest.json file and try again.`
+    `For MAIN world content_scripts, the extension ID must be specified.\n` +
+    `Ensure your extension have a fixed ID and that the ${brightYellow('publicPath')}\n` +
+    `of your ${brightYellow('extension.config.js')} is defined as your extension URL.`
   )
 }
