@@ -9,7 +9,7 @@
   margin: 1em;
   padding: 1em;
   display: flex;
-  align-items: center;
+  align-items: start;
   justify-content: center;
   flex-direction: column;
   gap: 1em;
@@ -28,6 +28,7 @@
 }
 
 .content_script-title {
+  text-align: left;
   font-size: 1.85em;
   color: #333;
   line-height: 1.1;
@@ -42,10 +43,4 @@
 
 .content_script-description {
   color: #999;
-}
-
-.content_script-colorPicker {
-  display: block;
-  width: 100%;
-  height: 50px;
 }
