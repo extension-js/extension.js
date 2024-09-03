@@ -2,10 +2,11 @@ import path from 'path'
 import {htmlFields} from './html-fields'
 import {iconFields} from './icons-fields'
 import {jsonFields} from './json-fields'
-// import {localesFields} from './locales-fields'
+import {localesFields} from './locales-fields'
 import {scriptsFields} from './scripts-fields'
 import {webResourcesFields} from './web-resources-fields'
-import {type PluginInterface, type Manifest} from '../../../webpack-types'
+import {type PluginInterface} from '../../../webpack-types'
+import * as utils from '../../../lib/utils'
 
 // TODO: cezaraugusto type this
 export interface ManifestFields {
@@ -17,35 +18,22 @@ export interface ManifestFields {
   web_accessible_resources: Record<string, any>
 }
 
-function removePrefixes(manifest: Manifest): Manifest {
-  function recursivelyRemovePrefixes(obj: Manifest): Manifest {
-    const result: Manifest = {}
-    for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        const newKey = key.includes(':') ? key.split(':')[1] : key
-        if (typeof obj[key] === 'object' && !Array.isArray(obj[key])) {
-          result[newKey] = recursivelyRemovePrefixes(obj[key])
-        } else {
-          result[newKey] = obj[key]
-        }
-      }
-    }
-    return result
-  }
-
-  return recursivelyRemovePrefixes(manifest)
-}
-
-export function getManifestFieldsData({manifestPath}: PluginInterface) {
+export function getManifestFieldsData({
+  manifestPath,
+  browser
+}: PluginInterface) {
   const context = path.dirname(manifestPath)
   const manifest = require(manifestPath)
-  const manifestNoPrefixes = removePrefixes(manifest)
+  const manifestNoPrefixes = utils.removeManifestKeysNotFromCurrentBrowser(
+    manifest,
+    browser || 'chrome'
+  )
 
   const fieldData = {
     html: htmlFields(context, manifestNoPrefixes),
     icons: iconFields(context, manifestNoPrefixes),
     json: jsonFields(context, manifestNoPrefixes),
-    // locales: localesFields(context, manifestPath),
+    locales: localesFields(context, manifestPath),
     scripts: scriptsFields(context, manifestNoPrefixes),
     web_accessible_resources: webResourcesFields(manifestNoPrefixes)
   }
