@@ -209,4 +209,26 @@ describe('utils', () => {
       })
     })
   })
+
+  describe('isFromPnpx', () => {
+    it('should return "pnpm" if the command is from pnpm', () => {
+      process.env.npm_config_user_agent = 'pnpm'
+      const result = utils.isFromPnpx()
+      expect(result).toBe('pnpm')
+    })
+
+    it('should return false if the command is not from pnpm', () => {
+      process.env.npm_config_user_agent = 'npm'
+      const result = utils.isFromPnpx()
+      expect(result).toBe(false)
+    })
+
+    it('should return false if npm_config_user_agent is not set', () => {
+      delete process.env.npm_config_user_agent
+      const result = utils.isFromPnpx()
+      expect(result).toBe(false)
+    })
+  })
 })
+
+
