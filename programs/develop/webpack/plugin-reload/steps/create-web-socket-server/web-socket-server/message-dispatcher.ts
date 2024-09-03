@@ -1,6 +1,6 @@
 import path from 'path'
 import WebSocket from 'ws'
-import manifestFields from 'browser-extension-manifest-fields'
+import {getManifestFieldsData} from '../../../../plugin-extension/data/manifest-fields'
 
 function dispatchMessage(
   server: WebSocket.Server<typeof WebSocket, any>,
@@ -22,9 +22,9 @@ export function messageDispatcher(
 ) {
   if (!updatedFile || !manifestPath) return
 
-  const manifestLocales = manifestFields(manifestPath).locales
-  const manifestScripts = manifestFields(manifestPath).scripts
-  const jsonScripts = manifestFields(manifestPath).json
+  const manifestLocales = getManifestFieldsData({manifestPath}).locales
+  const manifestScripts = getManifestFieldsData({manifestPath}).scripts
+  const jsonScripts = getManifestFieldsData({manifestPath}).json
 
   if (!server) {
     if (process.env.EXTENSION_ENV === 'development') {
