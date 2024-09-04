@@ -1,22 +1,33 @@
 name: release:preview
-on: [push, pull_request]
+
+on: 
+  push:
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        node-version: [20]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'yarn'
-      - name: Install modules
-        run: yarn install
+          cache: 'pnpm'
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
       - name: Run compiler
-        run: yarn compile
+        run: pnpm compile
       - name: Deploy release preview
         run: pnpx pkg-pr-new publish './programs/*'

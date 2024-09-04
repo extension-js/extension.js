@@ -50,10 +50,14 @@ yarn-error.log*
 # swc
 .swc
 
+# pnpm
+pnpm-lock.yaml
+
 # Extension.js (beta)
 __TEST__
 
 # Examples
 /examples/**/package-lock.json
 /examples/**/yarn.lock
+/examples/**/pnpm-lock.yaml
 /examples/**/extension-env.d.ts
