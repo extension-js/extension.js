@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "new-vue",
   "description": "An Extension.js example.",
   "version": "0.0.1",

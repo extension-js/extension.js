@@ -1,4 +1,5 @@
 {
+  "private": true,
   "name": "new-preact",
   "description": "An Extension.js example.",
   "version": "0.0.1",
