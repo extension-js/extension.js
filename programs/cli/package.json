@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "extension",
-  "version": "2.0.0-alpha.20",
+  "version": "2.0.0-alpha.21",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
@@ -57,8 +57,8 @@
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.2.18",
     "commander": "^11.1.0",
-    "extension-create": "2.0.0-alpha.20",
-    "extension-develop": "2.0.0-alpha.20",
+    "extension-create": "2.0.0-alpha.21",
+    "extension-develop": "2.0.0-alpha.21",
     "semver": "^7.5.4",
     "update-check": "^1.5.4",
     "webextension-polyfill": "^0.12.0"
