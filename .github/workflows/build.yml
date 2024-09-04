@@ -12,9 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 9
+      uses: pnpm/action-setup@v4 # No version specified here
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
@@ -24,6 +22,5 @@ jobs:
       run: pnpm install
     - name: Run compiler
       run: pnpm compile
-    - name: Run `extenion build` command
+    - name: Run `extension build` command
       run: pnpm test:build
-
