@@ -53,6 +53,7 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "@types/chrome": "^0.0.270",
+    "@types/firefox-webext-browser": "^120.0.4",
     "@types/node": "^22.5.3",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.2.18",
