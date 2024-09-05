@@ -67,6 +67,6 @@ export async function maybeUseStylelint(
   projectPath: string
 ): Promise<WebpackPluginInstance[]> {
   isUsingStylelint(projectPath)
-    
+
   return []
 }

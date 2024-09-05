@@ -2,7 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import {type Compilation} from 'webpack'
 import {execSync} from 'child_process'
-import {detect} from 'detect-package-manager'
+import {detect} from 'package-manager-detector'
 import * as messages from './messages'
 import {type Manifest, type FilepathList} from '../webpack-types'
 import {CHROMIUM_BASED_BROWSERS} from './constants'
@@ -140,14 +140,14 @@ export async function installOptionalDependencies(
   try {
     const pm = await detect()
 
-    console.log(messages.integrationNotInstalled(packageName, integration, pm))
+    console.log(messages.integrationNotInstalled(packageName, integration, pm?.name || 'unknown'))
 
     let installCommand = ''
-    if (pm === 'yarn') {
+    if (pm?.name === 'yarn') {
       installCommand = `yarn --silent add ${dependencies.join(
         ' '
       )} --cwd ${__dirname} --optional`
-    } else if (pm === 'npm' || isFromNpx()) {
+    } else if (pm?.name === 'npm' || isFromNpx()) {
       installCommand = `npm  --silent install ${dependencies.join(
         ' '
       )} --prefix ${__dirname} --save-optional`
@@ -169,9 +169,9 @@ export async function installOptionalDependencies(
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.installingRootDependencies(packageName, integration))
 
-      if (pm === 'yarn') {
+      if (pm?.name === 'yarn') {
         installCommand = `yarn install --silent > /dev/null 2>&1`
-      } else if (pm === 'npm' || isFromNpx()) {
+      } else if (pm?.name === 'npm' || isFromNpx()) {
         installCommand = `npm install --silent > /dev/null 2>&1`
       } else if (isFromPnpx()) {
         installCommand = `pnpm install --silent > /dev/null 2>&1`

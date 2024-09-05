@@ -467,12 +467,12 @@ importers:
       cross-spawn:
         specifier: ^7.0.3
         version: 7.0.3
-      detect-package-manager:
-        specifier: ^3.0.2
-        version: 3.0.2
       go-git-it:
         specifier: 2.0.4
         version: 2.0.4
+      package-manager-detector:
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       '@types/cross-spawn':
         specifier: ^6.0.6
@@ -549,9 +549,6 @@ importers:
       csv-loader:
         specifier: ^3.0.5
         version: 3.0.5
-      detect-package-manager:
-        specifier: ^3.0.2
-        version: 3.0.2
       dotenv-webpack:
         specifier: ^8.0.1
         version: 8.1.0(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
@@ -579,6 +576,9 @@ importers:
       mini-css-extract-plugin:
         specifier: ^2.8.1
         version: 2.9.1(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
+      package-manager-detector:
+        specifier: ^0.2.0
+        version: 0.2.0
       parse5:
         specifier: ^7.1.2
         version: 7.1.2
