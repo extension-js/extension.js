@@ -16,6 +16,9 @@ function Home() {
         <br />
         Welcome to your React Router DOM Extension.
       </h1>
+      <code>
+        <pre>{window.location.href}</pre>
+      </code>
     </main>
   )
 }
@@ -33,7 +36,9 @@ function About() {
         <br />
         About
       </h1>
-      <p>I am an extension using React Router DOM.</p>
+      <code>
+        <pre>{window.location.href}</pre>
+      </code>
     </main>
   )
 }
@@ -51,7 +56,9 @@ function Users() {
         <br />
         Users
       </h1>
-      <p>Developers, developers, developers.</p>
+      <code>
+        <pre>{window.location.href}</pre>
+      </code>
     </main>
   )
 }
