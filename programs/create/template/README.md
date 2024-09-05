@@ -1,4 +1,4 @@
-# [templateName]
+# [projectName]
 
 > [templateDescription]
 

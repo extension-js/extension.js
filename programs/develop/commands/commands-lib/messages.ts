@@ -8,7 +8,9 @@ import {
   brightGreen,
   underline,
   magenta,
-  cyan
+  cyan,
+  bold,
+  brightBlue
 } from '@colors/colors/safe'
 import {Manifest} from '../../types'
 import {StartOptions} from '../start'
@@ -19,18 +21,19 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
     type === 'warn'
       ? brightYellow('►►►')
       : type === 'info'
-        ? magenta('►►►')
+        ? cyan('►►►')
         : type === 'error'
-          ? red('✖︎✖︎✖︎')
+          ? `${bold(red('ERROR'))} in ${'Extension.js'} ${red('✖︎✖︎✖︎')}`
           : brightGreen('►►►')
   // return `🧩 ${'Extension.js'} ${arrow}`
   return `${arrow}`
 }
 
-export function manifestNotFoundError() {
+export function manifestNotFoundError(manifestPath: string) {
   return (
-    `${getLoggingPrefix('error')} Manifest file not found. ` +
-    'Ensure the path to your extension exists and try again.'
+    `${getLoggingPrefix('error')} Manifest file not found.\n\n` +
+    'Ensure the path to your extension exists and try again.\n' +
+    `${red('NOT FOUND')} ${underline(manifestPath)}`
   )
 }
 
@@ -79,7 +82,7 @@ export function ready(
   mode: DevOptions['mode'],
   browser: DevOptions['browser']
 ) {
-  const modeColor = mode === 'production' ? magenta : magenta
+  const modeColor = mode === 'production' ? brightBlue : brightBlue
   const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
 
   return (
@@ -145,7 +148,7 @@ export function buildSuccess() {
 
 export function fetchingProjectPath(owner: string, project: string) {
   return (
-    `${getLoggingPrefix('info')} Fetching data...\n\n` +
+    `${getLoggingPrefix('info')} Fetching data...\n` +
     `${gray('URL')} ${underline(`https://github.com/${owner}/${project}`)}`
   )
 }
@@ -154,17 +157,17 @@ export function downloadingProjectPath(projectName: string) {
   return `${getLoggingPrefix('info')} Downloading ${cyan(projectName)}...`
 }
 
-export function creatingProjectPath(projectName: string) {
+export function creatingProjectPath(projectPath: string) {
   return (
-    `\n${getLoggingPrefix('info')} Creating a new browser extension...\n\n` +
-    `${gray('PATH')} ${underline(`${process.cwd()}/${projectName}`)}`
+    `\n${getLoggingPrefix('info')} Creating a new browser extension...\n` +
+    `${gray('PATH')} ${underline(`${projectPath}`)}`
   )
 }
 
 export function noGitIgnoreFound(projectDir: string) {
   return (
     `${getLoggingPrefix('info')} No ${brightYellow('.gitignore')} found, ` +
-    `zipping all the content inside path:\n\n` +
+    `zipping all the content inside path:\n` +
     `${gray('PATH')} ${underline(projectDir)}`
   )
 }
@@ -172,16 +175,14 @@ export function noGitIgnoreFound(projectDir: string) {
 export function packagingSourceFiles(zipPath: string) {
   return (
     `${getLoggingPrefix('info')} Packaging source files. ` +
-    `Files in ${brightYellow('.gitignore')} will be excluded...\n\n` +
+    `Files in ${brightYellow('.gitignore')} will be excluded...\n` +
     `${gray('PATH')} ${underline(zipPath)}.`
   )
 }
 
 export function packagingDistributionFiles(zipPath: string) {
   return (
-    `${getLoggingPrefix(
-      'info'
-    )} Packaging extension distribution files...\n\n` +
+    `${getLoggingPrefix('info')} Packaging extension distribution files...\n` +
     `${gray('PATH')} ${underline(zipPath)}`
   )
 }
@@ -230,7 +231,7 @@ export function treeWithSourceFiles(
 export function failedToCompressError(error: any) {
   return `${getLoggingPrefix(
     'error'
-  )} Failed to compress extension package. ${error}`
+  )} Failed to compress extension package.\n${red(error)}`
 }
 
 export function writingTypeDefinitions(manifest: Manifest) {
@@ -243,7 +244,7 @@ export function writingTypeDefinitions(manifest: Manifest) {
 export function writingTypeDefinitionsError(error: any) {
   return `${getLoggingPrefix(
     'error'
-  )} Failed to write the extension type definition. ${red(error)}`
+  )} Failed to write the extension type definition.\n${red(error)}`
 }
 
 export function downloadingText(url: string) {
@@ -385,7 +386,7 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
 export function isUsingExtensionConfig(integration: any) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `is using ${magenta(integration)}. ` +
+    `Using ${magenta(integration)}. ` +
     `${brightYellow('This is very experimental')}.`
   )
 }
@@ -403,21 +404,21 @@ export function installingDependenciesFailed(
   code: number | null
 ) {
   return (
-    `Command ${gitCommand} ${gitArgs.join(' ')} ` +
+    `${getLoggingPrefix('error')} Command ${gitCommand} ${gitArgs.join(' ')} ` +
     `failed with exit code ${code}`
   )
 }
 
 export function installingDependenciesProcessError(error: any) {
   return (
-    `${getLoggingPrefix('info')} Child process error: Can't ` +
-    `install project dependencies. ${error}`
+    `${getLoggingPrefix('error')} Child process error: Can't ` +
+    `install project dependencies.\n${red(error)}`
   )
 }
 
 export function cantInstallDependencies(error: any) {
   return (
-    `${getLoggingPrefix('info')} Can't install project dependencies. ` +
-    `${error.message || error.toString()}`
+    `${getLoggingPrefix('error')} Can't install project dependencies. ` +
+    `${red(error.message || error.toString())}`
   )
 }

@@ -35,7 +35,9 @@ export async function extensionDev(
   const manifestPath = path.join(projectPath, 'manifest.json')
 
   if (!pathOrRemoteUrl?.startsWith('http') && !fs.existsSync(manifestPath)) {
-    console.log(messages.manifestNotFoundError())
+    console.log(
+      messages.manifestNotFoundError(path.join(projectPath, 'manifest.json'))
+    )
     process.exit(1)
   }
 

@@ -67,7 +67,7 @@ export class RemoteFirefox {
       } catch (err) {
         const message = requestErrorToMessage(err)
         throw new Error(
-          messages.errorInstallingAddOn(this.options.browser, message)
+          messages.addonInstallError(this.options.browser, message)
         )
       }
     }
