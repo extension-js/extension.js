@@ -4,7 +4,9 @@ import {
   brightYellow,
   brightGreen,
   red,
-  cyan
+  cyan,
+  bold,
+  magenta
 } from '@colors/colors/safe'
 import {DevOptions} from '../../commands/dev'
 
@@ -20,46 +22,13 @@ function getLoggingPrefix(
       : type === 'info'
         ? cyan('►►►')
         : type === 'error'
-          ? red('✖︎✖︎✖︎')
+          ? `${bold(red('ERROR'))} in ${capitalizedBrowserName(browser)} ${red('✖︎✖︎✖︎')}`
           : brightGreen('►►►')
   return `${gray('')}${arrow}`
 }
 
 export function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
-}
-
-export function stdoutData(
-  // name: string,
-  browser: DevOptions['browser'],
-  mode: DevOptions['mode']
-) {
-  const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
-  return (
-    `${getLoggingPrefix(browser, 'success')} ` +
-    `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
-    // `${cyan(name)} ` +
-    `running in ${cyan(mode || 'unknown')} mode.`
-  )
-}
-
-export function browserNotInstalled(
-  browser: DevOptions['browser'],
-  browserBinaryLocation: string
-) {
-  const browsername = capitalizedBrowserName(browser)
-  const isUnreacheable =
-    browserBinaryLocation == 'null'
-      ? `${browsername} browser is not installed.\n\n`
-      : `Path to ${browsername} browser is not found. \n\n${red(
-          'NOT FOUND'
-        )} ` + `${underline(browserBinaryLocation)}\n\n`
-
-  return (
-    `${getLoggingPrefix(browser, 'error')} ${isUnreacheable}` +
-    `Either install the ${browsername} or choose a different browser via ` +
-    `${brightYellow('--browser')} flag.`
-  )
 }
 
 export function creatingUserProfile(browser: DevOptions['browser']) {
@@ -78,16 +47,46 @@ export function browserInstanceExited(browser: DevOptions['browser']) {
   return `${getLoggingPrefix(browser, 'info')} Instance exited.`
 }
 
-export function errorInjectingAddOns(
+export function stdoutData(
+  // name: string,
+  browser: DevOptions['browser'],
+  mode: DevOptions['mode']
+) {
+  const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
+  return (
+    `${getLoggingPrefix(browser, 'success')} ` +
+    `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
+    // `${cyan(name)} ` +
+    `running in ${cyan(mode || 'unknown')} mode.`
+  )
+}
+
+export function browserNotInstalledError(
+  browser: DevOptions['browser'],
+  browserBinaryLocation: string
+) {
+  const isUnreacheable =
+    browserBinaryLocation == 'null'
+      ? `Browser is not installed\n\n`
+      : `Can\'t find the browser path\n\n`
+
+  return (
+    `${getLoggingPrefix(browser, 'error')} ${isUnreacheable}` +
+    `Either install the missing browser or choose a different one via ` +
+    `${brightYellow('--browser')} flag.\n` +
+    `${red('NOT FOUND')} ${underline(browserBinaryLocation || capitalizedBrowserName(browser) + 'BROWSER')}`
+  )
+}
+
+export function injectingAddOnsError(
   browser: DevOptions['browser'],
   error: any
 ) {
   return (
     `${getLoggingPrefix(browser, 'error')} ` +
-    `Error injecting extensions into ${capitalizedBrowserName(
-      browser
-    )} profile.` +
-    `\n\n${red(error)}`
+    `Can\'t inject extensions into ` +
+    `${capitalizedBrowserName(browser)} profile\n` +
+    `${red(error)}`
   )
 }
 
@@ -106,14 +105,11 @@ export function firefoxServiceWorkerError(browser: DevOptions['browser']) {
   )
 }
 
-export function errorLaunchingBrowser(
-  browser: DevOptions['browser'],
-  error: any
-) {
+export function browserLaunchError(browser: DevOptions['browser'], error: any) {
   return (
     `${getLoggingPrefix(browser, 'error')} ` +
-    `Error launching ${capitalizedBrowserName(browser)}. Error:` +
-    `\n\n${red(error)}`
+    `Error launching browser:\n` +
+    `${red(error)}`
   )
 }
 
@@ -131,24 +127,24 @@ export function errorConnectingToBrowser(browser: DevOptions['browser']) {
   )
 }
 
-export function errorInstallingAddOn(
+export function addonInstallError(
   browser: DevOptions['browser'],
   message: string
 ) {
   return (
     `${getLoggingPrefix(browser, 'error')} Error while installing ` +
-    `temporary addon: ${red(message)}`
+    `temporary addon:\n${red(message)}`
   )
 }
 
-export function pathIsNotDir(
+export function pathIsNotDirectoryError(
   browser: DevOptions['browser'],
   profilePath: string
 ) {
   return (
-    `${getLoggingPrefix(browser, 'error')} The path is not a directory.\n\n` +
-    `${gray('PATH')} ${underline(profilePath)}\n\n` +
-    `Please provide a valid directory path.`
+    `${getLoggingPrefix(browser, 'error')} Path is not directory\n\n` +
+    `Please provide a valid directory path and try again.\n` +
+    `${red('NOT DIRECTORY')} ${underline(profilePath)}`
   )
 }
 
@@ -156,31 +152,31 @@ export function parseMessageLengthError(browser: DevOptions['browser']) {
   return `${getLoggingPrefix(browser, 'error')} Error parsing message length.`
 }
 
-export function messagingClientClosed(browser: DevOptions['browser']) {
+export function messagingClientClosedError(browser: DevOptions['browser']) {
   return `${getLoggingPrefix(
     browser,
     'error'
-  )} MessagingClient connection closed.`
+  )} ${magenta('MessagingClient')} connection closed.`
 }
 
-export function requestWithoutTargetActor(
+export function requestWithoutTargetActorError(
   browser: DevOptions['browser'],
   requestType: string
 ) {
   return (
-    `${getLoggingPrefix(browser, 'error')} Unexpected MessagingClient ` +
+    `${getLoggingPrefix(browser, 'error')} Unexpected ${magenta('MessagingClient')} ` +
     `request without target actor: ${brightYellow(requestType)}`
   )
 }
 
-export function connectionClosed(browser: DevOptions['browser']) {
+export function connectionClosedError(browser: DevOptions['browser']) {
   return `${getLoggingPrefix(
     browser,
     'error'
-  )} MessagingClient connection closed.`
+  )} ${magenta('MessagingClient')} connection closed.`
 }
 
-export function targetActorHasActiveRequest(
+export function targetActorHasActiveRequestError(
   browser: DevOptions['browser'],
   targetActor: string
 ) {
@@ -190,12 +186,12 @@ export function targetActorHasActiveRequest(
   )
 }
 
-export function errorParsingPacket(browser: DevOptions['browser'], error: any) {
+export function parsingPacketError(browser: DevOptions['browser'], error: any) {
   return `${getLoggingPrefix(browser, 'error')} Error parsing packet: ${red(
     error
   )}`
 }
-export function messageWithoutSender(
+export function messageWithoutSenderError(
   browser: DevOptions['browser'],
   message: {
     from?: string
@@ -205,16 +201,16 @@ export function messageWithoutSender(
 ) {
   return (
     `${getLoggingPrefix(browser, 'error')} Message received ` +
-    `without a sender actor: ${brightYellow(JSON.stringify(message))}`
+    `without a sender actor:\n${brightYellow(JSON.stringify(message))}`
   )
 }
 
-export function unexpectedMessageReceived(
+export function unexpectedMessageReceivedError(
   browser: DevOptions['browser'],
   message: string
 ) {
   return (
-    `${getLoggingPrefix(browser, 'error')} Received unexpected message: ` +
+    `${getLoggingPrefix(browser, 'error')} Received unexpected message:\n` +
     `${red(message)}`
   )
 }

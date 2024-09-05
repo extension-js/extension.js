@@ -92,7 +92,9 @@ export class MessagingClient extends EventEmitter {
     if (!this.connection) return
     this.connection.removeAllListeners()
     this.connection.end()
-    this.rejectAllRequests(new Error(messages.messagingClientClosed('firefox')))
+    this.rejectAllRequests(
+      new Error(messages.messagingClientClosedError('firefox'))
+    )
   }
 
   private rejectAllRequests(error: Error): void {
@@ -114,7 +116,7 @@ export class MessagingClient extends EventEmitter {
 
     if (!request.to) {
       throw new Error(
-        messages.requestWithoutTargetActor('firefox', request.type)
+        messages.requestWithoutTargetActorError('firefox', request.type)
       )
     }
     return await new Promise((resolve, reject) => {
@@ -129,7 +131,7 @@ export class MessagingClient extends EventEmitter {
       ({request, deferred}: {request: {to: string}; deferred: Deferred}) => {
         if (this.activeRequests.has(request.to)) return true
         if (!this.connection) {
-          throw new Error(messages.connectionClosed('firefox'))
+          throw new Error(messages.connectionClosedError('firefox'))
         }
         try {
           const messageString = `${
@@ -148,7 +150,7 @@ export class MessagingClient extends EventEmitter {
   private expectReply(targetActor: string, deferred: Deferred): void {
     if (this.activeRequests.has(targetActor)) {
       throw new Error(
-        messages.targetActorHasActiveRequest('firefox', targetActor)
+        messages.targetActorHasActiveRequestError('firefox', targetActor)
       )
     }
     this.activeRequests.set(targetActor, deferred)
@@ -169,7 +171,7 @@ export class MessagingClient extends EventEmitter {
     if (error) {
       this.emit(
         'error',
-        new Error(messages.errorParsingPacket('firefox', error))
+        new Error(messages.parsingPacketError('firefox', error))
       )
       if (fatal) this.disconnect()
       return !fatal
@@ -184,7 +186,7 @@ export class MessagingClient extends EventEmitter {
     if (!message.from) {
       this.emit(
         'error',
-        new Error(messages.messageWithoutSender('firefox', message))
+        new Error(messages.messageWithoutSenderError('firefox', message))
       )
       return
     }
@@ -202,7 +204,10 @@ export class MessagingClient extends EventEmitter {
       this.emit(
         'error',
         new Error(
-          messages.unexpectedMessageReceived('firefox', JSON.stringify(message))
+          messages.unexpectedMessageReceivedError(
+            'firefox',
+            JSON.stringify(message)
+          )
         )
       )
     }

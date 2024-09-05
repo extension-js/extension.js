@@ -41,7 +41,7 @@ export class LocalesPlugin {
           if (!fs.existsSync(this.manifestPath)) {
             compilation.errors.push(
               new webpack.WebpackError(
-                messages.manifestNotFoundError(manifestName)
+                messages.manifestNotFoundError(manifestName, this.manifestPath)
               )
             )
             return

@@ -61,13 +61,13 @@ export class CheckManifestFiles {
           const ext = path.extname(item as string)
           const manifest = require(this.manifestPath)
           const manifestName = manifest.name || 'Extension.js'
-          const fieldError = messages.manifestFieldError(
-            manifestName,
-            field,
-            item as string
-          )
 
           if (!fs.existsSync(item as string)) {
+            const fieldError = messages.manifestFieldError(
+              manifestName,
+              field,
+              item as string
+            )
             if (iconExts.includes(ext)) {
               compilation.errors.push(new WebpackError(fieldError))
             } else if (jsonExts.includes(ext)) {
