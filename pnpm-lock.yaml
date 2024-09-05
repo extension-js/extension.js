@@ -401,11 +401,11 @@ importers:
         specifier: ^11.1.0
         version: 11.1.0
       extension-create:
-        specifier: 2.0.0-alpha.21
-        version: 2.0.0-alpha.21
+        specifier: 2.0.0-alpha.23
+        version: 2.0.0-alpha.23
       extension-develop:
-        specifier: 2.0.0-alpha.21
-        version: 2.0.0-alpha.21(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.23.3)(esbuild@0.23.1)(preact@10.23.2)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3))(type-fest@0.21.3)(typescript@5.3.3)
+        specifier: 2.0.0-alpha.23
+        version: 2.0.0-alpha.23(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.23.3)(esbuild@0.23.1)(preact@10.23.2)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3))(type-fest@0.21.3)(typescript@5.3.3)
       semver:
         specifier: ^7.5.4
         version: 7.6.3
@@ -3616,12 +3616,12 @@ packages:
   extendable-error@0.1.7:
     resolution: {integrity: sha512-UOiS2in6/Q0FK0R0q6UY9vYpQ21mr/Qn1KOnte7vsACuNJf514WvCCUHSRCPcgjPT2bAhNIJdlE6bVap1GKmeg==}
 
-  extension-create@2.0.0-alpha.21:
-    resolution: {integrity: sha512-sZTFWZlPDt7wylEGN3wEfSKNg8ETtdCxWQ8UwmCl/Od/7Y8N0pRtxg4WMBvfD7RYdvMm7EDX8/JyQg92mSvVfw==}
+  extension-create@2.0.0-alpha.23:
+    resolution: {integrity: sha512-RzZo3ViwEyHaFbOtceNJH7naR4trWfyHbfTjpYH0OVHXxQAiMWrnLZ/CAvt+SJjmmOLS+XCwcti314nANrwerQ==}
     engines: {node: '>=18'}
 
-  extension-develop@2.0.0-alpha.21:
-    resolution: {integrity: sha512-Kzd6O0ud9hrSVQ4g5dF4VoI6UifC3N9Xh4/Y3zG06nlI0fJsZcoTiwFww3y1ytEv1ee9/avLxm7Y426xwwhwhQ==}
+  extension-develop@2.0.0-alpha.23:
+    resolution: {integrity: sha512-Ed5eC5nNar3FM410gJnidJ17YVy+39haE6vKjS5eKBUvWwVf7gBQrw2tF2qdt4yivU0r7ptooonuL8rhiUruRg==}
     engines: {node: '>=18'}
 
   external-editor@3.1.0:
@@ -9721,14 +9721,15 @@ snapshots:
 
   extendable-error@0.1.7: {}
 
-  extension-create@2.0.0-alpha.21:
+  extension-create@2.0.0-alpha.23:
     dependencies:
       '@colors/colors': 1.6.0
+      '@types/firefox-webext-browser': 120.0.4
       cross-spawn: 7.0.3
       detect-package-manager: 3.0.2
       go-git-it: 2.0.4
 
-  extension-develop@2.0.0-alpha.21(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.23.3)(esbuild@0.23.1)(preact@10.23.2)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3))(type-fest@0.21.3)(typescript@5.3.3):
+  extension-develop@2.0.0-alpha.23(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.23.3)(esbuild@0.23.1)(preact@10.23.2)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3))(type-fest@0.21.3)(typescript@5.3.3):
     dependencies:
       '@colors/colors': 1.6.0
       '@swc/core': 1.7.23
