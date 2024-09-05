@@ -93,6 +93,15 @@ importers:
 
   examples/config-babel:
     devDependencies:
+      '@babel/core':
+        specifier: ^7.24.9
+        version: 7.25.2
+      babel-loader:
+        specifier: ^9.1.3
+        version: 9.1.3(@babel/core@7.25.2)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
+      babel-preset-modern-browser-extension:
+        specifier: ^0.7.0
+        version: 0.7.0(@babel/core@7.25.2)
       stylelint:
         specifier: ^16.7.0
         version: 16.9.0(typescript@5.3.3)
@@ -6459,7 +6468,6 @@ snapshots:
       '@babel/plugin-syntax-decorators': 7.24.7(@babel/core@7.25.2)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   '@babel/plugin-proposal-private-property-in-object@7.21.0-placeholder-for-preset-env.2(@babel/core@7.25.2)':
     dependencies:
@@ -6489,7 +6497,6 @@ snapshots:
     dependencies:
       '@babel/core': 7.25.2
       '@babel/helper-plugin-utils': 7.24.8
-    optional: true
 
   '@babel/plugin-syntax-dynamic-import@7.8.3(@babel/core@7.25.2)':
     dependencies:
@@ -8844,7 +8851,6 @@ snapshots:
       find-cache-dir: 4.0.0
       schema-utils: 4.2.0
       webpack: 5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)
-    optional: true
 
   babel-plugin-istanbul@6.1.1:
     dependencies:
@@ -8887,11 +8893,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  babel-plugin-react-require@4.0.3:
-    optional: true
+  babel-plugin-react-require@4.0.3: {}
 
-  babel-plugin-transform-react-remove-prop-types@0.4.24:
-    optional: true
+  babel-plugin-transform-react-remove-prop-types@0.4.24: {}
 
   babel-preset-current-node-syntax@1.1.0(@babel/core@7.25.2):
     dependencies:
@@ -8930,7 +8934,6 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
-    optional: true
 
   balanced-match@1.0.2: {}
 
@@ -9127,8 +9130,7 @@ snapshots:
 
   commander@7.2.0: {}
 
-  common-path-prefix@3.0.0:
-    optional: true
+  common-path-prefix@3.0.0: {}
 
   compressible@2.0.18:
     dependencies:
@@ -9780,7 +9782,6 @@ snapshots:
     dependencies:
       common-path-prefix: 3.0.0
       pkg-dir: 7.0.0
-    optional: true
 
   find-up@4.1.0:
     dependencies:
@@ -9796,7 +9797,6 @@ snapshots:
     dependencies:
       locate-path: 7.2.0
       path-exists: 5.0.0
-    optional: true
 
   firefox-profile@4.7.0:
     dependencies:
@@ -10841,7 +10841,6 @@ snapshots:
   locate-path@7.2.0:
     dependencies:
       p-locate: 6.0.0
-    optional: true
 
   lodash.debounce@4.0.8: {}
 
@@ -11100,7 +11099,6 @@ snapshots:
   p-limit@4.0.0:
     dependencies:
       yocto-queue: 1.1.1
-    optional: true
 
   p-locate@4.1.0:
     dependencies:
@@ -11113,7 +11111,6 @@ snapshots:
   p-locate@6.0.0:
     dependencies:
       p-limit: 4.0.0
-    optional: true
 
   p-map@2.1.0: {}
 
@@ -11158,8 +11155,7 @@ snapshots:
 
   path-exists@4.0.0: {}
 
-  path-exists@5.0.0:
-    optional: true
+  path-exists@5.0.0: {}
 
   path-is-absolute@1.0.1: {}
 
@@ -11197,7 +11193,6 @@ snapshots:
   pkg-dir@7.0.0:
     dependencies:
       find-up: 6.3.0
-    optional: true
 
   postcss-attribute-case-insensitive@6.0.3(postcss@8.4.45):
     dependencies:
@@ -12828,5 +12823,4 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  yocto-queue@1.1.1:
-    optional: true
+  yocto-queue@1.1.1: {}
