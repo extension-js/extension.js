@@ -1,5 +1,6 @@
 {
-  "manifest_version": 3,
+  "chromium:manifest_version": 3,
+  "firefox:manifest_version": 2,
   "version": "0.0.1",
   "name": "Sidebar Template",
   "author": "Cezar Augusto",
@@ -19,5 +20,13 @@
     "default_title": "Sidebar Action",
     "default_icon": "images/extension_48.png"
   },
-  "permissions": ["sidePanel"]
+  "chromium:permissions": ["sidePanel"],
+  "firefox:permissions": ["storage", "tabs"],
+  "commands": {
+    "firefox:_execute_sidebar_action": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y"
+      }
+    }
+  }
 }

@@ -645,7 +645,7 @@ export function certRequired() {
   )
 }
 
-export function defaultPortInUse(manifestName: string, port: number) {
+export function defaultPortInUse(_manifestName: string, port: number) {
   return (
     `${getLoggingPrefix('Port', 'error')} ` +
     `Selected port ${brightYellow(port.toString())} in use. Choose a new port. `

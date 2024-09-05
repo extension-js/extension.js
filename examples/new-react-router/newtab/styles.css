@@ -16,9 +16,9 @@ nav {
 }
 
 #root {
+  width: 100%;
   padding: 1rem;
-  width: 65rem;
-  min-height: 55rem;
+  min-height: 60rem;
 }
 
 h1 {
