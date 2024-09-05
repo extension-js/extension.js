@@ -40,6 +40,11 @@ export async function generateExtensionTypes(projectPath: string) {
       // Rewrite previous path for versions < 2.0.0. See #162
       await fs.writeFile(extensionEnvFile, fileContent)
     }
+
+    // For local development we always rewrite the path
+    if (process.env.EXTENSION_ENV === 'development') {
+      await fs.writeFile(extensionEnvFile, fileContent)
+    }
   } catch (err) {
     // File does not exist, continue to write it
     const manifest = require(path.join(projectPath, 'manifest.json'))
