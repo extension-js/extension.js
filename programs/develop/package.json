@@ -102,7 +102,6 @@
     "react-refresh": "^0.14.2",
     "react-refresh-typescript": "^2.0.9",
     "resolve-url-loader": "^5.0.0",
-    "sass": "^1.77.8",
     "sass-loader": "^16.0.0",
     "vue-loader": "^17.4.2",
     "vue-style-loader": "^4.1.3",
