@@ -70,8 +70,8 @@ export function integrationNotInstalled(
 
 export function envFileLoaded(_manifestName: string) {
   return (
-    `${getLoggingPrefix('env', 'success')} loaded ` +
-    `file ${brightGreen('successfully')}.`
+    `${getLoggingPrefix('env', 'success')} file loaded ` +
+    `${brightGreen('successfully')}.`
   )
 }
 
@@ -123,9 +123,9 @@ export function failedToInstallIntegration(
   )
 }
 
-export function firefoxServiceWorkerError(manifestName: string) {
+export function firefoxServiceWorkerError(_manifestName: string) {
   return (
-    `${getLoggingPrefix(manifestName, 'error')} No Service Worker Support\n\n` +
+    `${getLoggingPrefix('Firefox runner', 'error')} No Service Worker Support\n\n` +
     `Firefox does not support the ${brightYellow(
       'background.service_worker'
     )} field yet.\n` +
@@ -226,14 +226,14 @@ export function invalidFieldType(
 }
 
 export function missingRequiredMessage(
-  manifestName: string,
+  _manifestName: string,
   browser: DevOptions['browser'],
   message: string | undefined
 ) {
   const hintMessage = `Update your manifest.json file to run your extension.`
   const errorMessage =
     `${getLoggingPrefix(
-      manifestName,
+      'manifest.json',
       'error'
     )} Missing Required Manifest Field\n\n` +
     `Field ${brightYellow(message || '')} is required. ${hintMessage}\n\n` +
@@ -249,7 +249,7 @@ export function handleMultipleAssetsError(
   const errorMsg =
     `${getLoggingPrefix(manifestName, 'error')} Content Script Import\n\n` +
     `One of your ${extFilename?.toUpperCase()} ` +
-    `imports is also a content_script CSS in manifest.json.\n` +
+    `imports is also a ${brightYellow('content_script')} CSS in manifest.json.\n` +
     `Remove the duplicate entry and try again.`
 
   if (filename.startsWith('content_scripts')) {
@@ -568,19 +568,16 @@ export function backgroundIsRequired(
 }
 
 export function serverRestartRequiredFromHtml(
-  manifestName: string,
+  _manifestName: string,
   filePath: string
 ) {
   const errorMessage =
-    `${getLoggingPrefix(
-      manifestName,
-      'error'
-    )} HTML Entry Point Modification\n\n` +
+    `${getLoggingPrefix('HTML', 'error')} Entry Point Modification\n\n` +
     `Changing the path of ${brightYellow('<script>')} or ${brightYellow(
       '<link rel="stylesheet">'
     )} ` +
     `files after compilation requires a server restart.\n` +
-    `${gray('PATH')} ${filePath}`
+    `${gray('PATH')} ${underline(filePath)}`
 
   return errorMessage
 }
@@ -650,14 +647,14 @@ export function certRequired() {
 
 export function defaultPortInUse(manifestName: string, port: number) {
   return (
-    `${getLoggingPrefix(manifestName, 'error')} ` +
-    `Default port ${brightYellow(port.toString())} in use. Choose a new port. `
+    `${getLoggingPrefix('Port', 'error')} ` +
+    `Selected port ${brightYellow(port.toString())} in use. Choose a new port. `
   )
 }
 
-export function noExtensionIdError(manifestName: string) {
+export function noExtensionIdError(_manifestName: string) {
   return (
-    `${getLoggingPrefix(manifestName, 'error')} Extension ID Not Defined\n\n` +
+    `${getLoggingPrefix('manifest.json', 'error')} Extension ID Not Defined\n\n` +
     `For MAIN world content_scripts, the extension ID must be specified.\n` +
     `Ensure your extension have a fixed ID and that the ${brightYellow('publicPath')}\n` +
     `of your ${brightYellow('extension.config.js')} is defined as your extension URL.`

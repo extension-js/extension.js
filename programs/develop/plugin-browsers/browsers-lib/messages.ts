@@ -6,7 +6,8 @@ import {
   red,
   cyan,
   bold,
-  magenta
+  magenta,
+  brightBlue
 } from '@colors/colors/safe'
 import {DevOptions} from '../../commands/dev'
 
@@ -56,8 +57,7 @@ export function stdoutData(
   return (
     `${getLoggingPrefix(browser, 'success')} ` +
     `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
-    // `${cyan(name)} ` +
-    `running in ${cyan(mode || 'unknown')} mode.`
+    `running in ${brightBlue(mode || 'unknown')} mode.`
   )
 }
 
