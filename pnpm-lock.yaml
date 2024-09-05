@@ -108,12 +108,15 @@ importers:
 
   examples/config-stylelint:
     devDependencies:
+      sass:
+        specifier: ^1.77.8
+        version: 1.78.0
       stylelint:
         specifier: ^16.7.0
         version: 16.9.0(typescript@5.3.3)
-      stylelint-config-standard:
-        specifier: ^36.0.1
-        version: 36.0.1(stylelint@16.9.0(typescript@5.3.3))
+      stylelint-config-standard-scss:
+        specifier: ^13.1.0
+        version: 13.1.0(postcss@8.4.45)(stylelint@16.9.0(typescript@5.3.3))
 
   examples/content: {}
 
@@ -673,15 +676,6 @@ importers:
       sass-loader:
         specifier: ^16.0.0
         version: 16.0.1(sass@1.78.0)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
-      stylelint:
-        specifier: ^16.7.0
-        version: 16.9.0(typescript@5.3.3)
-      stylelint-config-standard-scss:
-        specifier: ^13.1.0
-        version: 13.1.0(postcss@8.4.45)(stylelint@16.9.0(typescript@5.3.3))
-      stylelint-webpack-plugin:
-        specifier: ^5.0.1
-        version: 5.0.1(stylelint@16.9.0(typescript@5.3.3))(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
       vue-loader:
         specifier: ^17.4.2
         version: 17.4.2(@vue/compiler-sfc@3.5.3)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
@@ -11219,8 +11213,7 @@ snapshots:
       postcss-value-parser: 4.2.0
     optional: true
 
-  postcss-media-query-parser@0.2.3:
-    optional: true
+  postcss-media-query-parser@0.2.3: {}
 
   postcss-modules-extract-imports@3.1.0(postcss@8.4.45):
     dependencies:
@@ -11373,7 +11366,6 @@ snapshots:
   postcss-scss@4.0.9(postcss@8.4.45):
     dependencies:
       postcss: 8.4.45
-    optional: true
 
   postcss-selector-not@7.0.2(postcss@8.4.45):
     dependencies:
@@ -11936,7 +11928,6 @@ snapshots:
       stylelint-scss: 6.5.1(stylelint@16.9.0(typescript@5.3.3))
     optionalDependencies:
       postcss: 8.4.45
-    optional: true
 
   stylelint-config-recommended@14.0.1(stylelint@16.9.0(typescript@5.3.3)):
     dependencies:
@@ -11949,7 +11940,6 @@ snapshots:
       stylelint-config-standard: 36.0.1(stylelint@16.9.0(typescript@5.3.3))
     optionalDependencies:
       postcss: 8.4.45
-    optional: true
 
   stylelint-config-standard@36.0.1(stylelint@16.9.0(typescript@5.3.3)):
     dependencies:
@@ -11966,7 +11956,6 @@ snapshots:
       postcss-selector-parser: 6.1.2
       postcss-value-parser: 4.2.0
       stylelint: 16.9.0(typescript@5.3.3)
-    optional: true
 
   stylelint-webpack-plugin@5.0.1(stylelint@16.9.0(typescript@5.3.3))(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)):
     dependencies:
