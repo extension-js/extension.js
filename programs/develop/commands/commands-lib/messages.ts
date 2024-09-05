@@ -236,8 +236,8 @@ export function failedToCompressError(error: any) {
 
 export function writingTypeDefinitions(manifest: Manifest) {
   return (
-    `${getLoggingPrefix('info')} ${manifest.name} (v${manifest.version}) ` +
-    'has no type definitions. Writing...'
+    `${getLoggingPrefix('info')} ` +
+    `Writing type definitions for ${cyan(manifest.name || '')}...`
   )
 }
 
@@ -386,8 +386,8 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
 export function isUsingExtensionConfig(integration: any) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Using ${magenta(integration)}. ` +
-    `${brightYellow('This is very experimental')}.`
+    `Using ${brightYellow(integration)}. ` +
+    `${magenta('This is very experimental')}.`
   )
 }
 
