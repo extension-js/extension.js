@@ -52,7 +52,7 @@ export class RunFirefoxPlugin {
 
     if (!fs.existsSync(firefoxLocation!) || '') {
       console.error(
-        messages.browserNotInstalled(this.browser, firefoxLocation!)
+        messages.browserNotInstalledError(this.browser, firefoxLocation!)
       )
       process.exit()
     }
@@ -87,7 +87,7 @@ export class RunFirefoxPlugin {
         process.exit(1)
       }
 
-      console.error(messages.errorLaunchingBrowser(this.browser, error))
+      console.error(messages.browserLaunchError(this.browser, error))
       process.exit(1)
     }
   }

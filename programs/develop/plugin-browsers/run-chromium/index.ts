@@ -53,7 +53,7 @@ export class RunChromiumPlugin {
     }
     if (!fs.existsSync(browserBinaryLocation) || '') {
       console.error(
-        messages.browserNotInstalled(browser, browserBinaryLocation)
+        messages.browserNotInstalledError(browser, browserBinaryLocation)
       )
       process.exit()
     }

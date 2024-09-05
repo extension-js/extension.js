@@ -11,7 +11,7 @@ import {
   gray,
   cyan,
   brightYellow,
-  brightBlue,
+  magenta,
   brightGreen,
   underline
 } from '@colors/colors/safe'
@@ -22,10 +22,10 @@ export function destinationNotWriteable(workingDir: string) {
   const workingDirFolder = path.basename(workingDir)
 
   return (
-    `Failed to write in the destination directory. ` +
-    `Path for \`${workingDirFolder}\` is not writable.\n` +
-    `Ensure you have write permissions for this folder.\n` +
-    `Path: ${workingDirFolder}`
+    `${red(`✖︎✖︎✖︎`)} ` +
+    `Failed to write in the destination directory\n\n` +
+    `Path is not writable. Ensure you have write permissions for this folder.\n` +
+    `${red('NOT WRITEABLE')}: ${underline(workingDirFolder)}`
   )
 }
 
@@ -56,13 +56,15 @@ export async function directoryHasConflicts(
 
 export function noProjectName() {
   return (
+    `${red(`✖︎✖︎✖︎`)} ` +
     'You need to provide an extension name to create one. ' +
-    '\nSee `--help` for command info.'
+    `See ${brightYellow('--help')} for command info.`
   )
 }
 
 export function noUrlAllowed() {
   return (
+    `${red(`✖︎✖︎✖︎`)} ` +
     'URLs are not allowed as a project path. Either write ' +
     'a name or a path to a local folder.'
   )
@@ -91,8 +93,8 @@ export async function successfullInstall(
     `🧩 - ${brightGreen('Success!')} Extension ${cyan(
       projectName
     )} created.\n\n` +
-    `Now ${brightBlue(`cd ${underline(relativePath)}`)} and ` +
-    `${brightBlue(`${command}`)} to open a new browser instance\n` +
+    `Now ${magenta(`cd ${underline(relativePath)}`)} and ` +
+    `${magenta(`${command}`)} to open a new browser instance\n` +
     'with your extension installed, loaded, and enabled for development.\n\n' +
     `${brightGreen('You are ready')}. Time to hack on your extension!`
   )
@@ -113,18 +115,19 @@ export function scanningPossiblyConflictingFiles() {
 export function createDirectoryError(projectName: string, error: any) {
   return (
     `${red(`✖︎✖︎✖︎`)} ` +
-    `Can't create directory ${cyan(projectName)}. ${error}`
+    `Can't create directory ${cyan(projectName)}:\n${red(error)}`
   )
 }
 
 export function writingTypeDefinitions(projectName: string) {
-  return `🔷 - Writing ${cyan(projectName)} type definitions...`
+  return `🔷 - Writing type definitions for ${cyan(projectName)}...`
 }
 
 export function writingTypeDefinitionsError(error: any) {
-  return `${red(
-    `✖︎✖︎✖︎`
-  )} Failed to write the extension type definition. ${error}`
+  return (
+    `${red(`✖︎✖︎✖︎`)} Failed to write the extension ` +
+    `type definition.\n${red(error)}`
+  )
 }
 
 export function installingFromTemplate(
@@ -137,7 +140,7 @@ export function installingFromTemplate(
 
   return (
     `🧰 - Installing ${cyan(projectName)} from ` +
-    `template ${brightBlue(templateName)}...`
+    `template ${magenta(templateName)}...`
   )
 }
 
@@ -148,7 +151,7 @@ export function installingFromTemplateError(
 ) {
   return (
     `${red(`✖︎✖︎✖︎`)} Can't find template ` +
-    `${brightBlue(template)} for ${cyan(projectName)}. ${error}`
+    `${magenta(template)} for ${cyan(projectName)}:\n${red(error)}`
   )
 }
 
@@ -162,7 +165,8 @@ export function initializingGitForRepositoryFailed(
   code: number | null
 ) {
   return (
-    `Command ${gitCommand} ${gitArgs.join(' ')} ` +
+    `${red(`✖︎✖︎✖︎`)} ` +
+    `Command ${brightYellow(gitCommand)} ${brightYellow(gitArgs.join(' '))} ` +
     `failed with exit code ${code}`
   )
 }
@@ -171,9 +175,11 @@ export function initializingGitForRepositoryProcessError(
   projectName: string,
   error: any
 ) {
-  return `${red(`✖︎✖︎✖︎`)} Child process error: Can't initialize ${brightYellow(
-    'git'
-  )} for ${cyan(projectName)}. ${error.message}`
+  return (
+    `${red(`✖︎✖︎✖︎`)} Child process error: Can't initialize ` +
+    `${brightYellow('git')} for ${cyan(projectName)}:\n` +
+    `${red(error.message)}`
+  )
 }
 
 export function initializingGitForRepositoryError(
@@ -182,9 +188,8 @@ export function initializingGitForRepositoryError(
 ) {
   return (
     `${red(`✖︎✖︎✖︎`)} Can't initialize ` +
-    `${brightYellow('git')} for ${cyan(projectName)}. ${
-      error.message || error.toString()
-    }`
+    `${brightYellow('git')} for ${cyan(projectName)}:\n` +
+    `${red(error.message || error.toString())}`
   )
 }
 
@@ -198,6 +203,7 @@ export function installingDependenciesFailed(
   code: number | null
 ) {
   return (
+    `${red(`✖︎✖︎✖︎`)} ` +
     `Command ${gitCommand} ${gitArgs.join(' ')} ` +
     `failed with exit code ${code}`
   )
@@ -209,14 +215,15 @@ export function installingDependenciesProcessError(
 ) {
   return (
     `${red(`✖︎✖︎✖︎`)} Child process error: Can't ` +
-    `install dependencies for ${cyan(projectName)}. ${error}`
+    `install dependencies for ${cyan(projectName)}:\n${red(error)}`
   )
 }
 
 export function cantInstallDependencies(projectName: string, error: any) {
-  return `${red(`✖︎✖︎✖︎`)} Can't install dependencies for ${cyan(
-    projectName
-  )}. ${error.message || error.toString()}`
+  return (
+    `${red(`✖︎✖︎✖︎`)} Can't install dependencies for ${cyan(projectName)}:\n` +
+    `${red(error.message || error.toString())}`
+  )
 }
 
 export function symlinkCreated() {
@@ -224,7 +231,7 @@ export function symlinkCreated() {
 }
 
 export function symlinkError(command: string, args: string[]) {
-  return `Failed to create symlink: ${command} ${args.join(' ')}`
+  return `${red(`✖︎✖︎✖︎`)} Failed to create symlink: ${red(command)} ${red(args.join(' '))}`
 }
 
 export function writingPackageJsonMetadata() {
@@ -237,7 +244,7 @@ export function writingPackageJsonMetadataError(
 ) {
   return (
     `${red(`✖︎✖︎✖︎`)} Can't write ` +
-    `${brightYellow(`package.json`)} for ${cyan(projectName)}. ${error}`
+    `${brightYellow(`package.json`)} for ${cyan(projectName)}:\n${red(error)}`
   )
 }
 
@@ -251,7 +258,7 @@ export function writingManifestJsonMetadataError(
 ) {
   return (
     `${red(`✖︎✖︎✖︎`)} Can't write ` +
-    `${brightYellow(`manifest.json`)} for ${cyan(projectName)}. ${error}`
+    `${brightYellow(`manifest.json`)} for ${cyan(projectName)}:\n${red(error)}`
   )
 }
 
@@ -266,9 +273,8 @@ export function writingGitIgnore() {
 export function writingReadmeMetaDataEError(projectName: string, error: any) {
   return (
     `${red(`✖︎✖︎✖︎`)} ` +
-    `Can't write the ${brightYellow('README.md')} file for ${cyan(
-      projectName
-    )}. ${error}`
+    `Can't write the ${brightYellow('README.md')} file ` +
+    `for ${cyan(projectName)}:\n${red(error)}`
   )
 }
 
@@ -277,5 +283,9 @@ export function folderExists(projectName: string) {
 }
 
 export function writingDirectoryError(error: any) {
-  return 'Error while checking directory writability: ' + error
+  return (
+    `${red(`✖︎✖︎✖︎`)} ` +
+    'Error while checking directory writability:\n' +
+    red(error)
+  )
 }

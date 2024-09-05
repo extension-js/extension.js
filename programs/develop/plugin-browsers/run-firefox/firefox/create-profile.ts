@@ -52,7 +52,7 @@ function getProfile(
   if (profileIsDirPath) {
     destinationDirectory = profilePath
   } else {
-    throw new Error(messages.pathIsNotDir(browser, profilePath))
+    throw new Error(messages.pathIsNotDirectoryError(browser, profilePath))
   }
 
   const profile = new FirefoxProfile({destinationDirectory})
