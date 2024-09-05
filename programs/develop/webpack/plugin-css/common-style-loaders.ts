@@ -27,7 +27,7 @@ export async function commonStyleLoaders(
     {
       loader: require.resolve('css-loader'),
       options: {
-        importLoaders: 1
+        sourceMap: opts.mode === 'development',
       }
     }
   ].filter(Boolean)
