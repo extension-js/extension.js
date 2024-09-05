@@ -43,8 +43,8 @@ export default function addQueryParamToImportedCss(
           // Find every CSS imports in the source and add a query param to them
           // so we can identify them later in the styleLoaders
           source = source.replace(
-            /import\s+['"](.+\.(css|less|scss|sass|stylus))['"]/g,
-            "import '$1?is_content_css_import=true'"
+            /import\s+(\w+\s+from\s+)?['"](.+\.(css|less|scss|sass|stylus))['"]/g,
+            "import $1'$2?is_content_css_import=true'"
           )
 
           return source
