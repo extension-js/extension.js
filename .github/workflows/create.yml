@@ -1,16 +1,27 @@
-name: command:create
-on: push
+name: extension create
+
+on:
+  push:
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
+        node-version: [20]
     steps:
-    - uses: actions/checkout@v2
-    - name: Install modules
-      run: yarn
+    - uses: actions/checkout@v4
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'pnpm'
+    - name: Install dependencies
+      run: pnpm install
     - name: Run compiler
-      run: yarn compile
+      run: pnpm compile
     - name: Run `extension create` command
-      run: yarn test:create
+      run: pnpm test:create

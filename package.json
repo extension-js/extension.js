@@ -1,11 +1,13 @@
 {
   "private": true,
+  "name": "extension",
+  "packageManager": "pnpm@9.9.0",
+  "description": "The monorepo of all things Extension.js, including the Extension.js CLI, its programs, packages, website, and documentation.",
   "scripts": {
-    "preinstall": "npx -y ts-node install-scripts.ts",
     "clean": "turbo clean && rm -rf node_modules",
     "changeset": "changeset",
     "compile": "dotenv -- turbo run compile",
-    "cleanInstall": "yarn cache clean && yarn clean && rm -rf yarn.lock && yarn install && yarn compile && yarn format && yarn lint && yarn types",
+    "cleanInstall": "pnpm clean && rm -rf pnpm-lock.yaml && pnpm install && pnpm compile && pnpm format && pnpm lint && pnpm types",
     "extension": "dotenv -- ts-node ./programs/cli/dist/cli.js",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
     "lint": "eslint .",
@@ -17,14 +19,17 @@
     "test:create": "dotenv -- turbo run test:create",
     "test:cli": "dotenv -- turbo run test:cli",
     "test:watch": "dotenv -- turbo run test:watch",
-    "types": "tsc --noEmit --jsx react-jsx",
+    "types": "pnpm tsc",
     "version-packages": "changeset version",
     "publish-packages": "turbo run compile lint test && changeset version && changeset publish",
-    "watch": "yarn compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5"
+    "watch": "pnpm compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
     "@eslint/js": "^9.6.0",
+    "@types/chrome": "^0.0.268",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.12",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "dotenv-cli": "^7.3.0",
     "eslint": "^9.6.0",
@@ -36,14 +41,8 @@
     "tsup": "^8.1.2",
     "turbo": "^2.0.4"
   },
-  "name": "extension",
-  "packageManager": "yarn@1.22.22",
-  "description": "The monorepo of all things Extension.js, including the Extension.js CLI, its programs, packages, website, and documentation.",
-  "workspaces": [
-    "aliases/*",
-    "packages/*",
-    "programs/*",
-    "browser-extension-test-data",
-    "__TEST__/*"
-  ]
+  "dependencies": {
+    "@types/firefox-webext-browser": "^120.0.4",
+    "typescript": "5.3.3"
+  }
 }

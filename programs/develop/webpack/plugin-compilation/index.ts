@@ -16,7 +16,8 @@ export class CompilationPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    new CaseSensitivePathsPlugin().apply(compiler)
+    // TODO: This is outdated
+    new CaseSensitivePathsPlugin().apply(compiler as any)
 
     new EnvPlugin({manifestPath: this.manifestPath}).apply(compiler)
 

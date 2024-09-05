@@ -6,17 +6,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - run: corepack enable
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'yarn'
-      - name: Install modules
-        run: yarn install
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install
       - name: Run compiler
-        run: yarn compile
+        run: pnpm compile
       - name: Deploy release preview
         run: pnpx pkg-pr-new publish './programs/*'

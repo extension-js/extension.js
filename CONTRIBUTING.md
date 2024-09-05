@@ -13,7 +13,7 @@ Extension.js runs on top of webpack using custom plugins. The whole Extension.js
 ## Installation
 
 1. Clone the project `git@github.com:cezaraugusto/extension.git` && `cd extension`.
-2. Install dependencies (will symlink files where appropriate) `yarn install`
+2. Install dependencies (will symlink files where appropriate) `pnpm install`
 3. Create an `.env` file at the project root and add `EXTENSION_ENV=development`
 
 ## Usage
@@ -22,25 +22,25 @@ To watch and apply changes to the project, you will need two or more terminals o
 
 ### Terminal 1: Watch mode
 
-Use it to watch file changes. Under the hood this runs the compiler (`yarn compile`) infinitely.
+Use it to watch file changes. Under the hood this runs the compiler (`pnpm compile`) infinitely.
 
 ```sh
-yarn watch
+pnpm watch
 ```
 
 ### Terminal 2: Mimick `extension` command behavior.
 
-Now that you have the watcher running, running `yarn extension <command> [argument]` will emulate the production `extension <command> [argument]`. Use it to experiment with the multiple Extension.js CLI commands.
+Now that you have the watcher running, running `pnpm extension <command> [argument]` will emulate the production `extension <command> [argument]`. Use it to experiment with the multiple Extension.js CLI commands.
 
 ```sh
-yarn extension <command> [argument]
+pnpm extension <command> [argument]
 ```
 
 That's all!
 
 ## Templates
 
-Extension.js uses its own templates for testing. If you need to test a React extension behavior for example, running `yarn extension dev ./examples/new-react` will open the `new-react` template and use the defaults applied for a React configuration.
+Extension.js uses its own templates for testing. If you need to test a React extension behavior for example, running `pnpm extension dev ./examples/new-react` will open the `new-react` template and use the defaults applied for a React configuration.
 
 ## Useful Commands
 
@@ -52,7 +52,7 @@ and are needed for the project development.
 This is the same command users run when they do `npx extension <command>
 
 ```sh
-yarn extension <command> [args] [flags]
+pnpm extension <command> [args] [flags]
 ```
 
 ### `compile`
@@ -60,7 +60,7 @@ yarn extension <command> [args] [flags]
 Compiles (builds) packages and programns. This npm script generates the `/dist` folder that other packages may consume.
 
 ```sh
-yarn compile
+pnpm compile
 ```
 
 ### `watch`
@@ -70,7 +70,7 @@ Like compile, but listens for code changes, where it compiles again.
 > Note: You want a terminal always running this command during development.
 
 ```sh
-yarn watch
+pnpm watch
 ```
 
 ### `lint`
@@ -78,7 +78,7 @@ yarn watch
 Iterates over all projects and lint them using ESLint.
 
 ```sh
-yarn lint
+pnpm lint
 ```
 
 ### `test`
@@ -86,7 +86,7 @@ yarn lint
 Run the test suite of each package and program (where available).
 
 ```sh
-yarn test
+pnpm test
 ```
 
 ### `clean`
@@ -94,5 +94,5 @@ yarn test
 Deletes cache, `dist/` and `node_modules/` across packages and programs.
 
 ```sh
-yarn clean
+pnpm clean
 ```
