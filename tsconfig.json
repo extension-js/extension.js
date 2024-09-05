@@ -4,7 +4,7 @@
   "compilerOptions": {
     "target": "es2022",
     "lib": ["es2022", "dom"],
-    "types": ["chrome", "firefox-webext-browser", "jest"],
+    "types": ["chrome", "firefox-webext-browser", "node", "jest"],
     "composite": false,
     "declaration": true,
     "declarationMap": true,
@@ -12,6 +12,7 @@
     "forceConsistentCasingInFileNames": true,
     "inlineSources": false,
     "isolatedModules": true,
+    "jsx": "react-jsx",
     "moduleResolution": "node",
     "noUnusedLocals": true,
     "noUnusedParameters": true,
@@ -19,7 +20,8 @@
     "skipLibCheck": true,
     "strict": true,
     "resolveJsonModule": true,
-    "module": "CommonJS"
+    "module": "CommonJS",
+    "noEmit": true
   },
   "include": ["./programs", "./examples"],
   "exclude": [

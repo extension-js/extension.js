@@ -209,4 +209,38 @@ describe('utils', () => {
       })
     })
   })
+
+  describe('isFromPnpx', () => {
+    it('should return "pnpm" if the command is from pnpm', () => {
+      process.env.npm_config_user_agent = 'pnpm'
+      const result = utils.isFromPnpx()
+      expect(result).toBe('pnpm')
+    })
+
+    it('should return false if the command is not from pnpm', () => {
+      process.env.npm_config_user_agent = 'npm'
+      const result = utils.isFromPnpx()
+      expect(result).toBe(false)
+    })
+
+    it('should return false if npm_config_user_agent is not set', () => {
+      delete process.env.npm_config_user_agent
+      const result = utils.isFromPnpx()
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('isFromNpx', () => {
+    it('should return "npm" if the command is from npx', () => {
+      process.env.npm_execpath = 'npx'
+      const result = utils.isFromNpx()
+      expect(result).toBe('npm')
+    })
+
+    it('should return false if npm_execpath is not set', () => {
+      delete process.env.npm_execpath
+      const result = utils.isFromNpx()
+      expect(result).toBe(false)
+    })
+  })
 })

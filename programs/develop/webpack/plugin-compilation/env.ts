@@ -35,7 +35,6 @@ export class EnvPlugin {
         allowEmptyValues: true,
         defaults: fs.existsSync(path.join(projectPath, '.env.defaults')),
         systemvars: true
-        // @ts-expect-error - Seems plugin is not up to date
       }).apply(compiler)
     }
   }

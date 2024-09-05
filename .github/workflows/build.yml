@@ -1,14 +1,26 @@
-name: command:build
-on: push
+name: extension build
+
+on:
+  push:
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20]
     steps:
-    - uses: actions/checkout@v2
-    - name: Install modules
-      run: yarn
+    - uses: actions/checkout@v4
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4 # No version specified here
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'pnpm'
+    - name: Install dependencies
+      run: pnpm install
     - name: Run compiler
-      run: yarn compile
-    - name: Run `extenion build` command
-      run: yarn test:build
-
+      run: pnpm compile
+    - name: Run `extension build` command
+      run: pnpm test:build

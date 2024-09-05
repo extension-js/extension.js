@@ -114,6 +114,24 @@ export function getRelativePath(from: string, to: string) {
   return relativePath
 }
 
+export function isFromPnpx() {
+  if (process.env.npm_config_user_agent) {
+    if (process.env.npm_config_user_agent.includes('pnpm')) {
+      return 'pnpm'
+    }
+  }
+
+  return false
+}
+
+export function isFromNpx() {
+  if (process.env['npm_execpath']) {
+    return 'npm'
+  }
+
+  return false
+}
+
 export async function installOptionalDependencies(
   packageName: string,
   integration: string,
@@ -121,27 +139,20 @@ export async function installOptionalDependencies(
 ) {
   try {
     const pm = await detect()
+
     console.log(messages.integrationNotInstalled(packageName, integration, pm))
-
-    const execPath = process.env._
-
-    if (!execPath) {
-      return null
-    }
-
-    const execTool = execPath.split(path.sep).pop()?.toLowerCase()
 
     let installCommand = ''
     if (pm === 'yarn') {
       installCommand = `yarn --silent add ${dependencies.join(
         ' '
       )} --cwd ${__dirname} --optional`
-    } else if (pm === 'npm' || execTool === 'npx') {
+    } else if (pm === 'npm' || isFromNpx()) {
       installCommand = `npm  --silent install ${dependencies.join(
         ' '
       )} --prefix ${__dirname} --save-optional`
-    } else if (pm === 'pnpm' || execTool === 'pnpx') {
-      installCommand = `pnpm  --silent add ${dependencies.join(
+    } else if (isFromPnpx()) {
+      installCommand = `pnpm --silent add ${dependencies.join(
         ' '
       )} --prefix ${__dirname} --save-optional`
     } else {
@@ -160,9 +171,9 @@ export async function installOptionalDependencies(
 
       if (pm === 'yarn') {
         installCommand = `yarn install --silent > /dev/null 2>&1`
-      } else if (pm === 'npm') {
+      } else if (pm === 'npm' || isFromNpx()) {
         installCommand = `npm install --silent > /dev/null 2>&1`
-      } else if (pm === 'pnpm') {
+      } else if (isFromPnpx()) {
         installCommand = `pnpm install --silent > /dev/null 2>&1`
       } else {
         installCommand = `${pm} install --silent > /dev/null 2>&1`

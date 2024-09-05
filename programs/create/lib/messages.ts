@@ -84,11 +84,19 @@ export async function successfullInstall(
       command = 'yarn dev'
       break
     case 'pnpm':
-      command = 'pnpm run dev'
+      command = 'pnpm dev'
       break
     default:
       command = 'npm run dev'
   }
+
+  // pnpx
+  if (process.env.npm_config_user_agent) {
+    if (process.env.npm_config_user_agent.includes('pnpm')) {
+      command = 'pnpm dev'
+    }
+  }
+
   return (
     `🧩 - ${brightGreen('Success!')} Extension ${cyan(
       projectName

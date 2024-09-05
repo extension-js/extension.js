@@ -5,6 +5,7 @@
     "jsx": "react-jsx",
     "target": "es2022",
     "lib": ["es2022", "dom"],
+    "types": ["chrome", "firefox-webext-browser", "node", "jest"],
     "composite": false,
     "declaration": true,
     "declarationMap": true,
