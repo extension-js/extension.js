@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import {exec, ChildProcess} from 'child_process'
 import {type Compiler} from 'webpack'
 import {firefoxLocation} from './firefox-location'
@@ -7,6 +8,7 @@ import {RemoteFirefox} from './remote-firefox'
 import * as messages from '../browsers-lib/messages'
 import {type PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/dev'
+import {isFromPnpx} from '../../webpack/lib/utils'
 
 let child: ChildProcess | null = null
 
@@ -47,14 +49,42 @@ export class RunFirefoxPlugin {
     this.startingUrl = options.startingUrl
   }
 
-  private async launchFirefox(compiler: Compiler) {
-    const firefoxLaunchPath = `fx-runner start --binary "${firefoxLocation}" --foreground --no-remote`
+  private async getFxRunnerCommand() {
+    const npmBin = path.join(process.cwd(), 'node_modules', '.bin', 'fx-runner')
+    // Attempt to use pnpx/npx for global fallback
+    const globalNpxPath = isFromPnpx()
+      ? 'pnpm dlx -y fx-runner'
+      : 'npx -y fx-runner'
 
-    if (!fs.existsSync(firefoxLocation!) || '') {
+    // Check if fx-runner is available in local node_modules or global
+    if (fs.existsSync(npmBin)) {
+      return npmBin
+    }
+
+    try {
+      // Try executing npx -y fx-runner to see if it is available globally
+      await new Promise((resolve, reject) => {
+        exec(`${globalNpxPath} --version`, (err) => {
+          if (err) reject(err)
+          else resolve(null)
+        })
+      })
+      return globalNpxPath
+    } catch (error) {
+      console.error(messages.browserNotInstalledError('firefox', npmBin))
+      process.exit(1)
+    }
+  }
+
+  private async launchFirefox(compiler: Compiler) {
+    const fxRunnerCmd = await this.getFxRunnerCommand()
+    const firefoxLaunchPath = `${fxRunnerCmd} start --binary "${firefoxLocation}" --foreground --no-remote`
+
+    if (!fs.existsSync(firefoxLocation || '')) {
       console.error(
-        messages.browserNotInstalledError(this.browser, firefoxLocation!)
+        messages.browserNotInstalledError(this.browser, firefoxLocation || '')
       )
-      process.exit()
+      process.exit(1)
     }
 
     const firefoxConfig = await browserConfig(compiler, this)
