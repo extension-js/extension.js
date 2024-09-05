@@ -33,6 +33,12 @@ export async function getInstallCommand() {
 
   let command = 'npm'
 
+  if (process.env.npm_config_user_agent) {
+    if (process.env.npm_config_user_agent.includes('pnpm')) {
+      return 'pnpm'
+    }
+  }
+
   switch (pm) {
     case 'yarn':
       command = 'yarn'

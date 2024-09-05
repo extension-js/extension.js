@@ -3,11 +3,16 @@ import {spawn} from 'cross-spawn'
 import fs from 'fs'
 import {detect} from 'detect-package-manager'
 import * as messages from './messages'
+import {isFromPnpx} from '../../webpack/lib/utils'
 
 export async function getInstallCommand() {
   const pm = await detect()
 
   let command = 'npm'
+
+  if (isFromPnpx()) {
+    return 'pnpm'
+  }
 
   switch (pm) {
     case 'yarn':

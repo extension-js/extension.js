@@ -14,7 +14,7 @@ const ensureFile = (filePath: string) => {
   return fs.readFileSync(path.join(__dirname, 'certs', basename))
 }
 
-export function httpsServer(manifestName: string, defaultPort: number) {
+export function httpsServer(manifestName: string, defaultPort: number): any {
   const options = {
     key: ensureFile(path.join(__dirname, 'certs', 'localhost.key')),
     cert: ensureFile(path.join(__dirname, 'certs', 'localhost.cert'))
@@ -33,7 +33,7 @@ export function httpsServer(manifestName: string, defaultPort: number) {
   return {server, port: defaultPort}
 }
 
-export function httpServer(manifestName: string, defaultPort: number) {
+export function httpServer(manifestName: string, defaultPort: number): any {
   const server = http.createServer((_req, res) => {
     res.writeHead(200)
     res.end()
