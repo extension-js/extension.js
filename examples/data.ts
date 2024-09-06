@@ -20,15 +20,15 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  {
-    name: 'config-babel',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['babel.config.json']
-  },
+  // {
+  //   name: 'config-babel',
+  //   uiContext: ['newTab'],
+  //   uiFramework: undefined,
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: ['babel.config.json']
+  // },
   {
     name: 'content-extension-config',
     uiContext: ['content'],
