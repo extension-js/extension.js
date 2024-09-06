@@ -140,7 +140,13 @@ export async function installOptionalDependencies(
   try {
     const pm = await detect()
 
-    console.log(messages.integrationNotInstalled(packageName, integration, pm?.name || 'unknown'))
+    console.log(
+      messages.integrationNotInstalled(
+        packageName,
+        integration,
+        pm?.name || 'unknown'
+      )
+    )
 
     let installCommand = ''
     if (pm?.name === 'yarn') {
