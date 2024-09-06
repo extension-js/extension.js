@@ -631,9 +631,6 @@ importers:
       babel-loader:
         specifier: ^9.1.3
         version: 9.1.3(@babel/core@7.25.2)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
-      babel-preset-modern-browser-extension:
-        specifier: ^0.7.0
-        version: 0.7.0(@babel/core@7.25.2)
       less-loader:
         specifier: ^12.2.0
         version: 12.2.0(less@4.2.0)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
