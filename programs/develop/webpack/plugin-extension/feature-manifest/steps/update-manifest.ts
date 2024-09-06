@@ -1,3 +1,5 @@
+import fs from 'fs'
+import path from 'path'
 import {type Compiler, Compilation, sources} from 'webpack'
 import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename, getManifestContent} from '../../../lib/utils'
@@ -25,6 +27,35 @@ export class UpdateManifest {
           contentObj.js = [
             getFilename(`content_scripts-${index}`, 'dev.js', {})
           ]
+        }
+
+        return contentObj
+      }
+    )
+  }
+
+  private applyProdOverrides(
+    compiler: Compiler,
+    overrides: Record<string, any>
+  ) {
+    if (!overrides.content_scripts) return {}
+
+    console.log('reach1')
+    return overrides.content_scripts.map(
+      (contentObj: {js: string[]; css: string[]}, index: number) => {
+        if (contentObj.js.length && !contentObj.css.length) {
+          const outputPath = compiler.options.output?.path || ''
+
+          // Make a .css file for every .js file in content_scripts
+          // so we can later reference it in the manifest.
+          contentObj.css = contentObj.js.map((js: string) => {
+            const contentCss = path.join(outputPath, js.replace('.js', '.css'))
+            return getFilename(
+              `content_scripts/content-${index}.css`,
+              contentCss,
+              {}
+            )
+          })
         }
 
         return contentObj
@@ -61,7 +92,16 @@ export class UpdateManifest {
             // During development, if user has only CSS files in content_scripts,
             // we add a JS file to the content_scripts bundle so that
             // these files can be dynamically imported, thus allowing HMR.
-            if (compiler.options.mode !== 'production') {
+            if (compiler.options.mode === 'development') {
+              if (patchedManifest.content_scripts) {
+                patchedManifest.content_scripts =
+                  this.applyDevOverrides(patchedManifest)
+              }
+            }
+
+            // During production, if user has the output of a CSS file in content_scripts,
+            // we add it to the manifest so that the file is copied to the output directory.
+            if (compiler.options.mode === 'development') {
               if (patchedManifest.content_scripts) {
                 patchedManifest.content_scripts =
                   this.applyDevOverrides(patchedManifest)
@@ -74,6 +114,48 @@ export class UpdateManifest {
             compilation.updateAsset('manifest.json', rawSource)
           }
         )
+
+        // During development, content_scripts are injected in the page
+        // via <style> tag. In production, these styles are bundled
+        // in a content_scripts CSS file, so we need to reference it
+        // in the manifest.
+        if (compiler.options.mode === 'production') {
+          compilation.hooks.afterProcessAssets.tap(
+            'manifest:update-manifest',
+            () => {
+              if (compilation.errors.length > 0) return
+
+              const manifest = getManifestContent(
+                compilation,
+                this.manifestPath
+              )
+
+              const overrides = getManifestOverrides(
+                this.manifestPath,
+                manifest,
+                this.excludeList || {}
+              )
+
+              const patchedManifest: Manifest = {
+                // Preserve all uncatched user entries
+                ...manifest,
+                ...JSON.parse(overrides)
+              }
+
+              if (patchedManifest.content_scripts) {
+                patchedManifest.content_scripts = this.applyProdOverrides(
+                  compiler,
+                  patchedManifest
+                )
+              }
+
+              const source = JSON.stringify(patchedManifest, null, 2)
+              const rawSource = new sources.RawSource(source)
+
+              compilation.updateAsset('manifest.json', rawSource)
+            }
+          )
+        }
       }
     )
   }
