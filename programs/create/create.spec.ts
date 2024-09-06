@@ -101,7 +101,7 @@ describe('extension create', () => {
           ).toBeTruthy()
 
           // Expect [uiContext]/styles.sass|less|css for styles
-          if (template.name?.includes('sass')) {
+          if (template.css === 'sass') {
             expect(
               fileExists(template.name, `${context.toLowerCase()}/styles.scss`)
             ).toBeTruthy()

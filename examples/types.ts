@@ -3,8 +3,9 @@ export type ConfigFiles =
   | 'postcss.config.js'
   | 'tailwind.config.js'
   | 'tsconfig.json'
-  | 'stylelint.config.json'
+  | '.stylelintrc.json'
   | 'extension.config.js'
+  | 'babel.config.json'
 
 export interface Template {
   name: string
