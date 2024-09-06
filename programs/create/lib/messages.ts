@@ -16,7 +16,7 @@ import {
   underline
 } from '@colors/colors/safe'
 import fs from 'fs/promises'
-import {detect} from 'detect-package-manager'
+import {detect} from 'package-manager-detector'
 
 export function destinationNotWriteable(workingDir: string) {
   const workingDirFolder = path.basename(workingDir)
@@ -79,7 +79,7 @@ export async function successfullInstall(
 
   let command = 'npm run'
 
-  switch (pm) {
+  switch (pm?.name) {
     case 'yarn':
       command = 'yarn dev'
       break

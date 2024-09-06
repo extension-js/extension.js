@@ -6,7 +6,7 @@ import {Manifest, FilepathList} from '../../webpack-types'
 
 jest.mock('fs')
 jest.mock('child_process')
-jest.mock('detect-package-manager')
+jest.mock('package-manager-detector')
 
 describe('utils', () => {
   describe('getResolvedPath', () => {

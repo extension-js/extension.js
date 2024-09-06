@@ -7,7 +7,7 @@
 
 import fs from 'fs/promises'
 import path from 'path'
-import {detect} from 'detect-package-manager'
+import {detect} from 'package-manager-detector'
 import * as messages from './messages'
 
 export async function copyDirectory(source: string, destination: string) {
@@ -39,7 +39,7 @@ export async function getInstallCommand() {
     }
   }
 
-  switch (pm) {
+  switch (pm?.name) {
     case 'yarn':
       command = 'yarn'
       break
