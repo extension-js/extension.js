@@ -22,6 +22,12 @@ jobs:
       run: pnpm install
     - name: Run compiler
       run: pnpm compile
+    - name: Run format
+      run: pnpm format
+    - name: Run types
+      run: pnpm types
+    - name: Run lint
+      run: pnpm lint
     - name: Run tests
       run: pnpm test:coverage
     - name: Upload results to Codecov
