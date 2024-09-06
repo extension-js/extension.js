@@ -63,7 +63,6 @@ export async function maybeUseVue(
 
     const vueDependencies = [
       'vue-loader',
-      '@vue/compiler-sfc',
       'vue-template-compiler',
       'vue-style-loader'
     ]

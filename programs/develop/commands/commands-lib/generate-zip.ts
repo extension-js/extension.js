@@ -85,7 +85,7 @@ export async function generateZip(
 
     if (options.zipSource) {
       console.log('')
-      console.log(messages.packagingSourceFiles(browser))
+      console.log(messages.packagingSourceFiles(sourceZipPath))
 
       const zip = new AdmZip()
       const files = await getFilesToZip(projectDir)

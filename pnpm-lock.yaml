@@ -93,18 +93,30 @@ importers:
 
   examples/config-babel:
     devDependencies:
+      '@babel/core':
+        specifier: ^7.24.9
+        version: 7.25.2
+      babel-loader:
+        specifier: ^9.1.3
+        version: 9.1.3(@babel/core@7.25.2)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
+      babel-preset-modern-browser-extension:
+        specifier: ^0.7.0
+        version: 0.7.0(@babel/core@7.25.2)
       stylelint:
         specifier: ^16.7.0
         version: 16.9.0(typescript@5.3.3)
 
   examples/config-stylelint:
     devDependencies:
+      sass:
+        specifier: ^1.77.8
+        version: 1.78.0
       stylelint:
         specifier: ^16.7.0
         version: 16.9.0(typescript@5.3.3)
-      stylelint-config-standard:
-        specifier: ^36.0.1
-        version: 36.0.1(stylelint@16.9.0(typescript@5.3.3))
+      stylelint-config-standard-scss:
+        specifier: ^13.1.0
+        version: 13.1.0(postcss@8.4.45)(stylelint@16.9.0(typescript@5.3.3))
 
   examples/content: {}
 
@@ -455,12 +467,12 @@ importers:
       cross-spawn:
         specifier: ^7.0.3
         version: 7.0.3
-      detect-package-manager:
-        specifier: ^3.0.2
-        version: 3.0.2
       go-git-it:
         specifier: 2.0.4
         version: 2.0.4
+      package-manager-detector:
+        specifier: ^0.2.0
+        version: 0.2.0
     devDependencies:
       '@types/cross-spawn':
         specifier: ^6.0.6
@@ -519,9 +531,6 @@ importers:
       axios:
         specifier: ^1.6.8
         version: 1.7.7
-      browser-extension-manifest-fields:
-        specifier: ^1.0.6
-        version: 1.0.6
       case-sensitive-paths-webpack-plugin:
         specifier: ^2.4.0
         version: 2.4.0
@@ -540,9 +549,6 @@ importers:
       csv-loader:
         specifier: ^3.0.5
         version: 3.0.5
-      detect-package-manager:
-        specifier: ^3.0.2
-        version: 3.0.2
       dotenv-webpack:
         specifier: ^8.0.1
         version: 8.1.0(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
@@ -570,6 +576,9 @@ importers:
       mini-css-extract-plugin:
         specifier: ^2.8.1
         version: 2.9.1(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
+      package-manager-detector:
+        specifier: ^0.2.0
+        version: 0.2.0
       parse5:
         specifier: ^7.1.2
         version: 7.1.2
@@ -613,27 +622,18 @@ importers:
         specifier: ^1.1.2
         version: 1.1.2(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
     optionalDependencies:
-      '@babel/core':
-        specifier: ^7.24.9
-        version: 7.25.2
       '@pmmmwh/react-refresh-webpack-plugin':
         specifier: ^0.5.15
         version: 0.5.15(@types/webpack@4.41.39)(react-refresh@0.14.2)(type-fest@0.21.3)(webpack-dev-server@5.1.0(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)))(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
       '@prefresh/webpack':
         specifier: ^4.0.1
         version: 4.0.1(@prefresh/babel-plugin@0.5.1)(preact@10.23.2)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
-      '@vue/compiler-sfc':
-        specifier: ^3.4.34
-        version: 3.5.3
       babel-loader:
         specifier: ^9.1.3
         version: 9.1.3(@babel/core@7.25.2)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
       babel-preset-modern-browser-extension:
         specifier: ^0.7.0
         version: 0.7.0(@babel/core@7.25.2)
-      less:
-        specifier: ^4.2.0
-        version: 4.2.0
       less-loader:
         specifier: ^12.2.0
         version: 12.2.0(less@4.2.0)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
@@ -661,27 +661,12 @@ importers:
       resolve-url-loader:
         specifier: ^5.0.0
         version: 5.0.0
-      sass:
-        specifier: ^1.77.8
-        version: 1.78.0
       sass-loader:
         specifier: ^16.0.0
         version: 16.0.1(sass@1.78.0)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
-      stylelint:
-        specifier: ^16.7.0
-        version: 16.9.0(typescript@5.3.3)
-      stylelint-config-standard-scss:
-        specifier: ^13.1.0
-        version: 13.1.0(postcss@8.4.45)(stylelint@16.9.0(typescript@5.3.3))
-      stylelint-webpack-plugin:
-        specifier: ^5.0.1
-        version: 5.0.1(stylelint@16.9.0(typescript@5.3.3))(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
-      tailwindcss:
-        specifier: ^3.4.7
-        version: 3.4.10(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
       vue-loader:
         specifier: ^17.4.2
-        version: 17.4.2(@vue/compiler-sfc@3.5.3)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
+        version: 17.4.2(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1))
       vue-style-loader:
         specifier: ^4.1.3
         version: 4.1.3
@@ -718,10 +703,10 @@ importers:
         version: 0.10.7
       jest:
         specifier: ^29.7.0
-        version: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
+        version: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3))
       ts-jest:
         specifier: ^29.1.2
-        version: 29.2.5(@babel/core@7.25.2)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.25.2))(esbuild@0.23.1)(jest@29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)))(typescript@5.3.3)
+        version: 29.2.5(@babel/core@7.25.2)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.25.2))(esbuild@0.23.1)(jest@29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3)))(typescript@5.3.3)
       tsup:
         specifier: ^8.0.1
         version: 8.2.4(@swc/core@1.7.23)(jiti@1.21.6)(postcss@8.4.45)(typescript@5.3.3)(yaml@2.5.1)
@@ -2944,10 +2929,6 @@ packages:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
 
-  browser-extension-manifest-fields@1.0.6:
-    resolution: {integrity: sha512-LtINcoKkfJDAXTIrgYKzTAtoo/vXVh0lk8s1pfG7S4VhX/xhASf1K26fhHXWpJm2yvOakp28PG/wjmBnCEK8kQ==}
-    engines: {node: '>=18'}
-
   browserslist@4.23.3:
     resolution: {integrity: sha512-btwCFJVjI4YWDNfau8RhZ+B1Q/VLoUITrm3RlP6y1tYGWIOa+InuYiRGXUBXo8nA1qKmHMyLB/iVQg5TT4eFoA==}
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
@@ -3358,10 +3339,6 @@ packages:
 
   detect-node@2.1.0:
     resolution: {integrity: sha512-T0NIuQpnTvFDATNuHN5roPwSBG83rFsuO+MXXH9/3N1eFbn4wcPjttvjMLEPWJ0RGUYgQE7cGgS3tNxbqCGM7g==}
-
-  detect-package-manager@3.0.2:
-    resolution: {integrity: sha512-8JFjJHutStYrfWwzfretQoyNGoZVW1Fsrp4JO9spa7h/fBfwgTMEIy4/LBzRDGsxwVPHU0q+T9YvwLDJoOApLQ==}
-    engines: {node: '>=12'}
 
   didyoumean@1.2.2:
     resolution: {integrity: sha512-gxtyfqMg7GKyhQmb056K7M3xszy/myH8w+B4RT+QXBQsvAOdc3XymqDDPHx1BgPgsdAA5SIifona89YtRATDzw==}
@@ -5658,13 +5635,6 @@ packages:
     peerDependencies:
       stylelint: ^16.0.2
 
-  stylelint-webpack-plugin@5.0.1:
-    resolution: {integrity: sha512-07lpo1uVoFctKv0EOOg/YSrUppcLMjNBSMRqgooNnlbfAOgQfMzvLK+EbXz0HQiEgZobr+XQX9md/TgwTGdzbw==}
-    engines: {node: '>= 18.12.0'}
-    peerDependencies:
-      stylelint: ^13.0.0 || ^14.0.0 || ^15.0.0 || ^16.0.0
-      webpack: ^5.0.0
-
   stylelint@16.9.0:
     resolution: {integrity: sha512-31Nm3WjxGOBGpQqF43o3wO9L5AC36TPIe6030Lnm13H3vDMTcS21DrLh69bMX+DBilKqMMVLian4iG6ybBoNRQ==}
     engines: {node: '>=18.12.0'}
@@ -6459,7 +6429,6 @@ snapshots:
       '@babel/plugin-syntax-decorators': 7.24.7(@babel/core@7.25.2)
     transitivePeerDependencies:
       - supports-color
-    optional: true
 
   '@babel/plugin-proposal-private-property-in-object@7.21.0-placeholder-for-preset-env.2(@babel/core@7.25.2)':
     dependencies:
@@ -6489,7 +6458,6 @@ snapshots:
     dependencies:
       '@babel/core': 7.25.2
       '@babel/helper-plugin-utils': 7.24.8
-    optional: true
 
   '@babel/plugin-syntax-dynamic-import@7.8.3(@babel/core@7.25.2)':
     dependencies:
@@ -7722,41 +7690,6 @@ snapshots:
       - supports-color
       - ts-node
 
-  '@jest/core@29.7.0(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))':
-    dependencies:
-      '@jest/console': 29.7.0
-      '@jest/reporters': 29.7.0
-      '@jest/test-result': 29.7.0
-      '@jest/transform': 29.7.0
-      '@jest/types': 29.6.3
-      '@types/node': 20.16.5
-      ansi-escapes: 4.3.2
-      chalk: 4.1.2
-      ci-info: 3.9.0
-      exit: 0.1.2
-      graceful-fs: 4.2.11
-      jest-changed-files: 29.7.0
-      jest-config: 29.7.0(@types/node@20.16.5)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
-      jest-haste-map: 29.7.0
-      jest-message-util: 29.7.0
-      jest-regex-util: 29.6.3
-      jest-resolve: 29.7.0
-      jest-resolve-dependencies: 29.7.0
-      jest-runner: 29.7.0
-      jest-runtime: 29.7.0
-      jest-snapshot: 29.7.0
-      jest-util: 29.7.0
-      jest-validate: 29.7.0
-      jest-watcher: 29.7.0
-      micromatch: 4.0.8
-      pretty-format: 29.7.0
-      slash: 3.0.0
-      strip-ansi: 6.0.1
-    transitivePeerDependencies:
-      - babel-plugin-macros
-      - supports-color
-      - ts-node
-
   '@jest/environment@29.7.0':
     dependencies:
       '@jest/fake-timers': 29.7.0
@@ -8844,7 +8777,6 @@ snapshots:
       find-cache-dir: 4.0.0
       schema-utils: 4.2.0
       webpack: 5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)
-    optional: true
 
   babel-plugin-istanbul@6.1.1:
     dependencies:
@@ -8887,11 +8819,9 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  babel-plugin-react-require@4.0.3:
-    optional: true
+  babel-plugin-react-require@4.0.3: {}
 
-  babel-plugin-transform-react-remove-prop-types@0.4.24:
-    optional: true
+  babel-plugin-transform-react-remove-prop-types@0.4.24: {}
 
   babel-preset-current-node-syntax@1.1.0(@babel/core@7.25.2):
     dependencies:
@@ -8930,7 +8860,6 @@ snapshots:
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
-    optional: true
 
   balanced-match@1.0.2: {}
 
@@ -8982,12 +8911,6 @@ snapshots:
   braces@3.0.3:
     dependencies:
       fill-range: 7.1.1
-
-  browser-extension-manifest-fields@1.0.6:
-    dependencies:
-      glob: 10.4.5
-      parse5: 7.1.2
-      parse5-utils: 2.0.0
 
   browserslist@4.23.3:
     dependencies:
@@ -9127,8 +9050,7 @@ snapshots:
 
   commander@7.2.0: {}
 
-  common-path-prefix@3.0.0:
-    optional: true
+  common-path-prefix@3.0.0: {}
 
   compressible@2.0.18:
     dependencies:
@@ -9229,21 +9151,6 @@ snapshots:
       exit: 0.1.2
       graceful-fs: 4.2.11
       jest-config: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3))
-      jest-util: 29.7.0
-      prompts: 2.4.2
-    transitivePeerDependencies:
-      - '@types/node'
-      - babel-plugin-macros
-      - supports-color
-      - ts-node
-
-  create-jest@29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)):
-    dependencies:
-      '@jest/types': 29.6.3
-      chalk: 4.1.2
-      exit: 0.1.2
-      graceful-fs: 4.2.11
-      jest-config: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
       jest-util: 29.7.0
       prompts: 2.4.2
     transitivePeerDependencies:
@@ -9399,10 +9306,6 @@ snapshots:
   detect-newline@3.1.0: {}
 
   detect-node@2.1.0: {}
-
-  detect-package-manager@3.0.2:
-    dependencies:
-      execa: 5.1.1
 
   didyoumean@1.2.2: {}
 
@@ -9780,7 +9683,6 @@ snapshots:
     dependencies:
       common-path-prefix: 3.0.0
       pkg-dir: 7.0.0
-    optional: true
 
   find-up@4.1.0:
     dependencies:
@@ -9796,7 +9698,6 @@ snapshots:
     dependencies:
       locate-path: 7.2.0
       path-exists: 5.0.0
-    optional: true
 
   firefox-profile@4.7.0:
     dependencies:
@@ -10316,25 +10217,6 @@ snapshots:
       - supports-color
       - ts-node
 
-  jest-cli@29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)):
-    dependencies:
-      '@jest/core': 29.7.0(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
-      '@jest/test-result': 29.7.0
-      '@jest/types': 29.6.3
-      chalk: 4.1.2
-      create-jest: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
-      exit: 0.1.2
-      import-local: 3.2.0
-      jest-config: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
-      jest-util: 29.7.0
-      jest-validate: 29.7.0
-      yargs: 17.7.2
-    transitivePeerDependencies:
-      - '@types/node'
-      - babel-plugin-macros
-      - supports-color
-      - ts-node
-
   jest-config@29.7.0(@types/node@20.16.5)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3)):
     dependencies:
       '@babel/core': 7.25.2
@@ -10366,37 +10248,6 @@ snapshots:
       - babel-plugin-macros
       - supports-color
 
-  jest-config@29.7.0(@types/node@20.16.5)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)):
-    dependencies:
-      '@babel/core': 7.25.2
-      '@jest/test-sequencer': 29.7.0
-      '@jest/types': 29.6.3
-      babel-jest: 29.7.0(@babel/core@7.25.2)
-      chalk: 4.1.2
-      ci-info: 3.9.0
-      deepmerge: 4.3.1
-      glob: 7.2.3
-      graceful-fs: 4.2.11
-      jest-circus: 29.7.0
-      jest-environment-node: 29.7.0
-      jest-get-type: 29.6.3
-      jest-regex-util: 29.6.3
-      jest-resolve: 29.7.0
-      jest-runner: 29.7.0
-      jest-util: 29.7.0
-      jest-validate: 29.7.0
-      micromatch: 4.0.8
-      parse-json: 5.2.0
-      pretty-format: 29.7.0
-      slash: 3.0.0
-      strip-json-comments: 3.1.1
-    optionalDependencies:
-      '@types/node': 20.16.5
-      ts-node: 10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)
-    transitivePeerDependencies:
-      - babel-plugin-macros
-      - supports-color
-
   jest-config@29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3)):
     dependencies:
       '@babel/core': 7.25.2
@@ -10424,37 +10275,6 @@ snapshots:
     optionalDependencies:
       '@types/node': 22.5.4
       ts-node: 10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3)
-    transitivePeerDependencies:
-      - babel-plugin-macros
-      - supports-color
-
-  jest-config@29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)):
-    dependencies:
-      '@babel/core': 7.25.2
-      '@jest/test-sequencer': 29.7.0
-      '@jest/types': 29.6.3
-      babel-jest: 29.7.0(@babel/core@7.25.2)
-      chalk: 4.1.2
-      ci-info: 3.9.0
-      deepmerge: 4.3.1
-      glob: 7.2.3
-      graceful-fs: 4.2.11
-      jest-circus: 29.7.0
-      jest-environment-node: 29.7.0
-      jest-get-type: 29.6.3
-      jest-regex-util: 29.6.3
-      jest-resolve: 29.7.0
-      jest-runner: 29.7.0
-      jest-util: 29.7.0
-      jest-validate: 29.7.0
-      micromatch: 4.0.8
-      parse-json: 5.2.0
-      pretty-format: 29.7.0
-      slash: 3.0.0
-      strip-json-comments: 3.1.1
-    optionalDependencies:
-      '@types/node': 22.5.4
-      ts-node: 10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)
     transitivePeerDependencies:
       - babel-plugin-macros
       - supports-color
@@ -10675,7 +10495,7 @@ snapshots:
 
   jest-worker@29.7.0:
     dependencies:
-      '@types/node': 22.5.4
+      '@types/node': 20.16.5
       jest-util: 29.7.0
       merge-stream: 2.0.0
       supports-color: 8.1.1
@@ -10698,18 +10518,6 @@ snapshots:
       '@jest/types': 29.6.3
       import-local: 3.2.0
       jest-cli: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3))
-    transitivePeerDependencies:
-      - '@types/node'
-      - babel-plugin-macros
-      - supports-color
-      - ts-node
-
-  jest@29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)):
-    dependencies:
-      '@jest/core': 29.7.0(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
-      '@jest/types': 29.6.3
-      import-local: 3.2.0
-      jest-cli: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
     transitivePeerDependencies:
       - '@types/node'
       - babel-plugin-macros
@@ -10841,7 +10649,6 @@ snapshots:
   locate-path@7.2.0:
     dependencies:
       p-locate: 6.0.0
-    optional: true
 
   lodash.debounce@4.0.8: {}
 
@@ -11100,7 +10907,6 @@ snapshots:
   p-limit@4.0.0:
     dependencies:
       yocto-queue: 1.1.1
-    optional: true
 
   p-locate@4.1.0:
     dependencies:
@@ -11113,7 +10919,6 @@ snapshots:
   p-locate@6.0.0:
     dependencies:
       p-limit: 4.0.0
-    optional: true
 
   p-map@2.1.0: {}
 
@@ -11158,8 +10963,7 @@ snapshots:
 
   path-exists@4.0.0: {}
 
-  path-exists@5.0.0:
-    optional: true
+  path-exists@5.0.0: {}
 
   path-is-absolute@1.0.1: {}
 
@@ -11197,7 +11001,6 @@ snapshots:
   pkg-dir@7.0.0:
     dependencies:
       find-up: 6.3.0
-    optional: true
 
   postcss-attribute-case-insensitive@6.0.3(postcss@8.4.45):
     dependencies:
@@ -11373,8 +11176,7 @@ snapshots:
       postcss-value-parser: 4.2.0
     optional: true
 
-  postcss-media-query-parser@0.2.3:
-    optional: true
+  postcss-media-query-parser@0.2.3: {}
 
   postcss-modules-extract-imports@3.1.0(postcss@8.4.45):
     dependencies:
@@ -11527,7 +11329,6 @@ snapshots:
   postcss-scss@4.0.9(postcss@8.4.45):
     dependencies:
       postcss: 8.4.45
-    optional: true
 
   postcss-selector-not@7.0.2(postcss@8.4.45):
     dependencies:
@@ -12090,7 +11891,6 @@ snapshots:
       stylelint-scss: 6.5.1(stylelint@16.9.0(typescript@5.3.3))
     optionalDependencies:
       postcss: 8.4.45
-    optional: true
 
   stylelint-config-recommended@14.0.1(stylelint@16.9.0(typescript@5.3.3)):
     dependencies:
@@ -12103,7 +11903,6 @@ snapshots:
       stylelint-config-standard: 36.0.1(stylelint@16.9.0(typescript@5.3.3))
     optionalDependencies:
       postcss: 8.4.45
-    optional: true
 
   stylelint-config-standard@36.0.1(stylelint@16.9.0(typescript@5.3.3)):
     dependencies:
@@ -12120,18 +11919,6 @@ snapshots:
       postcss-selector-parser: 6.1.2
       postcss-value-parser: 4.2.0
       stylelint: 16.9.0(typescript@5.3.3)
-    optional: true
-
-  stylelint-webpack-plugin@5.0.1(stylelint@16.9.0(typescript@5.3.3))(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)):
-    dependencies:
-      globby: 11.1.0
-      jest-worker: 29.7.0
-      micromatch: 4.0.8
-      normalize-path: 3.0.0
-      schema-utils: 4.2.0
-      stylelint: 16.9.0(typescript@5.3.3)
-      webpack: 5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)
-    optional: true
 
   stylelint@16.9.0(typescript@5.3.3):
     dependencies:
@@ -12388,26 +12175,6 @@ snapshots:
       babel-jest: 29.7.0(@babel/core@7.25.2)
       esbuild: 0.23.1
 
-  ts-jest@29.2.5(@babel/core@7.25.2)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.25.2))(esbuild@0.23.1)(jest@29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3)))(typescript@5.3.3):
-    dependencies:
-      bs-logger: 0.2.6
-      ejs: 3.1.10
-      fast-json-stable-stringify: 2.1.0
-      jest: 29.7.0(@types/node@22.5.4)(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
-      jest-util: 29.7.0
-      json5: 2.2.3
-      lodash.memoize: 4.1.2
-      make-error: 1.3.6
-      semver: 7.6.3
-      typescript: 5.3.3
-      yargs-parser: 21.1.1
-    optionalDependencies:
-      '@babel/core': 7.25.2
-      '@jest/transform': 29.7.0
-      '@jest/types': 29.6.3
-      babel-jest: 29.7.0(@babel/core@7.25.2)
-      esbuild: 0.23.1
-
   ts-node@10.9.2(@swc/core@1.7.23)(@types/node@20.16.5)(typescript@5.3.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
@@ -12586,14 +12353,12 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vue-loader@17.4.2(@vue/compiler-sfc@3.5.3)(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)):
+  vue-loader@17.4.2(webpack@5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)):
     dependencies:
       chalk: 4.1.2
       hash-sum: 2.0.0
       watchpack: 2.4.2
       webpack: 5.92.1(@swc/core@1.7.23)(esbuild@0.23.1)
-    optionalDependencies:
-      '@vue/compiler-sfc': 3.5.3
     optional: true
 
   vue-style-loader@4.1.3:
@@ -12828,5 +12593,4 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  yocto-queue@1.1.1:
-    optional: true
+  yocto-queue@1.1.1: {}

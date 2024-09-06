@@ -172,7 +172,7 @@ describe('extension build', () => {
               templatePath,
               'dist',
               SUPPORTED_BROWSERS[0],
-              `${template.name}-0.0.1.zip`
+              `${template.name}-template-0.0.1.zip`
             )
           )
         ).toBeTruthy()
@@ -196,10 +196,10 @@ describe('extension build', () => {
           browser: SUPPORTED_BROWSERS[0] as 'chrome',
           zipSource: true
         })
-
+      
         expect(
           fs.existsSync(
-            path.join(templatePath, 'dist', `${template.name}-0.0.1-source.zip`)
+            path.join(templatePath, 'dist', `${template.name}-template-0.0.1-source.zip`)
           )
         ).toBeTruthy()
       },
