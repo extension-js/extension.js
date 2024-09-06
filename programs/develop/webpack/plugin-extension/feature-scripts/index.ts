@@ -107,31 +107,5 @@ export class ScriptsPlugin {
       includeList: this.includeList || {},
       excludeList: this.excludeList || {}
     }).apply(compiler)
-
-    // 5 - Fix the issue of content_scripts not being able to import
-    // CSS files via import statements. This loader adds the
-    // is_content_css_import=true query param to CSS imports in
-    // content_scripts. This skips the MiniCssExtractPlugin loader
-    // and allows the CSS to be injected in the DOM via <style> tags.
-    if (compiler.options.mode === 'development') {
-      compiler.options.module.rules.push({
-        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: [path.dirname(this.manifestPath)],
-        exclude: /node_modules/,
-        use: [
-          {
-            loader: path.resolve(
-              __dirname,
-              './add-query-param-to-imported-css.js'
-            ),
-            options: {
-              manifestPath: this.manifestPath,
-              includeList: this.includeList || {},
-              excludeList: this.excludeList || {}
-            }
-          }
-        ]
-      })
-    }
   }
 }
