@@ -20,37 +20,37 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  // {
-  //   name: 'config-babel',
-  //   uiContext: ['newTab'],
-  //   uiFramework: undefined,
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['babel.config.json']
-  // },
-  // {
-  //   name: 'content-extension-config',
-  //   uiContext: ['content'],
-  //   uiFramework: 'react',
-  //   css: 'css',
-  //   hasBackground: true,
-  //   hasEnv: false,
-  //   configFiles: [
-  //     'extension.config.js',
-  //     'tsconfig.json',
-  //     'postcss.config.js',
-  //     'tailwind.config.js'
-  //   ]
-  // },
   {
-    name: 'config-stylelint',
+    name: 'config-babel',
     uiContext: ['newTab'],
     uiFramework: undefined,
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['stylelint.config.json']
+    configFiles: ['babel.config.json']
+  },
+  {
+    name: 'content-extension-config',
+    uiContext: ['content'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: true,
+    hasEnv: false,
+    configFiles: [
+      'extension.config.js',
+      'tsconfig.json',
+      'postcss.config.js',
+      'tailwind.config.js'
+    ]
+  },
+  {
+    name: 'config-stylelint',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'sass',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['.stylelintrc.json']
   },
   {
     name: 'content',
@@ -101,7 +101,7 @@ const JS_TEMPLATES: Template[] = [
     name: 'content-sass-module',
     uiContext: ['content'],
     uiFramework: undefined,
-    css: 'css',
+    css: 'sass',
     hasBackground: false,
     hasEnv: false,
     configFiles: undefined
@@ -146,7 +146,7 @@ const JS_TEMPLATES: Template[] = [
     name: 'new-sass',
     uiContext: ['newTab'],
     uiFramework: undefined,
-    css: 'css',
+    css: 'sass',
     hasBackground: false,
     hasEnv: false,
     configFiles: undefined

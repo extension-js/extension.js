@@ -1,4 +1,3 @@
-import fs from 'fs'
 import path from 'path'
 import {type Compiler, Compilation, sources} from 'webpack'
 import {getManifestOverrides} from '../manifest-overrides'
@@ -40,7 +39,6 @@ export class UpdateManifest {
   ) {
     if (!overrides.content_scripts) return {}
 
-    console.log('reach1')
     return overrides.content_scripts.map(
       (contentObj: {js: string[]; css: string[]}, index: number) => {
         if (contentObj.js.length && !contentObj.css.length) {
@@ -99,8 +97,9 @@ export class UpdateManifest {
               }
             }
 
-            // During production, if user has the output of a CSS file in content_scripts,
-            // we add it to the manifest so that the file is copied to the output directory.
+            // During production, webpack styles are bundled in a CSS file,
+            // and not injected in the page via <style> tag. We need to
+            // reference these files in the manifest.
             if (compiler.options.mode === 'development') {
               if (patchedManifest.content_scripts) {
                 patchedManifest.content_scripts =
