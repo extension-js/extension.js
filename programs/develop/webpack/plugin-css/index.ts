@@ -39,13 +39,6 @@ export class CssPlugin {
         exclude: /\.module\.css$/,
         oneOf: [
           {
-            resourceQuery: /is_content_css_import=true/,
-            use: await commonStyleLoaders(projectPath, {
-              mode: this.mode,
-              useMiniCssExtractPlugin: false
-            })
-          },
-          {
             use: await commonStyleLoaders(projectPath, {
               mode: this.mode,
               useMiniCssExtractPlugin: this.mode === 'production'
@@ -56,13 +49,6 @@ export class CssPlugin {
       {
         test: /\.module\.css$/,
         oneOf: [
-          {
-            resourceQuery: /is_content_css_import=true/,
-            use: await commonStyleLoaders(projectPath, {
-              mode: this.mode,
-              useMiniCssExtractPlugin: false
-            })
-          },
           {
             use: await commonStyleLoaders(projectPath, {
               mode: this.mode,
