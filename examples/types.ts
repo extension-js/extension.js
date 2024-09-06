@@ -3,7 +3,6 @@ export type ConfigFiles =
   | 'postcss.config.js'
   | 'tailwind.config.js'
   | 'tsconfig.json'
-  | 'babel.config.js'
   | 'stylelint.config.json'
   | 'extension.config.js'
 

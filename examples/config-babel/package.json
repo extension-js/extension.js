@@ -9,6 +9,9 @@
     "url": "https://cezaraugusto.com"
   },
   "devDependencies": {
+    "@babel/core": "^7.24.9",
+    "babel-loader": "^9.1.3",
+    "babel-preset-modern-browser-extension": "^0.7.0",
     "stylelint": "^16.7.0"
   }
 }

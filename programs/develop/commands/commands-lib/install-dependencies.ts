@@ -1,7 +1,7 @@
 import path from 'path'
 import {spawn} from 'cross-spawn'
 import fs from 'fs'
-import {detect} from 'detect-package-manager'
+import {detect} from 'package-manager-detector'
 import * as messages from './messages'
 import {isFromPnpx} from '../../webpack/lib/utils'
 
@@ -14,7 +14,7 @@ export async function getInstallCommand() {
     return 'pnpm'
   }
 
-  switch (pm) {
+  switch (pm?.name) {
     case 'yarn':
       command = 'yarn'
       break

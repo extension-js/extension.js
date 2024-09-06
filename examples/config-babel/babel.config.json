@@ -1,4 +1,4 @@
 {
-  "presets": [],
+  "presets": ["modern-browser-extension"],
   "plugins": []
 }
