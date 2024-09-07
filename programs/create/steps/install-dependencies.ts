@@ -11,7 +11,6 @@ import fs from 'fs'
 import * as messages from '../lib/messages'
 
 import * as utils from '../lib/utils'
-import {createSymlink} from './symlink-extension-js'
 
 function getInstallArgs() {
   return ['install', '--silent']
@@ -27,11 +26,6 @@ export async function installDependencies(
   const dependenciesArgs = getInstallArgs()
 
   console.log(messages.installingDependencies())
-
-  // Symlink Extension for development
-  if (process.env.EXTENSION_ENV === 'development') {
-    await createSymlink(projectPath)
-  }
 
   try {
     const originalDirectory = process.cwd()
