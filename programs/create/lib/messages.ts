@@ -234,14 +234,6 @@ export function cantInstallDependencies(projectName: string, error: any) {
   )
 }
 
-export function symlinkCreated() {
-  return 'Symlink created successfully.'
-}
-
-export function symlinkError(command: string, args: string[]) {
-  return `${red(`✖︎✖︎✖︎`)} Failed to create symlink: ${red(command)} ${red(args.join(' '))}`
-}
-
 export function writingPackageJsonMetadata() {
   return `📝 - Writing ${brightYellow(`package.json`)} metadata...`
 }
