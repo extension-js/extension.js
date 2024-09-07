@@ -81,6 +81,7 @@
     "@types/loader-utils": "^2.0.6",
     "@types/node": "^22.5.3",
     "@types/webextension-polyfill": "^0.10.7",
+    "@types/ws": "^8.5.12",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.2",
     "tsup": "^8.0.1",
