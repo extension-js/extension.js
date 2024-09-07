@@ -8,9 +8,7 @@ const pathToExtension = path.join(__dirname, `../${exampleDir}/dist/chrome`);
 const test = extensionFixtures(pathToExtension, true);
 
 test.beforeAll(async () => {
-  if (!existsSync(pathToExtension)) {
-    execSync(`pnpm extension build ${exampleDir}`, { cwd: path.join(__dirname, '..') });
-  }
+  execSync(`pnpm extension build ${exampleDir}`, { cwd: path.join(__dirname, '..') });
 })
 
 test('should exist an element with the class name content_script-box', async ({ page }) => {
