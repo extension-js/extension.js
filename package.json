@@ -27,6 +27,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.27.1",
     "@eslint/js": "^9.6.0",
+    "@playwright/test": "^1.47.0",
     "@types/chrome": "^0.0.268",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.14.12",
