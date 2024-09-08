@@ -19,6 +19,7 @@
     "test:create": "dotenv -- turbo run test:create",
     "test:cli": "dotenv -- turbo run test:cli",
     "test:watch": "dotenv -- turbo run test:watch",
+    "test:e2e": "pnpm exec playwright test",
     "types": "pnpm tsc",
     "version-packages": "changeset version",
     "publish-packages": "turbo run compile lint test && changeset version && changeset publish",
