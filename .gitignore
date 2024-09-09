@@ -65,3 +65,4 @@ __TEST__
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+/e2e-report/
