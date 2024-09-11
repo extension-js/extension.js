@@ -202,6 +202,31 @@ importers:
         specifier: 5.3.3
         version: 5.3.3
 
+  examples/content-react-svgr:
+    dependencies:
+      '@svgr/webpack':
+        specifier: ^8.1.0
+        version: 8.1.0(typescript@5.3.3)
+      react:
+        specifier: ^18.1.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.1.0
+        version: 18.3.1(react@18.3.1)
+      tailwindcss:
+        specifier: ^3.4.1
+        version: 3.4.10(ts-node@10.9.2(@swc/core@1.7.23)(@types/node@22.5.4)(typescript@5.3.3))
+    devDependencies:
+      '@types/react':
+        specifier: ^18.0.9
+        version: 18.3.5
+      '@types/react-dom':
+        specifier: ^18.0.5
+        version: 18.3.0
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
   examples/content-sass:
     devDependencies:
       sass:
