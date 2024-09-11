@@ -30,20 +30,6 @@ const JS_TEMPLATES: Template[] = [
   //   configFiles: ['babel.config.json']
   // },
   {
-    name: 'content-extension-config',
-    uiContext: ['content'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: true,
-    hasEnv: false,
-    configFiles: [
-      'extension.config.js',
-      'tsconfig.json',
-      'postcss.config.js',
-      'tailwind.config.js'
-    ]
-  },
-  {
     name: 'config-stylelint',
     uiContext: ['newTab'],
     uiFramework: undefined,
@@ -260,6 +246,34 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  },
+  {
+    name: 'content-extension-config',
+    uiContext: ['content'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: true,
+    hasEnv: false,
+    configFiles: [
+      'extension.config.js',
+      'tsconfig.json',
+      'postcss.config.js',
+      'tailwind.config.js'
+    ]
+  },
+  {
+    name: 'content-react-svgr',
+    uiContext: ['content'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: true,
+    hasEnv: false,
+    configFiles: [
+      'extension.config.js',
+      'tsconfig.json',
+      'postcss.config.js',
+      'tailwind.config.js'
+    ]
   },
   {
     name: 'new-vue',
