@@ -5,6 +5,7 @@ import {
   type Manifest
 } from '../../webpack-types'
 import * as utils from '../../lib/utils'
+import { cleanMatches } from './clean-matches'
 
 /**
  * ResourcesPlugin is responsible for adding resources required
@@ -64,7 +65,7 @@ export class WebResourcesPlugin {
               resources: resources.filter(
                 (resource) => !resource.endsWith('.map')
               ),
-              matches
+              matches: cleanMatches(matches),
             })
           }
         } else {
