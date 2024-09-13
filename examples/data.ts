@@ -195,6 +195,15 @@ const TS_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['tsconfig.json']
+  },
+  {
+    name: 'new-crypto',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json', 'extension.config.js']
   }
 ]
 
