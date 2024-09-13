@@ -14,7 +14,7 @@ export function createProfile(
   silent?: boolean
 ) {
   if (profilePath && fs.existsSync(profilePath)) {
-    return profilePath;
+    return profilePath
   }
 
   if (fs.existsSync(path.resolve(__dirname, `run-${browser}-profile`))) {
