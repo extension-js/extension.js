@@ -13,8 +13,12 @@ export function createProfile(
   profilePath?: string,
   silent?: boolean
 ) {
+  if (profilePath && fs.existsSync(profilePath)) {
+    return profilePath;
+  }
+
   if (fs.existsSync(path.resolve(__dirname, `run-${browser}-profile`))) {
-    return profilePath || path.resolve(__dirname, `run-${browser}-profile`)
+    return path.resolve(__dirname, `run-${browser}-profile`)
   }
 
   const preferences =
