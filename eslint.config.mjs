@@ -16,6 +16,7 @@ export default [
     ignores: [
       '__TEST__',
       '**/dist/',
+      '**/e2e-report/',
       '**/webpack.config.js',
       '**/postcss.config.js',
       '**/tailwind.config.js',
