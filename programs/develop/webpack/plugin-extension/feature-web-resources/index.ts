@@ -65,6 +65,8 @@ export class WebResourcesPlugin {
               resources: resources.filter(
                 (resource) => !resource.endsWith('.map')
               ),
+              // We pass `matches` from `content_scripts` to `web_accessible_resources`,
+              // but `web_accessible_resources` has stricter rules, so we need to sanitize them
               matches: cleanMatches(matches),
             })
           }

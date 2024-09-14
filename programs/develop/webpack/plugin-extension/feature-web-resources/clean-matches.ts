@@ -16,6 +16,8 @@ export function cleanMatches(matches: string[]) {
       // URL.pathname will return `/` even if the URL is just `https://example.com`
       if (match.endsWith(url.pathname)) {
         return `${match.substring(0, match.length - url.pathname.length)}/*`;
+      } else if (url.pathname === '/') {
+        return `${match}/*`;
       }
 
       return match;
