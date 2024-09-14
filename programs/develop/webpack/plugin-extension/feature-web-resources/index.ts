@@ -5,7 +5,7 @@ import {
   type Manifest
 } from '../../webpack-types'
 import * as utils from '../../lib/utils'
-import { cleanMatches } from './clean-matches'
+import {cleanMatches} from './clean-matches'
 
 /**
  * ResourcesPlugin is responsible for adding resources required
@@ -67,7 +67,7 @@ export class WebResourcesPlugin {
               ),
               // We pass `matches` from `content_scripts` to `web_accessible_resources`,
               // but `web_accessible_resources` has stricter rules, so we need to sanitize them
-              matches: cleanMatches(matches),
+              matches: cleanMatches(matches)
             })
           }
         } else {
