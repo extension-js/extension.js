@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ['**/*.tsx'],
+  content: ['./newtab/**/*.tsx'],
   theme: {
     extend: {}
   },
