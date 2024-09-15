@@ -11,6 +11,7 @@ import {writeManifestJson} from './steps/write-manifest-json'
 import {generateExtensionTypes} from './steps/generate-extension-types'
 import {writeGitignore} from './steps/write-gitignore'
 import {initializeGitRepository} from './steps/initialize-git-repository'
+import {setupBuiltInTests} from './steps/setup-built-in-tests'
 
 export interface CreateOptions {
   template: string
@@ -55,6 +56,7 @@ export async function extensionCreate(
     await writeManifestJson(projectPath, projectName)
     await initializeGitRepository(projectPath, projectName)
     await writeGitignore(projectPath)
+    await setupBuiltInTests(projectPath, projectName)
 
     if (utils.isTypeScriptTemplate(template)) {
       await generateExtensionTypes(projectPath, projectName)

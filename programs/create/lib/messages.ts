@@ -289,3 +289,10 @@ export function writingDirectoryError(error: any) {
     red(error)
   )
 }
+
+export function cantSetupBuiltInTests(projectName: string, error: any) {
+  return (
+    `${red(`✖︎✖︎✖︎`)} Can't setup built-in tests for ` +
+    `${cyan(projectName)}:\n${red(error)}`
+  )
+}
