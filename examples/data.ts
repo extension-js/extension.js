@@ -345,7 +345,7 @@ const CONFIG_TEMPLATES: Template[] = [
     name: 'config-stylelint',
     uiContext: ['newTab'],
     uiFramework: undefined,
-    css: 'css',
+    css: 'sass',
     hasBackground: false,
     hasEnv: false,
     configFiles: ['.stylelintrc.json']
