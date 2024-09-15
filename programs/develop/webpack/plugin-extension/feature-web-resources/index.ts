@@ -56,7 +56,10 @@ export class WebResourcesPlugin {
 
           if (existingResource) {
             resources.forEach((resource) => {
-              if (!existingResource.resources.includes(resource) && !resource.endsWith('.map')) {
+              if (
+                !existingResource.resources.includes(resource) &&
+                !resource.endsWith('.map')
+              ) {
                 existingResource.resources.push(resource)
               }
             })
