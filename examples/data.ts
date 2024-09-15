@@ -20,15 +20,6 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  // {
-  //   name: 'config-babel',
-  //   uiContext: ['newTab'],
-  //   uiFramework: undefined,
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['babel.config.json']
-  // },
   {
     name: 'config-stylelint',
     uiContext: ['newTab'],
@@ -48,6 +39,15 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
+    name: 'content-esm',
+    uiContext: ['content'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
+  },
+  {
     name: 'content-css-module',
     uiContext: ['content'],
     uiFramework: undefined,
@@ -58,6 +58,15 @@ const JS_TEMPLATES: Template[] = [
   },
   {
     name: 'content-less',
+    uiContext: ['content'],
+    uiFramework: undefined,
+    css: 'less',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
+  },
+  {
+    name: 'content-less-module',
     uiContext: ['content'],
     uiFramework: undefined,
     css: 'less',
@@ -120,7 +129,34 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
+    name: 'new',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
+  },
+  {
+    name: 'new-esm',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
+  },
+  {
     name: 'new-less',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'less',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
+  },
+  {
+    name: 'new-less-module',
     uiContext: ['newTab'],
     uiFramework: undefined,
     css: 'less',
@@ -195,15 +231,6 @@ const TS_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['tsconfig.json']
-  },
-  {
-    name: 'new-crypto',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['tsconfig.json', 'extension.config.js']
   }
 ]
 
@@ -216,6 +243,38 @@ const CUSTOM_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: true,
     configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  },
+  {
+    name: 'new-crypto',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json', 'extension.config.js']
+  },
+  {
+    name: 'content-react-svgr',
+    uiContext: ['content'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: true,
+    hasEnv: false,
+    configFiles: [
+      'extension.config.js',
+      'tsconfig.json',
+      'postcss.config.js',
+      'tailwind.config.js'
+    ]
+  },
+  {
+    name: 'new-react-router',
+    uiContext: ['newTab'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json']
   }
 ]
 
@@ -271,20 +330,6 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     ]
   },
   {
-    name: 'content-react-svgr',
-    uiContext: ['content'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: true,
-    hasEnv: false,
-    configFiles: [
-      'extension.config.js',
-      'tsconfig.json',
-      'postcss.config.js',
-      'tailwind.config.js'
-    ]
-  },
-  {
     name: 'new-vue',
     uiContext: ['newTab'],
     uiFramework: 'vue',
@@ -304,7 +349,25 @@ const FRAMEWORK_TEMPLATES: Template[] = [
   }
 ]
 
-const TAILWIND_TEMPLATES: Template[] = [
+const CONFIG_TEMPLATES: Template[] = [
+  // {
+  //   name: 'config-babel',
+  //   uiContext: ['newTab'],
+  //   uiFramework: undefined,
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: ['babel.config.json']
+  // },
+  {
+    name: 'config-stylelint',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['.stylelintrc.json']
+  },
   {
     name: 'content-tailwind',
     uiContext: ['content'],
@@ -332,7 +395,7 @@ const ALL_TEMPLATES: Template[] = [
   ...TS_TEMPLATES,
   ...CUSTOM_TEMPLATES,
   ...FRAMEWORK_TEMPLATES,
-  ...TAILWIND_TEMPLATES
+  ...CONFIG_TEMPLATES
 ]
 
 const ALL_TEMPLATES_BUT_DEFAULT = ALL_TEMPLATES.filter(
@@ -349,7 +412,7 @@ export {
   TS_TEMPLATES,
   CUSTOM_TEMPLATES,
   FRAMEWORK_TEMPLATES,
-  TAILWIND_TEMPLATES,
+  CONFIG_TEMPLATES,
   ALL_TEMPLATES,
   ALL_TEMPLATES_BUT_DEFAULT
 }
