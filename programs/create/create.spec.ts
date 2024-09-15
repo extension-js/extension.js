@@ -95,10 +95,17 @@ describe('extension create', () => {
             ).toBeTruthy()
           }
 
+          if (template.name.includes('esm')) {
+            expect(
+              fileExists(template.name, `${context.toLowerCase()}/scripts.mjs`)
+            ).toBeTruthy()
           // Expect [uiContext]/[uiContext].[ext] for scripts
-          expect(
-            fileExists(template.name, `${context.toLowerCase()}/scripts.${ext}`)
-          ).toBeTruthy()
+          } else {
+            expect(
+              fileExists(template.name, `${context.toLowerCase()}/scripts.${ext}`)
+            ).toBeTruthy()
+          }
+
 
           // Expect [uiContext]/styles.sass|less|css for styles
           if (template.css === 'sass') {
