@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "name": "config-eslint",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.6.0",
+    "eslint": "^9.6.0",
+    "globals": "^15.9.0",
+    "typescript": "5.3.3",
+    "typescript-eslint": "^8.5.0"
+  }
+}
