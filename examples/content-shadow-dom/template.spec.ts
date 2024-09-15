@@ -1,9 +1,9 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures} from './extension-fixtures'
+import {extensionFixtures} from '../extension-fixtures'
 
-const exampleDir = 'examples/content-extension-config'
-const pathToExtension = path.join(__dirname, `../${exampleDir}/dist/chrome`)
+const exampleDir = 'examples/content-shadow-dom'
+const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
 test.beforeAll(async () => {
@@ -25,9 +25,7 @@ test('should exist an h2 element with specified content', async ({page}) => {
   const h2 = page.locator('#extension-root h2')
   await test
     .expect(h2)
-    .toHaveText(
-      'This is a content script running React, TypeScript, and Tailwind.css'
-    )
+    .toHaveText('This is a content script running Tailwind.css.')
 })
 
 test('should exist a default color value', async ({page}) => {
