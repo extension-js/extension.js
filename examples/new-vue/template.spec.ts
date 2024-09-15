@@ -1,9 +1,9 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures} from './extension-fixtures'
+import {extensionFixtures} from '../extension-fixtures'
 
-const exampleDir = 'examples/new-react'
-const pathToExtension = path.join(__dirname, `../${exampleDir}/dist/chrome`)
+const exampleDir = 'examples/new-vue'
+const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
 test.beforeAll(async () => {
@@ -17,7 +17,7 @@ test('should exist an element with the welcome message text', async ({
 }) => {
   await page.goto('chrome://newtab/')
   const h1 = page.locator('h1')
-  await test.expect(h1).toHaveText('Welcome to your React Extension.')
+  await test.expect(h1).toHaveText('Welcome to your Vue Extension.')
 })
 
 test('should exist a default color value', async ({page}) => {
