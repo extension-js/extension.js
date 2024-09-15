@@ -354,7 +354,7 @@ const CONFIG_TEMPLATES: Template[] = [
     name: 'config-lint',
     uiContext: ['newTab'],
     uiFramework: undefined,
-    css: 'sass',
+    css: 'css',
     hasBackground: false,
     hasEnv: false,
     configFiles: [
