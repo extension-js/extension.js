@@ -1,8 +1,8 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures} from './extension-fixtures'
+import {extensionFixtures} from '../extension-fixtures'
 
-const exampleDir = 'examples/content-main-world'
+const exampleDir = 'examples/content-less'
 const pathToExtension = path.join(__dirname, `../${exampleDir}/dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
@@ -23,7 +23,7 @@ test('should exist an element with the class name content_script-box', async ({
 test('should exist an h1 element with specified content', async ({page}) => {
   await page.goto('https://extension.js.org/')
   const h1 = page.locator('body > div.content_script-box > h1')
-  await test.expect(h1).toHaveText('Main World')
+  await test.expect(h1).toHaveText('Change the background-color ⬇')
 })
 
 test('should exist a default color value', async ({page}) => {

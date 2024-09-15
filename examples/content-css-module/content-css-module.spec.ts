@@ -1,8 +1,8 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures} from './extension-fixtures'
+import {extensionFixtures} from '../extension-fixtures'
 
-const exampleDir = 'examples/content-sass'
+const exampleDir = 'examples/content-css-module'
 const pathToExtension = path.join(__dirname, `../${exampleDir}/dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
