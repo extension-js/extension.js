@@ -56,7 +56,7 @@ export class WebResourcesPlugin {
 
           if (existingResource) {
             resources.forEach((resource) => {
-              if (!existingResource.resources.includes(resource)) {
+              if (!existingResource.resources.includes(resource) && !resource.endsWith('.map')) {
                 existingResource.resources.push(resource)
               }
             })
@@ -81,13 +81,17 @@ export class WebResourcesPlugin {
     }
 
     if (manifest.manifest_version === 3) {
-      manifest.web_accessible_resources =
-        webAccessibleResourcesV3 as Manifest['web_accessible_resources']
+      if (webAccessibleResourcesV3.length > 0) {
+        manifest.web_accessible_resources =
+          webAccessibleResourcesV3 as Manifest['web_accessible_resources']
+      }
     } else {
-      // @ts-expect-error - web_accessible_resources is a string[] in V2
-      manifest.web_accessible_resources = Array.from(
-        new Set(webAccessibleResourcesV2)
-      )
+      if (webAccessibleResourcesV2.length > 0) {
+        // @ts-expect-error - web_accessible_resources is a string[] in V2
+        manifest.web_accessible_resources = Array.from(
+          new Set(webAccessibleResourcesV2)
+        )
+      }
     }
 
     const source = JSON.stringify(manifest, null, 2)
