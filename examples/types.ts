@@ -6,6 +6,8 @@ export type ConfigFiles =
   | '.stylelintrc.json'
   | 'extension.config.js'
   | 'babel.config.json'
+  | '.prettierrc'
+  | 'eslint.config.mjs'
 
 export interface Template {
   name: string
