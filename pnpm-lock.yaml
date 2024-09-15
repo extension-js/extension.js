@@ -125,6 +125,8 @@ importers:
 
   examples/content-css-module: {}
 
+  examples/content-esm: {}
+
   examples/content-extension-config:
     dependencies:
       '@svgr/webpack':
@@ -289,6 +291,8 @@ importers:
       typescript:
         specifier: 5.3.3
         version: 5.3.3
+
+  examples/new-esm: {}
 
   examples/new-less:
     devDependencies:
