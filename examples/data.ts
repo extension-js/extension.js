@@ -342,6 +342,39 @@ const CONFIG_TEMPLATES: Template[] = [
   //   configFiles: ['babel.config.json']
   // },
   {
+    name: 'config-eslint',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json', 'eslint.config.mjs']
+  },
+  {
+    name: 'config-lint',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'sass',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: [
+      'tsconfig.json',
+      '.stylelintrc.json',
+      'eslint.config.mjs',
+      '.prettierrc',
+      '.stylelintrc.json'
+    ]
+  },
+  {
+    name: 'config-prettier',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json', '.prettierrc']
+  },
+  {
     name: 'config-stylelint',
     uiContext: ['newTab'],
     uiFramework: undefined,

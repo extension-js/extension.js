@@ -99,13 +99,15 @@ describe('extension create', () => {
             expect(
               fileExists(template.name, `${context.toLowerCase()}/scripts.mjs`)
             ).toBeTruthy()
-          // Expect [uiContext]/[uiContext].[ext] for scripts
+            // Expect [uiContext]/[uiContext].[ext] for scripts
           } else {
             expect(
-              fileExists(template.name, `${context.toLowerCase()}/scripts.${ext}`)
+              fileExists(
+                template.name,
+                `${context.toLowerCase()}/scripts.${ext}`
+              )
             ).toBeTruthy()
           }
-
 
           // Expect [uiContext]/styles.sass|less|css for styles
           if (template.css === 'sass') {
