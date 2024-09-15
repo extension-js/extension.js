@@ -6,7 +6,6 @@ import {test as base, chromium} from '@playwright/test'
 const exampleDir = 'examples/content-esm'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 
-// Define the types in comments for intellisense
 /**
  * @typedef {import('@playwright/test').BrowserContext} BrowserContext
  */
@@ -17,7 +16,7 @@ const extensionFixtures = (
 ) => {
   return base.extend({
     /** @type {() => Promise<BrowserContext>} */
-    context: async ({}, use) => {
+    context: async (_, use) => {
       const context = await chromium.launchPersistentContext('', {
         headless: false,
         args: [
