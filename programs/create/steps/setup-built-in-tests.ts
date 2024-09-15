@@ -6,7 +6,7 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import path from 'path'
-import fs from 'fs/promises'
+import fs from 'fs'
 import * as messages from '../lib/messages'
 
 export async function setupBuiltInTests(
@@ -16,7 +16,10 @@ export async function setupBuiltInTests(
   try {
     // Remove the existing test spec templates.spec.ts
     const testSpecPath = path.join(projectPath, 'tests', 'templates.spec.ts')
-    await fs.unlink(testSpecPath)
+
+    if (fs.existsSync(testSpecPath)) {
+      fs.unlinkSync(testSpecPath)
+    }
   } catch (error: any) {
     console.error(messages.cantSetupBuiltInTests(projectName, error))
 
