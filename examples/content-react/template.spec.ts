@@ -1,9 +1,9 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures} from './extension-fixtures'
+import {extensionFixtures} from '../extension-fixtures'
 
-const exampleDir = 'examples/content-preact'
-const pathToExtension = path.join(__dirname, `../${exampleDir}/dist/chrome`)
+const exampleDir = 'examples/content-react'
+const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
 test.beforeAll(async () => {
@@ -26,7 +26,7 @@ test('should exist an h2 element with specified content', async ({page}) => {
   await test
     .expect(h2)
     .toHaveText(
-      'This is a content script running Preact, TypeScript, and Tailwind.css.'
+      'This is a content script running React, TypeScript, and Tailwind.css'
     )
 })
 

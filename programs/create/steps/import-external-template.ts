@@ -9,6 +9,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
+import * as utils from '../lib/utils'
 
 export async function importExternalTemplate(
   projectPath: string,
@@ -32,11 +33,16 @@ export async function importExternalTemplate(
 
       templatePath = path.join(projectPath, templateName)
 
-      await fs.cp(
-        path.join(__dirname, '..', '..', '..', 'examples', templateName),
-        templatePath,
-        {recursive: true}
+      const localTemplatePath = path.join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        'examples',
+        templateName
       )
+
+      await utils.copyDirectory(localTemplatePath, templatePath)
     } else {
       await goGitIt(
         templateUrl,

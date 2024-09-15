@@ -1,9 +1,9 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures} from './extension-fixtures'
+import {extensionFixtures} from '../extension-fixtures'
 
 const exampleDir = 'examples/new-sass'
-const pathToExtension = path.join(__dirname, `../${exampleDir}/dist/chrome`)
+const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
 test.beforeAll(async () => {
