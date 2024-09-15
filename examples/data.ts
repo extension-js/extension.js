@@ -21,15 +21,6 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'config-stylelint',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
-    css: 'sass',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['.stylelintrc.json']
-  },
-  {
     name: 'content',
     uiContext: ['content'],
     uiFramework: undefined,
