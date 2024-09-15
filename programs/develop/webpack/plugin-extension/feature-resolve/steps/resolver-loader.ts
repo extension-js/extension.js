@@ -48,7 +48,7 @@ export default function resolveLoader(
   })
 
   if (new RegExp(options.test).test(this.resourcePath)) {
-    const resolverName = 'resolver-module.js'
+    const resolverName = 'resolver-module.mjs'
 
     if (
       this.resourcePath.includes('node_modules') ||
