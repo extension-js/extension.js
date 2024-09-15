@@ -156,15 +156,6 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'new-less-module',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
-    css: 'less',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
     name: 'new-sass',
     uiContext: ['newTab'],
     uiFramework: undefined,
