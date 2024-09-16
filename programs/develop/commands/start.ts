@@ -22,6 +22,8 @@ export interface StartOptions {
   noOpen?: boolean
   userDataDir?: string
   polyfill?: boolean
+  chromiumBinary?: string
+  geckoBinary?: string
 }
 
 export async function extensionStart(

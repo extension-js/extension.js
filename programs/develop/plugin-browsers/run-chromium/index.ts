@@ -1,4 +1,5 @@
 import fs from 'fs'
+import path from 'path'
 import {type Compiler} from 'webpack'
 import {spawn} from 'child_process'
 import {browserConfig} from './browser-config'
@@ -24,6 +25,7 @@ export class RunChromiumPlugin {
   public readonly startingUrl?: string
   public readonly autoReload?: boolean
   public readonly stats?: boolean
+  public readonly chromiumBinary?: string
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -33,6 +35,7 @@ export class RunChromiumPlugin {
     this.profile = options.profile || options.userDataDir
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl
+    this.chromiumBinary = options.chromiumBinary
   }
 
   private launchChromium(browser: DevOptions['browser']) {
@@ -47,10 +50,15 @@ export class RunChromiumPlugin {
         browserBinaryLocation = require(`${browser}-location`)()
         break
 
+      case 'chromium-based':
+        browserBinaryLocation = path.normalize(this.chromiumBinary!)
+        break
+
       default:
         browserBinaryLocation = require(`${browser}`)
         break
     }
+
     if (!fs.existsSync(browserBinaryLocation) || '') {
       console.error(
         messages.browserNotInstalledError(browser, browserBinaryLocation)
@@ -65,7 +73,7 @@ export class RunChromiumPlugin {
 
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-    const child = spawn(browserBinaryLocation, launchArgs, {stdio})
+    const child = spawn(`${browserBinaryLocation}`, launchArgs, {stdio})
 
     if (process.env.EXTENSION_ENV === 'development') {
       child.stdout?.pipe(process.stdout)

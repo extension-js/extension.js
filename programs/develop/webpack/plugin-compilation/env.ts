@@ -78,7 +78,7 @@ export class EnvPlugin {
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'manifest:update-manifest',
+            name: 'env:module',
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           (assets) => {
