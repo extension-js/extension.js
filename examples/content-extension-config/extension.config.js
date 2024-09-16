@@ -1,22 +1,29 @@
 /** @type {import('extension-develop').FileConfig} */
 module.exports = {
-  config: (config) => {
-    config.module.rules.push(
-      {
-        test: /\.svg$/i,
-        type: 'asset',
-        // *.svg?url
-        resourceQuery: /url/
-      },
-      {
-        test: /\.svg$/i,
-        issuer: /\.[jt]sx?$/,
-        // exclude react component if *.svg?url
-        resourceQuery: {not: [/url/]},
-        use: ['@svgr/webpack']
-      }
-    )
-
-    return config
+  browsers: {
+    chrome: {
+      startingUrl: 'https://extension.js.org'
+    },
+    firefox: {
+      startingUrl: 'about:debugging#/runtime/this-firefox'
+    }
+  },
+  commands: {
+    dev: {
+      browser: 'firefox',
+      polyfill: true
+    },
+    start: {
+      browser: 'firefox',
+      polyfill: true
+    },
+    preview: {
+      browser: 'firefox',
+      polyfill: true
+    },
+    build: {
+      browser: 'firefox',
+      polyfill: true
+    }
   }
 }

@@ -5,16 +5,24 @@ import {getPreferences} from './master-preferences'
 import * as messages from '../../browsers-lib/messages'
 import {addProgressBar} from '../../browsers-lib/add-progress-bar'
 import {DevOptions} from '../../../commands/dev'
+import {loadBrowserConfig} from '../../../commands/commands-lib/get-extension-config'
 
 function configureProfile(
   profile: FirefoxProfile,
   customPreferences: Record<string, any>
 ) {
-  const preferences: Record<string, any> = getPreferences(customPreferences)
-  const preferenceKeys = Object.keys(preferences)
+  const firefoxMasterPreferences: Record<string, any> = {
+    ...loadBrowserConfig(path.resolve(__dirname, 'run-firefox'), 'firefox'),
+    ...getPreferences(customPreferences)
+  }
+
+  const preferenceKeys = Object.keys(firefoxMasterPreferences)
 
   preferenceKeys.forEach((preference) => {
-    profile.setPreference(preference, preferences[preference] as string)
+    profile.setPreference(
+      preference,
+      firefoxMasterPreferences[preference] as string
+    )
   })
 
   const customPreferenceKeys = Object.keys(customPreferences)
@@ -36,7 +44,7 @@ function createProfile(
 ) {
   const profile = new FirefoxProfile({destinationDirectory})
   const profileConfigured = configureProfile(profile, customPreferences)
-
+  console.log({profileConfigured})
   return profileConfigured
 }
 
@@ -64,18 +72,22 @@ function getProfile(
 export function createUserDataDir(
   browser: DevOptions['browser'],
   dataDirPath: string | undefined,
-  preferences?: Record<string, any>,
-  silent?: boolean
+  configPreferences: DevOptions['preferences']
 ) {
   let profile: FirefoxProfile
   const dataDir = dataDirPath || path.resolve(__dirname, 'run-firefox-data-dir')
+  const firefoxMasterPreferences: Record<string, any> = getPreferences(
+    configPreferences || {}
+  )
+
+  const preferences = firefoxMasterPreferences
+
+  const userPreferences = JSON.stringify({...preferences, ...configPreferences})
 
   if (fs.existsSync(dataDir)) {
     profile = getProfile(browser, dataDir, preferences || {})
   } else {
-    if (!silent) {
-      addProgressBar(messages.creatingUserProfile(browser), () => {})
-    }
+    addProgressBar(messages.creatingUserProfile(browser), () => {})
 
     fs.mkdirSync(dataDir, {recursive: true})
     profile = createProfile(dataDir, preferences || {})

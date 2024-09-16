@@ -1,29 +1,24 @@
 import {Compiler} from 'webpack'
 import {createUserDataDir} from './create-profile'
-import {type PluginInterface} from '../../browsers-types'
+import {type DevOptions} from '../../../commands/dev'
 
 export async function browserConfig(
   compiler: Compiler,
-  configOptions: PluginInterface
+  configOptions: DevOptions
 ) {
   const {
     browser,
     startingUrl,
     preferences,
     userDataDir,
-    browserConsole = false,
     browserFlags = []
   } = configOptions
 
-  const profile = createUserDataDir(browser, userDataDir, preferences)
+  const userProfilePath = createUserDataDir(browser, userDataDir, preferences)
   const binaryArgs: string[] = []
 
   if (startingUrl) {
-    binaryArgs.push(`--url "${startingUrl}"`)
-  }
-
-  if (browserConsole) {
-    binaryArgs.push('--jsconsole')
+    binaryArgs.push(`--url=${startingUrl}`)
   }
 
   if (browserFlags) {
@@ -35,9 +30,9 @@ export async function browserConfig(
     : 9222
 
   return [
-    `--binary-args "${browserFlags.join(' ')}"`,
-    `--profile "${profile.path()}"`,
-    `--listen ${port}`,
+    `--binary-args="${binaryArgs.join(' ')}"`,
+    `--profile="${userProfilePath.path()}"`,
+    `--listen=${port}`,
     '--verbose'
   ].join(' ')
 }
