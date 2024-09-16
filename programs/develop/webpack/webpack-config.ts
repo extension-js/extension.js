@@ -30,6 +30,12 @@ export default function webpackConfig(
     `dist/${devOptions.browser}`
   )
   const manifest = require(manifestPath)
+  const browser = devOptions.chromiumBinary
+    ? 'chromium-based'
+    : devOptions.geckoBinary
+      ? 'gecko-based'
+      : devOptions.browser
+
   return {
     mode: devOptions.mode || 'development',
     entry: {},
@@ -85,7 +91,7 @@ export default function webpackConfig(
     plugins: [
       new CompilationPlugin({
         manifestPath,
-        browser: devOptions.browser
+        browser
       }),
       new StaticAssetsPlugin({
         manifestPath
@@ -99,21 +105,20 @@ export default function webpackConfig(
       process.env.EXTENSION_ENV === 'development' &&
         new ErrorsPlugin({
           manifestPath,
-          browser: devOptions.browser
+          browser
         }),
       new CompatibilityPlugin({
         manifestPath,
-        browser: devOptions.browser,
+        browser,
         polyfill: devOptions.polyfill
       }),
       new ExtensionPlugin({
         manifestPath,
-        browser: devOptions.browser,
-        mode: devOptions.mode
+        browser
       }),
       new ReloadPlugin({
         manifestPath,
-        browser: devOptions.browser,
+        browser,
         stats: true,
         port: devOptions.port || 8000
       }),
@@ -121,17 +126,15 @@ export default function webpackConfig(
         new BrowsersPlugin({
           extension: [
             userExtensionOutputPath,
-            path.join(
-              __dirname,
-              'extensions',
-              `${devOptions.browser}-manager-extension`
-            )
+            path.join(__dirname, 'extensions', `${browser}-manager-extension`)
           ],
-          browser: devOptions.browser,
+          browser,
           startingUrl: devOptions.startingUrl,
           profile: devOptions.profile || devOptions.userDataDir,
           preferences: devOptions.preferences,
-          browserFlags: devOptions.browserFlags
+          browserFlags: devOptions.browserFlags,
+          chromiumBinary: devOptions.chromiumBinary,
+          geckoBinary: devOptions.geckoBinary
         })
     ].filter(Boolean),
     stats: {

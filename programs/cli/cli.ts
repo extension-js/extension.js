@@ -88,6 +88,10 @@ extensionJs
   .description('Starts the development server (development mode)')
   .option(
     '-u, --user-data-dir <path-to-file | boolean>',
+    '[DEPRECATED - Use "--profile" instead] what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
+  )
+  .option(
+    '--profile <path-to-file | boolean>',
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
@@ -95,12 +99,20 @@ extensionJs
     'specify a browser to run your extension in development mode'
   )
   .option(
+    '--chromium-binary <path-to-binary>',
+    'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
+  )
+  .option(
+    '--gecko-binary <path-to-binary>',
+    'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
+  )
+  .option(
     '--polyfill [boolean]',
     'whether or not to apply the cross-browser polyfill. Defaults to `true`'
   )
   .option(
     '-p, --port <number>',
-    'what port should Extension.js run. Defaults to `3000`'
+    'what port should Extension.js WebSocket server run. Defaults to `8000`'
   )
   .action(async function (
     pathOrRemoteUrl: string,
@@ -128,11 +140,23 @@ extensionJs
   .description('Starts the development server (production mode)')
   .option(
     '-u, --user-data-dir <path-to-file | boolean>',
+    '[DEPRECATED - Use "--profile" instead] what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
+  )
+  .option(
+    '--profile <path-to-file | boolean>',
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
     '-b, --browser <chrome | edge | firefox>',
     'specify a browser to run your extension in development mode'
+  )
+  .option(
+    '--chromium-binary <path-to-binary>',
+    'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
+  )
+  .option(
+    '--gecko-binary <path-to-binary>',
+    'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
   )
   .option(
     '--polyfill [boolean]',
@@ -166,6 +190,14 @@ extensionJs
 //   .arguments('[project-name]')
 //   .usage('preview [path-to-remote-extension] [options]')
 //   .description('Builds the extension for production')
+// .option(
+//   '--chromium-binary <path-to-binary>',
+//   'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
+// )
+// .option(
+//   '--gecko-binary <path-to-binary>',
+//   'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
+// )
 //   .option(
 //     '-b, --browser <chrome | edge | firefox>',
 //     'specify a browser to preview your extension in production mode'
