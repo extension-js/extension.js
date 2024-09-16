@@ -82,15 +82,15 @@ export function createUserDataDir(
 
   const preferences = firefoxMasterPreferences
 
-  const userPreferences = JSON.stringify({...preferences, ...configPreferences})
+  const userPreferences = {...preferences, ...configPreferences}
 
   if (fs.existsSync(dataDir)) {
-    profile = getProfile(browser, dataDir, preferences || {})
+    profile = getProfile(browser, dataDir, userPreferences)
   } else {
     addProgressBar(messages.creatingUserProfile(browser), () => {})
 
     fs.mkdirSync(dataDir, {recursive: true})
-    profile = createProfile(dataDir, preferences || {})
+    profile = createProfile(dataDir, userPreferences)
   }
 
   return profile
