@@ -7,18 +7,21 @@ import {RunFirefoxPlugin} from './run-firefox'
 import {DevOptions} from '../commands/dev'
 
 /**
- * BrowsersPlugin works by creating a WebSockets server
- * that listens to changes triggered by the user extension
- * via webpack. When a change is detected, the server sends
- * a message to an extension called reload-extension, which
- * is injected into the browser. This extension is responsible
- * for sending messages to the user extension. We do that by
- * injecting a script into the background page that listens
- * to messages from the reload-extension.
+ * BrowsersPlugin works by finding the binary for the browser specified in the
+ * options and running it with the extension loaded.
  *
- * Features supported:
- * - Service worker - Full extension reload (chrome.runtime.reload)
- * - manifest.json - Full extension reload (chrome.runtime.reload)
+ * Supports:
+ * - User profile - a custom profile can be specified for the target browser
+ * - Preferences - a set of preferences can be specified for the target browser
+ * - Starting URL - a custom URL can be specified for the target browser
+ * - Browser flags - a set of flags can be specified for the target browser
+ * - Chromium binary - a custom path to the Chromium binary can be specified
+ * - Gecko binary - a custom path to the Gecko binary can be specified
+ *
+ * Browsers supported:
+ * - Chrome
+ * - Edge
+ * - Firefox
  */
 export class BrowsersPlugin {
   public static readonly name: string = 'plugin-browsers'
@@ -30,6 +33,8 @@ export class BrowsersPlugin {
   public readonly profile: string
   public readonly preferences: Record<string, any>
   public readonly startingUrl: string
+  public readonly chromiumBinary?: string
+  public readonly geckoBinary?: string
 
   constructor(options: PluginInterface) {
     this.extension = [
@@ -38,7 +43,7 @@ export class BrowsersPlugin {
         (flag) => !flag.startsWith('--load-extension=')
       ) || [])
     ]
-    this.browser = options.browser
+    this.browser = options.browser || 'chrome'
     this.browserFlags =
       options.browserFlags?.filter(
         (flag) => !flag.startsWith('--load-extension=')
@@ -47,6 +52,8 @@ export class BrowsersPlugin {
     this.profile = options.profile || ''
     this.preferences = options.preferences || {}
     this.startingUrl = options.startingUrl || ''
+    this.chromiumBinary = options.chromiumBinary
+    this.geckoBinary = options.geckoBinary
   }
 
   private getProfilePath(
@@ -76,42 +83,29 @@ export class BrowsersPlugin {
         compiler,
         this.browser,
         this.userDataDir || this.profile
-      )
+      ),
+      chromiumBinary: this.chromiumBinary,
+      geckoBinary: this.geckoBinary
     }
 
-    // 1 - Bundle the reloader and manager extensions. The reloader extension
-    // is injected into the browser and is responsible for sending reload
-    // requests to the user extension. The manager extension is responsible
-    // for everything else, for now opening the chrome://extension page on startup.
-    // It starts a new browser instance with the user extension loaded.
+    console.log('browser', this.browser)
     switch (this.browser) {
-      case 'chrome': {
-        new RunChromiumPlugin({
-          ...config,
-          browser: 'chrome'
-        }).apply(compiler)
+      case 'chrome':
+      case 'edge':
+      case 'chromium-based': {
+        new RunChromiumPlugin(config).apply(compiler)
         break
       }
 
-      case 'edge':
-        new RunChromiumPlugin({
-          ...config,
-          browser: 'edge'
-        }).apply(compiler)
-        break
-
       case 'firefox':
-        new RunFirefoxPlugin({
-          ...config,
-          browser: 'firefox'
-        }).apply(compiler)
+      case 'gecko-based':
+        new RunFirefoxPlugin(config).apply(compiler)
         break
 
       default: {
-        // TODO: cezaraugusto add attempt to run with any user-declared path
         new RunChromiumPlugin({
           ...config,
-          browser: this.browser
+          browser: 'chrome'
         }).apply(compiler)
         break
       }

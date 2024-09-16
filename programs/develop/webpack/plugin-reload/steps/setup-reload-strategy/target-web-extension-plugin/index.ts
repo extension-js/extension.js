@@ -23,7 +23,7 @@ export class TargetWebExtensionPlugin {
   ) {
     const minimumBgScript = path.resolve(
       __dirname,
-      browser === 'firefox'
+      browser === 'firefox' || browser === 'gecko-based'
         ? 'minimum-firefox-file.mjs'
         : 'minimum-chromium-file.mjs'
     )
@@ -31,7 +31,7 @@ export class TargetWebExtensionPlugin {
 
     let manifestBg: Record<string, any> | undefined = manifest.background
 
-    if (browser === 'firefox') {
+    if (browser === 'firefox' || browser === 'gecko-based') {
       manifestBg =
         manifest['gecko:background'] ||
         manifest['firefox:background'] ||

@@ -38,6 +38,7 @@ export class RunFirefoxPlugin {
   public readonly startingUrl?: string
   public readonly autoReload?: boolean
   public readonly stats?: boolean
+  public readonly geckoBinary?: string
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -47,19 +48,13 @@ export class RunFirefoxPlugin {
     this.profile = options.profile
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl
+    this.geckoBinary = options.geckoBinary
   }
 
   private async getFxRunnerCommand() {
-    const npmBin = path.join(process.cwd(), 'node_modules', '.bin', 'fx-runner')
-    // Attempt to use pnpx/npx for global fallback
     const globalNpxPath = isFromPnpx()
-      ? 'pnpm dlx -y fx-runner'
-      : 'npx -y fx-runner'
-
-    // Check if fx-runner is available in local node_modules or global
-    if (fs.existsSync(npmBin)) {
-      return npmBin
-    }
+      ? 'pnpm dlx fx-runner'
+      : 'npm exec fx-runner'
 
     try {
       // Try executing npx -y fx-runner to see if it is available globally
@@ -71,18 +66,37 @@ export class RunFirefoxPlugin {
       })
       return globalNpxPath
     } catch (error) {
-      console.error(messages.browserNotInstalledError('firefox', npmBin))
+      console.error(messages.browserNotInstalledError('firefox', globalNpxPath))
       process.exit(1)
     }
   }
 
-  private async launchFirefox(compiler: Compiler) {
+  private async launchFirefox(
+    compiler: Compiler,
+    browser: DevOptions['browser']
+  ) {
     const fxRunnerCmd = await this.getFxRunnerCommand()
-    const firefoxLaunchPath = `${fxRunnerCmd} start --binary "${firefoxLocation}" --foreground --no-remote`
 
-    if (!fs.existsSync(firefoxLocation || '')) {
+    let browserBinaryLocation: string
+
+    switch (browser) {
+      case 'gecko-based':
+        browserBinaryLocation = path.normalize(this.geckoBinary!)
+        break
+
+      default:
+        browserBinaryLocation = firefoxLocation!
+        break
+    }
+
+    const firefoxLaunchPath = `${fxRunnerCmd} start --binary "${browserBinaryLocation}" --foreground --no-remote`
+
+    if (!fs.existsSync(browserBinaryLocation || '')) {
       console.error(
-        messages.browserNotInstalledError(this.browser, firefoxLocation || '')
+        messages.browserNotInstalledError(
+          this.browser,
+          browserBinaryLocation || ''
+        )
       )
       process.exit(1)
     }
@@ -147,7 +161,7 @@ export class RunFirefoxPlugin {
           )
         }, 2000)
 
-        await this.launchFirefox(compiler)
+        await this.launchFirefox(compiler, this.browser)
 
         firefoxDidLaunch = true
         done()

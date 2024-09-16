@@ -18,6 +18,8 @@ import {DevOptions} from './dev'
 export interface PreviewOptions {
   browser: DevOptions['browser']
   userDataDir?: string
+  chromiumBinary?: string
+  geckoBinary?: string
 }
 
 export async function extensionPreview(

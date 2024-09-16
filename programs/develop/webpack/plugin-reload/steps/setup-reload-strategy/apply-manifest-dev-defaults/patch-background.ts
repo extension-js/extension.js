@@ -5,7 +5,7 @@ export default function patchBackground(
   browser: DevOptions['browser']
 ) {
   if (!manifest.background) {
-    if (browser === 'firefox') {
+    if (browser === 'firefox' || browser === 'gecko-based') {
       return {
         background: {
           ...(manifest.background || {}),
