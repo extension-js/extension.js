@@ -4,7 +4,7 @@ import chatgptLogo from '../images/chatgpt.png'
 import extensionJsLogo from '../images/extension_128.png'
 
 const openai = new OpenAI({
-  apiKey: process.env.EXTENSION_OPENAI_API_KEY!,
+  apiKey: process.env.EXTENSION_PUBLIC_OPENAI_API_KEY!,
   dangerouslyAllowBrowser: true
 })
 
@@ -19,7 +19,7 @@ function ActionApp() {
       content:
         'Hello there! This is your ChatGPT extension sample, ' +
         'built with React, Tailwind.css, and DaisyUI. ' +
-        'For it to work, create a .env file with your EXTENSION_OPENAI_API_KEY. ' +
+        'For it to work, create a .env file with your EXTENSION_PUBLIC_OPENAI_API_KEY. ' +
         "You can get an API key from OpenAI's website",
       role: 'assistant'
     },

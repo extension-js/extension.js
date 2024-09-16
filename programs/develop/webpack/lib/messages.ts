@@ -23,12 +23,12 @@ function getLoggingPrefix(feature: string, type: PrefixType): string {
     return `${bold(red('ERROR'))} in ${feature} ${red('✖︎✖︎✖︎')}`
   }
 
-  const arrow =
-    type === 'warn'
-      ? brightYellow('►►►')
-      : type === 'info'
-        ? cyan('►►►')
-        : brightGreen('►►►')
+  // For warns we invert the order
+  if (type === 'warn') {
+    return `${feature} ${brightYellow('✖︎✖︎✖︎')}`
+  }
+
+  const arrow = type === 'info' ? cyan('►►►') : brightGreen('►►►')
 
   return `${arrow} ${feature}`
 }
@@ -75,8 +75,8 @@ export function envFileLoaded(_manifestName: string) {
   )
 }
 
-export function isUsingIntegration(_manifestName: string, integration: any) {
-  return `${getLoggingPrefix(integration, 'info')}-based extension...`
+export function isUsingIntegration(manifestName: string, integration: any) {
+  return `${getLoggingPrefix(manifestName, 'info')} is an ${integration}-based extension...`
 }
 
 export function youAreAllSet(_manifestName: string, integration: string) {
@@ -350,8 +350,9 @@ export function entryNotFoundWarn(
   manifestField: string,
   filePath: string
 ) {
+  // No need for prefix since webpack already logs the error
   return (
-    `${getLoggingPrefix('manifest.json', 'error')} File Not Found\n\n` +
+    `File Not Found\n\n` +
     `Check the ${brightYellow(
       manifestField
     )} field in your manifest.json file.\n` +
@@ -617,7 +618,7 @@ export function staticAssetError(
 ) {
   const extname = path.extname(missingFilePath)
   return (
-    `${getLoggingPrefix('HTML', 'error')} File Not Found\n\n` +
+    `${getLoggingPrefix('HTML', 'warn')} File Not Found\n\n` +
     `Check your ${brightYellow('*' + extname)} assets in ${underline(
       errorSourcePath
     )}.\n` +
@@ -626,7 +627,6 @@ export function staticAssetError(
 }
 
 // `This is your first run using Extension.js. Welcome! 🎉\n\n` +
-
 export function certRequired() {
   return (
     `${brightYellow(
