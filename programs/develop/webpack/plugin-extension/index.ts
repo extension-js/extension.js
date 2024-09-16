@@ -34,12 +34,10 @@ export class ExtensionPlugin {
 
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
-  public readonly mode: DevOptions['mode']
 
-  constructor(options: PluginInterface & {mode: DevOptions['mode']}) {
+  constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-    this.mode = options.mode
   }
 
   public apply(compiler: Compiler): void {
@@ -61,7 +59,7 @@ export class ExtensionPlugin {
             isUsingPreact(path.dirname(this.manifestPath)) ||
             isUsingVue(path.dirname(this.manifestPath)),
           typescript: isUsingTypeScript(path.dirname(this.manifestPath)),
-          minify: this.mode === 'production'
+          minify: compiler.options.mode === 'production'
         }
       }).apply(compiler)
 

@@ -53,7 +53,8 @@ export function stdoutData(
   browser: DevOptions['browser'],
   mode: DevOptions['mode']
 ) {
-  const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
+  const extensionOutput =
+    browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'
   return (
     `${getLoggingPrefix(browser, 'success')} ` +
     `${capitalizedBrowserName(browser)} ${extensionOutput} ` +

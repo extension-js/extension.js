@@ -15,7 +15,7 @@ import * as messages from './commands-lib/messages'
 import {installDependencies} from './commands-lib/install-dependencies'
 
 export interface DevOptions {
-  browser: 'chrome' | 'edge' | 'firefox'
+  browser: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
   mode: 'development' | 'production' | 'none' | undefined
   port?: number
   noOpen?: boolean
@@ -25,6 +25,8 @@ export interface DevOptions {
   browserFlags?: string[]
   startingUrl?: string
   polyfill?: boolean
+  chromiumBinary?: string
+  geckoBinary?: string
 }
 
 export async function extensionDev(

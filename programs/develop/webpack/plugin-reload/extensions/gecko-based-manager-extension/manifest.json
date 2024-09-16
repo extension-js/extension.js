@@ -1,0 +1,16 @@
+{
+  "name": "Extension Manager",
+  "description": "Extension.js developer tools for tabs and reload management.",
+  "version": "1.0",
+  "manifest_version": 2,
+  "background": {
+    "scripts": ["background.js"],
+    "type": "module"
+  },
+  "icons": {
+    "16": "./public/logo.png",
+    "48": "./public/logo.png",
+    "128": "./public/logo.png"
+  },
+  "permissions": ["management", "tabs", "storage"]
+}

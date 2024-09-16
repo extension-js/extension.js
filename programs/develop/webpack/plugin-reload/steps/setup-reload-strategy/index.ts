@@ -19,11 +19,14 @@ class SetupReloadStrategy {
   public apply(compiler: webpack.Compiler) {
     // 1 - Ensure the background scripts (and service_worker) can
     // receive messages from the extension reload plugin.
-    if (CHROMIUM_BASED_BROWSERS.includes(this.browser)) {
+    if (
+      CHROMIUM_BASED_BROWSERS.includes(this.browser) ||
+      this.browser === 'chromium-based'
+    ) {
       SetupChromiumReloadClient(compiler, this.browser, this.manifestPath)
     }
 
-    if (this.browser === 'firefox') {
+    if (this.browser === 'firefox' || this.browser === 'gecko-based') {
       SetupFirefoxReloadClient(compiler, this.browser, this.manifestPath)
     }
 
