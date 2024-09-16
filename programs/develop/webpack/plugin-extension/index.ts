@@ -47,22 +47,23 @@ export class ExtensionPlugin {
     const manifestFieldsData = getManifestFieldsData({manifestPath})
     const specialFoldersData = getSpecialFoldersData({manifestPath})
 
-    new ResolvePlugin({
-      manifestPath,
-      includeList: {
-        ...(specialFoldersData?.pages || {}),
-        ...(specialFoldersData?.scripts || {})
-      },
-      excludeList: specialFoldersData.public,
-      loaderOptions: {
-        jsx:
-          isUsingReact(path.dirname(this.manifestPath)) ||
-          isUsingPreact(path.dirname(this.manifestPath)) ||
-          isUsingVue(path.dirname(this.manifestPath)),
-        typescript: isUsingTypeScript(path.dirname(this.manifestPath)),
-        minify: this.mode === 'production'
-      }
-    }).apply(compiler)
+    process.env.EXTENSION_ENV === 'development' &&
+      new ResolvePlugin({
+        manifestPath,
+        includeList: {
+          ...(specialFoldersData?.pages || {}),
+          ...(specialFoldersData?.scripts || {})
+        },
+        excludeList: specialFoldersData.public,
+        loaderOptions: {
+          jsx:
+            isUsingReact(path.dirname(this.manifestPath)) ||
+            isUsingPreact(path.dirname(this.manifestPath)) ||
+            isUsingVue(path.dirname(this.manifestPath)),
+          typescript: isUsingTypeScript(path.dirname(this.manifestPath)),
+          minify: this.mode === 'production'
+        }
+      }).apply(compiler)
 
     // Generate a manifest file with all the assets we need
     new ManifestPlugin({

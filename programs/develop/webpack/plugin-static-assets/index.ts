@@ -1,16 +1,13 @@
 import {type Compiler, type RuleSetRule} from 'webpack'
 import {PluginInterface} from '../webpack-types'
-import {type DevOptions} from '../../commands/dev'
 
 export class StaticAssetsPlugin {
   public static readonly name: string = 'plugin-css'
 
   public readonly manifestPath: string
-  public readonly mode: DevOptions['mode']
 
-  constructor(options: PluginInterface & {mode: DevOptions['mode']}) {
+  constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.mode = options.mode
   }
 
   public async apply(compiler: Compiler) {

@@ -1,10 +1,10 @@
-function getManifest() {
+function getRuntimeManifest() {
   return chrome.runtime.getManifest()
 }
-const manifest = getManifest()
+const manifestData = getRuntimeManifest()
 
 console.table({
-  name: manifest.name,
-  version: manifest.version,
-  description: manifest.description
+  name: manifestData.name,
+  version: manifestData.version,
+  description: manifestData.description
 })

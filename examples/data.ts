@@ -206,7 +206,25 @@ const TS_TEMPLATES: Template[] = [
     configFiles: ['tsconfig.json']
   },
   {
+    name: 'content-env',
+    uiContext: ['content'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json']
+  },
+  {
     name: 'new-typescript',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json']
+  },
+  {
+    name: 'new-env',
     uiContext: ['newTab'],
     uiFramework: undefined,
     css: 'css',

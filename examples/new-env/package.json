@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "name": "new-env",
+  "description": "$EXTENSION_PUBLIC_DESCRIPTION_TEXT",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "license": "MIT"
+}

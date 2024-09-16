@@ -45,6 +45,7 @@
     "content-security-policy-parser": "^0.6.0",
     "css-loader": "^6.10.0",
     "csv-loader": "^3.0.5",
+    "dotenv": "^16.4.5",
     "dotenv-webpack": "^8.0.1",
     "edge-location": "^1.0.0",
     "firefox-profile": "^4.6.0",

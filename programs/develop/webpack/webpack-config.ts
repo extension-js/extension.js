@@ -84,19 +84,17 @@ export default function webpackConfig(
     },
     plugins: [
       new CompilationPlugin({
-        manifestPath
+        manifestPath,
+        browser: devOptions.browser
       }),
       new StaticAssetsPlugin({
-        manifestPath,
-        mode: devOptions.mode
+        manifestPath
       }),
       new CssPlugin({
-        manifestPath,
-        mode: devOptions.mode
+        manifestPath
       }),
       new JsFrameworksPlugin({
-        manifestPath,
-        mode: devOptions.mode
+        manifestPath
       }),
       process.env.EXTENSION_ENV === 'development' &&
         new ErrorsPlugin({
