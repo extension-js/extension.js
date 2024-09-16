@@ -13,4 +13,6 @@ export interface PluginOptions {
   startingUrl?: string
   browserConsole?: boolean
   devtools?: boolean
+  chromiumBinary?: string
+  geckoBinary?: string
 }

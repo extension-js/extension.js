@@ -38,7 +38,8 @@ export function manifestNotFoundError(manifestPath: string) {
 }
 
 export function building(browser: DevOptions['browser']): string {
-  const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
+  const extensionOutput =
+    browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'
 
   return (
     `${getLoggingPrefix('info')} Building ${capitalizedBrowserName(browser)} ` +
@@ -83,7 +84,8 @@ export function ready(
   browser: DevOptions['browser']
 ) {
   const modeColor = mode === 'production' ? brightBlue : brightBlue
-  const extensionOutput = browser === 'firefox' ? 'Add-on' : 'Extension'
+  const extensionOutput =
+    browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'
 
   return (
     `${getLoggingPrefix('success')} ` +
