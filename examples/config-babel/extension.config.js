@@ -1,4 +1,4 @@
-/** @type {import('extension-develop').FileConfig} */
+/** @type {import('extension').FileConfig} */
 module.exports = {
   config: (config) => {
     config.module.rules.push(

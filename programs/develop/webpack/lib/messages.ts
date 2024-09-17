@@ -30,7 +30,7 @@ function getLoggingPrefix(feature: string, type: PrefixType): string {
 
   const arrow = type === 'info' ? cyan('►►►') : brightGreen('►►►')
 
-  return `${arrow} ${feature}`
+  return `${arrow} ${cyan(feature)}`
 }
 
 export function capitalizedBrowserName(browser: DevOptions['browser']) {

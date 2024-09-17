@@ -71,15 +71,12 @@ export class RunFirefoxPlugin {
     }
   }
 
-  private async launchFirefox(
-    compiler: Compiler,
-    browser: DevOptions['browser']
-  ) {
+  private async launchFirefox(compiler: Compiler, options: DevOptions) {
     const fxRunnerCmd = await this.getFxRunnerCommand()
 
     let browserBinaryLocation: string
 
-    switch (browser) {
+    switch (options.browser) {
       case 'gecko-based':
         browserBinaryLocation = path.normalize(this.geckoBinary!)
         break
@@ -101,7 +98,7 @@ export class RunFirefoxPlugin {
       process.exit(1)
     }
 
-    const firefoxConfig = await browserConfig(compiler, this)
+    const firefoxConfig = await browserConfig(compiler, options)
     const cmd = `${firefoxLaunchPath} ${firefoxConfig}`
 
     child = exec(cmd, (error, _stdout, stderr) => {
@@ -161,7 +158,15 @@ export class RunFirefoxPlugin {
           )
         }, 2000)
 
-        await this.launchFirefox(compiler, this.browser)
+        await this.launchFirefox(compiler, {
+          browser: this.browser,
+          browserFlags: this.browserFlags,
+          userDataDir: this.userDataDir,
+          profile: this.profile,
+          preferences: this.preferences,
+          startingUrl: this.startingUrl,
+          mode: compilation.compilation.options.mode
+        })
 
         firefoxDidLaunch = true
         done()

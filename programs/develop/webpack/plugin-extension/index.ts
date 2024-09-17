@@ -45,7 +45,7 @@ export class ExtensionPlugin {
     const manifestFieldsData = getManifestFieldsData({manifestPath})
     const specialFoldersData = getSpecialFoldersData({manifestPath})
 
-    process.env.EXTENSION_ENV === 'development' &&
+    process.env.EXPERIMENTAL_EXTENSION_RESOLVER_PLUGIN &&
       new ResolvePlugin({
         manifestPath,
         includeList: {
