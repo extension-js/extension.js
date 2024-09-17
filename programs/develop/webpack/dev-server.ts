@@ -12,7 +12,10 @@ import {merge} from 'webpack-merge'
 import webpackConfig from './webpack-config'
 import type {DevOptions} from '../commands/dev'
 import * as utils from './lib/utils'
-import {loadExtensionConfig} from '../commands/commands-lib/get-extension-config'
+import {
+  loadCommandConfig,
+  loadExtensionConfig
+} from '../commands/commands-lib/get-extension-config'
 
 function closeAll(devServer: WebpackDevServer) {
   devServer
@@ -29,8 +32,10 @@ export async function devServer(
   projectPath: string,
   {...devOptions}: DevOptions
 ) {
+  const commandConfig = loadCommandConfig(projectPath, 'dev')
   const baseConfig = webpackConfig(projectPath, {
     ...devOptions,
+    ...commandConfig,
     mode: 'development'
   })
   const userExtensionConfig = loadExtensionConfig(projectPath)

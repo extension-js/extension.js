@@ -102,7 +102,7 @@ export default function webpackConfig(
       new JsFrameworksPlugin({
         manifestPath
       }),
-      process.env.EXTENSION_ENV === 'development' &&
+      process.env.EXPERIMENTAL_ERRORS_PLUGIN &&
         new ErrorsPlugin({
           manifestPath,
           browser

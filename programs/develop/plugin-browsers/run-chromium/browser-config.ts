@@ -9,7 +9,7 @@ export function browserConfig(configOptions: PluginInterface) {
   const userProfilePath = createProfile(
     configOptions.browser,
     configOptions.profile,
-    false
+    configOptions.preferences
   )
 
   // Flags set by default:

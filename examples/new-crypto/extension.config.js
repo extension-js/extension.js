@@ -1,6 +1,6 @@
 const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
 
-/** @type {import('extension-develop').FileConfig} */
+/** @type {import('extension').FileConfig} */
 module.exports = {
   config: (config) => {
     config.plugins = [
