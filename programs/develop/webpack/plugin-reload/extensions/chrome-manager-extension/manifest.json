@@ -9,9 +9,9 @@
     "type": "module"
   },
   "icons": {
-    "16": "./public/logo.png",
-    "48": "./public/logo.png",
-    "128": "./public/logo.png"
+    "16": "/logo.png",
+    "48": "/logo.png",
+    "128": "/logo.png"
   },
   "permissions": ["management", "tabs", "storage"]
 }

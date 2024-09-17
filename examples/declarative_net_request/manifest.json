@@ -19,7 +19,7 @@
       {
         "id": "public_rule_1",
         "enabled": true,
-        "path": "public/public_ruleset.json"
+        "path": "/public_ruleset.json"
       }
     ]
   },

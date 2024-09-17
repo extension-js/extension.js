@@ -1,4 +1,4 @@
-import dotenvLogo from '../public/logo.png'
+import dotenvLogo from '/logo.png'
 import './styles.css'
 
 console.log(
