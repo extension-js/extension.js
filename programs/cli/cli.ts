@@ -17,14 +17,15 @@ import {
   extensionBuild,
   type BuildOptions,
   // extensionPreview,
-  type FileConfig
+  type FileConfig,
+  type Manifest
 } from 'extension-develop'
 import * as messages from './cli-lib/messages'
 import type {BrowsersSupported} from './types'
 import checkUpdates from './check-updates'
 import packageJson from './package.json'
 
-export {type FileConfig}
+export {type FileConfig, type Manifest}
 
 // Before all, check for updates.
 checkUpdates(packageJson)
