@@ -21,13 +21,18 @@ export class EmitManifest {
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
-            // Read and parse the JSON file
             const manifestPath = this.manifestPath
-            let jsonContent: object
+            let jsonContent: Record<string, any>
 
             try {
+              // Read and parse the manifest file
               const content = fs.readFileSync(manifestPath, 'utf-8')
               jsonContent = JSON.parse(content)
+
+              // Remove the $schema field if it exists
+              if ('$schema' in jsonContent) {
+                delete jsonContent['$schema']
+              }
             } catch (error: any) {
               const manifest = require(this.manifestPath)
               const manifestName = manifest.name || 'Extension.js'
@@ -39,10 +44,10 @@ export class EmitManifest {
               return
             }
 
-            // Stringify the JSON content
+            // Stringify the JSON without $schema
             const jsonString = JSON.stringify(jsonContent, null, 2)
 
-            // Emit the JSON file
+            // Emit the modified JSON file
             const outputFilename = 'manifest.json'
             compilation.emitAsset(
               outputFilename,
