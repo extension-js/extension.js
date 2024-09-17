@@ -5,6 +5,7 @@ import {type PluginInterface} from './browsers-types'
 import {RunChromiumPlugin} from './run-chromium'
 import {RunFirefoxPlugin} from './run-firefox'
 import {DevOptions} from '../commands/dev'
+import {loadBrowserConfig} from '../commands/commands-lib/get-extension-config'
 
 /**
  * BrowsersPlugin works by finding the binary for the browser specified in the
@@ -84,27 +85,32 @@ export class BrowsersPlugin {
         this.browser,
         this.userDataDir || this.profile
       ),
+      startingUrl: this.startingUrl,
       chromiumBinary: this.chromiumBinary,
       geckoBinary: this.geckoBinary
     }
 
-    console.log('browser', this.browser)
+    const browserConfig = {
+      ...config,
+      ...loadBrowserConfig(compiler.context, this.browser)
+    }
+
     switch (this.browser) {
       case 'chrome':
       case 'edge':
       case 'chromium-based': {
-        new RunChromiumPlugin(config).apply(compiler)
+        new RunChromiumPlugin(browserConfig).apply(compiler)
         break
       }
 
       case 'firefox':
       case 'gecko-based':
-        new RunFirefoxPlugin(config).apply(compiler)
+        new RunFirefoxPlugin(browserConfig).apply(compiler)
         break
 
       default: {
         new RunChromiumPlugin({
-          ...config,
+          ...browserConfig,
           browser: 'chrome'
         }).apply(compiler)
         break
