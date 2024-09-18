@@ -16,10 +16,9 @@ export class WebpackCommonErrorsPlugin {
   }
 
   apply(compiler: webpack.Compiler) {
-    const packageJsonPath = path.join(
-      path.dirname(this.manifestPath),
-      'package.json'
-    )
+    // process.cwd() because the package.json is in the root of the project
+    // but the manifest.json can be anywhere in the project.
+    const packageJsonPath = path.join(process.cwd(), 'package.json')
 
     if (!fs.existsSync(packageJsonPath)) {
       return

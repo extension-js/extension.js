@@ -198,8 +198,10 @@ export async function installOptionalDependencies(
   }
 }
 
-export function isUsingJSFramework(projectPath: string): boolean {
-  const packageJsonPath = path.join(projectPath, 'package.json')
+export function isUsingJSFramework(_projectPath: string): boolean {
+  // process.cwd() because the package.json is in the root of the project
+  // but the manifest.json can be anywhere in the project.
+  const packageJsonPath = path.join(process.cwd(), 'package.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false

@@ -8,7 +8,9 @@ import {DevOptions} from '../../../commands/dev'
 let userMessageDelivered = false
 
 export function isUsingSass(projectPath: string): boolean {
-  const packageJsonPath = path.join(projectPath, 'package.json')
+  // process.cwd() because the package.json is in the root of the project
+  // but the manifest.json can be anywhere in the project.
+  const packageJsonPath = path.join(process.cwd(), 'package.json')
   const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {

@@ -32,6 +32,8 @@ export async function overridePackageJson(
 ) {
   const templatePath = utils.getTemplatePath(process.cwd())
 
+  // packageJsonPath across the app refers to the cwd package.json,
+  // but in this case we want to read the package.json from the template.
   const packageJsonPath = utils.isExternalTemplate(template)
     ? path.join(projectPath, 'package.json')
     : path.join(templatePath, 'package.json')

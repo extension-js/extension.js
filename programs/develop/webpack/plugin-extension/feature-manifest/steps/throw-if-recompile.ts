@@ -1,3 +1,4 @@
+import path from 'path'
 import fs from 'fs'
 import webpack, {Compilation} from 'webpack'
 import * as messages from '../../../lib/messages'
@@ -29,7 +30,9 @@ export class ThrowIfRecompileIsNeeded {
         const files = compiler.modifiedFiles || new Set<string>()
         if (files.has(this.manifestPath)) {
           const context = compiler.options.context || ''
-          const packageJsonPath = `${context}/package.json`
+          // process.cwd() because the package.json is in the root of the project
+          // but the manifest.json can be anywhere in the project.
+          const packageJsonPath = path.join(process.cwd(), 'package.json')
 
           if (!fs.existsSync(packageJsonPath)) {
             done()

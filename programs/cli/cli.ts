@@ -23,12 +23,12 @@ import {
 import * as messages from './cli-lib/messages'
 import type {BrowsersSupported} from './types'
 import checkUpdates from './check-updates'
-import packageJson from './package.json'
+import ownPackageJson from './package.json'
 
 export {type FileConfig, type Manifest}
 
 // Before all, check for updates.
-checkUpdates(packageJson)
+checkUpdates(ownPackageJson)
 
 const extensionJs = program
 
@@ -40,9 +40,9 @@ const extensionJs = program
 // ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝ ╚════╝ ╚══════╝
 
 extensionJs
-  .name(packageJson.name)
-  .description(packageJson.description)
-  .version(packageJson.version)
+  .name(ownPackageJson.name)
+  .description(ownPackageJson.description)
+  .version(ownPackageJson.version)
   .addHelpText('after', messages.programHelp())
 
 //  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
