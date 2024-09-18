@@ -33,7 +33,9 @@ export class EnvPlugin {
     // Find the first valid .env file that exists
     let envPath = ''
     for (const file of envFiles) {
-      const filePath = path.join(projectPath, file)
+      // process.cwd() because the package.json is in the root of the project
+      // and the .env file needs to be in the root of the project.
+      const filePath = path.join(process.cwd(), file)
       if (fs.existsSync(filePath)) {
         envPath = filePath
         break
@@ -71,7 +73,7 @@ export class EnvPlugin {
 
     // Apply DefinePlugin to expose filtered variables to the final bundle
     new DefinePlugin(filteredEnvVars).apply(compiler)
-
+console.log('reached1')
     // Process all .json and .html files in the output directory
     compiler.hooks.thisCompilation.tap(
       'manifest:update-manifest',
@@ -83,7 +85,7 @@ export class EnvPlugin {
           },
           (assets) => {
             const files = Object.keys(assets)
-
+console.log('reached2')
             files.forEach((filename) => {
               if (filename.endsWith('.json') || filename.endsWith('.html')) {
                 let fileContent = compilation.assets[filename]
@@ -100,6 +102,8 @@ export class EnvPlugin {
                     return value
                   }
                 )
+
+                console.log({fileContent})
 
                 compilation.updateAsset(
                   filename,
