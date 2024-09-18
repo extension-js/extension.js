@@ -73,7 +73,7 @@ export class EnvPlugin {
 
     // Apply DefinePlugin to expose filtered variables to the final bundle
     new DefinePlugin(filteredEnvVars).apply(compiler)
-console.log('reached1')
+
     // Process all .json and .html files in the output directory
     compiler.hooks.thisCompilation.tap(
       'manifest:update-manifest',
@@ -85,7 +85,7 @@ console.log('reached1')
           },
           (assets) => {
             const files = Object.keys(assets)
-console.log('reached2')
+
             files.forEach((filename) => {
               if (filename.endsWith('.json') || filename.endsWith('.html')) {
                 let fileContent = compilation.assets[filename]
@@ -98,12 +98,9 @@ console.log('reached2')
                   (match) => {
                     const envVarName = match.slice(1) // Remove the '$'
                     const value = combinedVars[envVarName] || match
-                    console.log(`Replacing ${match} with ${value}`)
                     return value
                   }
                 )
-
-                console.log({fileContent})
 
                 compilation.updateAsset(
                   filename,
