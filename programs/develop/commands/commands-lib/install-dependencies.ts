@@ -32,8 +32,8 @@ function getInstallArgs() {
   return ['install' /*, '--silent' */]
 }
 
-export async function installDependencies(projectPath: string) {
-  const nodeModulesPath = path.join(projectPath, 'node_modules')
+export async function installDependencies(_projectPath: string) {
+  const nodeModulesPath = path.join(process.cwd(), 'node_modules')
 
   const command = await getInstallCommand()
   const dependenciesArgs = getInstallArgs()
@@ -42,7 +42,7 @@ export async function installDependencies(projectPath: string) {
 
   try {
     // Change to the project directory
-    process.chdir(projectPath)
+    process.chdir(process.cwd())
 
     // Create the node_modules directory if it doesn't exist
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})

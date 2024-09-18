@@ -44,7 +44,7 @@ export function isUsingBabel(projectPath: string): boolean {
 
   const isUsingBabel =
     babelConfigFiles.some((file) =>
-      fs.existsSync(path.join(projectPath, file))
+      fs.existsSync(path.join(process.cwd(), file))
     ) ||
     !!babelAsDevDep ||
     !!babelAsDep

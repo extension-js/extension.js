@@ -50,7 +50,7 @@ export async function maybeUseLess(
   try {
     require.resolve('less-loader')
   } catch (e) {
-    const projectName = require(path.join(projectPath, 'package.json')).name
+    const projectName = require(path.join(process.cwd(), 'package.json')).name
 
     const lessDependencies = ['less', 'less-loader', 'resolve-url-loader']
 

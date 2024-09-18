@@ -48,7 +48,7 @@ export function isUsingStylelint(projectPath: string) {
     return false
   }
 
-  const configFile = getStylelintConfigFile(projectPath)
+  const configFile = getStylelintConfigFile(process.cwd())
   const isUsingStylelint = !!configFile
 
   if (isUsingStylelint) {

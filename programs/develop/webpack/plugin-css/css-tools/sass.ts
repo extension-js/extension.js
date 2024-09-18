@@ -56,7 +56,7 @@ export async function maybeUseSass(
       'postcss-preset-env',
       'postcss-normalize'
     ]
-    const projectName = require(path.join(projectPath, 'package.json')).name
+    const projectName = require(path.join(process.cwd(), 'package.json')).name
 
     await installOptionalDependencies(
       projectName,

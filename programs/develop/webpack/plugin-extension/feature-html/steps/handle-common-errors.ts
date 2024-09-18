@@ -79,7 +79,7 @@ export class HandleCommonErrors {
               }
             })
           }
-        )   
+        )
       }
     )
   }

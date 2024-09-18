@@ -50,7 +50,7 @@ export function isUsingPostCss(projectPath: string): boolean {
   }
 
   for (const configFile of postCssConfigFiles) {
-    if (fs.existsSync(path.join(projectPath, configFile))) {
+    if (fs.existsSync(path.join(process.cwd(), configFile))) {
       if (!userMessageDelivered) {
         if (process.env.EXTENSION_ENV === 'development') {
           console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
@@ -88,7 +88,7 @@ export async function maybeUsePostCss(
   try {
     require.resolve('postcss-loader')
   } catch (e) {
-    const projectName = require(path.join(projectPath, 'package.json')).name
+    const projectName = require(path.join(process.cwd(), 'package.json')).name
 
     // SASS and LESS will install PostCSS as a dependency
     // so we don't need to check for it here.

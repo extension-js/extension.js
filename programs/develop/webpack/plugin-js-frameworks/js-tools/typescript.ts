@@ -22,7 +22,7 @@ export function isUsingTypeScript(projectPath: string) {
     return false
   }
 
-  const configFile = getUserTypeScriptConfigFile(projectPath)
+  const configFile = getUserTypeScriptConfigFile(process.cwd())
   const packageJson = require(packageJsonPath)
   const manifest = require(path.join(projectPath, 'manifest.json'))
   const manifestName = manifest.name || 'Extension.js'
@@ -40,7 +40,7 @@ export function isUsingTypeScript(projectPath: string) {
         }
       } else {
         console.log(messages.creatingTSConfig(manifest))
-        writeTsConfig(projectPath)
+        writeTsConfig(process.cwd())
       }
     }
 
@@ -63,8 +63,6 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
       // Issue an error if a program tries to include a file by a casing
       // different from the casing on disk.
       forceConsistentCasingInFileNames: true,
-      // Report errors on unused local variables.
-      // inlineSources: false,
       // Controls how JSX constructs are emitted in JavaScript files.
       // This only affects output of JS files that started in .tsx files.
       jsx: isUsingJSFramework(projectPath) ? 'react-jsx' : 'preserve',
@@ -75,10 +73,7 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
       moduleResolution: 'node',
       // Use ES modules, which are the standard in modern browsers
       module: 'esnext',
-      // Report errors on unused local variables.
-      // noUnusedLocals: false,
-      // Report errors on unused parameters in functions.
-      // noUnusedParameters: false,
+      noEmit: true,
       // Allow importing '.json' files
       resolveJsonModule: true,
       // Enable all strict type-checking options
@@ -87,9 +82,10 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
       target: 'esnext',
       // Ensure each file can be safely transpiled without relying
       // on other imports
-      isolatedModules: false,
+      isolatedModules: true,
       skipLibCheck: true
     },
+    include: ['**/*.ts', '**/*.tsx'],
     exclude: ['node_modules', 'dist']
   }
 }

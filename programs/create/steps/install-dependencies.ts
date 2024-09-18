@@ -20,6 +20,8 @@ export async function installDependencies(
   projectPath: string,
   projectName: string
 ) {
+  // In this case the node_modules directory is always created in the
+  // root of projectPath so no need to use cwd.
   const nodeModulesPath = path.join(projectPath, 'node_modules')
 
   const command = await utils.getInstallCommand()

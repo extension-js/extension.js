@@ -22,7 +22,7 @@ export function isUsingTailwind(projectPath: string) {
     return false
   }
 
-  const configFile = getTailwindConfigFile(projectPath)
+  const configFile = getTailwindConfigFile(process.cwd())
   const packageJson = require(packageJsonPath)
 
   const tailwindAsDevDep =
@@ -60,7 +60,7 @@ export function getTailwindConfigFile(projectPath: string) {
 }
 
 export async function maybeUseTailwind(projectPath: string) {
-  const projectName = require(path.join(projectPath, 'package.json')).name
+  const projectName = require(path.join(process.cwd(), 'package.json')).name
 
   if (!isUsingTailwind(projectPath)) return []
   try {
