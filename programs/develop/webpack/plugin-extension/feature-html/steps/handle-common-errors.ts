@@ -39,7 +39,7 @@ function handleCantResolveError(
             resource as string,
             wrongFilename
           )
-          // return new WebpackError(errorMsg)
+          return new WebpackError(errorMsg)
         }
       }
     }
