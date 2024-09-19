@@ -6,6 +6,7 @@ import {type PluginInterface} from '../../../reload-types'
 import {type Manifest} from '../../../../webpack-types'
 import {type DevOptions} from '../../../../../commands/dev'
 import * as messages from '../../../../lib/messages'
+import * as utils from '../../../../lib/utils'
 
 export class TargetWebExtensionPlugin {
   private readonly manifestPath: string
@@ -94,10 +95,7 @@ export class TargetWebExtensionPlugin {
       if (this.manifestPath) {
         const manifest: Manifest = require(this.manifestPath)
         const manifestName = manifest.name || 'Extension.js'
-        const fieldError = messages.backgroundIsRequired(
-          manifestName,
-          filePath
-        )
+        const fieldError = messages.backgroundIsRequired(manifestName, filePath)
         console.error(fieldError)
         throw new Error(fieldError)
       }
@@ -135,11 +133,15 @@ export class TargetWebExtensionPlugin {
     }
 
     const manifest: Manifest = require(this.manifestPath)
+    const patchedManifest = utils.filterKeysForThisBrowser(
+      manifest,
+      this.browser
+    )
 
-    this.handleBackground(compiler, this.browser, manifest)
+    this.handleBackground(compiler, this.browser, patchedManifest)
 
     new WebExtension({
-      background: this.getEntryName(manifest),
+      background: this.getEntryName(patchedManifest),
       weakRuntimeCheck: true
     }).apply(compiler)
   }

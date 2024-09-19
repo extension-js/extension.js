@@ -255,7 +255,7 @@ export function getHardcodedMessage(manifest: Manifest): {
   }
 }
 
-export function removeManifestKeysNotFromCurrentBrowser(
+export function filterKeysForThisBrowser(
   manifest: Manifest,
   browser: DevOptions['browser']
 ) {

@@ -8,9 +8,7 @@ export function firefoxRunningServiceWorkerError(
 ): webpack.WebpackError | null {
   if (browser === 'firefox' || browser === 'gecko-based') {
     if (manifest.background?.service_worker) {
-      return new webpack.WebpackError(
-        messages.firefoxServiceWorkerError()
-      )
+      return new webpack.WebpackError(messages.firefoxServiceWorkerError())
     }
   }
 

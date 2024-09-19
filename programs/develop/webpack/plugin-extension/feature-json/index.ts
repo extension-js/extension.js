@@ -58,13 +58,9 @@ export class JsonPlugin {
                 // and output the file accordingly.
                 if (!utils.shouldExclude(thisResource, this.excludeList)) {
                   if (!fs.existsSync(thisResource)) {
-
                     compilation.warnings.push(
                       new webpack.WebpackError(
-                        messages.entryNotFoundWarn(
-                          feature,
-                          thisResource
-                        )
+                        messages.entryNotFoundWarn(feature, thisResource)
                       )
                     )
                     return

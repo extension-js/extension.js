@@ -1,6 +1,8 @@
 import path from 'path'
 import {type FilepathList, type Manifest} from '../../../../webpack-types'
 import {getManifestEntries} from './get-manifest-entries'
+import * as utils from '../../../../lib/utils'
+import {DevOptions} from '../../../../../commands/dev'
 
 function parseIncludeList(
   manifestPath: string,
@@ -19,15 +21,23 @@ function parseIncludeList(
   return updatedIncludeList
 }
 
-function parseManifestList(manifestPath: string) {
+function parseManifestList(
+  manifestPath: string,
+  browser: DevOptions['browser']
+) {
   const manifest: Manifest = require(manifestPath)
-  const manifestIncludeList = getManifestEntries(manifest)
+  const patchedManifest = utils.filterKeysForThisBrowser(manifest, browser)
+  const manifestIncludeList = getManifestEntries(patchedManifest)
   return manifestIncludeList
 }
 
-export function getFileList(manifestPath: string, includeList?: FilepathList) {
+export function getFileList(
+  manifestPath: string,
+  browser: DevOptions['browser'],
+  includeList?: FilepathList
+) {
   const include = parseIncludeList(manifestPath, includeList)
-  const manifestInclude = parseManifestList(manifestPath)
+  const manifestInclude = parseManifestList(manifestPath, browser)
   const filesList = {...include, ...manifestInclude}
 
   return filesList

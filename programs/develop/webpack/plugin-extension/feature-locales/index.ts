@@ -63,10 +63,7 @@ export class LocalesPlugin {
               if (!fs.existsSync(thisResource)) {
                 compilation.warnings.push(
                   new webpack.WebpackError(
-                    messages.entryNotFoundWarn(
-                      feature,
-                      thisResource
-                    )
+                    messages.entryNotFoundWarn(feature, thisResource)
                   )
                 )
                 return

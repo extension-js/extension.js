@@ -166,10 +166,7 @@ export async function maybeUseTypeScript(
   } catch (e) {
     const typescriptDependencies = ['typescript']
 
-    await installOptionalDependencies(
-      'TypeScript',
-      typescriptDependencies
-    )
+    await installOptionalDependencies('TypeScript', typescriptDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.

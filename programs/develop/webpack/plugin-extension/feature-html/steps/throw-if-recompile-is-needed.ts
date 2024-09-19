@@ -74,9 +74,7 @@ export class ThrowIfRecompileIsNeeded {
             this.hasEntriesChanged(updatedCssEntries, css) ||
             this.hasEntriesChanged(updatedJsEntries, js)
           ) {
-            console.log(
-              messages.serverRestartRequiredFromHtml(changedFile)
-            )
+            console.log(messages.serverRestartRequiredFromHtml(changedFile))
           }
         }
 

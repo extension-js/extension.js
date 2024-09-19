@@ -189,7 +189,7 @@ describe('utils', () => {
     })
   })
 
-  describe('removeManifestKeysNotFromCurrentBrowser', () => {
+  describe('filterKeysForThisBrowser', () => {
     it('should remove keys not from the current browser', () => {
       const manifest: Manifest = {
         name: 'Test Extension',
@@ -198,7 +198,7 @@ describe('utils', () => {
         'firefox:background': {scripts: ['background.js']}
       }
       const browser = 'chrome'
-      const result = utils.removeManifestKeysNotFromCurrentBrowser(
+      const result = utils.filterKeysForThisBrowser(
         manifest,
         browser
       )

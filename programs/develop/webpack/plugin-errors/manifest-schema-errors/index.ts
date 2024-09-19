@@ -5,10 +5,10 @@ import v3Schema from './lib/manifest.schema.v3.json'
 import {addCustomFormats} from './lib/custom-validators'
 import {requiredFieldErrors} from './required-field-errors'
 import {invalidFieldTypeErrors} from './invalid-field-type-errors'
-
+import * as utils from '../../lib/utils'
 import handleDeprecatedError from './deprecated-errors'
 import {type PluginInterface, type Manifest} from '../../webpack-types'
-import {DevOptions} from '../../../module'
+import {DevOptions} from '../../../commands/dev'
 
 export class ManifestSchemaErrorsPlugin {
   private readonly options: PluginInterface
@@ -30,8 +30,9 @@ export class ManifestSchemaErrorsPlugin {
     }
 
     const validate = ajv.compile(combinedSchema)
-    const valid = validate(manifest)
-    const isManifestV3 = manifest.manifest_version === 3
+    const patchedManifest = utils.filterKeysForThisBrowser(manifest, browser)
+    const valid = validate(patchedManifest)
+    const isManifestV3 = patchedManifest.manifest_version === 3
 
     if (!valid) {
       if (validate.errors) {

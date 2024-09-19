@@ -35,9 +35,7 @@ export class EmitManifest {
               }
             } catch (error: any) {
               compilation.errors.push(
-                new webpack.WebpackError(
-                  messages.manifestInvalidError(error)
-                )
+                new webpack.WebpackError(messages.manifestInvalidError(error))
               )
               return
             }
