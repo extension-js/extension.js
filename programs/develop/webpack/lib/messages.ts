@@ -8,12 +8,14 @@ import {
   cyan,
   bold,
   gray,
-  brightYellow
+  brightYellow,
+  magenta
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
 import {Stats} from 'webpack'
+import {info} from 'console'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 
@@ -33,7 +35,7 @@ function getLoggingPrefix(feature: string, type: PrefixType): string {
   return `${arrow} ${cyan(feature)}`
 }
 
-export function capitalizedBrowserName(browser: DevOptions['browser']) {
+export function capitalize(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
@@ -62,21 +64,18 @@ export function integrationNotInstalled(
   packageManager: string
 ) {
   return (
-    `${getLoggingPrefix(integration, 'info')} is using ${integration}. ` +
+    `${info('►►►')} Using ${magenta(integration)}. ` +
     `Installing required dependencies via ` +
     `${brightYellow(packageManager)}...`
   )
 }
 
 export function envFileLoaded(_manifestName: string) {
-  return (
-    `${getLoggingPrefix('env', 'success')} file loaded ` +
-    `${brightGreen('successfully')}.`
-  )
+  return `${cyan('►►►')} ${magenta('.env')} file loaded ${brightGreen('successfully')}.`
 }
 
-export function isUsingIntegration(manifestName: string, integration: any) {
-  return `${getLoggingPrefix(manifestName, 'info')} is an ${integration}-based extension...`
+export function isUsingIntegration(_manifestName: string, integration: any) {
+  return `${cyan('►►►')} Using ${magenta(integration)}...`
 }
 
 export function youAreAllSet(_manifestName: string, integration: string) {
@@ -395,10 +394,9 @@ export function serverRestartRequiredFromManifestError(
   return (
     `${getLoggingPrefix('manifest.json', 'error')} ` +
     `Manifest Entry Point Modification\n\n` +
-    `Changing the path of ${brightYellow('<script>')} or ${brightYellow(
-      '<link rel="stylesheet">'
-    )} ` +
-    `files after compilation requires a server restart.\n` +
+    `Changing the path of ${brightYellow('HTML')} or ` +
+    `${brightYellow('script')} files in manifest.json ` +
+    `after compilation requires a server restart.\n` +
     fileRemovedText +
     fileAddedText
   )
@@ -511,7 +509,7 @@ export function runningInDevelopment(
       `This error happens when the program can\'t get the data from your extension.\n` +
       `There are many reasons this might happen. To fix, ensure that:\n\n` +
       `- Your extension is set as enabled in ${underline(browserDevToolsUrl)}\n` +
-      `- No previous ${capitalizedBrowserName(browser)} browser instance is open\n\n` +
+      `- No previous ${capitalize(browser)} browser instance is open\n\n` +
       `If that is not the case, restart both the ${cyan(manifest.name || '')} and the\n` +
       `${brightYellow('Manager Extension')} in ${underline(browserDevToolsUrl)} and try again.\n\n` +
       `If the issue still persists, please report a bug:\n\n` +
@@ -545,7 +543,7 @@ ${`    Extension ID          `} ${gray(id)}`
 export function isFirstRun(browser: DevOptions['browser']) {
   return (
     `This is your first run using Extension.js via ` +
-    `${capitalizedBrowserName(browser)}. Welcome! 🎉\n` +
+    `${capitalize(browser)}. Welcome! 🎉\n` +
     `\n🧩 Learn more at ${underline(`https://extension.js.org`)}`
   )
 }
