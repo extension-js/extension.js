@@ -10,7 +10,7 @@ describe('CSP Patching Functions', () => {
       const manifest: Manifest = {}
       const result = patchV2CSP(manifest)
       expect(result).toBe(
-        "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:;"
+        "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
       )
     })
 
@@ -20,7 +20,7 @@ describe('CSP Patching Functions', () => {
       }
       const result = patchV2CSP(manifest)
       expect(result).toBe(
-        "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:;"
+        "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
       )
     })
 
@@ -30,18 +30,18 @@ describe('CSP Patching Functions', () => {
       }
       const result = patchV2CSP(manifest)
       expect(result).toBe(
-        "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:;"
+        "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
       )
     })
 
     it('should not duplicate existing directives', () => {
       const manifest: Manifest = {
         content_security_policy:
-          "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:;"
+          "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
       }
       const result = patchV2CSP(manifest)
       expect(result).toBe(
-        "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:;"
+        "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
       )
     })
   })
