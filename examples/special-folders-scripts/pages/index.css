@@ -59,14 +59,6 @@ a {
   color: #e5e7eb;
 }
 
-a:visited {
-  color: #e6e6e6;
-}
-
-a:hover {
-  border: none;
-  color: #c9c9c9;
-}
 
 img {
   height: auto;

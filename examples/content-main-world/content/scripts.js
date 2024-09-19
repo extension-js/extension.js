@@ -2,7 +2,7 @@ import './styles.css'
 
 document.body.innerHTML += `
 <div class="content_script-box">
-  <img class="content_script-logo" src="${chrome.runtime.getURL('/logo.png')}" />
+  <img class="content_script-logo" src="${chrome.runtime.getURL('/logo.svg')}" />
   <h1 class="content_script-title">
     Main World
   </h1>
