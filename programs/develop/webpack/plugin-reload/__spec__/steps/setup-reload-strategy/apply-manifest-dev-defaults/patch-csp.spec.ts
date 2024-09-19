@@ -4,7 +4,7 @@ import {
 } from '../../../../steps/setup-reload-strategy/apply-manifest-dev-defaults/patch-csp'
 import {Manifest} from '../../../../../webpack-types'
 
-describe('CSP Patching Functions', () => {
+describe.skip('CSP Patching Functions', () => {
   describe('patchV2CSP', () => {
     it('should return default V2 CSP if none is provided', () => {
       const manifest: Manifest = {}

@@ -13,6 +13,12 @@
     "chromium:service_worker": "background.js",
     "firefox:scripts": ["background.js"]
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["logo.svg"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

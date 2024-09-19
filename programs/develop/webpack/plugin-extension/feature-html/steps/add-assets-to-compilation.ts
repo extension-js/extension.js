@@ -49,7 +49,7 @@ export class AddAssetsToCompilation {
                   const fileAssets = [...new Set(staticAssets)]
 
                   for (const asset of fileAssets) {
-                    if (!asset.includes('public/')) {
+                    if (!asset.startsWith('/')) {
                       // Handle missing static assets. This is not covered
                       // by HandleCommonErrorsPlugin because static assets
                       // are not entrypoints.

@@ -1,4 +1,3 @@
-import extensionJsLogo from '../images/extension_128.png'
 import './styles.css'
 import styles from './Logo.module.css'
 
@@ -6,7 +5,7 @@ console.log('hello from content_scripts')
 
 document.body.innerHTML += `
 <div class="content_script-box">
-  <img class=${styles.logo} src=${extensionJsLogo} />
+  <img class=${styles.logo} src="${chrome.runtime.getURL('/logo.svg')}" />
   <h1 class="content_script-title">
     Change the background-color ⬇
   </h1>

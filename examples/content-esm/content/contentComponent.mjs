@@ -1,10 +1,6 @@
-import extensionJsLogo from '../images/extension_128.png'
-
 const contentComponent = `<div class="content_script-box">
   <div class="content_script-header">
-    <img class="content_script-logo" src="/logo.png" />
-    <span>+</span>
-    <img class="content_script-logo" src=${extensionJsLogo} />
+    <img class="content_script-logo" src="${chrome.runtime.getURL('/logo.png')}" />
   </div>
   <h1 class="content_script-title">
     Change the background-color ⬇
