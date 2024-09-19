@@ -9,7 +9,7 @@
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "lint": "eslint ."
+    "lint:all": "eslint ."
   },
   "devDependencies": {
     "@eslint/js": "^9.6.0",
