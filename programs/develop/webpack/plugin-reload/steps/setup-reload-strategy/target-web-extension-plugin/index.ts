@@ -29,18 +29,14 @@ export class TargetWebExtensionPlugin {
         : 'minimum-chromium-file.mjs'
     )
 
-    let manifestBg: Record<string, any> | undefined = manifest.background
+    let manifestBg: Record<string, any> | undefined =
+      utils.filterKeysForThisBrowser(manifest, browser)
 
     if (browser === 'firefox' || browser === 'gecko-based') {
-      manifestBg =
-        manifest['gecko:background'] ||
-        manifest['firefox:background'] ||
-        manifestBg
+      manifestBg = manifest.background
 
       const backgroundScripts =
-        manifestBg?.scripts ||
-        manifestBg?.['gecko:scripts'] ||
-        manifestBg?.['firefox:scripts']
+        manifestBg?.scripts
 
       if (backgroundScripts && backgroundScripts.length > 0) {
         this.ensureFileExists('background.scripts')
@@ -48,21 +44,15 @@ export class TargetWebExtensionPlugin {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     } else {
-      manifestBg =
-        manifest[`chromium:background`] ||
-        manifest[`chrome:background`] ||
-        manifest[`edge:background`] ||
-        manifestBg
+      const dirname = path.dirname(this.manifestPath!)
+      manifestBg = manifest.background
 
       if (manifest.manifest_version === 3) {
-        const serviceWorker =
-          manifestBg?.service_worker ||
-          manifestBg?.['chromium:service_worker'] ||
-          manifestBg?.['chrome:service_worker'] ||
-          manifestBg?.['edge:service_worker']
+        const serviceWorker = manifestBg?.service_worker
 
         if (serviceWorker) {
-          this.ensureFileExists('background.service_worker')
+          const serviceWorkerPath = path.join(dirname, serviceWorker)
+          this.ensureFileExists(serviceWorkerPath)
         } else {
           this.addDefaultEntry(
             compiler,
@@ -71,14 +61,11 @@ export class TargetWebExtensionPlugin {
           )
         }
       } else if (manifest.manifest_version === 2) {
-        const backgroundScripts =
-          manifestBg?.scripts ||
-          manifestBg?.['chromium:scripts'] ||
-          manifestBg?.['chrome:scripts'] ||
-          manifestBg?.['edge:scripts']
+        const backgroundScripts = manifestBg?.scripts
 
         if (backgroundScripts && backgroundScripts.length > 0) {
-          this.ensureFileExists('background.scripts')
+          const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
+          this.ensureFileExists(backgroundScriptPath)
         } else {
           this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
         }
