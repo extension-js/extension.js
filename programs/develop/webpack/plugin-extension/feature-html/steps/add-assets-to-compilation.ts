@@ -77,9 +77,15 @@ export class AddAssetsToCompilation {
                               asset
                             )
 
-                            compilation.warnings.push(
-                              new webpack.WebpackError(errorMessage)
-                            )
+                            if (
+                              // Ensure that the asset is not an absolute path,
+                              // so users can reference the output directory as the root.
+                              !asset.startsWith('/')
+                            ) {
+                              compilation.warnings.push(
+                                new webpack.WebpackError(errorMessage)
+                              )
+                            }
 
                             return
                           }

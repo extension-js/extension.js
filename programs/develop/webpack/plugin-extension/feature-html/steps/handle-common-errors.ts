@@ -23,8 +23,12 @@ function handleCantResolveError(
         if (!fs.existsSync(resource as string)) return null
 
         const htmlAssets = getAssetsFromHtml(resource as string)
-        const jsAssets = htmlAssets?.js || []
-        const cssAssets = htmlAssets?.css || []
+        // Allow users to define absolute paths without errors.
+        const jsAssets =
+          htmlAssets?.js?.filter((asset) => !asset.startsWith('/')) || []
+        // Allow users to define absolute paths without errors.
+        const cssAssets =
+          htmlAssets?.css?.filter((asset) => !asset.startsWith('/')) || []
 
         if (
           jsAssets.includes(wrongFilename) ||
