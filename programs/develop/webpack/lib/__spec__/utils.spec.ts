@@ -198,10 +198,7 @@ describe('utils', () => {
         'firefox:background': {scripts: ['background.js']}
       }
       const browser = 'chrome'
-      const result = utils.filterKeysForThisBrowser(
-        manifest,
-        browser
-      )
+      const result = utils.filterKeysForThisBrowser(manifest, browser)
       expect(result).toEqual({
         name: 'Test Extension',
         version: '1.0',
