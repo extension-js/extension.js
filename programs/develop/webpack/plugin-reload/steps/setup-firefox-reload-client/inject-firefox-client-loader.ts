@@ -86,17 +86,11 @@ export default function (this: InjectBackgroundClientContext, source: string) {
 });`
 
   // Handling for specific browsers
-  const manifestBg =
-    patchedManifest['gecko:background'] ||
-    patchedManifest['firefox:background'] ||
-    patchedManifest.background
+  const manifestBg = patchedManifest.background
 
   // Check for background scripts
   if (manifestBg) {
-    const backgroundScripts =
-      manifestBg?.scripts ||
-      manifestBg?.['gecko:scripts'] ||
-      manifestBg?.['firefox:scripts']
+    const backgroundScripts = manifestBg?.scripts
 
     if (backgroundScripts) {
       for (const bgScript of [backgroundScripts[0]]) {

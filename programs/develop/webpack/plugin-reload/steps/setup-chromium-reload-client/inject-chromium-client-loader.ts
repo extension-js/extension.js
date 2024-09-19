@@ -97,19 +97,9 @@ export default function (this: InjectBackgroundClientContext, source: string) {
 
   // Handling for specific browsers
   if (browser !== 'firefox') {
-    manifestBg =
-      patchedManifest[`chromium:background`] ||
-      patchedManifest[`chrome:background`] ||
-      patchedManifest[`edge:background`] ||
-      manifestBg
-
     // Check for background scripts
     if (manifestBg) {
-      const backgroundScripts =
-        manifestBg?.scripts ||
-        manifestBg?.['chromium:scripts'] ||
-        manifestBg?.['chrome:scripts'] ||
-        manifestBg?.['edge:scripts']
+      const backgroundScripts = manifestBg?.scripts
 
       if (backgroundScripts) {
         if (manifest.manifest_version === 2) {
@@ -124,10 +114,7 @@ export default function (this: InjectBackgroundClientContext, source: string) {
       }
 
       const serviceWorker =
-        manifestBg?.service_worker ||
-        manifestBg?.['chromium:service_worker'] ||
-        manifestBg?.['chrome:service_worker'] ||
-        manifestBg?.['edge:service_worker']
+        manifestBg?.service_worker
 
       // Check for service workers
       if (serviceWorker) {

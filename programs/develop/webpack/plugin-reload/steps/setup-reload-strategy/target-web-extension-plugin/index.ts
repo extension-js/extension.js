@@ -39,7 +39,7 @@ export class TargetWebExtensionPlugin {
         manifestBg?.scripts
 
       if (backgroundScripts && backgroundScripts.length > 0) {
-        this.ensureFileExists('background.scripts')
+        this.ensureFileExists(backgroundScripts[0])
       } else {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
