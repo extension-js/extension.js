@@ -6,19 +6,17 @@
   "author": "Cezar Augusto",
   "description": "An Extension.js example.",
   "icons": {
-    "16": "images/extension_16.png",
-    "48": "images/extension_48.png",
-    "128": "images/extension_128.png"
+    "48": "images/extension_48.png"
   },
   "chromium:side_panel": {
     "default_path": "sidebar/index.html",
     "default_title": "Sidebar Action",
-    "default_icon": "images/extension_48.png"
+    "default_icon": "./images/extension_48.png"
   },
   "firefox:sidebar_action": {
     "default_panel": "sidebar/index.html",
     "default_title": "Sidebar Action",
-    "default_icon": "images/extension_48.png"
+    "default_icon": "./images/extension_48.png"
   },
   "chromium:permissions": ["sidePanel"],
   "firefox:permissions": ["storage", "tabs"],
