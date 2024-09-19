@@ -35,8 +35,7 @@ export class TargetWebExtensionPlugin {
     if (browser === 'firefox' || browser === 'gecko-based') {
       manifestBg = manifest.background
 
-      const backgroundScripts =
-        manifestBg?.scripts
+      const backgroundScripts = manifestBg?.scripts
 
       if (backgroundScripts && backgroundScripts.length > 0) {
         this.ensureFileExists(backgroundScripts[0])

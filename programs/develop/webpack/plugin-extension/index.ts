@@ -42,8 +42,14 @@ export class ExtensionPlugin {
 
   public apply(compiler: Compiler): void {
     const manifestPath = this.manifestPath
-    const manifestFieldsData = getManifestFieldsData({manifestPath, browser: this.browser})
-    const specialFoldersData = getSpecialFoldersData({manifestPath, browser: this.browser})
+    const manifestFieldsData = getManifestFieldsData({
+      manifestPath,
+      browser: this.browser
+    })
+    const specialFoldersData = getSpecialFoldersData({
+      manifestPath,
+      browser: this.browser
+    })
 
     process.env.EXPERIMENTAL_EXTENSION_RESOLVER_PLUGIN === 'true' &&
       new ResolvePlugin({

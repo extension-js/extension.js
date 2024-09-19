@@ -113,8 +113,7 @@ export default function (this: InjectBackgroundClientContext, source: string) {
         }
       }
 
-      const serviceWorker =
-        manifestBg?.service_worker
+      const serviceWorker = manifestBg?.service_worker
 
       // Check for service workers
       if (serviceWorker) {

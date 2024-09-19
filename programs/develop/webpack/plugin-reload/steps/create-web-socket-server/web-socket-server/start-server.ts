@@ -88,11 +88,7 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
   if (options.browser === 'firefox' || options.browser === 'gecko-based') {
     const hardcodedMessage = getHardcodedMessage(manifest)
     console.log(
-      messages.runningInDevelopment(
-        manifest,
-        options.browser,
-        hardcodedMessage
-      )
+      messages.runningInDevelopment(manifest, options.browser, hardcodedMessage)
     )
     console.log('')
 
