@@ -28,7 +28,6 @@ export class TargetWebExtensionPlugin {
         ? 'minimum-firefox-file.mjs'
         : 'minimum-chromium-file.mjs'
     )
-    const dirname = path.dirname(this.manifestPath!)
 
     let manifestBg: Record<string, any> | undefined = manifest.background
 
@@ -44,8 +43,7 @@ export class TargetWebExtensionPlugin {
         manifestBg?.['firefox:scripts']
 
       if (backgroundScripts && backgroundScripts.length > 0) {
-        const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
-        this.ensureFileExists(backgroundScriptPath, 'background.scripts')
+        this.ensureFileExists('background.scripts')
       } else {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
@@ -64,8 +62,7 @@ export class TargetWebExtensionPlugin {
           manifestBg?.['edge:service_worker']
 
         if (serviceWorker) {
-          const serviceWorkerPath = path.join(dirname, serviceWorker)
-          this.ensureFileExists(serviceWorkerPath, 'background.service_worker')
+          this.ensureFileExists('background.service_worker')
         } else {
           this.addDefaultEntry(
             compiler,
@@ -81,8 +78,7 @@ export class TargetWebExtensionPlugin {
           manifestBg?.['edge:scripts']
 
         if (backgroundScripts && backgroundScripts.length > 0) {
-          const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
-          this.ensureFileExists(backgroundScriptPath, 'background.scripts')
+          this.ensureFileExists('background.scripts')
         } else {
           this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
         }
@@ -90,7 +86,7 @@ export class TargetWebExtensionPlugin {
     }
   }
 
-  private ensureFileExists(filePath: string, fieldName: string) {
+  private ensureFileExists(filePath: string) {
     if (!fs.existsSync(filePath)) {
       if (this.manifestPath) {
         const manifest: Manifest = require(this.manifestPath)

@@ -20,11 +20,7 @@ interface Message {
   status: string
 }
 
-function setupServer(
-  manifestName: string,
-  port: number,
-  browser: DevOptions['browser']
-) {
+function setupServer(port: number, browser: DevOptions['browser']) {
   switch (browser) {
     case 'chrome':
       return new WebSocket.Server({
@@ -54,9 +50,8 @@ function setupServer(
 export async function startServer(compiler: Compiler, options: DevOptions) {
   const projectPath = compiler.options.context || ''
   const manifest = require(path.join(projectPath, 'manifest.json'))
-  const manifestName = manifest.name || 'Extension.js'
   const port = options.port || 8000
-  const webSocketServer = setupServer(manifestName, port, options.browser)
+  const webSocketServer = setupServer(port, options.browser)
 
   webSocketServer.on('connection', (ws) => {
     ws.send(JSON.stringify({status: 'serverReady'}))
