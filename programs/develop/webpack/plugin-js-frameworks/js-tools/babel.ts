@@ -26,7 +26,6 @@ const babelConfigFiles = [
 
 export function isUsingBabel(projectPath: string): boolean {
   const packageJsonPath = path.join(projectPath, 'package.json')
-  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -49,11 +48,9 @@ export function isUsingBabel(projectPath: string): boolean {
 
   if (isUsingBabel) {
     if (!userMessageDelivered) {
-      const manifest = require(manifestJsonPath)
-      const manifestName = manifest.name || 'Extension.js'
       if (process.env.EXTENSION_ENV === 'development') {
         if (process.env.EXTENSION_ENV === 'development') {
-          console.log(messages.isUsingIntegration(manifestName, 'Babel'))
+          console.log(messages.isUsingIntegration('Babel'))
         }
       }
 

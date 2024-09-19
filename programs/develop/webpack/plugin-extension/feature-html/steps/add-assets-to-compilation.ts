@@ -72,7 +72,6 @@ export class AddAssetsToCompilation {
                           // an in-page asset (like an ID reference for anchors).
                           if (!path.basename(asset).startsWith('#')) {
                             const errorMessage = messages.fileNotFound(
-                              require(this.manifestPath).name,
                               resource as string,
                               asset
                             )

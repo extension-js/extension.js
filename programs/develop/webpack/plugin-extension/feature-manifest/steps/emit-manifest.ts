@@ -34,11 +34,9 @@ export class EmitManifest {
                 delete jsonContent['$schema']
               }
             } catch (error: any) {
-              const manifest = require(this.manifestPath)
-              const manifestName = manifest.name || 'Extension.js'
               compilation.errors.push(
                 new webpack.WebpackError(
-                  messages.manifestInvalidError(manifestName, error)
+                  messages.manifestInvalidError(error)
                 )
               )
               return

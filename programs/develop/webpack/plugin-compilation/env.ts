@@ -3,7 +3,7 @@ import path from 'path'
 import {Compiler, Compilation, DefinePlugin, sources} from 'webpack'
 import dotenv from 'dotenv'
 import * as messages from '../lib/messages'
-import {PluginInterface, Manifest} from '../webpack-types'
+import {PluginInterface} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
 
 export class EnvPlugin {
@@ -17,8 +17,6 @@ export class EnvPlugin {
 
   apply(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
-    const manifest: Manifest = require(this.manifestPath)
-    const manifestName = manifest.name || 'Extension.js'
     const mode = compiler.options.mode || 'development'
 
     // Collect .env files based on browser and mode
@@ -43,7 +41,7 @@ export class EnvPlugin {
 
     if (!envPath) return
 
-    console.log(messages.envFileLoaded(manifestName))
+    console.log(messages.envFileLoaded())
 
     // Load the .env file manually and filter variables prefixed with 'EXTENSION_PUBLIC_'
     const envVars = dotenv.config({path: envPath}).parsed || {}

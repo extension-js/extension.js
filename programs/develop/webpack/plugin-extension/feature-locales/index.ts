@@ -64,7 +64,6 @@ export class LocalesPlugin {
                 compilation.warnings.push(
                   new webpack.WebpackError(
                     messages.entryNotFoundWarn(
-                      manifestName,
                       feature,
                       thisResource
                     )

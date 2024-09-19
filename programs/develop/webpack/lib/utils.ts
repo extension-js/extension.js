@@ -133,7 +133,6 @@ export function isFromNpx() {
 }
 
 export async function installOptionalDependencies(
-  packageName: string,
   integration: string,
   dependencies: string[]
 ) {
@@ -141,11 +140,7 @@ export async function installOptionalDependencies(
     const pm = await detect()
 
     console.log(
-      messages.integrationNotInstalled(
-        packageName,
-        integration,
-        pm?.name || 'unknown'
-      )
+      messages.integrationNotInstalled(integration, pm?.name || 'unknown')
     )
 
     let installCommand = ''
@@ -173,7 +168,7 @@ export async function installOptionalDependencies(
     await new Promise((resolve) => setTimeout(resolve, 2000))
 
     if (process.env.EXTENSION_ENV === 'development') {
-      console.log(messages.installingRootDependencies(packageName, integration))
+      console.log(messages.installingRootDependencies(integration))
 
       if (pm?.name === 'yarn') {
         installCommand = `yarn install --silent > /dev/null 2>&1`
@@ -188,13 +183,9 @@ export async function installOptionalDependencies(
       execSync(installCommand, {stdio: 'inherit'})
     }
 
-    console.log(
-      messages.integrationInstalledSuccessfully(packageName, integration)
-    )
+    console.log(messages.integrationInstalledSuccessfully(integration))
   } catch (error) {
-    console.error(
-      messages.failedToInstallIntegration(packageName, integration, error)
-    )
+    console.error(messages.failedToInstallIntegration(integration, error))
   }
 }
 

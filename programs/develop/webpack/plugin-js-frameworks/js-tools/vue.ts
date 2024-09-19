@@ -15,7 +15,6 @@ let userMessageDelivered = false
 
 export function isUsingVue(projectPath: string) {
   const packageJsonPath = path.join(projectPath, 'package.json')
-  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -28,11 +27,8 @@ export function isUsingVue(projectPath: string) {
 
   if (vueAsDevDep || vueAsDep) {
     if (!userMessageDelivered) {
-      const manifest = require(manifestJsonPath)
-      const manifestName = manifest.name || 'Extension.js'
-
       if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration(manifestName, 'Vue'))
+        console.log(messages.isUsingIntegration('Vue'))
       }
 
       userMessageDelivered = true
@@ -52,14 +48,7 @@ export async function maybeUseVue(
   } catch (e) {
     const typeScriptDependencies = ['typescript']
 
-    const manifest = require(path.join(projectPath, 'manifest.json'))
-    const manifestName = manifest.name || 'Extension.js'
-
-    await installOptionalDependencies(
-      manifestName,
-      'TypeScript',
-      typeScriptDependencies
-    )
+    await installOptionalDependencies('TypeScript', typeScriptDependencies)
 
     const vueDependencies = [
       'vue-loader',
@@ -67,11 +56,11 @@ export async function maybeUseVue(
       'vue-style-loader'
     ]
 
-    await installOptionalDependencies(manifestName, 'Vue', vueDependencies)
+    await installOptionalDependencies('Vue', vueDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet(manifestName, 'Vue'))
+    console.log(messages.youAreAllSet('Vue'))
     process.exit(0)
   }
 

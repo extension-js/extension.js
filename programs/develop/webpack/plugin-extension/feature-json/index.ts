@@ -58,13 +58,10 @@ export class JsonPlugin {
                 // and output the file accordingly.
                 if (!utils.shouldExclude(thisResource, this.excludeList)) {
                   if (!fs.existsSync(thisResource)) {
-                    const manifest = require(this.manifestPath)
-                    const manifestName = manifest.name || 'Extension.js'
 
                     compilation.warnings.push(
                       new webpack.WebpackError(
                         messages.entryNotFoundWarn(
-                          manifestName,
                           feature,
                           thisResource
                         )

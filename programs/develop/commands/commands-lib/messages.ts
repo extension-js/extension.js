@@ -393,11 +393,8 @@ export function isUsingExperimentalConfig(integration: any) {
   )
 }
 
-export function installingDependencies(projectName: string) {
-  return (
-    `${getLoggingPrefix('info')} ` +
-    `Installing ${cyan(projectName)} dependencies...`
-  )
+export function installingDependencies() {
+  return `${getLoggingPrefix('info')} ` + `Installing project dependencies...`
 }
 
 export function installingDependenciesFailed(

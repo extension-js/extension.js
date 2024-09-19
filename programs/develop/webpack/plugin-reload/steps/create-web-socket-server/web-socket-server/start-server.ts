@@ -40,7 +40,7 @@ function setupServer(
 
     case 'firefox':
       return new WebSocket.Server({
-        server: httpsServer(manifestName, port + 2).server
+        server: httpsServer(port + 2).server
       })
 
     default:
@@ -62,7 +62,7 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
     ws.send(JSON.stringify({status: 'serverReady'}))
 
     ws.on('error', (error) => {
-      console.log(messages.webSocketError(manifestName, error))
+      console.log(messages.webSocketError(error))
     })
 
     ws.on('message', (msg) => {

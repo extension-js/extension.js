@@ -96,7 +96,6 @@ export class TargetWebExtensionPlugin {
         const manifestName = manifest.name || 'Extension.js'
         const fieldError = messages.backgroundIsRequired(
           manifestName,
-          fieldName,
           filePath
         )
         console.error(fieldError)

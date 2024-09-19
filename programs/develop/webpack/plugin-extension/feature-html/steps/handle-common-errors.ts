@@ -6,7 +6,6 @@ import {getAssetsFromHtml} from '../html-lib/utils'
 import * as messages from '../../../lib/messages'
 
 function handleCantResolveError(
-  manifestPath: string,
   includesList: FilepathList,
   error: NodeJS.ErrnoException
 ) {
@@ -35,7 +34,6 @@ function handleCantResolveError(
           cssAssets.includes(wrongFilename)
         ) {
           const errorMsg = messages.fileNotFound(
-            require(manifestPath).name,
             resource as string,
             wrongFilename
           )
@@ -70,7 +68,6 @@ export class HandleCommonErrors {
               // This does not cover static assets because they are not entrypoints.
               // For that we use the AddAssetsToCompilationPlugin.
               const cantResolveError = handleCantResolveError(
-                this.manifestPath,
                 this.includeList || {},
                 error
               )

@@ -52,7 +52,7 @@ export default function (this: LoaderContext, source: string) {
   const manifestPath = options.manifestPath
   const projectPath = path.dirname(manifestPath)
   const manifest = require(manifestPath)
-
+  console.log({manifest})
   validate(schema, options, {
     name: 'scripts:add-hmr-accept-code',
     baseDataPath: 'options'

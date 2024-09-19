@@ -10,14 +10,7 @@ export default function handleDeprecatedError(
   errorData: ErrorObject<string, Record<string, any>, unknown> | undefined,
   browser: DevOptions['browser']
 ) {
-  const context = compilation.options.context || ''
-  const manifestPath = path.join(context, 'manifest.json')
-  const manifest: Manifest = require(manifestPath)
-  const manifestName = manifest.name || 'Extension.js'
-
   compilation.warnings.push(
-    new WebpackError(
-      messages.deprecatedMessage(manifestName, browser, errorData)
-    )
+    new WebpackError(messages.deprecatedMessage(browser, errorData))
   )
 }

@@ -16,7 +16,6 @@ let userMessageDelivered = false
 
 export function isUsingPreact(projectPath: string) {
   const packageJsonPath = path.join(projectPath, 'package.json')
-  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -31,10 +30,8 @@ export function isUsingPreact(projectPath: string) {
   // This message is shown for each JS loader we have, so we only want to show it once.
   if (preactAsDevDep || preactAsDep) {
     if (!userMessageDelivered) {
-      const manifest = require(manifestJsonPath)
-      const manifestName = manifest.name || 'Extension.js'
       if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration(manifestName, 'Preact'))
+        console.log(messages.isUsingIntegration('Preact'))
       }
 
       userMessageDelivered = true
@@ -55,18 +52,12 @@ export async function maybeUsePreact(
     require.resolve('@prefresh/webpack')
   } catch (e) {
     const preactDependencies = ['@prefresh/webpack']
-    const manifest = require(path.join(projectPath, 'manifest.json'))
-    const manifestName = manifest.name || 'Extension.js'
 
-    await installOptionalDependencies(
-      manifestName,
-      'Preact',
-      preactDependencies
-    )
+    await installOptionalDependencies('Preact', preactDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet(manifestName, 'Preact'))
+    console.log(messages.youAreAllSet('Preact'))
     process.exit(0)
   }
 
