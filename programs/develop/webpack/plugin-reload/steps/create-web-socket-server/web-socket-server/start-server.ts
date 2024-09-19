@@ -86,16 +86,17 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
   // Additional logic specific to Firefox, such as certificate checks
   if (options.browser === 'firefox' || options.browser === 'gecko-based') {
-    if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
-      const hardcodedMessage = getHardcodedMessage(manifest)
-      console.log(
-        messages.runningInDevelopment(
-          manifest,
-          options.browser,
-          hardcodedMessage
-        )
+    const hardcodedMessage = getHardcodedMessage(manifest)
+    console.log(
+      messages.runningInDevelopment(
+        manifest,
+        options.browser,
+        hardcodedMessage
       )
-      console.log('')
+    )
+    console.log('')
+
+    if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
       console.log(messages.certRequired())
       console.log('')
     }
