@@ -143,7 +143,6 @@ describe('extension create', () => {
 
         // Expect images/extension_16.png and expect images/extension_16.png
         if (template.name !== 'init') {
-
           expect(
             fileExists(template.name, 'images/extension_48.png')
           ).toBeTruthy()
