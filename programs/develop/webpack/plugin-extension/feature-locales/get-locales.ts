@@ -11,6 +11,7 @@ export function getLocales(manifestPath: string): string[] | undefined {
     for (const locale of fs.readdirSync(localesFolder)) {
       const localeDir = path.join(localesFolder, locale)
 
+      if(!fs.lstatSync(localeDir).isDirectory()) continue
       for (const localeEntity of fs.readdirSync(localeDir)) {
         localeFiles.push(
           path.join(
