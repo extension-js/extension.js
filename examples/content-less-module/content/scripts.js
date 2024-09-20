@@ -5,7 +5,7 @@ console.log('hello from content_scripts')
 
 document.body.innerHTML += `
 <div class="content_script-box">
-  <img class=${styles.logo} src="${chrome.runtime.getURL('/logo.png')}" />
+  <img class=${styles.logo} src="/logo.png" />
   <h1 class="content_script-title">
     Change the background-color ⬇
   </h1>

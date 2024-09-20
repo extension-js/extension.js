@@ -1,6 +1,6 @@
 const contentComponent = `<div class="content_script-box">
   <div class="content_script-header">
-    <img class="content_script-logo" src="${chrome.runtime.getURL('/logo.png')}" />
+    <img class="content_script-logo" src="/logo.png" />
   </div>
   <h1 class="content_script-title">
     Change the background-color ⬇

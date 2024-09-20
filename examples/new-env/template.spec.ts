@@ -17,7 +17,7 @@ test('should exist an element with the welcome message text', async ({
 }) => {
   await page.goto('chrome://newtab/')
   const h1 = page.locator('h1')
-  await test.expect(h1).toHaveText('Welcome to your Chrome Extension example.')
+  await test.expect(h1).toHaveText('Welcome to your Chrome Extension.')
 })
 
 test('should exist a default color value', async ({page}) => {
