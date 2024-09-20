@@ -40,7 +40,6 @@ let userMessageDelivered = false
 
 export function isUsingStylelint(projectPath: string) {
   const packageJsonPath = path.join(projectPath, 'package.json')
-  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -51,10 +50,8 @@ export function isUsingStylelint(projectPath: string) {
 
   if (isUsingStylelint) {
     if (!userMessageDelivered) {
-      const manifest = require(manifestJsonPath)
-      const manifestName = manifest.name || 'Extension.js'
       if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration(manifestName, 'Stylelint'))
+        console.log(messages.isUsingIntegration('Stylelint'))
       }
       userMessageDelivered = true
     }

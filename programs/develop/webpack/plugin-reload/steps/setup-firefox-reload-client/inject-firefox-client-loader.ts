@@ -3,7 +3,10 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
+import * as utils from '../../../lib/utils'
+import * as messages from '../../../lib/messages'
 import {type Manifest} from '../../../webpack-types'
+import {DevOptions} from '../../../../commands/dev'
 
 const schema: Schema = {
   type: 'object',
@@ -27,8 +30,10 @@ interface InjectBackgroundClientContext extends LoaderContext<any> {
 export default function (this: InjectBackgroundClientContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
+  const browser = options.browser as DevOptions['browser']
   const projectPath = path.dirname(manifestPath)
   const manifest: Manifest = require(manifestPath)
+  const patchedManifest = utils.filterKeysForThisBrowser(manifest, browser)
 
   validate(schema, options, {
     name: 'reload:inject-background-client',
@@ -82,17 +87,16 @@ export default function (this: InjectBackgroundClientContext, source: string) {
 });`
 
   // Handling for specific browsers
-  const manifestBg =
-    manifest['gecko:background'] ||
-    manifest['firefox:background'] ||
-    manifest.background
+  const manifestBg = patchedManifest.background
 
-  // Check for background scripts
+  if (patchedManifest.service_worker) {
+    console.log(messages.firefoxServiceWorkerError())
+
+    return source
+  }
+
   if (manifestBg) {
-    const backgroundScripts =
-      manifestBg?.scripts ||
-      manifestBg?.['gecko:scripts'] ||
-      manifestBg?.['firefox:scripts']
+    const backgroundScripts = manifestBg?.scripts
 
     if (backgroundScripts) {
       for (const bgScript of [backgroundScripts[0]]) {

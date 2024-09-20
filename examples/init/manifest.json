@@ -5,8 +5,6 @@
   "name": "Init Template",
   "description": "An Extension.js example.",
   "icons": {
-    "16": "images/extension_16.png",
-    "48": "images/extension_48.png",
-    "128": "images/extension_128.png"
+    "48": "images/extension_48.png"
   }
 }

@@ -67,7 +67,6 @@ export class RunChromiumPlugin {
     }
 
     const chromiumConfig = browserConfig(this)
-    console.log('asdlasdlasdaldjsalds', this.startingUrl)
     const launchArgs = this.startingUrl
       ? [this.startingUrl, ...chromiumConfig]
       : [...chromiumConfig]

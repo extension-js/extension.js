@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <title>Sandboxed Content</title>
-    <link rel="stylesheet" href="../public/css/file.css" />
+    <link rel="stylesheet" href="/css/file.css" />
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <h1>Sandboxed Content</h1>
     <p>I am the sandboxed iframe.</p>
     <div id="message"></div>
-    <img src="../images/extension_128.png">
+    <img src="/extension.svg">
     <script>
       eval(
         "document.getElementById('message').innerHTML = '<p>I am the " +
@@ -19,6 +19,6 @@
     </script>
     <iframe src="../pages/custom.html"></iframe>
     <script src="./scripts.js"></script>
-    <script src="../public/js/file.js"></script>
+    <script src="/js/file.js"></script>
   </body>
 </html>

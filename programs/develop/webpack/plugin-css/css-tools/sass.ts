@@ -9,7 +9,6 @@ let userMessageDelivered = false
 
 export function isUsingSass(projectPath: string): boolean {
   const packageJsonPath = path.join(projectPath, 'package.json')
-  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -22,10 +21,8 @@ export function isUsingSass(projectPath: string): boolean {
 
   if (sassAsDevDep || sassAsDep) {
     if (!userMessageDelivered) {
-      const manifest = require(manifestJsonPath)
-      const manifestName = manifest.name || 'Extension.js'
       if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration(manifestName, 'SASS'))
+        console.log(messages.isUsingIntegration('SASS'))
       }
 
       userMessageDelivered = true
@@ -54,21 +51,16 @@ export async function maybeUseSass(
       'postcss-preset-env',
       'postcss-normalize'
     ]
-    const projectName = require(path.join(projectPath, 'package.json')).name
 
-    await installOptionalDependencies(
-      projectName,
-      'PostCSS',
-      postCssDependencies
-    )
+    await installOptionalDependencies('PostCSS', postCssDependencies)
 
     const sassDependencies = ['sass', 'sass-loader', 'resolve-url-loader']
 
-    await installOptionalDependencies(projectName, 'SASS', sassDependencies)
+    await installOptionalDependencies('SASS', sassDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet(projectName, 'SASS'))
+    console.log(messages.youAreAllSet('SASS'))
     process.exit(0)
   }
 

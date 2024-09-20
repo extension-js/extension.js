@@ -8,9 +8,9 @@
     "type": "module"
   },
   "icons": {
-    "16": "./public/logo.png",
-    "48": "./public/logo.png",
-    "128": "./public/logo.png"
+    "16": "images/logo.png",
+    "48": "images/logo.png",
+    "128": "images/logo.png"
   },
   "permissions": ["management", "tabs", "storage"]
 }

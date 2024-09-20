@@ -14,10 +14,12 @@ export function localesFields(
     for (const locale of fs.readdirSync(localesFolder)) {
       const localeDir = path.join(localesFolder, locale)
 
-      for (const localeEntity of fs.readdirSync(localeDir)) {
-        localeFiles.push(
-          path.join(context, '_locales', locale, localeEntity) as string
-        )
+      if (localeDir && fs.statSync(localeDir).isDirectory()) {
+        for (const localeEntity of fs.readdirSync(localeDir)) {
+          localeFiles.push(
+            path.join(context, '_locales', locale, localeEntity) as string
+          )
+        }
       }
     }
   }

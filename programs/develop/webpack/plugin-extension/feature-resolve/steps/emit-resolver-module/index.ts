@@ -7,10 +7,10 @@ export function emitResolverModule(
   resolverAbsolutePath: string
 ) {
   const options = loader.getOptions()
-  const {manifestPath, includeList} = options
+  const {manifestPath, includeList, browser} = options
 
   const includeListModule = JSON.stringify(
-    getFileList(manifestPath, includeList)
+    getFileList(manifestPath, browser, includeList)
   )
 
   const resolverModule = fs.readFileSync(resolverAbsolutePath, 'utf8')

@@ -19,17 +19,22 @@ import {ReloadPlugin} from './plugin-reload'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {ErrorsPlugin} from './plugin-errors'
 import {BrowsersPlugin} from '../plugin-browsers'
+import * as utils from './lib/utils'
 
 export default function webpackConfig(
   projectPath: string,
   devOptions: DevOptions
 ): webpack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
+  const manifest = utils.filterKeysForThisBrowser(
+    require(manifestPath),
+    devOptions.browser
+  )
   const userExtensionOutputPath = path.join(
     projectPath,
     `dist/${devOptions.browser}`
   )
-  const manifest = require(manifestPath)
+
   const browser = devOptions.chromiumBinary
     ? 'chromium-based'
     : devOptions.geckoBinary
@@ -102,7 +107,7 @@ export default function webpackConfig(
       new JsFrameworksPlugin({
         manifestPath
       }),
-      process.env.EXPERIMENTAL_ERRORS_PLUGIN &&
+      process.env.EXPERIMENTAL_ERRORS_PLUGIN === 'true' &&
         new ErrorsPlugin({
           manifestPath,
           browser

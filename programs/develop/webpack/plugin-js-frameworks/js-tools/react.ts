@@ -16,7 +16,6 @@ let userMessageDelivered = false
 
 export function isUsingReact(projectPath: string) {
   const packageJsonPath = path.join(projectPath, 'package.json')
-  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -30,10 +29,8 @@ export function isUsingReact(projectPath: string) {
   // This message is shown for each JS loader we have, so we only want to show it once.
   if (reactAsDevDep || reactAsDep) {
     if (!userMessageDelivered) {
-      const manifest = require(manifestJsonPath)
-      const manifestName = manifest.name || 'Extension.js'
       if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration(manifestName, 'React'))
+        console.log(messages.isUsingIntegration('React'))
       }
 
       userMessageDelivered = true
@@ -57,14 +54,11 @@ export async function maybeUseReact(
       'react-refresh-typescript'
     ]
 
-    const manifest = require(path.join(projectPath, 'manifest.json'))
-    const manifestName = manifest.name || 'Extension.js'
-
-    await installOptionalDependencies(manifestName, 'React', reactDependencies)
+    await installOptionalDependencies('React', reactDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet(manifestName, 'React'))
+    console.log(messages.youAreAllSet('React'))
     process.exit(0)
   }
 

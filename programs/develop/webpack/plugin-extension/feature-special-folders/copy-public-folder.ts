@@ -52,7 +52,7 @@ export class CopyPublicFolder {
     if (!fs.existsSync(staticDir)) return
 
     compiler.hooks.afterEmit.tap('special-folders:copy-public-folder', () => {
-      const target = path.join(output, 'public')
+      const target = path.join(output, '/')
 
       if (!fs.existsSync(target)) fs.mkdirSync(target, {recursive: true})
 

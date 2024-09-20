@@ -112,7 +112,7 @@ const JS_TEMPLATES: Template[] = [
   },
   {
     name: 'locales',
-    uiContext: undefined,
+    uiContext: ['action'],
     uiFramework: undefined,
     css: 'css',
     hasBackground: false,

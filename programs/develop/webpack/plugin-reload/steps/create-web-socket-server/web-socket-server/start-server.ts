@@ -20,11 +20,7 @@ interface Message {
   status: string
 }
 
-function setupServer(
-  manifestName: string,
-  port: number,
-  browser: DevOptions['browser']
-) {
+function setupServer(port: number, browser: DevOptions['browser']) {
   switch (browser) {
     case 'chrome':
       return new WebSocket.Server({
@@ -40,7 +36,7 @@ function setupServer(
 
     case 'firefox':
       return new WebSocket.Server({
-        server: httpsServer(manifestName, port + 2).server
+        server: httpsServer(port + 2).server
       })
 
     default:
@@ -54,15 +50,14 @@ function setupServer(
 export async function startServer(compiler: Compiler, options: DevOptions) {
   const projectPath = compiler.options.context || ''
   const manifest = require(path.join(projectPath, 'manifest.json'))
-  const manifestName = manifest.name || 'Extension.js'
   const port = options.port || 8000
-  const webSocketServer = setupServer(manifestName, port, options.browser)
+  const webSocketServer = setupServer(port, options.browser)
 
   webSocketServer.on('connection', (ws) => {
     ws.send(JSON.stringify({status: 'serverReady'}))
 
     ws.on('error', (error) => {
-      console.log(messages.webSocketError(manifestName, error))
+      console.log(messages.webSocketError(error))
     })
 
     ws.on('message', (msg) => {
@@ -91,16 +86,13 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
   // Additional logic specific to Firefox, such as certificate checks
   if (options.browser === 'firefox' || options.browser === 'gecko-based') {
+    const hardcodedMessage = getHardcodedMessage(manifest)
+    console.log(
+      messages.runningInDevelopment(manifest, options.browser, hardcodedMessage)
+    )
+    console.log('')
+
     if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
-      const hardcodedMessage = getHardcodedMessage(manifest)
-      console.log(
-        messages.runningInDevelopment(
-          manifest,
-          options.browser,
-          hardcodedMessage
-        )
-      )
-      console.log('')
       console.log(messages.certRequired())
       console.log('')
     }

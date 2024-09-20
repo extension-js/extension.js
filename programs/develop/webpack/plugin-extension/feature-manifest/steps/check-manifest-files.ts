@@ -63,6 +63,12 @@ export class CheckManifestFiles {
           const manifestName = manifest.name || 'Extension.js'
 
           if (!fs.existsSync(item as string)) {
+            // Assume that by refrencing an absolute path, the user
+            // know what they are doing.
+            if (item.startsWith('/')) {
+              return
+            }
+
             const fieldError = messages.manifestFieldError(
               manifestName,
               field,

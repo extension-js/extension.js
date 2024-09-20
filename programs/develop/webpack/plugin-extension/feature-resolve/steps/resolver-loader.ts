@@ -10,6 +10,7 @@ const schema: Schema = {
   type: 'object',
   properties: {
     test: {type: 'string'},
+    browser: {type: 'string'},
     manifestPath: {type: 'string'},
     includeList: {type: 'object'},
     excludeList: {type: 'object'},

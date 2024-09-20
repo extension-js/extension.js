@@ -1,17 +1,16 @@
-import extensionJsLogo from '../images/extension_128.png'
 import './styles.css'
 
 console.log('hello from content_scripts')
 
 document.body.innerHTML += `
 <div class="content_script-box">
-  <img class="content_script-logo" src=${extensionJsLogo} />
+  <img class="content_script-logo" src="/logo.svg" />
   <h1 class="content_script-title">
     Change the background-color ⬇
   </h1>
   <input type="color" class="content_script-colorPicker" id="colorPicker">
   <p class="content_script-description">
-    Learn more about creating browser extensions at <a
+    Learn more about creating cross-browser extensions at <a
       className="underline hover:no-underline"
       href="https://extension.js.org"
       target="_blank"

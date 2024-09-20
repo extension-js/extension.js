@@ -52,9 +52,7 @@ export async function extensionDev(
     const nodeModulesPath = path.join(projectPath, 'node_modules')
 
     if (!fs.existsSync(nodeModulesPath)) {
-      const projectName = require(manifestPath).name
-
-      console.log(messages.installingDependencies(projectName))
+      console.log(messages.installingDependencies())
       await installDependencies(projectPath)
     }
 
