@@ -49,7 +49,7 @@ export class AddAssetsToCompilation {
                   const fileAssets = [...new Set(staticAssets)]
 
                   for (const asset of fileAssets) {
-                    if (!asset.includes('public/')) {
+                    if (!asset.startsWith('/')) {
                       // Handle missing static assets. This is not covered
                       // by HandleCommonErrorsPlugin because static assets
                       // are not entrypoints.
@@ -72,14 +72,19 @@ export class AddAssetsToCompilation {
                           // an in-page asset (like an ID reference for anchors).
                           if (!path.basename(asset).startsWith('#')) {
                             const errorMessage = messages.fileNotFound(
-                              require(this.manifestPath).name,
                               resource as string,
                               asset
                             )
 
-                            compilation.warnings.push(
-                              new webpack.WebpackError(errorMessage)
-                            )
+                            if (
+                              // Ensure that the asset is not an absolute path,
+                              // so users can reference the output directory as the root.
+                              !asset.startsWith('/')
+                            ) {
+                              compilation.warnings.push(
+                                new webpack.WebpackError(errorMessage)
+                              )
+                            }
 
                             return
                           }

@@ -32,7 +32,7 @@ const setIsDialogOpen = (value: boolean) => (isdialogOpen.value = value)
           >
             <img
               alt="Vue logo"
-              src="../images/vue.svg"
+              src="/vue.svg"
               className="relative inline-block w-12"
             />
             <div className="text-3xl text-white">+</div>

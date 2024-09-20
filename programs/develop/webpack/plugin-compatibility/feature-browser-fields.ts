@@ -14,7 +14,7 @@ export class BrowserFieldsPlugin {
   }
 
   patchManifest(manifest: Manifest) {
-    const patchedManifest = utils.removeManifestKeysNotFromCurrentBrowser(
+    const patchedManifest = utils.filterKeysForThisBrowser(
       manifest,
       this.browser
     )

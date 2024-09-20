@@ -8,12 +8,14 @@ import {
   cyan,
   bold,
   gray,
-  brightYellow
+  brightYellow,
+  magenta
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
 import {Stats} from 'webpack'
+import {info} from 'console'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 
@@ -33,7 +35,7 @@ function getLoggingPrefix(feature: string, type: PrefixType): string {
   return `${arrow} ${cyan(feature)}`
 }
 
-export function capitalizedBrowserName(browser: DevOptions['browser']) {
+export function capitalize(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
 }
 
@@ -57,39 +59,32 @@ export function boring(manifestName: string, duration: number, stats: Stats) {
 }
 
 export function integrationNotInstalled(
-  _manifestName: string,
   integration: string,
   packageManager: string
 ) {
   return (
-    `${getLoggingPrefix(integration, 'info')} is using ${integration}. ` +
+    `${info('►►►')} Using ${magenta(integration)}. ` +
     `Installing required dependencies via ` +
     `${brightYellow(packageManager)}...`
   )
 }
 
-export function envFileLoaded(_manifestName: string) {
-  return (
-    `${getLoggingPrefix('env', 'success')} file loaded ` +
-    `${brightGreen('successfully')}.`
-  )
+export function envFileLoaded() {
+  return `${cyan('►►►')} ${magenta('.env')} file loaded ${brightGreen('successfully')}.`
 }
 
-export function isUsingIntegration(manifestName: string, integration: any) {
-  return `${getLoggingPrefix(manifestName, 'info')} is an ${integration}-based extension...`
+export function isUsingIntegration(integration: any) {
+  return `${cyan('►►►')} Using ${magenta(integration)}...`
 }
 
-export function youAreAllSet(_manifestName: string, integration: string) {
+export function youAreAllSet(integration: string) {
   return (
     `${getLoggingPrefix(integration, 'success')} installation completed. ` +
     `Run the program again and happy hacking.`
   )
 }
 
-export function installingRootDependencies(
-  _manifestName: string,
-  integration: string
-) {
+export function installingRootDependencies(integration: string) {
   return (
     `${getLoggingPrefix(
       integration,
@@ -99,10 +94,7 @@ export function installingRootDependencies(
   )
 }
 
-export function integrationInstalledSuccessfully(
-  _manifestName: string,
-  integration: string
-) {
+export function integrationInstalledSuccessfully(integration: string) {
   return (
     `${getLoggingPrefix(integration, 'success')} dependencies ` +
     `installed ${brightGreen('successfully')}.`
@@ -110,12 +102,11 @@ export function integrationInstalledSuccessfully(
 }
 
 export function failedToInstallIntegration(
-  manifestName: string,
   integration: string,
   error: unknown
 ) {
   return (
-    `${getLoggingPrefix(manifestName, 'error')} ` +
+    `${getLoggingPrefix('Integration', 'error')} ` +
     `${integration} Installation Error\n\n` +
     `Failed to detect package ` +
     `manager or install ${integration} dependencies:\n` +
@@ -123,7 +114,7 @@ export function failedToInstallIntegration(
   )
 }
 
-export function firefoxServiceWorkerError(_manifestName: string) {
+export function firefoxServiceWorkerError() {
   return (
     `${getLoggingPrefix('Firefox runner', 'error')} No Service Worker Support\n\n` +
     `Firefox does not support the ${brightYellow(
@@ -131,14 +122,16 @@ export function firefoxServiceWorkerError(_manifestName: string) {
     )} field yet.\n` +
     `Update your manifest.json file to use ${brightYellow(
       'background.scripts'
-    )} instead.\n\n` +
-    `Read more: ${underline(
+    )} instead.\n` +
+    `If you really need to keep the ${brightYellow('service_worker')} field, prefix it with\n`+
+    `${brightYellow('chromium:')} so it can target only Chromium-based browsers.\n\n` +
+    `Mozilla bug: ${underline(
       'https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'
     )}.`
   )
 }
 
-export function insecurePolicy(_manifestName: string) {
+export function insecurePolicy() {
   return (
     `${getLoggingPrefix(
       'content-security-policy',
@@ -151,7 +144,7 @@ export function insecurePolicy(_manifestName: string) {
   )
 }
 
-export function noDefaultLocaleError(_manifestName: string) {
+export function noDefaultLocaleError() {
   return (
     `${getLoggingPrefix('_locales', 'error')} No Default Locale Specified\n\n` +
     `Localization used, but ${brightYellow('default_locale')} ` +
@@ -169,10 +162,7 @@ function getManifestDocumentationURL(browser: DevOptions['browser']) {
   return isChrome ? underline(chromeUrl) : underline(mdnUrl)
 }
 
-export function webAccessibleResourcesV2Type(
-  _manifestName: string,
-  browser: DevOptions['browser']
-) {
+export function webAccessibleResourcesV2Type(browser: DevOptions['browser']) {
   return (
     `${getLoggingPrefix('manifest.json', 'error')} Wrong Manifest Field Type\n\n` +
     `Field ${brightYellow('web_accessible_resources')} must be a ` +
@@ -181,10 +171,7 @@ export function webAccessibleResourcesV2Type(
   )
 }
 
-export function webAccessibleResourcesV3Type(
-  _manifestName: string,
-  browser: DevOptions['browser']
-) {
+export function webAccessibleResourcesV3Type(browser: DevOptions['browser']) {
   return (
     `${getLoggingPrefix('manifest.json', 'error')} Wrong Manifest Field Type\n\n` +
     `Field ${brightYellow('web_accessible_resources')} must be an ` +
@@ -194,7 +181,6 @@ export function webAccessibleResourcesV3Type(
 }
 
 export function deprecatedMessage(
-  _manifestName: string,
   browser: DevOptions['browser'],
   errorData: ErrorObject<string, Record<string, any>, unknown> | undefined
 ) {
@@ -211,7 +197,6 @@ export function deprecatedMessage(
 }
 
 export function invalidFieldType(
-  _manifestName: string,
   errorData: ErrorObject | undefined,
   browser: DevOptions['browser']
 ) {
@@ -226,7 +211,6 @@ export function invalidFieldType(
 }
 
 export function missingRequiredMessage(
-  _manifestName: string,
   browser: DevOptions['browser'],
   message: string | undefined
 ) {
@@ -293,7 +277,6 @@ export function handleTopLevelAwaitError(manifestName: string) {
 }
 
 export function fileNotFound(
-  manifestName: string,
   errorSourcePath: string | undefined,
   missingFilePath: string
 ) {
@@ -306,14 +289,14 @@ export function fileNotFound(
     case '.ts':
     case '.jsx':
     case '.tsx':
-      return javaScriptError(manifestName, errorSourcePath, missingFilePath)
+      return javaScriptError(errorSourcePath, missingFilePath)
     case '.css':
     case '.scss':
     case '.sass':
     case '.less':
-      return cssError(manifestName, errorSourcePath, missingFilePath)
+      return cssError(errorSourcePath, missingFilePath)
     default:
-      return staticAssetError(manifestName, errorSourcePath, missingFilePath)
+      return staticAssetError(errorSourcePath, missingFilePath)
   }
 }
 
@@ -345,11 +328,7 @@ export function manifestFieldError(
   )
 }
 
-export function entryNotFoundWarn(
-  _manifestName: string,
-  manifestField: string,
-  filePath: string
-) {
+export function entryNotFoundWarn(manifestField: string, filePath: string) {
   // No need for prefix since webpack already logs the error
   return (
     `File Not Found\n\n` +
@@ -371,10 +350,7 @@ export function manifestNotFoundError(
   )
 }
 
-export function manifestInvalidError(
-  _manifestName: string,
-  error: NodeJS.ErrnoException
-) {
+export function manifestInvalidError(error: NodeJS.ErrnoException) {
   return (
     `${getLoggingPrefix('manifest.json', 'error')} Invalid Manifest\n\n` +
     `Update your manifest.json file and try again. ` +
@@ -393,12 +369,10 @@ export function serverRestartRequiredFromManifestError(
     fileAdded &&
     `${gray('PATH')} ${brightGreen('ADDED')} ${underline(fileAdded)}`
   return (
-    `${getLoggingPrefix('manifest.json', 'error')} ` +
-    `Manifest Entry Point Modification\n\n` +
-    `Changing the path of ${brightYellow('<script>')} or ${brightYellow(
-      '<link rel="stylesheet">'
-    )} ` +
-    `files after compilation requires a server restart.\n` +
+    `$manifest.json ${red('✖︎✖︎✖︎')} Manifest Entry Point Modification\n\n` +
+    `Changing the path of ${brightYellow('HTML')} or ` +
+    `${brightYellow('script')} files in manifest.json ` +
+    `after compilation requires a server restart.\n` +
     fileRemovedText +
     fileAddedText
   )
@@ -460,7 +434,7 @@ export function serverRestartRequiredFromSpecialFolderError(
   )
 }
 
-export function creatingTSConfig(_manifestName: string) {
+export function creatingTSConfig() {
   return (
     `${getLoggingPrefix('TypeScript', 'info')} ` +
     `is being used but no config file was found. ` +
@@ -511,7 +485,7 @@ export function runningInDevelopment(
       `This error happens when the program can\'t get the data from your extension.\n` +
       `There are many reasons this might happen. To fix, ensure that:\n\n` +
       `- Your extension is set as enabled in ${underline(browserDevToolsUrl)}\n` +
-      `- No previous ${capitalizedBrowserName(browser)} browser instance is open\n\n` +
+      `- No previous ${capitalize(browser)} browser instance is open\n\n` +
       `If that is not the case, restart both the ${cyan(manifest.name || '')} and the\n` +
       `${brightYellow('Manager Extension')} in ${underline(browserDevToolsUrl)} and try again.\n\n` +
       `If the issue still persists, please report a bug:\n\n` +
@@ -545,17 +519,16 @@ ${`    Extension ID          `} ${gray(id)}`
 export function isFirstRun(browser: DevOptions['browser']) {
   return (
     `This is your first run using Extension.js via ` +
-    `${capitalizedBrowserName(browser)}. Welcome! 🎉\n` +
+    `${capitalize(browser)}. Welcome! 🎉\n` +
     `\n🧩 Learn more at ${underline(`https://extension.js.org`)}`
   )
 }
 
-export function webSocketError(_manifestName: string, error: any) {
+export function webSocketError(error: any) {
   return `${getLoggingPrefix('WebSocket', 'error')} General WebSocket Error:\n${red(error)}`
 }
 
 export function backgroundIsRequired(
-  _manifestName: string,
   backgroundChunkName: string,
   filePath: string
 ) {
@@ -568,10 +541,7 @@ export function backgroundIsRequired(
   )
 }
 
-export function serverRestartRequiredFromHtml(
-  _manifestName: string,
-  filePath: string
-) {
+export function serverRestartRequiredFromHtml(filePath: string) {
   const errorMessage =
     `${getLoggingPrefix('HTML', 'error')} Entry Point Modification\n\n` +
     `Changing the path of ${brightYellow('<script>')} or ${brightYellow(
@@ -584,7 +554,6 @@ export function serverRestartRequiredFromHtml(
 }
 
 export function javaScriptError(
-  _manifestName: string,
   errorSourcePath: string,
   missingFilePath: string
 ) {
@@ -597,11 +566,7 @@ export function javaScriptError(
   )
 }
 
-export function cssError(
-  _manifestName: string,
-  errorSourcePath: string,
-  missingFilePath: string
-) {
+export function cssError(errorSourcePath: string, missingFilePath: string) {
   return (
     `${getLoggingPrefix('HTML', 'error')} File Not Found\n\n` +
     `Check your ${brightYellow('<link>')} tags in ${underline(
@@ -612,7 +577,6 @@ export function cssError(
 }
 
 export function staticAssetError(
-  _manifestName: string,
   errorSourcePath: string,
   missingFilePath: string
 ) {
@@ -645,14 +609,14 @@ export function certRequired() {
   )
 }
 
-export function defaultPortInUse(_manifestName: string, port: number) {
+export function defaultPortInUse(port: number) {
   return (
     `${getLoggingPrefix('Port', 'error')} ` +
     `Selected port ${brightYellow(port.toString())} in use. Choose a new port. `
   )
 }
 
-export function noExtensionIdError(_manifestName: string) {
+export function noExtensionIdError() {
   return (
     `${getLoggingPrefix('manifest.json', 'error')} Extension ID Not Defined\n\n` +
     `For MAIN world content_scripts, the extension ID must be specified.\n` +

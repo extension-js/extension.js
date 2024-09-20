@@ -4,24 +4,22 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Crypto Extension</title>
-    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura.css" media="screen" />
-    <link rel="stylesheet" href="https://unpkg.com/sakura.css/css/sakura-dark.css" media="screen and (prefers-color-scheme: dark)" />
     <link rel="stylesheet" href="./styles.css" media="screen" />
   </head>
   <body>
     <header>
       <h1>
-        <img class="crypto" src="../public/logo.svg" alt="The Crypto Template logo" width="120px" />
+        <img class="crypto" src="/logo.svg" alt="The Crypto Template logo" width="120px" />
         <br />
         Welcome to your Crypto Extension.
       </h1>
       <article>
-        <label for="input-text">Enter a string to hash:</label>
+        <label for="input-text">Enter a string to hash</label>
         <div class="hash-form">
           <input type="text" id="input-text" placeholder="Type something...">
           <button id="hash-button">Hash It!</button>
         </div>
-        <p>Hashed Output (SHA-256):</p>
+        <label for="hashed-output">Hashed Output (SHA-256)</label>
         <pre id="hashed-output">Hash a string to see the result</pre>
       </article>
       <footer>

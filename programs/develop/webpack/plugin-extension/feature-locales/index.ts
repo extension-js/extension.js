@@ -57,17 +57,15 @@ export class LocalesPlugin {
 
             // Resources from the manifest lib can come as undefined.
             if (thisResource) {
-              // Do not output if file doesn't exist.
-              // If the user updates the path, this script runs again
-              // and output the file accordingly.
+              // Only process .json files
+              if (path.extname(thisResource) !== '.json') {
+                continue
+              }
+
               if (!fs.existsSync(thisResource)) {
                 compilation.warnings.push(
                   new webpack.WebpackError(
-                    messages.entryNotFoundWarn(
-                      manifestName,
-                      feature,
-                      thisResource
-                    )
+                    messages.entryNotFoundWarn(feature, thisResource)
                   )
                 )
                 return
@@ -80,7 +78,6 @@ export class LocalesPlugin {
 
               if (!utils.shouldExclude(thisResource, this.excludeList)) {
                 const filename = path.relative(context, thisResource)
-
                 compilation.emitAsset(filename, rawSource)
               }
             }
@@ -111,7 +108,11 @@ export class LocalesPlugin {
               const fileResources = localesFields || []
 
               for (const thisResource of fileResources) {
-                if (fs.existsSync(thisResource)) {
+                // Only add JSON files to the dependencies
+                if (
+                  fs.existsSync(thisResource) &&
+                  path.extname(thisResource) === '.json'
+                ) {
                   if (!fileDependencies.has(thisResource)) {
                     fileDependencies.add(thisResource)
                     compilation.fileDependencies.add(thisResource)

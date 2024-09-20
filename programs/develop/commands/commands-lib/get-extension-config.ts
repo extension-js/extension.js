@@ -9,7 +9,7 @@ export function loadExtensionConfig(projectPath: string) {
   const userConfigPath = path.join(projectPath, 'extension.config.js')
 
   if (fs.existsSync(userConfigPath)) {
-    if (isUsingExtensionConfig(projectPath)) {
+    if (isUsingExperimentalConfig(projectPath)) {
       const userConfig: FileConfig = require(userConfigPath)
       if (userConfig && userConfig != null) {
         if (userConfig && typeof userConfig!.config === 'function') {
@@ -29,7 +29,7 @@ export function loadCommandConfig(
   const userConfigPath = path.join(projectPath, 'extension.config.js')
 
   if (fs.existsSync(userConfigPath)) {
-    if (isUsingExtensionConfig(projectPath)) {
+    if (isUsingExperimentalConfig(projectPath)) {
       const userConfig: any = require(userConfigPath)
       if (userConfig && userConfig != null) {
         return userConfig![command]
@@ -47,9 +47,9 @@ export function loadBrowserConfig(
   const userConfigPath = path.join(projectPath, 'extension.config.js')
 
   if (fs.existsSync(userConfigPath)) {
-    if (isUsingExtensionConfig(projectPath)) {
+    if (isUsingExperimentalConfig(projectPath)) {
       const userConfig: any = require(userConfigPath)
-      if (userConfig && userConfig != null) {
+      if (userConfig && userConfig.browsers != null) {
         return userConfig.browsers![browser]
       }
     }
@@ -60,11 +60,11 @@ export function loadBrowserConfig(
 
 let userMessageDelivered = false
 
-export function isUsingExtensionConfig(projectPath: string) {
+export function isUsingExperimentalConfig(projectPath: string) {
   const configPath = path.join(projectPath, 'extension.config.js')
   if (fs.existsSync(configPath)) {
     if (!userMessageDelivered) {
-      console.log(messages.isUsingExtensionConfig('extension.config.js'))
+      console.log(messages.isUsingExperimentalConfig('extension.config.js'))
       userMessageDelivered = true
     }
     return true

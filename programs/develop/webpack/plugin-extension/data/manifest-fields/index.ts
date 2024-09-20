@@ -24,7 +24,7 @@ export function getManifestFieldsData({
 }: PluginInterface) {
   const context = path.dirname(manifestPath)
   const manifest = require(manifestPath)
-  const manifestNoPrefixes = utils.removeManifestKeysNotFromCurrentBrowser(
+  const manifestNoPrefixes = utils.filterKeysForThisBrowser(
     manifest,
     browser || 'chrome'
   )

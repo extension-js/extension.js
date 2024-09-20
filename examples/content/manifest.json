@@ -5,9 +5,7 @@
   "name": "Content Scripts Template",
   "description": "An Extension.js example.",
   "icons": {
-    "16": "images/extension_16.png",
-    "48": "images/extension_48.png",
-    "128": "images/extension_128.png"
+    "48": "images/extension_48.png"
   },
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],
@@ -15,6 +13,12 @@
     "chromium:service_worker": "background.js",
     "firefox:scripts": ["background.js"]
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["logo.svg"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

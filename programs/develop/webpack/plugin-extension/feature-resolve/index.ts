@@ -1,6 +1,7 @@
 import path from 'path'
 import webpack from 'webpack'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
+import {DevOptions} from '../../../commands/dev'
 
 /**
  * ResolvePlugin is responsible for resolving paths for
@@ -43,12 +44,14 @@ export interface LoaderOptions {
 
 export class ResolvePlugin {
   public readonly manifestPath: string
+  public readonly browser: DevOptions['browser']
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
   public readonly loaderOptions?: LoaderOptions
 
   constructor(options: PluginInterface & {loaderOptions?: LoaderOptions}) {
     this.manifestPath = options.manifestPath
+    this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
     this.excludeList = options.excludeList
     this.loaderOptions = options.loaderOptions
@@ -69,6 +72,7 @@ export class ResolvePlugin {
       exclude: /node_modules/,
       options: {
         manifestPath: this.manifestPath,
+        browser: this.browser,
         includeList: this.includeList,
         jsx: this.loaderOptions ? this.loaderOptions['jsx'] : false,
         typescript: this.loaderOptions

@@ -37,7 +37,7 @@ export class ThrowIfRecompileIsNeeded {
           }
 
           const initialManifest: Manifest = require(this.manifestPath)
-          const manifest = utils.removeManifestKeysNotFromCurrentBrowser(
+          const manifest = utils.filterKeysForThisBrowser(
             initialManifest,
             this.browser
           )
