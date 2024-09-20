@@ -7,10 +7,16 @@ export class CleanHotUpdatesPlugin {
     const hotUpdatePath = path.join(compiler.options.output.path || '', 'hot')
 
     if (fs.existsSync(hotUpdatePath)) {
-      fs.rmdirSync(hotUpdatePath, {recursive: true})
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(
-          '[CleanHotUpdatesPlugin] Removed old hot-update files before compilation.'
+      try {
+        fs.rmSync(hotUpdatePath, {recursive: true, force: true})
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            '[CleanHotUpdatesPlugin] Removed old hot-update files before compilation.'
+          )
+        }
+      } catch (error: any) {
+        console.error(
+          `[CleanHotUpdatesPlugin] Failed to remove hot-update files: ${error.message}`
         )
       }
     }
