@@ -19,7 +19,7 @@ test('should exist an element with the welcome message text', async ({
   const h1 = page.locator('h1')
   await test
     .expect(h1)
-    .toHaveText('Welcome to your React Router DOM Extension.')
+    .toHaveText('Welcome to your React Router Extension.')
 })
 
 test('should exist a default color value', async ({page}) => {
