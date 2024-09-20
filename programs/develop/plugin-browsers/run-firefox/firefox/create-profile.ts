@@ -44,7 +44,6 @@ function createProfile(
 ) {
   const profile = new FirefoxProfile({destinationDirectory})
   const profileConfigured = configureProfile(profile, customPreferences)
-  console.log({profileConfigured})
   return profileConfigured
 }
 
