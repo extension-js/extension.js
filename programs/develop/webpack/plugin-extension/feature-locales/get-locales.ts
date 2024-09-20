@@ -11,15 +11,17 @@ export function getLocales(manifestPath: string): string[] | undefined {
     for (const locale of fs.readdirSync(localesFolder)) {
       const localeDir = path.join(localesFolder, locale)
 
-      for (const localeEntity of fs.readdirSync(localeDir)) {
-        localeFiles.push(
-          path.join(
-            path.dirname(manifestPath),
-            '_locales',
-            locale,
-            localeEntity
+      if (localeDir && fs.statSync(localeDir).isDirectory()) {
+        for (const localeEntity of fs.readdirSync(localeDir)) {
+          localeFiles.push(
+            path.join(
+              path.dirname(manifestPath),
+              '_locales',
+              locale,
+              localeEntity
+            )
           )
-        )
+        }
       }
     }
   }

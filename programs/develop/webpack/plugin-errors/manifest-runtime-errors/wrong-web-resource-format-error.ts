@@ -20,17 +20,15 @@ export function wrongWebResourceFormatError(
       )
     })
 
-    const manifestName = manifest.name || 'Extension.js'
-
     if (manifest.manifest_version === 2 && !mv2Format) {
       return new webpack.WebpackError(
-        messages.webAccessibleResourcesV2Type(manifestName, browser)
+        messages.webAccessibleResourcesV2Type(browser)
       )
     }
 
     if (manifest.manifest_version === 3 && !mv3Format) {
       return new webpack.WebpackError(
-        messages.webAccessibleResourcesV3Type(manifestName, browser)
+        messages.webAccessibleResourcesV3Type(browser)
       )
     }
   }

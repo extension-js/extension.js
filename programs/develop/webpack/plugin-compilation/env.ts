@@ -3,7 +3,7 @@ import path from 'path'
 import {Compiler, Compilation, DefinePlugin, sources} from 'webpack'
 import dotenv from 'dotenv'
 import * as messages from '../lib/messages'
-import {PluginInterface, Manifest} from '../webpack-types'
+import {PluginInterface} from '../webpack-types'
 import {DevOptions} from '../../commands/dev'
 
 export class EnvPlugin {
@@ -17,10 +17,9 @@ export class EnvPlugin {
 
   apply(compiler: Compiler) {
     const projectPath = path.dirname(this.manifestPath)
-    const manifest: Manifest = require(this.manifestPath)
-    const manifestName = manifest.name || 'Extension.js'
     const mode = compiler.options.mode || 'development'
 
+    // Collect .env files based on browser and mode
     const envFiles = [
       `.env.${this.browser}.${mode}`, // .env.chrome.development
       `.env.${this.browser}`, // .env.chrome
@@ -42,7 +41,7 @@ export class EnvPlugin {
 
     if (!envPath) return
 
-    console.log(messages.envFileLoaded(manifestName))
+    console.log(messages.envFileLoaded())
 
     // Load the .env file manually and filter variables prefixed with 'EXTENSION_PUBLIC_'
     const envVars = dotenv.config({path: envPath}).parsed || {}
@@ -51,12 +50,14 @@ export class EnvPlugin {
       ? dotenv.config({path: defaultsPath}).parsed || {}
       : {}
 
+    // Merge all environment variables (including system env vars)
     const combinedVars = {
       ...defaultsVars,
       ...envVars,
       ...process.env // Include system variables
     }
 
+    // Filter out variables with EXTENSION_PUBLIC_ prefix
     const filteredEnvVars = Object.keys(combinedVars)
       .filter((key) => key.startsWith('EXTENSION_PUBLIC_'))
       .reduce(
@@ -69,7 +70,20 @@ export class EnvPlugin {
         {} as Record<string, string>
       )
 
-    // Apply DefinePlugin to expose filtered variables to the final bundle
+    // Support native environment variables:
+    // - EXTENSION_PUBLIC_BROWSER
+    // - EXTENSION_PUBLIC_ENV_MODE
+    filteredEnvVars['process.env.EXTENSION_PUBLIC_BROWSER'] = JSON.stringify(
+      this.browser
+    )
+    filteredEnvVars['import.meta.env.EXTENSION_PUBLIC_BROWSER'] =
+      JSON.stringify(this.browser)
+    filteredEnvVars['process.env.EXTENSION_PUBLIC_ENV_MODE'] =
+      JSON.stringify(mode)
+    filteredEnvVars['import.meta.env.EXTENSION_PUBLIC_ENV_MODE'] =
+      JSON.stringify(mode)
+
+    // Apply DefinePlugin to expose filtered variables
     new DefinePlugin(filteredEnvVars).apply(compiler)
 
     // Process all .json and .html files in the output directory
@@ -96,7 +110,6 @@ export class EnvPlugin {
                   (match) => {
                     const envVarName = match.slice(1) // Remove the '$'
                     const value = combinedVars[envVarName] || match
-                    console.log(`Replacing ${match} with ${value}`)
                     return value
                   }
                 )

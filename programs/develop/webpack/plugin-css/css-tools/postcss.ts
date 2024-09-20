@@ -11,7 +11,6 @@ let userMessageDelivered = false
 
 export function isUsingPostCss(projectPath: string): boolean {
   const packageJsonPath = path.join(projectPath, 'package.json')
-  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -28,8 +27,6 @@ export function isUsingPostCss(projectPath: string): boolean {
     'postcss.config.cjs'
   ]
 
-  const manifest = require(manifestJsonPath)
-  const manifestName = manifest.name || 'Extension.js'
   if (fs.existsSync(packageJsonPath)) {
     const packageJson = require(packageJsonPath)
     if (
@@ -38,7 +35,7 @@ export function isUsingPostCss(projectPath: string): boolean {
     ) {
       if (!userMessageDelivered) {
         if (process.env.EXTENSION_ENV === 'development') {
-          console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+          console.log(messages.isUsingIntegration('PostCSS'))
         }
 
         userMessageDelivered = true
@@ -51,7 +48,7 @@ export function isUsingPostCss(projectPath: string): boolean {
     if (fs.existsSync(path.join(projectPath, configFile))) {
       if (!userMessageDelivered) {
         if (process.env.EXTENSION_ENV === 'development') {
-          console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+          console.log(messages.isUsingIntegration('PostCSS'))
         }
 
         userMessageDelivered = true
@@ -64,7 +61,7 @@ export function isUsingPostCss(projectPath: string): boolean {
   if (isUsingTailwind(projectPath)) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration(manifestName, 'PostCSS'))
+        console.log(messages.isUsingIntegration('PostCSS'))
       }
 
       userMessageDelivered = true
@@ -86,8 +83,6 @@ export async function maybeUsePostCss(
   try {
     require.resolve('postcss-loader')
   } catch (e) {
-    const projectName = require(path.join(projectPath, 'package.json')).name
-
     // SASS and LESS will install PostCSS as a dependency
     // so we don't need to check for it here.
     if (!isUsingSass(projectPath) && !isUsingLess(projectPath)) {
@@ -100,16 +95,12 @@ export async function maybeUsePostCss(
         'postcss-normalize'
       ]
 
-      await installOptionalDependencies(
-        projectName,
-        'PostCSS',
-        postCssDependencies
-      )
+      await installOptionalDependencies('PostCSS', postCssDependencies)
     }
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet(projectName, 'PostCSS'))
+    console.log(messages.youAreAllSet('PostCSS'))
     process.exit(0)
   }
 

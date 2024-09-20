@@ -14,7 +14,6 @@ let userMessageDelivered = false
 
 export function isUsingTailwind(projectPath: string) {
   const packageJsonPath = path.join(projectPath, 'package.json')
-  const manifestJsonPath = path.join(projectPath, 'manifest.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
@@ -33,10 +32,8 @@ export function isUsingTailwind(projectPath: string) {
 
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
-      const manifest = require(manifestJsonPath)
-      const manifestName = manifest.name || 'Extension.js'
       if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration(manifestName, 'Tailwind'))
+        console.log(messages.isUsingIntegration('Tailwind'))
       }
       userMessageDelivered = true
     }
@@ -58,8 +55,6 @@ export function getTailwindConfigFile(projectPath: string) {
 }
 
 export async function maybeUseTailwind(projectPath: string) {
-  const projectName = require(path.join(projectPath, 'package.json')).name
-
   if (!isUsingTailwind(projectPath)) return []
   try {
     require.resolve('tailwindcss')
@@ -72,23 +67,15 @@ export async function maybeUseTailwind(projectPath: string) {
       'postcss-normalize'
     ]
 
-    await installOptionalDependencies(
-      projectName,
-      'PostCSS',
-      postCssDependencies
-    )
+    await installOptionalDependencies('PostCSS', postCssDependencies)
 
     const tailwindDependencies = ['tailwindcss']
 
-    await installOptionalDependencies(
-      projectName,
-      'Tailwind',
-      tailwindDependencies
-    )
+    await installOptionalDependencies('Tailwind', tailwindDependencies)
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet(projectName, 'Tailwind'))
+    console.log(messages.youAreAllSet('Tailwind'))
     process.exit(0)
   }
 

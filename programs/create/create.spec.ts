@@ -149,9 +149,6 @@ describe('extension create', () => {
           expect(
             fileExists(template.name, 'images/extension_48.png')
           ).toBeTruthy()
-          // expect(
-          //   fileExists(template.name, 'images/extension_128.png')
-          // ).toBeTruthy()
         }
 
         // Expect manifest.json to exist

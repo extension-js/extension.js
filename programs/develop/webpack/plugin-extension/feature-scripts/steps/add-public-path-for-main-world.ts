@@ -30,7 +30,7 @@ export class AddPublicPathForMainWorld {
       )
     ) {
       if (CHROMIUM_BASED_BROWSERS.includes(this.browser) && !manifest.key) {
-        console.error(messages.noExtensionIdError(manifest.name || ''))
+        console.error(messages.noExtensionIdError())
         process.exit(1)
       }
     }

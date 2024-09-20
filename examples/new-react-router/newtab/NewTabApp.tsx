@@ -14,11 +14,11 @@ function Home() {
           width="120px"
         />
         <br />
-        Welcome to your React Router DOM Extension.
+        Welcome to your React Router Extension.
       </h1>
-      <code>
-        <pre>{window.location.href}</pre>
-      </code>
+      <pre>
+        <code>{window.location.href}</code>
+      </pre>
     </main>
   )
 }
@@ -34,11 +34,11 @@ function About() {
           width="120px"
         />
         <br />
-        About
+        Learn more about your React Router DOM Extension.
       </h1>
-      <code>
-        <pre>{window.location.href}</pre>
-      </code>
+      <pre>
+        <code>{window.location.href}</code>
+      </pre>
     </main>
   )
 }
@@ -54,11 +54,11 @@ function Users() {
           width="120px"
         />
         <br />
-        Users
+        List of users of your React Router DOM Extension.
       </h1>
-      <code>
-        <pre>{window.location.href}</pre>
-      </code>
+      <pre>
+        <code>{window.location.href}</code>
+      </pre>
     </main>
   )
 }
@@ -68,8 +68,7 @@ export default function NewTabApp() {
     <Router>
       <div>
         <nav>
-          <Link to="/">Home</Link>
-          <Link to="/about">About</Link>
+          <Link to="/">Home</Link> <Link to="/about">About</Link>{' '}
           <Link to="/users">Users</Link>
         </nav>
 

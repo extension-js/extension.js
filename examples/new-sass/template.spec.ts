@@ -17,7 +17,7 @@ test('should exist an element with the welcome message text', async ({
 }) => {
   await page.goto('chrome://newtab/')
   const h1 = page.locator('h1')
-  await test.expect(h1).toHaveText('Welcome to your New Extension')
+  await test.expect(h1).toHaveText('Welcome to your Sass Extension')
 })
 
 test('should exist a default color value', async ({page}) => {
@@ -29,5 +29,5 @@ test('should exist a default color value', async ({page}) => {
     },
     await h1.elementHandle()
   )
-  await test.expect(color).toEqual('rgb(74, 74, 74)')
+  await test.expect(color).toEqual('rgb(201, 201, 201)')
 })
