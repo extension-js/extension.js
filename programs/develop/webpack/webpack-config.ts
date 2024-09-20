@@ -56,7 +56,7 @@ export default function webpackConfig(
           // Avoids deleting the hot-update files for the content scripts.
           // This is a workaround for the issue described
           // in https://github.com/cezaraugusto/extension.js/issues/35.
-          // These HMR assets are eventually deleted by CleanHotUpdatesPlugin when webpack starts.
+          // These HMR assets are eventually deleted by CleanDistFolderPlugin when webpack starts.
           return !asset.startsWith('hot/background')
         }
       },
