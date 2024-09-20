@@ -1,7 +1,7 @@
 import {Compiler} from 'webpack'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
-import {CleanHotUpdatesPlugin} from './clean-hot-updates'
+import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from '../lib/messages'
 
 import {type PluginInterface} from '../webpack-types'
@@ -26,7 +26,7 @@ export class CompilationPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    new CleanHotUpdatesPlugin().apply(compiler)
+    new CleanDistFolderPlugin().apply(compiler)
 
     compiler.hooks.done.tap('develop:brand', (stats) => {
       stats.compilation.name = undefined
