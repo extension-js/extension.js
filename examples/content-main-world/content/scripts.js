@@ -8,7 +8,7 @@ document.body.innerHTML += `
     Main World
   </h1>
   <p class="content_script-description">
-    Learn more about creating browser extensions at <a
+    Learn more about creating cross-browser extensions at <a
       className="underline hover:no-underline"
       href="https://extension.js.org"
       target="_blank"

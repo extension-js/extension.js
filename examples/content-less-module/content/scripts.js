@@ -11,7 +11,7 @@ document.body.innerHTML += `
   </h1>
   <input type="color" class="content_script-colorPicker" id="colorPicker">
   <p class="content_script-description">
-    Learn more about creating browser extensions at <a
+    Learn more about creating cross-browser extensions at <a
       className="underline hover:no-underline"
       href="https://extension.js.org"
       target="_blank"
