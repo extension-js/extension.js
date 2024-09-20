@@ -1,8 +1,9 @@
 import './styles.css'
+import logo from '../images/extension.svg'
 
 document.body.innerHTML += `
 <div class="content_script-box">
-  <img class="content_script-logo" src="${chrome.runtime.getURL('/logo.svg')}" />
+  <img class="content_script-logo" src="${logo}" />
   <h1 class="content_script-title">
     Main World
   </h1>

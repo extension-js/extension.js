@@ -1,11 +1,5 @@
 .logo {
   width: 90px;
   align-self: flex-start;
-  filter: grayscale(1);
-  transition: filter 2s;
-}
-
-.logo:hover {
-  filter: grayscale(0);
 }
 
