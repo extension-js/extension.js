@@ -15,12 +15,7 @@ import * as messages from './commands-lib/messages'
 import {loadExtensionConfig} from './commands-lib/get-extension-config'
 import {DevOptions} from './dev'
 
-export interface PreviewOptions {
-  browser: DevOptions['browser']
-  userDataDir?: string
-  chromiumBinary?: string
-  geckoBinary?: string
-}
+export interface PreviewOptions extends DevOptions {}
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,

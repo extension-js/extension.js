@@ -5,9 +5,7 @@
   "name": "Content Scripts .env Template",
   "description": "$EXTENSION_PUBLIC_DESCRIPTION_TEXT",
   "icons": {
-    "16": "images/extension_16.png",
-    "48": "images/extension_48.png",
-    "128": "images/extension_128.png"
+    "48": "images/extension_48.png"
   },
   "permissions": ["activeTab", "scripting"],
   "host_permissions": ["<all_urls>"],

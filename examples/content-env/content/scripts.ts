@@ -1,4 +1,3 @@
-import dotenvLogo from '../public/logo.png'
 import './styles.css'
 
 console.log(
@@ -11,7 +10,7 @@ if (!document.querySelector('.content_script-box')) {
   document.body.innerHTML += `
   <div class="content_script-box">
     <div class="content_script-logo-box">
-      <img class="content_script-logo" src=${dotenvLogo} />
+      <img class="content_script-logo" src="/logo.png" />
     </div>
     <p class="content_script-description">${process.env.EXTENSION_PUBLIC_DESCRIPTION_TEXT}</p>
     <h1 class="content_script-title">

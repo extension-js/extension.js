@@ -5,9 +5,7 @@
   "manifest_version": 3,
   "description": "An Extension.js example.",
   "icons": {
-    "16": "images/extension_16.png",
-    "48": "images/extension_48.png",
-    "128": "images/extension_128.png"
+    "48": "images/extension_48.png"
   },
   "declarative_net_request": {
     "rule_resources": [
@@ -19,7 +17,7 @@
       {
         "id": "public_rule_1",
         "enabled": true,
-        "path": "public/public_ruleset.json"
+        "path": "/public_ruleset.json"
       }
     ]
   },
