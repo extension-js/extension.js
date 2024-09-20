@@ -31,5 +31,5 @@ test('should exist a default color value', async ({page}) => {
     },
     await h1.elementHandle()
   )
-  await test.expect(color).toEqual('rgb(74, 74, 74)')
+  await test.expect(color).toEqual('rgb(201, 201, 201)')
 })
