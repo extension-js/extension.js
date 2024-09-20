@@ -122,8 +122,10 @@ export function firefoxServiceWorkerError() {
     )} field yet.\n` +
     `Update your manifest.json file to use ${brightYellow(
       'background.scripts'
-    )} instead.\n\n` +
-    `Read more: ${underline(
+    )} instead.\n` +
+    `If you really need to keep the ${brightYellow('service_worker')} field, prefix it with\n`+
+    `${brightYellow('chromium:')} so it can target only Chromium-based browsers.\n\n` +
+    `Mozilla bug: ${underline(
       'https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'
     )}.`
   )
@@ -367,8 +369,7 @@ export function serverRestartRequiredFromManifestError(
     fileAdded &&
     `${gray('PATH')} ${brightGreen('ADDED')} ${underline(fileAdded)}`
   return (
-    `${getLoggingPrefix('manifest.json', 'error')} ` +
-    `Manifest Entry Point Modification\n\n` +
+    `$manifest.json ${red('✖︎✖︎✖︎')} Manifest Entry Point Modification\n\n` +
     `Changing the path of ${brightYellow('HTML')} or ` +
     `${brightYellow('script')} files in manifest.json ` +
     `after compilation requires a server restart.\n` +

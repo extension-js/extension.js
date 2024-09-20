@@ -95,33 +95,30 @@ export default function (this: InjectBackgroundClientContext, source: string) {
 
   let manifestBg: Record<string, any> | undefined = patchedManifest.background
 
-  // Handling for specific browsers
-  if (browser !== 'firefox') {
-    // Check for background scripts
-    if (manifestBg) {
-      const backgroundScripts = manifestBg?.scripts
+  // Check for background scripts
+  if (manifestBg) {
+    const backgroundScripts = manifestBg?.scripts
 
-      if (backgroundScripts) {
-        if (manifest.manifest_version === 2) {
-          for (const bgScript of [backgroundScripts[0]]) {
-            const absoluteUrl = path.resolve(projectPath, bgScript as string)
+    if (backgroundScripts) {
+      if (manifest.manifest_version === 2) {
+        for (const bgScript of [backgroundScripts[0]]) {
+          const absoluteUrl = path.resolve(projectPath, bgScript as string)
 
-            if (url.includes(absoluteUrl)) {
-              return `${generalReloadCode}${source}`
-            }
-          }
-        }
-      }
-
-      const serviceWorker = manifestBg?.service_worker
-
-      // Check for service workers
-      if (serviceWorker) {
-        if (manifest.manifest_version === 3) {
-          const absoluteUrl = path.resolve(projectPath, serviceWorker as string)
           if (url.includes(absoluteUrl)) {
             return `${generalReloadCode}${source}`
           }
+        }
+      }
+    }
+
+    const serviceWorker = manifestBg?.service_worker
+
+    // Check for service workers
+    if (serviceWorker) {
+      if (manifest.manifest_version === 3) {
+        const absoluteUrl = path.resolve(projectPath, serviceWorker as string)
+        if (url.includes(absoluteUrl)) {
+          return `${generalReloadCode}${source}`
         }
       }
     }

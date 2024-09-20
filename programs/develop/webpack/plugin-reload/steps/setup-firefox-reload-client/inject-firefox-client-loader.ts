@@ -4,6 +4,7 @@ import {validate} from 'schema-utils'
 import {type LoaderContext} from 'webpack'
 import {type Schema} from 'schema-utils/declarations/validate'
 import * as utils from '../../../lib/utils'
+import * as messages from '../../../lib/messages'
 import {type Manifest} from '../../../webpack-types'
 import {DevOptions} from '../../../../commands/dev'
 
@@ -88,7 +89,12 @@ export default function (this: InjectBackgroundClientContext, source: string) {
   // Handling for specific browsers
   const manifestBg = patchedManifest.background
 
-  // Check for background scripts
+  if (patchedManifest.service_worker) {
+    console.log(messages.firefoxServiceWorkerError())
+
+    return source
+  }
+
   if (manifestBg) {
     const backgroundScripts = manifestBg?.scripts
 
