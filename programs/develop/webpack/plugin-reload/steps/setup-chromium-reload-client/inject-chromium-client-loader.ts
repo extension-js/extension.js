@@ -100,7 +100,7 @@ export default function (this: InjectBackgroundClientContext, source: string) {
     const backgroundScripts = manifestBg?.scripts
 
     if (backgroundScripts) {
-      if (manifest.manifest_version === 2) {
+      if (patchedManifest.manifest_version === 2) {
         for (const bgScript of [backgroundScripts[0]]) {
           const absoluteUrl = path.resolve(projectPath, bgScript as string)
 
@@ -115,7 +115,7 @@ export default function (this: InjectBackgroundClientContext, source: string) {
 
     // Check for service workers
     if (serviceWorker) {
-      if (manifest.manifest_version === 3) {
+      if (patchedManifest.manifest_version === 3) {
         const absoluteUrl = path.resolve(projectPath, serviceWorker as string)
         if (url.includes(absoluteUrl)) {
           return `${generalReloadCode}${source}`

@@ -123,7 +123,7 @@ export function firefoxServiceWorkerError() {
     `Update your manifest.json file to use ${brightYellow(
       'background.scripts'
     )} instead.\n` +
-    `If you really need to keep the ${brightYellow('service_worker')} field, prefix it with\n`+
+    `If you really need to keep the ${brightYellow('service_worker')} field, prefix it with\n` +
     `${brightYellow('chromium:')} so it can target only Chromium-based browsers.\n\n` +
     `Mozilla bug: ${underline(
       'https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'
