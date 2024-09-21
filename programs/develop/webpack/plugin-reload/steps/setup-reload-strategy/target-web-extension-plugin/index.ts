@@ -29,6 +29,7 @@ export class TargetWebExtensionPlugin {
         : 'minimum-chromium-file.mjs'
     )
 
+    const dirname = path.dirname(this.manifestPath!)
     let manifestBg: Record<string, any> | undefined =
       utils.filterKeysForThisBrowser(manifest, browser)
 
@@ -38,12 +39,12 @@ export class TargetWebExtensionPlugin {
       const backgroundScripts = manifestBg?.scripts
 
       if (backgroundScripts && backgroundScripts.length > 0) {
-        this.ensureFileExists(backgroundScripts[0])
+        const backgroundScriptsPath = path.join(dirname, backgroundScripts[0])
+        this.ensureFileExists(backgroundScriptsPath)
       } else {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     } else {
-      const dirname = path.dirname(this.manifestPath!)
       manifestBg = manifest.background
 
       if (manifest.manifest_version === 3) {
@@ -51,6 +52,7 @@ export class TargetWebExtensionPlugin {
 
         if (serviceWorker) {
           const serviceWorkerPath = path.join(dirname, serviceWorker)
+
           this.ensureFileExists(serviceWorkerPath)
         } else {
           this.addDefaultEntry(
@@ -97,6 +99,10 @@ export class TargetWebExtensionPlugin {
 
   private getEntryName(manifest: Manifest) {
     if (manifest.background) {
+      if (this.browser === 'firefox' || this.browser === 'gecko-based') {
+        return {pageEntry: 'background/script'}
+      }
+
       if (manifest.manifest_version === 3) {
         return {serviceWorkerEntry: 'background/service_worker'}
       }
