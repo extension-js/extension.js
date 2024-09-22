@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Action ChatGPT Template",
+  "name": "Action Chatgpt",
   "description": "An Extension.js example.",
   "icons": {
     "16": "images/extension_16.png",

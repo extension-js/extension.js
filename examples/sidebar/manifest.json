@@ -1,36 +1,30 @@
 {
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
-
   "version": "0.0.1",
-  "name": "Sidebar Template",
+  "name": "Sidebar",
   "author": "Cezar Augusto",
   "description": "An Extension.js example.",
   "icons": {
     "48": "images/extension_48.png"
   },
-
   "chromium:action": {
     "default_icon": {
       "48": "images/extension_48.png"
     },
     "default_title": "Open Side Panel"
   },
-
   "firefox:sidebar_action": {
     "default_panel": "sidebar/index.html",
     "default_title": "Open Sidebar",
     "default_icon": "images/extension_48.png"
   },
-
   "chromium:side_panel": {
     "default_path": "sidebar/index.html",
     "default_title": "Side Panel Content"
   },
-
   "chromium:permissions": ["sidePanel"],
   "firefox:permissions": ["storage", "tabs"],
-
   "chromium:web_accessible_resources": [
     {
       "resources": ["sidebar/index.html"],
@@ -38,7 +32,6 @@
     }
   ],
   "firefox:web_accessible_resources": ["sidebar/index.html"],
-
   "background": {
     "chromium:type": "module",
     "chromium:service_worker": "background.js",

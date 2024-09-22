@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/chrome-manifest.json",
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "Action Locales",
+  "author": "Cezar Augusto",
+  "default_locale": "en",
+  "description": "An Extension.js example.",
+  "icons": {
+    "48": "images/extension_48.png"
+  },
+  "action": {
+    "default_popup": "./action/index.html"
+  },
+  "permissions": ["activeTab"]
+}
