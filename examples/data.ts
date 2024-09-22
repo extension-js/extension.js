@@ -254,6 +254,15 @@ const CUSTOM_TEMPLATES: Template[] = [
     configFiles: ['tsconfig.json', 'extension.config.js']
   },
   {
+    name: 'new-node-apis',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json', 'extension.config.js']
+  },
+  {
     name: 'content-react-svgr',
     uiContext: ['content'],
     uiFramework: 'react',

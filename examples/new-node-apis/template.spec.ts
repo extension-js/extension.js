@@ -2,7 +2,7 @@ import path from 'path'
 import {execSync} from 'child_process'
 import {extensionFixtures} from '../extension-fixtures'
 
-const exampleDir = 'examples/new-crypto'
+const exampleDir = 'examples/new-node-apis'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
