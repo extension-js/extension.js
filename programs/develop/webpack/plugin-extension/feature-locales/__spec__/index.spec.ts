@@ -35,7 +35,7 @@ export const findStringInFile = async (
 }
 
 describe('LocalesPlugin', () => {
-  const fixturesPath = getFixturesPath('locales')
+  const fixturesPath = getFixturesPath('action-locales')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
   beforeAll(async () => {

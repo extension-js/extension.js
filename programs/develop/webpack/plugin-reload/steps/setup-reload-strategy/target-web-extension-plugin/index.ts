@@ -77,8 +77,14 @@ export class TargetWebExtensionPlugin {
   private ensureFileExists(filePath: string) {
     if (!fs.existsSync(filePath)) {
       if (this.manifestPath) {
-        const manifest: Manifest = require(this.manifestPath)
-        const manifestName = manifest.name || 'Extension.js'
+        const manifest = require(this.manifestPath)
+        const patchedManifest = utils.filterKeysForThisBrowser(
+          manifest,
+          'chrome'
+        )
+
+        const manifestName = patchedManifest.name || 'Extension.js'
+
         const fieldError = messages.backgroundIsRequired(manifestName, filePath)
         console.error(fieldError)
         throw new Error(fieldError)

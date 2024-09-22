@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import webpack, {Compilation, Compiler} from 'webpack'
+import * as utils from '../../../lib/utils'
 import * as messages from '../../../lib/messages'
 import {PluginInterface, FilepathList} from '../../../webpack-types'
 
@@ -60,7 +61,12 @@ export class CheckManifestFiles {
         for (const item of valueArr) {
           const ext = path.extname(item as string)
           const manifest = require(this.manifestPath)
-          const manifestName = manifest.name || 'Extension.js'
+          const patchedManifest = utils.filterKeysForThisBrowser(
+            manifest,
+            'chrome'
+          )
+
+          const manifestName = patchedManifest.name || 'Extension.js'
 
           if (!fs.existsSync(item as string)) {
             // Assume that by refrencing an absolute path, the user

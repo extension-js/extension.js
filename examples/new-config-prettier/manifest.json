@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/chrome-manifest.json",
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "New Tab Config Prettier",
+  "description": "An Extension.js example.",
+  "icons": {
+    "48": "images/extension_48.png"
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab/index.html"
+  }
+}
