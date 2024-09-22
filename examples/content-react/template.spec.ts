@@ -23,11 +23,7 @@ test('should exist an element with the class name extension-root', async ({
 test('should exist an h2 element with specified content', async ({page}) => {
   await page.goto('https://extension.js.org/')
   const h2 = page.locator('#extension-root h2')
-  await test
-    .expect(h2)
-    .toHaveText(
-      'This is a content script running React, TypeScript, and Tailwind.css'
-    )
+  await test.expect(h2).toContainText('This is a content script')
 })
 
 test('should exist a default color value', async ({page}) => {

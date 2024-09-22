@@ -1,3 +1,2 @@
-const extensionInfo = chrome.runtime.getManifest()
-const text = `${extensionInfo.name} v${extensionInfo.version} injected this script`
+const text = `Your browser extension injected this script`
 alert(text)

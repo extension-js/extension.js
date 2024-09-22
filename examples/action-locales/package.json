@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "name": "action-locales",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "license": "MIT"
+}

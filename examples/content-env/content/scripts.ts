@@ -1,4 +1,5 @@
 import './styles.css'
+import logo from '../images/logo.png'
 
 console.log(
   'hello from content_scripts',
@@ -6,18 +7,14 @@ console.log(
 )
 
 // Check if the content has already been added
-if (!document.querySelector('.content_script-box')) {
-  document.body.innerHTML += `
-  <div class="content_script-box">
-    <div class="content_script-logo-box">
-      <img class="content_script-logo" src="/logo.png" />
-    </div>
-    <p class="content_script-description">${process.env.EXTENSION_PUBLIC_DESCRIPTION_TEXT}</p>
-    <h1 class="content_script-title">
-      Change the background-color ⬇
+document.body.innerHTML += `
+  <div class="content_script">
+    <img class="content_logo" src="${logo}" />
+    <p class="content_description">${process.env.EXTENSION_PUBLIC_DESCRIPTION_TEXT}</p>
+    <h1 class="content_title">
+      Welcome to your .env Extension
     </h1>
-    <input type="color" class="content_script-colorPicker" id="colorPicker">
-    <p class="content_script-description">
+    <p class="content_description">
       Learn more about creating cross-browser extensions at <a
         class="underline hover:no-underline"
         href="https://extension.js.org"
@@ -28,22 +25,3 @@ if (!document.querySelector('.content_script-box')) {
     </p>
   </div>
   `
-}
-
-const colorPicker = document.getElementById('colorPicker')
-
-// Add the event listener only if it hasn't been added yet
-if (colorPicker && !colorPicker.hasAttribute('data-listener')) {
-  colorPicker.addEventListener('input', (event) => {
-    chrome.runtime
-      .sendMessage({
-        action: 'changeBackgroundColor',
-        // @ts-expect-error
-        color: event.target?.value
-      })
-      .catch(console.error)
-  })
-
-  // Mark the element to avoid adding the listener again
-  colorPicker.setAttribute('data-listener', 'true')
-}

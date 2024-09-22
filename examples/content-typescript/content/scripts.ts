@@ -1,15 +1,15 @@
 import './styles.css'
+import logo from '../images/logo.svg'
 
 console.log('hello from content_scripts')
 
 document.body.innerHTML += `
-<div class="content_script-box">
-  <img class="content_script-logo" src="/logo.png" />
-  <h1 class="content_script-title">
-    Change the background-color ⬇
+<div class="content_script">
+  <img class="content_logo" src="${logo}" />
+  <h1 class="content_title">
+    Welcome to your TypeScript Extension
   </h1>
-  <input type="color" class="content_script-colorPicker" id="colorPicker">
-  <p class="content_script-description">
+  <p class="content_description">
     Learn more about creating cross-browser extensions at <a
       className="underline hover:no-underline"
       href="https://extension.js.org"
@@ -20,13 +20,3 @@ document.body.innerHTML += `
   </p>
 </div>
 `
-
-document.getElementById('colorPicker')?.addEventListener('input', (event) => {
-  chrome.runtime
-    .sendMessage({
-      action: 'changeBackgroundColor',
-      // @ts-expect-error
-      color: event.target?.value
-    })
-    .catch(console.error)
-})
