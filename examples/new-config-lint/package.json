@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "name": "new-config-lint",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "lint:js": "eslint .",
+    "lint:css": "npx stylelint '**/*.scss'",
+    "lint:all": "npm run lint:js && npm run lint:css",
+    "format": "prettier --write \"**/*.{ts,tsx,md,js,json,html,css}\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.6.0",
+    "eslint": "^9.6.0",
+    "eslint-config-prettier": "^9.1.0",
+    "globals": "^15.9.0",
+    "prettier": "^3.3.2",
+    "stylelint": "^16.7.0",
+    "typescript": "5.3.3",
+    "typescript-eslint": "^8.5.0"
+  }
+}

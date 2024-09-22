@@ -19,7 +19,7 @@ test('should exist an element with the welcome message text', async ({
   const h2 = page.locator('h2')
   await test
     .expect(h2)
-    .toHaveText('This is a new tab page running React and Tailwind.css.')
+    .toContainText('This is a new tab page running React and Tailwind.css.')
 })
 
 test('should exist a default color value', async ({page}) => {

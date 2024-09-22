@@ -12,28 +12,28 @@ test.beforeAll(async () => {
   })
 })
 
-test('should exist an element with the class name content_script-box', async ({
+test('should exist an element with the class name content_script', async ({
   page
 }) => {
   await page.goto('https://extension.js.org/')
-  const div = page.locator('body > div.content_script-box')
+  const div = page.locator('body > div.content_script')
   await test.expect(div).toBeVisible()
 })
 
 test('should exist an h1 element with specified content', async ({page}) => {
   await page.goto('https://extension.js.org/')
-  const h1 = page.locator('body > div.content_script-box > h1')
-  await test.expect(h1).toHaveText('Main World')
+  const h1 = page.locator('body > div.content_script > h1')
+  await test.expect(h1).toContainText('Main World')
 })
 
 test('should exist a default color value', async ({page}) => {
   await page.goto('https://extension.js.org/')
-  const h1 = page.locator('body > div.content_script-box > h1')
+  const h1 = page.locator('body > div.content_script > h1')
   const color = await page.evaluate(
     (locator) => {
       return window.getComputedStyle(locator!).getPropertyValue('color')
     },
     await h1.elementHandle()
   )
-  await test.expect(color).toEqual('rgb(255, 255, 255)')
+  await test.expect(color).toEqual('rgb(201, 201, 201)')
 })

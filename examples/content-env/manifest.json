@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Content Scripts .env Template",
+  "name": "Content Scripts Env",
   "description": "$EXTENSION_PUBLIC_DESCRIPTION_TEXT",
   "icons": {
     "48": "images/extension_48.png"
