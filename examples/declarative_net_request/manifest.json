@@ -1,5 +1,5 @@
 {
-  "name": "Declarative Net Request Template",
+  "name": "Declarative_net_request",
   "version": "0.0.1",
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,

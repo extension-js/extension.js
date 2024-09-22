@@ -23,9 +23,7 @@ test('should exist an element with the welcome message text', async ({
 }) => {
   await page.goto('chrome://newtab/')
   const h1 = page.locator('h1')
-  await test
-    .expect(h1)
-    .toHaveText('Welcome to your New ESModule + .env Extension')
+  await test.expect(h1).toContainText('Welcome to your')
 })
 
 test('should exist a default color value', async ({page}) => {

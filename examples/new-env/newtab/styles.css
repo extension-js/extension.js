@@ -16,7 +16,7 @@ body {
   max-width: 38em;
   margin: auto;
   color: #c9c9c9;
-  background-color: #0A0C10;
+  background-color: #0a0c10;
 }
 
 @media (max-width: 684px) {
@@ -37,7 +37,6 @@ h1 {
   margin-bottom: 1.5rem;
   overflow-wrap: break-word;
   word-wrap: break-word;
-  -ms-word-break: break-all;
   word-break: break-word;
   font-size: 4.5em;
 }
@@ -58,7 +57,6 @@ a {
   border-bottom: 2px solid #c9c9c9;
   color: #e5e7eb;
 }
-
 
 img {
   height: auto;
@@ -81,7 +79,7 @@ body {
   height: calc(100vh - 4rem);
 }
 
-header>div {
+header > div {
   display: flex;
   align-items: center;
 }

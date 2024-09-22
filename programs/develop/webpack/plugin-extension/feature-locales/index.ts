@@ -34,11 +34,16 @@ export class LocalesPlugin {
           stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
         () => {
-          const manifest = require(this.manifestPath)
-          const manifestName = manifest.name || 'Extension.js'
-
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
+            const manifest = require(this.manifestPath)
+            const patchedManifest = utils.filterKeysForThisBrowser(
+              manifest,
+              'chrome'
+            )
+
+            const manifestName = patchedManifest.name || 'Extension.js'
+
             compilation.errors.push(
               new webpack.WebpackError(
                 messages.manifestNotFoundError(manifestName, this.manifestPath)

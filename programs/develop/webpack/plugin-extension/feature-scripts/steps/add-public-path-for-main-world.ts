@@ -5,7 +5,8 @@ import {
   type Manifest
 } from '../../../webpack-types'
 import * as messages from '../../../lib/messages'
-import {DevOptions} from '../../../../module'
+import * as utils from '../../../lib/utils'
+import {DevOptions} from '../../../../commands/dev'
 import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
 
 export class AddPublicPathForMainWorld {
@@ -22,7 +23,12 @@ export class AddPublicPathForMainWorld {
   }
 
   public apply(_compiler: Compiler): void {
-    const manifest: Manifest = require(this.manifestPath)
+    const initialManifest: Manifest = require(this.manifestPath)
+    const manifest = utils.filterKeysForThisBrowser(
+      initialManifest,
+      this.browser
+    )
+
     if (
       manifest.content_scripts?.some(
         // @ts-expect-error - TS doesn't know about content_scripts

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Content Scripts Template",
+  "name": "Content Script",
   "description": "An Extension.js example.",
   "icons": {
     "48": "images/extension_48.png"

@@ -1,0 +1,10 @@
+{
+  "title": {
+    "message": "Bem-vindo à sua extensão de localização",
+    "description": "The title of the extension page"
+  },
+  "learnMore": {
+    "message": "Saiba mais sobre como criar extensões multiplataforma em ",
+    "description": "The learn more text"
+  }
+}

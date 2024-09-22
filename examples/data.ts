@@ -39,7 +39,7 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'content-css-module',
+    name: 'content-css-modules',
     uiContext: ['content'],
     uiFramework: undefined,
     css: 'css',
@@ -57,7 +57,7 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'content-less-module',
+    name: 'content-less-modules',
     uiContext: ['content'],
     uiFramework: undefined,
     css: 'less',
@@ -84,7 +84,7 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'content-sass-module',
+    name: 'content-sass-modules',
     uiContext: ['content'],
     uiFramework: undefined,
     css: 'sass',
@@ -111,7 +111,7 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'locales',
+    name: 'action-locales',
     uiContext: ['action'],
     uiFramework: undefined,
     css: 'css',
@@ -254,6 +254,15 @@ const CUSTOM_TEMPLATES: Template[] = [
     configFiles: ['tsconfig.json', 'extension.config.js']
   },
   {
+    name: 'new-node-apis',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json', 'extension.config.js']
+  },
+  {
     name: 'content-react-svgr',
     uiContext: ['content'],
     uiFramework: 'react',
@@ -360,7 +369,7 @@ const CONFIG_TEMPLATES: Template[] = [
   //   configFiles: ['babel.config.json']
   // },
   {
-    name: 'config-eslint',
+    name: 'new-config-eslint',
     uiContext: ['newTab'],
     uiFramework: undefined,
     css: 'css',
@@ -369,7 +378,7 @@ const CONFIG_TEMPLATES: Template[] = [
     configFiles: ['tsconfig.json', 'eslint.config.mjs']
   },
   {
-    name: 'config-lint',
+    name: 'new-config-lint',
     uiContext: ['newTab'],
     uiFramework: undefined,
     css: 'css',
@@ -384,7 +393,7 @@ const CONFIG_TEMPLATES: Template[] = [
     ]
   },
   {
-    name: 'config-prettier',
+    name: 'new-config-prettier',
     uiContext: ['newTab'],
     uiFramework: undefined,
     css: 'css',
@@ -393,7 +402,7 @@ const CONFIG_TEMPLATES: Template[] = [
     configFiles: ['tsconfig.json', '.prettierrc']
   },
   {
-    name: 'config-stylelint',
+    name: 'new-config-stylelint',
     uiContext: ['newTab'],
     uiFramework: undefined,
     css: 'sass',

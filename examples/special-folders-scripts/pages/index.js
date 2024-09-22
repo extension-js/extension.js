@@ -1,1 +1,1 @@
-console.log('ok')
+console.log('Hello from the index page')

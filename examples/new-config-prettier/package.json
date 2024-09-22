@@ -1,0 +1,17 @@
+{
+  "private": true,
+  "name": "new-config-prettier",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "scripts": {
+    "format": "prettier --write \"**/*.{ts,tsx,md,js,json,html,css}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.2"
+  }
+}

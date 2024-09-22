@@ -1,43 +1,37 @@
-.content_script-box {
+.content_script {
   color: #c9c9c9;
-  background-color: #0A0C10;
+  background-color: #0a0c10;
   position: fixed;
   right: 0;
   bottom: 0;
   z-index: 9;
   width: 315px;
-  height: 345px;
-  margin: 1em;
-  padding: 1em;
+  margin: 1rem;
+  padding: 2rem 1rem;
   display: flex;
-  align-items: start;
-  justify-content: center;
   flex-direction: column;
   gap: 1em;
+  border-radius: 6px;
 }
 
-.content_script-logo {
-  width: 90px;
+.content_logo {
+  width: 72px;
 }
 
-.content_script-title {
-  text-align: left;
+.content_title {
   font-size: 1.85em;
-  color: #ffffff;
   line-height: 1.1;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
   font-weight: 700;
-  overflow-wrap: break-word;
-  word-wrap: break-word;
-  -ms-word-break: break-all;
-  word-break: break-word;
 }
 
-.content_script-description {
-  color: #c9c9c9;
+.content_description {
+  font-size: small;
 }
 
-.content_script-description a {
-  text-decoration: underline;
+.content_description a {
+  text-decoration: none;
+  border-bottom: 2px solid #c9c9c9;
+  color: #e5e7eb;
 }

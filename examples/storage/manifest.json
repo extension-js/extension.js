@@ -1,5 +1,5 @@
 {
-  "name": "Storage Template",
+  "name": "Storage",
   "version": "0.0.1",
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,

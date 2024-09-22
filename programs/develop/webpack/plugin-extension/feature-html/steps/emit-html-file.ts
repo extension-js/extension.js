@@ -19,7 +19,9 @@ export class EmitHtmlFile {
 
   public apply(compiler: Compiler): void {
     const manifest = require(this.manifestPath)
-    const manifestName = manifest.name || 'Extension.js'
+    const patchedManifest = utils.filterKeysForThisBrowser(manifest, 'chrome')
+
+    const manifestName = patchedManifest.name || 'Extension.js'
 
     compiler.hooks.thisCompilation.tap('html:emit-html-file', (compilation) => {
       compilation.hooks.processAssets.tap(

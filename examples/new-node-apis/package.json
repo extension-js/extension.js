@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "new-node-apis",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "node-polyfill-webpack-plugin": "^4.0.0",
+    "typescript": "5.3.3"
+  }
+}

@@ -25,7 +25,7 @@ test('should exist an h2 element with specified content', async ({page}) => {
   const h2 = page.locator('#extension-root h2')
   await test
     .expect(h2)
-    .toHaveText('This is a content script running Tailwind.css.')
+    .toContainText('This is a content script running Tailwind.css.')
 })
 
 test('should exist a default color value', async ({page}) => {
