@@ -14,8 +14,12 @@
 [fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension?ref=badge_shield&issueType=license
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
 [discord-url]: https://discord.gg/1253608412890271755
+[discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
+[discord-url]: https://discord.gg/1253608412890271755
+[codecov-image]: https://codecov.io/gh/extension-js/extension.js/graph/badge.svg?token=I3CQV00TJ8
+[codecov-url]: https://codecov.io/gh/extension-js/extension.js
 
-# Extension.js [![fossa][fossa-image]][fossa-url] [![Known Vulnerabilities][snyk-image]][snyk-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
+# Extension.js [![Known Vulnerabilities][snyk-image]][snyk-url] [![fossa][fossa-image]][fossa-url] [![codecov][codecov-image]][codecov-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
 
 <!-- > Plug-and-play, zero-config, cross-browser extension development tool. -->
 
