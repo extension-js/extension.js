@@ -255,6 +255,12 @@ importers:
 
   examples/declarative_net_request: {}
 
+  examples/extension_path_test_20240923:
+    devDependencies:
+      extension:
+        specifier: 2.0.0-beta.1
+        version: 2.0.0-beta.1(@babel/core@7.25.2)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.23.3)(esbuild@0.23.1)(less@4.2.0)(preact@10.24.0)(sass@1.79.2)(type-fest@4.26.1)(typescript@5.3.3)
+
   examples/init: {}
 
   examples/new: {}
@@ -375,9 +381,6 @@ importers:
       preact:
         specifier: ^10.22.0
         version: 10.24.0
-      sakura.css:
-        specifier: ^1.5.0
-        version: 1.5.0
     devDependencies:
       '@prefresh/core':
         specifier: ^1.5.2
@@ -400,9 +403,6 @@ importers:
       react-dom:
         specifier: ^18.1.0
         version: 18.3.1(react@18.3.1)
-      sakura.css:
-        specifier: ^1.5.0
-        version: 1.5.0
     devDependencies:
       '@types/react':
         specifier: ^18.2.64
@@ -425,9 +425,6 @@ importers:
       react-router-dom:
         specifier: '5'
         version: 5.3.4(react@18.3.1)
-      sakura.css:
-        specifier: ^1.5.0
-        version: 1.5.0
     devDependencies:
       '@types/react':
         specifier: ^18.2.64
@@ -478,9 +475,6 @@ importers:
 
   examples/new-vue:
     dependencies:
-      sakura.css:
-        specifier: ^1.5.0
-        version: 1.5.0
       vue:
         specifier: ^3.4.27
         version: 3.5.7(typescript@5.3.3)
@@ -3877,6 +3871,19 @@ packages:
   extendable-error@0.1.7:
     resolution: {integrity: sha512-UOiS2in6/Q0FK0R0q6UY9vYpQ21mr/Qn1KOnte7vsACuNJf514WvCCUHSRCPcgjPT2bAhNIJdlE6bVap1GKmeg==}
 
+  extension-create@2.0.0-beta.1:
+    resolution: {integrity: sha512-QSZupzOqmGqJKk0zyoR3D0wT5CGw6A/FBZ5szKy0kslLCQ5YZPVPi9ThT/B33pPY8dWgw7juMD/9jaOW5USx8Q==}
+    engines: {node: '>=18'}
+
+  extension-develop@2.0.0-beta.1:
+    resolution: {integrity: sha512-3z2FVl4h/svcxSCY2crflMCzjuB3ZCBoxbXLrsr6Li3Z+MV3oHoOIKL3Jaitozer8v0ehvcD8USbh34qhtR0tg==}
+    engines: {node: '>=18'}
+
+  extension@2.0.0-beta.1:
+    resolution: {integrity: sha512-cAEJR1x1zwtslkvoSEn6ZEMfkgdH/pHXnbDeSrVAEOXpH74X9AEwv+DBOrXOrpQefmT9ZHfUcNLJ4POE1wA4+Q==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   external-editor@3.1.0:
     resolution: {integrity: sha512-hMQ4CX1p1izmuLYyZqLMO/qGNw10wSv9QDCPfzXfyFrOaCSSoRfqE1Kf1s5an66J5JZC62NewG+mK49jOCtQew==}
     engines: {node: '>=4'}
@@ -5777,9 +5784,6 @@ packages:
 
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
-
-  sakura.css@1.5.0:
-    resolution: {integrity: sha512-AcAZa9F4SCs2xaKLWcXQxJxKfeod2PN3sR31+R22MKuyoJxNChH1wBG4mQaY9gVpJ3VpNA1XHPOrOM9hFo9cSw==}
 
   sanitize.css@13.0.0:
     resolution: {integrity: sha512-ZRwKbh/eQ6w9vmTjkuG0Ioi3HBwPFce0O+v//ve+aOq1oeCy7jMV2qzzAlpsNuqpqCBjjriM1lbtZbF/Q8jVyA==}
@@ -10354,6 +10358,144 @@ snapshots:
 
   extendable-error@0.1.7: {}
 
+  extension-create@2.0.0-beta.1:
+    dependencies:
+      '@colors/colors': 1.6.0
+      '@types/firefox-webext-browser': 120.0.4
+      cross-spawn: 7.0.3
+      go-git-it: 2.0.4
+      package-manager-detector: 0.2.0
+
+  extension-develop@2.0.0-beta.1(@babel/core@7.25.2)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.23.3)(esbuild@0.23.1)(less@4.2.0)(preact@10.24.0)(sass@1.79.2)(type-fest@4.26.1)(typescript@5.3.3):
+    dependencies:
+      '@colors/colors': 1.6.0
+      '@swc/core': 1.7.26
+      '@types/firefox-webext-browser': 120.0.4
+      acorn: 8.12.1
+      acorn-walk: 8.3.4
+      adm-zip: 0.5.16
+      ajv: 8.17.1
+      astring: 1.9.0
+      axios: 1.7.7
+      case-sensitive-paths-webpack-plugin: 2.4.0
+      chokidar: 3.6.0
+      chrome-location: 1.2.1
+      content-security-policy-parser: 0.6.0
+      cross-spawn: 7.0.3
+      css-loader: 6.11.0(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      csv-loader: 3.0.5
+      dotenv: 16.4.5
+      dotenv-webpack: 8.1.0(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      edge-location: 1.0.0
+      firefox-profile: 4.7.0
+      fx-runner: 1.4.0
+      go-git-it: 2.0.4
+      ignore: 5.3.2
+      loader-utils: 3.3.1
+      micromatch: 4.0.8
+      mini-css-extract-plugin: 2.9.1(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      package-manager-detector: 0.2.0
+      parse5: 7.1.2
+      parse5-utils: 2.0.0
+      postcss: 8.4.47
+      progress: 2.0.3
+      schema-utils: 4.2.0
+      slugify: 1.6.6
+      style-loader: 3.3.4(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      swc-loader: 0.2.6(@swc/core@1.7.26)(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      tiny-glob: 0.2.9
+      webextension-polyfill: 0.12.0
+      webpack: 5.92.1(@swc/core@1.7.26)(esbuild@0.23.1)
+      webpack-dev-server: 5.1.0(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      webpack-merge: 6.0.1
+      webpack-target-webextension: 1.1.2(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      which: 4.0.0
+      ws: 8.18.0
+    optionalDependencies:
+      '@pmmmwh/react-refresh-webpack-plugin': 0.5.15(@types/webpack@4.41.39)(react-refresh@0.14.2)(type-fest@4.26.1)(webpack-dev-server@5.1.0(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1)))(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      '@prefresh/webpack': 4.0.1(@prefresh/babel-plugin@0.5.1)(preact@10.24.0)(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      babel-loader: 9.2.1(@babel/core@7.25.2)(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      less-loader: 12.2.0(less@4.2.0)(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      postcss-flexbugs-fixes: 5.0.2(postcss@8.4.47)
+      postcss-loader: 8.1.1(postcss@8.4.47)(typescript@5.3.3)(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      postcss-normalize: 10.0.1(browserslist@4.23.3)(postcss@8.4.47)
+      postcss-preset-env: 9.6.0(postcss@8.4.47)
+      postcss-scss: 4.0.9(postcss@8.4.47)
+      react-refresh: 0.14.2
+      react-refresh-typescript: 2.0.9(react-refresh@0.14.2)(typescript@5.3.3)
+      resolve-url-loader: 5.0.0
+      sass-loader: 16.0.2(sass@1.79.2)(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      vue-loader: 17.4.2(webpack@5.92.1(@swc/core@1.7.26)(esbuild@0.23.1))
+      vue-style-loader: 4.1.3
+      vue-template-compiler: 2.7.16
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@prefresh/babel-plugin'
+      - '@rspack/core'
+      - '@swc/helpers'
+      - '@types/webpack'
+      - '@vue/compiler-sfc'
+      - browserslist
+      - bufferutil
+      - debug
+      - esbuild
+      - less
+      - node-sass
+      - preact
+      - sass
+      - sass-embedded
+      - sockjs-client
+      - supports-color
+      - type-fest
+      - typescript
+      - uglify-js
+      - utf-8-validate
+      - vue
+      - webpack-cli
+      - webpack-hot-middleware
+      - webpack-plugin-serve
+
+  extension@2.0.0-beta.1(@babel/core@7.25.2)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.23.3)(esbuild@0.23.1)(less@4.2.0)(preact@10.24.0)(sass@1.79.2)(type-fest@4.26.1)(typescript@5.3.3):
+    dependencies:
+      '@colors/colors': 1.6.0
+      '@types/chrome': 0.0.270
+      '@types/firefox-webext-browser': 120.0.4
+      '@types/node': 22.5.5
+      '@types/react': 18.3.8
+      '@types/react-dom': 18.3.0
+      commander: 11.1.0
+      extension-create: 2.0.0-beta.1
+      extension-develop: 2.0.0-beta.1(@babel/core@7.25.2)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.23.3)(esbuild@0.23.1)(less@4.2.0)(preact@10.24.0)(sass@1.79.2)(type-fest@4.26.1)(typescript@5.3.3)
+      semver: 7.6.3
+      update-check: 1.5.4
+      webextension-polyfill: 0.12.0
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@prefresh/babel-plugin'
+      - '@rspack/core'
+      - '@swc/helpers'
+      - '@types/webpack'
+      - '@vue/compiler-sfc'
+      - browserslist
+      - bufferutil
+      - debug
+      - esbuild
+      - less
+      - node-sass
+      - preact
+      - sass
+      - sass-embedded
+      - sockjs-client
+      - supports-color
+      - type-fest
+      - typescript
+      - uglify-js
+      - utf-8-validate
+      - vue
+      - webpack-cli
+      - webpack-hot-middleware
+      - webpack-plugin-serve
+
   external-editor@3.1.0:
     dependencies:
       chardet: 0.7.0
@@ -12532,8 +12674,6 @@ snapshots:
   safe-buffer@5.2.1: {}
 
   safer-buffer@2.1.2: {}
-
-  sakura.css@1.5.0: {}
 
   sanitize.css@13.0.0:
     optional: true
