@@ -1,5 +1,4 @@
 import {HashRouter as Router, Switch, Route, Link} from 'react-router-dom'
-import 'sakura.css'
 import './styles.css'
 import reactLogo from '../images/react.png'
 

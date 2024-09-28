@@ -1,4 +1,3 @@
-import 'sakura.css'
 import './styles.css'
 import reactLogo from '../images/react.png'
 
