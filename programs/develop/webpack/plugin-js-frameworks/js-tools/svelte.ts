@@ -27,7 +27,7 @@ export function isUsingSvelte(projectPath: string) {
   const svelteAsDep =
     packageJson.dependencies && packageJson.dependencies.svelte
 
-  if (true || svelteAsDep) {
+  if (svelteAsDevDep || svelteAsDep) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.isUsingIntegration('Svelte'))
@@ -44,6 +44,8 @@ export async function maybeUseSvelte(
   projectPath: string
 ): Promise<JsFramework | undefined> {
   if (!isUsingSvelte(projectPath)) return undefined
+
+  const isDev = process.env.NODE_ENV !== 'production'
 
   try {
     require.resolve('svelte-loader')
@@ -69,6 +71,10 @@ export async function maybeUseSvelte(
       include: projectPath,
       exclude: /node_modules/,
       options: {
+        compilerOptions: {
+          dev: isDev
+        },
+        hotReload: isDev,
         preprocess: require('svelte-preprocess')()
       }
     }

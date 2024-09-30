@@ -6,7 +6,7 @@
   <h1>
     <img class="svelte" src="/logo.png" alt="The Svelte logo" width="120px" />
     <br />
-    {message}.
+    {message}
   </h1>
   <p>
     Learn more about creating browser extensions at
