@@ -28,6 +28,7 @@
     "node_modules",
     "**/dist",
     "**/spec",
-    "./programs/create/templates/**"
+    "./programs/create/templates/**",
+    "./examples/**"
   ]
 }
