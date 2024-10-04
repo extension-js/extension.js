@@ -355,6 +355,15 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  },
+  {
+    name: 'new-svelte',
+    uiContext: ['newTab'],
+    uiFramework: 'svelte',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json']
   }
 ]
 
