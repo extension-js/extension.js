@@ -106,7 +106,7 @@ describe('extension create', () => {
                 template.name,
                 `${context.toLowerCase()}/scripts.${ext}`
               )
-            ).toBeTruthy()  
+            ).toBeTruthy()
           }
 
           // Expect [uiContext]/styles.sass|less|css for styles
@@ -130,7 +130,12 @@ describe('extension create', () => {
               context?.charAt(0).toUpperCase() + context?.slice(1)
 
             // Vue uses its own file extension
-            const fileExt = template.uiFramework === 'vue' ? 'vue' : ext
+            const fileExt =
+              template.uiFramework === 'vue'
+                ? 'vue'
+                : template.uiFramework === 'svelte'
+                  ? 'svelte'
+                  : ext
 
             expect(
               fileExists(
