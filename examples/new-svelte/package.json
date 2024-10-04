@@ -1,0 +1,20 @@
+{
+  "private": true,
+  "name": "new-tab",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "svelte": "4.2.19",
+    "sakura.css": "^1.5.0"
+  },
+  "devDependencies": {
+    "typescript": "5.3.3",
+    "@tsconfig/svelte": "5.0.4"
+  }
+}
