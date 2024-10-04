@@ -57,9 +57,6 @@ export function runningInProduction(
 
   const {name, version, hostPermissions, permissions} = manifest
 
-  const defaultLocale = getLocales(projectDir, manifest).defaultLocale
-  const otherLocales = getLocales(projectDir, manifest).otherLocales.join(', ')
-  const locales = `${defaultLocale} ${otherLocales && ', ' + otherLocales}`
   const hasHost = hostPermissions && hostPermissions.length
   const hasPermissions = permissions && permissions.length
 
@@ -69,7 +66,6 @@ export function runningInProduction(
  🧩 ${brightGreen('Extension.js')} ${gray(`${packageVersion}`)}
 ${`    Extension Name        `} ${gray(name)}
 ${`    Extension Version     `} ${gray(version)}
-${`    Locales               `} ${gray(locales)}
 ${`    Host Permissions      `} ${gray(
     hasHost ? hostPermissions.join(', ') : 'Browser defaults'
   )}
@@ -297,29 +293,6 @@ export function failedToDownloadOrExtractZIPFileError(error: any) {
 
 function capitalizedBrowserName(browser: DevOptions['browser']) {
   return browser!.charAt(0).toUpperCase() + browser!.slice(1)
-}
-
-function getLocales(projectPath: string, manifest: Record<string, any>) {
-  const defaultLocale = manifest.default_locale as string
-
-  // Get the list of all locale folders
-  const localesDir = path.join(projectPath, '_locales')
-
-  if (!fs.existsSync(localesDir)) {
-    return {
-      defaultLocale: 'Browser defaults',
-      otherLocales: []
-    }
-  }
-
-  const localeFolders = fs
-    .readdirSync(localesDir)
-    .filter((folder) => folder !== defaultLocale)
-
-  return {
-    defaultLocale,
-    otherLocales: localeFolders
-  }
 }
 
 function getFileSize(fileSizeInBytes: number): string {
