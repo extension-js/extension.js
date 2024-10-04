@@ -80,7 +80,7 @@ describe('extension create', () => {
         // TODO: cezaraugusto this is not going to scale well
         // but better than nothing for now.
         const ext = template.uiFramework
-          ? template.uiFramework === 'vue'
+          ? template.uiFramework === 'vue' || template.uiFramework === 'svelte'
             ? 'ts'
             : 'tsx'
           : template.configFiles?.includes('tsconfig.json')
@@ -106,7 +106,7 @@ describe('extension create', () => {
                 template.name,
                 `${context.toLowerCase()}/scripts.${ext}`
               )
-            ).toBeTruthy()
+            ).toBeTruthy()  
           }
 
           // Expect [uiContext]/styles.sass|less|css for styles
