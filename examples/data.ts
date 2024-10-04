@@ -284,6 +284,15 @@ const CUSTOM_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['tsconfig.json']
+  },
+  {
+    name: 'sidebar-shadcn',
+    uiContext: ['sidebar'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
   }
 ]
 

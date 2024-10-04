@@ -2,8 +2,8 @@
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
   "version": "0.0.1",
-  "name": "Sidebar",
-  "author": "Cezar Augusto",
+  "name": "shadcn-extension",
+  "author": "Your Name",
   "description": "An Extension.js example.",
   "icons": {
     "48": "images/extension_48.png"
