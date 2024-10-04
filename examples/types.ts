@@ -12,7 +12,7 @@ export type ConfigFiles =
 export interface Template {
   name: string
   uiContext: UIContext[] | undefined
-  uiFramework: 'react' | 'preact' | 'vue' | undefined
+  uiFramework: 'react' | 'preact' | 'vue' | 'svelte' | undefined
   css: 'css' | 'sass' | 'less' | 'stylus'
   hasBackground: boolean
   hasEnv: boolean

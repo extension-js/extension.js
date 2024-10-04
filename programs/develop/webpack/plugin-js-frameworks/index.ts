@@ -6,8 +6,8 @@ import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
 import {isUsingTypeScript} from './js-tools/typescript'
+import {maybeUseSvelte} from './js-tools/svelte'
 // import {maybeUseAngular} from './js-tools/angular'
-// import {maybeUseSvelte} from './js-tools/svelte'
 // import {maybeUseSolid} from './js-tools/solid'
 
 export class JsFrameworksPlugin {
@@ -27,12 +27,14 @@ export class JsFrameworksPlugin {
     const maybeInstallReact = await maybeUseReact(projectPath)
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath)
+    const maybeInstallSvelte = await maybeUseSvelte(projectPath)
 
     compiler.options.resolve.alias = {
       ...(maybeInstallBabel?.alias || {}),
       ...(maybeInstallReact?.alias || {}),
       ...(maybeInstallPreact?.alias || {}),
       ...(maybeInstallVue?.alias || {}),
+      ...(maybeInstallSvelte?.alias || {}),
       ...compiler.options.resolve.alias
     }
 
@@ -80,12 +82,14 @@ export class JsFrameworksPlugin {
       ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
       ...(maybeInstallVue?.loaders || []),
+      ...(maybeInstallSvelte?.loaders || []),
       ...compiler.options.module.rules
     ].filter(Boolean)
 
     maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
+    maybeInstallSvelte?.plugins?.forEach((plugin) => plugin.apply(compiler))
   }
 
   public async apply(compiler: Compiler) {
