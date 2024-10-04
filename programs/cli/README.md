@@ -13,7 +13,7 @@
 [fossa-image]: https://app.fossa.com/api/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension.svg?type=shield&issueType=license
 [fossa-url]: https://app.fossa.com/projects/git%2Bgithub.com%2Fcezaraugusto%2Fextension?ref=badge_shield&issueType=license
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
-[discord-url]: https://discord.gg/1253608412890271755
+[discord-url]: https://discord.gg/v9h2RgeTSN
 
 # Extension.js [![fossa][fossa-image]][fossa-url] [![Known Vulnerabilities][snyk-image]][snyk-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
 
