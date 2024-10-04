@@ -22,6 +22,7 @@ export interface BuildOptions {
   zip?: boolean
   zipSource?: boolean
   polyfill?: boolean
+  silent?: boolean
 }
 
 export async function extensionBuild(
@@ -71,7 +72,9 @@ export async function extensionBuild(
           return reject(err)
         }
 
-        console.log(messages.buildWebpack(projectPath, stats, browser))
+        if (!buildOptions?.silent) {
+          console.log(messages.buildWebpack(projectPath, stats, browser))
+        }
 
         if (buildOptions?.zip || buildOptions?.zipSource) {
           await generateZip(projectPath, {...buildOptions, browser})

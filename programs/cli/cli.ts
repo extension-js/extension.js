@@ -16,7 +16,7 @@ import {
   type StartOptions,
   extensionBuild,
   type BuildOptions,
-  // extensionPreview,
+  extensionPreview,
   type FileConfig,
   type Manifest
 } from 'extension-develop'
@@ -189,34 +189,35 @@ extensionJs
 // ██║     ██║  ██║███████╗ ╚████╔╝ ██║███████╗╚███╔███╔╝
 // ╚═╝     ╚═╝  ╚═╝╚══════╝  ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝
 
-// extensionJs
-//   .command('preview')
-//   .arguments('[project-name]')
-//   .usage('preview [path-to-remote-extension] [options]')
-//   .description('Builds the extension for production')
-// .option(
-//   '--chromium-binary <path-to-binary>',
-//   'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
-// )
-// .option(
-//   '--gecko-binary <path-to-binary>',
-//   'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
-// )
-//   .option(
-//     '-b, --browser <chrome | edge | firefox>',
-//     'specify a browser to preview your extension in production mode'
-//   )
-//   .action(async function (
-//     pathOrRemoteUrl: string,
-//     {browser = 'chrome', ...previewOptions}: BuildOptions
-//   ) {
-//     for (const vendor of vendors(browser)) {
-//       await extensionPreview(pathOrRemoteUrl, {
-//         browser: vendor as any,
-//         ...previewOptions
-//       })
-//     }
-//   })
+extensionJs
+  .command('preview')
+  .arguments('[project-name]')
+  .usage('preview [path-to-remote-extension] [options]')
+  .description('Builds the extension for production')
+  .option(
+    '--chromium-binary <path-to-binary>',
+    'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
+  )
+  .option(
+    '--gecko-binary <path-to-binary>',
+    'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
+  )
+  .option(
+    '-b, --browser <chrome | edge | firefox>',
+    'specify a browser to preview your extension in production mode'
+  )
+  .action(async function (
+    pathOrRemoteUrl: string,
+    {browser = 'chrome', ...previewOptions}: BuildOptions
+  ) {
+    for (const vendor of vendors(browser)) {
+      await extensionPreview(pathOrRemoteUrl, {
+        mode: 'production',
+        browser: vendor as any,
+        ...previewOptions
+      })
+    }
+  })
 
 // ██████╗ ██╗   ██╗██╗██╗     ██████╗
 // ██╔══██╗██║   ██║██║██║     ██╔══██╗
