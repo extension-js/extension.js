@@ -39,12 +39,8 @@ export class EnvPlugin {
       }
     }
 
-    if (!envPath) return
-
-    console.log(messages.envFileLoaded())
-
     // Load the .env file manually and filter variables prefixed with 'EXTENSION_PUBLIC_'
-    const envVars = dotenv.config({path: envPath}).parsed || {}
+    const envVars = envPath ? dotenv.config({path: envPath}).parsed || {} : {}
     const defaultsPath = path.join(projectPath, '.env.defaults')
     const defaultsVars = fs.existsSync(defaultsPath)
       ? dotenv.config({path: defaultsPath}).parsed || {}
@@ -70,7 +66,7 @@ export class EnvPlugin {
         {} as Record<string, string>
       )
 
-    // Support native environment variables:
+    // Ensure default environment variables are always available:
     // - EXTENSION_PUBLIC_BROWSER
     // - EXTENSION_PUBLIC_ENV_MODE
     filteredEnvVars['process.env.EXTENSION_PUBLIC_BROWSER'] = JSON.stringify(
@@ -106,7 +102,7 @@ export class EnvPlugin {
 
                 // Replace environment variables in the format $EXTENSION_PUBLIC_VAR
                 fileContent = fileContent.replace(
-                  /\$EXTENSION_PUBLIC_[A-Z_]+/g,
+                  /$EXTENSION_PUBLIC_[A-Z_]+/g,
                   (match) => {
                     const envVarName = match.slice(1) // Remove the '$'
                     const value = combinedVars[envVarName] || match

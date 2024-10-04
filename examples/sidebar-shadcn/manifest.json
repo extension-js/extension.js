@@ -28,7 +28,7 @@
     "default_panel": "sidebar/index.html",
     "default_title": "Side Panel Content"
   },
-  "permissions": ["tabs"],
+  "chromium:permissions": ["sidePanel"],
   "background": {
     "chromium:service_worker": "background.ts",
     "firefox:scripts": ["background.ts"]

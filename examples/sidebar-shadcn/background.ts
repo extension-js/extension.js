@@ -1,11 +1,13 @@
 const isFirefoxLike =
-  typeof browser !== 'undefined' && typeof browser.sidebarAction !== 'undefined'
+  process.env.EXTENSION_PUBLIC_BROWSER === 'firefox' ||
+  process.env.EXTENSION_PUBLIC_BROWSER === 'gecko-based'
 
+  
 if (isFirefoxLike) {
   browser.browserAction.onClicked.addListener(() => {
     browser.sidebarAction.open()
   })
-} else if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+} else {
   chrome.action.onClicked.addListener(() => {
     chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})
   })

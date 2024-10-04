@@ -1,7 +1,5 @@
-import path from 'path'
 import {Compiler} from 'webpack'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
-import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
 import {EnvPlugin} from './env'
 import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from '../lib/messages'
@@ -27,15 +25,6 @@ export class CompilationPlugin {
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)
-
-    compiler.options.resolve.plugins = [
-      new TsconfigPathsPlugin({
-        configFile: path.resolve(
-          path.dirname(this.manifestPath),
-          'tsconfig.json'
-        )
-      })
-    ]
 
     new CleanDistFolderPlugin().apply(compiler)
 

@@ -14,27 +14,23 @@
     },
     "default_title": "Open Side Panel"
   },
-  "firefox:sidebar_action": {
-    "default_panel": "sidebar/index.html",
-    "default_title": "Open Sidebar",
-    "default_icon": "images/extension_48.png"
+  "firefox:browser_action": {
+    "default_icon": {
+      "48": "images/extension_48.png"
+    },
+    "default_title": "Open Side Panel"
   },
   "chromium:side_panel": {
     "default_path": "sidebar/index.html",
     "default_title": "Side Panel Content"
   },
+  "firefox:sidebar_action": {
+    "default_panel": "sidebar/index.html",
+    "default_title": "Side Panel Content"
+  },
   "chromium:permissions": ["sidePanel"],
-  "firefox:permissions": ["storage", "tabs"],
-  "chromium:web_accessible_resources": [
-    {
-      "resources": ["sidebar/index.html"],
-      "matches": ["<all_urls>"]
-    }
-  ],
-  "firefox:web_accessible_resources": ["sidebar/index.html"],
   "background": {
-    "chromium:type": "module",
-    "chromium:service_worker": "background.js",
-    "firefox:scripts": ["background.js"]
+    "chromium:service_worker": "background.ts",
+    "firefox:scripts": ["background.ts"]
   }
 }

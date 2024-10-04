@@ -9,11 +9,6 @@
     "url": "https://yourwebsite.com"
   },
   "license": "MIT",
-  "scripts": {
-    "dev": "extension dev",
-    "start": "extension start",
-    "build": "extension build"
-  },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.1.0",
