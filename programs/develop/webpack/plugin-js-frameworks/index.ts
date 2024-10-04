@@ -1,6 +1,7 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
 import {PluginInterface} from '../webpack-types'
+import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
 import {maybeUseBabel} from './js-tools/babel'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
@@ -90,6 +91,17 @@ export class JsFrameworksPlugin {
     maybeInstallPreact?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallSvelte?.plugins?.forEach((plugin) => plugin.apply(compiler))
+
+    if (isUsingTypeScript(projectPath)) {
+      compiler.options.resolve.plugins = [
+        new TsconfigPathsPlugin({
+          configFile: path.resolve(
+            path.dirname(this.manifestPath),
+            'tsconfig.json'
+          )
+        })
+      ]
+    }
   }
 
   public async apply(compiler: Compiler) {
