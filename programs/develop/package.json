@@ -66,6 +66,7 @@
     "style-loader": "^3.3.4",
     "swc-loader": "^0.2.6",
     "tiny-glob": "^0.2.9",
+    "tsconfig-paths-webpack-plugin": "^4.1.0",
     "vue-template-compiler": "^2.7.16",
     "webextension-polyfill": "^0.12.0",
     "webpack": "~5.92.0",
