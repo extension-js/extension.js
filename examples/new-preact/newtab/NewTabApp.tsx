@@ -1,4 +1,3 @@
-import 'sakura.css'
 import './styles.css'
 import preactLogo from '../images/preact.png'
 
