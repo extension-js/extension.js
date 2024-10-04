@@ -5,6 +5,7 @@
 /// <reference path="./css-content.d.ts" />
 /// <reference path="./css-modules.d.ts" />
 /// <reference path="./images.d.ts" />
+/// <reference types="svelte" />
 
 declare namespace NodeJS {
   interface ProcessEnv {
