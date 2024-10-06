@@ -21,7 +21,6 @@ const debugFiles = [
   'yarn-debug.log*',
   'yarn-error.log*'
 ]
-const globalLockFiles = ['', '# lock files', 'yarn.lock', 'package-lock.json']
 const extensionJsFiles = ['', '# extension.js', 'extension-env.d.ts']
 
 const globalLines = [
@@ -31,7 +30,6 @@ const globalLines = [
   ...globalProduction,
   ...globalMisc,
   ...envFiles,
-  ...globalLockFiles,
   ...debugFiles,
   ...extensionJsFiles
 ]
