@@ -1,17 +1,16 @@
 {
   "private": true,
-  "name": "new-tab",
+  "name": "new-svelte",
   "description": "An Extension.js example.",
   "version": "0.0.1",
   "author": {
-    "name": "Cezar Augusto",
-    "email": "boss@cezaraugusto.net",
-    "url": "https://cezaraugusto.com"
+    "name": "Akash Prasad",
+    "email": "devakash256@gmail.com",
+    "url": "https://akashprasad.xyz/"
   },
   "license": "MIT",
   "dependencies": {
-    "svelte": "4.2.19",
-    "sakura.css": "^1.5.0"
+    "svelte": "4.2.19"
   },
   "devDependencies": {
     "typescript": "5.3.3",
