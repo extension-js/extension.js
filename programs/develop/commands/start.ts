@@ -17,7 +17,7 @@ export interface StartOptions {
   mode: 'development' | 'production'
   browser: DevOptions['browser']
   port?: number
-  noOpen?: boolean
+  open?: boolean
   userDataDir?: string
   polyfill?: boolean
   chromiumBinary?: string

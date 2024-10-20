@@ -5,7 +5,7 @@ import {BuildOptions} from '../build'
 
 type BrowserConfig = Pick<
   DevOptions,
-  | 'noOpen'
+  | 'open'
   | 'profile'
   | 'preferences'
   | 'browserFlags'
