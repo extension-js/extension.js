@@ -1,7 +1,7 @@
 import path from 'path'
 import {fileURLToPath} from 'url'
 import {execSync} from 'child_process'
-import {extensionFixtures} from '../extension-fixtures.mjs'
+import {extensionFixtures, takeScreenshot} from '../extension-fixtures.mjs'
 
 // Recreate __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url)
@@ -23,7 +23,10 @@ test('should exist an element with the welcome message text', async ({
 }) => {
   await page.goto('chrome://newtab/')
   const h1 = page.locator('h1')
-  await test.expect(h1).toContainText('Welcome to your')
+    await test.expect(h1).toContainText('Welcome to your');
+
+  // Take a screenshot once the element is found
+  await takeScreenshot(page, path.join(__dirname, 'screenshot.png'));
 })
 
 test('should exist a default color value', async ({page}) => {

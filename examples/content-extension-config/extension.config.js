@@ -2,7 +2,7 @@
 module.exports = {
   browsers: {
     chrome: {
-      // noOpen?: boolean
+      // open?: boolean
       // userDataDir?: string
       // profile?: string
       // preferences?: Record<string, any>
@@ -12,7 +12,7 @@ module.exports = {
       startingUrl: 'https://extension.js.org'
     },
     firefox: {
-      // noOpen?: boolean
+      // open?: boolean
       // userDataDir?: string
       // profile?: string
       // preferences?: Record<string, any>

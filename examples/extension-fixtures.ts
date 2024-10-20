@@ -1,3 +1,4 @@
+import path from 'path'
 import {test as base, chromium, type BrowserContext} from '@playwright/test'
 
 export const extensionFixtures = (
@@ -47,11 +48,11 @@ export const extensionFixtures = (
     },
     extensionId: async ({context}, use) => {
       /*
-            // for manifest v2:
-            let [background] = context.backgroundPages()
-            if (!background)
-              background = await context.waitForEvent('backgroundpage')
-            */
+      // for manifest v2:
+      let [background] = context.backgroundPages()
+      if (!background)
+        background = await context.waitForEvent('backgroundpage')
+      */
 
       // for manifest v3:
       let [background] = context.serviceWorkers()
@@ -61,4 +62,9 @@ export const extensionFixtures = (
       await use(extensionId)
     }
   })
+}
+
+// Screenshot function
+export async function takeScreenshot(page: any, screenshotPath: string) {
+  await page.screenshot({path: screenshotPath})
 }

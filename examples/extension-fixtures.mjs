@@ -67,4 +67,9 @@ const extensionFixtures = (
   })
 }
 
-export {extensionFixtures}
+// Screenshot function
+async function takeScreenshot(page, screenshotPath) {
+  await page.screenshot({path: screenshotPath})
+}
+
+export {extensionFixtures, takeScreenshot}
