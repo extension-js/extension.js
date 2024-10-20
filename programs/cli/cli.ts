@@ -118,6 +118,10 @@ extensionJs
     '-p, --port <number>',
     'what port should Extension.js WebSocket server run. Defaults to `8000`'
   )
+  .option(
+    '-o, --open [boolean]',
+    'whether or not to open the browser automatically. Defaults to `true`'
+  )
   .action(async function (
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...devOptions}: DevOptions
@@ -125,7 +129,9 @@ extensionJs
     for (const vendor of vendors(browser)) {
       await extensionDev(pathOrRemoteUrl, {
         browser: vendor as DevOptions['browser'],
-        ...devOptions
+        ...devOptions,
+        // @ts-expect-error open is a boolean
+        open: devOptions.open === 'false' ? false : true
       })
     }
   })

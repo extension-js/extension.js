@@ -18,7 +18,7 @@ export interface DevOptions {
   browser: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
   mode: 'development' | 'production' | 'none' | undefined
   port?: number
-  noOpen?: boolean
+  open?: boolean
   userDataDir?: string
   profile?: string
   preferences?: Record<string, any>
