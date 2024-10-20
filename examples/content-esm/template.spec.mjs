@@ -2,6 +2,7 @@ import path from 'path'
 import {fileURLToPath} from 'url'
 import {execSync} from 'child_process'
 import {extensionFixtures} from '../extension-fixtures.mjs'
+import {takeScreenshot} from '../extension-fixtures.mjs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -41,4 +42,10 @@ test('should exist a default color value', async ({page}) => {
     await h1.elementHandle()
   )
   await test.expect(color).toEqual('rgb(201, 201, 201)')
+})
+
+test('takes a screenshot of the page', async ({page}) => {
+  await page.goto('https://extension.js.org/')
+  await page.waitForSelector('body > div.content_script')
+  await takeScreenshot(page, path.join(__dirname, 'screenshot.png'))
 })
