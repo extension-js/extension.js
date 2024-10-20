@@ -127,7 +127,8 @@ export default function webpackConfig(
         stats: true,
         port: devOptions.port || 8000
       }),
-      !devOptions.noOpen &&
+      // Open defaults to true
+      devOptions.open !== false &&
         new BrowsersPlugin({
           extension: [
             userExtensionOutputPath,
