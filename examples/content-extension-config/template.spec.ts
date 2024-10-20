@@ -1,6 +1,6 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures} from '../extension-fixtures'
+import {extensionFixtures, takeScreenshot} from '../extension-fixtures'
 
 const exampleDir = 'examples/content-extension-config'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
@@ -66,3 +66,10 @@ test('should load all images successfully', async ({page}) => {
 
   await test.expect(results.every((result) => result)).toBeTruthy()
 })
+
+test('takes a screenshot of the page', async ({page}) => {
+  await page.goto('https://extension.js.org/')
+  await page.waitForSelector('body > div.content_script')
+  await takeScreenshot(page, path.join(__dirname, 'screenshot.png'))
+})
+
