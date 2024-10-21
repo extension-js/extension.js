@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 import {type Compiler, Compilation, sources} from 'webpack'
 import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename, getManifestContent} from '../../../lib/utils'
@@ -43,16 +44,24 @@ export class UpdateManifest {
       (contentObj: {js: string[]; css: string[]}, index: number) => {
         if (contentObj.js.length && !contentObj.css.length) {
           const outputPath = compiler.options.output?.path || ''
+          const contentScriptsPath = path.join(outputPath, 'content_scripts')
 
-          // Make a .css file for every .js file in content_scripts
-          // so we can later reference it in the manifest.
-          contentObj.css = contentObj.js.map((js: string) => {
-            const contentCss = path.join(outputPath, js.replace('.js', '.css'))
-            return getFilename(
-              `content_scripts/content-${index}.css`,
-              contentCss,
-              {}
-            )
+          // Iterate over the content_scripts output path and for every css file found,
+          // create a .css file entry so we can later reference it in the manifest.
+          fs.readdirSync(contentScriptsPath).forEach((file) => {
+            if (file.endsWith('.css')) {
+              contentObj.css = contentObj.css || []
+
+              if (contentObj.css.includes(file)) return
+
+              contentObj.css.push(
+                getFilename(
+                  `content_scripts/content-${index}.css`,
+                  path.join(contentScriptsPath, file),
+                  {}
+                )
+              )
+            }
           })
         }
 
@@ -90,16 +99,6 @@ export class UpdateManifest {
             // During development, if user has only CSS files in content_scripts,
             // we add a JS file to the content_scripts bundle so that
             // these files can be dynamically imported, thus allowing HMR.
-            if (compiler.options.mode === 'development') {
-              if (patchedManifest.content_scripts) {
-                patchedManifest.content_scripts =
-                  this.applyDevOverrides(patchedManifest)
-              }
-            }
-
-            // During production, webpack styles are bundled in a CSS file,
-            // and not injected in the page via <style> tag. We need to
-            // reference these files in the manifest.
             if (compiler.options.mode === 'development') {
               if (patchedManifest.content_scripts) {
                 patchedManifest.content_scripts =
