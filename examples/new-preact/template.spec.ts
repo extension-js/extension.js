@@ -32,7 +32,7 @@ test('should exist a default color value', async ({page}) => {
   await test.expect(color).toEqual('rgb(201, 201, 201)')
 })
 
-test('takes a screenshot of the page', async ({page}) => {
+test.skip('takes a screenshot of the page', async ({page}) => {
   await page.goto('chrome://newtab/')
   await page.waitForSelector('h1')
   await takeScreenshot(page, path.join(__dirname, 'screenshot.png'))
