@@ -255,12 +255,6 @@ importers:
 
   examples/declarative_net_request: {}
 
-  examples/extension_path_test_20240923:
-    devDependencies:
-      extension:
-        specifier: 2.0.0-beta.1
-        version: 2.0.0-beta.1(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(esbuild@0.23.1)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(type-fest@4.26.1)(typescript@5.3.3)
-
   examples/init: {}
 
   examples/new: {}
