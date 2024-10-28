@@ -1,12 +1,8 @@
 import path from 'path'
-import {type Compiler, Compilation, sources} from 'webpack'
+import {Compiler, Compilation, sources} from 'webpack'
 import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename, getManifestContent} from '../../../lib/utils'
-import {
-  type FilepathList,
-  type PluginInterface,
-  type Manifest
-} from '../../../webpack-types'
+import {FilepathList, PluginInterface, Manifest} from '../../../webpack-types'
 
 export class UpdateManifest {
   public readonly manifestPath: string
@@ -34,31 +30,30 @@ export class UpdateManifest {
   }
 
   private applyProdOverrides(
-    compiler: Compiler,
+    compilation: Compilation,
     overrides: Record<string, any>
   ) {
     if (!overrides.content_scripts) return {}
 
-    return overrides.content_scripts.map(
-      (contentObj: {js: string[]; css: string[]}, index: number) => {
-        if (contentObj.js.length && !contentObj.css.length) {
-          const outputPath = compiler.options.output?.path || ''
+    const outputPath = compilation.options.output?.path || ''
 
-          // Make a .css file for every .js file in content_scripts
-          // so we can later reference it in the manifest.
-          contentObj.css = contentObj.js.map((js: string) => {
-            const contentCss = path.join(outputPath, js.replace('.js', '.css'))
-            return getFilename(
-              `content_scripts/content-${index}.css`,
-              contentCss,
-              {}
-            )
-          })
-        }
+    // Collect all CSS assets in `content_scripts` for use in the manifest
+    const contentScriptsCss = compilation
+      .getAssets()
+      .filter(
+        (asset) =>
+          asset.name.includes('content_scripts') && asset.name.endsWith('.css')
+      )
+      .map((asset) => path.join(outputPath, asset.name))
 
-        return contentObj
-      }
-    )
+    // Assign the collected CSS files to each `content_scripts` entry
+    for (const contentObj of overrides.content_scripts) {
+      contentObj.css = contentScriptsCss.map((cssFilePath, index) =>
+        getFilename(`content_scripts/content-${index}.css`, cssFilePath, {})
+      )
+    }
+
+    return overrides.content_scripts
   }
 
   apply(compiler: Compiler) {
@@ -97,16 +92,6 @@ export class UpdateManifest {
               }
             }
 
-            // During production, webpack styles are bundled in a CSS file,
-            // and not injected in the page via <style> tag. We need to
-            // reference these files in the manifest.
-            if (compiler.options.mode === 'development') {
-              if (patchedManifest.content_scripts) {
-                patchedManifest.content_scripts =
-                  this.applyDevOverrides(patchedManifest)
-              }
-            }
-
             const source = JSON.stringify(patchedManifest, null, 2)
             const rawSource = new sources.RawSource(source)
 
@@ -119,7 +104,7 @@ export class UpdateManifest {
         // in a content_scripts CSS file, so we need to reference it
         // in the manifest.
         if (compiler.options.mode === 'production') {
-          compilation.hooks.afterProcessAssets.tap(
+          compilation.hooks.afterOptimizeAssets.tap(
             'manifest:update-manifest',
             () => {
               if (compilation.errors.length > 0) return
@@ -143,7 +128,7 @@ export class UpdateManifest {
 
               if (patchedManifest.content_scripts) {
                 patchedManifest.content_scripts = this.applyProdOverrides(
-                  compiler,
+                  compilation,
                   patchedManifest
                 )
               }
