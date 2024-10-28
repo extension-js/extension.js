@@ -5,7 +5,7 @@ import {
   DEFAULT_TEMPLATE,
   SUPPORTED_BROWSERS
 } from '../../examples/data'
-import {extensionBuild} from './dist/module'
+import {extensionBuild, Manifest} from './dist/module'
 
 async function removeDir(dirPath: string) {
   if (fs.existsSync(dirPath)) {
@@ -48,6 +48,7 @@ function distFileExists(
   )
 
   if (filePath) {
+    console.log('3iuteghkgewktgdtqwegdhiq3thegd', path.join(templatePath, filePath))
     return fs.existsSync(path.join(templatePath, filePath))
   } else {
     // Check if any HTML file exists in the directory
@@ -86,11 +87,55 @@ describe('extension build', () => {
           browser: SUPPORTED_BROWSERS[0] as 'chrome'
         })
 
-        expect.assertions(1)
-
         expect(
-          path.join(templatePath, SUPPORTED_BROWSERS[0], 'manifest.json')
+          path.join(
+            templatePath,
+            'dist',
+            SUPPORTED_BROWSERS[0],
+            'manifest.json'
+          )
         ).toBeTruthy()
+
+        const manifestText = fs.readFileSync(
+          path.join(
+            templatePath,
+            'dist',
+            SUPPORTED_BROWSERS[0],
+            'manifest.json'
+          ),
+          'utf-8'
+        )
+
+        const manifest: Manifest = JSON.parse(manifestText)
+        expect(manifest.name).toBeTruthy
+        expect(manifest.version).toBeTruthy
+        expect(manifest.manifest_version).toBeTruthy
+
+        if (template.name.includes('content')) {
+          expect(manifest.content_scripts![0].css![0]).toEqual(
+            'content_scripts/content-0.css'
+          )
+
+          expect(manifest.content_scripts![0].js![0]).toEqual(
+            'content_scripts/content-0.js'
+          )
+
+          expect(
+            distFileExists(
+              template.name,
+              SUPPORTED_BROWSERS[0],
+              'content_scripts/content-0.css'
+            )
+          ).toBeTruthy()
+
+          expect(
+            distFileExists(
+              template.name,
+              SUPPORTED_BROWSERS[0],
+              'content_scripts/content-0.js'
+            )
+          ).toBeTruthy()
+        }
       },
       80000
     )
