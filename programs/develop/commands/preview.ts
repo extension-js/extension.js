@@ -13,9 +13,7 @@ import webpackConfig from '../webpack/webpack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {loadExtensionConfig} from './commands-lib/get-extension-config'
-import {DevOptions} from './dev'
-
-export interface PreviewOptions extends DevOptions {}
+import {PreviewOptions} from './commands-lib/config-types'
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
@@ -36,9 +34,12 @@ export async function extensionPreview(
   try {
     const browser = previewOptions.browser || 'chrome'
     const baseConfig = webpackConfig(projectPath, {
-      ...previewOptions,
+      mode: 'production',
+      profile: previewOptions.profile,
       browser,
-      mode: 'production'
+      chromiumBinary: previewOptions.chromiumBinary,
+      geckoBinary: previewOptions.geckoBinary,
+      startingUrl: previewOptions.startingUrl
     })
 
     const onlyBrowserRunners = baseConfig.plugins?.filter((plugin) => {

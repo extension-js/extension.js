@@ -9,7 +9,7 @@ import {type Compiler} from 'webpack'
 import {PluginInterface} from '../webpack-types'
 import {PolyfillPlugin} from './feature-polyfill'
 import {BrowserFieldsPlugin} from './feature-browser-fields'
-import {type DevOptions} from '../../commands/dev'
+import {type DevOptions} from '../../commands/commands-lib/config-types'
 
 export class CompatibilityPlugin {
   public static readonly name: string = 'plugin-compatibility'

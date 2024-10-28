@@ -6,12 +6,15 @@ import {
 } from './master-preferences'
 import * as messages from '../browsers-lib/messages'
 import {addProgressBar} from '../browsers-lib/add-progress-bar'
-import {DevOptions} from '../../commands/dev'
+import {
+  BrowserConfig,
+  DevOptions
+} from '../../commands/commands-lib/config-types'
 
 export function createProfile(
   browser: DevOptions['browser'],
   profilePath: string | undefined,
-  configPreferences: DevOptions['preferences']
+  configPreferences: BrowserConfig['preferences']
 ) {
   if (profilePath && fs.existsSync(profilePath)) {
     return profilePath

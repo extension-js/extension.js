@@ -1,4 +1,4 @@
-import {DevOptions} from '../commands/dev'
+import {DevOptions} from '../commands/commands-lib/config-types'
 
 export interface PluginInterface extends PluginOptions {
   browser: DevOptions['browser']

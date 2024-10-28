@@ -7,7 +7,7 @@
 
 import path from 'path'
 import type webpack from 'webpack'
-import {type DevOptions} from '../commands/dev'
+import {DevOptions} from '../commands/commands-lib/config-types'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -23,8 +23,14 @@ import * as utils from './lib/utils'
 
 export default function webpackConfig(
   projectPath: string,
-  devOptions: DevOptions
+  devOptions: DevOptions & {
+    preferences?: Record<string, string>
+    browserFlags?: string[]
+  }
 ): webpack.Configuration {
+  console.log({
+    devOptions
+  })
   const manifestPath = path.join(projectPath, 'manifest.json')
   const manifest = utils.filterKeysForThisBrowser(
     require(manifestPath),
@@ -125,7 +131,7 @@ export default function webpackConfig(
         manifestPath,
         browser,
         stats: true,
-        port: devOptions.port || 8000
+        port: 8000
       }),
       // Open defaults to true
       devOptions.open !== false &&
@@ -136,7 +142,7 @@ export default function webpackConfig(
           ],
           browser,
           startingUrl: devOptions.startingUrl,
-          profile: devOptions.profile || devOptions.userDataDir,
+          profile: devOptions.profile,
           preferences: devOptions.preferences,
           browserFlags: devOptions.browserFlags,
           chromiumBinary: devOptions.chromiumBinary,

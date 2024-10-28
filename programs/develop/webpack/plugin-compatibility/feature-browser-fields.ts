@@ -1,6 +1,6 @@
 import {type Compiler, Compilation, sources} from 'webpack'
 import {type PluginInterface, type Manifest} from '../webpack-types'
-import {type DevOptions} from '../../commands/dev'
+import {type DevOptions} from '../../commands/commands-lib/config-types'
 import {getManifestContent} from '../lib/utils'
 import * as utils from '../lib/utils'
 

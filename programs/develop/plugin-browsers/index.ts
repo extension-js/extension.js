@@ -4,7 +4,7 @@ import {type Compiler} from 'webpack'
 import {type PluginInterface} from './browsers-types'
 import {RunChromiumPlugin} from './run-chromium'
 import {RunFirefoxPlugin} from './run-firefox'
-import {DevOptions} from '../commands/dev'
+import {DevOptions} from '../commands/commands-lib/config-types'
 import {loadBrowserConfig} from '../commands/commands-lib/get-extension-config'
 
 /**

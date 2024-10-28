@@ -4,7 +4,10 @@ import FirefoxProfile from 'firefox-profile'
 import {getPreferences} from './master-preferences'
 import * as messages from '../../browsers-lib/messages'
 import {addProgressBar} from '../../browsers-lib/add-progress-bar'
-import {DevOptions} from '../../../commands/dev'
+import {
+  BrowserConfig,
+  DevOptions
+} from '../../../commands/commands-lib/config-types'
 import {loadBrowserConfig} from '../../../commands/commands-lib/get-extension-config'
 
 function configureProfile(
@@ -71,7 +74,7 @@ function getProfile(
 export function createUserDataDir(
   browser: DevOptions['browser'],
   dataDirPath: string | undefined,
-  configPreferences: DevOptions['preferences']
+  configPreferences: BrowserConfig['preferences']
 ) {
   let profile: FirefoxProfile
   const dataDir = dataDirPath || path.resolve(__dirname, 'run-firefox-data-dir')

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 
-//  ██████╗██╗     ██╗
-// ██╔════╝██║     ██║
-// ██║     ██║     ██║
-// ██║     ██║     ██║
-// ╚██████╗███████╗██║
-//  ╚═════╝╚══════╝╚═╝
+// ███████╗██╗  ██╗████████╗███████╗███╗   ██╗███████╗██╗ ██████╗ ███╗   ██╗        ██╗███████╗
+// ██╔════╝╚██╗██╔╝╚══██╔══╝██╔════╝████╗  ██║██╔════╝██║██╔═══██╗████╗  ██║        ██║██╔════╝
+// █████╗   ╚███╔╝    ██║   █████╗  ██╔██╗ ██║███████╗██║██║   ██║██╔██╗ ██║        ██║███████╗
+// ██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║╚██╗██║╚════██║██║██║   ██║██║╚██╗██║   ██   ██║╚════██║
+// ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║██╗╚█████╔╝███████║
+// ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝ ╚════╝ ╚══════╝
 
 import {program} from 'commander'
 import {extensionCreate, type CreateOptions} from 'extension-create'
@@ -17,6 +17,7 @@ import {
   extensionBuild,
   type BuildOptions,
   extensionPreview,
+  type PreviewOptions,
   type FileConfig,
   type Manifest
 } from 'extension-develop'
@@ -32,12 +33,15 @@ checkUpdates(packageJson)
 
 const extensionJs = program
 
-// ███████╗██╗  ██╗████████╗███████╗███╗   ██╗███████╗██╗ ██████╗ ███╗   ██╗        ██╗███████╗
-// ██╔════╝╚██╗██╔╝╚══██╔══╝██╔════╝████╗  ██║██╔════╝██║██╔═══██╗████╗  ██║        ██║██╔════╝
-// █████╗   ╚███╔╝    ██║   █████╗  ██╔██╗ ██║███████╗██║██║   ██║██╔██╗ ██║        ██║███████╗
-// ██╔══╝   ██╔██╗    ██║   ██╔══╝  ██║╚██╗██║╚════██║██║██║   ██║██║╚██╗██║   ██   ██║╚════██║
-// ███████╗██╔╝ ██╗   ██║   ███████╗██║ ╚████║███████║██║╚██████╔╝██║ ╚████║██╗╚█████╔╝███████║
-// ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝ ╚════╝ ╚══════╝
+//  ██████╗██╗     ██╗
+// ██╔════╝██║     ██║
+// ██║     ██║     ██║
+// ██║     ██║     ██║
+// ╚██████╗███████╗██║
+//  ╚═════╝╚══════╝╚═╝
+
+const vendors = (browser: BrowsersSupported) =>
+  browser === 'all' ? 'chrome,edge,firefox'.split(',') : browser.split(',')
 
 extensionJs
   .name(packageJson.name)
@@ -51,9 +55,6 @@ extensionJs
 // ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
-
-const vendors = (browser: BrowsersSupported) =>
-  browser === 'all' ? 'chrome,edge,firefox'.split(',') : browser.split(',')
 
 extensionJs
   .command('create')
@@ -91,16 +92,12 @@ extensionJs
   .usage('dev [project-path|remote-url] [options]')
   .description('Starts the development server (development mode)')
   .option(
-    '-u, --user-data-dir <path-to-file | boolean>',
-    '[DEPRECATED - Use "--profile" instead] what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
-  )
-  .option(
     '--profile <path-to-file | boolean>',
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
-    '-b, --browser <chrome | edge | firefox>',
-    'specify a browser to run your extension in development mode'
+    '--browser <chrome | edge | firefox>',
+    'specify a browser to preview your extension in production mode. Defaults to `chrome`'
   )
   .option(
     '--chromium-binary <path-to-binary>',
@@ -112,15 +109,15 @@ extensionJs
   )
   .option(
     '--polyfill [boolean]',
-    'whether or not to apply the cross-browser polyfill. Defaults to `true`'
+    'whether or not to apply the cross-browser polyfill. Defaults to `false`'
   )
   .option(
-    '-p, --port <number>',
-    'what port should Extension.js WebSocket server run. Defaults to `8000`'
-  )
-  .option(
-    '-o, --open [boolean]',
+    '--open [boolean]',
     'whether or not to open the browser automatically. Defaults to `true`'
+  )
+  .option(
+    '--starting-url <url>',
+    'specify the starting URL for the browser. Defaults to `undefined`'
   )
   .action(async function (
     pathOrRemoteUrl: string,
@@ -128,10 +125,16 @@ extensionJs
   ) {
     for (const vendor of vendors(browser)) {
       await extensionDev(pathOrRemoteUrl, {
-        browser: vendor as DevOptions['browser'],
         ...devOptions,
+        profile: devOptions.profile,
+        browser: vendor as DevOptions['browser'],
+        chromiumBinary: devOptions.chromiumBinary,
+        geckoBinary: devOptions.geckoBinary,
         // @ts-expect-error open is a boolean
-        open: devOptions.open === 'false' ? false : true
+        polyfill: devOptions.polyfill === 'false' ? false : true,
+        // @ts-expect-error open is a boolean
+        open: devOptions.open === 'false' ? false : true,
+        startingUrl: devOptions.startingUrl
       })
     }
   })
@@ -149,16 +152,16 @@ extensionJs
   .usage('start [project-path|remote-url] [options]')
   .description('Starts the development server (production mode)')
   .option(
-    '-u, --user-data-dir <path-to-file | boolean>',
-    '[DEPRECATED - Use "--profile" instead] what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
-  )
-  .option(
     '--profile <path-to-file | boolean>',
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
-    '-b, --browser <chrome | edge | firefox>',
-    'specify a browser to run your extension in development mode'
+    '--browser <chrome | edge | firefox>',
+    'specify a browser to preview your extension in production mode. Defaults to `chrome`'
+  )
+  .option(
+    '--polyfill [boolean]',
+    'whether or not to apply the cross-browser polyfill. Defaults to `true`'
   )
   .option(
     '--chromium-binary <path-to-binary>',
@@ -169,12 +172,8 @@ extensionJs
     'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
   )
   .option(
-    '--polyfill [boolean]',
-    'whether or not to apply the cross-browser polyfill. Defaults to `true`'
-  )
-  .option(
-    '-p, --port <number>',
-    'what port should Extension.js run. Defaults to `3000`'
+    '--starting-url <url>',
+    'specify the starting URL for the browser. Defaults to `undefined`'
   )
   .action(async function (
     pathOrRemoteUrl: string,
@@ -182,8 +181,12 @@ extensionJs
   ) {
     for (const vendor of vendors(browser)) {
       await extensionStart(pathOrRemoteUrl, {
+        mode: 'production',
+        profile: startOptions.profile,
         browser: vendor as StartOptions['browser'],
-        ...startOptions
+        chromiumBinary: startOptions.chromiumBinary,
+        geckoBinary: startOptions.geckoBinary,
+        startingUrl: startOptions.startingUrl
       })
     }
   })
@@ -199,7 +202,15 @@ extensionJs
   .command('preview')
   .arguments('[project-name]')
   .usage('preview [path-to-remote-extension] [options]')
-  .description('Builds the extension for production')
+  .description('Preview the extension in production mode')
+  .option(
+    '--profile <path-to-file | boolean>',
+    'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
+  )
+  .option(
+    '--browser <chrome | edge | firefox>',
+    'specify a browser to preview your extension in production mode. Defaults to `chrome`'
+  )
   .option(
     '--chromium-binary <path-to-binary>',
     'specify a path to the Chromium binary. This option overrides the --browser setting. Defaults to the system default'
@@ -209,18 +220,21 @@ extensionJs
     'specify a path to the Gecko binary. This option overrides the --browser setting. Defaults to the system default'
   )
   .option(
-    '-b, --browser <chrome | edge | firefox>',
-    'specify a browser to preview your extension in production mode'
+    '--starting-url <url>',
+    'specify the starting URL for the browser. Defaults to `undefined`'
   )
   .action(async function (
     pathOrRemoteUrl: string,
-    {browser = 'chrome', ...previewOptions}: BuildOptions
+    {browser = 'chrome', ...previewOptions}: PreviewOptions
   ) {
     for (const vendor of vendors(browser)) {
       await extensionPreview(pathOrRemoteUrl, {
         mode: 'production',
-        browser: vendor as any,
-        ...previewOptions
+        profile: previewOptions.profile,
+        browser: vendor as PreviewOptions['browser'],
+        chromiumBinary: previewOptions.chromiumBinary,
+        geckoBinary: previewOptions.geckoBinary,
+        startingUrl: previewOptions.startingUrl
       })
     }
   })
@@ -238,8 +252,8 @@ extensionJs
   .usage('build [path-to-remote-extension] [options]')
   .description('Builds the extension for production')
   .option(
-    '-b, --browser <chrome | edge | firefox>',
-    'specify a browser to run your extension in development mode'
+    '--browser <chrome | edge | firefox>',
+    'specify a browser to preview your extension in production mode. Defaults to `chrome`'
   )
   .option(
     '--polyfill [boolean]',
@@ -257,6 +271,10 @@ extensionJs
     '--zip-filename <string>',
     'specify the name of the ZIP file. Defaults to the extension name and version'
   )
+  .option(
+    '--silent [boolean]',
+    'whether or not to open the browser automatically. Defaults to `false`'
+  )
   .action(async function (
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...buildOptions}: BuildOptions
@@ -264,7 +282,11 @@ extensionJs
     for (const vendor of vendors(browser)) {
       await extensionBuild(pathOrRemoteUrl, {
         browser: vendor as BuildOptions['browser'],
-        ...buildOptions
+        polyfill: buildOptions.polyfill,
+        zip: buildOptions.zip,
+        zipSource: buildOptions.zipSource,
+        zipFilename: buildOptions.zipFilename,
+        silent: buildOptions.silent
       })
     }
   })

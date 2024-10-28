@@ -1,6 +1,6 @@
 import path from 'path'
 import {type Compiler} from 'webpack'
-import {DevOptions} from '../../../../commands/dev'
+import {DevOptions} from '../../../../commands/commands-lib/config-types'
 
 export function SetupChromiumReloadClient(
   compiler: Compiler,

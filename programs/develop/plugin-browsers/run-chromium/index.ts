@@ -5,7 +5,7 @@ import {spawn} from 'child_process'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
 import {PluginInterface} from '../browsers-types'
-import {DevOptions} from '../../commands/dev'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -101,7 +101,7 @@ export class RunChromiumPlugin {
         console.log(
           messages.stdoutData(
             this.browser,
-            compilation.compilation.options.mode
+            compilation.compilation.options.mode as 'development' | 'production'
           )
         )
       }, 2000)

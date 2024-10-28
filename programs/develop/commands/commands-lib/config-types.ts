@@ -1,18 +1,41 @@
 import {Configuration} from 'webpack'
-import {DevOptions} from '../dev'
-import {PreviewOptions} from '../preview'
-import {BuildOptions} from '../build'
 
-type BrowserConfig = Pick<
-  DevOptions,
-  | 'open'
-  | 'profile'
-  | 'preferences'
-  | 'browserFlags'
-  | 'startingUrl'
-  | 'chromiumBinary'
-  | 'geckoBinary'
->
+export interface BrowserOptions {
+  profile?: string
+  startingUrl?: string
+  browser: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
+  chromiumBinary?: string
+  geckoBinary?: string
+}
+
+export interface DevOptions extends BrowserOptions {
+  mode: 'development' | 'production'
+  open?: boolean
+  polyfill?: boolean
+}
+
+export interface BuildOptions {
+  browser: BrowserOptions['browser']
+  zipFilename?: string
+  zip?: boolean
+  zipSource?: boolean
+  polyfill?: boolean
+  silent?: boolean
+}
+
+export interface PreviewOptions extends BrowserOptions {
+  mode: 'production'
+}
+
+export interface StartOptions extends BrowserOptions {
+  mode: 'production'
+  polyfill?: boolean
+}
+
+export interface BrowserConfig extends BrowserOptions {
+  browserFlags?: string[]
+  preferences?: Record<string, unknown>
+}
 
 export interface FileConfig {
   browser?: {
@@ -23,11 +46,35 @@ export interface FileConfig {
     'gecko-based'?: BrowserConfig
   }
   commands?: {
-    dev?: Pick<DevOptions, 'browser' | 'profile' | 'preferences' | 'polyfill'>
+    dev?: Pick<
+      DevOptions,
+      | 'browser'
+      | 'profile'
+      | 'chromiumBinary'
+      | 'geckoBinary'
+      | 'open'
+      | 'polyfill'
+    > & {
+      browserFlags?: string[]
+      preferences?: Record<string, unknown>
+    }
+
+    start?: Pick<
+      StartOptions,
+      'browser' | 'profile' | 'chromiumBinary' | 'geckoBinary' | 'polyfill'
+    > & {
+      browserFlags?: string[]
+      preferences?: Record<string, unknown>
+    }
+
     preview?: Pick<
       PreviewOptions,
-      'browser' | 'profile' | 'preferences' | 'polyfill'
-    >
+      'browser' | 'profile' | 'chromiumBinary' | 'geckoBinary'
+    > & {
+      browserFlags?: string[]
+      preferences?: Record<string, unknown>
+    }
+
     build?: Pick<
       BuildOptions,
       'browser' | 'zipFilename' | 'zip' | 'zipSource' | 'polyfill'

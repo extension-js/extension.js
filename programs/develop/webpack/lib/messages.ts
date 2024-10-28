@@ -12,7 +12,7 @@ import {
   magenta
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
-import {DevOptions} from '../../commands/dev'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
 import {Stats} from 'webpack'
 import {info} from 'console'

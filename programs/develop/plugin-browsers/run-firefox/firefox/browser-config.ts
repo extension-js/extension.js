@@ -1,20 +1,23 @@
 import {Compiler} from 'webpack'
 import {createUserDataDir} from './create-profile'
-import {type DevOptions} from '../../../commands/dev'
+import {
+  type DevOptions,
+  type BrowserConfig
+} from '../../../commands/commands-lib/config-types'
 
 export async function browserConfig(
   compiler: Compiler,
-  configOptions: DevOptions
+  configOptions: DevOptions & BrowserConfig
 ) {
   const {
     browser,
     startingUrl,
     preferences,
-    userDataDir,
+    profile,
     browserFlags = []
   } = configOptions
 
-  const userProfilePath = createUserDataDir(browser, userDataDir, preferences)
+  const userProfilePath = createUserDataDir(browser, profile, preferences)
   const binaryArgs: string[] = []
 
   if (startingUrl) {

@@ -9,7 +9,7 @@ import {
   magenta,
   brightBlue
 } from '@colors/colors/safe'
-import {DevOptions} from '../../commands/dev'
+import {type DevOptions} from '../../commands/commands-lib/config-types'
 
 function getLoggingPrefix(
   browser: DevOptions['browser'],

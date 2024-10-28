@@ -7,7 +7,10 @@ import {browserConfig} from './firefox/browser-config'
 import {RemoteFirefox} from './remote-firefox'
 import * as messages from '../browsers-lib/messages'
 import {type PluginInterface} from '../browsers-types'
-import {DevOptions} from '../../commands/dev'
+import {
+  BrowserConfig,
+  DevOptions
+} from '../../commands/commands-lib/config-types'
 import {isFromPnpx} from '../../webpack/lib/utils'
 
 let child: ChildProcess | null = null
@@ -71,7 +74,10 @@ export class RunFirefoxPlugin {
     }
   }
 
-  private async launchFirefox(compiler: Compiler, options: DevOptions) {
+  private async launchFirefox(
+    compiler: Compiler,
+    options: DevOptions & BrowserConfig
+  ) {
     const fxRunnerCmd = await this.getFxRunnerCommand()
 
     let browserBinaryLocation: string
@@ -153,7 +159,7 @@ export class RunFirefoxPlugin {
           console.log(
             messages.stdoutData(
               this.browser,
-              compilation.compilation.options.mode
+              compilation.compilation.options.mode as DevOptions['mode']
             )
           )
         }, 2000)
@@ -161,11 +167,10 @@ export class RunFirefoxPlugin {
         await this.launchFirefox(compiler, {
           browser: this.browser,
           browserFlags: this.browserFlags,
-          userDataDir: this.userDataDir,
           profile: this.profile,
           preferences: this.preferences,
           startingUrl: this.startingUrl,
-          mode: compilation.compilation.options.mode
+          mode: compilation.compilation.options.mode as DevOptions['mode']
         })
 
         firefoxDidLaunch = true
