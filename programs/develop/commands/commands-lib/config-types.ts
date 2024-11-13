@@ -1,6 +1,7 @@
 import {Configuration} from 'webpack'
 
 export interface BrowserOptions {
+  open?: boolean
   profile?: string
   startingUrl?: string
   browser: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
@@ -10,7 +11,6 @@ export interface BrowserOptions {
 
 export interface DevOptions extends BrowserOptions {
   mode: 'development' | 'production'
-  open?: boolean
   polyfill?: boolean
 }
 

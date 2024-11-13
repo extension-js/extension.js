@@ -1,5 +1,5 @@
 import {Compiler} from 'webpack'
-import {createUserDataDir} from './create-profile'
+import {createProfile} from './create-profile'
 import {
   type DevOptions,
   type BrowserConfig
@@ -17,7 +17,7 @@ export async function browserConfig(
     browserFlags = []
   } = configOptions
 
-  const userProfilePath = createUserDataDir(browser, profile, preferences)
+  const userProfilePath = createProfile(browser, profile, preferences)
   const binaryArgs: string[] = []
 
   if (startingUrl) {

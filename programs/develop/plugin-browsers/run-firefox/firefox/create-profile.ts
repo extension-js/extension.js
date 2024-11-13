@@ -41,7 +41,7 @@ function configureProfile(
   return profile
 }
 
-function createProfile(
+function createProfileDir(
   destinationDirectory: string,
   customPreferences: Record<string, any>
 ) {
@@ -71,7 +71,7 @@ function getProfile(
   return profileConfigured
 }
 
-export function createUserDataDir(
+export function createProfile(
   browser: DevOptions['browser'],
   dataDirPath: string | undefined,
   configPreferences: BrowserConfig['preferences']
@@ -92,7 +92,7 @@ export function createUserDataDir(
     addProgressBar(messages.creatingUserProfile(browser), () => {})
 
     fs.mkdirSync(dataDir, {recursive: true})
-    profile = createProfile(dataDir, userPreferences)
+    profile = createProfileDir(dataDir, userPreferences)
   }
 
   return profile

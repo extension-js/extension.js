@@ -47,7 +47,7 @@ export async function extensionBuild(
       )
     })
 
-    const userExtensionConfig = loadCustomWebpackConfig(projectPath)
+    const userExtensionConfig = await loadCustomWebpackConfig(projectPath)
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: allPluginsButBrowserRunners

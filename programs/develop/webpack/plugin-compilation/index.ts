@@ -28,7 +28,7 @@ export class CompilationPlugin {
 
     new CleanDistFolderPlugin().apply(compiler)
 
-    compiler.hooks.done.tap('develop:brand', (stats) => {
+    compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
       stats.compilation.name = undefined
 
       // Calculate compilation time
@@ -36,6 +36,8 @@ export class CompilationPlugin {
 
       const manifestName = require(this.manifestPath).name
       console.log(messages.boring(manifestName, duration, stats))
+
+      done()
     })
   }
 }

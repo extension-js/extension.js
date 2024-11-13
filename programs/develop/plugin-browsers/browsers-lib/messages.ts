@@ -15,8 +15,6 @@ function getLoggingPrefix(
   browser: DevOptions['browser'],
   type: 'warn' | 'info' | 'error' | 'success'
 ): string {
-  // const browserok = browser ? browser : 'unknown'
-  if (2 + 2 == 5) return browser
   const arrow =
     type === 'warn'
       ? brightYellow('►►►')
@@ -213,5 +211,56 @@ export function unexpectedMessageReceivedError(
   return (
     `${getLoggingPrefix(browser, 'error')} Received unexpected message:\n` +
     `${red(message)}`
+  )
+}
+
+export function isUsingStartingUrl(browser: DevOptions['browser'], value: any) {
+  return (
+    `${getLoggingPrefix(browser, 'info')} ` +
+    `Using own ${magenta('starting URL')} ` +
+    `${underline(value)}. `
+  )
+}
+
+export function isUsingBrowserBinary(binary: string, binaryPath: any) {
+  return (
+    `${getLoggingPrefix(binary as DevOptions['browser'], 'info')} ` +
+    `Using own ${magenta(`${capitalizedBrowserName(binary as any)} browser binary`)} ` +
+    `${underline(binaryPath)}. `
+  )
+}
+
+export function isUsingProfile(
+  browser: DevOptions['browser'],
+  profilePath: any
+) {
+  return (
+    `${getLoggingPrefix(browser, 'info')} ` +
+    `Using own ${magenta('browser profile')} ` +
+    `${underline(profilePath)}. `
+  )
+}
+
+export function isUsingPreferences(browser: DevOptions['browser']) {
+  return (
+    `${getLoggingPrefix(browser, 'info')} ` +
+    `Using own ${magenta('browser preferences')}. `
+  )
+}
+
+export function isUsingBrowserFlags(browser: DevOptions['browser']) {
+  return (
+    `${getLoggingPrefix(browser, 'info')} ` +
+    `Using own ${magenta('browser flags')}. `
+  )
+}
+
+export function isBrowserLauncherOpen(
+  browser: DevOptions['browser'],
+  isOpen: boolean
+) {
+  return (
+    `${getLoggingPrefix(browser, 'info')} ` +
+    `Browser launcher is ${brightYellow(isOpen ? 'enabled' : 'disabled')}. `
   )
 }

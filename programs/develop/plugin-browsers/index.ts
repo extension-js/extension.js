@@ -6,7 +6,7 @@ import {RunChromiumPlugin} from './run-chromium'
 import {RunFirefoxPlugin} from './run-firefox'
 import {DevOptions} from '../commands/commands-lib/config-types'
 import {loadBrowserConfig} from '../commands/commands-lib/get-extension-config'
-
+import * as messages from './browsers-lib/messages'
 /**
  * BrowsersPlugin works by finding the binary for the browser specified in the
  * options and running it with the extension loaded.
@@ -29,11 +29,11 @@ export class BrowsersPlugin {
 
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
-  public readonly browserFlags: string[]
-  public readonly userDataDir?: string
-  public readonly profile: string
-  public readonly preferences: Record<string, any>
-  public readonly startingUrl: string
+  public readonly open?: boolean
+  public readonly browserFlags?: string[]
+  public readonly profile?: string
+  public readonly preferences?: Record<string, any>
+  public readonly startingUrl?: string
   public readonly chromiumBinary?: string
   public readonly geckoBinary?: string
 
@@ -49,8 +49,7 @@ export class BrowsersPlugin {
       options.browserFlags?.filter(
         (flag) => !flag.startsWith('--load-extension=')
       ) || []
-    this.userDataDir = options.userDataDir
-    this.profile = options.profile || ''
+    this.profile = options.profile
     this.preferences = options.preferences || {}
     this.startingUrl = options.startingUrl || ''
     this.chromiumBinary = options.chromiumBinary
@@ -74,26 +73,75 @@ export class BrowsersPlugin {
     return path.resolve(__dirname, `run-${browser}-profile`)
   }
 
-  apply(compiler: Compiler) {
+  async apply(compiler: Compiler) {
     const config = {
       stats: true,
       extension: this.extension,
       browser: this.browser,
       browserFlags: this.browserFlags || [],
-      userDataDir: this.getProfilePath(
+      profile: this.getProfilePath(
         compiler,
         this.browser,
-        this.userDataDir || this.profile
+        this.profile || this.profile
       ),
+      preferences: this.preferences,
       startingUrl: this.startingUrl,
       chromiumBinary: this.chromiumBinary,
       geckoBinary: this.geckoBinary
     }
 
+    const customUserConfig = await loadBrowserConfig(
+      compiler.context,
+      this.browser
+    )
     const browserConfig = {
       ...config,
-      ...loadBrowserConfig(compiler.context, this.browser)
+      ...customUserConfig
     }
+
+    if (browserConfig?.chromiumBinary) {
+      console.log(
+        messages.isUsingBrowserBinary('chromium', browserConfig?.chromiumBinary)
+      )
+    }
+
+    if (typeof browserConfig?.open !== 'undefined') {
+      console.log(
+        messages.isBrowserLauncherOpen(this.browser, browserConfig?.open)
+      )
+    }
+
+    // if (process.env.EXTENSION_ENV === 'development') {
+    if (browserConfig?.startingUrl) {
+      console.log(
+        messages.isUsingStartingUrl(
+          browserConfig?.browser,
+          browserConfig?.startingUrl
+        )
+      )
+    }
+    if (browserConfig?.chromiumBinary) {
+      console.log(
+        messages.isUsingBrowserBinary('chromium', browserConfig?.chromiumBinary)
+      )
+    }
+    if (browserConfig?.geckoBinary) {
+      console.log(
+        messages.isUsingBrowserBinary('gecko', browserConfig?.geckoBinary)
+      )
+    }
+    if (browserConfig?.profile) {
+      console.log(
+        messages.isUsingProfile(browserConfig?.browser, browserConfig?.profile)
+      )
+    }
+    if (browserConfig?.preferences) {
+      console.log(messages.isUsingPreferences(browserConfig?.browser))
+    }
+    if (browserConfig?.browserFlags && browserConfig?.browserFlags.length > 0) {
+      console.log(messages.isUsingBrowserFlags(browserConfig?.browser))
+    }
+    // }
 
     switch (this.browser) {
       case 'chrome':

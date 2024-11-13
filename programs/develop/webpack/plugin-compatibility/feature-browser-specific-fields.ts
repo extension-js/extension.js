@@ -4,7 +4,7 @@ import {type DevOptions} from '../../commands/commands-lib/config-types'
 import {getManifestContent} from '../lib/utils'
 import * as utils from '../lib/utils'
 
-export class BrowserFieldsPlugin {
+export class BrowserSpecificFieldsPlugin {
   private readonly browser: DevOptions['browser']
   private readonly manifestPath: string
 
@@ -24,11 +24,11 @@ export class BrowserFieldsPlugin {
 
   apply(compiler: Compiler): void {
     compiler.hooks.compilation.tap(
-      'compatibility:browser-fields',
+      'compatibility:browser-specific-fields',
       (compilation: Compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'compatibility:browser-fields',
+            name: 'compatibility:browser-specific-fields',
             // One after PROCESS_ASSETS_STAGE_ADDITIONS, where
             // we first emit the manifest.json asset.
             stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE

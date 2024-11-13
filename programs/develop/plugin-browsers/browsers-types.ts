@@ -6,8 +6,8 @@ export interface PluginInterface extends PluginOptions {
 }
 
 export interface PluginOptions {
+  open?: boolean
   browserFlags?: string[]
-  userDataDir?: string
   profile?: string
   preferences?: Record<string, any>
   startingUrl?: string

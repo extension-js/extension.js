@@ -1,9 +1,9 @@
-// ██████╗ ██████╗ ███████╗██╗   ██╗██╗███████╗██╗    ██╗
-// ██╔══██╗██╔══██╗██╔════╝██║   ██║██║██╔════╝██║    ██║
-// ██████╔╝██████╔╝█████╗  ██║   ██║██║█████╗  ██║ █╗ ██║
-// ██╔═══╝ ██╔══██╗██╔══╝  ╚██╗ ██╔╝██║██╔══╝  ██║███╗██║
-// ██║     ██║  ██║███████╗ ╚████╔╝ ██║███████╗╚███╔███╔╝
-// ╚═╝     ╚═╝  ╚═╝╚══════╝  ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝
+// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
+// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
+// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
+// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
+// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import fs from 'fs'
 import path from 'path'
@@ -12,7 +12,7 @@ import {merge} from 'webpack-merge'
 import webpackConfig from '../webpack/webpack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
-import {loadExtensionConfig} from './commands-lib/get-extension-config'
+import {loadCustomWebpackConfig} from './commands-lib/get-extension-config'
 import {PreviewOptions} from './commands-lib/config-types'
 
 export async function extensionPreview(
@@ -48,7 +48,7 @@ export async function extensionPreview(
 
     console.log(messages.building(browser))
 
-    const userExtensionConfig = loadExtensionConfig(projectPath)
+    const userExtensionConfig = await loadCustomWebpackConfig(projectPath)
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: onlyBrowserRunners

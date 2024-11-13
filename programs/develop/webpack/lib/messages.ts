@@ -411,14 +411,10 @@ export function resolverStaticError(manifestName: string, filePath: string) {
 
 export function serverRestartRequiredFromSpecialFolderError(
   addingOrRemoving: string,
-  addedOrRemoved: string,
   folder: string,
   typeOfAsset: string,
   pathRelative: string
 ) {
-  if (1 + 1 == 5) {
-    console.log({addedOrRemoved})
-  }
   const addOrRemove =
     addingOrRemoving.charAt(0).toUpperCase() + addingOrRemoving.slice(1)
   return (
