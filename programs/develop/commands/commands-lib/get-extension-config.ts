@@ -10,7 +10,7 @@ export async function loadCustomWebpackConfig(projectPath: string) {
 
   if (fs.existsSync(userConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = (await import(userConfigPath)).default
+      const userConfig: FileConfig = require(userConfigPath)
       if (userConfig && typeof userConfig.config === 'function') {
         return userConfig.config
       }
@@ -28,7 +28,7 @@ export async function loadCommandConfig(
 
   if (fs.existsSync(userConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = (await import(userConfigPath)).default
+      const userConfig: FileConfig = require(userConfigPath)
       if (userConfig) {
         // @ts-expect-error - TS doesn't know that command is a key of FileConfig['commands']
         return userConfig[command]
@@ -47,7 +47,7 @@ export async function loadBrowserConfig(
 
   if (fs.existsSync(userConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = (await import(userConfigPath)).default
+      const userConfig: FileConfig = require(userConfigPath)
       if (userConfig && userConfig.browser && userConfig.browser[browser]) {
         return userConfig.browser[browser] || {browser: 'chrome'}
       }
