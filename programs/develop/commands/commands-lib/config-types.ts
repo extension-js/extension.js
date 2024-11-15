@@ -1,21 +1,48 @@
 import {Configuration} from 'webpack'
 
-export interface BrowserOptions {
+export type BrowserType =
+  | 'chrome'
+  | 'edge'
+  | 'firefox'
+  | 'chromium-based'
+  | 'gecko-based'
+
+export interface BrowserOptionsBase {
   open?: boolean
   profile?: string
   startingUrl?: string
-  browser: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
+  browser: BrowserType
+}
+
+export interface ChromiumOptions extends BrowserOptionsBase {
+  browser: 'chromium-based'
   chromiumBinary?: string
+}
+
+export interface GeckoOptions extends BrowserOptionsBase {
+  browser: 'gecko-based'
   geckoBinary?: string
 }
 
-export interface DevOptions extends BrowserOptions {
+export interface NonBinaryOptions extends BrowserOptionsBase {
+  browser: Exclude<BrowserType, 'chromium-based' | 'gecko-based'>
+}
+
+export type ExtendedBrowserOptions =
+  | ChromiumOptions
+  | GeckoOptions
+  | NonBinaryOptions
+
+export interface DevOptions extends BrowserOptionsBase {
   mode: 'development' | 'production'
   polyfill?: boolean
+  // Narrow down the options based on `browser`
+  chromiumBinary?: ChromiumOptions['chromiumBinary']
+  geckoBinary?: GeckoOptions['geckoBinary']
 }
 
 export interface BuildOptions {
-  browser: BrowserOptions['browser']
+  browser: BrowserOptionsBase['browser']
   zipFilename?: string
   zip?: boolean
   zipSource?: boolean
@@ -23,18 +50,24 @@ export interface BuildOptions {
   silent?: boolean
 }
 
-export interface PreviewOptions extends BrowserOptions {
+export interface PreviewOptions extends BrowserOptionsBase {
   mode: 'production'
+  chromiumBinary?: ChromiumOptions['chromiumBinary']
+  geckoBinary?: GeckoOptions['geckoBinary']
 }
 
-export interface StartOptions extends BrowserOptions {
+export interface StartOptions extends BrowserOptionsBase {
   mode: 'production'
   polyfill?: boolean
+  chromiumBinary?: ChromiumOptions['chromiumBinary']
+  geckoBinary?: GeckoOptions['geckoBinary']
 }
 
-export interface BrowserConfig extends BrowserOptions {
+export interface BrowserConfig extends BrowserOptionsBase {
   browserFlags?: string[]
   preferences?: Record<string, unknown>
+  chromiumBinary?: ChromiumOptions['chromiumBinary']
+  geckoBinary?: GeckoOptions['geckoBinary']
 }
 
 export interface FileConfig {
