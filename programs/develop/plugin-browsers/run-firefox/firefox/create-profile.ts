@@ -73,11 +73,12 @@ function getProfile(
 
 export function createProfile(
   browser: DevOptions['browser'],
-  dataDirPath: string | undefined,
+  userProfilePath: string | undefined,
   configPreferences: BrowserConfig['preferences']
 ) {
   let profile: FirefoxProfile
-  const dataDir = dataDirPath || path.resolve(__dirname, 'run-firefox-data-dir')
+  const dataDir =
+    userProfilePath || path.resolve(__dirname, `run-${browser}-profile`)
   const firefoxMasterPreferences: Record<string, any> = getPreferences(
     configPreferences || {}
   )
@@ -86,7 +87,7 @@ export function createProfile(
 
   const userPreferences = {...preferences, ...configPreferences}
 
-  if (fs.existsSync(dataDir)) {
+  if (!userProfilePath && fs.existsSync(dataDir)) {
     profile = getProfile(browser, dataDir, userPreferences)
   } else {
     addProgressBar(messages.creatingUserProfile(browser), () => {})
