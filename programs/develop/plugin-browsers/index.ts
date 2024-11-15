@@ -143,6 +143,9 @@ export class BrowsersPlugin {
     }
     // }
 
+    // Do not call any browser runner if user decides not to.
+    if (browserConfig.open === false) return
+
     switch (this.browser) {
       case 'chrome':
       case 'edge':
