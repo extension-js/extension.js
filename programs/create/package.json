@@ -31,7 +31,7 @@
   "dependencies": {
     "@colors/colors": "^1.6.0",
     "@types/firefox-webext-browser": "^120.0.4",
-    "cross-spawn": "^7.0.3",
+    "cross-spawn": "^7.0.5",
     "go-git-it": "2.0.4",
     "package-manager-detector": "^0.2.0"
   },
