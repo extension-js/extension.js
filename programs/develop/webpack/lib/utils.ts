@@ -274,7 +274,9 @@ export function filterKeysForThisBrowser(
 
       if (
         prefix === browser ||
-        (prefix === 'chromium' && CHROMIUM_BASED_BROWSERS.includes(browser))
+        (prefix === 'chromium' && CHROMIUM_BASED_BROWSERS.includes(browser)) ||
+        (prefix === 'chromium' && browser.includes('chromium')) ||
+        (prefix === 'gecko' && browser.includes('gecko')) 
       ) {
         this[key.substring(indexOfColon + 1)] = value
       }
