@@ -3,7 +3,6 @@ module.exports = {
   browsers: {
     chrome: {
       // open?: boolean
-      // userDataDir?: string
       // profile?: string
       // preferences?: Record<string, any>
       // browserFlags?: string[]
@@ -13,7 +12,6 @@ module.exports = {
     },
     firefox: {
       // open?: boolean
-      // userDataDir?: string
       // profile?: string
       // preferences?: Record<string, any>
       // browserFlags?: string[]

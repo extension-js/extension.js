@@ -1,7 +1,7 @@
 import fs from 'fs'
 import webpack, {Compilation} from 'webpack'
 import * as messages from '../../../lib/messages'
-import {DevOptions} from '../../../../commands/dev'
+import {DevOptions} from '../../../../commands/commands-lib/config-types'
 import {PluginInterface, FilepathList, Manifest} from '../../../webpack-types'
 import {htmlFields} from '../../data/manifest-fields/html-fields'
 import {scriptsFields} from '../../data/manifest-fields/scripts-fields'

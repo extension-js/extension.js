@@ -38,8 +38,6 @@ export function browserConfig(configOptions: PluginInterface) {
     '--mute-audio',
     // Disable the default browser check, do not prompt to set it as such
     '--no-default-browser-check',
-    // Skip first run wizards
-    '--no-first-run',
     // Avoids blue bubble "user education" nudges
     // (eg., "… give your browser a new look", Memory Saver)
     '--ash-no-nudges',

@@ -6,7 +6,7 @@ import {type Schema} from 'schema-utils/declarations/validate'
 import * as utils from '../../../lib/utils'
 import * as messages from '../../../lib/messages'
 import {type Manifest} from '../../../webpack-types'
-import {DevOptions} from '../../../../commands/dev'
+import {DevOptions} from '../../../../commands/commands-lib/config-types'
 
 const schema: Schema = {
   type: 'object',

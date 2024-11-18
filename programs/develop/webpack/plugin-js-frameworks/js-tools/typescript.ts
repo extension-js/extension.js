@@ -9,7 +9,7 @@ import path from 'path'
 import fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies, isUsingJSFramework} from '../../lib/utils'
-import {DevOptions} from '../../../commands/dev'
+import {DevOptions} from '../../../commands/commands-lib/config-types'
 
 let userMessageDelivered = false
 

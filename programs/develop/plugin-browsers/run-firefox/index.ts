@@ -7,7 +7,10 @@ import {browserConfig} from './firefox/browser-config'
 import {RemoteFirefox} from './remote-firefox'
 import * as messages from '../browsers-lib/messages'
 import {type PluginInterface} from '../browsers-types'
-import {DevOptions} from '../../commands/dev'
+import {
+  BrowserConfig,
+  DevOptions
+} from '../../commands/commands-lib/config-types'
 import {isFromPnpx} from '../../webpack/lib/utils'
 
 let child: ChildProcess | null = null
@@ -32,7 +35,6 @@ export class RunFirefoxPlugin {
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
   public readonly browserFlags?: string[]
-  public readonly userDataDir?: string
   public readonly profile?: string
   public readonly preferences?: Record<string, any>
   public readonly startingUrl?: string
@@ -44,7 +46,6 @@ export class RunFirefoxPlugin {
     this.extension = options.extension
     this.browser = options.browser || 'firefox'
     this.browserFlags = options.browserFlags || []
-    this.userDataDir = options.userDataDir
     this.profile = options.profile
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl
@@ -71,7 +72,10 @@ export class RunFirefoxPlugin {
     }
   }
 
-  private async launchFirefox(compiler: Compiler, options: DevOptions) {
+  private async launchFirefox(
+    compiler: Compiler,
+    options: DevOptions & BrowserConfig
+  ) {
     const fxRunnerCmd = await this.getFxRunnerCommand()
 
     let browserBinaryLocation: string
@@ -136,41 +140,37 @@ export class RunFirefoxPlugin {
   apply(compiler: Compiler) {
     let firefoxDidLaunch = false
 
-    compiler.hooks.done.tapAsync(
-      'run-firefox:module',
-      async (compilation, done) => {
-        if (compilation.compilation.errors.length > 0) {
-          done()
-          return
-        }
-
-        if (firefoxDidLaunch) {
-          done()
-          return
-        }
-
-        setTimeout(() => {
-          console.log(
-            messages.stdoutData(
-              this.browser,
-              compilation.compilation.options.mode
-            )
-          )
-        }, 2000)
-
-        await this.launchFirefox(compiler, {
-          browser: this.browser,
-          browserFlags: this.browserFlags,
-          userDataDir: this.userDataDir,
-          profile: this.profile,
-          preferences: this.preferences,
-          startingUrl: this.startingUrl,
-          mode: compilation.compilation.options.mode
-        })
-
-        firefoxDidLaunch = true
+    compiler.hooks.done.tapAsync('run-firefox:module', async (stats, done) => {
+      if (stats.compilation.errors.length > 0) {
         done()
+        return
       }
-    )
+
+      if (firefoxDidLaunch) {
+        done()
+        return
+      }
+
+      setTimeout(() => {
+        console.log(
+          messages.stdoutData(
+            this.browser,
+            stats.compilation.options.mode as DevOptions['mode']
+          )
+        )
+      }, 2000)
+
+      await this.launchFirefox(compiler, {
+        browser: this.browser,
+        browserFlags: this.browserFlags,
+        profile: this.profile,
+        preferences: this.preferences,
+        startingUrl: this.startingUrl,
+        mode: stats.compilation.options.mode as DevOptions['mode']
+      })
+
+      firefoxDidLaunch = true
+      done()
+    })
   }
 }

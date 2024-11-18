@@ -7,7 +7,7 @@
 
 import {Compiler} from 'webpack'
 import {type PluginInterface} from '../webpack-types'
-import {DevOptions} from '../../commands/dev'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 import {ManifestRuntimeErrorsPlugin} from './manifest-runtime-errors'
 import {ManifestSchemaErrorsPlugin} from './manifest-schema-errors'
 import {WebpackCommonErrorsPlugin} from './webpack-common-errors'

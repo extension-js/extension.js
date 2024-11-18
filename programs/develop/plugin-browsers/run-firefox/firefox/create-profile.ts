@@ -4,7 +4,10 @@ import FirefoxProfile from 'firefox-profile'
 import {getPreferences} from './master-preferences'
 import * as messages from '../../browsers-lib/messages'
 import {addProgressBar} from '../../browsers-lib/add-progress-bar'
-import {DevOptions} from '../../../commands/dev'
+import {
+  BrowserConfig,
+  DevOptions
+} from '../../../commands/commands-lib/config-types'
 import {loadBrowserConfig} from '../../../commands/commands-lib/get-extension-config'
 
 function configureProfile(
@@ -38,7 +41,7 @@ function configureProfile(
   return profile
 }
 
-function createProfile(
+function createProfileDir(
   destinationDirectory: string,
   customPreferences: Record<string, any>
 ) {
@@ -68,13 +71,14 @@ function getProfile(
   return profileConfigured
 }
 
-export function createUserDataDir(
+export function createProfile(
   browser: DevOptions['browser'],
-  dataDirPath: string | undefined,
-  configPreferences: DevOptions['preferences']
+  userProfilePath: string | undefined,
+  configPreferences: BrowserConfig['preferences'] = {}
 ) {
   let profile: FirefoxProfile
-  const dataDir = dataDirPath || path.resolve(__dirname, 'run-firefox-data-dir')
+  const dataDir =
+    userProfilePath || path.resolve(__dirname, `run-${browser}-profile`)
   const firefoxMasterPreferences: Record<string, any> = getPreferences(
     configPreferences || {}
   )
@@ -83,13 +87,13 @@ export function createUserDataDir(
 
   const userPreferences = {...preferences, ...configPreferences}
 
-  if (fs.existsSync(dataDir)) {
+  if (!userProfilePath && fs.existsSync(dataDir)) {
     profile = getProfile(browser, dataDir, userPreferences)
   } else {
     addProgressBar(messages.creatingUserProfile(browser), () => {})
 
     fs.mkdirSync(dataDir, {recursive: true})
-    profile = createProfile(dataDir, userPreferences)
+    profile = createProfileDir(dataDir, userPreferences)
   }
 
   return profile

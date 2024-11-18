@@ -38,7 +38,7 @@ export class CssPlugin {
         oneOf: [
           {
             use: await commonStyleLoaders(projectPath, {
-              mode: mode,
+              mode: mode as 'development' | 'production',
               useMiniCssExtractPlugin: mode === 'production'
             })
           }
@@ -49,7 +49,7 @@ export class CssPlugin {
         oneOf: [
           {
             use: await commonStyleLoaders(projectPath, {
-              mode: mode,
+              mode: mode as 'development' | 'production',
               useMiniCssExtractPlugin: mode === 'production'
             })
           }
@@ -61,8 +61,14 @@ export class CssPlugin {
       Boolean
     )
 
-    const maybeInstallSass = await maybeUseSass(projectPath, mode)
-    const maybeInstallLess = await maybeUseLess(projectPath, mode)
+    const maybeInstallSass = await maybeUseSass(
+      projectPath,
+      mode as 'development' | 'production'
+    )
+    const maybeInstallLess = await maybeUseLess(
+      projectPath,
+      mode as 'development' | 'production'
+    )
     loaders.push(...maybeInstallSass)
     loaders.push(...maybeInstallLess)
 

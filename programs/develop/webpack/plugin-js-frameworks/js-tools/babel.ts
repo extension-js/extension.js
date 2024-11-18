@@ -9,7 +9,7 @@ import path from 'path'
 import fs from 'fs'
 import {Compiler} from 'webpack'
 import * as messages from '../../lib/messages'
-import {DevOptions} from '../../../commands/dev'
+import {DevOptions} from '../../../commands/commands-lib/config-types'
 import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false

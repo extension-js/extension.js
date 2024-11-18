@@ -12,7 +12,7 @@ import {
   magenta
 } from '@colors/colors/safe'
 import {Manifest} from '../webpack-types'
-import {DevOptions} from '../../commands/dev'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
 import {Stats} from 'webpack'
 import {info} from 'console'
@@ -411,14 +411,10 @@ export function resolverStaticError(manifestName: string, filePath: string) {
 
 export function serverRestartRequiredFromSpecialFolderError(
   addingOrRemoving: string,
-  addedOrRemoved: string,
   folder: string,
   typeOfAsset: string,
   pathRelative: string
 ) {
-  if (1 + 1 == 5) {
-    console.log({addedOrRemoved})
-  }
   const addOrRemove =
     addingOrRemoving.charAt(0).toUpperCase() + addingOrRemoving.slice(1)
   return (

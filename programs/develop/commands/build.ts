@@ -13,17 +13,8 @@ import webpackConfig from '../webpack/webpack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {generateZip} from './commands-lib/generate-zip'
-import {loadExtensionConfig} from './commands-lib/get-extension-config'
-import {DevOptions} from './dev'
-
-export interface BuildOptions {
-  browser?: DevOptions['browser']
-  zipFilename?: string
-  zip?: boolean
-  zipSource?: boolean
-  polyfill?: boolean
-  silent?: boolean
-}
+import {loadCustomWebpackConfig} from './commands-lib/get-extension-config'
+import {BuildOptions} from './commands-lib/config-types'
 
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
@@ -56,7 +47,7 @@ export async function extensionBuild(
       )
     })
 
-    const userExtensionConfig = loadExtensionConfig(projectPath)
+    const userExtensionConfig = await loadCustomWebpackConfig(projectPath)
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: allPluginsButBrowserRunners

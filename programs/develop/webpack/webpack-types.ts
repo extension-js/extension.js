@@ -1,6 +1,6 @@
 import {type LoaderContext as WebpackLoaderContext} from 'webpack'
 import {type WebpackPluginInstance} from 'webpack'
-import {DevOptions} from '../commands/dev'
+import {type DevOptions} from '../commands/commands-lib/config-types'
 
 export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
   Partial<chrome.runtime.ManifestV3> & {

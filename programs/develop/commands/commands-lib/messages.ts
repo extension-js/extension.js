@@ -13,8 +13,7 @@ import {
   brightBlue
 } from '@colors/colors/safe'
 import {Manifest} from '../../types'
-import {StartOptions} from '../start'
-import {DevOptions} from '../dev'
+import {type StartOptions, type DevOptions} from '../commands-lib/config-types'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const arrow =
