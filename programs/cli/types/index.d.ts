@@ -7,6 +7,16 @@
 
 declare namespace NodeJS {
   interface ProcessEnv {
-    readonly EXTENSION_ENV: 'development' | 'production' | 'test' | 'debug'
+    readonly EXTENSION_BROWSER: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
+    readonly EXTENSION_MODE: 'development' | 'production'
   }
+}
+
+interface ImportMetaEnv {
+  readonly EXTENSION_BROWSER: NodeJS.ProcessEnv['EXTENSION_BROWSER']
+  readonly EXTENSION_MODE: NodeJS.ProcessEnv['EXTENSION_MODE']
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv
 }
