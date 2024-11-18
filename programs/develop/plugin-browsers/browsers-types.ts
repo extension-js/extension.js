@@ -1,4 +1,4 @@
-import {DevOptions} from '../commands/dev'
+import {DevOptions} from '../commands/commands-lib/config-types'
 
 export interface PluginInterface extends PluginOptions {
   browser: DevOptions['browser']
@@ -6,8 +6,8 @@ export interface PluginInterface extends PluginOptions {
 }
 
 export interface PluginOptions {
+  open?: boolean
   browserFlags?: string[]
-  userDataDir?: string
   profile?: string
   preferences?: Record<string, any>
   startingUrl?: string

@@ -1,7 +1,7 @@
 import path from 'path'
 import webpack from 'webpack'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
-import {DevOptions} from '../../../commands/dev'
+import {DevOptions} from '../../../commands/commands-lib/config-types'
 
 /**
  * ResolvePlugin is responsible for resolving paths for

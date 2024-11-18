@@ -7,7 +7,7 @@
 
 import path from 'path'
 import type webpack from 'webpack'
-import {type DevOptions} from '../commands/dev'
+import {DevOptions} from '../commands/commands-lib/config-types'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -23,7 +23,10 @@ import * as utils from './lib/utils'
 
 export default function webpackConfig(
   projectPath: string,
-  devOptions: DevOptions
+  devOptions: DevOptions & {
+    preferences?: Record<string, string>
+    browserFlags?: string[]
+  }
 ): webpack.Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
   const manifest = utils.filterKeysForThisBrowser(
@@ -125,23 +128,22 @@ export default function webpackConfig(
         manifestPath,
         browser,
         stats: true,
-        port: devOptions.port || 8000
+        port: 8000
       }),
-      // Open defaults to true
-      devOptions.open !== false &&
-        new BrowsersPlugin({
-          extension: [
-            userExtensionOutputPath,
-            path.join(__dirname, 'extensions', `${browser}-manager-extension`)
-          ],
-          browser,
-          startingUrl: devOptions.startingUrl,
-          profile: devOptions.profile || devOptions.userDataDir,
-          preferences: devOptions.preferences,
-          browserFlags: devOptions.browserFlags,
-          chromiumBinary: devOptions.chromiumBinary,
-          geckoBinary: devOptions.geckoBinary
-        })
+      new BrowsersPlugin({
+        extension: [
+          userExtensionOutputPath,
+          path.join(__dirname, 'extensions', `${browser}-manager-extension`)
+        ],
+        browser,
+        open: devOptions.open,
+        startingUrl: devOptions.startingUrl,
+        profile: devOptions.profile,
+        preferences: devOptions.preferences,
+        browserFlags: devOptions.browserFlags,
+        chromiumBinary: devOptions.chromiumBinary,
+        geckoBinary: devOptions.geckoBinary
+      })
     ].filter(Boolean),
     stats: {
       all: false,

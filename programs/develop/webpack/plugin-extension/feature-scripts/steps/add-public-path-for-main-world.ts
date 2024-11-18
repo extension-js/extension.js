@@ -6,7 +6,7 @@ import {
 } from '../../../webpack-types'
 import * as messages from '../../../lib/messages'
 import * as utils from '../../../lib/utils'
-import {DevOptions} from '../../../../commands/dev'
+import {DevOptions} from '../../../../commands/commands-lib/config-types'
 import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
 
 export class AddPublicPathForMainWorld {

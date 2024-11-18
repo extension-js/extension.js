@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import {DevOptions} from '../../../../commands/dev'
+import {DevOptions} from '../../../../commands/commands-lib/config-types'
 
 export function replaceDataInFile(
   browser: DevOptions['browser'],

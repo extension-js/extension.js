@@ -4,9 +4,9 @@ import {type Compiler} from 'webpack'
 import {type PluginInterface} from './browsers-types'
 import {RunChromiumPlugin} from './run-chromium'
 import {RunFirefoxPlugin} from './run-firefox'
-import {DevOptions} from '../commands/dev'
+import {DevOptions} from '../commands/commands-lib/config-types'
 import {loadBrowserConfig} from '../commands/commands-lib/get-extension-config'
-
+import * as messages from './browsers-lib/messages'
 /**
  * BrowsersPlugin works by finding the binary for the browser specified in the
  * options and running it with the extension loaded.
@@ -29,11 +29,11 @@ export class BrowsersPlugin {
 
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
-  public readonly browserFlags: string[]
-  public readonly userDataDir?: string
-  public readonly profile: string
-  public readonly preferences: Record<string, any>
-  public readonly startingUrl: string
+  public readonly open?: boolean
+  public readonly browserFlags?: string[]
+  public readonly profile?: string
+  public readonly preferences?: Record<string, any>
+  public readonly startingUrl?: string
   public readonly chromiumBinary?: string
   public readonly geckoBinary?: string
 
@@ -45,13 +45,13 @@ export class BrowsersPlugin {
       ) || [])
     ]
     this.browser = options.browser || 'chrome'
+    this.open = options.open
     this.browserFlags =
       options.browserFlags?.filter(
         (flag) => !flag.startsWith('--load-extension=')
       ) || []
-    this.userDataDir = options.userDataDir
-    this.profile = options.profile || ''
-    this.preferences = options.preferences || {}
+    this.profile = options.profile
+    this.preferences = options.preferences
     this.startingUrl = options.startingUrl || ''
     this.chromiumBinary = options.chromiumBinary
     this.geckoBinary = options.geckoBinary
@@ -74,44 +74,104 @@ export class BrowsersPlugin {
     return path.resolve(__dirname, `run-${browser}-profile`)
   }
 
-  apply(compiler: Compiler) {
+  async apply(compiler: Compiler) {
     const config = {
       stats: true,
+      // @ts-expect-error it comes as a string from the CLI
+      open: this.open === 'false' ? false : true,
       extension: this.extension,
       browser: this.browser,
       browserFlags: this.browserFlags || [],
-      userDataDir: this.getProfilePath(
-        compiler,
-        this.browser,
-        this.userDataDir || this.profile
-      ),
+      profile: this.profile,
+      preferences: this.preferences,
       startingUrl: this.startingUrl,
       chromiumBinary: this.chromiumBinary,
       geckoBinary: this.geckoBinary
     }
 
+    const customUserConfig = await loadBrowserConfig(
+      compiler.context,
+      this.browser
+    )
     const browserConfig = {
       ...config,
-      ...loadBrowserConfig(compiler.context, this.browser)
+      ...customUserConfig
     }
+
+    if (browserConfig?.open === false) {
+      console.log(messages.isBrowserLauncherOpen(this.browser, false))
+    }
+
+    if (browserConfig?.startingUrl) {
+      console.log(
+        messages.isUsingStartingUrl(
+          browserConfig?.browser,
+          browserConfig?.startingUrl
+        )
+      )
+    }
+
+    if (browserConfig?.chromiumBinary) {
+      console.log(
+        messages.isUsingBrowserBinary('chromium', browserConfig?.chromiumBinary)
+      )
+    }
+
+    if (browserConfig?.geckoBinary) {
+      console.log(
+        messages.isUsingBrowserBinary('gecko', browserConfig?.geckoBinary)
+      )
+    }
+
+    if (browserConfig?.profile) {
+      console.log(
+        messages.isUsingProfile(browserConfig?.browser, browserConfig?.profile)
+      )
+    }
+
+    if (browserConfig?.preferences) {
+      console.log(messages.isUsingPreferences(browserConfig?.browser))
+    }
+
+    if (browserConfig?.browserFlags && browserConfig?.browserFlags.length > 0) {
+      console.log(messages.isUsingBrowserFlags(browserConfig?.browser))
+    }
+
+    // Do not call any browser runner if user decides not to.
+    if (browserConfig.open === false) return
+
+    const profile = this.getProfilePath(
+      compiler,
+      this.browser,
+      this.profile || this.profile
+    )
 
     switch (this.browser) {
       case 'chrome':
       case 'edge':
       case 'chromium-based': {
-        new RunChromiumPlugin(browserConfig).apply(compiler)
+        new RunChromiumPlugin({
+          ...browserConfig,
+          browser: this.browser,
+          profile
+        }).apply(compiler)
         break
       }
 
       case 'firefox':
       case 'gecko-based':
-        new RunFirefoxPlugin(browserConfig).apply(compiler)
+        new RunFirefoxPlugin({
+          ...browserConfig,
+          browser: this.browser,
+          profile
+        }).apply(compiler)
         break
 
       default: {
         new RunChromiumPlugin({
           ...browserConfig,
-          browser: 'chrome'
+          browser: 'chrome',
+          profile
         }).apply(compiler)
         break
       }

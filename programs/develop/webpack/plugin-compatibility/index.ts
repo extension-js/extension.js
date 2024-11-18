@@ -8,8 +8,8 @@
 import {type Compiler} from 'webpack'
 import {PluginInterface} from '../webpack-types'
 import {PolyfillPlugin} from './feature-polyfill'
-import {BrowserFieldsPlugin} from './feature-browser-fields'
-import {type DevOptions} from '../../commands/dev'
+import {BrowserSpecificFieldsPlugin} from './feature-browser-specific-fields'
+import {type DevOptions} from '../../commands/commands-lib/config-types'
 
 export class CompatibilityPlugin {
   public static readonly name: string = 'plugin-compatibility'
@@ -36,7 +36,7 @@ export class CompatibilityPlugin {
     }
 
     // Handle manifest compatibilities across browser vendors.
-    new BrowserFieldsPlugin({
+    new BrowserSpecificFieldsPlugin({
       manifestPath: this.manifestPath,
       browser: this.browser || 'chrome'
     }).apply(compiler)

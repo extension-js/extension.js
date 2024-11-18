@@ -13,21 +13,7 @@ import {isUsingTypeScript} from '../webpack/plugin-js-frameworks/js-tools/typesc
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {installDependencies} from './commands-lib/install-dependencies'
-
-export interface DevOptions {
-  browser: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
-  mode: 'development' | 'production' | 'none' | undefined
-  port?: number
-  open?: boolean
-  userDataDir?: string
-  profile?: string
-  preferences?: Record<string, any>
-  browserFlags?: string[]
-  startingUrl?: string
-  polyfill?: boolean
-  chromiumBinary?: string
-  geckoBinary?: string
-}
+import {DevOptions} from './commands-lib/config-types'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,

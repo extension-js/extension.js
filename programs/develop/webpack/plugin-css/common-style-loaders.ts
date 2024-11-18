@@ -1,6 +1,6 @@
 import {type RuleSetRule} from 'webpack'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
-import {DevOptions} from '../../commands/dev'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 import {isUsingTailwind} from './css-tools/tailwind'
 import {isUsingSass} from './css-tools/sass'
 import {isUsingLess} from './css-tools/less'
