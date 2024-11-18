@@ -1,4 +1,4 @@
-import {BrowserFieldsPlugin} from '../feature-browser-fields'
+import {BrowserSpecificFieldsPlugin} from '../feature-browser-specific-fields'
 
 const manifest = JSON.stringify({
   'firefox:developer': {
@@ -24,9 +24,9 @@ const manifest = JSON.stringify({
   }
 })
 
-describe('BrowserFieldsPlugin', () => {
+describe('BrowserSpecificFieldsPlugin', () => {
   it('should transform manifest for Chrome', () => {
-    const handler = new BrowserFieldsPlugin({
+    const handler = new BrowserSpecificFieldsPlugin({
       manifestPath: '',
       browser: 'chrome'
     })
@@ -39,7 +39,7 @@ describe('BrowserFieldsPlugin', () => {
   })
 
   it('should transform manifest for Edge', () => {
-    const handler = new BrowserFieldsPlugin({
+    const handler = new BrowserSpecificFieldsPlugin({
       manifestPath: '',
       browser: 'edge'
     })
@@ -52,7 +52,7 @@ describe('BrowserFieldsPlugin', () => {
   })
 
   it('should transform manifest for Firefox', () => {
-    const handler = new BrowserFieldsPlugin({
+    const handler = new BrowserSpecificFieldsPlugin({
       manifestPath: '',
       browser: 'firefox'
     })
@@ -75,7 +75,7 @@ describe('BrowserFieldsPlugin', () => {
   })
 
   it('should transform manifest for Safari', () => {
-    const handler = new BrowserFieldsPlugin({
+    const handler = new BrowserSpecificFieldsPlugin({
       manifestPath: '',
       browser: 'safari' as any
     })

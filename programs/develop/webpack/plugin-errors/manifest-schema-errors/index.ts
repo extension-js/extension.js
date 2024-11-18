@@ -8,7 +8,7 @@ import {invalidFieldTypeErrors} from './invalid-field-type-errors'
 import * as utils from '../../lib/utils'
 import handleDeprecatedError from './deprecated-errors'
 import {type PluginInterface, type Manifest} from '../../webpack-types'
-import {DevOptions} from '../../../commands/dev'
+import {DevOptions} from '../../../commands/commands-lib/config-types'
 
 export class ManifestSchemaErrorsPlugin {
   private readonly options: PluginInterface

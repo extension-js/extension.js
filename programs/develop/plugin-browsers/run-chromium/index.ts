@@ -5,7 +5,7 @@ import {spawn} from 'child_process'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
 import {PluginInterface} from '../browsers-types'
-import {DevOptions} from '../../commands/dev'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -19,7 +19,6 @@ export class RunChromiumPlugin {
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
   public readonly browserFlags?: string[]
-  public readonly userDataDir?: string
   public readonly profile?: string
   public readonly preferences?: Record<string, any>
   public readonly startingUrl?: string
@@ -31,8 +30,7 @@ export class RunChromiumPlugin {
     this.extension = options.extension
     this.browser = options.browser
     this.browserFlags = options.browserFlags || []
-    this.userDataDir = options.userDataDir
-    this.profile = options.profile || options.userDataDir
+    this.profile = options.profile
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl
     this.chromiumBinary = options.chromiumBinary
@@ -101,7 +99,7 @@ export class RunChromiumPlugin {
         console.log(
           messages.stdoutData(
             this.browser,
-            compilation.compilation.options.mode
+            compilation.compilation.options.mode as 'development' | 'production'
           )
         )
       }, 2000)

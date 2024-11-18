@@ -3,7 +3,7 @@ import fs from 'fs'
 import {commonStyleLoaders} from '../common-style-loaders'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
-import {DevOptions} from '../../../commands/dev'
+import {DevOptions} from '../../../commands/commands-lib/config-types'
 
 let userMessageDelivered = false
 

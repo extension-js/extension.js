@@ -3,7 +3,7 @@ import path from 'path'
 import {Compiler, Compilation, DefinePlugin, sources} from 'webpack'
 import dotenv from 'dotenv'
 import {PluginInterface} from '../webpack-types'
-import {DevOptions} from '../../commands/dev'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 
 export class EnvPlugin {
   public readonly manifestPath: string
