@@ -98,16 +98,8 @@ export class BrowsersPlugin {
       ...customUserConfig
     }
 
-    if (browserConfig?.chromiumBinary) {
-      console.log(
-        messages.isUsingBrowserBinary('chromium', browserConfig?.chromiumBinary)
-      )
-    }
-
-    if (typeof browserConfig?.open !== 'undefined') {
-      console.log(
-        messages.isBrowserLauncherOpen(this.browser, browserConfig?.open)
-      )
+    if (browserConfig?.open === false) {
+      console.log(messages.isBrowserLauncherOpen(this.browser, false))
     }
 
     if (browserConfig?.startingUrl) {
@@ -118,24 +110,29 @@ export class BrowsersPlugin {
         )
       )
     }
+
     if (browserConfig?.chromiumBinary) {
       console.log(
         messages.isUsingBrowserBinary('chromium', browserConfig?.chromiumBinary)
       )
     }
+
     if (browserConfig?.geckoBinary) {
       console.log(
         messages.isUsingBrowserBinary('gecko', browserConfig?.geckoBinary)
       )
     }
+
     if (browserConfig?.profile) {
       console.log(
         messages.isUsingProfile(browserConfig?.browser, browserConfig?.profile)
       )
     }
+
     if (browserConfig?.preferences) {
       console.log(messages.isUsingPreferences(browserConfig?.browser))
     }
+
     if (browserConfig?.browserFlags && browserConfig?.browserFlags.length > 0) {
       console.log(messages.isUsingBrowserFlags(browserConfig?.browser))
     }
@@ -155,6 +152,7 @@ export class BrowsersPlugin {
       case 'chromium-based': {
         new RunChromiumPlugin({
           ...browserConfig,
+          browser: this.browser,
           profile
         }).apply(compiler)
         break
@@ -164,6 +162,7 @@ export class BrowsersPlugin {
       case 'gecko-based':
         new RunFirefoxPlugin({
           ...browserConfig,
+          browser: this.browser,
           profile
         }).apply(compiler)
         break
@@ -171,8 +170,8 @@ export class BrowsersPlugin {
       default: {
         new RunChromiumPlugin({
           ...browserConfig,
-          profile,
-          browser: 'chrome'
+          browser: 'chrome',
+          profile
         }).apply(compiler)
         break
       }
