@@ -4,7 +4,7 @@ import ignore from 'ignore'
 import glob from 'tiny-glob'
 import AdmZip from 'adm-zip'
 import slugify from 'slugify'
-import {type BuildOptions} from '../build'
+import {type BuildOptions} from '../commands-lib/config-types'
 import * as messages from './messages'
 
 function readFileSync(filePath: string): string {
@@ -76,7 +76,7 @@ export async function generateZip(
     const manifest: Record<string, string> = require(
       path.join(dataDir, 'manifest.json')
     )
-    const name = getPackageName(manifest, options)
+    const name = getPackageName(manifest, {browser, ...options})
     const ext = getExtensionExtension(browser)
     // Dist zips are stored in dist/[browser]/[name].zip
     const distZipPath = path.join(outputDir, `${name}.${ext}`)

@@ -9,20 +9,9 @@ import fs from 'fs'
 import path from 'path'
 import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
-import {DevOptions} from './dev'
 import {extensionBuild} from './build'
 import {extensionPreview} from './preview'
-
-export interface StartOptions {
-  mode: 'development' | 'production'
-  browser: DevOptions['browser']
-  port?: number
-  open?: boolean
-  userDataDir?: string
-  polyfill?: boolean
-  chromiumBinary?: string
-  geckoBinary?: string
-}
+import {StartOptions} from './commands-lib/config-types'
 
 export async function extensionStart(
   pathOrRemoteUrl: string | undefined,

@@ -48,7 +48,6 @@ function distFileExists(
   )
 
   if (filePath) {
-    console.log('3iuteghkgewktgdtqwegdhiq3thegd', path.join(templatePath, filePath))
     return fs.existsSync(path.join(templatePath, filePath))
   } else {
     // Check if any HTML file exists in the directory

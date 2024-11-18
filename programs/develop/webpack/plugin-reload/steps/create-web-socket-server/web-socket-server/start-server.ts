@@ -50,7 +50,7 @@ function setupServer(port: number, browser: DevOptions['browser']) {
 export async function startServer(compiler: Compiler, options: DevOptions) {
   const projectPath = compiler.options.context || ''
   const manifest = require(path.join(projectPath, 'manifest.json'))
-  const port = options.port || 8000
+  const port = 8000
   const webSocketServer = setupServer(port, options.browser)
 
   webSocketServer.on('connection', (ws) => {

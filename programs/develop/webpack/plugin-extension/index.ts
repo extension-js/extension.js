@@ -23,7 +23,7 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 
 import {PluginInterface, FilepathList} from '../webpack-types'
 
-import {DevOptions} from '../../commands/dev'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 import {isUsingReact} from '../plugin-js-frameworks/js-tools/react'
 import {isUsingPreact} from '../plugin-js-frameworks/js-tools/preact'
 import {isUsingTypeScript} from '../plugin-js-frameworks/js-tools/typescript'
