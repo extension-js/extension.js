@@ -45,12 +45,13 @@ export class BrowsersPlugin {
       ) || [])
     ]
     this.browser = options.browser || 'chrome'
+    this.open = options.open
     this.browserFlags =
       options.browserFlags?.filter(
         (flag) => !flag.startsWith('--load-extension=')
       ) || []
     this.profile = options.profile
-    this.preferences = options.preferences || {}
+    this.preferences = options.preferences
     this.startingUrl = options.startingUrl || ''
     this.chromiumBinary = options.chromiumBinary
     this.geckoBinary = options.geckoBinary
@@ -76,14 +77,12 @@ export class BrowsersPlugin {
   async apply(compiler: Compiler) {
     const config = {
       stats: true,
+      // @ts-expect-error it comes as a string from the CLI
+      open: this.open === 'false' ? false : true,
       extension: this.extension,
       browser: this.browser,
       browserFlags: this.browserFlags || [],
-      profile: this.getProfilePath(
-        compiler,
-        this.browser,
-        this.profile || this.profile
-      ),
+      profile: this.profile,
       preferences: this.preferences,
       startingUrl: this.startingUrl,
       chromiumBinary: this.chromiumBinary,
@@ -111,7 +110,6 @@ export class BrowsersPlugin {
       )
     }
 
-    // if (process.env.EXTENSION_ENV === 'development') {
     if (browserConfig?.startingUrl) {
       console.log(
         messages.isUsingStartingUrl(
@@ -141,27 +139,39 @@ export class BrowsersPlugin {
     if (browserConfig?.browserFlags && browserConfig?.browserFlags.length > 0) {
       console.log(messages.isUsingBrowserFlags(browserConfig?.browser))
     }
-    // }
 
     // Do not call any browser runner if user decides not to.
     if (browserConfig.open === false) return
+
+    const profile = this.getProfilePath(
+      compiler,
+      this.browser,
+      this.profile || this.profile
+    )
 
     switch (this.browser) {
       case 'chrome':
       case 'edge':
       case 'chromium-based': {
-        new RunChromiumPlugin(browserConfig).apply(compiler)
+        new RunChromiumPlugin({
+          ...browserConfig,
+          profile
+        }).apply(compiler)
         break
       }
 
       case 'firefox':
       case 'gecko-based':
-        new RunFirefoxPlugin(browserConfig).apply(compiler)
+        new RunFirefoxPlugin({
+          ...browserConfig,
+          profile
+        }).apply(compiler)
         break
 
       default: {
         new RunChromiumPlugin({
           ...browserConfig,
+          profile,
           browser: 'chrome'
         }).apply(compiler)
         break

@@ -132,8 +132,7 @@ extensionJs
         geckoBinary: devOptions.geckoBinary,
         // @ts-expect-error open is a boolean
         polyfill: devOptions.polyfill === 'false' ? false : true,
-        // @ts-expect-error open is a boolean
-        open: devOptions.open === 'false' ? false : true,
+        open: devOptions.open,
         startingUrl: devOptions.startingUrl
       })
     }
