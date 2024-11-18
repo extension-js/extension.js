@@ -74,7 +74,7 @@ function getProfile(
 export function createProfile(
   browser: DevOptions['browser'],
   userProfilePath: string | undefined,
-  configPreferences: BrowserConfig['preferences']
+  configPreferences: BrowserConfig['preferences'] = {}
 ) {
   let profile: FirefoxProfile
   const dataDir =

@@ -14,7 +14,7 @@ import {
 export function createProfile(
   browser: DevOptions['browser'],
   userProfilePath: string | undefined,
-  configPreferences: BrowserConfig['preferences']
+  configPreferences: BrowserConfig['preferences'] = {}
 ) {
   if (userProfilePath && fs.existsSync(userProfilePath)) {
     return userProfilePath
