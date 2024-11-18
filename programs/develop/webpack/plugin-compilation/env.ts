@@ -66,8 +66,10 @@ export class EnvPlugin {
       )
 
     // Ensure default environment variables are always available:
-    // - EXTENSION_PUBLIC_BROWSER
-    // - EXTENSION_PUBLIC_MODE
+    // - EXTENSION_PUBLIC_BROWSER (legacy)
+    // - EXTENSION_PUBLIC_MODE (legacy)
+    // - EXTENSION_BROWSER
+    // - EXTENSION_MODE
     filteredEnvVars['process.env.EXTENSION_PUBLIC_BROWSER'] = JSON.stringify(
       this.browser
     )
@@ -75,6 +77,14 @@ export class EnvPlugin {
       JSON.stringify(this.browser)
     filteredEnvVars['process.env.EXTENSION_PUBLIC_MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.EXTENSION_PUBLIC_MODE'] =
+      JSON.stringify(mode)
+    filteredEnvVars['process.env.EXTENSION_BROWSER'] = JSON.stringify(
+      this.browser
+    )
+    filteredEnvVars['import.meta.env.EXTENSION_BROWSER'] =
+      JSON.stringify(this.browser)
+    filteredEnvVars['process.env.EXTENSION_MODE'] = JSON.stringify(mode)
+    filteredEnvVars['import.meta.env.EXTENSION_MODE'] =
       JSON.stringify(mode)
 
     // Apply DefinePlugin to expose filtered variables
@@ -98,9 +108,19 @@ export class EnvPlugin {
                   .source()
                   .toString()
 
-                // Replace environment variables in the format $EXTENSION_PUBLIC_VAR
+                // Replace environment variables in the format $EXTENSION_PUBLIC_VAR (legacy)
                 fileContent = fileContent.replace(
                   /\$EXTENSION_PUBLIC_[A-Z_]+/g,
+                  (match) => {
+                    const envVarName = match.slice(1) // Remove the '$'
+                    const value = combinedVars[envVarName] || match
+                    return value
+                  }
+                )
+
+                // Replace environment variables in the format $EXTENSION_VAR
+                fileContent = fileContent.replace(
+                  /\$EXTENSION_[A-Z_]+/g,
                   (match) => {
                     const envVarName = match.slice(1) // Remove the '$'
                     const value = combinedVars[envVarName] || match
