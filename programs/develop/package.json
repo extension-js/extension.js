@@ -43,7 +43,7 @@
     "chokidar": "^3.6.0",
     "chrome-location": "^1.2.1",
     "content-security-policy-parser": "^0.6.0",
-    "cross-spawn": "^7.0.3",
+    "cross-spawn": "^7.0.5",
     "css-loader": "^6.10.0",
     "csv-loader": "^3.0.5",
     "dotenv": "^16.4.5",
