@@ -539,7 +539,7 @@ importers:
         version: 4.12.12(postcss@8.4.47)
       extension:
         specifier: latest
-        version: 2.0.0-beta.2(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(svelte@4.2.19)(type-fest@4.26.1)(typescript@5.3.3)
+        version: 2.0.0-beta.3(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(svelte@4.2.19)(type-fest@4.26.1)(typescript@5.3.3)
       postcss:
         specifier: ^8.4.47
         version: 8.4.47
@@ -4110,16 +4110,16 @@ packages:
   extendable-error@0.1.7:
     resolution: {integrity: sha512-UOiS2in6/Q0FK0R0q6UY9vYpQ21mr/Qn1KOnte7vsACuNJf514WvCCUHSRCPcgjPT2bAhNIJdlE6bVap1GKmeg==}
 
-  extension-create@2.0.0-beta.2:
-    resolution: {integrity: sha512-PDors+4GnJeyHJSxsfvp5AK88mdaA9dSVHK92qCruzPTpnSnZuvq/EPH7lpK3HblydjMRn7PdwjDz8npVCuWKw==}
+  extension-create@2.0.0-beta.3:
+    resolution: {integrity: sha512-Q/ch+lASWfulAJS4dViXWJqF090kLroJkv2ad9m6zrjsQq1jM4JklRoH9qfaWqS8Vkepz4DqDwjwW+1VxH569w==}
     engines: {node: '>=18'}
 
-  extension-develop@2.0.0-beta.2:
-    resolution: {integrity: sha512-n5QUw7OTt20WZ7mZsnZ6LLLQASoDZYyTNgZ72V4OGeofnGoCHc+yop6vqku34ncLCMKUkjgWZUxjB+qCENAh0A==}
+  extension-develop@2.0.0-beta.3:
+    resolution: {integrity: sha512-R7UpBHuTjJT07NLjmy7gjfTo7DEPrH5bU7JqA/z+KU/rVE09kNGn9YNReDjyhLZwA7bUuDIluOhMHIoG1Hijqw==}
     engines: {node: '>=18'}
 
-  extension@2.0.0-beta.2:
-    resolution: {integrity: sha512-UHsY0rguvnRGLeUHzEmaOsRA6pY00fNKLhrorlX8FqGZn9N4QW+MJ4rHkWDHwR90zx/O4lTVFc6OdAXJZNgkcQ==}
+  extension@2.0.0-beta.3:
+    resolution: {integrity: sha512-XqqBkmGbSSjqTXh9SMigtSrnyKjBgjJ6nd0syH/UExZAkZoKSsoPfVJ2c3mn6TnH3zevQyZX7+XEGeyJmnjAqw==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -10871,7 +10871,7 @@ snapshots:
 
   extendable-error@0.1.7: {}
 
-  extension-create@2.0.0-beta.2:
+  extension-create@2.0.0-beta.3:
     dependencies:
       '@colors/colors': 1.6.0
       '@types/firefox-webext-browser': 120.0.4
@@ -10879,7 +10879,7 @@ snapshots:
       go-git-it: 2.0.4
       package-manager-detector: 0.2.0
 
-  extension-develop@2.0.0-beta.2(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(svelte@4.2.19)(type-fest@4.26.1)(typescript@5.3.3):
+  extension-develop@2.0.0-beta.3(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(svelte@4.2.19)(type-fest@4.26.1)(typescript@5.3.3):
     dependencies:
       '@colors/colors': 1.6.0
       '@swc/core': 1.7.26
@@ -10972,7 +10972,7 @@ snapshots:
       - webpack-hot-middleware
       - webpack-plugin-serve
 
-  extension@2.0.0-beta.2(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(svelte@4.2.19)(type-fest@4.26.1)(typescript@5.3.3):
+  extension@2.0.0-beta.3(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(svelte@4.2.19)(type-fest@4.26.1)(typescript@5.3.3):
     dependencies:
       '@colors/colors': 1.6.0
       '@types/chrome': 0.0.270
@@ -10981,8 +10981,8 @@ snapshots:
       '@types/react': 18.3.11
       '@types/react-dom': 18.3.0
       commander: 11.1.0
-      extension-create: 2.0.0-beta.2
-      extension-develop: 2.0.0-beta.2(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(svelte@4.2.19)(type-fest@4.26.1)(typescript@5.3.3)
+      extension-create: 2.0.0-beta.3
+      extension-develop: 2.0.0-beta.3(@babel/core@7.25.7)(@prefresh/babel-plugin@0.5.1)(@types/webpack@4.41.39)(browserslist@4.24.0)(less@4.2.0)(preact@10.24.2)(sass@1.79.4)(svelte@4.2.19)(type-fest@4.26.1)(typescript@5.3.3)
       semver: 7.6.3
       update-check: 1.5.4
       webextension-polyfill: 0.12.0
