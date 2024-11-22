@@ -21,10 +21,15 @@ function whereToInsertStyleTag(element: HTMLElement) {
 
     if (shadowRoot) {
       shadowRoot.appendChild(element)
-      console.log('Element inserted into shadowRoot')
+
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log('Element inserted into shadowRoot')
+      }
     } else {
       document.head.appendChild(element)
-      console.log('Element inserted into document.head')
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log('Element inserted into document.head')
+      }
     }
   }
 
