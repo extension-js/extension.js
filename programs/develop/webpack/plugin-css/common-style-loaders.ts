@@ -5,7 +5,6 @@ import {isUsingTailwind} from './css-tools/tailwind'
 import {isUsingSass} from './css-tools/sass'
 import {isUsingLess} from './css-tools/less'
 import {maybeUsePostCss} from './css-tools/postcss'
-import {isUsingVue} from '../plugin-js-frameworks/js-tools/vue'
 
 export interface StyleLoaderOptions {
   mode: DevOptions['mode']
@@ -61,14 +60,12 @@ export async function commonStyleLoaders(
   const styleLoaders: RuleSetRule['use'] = [
     opts.useMiniCssExtractPlugin
       ? miniCssLoader
-      : isUsingVue(projectPath)
-        ? require.resolve('vue-style-loader')
-        : {
-            loader: require.resolve('style-loader'),
-            options: {
-              insert: whereToInsertStyleTag
-            }
-          },
+      : {
+          loader: require.resolve('style-loader'),
+          options: {
+            insert: whereToInsertStyleTag
+          }
+        },
     {
       loader: require.resolve('css-loader'),
       options: {
