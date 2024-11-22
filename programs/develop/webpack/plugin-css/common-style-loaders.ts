@@ -13,6 +13,41 @@ export interface StyleLoaderOptions {
   loader?: string
 }
 
+function whereToInsertStyleTag(element: HTMLElement) {
+  // Function to check if the shadow root exists
+  const insertElement = () => {
+    // @ts-expect-error - global reference.
+    const shadowRoot = window.__EXTENSION_SHADOW_ROOT__
+
+    if (shadowRoot) {
+      shadowRoot.appendChild(element)
+      console.log('Element inserted into shadowRoot')
+    } else {
+      document.head.appendChild(element)
+      console.log('Element inserted into document.head')
+    }
+  }
+
+  // If the shadowRoot is already available, insert immediately
+  // @ts-expect-error - global reference.
+  if (window.__EXTENSION_SHADOW_ROOT__) {
+    insertElement()
+    return
+  }
+
+  // Use MutationObserver to wait for the shadow root to be available
+  const observer = new MutationObserver(() => {
+    // @ts-expect-error - global reference.
+    if (window.__EXTENSION_SHADOW_ROOT__) {
+      insertElement()
+      observer.disconnect() // Stop observing once the shadow root is found
+    }
+  })
+
+  // Observe changes to the `document.body` or `document.head`
+  observer.observe(document.body, {childList: true, subtree: true})
+}
+
 export async function commonStyleLoaders(
   projectPath: string,
   opts: StyleLoaderOptions
@@ -23,7 +58,12 @@ export async function commonStyleLoaders(
       ? miniCssLoader
       : isUsingVue(projectPath)
         ? require.resolve('vue-style-loader')
-        : require.resolve('style-loader'),
+        : {
+            loader: require.resolve('style-loader'),
+            options: {
+              insert: whereToInsertStyleTag
+            }
+          },
     {
       loader: require.resolve('css-loader'),
       options: {
