@@ -81,11 +81,11 @@ export class EnvPlugin {
     filteredEnvVars['process.env.EXTENSION_BROWSER'] = JSON.stringify(
       this.browser
     )
-    filteredEnvVars['import.meta.env.EXTENSION_BROWSER'] = JSON.stringify(
-      this.browser
-    )
+    filteredEnvVars['import.meta.env.EXTENSION_BROWSER'] =
+      JSON.stringify(this.browser)
     filteredEnvVars['process.env.EXTENSION_MODE'] = JSON.stringify(mode)
-    filteredEnvVars['import.meta.env.EXTENSION_MODE'] = JSON.stringify(mode)
+    filteredEnvVars['import.meta.env.EXTENSION_MODE'] =
+      JSON.stringify(mode)
 
     // Apply DefinePlugin to expose filtered variables
     new DefinePlugin(filteredEnvVars).apply(compiler)
