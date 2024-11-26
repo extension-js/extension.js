@@ -52,27 +52,27 @@
   ],
   "dependencies": {
     "@colors/colors": "^1.6.0",
-    "@types/chrome": "^0.0.270",
+    "@types/chrome": "^0.0.285",
     "@types/firefox-webext-browser": "^120.0.4",
-    "@types/node": "^22.5.3",
-    "@types/react": "^18.3.5",
-    "@types/react-dom": "^18.2.18",
-    "commander": "^11.1.0",
+    "@types/node": "^22.9.4",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "commander": "^12.1.0",
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
-    "semver": "^7.5.4",
+    "semver": "^7.6.3",
     "update-check": "^1.5.4",
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
-    "@types/jest": "^29.5.11",
+    "@types/jest": "^29.5.14",
     "@types/mock-fs": "^4.13.4",
-    "@types/semver": "^7.5.6",
+    "@types/semver": "^7.5.8",
     "jest": "^29.7.0",
-    "mock-fs": "^5.2.0",
-    "ts-jest": "^29.1.2",
+    "mock-fs": "^5.4.1",
+    "ts-jest": "^29.2.5",
     "tsconfig": "*",
-    "tsup": "^8.0.1",
-    "typescript": "5.3.3"
+    "tsup": "^8.3.5",
+    "typescript": "5.7.2"
   }
 }
