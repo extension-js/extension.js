@@ -59,7 +59,7 @@ export async function maybeUseLess(
       test: /\.less$/,
       oneOf: [
         {
-          resourceQuery: /is_content_css_import=true/,
+          resourceQuery: /inline_style/,
           use: await commonStyleLoaders(projectPath, {
             loader: 'less-loader',
             mode,
