@@ -37,6 +37,13 @@ export class CssPlugin {
         exclude: /\.module\.css$/,
         oneOf: [
           {
+            resourceQuery: /inline_style/,
+            use: await commonStyleLoaders(projectPath, {
+              mode: mode as 'development' | 'production',
+              useMiniCssExtractPlugin: false
+            })
+          },
+          {
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
               useMiniCssExtractPlugin: mode === 'production'
@@ -47,6 +54,13 @@ export class CssPlugin {
       {
         test: /\.module\.css$/,
         oneOf: [
+          {
+            resourceQuery: /inline_style/,
+            use: await commonStyleLoaders(projectPath, {
+              mode: mode as 'development' | 'production',
+              useMiniCssExtractPlugin: false
+            })
+          },
           {
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
