@@ -20,7 +20,3 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv
 }
-
-interface Window {
-  __EXTENSION_SHADOW_ROOT__: ShadowRoot
-}

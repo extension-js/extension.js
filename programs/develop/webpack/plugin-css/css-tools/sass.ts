@@ -70,7 +70,7 @@ export async function maybeUseSass(
       exclude: /\.module\.(s(a|c)ss)$/,
       oneOf: [
         {
-          resourceQuery: /inline_style/,
+          resourceQuery: /is_content_css_import=true/,
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
             mode,
@@ -90,7 +90,7 @@ export async function maybeUseSass(
       test: /\.module\.(s(a|c)ss)$/,
       oneOf: [
         {
-          resourceQuery: /inline_style/,
+          resourceQuery: /is_content_css_import=true/,
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
             mode,
