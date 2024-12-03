@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-#extension-root {
+.content_script {
   position: fixed;
   bottom: 0;
   right: 0;
