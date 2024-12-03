@@ -21,10 +21,8 @@ function initial() {
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
-  if (process.env.EXTENSION_MODE === 'development') {
-    // Use the shadow root as the root element to inject styles into.
-    window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
-  }
+  // Inform Extension.js that the shadow root is available.
+  window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
 
   shadowRoot.innerHTML = `
     <div class="content_script">
