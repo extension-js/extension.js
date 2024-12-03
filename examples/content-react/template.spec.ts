@@ -1,6 +1,7 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures, takeScreenshot} from '../extension-fixtures'
+import {type Page, type ElementHandle} from '@playwright/test'
+import {extensionFixtures} from '../extension-fixtures'
 
 const exampleDir = 'examples/content-react'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
@@ -12,6 +13,32 @@ test.beforeAll(async () => {
   })
 })
 
+/**
+ * Utility to access elements inside the Shadow DOM.
+ * @param page The Playwright Page object.
+ * @param shadowHostSelector The selector for the Shadow DOM host element.
+ * @param innerSelector The selector for the element inside the Shadow DOM.
+ * @returns A Promise resolving to an ElementHandle for the inner element or null if not found.
+ */
+async function getShadowRootElement(
+  page: Page,
+  shadowHostSelector: string,
+  innerSelector: string
+): Promise<ElementHandle<HTMLElement> | null> {
+  const shadowHost = page.locator(shadowHostSelector)
+  const shadowRootHandle = await shadowHost.evaluateHandle(
+    (host: HTMLElement) => host.shadowRoot
+  )
+
+  const innerElement = await shadowRootHandle.evaluateHandle(
+    (shadowRoot: ShadowRoot, selector: string) =>
+      shadowRoot.querySelector(selector),
+    innerSelector
+  )
+
+  return innerElement.asElement() as ElementHandle<HTMLElement> | null
+}
+
 test('should exist an element with the class name extension-root', async ({
   page
 }) => {
@@ -22,44 +49,48 @@ test('should exist an element with the class name extension-root', async ({
 
 test('should exist an h2 element with specified content', async ({page}) => {
   await page.goto('https://extension.js.org/')
-  const h2 = page.locator('#extension-root h2')
-  await test.expect(h2).toContainText('This is a content script')
+  const h2 = await getShadowRootElement(page, '#extension-root', 'h2')
+  if (!h2) {
+    throw new Error('h2 element not found in Shadow DOM')
+  }
+
+  const textContent = await h2.evaluate((node) => node.textContent)
+  await test.expect(textContent).toContain('This is a content script')
 })
 
 test('should exist a default color value', async ({page}) => {
   await page.goto('https://extension.js.org/')
-  const h2 = page.locator('#extension-root h2')
-  const color = await page.evaluate(
-    (locator) => {
-      return window.getComputedStyle(locator!).getPropertyValue('color')
-    },
-    await h2.elementHandle()
+  const h2 = await getShadowRootElement(page, '#extension-root', 'h2')
+  if (!h2) {
+    throw new Error('h2 element not found in Shadow DOM')
+  }
+
+  const color = await h2.evaluate((node) =>
+    window.getComputedStyle(node as HTMLElement).getPropertyValue('color')
   )
   await test.expect(color).toEqual('rgb(255, 255, 255)')
 })
 
 test('should load all images successfully', async ({page}) => {
   await page.goto('https://extension.js.org/')
-  const images = page.locator('#extension-root img')
-  const imageElements = await images.all()
+  const shadowRoot = await page
+    .locator('#extension-root')
+    .evaluateHandle((host: HTMLElement) => host.shadowRoot)
 
+  const imagesHandle = await shadowRoot.evaluateHandle((shadow: ShadowRoot) =>
+    Array.from(shadow.querySelectorAll('img'))
+  )
+
+  const imageHandles = await imagesHandle.getProperties()
   const results: boolean[] = []
 
-  for (const image of imageElements) {
-    const naturalWidth = await page.evaluate(
-      (img) => {
-        return img ? (img as HTMLImageElement).naturalWidth : 0
-      },
-      await image.elementHandle()
+  for (const [, imageHandle] of imageHandles) {
+    const naturalWidth = await imageHandle.evaluate(
+      (img) => (img as HTMLImageElement).naturalWidth
     )
-
-    const naturalHeight = await page.evaluate(
-      (img) => {
-        return img ? (img as HTMLImageElement).naturalHeight : 0
-      },
-      await image.elementHandle()
+    const naturalHeight = await imageHandle.evaluate(
+      (img) => (img as HTMLImageElement).naturalHeight
     )
-
     const loadedSuccessfully = naturalWidth > 0 && naturalHeight > 0
     results.push(loadedSuccessfully)
   }
