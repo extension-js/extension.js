@@ -72,7 +72,7 @@
     "webpack": "~5.92.0",
     "webpack-dev-server": "^5.0.2",
     "webpack-merge": "^6.0.1",
-    "webpack-target-webextension": "^1.1.2",
+    "webpack-target-webextension": "^2.0.0",
     "which": "^4.0.0",
     "ws": "^8.18.0"
   },
