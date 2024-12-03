@@ -74,14 +74,16 @@ export async function maybeUseSass(
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
             mode,
-            useMiniCssExtractPlugin: false
+            useMiniCssExtractPlugin: false,
+            useShadowDom: true
           })
         },
         {
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
             mode,
-            useMiniCssExtractPlugin: mode === 'production'
+            useMiniCssExtractPlugin: mode === 'production',
+            useShadowDom: true
           })
         }
       ]
@@ -94,14 +96,16 @@ export async function maybeUseSass(
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
             mode,
-            useMiniCssExtractPlugin: false
+            useMiniCssExtractPlugin: false,
+            useShadowDom: true
           })
         },
         {
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
             mode,
-            useMiniCssExtractPlugin: mode === 'production'
+            useMiniCssExtractPlugin: mode === 'production',
+            useShadowDom: true
           })
         }
       ]
