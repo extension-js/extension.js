@@ -13,7 +13,6 @@ function initial() {
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
   if (process.env.EXTENSION_MODE === 'development') {
-    // @ts-expect-error - Tell Extension.js to use the shadow root
     // as the root element for injecting styles.
     window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
   }
@@ -29,4 +28,10 @@ function initial() {
 }
 
 // Initialize the app
-setTimeout(initial, 1000)
+if (document.readyState === 'complete') {
+  initial()
+} else {
+  document.addEventListener('readystatechange', () => {
+    if (document.readyState === 'complete') initial()
+  })
+}

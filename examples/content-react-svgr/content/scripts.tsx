@@ -2,7 +2,13 @@ import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
 import './styles.css'
 
-setTimeout(initial, 1000)
+if (document.readyState === 'complete') {
+  initial()
+} else {
+  document.addEventListener('readystatechange', () => {
+    if (document.readyState === 'complete') initial()
+  })
+}
 
 function initial() {
   // Create a new div element and append it to the document's body

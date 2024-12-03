@@ -6,7 +6,13 @@ console.log(
   process.env.EXTENSION_PUBLIC_DESCRIPTION_TEXT
 )
 
-setTimeout(initial, 1000)
+if (document.readyState === 'complete') {
+  initial()
+} else {
+  document.addEventListener('readystatechange', () => {
+    if (document.readyState === 'complete') initial()
+  })
+}
 
 function initial() {
   const rootDiv = document.createElement('div')

@@ -3,7 +3,13 @@ import logo from '../images/logo.svg'
 
 console.log('hello from content_scripts')
 
-setTimeout(initial, 1000)
+if (document.readyState === 'complete') {
+  initial()
+} else {
+  document.addEventListener('readystatechange', () => {
+    if (document.readyState === 'complete') initial()
+  })
+}
 
 function initial() {
   const rootDiv = document.createElement('div')
