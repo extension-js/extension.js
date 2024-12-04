@@ -2,7 +2,7 @@ import path from 'path'
 import {execSync} from 'child_process'
 import {extensionFixtures, takeScreenshot} from '../extension-fixtures'
 
-const exampleDir = 'examples/new-tailwind'
+const exampleDir = 'examples/new-vue'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
@@ -16,22 +16,20 @@ test('should exist an element with the welcome message text', async ({
   page
 }) => {
   await page.goto('chrome://newtab/')
-  const h2 = page.locator('h2')
-  await test
-    .expect(h2)
-    .toContainText('This is a new tab page running React and Tailwind.css.')
+  const h1 = page.locator('h1')
+  test.expect(h1).toContainText('Welcome to your')
 })
 
 test('should exist a default color value', async ({page}) => {
   await page.goto('chrome://newtab/')
-  const h2 = page.locator('h2')
+  const h1 = page.locator('h1')
   const color = await page.evaluate(
     (locator) => {
       return window.getComputedStyle(locator!).getPropertyValue('color')
     },
-    await h2.elementHandle()
+    await h1.elementHandle()
   )
-  await test.expect(color).toEqual('rgb(255, 255, 255)')
+  test.expect(color).toEqual('rgb(201, 201, 201)')
 })
 
 test.skip('takes a screenshot of the page', async ({page}) => {
