@@ -1,4 +1,4 @@
-import './styles.css'
+import './styles.css?inline_style'
 import {getContentHtml} from './content'
 
 console.log('hello from content_scripts')

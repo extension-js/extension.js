@@ -1,5 +1,5 @@
-import './styles.less'
-import styles from './Logo.module.less'
+import './styles.less?inline_style'
+import styles from './Logo.module.less?inline_style'
 import logo from '../images/logo.svg'
 
 console.log('hello from content_scripts')

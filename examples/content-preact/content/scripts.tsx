@@ -1,6 +1,6 @@
 import {render} from 'preact'
 import ContentApp from './ContentApp'
-import './styles.css'
+import './styles.css?inline_style'
 
 if (document.readyState === 'complete') {
   initial()

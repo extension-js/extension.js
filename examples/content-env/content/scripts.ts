@@ -1,4 +1,4 @@
-import './styles.css'
+import './styles.css?inline_style'
 import logo from '../images/logo.png'
 
 console.log(

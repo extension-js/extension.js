@@ -1,5 +1,5 @@
-import './styles.css'
-import styles from './Logo.module.css'
+import './styles.css?inline_style'
+import styles from './Logo.module.css?inline_style'
 import logo from '../images/logo.png'
 
 console.log('hello from content_scripts')

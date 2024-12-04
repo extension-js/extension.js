@@ -1,5 +1,5 @@
 import {contentComponent} from './contentComponent.mjs'
-import './styles.css'
+import './styles.css?inline_style'
 
 console.log('hello from content_scripts')
 

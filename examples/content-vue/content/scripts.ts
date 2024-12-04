@@ -1,6 +1,6 @@
 import {createApp} from 'vue'
 import ContentApp from './ContentApp.vue'
-import './styles.css'
+import './styles.css?inline_style'
 
 function initial() {
   // Create a new div element and append it to the document's body
@@ -12,10 +12,7 @@ function initial() {
   // to prevent conflicts with the host page's styles.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
-  if (process.env.EXTENSION_MODE === 'development') {
-    // as the root element for injecting styles.
-    window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
-  }
+  window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
 
   // Create a container inside the shadow DOM for the Vue app
   const shadowAppContainer = document.createElement('div')

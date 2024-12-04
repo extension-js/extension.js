@@ -1,4 +1,4 @@
-import './styles.css'
+import './styles.css?inline_style'
 import logo from '../images/logo.svg'
 
 console.log('hello from content_scripts')

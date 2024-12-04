@@ -1,5 +1,10 @@
-import path from 'path'
-import {test as base, chromium, type BrowserContext} from '@playwright/test'
+import {
+  test as base,
+  chromium,
+  type Page,
+  type BrowserContext,
+  type ElementHandle
+} from '@playwright/test'
 
 export const extensionFixtures = (
   pathToExtension: string,
@@ -67,4 +72,30 @@ export const extensionFixtures = (
 // Screenshot function
 export async function takeScreenshot(page: any, screenshotPath: string) {
   await page.screenshot({path: screenshotPath})
+}
+
+/**
+ * Utility to access elements inside the Shadow DOM.
+ * @param page The Playwright Page object.
+ * @param shadowHostSelector The selector for the Shadow DOM host element.
+ * @param innerSelector The selector for the element inside the Shadow DOM.
+ * @returns A Promise resolving to an ElementHandle for the inner element or null if not found.
+ */
+export async function getShadowRootElement(
+  page: Page,
+  shadowHostSelector: string,
+  innerSelector: string
+): Promise<ElementHandle<HTMLElement> | null> {
+  const shadowHost = page.locator(shadowHostSelector)
+  const shadowRootHandle = await shadowHost.evaluateHandle(
+    (host: HTMLElement) => host.shadowRoot
+  )
+
+  const innerElement = await shadowRootHandle.evaluateHandle(
+    (shadowRoot: ShadowRoot, selector: string) =>
+      shadowRoot.querySelector(selector),
+    innerSelector
+  )
+
+  return innerElement.asElement() as ElementHandle<HTMLElement> | null
 }
