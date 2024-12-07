@@ -6,7 +6,7 @@ import {
   takeScreenshot
 } from '../extension-fixtures'
 
-const exampleDir = 'examples/content-css-modules'
+const exampleDir = 'examples/content-env'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 

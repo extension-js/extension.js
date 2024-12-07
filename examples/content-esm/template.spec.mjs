@@ -10,7 +10,7 @@ import {
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const exampleDir = 'examples/content-css-modules'
+const exampleDir = 'examples/content-esm'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
