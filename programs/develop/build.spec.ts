@@ -111,9 +111,11 @@ describe('extension build', () => {
         expect(manifest.manifest_version).toBeTruthy
 
         if (template.name.includes('content')) {
-          expect(manifest.content_scripts![0].css![0]).toEqual(
-            'content_scripts/content-0.css'
-          )
+          // Since extension@2.0.0-beta-6, the content script is injected
+          // into the shadow DOM. Including in production mode.
+          // expect(manifest.content_scripts![0].css![0]).toEqual(
+          //   'content_scripts/content-0.css'
+          // )
 
           expect(manifest.content_scripts![0].js![0]).toEqual(
             'content_scripts/content-0.js'
