@@ -40,13 +40,15 @@ export class CssPlugin {
             resourceQuery: /inline_style/,
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: false
+              useMiniCssExtractPlugin: false,
+              useShadowDom: true
             })
           },
           {
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: mode === 'production'
+              useMiniCssExtractPlugin: mode === 'production',
+              useShadowDom: false
             })
           }
         ]
@@ -58,13 +60,15 @@ export class CssPlugin {
             resourceQuery: /inline_style/,
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: false
+              useMiniCssExtractPlugin: false,
+              useShadowDom: true
             })
           },
           {
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: mode === 'production'
+              useMiniCssExtractPlugin: mode === 'production',
+              useShadowDom: false
             })
           }
         ]

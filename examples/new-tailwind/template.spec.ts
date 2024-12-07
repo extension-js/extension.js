@@ -31,7 +31,7 @@ test('should exist a default color value', async ({page}) => {
     },
     await h2.elementHandle()
   )
-  await test.expect(color).toEqual('rgb(255, 255, 255)')
+  test.expect(color).toEqual('rgb(255, 255, 255)')
 })
 
 test.skip('takes a screenshot of the page', async ({page}) => {
