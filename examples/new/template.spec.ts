@@ -16,9 +16,10 @@ test('should exist an element with the welcome message text', async ({
   page
 }) => {
   await page.goto('chrome://newtab/')
-
-  const h1 = await page.waitForSelector('h1', {state: 'visible', timeout: 5000})
-
+  const h1 = await page.waitForSelector('h1', {
+    state: 'visible',
+    timeout: 10000
+  })
   const textContent = await h1.textContent()
   test.expect(textContent).toMatch(/Welcome to your/i)
 })

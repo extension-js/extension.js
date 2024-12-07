@@ -121,13 +121,15 @@ describe('extension build', () => {
             'content_scripts/content-0.js'
           )
 
-          expect(
-            distFileExists(
-              template.name,
-              SUPPORTED_BROWSERS[0],
-              'content_scripts/content-0.css'
-            )
-          ).toBeTruthy()
+          // Since extension@2.0.0-beta-6, the content script is injected
+          // into the shadow DOM. Including in production mode.
+          // expect(
+          //   distFileExists(
+          //     template.name,
+          //     SUPPORTED_BROWSERS[0],
+          //     'content_scripts/content-0.css'
+          //   )
+          // ).toBeTruthy()
 
           expect(
             distFileExists(
