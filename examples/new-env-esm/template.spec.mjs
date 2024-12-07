@@ -23,7 +23,7 @@ test('should exist an element with the welcome message text', async ({
 }) => {
   await page.goto('chrome://newtab/')
   const h1 = page.locator('h1')
-    await test.expect(h1).toContainText('Welcome to your');
+    test.expect(h1).toContainText('Welcome to your');
 
   // Take a screenshot once the element is found
   await takeScreenshot(page, path.join(__dirname, 'screenshot.png'));
@@ -38,5 +38,5 @@ test('should exist a default color value', async ({page}) => {
     },
     await h1.elementHandle()
   )
-  await test.expect(color).toEqual('rgb(201, 201, 201)')
+  test.expect(color).toEqual('rgb(201, 201, 201)')
 })

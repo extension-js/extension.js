@@ -7,7 +7,12 @@
 
 declare namespace NodeJS {
   interface ProcessEnv {
-    readonly EXTENSION_BROWSER: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
+    readonly EXTENSION_BROWSER:
+      | 'chrome'
+      | 'edge'
+      | 'firefox'
+      | 'chromium-based'
+      | 'gecko-based'
     readonly EXTENSION_MODE: 'development' | 'production'
   }
 }

@@ -45,11 +45,11 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // In production: Adds the CSS files to the entry points
-    // along with other content_script files.
     // In development: Extracts the content_scripts css files
     // from content_scripts and injects them as dynamic imports
-    // so we can benefit from HMR.
+    // so we can benefit from HMR. In production we adds the CSS
+    // files to the entry points along with other content_script files,
+    // so this is not necessary.
     if (compiler.options.mode === 'development') {
       compiler.options.module.rules.push({
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,

@@ -1,4 +1,7 @@
-import {test as base, chromium} from '@playwright/test'
+import {
+  test as base,
+  chromium,
+} from '@playwright/test'
 
 /**
  * @typedef {import('@playwright/test').BrowserContext} BrowserContext
@@ -73,3 +76,29 @@ async function takeScreenshot(page, screenshotPath) {
 }
 
 export {extensionFixtures, takeScreenshot}
+
+/**
+ * Utility to access elements inside the Shadow DOM.
+ * @param page The Playwright Page object.
+ * @param shadowHostSelector The selector for the Shadow DOM host element.
+ * @param innerSelector The selector for the element inside the Shadow DOM.
+ * @returns A Promise resolving to an ElementHandle for the inner element or null if not found.
+ */
+export async function getShadowRootElement(
+  page,
+  shadowHostSelector,
+  innerSelector
+) {
+  const shadowHost = page.locator(shadowHostSelector)
+  const shadowRootHandle = await shadowHost.evaluateHandle(
+    (host) => host.shadowRoot
+  )
+
+  const innerElement = await shadowRootHandle.evaluateHandle(
+    (shadowRoot, selector) =>
+      shadowRoot.querySelector(selector),
+    innerSelector
+  )
+
+  return innerElement.asElement()
+}

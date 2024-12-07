@@ -10,7 +10,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://extension.js.org/*"],
+      "matches": ["<all_urls>"],
       "js": ["./content/scripts.tsx"]
     }
   ],

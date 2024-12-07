@@ -63,14 +63,16 @@ export async function maybeUseLess(
           use: await commonStyleLoaders(projectPath, {
             loader: 'less-loader',
             mode,
-            useMiniCssExtractPlugin: false
+            useMiniCssExtractPlugin: false,
+            useShadowDom: true
           })
         },
         {
           use: await commonStyleLoaders(projectPath, {
             loader: 'less-loader',
             mode,
-            useMiniCssExtractPlugin: mode === 'production'
+            useMiniCssExtractPlugin: mode === 'production',
+            useShadowDom: false
           })
         }
       ]
