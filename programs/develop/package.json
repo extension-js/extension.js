@@ -77,20 +77,20 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/adm-zip": "^0.5.5",
+    "@types/adm-zip": "^0.5.7",
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
-    "@types/chrome": "^0.0.270",
+    "@types/chrome": "^0.0.287",
     "@types/cross-spawn": "^6.0.6",
-    "@types/dotenv-webpack": "^7.0.7",
-    "@types/jest": "^29.5.12",
+    "@types/dotenv-webpack": "^7.0.8",
+    "@types/jest": "^29.5.14",
     "@types/loader-utils": "^2.0.6",
-    "@types/node": "^22.5.3",
-    "@types/webextension-polyfill": "^0.10.7",
-    "@types/ws": "^8.5.12",
+    "@types/node": "^22.10.1",
+    "@types/webextension-polyfill": "^0.12.1",
+    "@types/ws": "^8.5.13",
     "jest": "^29.7.0",
-    "ts-jest": "^29.1.2",
-    "tsup": "^8.0.1",
-    "typescript": "5.3.3"
+    "ts-jest": "^29.2.5",
+    "tsup": "^8.3.5",
+    "typescript": "5.7.2"
   },
   "optionalDependencies": {
     "@pmmmwh/react-refresh-webpack-plugin": "^0.5.15",
