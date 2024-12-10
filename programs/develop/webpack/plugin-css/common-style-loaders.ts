@@ -28,40 +28,24 @@ function whereToInsertStyleTag(element: HTMLElement) {
     }
   }
 
-  // If the shadowRoot is already available, insert immediately
+  // If Shadow DOM exists, insert immediately
   // @ts-expect-error - global reference.
   if (window.__EXTENSION_SHADOW_ROOT__) {
     insertElement()
     return
   }
 
-  // Default behavior if MutationObserver is not required
-  if (!MutationObserver) {
-    document.head.appendChild(element)
-    return
-  }
-
-  // Use MutationObserver to wait for the shadow root to be available
+  // Use a MutationObserver to wait for the Shadow DOM to be created
   const observer = new MutationObserver(() => {
     // @ts-expect-error - global reference.
     if (window.__EXTENSION_SHADOW_ROOT__) {
       insertElement()
-      observer.disconnect() // Stop observing once the shadow root is found
+      observer.disconnect() // Disconnect once the Shadow DOM is found
     }
   })
 
-  // Observe changes to the `document.body` or `document.head`
   observer.observe(document.body, {childList: true, subtree: true})
-
-  // Set a timeout to fallback to `document.head` after 5 seconds
-  setTimeout(() => {
-    observer.disconnect() // Stop observing after timeout
-    // @ts-expect-error - global reference.
-    if (!window.__EXTENSION_SHADOW_ROOT__) {
-      document.head.appendChild(element)
-      console.log('Fallback: Element inserted into document.head after timeout')
-    }
-  }, 3000)
+  console.log('Observer waiting for Shadow DOM...')
 }
 
 export async function commonStyleLoaders(
