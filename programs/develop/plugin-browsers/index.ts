@@ -38,13 +38,23 @@ export class BrowsersPlugin {
   public readonly geckoBinary?: string
 
   constructor(options: PluginInterface) {
+    // Include extensions and filter out any duplicate load-extension flags
     this.extension = [
       ...options.extension,
       ...(options.browserFlags?.filter(
         (flag) => !flag.startsWith('--load-extension=')
       ) || [])
     ]
-    this.browser = options.browser || 'chrome'
+
+    // Determine browser based on binary flags or fall back to the provided option
+    if (options.chromiumBinary) {
+      this.browser = 'chromium-based'
+    } else if (options.geckoBinary) {
+      this.browser = 'gecko-based'
+    } else {
+      this.browser = options.browser || 'chrome'
+    }
+
     this.open = options.open
     this.browserFlags =
       options.browserFlags?.filter(
