@@ -33,7 +33,7 @@
     "@types/firefox-webext-browser": "^120.0.4",
     "cross-spawn": "^7.0.6",
     "go-git-it": "2.0.4",
-    "package-manager-detector": "^0.2.5"
+    "package-manager-detector": "^0.2.7"
   },
   "devDependencies": {
     "@types/cross-spawn": "^6.0.6",
