@@ -25,8 +25,6 @@
     "@types/react": "^18.2.64",
     "@types/react-dom": "^18.2.21",
     "autoprefixer": "^10.4.20",
-    "daisyui": "^4.12.10",
-    "extension": "latest",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
     "typescript": "5.3.3"
