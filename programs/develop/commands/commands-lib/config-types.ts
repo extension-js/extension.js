@@ -6,6 +6,8 @@ export type BrowserType =
   | 'firefox'
   | 'chromium-based'
   | 'gecko-based'
+  | 'safari'
+  | 'webkit-based'
 
 export interface BrowserOptionsBase {
   open?: boolean
@@ -75,8 +77,10 @@ export interface FileConfig {
     chrome?: BrowserConfig
     firefox?: BrowserConfig
     edge?: BrowserConfig
+    safari?: BrowserConfig
     'chromium-based'?: BrowserConfig
     'gecko-based'?: BrowserConfig
+    'webkit-based'?: BrowserConfig
   }
   commands?: {
     dev?: Pick<
