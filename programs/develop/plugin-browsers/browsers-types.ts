@@ -15,4 +15,5 @@ export interface PluginOptions {
   devtools?: boolean
   chromiumBinary?: string
   geckoBinary?: string
+  webKitBinary?: string
 }
