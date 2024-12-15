@@ -186,6 +186,7 @@ export class BrowsersPlugin {
           browser: this.browser
           // profile
         }).apply(compiler)
+        break
 
       default: {
         new RunChromiumPlugin({
@@ -193,6 +194,7 @@ export class BrowsersPlugin {
           browser: this.browser
           // profile
         }).apply(compiler)
+        break
       }
     }
   }

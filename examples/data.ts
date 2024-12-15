@@ -462,7 +462,7 @@ const ALL_TEMPLATES_BUT_DEFAULT = ALL_TEMPLATES.filter(
   (template) => template.name !== 'init'
 )
 
-const SUPPORTED_BROWSERS: string[] = ['chrome', 'edge', 'firefox']
+const SUPPORTED_BROWSERS: string[] = ['chrome', 'edge', 'firefox', 'safari']
 
 export {
   SUPPORTED_BROWSERS,

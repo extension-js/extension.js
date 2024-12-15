@@ -470,6 +470,9 @@ export function runningInDevelopment(
     case 'firefox':
       browserDevToolsUrl = 'about:debugging#/runtime/this-firefox'
       break
+    case 'safari':
+      browserDevToolsUrl = 'Settings > Extensions'
+      break
     default:
       browserDevToolsUrl = ''
   }
