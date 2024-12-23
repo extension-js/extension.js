@@ -75,8 +75,6 @@ export default function webpackConfig(
     },
     resolve: {
       modules: ['node_modules', path.join(projectPath, 'node_modules')],
-      mainFields: ['svelte', 'browser', 'module', 'main'],
-      conditionNames: ['svelte', 'browser'],
       extensions: [
         '.js',
         '.mjs',
