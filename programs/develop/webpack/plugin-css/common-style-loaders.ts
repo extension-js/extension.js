@@ -67,7 +67,9 @@ export async function commonStyleLoaders(
     {
       loader: require.resolve('css-loader'),
       options: {
-        sourceMap: opts.mode === 'development'
+        sourceMap: opts.mode === 'development',
+        // necessary if you use url('/path/to/some/asset.png|jpg|gif')
+        url: false
       }
     }
   ].filter(Boolean)

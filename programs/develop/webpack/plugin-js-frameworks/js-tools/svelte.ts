@@ -7,6 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
+import {sveltePreprocess} from 'svelte-preprocess'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -41,7 +42,8 @@ export function isUsingSvelte(projectPath: string) {
 }
 
 export async function maybeUseSvelte(
-  projectPath: string
+  projectPath: string,
+  mode: 'development' | 'production'
 ): Promise<JsFramework | undefined> {
   if (!isUsingSvelte(projectPath)) return undefined
 
@@ -58,24 +60,40 @@ export async function maybeUseSvelte(
 
     await installOptionalDependencies('Svelte', svelteDependencies)
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
     console.log(messages.youAreAllSet('Svelte'))
     process.exit(0)
   }
 
   const svelteLoaders: JsFramework['loaders'] = [
     {
-      test: /\.svelte$/,
-      loader: require.resolve('svelte-loader'),
+      test: /\.svelte\.ts$/,
+      use: [require.resolve('svelte-loader')],
       include: projectPath,
-      exclude: /node_modules/,
-      options: {
-        compilerOptions: {
-          dev: isDev
-        },
-        hotReload: isDev,
-        preprocess: require('svelte-preprocess')()
+      exclude: /node_modules/
+    },
+    {
+      test: /\.(svelte|svelte\.js)$/,
+      use: {
+        loader: require.resolve('svelte-loader'),
+        options: {
+          preprocess: sveltePreprocess({
+            typescript: true,
+            postcss: true
+          }),
+          emitCss: true,
+          compilerOptions: {
+            dev: mode === 'development'
+          }
+        }
+      },
+      include: projectPath,
+      exclude: /node_modules/
+    },
+    {
+      // Required to prevent errors from Svelte on Webpack 5+
+      test: /node_modules\/svelte\/.*\.mjs$/,
+      resolve: {
+        fullySpecified: false
       }
     }
   ]
