@@ -47,8 +47,6 @@ export async function maybeUseSvelte(
 ): Promise<JsFramework | undefined> {
   if (!isUsingSvelte(projectPath)) return undefined
 
-  const isDev = process.env.NODE_ENV !== 'production'
-
   try {
     require.resolve('svelte-loader')
   } catch (e) {
@@ -82,7 +80,7 @@ export async function maybeUseSvelte(
           }),
           emitCss: true,
           compilerOptions: {
-            dev: mode === 'development'
+            dev: mode === 'development',
           }
         }
       },
