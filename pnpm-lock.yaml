@@ -227,6 +227,22 @@ importers:
         specifier: ^1.77.8
         version: 1.79.4
 
+  examples/content-svelte:
+    dependencies:
+      svelte:
+        specifier: 5.15.0
+        version: 5.15.0
+      tailwindcss:
+        specifier: ^3.4.1
+        version: 3.4.13(ts-node@10.9.2(@swc/core@1.10.1)(@types/node@22.10.1)(typescript@5.3.3))
+    devDependencies:
+      '@tsconfig/svelte':
+        specifier: 5.0.4
+        version: 5.0.4
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
   examples/content-tailwind:
     dependencies:
       tailwindcss:
@@ -265,7 +281,7 @@ importers:
         version: 7.25.7
       babel-loader:
         specifier: ^9.1.3
-        version: 9.2.1(@babel/core@7.25.7)(webpack@5.97.1(@swc/core@1.10.1)(esbuild@0.24.0))
+        version: 9.2.1(@babel/core@7.25.7)(webpack@5.97.1(@swc/core@1.10.1))
       babel-preset-modern-browser-extension:
         specifier: ^0.7.0
         version: 0.7.0(@babel/core@7.25.7)
@@ -340,7 +356,7 @@ importers:
     devDependencies:
       node-polyfill-webpack-plugin:
         specifier: ^4.0.0
-        version: 4.0.0(webpack@5.97.1(@swc/core@1.10.1)(esbuild@0.24.0))
+        version: 4.0.0(webpack@5.97.1(@swc/core@1.10.1))
       typescript:
         specifier: 5.3.3
         version: 5.3.3
@@ -361,7 +377,7 @@ importers:
     devDependencies:
       node-polyfill-webpack-plugin:
         specifier: ^4.0.0
-        version: 4.0.0(webpack@5.97.1(@swc/core@1.10.1)(esbuild@0.24.0))
+        version: 4.0.0(webpack@5.97.1(@swc/core@1.10.1))
       typescript:
         specifier: 5.3.3
         version: 5.3.3
@@ -766,6 +782,9 @@ importers:
       style-loader:
         specifier: ^3.3.4
         version: 3.3.4(webpack@5.97.1(@swc/core@1.10.1)(esbuild@0.24.0))
+      svelte-hmr:
+        specifier: ^0.16.0
+        version: 0.16.0(svelte@5.15.0)
       swc-loader:
         specifier: ^0.2.6
         version: 0.2.6(@swc/core@1.10.1)(webpack@5.97.1(@swc/core@1.10.1)(esbuild@0.24.0))
@@ -6441,6 +6460,12 @@ packages:
     peerDependencies:
       svelte: '>=3.19.0'
 
+  svelte-hmr@0.16.0:
+    resolution: {integrity: sha512-Gyc7cOS3VJzLlfj7wKS0ZnzDVdv3Pn2IuVeJPk9m2skfhcu5bq3wtIZyQGggr7/Iim5rH5cncyQft/kRLupcnA==}
+    engines: {node: ^12.20 || ^14.13.1 || >= 16}
+    peerDependencies:
+      svelte: ^3.19.0 || ^4.0.0
+
   svelte-loader@3.2.4:
     resolution: {integrity: sha512-e0HdDnkYH/MDx4/IfTSka5AOFg9yYJcPuoZJB5x0l60fkHjVjNvrrxr+rJegDG9J7ZymmdHt00/hdLw+QF299w==}
     peerDependencies:
@@ -9970,6 +9995,14 @@ snapshots:
       find-cache-dir: 4.0.0
       schema-utils: 4.2.0
       webpack: 5.97.1(@swc/core@1.10.1)(esbuild@0.24.0)
+    optional: true
+
+  babel-loader@9.2.1(@babel/core@7.25.7)(webpack@5.97.1(@swc/core@1.10.1)):
+    dependencies:
+      '@babel/core': 7.25.7
+      find-cache-dir: 4.0.0
+      schema-utils: 4.2.0
+      webpack: 5.97.1(@swc/core@1.10.1)
 
   babel-plugin-istanbul@6.1.1:
     dependencies:
@@ -12246,7 +12279,7 @@ snapshots:
 
   node-int64@0.4.0: {}
 
-  node-polyfill-webpack-plugin@4.0.0(webpack@5.97.1(@swc/core@1.10.1)(esbuild@0.24.0)):
+  node-polyfill-webpack-plugin@4.0.0(webpack@5.97.1(@swc/core@1.10.1)):
     dependencies:
       assert: 2.1.0
       browserify-zlib: 0.2.0
@@ -12272,7 +12305,7 @@ snapshots:
       url: 0.11.4
       util: 0.12.5
       vm-browserify: 1.1.2
-      webpack: 5.97.1(@swc/core@1.10.1)(esbuild@0.24.0)
+      webpack: 5.97.1(@swc/core@1.10.1)
 
   node-releases@2.0.18: {}
 
@@ -13623,6 +13656,10 @@ snapshots:
       svelte: 5.15.0
     optional: true
 
+  svelte-hmr@0.16.0(svelte@5.15.0):
+    dependencies:
+      svelte: 5.15.0
+
   svelte-loader@3.2.4(svelte@5.15.0):
     dependencies:
       loader-utils: 2.0.4
@@ -13762,6 +13799,17 @@ snapshots:
     optionalDependencies:
       '@swc/core': 1.10.1
       esbuild: 0.24.0
+
+  terser-webpack-plugin@5.3.10(@swc/core@1.10.1)(webpack@5.97.1(@swc/core@1.10.1)):
+    dependencies:
+      '@jridgewell/trace-mapping': 0.3.25
+      jest-worker: 27.5.1
+      schema-utils: 3.3.0
+      serialize-javascript: 6.0.2
+      terser: 5.34.1
+      webpack: 5.97.1(@swc/core@1.10.1)
+    optionalDependencies:
+      '@swc/core': 1.10.1
 
   terser@5.34.1:
     dependencies:
@@ -14202,6 +14250,36 @@ snapshots:
   webpack-target-webextension@2.0.1(webpack@5.97.1(@swc/core@1.10.1)(esbuild@0.24.0)):
     dependencies:
       webpack: 5.97.1(@swc/core@1.10.1)(esbuild@0.24.0)
+
+  webpack@5.97.1(@swc/core@1.10.1):
+    dependencies:
+      '@types/eslint-scope': 3.7.7
+      '@types/estree': 1.0.6
+      '@webassemblyjs/ast': 1.14.1
+      '@webassemblyjs/wasm-edit': 1.14.1
+      '@webassemblyjs/wasm-parser': 1.14.1
+      acorn: 8.14.0
+      browserslist: 4.24.0
+      chrome-trace-event: 1.0.4
+      enhanced-resolve: 5.17.1
+      es-module-lexer: 1.5.4
+      eslint-scope: 5.1.1
+      events: 3.3.0
+      glob-to-regexp: 0.4.1
+      graceful-fs: 4.2.11
+      json-parse-even-better-errors: 2.3.1
+      loader-runner: 4.3.0
+      mime-types: 2.1.35
+      neo-async: 2.6.2
+      schema-utils: 3.3.0
+      tapable: 2.2.1
+      terser-webpack-plugin: 5.3.10(@swc/core@1.10.1)(webpack@5.97.1(@swc/core@1.10.1))
+      watchpack: 2.4.2
+      webpack-sources: 3.2.3
+    transitivePeerDependencies:
+      - '@swc/core'
+      - esbuild
+      - uglify-js
 
   webpack@5.97.1(@swc/core@1.10.1)(esbuild@0.24.0):
     dependencies:
