@@ -28,7 +28,7 @@ export class JsFrameworksPlugin {
     const maybeInstallReact = await maybeUseReact(projectPath)
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath)
-    const maybeInstallSvelte = await maybeUseSvelte(projectPath)
+    const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode as any)
 
     compiler.options.resolve.alias = {
       ...(maybeInstallBabel?.alias || {}),

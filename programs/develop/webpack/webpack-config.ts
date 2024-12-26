@@ -84,10 +84,7 @@ export default function webpackConfig(
         '.tsx',
         '.json',
         '.wasm',
-        '.less',
-        '.css',
-        '.sass',
-        '.scss'
+        '.svelte'
       ]
     },
     watchOptions: {
