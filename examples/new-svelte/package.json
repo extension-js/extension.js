@@ -10,10 +10,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "svelte": "4.2.19"
+    "svelte": "5.15.0"
   },
   "devDependencies": {
-    "typescript": "5.3.3",
-    "@tsconfig/svelte": "5.0.4"
+    "@tsconfig/svelte": "5.0.4",
+    "typescript": "5.3.3"
   }
 }
