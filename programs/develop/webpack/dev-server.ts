@@ -85,9 +85,8 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
       'Access-Control-Allow-Origin': '*'
     },
     port: 'auto',
-    // WARN: Setting TRUE here causes the content_script
-    // entry of a react extension to be reloaded infinitely.
-    hot: 'only'
+
+    hot: true
   }
 
   const devServer = new WebpackDevServer(serverConfig, compiler)
