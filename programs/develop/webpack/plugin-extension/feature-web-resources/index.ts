@@ -39,15 +39,26 @@ export class WebResourcesPlugin {
       manifest.web_accessible_resources || []
 
     for (const [entryName, resources] of Object.entries(entryImports)) {
-      const contentScript = manifest.content_scripts?.find((script) => {
-        return (
-          script.js &&
-          script.js.some((jsFile: string) => jsFile.includes(entryName))
-        )
-      })
+      const contentScript = manifest.content_scripts?.find((script) =>
+        script.js?.some((jsFile: string) => jsFile.includes(entryName))
+      )
 
       if (contentScript) {
         const matches = contentScript.matches || []
+
+        // No need to add the output .css and .js to web_accessible_resources
+        const filteredResources = resources.filter(
+          (resource) =>
+            !resource.endsWith('.map') &&
+            !resource.endsWith('.css') &&
+            !resource.endsWith('.js')
+        )
+
+        console.log({filteredResources})
+        if (filteredResources.length === 0) {
+          continue
+        }
+
         if (manifest.manifest_version === 3) {
           const existingResource = webAccessibleResourcesV3.find(
             (resourceEntry) =>
@@ -55,26 +66,19 @@ export class WebResourcesPlugin {
           )
 
           if (existingResource) {
-            resources.forEach((resource) => {
-              if (
-                !existingResource.resources.includes(resource) &&
-                !resource.endsWith('.map')
-              ) {
+            filteredResources.forEach((resource) => {
+              if (!existingResource.resources.includes(resource)) {
                 existingResource.resources.push(resource)
               }
             })
           } else {
             webAccessibleResourcesV3.push({
-              resources: resources.filter(
-                (resource) => !resource.endsWith('.map')
-              ),
-              // We pass `matches` from `content_scripts` to `web_accessible_resources`,
-              // but `web_accessible_resources` has stricter rules, so we need to sanitize them
-              matches: cleanMatches(matches)
+              resources: filteredResources,
+              matches: cleanMatches(matches) // Clean matches to conform to the spec
             })
           }
         } else {
-          resources.forEach((resource) => {
+          filteredResources.forEach((resource) => {
             if (!webAccessibleResourcesV2.includes(resource)) {
               webAccessibleResourcesV2.push(resource)
             }
@@ -83,17 +87,21 @@ export class WebResourcesPlugin {
       }
     }
 
+    // Only add web_accessible_resources if there are valid entries
     if (manifest.manifest_version === 3) {
       if (webAccessibleResourcesV3.length > 0) {
         manifest.web_accessible_resources =
           webAccessibleResourcesV3 as Manifest['web_accessible_resources']
+      } else {
+        delete manifest.web_accessible_resources // Remove if unnecessary
       }
     } else {
       if (webAccessibleResourcesV2.length > 0) {
-        // @ts-expect-error - web_accessible_resources is a string[] in V2
         manifest.web_accessible_resources = Array.from(
           new Set(webAccessibleResourcesV2)
-        )
+        ) as Manifest['web_accessible_resources']
+      } else {
+        delete manifest.web_accessible_resources // Remove if unnecessary
       }
     }
 
