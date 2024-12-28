@@ -54,7 +54,6 @@ export class WebResourcesPlugin {
             !resource.endsWith('.js')
         )
 
-        console.log({filteredResources})
         if (filteredResources.length === 0) {
           continue
         }
