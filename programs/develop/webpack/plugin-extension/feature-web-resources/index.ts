@@ -92,17 +92,19 @@ export class WebResourcesPlugin {
       if (webAccessibleResourcesV3.length > 0) {
         manifest.web_accessible_resources =
           webAccessibleResourcesV3 as Manifest['web_accessible_resources']
-      } else {
-        delete manifest.web_accessible_resources // Remove if unnecessary
-      }
+      } 
+      // else {
+      //   // Do nothing
+      // }
     } else {
       if (webAccessibleResourcesV2.length > 0) {
         manifest.web_accessible_resources = Array.from(
           new Set(webAccessibleResourcesV2)
         ) as Manifest['web_accessible_resources']
-      } else {
-        delete manifest.web_accessible_resources // Remove if unnecessary
       }
+      // else {
+      //   // Do nothing
+      // }
     }
 
     const source = JSON.stringify(manifest, null, 2)

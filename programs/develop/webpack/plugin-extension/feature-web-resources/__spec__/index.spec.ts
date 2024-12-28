@@ -45,74 +45,136 @@ describe('generateManifestPatches', () => {
     return JSON.parse(callArgs[1].source().toString()) as Manifest
   }
 
-  it('should work for manifest v2', () => {
+  it('should add non-css/js resources for manifest v3 content scripts', () => {
     expect(
       runWith(
         {
-          'content_scripts/content-0': [
-            'content_scripts/content-0.css',
-            'content_scripts/content-0.js.map'
-          ],
-          'content_scripts/content-1': [
-            'content_scripts/content-1.css',
-            'content_scripts/content-1.js.map'
+          'content_scripts/content-0': ['content_scripts/content-0.svg'],
+          'content_scripts/content-1': ['content_scripts/content-1.json']
+        },
+        {
+          manifest_version: 3,
+          content_scripts: [
+            {
+              matches: ['*://example.com/*'],
+              js: ['content_scripts/content-0.js']
+            },
+            {
+              matches: ['*://example.com/logout?e=4'],
+              js: ['content_scripts/content-1.js']
+            }
           ]
+        }
+      )
+    ).toMatchObject({
+      web_accessible_resources: [
+        {
+          matches: ['*://example.com/*'],
+          resources: ['content_scripts/content-0.svg']
+        },
+        {
+          matches: ['*://example.com/logout?e=4'],
+          resources: ['content_scripts/content-1.json']
+        }
+      ]
+    })
+  })
+
+  it('should not generate web_accessible_resources if content scripts have no imports', () => {
+    expect(
+      runWith(
+        {
+          'content_scripts/content-0': [],
+          'content_scripts/content-1': []
+        },
+        {
+          manifest_version: 3,
+          content_scripts: [
+            {
+              matches: ['*://example.com/*'],
+              js: ['content_scripts/content-0.js']
+            },
+            {
+              matches: ['*://example.com/logout?e=4'],
+              js: ['content_scripts/content-1.js']
+            }
+          ]
+        }
+      ).web_accessible_resources
+    ).toBeUndefined()
+  })
+
+  it('should correctly merge existing web_accessible_resources', () => {
+    expect(
+      runWith(
+        {
+          'content_scripts/content-0': ['content_scripts/content-0.svg']
+        },
+        {
+          manifest_version: 3,
+          content_scripts: [
+            {
+              matches: ['*://example.com/*'],
+              js: ['content_scripts/content-0.js']
+            }
+          ],
+          web_accessible_resources: [
+            {
+              matches: ['*://example.com/*'],
+              resources: ['existing_resource.svg']
+            }
+          ]
+        }
+      )
+    ).toMatchObject({
+      web_accessible_resources: [
+        {
+          matches: ['*://example.com/*'],
+          resources: ['existing_resource.svg', 'content_scripts/content-0.svg']
+        }
+      ]
+    })
+  })
+
+  it('should correctly handle manifest v2 content scripts', () => {
+    expect(
+      runWith(
+        {
+          'content_scripts/content-0': ['content_scripts/content-0.json']
         },
         {
           manifest_version: 2,
           content_scripts: [
             {
               matches: ['<all_urls>'],
-              run_at: 'document_start',
-              js: ['content_scripts/content-0.js'],
-              css: []
-            },
-            {
-              matches: ['<all_urls>'],
-              run_at: 'document_start',
-              js: ['content_scripts/content-1.js'],
-              css: []
+              js: ['content_scripts/content-0.js']
             }
           ]
         }
       )
     ).toMatchObject({
-      web_accessible_resources: [
-        'content_scripts/content-0.css',
-        'content_scripts/content-0.js.map',
-        'content_scripts/content-1.css',
-        'content_scripts/content-1.js.map'
-      ]
+      web_accessible_resources: ['content_scripts/content-0.json']
     })
   })
 
-  it('should work for manifest v3', () => {
+  it('should exclude .map, .css, and .js files from web_accessible_resources', () => {
     expect(
       runWith(
         {
           'content_scripts/content-0': [
+            'content_scripts/content-0.js',
             'content_scripts/content-0.css',
-            'content_scripts/content-0.js.map'
-          ],
-          'content_scripts/content-1': [
-            'content_scripts/content-1.css',
-            'content_scripts/content-1.js.map'
+            'content_scripts/content-0.js.map',
+            'content_scripts/content-0.svg'
           ]
         },
         {
           manifest_version: 3,
           content_scripts: [
             {
-              matches: ['<all_urls>'],
-              run_at: 'document_start',
+              matches: ['*://example.com/*'],
               js: ['content_scripts/content-0.js'],
-              css: []
-            },
-            {
-              matches: ['<all_urls>'],
-              run_at: 'document_start',
-              js: ['content_scripts/content-1.js'],
-              css: []
+              css: ['content_scripts/content-0.css']
             }
           ]
         }
@@ -120,78 +182,10 @@ describe('generateManifestPatches', () => {
     ).toMatchObject({
       web_accessible_resources: [
         {
-          matches: ['<all_urls>'],
-          resources: [
-            'content_scripts/content-0.css',
-            'content_scripts/content-1.css'
-          ]
+          matches: ['*://example.com/*'],
+          resources: ['content_scripts/content-0.svg']
         }
       ]
     })
-  })
-
-  it('should work if there is existing web_accessible_resources', () => {
-    expect(
-      runWith(
-        {
-          'content_scripts/content-0': [
-            'content_scripts/content-0.css',
-            'content_scripts/content-0.js.map'
-          ],
-          'content_scripts/content-1': [
-            'content_scripts/content-1.css',
-            'content_scripts/content-1.js.map'
-          ]
-        },
-        {
-          manifest_version: 3,
-          content_scripts: [
-            {
-              matches: ['<all_urls>'],
-              run_at: 'document_start',
-              js: ['content_scripts/content-0.js'],
-              css: []
-            },
-            {
-              matches: ['https://example.com/some/path'],
-              run_at: 'document_start',
-              js: ['content_scripts/content-1.js'],
-              css: []
-            }
-          ],
-          web_accessible_resources: [
-            {
-              matches: ['<all_urls>'],
-              resources: ['my-file.css']
-            }
-          ]
-        }
-      )
-    ).toMatchObject({
-      web_accessible_resources: [
-        {
-          matches: ['<all_urls>'],
-          resources: ['my-file.css', 'content_scripts/content-0.css']
-        },
-        {
-          matches: ['https://example.com/*'],
-          resources: ['content_scripts/content-1.css']
-        }
-      ]
-    })
-  })
-
-  it('should not add web_accessible_resources if there is no entries', () => {
-    expect(
-      runWith(
-        {},
-        {
-          manifest_version: 3,
-          background: {
-            service_worker: 'background.js'
-          }
-        }
-      ).web_accessible_resources
-    ).toBeUndefined()
   })
 })
