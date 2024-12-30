@@ -25,7 +25,11 @@ function sanitizeString(input: string): string {
   })
 }
 
-function getExtensionExtension(vendor: string): string {
+function getExtensionExtension(vendor: string, isSource?: boolean): string {
+  if (isSource) {
+    return 'zip'
+  }
+
   switch (vendor) {
     case 'opera':
       return 'crx'
@@ -77,7 +81,7 @@ export async function generateZip(
       path.join(dataDir, 'manifest.json')
     )
     const name = getPackageName(manifest, {browser, ...options})
-    const ext = getExtensionExtension(browser)
+    const ext = getExtensionExtension(browser, options.zipSource)
     // Dist zips are stored in dist/[browser]/[name].zip
     const distZipPath = path.join(outputDir, `${name}.${ext}`)
     // Source zips are stored in dist/[name]-source.zip
