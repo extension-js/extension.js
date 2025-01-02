@@ -96,7 +96,7 @@ extensionJs
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
-    '--browser <chrome | edge | firefox>',
+    '--browser <chrome | edge | firefox | safari>',
     'specify a browser to preview your extension in production mode. Defaults to `chrome`'
   )
   .option(
@@ -155,7 +155,7 @@ extensionJs
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
-    '--browser <chrome | edge | firefox>',
+    '--browser <chrome | edge | firefox | safari>',
     'specify a browser to preview your extension in production mode. Defaults to `chrome`'
   )
   .option(
@@ -207,7 +207,7 @@ extensionJs
     'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
   )
   .option(
-    '--browser <chrome | edge | firefox>',
+    '--browser <chrome | edge | firefox | safari>',
     'specify a browser to preview your extension in production mode. Defaults to `chrome`'
   )
   .option(
@@ -251,7 +251,7 @@ extensionJs
   .usage('build [path-to-remote-extension] [options]')
   .description('Builds the extension for production')
   .option(
-    '--browser <chrome | edge | firefox>',
+    '--browser <chrome | edge | firefox | safari>',
     'specify a browser to preview your extension in production mode. Defaults to `chrome`'
   )
   .option(

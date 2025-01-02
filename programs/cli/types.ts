@@ -2,8 +2,10 @@ export type BrowsersSupported =
   | 'chrome'
   | 'edge'
   | 'firefox'
+  | 'safari'
   | 'chromium-based'
   | 'gecko-based'
+  | 'webkit-based'
   | 'all'
 
 export interface CreateOptions {

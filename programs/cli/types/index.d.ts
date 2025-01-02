@@ -10,9 +10,11 @@ declare namespace NodeJS {
     readonly EXTENSION_BROWSER:
       | 'chrome'
       | 'edge'
+      | 'safari'
       | 'firefox'
       | 'chromium-based'
       | 'gecko-based'
+      | 'webkit-based'
     readonly EXTENSION_MODE: 'development' | 'production'
   }
 }
