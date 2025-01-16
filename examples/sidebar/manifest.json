@@ -30,7 +30,7 @@
   },
   "chromium:permissions": ["sidePanel"],
   "background": {
-    "chromium:service_worker": "background.ts",
-    "firefox:scripts": ["background.ts"]
+    "chromium:service_worker": "background.js",
+    "firefox:scripts": ["background.js"]
   }
 }
