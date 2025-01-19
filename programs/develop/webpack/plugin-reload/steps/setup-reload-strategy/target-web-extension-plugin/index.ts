@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import type webpack from 'webpack'
-import WebExtension from 'webpack-target-webextension'
+import WebExtension from './webpack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
 import {type Manifest} from '../../../../webpack-types'
 import {type DevOptions} from '../../../../../commands/commands-lib/config-types'
@@ -134,9 +134,34 @@ export class TargetWebExtensionPlugin {
 
     this.handleBackground(compiler, this.browser, patchedManifest)
 
+    // Generate experimental_output for all content_scripts
+    const experimentalOutput: Record<
+      string,
+      (manifest: Manifest, list: string[]) => void
+    > = {}
+
+    if (Array.isArray(patchedManifest.content_scripts)) {
+      const contentScripts: Manifest['content_scripts'] =
+        patchedManifest.content_scripts
+      contentScripts?.forEach((script, index) => {
+        const key = `content_scripts/content-${index}`
+        experimentalOutput[key] = (manifest, list) => {
+          if (manifest.content_scripts && manifest.content_scripts[index]) {
+            console.log({
+              key,
+              manifest,
+              list
+            })
+            manifest.content_scripts[index].js = list
+          }
+        }
+      })
+    }
+
     new WebExtension({
       background: this.getEntryName(patchedManifest),
-      weakRuntimeCheck: true
+      weakRuntimeCheck: true,
+      experimental_output: experimentalOutput
     }).apply(compiler)
   }
 }
