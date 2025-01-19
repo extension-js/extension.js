@@ -4,6 +4,7 @@ import {type Compiler} from 'webpack'
 import {type PluginInterface} from './browsers-types'
 import {RunChromiumPlugin} from './run-chromium'
 import {RunFirefoxPlugin} from './run-firefox'
+import {RunSafariPlugin} from './run-safari'
 import {DevOptions} from '../commands/commands-lib/config-types'
 import {loadBrowserConfig} from '../commands/commands-lib/get-extension-config'
 import * as messages from './browsers-lib/messages'
@@ -156,6 +157,7 @@ export class BrowsersPlugin {
       this.profile || this.profile
     )
 
+    console.log('browser is --------', this.browser)
     switch (this.browser) {
       case 'chrome':
       case 'edge':
@@ -177,11 +179,20 @@ export class BrowsersPlugin {
         }).apply(compiler)
         break
 
+      case 'safari':
+      case 'webkit-based':
+        new RunSafariPlugin({
+          ...browserConfig,
+          browser: this.browser
+          // profile
+        }).apply(compiler)
+        break
+
       default: {
         new RunChromiumPlugin({
           ...browserConfig,
-          browser: 'chrome',
-          profile
+          browser: this.browser
+          // profile
         }).apply(compiler)
         break
       }
