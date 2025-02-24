@@ -1,0 +1,36 @@
+{
+    "version": "1.0.0",
+    "background": {
+        "service_worker": "backgroundWorker.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ]
+        }
+    ],
+    "manifest_version": 3,
+    "name": "webextension-target mv3",
+    "description": "webextension target test",
+    "host_permissions": [
+        "<all_urls>"
+    ],
+    "permissions": [
+        "scripting",
+        "tabs"
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "*.js"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ]
+}

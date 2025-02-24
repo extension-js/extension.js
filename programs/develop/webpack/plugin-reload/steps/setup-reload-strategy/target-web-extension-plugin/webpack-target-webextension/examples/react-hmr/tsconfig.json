@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+      "module": "ESNext",
+      "moduleResolution": "bundler",
+      "jsx": "react-jsx",
+      "noEmit": true,
+      "allowImportingTsExtensions": true,
+      "target": "es2022"
+    }
+}

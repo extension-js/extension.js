@@ -1,0 +1,45 @@
+/// <reference lib="dom" />
+// @ts-check
+
+import { log, test } from './util.js'
+
+Promise.resolve()
+  .then(
+    log('Test A: import.meta.url', () => {
+      const url = new URL('./test.txt', import.meta.url).toString()
+      test(url.includes('-extension://'), "new URL('./test.txt', import.meta.url)\n", url)
+    })
+  )
+  .then(
+    log('Test B: __webpack_public_path__', () => {
+      test(__webpack_public_path__.includes('-extension://'), '__webpack_public_path__\n', __webpack_public_path__)
+    })
+  )
+  .then(
+    log('Test C: new Worker()', async () => {
+      if (typeof Worker === 'undefined') {
+        console.log('Worker is not supported.')
+        return
+      }
+      console.log('new Worker(new URL("./worker", import.meta.url))')
+      const worker = new Worker(new URL('./worker', import.meta.url))
+      worker.postMessage('Hello from background!')
+      const messageFromWorker = await new Promise((resolve, reject) => {
+        worker.onerror = reject
+        worker.onmessage = (event) => {
+          resolve(event.data)
+        }
+      })
+      test(messageFromWorker === 'Hello from worker!', messageFromWorker)
+    })
+  )
+  .then(() => {
+    setInterval(() => {
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach((tab) => chrome.tabs.sendMessage(tab.id, 'Hello from background!'))
+      })
+    }, 1000)
+    chrome.runtime.onMessage.addListener((message) => {
+      console.log('Message from content script:', message)
+    })
+  })
