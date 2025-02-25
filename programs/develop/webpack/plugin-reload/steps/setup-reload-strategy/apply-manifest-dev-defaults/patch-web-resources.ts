@@ -1,7 +1,15 @@
 import {type Manifest} from '../../../../../types'
 
 function patchWebResourcesV2(manifest: Manifest) {
-  const defaultResources = ['/*.json', '/*.js', '/*.css', '/*.scss', '/*.sass', '/*.less', '/*.styl']
+  const defaultResources = [
+    '/*.json',
+    '/*.js',
+    '/*.css',
+    '/*.scss',
+    '/*.sass',
+    '/*.less',
+    '/*.styl'
+  ]
   const resources = manifest.web_accessible_resources as string[] | null
 
   if (!resources || resources.length === 0) {
@@ -20,7 +28,15 @@ function patchWebResourcesV2(manifest: Manifest) {
 }
 
 function patchWebResourcesV3(manifest: Manifest) {
-  const defaultResources = ['/*.json', '/*.js', '/*.css', '/*.scss', '/*.sass', '/*.less', '/*.styl']
+  const defaultResources = [
+    '/*.json',
+    '/*.js',
+    '/*.css',
+    '/*.scss',
+    '/*.sass',
+    '/*.less',
+    '/*.styl'
+  ]
   return [
     ...(manifest.web_accessible_resources || []),
     {

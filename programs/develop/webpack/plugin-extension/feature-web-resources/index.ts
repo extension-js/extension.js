@@ -91,7 +91,7 @@ export class WebResourcesPlugin {
       if (webAccessibleResourcesV3.length > 0) {
         manifest.web_accessible_resources =
           webAccessibleResourcesV3 as Manifest['web_accessible_resources']
-      } 
+      }
       // else {
       //   // Do nothing
       // }

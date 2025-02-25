@@ -4,7 +4,6 @@ import {
   type Compiler,
   type RuleSetRule
 } from 'webpack'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import {commonStyleLoaders} from './common-style-loaders'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
@@ -23,8 +22,7 @@ export class CssPlugin {
   private async configureOptions(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
     const projectPath = path.dirname(this.manifestPath)
-
-    const plugins: WebpackPluginInstance[] = [new MiniCssExtractPlugin()]
+    const plugins: WebpackPluginInstance[] = []
 
     plugins.forEach((plugin) => plugin.apply(compiler))
 
@@ -36,6 +34,8 @@ export class CssPlugin {
         test: /\.css$/,
         exclude: /\.module\.css$/,
         oneOf: [
+          // Legacy inline style loader. This will
+          // be deprecated in v2.0.0
           {
             resourceQuery: /inline_style/,
             use: await commonStyleLoaders(projectPath, {
