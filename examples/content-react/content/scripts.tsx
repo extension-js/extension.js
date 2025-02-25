@@ -53,10 +53,7 @@ function initial() {
 }
 
 async function fetchCSS() {
-  // console.log('import.meta.url', import.meta.url)
   const response = await fetch(new URL('./styles.css', import.meta.url))
-  // const response = await fetch(new URL('./content_scripts/content-0.css', chrome.runtime.getURL('')))
   const text = await response.text()
-  // console.log('response', text)
   return response.ok ? text : Promise.reject(text)
 }
