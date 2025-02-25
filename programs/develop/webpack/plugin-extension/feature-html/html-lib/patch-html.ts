@@ -1,11 +1,11 @@
 import fs from 'fs'
 import path from 'path'
-import {type Compilation} from 'webpack'
+import { type Compilation } from 'webpack'
 // @ts-ignore
 import parse5utils from 'parse5-utils'
-import {parseHtml} from './parse-html'
-import {getExtname, getFilePath, getHtmlPageDeclaredAssetPath} from './utils'
-import {type FilepathList} from '../../../webpack-types'
+import { parseHtml } from './parse-html'
+import { getExtname, getFilePath, getHtmlPageDeclaredAssetPath } from './utils'
+import { type FilepathList } from '../../../webpack-types'
 import * as utils from '../../../lib/utils'
 
 export function patchHtml(
@@ -15,7 +15,7 @@ export function patchHtml(
   includeList: FilepathList,
   excludeList: FilepathList
 ) {
-  const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
+  const htmlFile = fs.readFileSync(htmlEntry, { encoding: 'utf8' })
   const htmlDocument = parse5utils.parse(htmlFile)
 
   // Ensure that not only we cover files imported by the HTML file
@@ -33,7 +33,7 @@ export function patchHtml(
         htmlChildNode.nodeName === 'head' ||
         htmlChildNode.nodeName === 'body'
       ) {
-        parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
+        parseHtml(htmlChildNode, ({ filePath, childNode, assetType }) => {
           const htmlDir = path.dirname(htmlEntry)
           const absolutePath = path.resolve(htmlDir, filePath)
           const extname = getExtname(absolutePath)
@@ -144,20 +144,14 @@ export function patchHtml(
         // since we use style-loader to enable HMR for CSS files
         // and it inlines the styles into the page.
         if (hasCssEntry) {
-          // In development mode we use style-loader to enable HMR for CSS files
-          // and it inlines the styles into the page.
-          // In production mode we use MiniCssExtractPlugin to extract the CSS
-          // into a separate file.
-          if (compilation.options.mode === 'production') {
-            const linkTag: {attrs: {name: string; value: string}[]} =
-              parse5utils.createNode('link')
-            linkTag.attrs = [
-              {name: 'rel', value: 'stylesheet'},
-              {name: 'href', value: getFilePath(feature, '.css', true)}
-            ]
+          const linkTag: { attrs: { name: string; value: string }[] } =
+            parse5utils.createNode('link')
+          linkTag.attrs = [
+            { name: 'rel', value: 'stylesheet' },
+            { name: 'href', value: getFilePath(feature, '.css', true) }
+          ]
 
-            parse5utils.append(htmlChildNode, linkTag)
-          }
+          parse5utils.append(htmlChildNode, linkTag)
         }
       }
 
@@ -167,10 +161,10 @@ export function patchHtml(
         // during development, so we only add the script tag if the
         // user has not already added one.
         if (hasJsEntry || compilation.options.mode !== 'production') {
-          const scriptTag: {attrs: {name: string; value: string}[]} =
+          const scriptTag: { attrs: { name: string; value: string }[] } =
             parse5utils.createNode('script')
           scriptTag.attrs = [
-            {name: 'src', value: getFilePath(feature, '.js', true)}
+            { name: 'src', value: getFilePath(feature, '.js', true) }
           ]
 
           parse5utils.append(htmlChildNode, scriptTag)
