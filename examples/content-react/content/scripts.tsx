@@ -30,10 +30,11 @@ function initial() {
   shadowRoot.appendChild(style)
 
   fetchCSS().then((response) => {
-    // console.log('responseresponseresponseresponseresponse', response)
     style.textContent = response
   })
 
+  // This needs to be inside initial() since it references the style element
+  // that is created and used within this function's scope
   import.meta.webpackHot?.accept('./styles.css', () => {
     fetchCSS().then((response) => {
       style.textContent = response

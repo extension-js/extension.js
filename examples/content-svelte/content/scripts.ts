@@ -1,5 +1,5 @@
-import {render} from 'preact'
-import ContentApp from './ContentApp'
+import {mount} from 'svelte'
+import ContentApp from './ContentApp.svelte'
 
 let unmount: () => void
 import.meta.webpackHot?.accept()
@@ -13,15 +13,11 @@ if (document.readyState === 'complete') {
   })
 }
 
-function initial() {
-  // Create a new div element and append it to the document's body
+export default function initial() {
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)
 
-  // Injecting content_scripts inside a shadow dom
-  // prevents conflicts with the host page's styles.
-  // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
   const style = document.createElement('style')
@@ -30,7 +26,6 @@ function initial() {
   fetchCSS().then((response) => {
     style.textContent = response
   })
-  console.log('Running....???')
 
   import.meta.webpackHot?.accept('./styles.css', () => {
     fetchCSS().then((response) => {
@@ -38,16 +33,17 @@ function initial() {
     })
   })
 
-  // Preact specific rendering
-  render(
-    <div className="content_script">
-      <ContentApp />
-    </div>,
-    shadowRoot
-  )
+  // Create container for Svelte app
+  const contentDiv = document.createElement('div')
+  contentDiv.className = 'content_script'
+  shadowRoot.appendChild(contentDiv)
+
+  // Mount Svelte app using Svelte 5's mount function
+  const app = mount(ContentApp, {
+    target: contentDiv
+  })
 
   return () => {
-    // Preact's render returns undefined, so we just remove the root
     rootDiv.remove()
   }
 }

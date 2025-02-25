@@ -54,7 +54,11 @@ export async function maybeUseSvelte(
 
     await installOptionalDependencies('TypeScript', typeScriptDependencies)
 
-    const svelteDependencies = ['svelte-loader', 'svelte-preprocess']
+    const svelteDependencies = [
+      'svelte-loader',
+      'svelte-preprocess',
+      'postcss-load-config'
+    ]
 
     await installOptionalDependencies('Svelte', svelteDependencies)
 
@@ -75,13 +79,14 @@ export async function maybeUseSvelte(
         loader: require.resolve('svelte-loader'),
         options: {
           preprocess: sveltePreprocess({
-            typescript: true,
-            postcss: true
+            typescript: true
           }),
           emitCss: true,
           compilerOptions: {
-            dev: mode === 'development'
-          }
+            dev: mode === 'development',
+            css: 'injected' // Changed from boolean to 'injected' per new Svelte options
+          },
+          hotReload: mode === 'development'
         }
       },
       include: projectPath,
@@ -100,5 +105,8 @@ export async function maybeUseSvelte(
     plugins: undefined,
     loaders: svelteLoaders,
     alias: undefined
+    // alias: {
+    //   svelte: path.resolve(projectPath, 'node_modules', 'svelte')
+    // }
   }
 }
