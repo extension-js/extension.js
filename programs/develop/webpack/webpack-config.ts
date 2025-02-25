@@ -85,7 +85,7 @@ export default function webpackConfig(
         '.json',
         '.wasm',
         '.svelte'
-      ],
+      ]
     },
     watchOptions: {
       ignored: /node_modules|dist/

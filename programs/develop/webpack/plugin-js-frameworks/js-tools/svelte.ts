@@ -56,8 +56,7 @@ export async function maybeUseSvelte(
 
     const svelteDependencies = [
       'svelte-loader',
-      'svelte-preprocess',
-      'postcss-load-config'
+      'svelte-preprocess'
     ]
 
     await installOptionalDependencies('Svelte', svelteDependencies)
