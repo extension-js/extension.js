@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "content-react",
+  "name": "content-svelte",
   "description": "An Extension.js example.",
   "version": "0.0.1",
   "author": {

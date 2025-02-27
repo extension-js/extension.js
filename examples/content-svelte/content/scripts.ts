@@ -39,7 +39,7 @@ export default function initial() {
   shadowRoot.appendChild(contentDiv)
 
   // Mount Svelte app using Svelte 5's mount function
-  const app = mount(ContentApp, {
+  mount(ContentApp, {
     target: contentDiv
   })
 

@@ -54,10 +54,7 @@ export async function maybeUseSvelte(
 
     await installOptionalDependencies('TypeScript', typeScriptDependencies)
 
-    const svelteDependencies = [
-      'svelte-loader',
-      'svelte-preprocess'
-    ]
+    const svelteDependencies = ['svelte-loader', 'svelte-preprocess']
 
     await installOptionalDependencies('Svelte', svelteDependencies)
 
