@@ -45,12 +45,6 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // In development: Extracts the content_scripts css files
-    // from content_scripts and injects them as dynamic imports
-    // so we can benefit from HMR. In production we adds the CSS
-    // files to the entry points along with other content_script files,
-    // so this is not necessary.
-
     // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
     if (compiler.options.mode === 'development') {
       compiler.options.module.rules.push({

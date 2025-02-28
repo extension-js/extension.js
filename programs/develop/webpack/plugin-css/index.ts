@@ -5,6 +5,7 @@ import {
   type RuleSetRule
 } from 'webpack'
 import {commonStyleLoaders} from './common-style-loaders'
+import {legacyStyleLoaders} from './legacy-style-loaders'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
@@ -38,7 +39,7 @@ export class CssPlugin {
           // be deprecated in v2.0.0
           {
             resourceQuery: /inline_style/,
-            use: await commonStyleLoaders(projectPath, {
+            use: await legacyStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
               useMiniCssExtractPlugin: false,
               useShadowDom: true
@@ -47,7 +48,7 @@ export class CssPlugin {
           {
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: mode === 'production',
+              useMiniCssExtractPlugin: false,
               useShadowDom: false
             })
           }

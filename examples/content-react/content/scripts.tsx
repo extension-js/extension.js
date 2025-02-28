@@ -2,7 +2,9 @@ import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
 
 let unmount: () => void
+// @ts-expect-error - global reference.
 import.meta.webpackHot?.accept()
+// @ts-expect-error - global reference.
 import.meta.webpackHot?.dispose(() => unmount?.())
 
 if (document.readyState === 'complete') {
@@ -35,6 +37,7 @@ function initial() {
 
   // This needs to be inside initial() since it references the style element
   // that is created and used within this function's scope
+  // @ts-expect-error - global reference.
   import.meta.webpackHot?.accept('./styles.css', () => {
     fetchCSS().then((response) => {
       style.textContent = response

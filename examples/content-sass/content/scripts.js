@@ -72,4 +72,3 @@ async function fetchCSS() {
   const text = await response.text()
   return response.ok ? text : Promise.reject(text)
 }
-

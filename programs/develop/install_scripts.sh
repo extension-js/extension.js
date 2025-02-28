@@ -88,8 +88,6 @@ done
 
 echo '►►► Setting up client helper files'
 static_files=(
-  "$(dirname "$0")/tailwind.config.js"
-  "$(dirname "$0")/stylelint.config.json"
   "$(dirname "$0")/webpack/plugin-reload/extensions"
 )
 

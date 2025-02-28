@@ -620,3 +620,13 @@ export function noExtensionIdError() {
     `of your ${brightYellow('extension.config.js')} is defined as your extension URL.`
   )
 }
+
+export function deprecatedShadowRoot() {
+  return (
+    `${getLoggingPrefix('content_scripts', 'warn')} Using window.__EXTENSION_SHADOW_ROOT__ is deprecated\n` +
+    'and will be removed in a future version of Extension.js. To use content_scripts\nwith the shadow DOM, ' +
+    'see examples at https://github.com/extension-js/extension.js/tree/main/examples\n\n' +
+    'If you really need to use the shadow DOM as-is, the latest version of Extension.js\n' +
+    'that supports it natively is extension@2.0.0-beta.9.\n'
+  )
+}
