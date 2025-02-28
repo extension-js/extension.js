@@ -22,8 +22,14 @@ interface ImportMetaEnv {
   readonly EXTENSION_MODE: NodeJS.ProcessEnv['EXTENSION_MODE']
 }
 
+interface WebpackHot {
+  accept: (...args: string[]) => void
+  dispose: (...args: string[]) => void
+}
+
 interface ImportMeta {
   readonly env: ImportMetaEnv
+  readonly webpackHot: WebpackHot
 }
 
 interface Window {

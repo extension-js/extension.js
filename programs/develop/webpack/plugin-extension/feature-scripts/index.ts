@@ -4,6 +4,7 @@ import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {AddPublicPathForMainWorld} from './steps/add-public-path-for-main-world'
+import {DeprecatedShadowRoot} from './steps/deprecated-shadow-root'
 import {DevOptions} from '../../../module'
 
 /**
@@ -45,31 +46,6 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // In development: Extracts the content_scripts css files
-    // from content_scripts and injects them as dynamic imports
-    // so we can benefit from HMR. In production we adds the CSS
-    // files to the entry points along with other content_script files,
-    // so this is not necessary.
-    if (compiler.options.mode === 'development') {
-      compiler.options.module.rules.push({
-        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: [path.dirname(this.manifestPath)],
-        exclude: /node_modules/,
-        use: [
-          {
-            loader: require.resolve(
-              path.join(__dirname, 'inject-content-css-during-dev.js')
-            ),
-            options: {
-              manifestPath: this.manifestPath,
-              includeList: this.includeList || {},
-              excludeList: this.excludeList || {}
-            }
-          }
-        ]
-      })
-    }
-
     // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
     if (compiler.options.mode === 'development') {
       compiler.options.module.rules.push({
@@ -107,5 +83,8 @@ export class ScriptsPlugin {
       includeList: this.includeList || {},
       excludeList: this.excludeList || {}
     }).apply(compiler)
+
+    // 5 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__
+    new DeprecatedShadowRoot().apply(compiler)
   }
 }

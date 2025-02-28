@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "React Web Extension HMR test",
+  "version": "1.0.0",
+  "background": {
+    "service_worker": "./sw.js"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["/*.json", "/*.js", "/*.css", "/*.map"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["./content.js"]
+    }
+  ],
+  "permissions": ["storage", "scripting", "tabs"],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "host_permissions": ["<all_urls>"]
+}

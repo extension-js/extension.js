@@ -1,0 +1,27 @@
+name: Node.js CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x, 22.x]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v2
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn'
+    - run: yarn install
+    - run: yarn test
+    - run: git add .
+    - run: git restore --source=HEAD --staged --worktree -- tests/snapshot/mv2-hmr-rspack
+    - run: git restore --source=HEAD --staged --worktree -- tests/snapshot/mv3-hmr-rspack
+    - run: yarn test-ci
