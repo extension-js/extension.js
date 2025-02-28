@@ -26,8 +26,8 @@ async function fetchCSS(stylesheetPath: string) {
 export function getShadowRoot(
   element?: string,
   id?: string,
-  stylesheets?: string[],
-//   jsx?: React.ReactNode
+  stylesheets?: string[]
+  //   jsx?: React.ReactNode
 ) {
   // Create a new div element and append it to the document's body
   const rootElement = document.createElement(element || 'div')
@@ -64,8 +64,8 @@ export function getShadowRoot(
     })
   })
 
-//   const mountingPoint = ReactDOM.createRoot(shadowRoot)
-//   mountingPoint.render(jsx)
+  //   const mountingPoint = ReactDOM.createRoot(shadowRoot)
+  //   mountingPoint.render(jsx)
 
   return () => {
     // mountingPoint.unmount()
@@ -80,7 +80,7 @@ export function getShadowRoot(
 
 // ```tsx
 // 'use shadow-dom'
-// 
+//
 // import ContentApp from './ContentApp'
 // // Any imported CSS files will be automatically
 // // added the shadow DOM
@@ -88,7 +88,7 @@ export function getShadowRoot(
 //
 // // Create a root div element with id "'extension-root'"
 // // and append it to the document's body. Note that
-// // the default export is required for Extension.js to 
+// // the default export is required for Extension.js to
 // // know what element to mount in the shadow root.
 // export default function ContentScript() {
 //   console.log('Extension running...')

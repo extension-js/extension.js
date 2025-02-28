@@ -4,6 +4,7 @@ import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {AddPublicPathForMainWorld} from './steps/add-public-path-for-main-world'
+import {DeprecatedShadowRoot} from './steps/deprecated-shadow-root'
 import {DevOptions} from '../../../module'
 
 /**
@@ -82,5 +83,8 @@ export class ScriptsPlugin {
       includeList: this.includeList || {},
       excludeList: this.excludeList || {}
     }).apply(compiler)
+
+    // 5 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__
+    new DeprecatedShadowRoot().apply(compiler)
   }
 }

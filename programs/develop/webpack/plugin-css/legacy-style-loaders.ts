@@ -55,14 +55,16 @@ export async function legacyStyleLoaders(
   const miniCssLoader = MiniCssExtractPlugin.loader
   const styleLoaders: RuleSetRule['use'] = [
     opts.useMiniCssExtractPlugin
-      ? miniCssLoader
+      ? {
+          loader: miniCssLoader
+        }
       : {
           loader: require.resolve('style-loader'),
-          options:
-            (opts.useShadowDom && {
+          options: {
+            ...(opts.useShadowDom && {
               insert: whereToInsertStyleTag
-            }) ||
-            undefined
+            })
+          }
         },
     {
       loader: require.resolve('css-loader'),
