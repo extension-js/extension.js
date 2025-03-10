@@ -102,7 +102,8 @@ export default function webpackConfig(
         manifestPath
       }),
       new CssPlugin({
-        manifestPath
+        manifestPath,
+        experimentalHotReload: devOptions.experimental?.hotReload
       }),
       new JsFrameworksPlugin({
         manifestPath
@@ -119,7 +120,8 @@ export default function webpackConfig(
       }),
       new ExtensionPlugin({
         manifestPath,
-        browser
+        browser,
+        experimentalHotReload: devOptions.experimental?.hotReload
       }),
       new ReloadPlugin({
         manifestPath,
@@ -156,13 +158,19 @@ export default function webpackConfig(
       maxEntrypointSize: 999000
     },
     optimization: {
-      minimize: devOptions.mode === 'production'
+      minimize: devOptions.mode === 'production',
+      // minimizer: [false],
+      // splitChunks: {
+      //   chunks: 'all'
+      // }
     },
     experiments: {
       // Enable native CSS support. Note that it's an experimental feature still under development
       // and will be enabled by default in webpack v6, however you can track the progress on GitHub
       // here: https://github.com/webpack/webpack/issues/14893.
-      // css: devOptions.mode === 'production',
+      css: devOptions.experimental?.hotReload
+        ? true
+        : devOptions.mode === 'production',
       // Support the new WebAssembly according to the updated specification,
       // it makes a WebAssembly module an async module.
       asyncWebAssembly: true

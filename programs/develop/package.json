@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@colors/colors": "^1.6.0",
+    "@rspack/core": "^1.2.7",
     "@swc/core": "^1.10.1",
     "@types/firefox-webext-browser": "^120.0.4",
     "acorn": "^8.14.0",
@@ -69,8 +70,6 @@
     "tsconfig-paths-webpack-plugin": "^4.2.0",
     "vue-template-compiler": "^2.7.16",
     "webextension-polyfill": "^0.12.0",
-    "webpack": "~5.97.1",
-    "webpack-dev-server": "^5.1.0",
     "webpack-merge": "^6.0.1",
     "webpack-target-webextension": "^2.0.1",
     "which": "^5.0.0",
