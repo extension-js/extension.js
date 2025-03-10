@@ -67,3 +67,4 @@ __TEST__
 /playwright/.cache/
 /e2e-report/
 _examples
+specs/
