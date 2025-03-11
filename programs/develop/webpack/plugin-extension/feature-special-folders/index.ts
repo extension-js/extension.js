@@ -1,4 +1,4 @@
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {CopyPublicFolder} from './copy-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 

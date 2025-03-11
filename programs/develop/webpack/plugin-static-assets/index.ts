@@ -1,4 +1,4 @@
-import {type Compiler, type RuleSetRule} from 'webpack'
+import {type Compiler, type RuleSetRule} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 
 export class StaticAssetsPlugin {

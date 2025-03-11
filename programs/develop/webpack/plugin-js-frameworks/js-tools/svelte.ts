@@ -80,7 +80,7 @@ export async function maybeUseSvelte(
           }),
           emitCss: true,
           compilerOptions: {
-            dev: mode === 'development',
+            dev: mode === 'development'
           }
         }
       },

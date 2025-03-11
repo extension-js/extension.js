@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
-import {type WebpackPluginInstance} from 'webpack'
+import {type RspackPluginInstance} from '@rspack/core'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -62,7 +62,7 @@ export async function maybeUseReact(
     process.exit(0)
   }
 
-  const reactPlugins: WebpackPluginInstance[] = [
+  const reactPlugins: RspackPluginInstance[] = [
     new (require('@pmmmwh/react-refresh-webpack-plugin'))({
       overlay: false
     })

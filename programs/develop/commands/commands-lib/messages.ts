@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import {StatsAsset} from 'webpack'
+import {StatsAsset} from '@rspack/core'
 import {
   gray,
   red,

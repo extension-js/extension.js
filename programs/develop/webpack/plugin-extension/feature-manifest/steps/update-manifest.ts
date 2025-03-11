@@ -1,5 +1,5 @@
 import path from 'path'
-import {Compiler, Compilation, sources} from 'webpack'
+import {Compiler, Compilation, sources} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename, getManifestContent} from '../../../lib/utils'
 import {FilepathList, PluginInterface, Manifest} from '../../../webpack-types'
@@ -104,7 +104,7 @@ export class UpdateManifest {
         // in a content_scripts CSS file, so we need to reference it
         // in the manifest.
         if (compiler.options.mode === 'production') {
-          compilation.hooks.afterOptimizeAssets.tap(
+          compilation.hooks.processAssets.tap(
             'manifest:update-manifest',
             () => {
               if (compilation.errors.length > 0) return

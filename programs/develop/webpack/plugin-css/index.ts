@@ -3,7 +3,7 @@ import {
   type WebpackPluginInstance,
   type Compiler,
   type RuleSetRule
-} from 'webpack'
+} from '@rspack/core'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import {commonStyleLoaders} from './common-style-loaders'
 import {PluginInterface} from '../webpack-types'

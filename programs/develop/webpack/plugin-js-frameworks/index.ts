@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
 import {maybeUseBabel} from './js-tools/babel'
@@ -93,7 +93,7 @@ export class JsFrameworksPlugin {
     maybeInstallSvelte?.plugins?.forEach((plugin) => plugin.apply(compiler))
 
     if (isUsingTypeScript(projectPath)) {
-      compiler.options.resolve.plugins = [
+      ;(compiler.options.resolve as any).plugins = [
         new TsconfigPathsPlugin({
           configFile: path.resolve(
             path.dirname(this.manifestPath),

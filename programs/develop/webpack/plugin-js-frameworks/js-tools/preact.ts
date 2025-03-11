@@ -10,7 +10,7 @@ import fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
-import {WebpackPluginInstance} from 'webpack'
+import {RspackPluginInstance} from '@rspack/core'
 
 let userMessageDelivered = false
 
@@ -61,7 +61,7 @@ export async function maybeUsePreact(
     process.exit(0)
   }
 
-  const preactPlugins: WebpackPluginInstance[] = [
+  const preactPlugins: RspackPluginInstance[] = [
     new (require('@prefresh/webpack'))()
   ]
 

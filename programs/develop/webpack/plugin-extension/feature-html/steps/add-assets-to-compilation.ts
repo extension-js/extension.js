@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import webpack, {type Compiler} from 'webpack'
-import {sources, Compilation} from 'webpack'
+import rspack, {type Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml, isFromIncludeList} from '../html-lib/utils'
 import * as messages from '../../../lib/messages'
@@ -82,7 +81,7 @@ export class AddAssetsToCompilation {
                               !asset.startsWith('/')
                             ) {
                               compilation.warnings.push(
-                                new webpack.WebpackError(errorMessage)
+                                new rspack.WebpackError(errorMessage)
                               )
                             }
 

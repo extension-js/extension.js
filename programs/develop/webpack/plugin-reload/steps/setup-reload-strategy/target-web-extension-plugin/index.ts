@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import type webpack from 'webpack'
+import type webpack from '@rspack/core'
 import WebExtension from 'webpack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
 import {type Manifest} from '../../../../webpack-types'

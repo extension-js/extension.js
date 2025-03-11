@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "@colors/colors": "^1.6.0",
-    "@rspack/core": "^1.2.7",
+    "@rspack/core": "^1.2.8",
+    "@rspack/dev-server": "^1.1.0",
     "@swc/core": "^1.10.1",
     "@types/firefox-webext-browser": "^120.0.4",
     "acorn": "^8.14.0",

@@ -1,4 +1,4 @@
-import {type RuleSetRule} from 'webpack'
+import {type RuleSetRule} from '@rspack/core'
 import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import {isUsingTailwind} from './css-tools/tailwind'

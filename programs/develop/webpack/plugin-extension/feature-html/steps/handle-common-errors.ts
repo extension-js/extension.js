@@ -1,5 +1,5 @@
 import fs from 'fs'
-import {WebpackError, type Compiler} from 'webpack'
+import {WebpackError, type Compiler} from '@rspack/core'
 
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'

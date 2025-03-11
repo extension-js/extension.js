@@ -1,6 +1,6 @@
 import fs from 'fs'
-import webpack, {type Compiler, Compilation} from 'webpack'
-import {sources} from 'webpack'
+import rspack, {type Compiler, Compilation} from '@rspack/core'
+import {sources} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../../../lib/messages'
 import * as utils from '../../../lib/utils'
@@ -46,9 +46,8 @@ export class EmitHtmlFile {
                   featureName,
                   resource as string
                 )
-                compilation.warnings.push(
-                  new webpack.WebpackError(errorMessage)
-                )
+                compilation.warnings.push(new rspack.WebpackError(errorMessage))
+                // TODO: cezaraugusto this should continue instead of returning
                 return
               }
 

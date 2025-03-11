@@ -1,4 +1,4 @@
-import {Compiler} from 'webpack'
+import {Compiler} from '@rspack/core'
 import {
   type FilepathList,
   type PluginInterface,

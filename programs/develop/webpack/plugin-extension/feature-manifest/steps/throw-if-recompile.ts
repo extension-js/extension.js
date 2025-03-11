@@ -1,5 +1,5 @@
 import fs from 'fs'
-import webpack, {Compilation} from 'webpack'
+import rspack, {Compiler, Compilation} from '@rspack/core'
 import * as messages from '../../../lib/messages'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'
 import {PluginInterface, FilepathList, Manifest} from '../../../webpack-types'
@@ -22,7 +22,7 @@ export class ThrowIfRecompileIsNeeded {
     return arr.flat(Infinity).sort()
   }
 
-  public apply(compiler: webpack.Compiler): void {
+  public apply(compiler: Compiler): void {
     compiler.hooks.watchRun.tapAsync(
       'manifest:throw-if-recompile-is-needed',
       (compiler, done) => {
@@ -83,7 +83,7 @@ export class ThrowIfRecompileIsNeeded {
                         fileRemoved
                       )
                     compilation.errors.push(
-                      new webpack.WebpackError(errorMessage)
+                      new rspack.WebpackError(errorMessage)
                     )
                   }
                 }

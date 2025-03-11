@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import webpack from 'webpack'
-import WebpackDevServer from 'webpack-dev-server'
+import {rspack} from '@rspack/core'
+import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import {DevOptions} from '../commands/commands-lib/config-types'
 import webpackConfig from './webpack-config'
@@ -18,7 +18,7 @@ import {
   loadCustomWebpackConfig
 } from '../commands/commands-lib/get-extension-config'
 
-function closeAll(devServer: WebpackDevServer) {
+function closeAll(devServer: RspackDevServer) {
   devServer
     .stop()
     .then(() => {
@@ -51,10 +51,10 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
   // This way if the user define properties we don't have a default for,
   // they will be included in the final config.
   const compilerConfig = merge(finalConfig)
-  const compiler = webpack(compilerConfig)
+  const compiler = rspack(compilerConfig)
 
   // webpack-dev-server configuration
-  const serverConfig: WebpackDevServer.Configuration = {
+  const serverConfig: Configuration = {
     host: '127.0.0.1',
     allowedHosts: 'all',
     static: path.join(projectPath, 'public'),
@@ -89,7 +89,7 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
     hot: true
   }
 
-  const devServer = new WebpackDevServer(serverConfig, compiler)
+  const devServer = new RspackDevServer(serverConfig, compiler)
 
   devServer.startCallback((error) => {
     if (error != null) {
