@@ -83,7 +83,7 @@ export class HtmlPlugin {
     compiler.options.module.rules.push({
       test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [path.dirname(this.manifestPath)],
-      exclude: /node_modules/,
+      exclude: [/[\\/]node_modules[\\/]/],
       use: [
         {
           loader: require.resolve(

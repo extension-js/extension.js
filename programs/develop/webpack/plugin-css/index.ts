@@ -1,10 +1,9 @@
 import path from 'path'
-import {
-  type WebpackPluginInstance,
+import rspack, {
+  type RspackPluginInstance,
   type Compiler,
   type RuleSetRule
 } from '@rspack/core'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
 import {commonStyleLoaders} from './common-style-loaders'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
@@ -24,7 +23,9 @@ export class CssPlugin {
     const mode = compiler.options.mode || 'development'
     const projectPath = path.dirname(this.manifestPath)
 
-    const plugins: WebpackPluginInstance[] = [new MiniCssExtractPlugin()]
+    const plugins: RspackPluginInstance[] = [
+      new rspack.CssExtractRspackPlugin()
+    ]
 
     plugins.forEach((plugin) => plugin.apply(compiler))
 
@@ -35,6 +36,7 @@ export class CssPlugin {
       {
         test: /\.css$/,
         exclude: /\.module\.css$/,
+        type: 'javascript/auto',
         oneOf: [
           {
             resourceQuery: /inline_style/,
@@ -55,6 +57,7 @@ export class CssPlugin {
       },
       {
         test: /\.module\.css$/,
+        type: 'javascript/auto',
         oneOf: [
           {
             resourceQuery: /inline_style/,

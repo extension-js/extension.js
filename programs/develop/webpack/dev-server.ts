@@ -57,7 +57,11 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
   const serverConfig: Configuration = {
     host: '127.0.0.1',
     allowedHosts: 'all',
-    static: path.join(projectPath, 'public'),
+    static: {
+      watch: {
+        ignored: /\bnode_modules\b/
+      }
+    },
     compress: false,
     devMiddleware: {
       writeToDisk: true
@@ -89,7 +93,7 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
     hot: true
   }
 
-  const devServer = new RspackDevServer(serverConfig, compiler)
+  const devServer = new RspackDevServer(serverConfig, compiler as any)
 
   devServer.startCallback((error) => {
     if (error != null) {

@@ -1,14 +1,11 @@
 import fs from 'fs'
-import {WebpackError, type Compiler} from '@rspack/core'
+import {WebpackError, type Compiler, type StatsError} from '@rspack/core'
 
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'
 import * as messages from '../../../lib/messages'
 
-function handleCantResolveError(
-  includesList: FilepathList,
-  error: NodeJS.ErrnoException
-) {
+function handleCantResolveError(includesList: FilepathList, error: StatsError) {
   const cantResolveMsg = "Module not found: Error: Can't resolve "
   const customError = error.message.replace(cantResolveMsg, '')
   const wrongFilename = customError.split("'")[1]

@@ -69,7 +69,7 @@ export class ResolvePlugin {
       test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       loader: require.resolve(path.resolve(__dirname, './resolver-loader.js')),
       include: [path.dirname(this.manifestPath)],
-      exclude: /node_modules/,
+      exclude: [/[\\/]node_modules[\\/]/],
       options: {
         manifestPath: this.manifestPath,
         browser: this.browser,

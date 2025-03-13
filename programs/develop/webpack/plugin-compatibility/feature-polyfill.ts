@@ -1,4 +1,4 @@
-import webpack, {type Compiler} from '@rspack/core'
+import rspack, {type Compiler} from '@rspack/core'
 
 interface PolyfillPluginInterface {
   manifestPath: string
@@ -19,7 +19,7 @@ export class PolyfillPlugin {
   }
 
   apply(compiler: Compiler) {
-    new webpack.ProvidePlugin({
+    new rspack.ProvidePlugin({
       browser: require.resolve('webextension-polyfill')
     }).apply(compiler)
   }

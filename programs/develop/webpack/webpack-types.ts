@@ -1,6 +1,6 @@
 import {
   type RspackPluginInstance,
-  type LoaderContext as WebpackLoaderContext
+  type LoaderContext as RspackLoaderContext
 } from '@rspack/core'
 import {type DevOptions} from '../commands/commands-lib/config-types'
 
@@ -26,7 +26,7 @@ export type PluginInterface = {
   excludeList?: FilepathList
 }
 
-export interface LoaderInterface extends WebpackLoaderContext<LoaderInterface> {
+export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
   manifestPath: string
   includeList?: FilepathList
   excludeList?: FilepathList

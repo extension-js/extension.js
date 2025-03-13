@@ -46,13 +46,9 @@ export async function maybeUseReact(
   if (!isUsingReact(projectPath)) return undefined
 
   try {
-    require.resolve('@pmmmwh/react-refresh-webpack-plugin')
+    require.resolve('react-refresh')
   } catch (e) {
-    const reactDependencies = [
-      'react-refresh',
-      '@pmmmwh/react-refresh-webpack-plugin',
-      'react-refresh-typescript'
-    ]
+    const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
 
     await installOptionalDependencies('React', reactDependencies)
 
@@ -63,7 +59,7 @@ export async function maybeUseReact(
   }
 
   const reactPlugins: RspackPluginInstance[] = [
-    new (require('@pmmmwh/react-refresh-webpack-plugin'))({
+    new (require('@rspack/plugin-react-refresh'))({
       overlay: false
     })
   ]

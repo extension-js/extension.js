@@ -54,15 +54,7 @@ export default function webpackConfig(
         ? 'cheap-source-map'
         : 'eval-cheap-source-map',
     output: {
-      clean: {
-        // keep(asset) {
-        //   // Avoids deleting the hot-update files for the content scripts.
-        //   // This is a workaround for the issue described
-        //   // in https://github.com/cezaraugusto/extension.js/issues/35.
-        //   // These HMR assets are eventually deleted by CleanDistFolderPlugin when webpack starts.
-        //   return !asset.startsWith('hot/background')
-        // }
-      },
+      clean: false,
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
@@ -99,6 +91,7 @@ export default function webpackConfig(
         browser
       }),
       new StaticAssetsPlugin({
+        mode: devOptions.mode,
         manifestPath
       }),
       new CssPlugin({
@@ -107,6 +100,7 @@ export default function webpackConfig(
         // experimentalHotReload: devOptions.experimental?.hotReload
       }),
       new JsFrameworksPlugin({
+        mode: devOptions.mode,
         manifestPath
       }),
       process.env.EXPERIMENTAL_ERRORS_PLUGIN === 'true' &&

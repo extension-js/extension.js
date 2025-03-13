@@ -57,9 +57,37 @@ export async function maybeUseLess(
   return [
     {
       test: /\.less$/,
+      // Set to 'css/auto' if you want to support '*.module.less'
+      // as CSS Modules, otherwise set type to 'css'
+      type: 'css/auto',
       oneOf: [
         {
           resourceQuery: /inline_style/,
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'less-loader',
+            mode,
+            useMiniCssExtractPlugin: false,
+            useShadowDom: true
+          })
+        },
+        {
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'less-loader',
+            mode,
+            useMiniCssExtractPlugin: mode === 'production',
+            useShadowDom: false
+          })
+        }
+      ]
+    },
+    {
+      test: /\.module\.(s(a|c)ss)$/,
+      // Set to 'css/auto' if you want to support '*.module.less' as CSS Modules, otherwise set type to 'css'
+      type: 'css/auto',
+      oneOf: [
+        {
+          resourceQuery: /is_content_css_import=true/,
+          type: 'javascript/auto',
           use: await commonStyleLoaders(projectPath, {
             loader: 'less-loader',
             mode,
