@@ -1,6 +1,5 @@
 import path from 'path'
 import fs from 'fs'
-import {commonStyleLoaders} from '../common-style-loaders'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {DevOptions} from '../../../commands/commands-lib/config-types'
@@ -57,49 +56,12 @@ export async function maybeUseLess(
   return [
     {
       test: /\.less$/,
-      oneOf: [
+      use: [
         {
-          resourceQuery: /inline_style/,
-          use: await commonStyleLoaders(projectPath, {
-            loader: 'less-loader',
-            mode,
-            useMiniCssExtractPlugin: false,
-            useShadowDom: true
-          })
-        },
-        {
-          use: await commonStyleLoaders(projectPath, {
-            loader: 'less-loader',
-            mode,
-            useMiniCssExtractPlugin: mode === 'production',
-            useShadowDom: false
-          })
+          loader: 'less-loader'
         }
-      ]
-    },
-    {
-      test: /\.module\.less$/,
-      type: 'css/auto',
-      oneOf: [
-        {
-          resourceQuery: /is_content_css_import=true/,
-          type: 'javascript/auto',
-          use: await commonStyleLoaders(projectPath, {
-            loader: 'less-loader',
-            mode,
-            useMiniCssExtractPlugin: false,
-            useShadowDom: true
-          })
-        },
-        {
-          use: await commonStyleLoaders(projectPath, {
-            loader: 'less-loader',
-            mode,
-            useMiniCssExtractPlugin: mode === 'production',
-            useShadowDom: false
-          })
-        }
-      ]
+      ],
+      type: 'css/auto'
     }
   ]
 }

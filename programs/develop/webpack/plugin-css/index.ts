@@ -1,5 +1,5 @@
 import path from 'path'
-import rspack, {
+import {
   type RspackPluginInstance,
   type Compiler,
   type RuleSetRule
@@ -23,9 +23,7 @@ export class CssPlugin {
     const mode = compiler.options.mode || 'development'
     const projectPath = path.dirname(this.manifestPath)
 
-    const plugins: RspackPluginInstance[] = [
-      new rspack.CssExtractRspackPlugin()
-    ]
+    const plugins: RspackPluginInstance[] = []
 
     plugins.forEach((plugin) => plugin.apply(compiler))
 
@@ -36,38 +34,14 @@ export class CssPlugin {
       {
         test: /\.css$/,
         exclude: /\.module\.css$/,
-        oneOf: [
-          {
-            resourceQuery: /inline_style/,
-            type: 'javascript/auto',
-            use: await commonStyleLoaders(projectPath, {
-              mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: false,
-              useShadowDom: true
-            })
-          },
-          {
-            type: 'css/auto'
-          }
-        ]
+        type: 'css',
+        use: await commonStyleLoaders(projectPath, {
+          mode: mode as 'development' | 'production'
+        })
       },
       {
-        test: /\.module\.css$/,
-        type: 'css/auto',
-        oneOf: [
-          {
-            resourceQuery: /inline_style/,
-            type: 'javascript/auto',
-            use: await commonStyleLoaders(projectPath, {
-              mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: false,
-              useShadowDom: true
-            })
-          },
-          {
-            type: 'css/auto'
-          }
-        ]
+        test: /\.css$/,
+        type: 'asset'
       }
     ]
 
