@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
-import {Compiler} from 'webpack'
+import {Compiler} from '@rspack/core'
 import * as messages from '../../lib/messages'
 import {DevOptions} from '../../../commands/commands-lib/config-types'
 import {JsFramework} from '../../webpack-types'

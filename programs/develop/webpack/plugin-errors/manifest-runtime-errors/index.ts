@@ -1,5 +1,5 @@
-import webpack, {type Compiler} from 'webpack'
 import fs from 'fs'
+import {type Compilation, type Compiler} from '@rspack/core'
 import {type PluginInterface, type Manifest} from '../../webpack-types'
 import {insecureCSPValueError} from './insecure-csp-value-errors'
 import {wrongWebResourceFormatError} from './wrong-web-resource-format-error'
@@ -15,7 +15,7 @@ export class ManifestRuntimeErrorsPlugin {
   }
 
   handleRuntimeErrors(
-    compilation: webpack.Compilation,
+    compilation: Compilation,
     manifest: Manifest,
     browser: DevOptions['browser']
   ) {

@@ -1,4 +1,4 @@
-import webpack, {Compilation, Compiler, sources} from 'webpack'
+import {Compilation, Compiler, sources} from '@rspack/core'
 import {
   type FilepathList,
   type PluginInterface,
@@ -28,7 +28,7 @@ export class WebResourcesPlugin {
   }
 
   private generateManifestPatches(
-    compilation: webpack.Compilation,
+    compilation: Compilation,
     entryImports: Record<string, string[]>
   ) {
     const manifest = utils.getManifestContent(compilation, this.manifestPath!)
@@ -91,7 +91,7 @@ export class WebResourcesPlugin {
       if (webAccessibleResourcesV3.length > 0) {
         manifest.web_accessible_resources =
           webAccessibleResourcesV3 as Manifest['web_accessible_resources']
-      } 
+      }
       // else {
       //   // Do nothing
       // }

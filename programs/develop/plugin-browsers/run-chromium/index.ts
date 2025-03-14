@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {spawn} from 'child_process'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'

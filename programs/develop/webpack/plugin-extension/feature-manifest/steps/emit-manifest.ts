@@ -1,6 +1,5 @@
 import fs from 'fs'
-import webpack, {Compiler, Compilation} from 'webpack'
-import {sources} from 'webpack'
+import rspack, {sources, Compiler, Compilation} from '@rspack/core'
 import * as messages from '../../../lib/messages'
 import {type PluginInterface} from '../../../webpack-types'
 
@@ -35,7 +34,7 @@ export class EmitManifest {
               }
             } catch (error: any) {
               compilation.errors.push(
-                new webpack.WebpackError(messages.manifestInvalidError(error))
+                new rspack.WebpackError(messages.manifestInvalidError(error))
               )
               return
             }
