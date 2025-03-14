@@ -57,9 +57,6 @@ export async function maybeUseLess(
   return [
     {
       test: /\.less$/,
-      // Set to 'css/auto' if you want to support '*.module.less'
-      // as CSS Modules, otherwise set type to 'css'
-      type: 'css/auto',
       oneOf: [
         {
           resourceQuery: /inline_style/,
@@ -81,8 +78,7 @@ export async function maybeUseLess(
       ]
     },
     {
-      test: /\.module\.(s(a|c)ss)$/,
-      // Set to 'css/auto' if you want to support '*.module.less' as CSS Modules, otherwise set type to 'css'
+      test: /\.module\.less$/,
       type: 'css/auto',
       oneOf: [
         {

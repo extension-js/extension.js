@@ -67,9 +67,6 @@ export async function maybeUseSass(
   return [
     {
       test: /\.(s(a|c)ss)$/,
-      // Set to 'css/auto' if you want to support '*.module.less'
-      // as CSS Modules, otherwise set type to 'css'
-      type: 'css',
       exclude: /\.module\.(s(a|c)ss)$/,
       oneOf: [
         {
@@ -93,8 +90,6 @@ export async function maybeUseSass(
     },
     {
       test: /\.module\.(s(a|c)ss)$/,
-      // Set to 'css/auto' if you want to support '*.module.less'
-      // as CSS Modules, otherwise set type to 'css'
       type: 'css/auto',
       oneOf: [
         {
