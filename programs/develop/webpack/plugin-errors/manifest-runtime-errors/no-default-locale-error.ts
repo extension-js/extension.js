@@ -1,18 +1,18 @@
 import path from 'path'
 import fs from 'fs'
-import webpack from 'webpack'
+import rspack, {type Compilation} from '@rspack/core'
 import * as messages from '../../lib/messages'
 import {type Manifest} from '../../webpack-types'
 
 export function noDefaultLocaleError(
   manifest: Manifest,
-  compilation: webpack.Compilation
-): webpack.WebpackError | null {
+  compilation: Compilation
+) {
   // Check if a top-level _locales directory exists.
   const localesDir = path.join(compilation.options.context || '', '_locales')
 
   if (fs.existsSync(localesDir) && !manifest.default_locale) {
-    return new webpack.WebpackError(messages.noDefaultLocaleError())
+    return new rspack.WebpackError(messages.noDefaultLocaleError())
   }
 
   return null

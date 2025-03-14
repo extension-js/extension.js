@@ -83,18 +83,26 @@ export async function maybeUseSass(
             loader: 'sass-loader',
             mode,
             useMiniCssExtractPlugin: mode === 'production',
-            useShadowDom: true
+            useShadowDom: false
           })
         }
       ]
     },
     {
       test: /\.module\.(s(a|c)ss)$/,
+      type: 'css/auto',
       oneOf: [
         {
           resourceQuery: /inline_style/,
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
+            loaderOptions: {
+              // using `modern-compiler` and `sass-embedded` together
+              // significantly improve build performance,
+              // requires `sass-loader >= 14.2.1`
+              api: 'modern-compiler',
+              implementation: require.resolve('sass-embedded')
+            },
             mode,
             useMiniCssExtractPlugin: false,
             useShadowDom: true
@@ -104,8 +112,8 @@ export async function maybeUseSass(
           use: await commonStyleLoaders(projectPath, {
             loader: 'sass-loader',
             mode,
-            useMiniCssExtractPlugin: mode === 'production',
-            useShadowDom: true
+            useMiniCssExtractPlugin: true,
+            useShadowDom: false
           })
         }
       ]

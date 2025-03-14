@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {EmitHtmlFile} from './steps/emit-html-file'
@@ -83,7 +83,7 @@ export class HtmlPlugin {
     compiler.options.module.rules.push({
       test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [path.dirname(this.manifestPath)],
-      exclude: /node_modules/,
+      exclude: [/[\\/]node_modules[\\/]/],
       use: [
         {
           loader: require.resolve(

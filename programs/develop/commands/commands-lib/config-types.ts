@@ -1,4 +1,4 @@
-import {Configuration} from 'webpack'
+import {Configuration} from '@rspack/core'
 
 export type BrowserType =
   | 'chrome'

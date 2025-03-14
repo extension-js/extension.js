@@ -10,7 +10,7 @@ import fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
-import {WebpackPluginInstance} from 'webpack'
+import {RspackPluginInstance} from '@rspack/core'
 
 let userMessageDelivered = false
 
@@ -49,9 +49,14 @@ export async function maybeUsePreact(
   try {
     // Fast-refresh for Preact!
     // https://github.com/preactjs/prefresh
-    require.resolve('@prefresh/webpack')
+    require.resolve('@rspack/plugin-preact-refresh')
   } catch (e) {
-    const preactDependencies = ['@prefresh/webpack']
+    const preactDependencies = [
+      '@prefresh/core',
+      '@prefresh/utils',
+      '@rspack/plugin-preact-refresh',
+      'preact'
+    ]
 
     await installOptionalDependencies('Preact', preactDependencies)
 
@@ -61,8 +66,8 @@ export async function maybeUsePreact(
     process.exit(0)
   }
 
-  const preactPlugins: WebpackPluginInstance[] = [
-    new (require('@prefresh/webpack'))()
+  const preactPlugins: RspackPluginInstance[] = [
+    new (require('@rspack/plugin-preact-refresh'))()
   ]
 
   return {

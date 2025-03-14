@@ -76,6 +76,30 @@ export async function maybeUseLess(
           })
         }
       ]
+    },
+    {
+      test: /\.module\.less$/,
+      type: 'css/auto',
+      oneOf: [
+        {
+          resourceQuery: /is_content_css_import=true/,
+          type: 'javascript/auto',
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'less-loader',
+            mode,
+            useMiniCssExtractPlugin: false,
+            useShadowDom: true
+          })
+        },
+        {
+          use: await commonStyleLoaders(projectPath, {
+            loader: 'less-loader',
+            mode,
+            useMiniCssExtractPlugin: mode === 'production',
+            useShadowDom: false
+          })
+        }
+      ]
     }
   ]
 }

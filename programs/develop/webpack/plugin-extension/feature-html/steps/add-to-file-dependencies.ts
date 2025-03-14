@@ -1,6 +1,6 @@
 import fs from 'fs'
-import {type Compiler} from 'webpack'
-import {Compilation} from 'webpack'
+import {type Compiler} from '@rspack/core'
+import {Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'
 
