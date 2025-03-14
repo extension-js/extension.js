@@ -36,7 +36,7 @@ export class CssPlugin {
       {
         test: /\.css$/,
         exclude: /\.module\.css$/,
-        type: 'css',
+        type: 'css/auto',
         oneOf: [
           {
             resourceQuery: /inline_style/,
