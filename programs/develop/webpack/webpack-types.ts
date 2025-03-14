@@ -1,5 +1,7 @@
-import {type LoaderContext as WebpackLoaderContext} from 'webpack'
-import {type WebpackPluginInstance} from 'webpack'
+import {
+  type RspackPluginInstance,
+  type LoaderContext as RspackLoaderContext
+} from '@rspack/core'
 import {type DevOptions} from '../commands/commands-lib/config-types'
 
 export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
@@ -24,7 +26,7 @@ export type PluginInterface = {
   excludeList?: FilepathList
 }
 
-export interface LoaderInterface extends WebpackLoaderContext<LoaderInterface> {
+export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
   manifestPath: string
   includeList?: FilepathList
   excludeList?: FilepathList
@@ -65,7 +67,7 @@ export interface LoaderContext {
 }
 
 export interface JsFramework {
-  plugins: WebpackPluginInstance[] | undefined
+  plugins: RspackPluginInstance[] | undefined
   loaders: Record<string, any>[] | undefined
   alias: Record<string, string> | undefined
 }

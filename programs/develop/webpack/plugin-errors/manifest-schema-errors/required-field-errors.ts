@@ -1,4 +1,4 @@
-import {WebpackError, type Compilation} from 'webpack'
+import {WebpackError, type Compilation} from '@rspack/core'
 import {type ErrorObject} from 'ajv'
 import * as messages from '../../lib/messages'
 import {DevOptions} from '../../../module'

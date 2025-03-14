@@ -1,4 +1,4 @@
-import {Asset, Compilation} from 'webpack'
+import {Asset, Compilation} from '@rspack/core'
 import {WebResourcesPlugin} from '..'
 
 type Manifest =

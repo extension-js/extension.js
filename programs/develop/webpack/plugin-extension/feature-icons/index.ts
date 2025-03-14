@@ -1,4 +1,4 @@
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {EmitFile} from './steps/emit-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {
@@ -29,7 +29,7 @@ export class IconsPlugin {
     this.includeList = options.includeList
     this.excludeList = options.excludeList
   }
-  public apply(compiler: webpack.Compiler): void {
+  public apply(compiler: Compiler): void {
     new EmitFile({
       manifestPath: this.manifestPath,
       includeList: this.includeList as FilepathList,

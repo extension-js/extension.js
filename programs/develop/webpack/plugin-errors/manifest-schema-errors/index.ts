@@ -1,5 +1,5 @@
 import fs from 'fs'
-import {type Compiler, type Compilation} from 'webpack'
+import {type Compiler, type Compilation} from '@rspack/core'
 import Ajv from 'ajv'
 import v3Schema from './lib/manifest.schema.v3.json'
 import {addCustomFormats} from './lib/custom-validators'

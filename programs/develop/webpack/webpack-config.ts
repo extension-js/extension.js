@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import type webpack from 'webpack'
+import {type Configuration} from '@rspack/core'
 import {DevOptions} from '../commands/commands-lib/config-types'
 
 // Plugins
@@ -27,7 +27,7 @@ export default function webpackConfig(
     preferences?: Record<string, string>
     browserFlags?: string[]
   }
-): webpack.Configuration {
+): Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
   const manifest = utils.filterKeysForThisBrowser(
     require(manifestPath),
@@ -54,15 +54,7 @@ export default function webpackConfig(
         ? 'cheap-source-map'
         : 'eval-cheap-source-map',
     output: {
-      clean: {
-        keep(asset) {
-          // Avoids deleting the hot-update files for the content scripts.
-          // This is a workaround for the issue described
-          // in https://github.com/cezaraugusto/extension.js/issues/35.
-          // These HMR assets are eventually deleted by CleanDistFolderPlugin when webpack starts.
-          return !asset.startsWith('hot/background')
-        }
-      },
+      clean: false,
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
@@ -88,7 +80,8 @@ export default function webpackConfig(
       ]
     },
     watchOptions: {
-      ignored: /node_modules|dist/
+      ignored: /node_modules|dist/,
+      aggregateTimeout: 300,
     },
     module: {
       rules: []
@@ -99,12 +92,16 @@ export default function webpackConfig(
         browser
       }),
       new StaticAssetsPlugin({
+        mode: devOptions.mode,
         manifestPath
       }),
       new CssPlugin({
         manifestPath
+        // TODO: cezaraugusto fix
+        // experimentalHotReload: devOptions.experimental?.hotReload
       }),
       new JsFrameworksPlugin({
+        mode: devOptions.mode,
         manifestPath
       }),
       process.env.EXPERIMENTAL_ERRORS_PLUGIN === 'true' &&
@@ -120,6 +117,8 @@ export default function webpackConfig(
       new ExtensionPlugin({
         manifestPath,
         browser
+        // TODO: cezaraugusto fix
+        // experimentalHotReload: devOptions.experimental?.hotReload
       }),
       new ReloadPlugin({
         manifestPath,
@@ -143,9 +142,8 @@ export default function webpackConfig(
       })
     ].filter(Boolean),
     stats: {
-      all: false,
-      errors: true,
-      warnings: true
+      colors: true,
+      errorDetails: true
     },
     infrastructureLogging: {
       level: 'none'
@@ -157,12 +155,14 @@ export default function webpackConfig(
     },
     optimization: {
       minimize: devOptions.mode === 'production'
+      // minimizer: [false],
+      // splitChunks: {
+      //   chunks: 'all'
+      // }
     },
     experiments: {
-      // Enable native CSS support. Note that it's an experimental feature still under development
-      // and will be enabled by default in webpack v6, however you can track the progress on GitHub
-      // here: https://github.com/webpack/webpack/issues/14893.
-      // css: devOptions.mode === 'production',
+      // Enable native CSS support by default
+      css: true,
       // Support the new WebAssembly according to the updated specification,
       // it makes a WebAssembly module an async module.
       asyncWebAssembly: true

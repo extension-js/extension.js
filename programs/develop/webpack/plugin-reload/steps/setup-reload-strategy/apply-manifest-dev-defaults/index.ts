@@ -1,5 +1,4 @@
-import type webpack from 'webpack'
-import {Compilation, sources} from 'webpack'
+import {Compilation, Compiler, sources} from '@rspack/core'
 import {patchV2CSP, patchV3CSP} from './patch-csp'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'
 import patchBackground from './patch-background'
@@ -17,7 +16,7 @@ export class ApplyManifestDevDefaults {
     this.browser = options.browser || 'chrome'
   }
 
-  private generateManifestPatches(compilation: webpack.Compilation) {
+  private generateManifestPatches(compilation: Compilation) {
     const manifest = utils.getManifestContent(compilation, this.manifestPath!)
 
     const patchedManifest = {
@@ -68,7 +67,7 @@ export class ApplyManifestDevDefaults {
     }
   }
 
-  apply(compiler: webpack.Compiler) {
+  apply(compiler: Compiler) {
     compiler.hooks.thisCompilation.tap(
       'run-chromium:apply-manifest-dev-defaults',
       (compilation) => {
@@ -83,9 +82,9 @@ export class ApplyManifestDevDefaults {
               const errorMessage =
                 'No manifest.json found in your extension bundle. Unable to patch manifest.json.'
 
-              if (!!compilation && !!compiler.webpack.WebpackError) {
+              if (!!compilation && !!compiler.rspack.WebpackError) {
                 compilation.errors.push(
-                  new compiler.webpack.WebpackError(
+                  new compiler.rspack.WebpackError(
                     `run-chromium: ${errorMessage}`
                   )
                 )
