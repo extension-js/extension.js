@@ -11,13 +11,13 @@ export class EmitManifest {
   }
 
   apply(compiler: Compiler): void {
-    compiler.hooks.compilation.tap(
+    compiler.hooks.thisCompilation.tap(
       'manifest:emit-manifest',
       (compilation: Compilation) => {
         compilation.hooks.processAssets.tap(
           {
             name: 'manifest:emit-manifest',
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+            stage: Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS
           },
           () => {
             const manifestPath = this.manifestPath
