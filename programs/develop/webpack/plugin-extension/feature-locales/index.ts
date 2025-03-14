@@ -1,7 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import webpack from 'webpack'
-import {sources, Compilation} from 'webpack'
+import rspack, {Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from '../../lib/messages'
 import * as utils from '../../lib/utils'
@@ -22,7 +21,7 @@ export class LocalesPlugin {
     this.excludeList = options.excludeList
   }
 
-  public apply(compiler: webpack.Compiler): void {
+  public apply(compiler: Compiler): void {
     // Add the locales to the compilation. This is important so other
     // plugins can get it via the compilation.assets object,
     // allowing them to modify it.
@@ -45,7 +44,7 @@ export class LocalesPlugin {
             const manifestName = patchedManifest.name || 'Extension.js'
 
             compilation.errors.push(
-              new webpack.WebpackError(
+              new rspack.WebpackError(
                 messages.manifestNotFoundError(manifestName, this.manifestPath)
               )
             )
@@ -69,7 +68,7 @@ export class LocalesPlugin {
 
               if (!fs.existsSync(thisResource)) {
                 compilation.warnings.push(
-                  new webpack.WebpackError(
+                  new rspack.WebpackError(
                     messages.entryNotFoundWarn(feature, thisResource)
                   )
                 )

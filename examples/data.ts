@@ -333,20 +333,20 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
   },
-  {
-    name: 'content-extension-config',
-    uiContext: ['content'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: true,
-    hasEnv: false,
-    configFiles: [
-      'extension.config.js',
-      'tsconfig.json',
-      'postcss.config.js',
-      'tailwind.config.js'
-    ]
-  },
+  // {
+  //   name: 'content-extension-config',
+  //   uiContext: ['content'],
+  //   uiFramework: 'react',
+  //   css: 'css',
+  //   hasBackground: true,
+  //   hasEnv: false,
+  //   configFiles: [
+  //     'extension.config.js',
+  //     'tsconfig.json',
+  //     'postcss.config.js',
+  //     'tailwind.config.js'
+  //   ]
+  // },
   {
     name: 'new-vue',
     uiContext: ['newTab'],

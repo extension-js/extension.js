@@ -67,7 +67,7 @@ export async function maybeUseSvelte(
       test: /\.svelte\.ts$/,
       use: [require.resolve('svelte-loader')],
       include: projectPath,
-      exclude: /node_modules/
+      exclude: [/[\\/]node_modules[\\/]/]
     },
     {
       test: /\.(svelte|svelte\.js)$/,
@@ -80,12 +80,12 @@ export async function maybeUseSvelte(
           }),
           emitCss: true,
           compilerOptions: {
-            dev: mode === 'development',
+            dev: mode === 'development'
           }
         }
       },
       include: projectPath,
-      exclude: /node_modules/
+      exclude: [/[\\/]node_modules[\\/]/]
     },
     {
       // Required to prevent errors from Svelte on Webpack 5+

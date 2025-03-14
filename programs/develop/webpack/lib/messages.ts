@@ -14,7 +14,7 @@ import {
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
-import {Stats} from 'webpack'
+import {Stats} from '@rspack/core'
 import {info} from 'console'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'

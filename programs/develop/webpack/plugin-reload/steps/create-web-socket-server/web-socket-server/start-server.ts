@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
 import WebSocket from 'ws'
-import {Compiler} from 'webpack'
+import {Compiler} from '@rspack/core'
 import * as messages from '../../../../lib/messages'
 import {type Manifest} from '../../../../webpack-types'
 import {getHardcodedMessage, isFirstRun} from '../../../../lib/utils'

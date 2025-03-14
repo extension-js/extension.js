@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
-import {Compiler} from 'webpack'
+import {Compiler} from '@rspack/core'
 import {getManifestFieldsData} from './data/manifest-fields'
 import {getSpecialFoldersData} from './data/special-folders'
 

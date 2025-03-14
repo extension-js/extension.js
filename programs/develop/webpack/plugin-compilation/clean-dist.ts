@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 
 export class CleanDistFolderPlugin {
   apply(compiler: Compiler): void {

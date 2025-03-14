@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'
 
 export function SetupChromiumReloadClient(
@@ -10,7 +10,7 @@ export function SetupChromiumReloadClient(
   compiler.options.module.rules.push({
     test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
     include: [path.dirname(manifestPath)],
-    exclude: /node_modules/,
+    exclude: [/[\\/]node_modules[\\/]/],
     use: [
       {
         loader: path.resolve(__dirname, './inject-chromium-client-loader'),

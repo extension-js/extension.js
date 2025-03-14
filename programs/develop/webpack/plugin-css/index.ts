@@ -1,10 +1,9 @@
 import path from 'path'
-import {
-  type WebpackPluginInstance,
+import rspack, {
+  type RspackPluginInstance,
   type Compiler,
   type RuleSetRule
-} from 'webpack'
-import MiniCssExtractPlugin from 'mini-css-extract-plugin'
+} from '@rspack/core'
 import {commonStyleLoaders} from './common-style-loaders'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
@@ -24,7 +23,9 @@ export class CssPlugin {
     const mode = compiler.options.mode || 'development'
     const projectPath = path.dirname(this.manifestPath)
 
-    const plugins: WebpackPluginInstance[] = [new MiniCssExtractPlugin()]
+    const plugins: RspackPluginInstance[] = [
+      new rspack.CssExtractRspackPlugin()
+    ]
 
     plugins.forEach((plugin) => plugin.apply(compiler))
 
@@ -38,6 +39,7 @@ export class CssPlugin {
         oneOf: [
           {
             resourceQuery: /inline_style/,
+            type: 'javascript/auto',
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
               useMiniCssExtractPlugin: false,
@@ -45,19 +47,17 @@ export class CssPlugin {
             })
           },
           {
-            use: await commonStyleLoaders(projectPath, {
-              mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: mode === 'production',
-              useShadowDom: false
-            })
+            type: 'css/auto'
           }
         ]
       },
       {
         test: /\.module\.css$/,
+        type: 'css/auto',
         oneOf: [
           {
             resourceQuery: /inline_style/,
+            type: 'javascript/auto',
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
               useMiniCssExtractPlugin: false,
@@ -65,11 +65,7 @@ export class CssPlugin {
             })
           },
           {
-            use: await commonStyleLoaders(projectPath, {
-              mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: mode === 'production',
-              useShadowDom: false
-            })
+            type: 'css/auto'
           }
         ]
       }

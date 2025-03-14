@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {Configuration} from 'webpack'
+import {Configuration} from '@rspack/core'
 import {BrowserConfig, FileConfig} from './config-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import * as messages from './messages'

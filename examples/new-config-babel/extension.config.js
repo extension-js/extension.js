@@ -7,7 +7,7 @@ module.exports = {
       {
         test: /\.(js|mjs|jsx|ts|tsx)$/,
         include: __dirname,
-        exclude: /node_modules/,
+        exclude: [/[\\/]node_modules[\\/]/],
         loader: require.resolve('babel-loader')
       }
     )

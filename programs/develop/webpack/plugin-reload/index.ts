@@ -1,4 +1,4 @@
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './reload-types'
 import CreateWebSocketServer from './steps/create-web-socket-server'
 import SetupReloadStrategy from './steps/setup-reload-strategy'
@@ -21,7 +21,7 @@ export class ReloadPlugin {
     this.autoReload = options.autoReload
   }
 
-  apply(compiler: webpack.Compiler) {
+  apply(compiler: Compiler) {
     // 1 - Creates a WebSockets server to communicate with the browser.
     // This server is responsible for sending reload requests to the client,
     // which is a browser extension that is injected into the browser called

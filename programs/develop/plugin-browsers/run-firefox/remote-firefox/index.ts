@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {MessagingClient} from './messaging-client'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import {type PluginInterface} from '../../browsers-types'

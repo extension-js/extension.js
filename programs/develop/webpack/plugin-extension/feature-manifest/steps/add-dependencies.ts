@@ -1,5 +1,5 @@
 import fs from 'fs'
-import type webpack from 'webpack'
+import {type Compiler} from '@rspack/core'
 
 export class AddDependencies {
   private readonly dependencyList: string[]
@@ -8,9 +8,9 @@ export class AddDependencies {
     this.dependencyList = dependencyList
   }
 
-  apply(compiler: webpack.Compiler): void {
+  apply(compiler: Compiler): void {
     compiler.hooks.afterCompile.tap(
-      'ManifestPlugin (AddDependenciesPlugin)',
+      'manifest:add-dependency',
       (compilation) => {
         if (compilation.errors?.length) return
 

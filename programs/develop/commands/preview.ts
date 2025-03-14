@@ -7,7 +7,7 @@
 
 import fs from 'fs'
 import path from 'path'
-import webpack from 'webpack'
+import {rspack, type Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import webpackConfig from '../webpack/webpack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
@@ -33,7 +33,7 @@ export async function extensionPreview(
 
   try {
     const browser = previewOptions.browser || 'chrome'
-    const baseConfig = webpackConfig(projectPath, {
+    const baseConfig: Configuration = webpackConfig(projectPath, {
       mode: 'production',
       profile: previewOptions.profile,
       browser,
@@ -54,7 +54,7 @@ export async function extensionPreview(
       plugins: onlyBrowserRunners
     })
     const compilerConfig = merge(userConfig)
-    const compiler = webpack(compilerConfig)
+    const compiler = rspack(compilerConfig)
 
     compiler.run(async (err, stats) => {
       if (err) {

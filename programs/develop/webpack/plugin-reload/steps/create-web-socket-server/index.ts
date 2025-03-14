@@ -1,5 +1,5 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../../reload-types'
 import {messageDispatcher} from './web-socket-server/message-dispatcher'
 import {startServer} from './web-socket-server/start-server'

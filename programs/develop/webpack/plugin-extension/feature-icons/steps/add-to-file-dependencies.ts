@@ -1,5 +1,5 @@
 import fs from 'fs'
-import {type Compiler, Compilation} from 'webpack'
+import {type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 
 export class AddToFileDependencies {

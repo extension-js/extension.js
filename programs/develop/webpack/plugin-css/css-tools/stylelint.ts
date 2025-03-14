@@ -7,7 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
-import {type WebpackPluginInstance} from 'webpack'
+import {type RspackPluginInstance} from '@rspack/core'
 import * as messages from '../../lib/messages'
 
 export function getStylelintConfigFile(projectPath: string) {
@@ -62,7 +62,7 @@ export function isUsingStylelint(projectPath: string) {
 
 export async function maybeUseStylelint(
   projectPath: string
-): Promise<WebpackPluginInstance[]> {
+): Promise<RspackPluginInstance[]> {
   isUsingStylelint(projectPath)
 
   return []

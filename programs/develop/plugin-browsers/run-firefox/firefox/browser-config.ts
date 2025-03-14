@@ -1,4 +1,4 @@
-import {Compiler} from 'webpack'
+import {Compiler} from '@rspack/core'
 import {createProfile} from './create-profile'
 import {
   type DevOptions,

@@ -1,7 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import type webpack from 'webpack'
-import {sources, Compilation} from 'webpack'
+import {Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as utils from '../../../lib/utils'
 
@@ -16,7 +15,7 @@ export class EmitFile {
     this.excludeList = options.excludeList
   }
 
-  public apply(compiler: webpack.Compiler): void {
+  public apply(compiler: Compiler): void {
     compiler.hooks.thisCompilation.tap('icons:emit-file', (compilation) => {
       compilation.hooks.processAssets.tap(
         {

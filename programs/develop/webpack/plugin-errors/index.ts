@@ -5,7 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import {Compiler} from 'webpack'
+import {Compiler} from '@rspack/core'
 import {type PluginInterface} from '../webpack-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import {ManifestRuntimeErrorsPlugin} from './manifest-runtime-errors'

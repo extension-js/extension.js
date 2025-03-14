@@ -1,23 +1,24 @@
 import path from 'path'
-import {type Compiler} from 'webpack'
+import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
-import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
 import {maybeUseBabel} from './js-tools/babel'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
 import {isUsingTypeScript} from './js-tools/typescript'
 import {maybeUseSvelte} from './js-tools/svelte'
+import {type DevOptions} from '../../commands/commands-lib/config-types'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
 
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'
-
   public readonly manifestPath: string
+  public readonly mode: DevOptions['mode']
 
-  constructor(options: PluginInterface) {
+  constructor(options: PluginInterface & {mode: DevOptions['mode']}) {
     this.manifestPath = options.manifestPath
+    this.mode = options.mode
   }
 
   private async configureOptions(compiler: Compiler) {
@@ -43,9 +44,9 @@ export class JsFrameworksPlugin {
       {
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: [path.dirname(this.manifestPath)],
-        exclude: /node_modules/,
+        exclude: [/[\\/]node_modules[\\/]/],
         use: {
-          loader: require.resolve('swc-loader'),
+          loader: 'builtin:swc-loader',
           options: {
             sync: true,
             module: {
@@ -53,6 +54,7 @@ export class JsFrameworksPlugin {
             },
             minify: mode === 'production',
             isModule: true,
+            sourceMap: this.mode === 'development',
             jsc: {
               target: 'es2016',
               parser: {
@@ -72,7 +74,15 @@ export class JsFrameworksPlugin {
                   development: mode === 'development',
                   refresh: mode === 'development',
                   runtime: 'automatic',
-                  importSource: 'react'
+                  importSource: 'react',
+                  ...(isUsingPreact(projectPath)
+                    ? {
+                        pragma: 'h',
+                        pragmaFrag: 'Fragment',
+                        throwIfNamespace: true,
+                        useBuiltins: false
+                      }
+                    : {})
                 }
               }
             }
@@ -93,14 +103,12 @@ export class JsFrameworksPlugin {
     maybeInstallSvelte?.plugins?.forEach((plugin) => plugin.apply(compiler))
 
     if (isUsingTypeScript(projectPath)) {
-      compiler.options.resolve.plugins = [
-        new TsconfigPathsPlugin({
-          configFile: path.resolve(
-            path.dirname(this.manifestPath),
-            'tsconfig.json'
-          )
-        })
-      ]
+      compiler.options.resolve.tsConfig = {
+        configFile: path.resolve(
+          path.dirname(this.manifestPath),
+          'tsconfig.json'
+        )
+      }
     }
   }
 

@@ -7,7 +7,7 @@
 
 import fs from 'fs'
 import path from 'path'
-import webpack from 'webpack'
+import {rspack, Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import webpackConfig from '../webpack/webpack-config'
 import {getProjectPath} from './commands-lib/get-project-path'
@@ -34,7 +34,7 @@ export async function extensionBuild(
 
   try {
     const browser = buildOptions?.browser || 'chrome'
-    const baseConfig = webpackConfig(projectPath, {
+    const baseConfig: Configuration = webpackConfig(projectPath, {
       ...buildOptions,
       browser,
       mode: 'production'
@@ -54,7 +54,7 @@ export async function extensionBuild(
     })
 
     const compilerConfig = merge(userConfig)
-    const compiler = webpack(compilerConfig)
+    const compiler = rspack(compilerConfig)
 
     await new Promise<void>((resolve, reject) => {
       compiler.run(async (err, stats) => {

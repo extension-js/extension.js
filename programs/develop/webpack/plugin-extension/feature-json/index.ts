@@ -1,6 +1,5 @@
 import fs from 'fs'
-import webpack from 'webpack'
-import {sources, Compilation} from 'webpack'
+import rspack, {Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as utils from '../../lib/utils'
 import * as messages from '../../lib/messages'
@@ -25,7 +24,7 @@ export class JsonPlugin {
     this.excludeList = options.excludeList
   }
 
-  public apply(compiler: webpack.Compiler): void {
+  public apply(compiler: Compiler): void {
     // Add the JSON to the compilation. This is important so other
     // plugins can get it via the compilation.assets object,
     // allowing them to modify it.
@@ -59,7 +58,7 @@ export class JsonPlugin {
                 if (!utils.shouldExclude(thisResource, this.excludeList)) {
                   if (!fs.existsSync(thisResource)) {
                     compilation.warnings.push(
-                      new webpack.WebpackError(
+                      new rspack.WebpackError(
                         messages.entryNotFoundWarn(feature, thisResource)
                       )
                     )

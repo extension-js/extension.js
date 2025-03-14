@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import {type Compilation} from 'webpack'
+import {type Compilation} from '@rspack/core'
 import {execSync} from 'child_process'
 import {detect} from 'package-manager-detector'
 import * as messages from './messages'

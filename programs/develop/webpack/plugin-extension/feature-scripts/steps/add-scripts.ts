@@ -1,4 +1,4 @@
-import type webpack from 'webpack'
+import {type Compiler, type EntryObject} from '@rspack/core'
 
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
@@ -14,10 +14,10 @@ export class AddScripts {
     this.excludeList = options.excludeList || {}
   }
 
-  public apply(compiler: webpack.Compiler): void {
+  public apply(compiler: Compiler): void {
     const scriptFields = this.includeList || {}
 
-    const newEntries: Record<string, webpack.EntryObject> = {}
+    const newEntries: Record<string, EntryObject> = {}
 
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       const scriptImports = getScriptEntries(scriptPath, this.excludeList)

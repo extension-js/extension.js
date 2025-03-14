@@ -1,6 +1,6 @@
 import fs from 'fs'
 import path from 'path'
-import {Compilation} from 'webpack'
+import {Compilation} from '@rspack/core'
 import * as utils from '../utils'
 import {Manifest, FilepathList} from '../../webpack-types'
 
