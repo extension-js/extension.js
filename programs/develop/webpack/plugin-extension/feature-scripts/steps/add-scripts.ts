@@ -22,16 +22,7 @@ export class AddScripts {
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       const scriptImports = getScriptEntries(scriptPath, this.excludeList)
       const cssImports = getCssEntries(scriptPath, this.excludeList)
-      const entryImports = [...scriptImports]
-
-      // During development, we extract the content_scripts css files from
-      // content_scripts and inject them as dynamic imports
-      // so we can benefit from HMR.
-      // In production we don't need that, so we add the files to the entry points
-      // along with other content_script files.
-      if (compiler.options.mode === 'production') {
-        entryImports.push(...cssImports)
-      }
+      const entryImports = [...scriptImports, ...cssImports]
 
       if (cssImports.length || scriptImports.length) {
         newEntries[feature] = {import: entryImports}
