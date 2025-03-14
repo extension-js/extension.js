@@ -1,6 +1,5 @@
 import path from 'path'
 import fs from 'fs'
-import {commonStyleLoaders} from '../common-style-loaders'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {DevOptions} from '../../../commands/commands-lib/config-types'
@@ -54,7 +53,12 @@ export async function maybeUseSass(
 
     await installOptionalDependencies('PostCSS', postCssDependencies)
 
-    const sassDependencies = ['sass', 'sass-loader', 'resolve-url-loader']
+    const sassDependencies = [
+      'sass',
+      'sass-loader',
+      'sass-embedded',
+      'resolve-url-loader'
+    ]
 
     await installOptionalDependencies('SASS', sassDependencies)
 
@@ -66,57 +70,20 @@ export async function maybeUseSass(
 
   return [
     {
-      test: /\.(s(a|c)ss)$/,
-      exclude: /\.module\.(s(a|c)ss)$/,
-      oneOf: [
+      test: /\.(sass|scss)$/,
+      use: [
         {
-          resourceQuery: /inline_style/,
-          use: await commonStyleLoaders(projectPath, {
-            loader: 'sass-loader',
-            mode,
-            useMiniCssExtractPlugin: false,
-            useShadowDom: true
-          })
-        },
-        {
-          use: await commonStyleLoaders(projectPath, {
-            loader: 'sass-loader',
-            mode,
-            useMiniCssExtractPlugin: mode === 'production',
-            useShadowDom: false
-          })
+          loader: 'sass-loader',
+          options: {
+            // using `modern-compiler` and `sass-embedded` together
+            // significantly improve build performance,
+            // requires `sass-loader >= 14.2.1`
+            api: 'modern-compiler',
+            implementation: require.resolve('sass-embedded')
+          }
         }
-      ]
-    },
-    {
-      test: /\.module\.(s(a|c)ss)$/,
-      type: 'css/auto',
-      oneOf: [
-        {
-          resourceQuery: /inline_style/,
-          use: await commonStyleLoaders(projectPath, {
-            loader: 'sass-loader',
-            loaderOptions: {
-              // using `modern-compiler` and `sass-embedded` together
-              // significantly improve build performance,
-              // requires `sass-loader >= 14.2.1`
-              api: 'modern-compiler',
-              implementation: require.resolve('sass-embedded')
-            },
-            mode,
-            useMiniCssExtractPlugin: false,
-            useShadowDom: true
-          })
-        },
-        {
-          use: await commonStyleLoaders(projectPath, {
-            loader: 'sass-loader',
-            mode,
-            useMiniCssExtractPlugin: true,
-            useShadowDom: false
-          })
-        }
-      ]
+      ],
+      type: 'css/auto'
     }
   ]
 }

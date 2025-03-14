@@ -81,10 +81,17 @@ export default function webpackConfig(
     },
     watchOptions: {
       ignored: /node_modules|dist/,
-      aggregateTimeout: 300,
     },
     module: {
-      rules: []
+      rules: [],
+      // This allows you, when using CSS Modules, to import the entire style module
+      // by default import, in addition to namespace imports and named imports.
+      // See https://rspack.dev/guide/tech/css#css-modules
+      parser: {
+        'css/auto': {
+          namedExports: false
+        }
+      }
     },
     plugins: [
       new CompilationPlugin({
