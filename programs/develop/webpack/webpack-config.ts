@@ -80,7 +80,8 @@ export default function webpackConfig(
       ]
     },
     watchOptions: {
-      ignored: /node_modules|dist/
+      ignored: /node_modules|dist/,
+      aggregateTimeout: 300,
     },
     module: {
       rules: []
@@ -141,9 +142,8 @@ export default function webpackConfig(
       })
     ].filter(Boolean),
     stats: {
-      all: false,
-      errors: true,
-      warnings: true
+      colors: true,
+      errorDetails: true
     },
     infrastructureLogging: {
       level: 'none'
@@ -164,8 +164,6 @@ export default function webpackConfig(
       // Enable native CSS support. Note that it's an experimental feature still under development
       // and will be enabled by default in webpack v6, however you can track the progress on GitHub
       // here: https://github.com/webpack/webpack/issues/14893.
-      css: devOptions.mode === 'production',
-      // TODO: cezaraugusto fix
       // css: devOptions.experimental?.hotReload
       //   ? true
       //   : devOptions.mode === 'production',
