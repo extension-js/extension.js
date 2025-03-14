@@ -36,10 +36,10 @@ export class CssPlugin {
       {
         test: /\.css$/,
         exclude: /\.module\.css$/,
-        type: 'css',
         oneOf: [
           {
             resourceQuery: /inline_style/,
+            type: 'javascript/auto',
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
               useMiniCssExtractPlugin: false,
@@ -47,11 +47,7 @@ export class CssPlugin {
             })
           },
           {
-            use: await commonStyleLoaders(projectPath, {
-              mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: mode === 'production',
-              useShadowDom: false
-            })
+            type: 'css/auto'
           }
         ]
       },
@@ -61,6 +57,7 @@ export class CssPlugin {
         oneOf: [
           {
             resourceQuery: /inline_style/,
+            type: 'javascript/auto',
             use: await commonStyleLoaders(projectPath, {
               mode: mode as 'development' | 'production',
               useMiniCssExtractPlugin: false,
@@ -68,11 +65,7 @@ export class CssPlugin {
             })
           },
           {
-            use: await commonStyleLoaders(projectPath, {
-              mode: mode as 'development' | 'production',
-              useMiniCssExtractPlugin: mode === 'production',
-              useShadowDom: false
-            })
+            type: 'css/auto'
           }
         ]
       }
