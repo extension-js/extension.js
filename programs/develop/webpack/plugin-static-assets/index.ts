@@ -81,10 +81,10 @@ export class StaticAssetsPlugin {
       }
     ]
 
-    // Combine user rules with default rules
+    // Ensure rules are properly merged and filtered
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
       ...loaders
-    ].filter(Boolean)
+    ].filter((rule): rule is RuleSetRule => Boolean(rule))
   }
 }
