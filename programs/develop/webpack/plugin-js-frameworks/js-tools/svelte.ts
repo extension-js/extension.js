@@ -67,7 +67,7 @@ export async function maybeUseSvelte(
       test: /\.svelte\.ts$/,
       use: [require.resolve('svelte-loader')],
       include: projectPath,
-      exclude: [/[\\/]node_modules[\\/]/]
+      exclude: /node_modules/
     },
     {
       test: /\.(svelte|svelte\.js)$/,
@@ -75,17 +75,18 @@ export async function maybeUseSvelte(
         loader: require.resolve('svelte-loader'),
         options: {
           preprocess: sveltePreprocess({
-            typescript: true,
-            postcss: true
+            typescript: true
           }),
           emitCss: true,
           compilerOptions: {
-            dev: mode === 'development'
-          }
+            dev: mode === 'development',
+            css: 'injected'
+          },
+          hotReload: mode === 'development'
         }
       },
       include: projectPath,
-      exclude: [/[\\/]node_modules[\\/]/]
+      exclude: /node_modules/
     },
     {
       // Required to prevent errors from Svelte on Webpack 5+
