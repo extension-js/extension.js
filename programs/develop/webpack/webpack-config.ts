@@ -157,7 +157,7 @@ export default function webpackConfig(
       maxEntrypointSize: 999000
     },
     optimization: {
-      minimize: devOptions.mode === 'production',
+      minimize: devOptions.mode === 'production'
     },
     experiments: {
       // Enable native CSS support by default

@@ -34,10 +34,7 @@ export function isUsingSass(projectPath: string): boolean {
 
 type Loader = Record<string, any>
 
-export async function maybeUseSass(
-  projectPath: string,
-  mode: DevOptions['mode']
-): Promise<Loader[]> {
+export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
   if (!isUsingSass(projectPath)) return []
 
   try {
@@ -73,7 +70,7 @@ export async function maybeUseSass(
       test: /\.(sass|scss)$/,
       use: [
         {
-          loader: 'sass-loader',
+          loader: require.resolve('sass-loader'),
           options: {
             // using `modern-compiler` and `sass-embedded` together
             // significantly improve build performance,
