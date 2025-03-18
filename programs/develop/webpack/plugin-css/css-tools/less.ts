@@ -2,7 +2,6 @@ import path from 'path'
 import fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
-import {DevOptions} from '../../../commands/commands-lib/config-types'
 
 let userMessageDelivered = false
 
