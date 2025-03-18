@@ -34,10 +34,7 @@ export function isUsingLess(projectPath: string): boolean {
 
 type Loader = Record<string, any>
 
-export async function maybeUseLess(
-  projectPath: string,
-  mode: DevOptions['mode']
-): Promise<Loader[]> {
+export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
   if (!isUsingLess(projectPath)) return []
 
   try {
@@ -58,7 +55,7 @@ export async function maybeUseLess(
       test: /\.less$/,
       use: [
         {
-          loader: 'less-loader'
+          loader: require.resolve('less-loader')
         }
       ],
       type: 'css/auto'
