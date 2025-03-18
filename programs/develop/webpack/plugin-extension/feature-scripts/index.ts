@@ -82,5 +82,24 @@ export class ScriptsPlugin {
       includeList: this.includeList || {},
       excludeList: this.excludeList || {}
     }).apply(compiler)
+
+    // 5 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__
+    compiler.options.module.rules.push({
+      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      include: [path.dirname(this.manifestPath)],
+      exclude: [/[\\/]node_modules[\\/]/],
+      use: [
+        {
+          loader: require.resolve(
+            path.join(__dirname, 'deprecated-shadow-root.js')
+          ),
+          options: {
+            manifestPath: this.manifestPath,
+            includeList: this.includeList || {},
+            excludeList: this.excludeList || {}
+          }
+        }
+      ]
+    })
   }
 }

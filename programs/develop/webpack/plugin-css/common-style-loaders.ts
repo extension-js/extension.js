@@ -1,4 +1,4 @@
-import rspack, {type RuleSetRule} from '@rspack/core'
+import {type RuleSetRule} from '@rspack/core'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import {isUsingTailwind} from './css-tools/tailwind'
 import {isUsingSass} from './css-tools/sass'

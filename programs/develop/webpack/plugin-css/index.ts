@@ -38,10 +38,6 @@ export class CssPlugin {
         use: await commonStyleLoaders(projectPath, {
           mode: mode as 'development' | 'production'
         })
-      },
-      {
-        test: /\.css$/,
-        type: 'asset'
       }
     ]
 
