@@ -45,14 +45,8 @@ export class CssPlugin {
       Boolean
     )
 
-    const maybeInstallSass = await maybeUseSass(
-      projectPath,
-      mode as 'development' | 'production'
-    )
-    const maybeInstallLess = await maybeUseLess(
-      projectPath,
-      mode as 'development' | 'production'
-    )
+    const maybeInstallSass = await maybeUseSass(projectPath)
+    const maybeInstallLess = await maybeUseLess(projectPath)
     loaders.push(...maybeInstallSass)
     loaders.push(...maybeInstallLess)
 
