@@ -1,5 +1,7 @@
 import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
+import {injectStyles} from './scripts-shell'
+// import './styles.css?inline_style'
 import './styles.css?inline_style'
 
 if (document.readyState === 'complete') {
@@ -10,7 +12,9 @@ if (document.readyState === 'complete') {
   })
 }
 
-function initial() {
+injectStyles()
+
+export default function initial() {
   // Create a new div element and append it to the document's body
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
@@ -30,4 +34,9 @@ function initial() {
       <ContentApp />
     </div>
   )
+
+  return () => {
+    root.unmount()
+    // shadowRoot.remove()
+  }
 }

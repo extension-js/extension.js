@@ -80,7 +80,7 @@ export default function webpackConfig(
       ]
     },
     watchOptions: {
-      ignored: /node_modules|dist/,
+      ignored: /node_modules|dist/
     },
     module: {
       rules: [],
@@ -104,8 +104,6 @@ export default function webpackConfig(
       }),
       new CssPlugin({
         manifestPath
-        // TODO: cezaraugusto fix
-        // experimentalHotReload: devOptions.experimental?.hotReload
       }),
       new JsFrameworksPlugin({
         mode: devOptions.mode,
@@ -124,8 +122,6 @@ export default function webpackConfig(
       new ExtensionPlugin({
         manifestPath,
         browser
-        // TODO: cezaraugusto fix
-        // experimentalHotReload: devOptions.experimental?.hotReload
       }),
       new ReloadPlugin({
         manifestPath,
@@ -161,11 +157,7 @@ export default function webpackConfig(
       maxEntrypointSize: 999000
     },
     optimization: {
-      minimize: devOptions.mode === 'production'
-      // minimizer: [false],
-      // splitChunks: {
-      //   chunks: 'all'
-      // }
+      minimize: devOptions.mode === 'production',
     },
     experiments: {
       // Enable native CSS support by default
