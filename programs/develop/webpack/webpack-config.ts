@@ -149,8 +149,9 @@ export default function webpackConfig(
       })
     ].filter(Boolean),
     stats: {
-      colors: true,
-      errorDetails: true
+      all: false,
+      errors: true,
+      warnings: true
     },
     infrastructureLogging: {
       level: 'none'
