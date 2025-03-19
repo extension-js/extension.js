@@ -22,24 +22,32 @@ export function contentScripts(manifest: Manifest, excludeList: FilepathList) {
 
           return {
             ...contentObj,
-            js: [
-              ...contentJs.map((js: string) => {
-                return getFilename(
-                  `content_scripts/content-${index}.js`,
-                  js,
-                  excludeList
-                )
-              })
-            ],
-            css: [
-              ...contentCss.map((css: string) => {
-                return getFilename(
-                  `content_scripts/content-${index}.css`,
-                  css,
-                  excludeList
-                )
-              })
-            ]
+            ...(contentJs.length
+              ? {
+                  js: [
+                    ...contentJs.map((js: string) => {
+                      return getFilename(
+                        `content_scripts/content-${index}.js`,
+                        js,
+                        excludeList
+                      )
+                    })
+                  ]
+                }
+              : {}),
+            ...(contentCss.length
+              ? {
+                  css: [
+                    ...contentCss.map((css: string) => {
+                      return getFilename(
+                        `content_scripts/content-${index}.css`,
+                        css,
+                        excludeList
+                      )
+                    })
+                  ]
+                }
+              : {})
           }
         }
       )
