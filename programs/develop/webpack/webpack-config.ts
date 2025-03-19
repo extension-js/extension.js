@@ -26,6 +26,10 @@ export default function webpackConfig(
   devOptions: DevOptions & {
     preferences?: Record<string, string>
     browserFlags?: string[]
+  } & {
+    output: {
+      clean: boolean
+    }
   }
 ): Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
@@ -54,7 +58,7 @@ export default function webpackConfig(
         ? 'cheap-source-map'
         : 'eval-cheap-source-map',
     output: {
-      clean: false,
+      clean: devOptions.output?.clean,
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
