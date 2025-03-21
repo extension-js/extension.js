@@ -14,7 +14,7 @@ import {cleanMatches} from './clean-matches'
  * Feature supported:
  *
  * - web_accessible_resources paths in the manifest.json file.
- * - Assets imported from content_scripts files.
+ * - Assets imported from content_scripts files (including CSS files)
  */
 export class WebResourcesPlugin {
   public readonly manifestPath: string
@@ -38,6 +38,21 @@ export class WebResourcesPlugin {
     const webAccessibleResourcesV2: string[] =
       manifest.web_accessible_resources || []
 
+    if (compilation.options.mode === 'production') {
+      // Add content/* for CSS files if content scripts exist
+      if (manifest.content_scripts && manifest.content_scripts.length > 0) {
+        if (manifest.manifest_version === 3) {
+          const contentWildcard = {
+            resources: ['content_scripts/*'],
+            matches: ['<all_urls>']
+          }
+          webAccessibleResourcesV3.push(contentWildcard)
+        } else {
+          webAccessibleResourcesV2.push('content_scripts/*')
+        }
+      }
+    }
+
     for (const [entryName, resources] of Object.entries(entryImports)) {
       const contentScript = manifest.content_scripts?.find((script) =>
         script.js?.some((jsFile: string) => jsFile.includes(entryName))
@@ -46,12 +61,9 @@ export class WebResourcesPlugin {
       if (contentScript) {
         const matches = contentScript.matches || []
 
-        // No need to add the output .css and .js to web_accessible_resources
+        // Filter out source maps and JS files, but keep CSS files
         const filteredResources = resources.filter(
-          (resource) =>
-            !resource.endsWith('.map') &&
-            !resource.endsWith('.css') &&
-            !resource.endsWith('.js')
+          (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
         )
 
         if (filteredResources.length === 0) {
@@ -73,7 +85,7 @@ export class WebResourcesPlugin {
           } else {
             webAccessibleResourcesV3.push({
               resources: filteredResources,
-              matches: cleanMatches(matches) // Clean matches to conform to the spec
+              matches: cleanMatches(matches)
             })
           }
         } else {
@@ -92,18 +104,12 @@ export class WebResourcesPlugin {
         manifest.web_accessible_resources =
           webAccessibleResourcesV3 as Manifest['web_accessible_resources']
       }
-      // else {
-      //   // Do nothing
-      // }
     } else {
       if (webAccessibleResourcesV2.length > 0) {
         manifest.web_accessible_resources = Array.from(
           new Set(webAccessibleResourcesV2)
         ) as Manifest['web_accessible_resources']
       }
-      // else {
-      //   // Do nothing
-      // }
     }
 
     const source = JSON.stringify(manifest, null, 2)
