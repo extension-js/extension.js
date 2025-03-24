@@ -2,7 +2,7 @@ import path from 'path'
 import {execSync} from 'child_process'
 import {extensionFixtures, getShadowRootElement} from '../extension-fixtures'
 
-const exampleDir = 'examples/content-svelte'
+const exampleDir = 'examples-v2/svelte'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
