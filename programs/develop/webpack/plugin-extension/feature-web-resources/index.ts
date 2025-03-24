@@ -38,18 +38,15 @@ export class WebResourcesPlugin {
     const webAccessibleResourcesV2: string[] =
       manifest.web_accessible_resources || []
 
-    if (compilation.options.mode === 'production') {
-      // Add content/* for CSS files if content scripts exist
-      if (manifest.content_scripts && manifest.content_scripts.length > 0) {
-        if (manifest.manifest_version === 3) {
-          const contentWildcard = {
-            resources: ['content_scripts/*'],
-            matches: ['<all_urls>']
-          }
-          webAccessibleResourcesV3.push(contentWildcard)
-        } else {
-          webAccessibleResourcesV2.push('content_scripts/*')
+    if (manifest.content_scripts && manifest.content_scripts.length > 0) {
+      if (manifest.manifest_version === 3) {
+        const contentWildcard = {
+          resources: ['content_scripts/*'],
+          matches: ['<all_urls>']
         }
+        webAccessibleResourcesV3.push(contentWildcard)
+      } else {
+        webAccessibleResourcesV2.push('content_scripts/*')
       }
     }
 

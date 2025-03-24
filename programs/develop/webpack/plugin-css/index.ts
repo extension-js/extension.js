@@ -9,6 +9,7 @@ import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
+import {getContentScriptLoader} from './content-script-style-loader'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -38,7 +39,8 @@ export class CssPlugin {
         use: await commonStyleLoaders(projectPath, {
           mode: mode as 'development' | 'production'
         })
-      }
+      },
+      getContentScriptLoader()
     ]
 
     compiler.options.plugins = [...compiler.options.plugins, ...plugins].filter(
