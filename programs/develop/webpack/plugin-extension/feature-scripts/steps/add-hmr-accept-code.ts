@@ -43,6 +43,9 @@ const schema: Schema = {
     },
     manifestPath: {
       type: 'string'
+    },
+    mode: {
+      type: 'string'
     }
   }
 }
@@ -58,12 +61,10 @@ export default function (this: LoaderContext, source: string) {
     baseDataPath: 'options'
   })
 
-  // @ts-expect-error this is not typed
-  if (this._compilation?.options.mode === 'production') return source
-
   const url = urlToRequest(this.resourcePath)
   const reloadCode = `
-if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
+// TODO: cezaraugusto re-visit this
+// if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
   `
 
   // 1 - Handle background.scripts.
