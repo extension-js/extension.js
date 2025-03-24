@@ -87,7 +87,7 @@ export async function getShadowRootElement(
   innerSelector: string
 ): Promise<ElementHandle<HTMLElement> | null> {
   // Wait for shadow host to be present first
-  await page.waitForSelector(shadowHostSelector, { timeout: 5000 })
+  await page.waitForSelector(shadowHostSelector, { timeout: 15000 })
 
   // Get the shadow host element
   const shadowHost = await page.$(shadowHostSelector)
