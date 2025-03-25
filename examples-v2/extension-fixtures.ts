@@ -14,7 +14,7 @@ export const extensionFixtures = (
     context: BrowserContext
     extensionId: string
   }>({
-    context: async ({ }, use) => {
+    context: async ({}, use) => {
       const context = await chromium.launchPersistentContext('', {
         headless: false,
         args: [
@@ -51,7 +51,7 @@ export const extensionFixtures = (
       await use(context)
       await context.close()
     },
-    extensionId: async ({ context }, use) => {
+    extensionId: async ({context}, use) => {
       /*
       // for manifest v2:
       let [background] = context.backgroundPages()
@@ -71,7 +71,7 @@ export const extensionFixtures = (
 
 // Screenshot function
 export async function takeScreenshot(page: any, screenshotPath: string) {
-  await page.screenshot({ path: screenshotPath })
+  await page.screenshot({path: screenshotPath})
 }
 
 /**
@@ -87,7 +87,7 @@ export async function getShadowRootElement(
   innerSelector: string
 ): Promise<ElementHandle<HTMLElement> | null> {
   // Wait for shadow host to be present first
-  await page.waitForSelector(shadowHostSelector, { timeout: 15000 })
+  await page.waitForSelector(shadowHostSelector, {timeout: 15000})
 
   // Get the shadow host element
   const shadowHost = await page.$(shadowHostSelector)
@@ -101,7 +101,10 @@ export async function getShadowRootElement(
   if (!shadowRoot) return null
 
   // Find element within shadow root
-  const element = await page.evaluateHandle((root) => root?.querySelector(innerSelector), shadowRoot)
+  const element = await page.evaluateHandle(
+    (root) => root?.querySelector(innerSelector),
+    shadowRoot
+  )
 
   return element.asElement() as ElementHandle<HTMLElement> | null
 }

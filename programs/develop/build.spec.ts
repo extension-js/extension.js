@@ -57,7 +57,22 @@ function distFileExists(
 }
 
 describe('extension build', () => {
+  afterAll(async () => {
+    // Clean up any mocks
+    jest.clearAllMocks()
+    // Clean up any remaining test artifacts
+    await removeAllTemplateDistFolders()
+    // Clear all timers
+    jest.useRealTimers()
+    // Clear any hanging handles
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    // Force garbage collection if available
+    if (global.gc) global.gc()
+  }, 30000)
+
   beforeEach(async () => {
+    // Reset timers before each test
+    jest.useRealTimers()
     await removeAllTemplateDistFolders()
   }, 30000)
 
@@ -75,73 +90,74 @@ describe('extension build', () => {
 
         const postCssConfig = path.join(templatePath, 'postcss.config.js')
 
-        // Dynamically mock the postcss.config.js file if it exists.
-        // Since the file is dynamically imported in the webpack config,
-        // we need to mock it before the webpack config is created.
-        if (fs.existsSync(postCssConfig)) {
-          jest.mock(postCssConfig, () => jest.fn())
-        }
+        try {
+          // Dynamically mock the postcss.config.js file if it exists
+          if (fs.existsSync(postCssConfig)) {
+            jest.mock(postCssConfig, () => jest.fn())
+          }
 
-        await extensionBuild(templatePath, {
-          browser: SUPPORTED_BROWSERS[0] as 'chrome'
-        })
-
-        expect(
-          path.join(
-            templatePath,
-            'dist',
-            SUPPORTED_BROWSERS[0],
-            'manifest.json'
-          )
-        ).toBeTruthy()
-
-        const manifestText = fs.readFileSync(
-          path.join(
-            templatePath,
-            'dist',
-            SUPPORTED_BROWSERS[0],
-            'manifest.json'
-          ),
-          'utf-8'
-        )
-
-        const manifest: Manifest = JSON.parse(manifestText)
-        expect(manifest.name).toBeTruthy
-        expect(manifest.version).toBeTruthy
-        expect(manifest.manifest_version).toBeTruthy
-
-        if (template.name.includes('content')) {
-          // Since extension@2.0.0-beta-6, the content script is injected
-          // into the shadow DOM. Including in production mode.
-          // expect(manifest.content_scripts![0].css![0]).toEqual(
-          //   'content_scripts/content-0.css'
-          // )
-
-          expect(manifest.content_scripts![0].js![0]).toEqual(
-            'content_scripts/content-0.js'
-          )
-
-          // Since extension@2.0.0-beta-6, the content script is injected
-          // into the shadow DOM. Including in production mode.
-          // expect(
-          //   distFileExists(
-          //     template.name,
-          //     SUPPORTED_BROWSERS[0],
-          //     'content_scripts/content-0.css'
-          //   )
-          // ).toBeTruthy()
+          await extensionBuild(templatePath, {
+            browser: SUPPORTED_BROWSERS[0] as 'chrome'
+          })
 
           expect(
-            distFileExists(
-              template.name,
+            path.join(
+              templatePath,
+              'dist',
               SUPPORTED_BROWSERS[0],
-              'content_scripts/content-0.js'
+              'manifest.json'
             )
           ).toBeTruthy()
+
+          const manifestText = fs.readFileSync(
+            path.join(
+              templatePath,
+              'dist',
+              SUPPORTED_BROWSERS[0],
+              'manifest.json'
+            ),
+            'utf-8'
+          )
+
+          const manifest: Manifest = JSON.parse(manifestText)
+          expect(manifest.name).toBeTruthy()
+          expect(manifest.version).toBeTruthy()
+          expect(manifest.manifest_version).toBeTruthy()
+
+          if (template.name.includes('content')) {
+            expect(manifest.content_scripts![0].js![0]).toEqual(
+              'content_scripts/content-0.js'
+            )
+            expect(
+              distFileExists(
+                template.name,
+                SUPPORTED_BROWSERS[0],
+                'content_scripts/content-0.css'
+              )
+            ).toBeTruthy()
+
+            expect(
+              distFileExists(
+                template.name,
+                SUPPORTED_BROWSERS[0],
+                'content_scripts/content-0.js'
+              )
+            ).toBeTruthy()
+          }
+        } finally {
+          // Clean up mocks after each test
+          if (fs.existsSync(postCssConfig)) {
+            jest.unmock(postCssConfig)
+          }
         }
       },
       80000
     )
+  })
+
+  afterEach(async () => {
+    jest.clearAllTimers()
+    await new Promise((resolve) => setImmediate(resolve))
   })
 
   describe('using the --browser flag', () => {
@@ -157,16 +173,25 @@ describe('extension build', () => {
         )
 
         // Running browsers in parallel by invoking them sequentially
-        await Promise.all(
-          SUPPORTED_BROWSERS.filter((browser) => browser !== 'chrome').map(
-            async (browser) => {
-              await extensionBuild(templatePath, {browser: browser as any})
-              expect(
-                path.join(templatePath, SUPPORTED_BROWSERS[0], 'manifest.json')
-              ).toBeTruthy()
-            }
+        try {
+          await Promise.all(
+            SUPPORTED_BROWSERS.filter((browser) => browser !== 'chrome').map(
+              async (browser) => {
+                await extensionBuild(templatePath, {browser: browser as any})
+                expect(
+                  path.join(
+                    templatePath,
+                    SUPPORTED_BROWSERS[0],
+                    'manifest.json'
+                  )
+                ).toBeTruthy()
+              }
+            )
           )
-        )
+        } finally {
+          // Ensure promises are settled
+          await new Promise((resolve) => setImmediate(resolve))
+        }
       },
       80000
     )

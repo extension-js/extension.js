@@ -27,7 +27,7 @@
     "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify && bash install_scripts.sh",
     "test": "jest --no-cache --testPathPattern='webpack/.*/__spec__/.*\\.spec\\.*'",
     "test:coverage": "jest --no-cache --testPathPattern='webpack/.*/__spec__/.*\\.spec\\.ts' --coverage",
-    "test:build": "jest ./build.spec.ts --no-cache"
+    "test:build": "jest ./build.spec.ts --no-cache --detectOpenHandles --forceExit"
   },
   "dependencies": {
     "@colors/colors": "^1.6.0",

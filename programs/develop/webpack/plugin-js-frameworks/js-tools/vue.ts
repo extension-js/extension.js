@@ -7,6 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
+import {VueLoaderPlugin} from 'vue-loader'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -39,27 +40,18 @@ export function isUsingVue(projectPath: string) {
 }
 
 export async function maybeUseVue(
-  projectPath: string
+  projectPath: string,
+  mode: 'development' | 'production'
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
   try {
     require.resolve('vue-loader')
   } catch (e) {
-    const typeScriptDependencies = ['typescript']
-
-    await installOptionalDependencies('TypeScript', typeScriptDependencies)
-
-    const vueDependencies = [
-      'vue-loader',
-      'vue-template-compiler',
-      'vue-style-loader'
-    ]
+    const vueDependencies = ['vue-loader', 'vue-template-compiler']
 
     await installOptionalDependencies('Vue', vueDependencies)
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
     console.log(messages.youAreAllSet('Vue'))
     process.exit(0)
   }
@@ -68,20 +60,16 @@ export async function maybeUseVue(
     {
       test: /\.vue$/,
       loader: require.resolve('vue-loader'),
-      include: projectPath,
-      exclude: [/[\\/]node_modules[\\/]/],
       options: {
-        // Note, for the majority of features to be available,
-        // make sure this option is `true`.
-        // https://rspack.dev/guide/tech/vue#vue-3
+        // Note, for the majority of features to be available, make sure this option is `true`
         experimentalInlineMatchResource: true
-      }
+      },
+      include: projectPath,
+      exclude: /node_modules/
     }
   ]
 
-  const vuePlugins: JsFramework['plugins'] = [
-    new (require('vue-loader').VueLoaderPlugin)()
-  ]
+  const vuePlugins: JsFramework['plugins'] = [new VueLoaderPlugin() as any]
 
   return {
     plugins: vuePlugins,

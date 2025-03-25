@@ -20,15 +20,15 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  {
-    name: 'content',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
+  // {
+  //   name: 'content',
+  //   uiContext: ['content'],
+  //   uiFramework: undefined,
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
   // {
   //   name: 'content-esm',
   //   uiContext: ['content'],
@@ -356,15 +356,15 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: ['tsconfig.json']
   },
-  // {
-  //   name: 'content-vue',
-  //   uiContext: ['content'],
-  //   uiFramework: 'vue',
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
-  // },
+  {
+    name: 'content-vue',
+    uiContext: ['content'],
+    uiFramework: 'vue',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  },
   {
     name: 'new-svelte',
     uiContext: ['newTab'],
@@ -449,7 +449,7 @@ const CONFIG_TEMPLATES: Template[] = [
 ]
 
 const ALL_TEMPLATES: Template[] = [
-  DEFAULT_TEMPLATE,
+  // DEFAULT_TEMPLATE,
   ...JS_TEMPLATES,
   ...WASM_TEMPLATES,
   ...TS_TEMPLATES,

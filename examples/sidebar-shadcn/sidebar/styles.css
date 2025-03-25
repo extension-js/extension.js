@@ -72,11 +72,11 @@
 
 @layer base {
   #root * {
-    @apply border-border;
+    @apply border;
   }
 
   #root {
-    @apply bg-background text-foreground h-screen;
+    @apply h-screen;
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
