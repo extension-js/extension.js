@@ -41,7 +41,6 @@ export function isUsingVue(projectPath: string) {
 
 export async function maybeUseVue(
   projectPath: string,
-  mode: 'development' | 'production'
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
