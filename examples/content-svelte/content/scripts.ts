@@ -2,8 +2,11 @@ import {mount} from 'svelte'
 import ContentApp from './ContentApp.svelte'
 
 let unmount: () => void
-import.meta.webpackHot?.accept()
-import.meta.webpackHot?.dispose(() => unmount?.())
+
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
 
 if (document.readyState === 'complete') {
   unmount = initial() || (() => {})
@@ -13,7 +16,9 @@ if (document.readyState === 'complete') {
   })
 }
 
-export default function initial() {
+console.log('Hello from content script')
+
+function initial() {
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)
@@ -27,11 +32,13 @@ export default function initial() {
     style.textContent = response
   })
 
-  import.meta.webpackHot?.accept('./styles.css', () => {
-    fetchCSS().then((response) => {
-      style.textContent = response
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.css', () => {
+      fetchCSS().then((response) => {
+        style.textContent = response
+      })
     })
-  })
+  }
 
   // Create container for Svelte app
   const contentDiv = document.createElement('div')

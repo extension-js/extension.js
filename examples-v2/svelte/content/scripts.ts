@@ -18,7 +18,7 @@ if (document.readyState === 'complete') {
 
 console.log('Hello from content script')
 
-export default function initial() {
+function initial() {
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)
