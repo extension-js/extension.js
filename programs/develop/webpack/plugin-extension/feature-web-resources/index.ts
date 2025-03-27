@@ -14,7 +14,7 @@ import {cleanMatches} from './clean-matches'
  * Feature supported:
  *
  * - web_accessible_resources paths in the manifest.json file.
- * - Assets imported from content_scripts files (including CSS files)
+ * - Assets imported from content_scripts files.
  */
 export class WebResourcesPlugin {
   public readonly manifestPath: string
@@ -38,18 +38,6 @@ export class WebResourcesPlugin {
     const webAccessibleResourcesV2: string[] =
       manifest.web_accessible_resources || []
 
-    if (manifest.content_scripts && manifest.content_scripts.length > 0) {
-      if (manifest.manifest_version === 3) {
-        const contentWildcard = {
-          resources: ['content_scripts/*'],
-          matches: ['<all_urls>']
-        }
-        webAccessibleResourcesV3.push(contentWildcard)
-      } else {
-        webAccessibleResourcesV2.push('content_scripts/*')
-      }
-    }
-
     for (const [entryName, resources] of Object.entries(entryImports)) {
       const contentScript = manifest.content_scripts?.find((script) =>
         script.js?.some((jsFile: string) => jsFile.includes(entryName))
@@ -58,9 +46,12 @@ export class WebResourcesPlugin {
       if (contentScript) {
         const matches = contentScript.matches || []
 
-        // Filter out source maps and JS files, but keep CSS files
+        // No need to add the output .css and .js to web_accessible_resources
         const filteredResources = resources.filter(
-          (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
+          (resource) =>
+            !resource.endsWith('.map') &&
+            !resource.endsWith('.css') &&
+            !resource.endsWith('.js')
         )
 
         if (filteredResources.length === 0) {

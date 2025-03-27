@@ -104,7 +104,6 @@
     "postcss-scss": "^4.0.9",
     "react-refresh": "^0.14.2",
     "resolve-url-loader": "^5.0.0",
-    "sass-embedded": "^1.85.1",
     "sass-loader": "^16.0.4",
     "svelte-loader": "^3.2.4",
     "svelte-preprocess": "^6.0.3",
