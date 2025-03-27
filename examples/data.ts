@@ -93,15 +93,6 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'content-shadow-dom',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
     name: 'declarative_net_request',
     uiContext: undefined,
     uiFramework: undefined,
@@ -377,15 +368,6 @@ const FRAMEWORK_TEMPLATES: Template[] = [
 ]
 
 const CONFIG_TEMPLATES: Template[] = [
-  {
-    name: 'new-config-babel',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['babel.config.json']
-  },
   {
     name: 'new-config-eslint',
     uiContext: ['newTab'],

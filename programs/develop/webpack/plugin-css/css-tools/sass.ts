@@ -65,21 +65,36 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
   }
 
   return [
+    // Regular .sass/.scss files
     {
       test: /\.(sass|scss)$/,
+      exclude: /\.module\.(sass|scss)$/,
+      type: 'css',
       use: [
         {
           loader: require.resolve('sass-loader'),
           options: {
-            // using `modern-compiler` and `sass-embedded` together
-            // significantly improve build performance,
-            // requires `sass-loader >= 14.2.1`
             api: 'modern-compiler',
-            implementation: require.resolve('sass-embedded')
+            implementation: require.resolve('sass-embedded'),
+            sourceMap: true
           }
         }
-      ],
-      type: 'css/auto'
+      ]
+    },
+    // Module .sass/.scss files
+    {
+      test: /\.module\.(sass|scss)$/,
+      type: 'css/module',
+      use: [
+        {
+          loader: require.resolve('sass-loader'),
+          options: {
+            api: 'modern-compiler',
+            implementation: require.resolve('sass-embedded'),
+            sourceMap: true
+          }
+        }
+      ]
     }
   ]
 }

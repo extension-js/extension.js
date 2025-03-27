@@ -17,6 +17,7 @@ export async function commonStyleLoaders(
 ): Promise<RuleSetRule['use']> {
   const styleLoaders: RuleSetRule['use'] = []
 
+  // Handle PostCSS for Tailwind, Sass, or Less
   if (
     isUsingTailwind(projectPath) ||
     isUsingSass(projectPath) ||
@@ -28,24 +29,26 @@ export async function commonStyleLoaders(
     }
   }
 
+  // Handle Sass/Less loaders
   if (opts.loader) {
     styleLoaders.push(
-      ...[
-        {
-          loader: require.resolve('resolve-url-loader'),
-          options: {
-            sourceMap: opts.mode === 'development',
-            root: projectPath
-          }
-        },
-        {
-          loader: require.resolve(opts.loader),
-          options: {
-            ...opts.loaderOptions,
-            sourceMap: opts.mode === 'development'
-          }
+      {
+        loader: require.resolve('resolve-url-loader'),
+        options: {
+          sourceMap: opts.mode === 'development',
+          root: projectPath
         }
-      ]
+      },
+      {
+        // Use either external loader or builtin
+        loader: opts.loader.startsWith('builtin:')
+          ? opts.loader
+          : require.resolve(opts.loader),
+        options: {
+          ...opts.loaderOptions,
+          sourceMap: opts.mode === 'development'
+        }
+      }
     )
   }
 

@@ -9,7 +9,6 @@ import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
-import {getContentScriptLoader} from './content-script-style-loader'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -25,33 +24,47 @@ export class CssPlugin {
     const projectPath = path.dirname(this.manifestPath)
 
     const plugins: RspackPluginInstance[] = []
-
-    plugins.forEach((plugin) => plugin.apply(compiler))
-
     const maybeInstallStylelint = await maybeUseStylelint(projectPath)
     plugins.push(...maybeInstallStylelint)
 
     const loaders: RuleSetRule[] = [
       {
         test: /\.css$/,
-        exclude: /\.module\.css$/,
+        type: 'asset',
+        issuer: (issuer: string) => issuer.includes('content'),
+        generator: {
+          filename: (pathData: any) => {
+            const index = pathData.info?.index || 0
+            // Add contenthash to avoid naming collisions between different content script CSS files
+            return `content_scripts/content-${index}.[contenthash:8].css`
+          }
+        }
+      },
+      {
+        test: /\.css$/,
         type: 'css',
         use: await commonStyleLoaders(projectPath, {
           mode: mode as 'development' | 'production'
         })
-      },
-      getContentScriptLoader()
+      }
     ]
 
+    // Add Sass/Less support if needed
+    const maybeInstallSass = await maybeUseSass(projectPath)
+    const maybeInstallLess = await maybeUseLess(projectPath)
+
+    if (maybeInstallSass.length) {
+      loaders.push(...maybeInstallSass)
+    }
+
+    if (maybeInstallLess.length) {
+      loaders.push(...maybeInstallLess)
+    }
+
+    // Update compiler configuration
     compiler.options.plugins = [...compiler.options.plugins, ...plugins].filter(
       Boolean
     )
-
-    const maybeInstallSass = await maybeUseSass(projectPath)
-    const maybeInstallLess = await maybeUseLess(projectPath)
-    loaders.push(...maybeInstallSass)
-    loaders.push(...maybeInstallLess)
-
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
       ...loaders

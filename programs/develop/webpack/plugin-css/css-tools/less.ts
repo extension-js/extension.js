@@ -50,14 +50,32 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
   }
 
   return [
+    // Regular .less files
     {
       test: /\.less$/,
+      exclude: /\.module\.less$/,
+      type: 'css',
       use: [
         {
-          loader: require.resolve('less-loader')
+          loader: require.resolve('less-loader'),
+          options: {
+            sourceMap: true
+          }
         }
-      ],
-      type: 'css/auto'
+      ]
+    },
+    // Module .less files
+    {
+      test: /\.module\.less$/,
+      type: 'css/module',
+      use: [
+        {
+          loader: require.resolve('less-loader'),
+          options: {
+            sourceMap: true
+          }
+        }
+      ]
     }
   ]
 }
