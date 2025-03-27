@@ -42,9 +42,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
     const postCssDependencies = [
       'postcss-loader',
       'postcss-scss',
-      'postcss-flexbugs-fixes',
-      'postcss-preset-env',
-      'postcss-normalize'
+      'postcss-preset-env'
     ]
 
     await installOptionalDependencies('PostCSS', postCssDependencies)
@@ -52,7 +50,6 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
     const sassDependencies = [
       'sass',
       'sass-loader',
-      'sass-embedded',
       'resolve-url-loader'
     ]
 
@@ -74,9 +71,10 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
         {
           loader: require.resolve('sass-loader'),
           options: {
-            api: 'modern-compiler',
-            implementation: require.resolve('sass-embedded'),
-            sourceMap: true
+            sourceMap: true,
+            sassOptions: {
+              outputStyle: 'expanded'
+            }
           }
         }
       ]
@@ -89,9 +87,10 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
         {
           loader: require.resolve('sass-loader'),
           options: {
-            api: 'modern-compiler',
-            implementation: require.resolve('sass-embedded'),
-            sourceMap: true
+            sourceMap: true,
+            sassOptions: {
+              outputStyle: 'expanded'
+            }
           }
         }
       ]
