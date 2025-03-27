@@ -2,8 +2,11 @@ import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
 
 let unmount: () => void
-import.meta.webpackHot?.accept()
-import.meta.webpackHot?.dispose(() => unmount?.())
+
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
 
 if (document.readyState === 'complete') {
   unmount = initial() || (() => {})
@@ -33,11 +36,13 @@ function initial() {
     style.textContent = response
   })
 
-  import.meta.webpackHot?.accept('./styles.css', () => {
-    fetchCSS().then((response) => {
-      style.textContent = response
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.css', () => {
+      fetchCSS().then((response) => {
+        style.textContent = response
+      })
     })
-  })
+  }
 
   const mountingPoint = ReactDOM.createRoot(shadowRoot)
   mountingPoint.render(
