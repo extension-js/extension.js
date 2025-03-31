@@ -1,5 +1,7 @@
 import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
+// Import CSS directly - webpack will handle it as a string
+import styles from './styles.css'
 
 let unmount: () => void
 
@@ -25,21 +27,18 @@ function initial() {
   document.body.appendChild(rootDiv)
 
   // Injecting content_scripts inside a shadow dom
-  // prevents conflicts with the host page's styles.
-  // This way, styles from the extension won't leak into the host page.
+  // prevents conflicts with the host page's styles
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
+  // Create and inject style element with our CSS
   const style = document.createElement('style')
+  style.textContent = styles 
   shadowRoot.appendChild(style)
-
-  fetchCSS().then((response) => {
-    style.textContent = response
-  })
 
   if (import.meta.webpackHot) {
     import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => {
-        style.textContent = response
+      import('./styles.css').then(newStyles => {
+        style.textContent = newStyles.default
       })
     })
   }
@@ -53,12 +52,6 @@ function initial() {
   return () => {
     mountingPoint.unmount()
     rootDiv.remove()
+    console.clear()
   }
-}
-
-async function fetchCSS() {
-  const cssUrl = new URL('./styles.css', import.meta.url)
-  const response = await fetch(cssUrl)
-  const text = await response.text()
-  return response.ok ? text : Promise.reject(text)
 }
