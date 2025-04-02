@@ -23,6 +23,9 @@ function initial() {
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)
 
+  // Injecting content_scripts inside a shadow dom
+  // prevents conflicts with the host page's styles.
+  // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
   const style = document.createElement('style')
@@ -52,11 +55,13 @@ function initial() {
 
   return () => {
     rootDiv.remove()
+    console.clear()
   }
 }
 
 async function fetchCSS() {
-  const response = await fetch(new URL('./styles.css', import.meta.url))
+  const cssUrl = new URL('./styles.css', import.meta.url)
+  const response = await fetch(cssUrl)
   const text = await response.text()
   return response.ok ? text : Promise.reject(text)
 }

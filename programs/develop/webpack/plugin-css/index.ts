@@ -4,11 +4,13 @@ import {
   type Compiler,
   type RuleSetRule
 } from '@rspack/core'
-import {commonStyleLoaders} from './common-style-loaders'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
+import {contentScriptCssLoader} from './content-script-css-loader'
+import {commonStyleLoaders} from './common-style-loaders'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -20,7 +22,7 @@ export class CssPlugin {
   }
 
   private async configureOptions(compiler: Compiler) {
-    const mode = compiler.options.mode || 'development'
+    const mode: DevOptions['mode'] = compiler.options.mode || 'development'
     const projectPath = path.dirname(this.manifestPath)
 
     const plugins: RspackPluginInstance[] = []
@@ -28,21 +30,13 @@ export class CssPlugin {
     plugins.push(...maybeInstallStylelint)
 
     const loaders: RuleSetRule[] = [
-      {
-        test: /\.css$/,
-        type: 'asset',
-        issuer: (issuer: string) => issuer.includes('content'),
-        generator: {
-          filename: (pathData: any) => {
-            const index = pathData.info?.index || 0
-            // Add contenthash to avoid naming collisions between different content script CSS files
-            return `content_scripts/content-${index}.[contenthash:8].css`
-          }
-        }
-      },
+      await contentScriptCssLoader(projectPath, mode),
       {
         test: /\.css$/,
         type: 'css',
+        // type: 'css' breaks content scripts.
+        // TODO: cezaraugusto this is fragile, we need to find a better way
+        issuer: (issuer: string) => !issuer.includes('content'),
         use: await commonStyleLoaders(projectPath, {
           mode: mode as 'development' | 'production'
         })

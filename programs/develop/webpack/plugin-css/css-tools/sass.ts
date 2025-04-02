@@ -47,11 +47,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
 
     await installOptionalDependencies('PostCSS', postCssDependencies)
 
-    const sassDependencies = [
-      'sass',
-      'sass-loader',
-      'resolve-url-loader'
-    ]
+    const sassDependencies = ['sass', 'sass-loader', 'resolve-url-loader']
 
     await installOptionalDependencies('SASS', sassDependencies)
 

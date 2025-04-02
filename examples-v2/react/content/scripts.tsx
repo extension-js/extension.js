@@ -19,7 +19,6 @@ if (document.readyState === 'complete') {
 console.log('Hello from content script')
 
 function initial() {
-  // Create a new div element and append it to the document's body
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)

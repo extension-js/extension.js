@@ -1,14 +1,22 @@
 import {render} from 'preact'
 import ContentApp from './ContentApp'
-import './styles.css?inline_style'
+
+let unmount: () => void
+
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
 
 if (document.readyState === 'complete') {
-  initial()
+  unmount = initial() || (() => {})
 } else {
   document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') initial()
+    if (document.readyState === 'complete') unmount = initial() || (() => {})
   })
 }
+
+console.log('Hello from content script')
 
 function initial() {
   // Create a new div element and append it to the document's body
@@ -21,8 +29,20 @@ function initial() {
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
-  // Inform Extension.js that the shadow root is available.
-  window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
+  const style = document.createElement('style')
+  shadowRoot.appendChild(style)
+
+  fetchCSS().then((response) => {
+    style.textContent = response
+  })
+
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.css', () => {
+      fetchCSS().then((response) => {
+        style.textContent = response
+      })
+    })
+  }
 
   render(
     <div className="content_script">
@@ -30,4 +50,15 @@ function initial() {
     </div>,
     shadowRoot
   )
+
+  return () => {
+    rootDiv.remove()
+  }
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL('./styles.css', import.meta.url)
+  const response = await fetch(cssUrl)
+  const text = await response.text()
+  return response.ok ? text : Promise.reject(text)
 }

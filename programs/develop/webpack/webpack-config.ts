@@ -97,6 +97,7 @@ export default function webpackConfig(
         }
       }
     },
+    cache: false,
     plugins: [
       new CompilationPlugin({
         manifestPath,
