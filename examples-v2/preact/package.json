@@ -1,0 +1,23 @@
+{
+  "private": true,
+  "name": "preact",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "OSpoon",
+    "email": "zxin088@gmail.com",
+    "url": "https://hw404.cn"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@preact/signals": "^1.2.3",
+    "preact": "^10.22.0",
+    "tailwindcss": "^3.4.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.9",
+    "@types/react-dom": "^18.0.5",
+    "@prefresh/core": "^1.5.2",
+    "typescript": "5.3.3"
+  }
+}

@@ -34,7 +34,7 @@ export type ExtendedBrowserOptions =
   | NonBinaryOptions
 
 export interface DevOptions extends BrowserOptionsBase {
-  mode: 'development' | 'production'
+  mode: 'development' | 'production' | 'none'
   polyfill?: boolean
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']

@@ -40,7 +40,10 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
     ...devOptions,
     ...commandConfig,
     ...browserConfig,
-    mode: 'development'
+    mode: 'development',
+    output: {
+      clean: true
+    }
   })
 
   // Get webpack config defaults from extension.config.js

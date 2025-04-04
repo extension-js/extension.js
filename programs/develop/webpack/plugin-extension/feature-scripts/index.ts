@@ -46,25 +46,24 @@ export class ScriptsPlugin {
     }).apply(compiler)
 
     // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
-    if (compiler.options.mode === 'development') {
-      compiler.options.module.rules.push({
-        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: [path.dirname(this.manifestPath)],
-        exclude: [/[\\/]node_modules[\\/]/],
-        use: [
-          {
-            loader: require.resolve(
-              path.join(__dirname, 'add-hmr-accept-code.js')
-            ),
-            options: {
-              manifestPath: this.manifestPath,
-              includeList: this.includeList || {},
-              excludeList: this.excludeList || {}
-            }
+    compiler.options.module.rules.push({
+      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      include: [path.dirname(this.manifestPath)],
+      exclude: [/[\\/]node_modules[\\/]/],
+      use: [
+        {
+          loader: require.resolve(
+            path.join(__dirname, 'add-hmr-accept-code.js')
+          ),
+          options: {
+            manifestPath: this.manifestPath,
+            mode: compiler.options.mode,
+            includeList: this.includeList || {},
+            excludeList: this.excludeList || {}
           }
-        ]
-      })
-    }
+        }
+      ]
+    })
 
     // 3 - Fix the issue with the public path not being
     // available for content_scripts in the production build.

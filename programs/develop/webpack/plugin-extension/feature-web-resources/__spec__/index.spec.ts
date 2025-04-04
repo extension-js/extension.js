@@ -157,7 +157,7 @@ describe('generateManifestPatches', () => {
     })
   })
 
-  it('should exclude .map, .css, and .js files from web_accessible_resources', () => {
+  it('should exclude .map and .js files from web_accessible_resources', () => {
     expect(
       runWith(
         {
@@ -183,7 +183,10 @@ describe('generateManifestPatches', () => {
       web_accessible_resources: [
         {
           matches: ['*://example.com/*'],
-          resources: ['content_scripts/content-0.svg']
+          resources: [
+            'content_scripts/content-0.css',
+            'content_scripts/content-0.svg'
+          ]
         }
       ]
     })

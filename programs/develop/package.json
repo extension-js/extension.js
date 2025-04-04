@@ -27,7 +27,7 @@
     "compile": "tsup-node ./module.ts --format cjs --dts --target=node18 --minify && bash install_scripts.sh",
     "test": "jest --no-cache --testPathPattern='webpack/.*/__spec__/.*\\.spec\\.*'",
     "test:coverage": "jest --no-cache --testPathPattern='webpack/.*/__spec__/.*\\.spec\\.ts' --coverage",
-    "test:build": "jest ./build.spec.ts --no-cache"
+    "test:build": "jest ./build.spec.ts --no-cache --detectOpenHandles --forceExit"
   },
   "dependencies": {
     "@colors/colors": "^1.6.0",
@@ -97,14 +97,10 @@
     "@rspack/plugin-react-refresh": "^1.0.1",
     "babel-loader": "^9.2.1",
     "less-loader": "^12.2.0",
-    "postcss-flexbugs-fixes": "^5.0.2",
     "postcss-loader": "^8.1.1",
-    "postcss-normalize": "^13.0.1",
     "postcss-preset-env": "^10.1.1",
-    "postcss-scss": "^4.0.9",
     "react-refresh": "^0.14.2",
     "resolve-url-loader": "^5.0.0",
-    "sass-embedded": "^1.85.1",
     "sass-loader": "^16.0.4",
     "svelte-loader": "^3.2.4",
     "svelte-preprocess": "^6.0.3",

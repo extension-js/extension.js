@@ -39,7 +39,12 @@ export async function extensionPreview(
       browser,
       chromiumBinary: previewOptions.chromiumBinary,
       geckoBinary: previewOptions.geckoBinary,
-      startingUrl: previewOptions.startingUrl
+      startingUrl: previewOptions.startingUrl,
+      // Preview needs a build before running so
+      // we don't want to clean the output directory.
+      output: {
+        clean: false
+      }
     })
 
     const onlyBrowserRunners = baseConfig.plugins?.filter((plugin) => {
