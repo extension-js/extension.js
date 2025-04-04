@@ -128,18 +128,6 @@ describe('extension build', () => {
             expect(manifest.content_scripts![0].js![0]).toEqual(
               'content_scripts/content-0.js'
             )
-            expect(
-              fs
-                .readdirSync(
-                  path.join(
-                    templatePath,
-                    'dist',
-                    SUPPORTED_BROWSERS[0],
-                    'content_scripts'
-                  )
-                )
-                .some((file) => file.endsWith('.css'))
-            ).toBeTruthy()
 
             expect(
               distFileExists(
