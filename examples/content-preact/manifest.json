@@ -14,8 +14,13 @@
   "content_scripts": [
     {
       "matches": ["https://extension.js.org/*"],
-      "js": ["./content/scripts.tsx"],
-      "css": ["./content/styles.css"]
+      "js": ["./content/scripts.tsx"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["styles/*.css"],
+      "matches": ["https://extension.js.org/*"]
     }
   ]
 }

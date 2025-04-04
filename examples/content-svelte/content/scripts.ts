@@ -27,19 +27,13 @@ function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
-
-  const style = document.createElement('style')
-  shadowRoot.appendChild(style)
-
-  fetchCSS().then((response) => {
-    style.textContent = response
-  })
+  const style = new CSSStyleSheet()
+  shadowRoot.adoptedStyleSheets = [style]
+  fetchCSS().then((response) => style.replace(response))
 
   if (import.meta.webpackHot) {
     import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => {
-        style.textContent = response
-      })
+      fetchCSS().then((response) => style.replace(response))
     })
   }
 
@@ -55,7 +49,6 @@ function initial() {
 
   return () => {
     rootDiv.remove()
-    console.clear()
   }
 }
 

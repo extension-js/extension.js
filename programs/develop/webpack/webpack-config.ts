@@ -58,7 +58,11 @@ export default function webpackConfig(
         ? 'cheap-source-map'
         : 'eval-cheap-source-map',
     output: {
-      clean: devOptions.output?.clean,
+      // Setting this to true will delete the HMR
+      // files after a hard refresh of a page using 
+      // content scripts.
+      // TODO: cezaraugusto fix this
+      clean: false, // devOptions.output?.clean,
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',

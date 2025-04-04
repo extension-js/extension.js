@@ -19,6 +19,7 @@ if (document.readyState === 'complete') {
 console.log('Hello from content script')
 
 function initial() {
+  // Create a new div element and append it to the document's body
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)
@@ -27,19 +28,13 @@ function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
-
-  const style = document.createElement('style')
-  shadowRoot.appendChild(style)
-
-  fetchCSS().then((response) => {
-    style.textContent = response
-  })
+  const style = new CSSStyleSheet()
+  shadowRoot.adoptedStyleSheets = [style]
+  fetchCSS().then((response) => style.replace(response))
 
   if (import.meta.webpackHot) {
     import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => {
-        style.textContent = response
-      })
+      fetchCSS().then((response) => style.replace(response))
     })
   }
 

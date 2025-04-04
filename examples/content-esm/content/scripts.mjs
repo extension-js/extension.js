@@ -1,13 +1,19 @@
 import {contentComponent} from './contentComponent.mjs'
-import './styles.css?inline_style'
+
+let unmount
+
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
 
 console.log('hello from content_scripts')
 
 if (document.readyState === 'complete') {
-  initial()
+  unmount = initial() || (() => {})
 } else {
   document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') initial()
+    if (document.readyState === 'complete') unmount = initial() || (() => {})
   })
 }
 
@@ -20,9 +26,33 @@ function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
+  const style = new CSSStyleSheet()
+  shadowRoot.adoptedStyleSheets = [style]
+  fetchCSS().then((response) => style.replace(response))
 
-  // Inform Extension.js that the shadow root is available.
-  window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.css', () => {
+      fetchCSS().then((response) => style.replace(response))
+    })
+  }
 
-  shadowRoot.innerHTML = contentComponent
+  // Create container div and inject content
+  const contentDiv = document.createElement('div')
+  contentDiv.className = 'content_script'
+  contentDiv.innerHTML = contentComponent
+
+  // Append the content div to shadow root
+  shadowRoot.appendChild(contentDiv)
+
+  return () => {
+    rootDiv.remove()
+    
+  }
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL('./styles.css', import.meta.url)
+  const response = await fetch(cssUrl)
+  const text = await response.text()
+  return response.ok ? text : Promise.reject(text)
 }
