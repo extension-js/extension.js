@@ -48,9 +48,7 @@ export class WebResourcesPlugin {
 
         // No need to add the output .css and .js to web_accessible_resources
         const filteredResources = resources.filter(
-          (resource) =>
-            !resource.endsWith('.map') &&
-            !resource.endsWith('.js')
+          (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
         )
 
         if (filteredResources.length === 0) {
@@ -75,7 +73,7 @@ export class WebResourcesPlugin {
               matches: cleanMatches(matches)
             })
           }
-        } else {          
+        } else {
           filteredResources.forEach((resource) => {
             if (!webAccessibleResourcesV2.includes(resource)) {
               webAccessibleResourcesV2.push(resource)
