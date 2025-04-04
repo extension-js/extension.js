@@ -89,17 +89,12 @@ export async function maybeUsePostCss(
       const postCssDependencies = [
         'postcss',
         'postcss-loader',
-        'postcss-scss',
-        'postcss-flexbugs-fixes',
-        'postcss-preset-env',
-        'postcss-normalize'
+        'postcss-preset-env'
       ]
 
       await installOptionalDependencies('PostCSS', postCssDependencies)
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
     console.log(messages.youAreAllSet('PostCSS'))
     process.exit(0)
   }
@@ -108,11 +103,9 @@ export async function maybeUsePostCss(
     loader: require.resolve('postcss-loader'),
     options: {
       postcssOptions: {
-        parser: require.resolve('postcss-scss'),
         ident: 'postcss',
         config: path.resolve(projectPath, 'postcss.config.js'),
         plugins: [
-          require.resolve('postcss-flexbugs-fixes'),
           [
             require.resolve('postcss-preset-env'),
             {
@@ -121,8 +114,7 @@ export async function maybeUsePostCss(
               },
               stage: 3
             }
-          ].filter(Boolean),
-          require.resolve('postcss-normalize')
+          ]
         ].filter(Boolean)
       },
       sourceMap: opts.mode === 'development'

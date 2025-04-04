@@ -26,6 +26,10 @@ export default function webpackConfig(
   devOptions: DevOptions & {
     preferences?: Record<string, string>
     browserFlags?: string[]
+  } & {
+    output: {
+      clean: boolean
+    }
   }
 ): Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
@@ -44,6 +48,12 @@ export default function webpackConfig(
       ? 'gecko-based'
       : devOptions.browser
 
+  const cleanConfig = devOptions.output?.clean
+    ? devOptions.output.clean
+    : {
+        keep: devOptions.mode === 'development' ? 'hot' : undefined
+      }
+
   return {
     mode: devOptions.mode || 'development',
     entry: {},
@@ -54,7 +64,7 @@ export default function webpackConfig(
         ? 'cheap-source-map'
         : 'eval-cheap-source-map',
     output: {
-      clean: false,
+      clean: cleanConfig,
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
@@ -93,6 +103,7 @@ export default function webpackConfig(
         }
       }
     },
+    cache: false,
     plugins: [
       new CompilationPlugin({
         manifestPath,
@@ -145,8 +156,9 @@ export default function webpackConfig(
       })
     ].filter(Boolean),
     stats: {
-      colors: true,
-      errorDetails: true
+      all: false,
+      errors: true,
+      warnings: true
     },
     infrastructureLogging: {
       level: 'none'

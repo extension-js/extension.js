@@ -825,30 +825,18 @@ importers:
       less-loader:
         specifier: ^12.2.0
         version: 12.2.0(@rspack/core@1.2.8(@swc/helpers@0.5.15))(less@4.2.0)(webpack@5.97.1(@swc/core@1.10.1(@swc/helpers@0.5.15))(esbuild@0.24.0))
-      postcss-flexbugs-fixes:
-        specifier: ^5.0.2
-        version: 5.0.2(postcss@8.4.49)
       postcss-loader:
         specifier: ^8.1.1
         version: 8.1.1(@rspack/core@1.2.8(@swc/helpers@0.5.15))(postcss@8.4.49)(typescript@5.7.2)(webpack@5.97.1(@swc/core@1.10.1(@swc/helpers@0.5.15))(esbuild@0.24.0))
-      postcss-normalize:
-        specifier: ^13.0.1
-        version: 13.0.1(browserslist@4.24.0)(postcss@8.4.49)
       postcss-preset-env:
         specifier: ^10.1.1
         version: 10.1.1(postcss@8.4.49)
-      postcss-scss:
-        specifier: ^4.0.9
-        version: 4.0.9(postcss@8.4.49)
       react-refresh:
         specifier: ^0.14.2
         version: 0.14.2
       resolve-url-loader:
         specifier: ^5.0.0
         version: 5.0.0
-      sass-embedded:
-        specifier: ^1.85.1
-        version: 1.85.1
       sass-loader:
         specifier: ^16.0.4
         version: 16.0.4(@rspack/core@1.2.8(@swc/helpers@0.5.15))(sass-embedded@1.85.1)(sass@1.79.4)(webpack@5.97.1(@swc/core@1.10.1(@swc/helpers@0.5.15))(esbuild@0.24.0))
@@ -1694,9 +1682,6 @@ packages:
     peerDependencies:
       '@csstools/css-parser-algorithms': ^3.0.4
       '@csstools/css-tokenizer': ^3.0.3
-
-  '@csstools/normalize.css@12.1.1':
-    resolution: {integrity: sha512-YAYeJ+Xqh7fUou1d1j9XHl44BmsuThiTr4iNrgCQ3J27IbhXsxXDGZ1cXv8Qvs99d4rBbLiSKy3+WZiet32PcQ==}
 
   '@csstools/postcss-cascade-layers@5.0.1':
     resolution: {integrity: sha512-XOfhI7GShVcKiKwmPAnWSqd2tBR0uxt+runAxttbSp/LY2U16yAVPmAf7e9q4JJ0d+xMNmpwNDLBXnmRCl3HMQ==}
@@ -5649,13 +5634,6 @@ packages:
     peerDependencies:
       postcss: ^8.4
 
-  postcss-browser-comments@6.0.1:
-    resolution: {integrity: sha512-VE5mVLOW+L31a+Eyi7i5j7PmzOydObKLA9VwGBpTZy2OYB3XY1E7/xHxv4tURtEI/qb5h2TyyGHPhZ31sXOEXg==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      browserslist: ^4.23.1
-      postcss: ^8.4
-
   postcss-clamp@4.1.0:
     resolution: {integrity: sha512-ry4b1Llo/9zz+PKC+030KUnPITTJAHeOwjfAyyB60eT0AorGLdzp52s31OsPRHRf8NchkgFoG2y6fCfn1IV1Ow==}
     engines: {node: '>=7.6.0'}
@@ -5709,11 +5687,6 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       postcss: ^8.4
-
-  postcss-flexbugs-fixes@5.0.2:
-    resolution: {integrity: sha512-18f9voByak7bTktR2QgDveglpn9DTbBWPUzSOe9g0N4WR/2eSt6Vrcbf0hmspvMI6YWGywz6B9f7jzpFNJJgnQ==}
-    peerDependencies:
-      postcss: ^8.1.4
 
   postcss-focus-visible@10.0.1:
     resolution: {integrity: sha512-U58wyjS/I1GZgjRok33aE8juW9qQgQUNwTSdxQGuShHzwuYdcklnvK/+qOWX1Q9kr7ysbraQ6ht6r+udansalA==}
@@ -5825,13 +5798,6 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       postcss: ^8.4
-
-  postcss-normalize@13.0.1:
-    resolution: {integrity: sha512-oGfXG7IQ44FUIMFco2N2Uz71UotM+tZ9trEmT1bHIUR5gAplyG3RnHqpMDEcCx1r+1bwBJTrI5uhiQr4YOpqhQ==}
-    engines: {node: '>= 18'}
-    peerDependencies:
-      browserslist: '>= 4'
-      postcss: '>= 8'
 
   postcss-opacity-percentage@3.0.0:
     resolution: {integrity: sha512-K6HGVzyxUxd/VgZdX04DCtdwWJ4NGLG212US4/LA1TLAbHgmAsTWVR86o+gGIbFtnTkfOpb9sCRBx8K7HO66qQ==}
@@ -6174,9 +6140,6 @@ packages:
 
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
-
-  sanitize.css@13.0.0:
-    resolution: {integrity: sha512-ZRwKbh/eQ6w9vmTjkuG0Ioi3HBwPFce0O+v//ve+aOq1oeCy7jMV2qzzAlpsNuqpqCBjjriM1lbtZbF/Q8jVyA==}
 
   sass-embedded-android-arm64@1.85.1:
     resolution: {integrity: sha512-27oRheqNA3SJM2hAxpVbs7mCKUwKPWmEEhyiNFpBINb5ELVLg+Ck5RsGg+SJmo130ul5YX0vinmVB5uPWc8X5w==}
@@ -8347,9 +8310,6 @@ snapshots:
     dependencies:
       '@csstools/css-parser-algorithms': 3.0.4(@csstools/css-tokenizer@3.0.3)
       '@csstools/css-tokenizer': 3.0.3
-    optional: true
-
-  '@csstools/normalize.css@12.1.1':
     optional: true
 
   '@csstools/postcss-cascade-layers@5.0.1(postcss@8.4.49)':
@@ -12836,12 +12796,6 @@ snapshots:
       postcss-selector-parser: 7.0.0
     optional: true
 
-  postcss-browser-comments@6.0.1(browserslist@4.24.0)(postcss@8.4.49):
-    dependencies:
-      browserslist: 4.24.0
-      postcss: 8.4.49
-    optional: true
-
   postcss-clamp@4.1.0(postcss@8.4.49):
     dependencies:
       postcss: 8.4.49
@@ -12912,11 +12866,6 @@ snapshots:
       '@csstools/utilities': 2.0.0(postcss@8.4.49)
       postcss: 8.4.49
       postcss-value-parser: 4.2.0
-    optional: true
-
-  postcss-flexbugs-fixes@5.0.2(postcss@8.4.49):
-    dependencies:
-      postcss: 8.4.49
     optional: true
 
   postcss-focus-visible@10.0.1(postcss@8.4.49):
@@ -13026,15 +12975,6 @@ snapshots:
       '@csstools/selector-specificity': 5.0.0(postcss-selector-parser@7.0.0)
       postcss: 8.4.49
       postcss-selector-parser: 7.0.0
-    optional: true
-
-  postcss-normalize@13.0.1(browserslist@4.24.0)(postcss@8.4.49):
-    dependencies:
-      '@csstools/normalize.css': 12.1.1
-      browserslist: 4.24.0
-      postcss: 8.4.49
-      postcss-browser-comments: 6.0.1(browserslist@4.24.0)(postcss@8.4.49)
-      sanitize.css: 13.0.0
     optional: true
 
   postcss-opacity-percentage@3.0.0(postcss@8.4.49):
@@ -13468,7 +13408,7 @@ snapshots:
 
   rxjs@7.8.2:
     dependencies:
-      tslib: 2.7.0
+      tslib: 2.8.1
     optional: true
 
   safe-buffer@5.1.2: {}
@@ -13476,9 +13416,6 @@ snapshots:
   safe-buffer@5.2.1: {}
 
   safer-buffer@2.1.2: {}
-
-  sanitize.css@13.0.0:
-    optional: true
 
   sass-embedded-android-arm64@1.85.1:
     optional: true
