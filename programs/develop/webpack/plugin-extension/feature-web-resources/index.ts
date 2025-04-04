@@ -50,7 +50,6 @@ export class WebResourcesPlugin {
         const filteredResources = resources.filter(
           (resource) =>
             !resource.endsWith('.map') &&
-            !resource.endsWith('.css') &&
             !resource.endsWith('.js')
         )
 
@@ -76,7 +75,7 @@ export class WebResourcesPlugin {
               matches: cleanMatches(matches)
             })
           }
-        } else {
+        } else {          
           filteredResources.forEach((resource) => {
             if (!webAccessibleResourcesV2.includes(resource)) {
               webAccessibleResourcesV2.push(resource)

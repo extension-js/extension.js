@@ -9,8 +9,8 @@ import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
-import {contentScriptCssLoader} from './content-script-css-loader'
-import {commonStyleLoaders} from './common-style-loaders'
+import {cssInContentScriptLoader} from './css-in-content-script-loader'
+import {cssInHtmlLoader} from './css-in-html-loader'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -29,18 +29,16 @@ export class CssPlugin {
     const maybeInstallStylelint = await maybeUseStylelint(projectPath)
     plugins.push(...maybeInstallStylelint)
 
+    // We have two main loaders:
+    // 1. cssInContentScriptLoader - for CSS in content scripts
+    // 2. cssInHtmlLoader - for CSS in HTML
+    // The reason is that for content scripts we need to use the asset loader
+    // because it's a content script and we need to load it as an asset.
+    // For HTML we need to use the css loader because it's a HTML file
+    // and we need to load it as a CSS file.
     const loaders: RuleSetRule[] = [
-      await contentScriptCssLoader(projectPath, mode),
-      {
-        test: /\.css$/,
-        type: 'css',
-        // type: 'css' breaks content scripts.
-        // TODO: cezaraugusto this is fragile, we need to find a better way
-        issuer: (issuer: string) => !issuer.includes('content'),
-        use: await commonStyleLoaders(projectPath, {
-          mode: mode as 'development' | 'production'
-        })
-      }
+      await cssInContentScriptLoader(projectPath, mode),
+      await cssInHtmlLoader(projectPath, mode)
     ]
 
     // Add Sass/Less support if needed
