@@ -48,6 +48,12 @@ export default function webpackConfig(
       ? 'gecko-based'
       : devOptions.browser
 
+  const cleanConfig = devOptions.output?.clean
+    ? devOptions.output.clean
+    : {
+        keep: devOptions.mode === 'development' ? 'hot' : undefined
+      }
+
   return {
     mode: devOptions.mode || 'development',
     entry: {},
@@ -58,11 +64,7 @@ export default function webpackConfig(
         ? 'cheap-source-map'
         : 'eval-cheap-source-map',
     output: {
-      // Setting this to true will delete the HMR
-      // files after a hard refresh of a page using 
-      // content scripts.
-      // TODO: cezaraugusto fix this
-      clean: false, // devOptions.output?.clean,
+      clean: cleanConfig,
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
