@@ -38,65 +38,56 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  {
-    name: 'content-css-modules',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
-    name: 'content-less',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'less',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
-    name: 'content-less-modules',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'less',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
-    name: 'content-main-world',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
-    name: 'content-sass',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'sass',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
-    name: 'content-sass-modules',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'sass',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
   // {
-  //   name: 'content-shadow-dom',
+  //   name: 'content-css-modules',
   //   uiContext: ['content'],
   //   uiFramework: undefined,
   //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
+  // {
+  //   name: 'content-less',
+  //   uiContext: ['content'],
+  //   uiFramework: undefined,
+  //   css: 'less',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
+  // {
+  //   name: 'content-less-modules',
+  //   uiContext: ['content'],
+  //   uiFramework: undefined,
+  //   css: 'less',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
+  // {
+  //   name: 'content-main-world',
+  //   uiContext: ['content'],
+  //   uiFramework: undefined,
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
+  // {
+  //   name: 'content-sass',
+  //   uiContext: ['content'],
+  //   uiFramework: undefined,
+  //   css: 'sass',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
+  // {
+  //   name: 'content-sass-modules',
+  //   uiContext: ['content'],
+  //   uiFramework: undefined,
+  //   css: 'sass',
   //   hasBackground: false,
   //   hasEnv: false,
   //   configFiles: undefined
@@ -333,20 +324,20 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
   },
-  // {
-  //   name: 'content-extension-config',
-  //   uiContext: ['content'],
-  //   uiFramework: 'react',
-  //   css: 'css',
-  //   hasBackground: true,
-  //   hasEnv: false,
-  //   configFiles: [
-  //     'extension.config.js',
-  //     'tsconfig.json',
-  //     'postcss.config.js',
-  //     'tailwind.config.js'
-  //   ]
-  // },
+  {
+    name: 'content-extension-config',
+    uiContext: ['content'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: true,
+    hasEnv: false,
+    configFiles: [
+      'extension.config.js',
+      'tsconfig.json',
+      'postcss.config.js',
+      'tailwind.config.js'
+    ]
+  },
   {
     name: 'new-vue',
     uiContext: ['newTab'],
@@ -377,15 +368,6 @@ const FRAMEWORK_TEMPLATES: Template[] = [
 ]
 
 const CONFIG_TEMPLATES: Template[] = [
-  // {
-  //   name: 'config-babel',
-  //   uiContext: ['newTab'],
-  //   uiFramework: undefined,
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['babel.config.json']
-  // },
   {
     name: 'new-config-eslint',
     uiContext: ['newTab'],

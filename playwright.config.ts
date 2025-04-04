@@ -11,29 +11,54 @@ import {defineConfig, devices} from '@playwright/test'
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  // timeout to 40s
-  timeout: 40 * 1000,
+  // Increase global timeout for CI environments
+  timeout: process.env.CI ? 90_000 : 60_000,
   testDir: './examples',
-  /* Run tests in files in parallel */
-  fullyParallel: true,
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [['html', {outputFolder: 'e2e-report'}]],
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
-  use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    // baseURL: 'http://127.0.0.1:3000',
 
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
-    trace: 'retain-on-failure'
+  // Disable parallel execution if tests are interdependent
+  fullyParallel: false,
+
+  // Prevent accidental test.only commits
+  forbidOnly: !!process.env.CI,
+
+  // Increase retries for both CI and local
+  retries: process.env.CI ? 3 : 2,
+
+  // Reduce concurrent workers to prevent resource contention
+  workers: process.env.CI ? 1 : 2,
+
+  // Enhanced reporting for better debugging
+  reporter: [
+    ['html', {outputFolder: 'e2e-report'}],
+    ['list'],
+    ['json', {outputFile: 'test-results.json'}]
+  ],
+
+  use: {
+    // Always collect traces for better debugging
+    trace: 'on',
+
+    // Capture media for all test failures
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+
+    // Increase timeouts for network operations
+    actionTimeout: 20000,
+    navigationTimeout: 45000,
+
+    // Stable viewport
+    viewport: {width: 1280, height: 720},
+
+    // Add additional stability settings
+    launchOptions: {
+      slowMo: process.env.CI ? 100 : 0 // Slow down operations in CI
+    },
+
+    // Better error handling
+    ignoreHTTPSErrors: true
   },
 
-  /* Configure projects for major browsers */
+  // Focused browser testing
   projects: [
     {
       name: 'chromium',

@@ -48,10 +48,7 @@ export class WebResourcesPlugin {
 
         // No need to add the output .css and .js to web_accessible_resources
         const filteredResources = resources.filter(
-          (resource) =>
-            !resource.endsWith('.map') &&
-            !resource.endsWith('.css') &&
-            !resource.endsWith('.js')
+          (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
         )
 
         if (filteredResources.length === 0) {
@@ -73,7 +70,7 @@ export class WebResourcesPlugin {
           } else {
             webAccessibleResourcesV3.push({
               resources: filteredResources,
-              matches: cleanMatches(matches) // Clean matches to conform to the spec
+              matches: cleanMatches(matches)
             })
           }
         } else {
@@ -92,18 +89,12 @@ export class WebResourcesPlugin {
         manifest.web_accessible_resources =
           webAccessibleResourcesV3 as Manifest['web_accessible_resources']
       }
-      // else {
-      //   // Do nothing
-      // }
     } else {
       if (webAccessibleResourcesV2.length > 0) {
         manifest.web_accessible_resources = Array.from(
           new Set(webAccessibleResourcesV2)
         ) as Manifest['web_accessible_resources']
       }
-      // else {
-      //   // Do nothing
-      // }
     }
 
     const source = JSON.stringify(manifest, null, 2)

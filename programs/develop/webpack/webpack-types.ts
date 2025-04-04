@@ -63,6 +63,7 @@ export interface LoaderContext {
     browser?: DevOptions['browser']
     includeList?: FilepathList
     excludeList?: FilepathList
+    mode: string
   }
 }
 

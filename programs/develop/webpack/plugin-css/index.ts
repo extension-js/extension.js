@@ -4,11 +4,13 @@ import {
   type Compiler,
   type RuleSetRule
 } from '@rspack/core'
-import {commonStyleLoaders} from './common-style-loaders'
+import {DevOptions} from '../../commands/commands-lib/config-types'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
+import {cssInContentScriptLoader} from './css-in-content-script-loader'
+import {cssInHtmlLoader} from './css-in-html-loader'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -20,36 +22,41 @@ export class CssPlugin {
   }
 
   private async configureOptions(compiler: Compiler) {
-    const mode = compiler.options.mode || 'development'
+    const mode: DevOptions['mode'] = compiler.options.mode || 'development'
     const projectPath = path.dirname(this.manifestPath)
 
     const plugins: RspackPluginInstance[] = []
-
-    plugins.forEach((plugin) => plugin.apply(compiler))
-
     const maybeInstallStylelint = await maybeUseStylelint(projectPath)
     plugins.push(...maybeInstallStylelint)
 
+    // We have two main loaders:
+    // 1. cssInContentScriptLoader - for CSS in content scripts
+    // 2. cssInHtmlLoader - for CSS in HTML
+    // The reason is that for content scripts we need to use the asset loader
+    // because it's a content script and we need to load it as an asset.
+    // For HTML we need to use the css loader because it's a HTML file
+    // and we need to load it as a CSS file.
     const loaders: RuleSetRule[] = [
-      {
-        test: /\.css$/,
-        exclude: /\.module\.css$/,
-        type: 'css',
-        use: await commonStyleLoaders(projectPath, {
-          mode: mode as 'development' | 'production'
-        })
-      }
+      await cssInContentScriptLoader(projectPath, mode),
+      await cssInHtmlLoader(projectPath, mode)
     ]
 
+    // Add Sass/Less support if needed
+    const maybeInstallSass = await maybeUseSass(projectPath)
+    const maybeInstallLess = await maybeUseLess(projectPath)
+
+    if (maybeInstallSass.length) {
+      loaders.push(...maybeInstallSass)
+    }
+
+    if (maybeInstallLess.length) {
+      loaders.push(...maybeInstallLess)
+    }
+
+    // Update compiler configuration
     compiler.options.plugins = [...compiler.options.plugins, ...plugins].filter(
       Boolean
     )
-
-    const maybeInstallSass = await maybeUseSass(projectPath)
-    const maybeInstallLess = await maybeUseLess(projectPath)
-    loaders.push(...maybeInstallSass)
-    loaders.push(...maybeInstallLess)
-
     compiler.options.module.rules = [
       ...compiler.options.module.rules,
       ...loaders

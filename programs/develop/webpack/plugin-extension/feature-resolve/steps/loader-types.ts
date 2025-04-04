@@ -11,5 +11,6 @@ export interface ResolvePluginContext extends LoaderContext {
     excludeList: FilepathList
     typescript: boolean
     jsx: boolean
+    mode: string
   }
 }

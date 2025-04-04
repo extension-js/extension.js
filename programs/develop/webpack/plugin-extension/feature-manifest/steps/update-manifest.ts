@@ -1,4 +1,3 @@
-import path from 'path'
 import {Compiler, Compilation, sources} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename, getManifestContent} from '../../../lib/utils'
@@ -27,33 +26,6 @@ export class UpdateManifest {
         return contentObj
       }
     )
-  }
-
-  private applyProdOverrides(
-    compilation: Compilation,
-    overrides: Record<string, any>
-  ) {
-    if (!overrides.content_scripts) return {}
-
-    const outputPath = compilation.options.output?.path || ''
-
-    // Collect all CSS assets in `content_scripts` for use in the manifest
-    const contentScriptsCss = compilation
-      .getAssets()
-      .filter(
-        (asset) =>
-          asset.name.includes('content_scripts') && asset.name.endsWith('.css')
-      )
-      .map((asset) => path.join(outputPath, asset.name))
-
-    // Assign the collected CSS files to each `content_scripts` entry
-    for (const contentObj of overrides.content_scripts) {
-      contentObj.css = contentScriptsCss.map((cssFilePath, index) =>
-        getFilename(`content_scripts/content-${index}.css`, cssFilePath, {})
-      )
-    }
-
-    return overrides.content_scripts
   }
 
   apply(compiler: Compiler) {
@@ -124,13 +96,6 @@ export class UpdateManifest {
                 // Preserve all uncatched user entries
                 ...manifest,
                 ...JSON.parse(overrides)
-              }
-
-              if (patchedManifest.content_scripts) {
-                patchedManifest.content_scripts = this.applyProdOverrides(
-                  compilation,
-                  patchedManifest
-                )
               }
 
               const source = JSON.stringify(patchedManifest, null, 2)

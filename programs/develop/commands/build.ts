@@ -37,7 +37,10 @@ export async function extensionBuild(
     const baseConfig: Configuration = webpackConfig(projectPath, {
       ...buildOptions,
       browser,
-      mode: 'production'
+      mode: 'production',
+      output: {
+        clean: true
+      }
     })
 
     const allPluginsButBrowserRunners = baseConfig.plugins?.filter((plugin) => {
