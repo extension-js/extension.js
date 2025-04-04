@@ -1,20 +1,24 @@
 import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
-import {injectStyles} from './scripts-shell'
-// import './styles.css?inline_style'
-import './styles.css?inline_style'
+
+let unmount: () => void
+
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
 
 if (document.readyState === 'complete') {
-  initial()
+  unmount = initial() || (() => {})
 } else {
   document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') initial()
+    if (document.readyState === 'complete') unmount = initial() || (() => {})
   })
 }
 
-injectStyles()
+console.log('Hello from content script')
 
-export default function initial() {
+function initial() {
   // Create a new div element and append it to the document's body
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
@@ -24,19 +28,31 @@ export default function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
+  const style = new CSSStyleSheet()
+  shadowRoot.adoptedStyleSheets = [style]
+  fetchCSS().then((response) => style.replace(response))
 
-  // Use the shadow root as the root element to inject styles into.
-  window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.css', () => {
+      fetchCSS().then((response) => style.replace(response))
+    })
+  }
 
-  const root = ReactDOM.createRoot(shadowRoot)
-  root.render(
+  const mountingPoint = ReactDOM.createRoot(shadowRoot)
+  mountingPoint.render(
     <div className="content_script">
       <ContentApp />
     </div>
   )
-
   return () => {
-    root.unmount()
-    // shadowRoot.remove()
+    mountingPoint.unmount()
+    rootDiv.remove()
   }
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL('./styles.css', import.meta.url)
+  const response = await fetch(cssUrl)
+  const text = await response.text()
+  return response.ok ? text : Promise.reject(text)
 }

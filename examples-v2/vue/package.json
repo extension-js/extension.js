@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "name": "content-vue",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "OSpoon",
+    "email": "zxin088@gmail.com",
+    "url": "https://hw404.cn"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "vue": "^3.4.27",
+    "tailwindcss": "^3.4.1"
+  },
+  "devDependencies": {
+    "typescript": "5.3.3"
+  }
+}

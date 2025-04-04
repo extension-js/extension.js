@@ -55,8 +55,8 @@ export class JsFrameworksPlugin {
             minify: mode === 'production',
             isModule: true,
             sourceMap: this.mode === 'development',
+            env: {targets: ['chrome >= 100']},
             jsc: {
-              target: 'es2016',
               parser: {
                 syntax: isUsingTypeScript(projectPath)
                   ? 'typescript'

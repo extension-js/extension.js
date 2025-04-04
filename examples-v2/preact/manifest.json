@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/chrome-manifest.json",
+  "manifest_version": 3,
+  "version": "0.0.1",
+  "name": "Preact",
+  "description": "An Extension.js example.",
+  "icons": {
+    "48": "images/extension_48.png"
+  },
+  "background": {
+    "chromium:service_worker": "background.ts",
+    "firefox:scripts": ["background.ts"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://extension.js.org/*"],
+      "js": ["./content/scripts.tsx"],
+      "css": ["./content/styles.css"]
+    }
+  ],
+  "options_page": "./options/index.html"
+}
