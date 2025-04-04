@@ -1,5 +1,4 @@
 import path from 'path'
-import fs from 'fs'
 import {commonStyleLoaders} from './common-style-loaders'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import {isContentScriptEntry} from './is-content-script'
