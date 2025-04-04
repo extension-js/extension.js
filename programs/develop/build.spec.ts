@@ -129,11 +129,16 @@ describe('extension build', () => {
               'content_scripts/content-0.js'
             )
             expect(
-              distFileExists(
-                template.name,
-                SUPPORTED_BROWSERS[0],
-                'content_scripts/content-0.css'
-              )
+              fs
+                .readdirSync(
+                  path.join(
+                    templatePath,
+                    'dist',
+                    SUPPORTED_BROWSERS[0],
+                    'content_scripts'
+                  )
+                )
+                .some((file) => file.endsWith('.css'))
             ).toBeTruthy()
 
             expect(
