@@ -9,7 +9,7 @@
     "node": ">=18"
   },
   "name": "extension",
-  "version": "2.0.0-beta.9",
+  "version": "2.0.0-rc.0",
   "description": "Create cross-browser extensions with no build configuration.",
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
