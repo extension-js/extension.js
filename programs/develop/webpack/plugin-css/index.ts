@@ -37,8 +37,8 @@ export class CssPlugin {
     // For HTML we need to use the css loader because it's a HTML file
     // and we need to load it as a CSS file.
     const loaders: RuleSetRule[] = [
-      await cssInContentScriptLoader(projectPath, mode),
-      await cssInHtmlLoader(projectPath, mode)
+      ...(await cssInContentScriptLoader(projectPath, mode)),
+      ...(await cssInHtmlLoader(projectPath, mode))
     ]
 
     // Add Sass/Less support if needed
