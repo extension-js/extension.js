@@ -69,9 +69,9 @@ export class ScriptsPlugin {
     // available for content_scripts in the production build.
     // See https://github.com/cezaraugusto/extension.js/issues/95
     // See https://github.com/cezaraugusto/extension.js/issues/96
-    if (compiler.options.mode === 'production') {
-      new AddPublicPathRuntimeModule().apply(compiler)
-    }
+    // if (compiler.options.mode === 'production') {
+    new AddPublicPathRuntimeModule().apply(compiler)
+    // }
 
     // 4 - Fix the issue where assets imported via content_scripts
     // running in the MAIN world could not find the correct public path.
