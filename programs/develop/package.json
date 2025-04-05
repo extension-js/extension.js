@@ -37,7 +37,6 @@
     "@swc/helpers": "^0.5.15",
     "@types/firefox-webext-browser": "^120.0.4",
     "adm-zip": "^0.5.16",
-    "ajv": "^8.17.1",
     "axios": "^1.7.9",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "chokidar": "^4.0.1",
