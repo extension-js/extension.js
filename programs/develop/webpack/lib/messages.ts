@@ -1,5 +1,4 @@
 import path from 'path'
-import {type ErrorObject} from 'ajv'
 import {
   red,
   brightGreen,
@@ -182,7 +181,7 @@ export function webAccessibleResourcesV3Type(browser: DevOptions['browser']) {
 
 export function deprecatedMessage(
   browser: DevOptions['browser'],
-  errorData: ErrorObject<string, Record<string, any>, unknown> | undefined
+  errorData: any
 ) {
   const schemaPath = errorData?.schemaPath
   const splitSchemaPath = schemaPath?.split('/')
@@ -197,7 +196,7 @@ export function deprecatedMessage(
 }
 
 export function invalidFieldType(
-  errorData: ErrorObject | undefined,
+  errorData: any,
   browser: DevOptions['browser']
 ) {
   const field = errorData?.instancePath.replaceAll('/', '.').slice(1) || ''
