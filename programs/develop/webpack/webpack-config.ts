@@ -47,9 +47,9 @@ export default function webpackConfig(
       ? 'gecko-based'
       : devOptions.browser
 
+  // Keep hot updates for content scripts in development mode
   const cleanConfig = devOptions.output?.clean
     ? devOptions.output.clean
-    // Keep hot updates for content scripts in development mode
     : devOptions.mode === 'development'
 
   return {
