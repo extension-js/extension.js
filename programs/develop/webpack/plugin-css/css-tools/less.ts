@@ -39,7 +39,7 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
   try {
     require.resolve('less-loader')
   } catch (e) {
-    const lessDependencies = ['less', 'less-loader', 'resolve-url-loader']
+    const lessDependencies = ['less', 'less-loader']
 
     await installOptionalDependencies('LESS', lessDependencies)
 
