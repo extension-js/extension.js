@@ -9,7 +9,7 @@ export async function cssInContentScriptLoader(
 ) {
   const manifestPath = path.join(projectPath, 'manifest.json')
 
-  return {
+  return [{
     test: /\.css$/,
     type: 'asset',
     generator: {
@@ -21,5 +21,5 @@ export async function cssInContentScriptLoader(
     use: await commonStyleLoaders(projectPath, {
       mode: mode as 'development' | 'production'
     })
-  }
+  }]
 }
