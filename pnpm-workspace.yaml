@@ -2,4 +2,4 @@ packages:
   - './programs/cli'
   - './programs/create'
   - './programs/develop'
-  # - './examples/*'
+  - './examples/*'
