@@ -17,7 +17,6 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {ReloadPlugin} from './plugin-reload'
 import {CompatibilityPlugin} from './plugin-compatibility'
-import {ErrorsPlugin} from './plugin-errors'
 import {BrowsersPlugin} from '../plugin-browsers'
 import * as utils from './lib/utils'
 
@@ -119,11 +118,6 @@ export default function webpackConfig(
         mode: devOptions.mode,
         manifestPath
       }),
-      process.env.EXPERIMENTAL_ERRORS_PLUGIN === 'true' &&
-        new ErrorsPlugin({
-          manifestPath,
-          browser
-        }),
       new CompatibilityPlugin({
         manifestPath,
         browser,
