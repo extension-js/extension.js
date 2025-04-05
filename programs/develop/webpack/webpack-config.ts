@@ -50,9 +50,8 @@ export default function webpackConfig(
 
   const cleanConfig = devOptions.output?.clean
     ? devOptions.output.clean
-    : {
-        keep: devOptions.mode === 'development' ? 'hot' : undefined
-      }
+    // Keep hot updates for content scripts in development mode
+    : devOptions.mode === 'development'
 
   return {
     mode: devOptions.mode || 'development',
