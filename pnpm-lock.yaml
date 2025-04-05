@@ -698,21 +698,9 @@ importers:
       '@types/firefox-webext-browser':
         specifier: ^120.0.4
         version: 120.0.4
-      acorn:
-        specifier: ^8.14.0
-        version: 8.14.0
-      acorn-walk:
-        specifier: ^8.3.4
-        version: 8.3.4
       adm-zip:
         specifier: ^0.5.16
         version: 0.5.16
-      ajv:
-        specifier: ^8.17.1
-        version: 8.17.1
-      astring:
-        specifier: ^1.9.0
-        version: 1.9.0
       axios:
         specifier: ^1.7.9
         version: 1.7.9
@@ -3315,10 +3303,6 @@ packages:
   astral-regex@2.0.0:
     resolution: {integrity: sha512-Z7tMw1ytTXt5jqMcOP+OQteU1VuNK9Y02uuJtKQ1Sv69jXQKKg5cibLwGJow8yzZP+eAc18EmLGPal0bp36rvQ==}
     engines: {node: '>=8'}
-
-  astring@1.9.0:
-    resolution: {integrity: sha512-LElXdjswlqjWrPpJFg1Fx4wpkOCxj1TDHlSV4PlaRxHGWko024xICaa97ZkMfs6DRKlCguiAI+rbXv5GWwXIkg==}
-    hasBin: true
 
   async@3.2.6:
     resolution: {integrity: sha512-htCUDlxyyCLMgaM3xXg0C0LW2xqfuQ6p05pCEIsXuyQ+a1koYKTuBMzRNwmybfLgvJDMd0r1LTn4+E0Ti6C2AA==}
@@ -10149,8 +10133,6 @@ snapshots:
       util: 0.12.5
 
   astral-regex@2.0.0: {}
-
-  astring@1.9.0: {}
 
   async@3.2.6: {}
 
