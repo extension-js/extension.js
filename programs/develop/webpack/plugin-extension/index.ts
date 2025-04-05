@@ -11,7 +11,6 @@ import {getManifestFieldsData} from './data/manifest-fields'
 import {getSpecialFoldersData} from './data/special-folders'
 
 // Plugins
-import {ResolvePlugin} from './feature-resolve'
 import {ManifestPlugin} from './feature-manifest'
 import {HtmlPlugin} from './feature-html'
 import {ScriptsPlugin} from './feature-scripts'
@@ -24,11 +23,6 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 import {PluginInterface, FilepathList} from '../webpack-types'
 
 import {DevOptions} from '../../commands/commands-lib/config-types'
-import {isUsingReact} from '../plugin-js-frameworks/js-tools/react'
-import {isUsingPreact} from '../plugin-js-frameworks/js-tools/preact'
-import {isUsingTypeScript} from '../plugin-js-frameworks/js-tools/typescript'
-import {isUsingVue} from '../plugin-js-frameworks/js-tools/vue'
-import {isUsingSvelte} from '../plugin-js-frameworks/js-tools/svelte'
 
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
@@ -51,26 +45,6 @@ export class ExtensionPlugin {
       manifestPath,
       browser: this.browser
     })
-
-    process.env.EXPERIMENTAL_EXTENSION_RESOLVER_PLUGIN === 'true' &&
-      new ResolvePlugin({
-        manifestPath,
-        browser: this.browser,
-        includeList: {
-          ...(specialFoldersData?.pages || {}),
-          ...(specialFoldersData?.scripts || {})
-        },
-        excludeList: specialFoldersData.public,
-        loaderOptions: {
-          jsx:
-            isUsingReact(path.dirname(this.manifestPath)) ||
-            isUsingPreact(path.dirname(this.manifestPath)) ||
-            isUsingVue(path.dirname(this.manifestPath)) ||
-            isUsingSvelte(path.dirname(this.manifestPath)),
-          typescript: isUsingTypeScript(path.dirname(this.manifestPath)),
-          minify: compiler.options.mode === 'production'
-        }
-      }).apply(compiler)
 
     // Generate a manifest file with all the assets we need
     new ManifestPlugin({
