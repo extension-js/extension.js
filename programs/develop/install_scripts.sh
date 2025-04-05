@@ -7,12 +7,6 @@ html_plugin_files=(
   "$(dirname "$0")/webpack/plugin-extension/feature-html/steps/ensure-hmr-for-scripts.ts"
 )
 
-resolve_plugin_files=(
-  "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-loader.ts"
-  # Defined in line 32 since it needs to be executed in esm format
-  # "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-module.ts"
-)
-
 scripts_plugin_files=(
   "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/add-hmr-accept-code.ts"
   "$(dirname "$0")/webpack/plugin-extension/feature-scripts/steps/deprecated-shadow-root.ts"
@@ -29,7 +23,6 @@ minimum_files=(
   "$(dirname "$0")/webpack/plugin-reload/steps/setup-chromium-reload-client/minimum-chromium-file.ts"
   "$(dirname "$0")/webpack/plugin-reload/steps/setup-firefox-reload-client/minimum-firefox-file.ts"
   "$(dirname "$0")/webpack/plugin-extension/feature-html/steps/minimum-script-file.ts"
-  "$(dirname "$0")/webpack/plugin-extension/feature-resolve/steps/resolver-module.ts"
 )
 
 # Define the tsup function
