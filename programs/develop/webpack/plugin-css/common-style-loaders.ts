@@ -31,25 +31,16 @@ export async function commonStyleLoaders(
 
   // Handle Sass/Less loaders
   if (opts.loader) {
-    styleLoaders.push(
-      {
-        loader: require.resolve('resolve-url-loader'),
-        options: {
-          sourceMap: opts.mode === 'development',
-          root: projectPath
-        }
-      },
-      {
-        // Use either external loader or builtin
-        loader: opts.loader.startsWith('builtin:')
-          ? opts.loader
-          : require.resolve(opts.loader),
-        options: {
-          ...opts.loaderOptions,
-          sourceMap: opts.mode === 'development'
-        }
+    styleLoaders.push({
+      // Use either external loader or builtin
+      loader: opts.loader.startsWith('builtin:')
+        ? opts.loader
+        : require.resolve(opts.loader),
+      options: {
+        ...opts.loaderOptions,
+        sourceMap: opts.mode === 'development'
       }
-    )
+    })
   }
 
   return styleLoaders.filter(Boolean)
