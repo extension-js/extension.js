@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "content-vue",
+  "name": "vue",
   "description": "An Extension.js example.",
   "version": "0.0.1",
   "author": {
@@ -10,10 +10,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "vue": "^3.4.27",
-    "tailwindcss": "^3.4.1"
+    "vue": "^3.4.27"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.3",
+    "tailwindcss": "^4.1.3",
     "typescript": "5.3.3"
   }
 }

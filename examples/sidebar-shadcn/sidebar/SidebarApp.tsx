@@ -1,4 +1,3 @@
-import {Button} from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -9,7 +8,6 @@ import {
 } from '@/components/ui/card'
 import {Label} from '@/components/ui/label'
 import {Switch} from '@/components/ui/switch'
-import './styles.css'
 import shadcnLogo from '../images/shadcn.svg'
 
 export default function SidebarApp() {
@@ -17,10 +15,8 @@ export default function SidebarApp() {
     <Card className="h-full">
       <CardHeader>
         <img src={shadcnLogo} alt="shadcn Logo" className="w-12 h-12" />
-        <CardTitle>
           <CardTitle>Welcome to your shadcn Extension.</CardTitle>
           <CardDescription>Manage your cookie settings here.</CardDescription>
-        </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-6">
         <div className="flex items-center justify-between space-x-4">
