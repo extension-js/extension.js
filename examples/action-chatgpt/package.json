@@ -13,12 +13,13 @@
     "daisyui": "^4.12.10",
     "openai": "^4.57.2",
     "react": "^18.1.0",
-    "react-dom": "^18.1.0",
-    "tailwindcss": "^3.4.1"
+    "react-dom": "^18.1.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.3",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "tailwindcss": "^4.1.3",
     "typescript": "5.3.3"
   }
 }
