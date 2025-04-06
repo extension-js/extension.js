@@ -31,7 +31,7 @@ export async function connect() {
         `[Reload Service] Changes detected on ${message.changedFile}. Reloading extension...`
       )
 
-      await messageAllExtensions(message.changedFile)
+      await hardReloadAllExtensions(message.changedFile)
     }
   }
 
@@ -64,13 +64,15 @@ async function getDevExtensions() {
   })
 }
 
-async function messageAllExtensions(changedFile) {
+async function hardReloadAllExtensions(changedFile) {
   // Check if the external extension is ready
   const isExtensionReady = await checkExtensionReadiness()
 
   if (isExtensionReady) {
     const devExtensions = await getDevExtensions()
-    const reloadAll = devExtensions.map((extension) => {
+    const reloadAll = devExtensions.map(async (extension) => {
+      await hardReloadExtension(extension.id)
+
       chrome.runtime.sendMessage(extension.id, {changedFile}, (response) => {
         if (response) {
           console.info('[Reload Service] Extension reloaded and ready.')
@@ -142,4 +144,18 @@ export function keepAlive() {
       clearInterval(keepAliveIntervalId)
     }
   }, TEN_SECONDS_MS)
+}
+
+const toggleExtensionState = (extensionId, enabled) => {
+  if (extensionId === chrome.runtime.id) {
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    chrome.management.setEnabled(extensionId, enabled, resolve)
+  })
+}
+
+async function hardReloadExtension(extensionId) {
+  await toggleExtensionState(extensionId, false)
+  await toggleExtensionState(extensionId, true)
 }

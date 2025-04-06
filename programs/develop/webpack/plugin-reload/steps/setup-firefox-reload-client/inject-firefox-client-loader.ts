@@ -61,25 +61,11 @@ export default function (this: InjectBackgroundClientContext, source: string) {
   // Reload the extension runtime if the manifest or
   // service worker changes.
   if (
+    request.changedFile === 'declarative_net_request' ||
     request.changedFile === 'manifest.json' ||
     request.changedFile === 'service_worker' ||
     request.changedFile === '_locales'
   ) {
-    setTimeout(() => {
-      browser.runtime.reload()
-    }, 750)
-  }
-
-  // Reload all tabs if the contextMenus code changes.
-  if (request.changedFile === "contextMenus") {
-    browser.tabs.query({}, (tabs) => {
-      if (!tabs) return;
-      tabs.forEach((tab) => browser.tabs.reload(tab.id));
-    });
-  }
-
-  // Reload all tabs if the declarative_net_request code changes.
-  if (request.changedFile === 'declarative_net_request') {
     browser.runtime.reload()
   }
 
