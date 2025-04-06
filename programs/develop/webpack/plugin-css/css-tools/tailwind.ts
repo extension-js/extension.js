@@ -8,7 +8,6 @@
 import path from 'path'
 import fs from 'fs'
 import * as messages from '../../lib/messages'
-import {installOptionalDependencies} from '../../lib/utils'
 
 let userMessageDelivered = false
 
@@ -19,7 +18,6 @@ export function isUsingTailwind(projectPath: string) {
     return false
   }
 
-  const configFile = getTailwindConfigFile(projectPath)
   const packageJson = require(packageJsonPath)
 
   const tailwindAsDevDep =
@@ -28,7 +26,7 @@ export function isUsingTailwind(projectPath: string) {
   const tailwindAsDep =
     packageJson.dependencies && packageJson.dependencies.tailwindcss
 
-  const isUsingTailwind = !!configFile && !!(tailwindAsDevDep || tailwindAsDep)
+  const isUsingTailwind = !!(tailwindAsDevDep || tailwindAsDep)
 
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
@@ -52,36 +50,4 @@ export function getTailwindConfigFile(projectPath: string) {
   if (fs.existsSync(configFileJs)) return configFileJs
 
   return undefined
-}
-
-export async function maybeUseTailwind(projectPath: string) {
-  if (!isUsingTailwind(projectPath)) return []
-  try {
-    require.resolve('tailwindcss')
-  } catch (e) {
-    const postCssDependencies = [
-      'postcss-loader',
-      'postcss-scss',
-      'postcss-flexbugs-fixes',
-      'postcss-preset-env',
-      'postcss-normalize'
-    ]
-
-    await installOptionalDependencies('PostCSS', postCssDependencies)
-
-    const tailwindDependencies = ['tailwindcss']
-
-    await installOptionalDependencies('Tailwind', tailwindDependencies)
-
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('Tailwind'))
-    process.exit(0)
-  }
-
-  return [
-    ...(isUsingTailwind(projectPath)
-      ? [require.resolve('tailwindcss', {paths: [projectPath]})]
-      : [])
-  ]
 }
