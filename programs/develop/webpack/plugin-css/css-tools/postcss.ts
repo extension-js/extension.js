@@ -1,3 +1,10 @@
+// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
+// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
+// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
+// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
+// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+
 import path from 'path'
 import fs from 'fs'
 import {StyleLoaderOptions} from '../common-style-loaders'
@@ -9,23 +16,33 @@ import {installOptionalDependencies} from '../../lib/utils'
 
 let userMessageDelivered = false
 
+const postCssConfigFiles = [
+  '.postcssrc',
+  '.postcssrc.json',
+  '.postcssrc.yaml',
+  '.postcssrc.yml',
+  '.postcssrc.js',
+  '.postcssrc.cjs',
+  'postcss.config.js',
+  'postcss.config.cjs'
+]
+
+function findPostCssConfig(projectPath: string): string | undefined {
+  for (const configFile of postCssConfigFiles) {
+    const configPath = path.join(projectPath, configFile)
+    if (fs.existsSync(configPath)) {
+      return configPath
+    }
+  }
+  return undefined
+}
+
 export function isUsingPostCss(projectPath: string): boolean {
   const packageJsonPath = path.join(projectPath, 'package.json')
 
   if (!fs.existsSync(packageJsonPath)) {
     return false
   }
-
-  const postCssConfigFiles = [
-    '.postcssrc',
-    '.postcssrc.json',
-    '.postcssrc.yaml',
-    '.postcssrc.yml',
-    '.postcssrc.js',
-    '.postcssrc.cjs',
-    'postcss.config.js',
-    'postcss.config.cjs'
-  ]
 
   if (fs.existsSync(packageJsonPath)) {
     const packageJson = require(packageJsonPath)
@@ -44,18 +61,16 @@ export function isUsingPostCss(projectPath: string): boolean {
     }
   }
 
-  for (const configFile of postCssConfigFiles) {
-    if (fs.existsSync(path.join(projectPath, configFile))) {
-      if (!userMessageDelivered) {
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.log(messages.isUsingIntegration('PostCSS'))
-        }
-
-        userMessageDelivered = true
+  if (findPostCssConfig(projectPath)) {
+    if (!userMessageDelivered) {
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.isUsingIntegration('PostCSS'))
       }
 
-      return true
+      userMessageDelivered = true
     }
+
+    return true
   }
 
   if (isUsingTailwind(projectPath)) {
@@ -100,11 +115,13 @@ export async function maybeUsePostCss(
   }
 
   return {
+    test: /\.css$/,
+    type: 'css',
     loader: require.resolve('postcss-loader'),
     options: {
       postcssOptions: {
         ident: 'postcss',
-        config: path.resolve(projectPath, 'postcss.config.js'),
+        config: findPostCssConfig(projectPath),
         plugins: [
           [
             require.resolve('postcss-preset-env'),
