@@ -233,7 +233,7 @@ const CUSTOM_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: true,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+    configFiles: ['postcss.config.js', 'tsconfig.json']
   },
   {
     name: 'new-crypto',
@@ -263,8 +263,7 @@ const CUSTOM_TEMPLATES: Template[] = [
     configFiles: [
       'extension.config.js',
       'tsconfig.json',
-      'postcss.config.js',
-      'tailwind.config.js'
+      'postcss.config.js'
     ]
   },
   {
@@ -283,7 +282,7 @@ const CUSTOM_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+    configFiles: ['postcss.config.js', 'tsconfig.json']
   }
 ]
 
@@ -304,7 +303,7 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+    configFiles: ['postcss.config.js', 'tsconfig.json']
   },
   {
     name: 'new-preact',
@@ -322,7 +321,7 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+    configFiles: ['postcss.config.js', 'tsconfig.json']
   },
   {
     name: 'content-extension-config',
@@ -334,8 +333,7 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     configFiles: [
       'extension.config.js',
       'tsconfig.json',
-      'postcss.config.js',
-      'tailwind.config.js'
+      'postcss.config.js'
     ]
   },
   {
@@ -354,7 +352,7 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+    configFiles: ['postcss.config.js', 'tsconfig.json']
   },
   {
     name: 'new-svelte',
@@ -417,7 +415,7 @@ const CONFIG_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['tailwind.config.js', 'postcss.config.js']
+    configFiles: ['postcss.config.js']
   },
   {
     name: 'new-tailwind',
@@ -426,7 +424,7 @@ const CONFIG_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: false,
     hasEnv: false,
-    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+    configFiles: ['postcss.config.js', 'tsconfig.json']
   }
 ]
 
