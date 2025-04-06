@@ -121,6 +121,16 @@ export class TargetWebExtensionPlugin {
     return {pageEntry: 'background'}
   }
 
+  private convertToWebpackCompiler(compiler: Compiler) {
+    return {
+      ...compiler,
+      options: {
+        ...compiler.options,
+        mode: 'development'
+      }
+    } as unknown as import('webpack').Compiler
+  }
+
   public apply(compiler: Compiler) {
     if (!this.manifestPath || !fs.lstatSync(this.manifestPath).isFile()) {
       return
@@ -137,6 +147,6 @@ export class TargetWebExtensionPlugin {
     new WebExtension({
       background: this.getEntryName(patchedManifest),
       weakRuntimeCheck: true
-    }).apply(compiler as any)
+    }).apply(this.convertToWebpackCompiler(compiler))
   }
 }
