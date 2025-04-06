@@ -5,9 +5,7 @@ module.exports = {
   config: (config) => {
     config.plugins = [
       ...config.plugins,
-      new NodePolyfillPlugin({
-        additionalAliases: ['process']
-      })
+      new NodePolyfillPlugin()
     ]
 
     return config
