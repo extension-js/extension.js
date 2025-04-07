@@ -119,6 +119,10 @@ extensionJs
     '--starting-url <url>',
     'specify the starting URL for the browser. Defaults to `undefined`'
   )
+  .option(
+    '--port <port>',
+    'specify the port to use for the development server. Defaults to `8080`'
+  )
   .action(async function (
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...devOptions}: DevOptions
@@ -174,6 +178,10 @@ extensionJs
     '--starting-url <url>',
     'specify the starting URL for the browser. Defaults to `undefined`'
   )
+  .option(
+    '--port <port>',
+    'specify the port to use for the development server. Defaults to `8080`'
+  )
   .action(async function (
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...startOptions}: StartOptions
@@ -221,6 +229,10 @@ extensionJs
   .option(
     '--starting-url <url>',
     'specify the starting URL for the browser. Defaults to `undefined`'
+  )
+  .option(
+    '--port <port>',
+    'specify the port to use for the development server. Defaults to `8080`'
   )
   .action(async function (
     pathOrRemoteUrl: string,

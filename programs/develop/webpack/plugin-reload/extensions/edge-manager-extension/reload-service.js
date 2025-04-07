@@ -7,7 +7,9 @@ export async function connect() {
     return
   }
 
-  webSocket = new WebSocket('ws://localhost:__RELOAD_PORT__')
+  // Get port from the placeholder that will be replaced during build
+  const port = '__RELOAD_PORT__'
+  webSocket = new WebSocket(`ws://localhost:${port}`)
 
   webSocket.onerror = (event) => {
     console.error(`[Reload Service] Connection error: ${JSON.stringify(event)}`)
