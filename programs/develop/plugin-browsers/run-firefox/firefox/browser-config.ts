@@ -28,14 +28,16 @@ export async function browserConfig(
     binaryArgs.push(...browserFlags)
   }
 
-  const port = (compiler.options.devServer as any)?.port
-    ? (compiler.options.devServer as any)?.port + 100
-    : 9222
+  // Calculate Firefox debug port based on webpack dev server port
+  // Add 100 to avoid port conflicts
+  const devServerPort = (compiler.options.devServer as any)?.port
+  const debugPort =
+    typeof devServerPort === 'number' ? devServerPort + 100 : 9222
 
   return [
     `--binary-args="${binaryArgs.join(' ')}"`,
     `--profile="${userProfilePath.path()}"`,
-    `--listen=${port}`,
+    `--listen=${debugPort}`,
     '--verbose'
   ].join(' ')
 }

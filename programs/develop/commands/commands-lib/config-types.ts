@@ -36,6 +36,7 @@ export type ExtendedBrowserOptions =
 export interface DevOptions extends BrowserOptionsBase {
   mode: 'development' | 'production' | 'none'
   polyfill?: boolean
+  port?: number
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
