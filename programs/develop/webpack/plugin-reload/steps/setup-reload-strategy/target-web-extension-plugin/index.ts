@@ -7,6 +7,7 @@ import {type Manifest} from '../../../../webpack-types'
 import {type DevOptions} from '../../../../../commands/commands-lib/config-types'
 import * as messages from '../../../../lib/messages'
 import * as utils from '../../../../lib/utils'
+import {hardcodeNamespaceInFile} from './hardcode-namespace-in-file'
 
 export class TargetWebExtensionPlugin {
   private readonly manifestPath: string
@@ -106,19 +107,35 @@ export class TargetWebExtensionPlugin {
   private getEntryName(manifest: Manifest) {
     if (manifest.background) {
       if (this.browser === 'firefox' || this.browser === 'gecko-based') {
-        return {pageEntry: 'background/script'}
+        return {
+          pageEntry: 'background/script',
+          tryCatchWrapper: true,
+          eagerChunkLoading: false
+        }
       }
 
       if (manifest.manifest_version === 3) {
-        return {serviceWorkerEntry: 'background/service_worker'}
+        return {
+          serviceWorkerEntry: 'background/service_worker',
+          tryCatchWrapper: true,
+          eagerChunkLoading: false
+        }
       }
 
       if (manifest.manifest_version === 2) {
-        return {pageEntry: 'background/script'}
+        return {
+          pageEntry: 'background/script',
+          tryCatchWrapper: true,
+          eagerChunkLoading: false
+        }
       }
     }
 
-    return {pageEntry: 'background'}
+    return {
+      pageEntry: 'background',
+      tryCatchWrapper: true,
+      eagerChunkLoading: false
+    }
   }
 
   private convertToWebpackCompiler(compiler: Compiler) {
@@ -148,5 +165,14 @@ export class TargetWebExtensionPlugin {
       background: this.getEntryName(patchedManifest),
       weakRuntimeCheck: true
     }).apply(this.convertToWebpackCompiler(compiler))
+
+    try {
+      const browserRuntimePath = require.resolve(
+        'webpack-target-webextension/lib/webpack5/RuntimeModules/BrowserRuntime.js'
+      )
+      hardcodeNamespaceInFile(browserRuntimePath)
+    } catch (error) {
+      console.error(messages.couldNotFindBrowserRuntimeFile())
+    }
   }
 }

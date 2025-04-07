@@ -260,11 +260,7 @@ const CUSTOM_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: true,
     hasEnv: false,
-    configFiles: [
-      'extension.config.js',
-      'tsconfig.json',
-      'postcss.config.js'
-    ]
+    configFiles: ['extension.config.js', 'tsconfig.json', 'postcss.config.js']
   },
   {
     name: 'new-react-router',
@@ -330,11 +326,7 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     css: 'css',
     hasBackground: true,
     hasEnv: false,
-    configFiles: [
-      'extension.config.js',
-      'tsconfig.json',
-      'postcss.config.js'
-    ]
+    configFiles: ['extension.config.js', 'tsconfig.json', 'postcss.config.js']
   },
   {
     name: 'new-vue',
