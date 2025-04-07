@@ -131,7 +131,7 @@ export default function webpackConfig(
         manifestPath,
         browser,
         stats: true,
-        port: 8000
+        port: devOptions.port || 8000
       }),
       new BrowsersPlugin({
         extension: [
