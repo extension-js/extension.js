@@ -630,3 +630,10 @@ export function deprecatedShadowRoot() {
     `to support it is ${'extension@2.0.0-beta.9'}.\n`
   )
 }
+
+export function couldNotFindBrowserRuntimeFile() {
+  return (
+    `${getLoggingPrefix('BrowserRuntime', 'error')} Could Not Find BrowserRuntime.js File\n\n` +
+    `Please report a bug at https://github.com/extension-js/extension.js/issues`
+  )
+}
