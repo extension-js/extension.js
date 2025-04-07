@@ -10,7 +10,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "daisyui": "^4.12.10",
+    "daisyui": "^5.0.16",
     "openai": "^4.57.2",
     "react": "^18.1.0",
     "react-dom": "^18.1.0"
