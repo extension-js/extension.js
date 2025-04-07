@@ -87,6 +87,9 @@ export class EnvPlugin {
     filteredEnvVars['process.env.EXTENSION_MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.EXTENSION_MODE'] = JSON.stringify(mode)
 
+    // Ensure process is defined
+    filteredEnvVars['process'] = '{env: {}}'
+
     // Apply DefinePlugin to expose filtered variables
     new DefinePlugin(filteredEnvVars).apply(compiler)
 
