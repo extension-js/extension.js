@@ -156,6 +156,10 @@ export class BrowsersPlugin {
       this.profile || this.profile
     )
 
+    // Get the port from webpack dev server config
+    const port = (compiler.options.devServer as any)?.port || 'auto'
+
+    // Pass port to browser specific plugins
     switch (this.browser) {
       case 'chrome':
       case 'edge':
@@ -163,7 +167,8 @@ export class BrowsersPlugin {
         new RunChromiumPlugin({
           ...browserConfig,
           browser: this.browser,
-          profile
+          profile,
+          port
         }).apply(compiler)
         break
       }
@@ -173,7 +178,8 @@ export class BrowsersPlugin {
         new RunFirefoxPlugin({
           ...browserConfig,
           browser: this.browser,
-          profile
+          profile,
+          port
         }).apply(compiler)
         break
 
@@ -181,7 +187,8 @@ export class BrowsersPlugin {
         new RunChromiumPlugin({
           ...browserConfig,
           browser: 'chrome',
-          profile
+          profile,
+          port
         }).apply(compiler)
         break
       }

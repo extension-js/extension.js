@@ -25,6 +25,7 @@ export class RunChromiumPlugin {
   public readonly autoReload?: boolean
   public readonly stats?: boolean
   public readonly chromiumBinary?: string
+  public readonly port?: number
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -34,6 +35,7 @@ export class RunChromiumPlugin {
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl
     this.chromiumBinary = options.chromiumBinary
+    this.port = options.port
   }
 
   private launchChromium(browser: DevOptions['browser']) {

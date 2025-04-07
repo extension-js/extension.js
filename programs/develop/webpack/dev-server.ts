@@ -91,8 +91,8 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
-    port: 'auto',
-
+    // Use the user provided port or fallback to 'auto'
+    port: devOptions.port || 'auto',
     hot: true
   }
 
