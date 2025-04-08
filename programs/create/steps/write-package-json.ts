@@ -25,10 +25,15 @@ const extensionJsPackageJsonScripts = {
       : 'extension build'
 }
 
+interface OverridePackageJsonOptions {
+  template: string
+  cliVersion?: string
+}
+
 export async function overridePackageJson(
   projectPath: string,
   projectName: string,
-  template: string
+  {template, cliVersion}: OverridePackageJsonOptions
 ) {
   const templatePath = utils.getTemplatePath(process.cwd())
 
@@ -44,7 +49,8 @@ export async function overridePackageJson(
   packageJson.devDependencies = {
     ...(packageJson.devDependencies || {}),
     // During development, we want to use the local version of Extension.js
-    extension: process.env.EXTENSION_ENV === 'development' ? '*' : 'latest'
+    extension:
+      process.env.EXTENSION_ENV === 'development' ? '*' : `^${cliVersion}`
   }
 
   const packageMetadata = {

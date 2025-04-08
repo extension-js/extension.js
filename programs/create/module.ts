@@ -16,11 +16,12 @@ import {setupBuiltInTests} from './steps/setup-built-in-tests'
 export interface CreateOptions {
   template: string
   install?: boolean
+  cliVersion?: string
 }
 
 export async function extensionCreate(
   projectNameInput: string | undefined,
-  {template = 'init', install = true}: CreateOptions
+  {cliVersion, template = 'init', install = true}: CreateOptions
 ) {
   if (!projectNameInput) {
     throw new Error(messages.noProjectName())
@@ -46,7 +47,10 @@ export async function extensionCreate(
       await importExternalTemplate(projectPath, projectName, template)
     }
 
-    await overridePackageJson(projectPath, projectName, template)
+    await overridePackageJson(projectPath, projectName, {
+      template,
+      cliVersion
+    })
 
     if (install) {
       await installDependencies(projectPath, projectName)
