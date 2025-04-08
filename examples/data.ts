@@ -47,15 +47,15 @@ const JS_TEMPLATES: Template[] = [
   //   hasEnv: false,
   //   configFiles: undefined
   // },
-  // {
-  //   name: 'content-less',
-  //   uiContext: ['content'],
-  //   uiFramework: undefined,
-  //   css: 'less',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: undefined
-  // },
+  {
+    name: 'content-less',
+    uiContext: ['content'],
+    uiFramework: undefined,
+    css: 'less',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
+  },
   // {
   //   name: 'content-less-modules',
   //   uiContext: ['content'],
@@ -74,15 +74,15 @@ const JS_TEMPLATES: Template[] = [
   //   hasEnv: false,
   //   configFiles: undefined
   // },
-  // {
-  //   name: 'content-sass',
-  //   uiContext: ['content'],
-  //   uiFramework: undefined,
-  //   css: 'sass',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: undefined
-  // },
+  {
+    name: 'content-sass',
+    uiContext: ['content'],
+    uiFramework: undefined,
+    css: 'sass',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
+  },
   // {
   //   name: 'content-sass-modules',
   //   uiContext: ['content'],

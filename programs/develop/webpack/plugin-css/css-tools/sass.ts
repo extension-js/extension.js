@@ -2,6 +2,7 @@ import path from 'path'
 import fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
+import {isContentScriptEntry} from '../is-content-script'
 
 let userMessageDelivered = false
 
@@ -34,6 +35,8 @@ export function isUsingSass(projectPath: string): boolean {
 type Loader = Record<string, any>
 
 export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
+  const manifestPath = path.join(projectPath, 'manifest.json')
+
   if (!isUsingSass(projectPath)) return []
 
   try {
@@ -90,6 +93,12 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
           }
         }
       ]
+    },
+    {
+      test: /\.(sass|scss)$/,
+      exclude: /\.module\.(sass|scss)$/,
+      type: 'asset/resource',
+      issuer: (issuer: string) => isContentScriptEntry(issuer, manifestPath)
     }
   ]
 }

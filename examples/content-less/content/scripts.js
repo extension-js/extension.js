@@ -1,5 +1,5 @@
-import './styles.less?inline_style'
 import logo from '../images/logo.svg'
+import './styles.less'
 
 let unmount
 
@@ -29,11 +29,13 @@ function initial() {
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
   const style = new CSSStyleSheet()
   shadowRoot.adoptedStyleSheets = [style]
-  fetchCSS().then((response) => style.replace(response))
+
+  // Fetch and apply LESS styles
+  fetchLessStyles().then((response) => style.replace(response))
 
   if (import.meta.webpackHot) {
     import.meta.webpackHot?.accept('./styles.less', () => {
-      fetchCSS().then((response) => style.replace(response))
+      fetchLessStyles().then((response) => style.replace(response))
     })
   }
 
@@ -74,9 +76,10 @@ function initial() {
   }
 }
 
-async function fetchCSS() {
-  const cssUrl = new URL('./styles.less', import.meta.url)
-  const response = await fetch(cssUrl)
+async function fetchLessStyles() {
+  // Using URL constructor to get the resolved path of the LESS file
+  const lessUrl = new URL('./styles.less', import.meta.url)
+  const response = await fetch(lessUrl)
   const text = await response.text()
   return response.ok ? text : Promise.reject(text)
 }

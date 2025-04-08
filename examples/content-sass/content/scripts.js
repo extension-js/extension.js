@@ -1,4 +1,5 @@
 import logo from '../images/logo.svg'
+import './styles.scss'
 
 let unmount
 
@@ -26,20 +27,15 @@ function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
+  const style = new CSSStyleSheet()
+  shadowRoot.adoptedStyleSheets = [style]
 
-  // Create and inject style element with our CSS
-  const style = document.createElement('style')
-  shadowRoot.appendChild(style)
-
-  fetchCSS().then((response) => {
-    style.textContent = response
-  })
+  // Fetch and apply SCSS styles
+  fetchSassStyles().then((response) => style.replace(response))
 
   if (import.meta.webpackHot) {
     import.meta.webpackHot?.accept('./styles.scss', () => {
-      import('./styles.scss').then((newStyles) => {
-        style.textContent = newStyles.default
-      })
+      fetchSassStyles().then((response) => style.replace(response))
     })
   }
 
@@ -65,7 +61,6 @@ function initial() {
   desc.innerHTML = 'Learn more about creating cross-browser extensions at '
 
   const link = document.createElement('a')
-
   link.href = 'https://extension.js.org'
   link.target = '_blank'
   link.textContent = 'https://extension.js.org'
@@ -81,11 +76,10 @@ function initial() {
   }
 }
 
-async function fetchCSS() {
-  const cssUrl = new URL('./styles.scss', import.meta.url)
-  console.log('cssUrl', cssUrl)
-  const response = await fetch(cssUrl)
+async function fetchSassStyles() {
+  // Using URL constructor to get the resolved path of the SCSS file
+  const sassUrl = new URL('./styles.scss', import.meta.url)
+  const response = await fetch(sassUrl)
   const text = await response.text()
-  console.log('text', text)
   return response.ok ? text : Promise.reject(text)
 }
