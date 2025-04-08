@@ -7,10 +7,13 @@ import * as messages from './messages'
 
 export async function loadCustomWebpackConfig(projectPath: string) {
   const userConfigPath = path.join(projectPath, 'extension.config.js')
+  const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
 
-  if (fs.existsSync(userConfigPath)) {
+  if (fs.existsSync(userConfigPath) || fs.existsSync(moduleUserConfigPath)) {
+    const configPath = fs.existsSync(userConfigPath) ? userConfigPath : moduleUserConfigPath
+
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = require(userConfigPath)
+      const userConfig: FileConfig = require(configPath)
       if (userConfig && typeof userConfig.config === 'function') {
         return userConfig.config
       }
@@ -25,10 +28,13 @@ export async function loadCommandConfig(
   command: 'dev' | 'build' | 'start' | 'preview'
 ) {
   const userConfigPath = path.join(projectPath, 'extension.config.js')
+  const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
+  const configPath = fs.existsSync(userConfigPath) ? userConfigPath : moduleUserConfigPath
 
-  if (fs.existsSync(userConfigPath)) {
+
+  if (fs.existsSync(userConfigPath) || fs.existsSync(moduleUserConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = require(userConfigPath)
+      const userConfig: FileConfig = require(configPath)
       if (userConfig) {
         // @ts-expect-error - TS doesn't know that command is a key of FileConfig['commands']
         return userConfig[command]
@@ -44,10 +50,13 @@ export async function loadBrowserConfig(
   browser: DevOptions['browser'] = 'chrome'
 ): Promise<BrowserConfig> {
   const userConfigPath = path.join(projectPath, 'extension.config.js')
+  const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
+  const configPath = fs.existsSync(userConfigPath) ? userConfigPath : moduleUserConfigPath
 
-  if (fs.existsSync(userConfigPath)) {
+
+  if (fs.existsSync(userConfigPath) || fs.existsSync(moduleUserConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = require(userConfigPath)
+      const userConfig: FileConfig = require(configPath)
       if (userConfig && userConfig.browser && userConfig.browser[browser]) {
         return userConfig.browser[browser] || {browser: 'chrome'}
       }
@@ -62,8 +71,11 @@ export async function loadBrowserConfig(
 let userMessageDelivered = false
 
 export async function isUsingExperimentalConfig(projectPath: string) {
-  const configPath = path.join(projectPath, 'extension.config.js')
-  if (fs.existsSync(configPath)) {
+  const userConfigPath = path.join(projectPath, 'extension.config.js')
+  const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
+  const configPath = fs.existsSync(userConfigPath) ? userConfigPath : moduleUserConfigPath
+
+  if (fs.existsSync(configPath) || fs.existsSync(moduleUserConfigPath)) {
     if (!userMessageDelivered) {
       console.log(messages.isUsingExperimentalConfig('extension.config.js'))
       userMessageDelivered = true
