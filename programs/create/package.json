@@ -41,7 +41,7 @@
     "@types/react-dom": "^19.0.1",
     "globals": "^15.13.0",
     "jest": "^29.7.0",
-    "ts-jest": "^29.2.5",
+    "ts-jest": "^29.3.1",
     "tsconfig": "*",
     "tsup": "^8.3.5",
     "typescript": "5.7.2"
