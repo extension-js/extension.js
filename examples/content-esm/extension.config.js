@@ -1,5 +1,5 @@
 /** @type {import('extension').FileConfig} */
-export default {
+module.exports = {
   config: (config) => {
     return config
   }
