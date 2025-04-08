@@ -75,7 +75,8 @@ extensionJs
   ) {
     await extensionCreate(pathOrRemoteUrl, {
       template,
-      install
+      install,
+      cliVersion: packageJson.version
     })
   })
 
