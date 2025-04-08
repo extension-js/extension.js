@@ -47,11 +47,6 @@ export default function webpackConfig(
       ? 'gecko-based'
       : devOptions.browser
 
-  // Keep hot updates for content scripts in development mode
-  const cleanConfig = devOptions.output?.clean
-    ? devOptions.output.clean
-    : devOptions.mode === 'development'
-
   return {
     mode: devOptions.mode || 'development',
     entry: {},
@@ -62,7 +57,7 @@ export default function webpackConfig(
         ? 'cheap-source-map'
         : 'eval-cheap-source-map',
     output: {
-      clean: cleanConfig,
+      clean: devOptions.output?.clean,
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
