@@ -46,14 +46,5 @@
     "tsup": "^8.3.5",
     "turbo": "^2.3.3",
     "typescript": "5.7.2"
-  },
-  "pnpm": {
-    "overrides": {
-      "vue-template-compiler@>=2.0.0 <3.0.0": ">=3.0.0",
-      "nanoid@<3.3.8": ">=3.3.8",
-      "esbuild@<=0.24.2": ">=0.25.0",
-      "@babel/runtime@<7.26.10": ">=7.26.10",
-      "@babel/helpers@<7.26.10": ">=7.26.10"
-    }
   }
 }
