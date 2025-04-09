@@ -1,5 +1,4 @@
-// import logo from '../images/logo.svg'
-
+import logo from '../images/logo.svg'
 let unmount
 
 if (import.meta.webpackHot) {
@@ -43,7 +42,7 @@ function initial() {
   // Create and append logo image
   const img = document.createElement('img')
   img.className = 'content_logo'
-  img.src = '/logo.png'
+  img.src = logo
   contentDiv.appendChild(img)
 
   // Create and append title

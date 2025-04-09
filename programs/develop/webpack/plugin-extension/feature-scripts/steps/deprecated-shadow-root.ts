@@ -30,11 +30,13 @@ export default function (this: LoaderContext, source: string) {
 
   const url = urlToRequest(this.resourcePath)
   const patchCssTag = `
-  ;const appendStyleElementForLegacyShadowRoot = (legacyShadowRoot, stylesheets) => {
-  const styleElement = document.createElement('link')
-  styleElement.rel = 'stylesheet'
-  styleElement.href = (typeof chrome !== 'undefined' ? chrome : browser).runtime.getURL('content_scripts/content-0.css')
-  legacyShadowRoot.appendChild(styleElement)
+;const appendStyleElementForLegacyShadowRoot = (legacyShadowRoot, stylesheets) => {
+  if (typeof chrome !== 'undefined' || typeof browser !== 'undefined') {
+    const styleElement = document.createElement('link')
+    styleElement.rel = 'stylesheet'
+    styleElement.href = (typeof chrome !== 'undefined' ? chrome : browser).runtime.getURL('content_scripts/content-0.css')
+    legacyShadowRoot.appendChild(styleElement)
+  }
 }
 
 function injectStyles() {
