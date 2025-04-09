@@ -226,15 +226,15 @@ const TS_TEMPLATES: Template[] = [
 ]
 
 const CUSTOM_TEMPLATES: Template[] = [
-  {
-    name: 'action-chatgpt',
-    uiContext: ['action'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: true,
-    configFiles: ['postcss.config.js', 'tsconfig.json']
-  },
+  // {
+  //   name: 'action-chatgpt',
+  //   uiContext: ['action'],
+  //   uiFramework: 'react',
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: true,
+  //   configFiles: ['postcss.config.js', 'tsconfig.json']
+  // },
   {
     name: 'new-crypto',
     uiContext: ['newTab'],
