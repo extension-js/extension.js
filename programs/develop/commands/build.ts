@@ -15,6 +15,7 @@ import * as messages from './commands-lib/messages'
 import {generateZip} from './commands-lib/generate-zip'
 import {loadCustomWebpackConfig} from './commands-lib/get-extension-config'
 import {BuildOptions} from './commands-lib/config-types'
+import {installDependencies} from './commands-lib/install-dependencies'
 
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
@@ -58,6 +59,14 @@ export async function extensionBuild(
 
     const compilerConfig = merge(userConfig)
     const compiler = rspack(compilerConfig)
+
+    // Install dependencies if they are not installed.
+    const nodeModulesPath = path.join(projectPath, 'node_modules')
+
+    if (!fs.existsSync(nodeModulesPath)) {
+      console.log(messages.installingDependencies())
+      await installDependencies(projectPath)
+    }
 
     await new Promise<void>((resolve, reject) => {
       compiler.run(async (err, stats) => {

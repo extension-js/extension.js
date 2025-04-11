@@ -10,7 +10,9 @@ export async function loadCustomWebpackConfig(projectPath: string) {
   const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
 
   if (fs.existsSync(userConfigPath) || fs.existsSync(moduleUserConfigPath)) {
-    const configPath = fs.existsSync(userConfigPath) ? userConfigPath : moduleUserConfigPath
+    const configPath = fs.existsSync(userConfigPath)
+      ? userConfigPath
+      : moduleUserConfigPath
 
     if (await isUsingExperimentalConfig(projectPath)) {
       const userConfig: FileConfig = require(configPath)
@@ -29,8 +31,9 @@ export async function loadCommandConfig(
 ) {
   const userConfigPath = path.join(projectPath, 'extension.config.js')
   const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
-  const configPath = fs.existsSync(userConfigPath) ? userConfigPath : moduleUserConfigPath
-
+  const configPath = fs.existsSync(userConfigPath)
+    ? userConfigPath
+    : moduleUserConfigPath
 
   if (fs.existsSync(userConfigPath) || fs.existsSync(moduleUserConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
@@ -51,8 +54,9 @@ export async function loadBrowserConfig(
 ): Promise<BrowserConfig> {
   const userConfigPath = path.join(projectPath, 'extension.config.js')
   const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
-  const configPath = fs.existsSync(userConfigPath) ? userConfigPath : moduleUserConfigPath
-
+  const configPath = fs.existsSync(userConfigPath)
+    ? userConfigPath
+    : moduleUserConfigPath
 
   if (fs.existsSync(userConfigPath) || fs.existsSync(moduleUserConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
@@ -73,7 +77,9 @@ let userMessageDelivered = false
 export async function isUsingExperimentalConfig(projectPath: string) {
   const userConfigPath = path.join(projectPath, 'extension.config.js')
   const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
-  const configPath = fs.existsSync(userConfigPath) ? userConfigPath : moduleUserConfigPath
+  const configPath = fs.existsSync(userConfigPath)
+    ? userConfigPath
+    : moduleUserConfigPath
 
   if (fs.existsSync(configPath) || fs.existsSync(moduleUserConfigPath)) {
     if (!userMessageDelivered) {
