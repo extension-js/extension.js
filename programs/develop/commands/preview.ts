@@ -51,8 +51,6 @@ export async function extensionPreview(
       return plugin?.constructor.name === 'plugin-browsers'
     })
 
-    console.log(messages.building(browser))
-
     const userExtensionConfig = await loadCustomWebpackConfig(projectPath)
     const userConfig = userExtensionConfig({
       ...baseConfig,
@@ -61,7 +59,7 @@ export async function extensionPreview(
     const compilerConfig = merge(userConfig)
     const compiler = rspack(compilerConfig)
 
-    compiler.run(async (err, stats) => {
+    compiler.run((err, stats) => {
       if (err) {
         console.error(err.stack || err)
         process.exit(1)
