@@ -50,7 +50,9 @@ export function runningInProduction(
   projectDir: string,
   options: StartOptions
 ): string {
-  const outputPath = path.join(projectDir, 'dist', options.browser || 'chrome')
+  const outputPath = fs.existsSync(path.join(projectDir, 'dist'))
+    ? path.join(projectDir, 'dist', options.browser || 'chrome')
+    : projectDir
   const manifestPath = path.join(outputPath, 'manifest.json')
   const manifest: Record<string, any> = require(manifestPath)
 
@@ -261,7 +263,7 @@ export function unpackagingExtension(zipFilePath: string) {
 export function unpackagedSuccessfully() {
   return `${getLoggingPrefix(
     'info'
-  )} Browser extension unpackaged ${brightGreen('successfully')}. Compiling...`
+  )} Browser extension unpackaged ${brightGreen('successfully')}.`
 }
 
 export function failedToDownloadOrExtractZIPFileError(error: any) {

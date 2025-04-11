@@ -42,13 +42,11 @@ export async function extensionDev(
       await installDependencies(projectPath)
     }
 
-    setTimeout(async () => {
-      await devServer(projectPath, {
-        ...devOptions,
-        mode: 'development',
-        browser: devOptions.browser || 'chrome'
-      })
-    }, 50)
+    await devServer(projectPath, {
+      ...devOptions,
+      mode: 'development',
+      browser: devOptions.browser || 'chrome'
+    })
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {
       console.error(error)
