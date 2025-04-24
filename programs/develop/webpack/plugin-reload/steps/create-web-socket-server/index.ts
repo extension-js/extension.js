@@ -22,7 +22,7 @@ export default class CreateWebSocketServer {
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.port = options.port || 8000
+    this.port = options.port || 8080
     this.browser = options.browser || 'chrome'
     this.stats = options.stats
   }
