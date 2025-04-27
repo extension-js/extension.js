@@ -17,5 +17,11 @@
       "js": ["./content/scripts.ts"]
     }
   ],
-  "options_page": "options/index.html"
+  "options_page": "options/index.html",
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*.ttf", "fonts/*.ttf", "*.ttf"],
+      "matches": ["*://*/*"]
+    }
+  ]
 }

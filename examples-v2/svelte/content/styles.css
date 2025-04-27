@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'MontserratAlternates';
+  src: url('../fonts/MontserratAlternates-Regular.ttf');
+  font-weight: 400;
+  font-style: normal;
+}
+
 .content_script {
   position: fixed;
   bottom: 0;
