@@ -23,7 +23,7 @@ The `excludeBrowserFlags` option allows you to specify which default flags shoul
 
 ```javascript
 module.exports = {
-  browsers: {
+  browser: {
     chrome: {
       excludeBrowserFlags: [
         '--hide-scrollbars',  // Allow scrollbars to be visible
@@ -71,7 +71,7 @@ excludeBrowserFlags?: Array<DefaultBrowserFlags | string>
 
 ```javascript
 module.exports = {
-  browsers: {
+  browser: {
     chrome: {
       excludeBrowserFlags: ['--mute-audio'],
       browserFlags: [
@@ -87,7 +87,7 @@ module.exports = {
 
 ```javascript
 module.exports = {
-  browsers: {
+  browser: {
     chrome: {
       excludeBrowserFlags: ['--hide-scrollbars']
     }

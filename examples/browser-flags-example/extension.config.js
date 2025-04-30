@@ -5,7 +5,7 @@
  * to disable specific default browser flags like hiding scrollbars or muting audio.
  */
 module.exports = {
-  browsers: {
+  browser: {
     chrome: {
       // Disable scrollbar hiding and audio muting for development
       excludeBrowserFlags: [
