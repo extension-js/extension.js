@@ -4,7 +4,7 @@
   "description": "An example extension demonstrating browser flag customization",
   "private": true,
   "scripts": {
-    "dev": "extension develop",
+    "dev": "extension dev",
     "build": "extension build",
     "test": "echo \"No tests specified\""
   },
