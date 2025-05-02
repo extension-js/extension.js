@@ -3,21 +3,5 @@
   "version": "1.0.0",
   "description": "An example extension demonstrating browser flag customization",
   "private": true,
-  "scripts": {
-    "dev": "extension dev",
-    "build": "extension build",
-    "test": "echo \"No tests specified\""
-  },
-  "keywords": [
-    "extension",
-    "browser",
-    "flags",
-    "chrome",
-    "example"
-  ],
-  "author": "extension.js Team",
-  "license": "MIT",
-  "dependencies": {
-    "extension": "workspace:*"
-  }
+  "license": "MIT"
 }
