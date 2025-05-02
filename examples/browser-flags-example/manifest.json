@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Browser Flags Example",
+  "version": "1.0.0",
+  "description": "An example extension demonstrating browser flag customization",
+  "action": {
+    "default_title": "Browser Flags Example",
+    "default_popup": "popup.html"
+  },
+  "permissions": [],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

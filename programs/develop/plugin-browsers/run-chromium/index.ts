@@ -19,6 +19,7 @@ export class RunChromiumPlugin {
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
   public readonly browserFlags?: string[]
+  public readonly excludeBrowserFlags?: string[]
   public readonly profile?: string
   public readonly preferences?: Record<string, any>
   public readonly startingUrl?: string
@@ -31,6 +32,7 @@ export class RunChromiumPlugin {
     this.extension = options.extension
     this.browser = options.browser
     this.browserFlags = options.browserFlags || []
+    this.excludeBrowserFlags = options.excludeBrowserFlags || []
     this.profile = options.profile
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl
