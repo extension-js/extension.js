@@ -66,6 +66,7 @@ export interface StartOptions extends BrowserOptionsBase {
 
 export interface BrowserConfig extends BrowserOptionsBase {
   browserFlags?: string[]
+  excludeBrowserFlags?: string[]
   preferences?: Record<string, unknown>
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
@@ -90,6 +91,7 @@ export interface FileConfig {
       | 'polyfill'
     > & {
       browserFlags?: string[]
+      excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
     }
 
@@ -98,6 +100,7 @@ export interface FileConfig {
       'browser' | 'profile' | 'chromiumBinary' | 'geckoBinary' | 'polyfill'
     > & {
       browserFlags?: string[]
+      excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
     }
 
@@ -106,6 +109,7 @@ export interface FileConfig {
       'browser' | 'profile' | 'chromiumBinary' | 'geckoBinary'
     > & {
       browserFlags?: string[]
+      excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
     }
 
