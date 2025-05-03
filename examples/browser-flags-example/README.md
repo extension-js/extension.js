@@ -22,12 +22,12 @@ Previously, there was no clean way to disable these default flags. Users had to 
 The `excludeBrowserFlags` option allows you to specify which default flags should be removed from the browser configuration.
 
 ```javascript
-module.exports = {
+export default {
   browser: {
     chrome: {
       excludeBrowserFlags: [
-        '--hide-scrollbars',  // Allow scrollbars to be visible
-        '--mute-audio'        // Allow audio to play
+        '--hide-scrollbars', // Allow scrollbars to be visible
+        '--mute-audio' // Allow audio to play
       ]
     }
   }
@@ -38,18 +38,18 @@ module.exports = {
 
 Extension.js sets the following default flags that can be excluded:
 
-| Flag | Description |
-|------|-------------|
-| `--no-first-run` | Disable Chrome's native first run experience |
-| `--disable-client-side-phishing-detection` | Disables client-side phishing detection |
-| `--hide-scrollbars` | Hide scrollbars from screenshots |
-| `--mute-audio` | Mute all audio in the browser |
-| `--no-default-browser-check` | Disable the default browser check |
-| `--ash-no-nudges` | Avoids blue bubble "user education" nudges |
-| `--disable-features=MediaRoute` | Disable Chrome Media Router |
-| `--disable-background-networking` | Disable various background network services |
-| `--disable-sync` | Disable syncing to a Google account |
-| `--no-pings` | Don't send hyperlink auditing pings |
+| Flag                                       | Description                                  |
+| ------------------------------------------ | -------------------------------------------- |
+| `--no-first-run`                           | Disable Chrome's native first run experience |
+| `--disable-client-side-phishing-detection` | Disables client-side phishing detection      |
+| `--hide-scrollbars`                        | Hide scrollbars from screenshots             |
+| `--mute-audio`                             | Mute all audio in the browser                |
+| `--no-default-browser-check`               | Disable the default browser check            |
+| `--ash-no-nudges`                          | Avoids blue bubble "user education" nudges   |
+| `--disable-features=MediaRoute`            | Disable Chrome Media Router                  |
+| `--disable-background-networking`          | Disable various background network services  |
+| `--disable-sync`                           | Disable syncing to a Google account          |
+| `--no-pings`                               | Don't send hyperlink auditing pings          |
 
 And many more - see the full list in the source code.
 
@@ -70,7 +70,7 @@ excludeBrowserFlags?: Array<DefaultBrowserFlags | string>
 ### Enabling Audio for Development
 
 ```javascript
-module.exports = {
+export default {
   browser: {
     chrome: {
       excludeBrowserFlags: ['--mute-audio'],
@@ -86,10 +86,11 @@ module.exports = {
 ### Showing Scrollbars
 
 ```javascript
-module.exports = {
+export default {
   browser: {
     chrome: {
       excludeBrowserFlags: ['--hide-scrollbars']
     }
   }
 }
+```

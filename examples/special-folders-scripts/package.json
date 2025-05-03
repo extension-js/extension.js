@@ -8,5 +8,6 @@
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "type": "module"
 }

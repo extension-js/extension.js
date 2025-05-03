@@ -1,6 +1,8 @@
 /** @type {import('extension').FileConfig} */
-module.exports = {
+const config = {
   config: (config) => {
     return config
   }
 }
+
+export default config

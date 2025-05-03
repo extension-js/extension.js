@@ -9,7 +9,7 @@ if (import.meta.webpackHot) {
 
 console.log(
   'hello from content_scripts',
-  process.env.EXTENSION_PUBLIC_DESCRIPTION_TEXT
+  import.meta.env.EXTENSION_PUBLIC_DESCRIPTION_TEXT
 )
 
 if (document.readyState === 'complete') {
@@ -57,7 +57,7 @@ function initial() {
 
   // Create and append description paragraph
   const desc = document.createElement('p')
-  desc.className = process.env.EXTENSION_PUBLIC_DESCRIPTION_TEXT as string
+  desc.className = import.meta.env.EXTENSION_PUBLIC_DESCRIPTION_TEXT as string
   desc.innerHTML = 'Learn more about creating cross-browser extensions at '
 
   const link = document.createElement('a')

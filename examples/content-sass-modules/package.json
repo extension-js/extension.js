@@ -10,5 +10,6 @@
   },
   "devDependencies": {
     "sass": "^1.77.8"
-  }
+  },
+  "type": "module"
 }

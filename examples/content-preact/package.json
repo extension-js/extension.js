@@ -20,5 +20,6 @@
     "@prefresh/core": "^1.5.2",
     "tailwindcss": "^4.1.3",
     "typescript": "5.3.3"
-  }
+  },
+  "type": "module"
 }
