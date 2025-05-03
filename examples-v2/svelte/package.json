@@ -9,6 +9,7 @@
     "url": "https://cezaraugusto.com"
   },
   "license": "MIT",
+  "type": "module",
   "dependencies": {
     "svelte": "5.15.0"
   },

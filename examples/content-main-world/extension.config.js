@@ -1,9 +1,11 @@
 /** @type {import('extension').FileConfig} */
 
-module.exports = {
+const config = {
   config: (config) => {
     config.output.publicPath =
       'chrome-extension://egknoknehanlgkjlhphfgfgbpjinmjie/'
     return config
   }
 }
+
+export default config

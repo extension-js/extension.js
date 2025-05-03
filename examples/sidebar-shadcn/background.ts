@@ -1,6 +1,6 @@
 const isFirefoxLike =
-  process.env.EXTENSION_PUBLIC_BROWSER === 'firefox' ||
-  process.env.EXTENSION_PUBLIC_BROWSER === 'gecko-based'
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === 'firefox' ||
+  import.meta.env.EXTENSION_PUBLIC_BROWSER === 'gecko-based'
 
 if (isFirefoxLike) {
   browser.browserAction.onClicked.addListener(() => {

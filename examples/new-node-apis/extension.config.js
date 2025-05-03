@@ -1,10 +1,12 @@
-const NodePolyfillPlugin = require('node-polyfill-webpack-plugin')
+import NodePolyfillPlugin from 'node-polyfill-webpack-plugin'
 
 /** @type {import('extension').FileConfig} */
-module.exports = {
+const config = {
   config: (config) => {
     config.plugins = [...config.plugins, new NodePolyfillPlugin()]
 
     return config
   }
 }
+
+export default config

@@ -3,5 +3,6 @@
   "version": "1.0.0",
   "description": "An example extension demonstrating browser flag customization",
   "private": true,
-  "license": "MIT"
+  "license": "MIT",
+  "type": "module"
 }

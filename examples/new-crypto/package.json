@@ -12,5 +12,6 @@
   "devDependencies": {
     "node-polyfill-webpack-plugin": "^4.0.0",
     "typescript": "5.3.3"
-  }
+  },
+  "type": "module"
 }

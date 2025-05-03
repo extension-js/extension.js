@@ -1,5 +1,5 @@
 /** @type {import('extension').FileConfig} */
-module.exports = {
+const config = {
   config: (config) => {
     config.module.rules.push(
       // https://webpack.js.org/loaders/babel-loader/
@@ -8,10 +8,12 @@ module.exports = {
         test: /\.(js|mjs|jsx|ts|tsx)$/,
         include: __dirname,
         exclude: [/[\\/]node_modules[\\/]/],
-        loader: require.resolve('babel-loader')
+        loader: 'babel-loader'
       }
     )
 
     return config
   }
 }
+
+export default config
