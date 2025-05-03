@@ -4,7 +4,7 @@ import chatgptLogo from '../images/chatgpt.png'
 import extensionJsLogo from '../images/extension.png'
 
 const openai = new OpenAI({
-  apiKey: process.env.EXTENSION_PUBLIC_OPENAI_API_KEY!,
+  apiKey: import.meta.env.EXTENSION_PUBLIC_OPENAI_API_KEY!,
   dangerouslyAllowBrowser: true
 })
 

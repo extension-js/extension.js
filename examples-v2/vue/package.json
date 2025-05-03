@@ -9,6 +9,7 @@
     "url": "https://hw404.cn"
   },
   "license": "MIT",
+  "type": "module",
   "dependencies": {
     "vue": "^3.4.27"
   },
