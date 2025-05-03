@@ -1,5 +1,5 @@
 /** @type {import('extension').FileConfig} */
-module.exports = {
+const config = {
   config: (config) => {
     config.module.rules.push(
       {
@@ -20,3 +20,5 @@ module.exports = {
     return config
   }
 }
+
+export default config

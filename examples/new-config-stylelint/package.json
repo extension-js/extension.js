@@ -15,5 +15,6 @@
     "sass": "^1.77.8",
     "stylelint": "^16.7.0",
     "stylelint-config-standard-scss": "^13.1.0"
-  }
+  },
+  "type": "module"
 }

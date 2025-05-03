@@ -13,5 +13,6 @@
   },
   "devDependencies": {
     "prettier": "^3.3.2"
-  }
+  },
+  "type": "module"
 }
