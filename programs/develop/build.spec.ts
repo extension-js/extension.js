@@ -5,7 +5,7 @@ import {
   DEFAULT_TEMPLATE,
   SUPPORTED_BROWSERS
 } from '../../examples/data'
-import {extensionBuild, Manifest} from './dist/module'
+import {extensionBuild, Manifest} from './dist/module.js'
 
 async function removeDir(dirPath: string) {
   if (fs.existsSync(dirPath)) {
