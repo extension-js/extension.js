@@ -6,9 +6,13 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import path from 'path'
+import {fileURLToPath} from 'url'
 import fs from 'fs/promises'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 export async function writeReadmeFile(
   projectPath: string,
@@ -20,7 +24,8 @@ export async function writeReadmeFile(
   )
 
   const installCommand = await utils.getInstallCommand()
-  const manifestJson = require(path.join(projectPath, 'manifest.json'))
+  const manifestJsonPath = path.join(projectPath, 'manifest.json')
+  const manifestJson = JSON.parse(await fs.readFile(manifestJsonPath, 'utf-8'))
 
   const readmeFileEdited = initTemplateReadme
     .replaceAll('[projectName]', projectName)

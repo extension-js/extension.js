@@ -6,10 +6,14 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import path from 'path'
+import {fileURLToPath} from 'url'
 import fs from 'fs/promises'
 import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 export async function importExternalTemplate(
   projectPath: string,
@@ -74,7 +78,7 @@ export async function importExternalTemplate(
       const tempPath = path.join(installationPath, projectName + '-temp')
       await fs.rename(templatePath, tempPath)
 
-      // Move the contents of the tempPath/templateName to projectName
+      // Move contents from tempPath/templateName to projectPath
       const srcPath = path.join(tempPath, templateName)
       const destPath = path.join(installationPath, projectName)
       await fs.mkdir(destPath, {recursive: true})

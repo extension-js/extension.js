@@ -7,8 +7,12 @@
 
 import fs from 'fs/promises'
 import path from 'path'
+import {fileURLToPath} from 'url'
 import {detect} from 'package-manager-detector'
 import * as messages from './messages'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 export async function copyDirectory(source: string, destination: string) {
   const directoryEntries = await fs.readdir(source, {withFileTypes: true})
