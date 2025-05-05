@@ -32,6 +32,56 @@ export async function copyDirectory(source: string, destination: string) {
   )
 }
 
+export async function copyDirectoryWithSymlinks(
+  source: string,
+  destination: string
+) {
+  const entries = await fs.readdir(source, {withFileTypes: true})
+  await fs.mkdir(destination, {recursive: true})
+
+  for (const entry of entries) {
+    const sourcePath = path.join(source, entry.name)
+    const destPath = path.join(destination, entry.name)
+
+    if (entry.isDirectory()) {
+      await copyDirectoryWithSymlinks(sourcePath, destPath)
+    } else if (entry.isSymbolicLink()) {
+      const target = await fs.readlink(sourcePath)
+      await fs.symlink(target, destPath)
+    } else {
+      await fs.copyFile(sourcePath, destPath)
+    }
+  }
+}
+
+export async function moveDirectoryContents(
+  source: string,
+  destination: string
+) {
+  await fs.mkdir(destination, {recursive: true})
+
+  const entries = await fs.readdir(source, {withFileTypes: true})
+
+  for (const entry of entries) {
+    const sourcePath = path.join(source, entry.name)
+    const destPath = path.join(destination, entry.name)
+
+    if (entry.isDirectory()) {
+      // Recursively move subdirectories
+      await moveDirectoryContents(sourcePath, destPath)
+    } else if (entry.isSymbolicLink()) {
+      const target = await fs.readlink(sourcePath)
+      await fs.symlink(target, destPath)
+    } else {
+      // Move files
+      await fs.rename(sourcePath, destPath)
+    }
+  }
+
+  // Remove the now-empty source directory
+  await fs.rm(source, {recursive: true, force: true})
+}
+
 export async function getInstallCommand() {
   const pm = await detect()
 
@@ -58,7 +108,7 @@ export async function getInstallCommand() {
 }
 
 export function getTemplatePath(workingDir: string) {
-  const templatesDir = path.resolve(__dirname, 'template')
+  const templatesDir = path.resolve(__dirname, '..', 'template')
   return path.resolve(workingDir, templatesDir)
 }
 

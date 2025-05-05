@@ -46,7 +46,7 @@ export async function importExternalTemplate(
         templateName
       )
 
-      await utils.copyDirectory(localTemplatePath, templatePath)
+      await utils.copyDirectoryWithSymlinks(localTemplatePath, templatePath)
     } else {
       await goGitIt(
         templateUrl,
@@ -58,21 +58,8 @@ export async function importExternalTemplate(
     }
 
     if (projectName !== templateName) {
-      // Instead of renaming, copy the contents and then remove the original folder
-      const destPath = path.join(installationPath, projectName)
-
-      // Copy the contents from templatePath to destPath
-      await fs.mkdir(destPath, {recursive: true})
-      const files = await fs.readdir(templatePath)
-      for (const file of files) {
-        await fs.rename(
-          path.join(templatePath, file),
-          path.join(destPath, file)
-        )
-      }
-
-      // Remove the original templatePath folder
-      await fs.rm(templatePath, {recursive: true, force: true})
+      // Move contents from templatePath to projectPath
+      await utils.moveDirectoryContents(templatePath, projectPath)
     } else {
       // Handle the templatePath/templateName situation
       const tempPath = path.join(installationPath, projectName + '-temp')
@@ -80,12 +67,7 @@ export async function importExternalTemplate(
 
       // Move contents from tempPath/templateName to projectPath
       const srcPath = path.join(tempPath, templateName)
-      const destPath = path.join(installationPath, projectName)
-      await fs.mkdir(destPath, {recursive: true})
-      const files = await fs.readdir(srcPath)
-      for (const file of files) {
-        await fs.rename(path.join(srcPath, file), path.join(destPath, file))
-      }
+      await utils.moveDirectoryContents(srcPath, projectPath)
 
       // Remove the temporary directory
       await fs.rm(tempPath, {recursive: true, force: true})
