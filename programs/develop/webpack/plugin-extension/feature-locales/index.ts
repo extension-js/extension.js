@@ -35,7 +35,9 @@ export class LocalesPlugin {
         () => {
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
-            const manifest = require(this.manifestPath)
+            const manifest = JSON.parse(
+              fs.readFileSync(this.manifestPath, 'utf8')
+            )
             const patchedManifest = utils.filterKeysForThisBrowser(
               manifest,
               'chrome'

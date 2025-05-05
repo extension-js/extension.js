@@ -60,7 +60,9 @@ export class CheckManifestFiles {
 
         for (const item of valueArr) {
           const ext = path.extname(item as string)
-          const manifest = require(this.manifestPath)
+          const manifest = JSON.parse(
+            fs.readFileSync(this.manifestPath, 'utf8')
+          )
           const patchedManifest = utils.filterKeysForThisBrowser(
             manifest,
             'chrome'
