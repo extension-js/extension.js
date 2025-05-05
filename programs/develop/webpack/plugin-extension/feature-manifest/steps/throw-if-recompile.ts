@@ -36,7 +36,9 @@ export class ThrowIfRecompileIsNeeded {
             return
           }
 
-          const initialManifest: Manifest = require(this.manifestPath)
+          const initialManifest: Manifest = JSON.parse(
+            fs.readFileSync(this.manifestPath, 'utf-8')
+          )
           const manifest = utils.filterKeysForThisBrowser(
             initialManifest,
             this.browser

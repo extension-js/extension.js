@@ -7,13 +7,16 @@
 
 import path from 'path'
 import fs from 'fs'
-import * as messages from '../../lib/messages'
-import {installOptionalDependencies, isUsingJSFramework} from '../../lib/utils'
-import {DevOptions} from '../../../commands/commands-lib/config-types'
+import * as messages from '../../../webpack/lib/messages'
+import {
+  installOptionalDependencies,
+  isUsingJSFramework
+} from '../../../webpack/lib/utils'
+import {type DevOptions} from '../../../commands/commands-lib/config-types'
 
 let userMessageDelivered = false
 
-export function isUsingTypeScript(projectPath: string) {
+export function isUsingTypeScript(projectPath: string): boolean {
   const packageJsonPath = path.join(projectPath, 'package.json')
 
   if (!fs.existsSync(packageJsonPath)) {
@@ -21,12 +24,10 @@ export function isUsingTypeScript(projectPath: string) {
   }
 
   const configFile = getUserTypeScriptConfigFile(projectPath)
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
 
-  const TypeScriptAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.typescript
-  const TypeScriptAsDep =
-    packageJson.dependencies && packageJson.dependencies.typescript
+  const TypeScriptAsDevDep = packageJson.devDependencies?.typescript
+  const TypeScriptAsDep = packageJson.dependencies?.typescript
 
   if (!userMessageDelivered) {
     if (TypeScriptAsDevDep || TypeScriptAsDep) {
@@ -134,26 +135,6 @@ function writeTsConfig(projectPath: string) {
       2
     )
   )
-}
-
-export function tsCheckerOptions(projectPath: string, opts: any) {
-  return {
-    async: opts.mode === 'development',
-    typescript: {
-      context: projectPath,
-      configFile: getUserTypeScriptConfigFile(projectPath),
-      configOverwrite: getTypeScriptConfigOverrides({
-        mode: 'development'
-      }),
-      typescriptPath: require.resolve('typescript', {paths: [projectPath]}),
-      // Measures and prints timings related to the TypeScript performance.
-      profile: false
-    },
-    logger: {
-      log: () => {},
-      error: console.error
-    }
-  }
 }
 
 export async function maybeUseTypeScript(

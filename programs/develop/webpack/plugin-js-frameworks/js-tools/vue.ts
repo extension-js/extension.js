@@ -21,7 +21,7 @@ export function isUsingVue(projectPath: string) {
     return false
   }
 
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
   const vueAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies.vue
   const vueAsDep = packageJson.dependencies && packageJson.dependencies.vue

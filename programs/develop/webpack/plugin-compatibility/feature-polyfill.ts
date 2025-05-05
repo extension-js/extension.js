@@ -1,9 +1,6 @@
-import rspack, {type Compiler} from '@rspack/core'
+import rspack, {Compiler} from '@rspack/core'
 
-interface PolyfillPluginInterface {
-  manifestPath: string
-  browser?: string
-}
+import {PluginInterface} from '../webpack-types'
 
 /**
  * PolyfillPlugin is responsible for providing the `browser`
@@ -13,7 +10,7 @@ export class PolyfillPlugin {
   public readonly manifestPath: string
   public readonly browser?: string
 
-  constructor(options: PolyfillPluginInterface) {
+  constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser
   }

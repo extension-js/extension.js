@@ -21,7 +21,7 @@ export function isUsingSvelte(projectPath: string) {
     return false
   }
 
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
 
   const svelteAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies?.svelte

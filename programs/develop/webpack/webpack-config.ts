@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
+import fs from 'fs'
 import {type Configuration} from '@rspack/core'
 import {DevOptions} from '../commands/commands-lib/config-types'
 
@@ -33,7 +34,7 @@ export default function webpackConfig(
 ): Configuration {
   const manifestPath = path.join(projectPath, 'manifest.json')
   const manifest = utils.filterKeysForThisBrowser(
-    require(manifestPath),
+    JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
     devOptions.browser
   )
   const userExtensionOutputPath = path.join(

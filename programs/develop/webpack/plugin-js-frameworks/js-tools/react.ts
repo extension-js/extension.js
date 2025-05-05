@@ -8,6 +8,7 @@
 import path from 'path'
 import fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
+import ReactRefreshPlugin from '@rspack/plugin-react-refresh'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -21,7 +22,7 @@ export function isUsingReact(projectPath: string) {
     return false
   }
 
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
   const reactAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies.react
   const reactAsDep = packageJson.dependencies && packageJson.dependencies.react
@@ -59,7 +60,7 @@ export async function maybeUseReact(
   }
 
   const reactPlugins: RspackPluginInstance[] = [
-    new (require('@rspack/plugin-react-refresh'))({
+    new ReactRefreshPlugin({
       overlay: false
     })
   ]

@@ -78,7 +78,7 @@ export class TargetWebExtensionPlugin {
   private ensureFileExists(filePath: string) {
     if (!fs.existsSync(filePath)) {
       if (this.manifestPath) {
-        const manifest = require(this.manifestPath)
+        const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
         const patchedManifest = utils.filterKeysForThisBrowser(
           manifest,
           'chrome'
@@ -153,7 +153,9 @@ export class TargetWebExtensionPlugin {
       return
     }
 
-    const manifest: Manifest = require(this.manifestPath)
+    const manifest: Manifest = JSON.parse(
+      fs.readFileSync(this.manifestPath, 'utf-8')
+    )
     const patchedManifest = utils.filterKeysForThisBrowser(
       manifest,
       this.browser

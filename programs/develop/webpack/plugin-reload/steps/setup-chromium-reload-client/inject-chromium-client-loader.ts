@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from '@rspack/core'
@@ -31,7 +32,7 @@ export default function (this: InjectBackgroundClientContext, source: string) {
   const manifestPath = options.manifestPath
   const browser = options.browser as DevOptions['browser']
   const projectPath = path.dirname(manifestPath)
-  const manifest: Manifest = require(manifestPath)
+  const manifest: Manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
   const patchedManifest = utils.filterKeysForThisBrowser(manifest, browser)
 
   validate(schema, options, {

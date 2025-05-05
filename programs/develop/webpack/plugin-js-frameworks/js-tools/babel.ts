@@ -31,7 +31,7 @@ export function isUsingBabel(projectPath: string): boolean {
     return false
   }
 
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
 
   const babelAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies['babel-core']

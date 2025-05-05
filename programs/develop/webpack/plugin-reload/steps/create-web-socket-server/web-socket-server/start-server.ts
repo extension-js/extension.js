@@ -49,7 +49,9 @@ function setupServer(port: number, browser: DevOptions['browser']) {
 
 export async function startServer(compiler: Compiler, options: DevOptions) {
   const projectPath = compiler.options.context || ''
-  const manifest = require(path.join(projectPath, 'manifest.json'))
+  const manifest = JSON.parse(
+    fs.readFileSync(path.join(projectPath, 'manifest.json'), 'utf-8')
+  )
 
   // Use the port from options instead of hardcoding
   const port = options.port || 8080
@@ -66,8 +68,8 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
       const message: Message = JSON.parse(msg.toString())
 
       if (message.status === 'clientReady') {
-        const manifest: Manifest = require(
-          path.join(projectPath, 'manifest.json')
+        const manifest: Manifest = JSON.parse(
+          fs.readFileSync(path.join(projectPath, 'manifest.json'), 'utf-8')
         )
 
         setTimeout(() => {

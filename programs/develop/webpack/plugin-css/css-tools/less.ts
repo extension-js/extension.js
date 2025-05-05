@@ -13,7 +13,7 @@ export function isUsingLess(projectPath: string): boolean {
     return false
   }
 
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
   const lessAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies.less
   const lessAsDep = packageJson.dependencies && packageJson.dependencies.less

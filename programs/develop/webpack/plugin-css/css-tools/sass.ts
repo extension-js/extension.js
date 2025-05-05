@@ -13,7 +13,7 @@ export function isUsingSass(projectPath: string): boolean {
     return false
   }
 
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
   const sassAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies.sass
   const sassAsDep = packageJson.dependencies && packageJson.dependencies.sass

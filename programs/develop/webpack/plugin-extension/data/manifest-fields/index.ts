@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 import {htmlFields} from './html-fields'
 import {iconFields} from './icons-fields'
 import {jsonFields} from './json-fields'
@@ -23,7 +24,7 @@ export function getManifestFieldsData({
   browser
 }: PluginInterface) {
   const context = path.dirname(manifestPath)
-  const manifest = require(manifestPath)
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
   const manifestNoPrefixes = utils.filterKeysForThisBrowser(
     manifest,
     browser || 'chrome'

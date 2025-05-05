@@ -7,14 +7,6 @@ import slugify from 'slugify'
 import {type BuildOptions} from '../commands-lib/config-types'
 import * as messages from './messages'
 
-function readFileSync(filePath: string): string {
-  try {
-    return fs.readFileSync(filePath, 'utf8')
-  } catch (error) {
-    return ''
-  }
-}
-
 function sanitizeString(input: string): string {
   return slugify(input, {
     // replace spaces with dashes
@@ -52,11 +44,11 @@ function getPackageName(
 
 async function getFilesToZip(projectDir: string): Promise<string[]> {
   const gitignorePath = path.join(projectDir, '.gitignore')
-  const gitignoreContent = readFileSync(gitignorePath)
+  const gitignoreContent = fs.readFileSync(gitignorePath)
   const ig = ignore()
 
   if (gitignoreContent) {
-    ig.add(gitignoreContent)
+    ig.add(gitignoreContent.toString())
   } else {
     console.log(messages.noGitIgnoreFound(projectDir))
   }
@@ -72,13 +64,15 @@ export async function generateZip(
   projectDir: string,
   {browser = 'chrome', ...options}: BuildOptions
 ) {
+  
   try {
     const distDir = path.join(projectDir, 'dist')
     const outputDir = path.join(distDir, browser)
     // We collect data from the projectDir if the user wants to zip the source files.
     const dataDir = options.zipSource ? projectDir : outputDir
-    const manifest: Record<string, string> = require(
-      path.join(dataDir, 'manifest.json')
+    const manifestPath = path.join(dataDir, 'manifest.json')
+    const manifest: Record<string, string> = JSON.parse(
+      fs.readFileSync(manifestPath, 'utf8')
     )
     const name = getPackageName(manifest, {browser, ...options})
     const ext = getExtensionExtension(browser, options.zipSource)

@@ -38,7 +38,9 @@ export class ThrowIfRecompileIsNeeded {
 
       if (htmlFile) {
         if (!fs.existsSync(htmlFile)) {
-          const manifest = require(this.manifestPath)
+          const manifest = JSON.parse(
+            fs.readFileSync(this.manifestPath, 'utf-8')
+          )
           const patchedManifest = utils.filterKeysForThisBrowser(
             manifest,
             'chrome'

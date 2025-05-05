@@ -1,6 +1,5 @@
 import fs from 'fs'
-import rspack, {type Compiler, Compilation} from '@rspack/core'
-import {sources} from '@rspack/core'
+import rspack, {sources, type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../../../lib/messages'
 import * as utils from '../../../lib/utils'
@@ -18,7 +17,7 @@ export class EmitHtmlFile {
   }
 
   public apply(compiler: Compiler): void {
-    const manifest = require(this.manifestPath)
+    const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
     const patchedManifest = utils.filterKeysForThisBrowser(manifest, 'chrome')
 
     const manifestName = patchedManifest.name || 'Extension.js'

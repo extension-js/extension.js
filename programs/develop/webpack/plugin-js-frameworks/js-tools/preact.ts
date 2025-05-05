@@ -7,6 +7,7 @@
 
 import path from 'path'
 import fs from 'fs'
+import PreactRefreshPlugin from '@rspack/plugin-preact-refresh'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -21,7 +22,7 @@ export function isUsingPreact(projectPath: string) {
     return false
   }
 
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
   const preactAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies.preact
   const preactAsDep =
@@ -66,9 +67,7 @@ export async function maybeUsePreact(
     process.exit(0)
   }
 
-  const preactPlugins: RspackPluginInstance[] = [
-    new (require('@rspack/plugin-preact-refresh'))()
-  ]
+  const preactPlugins: RspackPluginInstance[] = [new PreactRefreshPlugin({})]
 
   return {
     plugins: preactPlugins,

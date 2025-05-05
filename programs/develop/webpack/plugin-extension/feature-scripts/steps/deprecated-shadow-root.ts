@@ -1,4 +1,5 @@
 import path from 'path'
+import fs from 'fs'
 import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
@@ -21,7 +22,7 @@ export default function (this: LoaderContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
   const projectPath = path.dirname(manifestPath)
-  const manifest = require(manifestPath)
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 
   validate(schema, options, {
     name: 'scripts:deprecated-shadow-root',
