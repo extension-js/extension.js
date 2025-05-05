@@ -1,7 +1,6 @@
 import path from 'path'
-import {getDirname} from '../../../dirname'
 import {type Compiler} from '@rspack/core'
-
+import {getDirname} from '../../../dirname'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {EmitHtmlFile} from './steps/emit-html-file'
 import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'

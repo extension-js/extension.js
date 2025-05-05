@@ -10,6 +10,7 @@ import {
   BrowserConfig,
   DevOptions
 } from '../../commands/commands-lib/config-types'
+import {getDirname} from '../../dirname'
 
 export function createProfile(
   browser: DevOptions['browser'],
@@ -19,6 +20,8 @@ export function createProfile(
   if (userProfilePath && fs.existsSync(userProfilePath)) {
     return userProfilePath
   }
+
+  const __dirname = getDirname(import.meta.url)
 
   const defaultProfilePath = path.resolve(__dirname, `run-${browser}-profile`)
 

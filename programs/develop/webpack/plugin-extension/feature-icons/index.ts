@@ -3,7 +3,7 @@ import {EmitFile} from './steps/emit-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {
   ThemeIcon,
-  type FilepathList,  
+  type FilepathList,
   type PluginInterface
 } from '../../webpack-types'
 

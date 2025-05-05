@@ -7,6 +7,7 @@ import * as messages from './messages'
 import {type Manifest, type FilepathList} from '../webpack-types'
 import {CHROMIUM_BASED_BROWSERS} from './constants'
 import {DevOptions} from '../../module'
+import {getDirname} from '../../dirname'
 
 export function getResolvedPath(
   context: string,
@@ -142,6 +143,8 @@ export async function installOptionalDependencies(
     console.log(
       messages.integrationNotInstalled(integration, pm?.name || 'unknown')
     )
+
+    const __dirname = getDirname(import.meta.url)
 
     let installCommand = ''
     if (pm?.name === 'yarn') {

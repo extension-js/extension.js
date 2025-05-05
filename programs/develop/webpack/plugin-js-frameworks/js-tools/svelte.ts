@@ -75,9 +75,27 @@ export async function maybeUseSvelte(
       use: {
         loader: 'svelte-loader',
         options: {
-          preprocess: sveltePreprocess({
-            typescript: true
-          }),
+          // Only use preprocess for Svelte < 5
+          preprocess: async (source: string, filename: string) => {
+            try {
+              const preprocessor = sveltePreprocess({
+                typescript: true
+              })
+              if (!preprocessor?.script) {
+                return {code: source}
+              }
+              const result = await preprocessor.script({
+                content: source,
+                attributes: {},
+                markup: '',
+                filename
+              })
+              return result
+            } catch (error) {
+              // If preprocess fails, return the source as is
+              return {code: source}
+            }
+          },
           emitCss: true,
           compilerOptions: {
             dev: mode === 'development',

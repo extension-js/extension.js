@@ -1,6 +1,6 @@
 import path from 'path'
-import {getDirname} from '../../../../dirname'
 import {type Compiler} from '@rspack/core'
+import {getDirname} from '../../../../dirname'
 import {DevOptions} from '../../../../module'
 
 const __dirname = getDirname(import.meta.url)

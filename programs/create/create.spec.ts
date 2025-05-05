@@ -7,9 +7,17 @@
 
 import path from 'path'
 import fs from 'fs'
+import {fileURLToPath} from 'url'
 import {describe, it, expect, beforeAll} from 'vitest'
 import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../examples/data'
 import {extensionCreate} from './dist/module.js'
+
+export function getDirname(importMetaUrl: string) {
+  const __filename = fileURLToPath(importMetaUrl)
+  return path.dirname(__filename)
+}
+
+const __dirname = getDirname(import.meta.url)
 
 function fileExists(templateName: string, filePath?: string): boolean {
   const templatePath = path.resolve(
