@@ -1,14 +1,4 @@
-import {
-  gray,
-  underline,
-  brightYellow,
-  brightGreen,
-  red,
-  cyan,
-  bold,
-  magenta,
-  brightBlue
-} from '@colors/colors/safe'
+import chalk from 'chalk'
 import {type DevOptions} from '../../commands/commands-lib/config-types'
 
 function getLoggingPrefix(
@@ -17,13 +7,13 @@ function getLoggingPrefix(
 ): string {
   const arrow =
     type === 'warn'
-      ? brightYellow('►►►')
+      ? chalk.yellow('►►►')
       : type === 'info'
-        ? cyan('►►►')
+        ? chalk.cyan('►►►')
         : type === 'error'
-          ? `${bold(red('ERROR'))} in ${capitalizedBrowserName(browser)} ${red('✖︎✖︎✖︎')}`
-          : brightGreen('►►►')
-  return `${gray('')}${arrow}`
+          ? `${chalk.bold(chalk.red('ERROR'))} in ${capitalizedBrowserName(browser)} ${chalk.red('✖︎✖︎✖︎')}`
+          : chalk.green('►►►')
+  return `${chalk.gray('')}${arrow}`
 }
 
 export function capitalizedBrowserName(browser: DevOptions['browser']) {
@@ -56,7 +46,7 @@ export function stdoutData(
   return (
     `${getLoggingPrefix(browser, 'success')} ` +
     `${capitalizedBrowserName(browser)} ${extensionOutput} ` +
-    `running in ${brightBlue(mode || 'unknown')} mode.`
+    `running in ${chalk.blue(mode || 'unknown')} mode.`
   )
 }
 
@@ -72,8 +62,8 @@ export function browserNotInstalledError(
   return (
     `${getLoggingPrefix(browser, 'error')} ${isUnreacheable}` +
     `Either install the missing browser or choose a different one via ` +
-    `${brightYellow('--browser')} flag.\n` +
-    `${red('NOT FOUND')} ${underline(browserBinaryLocation || capitalizedBrowserName(browser) + 'BROWSER')}`
+    `${chalk.yellow('--browser')} flag.\n` +
+    `${chalk.red('NOT FOUND')} ${chalk.underline(browserBinaryLocation || capitalizedBrowserName(browser) + 'BROWSER')}`
   )
 }
 
@@ -85,20 +75,20 @@ export function injectingAddOnsError(
     `${getLoggingPrefix(browser, 'error')} ` +
     `Can\'t inject extensions into ` +
     `${capitalizedBrowserName(browser)} profile\n` +
-    `${red(error)}`
+    `${chalk.red(error)}`
   )
 }
 
 export function firefoxServiceWorkerError(browser: DevOptions['browser']) {
   return (
     `${getLoggingPrefix(browser, 'error')} No Service Worker Support\n\n` +
-    `Firefox does not support the ${brightYellow(
+    `Firefox does not support the ${chalk.yellow(
       'background.service_worker'
     )} field yet.\n` +
-    `Update your manifest.json file to use ${brightYellow(
+    `Update your manifest.json file to use ${chalk.yellow(
       'background.scripts'
     )} instead.\n\n` +
-    `Read more: ${underline(
+    `Read more: ${chalk.underline(
       'https://bugzilla.mozilla.org/show_bug.cgi?id=1573659'
     )}.`
   )
@@ -108,7 +98,7 @@ export function browserLaunchError(browser: DevOptions['browser'], error: any) {
   return (
     `${getLoggingPrefix(browser, 'error')} ` +
     `Error launching browser:\n` +
-    `${red(error)}`
+    `${chalk.red(error)}`
   )
 }
 
@@ -116,7 +106,7 @@ export function generalBrowserError(
   browser: DevOptions['browser'],
   error: any
 ) {
-  return `${getLoggingPrefix(browser, 'error')} ${red(error.stack)}`
+  return `${getLoggingPrefix(browser, 'error')} ${chalk.red(error.stack)}`
 }
 
 export function errorConnectingToBrowser(browser: DevOptions['browser']) {
@@ -132,7 +122,7 @@ export function addonInstallError(
 ) {
   return (
     `${getLoggingPrefix(browser, 'error')} Error while installing ` +
-    `temporary addon:\n${red(message)}`
+    `temporary addon:\n${chalk.red(message)}`
   )
 }
 
@@ -143,7 +133,7 @@ export function pathIsNotDirectoryError(
   return (
     `${getLoggingPrefix(browser, 'error')} Path is not directory\n\n` +
     `Please provide a valid directory path and try again.\n` +
-    `${red('NOT DIRECTORY')} ${underline(profilePath)}`
+    `${chalk.red('NOT DIRECTORY')} ${chalk.underline(profilePath)}`
   )
 }
 
@@ -155,7 +145,7 @@ export function messagingClientClosedError(browser: DevOptions['browser']) {
   return `${getLoggingPrefix(
     browser,
     'error'
-  )} ${magenta('MessagingClient')} connection closed.`
+  )} ${chalk.magenta('MessagingClient')} connection closed.`
 }
 
 export function requestWithoutTargetActorError(
@@ -163,8 +153,8 @@ export function requestWithoutTargetActorError(
   requestType: string
 ) {
   return (
-    `${getLoggingPrefix(browser, 'error')} Unexpected ${magenta('MessagingClient')} ` +
-    `request without target actor: ${brightYellow(requestType)}`
+    `${getLoggingPrefix(browser, 'error')} Unexpected ${chalk.magenta('MessagingClient')} ` +
+    `request without target actor: ${chalk.yellow(requestType)}`
   )
 }
 
@@ -172,7 +162,7 @@ export function connectionClosedError(browser: DevOptions['browser']) {
   return `${getLoggingPrefix(
     browser,
     'error'
-  )} ${magenta('MessagingClient')} connection closed.`
+  )} ${chalk.magenta('MessagingClient')} connection closed.`
 }
 
 export function targetActorHasActiveRequestError(
@@ -181,15 +171,16 @@ export function targetActorHasActiveRequestError(
 ) {
   return (
     `${getLoggingPrefix(browser, 'error')} Target actor ` +
-    `${brightYellow(targetActor)} already has an active request.`
+    `${chalk.yellow(targetActor)} already has an active request.`
   )
 }
 
 export function parsingPacketError(browser: DevOptions['browser'], error: any) {
-  return `${getLoggingPrefix(browser, 'error')} Error parsing packet: ${red(
+  return `${getLoggingPrefix(browser, 'error')} Error parsing packet: ${chalk.red(
     error
   )}`
 }
+
 export function messageWithoutSenderError(
   browser: DevOptions['browser'],
   message: {
@@ -200,7 +191,7 @@ export function messageWithoutSenderError(
 ) {
   return (
     `${getLoggingPrefix(browser, 'error')} Message received ` +
-    `without a sender actor:\n${brightYellow(JSON.stringify(message))}`
+    `without a sender actor:\n${chalk.yellow(JSON.stringify(message))}`
   )
 }
 
@@ -210,23 +201,23 @@ export function unexpectedMessageReceivedError(
 ) {
   return (
     `${getLoggingPrefix(browser, 'error')} Received unexpected message:\n` +
-    `${red(message)}`
+    `${chalk.red(message)}`
   )
 }
 
 export function isUsingStartingUrl(browser: DevOptions['browser'], value: any) {
   return (
     `${getLoggingPrefix(browser, 'info')} ` +
-    `Using own ${magenta('starting URL')} ` +
-    `${underline(value)}. `
+    `Using own ${chalk.magenta('starting URL')} ` +
+    `${chalk.underline(value)}. `
   )
 }
 
 export function isUsingBrowserBinary(binary: string, binaryPath: any) {
   return (
     `${getLoggingPrefix(binary as DevOptions['browser'], 'info')} ` +
-    `Using own ${magenta(`${capitalizedBrowserName(binary as any)} browser binary`)} ` +
-    `${underline(binaryPath)}. `
+    `Using own ${chalk.magenta(`${capitalizedBrowserName(binary as any)} browser binary`)} ` +
+    `${chalk.underline(binaryPath)}. `
   )
 }
 
@@ -236,22 +227,22 @@ export function isUsingProfile(
 ) {
   return (
     `${getLoggingPrefix(browser, 'info')} ` +
-    `Using own ${magenta('browser profile')} ` +
-    `${underline(profilePath)}. `
+    `Using own ${chalk.magenta('browser profile')} ` +
+    `${chalk.underline(profilePath)}. `
   )
 }
 
 export function isUsingPreferences(browser: DevOptions['browser']) {
   return (
     `${getLoggingPrefix(browser, 'info')} ` +
-    `Using own ${magenta('browser preferences')}. `
+    `Using own ${chalk.magenta('browser preferences')}. `
   )
 }
 
 export function isUsingBrowserFlags(browser: DevOptions['browser']) {
   return (
     `${getLoggingPrefix(browser, 'info')} ` +
-    `Using own ${magenta('browser flags')}. `
+    `Using own ${chalk.magenta('browser flags')}. `
   )
 }
 
@@ -261,6 +252,6 @@ export function isBrowserLauncherOpen(
 ) {
   return (
     `${getLoggingPrefix(browser, 'info')} ` +
-    `Browser launcher is ${brightYellow(isOpen ? 'enabled' : 'disabled')}. `
+    `Browser launcher is ${chalk.yellow(isOpen ? 'enabled' : 'disabled')}. `
   )
 }
