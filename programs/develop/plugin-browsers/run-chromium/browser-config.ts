@@ -60,8 +60,8 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Don't send hyperlink auditing pings
   '--no-pings',
   // Ensure the side panel is visible. This is used for testing the side panel feature.
-  '--enable-features=SidePanelUpdates',
-];
+  '--enable-features=SidePanelUpdates'
+]
 
 export function browserConfig(configOptions: PluginInterface) {
   const extensionsToLoad = Array.isArray(configOptions.extension)
@@ -75,12 +75,12 @@ export function browserConfig(configOptions: PluginInterface) {
   )
 
   // Get excluded flags (if any)
-  const excludeFlags = configOptions.excludeBrowserFlags || [];
+  const excludeFlags = configOptions.excludeBrowserFlags || []
 
   // Filter out excluded flags
-  const filteredFlags = DEFAULT_BROWSER_FLAGS.filter(flag => 
-    !excludeFlags.some(excludeFlag => flag === excludeFlag)
-  );
+  const filteredFlags = DEFAULT_BROWSER_FLAGS.filter(
+    (flag) => !excludeFlags.some((excludeFlag) => flag === excludeFlag)
+  )
 
   // Flags set by default:
   // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
