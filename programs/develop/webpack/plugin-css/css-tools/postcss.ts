@@ -7,12 +7,12 @@
 
 import path from 'path'
 import fs from 'fs'
-import {StyleLoaderOptions} from '../common-style-loaders'
-import * as messages from '../../lib/messages'
+import * as messages from '../../../webpack/lib/messages'
 import {isUsingTailwind} from './tailwind'
 import {isUsingSass} from './sass'
 import {isUsingLess} from './less'
-import {installOptionalDependencies} from '../../lib/utils'
+import {installOptionalDependencies} from '../../../webpack/lib/utils'
+import type {StyleLoaderOptions} from '../common-style-loaders'
 
 let userMessageDelivered = false
 
@@ -45,7 +45,7 @@ export function isUsingPostCss(projectPath: string): boolean {
   }
 
   if (fs.existsSync(packageJsonPath)) {
-    const packageJson = require(packageJsonPath)
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
     if (
       (packageJson.dependencies && packageJson.dependencies['postcss']) ||
       (packageJson.devDependencies && packageJson.devDependencies['postcss'])
@@ -87,12 +87,10 @@ export function isUsingPostCss(projectPath: string): boolean {
   return false
 }
 
-type Loader = Record<string, any>
-
 export async function maybeUsePostCss(
   projectPath: string,
   opts: StyleLoaderOptions
-): Promise<Loader> {
+): Promise<Record<string, any>> {
   if (!isUsingPostCss(projectPath)) return {}
 
   try {

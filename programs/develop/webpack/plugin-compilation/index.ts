@@ -1,9 +1,9 @@
+import fs from 'fs'
 import {Compiler} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
 import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from '../lib/messages'
-
 import {type PluginInterface} from '../webpack-types'
 
 export class CompilationPlugin {
@@ -34,7 +34,9 @@ export class CompilationPlugin {
       // Calculate compilation time
       const duration = stats.compilation.endTime! - stats.compilation.startTime!
 
-      const manifestName = require(this.manifestPath).name
+      const manifestName = JSON.parse(
+        fs.readFileSync(this.manifestPath, 'utf-8')
+      ).name
       console.log(messages.boring(manifestName, duration, stats))
 
       done()

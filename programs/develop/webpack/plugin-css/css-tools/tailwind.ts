@@ -18,7 +18,7 @@ export function isUsingTailwind(projectPath: string) {
     return false
   }
 
-  const packageJson = require(packageJsonPath)
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
 
   const tailwindAsDevDep =
     packageJson.devDependencies && packageJson.devDependencies.tailwindcss

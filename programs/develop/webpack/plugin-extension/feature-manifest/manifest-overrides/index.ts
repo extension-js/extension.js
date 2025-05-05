@@ -1,3 +1,4 @@
+import fs from 'fs'
 import {manifestV2} from './mv2'
 import {manifestV3} from './mv3'
 import {manifestCommon} from './common'
@@ -9,7 +10,8 @@ export function getManifestOverrides(
   excludeList: FilepathList
 ) {
   // Load the manifest content from the manifestPath if not provided.
-  const manifestContent: Manifest = manifest || require(manifestPath)
+  const manifestContent: Manifest =
+    manifest || JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 
   return JSON.stringify(
     {

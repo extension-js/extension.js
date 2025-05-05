@@ -4,7 +4,7 @@ import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {AddPublicPathForMainWorld} from './steps/add-public-path-for-main-world'
-import {DevOptions} from '../../../module'
+import {type DevOptions} from '../../../module'
 
 /**
  * ScriptsPlugin is responsible for handiling all possible JavaScript
@@ -24,15 +24,15 @@ import {DevOptions} from '../../../module'
  */
 export class ScriptsPlugin {
   public readonly manifestPath: string
-  public readonly browser?: DevOptions['browser']
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
+  public readonly browser?: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
     this.excludeList = options.excludeList
+    this.browser = options.browser || 'chrome'
   }
 
   public apply(compiler: Compiler): void {
