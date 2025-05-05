@@ -26,9 +26,7 @@
     "clean": "rm -rf dist",
     "watch": "tsup-node ./module.ts --format esm --dts --target=node18 --watch",
     "compile": "tsup-node ./module.ts --format esm --dts --target=node18 --minify && bash install_scripts.sh",
-    "test": "vitest run",
     "test:create": "vitest run",
-    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {

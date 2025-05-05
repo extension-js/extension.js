@@ -35,8 +35,6 @@ export async function importExternalTemplate(
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.installingFromTemplate(projectName, template))
 
-      templatePath = path.join(projectPath, templateName)
-
       const localTemplatePath = path.join(
         __dirname,
         '..',
@@ -46,24 +44,18 @@ export async function importExternalTemplate(
         templateName
       )
 
-      await utils.copyDirectoryWithSymlinks(localTemplatePath, templatePath)
+      // Copy directly to project path to avoid nested directories
+      await utils.copyDirectoryWithSymlinks(localTemplatePath, projectPath)
     } else {
+      // Create a temporary directory for the git clone
+      const tempPath = path.join(installationPath, projectName + '-temp')
+      await fs.mkdir(tempPath, {recursive: true})
+
       await goGitIt(
         templateUrl,
-        installationPath,
+        tempPath,
         messages.installingFromTemplate(projectName, templateName)
       )
-
-      templatePath = path.join(installationPath, templateName)
-    }
-
-    if (projectName !== templateName) {
-      // Move contents from templatePath to projectPath
-      await utils.moveDirectoryContents(templatePath, projectPath)
-    } else {
-      // Handle the templatePath/templateName situation
-      const tempPath = path.join(installationPath, projectName + '-temp')
-      await fs.rename(templatePath, tempPath)
 
       // Move contents from tempPath/templateName to projectPath
       const srcPath = path.join(tempPath, templateName)
