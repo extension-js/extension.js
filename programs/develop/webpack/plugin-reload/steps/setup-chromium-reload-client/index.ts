@@ -1,6 +1,9 @@
 import path from 'path'
+import {getDirname} from '../../../../dirname'
 import {type Compiler} from '@rspack/core'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'
+
+const __dirname = getDirname(import.meta.url)
 
 export function SetupChromiumReloadClient(
   compiler: Compiler,
