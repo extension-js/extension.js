@@ -1,4 +1,5 @@
 import rspack, {Compiler} from '@rspack/core'
+import path from 'path'
 
 import {PluginInterface} from '../webpack-types'
 
@@ -16,8 +17,11 @@ export class PolyfillPlugin {
   }
 
   apply(compiler: Compiler) {
+    // webextension-polyfill path
     new rspack.ProvidePlugin({
-      browser: require.resolve('webextension-polyfill')
+      browser: path.resolve(
+        'node_modules/webextension-polyfill/dist/browser-polyfill.js'
+      )
     }).apply(compiler)
   }
 }
