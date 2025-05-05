@@ -1,29 +1,22 @@
-import path from 'path'
 import fs from 'fs'
+import path from 'path'
 import {StatsAsset} from '@rspack/core'
-import {
-  gray,
-  red,
-  brightYellow,
-  brightGreen,
-  underline,
-  magenta,
-  cyan,
-  bold,
-  brightBlue
-} from '@colors/colors/safe'
+import chalk from 'chalk'
 import {Manifest} from '../../types'
 import {type StartOptions, type DevOptions} from '../commands-lib/config-types'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const arrow =
     type === 'warn'
-      ? brightYellow('►►►')
+      ? chalk.yellow('►►►')
       : type === 'info'
-        ? cyan('►►►')
+        ? chalk.cyan('►►►')
         : type === 'error'
-          ? `${bold(red('ERROR'))} in ${'Extension.js'} ${red('✖︎✖︎✖︎')}`
-          : brightGreen('►►►')
+          ? chalk.bold.red('ERROR') +
+            ' in ' +
+            chalk.red('Extension.js') +
+            chalk.red('✖︎✖︎✖︎')
+          : chalk.green('►►►')
   // return `🧩 ${'Extension.js'} ${arrow}`
   return `${arrow}`
 }
@@ -32,7 +25,7 @@ export function manifestNotFoundError(manifestPath: string) {
   return (
     `${getLoggingPrefix('error')} Manifest file not found.\n\n` +
     'Ensure the path to your extension exists and try again.\n' +
-    `${red('NOT FOUND')} ${underline(manifestPath)}`
+    `${chalk.red('NOT FOUND')} ${chalk.underline(manifestPath)}`
   )
 }
 
@@ -50,27 +43,29 @@ export function runningInProduction(
   projectDir: string,
   options: StartOptions
 ): string {
-  const outputPath = fs.existsSync(path.join(projectDir, 'dist'))
-    ? path.join(projectDir, 'dist', options.browser || 'chrome')
-    : projectDir
+  const outputPath = path.join(projectDir, 'dist')
   const manifestPath = path.join(outputPath, 'manifest.json')
-  const manifest: Record<string, any> = require(manifestPath)
+  const manifest: Record<string, any> = JSON.parse(
+    fs.readFileSync(manifestPath, 'utf-8')
+  )
 
   const {name, version, hostPermissions, permissions} = manifest
 
   const hasHost = hostPermissions && hostPermissions.length
   const hasPermissions = permissions && permissions.length
 
-  const packageVersion = require('../../package.json').version
+  const packageVersion = JSON.parse(
+    fs.readFileSync('../../package.json', 'utf-8')
+  ).version
 
   return `
- 🧩 ${brightGreen('Extension.js')} ${gray(`${packageVersion}`)}
-${`    Extension Name        `} ${gray(name)}
-${`    Extension Version     `} ${gray(version)}
-${`    Host Permissions      `} ${gray(
+ 🧩 ${chalk.green('Extension.js')} ${chalk.gray(`${packageVersion}`)}
+${`    Extension Name        `} ${chalk.gray(name)}
+${`    Extension Version     `} ${chalk.gray(version)}
+${`    Host Permissions      `} ${chalk.gray(
     hasHost ? hostPermissions.join(', ') : 'Browser defaults'
   )}
-${`    Permissions           `} ${gray(
+${`    Permissions           `} ${chalk.gray(
     hasPermissions ? permissions.join(', ') : 'Browser defaults'
   )}
 `
@@ -80,7 +75,7 @@ export function ready(
   mode: DevOptions['mode'],
   browser: DevOptions['browser']
 ) {
-  const modeColor = mode === 'production' ? brightBlue : brightBlue
+  const modeColor = mode === 'production' ? chalk.blue : chalk.blue
   const extensionOutput =
     browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'
 
@@ -112,18 +107,18 @@ export function buildWebpack(
     fs.readFileSync(manifestPath, 'utf8')
   )
   const assets: any[] = statsJson?.assets
-  const heading = `${getLoggingPrefix('info')} Building ${cyan(
+  const heading = `${getLoggingPrefix('info')} Building ${chalk.cyan(
     manifest.name
   )} extension using ${capitalizedBrowserName(browser)} defaults...\n\n`
   const buildTime = `\nBuild completed in ${(
     (statsJson?.time || 0) / 1000
   ).toFixed(2)} seconds.`
-  const buildTarget = `Build Target: ${gray(capitalizedBrowserName(browser))}\n`
+  const buildTarget = `Build Target: ${chalk.gray(capitalizedBrowserName(browser))}\n`
   const buildStatus = `Build Status: ${
-    stats?.hasErrors() ? red('Failed') : brightGreen('Success')
+    stats?.hasErrors() ? chalk.red('Failed') : chalk.green('Success')
   }\n`
-  const version = `\nVersion: ${gray(manifest.version)}\n`
-  const size = `Size: ${gray(getAssetsSize(assets))}\n`
+  const version = `\nVersion: ${chalk.gray(manifest.version)}\n`
+  const size = `Size: ${chalk.gray(getAssetsSize(assets))}\n`
 
   let output = ''
   output += heading
@@ -140,7 +135,7 @@ export function buildWebpack(
 export function buildSuccess() {
   return `${getLoggingPrefix(
     'success'
-  )} No errors or warnings found. Your extension is ${brightGreen(
+  )} No errors or warnings found. Your extension is ${chalk.green(
     'ready for deployment'
   )}.`
 }
@@ -148,41 +143,41 @@ export function buildSuccess() {
 export function fetchingProjectPath(owner: string, project: string) {
   return (
     `${getLoggingPrefix('info')} Fetching data...\n` +
-    `${gray('URL')} ${underline(`https://github.com/${owner}/${project}`)}`
+    `${chalk.gray('URL')} ${chalk.underline(`https://github.com/${owner}/${project}`)}`
   )
 }
 
 export function downloadingProjectPath(projectName: string) {
-  return `${getLoggingPrefix('info')} Downloading ${cyan(projectName)}...`
+  return `${getLoggingPrefix('info')} Downloading ${chalk.cyan(projectName)}...`
 }
 
 export function creatingProjectPath(projectPath: string) {
   return (
     `\n${getLoggingPrefix('info')} Creating a new browser extension...\n` +
-    `${gray('PATH')} ${underline(`${projectPath}`)}`
+    `${chalk.gray('PATH')} ${chalk.underline(`${projectPath}`)}`
   )
 }
 
 export function noGitIgnoreFound(projectDir: string) {
   return (
-    `${getLoggingPrefix('info')} No ${brightYellow('.gitignore')} found, ` +
+    `${getLoggingPrefix('info')} No ${chalk.yellow('.gitignore')} found, ` +
     `zipping all the content inside path:\n` +
-    `${gray('PATH')} ${underline(projectDir)}`
+    `${chalk.gray('PATH')} ${chalk.underline(projectDir)}`
   )
 }
 
 export function packagingSourceFiles(zipPath: string) {
   return (
     `${getLoggingPrefix('info')} Packaging source files. ` +
-    `Files in ${brightYellow('.gitignore')} will be excluded...\n` +
-    `${gray('PATH')} ${underline(zipPath)}.`
+    `Files in ${chalk.yellow('.gitignore')} will be excluded...\n` +
+    `${chalk.gray('PATH')} ${chalk.underline(zipPath)}.`
   )
 }
 
 export function packagingDistributionFiles(zipPath: string) {
   return (
     `${getLoggingPrefix('info')} Packaging extension distribution files...\n` +
-    `${gray('PATH')} ${underline(zipPath)}`
+    `${chalk.gray('PATH')} ${chalk.underline(zipPath)}`
   )
 }
 
@@ -193,11 +188,11 @@ export function treeWithSourceAndDistFiles(
   destZip: string
 ) {
   return (
-    `${'📦 Package name:'} ${brightYellow(
+    `${'📦 Package name:'} ${chalk.yellow(
       `${name}`
     )}, ${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${gray('└─')} ${underline(`${sourceZip}`)} (source)` +
-    `\n   ${gray('└─')} ${underline(`${destZip}`)} (distribution)`
+    `\n   ${chalk.gray('└─')} ${chalk.underline(`${sourceZip}`)} (source)` +
+    `\n   ${chalk.gray('└─')} ${chalk.underline(`${destZip}`)} (distribution)`
   )
 }
 
@@ -208,9 +203,9 @@ export function treeWithDistFilesbrowser(
   zipPath: string
 ) {
   return (
-    `${'📦 Package name:'} ${brightYellow(`${name}.${ext}`)}, ` +
+    `${'📦 Package name:'} ${chalk.yellow(`${name}.${ext}`)}, ` +
     `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${gray('└─')} ${underline(`${zipPath}`)} ${gray('(distribution)')}`
+    `\n   ${chalk.gray('└─')} ${chalk.underline(`${zipPath}`)} ${chalk.gray('(distribution)')}`
   )
 }
 
@@ -221,55 +216,55 @@ export function treeWithSourceFiles(
   zipPath: string
 ) {
   return (
-    `${'📦 Package name:'} ${brightYellow(`${name}-source.${ext}`)}, ` +
+    `${'📦 Package name:'} ${chalk.yellow(`${name}-source.${ext}`)}, ` +
     `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${gray('└─')} ${underline(`${zipPath}`)} (source)`
+    `\n   ${chalk.gray('└─')} ${chalk.underline(`${zipPath}`)} (source)`
   )
 }
 
 export function failedToCompressError(error: any) {
   return `${getLoggingPrefix(
     'error'
-  )} Failed to compress extension package.\n${red(error)}`
+  )} Failed to compress extension package.\n${chalk.red(error)}`
 }
 
 export function writingTypeDefinitions(manifest: Manifest) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Writing type definitions for ${cyan(manifest.name || '')}...`
+    `Writing type definitions for ${chalk.cyan(manifest.name || '')}...`
   )
 }
 
 export function writingTypeDefinitionsError(error: any) {
   return `${getLoggingPrefix(
     'error'
-  )} Failed to write the extension type definition.\n${red(error)}`
+  )} Failed to write the extension type definition.\n${chalk.red(error)}`
 }
 
 export function downloadingText(url: string) {
   return (
     `${getLoggingPrefix('info')} Downloading extension...\n` +
-    `${gray('URL')} ${underline(url)}`
+    `${chalk.gray('URL')} ${chalk.underline(url)}`
   )
 }
 
 export function unpackagingExtension(zipFilePath: string) {
   return (
     `${getLoggingPrefix('info')} Unpackaging browser extension...\n` +
-    `${gray('PATH')} ${underline(zipFilePath)}`
+    `${chalk.gray('PATH')} ${chalk.underline(zipFilePath)}`
   )
 }
 
 export function unpackagedSuccessfully() {
   return `${getLoggingPrefix(
     'info'
-  )} Browser extension unpackaged ${brightGreen('successfully')}.`
+  )} Browser extension unpackaged ${chalk.green('successfully')}.`
 }
 
 export function failedToDownloadOrExtractZIPFileError(error: any) {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Failed to download or extract ZIP file. ${red(error)}`
+    `Failed to download or extract ZIP file. ${chalk.red(error)}`
   )
 }
 
@@ -327,9 +322,12 @@ function printTree(node: Record<string, any>, prefix = ''): string {
     const sizeInKB = node[key].size
       ? ` (${getFileSize(node[key].size as number)})`
       : ''
-    output += `${gray(prefix)}${gray(connector)} ${key}${gray(sizeInKB)}\n`
+    output += `${chalk.gray(prefix)}${chalk.gray(connector)} ${key}${chalk.gray(sizeInKB)}\n`
     if (typeof node[key] === 'object' && !node[key].size) {
-      output += printTree(node[key], `${prefix}${isLast ? '   ' : gray('│  ')}`)
+      output += printTree(
+        node[key],
+        `${prefix}${isLast ? '   ' : chalk.gray('│  ')}`
+      )
     }
   })
 
@@ -362,8 +360,8 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
 export function isUsingExperimentalConfig(integration: any) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Using ${magenta(integration)}. ` +
-    `${brightYellow('This is very experimental')}.`
+    `Using ${chalk.magenta(integration)}. ` +
+    `${chalk.yellow('This is very experimental')}.`
   )
 }
 
@@ -385,13 +383,13 @@ export function installingDependenciesFailed(
 export function installingDependenciesProcessError(error: any) {
   return (
     `${getLoggingPrefix('error')} Child process error: Can't ` +
-    `install project dependencies.\n${red(error)}`
+    `install project dependencies.\n${chalk.red(error)}`
   )
 }
 
 export function cantInstallDependencies(error: any) {
   return (
     `${getLoggingPrefix('error')} Can't install project dependencies. ` +
-    `${red(error.message || error.toString())}`
+    `${chalk.red(error.message || error.toString())}`
   )
 }
