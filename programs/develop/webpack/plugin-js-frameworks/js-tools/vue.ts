@@ -45,7 +45,7 @@ export async function maybeUseVue(
   if (!isUsingVue(projectPath)) return undefined
 
   try {
-    require.resolve('vue-loader')
+    await import('vue-loader')
   } catch (e) {
     const vueDependencies = [
       'vue-loader',
@@ -62,7 +62,7 @@ export async function maybeUseVue(
   const vueLoaders: JsFramework['loaders'] = [
     {
       test: /\.vue$/,
-      loader: require.resolve('vue-loader'),
+      loader: 'vue-loader',
       options: {
         // Note, for the majority of features to be available, make sure this option is `true`
         experimentalInlineMatchResource: true

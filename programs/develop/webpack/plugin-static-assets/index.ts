@@ -74,7 +74,7 @@ export class StaticAssetsPlugin {
       },
       {
         test: /\.(csv|tsv)$/i,
-        use: [require.resolve('csv-loader')],
+        use: ['csv-loader'],
         generator: {
           filename: 'assets/[name][ext]'
         }
