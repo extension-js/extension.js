@@ -16,12 +16,6 @@ export default defineConfig({
         '**/*.spec.ts',
         '**/types/**'
       ]
-    },
-    deps: {
-      inline: [/extension-create/]
-    },
-    alias: {
-      '@': './'
     }
   }
 })
