@@ -1,10 +1,3 @@
-/// <reference types="node" />
-/// <reference types="chrome" />
-/// <reference types="./js-frameworks.d.ts" />
-/// <reference path="./css-content.d.ts" />
-/// <reference path="./css-modules.d.ts" />
-/// <reference path="./images.d.ts" />
-
 declare namespace NodeJS {
   interface ProcessEnv {
     EXTENSION_BROWSER:
@@ -29,8 +22,8 @@ declare namespace NodeJS {
 
 interface ImportMetaEnv {
   EXTENSION_BROWSER: NodeJS.ProcessEnv['EXTENSION_BROWSER']
-  EXTENSION_PUBLIC_BROWSER: NodeJS.ProcessEnv['EXTENSION_BROWSER']
   EXTENSION_MODE: NodeJS.ProcessEnv['EXTENSION_MODE']
+  EXTENSION_PUBLIC_BROWSER: NodeJS.ProcessEnv['EXTENSION_BROWSER']
   EXTENSION_PUBLIC_MODE: NodeJS.ProcessEnv['EXTENSION_MODE']
   [key: string]: string | undefined
 }
@@ -42,8 +35,4 @@ interface ImportMeta {
     dispose: (callback: () => void) => void
   }
   url: string
-}
-
-interface Window {
-  __EXTENSION_SHADOW_ROOT__: ShadowRoot
 }
