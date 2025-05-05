@@ -3,7 +3,7 @@
   "display": "Default",
   "compilerOptions": {
     "lib": ["es2022", "dom"],
-    "types": ["chrome", "firefox-webext-browser", "node", "jest"],
+    "types": ["chrome", "firefox-webext-browser", "node"],
     "composite": false,
     "declaration": true,
     "declarationMap": true,
