@@ -1,25 +1,26 @@
+import {describe, it, expect, vi, beforeEach} from 'vitest'
 // Mock the parse5-utils
 import {parseHtml} from '../../html-lib/parse-html'
 // @ts-ignore
 import parse5utils from 'parse5-utils'
 
-jest.mock('parse5-utils', () => ({
-  getAttribute: jest.fn()
+vi.mock('parse5-utils', () => ({
+  getAttribute: vi.fn()
 }))
 
 const setupAttributesMock = (attributes: Record<string, string>) => {
-  ;(parse5utils.getAttribute as jest.Mock).mockImplementation(
-    (_node, attr) => attributes[attr]
+  parse5utils.getAttribute.mockImplementation(
+    (_node: any, attr: any) => attributes[attr]
   )
 }
 
 describe('parseHtml', () => {
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it('should find script tags and call onResourceFound with correct options', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -41,7 +42,7 @@ describe('parseHtml', () => {
   })
 
   it('should ignore script tags with external URLs', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -59,7 +60,7 @@ describe('parseHtml', () => {
   })
 
   it('should find link tags for CSS and call onResourceFound with correct options', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -84,7 +85,7 @@ describe('parseHtml', () => {
   })
 
   it('should handle link tags for non-CSS resources correctly', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -109,7 +110,7 @@ describe('parseHtml', () => {
   })
 
   it('should parse static assets with href attribute correctly', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -131,7 +132,7 @@ describe('parseHtml', () => {
   })
 
   it('should handle static assets with src attribute correctly', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -153,7 +154,7 @@ describe('parseHtml', () => {
   })
 
   it('should recursively parse nested HTML structures and find assets', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -180,7 +181,7 @@ describe('parseHtml', () => {
   })
 
   it('should skip tags with empty src or href attributes', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -204,7 +205,7 @@ describe('parseHtml', () => {
   })
 
   it('should ignore script and link tags without src or href attributes, respectively', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -226,7 +227,7 @@ describe('parseHtml', () => {
   })
 
   it('handles HTML entities and escaped characters in src attributes', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -249,7 +250,7 @@ describe('parseHtml', () => {
   })
 
   it('differentiates between relative and absolute paths in href attributes', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode1 = {
       childNodes: [
         {
@@ -292,7 +293,7 @@ describe('parseHtml', () => {
   })
 
   it('ignores fragment identifiers and query parameters in asset URLs', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -315,7 +316,7 @@ describe('parseHtml', () => {
   })
 
   it('correctly ignores data URLs in src attributes', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -339,7 +340,7 @@ describe('parseHtml', () => {
     expect(onResourceFound).not.toHaveBeenCalled()
   })
   it('does not attempt to extract embedded JavaScript or CSS', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {
@@ -362,7 +363,7 @@ describe('parseHtml', () => {
     expect(onResourceFound).not.toHaveBeenCalled()
   })
   it('skips assets within HTML comments', () => {
-    const onResourceFound = jest.fn()
+    const onResourceFound = vi.fn()
     const mockNode = {
       childNodes: [
         {

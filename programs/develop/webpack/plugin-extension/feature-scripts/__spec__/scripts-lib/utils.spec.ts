@@ -1,7 +1,11 @@
 import fs from 'fs'
 import path from 'path'
+import {describe, it, expect, beforeAll, afterAll} from 'vitest'
 import {FilepathList} from '../../../../webpack-types'
 import {getScriptEntries, getCssEntries} from '../../scripts-lib/utils'
+import {getDirname} from '../../../../../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 const testDir = path.join(__dirname, 'test-assets')
 const excludeList: FilepathList = {

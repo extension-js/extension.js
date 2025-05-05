@@ -6,7 +6,6 @@ const config = {
       // https://babeljs.io/docs/en/babel-loader
       {
         test: /\.(js|mjs|jsx|ts|tsx)$/,
-        include: __dirname,
         exclude: [/[\\/]node_modules[\\/]/],
         loader: 'babel-loader'
       }

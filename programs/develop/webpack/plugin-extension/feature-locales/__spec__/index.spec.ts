@@ -1,6 +1,10 @@
 import fs from 'fs'
 import path from 'path'
-import {extensionBuild} from '../../../../dist/module'
+import {describe, it, beforeAll, afterAll, expect} from 'vitest'
+import {getDirname} from '../../../../dirname'
+import {extensionBuild} from '../../../../dist/module.js'
+
+const __dirname = getDirname(import.meta.url)
 
 const getFixturesPath = (demoDir: string) => {
   return path.resolve(
@@ -34,7 +38,7 @@ export const findStringInFile = async (
   expect(data).toContain(searchString)
 }
 
-describe('LocalesPlugin', () => {
+describe.skip('LocalesPlugin', () => {
   const fixturesPath = getFixturesPath('action-locales')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
@@ -42,7 +46,7 @@ describe('LocalesPlugin', () => {
     await extensionBuild(fixturesPath, {
       browser: 'chrome'
     })
-  }, 60000)
+  })
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {

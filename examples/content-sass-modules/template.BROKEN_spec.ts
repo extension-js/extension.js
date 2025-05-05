@@ -5,7 +5,9 @@ import {
   getShadowRootElement,
   takeScreenshot
 } from '../extension-fixtures'
+import {getDirname} from '../dirname'
 
+const __dirname = getDirname(import.meta.url)
 const exampleDir = 'examples/content-sass-modules'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)

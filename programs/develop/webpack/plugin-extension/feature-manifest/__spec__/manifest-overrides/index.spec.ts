@@ -1,8 +1,10 @@
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
+import {describe, it, expect} from 'vitest'
 import {getManifestOverrides} from '../../manifest-overrides'
 import {FilepathList, Manifest} from '../../../../webpack-types'
+import {getDirname} from '../../../../../dirname'
 
 const SUPER_MANIFEST: Manifest = {
   action: {
@@ -123,6 +125,7 @@ export const dirname = (dir: string) => path.dirname(dir)
 export const win32 = () => os.platform() === 'win32'
 
 describe('getManifestOverrides', () => {
+  const __dirname = getDirname(import.meta.url)
   const context = path.resolve(__dirname, 'context')
   const exclude: FilepathList = win32()
     ? {
