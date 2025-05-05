@@ -33,9 +33,7 @@ export async function commonStyleLoaders(
   if (opts.loader) {
     styleLoaders.push({
       // Use either external loader or builtin
-      loader: opts.loader.startsWith('builtin:')
-        ? opts.loader
-        : require.resolve(opts.loader),
+      loader: opts.loader,
       options: {
         ...opts.loaderOptions,
         sourceMap: opts.mode === 'development'

@@ -7,7 +7,6 @@ import {type Manifest} from '../../../../webpack-types'
 import {type DevOptions} from '../../../../../commands/commands-lib/config-types'
 import * as messages from '../../../../lib/messages'
 import * as utils from '../../../../lib/utils'
-import {hardcodeNamespaceInFile} from './hardcode-namespace-in-file'
 import {getDirname} from '../../../../../dirname'
 
 const __dirname = getDirname(import.meta.url)
@@ -170,14 +169,5 @@ export class TargetWebExtensionPlugin {
       background: this.getEntryName(patchedManifest),
       weakRuntimeCheck: true
     }).apply(this.convertToWebpackCompiler(compiler))
-
-    try {
-      const browserRuntimePath = require.resolve(
-        'webpack-target-webextension/lib/webpack5/RuntimeModules/BrowserRuntime.js'
-      )
-      hardcodeNamespaceInFile(browserRuntimePath)
-    } catch (error) {
-      console.error(messages.couldNotFindBrowserRuntimeFile())
-    }
   }
 }

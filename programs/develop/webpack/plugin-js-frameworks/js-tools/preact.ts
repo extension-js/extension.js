@@ -50,7 +50,7 @@ export async function maybeUsePreact(
   try {
     // Fast-refresh for Preact!
     // https://github.com/preactjs/prefresh
-    require.resolve('@rspack/plugin-preact-refresh')
+    await import('@rspack/plugin-preact-refresh')
   } catch (e) {
     const preactDependencies = [
       '@prefresh/core',

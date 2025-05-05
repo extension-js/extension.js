@@ -40,7 +40,8 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
   if (!isUsingLess(projectPath)) return []
 
   try {
-    require.resolve('less-loader')
+    // @ts-expect-error - less-loader is not typed
+    await import('less-loader')
   } catch (e) {
     const lessDependencies = ['less', 'less-loader']
 
@@ -60,7 +61,7 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
       type: 'css',
       use: [
         {
-          loader: require.resolve('less-loader'),
+          loader: 'less-loader',
           options: {
             sourceMap: true
           }
@@ -73,7 +74,7 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
       type: 'css/module',
       use: [
         {
-          loader: require.resolve('less-loader'),
+          loader: 'less-loader',
           options: {
             sourceMap: true
           }
