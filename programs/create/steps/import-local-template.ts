@@ -6,8 +6,12 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
 import path from 'path'
+import {fileURLToPath} from 'url'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 export async function importLocalTemplate(
   projectPath: string,

@@ -28,23 +28,18 @@ export async function installDependencies(
   console.log(messages.installingDependencies())
 
   try {
-    const originalDirectory = process.cwd()
-
-    // Change to the project directory
-    process.chdir(projectPath)
-
     // Create the node_modules directory if it doesn't exist
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-    const child = spawn(command, dependenciesArgs, {stdio})
+    const child = spawn(command, dependenciesArgs, {
+      stdio,
+      cwd: projectPath
+    })
 
     await new Promise<void>((resolve, reject) => {
       child.on('close', (code) => {
-        // Change back to the original directory
-        process.chdir(originalDirectory)
-
         if (code !== 0) {
           reject(
             new Error(
@@ -61,9 +56,6 @@ export async function installDependencies(
       })
 
       child.on('error', (error) => {
-        // Change back to the original directory
-        process.chdir(originalDirectory)
-
         console.error(
           messages.installingDependenciesProcessError(projectName, error)
         )

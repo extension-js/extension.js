@@ -7,8 +7,9 @@
 
 import path from 'path'
 import fs from 'fs'
+import {describe, it, expect, beforeAll} from 'vitest'
 import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../examples/data'
-import {extensionCreate} from './dist/module'
+import {extensionCreate} from './dist/module.js'
 
 function fileExists(templateName: string, filePath?: string): boolean {
   const templatePath = path.resolve(
