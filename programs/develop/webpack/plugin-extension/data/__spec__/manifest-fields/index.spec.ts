@@ -1,6 +1,8 @@
 import path from 'path'
 import fs from 'fs'
+import {describe, it, expect, afterAll} from 'vitest'
 import {getManifestFieldsData} from '../../manifest-fields/index'
+import {getDirname} from '../../../../../dirname'
 
 const fakeManifestV2: chrome.runtime.ManifestV2 = {
   manifest_version: 2,
@@ -112,6 +114,8 @@ const fakeManifestV3: Partial<chrome.runtime.ManifestV3> = {
     }
   ]
 }
+
+const __dirname = getDirname(import.meta.url)
 
 const manifestV2Path = path.join(__dirname, 'manifest-v2.json')
 const manifestV3Path = path.join(__dirname, 'manifest-v3.json')

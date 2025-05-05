@@ -1,4 +1,4 @@
-import {getContentHtml} from './content'
+import {getContentHtml} from './content.js'
 
 let unmount
 

@@ -9,8 +9,15 @@ import path from 'path'
 import fs from 'fs'
 import {execFile} from 'child_process'
 import {promisify} from 'util'
+import {describe, it, expect} from 'vitest'
 
 const execFileAsync = promisify(execFile)
+
+function getDirname(importMetaUrl: string) {
+  return path.dirname(importMetaUrl)
+}
+
+const __dirname = getDirname(import.meta.url)
 
 export async function extensionProgram(command: string = '') {
   const cliDirectory = path.resolve(__dirname, '..', 'dist', 'cli.js')

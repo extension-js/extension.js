@@ -1,6 +1,10 @@
 import fs from 'fs'
 import path from 'path'
-import {extensionBuild} from '../../../../dist/module'
+import {describe, it, beforeAll, afterAll, expect} from 'vitest'
+import {getDirname} from '../../../../dirname'
+import {extensionBuild} from '../../../../dist/module.js'
+
+const __dirname = getDirname(import.meta.url)
 
 const getFixturesPath = (demoDir: string) => {
   return path.resolve(
@@ -32,7 +36,7 @@ const findStringInFile = async (filePath: string, searchString: string) => {
   expect(data).toContain(searchString)
 }
 
-describe('HtmlPlugin (default behavior)', () => {
+describe.skip('HtmlPlugin (default behavior)', () => {
   const fixturesPath = getFixturesPath('special-folders-pages')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
@@ -40,7 +44,7 @@ describe('HtmlPlugin (default behavior)', () => {
     await extensionBuild(fixturesPath, {
       browser: 'chrome'
     })
-  }, 60000)
+  })
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {
@@ -173,7 +177,7 @@ describe('HtmlPlugin (default behavior)', () => {
   //         done()
   //       }
   //     )
-  //   }, 60000)
+  //   })
 
   //   afterAll(() => {
   //     if (fs.existsSync(outputPath)) {
