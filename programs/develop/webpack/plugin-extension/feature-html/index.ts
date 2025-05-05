@@ -1,4 +1,5 @@
 import path from 'path'
+import {getDirname} from '../../../dirname'
 import {type Compiler} from '@rspack/core'
 
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
@@ -9,6 +10,8 @@ import {UpdateHtmlFile} from './steps/update-html-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {HandleCommonErrors} from './steps/handle-common-errors'
+
+const __dirname = getDirname(import.meta.url)
 
 /**
  * HtmlPlugin is responsible for handling the HTML file
@@ -86,9 +89,7 @@ export class HtmlPlugin {
       exclude: [/[\\/]node_modules[\\/]/],
       use: [
         {
-          loader: require.resolve(
-            path.join(__dirname, 'ensure-hmr-for-scripts.js')
-          ),
+          loader: path.join(__dirname, 'ensure-hmr-for-scripts.js'),
           options: {
             manifestPath: this.manifestPath,
             includeList: this.includeList,
