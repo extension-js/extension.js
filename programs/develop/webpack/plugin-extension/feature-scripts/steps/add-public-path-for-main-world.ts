@@ -1,3 +1,4 @@
+import fs from 'fs'
 import {Compiler} from '@rspack/core'
 import {
   type FilepathList,
@@ -23,7 +24,9 @@ export class AddPublicPathForMainWorld {
   }
 
   public apply(_compiler: Compiler): void {
-    const initialManifest: Manifest = require(this.manifestPath)
+    const initialManifest: Manifest = JSON.parse(
+      fs.readFileSync(this.manifestPath, 'utf-8')
+    )
     const manifest = utils.filterKeysForThisBrowser(
       initialManifest,
       this.browser

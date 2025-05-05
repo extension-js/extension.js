@@ -54,7 +54,7 @@ export default function (this: LoaderContext, source: string) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
   const projectPath = path.dirname(manifestPath)
-  const manifest = require(manifestPath)
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
 
   validate(schema, options, {
     name: 'scripts:add-hmr-accept-code',
