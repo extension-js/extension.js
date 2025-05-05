@@ -90,9 +90,7 @@ export class ScriptsPlugin {
       exclude: [/[\\/]node_modules[\\/]/],
       use: [
         {
-          loader: require.resolve(
-            path.join(__dirname, 'deprecated-shadow-root.js')
-          ),
+          loader: path.join(__dirname, 'deprecated-shadow-root.js'),
           options: {
             manifestPath: this.manifestPath,
             includeList: this.includeList || {},

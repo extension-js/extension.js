@@ -94,7 +94,8 @@ export async function maybeUsePostCss(
   if (!isUsingPostCss(projectPath)) return {}
 
   try {
-    require.resolve('postcss-loader')
+    // @ts-expect-error - postcss-loader is not typed
+    await import('postcss-loader')
   } catch (e) {
     // SASS and LESS will install PostCSS as a dependency
     // so we don't need to check for it here.
@@ -115,14 +116,14 @@ export async function maybeUsePostCss(
   return {
     test: /\.css$/,
     type: 'css',
-    loader: require.resolve('postcss-loader'),
+    loader: 'postcss-loader',
     options: {
       postcssOptions: {
         ident: 'postcss',
         config: findPostCssConfig(projectPath),
         plugins: [
           [
-            require.resolve('postcss-preset-env'),
+            'postcss-preset-env',
             {
               autoprefixer: {
                 flexbox: 'no-2009'

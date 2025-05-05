@@ -48,7 +48,8 @@ export async function maybeUseSvelte(
   if (!isUsingSvelte(projectPath)) return undefined
 
   try {
-    require.resolve('svelte-loader')
+    // @ts-expect-error - svelte-loader is not typed
+    await import('svelte-loader')
   } catch (e) {
     const typeScriptDependencies = ['typescript']
 
@@ -65,14 +66,14 @@ export async function maybeUseSvelte(
   const svelteLoaders: JsFramework['loaders'] = [
     {
       test: /\.svelte\.ts$/,
-      use: [require.resolve('svelte-loader')],
+      use: ['svelte-loader'],
       include: projectPath,
       exclude: /node_modules/
     },
     {
       test: /\.(svelte|svelte\.js)$/,
       use: {
-        loader: require.resolve('svelte-loader'),
+        loader: 'svelte-loader',
         options: {
           preprocess: sveltePreprocess({
             typescript: true

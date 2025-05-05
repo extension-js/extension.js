@@ -40,7 +40,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
   if (!isUsingSass(projectPath)) return []
 
   try {
-    require.resolve('sass-loader')
+    await import('sass-loader')
   } catch (e) {
     const postCssDependencies = [
       'postcss-loader',
@@ -68,7 +68,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
       type: 'css',
       use: [
         {
-          loader: require.resolve('sass-loader'),
+          loader: 'sass-loader',
           options: {
             sourceMap: true,
             sassOptions: {
@@ -84,7 +84,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
       type: 'css/module',
       use: [
         {
-          loader: require.resolve('sass-loader'),
+          loader: 'sass-loader',
           options: {
             sourceMap: true,
             sassOptions: {
