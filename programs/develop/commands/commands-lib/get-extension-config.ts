@@ -5,6 +5,27 @@ import {BrowserConfig, FileConfig} from './config-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import * as messages from './messages'
 
+async function loadConfigFile(configPath: string): Promise<FileConfig> {
+  const absolutePath = path.resolve(configPath)
+
+  try {
+    // Try to load as ESM module first
+    const module = await import(absolutePath)
+    return module.default || module
+  } catch (err: unknown) {
+    const error = err as Error
+    // If ESM import fails, try to parse as JSON
+    try {
+      const content = fs.readFileSync(absolutePath, 'utf-8')
+      return JSON.parse(content)
+    } catch (jsonErr: unknown) {
+      throw new Error(
+        `Failed to load config file: ${configPath}\nError: ${error.message || error}`
+      )
+    }
+  }
+}
+
 export async function loadCustomWebpackConfig(projectPath: string) {
   const userConfigPath = path.join(projectPath, 'extension.config.js')
   const moduleUserConfigPath = path.join(projectPath, 'extension.config.mjs')
@@ -15,9 +36,15 @@ export async function loadCustomWebpackConfig(projectPath: string) {
       : moduleUserConfigPath
 
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = require(configPath)
-      if (userConfig && typeof userConfig.config === 'function') {
-        return userConfig.config
+      try {
+        const userConfig = await loadConfigFile(configPath)
+        if (userConfig && typeof userConfig.config === 'function') {
+          return userConfig.config
+        }
+      } catch (err: unknown) {
+        const error = err as Error
+        console.error(`Error loading webpack config: ${error.message}`)
+        throw err
       }
     }
   }
@@ -37,10 +64,16 @@ export async function loadCommandConfig(
 
   if (fs.existsSync(userConfigPath) || fs.existsSync(moduleUserConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = require(configPath)
-      if (userConfig) {
-        // @ts-expect-error - TS doesn't know that command is a key of FileConfig['commands']
-        return userConfig[command]
+      try {
+        const userConfig = await loadConfigFile(configPath)
+        if (userConfig) {
+          // @ts-expect-error - TS doesn't know that command is a key of FileConfig['commands']
+          return userConfig[command]
+        }
+      } catch (err: unknown) {
+        const error = err as Error
+        console.error(`Error loading command config: ${error.message}`)
+        throw err
       }
     }
   }
@@ -60,9 +93,15 @@ export async function loadBrowserConfig(
 
   if (fs.existsSync(userConfigPath) || fs.existsSync(moduleUserConfigPath)) {
     if (await isUsingExperimentalConfig(projectPath)) {
-      const userConfig: FileConfig = require(configPath)
-      if (userConfig && userConfig.browser && userConfig.browser[browser]) {
-        return userConfig.browser[browser] || {browser: 'chrome'}
+      try {
+        const userConfig = await loadConfigFile(configPath)
+        if (userConfig && userConfig.browser && userConfig.browser[browser]) {
+          return userConfig.browser[browser] || {browser: 'chrome'}
+        }
+      } catch (err: unknown) {
+        const error = err as Error
+        console.error(`Error loading browser config: ${error.message}`)
+        throw err
       }
     }
   }
