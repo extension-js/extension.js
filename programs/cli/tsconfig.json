@@ -13,14 +13,15 @@
     "forceConsistentCasingInFileNames": true,
     "inlineSources": false,
     "isolatedModules": false,
-    "moduleResolution": "node",
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "preserveWatchOutput": true,
     "skipLibCheck": true,
     "strict": true,
     "resolveJsonModule": true,
-    "module": "CommonJS"
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true
   },
   "include": ["**/*.ts"],
   "exclude": ["dist", "node_modules"]
