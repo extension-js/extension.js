@@ -18,20 +18,15 @@ export async function initializeGitRepository(
   console.log(messages.initializingGitForRepository(projectName))
 
   try {
-    const originalDirectory = process.cwd()
-
-    // Change to the project directory
-    process.chdir(projectPath)
-
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-    const child = spawn(gitCommand, gitArgs, {stdio})
+    const child = spawn(gitCommand, gitArgs, {
+      stdio,
+      cwd: projectPath
+    })
 
     await new Promise<void>((resolve, reject) => {
       child.on('close', (code) => {
-        // Change back to the original directory
-        process.chdir(originalDirectory)
-
         if (code !== 0) {
           reject(
             new Error(
@@ -48,9 +43,6 @@ export async function initializeGitRepository(
       })
 
       child.on('error', (error) => {
-        // Change back to the original directory
-        process.chdir(originalDirectory)
-
         console.error(
           messages.initializingGitForRepositoryProcessError(projectName, error)
         )
@@ -61,7 +53,6 @@ export async function initializeGitRepository(
     console.error(
       messages.initializingGitForRepositoryError(projectName, error)
     )
-
     process.exit(1)
   }
 }
