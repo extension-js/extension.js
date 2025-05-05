@@ -8,6 +8,9 @@ import {type DevOptions} from '../../../../../commands/commands-lib/config-types
 import * as messages from '../../../../lib/messages'
 import * as utils from '../../../../lib/utils'
 import {hardcodeNamespaceInFile} from './hardcode-namespace-in-file'
+import {getDirname} from '../../../../../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 export class TargetWebExtensionPlugin {
   private readonly manifestPath: string
