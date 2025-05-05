@@ -53,25 +53,25 @@ mkdir -p "$(dirname "$0")/dist/"
 echo '►►► Setting up HTML loaders'
 for entry in "${html_plugin_files[@]}"; do
   # echo "Processing HTML loader: $entry"
-  execute_command "$entry" "cjs"
+  execute_command "$entry" "esm"
 done
 
 echo '►►► Setting up resolver loaders'
 for entry in "${resolve_plugin_files[@]}"; do
   # echo "Processing resolver loader: $entry"
-  execute_command "$entry" "cjs"
+  execute_command "$entry" "esm"
 done
 
 echo '►►► Setting up script loaders'
 for entry in "${scripts_plugin_files[@]}"; do
   # echo "Processing script loader: $entry"
-  execute_command "$entry" "cjs"
+  execute_command "$entry" "esm"
 done
 
 echo '►►► Setting up reload loaders'
 for entry in "${reload_plugin_files[@]}"; do
   # echo "Processing reload loader: $entry"
-  execute_command "$entry" "cjs"
+  execute_command "$entry" "esm"
 done
 
 echo '►►► Setting up minimum required files (ESM format)'

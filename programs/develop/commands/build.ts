@@ -65,7 +65,11 @@ export async function extensionBuild(
 
     if (!fs.existsSync(nodeModulesPath)) {
       console.log(messages.installingDependencies())
-      await installDependencies(projectPath)
+
+      // Prevents `process.chdir() is not supported in workers` error
+      if (process.env.VITEST !== 'true') {
+        await installDependencies(projectPath)
+      }
     }
 
     await new Promise<void>((resolve, reject) => {
