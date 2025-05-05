@@ -1,4 +1,5 @@
 import {Asset, Compilation} from '@rspack/core'
+import {describe, it, expect, vi} from 'vitest'
 import {WebResourcesPlugin} from '..'
 
 type Manifest =
@@ -26,7 +27,7 @@ describe('generateManifestPatches', () => {
       source: manifestSource
     } as unknown as Readonly<Asset>
 
-    const updateAssetMock = jest.fn<void, [string, Asset['source']]>()
+    const updateAssetMock = vi.fn<[string, Asset['source']]>()
 
     plugin['generateManifestPatches'](
       {
@@ -40,7 +41,7 @@ describe('generateManifestPatches', () => {
     )
 
     expect(updateAssetMock).toHaveBeenCalledTimes(1)
-    const callArgs = updateAssetMock.mock.calls[0]
+    const callArgs: any = updateAssetMock.mock.calls[0]
     expect(callArgs[0]).toEqual('manifest.json')
     return JSON.parse(callArgs[1].source().toString()) as Manifest
   }

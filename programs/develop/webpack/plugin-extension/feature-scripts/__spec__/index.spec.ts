@@ -1,6 +1,7 @@
 import fs from 'fs'
 import path from 'path'
-import {extensionBuild} from '../../../../dist/module'
+import {describe, it, beforeAll, afterAll} from 'vitest'
+import {extensionBuild} from '../../../../dist/module.js'
 
 const getFixturesPath = (demoDir: string) => {
   return path.resolve(
@@ -28,7 +29,7 @@ describe('ScriptsPlugin (default behavior)', () => {
     await extensionBuild(fixturesPath, {
       browser: 'chrome'
     })
-  }, 60000)
+  })
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {
@@ -66,7 +67,7 @@ describe('ScriptsPlugin (default behavior)', () => {
 //         done()
 //       }
 //     )
-//   }, 60000)
+//   })
 
 //   afterAll(() => {
 //     if (fs.existsSync(outputPath)) {
