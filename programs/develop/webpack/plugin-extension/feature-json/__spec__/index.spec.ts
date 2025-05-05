@@ -1,6 +1,10 @@
 import fs from 'fs'
 import path from 'path'
-import {extensionBuild} from '../../../../dist/module'
+import {describe, it, beforeAll, afterAll, expect} from 'vitest'
+import {getDirname} from '../../../../dirname'
+import {extensionBuild} from '../../../../dist/module.js'
+
+const __dirname = getDirname(import.meta.url)
 
 const getFixturesPath = (demoDir: string) => {
   return path.resolve(
@@ -44,7 +48,7 @@ describe('JsonPlugin', () => {
       await extensionBuild(fixturesPath, {
         browser: 'chrome'
       })
-    }, 60000)
+    })
 
     afterAll(() => {
       if (fs.existsSync(outputPath)) {
@@ -80,7 +84,7 @@ describe('JsonPlugin', () => {
       await extensionBuild(fixturesPath, {
         browser: 'chrome'
       })
-    }, 60000)
+    })
 
     afterAll(() => {
       if (fs.existsSync(outputPath)) {

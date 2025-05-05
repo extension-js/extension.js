@@ -1,19 +1,20 @@
-import {getAssetsFromHtml} from '../../html-lib/utils'
 import fs from 'fs'
+import {describe, it, expect, vi, beforeEach} from 'vitest'
 // @ts-ignore
 import parse5utils from 'parse5-utils'
+import {getAssetsFromHtml} from '../../html-lib/utils'
 
-jest.mock('fs', () => ({
-  readFileSync: jest.fn()
+vi.mock('fs', () => ({
+  readFileSync: vi.fn()
 }))
 
-jest.mock('parse5-utils', () => ({
-  parse: jest.fn(),
-  getAttribute: jest.fn()
+vi.mock('parse5-utils', () => ({
+  parse: vi.fn(),
+  getAttribute: vi.fn()
 }))
 
 const setupParseMock = (htmlDocument: any) => {
-  ;(parse5utils.parse as jest.Mock).mockImplementation(() => htmlDocument)
+  ;(parse5utils.parse as any).mockImplementation(() => htmlDocument)
 }
 
 function createMockHtmlDocument(childNodes: any[]): any {
@@ -31,13 +32,13 @@ describe('getAssetsFromHtml', () => {
   const htmlFilePath = '/path/to/index.html'
 
   beforeEach(() => {
-    jest.clearAllMocks()
+    vi.clearAllMocks()
   })
 
   it('should use htmlContent parameter if provided', () => {
     const htmlContent =
       '<html><head><link rel="stylesheet" href="styles.css"></head></html>'
-    ;(fs.readFileSync as jest.Mock).mockReturnValue('This should not be read')
+    ;(fs.readFileSync as any).mockReturnValue('This should not be read')
     setupParseMock(createMockHtmlDocument([]))
 
     getAssetsFromHtml(htmlFilePath, htmlContent)
@@ -48,7 +49,7 @@ describe('getAssetsFromHtml', () => {
 
   it('should return empty arrays if HTML has no assets', () => {
     setupParseMock(createMockHtmlDocument([]))
-    ;(fs.readFileSync as jest.Mock).mockReturnValue('<html></html>')
+    ;(fs.readFileSync as any).mockReturnValue('<html></html>')
 
     const assets = getAssetsFromHtml(htmlFilePath)
 

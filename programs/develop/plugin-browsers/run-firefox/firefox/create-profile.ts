@@ -9,11 +9,14 @@ import {
   DevOptions
 } from '../../../commands/commands-lib/config-types'
 import {loadBrowserConfig} from '../../../commands/commands-lib/get-extension-config'
+import {getDirname} from '../../../dirname'
 
 function configureProfile(
   profile: FirefoxProfile,
   customPreferences: Record<string, any>
 ) {
+  const __dirname = getDirname(import.meta.url)
+
   const firefoxMasterPreferences: Record<string, any> = {
     ...loadBrowserConfig(path.resolve(__dirname, 'run-firefox'), 'firefox'),
     ...getPreferences(customPreferences)

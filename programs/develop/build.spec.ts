@@ -1,11 +1,15 @@
 import path from 'path'
 import fs from 'fs'
+import {vi, describe, it, expect, afterAll, beforeEach, afterEach} from 'vitest'
 import {
   ALL_TEMPLATES,
   DEFAULT_TEMPLATE,
   SUPPORTED_BROWSERS
 } from '../../examples/data'
 import {extensionBuild, Manifest} from './dist/module.js'
+import {getDirname} from './dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 async function removeDir(dirPath: string) {
   if (fs.existsSync(dirPath)) {
@@ -58,23 +62,17 @@ function distFileExists(
 
 describe('extension build', () => {
   afterAll(async () => {
-    // Clean up any mocks
-    jest.clearAllMocks()
     // Clean up any remaining test artifacts
     await removeAllTemplateDistFolders()
     // Clear all timers
-    jest.useRealTimers()
-    // Clear any hanging handles
-    await new Promise((resolve) => setTimeout(resolve, 0))
-    // Force garbage collection if available
-    if (global.gc) global.gc()
-  }, 30000)
+    vi.clearAllTimers()
+  })
 
   beforeEach(async () => {
     // Reset timers before each test
-    jest.useRealTimers()
+    vi.useRealTimers()
     await removeAllTemplateDistFolders()
-  }, 30000)
+  })
 
   describe('running built-in templates', () => {
     it.each(ALL_TEMPLATES)(
@@ -88,68 +86,53 @@ describe('extension build', () => {
           template.name
         )
 
-        const postCssConfig = path.join(templatePath, 'postcss.config.js')
+        await extensionBuild(templatePath, {
+          browser: SUPPORTED_BROWSERS[0] as 'chrome'
+        })
 
-        try {
-          // Dynamically mock the postcss.config.js file if it exists
-          if (fs.existsSync(postCssConfig)) {
-            jest.mock(postCssConfig, () => jest.fn())
-          }
+        expect(
+          path.join(
+            templatePath,
+            'dist',
+            SUPPORTED_BROWSERS[0],
+            'manifest.json'
+          )
+        ).toBeTruthy()
 
-          await extensionBuild(templatePath, {
-            browser: SUPPORTED_BROWSERS[0] as 'chrome'
-          })
+        const manifestText = fs.readFileSync(
+          path.join(
+            templatePath,
+            'dist',
+            SUPPORTED_BROWSERS[0],
+            'manifest.json'
+          ),
+          'utf-8'
+        )
 
-          expect(
-            path.join(
-              templatePath,
-              'dist',
-              SUPPORTED_BROWSERS[0],
-              'manifest.json'
-            )
-          ).toBeTruthy()
+        const manifest: Manifest = JSON.parse(manifestText)
+        expect(manifest.name).toBeTruthy()
+        expect(manifest.version).toBeTruthy()
+        expect(manifest.manifest_version).toBeTruthy()
 
-          const manifestText = fs.readFileSync(
-            path.join(
-              templatePath,
-              'dist',
-              SUPPORTED_BROWSERS[0],
-              'manifest.json'
-            ),
-            'utf-8'
+        if (template.name.includes('content')) {
+          expect(manifest.content_scripts![0].js![0]).toEqual(
+            'content_scripts/content-0.js'
           )
 
-          const manifest: Manifest = JSON.parse(manifestText)
-          expect(manifest.name).toBeTruthy()
-          expect(manifest.version).toBeTruthy()
-          expect(manifest.manifest_version).toBeTruthy()
-
-          if (template.name.includes('content')) {
-            expect(manifest.content_scripts![0].js![0]).toEqual(
+          expect(
+            distFileExists(
+              template.name,
+              SUPPORTED_BROWSERS[0],
               'content_scripts/content-0.js'
             )
-
-            expect(
-              distFileExists(
-                template.name,
-                SUPPORTED_BROWSERS[0],
-                'content_scripts/content-0.js'
-              )
-            ).toBeTruthy()
-          }
-        } finally {
-          // Clean up mocks after each test
-          if (fs.existsSync(postCssConfig)) {
-            jest.unmock(postCssConfig)
-          }
+          ).toBeTruthy()
         }
-      },
-      80000
+      }
     )
   })
 
   afterEach(async () => {
-    jest.clearAllTimers()
+    vi.clearAllTimers()
     await new Promise((resolve) => setImmediate(resolve))
   })
 
@@ -185,8 +168,7 @@ describe('extension build', () => {
           // Ensure promises are settled
           await new Promise((resolve) => setImmediate(resolve))
         }
-      },
-      80000
+      }
     )
   })
 
@@ -210,8 +192,7 @@ describe('extension build', () => {
         expect(
           path.join(templatePath, SUPPORTED_BROWSERS[0], 'manifest.json')
         ).toBeTruthy()
-      },
-      80000
+      }
     )
   })
 
@@ -242,8 +223,7 @@ describe('extension build', () => {
             )
           )
         ).toBeTruthy()
-      },
-      80000
+      }
     )
 
     it.each([DEFAULT_TEMPLATE])(
@@ -268,8 +248,7 @@ describe('extension build', () => {
             path.join(templatePath, 'dist', `${template.name}-0.0.1-source.zip`)
           )
         ).toBeTruthy()
-      },
-      80000
+      }
     )
 
     it.each([DEFAULT_TEMPLATE])(
@@ -296,8 +275,7 @@ describe('extension build', () => {
             `${template.name}-nice.zip`
           )
         ).toBeTruthy()
-      },
-      80000
+      }
     )
   })
 })

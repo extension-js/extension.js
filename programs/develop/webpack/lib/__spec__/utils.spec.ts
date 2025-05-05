@@ -1,12 +1,16 @@
 import fs from 'fs'
 import path from 'path'
+import {describe, it, expect, vi} from 'vitest'
 import {Compilation} from '@rspack/core'
 import * as utils from '../utils'
 import {Manifest, FilepathList} from '../../webpack-types'
+import {getDirname} from '../../../dirname'
 
-jest.mock('fs')
-jest.mock('child_process')
-jest.mock('package-manager-detector')
+const __dirname = getDirname(import.meta.url)
+
+vi.mock('fs')
+vi.mock('child_process')
+vi.mock('package-manager-detector')
 
 describe('utils', () => {
   describe('getResolvedPath', () => {
@@ -81,7 +85,7 @@ describe('utils', () => {
     it('should return the parsed manifest.json content from the compilation assets', () => {
       const manifestContent = {name: 'Test Extension'}
       const compilation: Partial<Compilation> = {
-        getAsset: jest.fn().mockReturnValue({
+        getAsset: vi.fn().mockReturnValue({
           source: () => JSON.stringify(manifestContent)
         }),
         assets: {
@@ -111,7 +115,7 @@ describe('utils', () => {
 
     it('should return the manifest content from the file if not in assets', () => {
       const compilation: Partial<Compilation> = {
-        getAsset: jest.fn().mockReturnValue(undefined),
+        getAsset: vi.fn().mockReturnValue(undefined),
         assets: {}
       }
       const manifestPath = path.resolve(
@@ -150,10 +154,8 @@ describe('utils', () => {
         dependencies: {react: '17.0.0'},
         devDependencies: {}
       }
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true)
-      jest
-        .spyOn(fs, 'readFileSync')
-        .mockReturnValue(JSON.stringify(packageJson))
+      vi.spyOn(fs, 'existsSync').mockReturnValue(true)
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify(packageJson))
 
       const result = utils.isUsingJSFramework(projectPath)
       expect(result).toBe(true)
@@ -165,10 +167,8 @@ describe('utils', () => {
         dependencies: {},
         devDependencies: {}
       }
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true)
-      jest
-        .spyOn(fs, 'readFileSync')
-        .mockReturnValue(JSON.stringify(packageJson))
+      vi.spyOn(fs, 'existsSync').mockReturnValue(true)
+      vi.spyOn(fs, 'readFileSync').mockReturnValue(JSON.stringify(packageJson))
 
       const result = utils.isUsingJSFramework(projectPath)
       expect(result).toBe(false)
@@ -177,13 +177,13 @@ describe('utils', () => {
 
   describe('isFirstRun', () => {
     it('should return true if it is the first run for the browser', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(false)
+      vi.spyOn(fs, 'existsSync').mockReturnValue(false)
       const result = utils.isFirstRun('chrome')
       expect(result).toBe(true)
     })
 
     it('should return false if it is not the first run for the browser', () => {
-      jest.spyOn(fs, 'existsSync').mockReturnValue(true)
+      vi.spyOn(fs, 'existsSync').mockReturnValue(true)
       const result = utils.isFirstRun('chrome')
       expect(result).toBe(false)
     })

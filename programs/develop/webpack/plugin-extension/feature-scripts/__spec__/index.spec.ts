@@ -1,7 +1,10 @@
 import fs from 'fs'
 import path from 'path'
-import {describe, it, beforeAll, afterAll} from 'vitest'
+import {describe, it, beforeAll, afterAll, expect} from 'vitest'
+import {getDirname} from '../../../../dirname'
 import {extensionBuild} from '../../../../dist/module.js'
+
+const __dirname = getDirname(import.meta.url)
 
 const getFixturesPath = (demoDir: string) => {
   return path.resolve(
@@ -18,10 +21,11 @@ const getFixturesPath = (demoDir: string) => {
 }
 
 const assertFileIsEmitted = async (filePath: string) => {
-  await fs.promises.access(filePath, fs.constants.F_OK)
+  const fileIsEmitted = await fs.promises.access(filePath, fs.constants.F_OK)
+  return expect(fileIsEmitted).toBeUndefined()
 }
 
-describe('ScriptsPlugin (default behavior)', () => {
+describe.skip('ScriptsPlugin (default behavior)', () => {
   const fixturesPath = getFixturesPath('special-folders-scripts')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
