@@ -22,7 +22,7 @@ export async function importLocalTemplate(
 
   try {
     console.log(messages.installingFromTemplate(projectName, template))
-    await utils.copyDirectory(localTemplatePath, projectPath)
+    await utils.copyDirectoryWithSymlinks(localTemplatePath, projectPath)
   } catch (error: any) {
     console.error(
       messages.installingFromTemplateError(projectName, template, error)

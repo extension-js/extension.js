@@ -64,7 +64,6 @@ export async function generateZip(
   projectDir: string,
   {browser = 'chrome', ...options}: BuildOptions
 ) {
-  
   try {
     const distDir = path.join(projectDir, 'dist')
     const outputDir = path.join(distDir, browser)
