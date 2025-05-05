@@ -100,7 +100,7 @@ export type DefaultBrowserFlags =
   /**
    * Ensure the side panel is visible for testing
    */
-  | '--enable-features=SidePanelUpdates';
+  | '--enable-features=SidePanelUpdates'
 
 export interface PluginInterface extends PluginOptions {
   browser: DevOptions['browser']
