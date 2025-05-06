@@ -1,6 +1,9 @@
 import path from 'path'
 import {execSync} from 'child_process'
 import {extensionFixtures, takeScreenshot} from '../extension-fixtures'
+import {getDirname} from '../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 const exampleDir = 'examples/new-env'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
