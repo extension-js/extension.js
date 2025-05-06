@@ -3,7 +3,7 @@ import path from 'path'
 import {StatsAsset} from '@rspack/core'
 import chalk from 'chalk'
 import {Manifest} from '../../types'
-import {type StartOptions, type DevOptions} from '../commands-lib/config-types'
+import {type DevOptions} from '../commands-lib/config-types'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const arrow =
@@ -39,10 +39,7 @@ export function building(browser: DevOptions['browser']): string {
   )
 }
 
-export function runningInProduction(
-  projectDir: string,
-  options: StartOptions
-): string {
+export function runningInProduction(projectDir: string): string {
   const outputPath = path.join(projectDir, 'dist')
   const manifestPath = path.join(outputPath, 'manifest.json')
   const manifest: Record<string, any> = JSON.parse(

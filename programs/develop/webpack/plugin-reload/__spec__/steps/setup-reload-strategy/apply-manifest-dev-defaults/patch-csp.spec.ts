@@ -2,6 +2,7 @@ import {
   patchV2CSP,
   patchV3CSP
 } from '../../../../steps/setup-reload-strategy/apply-manifest-dev-defaults/patch-csp'
+import {describe, it, expect} from 'vitest'
 import {Manifest} from '../../../../../webpack-types'
 
 describe.skip('CSP Patching Functions', () => {
