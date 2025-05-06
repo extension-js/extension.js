@@ -1,6 +1,9 @@
 import path from 'path'
 import {execSync} from 'child_process'
 import {extensionFixtures, getShadowRootElement} from '../extension-fixtures'
+import {getDirname} from '../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 const exampleDir = 'examples-v2/svelte'
 const pathToExtension = path.join(__dirname, `dist/chrome`)

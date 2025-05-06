@@ -5,7 +5,7 @@ import {
   getShadowRootElement,
   extensionFixtures,
   takeScreenshot
-} from '../extension-fixtures.mjs'
+} from '../extension-fixtures'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

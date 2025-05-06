@@ -62,6 +62,7 @@ __TEST__
 /examples/**/pnpm-lock.yaml
 /examples/**/extension-env.d.ts
 /test-results/
+test-results.json
 /playwright-report/
 /blob-report/
 /playwright/.cache/

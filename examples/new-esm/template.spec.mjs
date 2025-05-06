@@ -1,7 +1,7 @@
 import path from 'path'
 import {fileURLToPath} from 'url'
 import {execSync} from 'child_process'
-import {extensionFixtures, takeScreenshot} from '../extension-fixtures.mjs'
+import {extensionFixtures, takeScreenshot} from '../extension-fixtures'
 
 // Recreate __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url)

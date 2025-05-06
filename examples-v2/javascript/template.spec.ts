@@ -5,8 +5,11 @@ import {
   getShadowRootElement,
   takeScreenshot
 } from '../extension-fixtures'
+import {getDirname} from '../dirname'
 
-const exampleDir = 'examples/content-basic'
+const __dirname = getDirname(import.meta.url)
+
+const exampleDir = 'examples-v2/javascript'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 

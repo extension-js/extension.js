@@ -1,5 +1,6 @@
 {
   "private": true,
+  "type": "module",
   "name": "extension",
   "packageManager": "pnpm@9.9.0",
   "description": "The monorepo of all things Extension.js, including the Extension.js CLI, its programs, packages, website, and documentation.",
