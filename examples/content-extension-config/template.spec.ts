@@ -5,6 +5,9 @@ import {
   getShadowRootElement,
   takeScreenshot
 } from '../extension-fixtures'
+import {getDirname} from '../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 const exampleDir = 'examples/content-extension-config'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
