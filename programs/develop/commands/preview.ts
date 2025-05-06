@@ -67,10 +67,7 @@ export async function extensionPreview(
 
       if (!stats?.hasErrors()) {
         console.log(
-          messages.runningInProduction(projectPath, {
-            browser,
-            mode: 'production'
-          })
+          messages.runningInProduction(projectPath)
         )
       } else {
         console.log(stats.toString({colors: true}))

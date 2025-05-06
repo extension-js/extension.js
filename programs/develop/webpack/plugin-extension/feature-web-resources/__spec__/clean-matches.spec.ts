@@ -1,3 +1,4 @@
+import {describe, it, expect} from 'vitest'
 import {cleanMatches} from '../clean-matches'
 
 describe('cleanMatches', () => {

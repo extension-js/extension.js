@@ -1,3 +1,4 @@
+import {describe, it, expect} from 'vitest'
 import {BrowserSpecificFieldsPlugin} from '../feature-browser-specific-fields'
 
 const manifest = JSON.stringify({
