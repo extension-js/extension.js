@@ -47,7 +47,7 @@ describe.skip('CSP Patching Functions', () => {
     })
   })
 
-  describe('patchV3CSP', () => {
+  describe.skip('patchV3CSP', () => {
     it('should return default V3 CSP if none is provided', () => {
       const manifest: Manifest = {}
       const result = patchV3CSP(manifest)
