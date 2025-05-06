@@ -1,9 +1,12 @@
 import path from 'path'
 import {execSync} from 'child_process'
 import {extensionFixtures, getShadowRootElement} from '../extension-fixtures'
+import {getDirname} from '../dirname'
 
-const exampleDir = 'examples/content-vue'
-const pathToExtension = path.join(__dirname, `dist/chrome`)
+const __dirname = getDirname(import.meta.url)
+
+const exampleDir = 'examples-v2/vue'
+const pathToExtension = path.join(__dirname, 'dist/chrome')
 const test = extensionFixtures(pathToExtension, true)
 
 test.beforeAll(async () => {
