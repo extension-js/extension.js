@@ -2,6 +2,10 @@ import {defineConfig} from 'vitest/config'
 
 export default defineConfig({
   test: {
+    pool: 'forks',
+    mockReset: true,
+    restoreMocks: true,
+    testTimeout: 120e3,
     globals: true,
     environment: 'node',
     include: ['webpack/**/__spec__/*.spec.ts', 'build.spec.ts'],
