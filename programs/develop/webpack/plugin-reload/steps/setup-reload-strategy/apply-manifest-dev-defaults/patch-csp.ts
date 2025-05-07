@@ -61,7 +61,10 @@ export function patchV3CSP(manifest: Manifest) {
   }
 
   const csp = parse(policy.extension_pages || '')
-  const defaultDirectives = {}
+  const defaultDirectives = {
+    'script-src': ["'self'"],
+    'object-src': ["'self'"]
+  }
 
   // Merge with default directives if not present
   for (const directive in defaultDirectives) {

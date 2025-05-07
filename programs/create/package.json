@@ -33,7 +33,7 @@
     "chalk": "^5.3.0",
     "@types/firefox-webext-browser": "^120.0.4",
     "cross-spawn": "^7.0.6",
-    "go-git-it": "2.0.4",
+    "go-git-it": "3.0.1",
     "package-manager-detector": "^0.2.7",
     "tiny-glob": "^0.2.9"
   },

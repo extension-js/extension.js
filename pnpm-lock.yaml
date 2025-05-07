@@ -754,8 +754,8 @@ importers:
         specifier: ^7.0.6
         version: 7.0.6
       go-git-it:
-        specifier: 2.0.4
-        version: 2.0.4
+        specifier: 3.0.1
+        version: 3.0.1
       package-manager-detector:
         specifier: ^0.2.7
         version: 0.2.7
@@ -1790,10 +1790,6 @@ packages:
 
   '@changesets/write@0.4.0':
     resolution: {integrity: sha512-CdTLvIOPiCNuH71pyDu3rA+Q0n65cmAbXnwWH84rKGiFumFzkmHNT8KHTMEchcxN+Kl8I54xGUhJ7l3E7X396Q==}
-
-  '@colors/colors@1.6.0':
-    resolution: {integrity: sha512-Ir+AOibqzrIsL6ajt3Rz3LskB7OiMVHqltZmspbW/TJuTVuyOMirVqAkjfY6JISiLHgyNqicAC8AyHHGzNd/dA==}
-    engines: {node: '>=0.1.90'}
 
   '@cspotcode/source-map-support@0.8.1':
     resolution: {integrity: sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw==}
@@ -4912,11 +4908,6 @@ packages:
 
   globrex@0.1.2:
     resolution: {integrity: sha512-uHJgbwAMwNFf5mLst7IWLNg14x1CkeqglJb/K3doi4dw6q2IvAAmM/Y81kevy83wP+Sst+nutFTYOGg3d1lsxg==}
-
-  go-git-it@2.0.4:
-    resolution: {integrity: sha512-i9h+VZO8bXnX+Io5Z0L8QRivb3nb1iTzV1/0DLFuouvOh9e2YMKQC/lizI6cvuKoSjTel41eHiRCyVwxZFmEEw==}
-    engines: {node: '>=16'}
-    hasBin: true
 
   go-git-it@3.0.1:
     resolution: {integrity: sha512-H/LmHc/CpvfJfDFb9isQbW0fAL/aD09OULCbte9Aszr9VhdPvLsonvTRYQy/bznh0wL5xy/ZLUZE4hqtP3tgjw==}
@@ -8989,8 +8980,6 @@ snapshots:
       human-id: 4.1.1
       prettier: 2.8.8
 
-  '@colors/colors@1.6.0': {}
-
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
@@ -12453,11 +12442,6 @@ snapshots:
   globjoin@0.1.4: {}
 
   globrex@0.1.2: {}
-
-  go-git-it@2.0.4:
-    dependencies:
-      '@colors/colors': 1.6.0
-      progress: 2.0.3
 
   go-git-it@3.0.1:
     dependencies:

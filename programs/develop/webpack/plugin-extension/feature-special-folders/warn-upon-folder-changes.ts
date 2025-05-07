@@ -1,5 +1,5 @@
-import * as path from 'path'
-import * as chokidar from 'chokidar'
+import path from 'path'
+import chokidar from 'chokidar'
 import {type Compiler} from '@rspack/core'
 import * as messages from '../../lib/messages'
 
