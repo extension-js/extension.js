@@ -28,7 +28,7 @@ function createMockHtmlDocument(childNodes: any[]): any {
   }
 }
 
-describe.skip('getAssetsFromHtml', () => {
+describe('getAssetsFromHtml', () => {
   const htmlFilePath = '/path/to/index.html'
 
   beforeEach(() => {
