@@ -3,6 +3,11 @@ import {defineConfig} from 'vitest/config'
 export default defineConfig({
   test: {
     pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     mockReset: true,
     restoreMocks: true,
     testTimeout: 120e3,
