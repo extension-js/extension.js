@@ -10,17 +10,22 @@ import fs from 'fs'
 import {execFile} from 'child_process'
 import {promisify} from 'util'
 import {describe, it, expect} from 'vitest'
+import {fileURLToPath} from 'url'
 
 const execFileAsync = promisify(execFile)
 
 function getDirname(importMetaUrl: string) {
-  return path.dirname(importMetaUrl)
+  const __filename = fileURLToPath(importMetaUrl)
+  return path.dirname(__filename)
 }
 
 const __dirname = getDirname(import.meta.url)
 
+console.log({__dirname})
+
 export async function extensionProgram(command: string = '') {
-  const cliDirectory = path.resolve(__dirname, '..', 'dist', 'cli.js')
+  const cliDirectory = path.join(__dirname, '..', 'dist', 'cli.js')
+  console.log({cliDirectory})
   const args = command ? command.split(' ') : []
   return await execFileAsync('node', [cliDirectory, ...args])
 }
