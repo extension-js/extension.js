@@ -9,7 +9,10 @@ export default defineConfig({
       }
     },
     deps: {
-      inline: ['content-security-policy-parser']
+      inline: [
+        'content-security-policy-parser',
+        'edge-location'
+      ]
     },
     mockReset: true,
     restoreMocks: true,
