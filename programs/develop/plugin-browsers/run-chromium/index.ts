@@ -8,8 +8,7 @@ import {PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 // @ts-expect-error - chrome-location is not typed
 import * as chromeLocationModule from 'chrome-location'
-// @ts-expect-error - edge-location is not typed
-import * as edgeLocationModule from 'edge-location'
+import edgeLocation from 'edge-location'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -46,7 +45,6 @@ export class RunChromiumPlugin {
 
   private async launchChromium(browser: DevOptions['browser']) {
     const chromeLocation = chromeLocationModule.default
-    const edgeLocation = edgeLocationModule.default()
 
     let browserBinaryLocation: string
 
