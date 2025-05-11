@@ -7,7 +7,6 @@
 
 import path from 'path'
 import fs from 'fs'
-import {sveltePreprocess} from 'svelte-preprocess'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
@@ -55,7 +54,7 @@ export async function maybeUseSvelte(
 
     await installOptionalDependencies('TypeScript', typeScriptDependencies)
 
-    const svelteDependencies = ['svelte-loader', 'svelte-preprocess']
+    const svelteDependencies = ['svelte-loader']
 
     await installOptionalDependencies('Svelte', svelteDependencies)
 
@@ -75,27 +74,6 @@ export async function maybeUseSvelte(
       use: {
         loader: 'svelte-loader',
         options: {
-          // Only use preprocess for Svelte < 5
-          preprocess: async (source: string, filename: string) => {
-            try {
-              const preprocessor = sveltePreprocess({
-                typescript: true
-              })
-              if (!preprocessor?.script) {
-                return {code: source}
-              }
-              const result = await preprocessor.script({
-                content: source,
-                attributes: {},
-                markup: '',
-                filename
-              })
-              return result
-            } catch (error) {
-              // If preprocess fails, return the source as is
-              return {code: source}
-            }
-          },
           emitCss: true,
           compilerOptions: {
             dev: mode === 'development',
