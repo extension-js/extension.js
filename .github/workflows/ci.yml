@@ -1,5 +1,8 @@
 name: 🛠
 
+permissions:
+  contents: read
+
 on:
   push:
 
