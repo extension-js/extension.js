@@ -11,7 +11,16 @@ export default defineConfig({
     deps: {
       inline: [
         'content-security-policy-parser',
-        'edge-location'
+        'edge-location',
+        'adm-zip',
+        // 'chrome-location',
+        // 'case-sensitive-paths-webpack-plugin',
+        // 'firefox-profile',
+        // 'go-git-it',
+        // 'loader-utils',
+        // 'schema-utils',
+        // 'webpack-merge'
+
       ]
     },
     mockReset: true,
