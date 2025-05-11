@@ -8,7 +8,7 @@
 import path from 'path'
 import {fileURLToPath} from 'url'
 import fs from 'fs/promises'
-import goGitIt from 'go-git-it'
+import * as goGitItLib from 'go-git-it'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 
@@ -49,6 +49,7 @@ export async function importExternalTemplate(
       const tempPath = path.join(installationPath, projectName + '-temp')
       await fs.mkdir(tempPath, {recursive: true})
 
+      const goGitIt = goGitItLib.default
       await goGitIt(
         templateUrl,
         tempPath,
