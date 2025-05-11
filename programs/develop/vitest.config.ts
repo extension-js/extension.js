@@ -8,6 +8,9 @@ export default defineConfig({
         singleFork: true
       }
     },
+    deps: {
+      inline: ['content-security-policy-parser']
+    },
     mockReset: true,
     restoreMocks: true,
     testTimeout: 120e3,
