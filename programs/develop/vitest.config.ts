@@ -16,11 +16,10 @@ export default defineConfig({
         // 'chrome-location',
         // 'case-sensitive-paths-webpack-plugin',
         // 'firefox-profile',
-        // 'go-git-it',
+        'go-git-it',
         // 'loader-utils',
         // 'schema-utils',
         // 'webpack-merge'
-
       ]
     },
     mockReset: true,
