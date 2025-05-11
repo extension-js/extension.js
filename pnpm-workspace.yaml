@@ -4,4 +4,8 @@ packages:
   - './programs/develop'
   - './examples/*'
   - './examples-v2/*'
+  # Ignore dist folders used for testing
+  - "!programs/cli/dist"
+  - "!programs/create/dist"
+  - "!programs/develop/dist"
   
