@@ -41,7 +41,7 @@
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "chalk": "^5.3.0",
     "chokidar": "^4.0.1",
-    "chrome-location": "^1.2.1",
+    "chrome-location2": "2.0.0",
     "content-security-policy-parser": "^0.6.0",
     "cross-spawn": "^7.0.6",
     "csv-loader": "^3.0.5",

@@ -851,9 +851,9 @@ importers:
       chokidar:
         specifier: ^4.0.1
         version: 4.0.1
-      chrome-location:
-        specifier: ^1.2.1
-        version: 1.2.1
+      chrome-location2:
+        specifier: 2.0.0
+        version: 2.0.0
       content-security-policy-parser:
         specifier: ^0.6.0
         version: 0.6.0
@@ -4006,6 +4006,9 @@ packages:
   chokidar@4.0.1:
     resolution: {integrity: sha512-n8enUVCED/KVRQlab1hr3MVpcVMvxtZjmEa956u+4YijlmQED223XMSYj2tLuKvr4jcCTzNNMpQDUer72MMmzA==}
     engines: {node: '>= 14.16.0'}
+
+  chrome-location2@2.0.0:
+    resolution: {integrity: sha512-sV8Cwl9chk0xNTKsN1IwOEaRZ4HKx+fQRUH4sUT/blnyo2yJ38iwbmjH1ixl+3xlo52r45I7sA1sVjh5vi4jVg==}
 
   chrome-location@1.2.1:
     resolution: {integrity: sha512-NPuxEKQ43JlEPjHsgU6HWk4ViLCWf4mlo3dz5s5syPSsq2AaekXnK6qTRwMmXhpTYXAVi4g5ncVnAbD9naz5fw==}
@@ -11749,6 +11752,11 @@ snapshots:
   chokidar@4.0.1:
     dependencies:
       readdirp: 4.0.2
+
+  chrome-location2@2.0.0:
+    dependencies:
+      userhome: 1.0.0
+      which: 2.0.2
 
   chrome-location@1.2.1:
     dependencies:
