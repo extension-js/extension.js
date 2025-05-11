@@ -4,6 +4,7 @@ import {StatsAsset} from '@rspack/core'
 import chalk from 'chalk'
 import {Manifest} from '../../types'
 import {type DevOptions} from '../commands-lib/config-types'
+import packageJson from '../../package.json'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   const arrow =
@@ -51,12 +52,8 @@ export function runningInProduction(projectDir: string): string {
   const hasHost = hostPermissions && hostPermissions.length
   const hasPermissions = permissions && permissions.length
 
-  const packageVersion = JSON.parse(
-    fs.readFileSync('../../package.json', 'utf-8')
-  ).version
-
   return `
- 🧩 ${chalk.green('Extension.js')} ${chalk.gray(`${packageVersion}`)}
+ 🧩 ${chalk.green('Extension.js')} ${chalk.gray(`${packageJson.version}`)}
 ${`    Extension Name        `} ${chalk.gray(name)}
 ${`    Extension Version     `} ${chalk.gray(version)}
 ${`    Host Permissions      `} ${chalk.gray(

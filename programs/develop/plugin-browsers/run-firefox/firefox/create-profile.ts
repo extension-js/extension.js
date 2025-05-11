@@ -80,6 +80,7 @@ export function createProfile(
   configPreferences: BrowserConfig['preferences'] = {}
 ) {
   let profile: FirefoxProfile
+  const __dirname = getDirname(import.meta.url)
   const dataDir =
     userProfilePath || path.resolve(__dirname, `run-${browser}-profile`)
   const firefoxMasterPreferences: Record<string, any> = getPreferences(

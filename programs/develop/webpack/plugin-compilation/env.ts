@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import {Compiler, Compilation, DefinePlugin, sources} from '@rspack/core'
-import dotenv from 'dotenv'
+import * as dotenv from 'dotenv'
 import {PluginInterface} from '../webpack-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 

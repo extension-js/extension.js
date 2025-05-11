@@ -223,6 +223,7 @@ export function isUsingJSFramework(projectPath: string): boolean {
 }
 
 export function isFirstRun(browser: string) {
+  const __dirname = getDirname(import.meta.url)
   return !fs.existsSync(path.resolve(__dirname, `run-${browser}-profile`))
 }
 
