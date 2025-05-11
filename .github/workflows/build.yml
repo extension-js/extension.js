@@ -1,5 +1,8 @@
 name: extension build
 
+permissions:
+  contents: read
+
 on:
   push:
 
