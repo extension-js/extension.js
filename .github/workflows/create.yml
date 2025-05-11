@@ -1,4 +1,6 @@
 name: extension create
+permissions:
+  contents: read
 
 on:
   push:
