@@ -85,6 +85,7 @@ export class BrowsersPlugin {
       return path.join(os.tmpdir(), 'extension-js', browser, 'profile')
     }
 
+    const __dirname = getDirname(import.meta.url)
     return path.resolve(__dirname, `run-${browser}-profile`)
   }
 

@@ -7,9 +7,9 @@ import * as messages from '../browsers-lib/messages'
 import {PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 // @ts-expect-error - chrome-location is not typed
-import chromeLocation from 'chrome-location'
+import * as chromeLocationModule from 'chrome-location'
 // @ts-expect-error - edge-location is not typed
-import edgeLocation from 'edge-location'
+import * as edgeLocationModule from 'edge-location'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -45,11 +45,14 @@ export class RunChromiumPlugin {
   }
 
   private async launchChromium(browser: DevOptions['browser']) {
+    const chromeLocation = chromeLocationModule.default
+    const edgeLocation = edgeLocationModule.default()
+
     let browserBinaryLocation: string
 
     switch (browser) {
       case 'chrome':
-        browserBinaryLocation = chromeLocation()
+        browserBinaryLocation = chromeLocation
         break
 
       case 'edge':
@@ -61,7 +64,7 @@ export class RunChromiumPlugin {
         break
 
       default:
-        browserBinaryLocation = chromeLocation()
+        browserBinaryLocation = chromeLocation
         break
     }
 
