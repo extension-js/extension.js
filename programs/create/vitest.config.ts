@@ -5,8 +5,8 @@ export default defineConfig({
     pool: 'forks',
     poolOptions: {
       forks: {
-        singleFork: true,
-      },
+        singleFork: true
+      }
     },
     globals: true,
     environment: 'node',
