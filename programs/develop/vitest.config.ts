@@ -15,7 +15,7 @@ export default defineConfig({
         'adm-zip',
         // 'chrome-location',
         // 'case-sensitive-paths-webpack-plugin',
-        // 'firefox-profile',
+        'firefox-profile',
         'go-git-it',
         // 'loader-utils',
         // 'schema-utils',
