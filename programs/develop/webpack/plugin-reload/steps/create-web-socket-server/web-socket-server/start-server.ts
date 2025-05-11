@@ -1,6 +1,6 @@
 import path from 'path'
 import fs from 'fs'
-import WebSocket from 'ws'
+import {WebSocketServer} from 'ws'
 import {Compiler} from '@rspack/core'
 import * as messages from '../../../../lib/messages'
 import {type Manifest} from '../../../../webpack-types'
@@ -23,24 +23,24 @@ interface Message {
 function setupServer(port: number, browser: DevOptions['browser']) {
   switch (browser) {
     case 'chrome':
-      return new WebSocket.Server({
+      return new WebSocketServer({
         host: 'localhost',
         port
       })
 
     case 'edge':
-      return new WebSocket.Server({
+      return new WebSocketServer({
         host: 'localhost',
         port: port + 1
       })
 
     case 'firefox':
-      return new WebSocket.Server({
+      return new WebSocketServer({
         server: httpsServer(port + 2).server
       })
 
     default:
-      return new WebSocket.Server({
+      return new WebSocketServer({
         host: 'localhost',
         port: 8888
       })

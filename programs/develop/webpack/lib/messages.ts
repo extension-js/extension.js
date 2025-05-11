@@ -6,6 +6,7 @@ import {DevOptions} from '../../commands/commands-lib/config-types'
 import {CERTIFICATE_DESTINATION_PATH} from './constants'
 import {Stats} from '@rspack/core'
 import {info} from 'console'
+import packageJson from '../../package.json'
 
 type PrefixType = 'warn' | 'info' | 'error' | 'success'
 
@@ -498,12 +499,8 @@ export function runningInDevelopment(
 
   const {name, version} = management
 
-  const packageVersion = JSON.parse(
-    fs.readFileSync('../../package.json', 'utf-8')
-  ).version
-
   return `
- 🧩 ${chalk.green('Extension.js')} ${chalk.gray(`${packageVersion}`)}
+ 🧩 ${chalk.green('Extension.js')} ${chalk.gray(`${packageJson.version}`)}
 ${`    Extension Name        `} ${chalk.gray(name)}
 ${`    Extension Version     `} ${chalk.gray(version)}
 ${`    Extension ID          `} ${chalk.gray(id)}`
