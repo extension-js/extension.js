@@ -22,7 +22,7 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'pnpm'
     - name: Install dependencies
-      run: pnpm install
+      run: pnpm install --frozen-lockfile
     - name: Run compiler
       run: pnpm compile
     - name: Run format
