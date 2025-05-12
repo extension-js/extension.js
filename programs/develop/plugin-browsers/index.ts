@@ -9,8 +9,6 @@ import {loadBrowserConfig} from '../commands/commands-lib/get-extension-config'
 import * as messages from './browsers-lib/messages'
 import {getDirname} from '../dirname'
 
-const __dirname = getDirname(import.meta.url)
-
 /**
  * BrowsersPlugin works by finding the binary for the browser specified in the
  * options and running it with the extension loaded.

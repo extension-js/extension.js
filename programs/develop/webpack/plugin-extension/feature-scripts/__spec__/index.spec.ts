@@ -25,7 +25,7 @@ const assertFileIsEmitted = async (filePath: string) => {
   return expect(fileIsEmitted).toBeUndefined()
 }
 
-describe.skip('ScriptsPlugin (default behavior)', () => {
+describe('ScriptsPlugin (default behavior)', () => {
   const fixturesPath = getFixturesPath('special-folders-scripts')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 

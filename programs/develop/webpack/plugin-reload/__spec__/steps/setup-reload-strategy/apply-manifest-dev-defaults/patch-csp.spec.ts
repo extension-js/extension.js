@@ -5,7 +5,7 @@ import {
 } from '../../../../steps/setup-reload-strategy/apply-manifest-dev-defaults/patch-csp'
 import {Manifest} from '../../../../../webpack-types'
 
-describe.skip('CSP Patching Functions', () => {
+describe('CSP Patching Functions', () => {
   describe('patchV2CSP', () => {
     it('should return default V2 CSP if none is provided', () => {
       const manifest: Manifest = {}
@@ -47,7 +47,7 @@ describe.skip('CSP Patching Functions', () => {
     })
   })
 
-  describe.skip('patchV3CSP', () => {
+  describe('patchV3CSP', () => {
     it('should return default V3 CSP if none is provided', () => {
       const manifest: Manifest = {}
       const result = patchV3CSP(manifest)

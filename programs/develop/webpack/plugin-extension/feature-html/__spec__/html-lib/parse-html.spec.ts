@@ -14,7 +14,7 @@ const setupAttributesMock = (attributes: Record<string, string>) => {
   )
 }
 
-describe.skip('parseHtml', () => {
+describe('parseHtml', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })

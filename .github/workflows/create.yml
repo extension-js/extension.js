@@ -1,4 +1,6 @@
 name: extension create
+permissions:
+  contents: read
 
 on:
   push:
@@ -9,7 +11,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node-version: [20]
+        node-version: [22]
     steps:
     - uses: actions/checkout@v4
     - name: Install pnpm

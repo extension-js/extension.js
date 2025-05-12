@@ -1,7 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 import {type Compiler} from '@rspack/core'
-import chokidar from 'chokidar'
+import * as chokidar from 'chokidar'
 
 interface CopyPublicFolderOptions {
   manifestPath: string
