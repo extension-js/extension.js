@@ -5,7 +5,12 @@
 /// <reference path="./css-modules.d.ts" />
 /// <reference path="./images.d.ts" />
 
-type ExtensionBrowser = 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
+type ExtensionBrowser =
+  | 'chrome'
+  | 'edge'
+  | 'firefox'
+  | 'chromium-based'
+  | 'gecko-based'
 type ExtensionMode = 'development' | 'production'
 
 interface ExtensionEnv {

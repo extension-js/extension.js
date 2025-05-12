@@ -1,5 +1,5 @@
-import * as fs from 'fs'
-import * as path from 'path'
+import fs from 'fs'
+import path from 'path'
 import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
@@ -62,7 +62,10 @@ export default function (this: LoaderContext, source: string) {
   })
 
   const url = urlToRequest(this.resourcePath)
-  const reloadCode = ``
+  const reloadCode = `
+// TODO: cezaraugusto re-visit this
+// if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
+  `
 
   // 1 - Handle background.scripts.
   // We don't add this to service_worker because it's reloaded by

@@ -39,7 +39,10 @@ export default function ensureHMRForScripts(
   })
 
   const url = urlToRequest(this.resourcePath)
-  const reloadCode = ``
+  const reloadCode = `
+// TODO: cezaraugusto re-visit this
+if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
+  `
 
   if (isUsingJSFramework(projectPath)) return source
 
