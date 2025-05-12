@@ -21,11 +21,8 @@ function getDirname(importMetaUrl: string) {
 
 const __dirname = getDirname(import.meta.url)
 
-console.log({__dirname})
-
 export async function extensionProgram(command: string = '') {
   const cliDirectory = path.join(__dirname, '..', 'dist', 'cli.js')
-  console.log({cliDirectory})
   const args = command ? command.split(' ') : []
   return await execFileAsync('node', [cliDirectory, ...args])
 }
