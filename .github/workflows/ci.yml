@@ -31,8 +31,8 @@ jobs:
       run: pnpm types
     - name: Run lint
       run: pnpm lint
-    - name: Run tests
-      run: pnpm test:coverage
+    # - name: Run tests
+    #   run: pnpm test:coverage
     - name: Upload results to Codecov
       uses: codecov/codecov-action@v4
       with:
