@@ -48,6 +48,7 @@
     "dotenv": "^16.4.7",
     "dotenv-webpack": "^8.1.0",
     "edge-location": "^1.1.0",
+    "firefox-location2": "1.0.0",
     "firefox-profile": "^4.7.0",
     "fx-runner": "^1.4.0",
     "go-git-it": "3.0.1",

@@ -872,6 +872,9 @@ importers:
       edge-location:
         specifier: ^1.1.0
         version: 1.1.0
+      firefox-location2:
+        specifier: 1.0.0
+        version: 1.0.0
       firefox-profile:
         specifier: ^4.7.0
         version: 4.7.0
@@ -4776,6 +4779,9 @@ packages:
   find-up@6.3.0:
     resolution: {integrity: sha512-v2ZsoEuVHYy8ZIlYqwPe/39Cy+cFDzp4dXPaxNvkEuouymu+2Jbz0PxpKarJHYJTmv2HWT3O382qY8l4jMWthw==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
+  firefox-location2@1.0.0:
+    resolution: {integrity: sha512-kADmu5wYzE2pcZMH6X/C+v9iFss2G9VHSsOkC7SKFe4/eFQTwXYNZq2/THgi/qtabDXG5kp02EqzlPk8s/4QTg==}
 
   firefox-profile@4.7.0:
     resolution: {integrity: sha512-aGApEu5bfCNbA4PGUZiRJAIU6jKmghV2UVdklXAofnNtiDjqYw0czLS46W7IfFqVKgKhFB8Ao2YoNGHY4BoIMQ==}
@@ -12761,6 +12767,11 @@ snapshots:
     dependencies:
       locate-path: 7.2.0
       path-exists: 5.0.0
+
+  firefox-location2@1.0.0:
+    dependencies:
+      userhome: 1.0.0
+      which: 2.0.2
 
   firefox-profile@4.7.0:
     dependencies:

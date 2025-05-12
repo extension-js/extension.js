@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import {exec, ChildProcess} from 'child_process'
 import {type Compiler} from '@rspack/core'
-import {firefoxLocation} from './firefox-location'
+import firefoxLocation from 'firefox-location2'
 import {browserConfig} from './firefox/browser-config'
 import {RemoteFirefox} from './remote-firefox'
 import * as messages from '../browsers-lib/messages'
@@ -78,7 +78,7 @@ export class RunFirefoxPlugin {
   ) {
     const fxRunnerCmd = await this.getFxRunnerCommand()
 
-    let browserBinaryLocation: string
+    let browserBinaryLocation: string | null = null
 
     switch (options.browser) {
       case 'gecko-based':
@@ -86,7 +86,7 @@ export class RunFirefoxPlugin {
         break
 
       default:
-        browserBinaryLocation = firefoxLocation!
+        browserBinaryLocation = firefoxLocation()
         break
     }
 
