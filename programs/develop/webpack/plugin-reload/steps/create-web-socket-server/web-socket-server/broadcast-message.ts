@@ -1,7 +1,7 @@
-import WebSocket from 'ws'
+import WebSocket, {Server} from 'ws'
 
 export default function (
-  server: WebSocket.Server<typeof WebSocket, any>,
+  server: Server<typeof WebSocket, any>,
   message: string
 ) {
   server.clients.forEach((client) => {

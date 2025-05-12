@@ -5,8 +5,8 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {rspack, type Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import webpackConfig from '../webpack/webpack-config'

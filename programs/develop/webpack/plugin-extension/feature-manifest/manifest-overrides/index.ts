@@ -1,4 +1,4 @@
-import fs from 'fs'
+import * as fs from 'fs'
 import {manifestV2} from './mv2'
 import {manifestV3} from './mv3'
 import {manifestCommon} from './common'

@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {exec, ChildProcess} from 'child_process'
 import {type Compiler} from '@rspack/core'
 import firefoxLocation from 'firefox-location2'

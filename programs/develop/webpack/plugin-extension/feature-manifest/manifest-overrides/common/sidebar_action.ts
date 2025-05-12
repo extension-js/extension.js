@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 

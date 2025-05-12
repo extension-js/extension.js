@@ -1,9 +1,9 @@
-import path from 'path'
-import WebSocket from 'ws'
+import * as path from 'path'
+import WebSocket, {Server} from 'ws'
 import {getManifestFieldsData} from '../../../../plugin-extension/data/manifest-fields'
 
 function dispatchMessage(
-  server: WebSocket.Server<typeof WebSocket, any>,
+  server: Server<typeof WebSocket, any>,
   message: {
     changedFile: string
   }
@@ -16,7 +16,7 @@ function dispatchMessage(
 }
 
 export function messageDispatcher(
-  server: WebSocket.Server<typeof WebSocket, any> | undefined,
+  server: Server<typeof WebSocket, any> | undefined,
   manifestPath: string,
   updatedFile: string
 ) {

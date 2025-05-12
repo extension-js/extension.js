@@ -61,6 +61,7 @@ export class ExtensionPlugin {
     // Get every field in manifest that allows an .html file
     new HtmlPlugin({
       manifestPath,
+      browser: this.browser,
       includeList: {
         ...manifestFieldsData.html,
         ...specialFoldersData.pages
