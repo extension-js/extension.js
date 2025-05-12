@@ -17,6 +17,7 @@ export default [
       '__TEST__',
       '**/dist/',
       '**/e2e-report/',
+      '**/coverage/',
       '**/webpack.config.js',
       '**/postcss.config.js',
       '**/tailwind.config.js',

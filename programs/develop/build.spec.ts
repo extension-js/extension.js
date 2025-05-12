@@ -1,12 +1,12 @@
 import path from 'path'
 import fs from 'fs'
 import {vi, describe, it, expect, afterAll, beforeEach, afterEach} from 'vitest'
+import {extensionBuild, Manifest} from 'extension-develop'
 import {
   ALL_TEMPLATES,
   DEFAULT_TEMPLATE,
   SUPPORTED_BROWSERS
 } from '../../examples/data'
-import {extensionBuild, Manifest} from './dist/module.js'
 import {getDirname} from './dirname'
 
 const __dirname = getDirname(import.meta.url)

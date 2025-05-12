@@ -9,14 +9,21 @@
     "node": ">=18"
   },
   "type": "module",
-  "name": "extension-develop",
-  "version": "2.0.0-rc.23",
-  "description": "The develop step of Extension.js",
-  "main": "./dist/module.js",
+  "exports": {
+    ".": {
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.js",
+      "require": "./dist/module.cjs"
+    }
+  },
+  "main": "./dist/module.cjs",
   "types": "./dist/module.d.ts",
   "files": [
     "dist"
   ],
+  "name": "extension-develop",
+  "version": "2.0.0-rc.23",
+  "description": "The develop step of Extension.js",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
@@ -24,8 +31,8 @@
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "watch": "tsup-node ./module.ts --format esm --dts --target=node18 --watch",
-    "compile": "tsup-node ./module.ts --format esm --dts --target=node18 --minify && bash install_scripts.sh",
+    "watch": "rslib build --watch",
+    "compile": "rslib build && bash install_scripts.sh",
     "test": "vitest run",
     "test:build": "vitest run build.spec.ts",
     "test:coverage": "vitest run --coverage"
@@ -71,6 +78,7 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@rslib/core": "^0.6.9",
     "@types/adm-zip": "^0.5.7",
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/chrome": "^0.0.287",

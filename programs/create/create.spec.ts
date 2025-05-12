@@ -10,7 +10,7 @@ import fs from 'fs'
 import {fileURLToPath} from 'url'
 import {describe, it, expect, beforeAll} from 'vitest'
 import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../examples/data'
-import {extensionCreate} from './dist/module.js'
+import {extensionCreate} from 'extension-create'
 
 export function getDirname(importMetaUrl: string) {
   const __filename = fileURLToPath(importMetaUrl)
