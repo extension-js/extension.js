@@ -19,6 +19,12 @@ function getDirname(importMetaUrl: string) {
   return path.dirname(__filename)
 }
 
+// @ts-ignore - TypeScript will complain because 
+// this file is in the excluded list.
+// This file is in the excluded list because we
+// need to import data from the examples folder
+// which is not included in the baseDir defined
+// in the tsconfig.json file.
 const __dirname = getDirname(import.meta.url)
 
 export async function extensionProgram(command: string = '') {
