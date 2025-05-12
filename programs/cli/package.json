@@ -12,17 +12,16 @@
   "exports": {
     ".": {
       "types": "./dist/cli.d.ts",
-      "import": "./dist/cli.js",
-      "require": "./dist/cli.cjs"
+      "import": "./dist/cli.js"
     }
   },
-  "main": "./dist/cli.cjs",
+  "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
   "files": [
     "dist"
   ],
   "bin": {
-    "extension": "./dist/cli.cjs"
+    "extension": "./dist/cli.js"
   },
   "name": "extension",
   "version": "2.0.0-rc.23",

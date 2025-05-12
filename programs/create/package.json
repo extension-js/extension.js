@@ -12,11 +12,10 @@
   "exports": {
     ".": {
       "types": "./dist/module.d.ts",
-      "import": "./dist/module.js",
-      "require": "./dist/module.cjs"
+      "import": "./dist/module.js"
     }
   },
-  "main": "./dist/module.cjs",
+  "main": "./dist/module.js",
   "types": "./dist/module.d.ts",
   "files": [
     "dist"

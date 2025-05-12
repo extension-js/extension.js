@@ -7,9 +7,9 @@ export default defineConfig({
       syntax: 'es2021',
       dts: true
     },
-    {
-      format: 'cjs',
-      syntax: 'es2021'
-    }
+    // {
+    //   format: 'cjs',
+    //   syntax: 'es2021'
+    // }
   ]
 })
