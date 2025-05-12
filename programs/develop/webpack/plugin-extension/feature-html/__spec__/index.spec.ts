@@ -36,7 +36,7 @@ const findStringInFile = async (filePath: string, searchString: string) => {
   expect(data).toContain(searchString)
 }
 
-describe.skip('HtmlPlugin (default behavior)', () => {
+describe('HtmlPlugin (default behavior)', () => {
   const fixturesPath = getFixturesPath('special-folders-pages')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
