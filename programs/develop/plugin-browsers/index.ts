@@ -1,5 +1,5 @@
 import os from 'os'
-import path from 'path'
+import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './browsers-types'
 import {RunChromiumPlugin} from './run-chromium'

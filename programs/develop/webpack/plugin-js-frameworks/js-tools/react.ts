@@ -5,8 +5,8 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
 import ReactRefreshPlugin from '@rspack/plugin-react-refresh'
 import * as messages from '../../lib/messages'

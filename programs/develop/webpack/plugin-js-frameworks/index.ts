@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseBabel} from './js-tools/babel'

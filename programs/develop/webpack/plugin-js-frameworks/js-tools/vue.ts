@@ -5,12 +5,15 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import {VueLoaderPlugin} from 'vue-loader'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
+import {getDirname} from '../../../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 let userMessageDelivered = false
 
@@ -59,10 +62,17 @@ export async function maybeUseVue(
     process.exit(0)
   }
 
+  const vueLoaderPath = path.resolve(
+    __dirname,
+    '..',
+    'node_modules',
+    'vue-loader'
+  )
+
   const vueLoaders: JsFramework['loaders'] = [
     {
       test: /\.vue$/,
-      loader: 'vue-loader',
+      loader: vueLoaderPath,
       options: {
         // Note, for the majority of features to be available, make sure this option is `true`
         experimentalInlineMatchResource: true

@@ -5,8 +5,8 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import {Compiler} from '@rspack/core'
 import * as messages from '../../lib/messages'
 import {DevOptions} from '../../../commands/commands-lib/config-types'

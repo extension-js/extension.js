@@ -5,7 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
+import * as path from 'path'
 import {rspack} from '@rspack/core'
 import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'

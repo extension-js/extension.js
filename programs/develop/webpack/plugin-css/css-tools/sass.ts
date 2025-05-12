@@ -1,8 +1,11 @@
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {isContentScriptEntry} from '../is-content-script'
+import {getDirname} from '../../../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 let userMessageDelivered = false
 
@@ -60,6 +63,13 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
     process.exit(0)
   }
 
+  const sassLoaderPath = path.resolve(
+    __dirname,
+    '..',
+    'node_modules',
+    'sass-loader'
+  )
+
   return [
     // Regular .sass/.scss files
     {
@@ -68,7 +78,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
       type: 'css',
       use: [
         {
-          loader: 'sass-loader',
+          loader: sassLoaderPath,
           options: {
             sourceMap: true,
             sassOptions: {
@@ -84,7 +94,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
       type: 'css/module',
       use: [
         {
-          loader: 'sass-loader',
+          loader: sassLoaderPath,
           options: {
             sourceMap: true,
             sassOptions: {

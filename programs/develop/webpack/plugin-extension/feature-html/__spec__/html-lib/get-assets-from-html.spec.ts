@@ -1,4 +1,4 @@
-import fs from 'fs'
+import * as fs from 'fs'
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 // @ts-ignore
 import parse5utils from 'parse5-utils'

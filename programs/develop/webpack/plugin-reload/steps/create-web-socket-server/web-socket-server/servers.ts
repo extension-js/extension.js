@@ -1,7 +1,7 @@
-import path from 'path'
+import * as path from 'path'
 import http from 'http'
 import https from 'https'
-import fs from 'fs'
+import * as fs from 'fs'
 import {getDirname} from '../../../../../dirname'
 import * as messages from '../../../../lib/messages'
 

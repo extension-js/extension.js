@@ -9,9 +9,12 @@
     "node": ">=18"
   },
   "type": "module",
-  "name": "extension",
-  "version": "2.0.0-rc.23",
-  "description": "Create cross-browser extensions with no build configuration.",
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "import": "./dist/cli.js"
+    }
+  },
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
   "files": [
@@ -20,20 +23,23 @@
   "bin": {
     "extension": "./dist/cli.js"
   },
+  "name": "extension",
+  "version": "2.0.0-rc.23",
+  "description": "Create cross-browser extensions with no build configuration.",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
   "scripts": {
-    "watch": "pnpm compile --watch",
+    "watch": "rslib build --watch",
     "compile:types": "bash install_scripts.sh",
     "compile:readme-files": "node ./scripts/copyMarkdownFilesToCli.js",
-    "compile:cli": "tsup-node ./cli.ts --format esm --dts --target=node18",
+    "compile:cli": "rslib build",
     "compile": "pnpm compile:readme-files && pnpm compile:cli && pnpm compile:types",
     "clean": "rm -rf dist",
     "test": "echo \"Note: no test specified\" && exit 0",
-    "test:cli": "vitest"
+    "test:cli": "vitest run"
   },
   "keywords": [
     "zero-config",
@@ -64,11 +70,11 @@
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
+    "@rslib/core": "^0.6.9",
     "@types/mock-fs": "^4.13.4",
     "@types/semver": "^7.5.8",
     "mock-fs": "^5.4.1",
     "tsconfig": "*",
-    "tsup": "^8.3.5",
     "typescript": "5.7.2"
   }
 }

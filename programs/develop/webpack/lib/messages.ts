@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import chalk from 'chalk'
 import {Manifest} from '../webpack-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'

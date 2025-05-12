@@ -1,5 +1,5 @@
-import fs from 'fs/promises'
-import path from 'path'
+import * as fs from 'fs/promises'
+import * as path from 'path'
 import * as messages from '../lib/messages'
 
 const globalDependencies = ['', '# dependencies', 'node_modules']
@@ -62,10 +62,8 @@ export async function writeGitignore(projectPath: string) {
   console.log(messages.writingGitIgnore())
 
   // Append the lines without adding an extra newline at the end
-  await fileHandle
-    .appendFile(linesToAdd.join('\n'), {flush: true})
-    .catch((err) => {
-      console.error(err)
-      process.exit(1)
-    })
+  await fileHandle.appendFile(linesToAdd.join('\n')).catch((err) => {
+    console.error(err)
+    process.exit(1)
+  })
 }

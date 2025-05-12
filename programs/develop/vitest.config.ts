@@ -12,7 +12,7 @@ export default defineConfig({
     restoreMocks: true,
     testTimeout: 120e3,
     globals: true,
-    // environment: 'node',
+    environment: 'node',
     include: ['webpack/**/__spec__/*.spec.ts', 'build.spec.ts'],
     coverage: {
       provider: 'v8',
