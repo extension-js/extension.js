@@ -1,5 +1,5 @@
 import path from 'path'
-import * as goGitItLib from 'go-git-it'
+import goGitIt from 'go-git-it'
 import * as messages from './messages'
 import {downloadAndExtractZip} from './extract-from-zip'
 
@@ -17,7 +17,6 @@ async function importUrlSourceFromGithub(
   pathOrRemoteUrl: string,
   text: string
 ) {
-  const goGitIt = goGitItLib.default
   await goGitIt(pathOrRemoteUrl, process.cwd(), text)
 
   return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))

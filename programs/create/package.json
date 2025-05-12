@@ -30,10 +30,10 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "chalk": "^5.3.0",
     "@types/firefox-webext-browser": "^120.0.4",
+    "chalk": "^5.3.0",
     "cross-spawn": "^7.0.6",
-    "go-git-it": "3.0.1",
+    "go-git-it": "4.0.0-1",
     "package-manager-detector": "^0.2.7",
     "tiny-glob": "^0.2.9"
   },
