@@ -1,5 +1,5 @@
 import fs from 'fs/promises'
-import path from 'path'
+import * as path from 'path'
 import * as messages from '../lib/messages'
 
 const globalDependencies = ['', '# dependencies', 'node_modules']

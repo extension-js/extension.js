@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import rspack, {Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import {getDirname} from '../../dirname'

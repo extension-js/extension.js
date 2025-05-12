@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {type Compilation} from '@rspack/core'
 // @ts-ignore
 import parse5utils from 'parse5-utils'

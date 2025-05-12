@@ -1,4 +1,4 @@
-import fs from 'fs'
+import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 
 export class AddDependencies {

@@ -5,8 +5,8 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
 import {DevOptions} from '../commands/commands-lib/config-types'
 import {getDirname} from '../dirname'

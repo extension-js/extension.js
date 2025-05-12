@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {describe, it, expect, vi} from 'vitest'
 import {Compilation} from '@rspack/core'
 import * as utils from '../utils'

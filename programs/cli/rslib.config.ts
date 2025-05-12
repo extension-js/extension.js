@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import {defineConfig} from '@rslib/core'
 
 export default defineConfig({

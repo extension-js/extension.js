@@ -5,8 +5,8 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import * as messages from '../../../webpack/lib/messages'
 import {isUsingTailwind} from './tailwind'
 import {isUsingSass} from './sass'

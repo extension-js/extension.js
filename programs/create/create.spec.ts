@@ -5,8 +5,8 @@
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
 
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import {fileURLToPath} from 'url'
 import {describe, it, expect, beforeAll} from 'vitest'
 import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../examples/data'

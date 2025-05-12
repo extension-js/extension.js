@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import WebSocket, {Server} from 'ws'
 import {getManifestFieldsData} from '../../../../plugin-extension/data/manifest-fields'
 

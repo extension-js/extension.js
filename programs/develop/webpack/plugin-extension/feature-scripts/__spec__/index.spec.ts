@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {describe, it, beforeAll, afterAll, expect} from 'vitest'
 import {extensionBuild} from 'extension-develop'
 import {getDirname} from '../../../../dirname'

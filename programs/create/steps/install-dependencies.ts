@@ -5,9 +5,9 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-import path from 'path'
+import * as path from 'path'
 import {spawn} from 'cross-spawn'
-import fs from 'fs'
+import * as fs from 'fs'
 import * as messages from '../lib/messages'
 
 import * as utils from '../lib/utils'

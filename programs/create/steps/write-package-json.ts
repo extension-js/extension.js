@@ -5,7 +5,7 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-import path from 'path'
+import * as path from 'path'
 import fs from 'fs/promises'
 import * as utils from '../lib/utils'
 import * as messages from '../lib/messages'

@@ -5,7 +5,7 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-import path from 'path'
+import * as path from 'path'
 import {fileURLToPath} from 'url'
 import fs from 'fs/promises'
 import goGitIt from 'go-git-it'
