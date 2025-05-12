@@ -2,12 +2,12 @@ import fs from 'fs'
 import path from 'path'
 import {type Compiler} from '@rspack/core'
 import {spawn} from 'child_process'
+import chromeLocation from 'chrome-location2'
+import edgeLocation from 'edge-location'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
 import {PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
-import chromeLocation from 'chrome-location2'
-import edgeLocation from 'edge-location'
 
 process.on('SIGINT', () => {
   process.exit()
