@@ -28,8 +28,8 @@ export class TargetWebExtensionPlugin {
     const minimumBgScript = path.resolve(
       __dirname,
       browser === 'firefox' || browser === 'gecko-based'
-        ? 'minimum-firefox-file.mjs'
-        : 'minimum-chromium-file.mjs'
+        ? 'minimum-firefox-file'
+        : 'minimum-chromium-file'
     )
 
     const dirname = path.dirname(this.manifestPath!)

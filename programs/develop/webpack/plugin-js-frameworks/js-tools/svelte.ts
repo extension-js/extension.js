@@ -10,6 +10,9 @@ import fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
+import {getDirname} from '../../../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 let userMessageDelivered = false
 
@@ -62,17 +65,24 @@ export async function maybeUseSvelte(
     process.exit(0)
   }
 
+  const svelteLoaderPath = path.resolve(
+    __dirname,
+    '..',
+    'node_modules',
+    'svelte-loader'
+  )
+
   const svelteLoaders: JsFramework['loaders'] = [
     {
       test: /\.svelte\.ts$/,
-      use: ['svelte-loader'],
+      use: [svelteLoaderPath],
       include: projectPath,
       exclude: /node_modules/
     },
     {
       test: /\.(svelte|svelte\.js)$/,
       use: {
-        loader: 'svelte-loader',
+        loader: svelteLoaderPath,
         options: {
           emitCss: true,
           compilerOptions: {

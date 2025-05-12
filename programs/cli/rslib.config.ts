@@ -11,13 +11,13 @@ export default defineConfig({
     {
       format: 'esm',
       syntax: 'es2021',
-      dts: true,
-      // bundle: false
-    },
-    {
-      format: 'cjs',
-      syntax: 'es2021',
+      dts: true
       // bundle: false
     }
+    // {
+    //   format: 'cjs',
+    //   syntax: 'es2021'
+    //   // bundle: false
+    // }
   ]
 })

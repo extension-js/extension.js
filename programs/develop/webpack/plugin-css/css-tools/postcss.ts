@@ -13,6 +13,9 @@ import {isUsingSass} from './sass'
 import {isUsingLess} from './less'
 import {installOptionalDependencies} from '../../../webpack/lib/utils'
 import type {StyleLoaderOptions} from '../common-style-loaders'
+import {getDirname} from '../../../dirname'
+
+const __dirname = getDirname(import.meta.url)
 
 let userMessageDelivered = false
 
@@ -113,10 +116,17 @@ export async function maybeUsePostCss(
     process.exit(0)
   }
 
+  const postCssLoaderPath = path.resolve(
+    __dirname,
+    '..',
+    'node_modules',
+    'postcss-loader'
+  )
+
   return {
     test: /\.css$/,
     type: 'css',
-    loader: 'postcss-loader',
+    loader: postCssLoaderPath,
     options: {
       postcssOptions: {
         ident: 'postcss',

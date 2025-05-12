@@ -62,10 +62,7 @@ export default function (this: LoaderContext, source: string) {
   })
 
   const url = urlToRequest(this.resourcePath)
-  const reloadCode = `
-// TODO: cezaraugusto re-visit this
-// if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
-  `
+  const reloadCode = ``
 
   // 1 - Handle background.scripts.
   // We don't add this to service_worker because it's reloaded by

@@ -55,7 +55,7 @@ export class ScriptsPlugin {
       exclude: [/[\\/]node_modules[\\/]/],
       use: [
         {
-          loader: path.join(__dirname, 'add-hmr-accept-code.js'),
+          loader: path.resolve(__dirname, 'add-hmr-accept-code'),
           options: {
             manifestPath: this.manifestPath,
             mode: compiler.options.mode,
@@ -90,7 +90,7 @@ export class ScriptsPlugin {
       exclude: [/[\\/]node_modules[\\/]/],
       use: [
         {
-          loader: path.join(__dirname, 'deprecated-shadow-root.js'),
+          loader: path.resolve(__dirname, 'deprecated-shadow-root'),
           options: {
             manifestPath: this.manifestPath,
             includeList: this.includeList || {},

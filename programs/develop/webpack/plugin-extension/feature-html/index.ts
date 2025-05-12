@@ -9,6 +9,7 @@ import {UpdateHtmlFile} from './steps/update-html-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {HandleCommonErrors} from './steps/handle-common-errors'
+import {DevOptions} from '../../../module'
 
 const __dirname = getDirname(import.meta.url)
 
@@ -43,11 +44,13 @@ export class HtmlPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
+  private readonly browser: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.excludeList = options.excludeList
+    this.browser = options.browser || 'chrome'
   }
 
   public apply(compiler: Compiler): void {
@@ -88,7 +91,7 @@ export class HtmlPlugin {
       exclude: [/[\\/]node_modules[\\/]/],
       use: [
         {
-          loader: path.join(__dirname, 'ensure-hmr-for-scripts.js'),
+          loader: path.resolve(__dirname, 'ensure-hmr-for-scripts'),
           options: {
             manifestPath: this.manifestPath,
             includeList: this.includeList,

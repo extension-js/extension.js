@@ -39,9 +39,7 @@ export default function ensureHMRForScripts(
   })
 
   const url = urlToRequest(this.resourcePath)
-  const reloadCode = `
-if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
-  `
+  const reloadCode = ``
 
   if (isUsingJSFramework(projectPath)) return source
 

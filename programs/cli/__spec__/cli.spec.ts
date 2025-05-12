@@ -22,7 +22,7 @@ function getDirname(importMetaUrl: string) {
 const __dirname = getDirname(import.meta.url)
 
 export async function extensionProgram(command: string = '') {
-  const cliDirectory = path.join(__dirname, '..', 'dist', 'cli.js')
+  const cliDirectory = path.join(__dirname, '..', 'dist', 'cli.cjs')
   const args = command ? command.split(' ') : []
   return await execFileAsync('node', [cliDirectory, ...args])
 }
