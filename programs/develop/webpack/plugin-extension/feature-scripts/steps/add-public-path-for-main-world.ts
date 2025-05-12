@@ -1,4 +1,4 @@
-import fs from 'fs'
+import * as fs from 'fs'
 import {Compiler} from '@rspack/core'
 import {
   type FilepathList,

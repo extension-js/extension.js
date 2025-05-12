@@ -1,5 +1,5 @@
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import ignore from 'ignore'
 import glob from 'tiny-glob'
 import AdmZip from 'adm-zip'

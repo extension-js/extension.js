@@ -5,7 +5,7 @@
 // ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 
-import path from 'path'
+import * as path from 'path'
 import {fileURLToPath} from 'url'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'

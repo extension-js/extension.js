@@ -1,5 +1,5 @@
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import {describe, it, expect, afterAll} from 'vitest'
 import {getManifestFieldsData} from '../../manifest-fields/index'
 import {getDirname} from '../../../../../dirname'

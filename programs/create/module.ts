@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import * as messages from './lib/messages'
 import * as utils from './lib/utils'
 import {createDirectory} from './steps/create-directory'
