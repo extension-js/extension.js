@@ -1,8 +1,8 @@
 import path from 'path'
 import axios from 'axios'
+import stream from 'stream'
 import AdmZip from 'adm-zip'
 import * as messages from './messages'
-import stream from 'stream'
 import {promisify} from 'util'
 
 const pipeline = promisify(stream.pipeline)
@@ -16,9 +16,7 @@ export async function downloadAndExtractZip(
     console.log(messages.downloadingText(urlNoSearchParams))
 
     // Step 1: Download the ZIP file and pipe it directly to the extraction process
-    const response = await axios({
-      url,
-      method: 'GET',
+    const response = await axios.get(url, {
       // Stream the response data
       responseType: 'stream'
     })

@@ -1,4 +1,6 @@
 name: e2e tests
+permissions:
+  contents: read
 
 on:
     push:
@@ -9,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20]
+        node-version: [22]
     steps:
     - uses: actions/checkout@v4
     - name: Install pnpm
