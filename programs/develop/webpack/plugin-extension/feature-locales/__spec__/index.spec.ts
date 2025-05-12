@@ -38,7 +38,7 @@ export const findStringInFile = async (
   expect(data).toContain(searchString)
 }
 
-describe.skip('LocalesPlugin', () => {
+describe('LocalesPlugin', () => {
   const fixturesPath = getFixturesPath('action-locales')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
