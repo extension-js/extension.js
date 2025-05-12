@@ -25,7 +25,7 @@ const assertFileIsEmitted = async (filePath: string) => {
   return expect(fileIsEmitted).toBeUndefined()
 }
 
-describe.skip('IconsPlugin', () => {
+describe('IconsPlugin', () => {
   describe.each(['action'])('dealing with %s', (directory) => {
     const fixturesPath = getFixturesPath(directory)
     const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
