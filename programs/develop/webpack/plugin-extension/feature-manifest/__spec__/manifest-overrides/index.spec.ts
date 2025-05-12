@@ -1,5 +1,5 @@
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import os from 'os'
 import {describe, it, expect} from 'vitest'
 import {getManifestOverrides} from '../../manifest-overrides'

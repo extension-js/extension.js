@@ -2,33 +2,27 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Default",
   "compilerOptions": {
-    "lib": ["es2022", "dom"],
-    "types": ["chrome", "firefox-webext-browser", "node"],
-    "composite": false,
-    "declaration": true,
-    "declarationMap": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "inlineSources": false,
-    "isolatedModules": true,
-    "jsx": "react-jsx",
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "preserveWatchOutput": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "resolveJsonModule": true,
-    "target": "ESNext",
+    // "types": ["chrome", "firefox-webext-browser", "node"],
+    // "jsx": "react-jsx",
+    "target": "ES2021",
+    "lib": ["ES2021"],
     "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "noEmit": true
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "bundler",
+    "useDefineForClassFields": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["./programs", "./examples"],
+  "include": ["./programs/**/*.ts"],
   "exclude": [
     "node_modules",
     "**/dist",
     "**/spec",
     "./programs/create/templates/**",
-    "./examples/**"
+    "./examples/**",
+    "./examples-v2/**"
   ]
 }

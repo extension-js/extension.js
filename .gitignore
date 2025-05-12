@@ -53,19 +53,15 @@ yarn-error.log*
 # pnpm
 pnpm-lock.yaml
 
-# Extension.js (beta)
-__TEST__
-
-# Examples
-/examples/**/package-lock.json
-/examples/**/yarn.lock
+# examples
 /examples/**/pnpm-lock.yaml
 /examples/**/extension-env.d.ts
+
+# tests
 /test-results/
 test-results.json
 /playwright-report/
 /blob-report/
 /playwright/.cache/
 /e2e-report/
-_examples
 specs/
