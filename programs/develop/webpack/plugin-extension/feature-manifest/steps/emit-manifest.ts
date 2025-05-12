@@ -1,4 +1,4 @@
-import fs from 'fs'
+import * as fs from 'fs'
 import rspack, {sources, Compiler, Compilation} from '@rspack/core'
 import * as messages from '../../../lib/messages'
 import {type PluginInterface} from '../../../webpack-types'

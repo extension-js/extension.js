@@ -5,8 +5,8 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {devServer} from '../webpack/dev-server'
 import {generateExtensionTypes} from './commands-lib/generate-extension-types'
 import {isUsingTypeScript} from '../webpack/plugin-js-frameworks/js-tools/typescript'

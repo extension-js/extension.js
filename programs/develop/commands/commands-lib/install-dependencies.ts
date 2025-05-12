@@ -1,6 +1,6 @@
-import path from 'path'
+import * as path from 'path'
 import {spawn} from 'cross-spawn'
-import fs from 'fs'
+import * as fs from 'fs'
 import {detect} from 'package-manager-detector'
 import * as messages from './messages'
 import {isFromPnpx} from '../../webpack/lib/utils'

@@ -5,8 +5,8 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import PreactRefreshPlugin from '@rspack/plugin-preact-refresh'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'

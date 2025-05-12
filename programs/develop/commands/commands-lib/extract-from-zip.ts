@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import axios from 'axios'
 import stream from 'stream'
 import AdmZip from 'adm-zip'

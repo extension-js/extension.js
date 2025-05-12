@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import {commonStyleLoaders} from './common-style-loaders'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import {isContentScriptEntry} from './is-content-script'

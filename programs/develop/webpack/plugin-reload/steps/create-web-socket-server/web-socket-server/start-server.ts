@@ -1,5 +1,5 @@
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import {WebSocketServer} from 'ws'
 import {Compiler} from '@rspack/core'
 import * as messages from '../../../../lib/messages'

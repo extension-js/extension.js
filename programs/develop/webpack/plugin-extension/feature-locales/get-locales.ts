@@ -1,5 +1,5 @@
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 
 export function getLocales(manifestPath: string): string[] | undefined {
   const localesFolder = path.join(path.dirname(manifestPath), '_locales')

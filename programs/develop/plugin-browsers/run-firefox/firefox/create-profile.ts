@@ -1,5 +1,5 @@
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import FirefoxProfile from 'firefox-profile'
 import {getPreferences} from './master-preferences'
 import * as messages from '../../browsers-lib/messages'

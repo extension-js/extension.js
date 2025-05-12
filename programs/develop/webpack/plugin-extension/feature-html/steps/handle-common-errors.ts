@@ -1,4 +1,4 @@
-import fs from 'fs'
+import * as fs from 'fs'
 import {WebpackError, type Compiler, type StatsError} from '@rspack/core'
 
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'

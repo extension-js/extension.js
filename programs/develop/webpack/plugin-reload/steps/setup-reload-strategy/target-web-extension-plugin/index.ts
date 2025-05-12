@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import WebExtension from 'webpack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
@@ -28,8 +28,8 @@ export class TargetWebExtensionPlugin {
     const minimumBgScript = path.resolve(
       __dirname,
       browser === 'firefox' || browser === 'gecko-based'
-        ? 'minimum-firefox-file.mjs'
-        : 'minimum-chromium-file.mjs'
+        ? 'minimum-firefox-file'
+        : 'minimum-chromium-file'
     )
 
     const dirname = path.dirname(this.manifestPath!)

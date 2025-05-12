@@ -1,4 +1,4 @@
-import fs from 'fs'
+import * as fs from 'fs'
 import rspack, {Compiler, Compilation} from '@rspack/core'
 import * as messages from '../../../lib/messages'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'

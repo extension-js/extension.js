@@ -1,4 +1,4 @@
-import path from 'path'
+import * as path from 'path'
 import {PluginInterface} from '../../../webpack-types'
 import {scanFilesInFolder, generateEntries} from './generate-entries'
 

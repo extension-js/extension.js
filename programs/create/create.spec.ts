@@ -5,18 +5,24 @@
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
 
-import path from 'path'
-import fs from 'fs'
+import * as path from 'path'
+import * as fs from 'fs'
 import {fileURLToPath} from 'url'
 import {describe, it, expect, beforeAll} from 'vitest'
 import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../examples/data'
-import {extensionCreate} from './dist/module.js'
+import {extensionCreate} from 'extension-create'
 
 export function getDirname(importMetaUrl: string) {
   const __filename = fileURLToPath(importMetaUrl)
   return path.dirname(__filename)
 }
 
+// @ts-ignore - TypeScript will complain because
+// this file is in the excluded list.
+// This file is in the excluded list because we
+// need to import data from the examples folder
+// which is not included in the baseDir defined
+// in the tsconfig.json file.
 const __dirname = getDirname(import.meta.url)
 
 function fileExists(templateName: string, filePath?: string): boolean {

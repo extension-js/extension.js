@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {StatsAsset} from '@rspack/core'
 import chalk from 'chalk'
 import {Manifest} from '../../types'

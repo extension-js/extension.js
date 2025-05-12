@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import rspack, {Compilation, Compiler} from '@rspack/core'
 import * as utils from '../../../lib/utils'
 import * as messages from '../../../lib/messages'

@@ -1,5 +1,5 @@
-import fs from 'fs'
-import path from 'path'
+import * as fs from 'fs'
+import * as path from 'path'
 import {Configuration} from '@rspack/core'
 import {BrowserConfig, FileConfig} from './config-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
