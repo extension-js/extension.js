@@ -283,69 +283,69 @@ const CUSTOM_TEMPLATES: Template[] = [
 ]
 
 const FRAMEWORK_TEMPLATES: Template[] = [
-  // {
-  //   name: 'new-react',
-  //   uiContext: ['newTab'],
-  //   uiFramework: 'react',
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['tsconfig.json']
-  // },
-  // {
-  //   name: 'content-react',
-  //   uiContext: ['content'],
-  //   uiFramework: 'react',
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['postcss.config.js', 'tsconfig.json']
-  // },
-  // {
-  //   name: 'new-preact',
-  //   uiContext: ['newTab'],
-  //   uiFramework: 'preact',
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['tsconfig.json']
-  // },
-  // {
-  //   name: 'content-preact',
-  //   uiContext: ['content'],
-  //   uiFramework: 'preact',
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['postcss.config.js', 'tsconfig.json']
-  // },
-  // {
-  //   name: 'content-extension-config',
-  //   uiContext: ['content'],
-  //   uiFramework: 'react',
-  //   css: 'css',
-  //   hasBackground: true,
-  //   hasEnv: false,
-  //   configFiles: ['extension.config.js', 'tsconfig.json', 'postcss.config.js']
-  // },
-  // {
-  //   name: 'new-vue',
-  //   uiContext: ['newTab'],
-  //   uiFramework: 'vue',
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['tsconfig.json']
-  // },
-  // {
-  //   name: 'content-vue',
-  //   uiContext: ['content'],
-  //   uiFramework: 'vue',
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: ['postcss.config.js', 'tsconfig.json']
-  // },
+  {
+    name: 'new-react',
+    uiContext: ['newTab'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json']
+  },
+  {
+    name: 'content-react',
+    uiContext: ['content'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['postcss.config.js', 'tsconfig.json']
+  },
+  {
+    name: 'new-preact',
+    uiContext: ['newTab'],
+    uiFramework: 'preact',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json']
+  },
+  {
+    name: 'content-preact',
+    uiContext: ['content'],
+    uiFramework: 'preact',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['postcss.config.js', 'tsconfig.json']
+  },
+  {
+    name: 'content-extension-config',
+    uiContext: ['content'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: true,
+    hasEnv: false,
+    configFiles: ['extension.config.js', 'tsconfig.json', 'postcss.config.js']
+  },
+  {
+    name: 'new-vue',
+    uiContext: ['newTab'],
+    uiFramework: 'vue',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['tsconfig.json']
+  },
+  {
+    name: 'content-vue',
+    uiContext: ['content'],
+    uiFramework: 'vue',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['postcss.config.js', 'tsconfig.json']
+  },
   {
     name: 'new-svelte',
     uiContext: ['newTab'],
