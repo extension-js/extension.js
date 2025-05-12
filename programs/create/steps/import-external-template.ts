@@ -7,7 +7,7 @@
 
 import * as path from 'path'
 import {fileURLToPath} from 'url'
-import fs from 'fs/promises'
+import * as fs from 'fs/promises'
 import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'

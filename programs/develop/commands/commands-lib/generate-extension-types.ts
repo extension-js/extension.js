@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import * as path from 'path'
-import fs from 'fs/promises'
+import * as fs from 'fs/promises'
 import * as messages from './messages'
 
 export async function generateExtensionTypes(projectPath: string) {

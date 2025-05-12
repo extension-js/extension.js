@@ -9,7 +9,6 @@ import * as path from 'path'
 import {spawn} from 'cross-spawn'
 import * as fs from 'fs'
 import * as messages from '../lib/messages'
-
 import * as utils from '../lib/utils'
 
 function getInstallArgs() {
