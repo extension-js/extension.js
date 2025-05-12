@@ -6,7 +6,7 @@ import {
   DEFAULT_TEMPLATE,
   SUPPORTED_BROWSERS
 } from '../../examples/data'
-import {extensionBuild, Manifest} from 'extension-develop'
+import {extensionBuild, Manifest} from './dist/module.js'
 import {getDirname} from './dirname'
 
 const __dirname = getDirname(import.meta.url)

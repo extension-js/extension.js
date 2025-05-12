@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import {describe, it, beforeAll, afterAll, expect} from 'vitest'
 import {getDirname} from '../../../../dirname'
-import {extensionBuild} from 'extension-develop'
+import {extensionBuild} from '../../../../dist/module'
 
 const __dirname = getDirname(import.meta.url)
 
