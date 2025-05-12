@@ -12,12 +12,8 @@ export default defineConfig({
     restoreMocks: true,
     testTimeout: 120e3,
     globals: true,
-    environment: 'node',
+    // environment: 'node',
     include: ['webpack/**/__spec__/*.spec.ts', 'build.spec.ts'],
-    // Exclude the index.spec.ts file in the webpack directory.
-    // These tests fail for some reason on CI.
-    // TODO: cezaraugusto - fix these tests
-    exclude: ['webpack/**/__spec__/index.spec.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
