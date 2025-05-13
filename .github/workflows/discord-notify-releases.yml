@@ -1,3 +1,5 @@
+name: Discord Release Notification
+
 on:
   release:
     types: [published]
@@ -6,12 +8,14 @@ permissions:
   contents: read
 
 jobs:
-  github-releases-to-discord:
-    runs-on: ubuntu-latest
+  notify:
+    name: Notify Discord
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Github Releases To Discord
+
+      - name: Send Release Notification
         uses: SethCohen/github-releases-to-discord@v1.13.1
         with:
           webhook_url: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
