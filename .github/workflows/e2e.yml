@@ -1,37 +1,43 @@
-name: e2e tests
+name: E2E Tests
+
+on:
+  push:
+    branches:
+      - main
+      - 'v[0-9]+.x'
+  pull_request:
+    branches:
+      - main
+      - 'v[0-9]+.x'
+
 permissions:
   contents: read
 
-on:
-    push:
-
 jobs:
-  test:
+  e2e:
+    name: Run E2E Tests
     timeout-minutes: 60
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [22]
+    runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'pnpm'
-    - name: Install dependencies
-      run: pnpm install
-    - name: Run compiler
-      run: pnpm compile
-    - name: Install Playwright Browsers
-      run: npx playwright install --with-deps
-    - name: Run e2e tests
-      run: pnpm test:e2e
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: e2e-report
-        path: e2e-report/
-        retention-days: 15
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Compile Extension.js
+        run: pnpm compile
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run E2E Tests
+        run: pnpm test:e2e
+
+      - name: Upload Test Report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: e2e-report/
+          retention-days: 15
