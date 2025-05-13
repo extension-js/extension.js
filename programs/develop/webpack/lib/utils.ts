@@ -7,7 +7,6 @@ import * as messages from './messages'
 import {type Manifest, type FilepathList} from '../webpack-types'
 import {CHROMIUM_BASED_BROWSERS} from './constants'
 import {DevOptions} from '../../module'
-import {getDirname} from '../../dirname'
 
 export function getResolvedPath(
   context: string,
@@ -144,8 +143,6 @@ export async function installOptionalDependencies(
       messages.integrationNotInstalled(integration, pm?.name || 'unknown')
     )
 
-    const __dirname = getDirname(import.meta.url)
-
     let installCommand = ''
     if (pm?.name === 'yarn') {
       installCommand = `yarn --silent add ${dependencies.join(
@@ -223,7 +220,6 @@ export function isUsingJSFramework(projectPath: string): boolean {
 }
 
 export function isFirstRun(browser: string) {
-  const __dirname = getDirname(import.meta.url)
   return !fs.existsSync(path.resolve(__dirname, `run-${browser}-profile`))
 }
 

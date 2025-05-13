@@ -1,13 +1,11 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'
-import {getDirname} from '../../../../dirname'
 
 export function replaceDataInFile(
   browser: DevOptions['browser'],
   port: number
 ) {
-  const __dirname = getDirname(import.meta.url)
   const reloadServiceFilePath = path.resolve(
     __dirname,
     `./extensions/${browser}-manager-extension/reload-service.js`
