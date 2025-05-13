@@ -1,24 +1,30 @@
-name: release:preview
-on: [push, pull_request]
+name: Release Preview
+
+on:
+  push:
+    branches:
+      - main
+      - 'v[0-9]+.x'
+  pull_request:
+    branches:
+      - main
+      - 'v[0-9]+.x'
+
 permissions:
   contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
+  release-preview:
+    name: Deploy Release Preview
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v4
+
+      - uses: ./.github/actions/setup
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
-      - name: Install dependencies
-        run: pnpm install
-      - name: Run compiler
-        run: pnpm compile
-      - name: Deploy release preview
-        run: pnpx pkg-pr-new publish './programs/*'
+          node-version: '22'
+
+      - name: Build and Deploy
+        run: |
+          pnpm compile
+          pnpx pkg-pr-new publish './programs/*'
