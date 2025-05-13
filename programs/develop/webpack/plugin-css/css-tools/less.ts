@@ -3,9 +3,6 @@ import * as fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {isContentScriptEntry} from '../is-content-script'
-import {getDirname} from '../../../dirname'
-
-const __dirname = getDirname(import.meta.url)
 
 let userMessageDelivered = false
 
@@ -43,8 +40,7 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
   if (!isUsingLess(projectPath)) return []
 
   try {
-    // @ts-expect-error - less-loader is not typed
-    await import('less-loader')
+    require.resolve('less-loader')
   } catch (e) {
     const lessDependencies = ['less', 'less-loader']
 
@@ -56,13 +52,6 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
     process.exit(0)
   }
 
-  const lessLoaderPath = path.resolve(
-    __dirname,
-    '..',
-    'node_modules',
-    'less-loader'
-  )
-
   return [
     // Regular .less files
     {
@@ -71,7 +60,7 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
       type: 'css',
       use: [
         {
-          loader: lessLoaderPath,
+          loader: require.resolve('less-loader'),
           options: {
             sourceMap: true
           }
@@ -84,7 +73,7 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
       type: 'css/module',
       use: [
         {
-          loader: lessLoaderPath,
+          loader: require.resolve('less-loader'),
           options: {
             sourceMap: true
           }

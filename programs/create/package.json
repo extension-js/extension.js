@@ -8,11 +8,11 @@
   "engines": {
     "node": ">=18"
   },
-  "type": "module",
   "exports": {
     ".": {
       "types": "./dist/module.d.ts",
-      "import": "./dist/module.js"
+      "import": "./dist/module.js",
+      "require": "./dist/module.js"
     }
   },
   "main": "./dist/module.js",

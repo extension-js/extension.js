@@ -9,7 +9,6 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
 import {DevOptions} from '../commands/commands-lib/config-types'
-import {getDirname} from '../dirname'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -21,8 +20,6 @@ import {ReloadPlugin} from './plugin-reload'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from '../plugin-browsers'
 import * as utils from './lib/utils'
-
-const __dirname = getDirname(import.meta.url)
 
 export default function webpackConfig(
   projectPath: string,

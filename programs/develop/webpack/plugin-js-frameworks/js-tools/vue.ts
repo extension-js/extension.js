@@ -11,9 +11,6 @@ import {VueLoaderPlugin} from 'vue-loader'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
-import {getDirname} from '../../../dirname'
-
-const __dirname = getDirname(import.meta.url)
 
 let userMessageDelivered = false
 
@@ -48,7 +45,7 @@ export async function maybeUseVue(
   if (!isUsingVue(projectPath)) return undefined
 
   try {
-    await import('vue-loader')
+    require.resolve('vue-loader')
   } catch (e) {
     const vueDependencies = [
       'vue-loader',
@@ -62,17 +59,10 @@ export async function maybeUseVue(
     process.exit(0)
   }
 
-  const vueLoaderPath = path.resolve(
-    __dirname,
-    '..',
-    'node_modules',
-    'vue-loader'
-  )
-
   const vueLoaders: JsFramework['loaders'] = [
     {
       test: /\.vue$/,
-      loader: vueLoaderPath,
+      loader: require.resolve('vue-loader'),
       options: {
         // Note, for the majority of features to be available, make sure this option is `true`
         experimentalInlineMatchResource: true

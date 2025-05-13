@@ -1,9 +1,7 @@
 import * as path from 'path'
 import rspack, {Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
-import {getDirname} from '../../dirname'
 
-const __dirname = getDirname(import.meta.url)
 /**
  * PolyfillPlugin is responsible for providing the `browser`
  * global variable to the extension's codebase.
