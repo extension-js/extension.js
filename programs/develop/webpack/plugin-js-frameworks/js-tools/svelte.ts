@@ -10,9 +10,6 @@ import * as fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
-import {getDirname} from '../../../dirname'
-
-const __dirname = getDirname(import.meta.url)
 
 let userMessageDelivered = false
 
@@ -50,8 +47,7 @@ export async function maybeUseSvelte(
   if (!isUsingSvelte(projectPath)) return undefined
 
   try {
-    // @ts-expect-error - svelte-loader is not typed
-    await import('svelte-loader')
+    require.resolve('svelte-loader')
   } catch (e) {
     const typeScriptDependencies = ['typescript']
 
@@ -65,24 +61,17 @@ export async function maybeUseSvelte(
     process.exit(0)
   }
 
-  const svelteLoaderPath = path.resolve(
-    __dirname,
-    '..',
-    'node_modules',
-    'svelte-loader'
-  )
-
   const svelteLoaders: JsFramework['loaders'] = [
     {
       test: /\.svelte\.ts$/,
-      use: [svelteLoaderPath],
+      use: [require.resolve('svelte-loader')],
       include: projectPath,
       exclude: /node_modules/
     },
     {
       test: /\.(svelte|svelte\.js)$/,
       use: {
-        loader: svelteLoaderPath,
+        loader: require.resolve('svelte-loader'),
         options: {
           emitCss: true,
           compilerOptions: {

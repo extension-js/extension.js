@@ -1,13 +1,10 @@
 import * as path from 'path'
-import {getDirname} from '../../../dirname'
 import {type Compiler} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {AddPublicPathForMainWorld} from './steps/add-public-path-for-main-world'
 import {type DevOptions} from '../../../module'
-
-const __dirname = getDirname(import.meta.url)
 
 /**
  * ScriptsPlugin is responsible for handiling all possible JavaScript

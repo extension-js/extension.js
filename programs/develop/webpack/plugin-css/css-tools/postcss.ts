@@ -13,9 +13,6 @@ import {isUsingSass} from './sass'
 import {isUsingLess} from './less'
 import {installOptionalDependencies} from '../../../webpack/lib/utils'
 import type {StyleLoaderOptions} from '../common-style-loaders'
-import {getDirname} from '../../../dirname'
-
-const __dirname = getDirname(import.meta.url)
 
 let userMessageDelivered = false
 
@@ -97,8 +94,7 @@ export async function maybeUsePostCss(
   if (!isUsingPostCss(projectPath)) return {}
 
   try {
-    // @ts-expect-error - postcss-loader is not typed
-    await import('postcss-loader')
+    require.resolve('postcss-loader')
   } catch (e) {
     // SASS and LESS will install PostCSS as a dependency
     // so we don't need to check for it here.
@@ -116,17 +112,10 @@ export async function maybeUsePostCss(
     process.exit(0)
   }
 
-  const postCssLoaderPath = path.resolve(
-    __dirname,
-    '..',
-    'node_modules',
-    'postcss-loader'
-  )
-
   return {
     test: /\.css$/,
     type: 'css',
-    loader: postCssLoaderPath,
+    loader: require.resolve('postcss-loader'),
     options: {
       postcssOptions: {
         ident: 'postcss',

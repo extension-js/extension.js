@@ -7,15 +7,6 @@ import {
   DEFAULT_TEMPLATE,
   SUPPORTED_BROWSERS
 } from '../../examples/data'
-import {getDirname} from './dirname'
-
-// @ts-ignore - TypeScript will complain because
-// this file is in the excluded list.
-// This file is in the excluded list because we
-// need to import data from the examples folder
-// which is not included in the baseDir defined
-// in the tsconfig.json file.
-const __dirname = getDirname(import.meta.url)
 
 async function removeDir(dirPath: string) {
   if (fs.existsSync(dirPath)) {

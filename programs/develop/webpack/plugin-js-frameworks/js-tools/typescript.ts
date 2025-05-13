@@ -143,7 +143,7 @@ export async function maybeUseTypeScript(
   if (!isUsingTypeScript(projectPath)) return false
 
   try {
-    await import('typescript')
+    require.resolve('typescript')
   } catch (e) {
     const typescriptDependencies = ['typescript']
 

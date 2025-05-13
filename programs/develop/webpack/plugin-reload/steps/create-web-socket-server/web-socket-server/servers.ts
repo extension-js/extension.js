@@ -2,10 +2,7 @@ import * as path from 'path'
 import http from 'http'
 import https from 'https'
 import * as fs from 'fs'
-import {getDirname} from '../../../../../dirname'
 import * as messages from '../../../../lib/messages'
-
-const __dirname = getDirname(import.meta.url)
 
 const ensureFile = (filePath: string) => {
   if (!fs.existsSync(filePath)) {

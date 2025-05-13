@@ -47,8 +47,7 @@ export async function maybeUseReact(
   if (!isUsingReact(projectPath)) return undefined
 
   try {
-    // @ts-expect-error - react-refresh is not typed
-    await import('react-refresh')
+    require.resolve('react-refresh')
   } catch (e) {
     const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
 

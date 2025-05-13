@@ -7,7 +7,6 @@ import {RunFirefoxPlugin} from './run-firefox'
 import {DevOptions} from '../commands/commands-lib/config-types'
 import {loadBrowserConfig} from '../commands/commands-lib/get-extension-config'
 import * as messages from './browsers-lib/messages'
-import {getDirname} from '../dirname'
 
 /**
  * BrowsersPlugin works by finding the binary for the browser specified in the
@@ -83,7 +82,6 @@ export class BrowsersPlugin {
       return path.join(os.tmpdir(), 'extension-js', browser, 'profile')
     }
 
-    const __dirname = getDirname(import.meta.url)
     return path.resolve(__dirname, `run-${browser}-profile`)
   }
 
