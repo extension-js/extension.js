@@ -1,6 +1,5 @@
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import {getDirname} from '../../../dirname'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {EmitHtmlFile} from './steps/emit-html-file'
 import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'
@@ -10,8 +9,6 @@ import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {HandleCommonErrors} from './steps/handle-common-errors'
 import {DevOptions} from '../../../module'
-
-const __dirname = getDirname(import.meta.url)
 
 /**
  * HtmlPlugin is responsible for handling the HTML file
