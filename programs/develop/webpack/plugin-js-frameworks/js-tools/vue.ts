@@ -11,6 +11,7 @@ import {VueLoaderPlugin} from 'vue-loader'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
+import {loadLoaderOptions} from '../load-loader-options'
 
 let userMessageDelivered = false
 
@@ -59,24 +60,27 @@ export async function maybeUseVue(
     process.exit(0)
   }
 
-  const vueLoaders: JsFramework['loaders'] = [
+  // Load custom loader configuration if it exists
+  const customOptions = await loadLoaderOptions(projectPath, 'vue')
+
+  const defaultLoaders: JsFramework['loaders'] = [
     {
       test: /\.vue$/,
       loader: require.resolve('vue-loader'),
       options: {
-        // Note, for the majority of features to be available, make sure this option is `true`
-        experimentalInlineMatchResource: true
+        experimentalInlineMatchResource: true,
+        ...(customOptions || {})
       },
       include: projectPath,
       exclude: /node_modules/
     }
   ]
 
-  const vuePlugins: JsFramework['plugins'] = [new VueLoaderPlugin() as any]
+  const defaultPlugins: JsFramework['plugins'] = [new VueLoaderPlugin() as any]
 
   return {
-    plugins: vuePlugins,
-    loaders: vueLoaders,
+    plugins: defaultPlugins,
+    loaders: defaultLoaders,
     alias: undefined
   }
 }

@@ -10,6 +10,7 @@ import * as fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
+import {loadLoaderOptions} from '../load-loader-options'
 
 let userMessageDelivered = false
 
@@ -61,7 +62,10 @@ export async function maybeUseSvelte(
     process.exit(0)
   }
 
-  const svelteLoaders: JsFramework['loaders'] = [
+  // Load custom loader configuration if it exists
+  const customOptions = await loadLoaderOptions(projectPath, 'svelte')
+
+  const defaultLoaders: JsFramework['loaders'] = [
     {
       test: /\.svelte\.ts$/,
       use: [require.resolve('svelte-loader')],
@@ -78,7 +82,8 @@ export async function maybeUseSvelte(
             dev: mode === 'development',
             css: 'injected'
           },
-          hotReload: mode === 'development'
+          hotReload: mode === 'development',
+          ...(customOptions || {})
         }
       },
       include: projectPath,
@@ -95,7 +100,7 @@ export async function maybeUseSvelte(
 
   return {
     plugins: undefined,
-    loaders: svelteLoaders,
+    loaders: defaultLoaders,
     alias: undefined
   }
 }
