@@ -624,3 +624,15 @@ export function deprecatedShadowRoot() {
     `to support it is ${'extension@2.0.0-beta.9'}.\n`
   )
 }
+
+export function isUsingCustomLoader(file: string) {
+  // assume vue.loader.js , below should be "vue"
+  const loaderName = file.split('.').shift() || 'custom'
+  const capitalizedLoaderName =
+    loaderName.charAt(0).toUpperCase() + loaderName.slice(1)
+
+  return (
+    `${getLoggingPrefix(capitalizedLoaderName, 'info')} ` +
+    `Using custom loader configuration from ${file}`
+  )
+}
