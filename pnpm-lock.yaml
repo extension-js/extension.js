@@ -776,8 +776,8 @@ importers:
         specifier: ^7.0.6
         version: 7.0.6
       go-git-it:
-        specifier: 4.0.0-1
-        version: 4.0.0-1
+        specifier: 4.0.0
+        version: 4.0.0
       package-manager-detector:
         specifier: ^0.2.7
         version: 0.2.11
@@ -876,8 +876,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       go-git-it:
-        specifier: 4.0.0-1
-        version: 4.0.0-1
+        specifier: 4.0.0
+        version: 4.0.0
       ignore:
         specifier: ^6.0.2
         version: 6.0.2
@@ -4913,9 +4913,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  go-git-it@4.0.0-1:
-    resolution: {integrity: sha512-d2AAE7NCg4uMEmfwbBNPta1qhk/KfbzG56eOWEpYjNb/TFwXsOZl1o1m6PiQtMFolx+XqLijGXogh3ENI4JEuQ==}
-    engines: {node: '>=16'}
+  go-git-it@4.0.0:
+    resolution: {integrity: sha512-pzLfJNTkM0Uhv55sVldRBqwreOwxh9ssh/LOFcqDWf37Ems4uizS/ydgcgiYzaqFRnuxxIQZoBMMU/pJBfI4Gg==}
     hasBin: true
 
   gopd@1.2.0:
@@ -12495,7 +12494,7 @@ snapshots:
       '@colors/colors': 1.6.0
       progress: 2.0.3
 
-  go-git-it@4.0.0-1:
+  go-git-it@4.0.0:
     dependencies:
       progress: 2.0.3
 
