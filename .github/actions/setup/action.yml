@@ -1,0 +1,31 @@
+name: 'Setup Environment'
+description: 'Setup Node.js, pnpm, and install dependencies'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: true
+    default: '22'
+  install-command:
+    description: 'Command to install dependencies'
+    required: false
+    default: 'pnpm install --frozen-lockfile'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Use Node.js ${{ inputs.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: 'pnpm'
+
+    - name: Install dependencies
+      shell: bash
+      run: ${{ inputs.install-command }} 

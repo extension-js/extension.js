@@ -1,0 +1,34 @@
+# Run `pnpm changeset` before running this workflow
+name: Release Extension.js
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Publish packages to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          publish: pnpm release
+          commit: "chore: version packages"
+          title: "chore: version packages"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
