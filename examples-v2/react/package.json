@@ -9,6 +9,7 @@
     "url": "https://yourwebsite.com"
   },
   "license": "MIT",
+  "type": "module",
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
@@ -20,6 +21,5 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
     "typescript": "5.3.3"
-  },
-  "type": "module"
+  }
 }
