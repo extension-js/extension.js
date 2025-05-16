@@ -23,7 +23,6 @@
 
 <img alt="Logo" align="right" src="https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png" width="22.5%" />
 
-
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
 - [Start From A Template](https://extension.land/templates) — Start with your favorite tool.
@@ -47,7 +46,7 @@ For a preview of extensions running these technologies, see the [templates](http
 
 | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/a9e2541a-96f0-4caa-9fc9-5fc5c3e901c8" width="70"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/b42c5330-9e2a-4045-99c3-1f7d264dfaf4" width="70"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/f19edff3-9005-4f50-b05c-fba615896a7f" width="70"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/ff64721d-d145-4213-930d-e70193f8d57e" width="70"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/15f1314a-aa65-4ce2-a3f3-cf53c4f730cf" width="70"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/c5f8a127-3c2a-4ceb-bb46-948cf2c8bd89" width="70"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/de1082fd-7cf6-4202-8c12-a5c3cd3e5b42" width="70"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/78e5fe3d-dc79-4aa2-954e-1a5973d1d9db" width="70"> | <img src="https://github.com/cezaraugusto/extension.js/assets/4672033/8807efd9-93e5-4db5-a1d2-9ac524f7ecc2" width="70"> |
 | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------: |
-|                                                    ESNext<br>latest                                                     |                                                  TypeScript<br>latest                                                   |                                                     WASM<br>latest                                                      |                                                    React<br>18+                                                     |                                                     Vue<br>3+                                                      |                                                      Angular<br>👋                                                      |                                                    Svelte<br>5+                                                     |                                                       Solid<br>👋                                                       |                                                    Preact<br>10+                                                     |
+|                                                    ESNext<br>latest                                                     |                                                  TypeScript<br>latest                                                   |                                                     WASM<br>latest                                                      |                                                      React<br>18+                                                       |                                                        Vue<br>3+                                                        |                                                      Angular<br>👋                                                      |                                                      Svelte<br>5+                                                       |                                                       Solid<br>👋                                                       |                                                      Preact<br>10+                                                      |
 
 👋 = PR Welcome!
 
@@ -65,10 +64,10 @@ https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553
 
 </details>
 
-<!-- 
+<!--
 <details>
-   <summary>   
-   🔥 Use Edge to start developing an extension from Chrome Extension Samples 
+   <summary>
+   🔥 Use Edge to start developing an extension from Chrome Extension Samples
    </summary>
 
 > See the example below where we request the sample [magic8ball](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/api-samples/topSites/magic8ball) from from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples) with Edge as the runtime browser.
