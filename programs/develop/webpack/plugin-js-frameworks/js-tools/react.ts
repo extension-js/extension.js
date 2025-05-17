@@ -62,7 +62,7 @@ export async function maybeUseReact(
   const reactPlugins: RspackPluginInstance[] = [
     new ReactRefreshPlugin({
       overlay: false
-    })
+    }) as any // TODO: cezaraugusto fix this
   ]
 
   return {
