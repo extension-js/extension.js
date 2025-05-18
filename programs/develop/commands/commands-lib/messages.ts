@@ -387,3 +387,11 @@ export function cantInstallDependencies(error: any) {
     `${chalk.red(error.message || error.toString())}`
   )
 }
+
+export function portInUse(requestedPort: number, newPort: number) {
+  return (
+    `${getLoggingPrefix('warn')} ` +
+    `Port ${chalk.yellow(requestedPort.toString())} is in use. ` +
+    `Using port ${chalk.green(newPort.toString())} instead.`
+  )
+}
