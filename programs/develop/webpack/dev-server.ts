@@ -17,6 +17,30 @@ import {
   loadCommandConfig,
   loadCustomWebpackConfig
 } from '../commands/commands-lib/get-extension-config'
+import * as messages from '../commands/commands-lib/messages'
+import * as net from 'net'
+
+function isPortInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const server = net.createServer()
+    server.once('error', () => {
+      resolve(true)
+    })
+    server.once('listening', () => {
+      server.close()
+      resolve(false)
+    })
+    server.listen(port)
+  })
+}
+
+async function findAvailablePort(startPort: number): Promise<number> {
+  let port = startPort
+  while (await isPortInUse(port)) {
+    port++
+  }
+  return port
+}
 
 function closeAll(devServer: RspackDevServer) {
   devServer
@@ -56,6 +80,16 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
   const compilerConfig = merge(finalConfig)
   const compiler = rspack(compilerConfig)
 
+  // Handle port configuration
+  let port = devOptions.port || 'auto'
+  if (typeof port === 'number') {
+    if (await isPortInUse(port)) {
+      const newPort = await findAvailablePort(port + 1)
+      console.log(messages.portInUse(port, newPort))
+      port = newPort
+    }
+  }
+
   // webpack-dev-server configuration
   const serverConfig: Configuration = {
     host: '127.0.0.1',
@@ -91,15 +125,38 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
-    // Use the user provided port or fallback to 'auto'
-    port: devOptions.port || 'auto',
-    hot: true
+    port,
+    hot: true,
+    webSocketServer: {
+      type: 'ws',
+      options: {
+        port: typeof port === 'number' ? port : undefined
+      }
+    }
   }
 
   const devServer = new RspackDevServer(serverConfig, compiler as any)
 
+  // Pass the actual port to the reload plugin
+  if (typeof port === 'number') {
+    compiler.options.plugins?.forEach((plugin) => {
+      if (
+        plugin &&
+        typeof plugin === 'object' &&
+        'constructor' in plugin &&
+        plugin.constructor.name === 'ReloadPlugin'
+      ) {
+        ;(plugin as any).port = port
+      }
+    })
+  }
+
   devServer.startCallback((error) => {
     if (error != null) {
+      if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {
+        console.log(messages.portInUse(port as number, (port as number) + 1))
+        process.exit(1)
+      }
       console.log(`Error in the Extension.js runner: ${error.stack || ''}`)
     }
   })
