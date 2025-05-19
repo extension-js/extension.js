@@ -67,7 +67,9 @@ export async function maybeUsePreact(
     process.exit(0)
   }
 
-  const preactPlugins: RspackPluginInstance[] = [new PreactRefreshPlugin({})]
+  const preactPlugins: RspackPluginInstance[] = [
+    new PreactRefreshPlugin({}) as any // TODO: cezaraugusto fix this
+  ]
 
   return {
     plugins: preactPlugins,

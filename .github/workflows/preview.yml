@@ -1,29 +1,31 @@
-name: extension preview
+name: Extension Preview
 
 on:
   push:
+    branches:
+      - main
+      - 'v[0-9]+.x'
+  pull_request:
+    branches:
+      - main
+      - 'v[0-9]+.x'
 
 permissions:
   contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node-version: [22]
+  preview:
+    name: Build Preview
+    runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'pnpm'
-    - name: Install dependencies
-      run: pnpm install
-    - name: Run compiler
-      run: pnpm compile
-    # - name: Run `extension preview` command (TODO)
-    #   run: pnpm test:preview
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '22'
+
+      - name: Build Preview
+        run: |
+          pnpm compile
+          # TODO: Uncomment when preview command is ready
+          # pnpm test:preview
