@@ -32,7 +32,7 @@ export default class CreateWebSocketServer {
 
     // Before all, rewrite the reload service file
     // with the user-provided port.
-    replaceDataInFile(this.browser, this.port)
+    replaceDataInFile(compiler, this.browser, this.port)
 
     // Start webSocket server to communicate with the extension.
     const wss = await startServer(compiler, {

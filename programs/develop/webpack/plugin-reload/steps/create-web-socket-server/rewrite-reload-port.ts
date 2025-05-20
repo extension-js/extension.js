@@ -1,14 +1,16 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import {Compiler} from '@rspack/core'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'
 
 export function replaceDataInFile(
+  compiler: Compiler,
   browser: DevOptions['browser'],
   port: number
 ) {
   const reloadServiceFilePath = path.resolve(
-    __dirname,
-    `./extensions/${browser}-manager-extension/reload-service.js`
+    path.dirname(compiler.options.output.path!),
+    `extension-js/extensions/${browser}-manager/reload-service.js`
   )
 
   try {
