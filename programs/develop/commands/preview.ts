@@ -66,7 +66,9 @@ export async function extensionPreview(
       }
 
       if (!stats?.hasErrors()) {
-        console.log(messages.runningInProduction(projectPath))
+        console.log(
+          messages.runningInProduction(path.join(projectPath, 'dist', browser))
+        )
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)
