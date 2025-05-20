@@ -22,7 +22,8 @@ export class CssPlugin {
   }
 
   private async configureOptions(compiler: Compiler) {
-    const mode: DevOptions['mode'] = compiler.options.mode || 'development'
+    const mode: DevOptions['mode'] =
+      (compiler.options.mode as DevOptions['mode']) || 'development'
     const projectPath = path.dirname(this.manifestPath)
 
     const plugins: RspackPluginInstance[] = []

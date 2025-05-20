@@ -59,14 +59,14 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
   // Get browser defaults from extension.config.js
   const browserConfig = loadBrowserConfig(projectPath, devOptions.browser)
 
-  // Get the user defined args and mergee with the Extension.js base webpack config
+  // Get the user defined args and merge with the Extension.js base webpack config
   const baseConfig = webpackConfig(projectPath, {
     ...devOptions,
     ...commandConfig,
     ...browserConfig,
     mode: 'development',
     output: {
-      clean: true
+      clean: false
     }
   })
 
