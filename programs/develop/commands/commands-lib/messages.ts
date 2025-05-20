@@ -40,8 +40,7 @@ export function building(browser: DevOptions['browser']): string {
   )
 }
 
-export function runningInProduction(projectDir: string): string {
-  const outputPath = path.join(projectDir, 'dist')
+export function runningInProduction(outputPath: string): string {
   const manifestPath = path.join(outputPath, 'manifest.json')
   const manifest: Record<string, any> = JSON.parse(
     fs.readFileSync(manifestPath, 'utf-8')
