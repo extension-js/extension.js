@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import {WebSocketServer} from 'ws'
+import {WebSocketServer, WebSocket} from 'ws'
 import {Compiler} from '@rspack/core'
 import * as messages from '../../../../lib/messages'
 import {type Manifest} from '../../../../webpack-types'
@@ -23,27 +23,39 @@ interface Message {
 function setupServer(port: number, browser: DevOptions['browser']) {
   switch (browser) {
     case 'chrome':
-      return new WebSocketServer({
-        host: 'localhost',
+      return {
+        server: new WebSocketServer({
+          host: 'localhost',
+          port
+        }),
         port
-      })
+      }
 
     case 'edge':
-      return new WebSocketServer({
-        host: 'localhost',
-        port: port + 1
-      })
+      return {
+        server: new WebSocketServer({
+          host: 'localhost',
+          port: port + 1
+        }),
+        port
+      }
 
     case 'firefox':
-      return new WebSocketServer({
-        server: httpsServer(port + 2).server
-      })
+      return {
+        server: new WebSocketServer({
+          server: httpsServer(port + 2).server
+        }),
+        port
+      }
 
     default:
-      return new WebSocketServer({
-        host: 'localhost',
+      return {
+        server: new WebSocketServer({
+          host: 'localhost',
+          port: 8888
+        }),
         port: 8888
-      })
+      }
   }
 }
 
@@ -53,15 +65,24 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
     fs.readFileSync(path.join(projectPath, 'manifest.json'), 'utf-8')
   )
 
-  // Use the port from options instead of hardcoding
-  const port = options.port || 8080
-  const webSocketServer = setupServer(port, options.browser)
+  const {server: webSocketServer} = setupServer(options.port!, options.browser)
+
+  // Track all active connections
+  const connections = new Set<WebSocket>()
 
   webSocketServer.on('connection', (ws) => {
+    // Add to active connections
+    connections.add(ws)
+    
     ws.send(JSON.stringify({status: 'serverReady'}))
 
     ws.on('error', (error) => {
       console.log(messages.webSocketError(error))
+      connections.delete(ws)
+    })
+
+    ws.on('close', () => {
+      connections.delete(ws)
     })
 
     ws.on('message', (msg) => {
@@ -101,6 +122,31 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
       console.log('')
     }
   }
+
+  // Handle graceful shutdown
+  const cleanup = () => {
+    console.log('\nClosing WebSocket connections...')
+    
+    // Close all active connections
+    for (const ws of connections) {
+      try {
+        ws.close(1000, 'Server shutting down')
+      } catch (error) {
+        console.error('Error closing WebSocket connection:', error)
+      }
+    }
+    
+    // Close the server
+    webSocketServer.close(() => {
+      console.log('WebSocket server closed')
+      process.exit(0)
+    })
+  }
+
+  // Handle process termination signals
+  process.on('SIGINT', cleanup)
+  process.on('SIGTERM', cleanup)
+  process.on('SIGHUP', cleanup)
 
   return webSocketServer
 }

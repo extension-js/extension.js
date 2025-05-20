@@ -11,10 +11,12 @@ import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
 class SetupReloadStrategy {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
+  private readonly port: number
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.port = options.port || 8080
   }
 
   public apply(compiler: Compiler) {
@@ -49,7 +51,8 @@ class SetupReloadStrategy {
     // related to the current browser.
     new GenerateManagerExtension({
       manifestPath: this.manifestPath,
-      browser: this.browser
+      browser: this.browser,
+      port: this.port
     }).apply(compiler)
   }
 }
