@@ -1,3 +1,4 @@
+import {Compilation, type Compiler} from '@rspack/core'
 import {type PluginInterface, type DefaultBrowserFlags} from '../browsers-types'
 import {createProfile} from './create-profile'
 
@@ -66,16 +67,19 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   '--disable-features=DisableLoadExtensionCommandLineSwitch'
 ]
 
-export function browserConfig(configOptions: PluginInterface) {
+export function browserConfig(
+  compilation: Compilation,
+  configOptions: PluginInterface
+) {
   const extensionsToLoad = Array.isArray(configOptions.extension)
     ? configOptions.extension
     : [configOptions.extension]
 
-  const userProfilePath = createProfile(
-    configOptions.browser,
-    configOptions.profile,
-    configOptions.preferences
-  )
+  const userProfilePath = createProfile(compilation, {
+    browser: configOptions.browser,
+    userProfilePath: configOptions.profile,
+    configPreferences: configOptions.preferences
+  })
 
   // Get excluded flags (if any)
   const excludeFlags = configOptions.excludeBrowserFlags || []

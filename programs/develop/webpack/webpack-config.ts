@@ -39,7 +39,8 @@ export default function webpackConfig(
   )
   const userExtensionOutputPath = path.join(
     projectPath,
-    `dist/${devOptions.browser}`
+    'dist',
+    devOptions.browser
   )
 
   const browser = devOptions.chromiumBinary

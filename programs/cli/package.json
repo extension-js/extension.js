@@ -34,9 +34,8 @@
   "scripts": {
     "watch": "rslib build --watch",
     "compile:types": "bash install_scripts.sh",
-    "compile:readme-files": "node ./scripts/copyMarkdownFilesToCli.js",
     "compile:cli": "rslib build",
-    "compile": "pnpm compile:readme-files && pnpm compile:cli && pnpm compile:types",
+    "compile": "pnpm compile:cli && pnpm compile:types",
     "clean": "rm -rf dist",
     "test": "echo \"Note: no test specified\" && exit 0",
     "test:cli": "vitest run"

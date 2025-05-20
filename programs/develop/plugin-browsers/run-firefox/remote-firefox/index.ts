@@ -1,5 +1,5 @@
 import * as path from 'path'
-import {type Compiler} from '@rspack/core'
+import {Compilation, type Compiler} from '@rspack/core'
 import {MessagingClient} from './messaging-client'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
 import {type PluginInterface} from '../../browsers-types'
@@ -41,13 +41,13 @@ export class RemoteFirefox {
     throw lastError
   }
 
-  public async installAddons(compiler: Compiler) {
+  public async installAddons(compilation: Compilation) {
     const {devtools} = this.options
     const extensionsToLoad = Array.isArray(this.options.extension)
       ? this.options.extension
       : [this.options.extension]
 
-    const devPort = (compiler.options.devServer as any)?.port
+    const devPort = (compilation.options.devServer as any)?.port
     const port = devPort ? devPort + 100 : 9222
     const client = await this.connectClient(port)
 

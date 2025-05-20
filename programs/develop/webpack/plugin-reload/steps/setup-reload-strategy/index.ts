@@ -4,6 +4,7 @@ import {SetupChromiumReloadClient} from '../setup-chromium-reload-client'
 import {SetupFirefoxReloadClient} from '../setup-firefox-reload-client'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import {TargetWebExtensionPlugin} from './target-web-extension-plugin'
+import {GenerateManagerExtension} from './generate-manager-extension'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'
 import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
 
@@ -40,6 +41,13 @@ class SetupReloadStrategy {
 
     // 3 - Add the HMR reloader to the entry point.
     new TargetWebExtensionPlugin({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
+
+    // 4 - Generate the Extension.js manager extension
+    // related to the current browser.
+    new GenerateManagerExtension({
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)

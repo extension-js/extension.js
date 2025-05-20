@@ -79,7 +79,7 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
           console.log('')
         }, 2500)
 
-        if (isFirstRun(options.browser)) {
+        if (isFirstRun(compiler.options.output.path!, options.browser)) {
           setTimeout(() => {
             console.log(messages.isFirstRun(options.browser))
           }, 5000)

@@ -73,16 +73,28 @@ export class BrowsersPlugin {
     browser: DevOptions['browser'],
     profile: string | undefined
   ) {
+    // If user provided a profile path, use it
     if (profile) {
       return profile
     }
 
-    // Ensure `start` runs in a fresh profile by default.
+    // In production, use a random temp directory
     if (compiler.options.mode === 'production') {
-      return path.join(os.tmpdir(), 'extension-js', browser, 'profile')
+      return path.join(
+        os.tmpdir(),
+        'extension-js',
+        `${browser}-profile-${Date.now()}`
+      )
     }
 
-    return path.resolve(__dirname, `run-${browser}-profile`)
+    // In development, use the extension-js/profiles directory
+    const distPath = path.dirname(compiler.options.output.path!)
+    return path.resolve(
+      distPath,
+      'extension-js',
+      'profiles',
+      `${browser}-profile`
+    )
   }
 
   async apply(compiler: Compiler) {
