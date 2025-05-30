@@ -15,6 +15,7 @@
     "extension": "dotenv -- node ./programs/cli/dist/cli.js",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
     "lint": "eslint .",
+    "lint-staged": "lint-staged",
     "release": "dotenv -- turbo run compile && changeset publish",
     "test": "dotenv -- turbo run test",
     "test:coverage": "dotenv -- turbo run test:coverage",
@@ -27,7 +28,8 @@
     "types": "pnpm tsc",
     "version-packages": "changeset version",
     "publish-packages": "turbo run compile lint test && changeset version && changeset publish",
-    "watch": "pnpm compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5"
+    "watch": "pnpm compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@changesets/cli": "^2.28.1",
@@ -39,6 +41,8 @@
     "dotenv-cli": "^7.4.4",
     "eslint": "^9.16.0",
     "globals": "^15.13.0",
+    "husky": "9.1.7",
+    "lint-staged": "16.1.0",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "5.7.2"
