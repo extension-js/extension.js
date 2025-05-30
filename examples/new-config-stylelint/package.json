@@ -8,6 +8,9 @@
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {},
   "scripts": {
     "lint:css": "npx stylelint '**/*.scss'"
   },
@@ -15,6 +18,5 @@
     "sass": "^1.77.8",
     "stylelint": "^16.7.0",
     "stylelint-config-standard-scss": "^13.1.0"
-  },
-  "type": "module"
+  }
 }
