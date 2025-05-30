@@ -94,7 +94,7 @@ describe('utils', () => {
               return {
                 source: JSON.stringify(manifestContent),
                 map: {}
-              }
+              } as any
             },
             updateHash: () => {},
             buffer: () => {
