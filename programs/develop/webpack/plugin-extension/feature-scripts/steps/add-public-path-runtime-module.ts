@@ -49,7 +49,7 @@ function PublicPathRuntimeModule() {
       return Template.asString([
         ...weakRuntimeCheck,
         `var path = ${JSON.stringify(
-          this.compilation?.getPath(publicPath || '', {
+          this.compilation?.getPath((publicPath as string) || '', {
             hash: this.compilation.hash || 'XXXX'
           })
         )}`,
