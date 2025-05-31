@@ -52,6 +52,7 @@ yarn-error.log*
 
 # pnpm
 pnpm-lock.yaml
+.pnpm-store/
 
 # examples
 /examples/**/pnpm-lock.yaml
