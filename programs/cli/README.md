@@ -17,7 +17,7 @@
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
-- [Start From An Example](https://github.com/extension-js/extension.js/examples) — Start with your favorite tool.
+- [Start From An Example](https://github.com/extension-js/extension.js/tree/main/examples) — Start with your favorite tool.
 - [I have An Extension](#i-have-an-extension) — Use only specific parts of Extension.js.
 
 Extension.js makes it very easy to develop cross-browser extensions.<br />Developers prefer it for its fast builds, unified interface, and zero configuration setup.

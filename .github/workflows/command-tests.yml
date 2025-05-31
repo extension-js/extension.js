@@ -19,7 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-24.04, windows-latest]
+        os: [ubuntu-22.04, windows-latest]
         node-version: [22]
     steps:
       - uses: actions/checkout@v4
@@ -28,12 +28,22 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
+      - name: Compile
+        run: pnpm compile
+
       - name: Test CLI Commands
-        run: |
-          pnpm compile
-          pnpm test:cli
-          pnpm test:create
-          pnpm test:dev
-          pnpm test:build
-          # TODO: Uncomment when start command is ready
-          # pnpm test:start 
+        run: pnpm test:cli
+
+      - name: Test Create Command
+        run: pnpm test:create
+
+      - name: Test Build Command
+        run: pnpm test:build
+
+      # TODO: Uncomment when dev command is ready
+      # - name: Test Dev Command
+      #   run: pnpm test:dev
+
+      # TODO: Uncomment when start command is ready
+      # - name: Test Start Command
+      #   run: pnpm test:start
