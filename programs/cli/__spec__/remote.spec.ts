@@ -15,11 +15,11 @@ const execFileAsync = promisify(execFile)
 
 export async function extensionProgram(command: string = '') {
   const args = [
-    'dlx',
+    '-y',
     'extension@latest',
     ...(command ? command.split(' ') : [])
   ]
-  return await execFileAsync('pnpm', args)
+  return await execFileAsync('npx', args)
 }
 
 async function removeDirectory(dir: string) {
@@ -98,11 +98,11 @@ describe('CLI Commands', () => {
     try {
       await extensionProgram(`create ${projectPath} --template content-react`)
 
-      await execFileAsync('pnpm', ['install', '--ignore-workspace'], {
+      await execFileAsync('npm', ['install'], {
         cwd: projectPath
       })
 
-      await execFileAsync('pnpm', ['build'], {cwd: projectPath})
+      await execFileAsync('npm', ['run', 'build'], {cwd: projectPath})
 
       expect(
         fs.existsSync(path.join(projectPath, 'dist', 'chrome'))
