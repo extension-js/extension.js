@@ -18,7 +18,7 @@ export async function importLocalTemplate(
   projectName: string,
   template: string
 ) {
-  const localTemplatePath = path.resolve(__dirname, 'template')
+  const localTemplatePath = path.resolve(__dirname, 'dist', 'template')
 
   try {
     console.log(messages.installingFromTemplate(projectName, template))
