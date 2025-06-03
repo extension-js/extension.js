@@ -9,6 +9,7 @@
     "url": "https://hw404.cn"
   },
   "license": "MIT",
+  "type": "module",
   "dependencies": {
     "vue": "^3.4.27"
   },
@@ -16,6 +17,5 @@
     "@tailwindcss/postcss": "^4.1.3",
     "tailwindcss": "^4.1.3",
     "typescript": "5.3.3"
-  },
-  "type": "module"
+  }
 }
