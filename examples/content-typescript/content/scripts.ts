@@ -1,15 +1,6 @@
 // @ts-expect-error - Import handled by webpack
 import logo from '../images/logo.svg'
 
-declare global {
-  interface ImportMeta {
-    webpackHot?: {
-      accept: (path?: string, callback?: (newModule: any) => void) => void
-      dispose: (callback: () => void) => void
-    }
-  }
-}
-
 let unmount: () => void
 
 if (import.meta.webpackHot) {
