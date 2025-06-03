@@ -27,15 +27,18 @@ function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
-  const style = new CSSStyleSheet()
-  shadowRoot.adoptedStyleSheets = [style]
+
+  const styleElement = document.createElement('style')
+  shadowRoot.appendChild(styleElement)
 
   // Fetch and apply LESS styles
-  fetchLessStyles().then((response) => style.replace(response))
+  fetchLessStyles().then((response) => (styleElement.textContent = response))
 
   if (import.meta.webpackHot) {
     import.meta.webpackHot?.accept('./styles.less', () => {
-      fetchLessStyles().then((response) => style.replace(response))
+      fetchLessStyles().then(
+        (response) => (styleElement.textContent = response)
+      )
     })
   }
 

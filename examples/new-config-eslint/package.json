@@ -8,6 +8,9 @@
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {},
   "scripts": {
     "lint:all": "eslint ."
   },
@@ -17,6 +20,5 @@
     "globals": "^15.9.0",
     "typescript": "5.3.3",
     "typescript-eslint": "^8.5.0"
-  },
-  "type": "module"
+  }
 }
