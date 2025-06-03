@@ -8,8 +8,10 @@
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "dependencies": {
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {},
+  "devDependencies": {
     "sass": "^1.77.8"
-  },
-  "type": "module"
+  }
 }

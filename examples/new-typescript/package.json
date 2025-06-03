@@ -9,8 +9,9 @@
     "url": "https://cezaraugusto.com"
   },
   "license": "MIT",
+  "type": "module",
+  "dependencies": {},
   "devDependencies": {
     "typescript": "5.3.3"
-  },
-  "type": "module"
+  }
 }

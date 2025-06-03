@@ -5,7 +5,7 @@ import {getDirname} from '../dirname'
 
 const __dirname = getDirname(import.meta.url)
 
-const exampleDir = 'examples-v2/react'
+const exampleDir = 'examples/_not_working_monorepo'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 

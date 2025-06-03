@@ -8,11 +8,13 @@
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {},
   "scripts": {
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json,html,css}\""
   },
   "devDependencies": {
     "prettier": "^3.3.2"
-  },
-  "type": "module"
+  }
 }
