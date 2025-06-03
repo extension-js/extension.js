@@ -27,11 +27,12 @@ function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
-  const style = new CSSStyleSheet()
-  shadowRoot.adoptedStyleSheets = [style]
+
+  const styleElement = document.createElement('style')
+  shadowRoot.appendChild(styleElement)
 
   // Fetch and apply CSS styles
-  fetchCssStyles().then((response) => style.replace(response))
+  fetchCssStyles().then((response) => (styleElement.textContent = response))
 
   // Create container div
   const contentDiv = document.createElement('div')
