@@ -8,10 +8,12 @@ import * as messages from '../../../lib/messages'
 export class AddAssetsToCompilation {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
+  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
+    this.excludeList = options.excludeList
   }
 
   public apply(compiler: Compiler): void {
@@ -21,21 +23,20 @@ export class AddAssetsToCompilation {
         compilation.hooks.processAssets.tap(
           {
             name: 'html:add-assets-to-compilation',
-            // Derive new assets from the existing assets.
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
             if (compilation.errors.length > 0) return
 
-            const htmlFields = Object.entries(this.includeList || {})
+            const allEntries = this.includeList || {}
 
-            for (const field of htmlFields) {
-              const [feature, resource] = field
-              const featureWithHtml = feature + '.html'
+            for (const field of Object.entries(allEntries)) {
+              const [, resource] = field
 
-              // Resources from the manifest lib can come as undefined.
               if (resource) {
-                const compilationAsset = compilation.getAsset(featureWithHtml)
+                const compilationAsset = compilation.getAsset(
+                  path.basename(resource as string)
+                )
 
                 if (compilationAsset) {
                   const htmlSource = compilationAsset.source.source().toString()
@@ -48,84 +49,92 @@ export class AddAssetsToCompilation {
                   const fileAssets = [...new Set(staticAssets)]
 
                   for (const asset of fileAssets) {
-                    if (!asset.startsWith('/')) {
-                      // Handle missing static assets. This is not covered
-                      // by HandleCommonErrorsPlugin because static assets
-                      // are not entrypoints.
-                      if (!fs.existsSync(asset)) {
-                        const FilepathListEntry = isFromIncludeList(
-                          asset,
-                          this.includeList
-                        )
+                    // Handle both relative and public paths
+                    const isPublicPath = asset.startsWith('/')
+                    const assetPath = isPublicPath
+                      ? path.posix.join('public', asset.slice(1))
+                      : asset
 
-                        // If this asset is an asset emitted by some other plugin,
-                        // we don't want to emit it again. This is the case for
-                        // HTML or script assets .
-                        if (!FilepathListEntry) {
-                          // TODO: cezaraugusto. This is a sensible part
-                          // as we would need to skip warning every scenario
-                          // where the asset is not found. Let's live with it
-                          // for now. Here we are warning the user that the
-                          // asset in the HTML is not found, but we're ok
-                          // if the path is a hash, as it's a reference to
-                          // an in-page asset (like an ID reference for anchors).
-                          if (!path.basename(asset).startsWith('#')) {
-                            const errorMessage = messages.fileNotFound(
-                              resource as string,
-                              asset
-                            )
+                    // Handle missing static assets. This is not covered
+                    // by HandleCommonErrorsPlugin because static assets
+                    // are not entrypoints.
+                    if (!fs.existsSync(assetPath)) {
+                      const FilepathListEntry = isFromIncludeList(
+                        asset,
+                        this.includeList
+                      )
 
-                            if (
-                              // Ensure that the asset is not an absolute path,
-                              // so users can reference the output directory as the root.
-                              !asset.startsWith('/')
-                            ) {
-                              compilation.warnings.push(
-                                new rspack.WebpackError(errorMessage)
-                              )
-                            }
-
-                            return
-                          }
+                      // If this asset is an asset emitted by some other plugin,
+                      // we don't want to emit it again. This is the case for
+                      // HTML or script assets.
+                      if (!FilepathListEntry) {
+                        // Skip warning for hash references and public paths
+                        if (!path.basename(asset).startsWith('#')) {
+                          const errorMessage = messages.fileNotFound(
+                            resource as string,
+                            asset
+                          )
+                          compilation.warnings.push(
+                            new rspack.WebpackError(errorMessage)
+                          )
+                          return
                         }
                       }
+                    }
 
-                      const source = fs.readFileSync(asset)
-                      const rawSource = new sources.RawSource(source)
+                    const source = fs.readFileSync(assetPath)
+                    const rawSource = new sources.RawSource(source)
 
-                      const filepath = path.join('assets', path.basename(asset))
-                      if (!compilation.getAsset(filepath)) {
-                        // If for some reason the HTML file reached this condition,
-                        // it means it is not defined in the manifest file nor
-                        // in the include list. If the HTML file is treated like
-                        // any other resource, it will be emitted as an asset.
-                        // Here we also emit the assets referenced in the HTML file.
-                        if (asset.endsWith('.html')) {
-                          const htmlAssets = getAssetsFromHtml(asset)
-                          const assetsFromHtml = [
-                            ...(htmlAssets?.js || []),
-                            ...(htmlAssets?.css || []),
-                            ...(htmlAssets?.static || [])
-                          ]
+                    // For public paths, maintain the same structure in output
+                    const filepath = isPublicPath
+                      ? asset.slice(1) // Remove leading slash
+                      : path.join('assets', path.basename(asset))
 
-                          // Emit the HTML itself
-                          compilation.emitAsset(filepath, rawSource)
-                          assetsFromHtml.forEach((assetFromHtml) => {
-                            const source = fs.readFileSync(assetFromHtml)
-                            const rawSource = new sources.RawSource(source)
+                    // Check if this is a nested HTML file that exists in the compilation
+                    const isNestedHtml = asset.endsWith('.html')
+                    const nestedHtmlAsset = isNestedHtml
+                      ? compilation.getAsset(path.basename(asset))
+                      : null
 
-                            const filepath = path.join(
-                              'assets',
-                              path.basename(assetFromHtml)
-                            )
+                    // Skip emitting if the asset is in the include list and is not a nested HTML
+                    if (
+                      isFromIncludeList(asset, this.includeList) &&
+                      !nestedHtmlAsset
+                    ) {
+                      continue
+                    }
 
-                            if (!compilation.getAsset(filepath)) {
-                              compilation.emitAsset(filepath, rawSource)
-                            }
-                          })
-                        } else {
-                          compilation.emitAsset(filepath, rawSource)
-                        }
+                    if (!compilation.getAsset(filepath)) {
+                      // If for some reason the HTML file reached this condition,
+                      // it means it is not defined in the manifest file nor
+                      // in the include list. If the HTML file is treated like
+                      // any other resource, it will be emitted as an asset.
+                      // Here we also emit the assets referenced in the HTML file.
+                      if (asset.endsWith('.html')) {
+                        const htmlAssets = getAssetsFromHtml(assetPath)
+                        const assetsFromHtml = [
+                          ...(htmlAssets?.js || []),
+                          ...(htmlAssets?.css || []),
+                          ...(htmlAssets?.static || [])
+                        ]
+
+                        // Emit the HTML itself
+                        compilation.emitAsset(filepath, rawSource)
+                        assetsFromHtml.forEach((assetFromHtml) => {
+                          const source = fs.readFileSync(assetFromHtml)
+                          const rawSource = new sources.RawSource(source)
+
+                          const assetFilepath = path.join(
+                            'assets',
+                            path.basename(assetFromHtml)
+                          )
+
+                          if (!compilation.getAsset(assetFilepath)) {
+                            compilation.emitAsset(assetFilepath, rawSource)
+                          }
+                        })
+                      } else {
+                        compilation.emitAsset(filepath, rawSource)
                       }
                     }
                   }

@@ -1,7 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-// @ts-ignore
-import parse5utils from 'parse5-utils'
+import * as parse5utilities from 'parse5-utilities'
 import {parseHtml} from './parse-html'
 import {type FilepathList} from '../../../webpack-types'
 
@@ -13,7 +12,8 @@ export interface ParsedHtmlAsset {
 
 export function getAssetsFromHtml(
   htmlFilePath: string | undefined,
-  htmlContent?: string
+  htmlContent?: string,
+  publicPath: string = 'public'
 ) {
   const assets: ParsedHtmlAsset = {
     css: [],
@@ -27,57 +27,39 @@ export function getAssetsFromHtml(
 
   const htmlString =
     htmlContent || fs.readFileSync(htmlFilePath, {encoding: 'utf8'})
-  const htmlDocument = parse5utils.parse(htmlString)
+  const htmlDocument = parse5utilities.parse(htmlString)
 
   const getAbsolutePath = (htmlFilePath: string, filePath: string) => {
-    return path.join(
-      path.dirname(htmlFilePath),
-      filePath.startsWith('/')
-        ? path.relative(path.dirname(htmlFilePath), filePath)
-        : filePath
-    )
+    if (filePath.startsWith('/')) {
+      // For public paths, preserve them as-is
+      return filePath
+    }
+    return path.join(path.dirname(htmlFilePath), filePath)
   }
 
-  for (const node of htmlDocument.childNodes) {
-    if (node.nodeName !== 'html') continue
+  parseHtml(htmlDocument as any, ({filePath, assetType}) => {
+    const fileAbsolutePath = getAbsolutePath(htmlFilePath, filePath)
 
-    for (const childNode of node.childNodes) {
-      // We don't really care whether the asset is in the head or body
-      // element, as long as it's not a regular text note, we're good.
-      if (childNode.nodeName === 'head' || childNode.nodeName === 'body') {
-        parseHtml(childNode, ({filePath, assetType}) => {
-          const fileAbsolutePath = getAbsolutePath(htmlFilePath, filePath)
-
-          switch (assetType) {
-            case 'script':
-              assets.js?.push(fileAbsolutePath)
-              break
-            case 'css':
-              assets.css?.push(fileAbsolutePath)
-              break
-            case 'staticSrc':
-            case 'staticHref':
-              if (filePath.startsWith('#')) {
-                break
-              }
-              assets.static?.push(fileAbsolutePath)
-              break
-            default:
-              break
-          }
-        })
-      }
+    switch (assetType) {
+      case 'script':
+        assets.js?.push(fileAbsolutePath)
+        break
+      case 'css':
+        assets.css?.push(fileAbsolutePath)
+        break
+      case 'staticSrc':
+      case 'staticHref':
+        if (filePath.startsWith('#')) {
+          break
+        }
+        assets.static?.push(fileAbsolutePath)
+        break
+      default:
+        break
     }
+  })
 
-    return {
-      // Assets from HTML pages to copy to the outputFilePath path
-      css: assets.css,
-      // Assets frorm HTML pages to use as webpack entries
-      js: assets.js,
-      // Assets frorm HTML pages to copy to the outputFilePath path
-      static: assets.static
-    }
-  }
+  return assets
 }
 
 export function getHtmlPageDeclaredAssetPath(
@@ -101,33 +83,19 @@ export function getHtmlPageDeclaredAssetPath(
   return `/${entryname.replace(extname, '')}${extension}`
 }
 
-export function getExtname(filePath: string) {
-  const extname = path.extname(filePath)
-
-  switch (extname) {
-    case '.js':
-    case '.mjs':
-    case '.ts':
-    case '.tsx':
-      return '.js'
-    case '.css':
-    case '.scss':
-    case '.sass':
-    case '.less':
-      return '.css'
-    case '.html':
-      return '.html'
-    default:
-      return '.js'
-  }
+export function getExtname(filePath: string): string {
+  return path.extname(filePath)
 }
 
 export function getFilePath(
-  outputname: string,
+  filePath: string,
   extension: string,
-  isAbsolute?: boolean
-) {
-  return isAbsolute ? `/${outputname}${extension}` : `${outputname}${extension}`
+  isPublic: boolean
+): string {
+  if (isPublic) {
+    return `/${filePath}${extension}`
+  }
+  return `${filePath}${extension}`
 }
 
 export function isFromIncludeList(
