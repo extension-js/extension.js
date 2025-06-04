@@ -10,9 +10,9 @@ describe('CSP Patching Functions', () => {
     it('should return default V2 CSP if none is provided', () => {
       const manifest: Manifest = {}
       const result = patchV2CSP(manifest)
-      expect(result).toBe(
+      const expected =
         "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
-      )
+      expect(result).toEqual(expected)
     })
 
     it('should modify script-src and object-src correctly when policy is missing', () => {
@@ -20,9 +20,9 @@ describe('CSP Patching Functions', () => {
         content_security_policy: "script-src 'self'; object-src 'self';"
       }
       const result = patchV2CSP(manifest)
-      expect(result).toBe(
+      const expected =
         "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
-      )
+      expect(result).toEqual(expected)
     })
 
     it('should append missing directives to script-src', () => {
@@ -30,9 +30,9 @@ describe('CSP Patching Functions', () => {
         content_security_policy: "script-src 'self';"
       }
       const result = patchV2CSP(manifest)
-      expect(result).toBe(
+      const expected =
         "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
-      )
+      expect(result).toEqual(expected)
     })
 
     it('should not duplicate existing directives', () => {
@@ -41,9 +41,9 @@ describe('CSP Patching Functions', () => {
           "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
       }
       const result = patchV2CSP(manifest)
-      expect(result).toBe(
+      const expected =
         "script-src 'self' 'unsafe-eval' blob: filesystem:; object-src 'self' blob: filesystem:; "
-      )
+      expect(result).toEqual(expected)
     })
   })
 
@@ -52,7 +52,7 @@ describe('CSP Patching Functions', () => {
       const manifest: Manifest = {}
       const result = patchV3CSP(manifest)
       expect(result).toEqual({
-        extension_pages: "script-src 'self'; object-src 'self';"
+        extension_pages: "script-src 'self'; object-src 'self'; "
       })
     })
 
@@ -64,7 +64,7 @@ describe('CSP Patching Functions', () => {
       }
       const result = patchV3CSP(manifest)
       expect(result).toEqual({
-        extension_pages: "script-src 'self'; object-src 'self';"
+        extension_pages: "script-src 'self'; object-src 'self'; "
       })
     })
 
@@ -76,7 +76,7 @@ describe('CSP Patching Functions', () => {
       }
       const result = patchV3CSP(manifest)
       expect(result).toEqual({
-        extension_pages: "script-src 'self'; object-src 'self';"
+        extension_pages: "script-src 'self'; object-src 'self'; "
       })
     })
   })
