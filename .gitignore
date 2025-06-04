@@ -66,4 +66,4 @@ test-results.json
 /playwright/.cache/
 /e2e-report/
 specs/
-examples-v2/wasm/
+templates/wasm/
