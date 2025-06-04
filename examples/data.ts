@@ -92,15 +92,16 @@ const JS_TEMPLATES: Template[] = [
   //   hasEnv: false,
   //   configFiles: undefined
   // },
-  {
-    name: 'declarative_net_request',
-    uiContext: undefined,
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
+  // TODO: cezaraugusto fix this on Windows
+  // {
+  //   name: 'declarative_net_request',
+  //   uiContext: undefined,
+  //   uiFramework: undefined,
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
   {
     name: 'action-locales',
     uiContext: ['action'],
@@ -155,15 +156,16 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  {
-    name: 'special-folders-pages',
-    uiContext: undefined,
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
+  // TODO: cezaraugusto fix this on Windows
+  // {
+  //   name: 'special-folders-pages',
+  //   uiContext: undefined,
+  //   uiFramework: undefined,
+  //   css: 'css',
+  //   hasBackground: false,
+  //   hasEnv: false,
+  //   configFiles: undefined
+  // },
   {
     name: 'special-folders-scripts',
     uiContext: undefined,
