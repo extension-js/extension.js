@@ -51,102 +51,6 @@ importers:
         specifier: 5.7.2
         version: 5.7.2
 
-  examples-v2/javascript: {}
-
-  examples-v2/preact:
-    dependencies:
-      '@preact/signals':
-        specifier: ^1.2.3
-        version: 1.3.2(preact@10.26.8)
-      preact:
-        specifier: ^10.22.0
-        version: 10.26.8
-    devDependencies:
-      '@prefresh/core':
-        specifier: ^1.5.2
-        version: 1.5.3(preact@10.26.8)
-      '@tailwindcss/postcss':
-        specifier: ^4.1.3
-        version: 4.1.8
-      '@types/react':
-        specifier: ^18.0.9
-        version: 18.3.23
-      '@types/react-dom':
-        specifier: ^18.0.5
-        version: 18.3.7(@types/react@18.3.23)
-      tailwindcss:
-        specifier: ^4.1.3
-        version: 4.1.8
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
-
-  examples-v2/react:
-    dependencies:
-      react:
-        specifier: ^18.1.0
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.1.0
-        version: 18.3.1(react@18.3.1)
-    devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4.1.3
-        version: 4.1.8
-      '@types/react':
-        specifier: ^18.0.9
-        version: 18.3.23
-      '@types/react-dom':
-        specifier: ^18.0.5
-        version: 18.3.7(@types/react@18.3.23)
-      tailwindcss:
-        specifier: ^4.1.3
-        version: 4.1.8
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
-
-  examples-v2/svelte:
-    dependencies:
-      svelte:
-        specifier: 5.15.0
-        version: 5.15.0
-    devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4.1.3
-        version: 4.1.8
-      '@tsconfig/svelte':
-        specifier: 5.0.4
-        version: 5.0.4
-      tailwindcss:
-        specifier: ^4.1.3
-        version: 4.1.8
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
-
-  examples-v2/typescript:
-    devDependencies:
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
-
-  examples-v2/vue:
-    dependencies:
-      vue:
-        specifier: ^3.4.27
-        version: 3.5.16(typescript@5.3.3)
-    devDependencies:
-      '@tailwindcss/postcss':
-        specifier: ^4.1.3
-        version: 4.1.8
-      tailwindcss:
-        specifier: ^4.1.3
-        version: 4.1.8
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
-
   examples/_not_working_content-css-modules: {}
 
   examples/_not_working_content-less-modules:
@@ -1030,6 +934,111 @@ importers:
       typescript:
         specifier: 5.7.2
         version: 5.7.2
+
+  templates/javascript:
+    dependencies:
+      sakura.css:
+        specifier: ^1.4.1
+        version: 1.5.0
+    devDependencies:
+      autoprefixer:
+        specifier: ^10.4.20
+        version: 10.4.21(postcss@8.5.4)
+      postcss:
+        specifier: ^8.4.47
+        version: 8.5.4
+      tailwindcss:
+        specifier: ^3.4.13
+        version: 3.4.17
+
+  templates/preact:
+    dependencies:
+      preact:
+        specifier: ^10.19.6
+        version: 10.26.8
+      sakura.css:
+        specifier: ^1.4.1
+        version: 1.5.0
+    devDependencies:
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
+  templates/react:
+    dependencies:
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+      sakura.css:
+        specifier: ^1.4.1
+        version: 1.5.0
+    devDependencies:
+      '@types/react':
+        specifier: ^18.2.64
+        version: 18.3.23
+      '@types/react-dom':
+        specifier: ^18.2.21
+        version: 18.3.7(@types/react@18.3.23)
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
+  templates/svelte:
+    dependencies:
+      sakura.css:
+        specifier: ^1.4.1
+        version: 1.5.0
+      svelte:
+        specifier: 5.15.0
+        version: 5.15.0
+    devDependencies:
+      '@tsconfig/svelte':
+        specifier: 5.0.4
+        version: 5.0.4
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
+  templates/typescript:
+    dependencies:
+      sakura.css:
+        specifier: ^1.4.1
+        version: 1.5.0
+    devDependencies:
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
+  templates/vue:
+    dependencies:
+      sakura.css:
+        specifier: ^1.4.1
+        version: 1.5.0
+      vue:
+        specifier: ^3.4.21
+        version: 3.5.16(typescript@5.3.3)
+    devDependencies:
+      '@types/vue':
+        specifier: ^2.0.0
+        version: 2.0.0(typescript@5.3.3)
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+
+  templates/wasm:
+    devDependencies:
+      '@types/chrome':
+        specifier: ^0.0.260
+        version: 0.0.260
+      typescript:
+        specifier: 5.3.3
+        version: 5.3.3
+      wasm-pack:
+        specifier: ^0.12.1
+        version: 0.12.1
 
 packages:
 
@@ -3282,6 +3291,9 @@ packages:
   '@types/case-sensitive-paths-webpack-plugin@2.1.9':
     resolution: {integrity: sha512-PgzPEjX7lmqJh4m717reml5Lkabnxxu4k7EQc78h0zmgoZINbFtM3lPyR6HKr8j+bbWbhZ29ZezH2ICLSHPVzw==}
 
+  '@types/chrome@0.0.260':
+    resolution: {integrity: sha512-lX6QpgfsZRTDpNcCJ+3vzfFnFXq9bScFRTlfhbK5oecSAjamsno+ejFTCbNtc5O/TPnVK9Tja/PyecvWQe0F2w==}
+
   '@types/chrome@0.0.287':
     resolution: {integrity: sha512-wWhBNPNXZHwycHKNYnexUcpSbrihVZu++0rdp6GEk5ZgAglenLx+RwdEouh6FrHS0XQiOxSd62yaujM1OoQlZQ==}
 
@@ -3450,6 +3462,10 @@ packages:
 
   '@types/uglify-js@3.17.5':
     resolution: {integrity: sha512-TU+fZFBTBcXj/GpDpDaBmgWk/gn96kMZ+uocaFUlV2f8a6WdMzzI44QBCmGcCiYR0Y6ZlNRiyUyKKt5nl/lbzQ==}
+
+  '@types/vue@2.0.0':
+    resolution: {integrity: sha512-WDElkBv/o4lVwu6wYHB06AXs4Xo2fwDjJUpvPRc1QQdzkUSiGFjrYuSCy8raxLE5FObgKq8ND7R5gSZTFLK60w==}
+    deprecated: This is a stub types definition for vuejs (https://github.com/vuejs/vue). vuejs provides its own type definitions, so you don't need @types/vue installed!
 
   '@types/webextension-polyfill@0.12.3':
     resolution: {integrity: sha512-F58aDVSeN/MjUGazXo/cPsmR76EvqQhQ1v4x23hFjUX0cfAJYE+JBWwiOGW36/VJGGxoH74sVlRIF3z7SJCKyg==}
@@ -3776,6 +3792,9 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
+  axios@0.26.1:
+    resolution: {integrity: sha512-fPwcX4EvnSHuInCMItEhAGnaSEXRBjtzh9fOtsE6E1G6p7vl7edEeZe11QHf18+6+9gR5PbKV/sGKNaD8YaMeA==}
+
   axios@1.9.0:
     resolution: {integrity: sha512-re4CqKTJaURpzbLHtIi6XpDv20/CnpXOtjRY5/CU32L8gU8ek9UIivcfvSWvmKEngmVbrUtPpdDwWDWL7DNHvg==}
 
@@ -3862,6 +3881,10 @@ packages:
   binary-extensions@2.3.0:
     resolution: {integrity: sha512-Ceh+7ox5qe7LJuLHoY0feh3pHuUDHAcRUeyL2VYghZwfpkNIy/+8Ocg0a3UuSoYzavmylwuLWQOf3hl0jjMMIw==}
     engines: {node: '>=8'}
+
+  binary-install@1.1.0:
+    resolution: {integrity: sha512-rkwNGW+3aQVSZoD0/o3mfPN6Yxh3Id0R/xzTVBVVpGNlVz8EGwusksxRlbk/A5iKTZt9zkMn3qIqmAt3vpfbzg==}
+    engines: {node: '>=10'}
 
   bn.js@4.12.2:
     resolution: {integrity: sha512-n4DSx829VRTRByMRGdjQ9iqsN0Bh4OolPsFnaZBLcbi8iXcB+kJ9s7EnRt4wILZNV3kPLHkRVfOc/HvhC3ovDw==}
@@ -4027,6 +4050,10 @@ packages:
   chokidar@4.0.3:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
     engines: {node: '>= 14.16.0'}
+
+  chownr@2.0.0:
+    resolution: {integrity: sha512-bIomtDF5KGpdogkLd9VspvFzk9KfpyyGlS8YFVZl7TGPBHL5snIOnxeshwVgPteQ9b4Eydl+pVbIyE1DcvCWgQ==}
+    engines: {node: '>=10'}
 
   chownr@3.0.0:
     resolution: {integrity: sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==}
@@ -4870,6 +4897,10 @@ packages:
   fs-extra@8.1.0:
     resolution: {integrity: sha512-yhlQgA6mnOJUKOsRUFsgJdQCvkKhcz8tlZG5HBQfReYZy46OwLcY+Zia0mtdHsOo9y/hP+CxMN0TU9QxoOtG4g==}
     engines: {node: '>=6 <7 || >=8'}
+
+  fs-minipass@2.1.0:
+    resolution: {integrity: sha512-V/JgOLFCS+R6Vcq0slCuaeWEdNC3ouDlJMNIsacH2VtALiu9mV4LPrHc5cDl8k5aw6J8jwgWWpiTo5RYhmIzvg==}
+    engines: {node: '>= 8'}
 
   fs.realpath@1.0.0:
     resolution: {integrity: sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==}
@@ -5903,13 +5934,30 @@ packages:
   minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
 
+  minipass@3.3.6:
+    resolution: {integrity: sha512-DxiNidxSEK+tHG6zOIklvNOwm3hvCrbUrdtzY74U6HKTJxvIDfOUL5W5P2Ghd3DTkhhKPYGqeNUIh5qcM4YBfw==}
+    engines: {node: '>=8'}
+
+  minipass@5.0.0:
+    resolution: {integrity: sha512-3FnjYuehv9k6ovOEbyOswadCDPX1piCfhV8ncmYtHOjuPwylVWsghTLo7rabjC3Rx5xD4HDx8Wm1xnMF7S5qFQ==}
+    engines: {node: '>=8'}
+
   minipass@7.1.2:
     resolution: {integrity: sha512-qOOzS1cBTWYF4BH8fVePDBOO9iptMnGUEZwNc/cMWnTV2nVLZ7VoNWEPHkYczZA0pdoA7dl6e7FL659nX9S2aw==}
     engines: {node: '>=16 || 14 >=14.17'}
 
+  minizlib@2.1.2:
+    resolution: {integrity: sha512-bAxsR8BVfj60DWXHE3u30oHzfl4G7khkSuPW+qvpd7jFRHm7dLxOjUk1EHACJ/hxLY8phGJ0YhYHZo7jil7Qdg==}
+    engines: {node: '>= 8'}
+
   minizlib@3.0.2:
     resolution: {integrity: sha512-oG62iEk+CYt5Xj2YqI5Xi9xWUeZhDI8jjQmC5oThVH5JGCTgIjr7ciJDzC7MBzYd//WvR1OTmP5Q38Q8ShQtVA==}
     engines: {node: '>= 18'}
+
+  mkdirp@1.0.4:
+    resolution: {integrity: sha512-vVqVZQyf3WLx2Shd0qJ9xuvqgAyKPLAiqITEtqW0oIUjzo3PePDd6fW9iFz30ef7Ysp/oiWqbhszeGWW2T6Gzw==}
+    engines: {node: '>=10'}
+    hasBin: true
 
   mkdirp@3.0.1:
     resolution: {integrity: sha512-+NsyUUAZDmo6YVHzL/stxSu3t9YS1iljliy3BSDrXJ/dkn1KYdmtZODGGjLcc9XLgVVpH4KshHB8XmZgMhaBXg==}
@@ -6783,6 +6831,11 @@ packages:
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
 
+  rimraf@3.0.2:
+    resolution: {integrity: sha512-JZkJMZkAGFFPP2YqXZXPbMlMBgsxzE8ILs4lMIX/2o0L9UBw9O/Y3o6wFw/i9YLapcUJWwqbi3kdxIPdC62TIA==}
+    deprecated: Rimraf versions prior to v4 are no longer supported
+    hasBin: true
+
   ripemd160@2.0.2:
     resolution: {integrity: sha512-ii4iagi25WusVoiC4B4lq7pbXfAp3D9v5CwfkY33vffw2+pkDjY1D8GaN7spsxvCSx8dkPqOZCEZyfxcmJG2IA==}
 
@@ -6823,6 +6876,9 @@ packages:
 
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
+
+  sakura.css@1.5.0:
+    resolution: {integrity: sha512-AcAZa9F4SCs2xaKLWcXQxJxKfeod2PN3sR31+R22MKuyoJxNChH1wBG4mQaY9gVpJ3VpNA1XHPOrOM9hFo9cSw==}
 
   sass-loader@16.0.5:
     resolution: {integrity: sha512-oL+CMBXrj6BZ/zOq4os+UECPL+bWqt6OAC6DWS8Ln8GZRcMDjlJ4JC3FBDuHJdYaFWIdKNIBYmtZtK2MaMkNIw==}
@@ -7228,6 +7284,10 @@ packages:
   tapable@2.2.2:
     resolution: {integrity: sha512-Re10+NauLTMCudc7T5WLFLAwDhQ0JWdrMK+9B2M8zR5hRExKmsRDCBA7/aV/pNJFltmBFO5BAMlQFi/vq3nKOg==}
     engines: {node: '>=6'}
+
+  tar@6.2.1:
+    resolution: {integrity: sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==}
+    engines: {node: '>=10'}
 
   tar@7.4.3:
     resolution: {integrity: sha512-5S7Va8hKfV7W5U6g3aYxXmlPoZVAwUMy9AOKyF2fVuZa2UD3qZjg578OrLRt8PcNN1PleVaL/5/yYATNL0ICUw==}
@@ -7661,6 +7721,10 @@ packages:
   walker@1.0.8:
     resolution: {integrity: sha512-ts/8E8l5b7kY0vlWLewOkDXMmPdLcVV4GmOQLyxuSswIJsweeFZtAsMF7k1Nszz+TYBQrlYRmzOnr398y1JemQ==}
 
+  wasm-pack@0.12.1:
+    resolution: {integrity: sha512-dIyKWUumPFsGohdndZjDXRFaokUT/kQS+SavbbiXVAvA/eN4riX5QNdB6AhXQx37zNxluxQkuixZUgJ8adKjOg==}
+    hasBin: true
+
   watchpack@2.4.4:
     resolution: {integrity: sha512-c5EGNOiyxxV5qmTtAB7rbiXxi1ooX1pQKMLX/MIabJjRA0SJBQOjKF+KSVfHkr9U1cADPon0mRiVe/riyaiDUA==}
     engines: {node: '>=10.13.0'}
@@ -7834,6 +7898,9 @@ packages:
 
   yallist@3.1.1:
     resolution: {integrity: sha512-a4UGQaWPH59mOXUYnAG2ewncQS4i4F43Tv3JoAM+s2VDAmS9NsK8GpDMLrCHPksFT7h3K6TOoUNn2pb7RoXx4g==}
+
+  yallist@4.0.0:
+    resolution: {integrity: sha512-3wdGidZyq5PB084XLES5TpOSRA3wjXAlIWMhum2kRcv/41Sn2emQ0dycQW4uZXLejwKvg6EsvbdlVL+FYEct7A==}
 
   yallist@5.0.0:
     resolution: {integrity: sha512-YgvUTfwqyc7UXVMrB+SImsVYSmTS8X/tSrtdNZMImM+n7+QTriRXyXim0mBrTXNeqzVF0KWGgHPeiyViFFrNDw==}
@@ -10309,6 +10376,11 @@ snapshots:
     dependencies:
       '@types/webpack': 4.41.40
 
+  '@types/chrome@0.0.260':
+    dependencies:
+      '@types/filesystem': 0.0.36
+      '@types/har-format': 1.2.16
+
   '@types/chrome@0.0.287':
     dependencies:
       '@types/filesystem': 0.0.36
@@ -10521,6 +10593,12 @@ snapshots:
   '@types/uglify-js@3.17.5':
     dependencies:
       source-map: 0.6.1
+
+  '@types/vue@2.0.0(typescript@5.3.3)':
+    dependencies:
+      vue: 3.5.16(typescript@5.3.3)
+    transitivePeerDependencies:
+      - typescript
 
   '@types/webextension-polyfill@0.12.3': {}
 
@@ -11036,6 +11114,12 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
+  axios@0.26.1:
+    dependencies:
+      follow-redirects: 1.15.9
+    transitivePeerDependencies:
+      - debug
+
   axios@1.9.0:
     dependencies:
       follow-redirects: 1.15.9
@@ -11172,6 +11256,14 @@ snapshots:
   big.js@5.2.2: {}
 
   binary-extensions@2.3.0: {}
+
+  binary-install@1.1.0:
+    dependencies:
+      axios: 0.26.1
+      rimraf: 3.0.2
+      tar: 6.2.1
+    transitivePeerDependencies:
+      - debug
 
   bn.js@4.12.2: {}
 
@@ -11383,6 +11475,8 @@ snapshots:
   chokidar@4.0.3:
     dependencies:
       readdirp: 4.1.2
+
+  chownr@2.0.0: {}
 
   chownr@3.0.0: {}
 
@@ -12439,6 +12533,10 @@ snapshots:
       graceful-fs: 4.2.11
       jsonfile: 4.0.0
       universalify: 0.1.2
+
+  fs-minipass@2.1.0:
+    dependencies:
+      minipass: 3.3.6
 
   fs.realpath@1.0.0: {}
 
@@ -13600,11 +13698,24 @@ snapshots:
 
   minimist@1.2.8: {}
 
+  minipass@3.3.6:
+    dependencies:
+      yallist: 4.0.0
+
+  minipass@5.0.0: {}
+
   minipass@7.1.2: {}
+
+  minizlib@2.1.2:
+    dependencies:
+      minipass: 3.3.6
+      yallist: 4.0.0
 
   minizlib@3.0.2:
     dependencies:
       minipass: 7.1.2
+
+  mkdirp@1.0.4: {}
 
   mkdirp@3.0.1: {}
 
@@ -14547,6 +14658,10 @@ snapshots:
 
   rfdc@1.4.1: {}
 
+  rimraf@3.0.2:
+    dependencies:
+      glob: 7.2.3
+
   ripemd160@2.0.2:
     dependencies:
       hash-base: 3.0.5
@@ -14606,6 +14721,8 @@ snapshots:
       is-regex: 1.2.1
 
   safer-buffer@2.1.2: {}
+
+  sakura.css@1.5.0: {}
 
   sass-loader@16.0.5(@rspack/core@1.3.13(@swc/helpers@0.5.17))(sass@1.89.1)(webpack@5.99.9(esbuild@0.25.5)):
     dependencies:
@@ -15183,6 +15300,15 @@ snapshots:
 
   tapable@2.2.2: {}
 
+  tar@6.2.1:
+    dependencies:
+      chownr: 2.0.0
+      fs-minipass: 2.1.0
+      minipass: 5.0.0
+      minizlib: 2.1.2
+      mkdirp: 1.0.4
+      yallist: 4.0.0
+
   tar@7.4.3:
     dependencies:
       '@isaacs/fs-minipass': 4.0.1
@@ -15611,6 +15737,12 @@ snapshots:
     dependencies:
       makeerror: 1.0.12
 
+  wasm-pack@0.12.1:
+    dependencies:
+      binary-install: 1.1.0
+    transitivePeerDependencies:
+      - debug
+
   watchpack@2.4.4:
     dependencies:
       glob-to-regexp: 0.4.1
@@ -15905,6 +16037,8 @@ snapshots:
   y18n@5.0.8: {}
 
   yallist@3.1.1: {}
+
+  yallist@4.0.0: {}
 
   yallist@5.0.0: {}
 
