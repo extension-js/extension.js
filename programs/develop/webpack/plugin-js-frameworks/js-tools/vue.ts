@@ -63,6 +63,12 @@ export async function maybeUseVue(
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'vue')
 
+  // Check if vue.loader.js is being used
+  const vueLoaderPath = path.join(projectPath, 'vue.loader.js')
+  if (fs.existsSync(vueLoaderPath)) {
+    console.log(messages.isUsingIntegration('vue.loader.js'))
+  }
+
   const defaultLoaders: JsFramework['loaders'] = [
     {
       test: /\.vue$/,
