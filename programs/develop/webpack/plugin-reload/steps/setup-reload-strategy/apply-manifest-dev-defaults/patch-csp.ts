@@ -2,11 +2,10 @@ import parse from 'content-security-policy-parser'
 import {type Manifest} from '../../../../webpack-types'
 
 function buildCSP(cspObject: Record<string, string[]>) {
-  let policy = ''
-  for (const directive in cspObject) {
-    policy += `${directive} ${cspObject[directive].join(' ')}; `
-  }
-  return policy.trim()
+  const directives = Object.entries(cspObject).map(
+    ([directive, values]) => `${directive} ${values.join(' ')}`
+  )
+  return directives.join('; ') + '; '
 }
 
 // Function for Manifest V2 CSP patching
@@ -15,10 +14,10 @@ export function patchV2CSP(manifest: Manifest) {
 
   if (!policy) {
     // Default V2 policy if none is provided
-    return (
-      "script-src 'self' 'unsafe-eval' blob: filesystem:; " +
-      "object-src 'self' blob: filesystem:; "
-    )
+    return buildCSP({
+      'script-src': ["'self'", "'unsafe-eval'", 'blob:', 'filesystem:'],
+      'object-src': ["'self'", 'blob:', 'filesystem:']
+    })
   }
 
   const csp = parse(policy)
@@ -42,6 +41,15 @@ export function patchV2CSP(manifest: Manifest) {
 
   if (!csp.get('object-src')) {
     csp.set('object-src', ["'self'", 'blob:', 'filesystem:'])
+  } else {
+    const objectSrc = csp.get('object-src') || []
+    if (!objectSrc.includes('blob:')) {
+      objectSrc.push('blob:')
+    }
+    if (!objectSrc.includes('filesystem:')) {
+      objectSrc.push('filesystem:')
+    }
+    csp.set('object-src', objectSrc)
   }
 
   // Rebuild the policy string
@@ -56,7 +64,10 @@ export function patchV3CSP(manifest: Manifest) {
   if (!policy) {
     // Default V3 policy if none is provided
     return {
-      extension_pages: "script-src 'self'; object-src 'self';"
+      extension_pages: buildCSP({
+        'script-src': ["'self'"],
+        'object-src': ["'self'"]
+      })
     }
   }
 
