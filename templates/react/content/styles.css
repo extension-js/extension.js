@@ -1,0 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.content_script {
+  @apply fixed bottom-0 right-0 z-[99999];
+}
