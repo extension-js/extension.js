@@ -54,7 +54,7 @@ export class EmitHtmlFile {
 
               if (!utils.shouldExclude(resource as string, this.excludeList)) {
                 const rawSource = new sources.RawSource(rawHtml)
-                const filepath = getFilePath(featureName, '.html')
+                const filepath = getFilePath(featureName, '.html', false)
                 compilation.emitAsset(filepath, rawSource)
               }
             }

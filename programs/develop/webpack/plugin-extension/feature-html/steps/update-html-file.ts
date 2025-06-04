@@ -46,8 +46,10 @@ export class UpdateHtmlFile {
                   !utils.shouldExclude(resource as string, this.excludeList)
                 ) {
                   if (updatedHtml) {
-                    const rawSource = new sources.RawSource(updatedHtml)
-                    const filepath = getFilePath(feature, '.html')
+                    const rawSource = new sources.RawSource(
+                      updatedHtml.toString()
+                    )
+                    const filepath = getFilePath(feature, '.html', false)
                     compilation.updateAsset(filepath, rawSource)
                   }
                 }
