@@ -11,9 +11,7 @@ export default function SidebarApp() {
           alt="The React logo"
           width="120"
         />
-        <h1 className="sidebar_title">
-          Ready for development
-        </h1>
+        <h1 className="sidebar_title">Ready for development</h1>
         <p className="sidebar_description">
           Learn more about creating cross-browser extensions at{' '}
           <a

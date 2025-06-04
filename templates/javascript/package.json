@@ -14,5 +14,8 @@
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13"
   },
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "sakura.css": "^1.4.1"
+  }
 }

@@ -11,16 +11,6 @@
   </div>
 </template>
 
-<script lang="ts">
-import { defineComponent } from 'vue'
-import vueLogo from '../images/logo.svg'
-
-export default defineComponent({
-  name: 'SidebarApp',
-  setup() {
-    return {
-      vueLogo
-    }
-  }
-})
+<script setup lang="ts">
+import vueLogo from '../images/vue.png'
 </script>

@@ -34,6 +34,12 @@
     "chromium:service_worker": "background.ts",
     "firefox:scripts": ["background.ts"]
   },
+  "web_accessible_resources": [
+    {
+      "resources": ["typescript.png"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],

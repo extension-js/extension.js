@@ -10,11 +10,10 @@
   },
   "license": "MIT",
   "type": "module",
-  "dependencies": {},
+  "dependencies": {
+    "sakura.css": "^1.4.1"
+  },
   "devDependencies": {
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.13",
     "typescript": "5.3.3"
   }
 }

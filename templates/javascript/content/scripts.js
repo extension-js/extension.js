@@ -1,12 +1,19 @@
-import logo from '../images/logo.svg'
+import logo from '../images/javascript.png'
+
+let unmount
+
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
 
 console.log('hello from content_scripts')
 
 if (document.readyState === 'complete') {
-  initial()
+  unmount = initial() || (() => {})
 } else {
   document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') initial()
+    if (document.readyState === 'complete') unmount = initial() || (() => {})
   })
 }
 
@@ -20,24 +27,56 @@ function initial() {
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
-  // Inform Extension.js that the shadow root is available.
-  window.__EXTENSION_SHADOW_ROOT__ = shadowRoot
+  const styleElement = document.createElement('style')
+  shadowRoot.appendChild(styleElement)
+  fetchCSS().then((response) => (styleElement.textContent = response))
 
-  shadowRoot.innerHTML = `
-    <div class="content_script">
-      <img class="content_logo" src="${logo}" />
-      <h1 class="content_title">
-        Welcome to your Content Script Extension
-      </h1>
-      <p class="content_description">
-        Learn more about creating cross-browser extensions at <a
-          className="underline hover:no-underline"
-          href="https://extension.js.org"
-          target="_blank"
-        >
-        https://extension.js.org
-        </a>
-      </p>
-    </div>
-  `
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.css', () => {
+      fetchCSS().then((response) => (styleElement.textContent = response))
+    })
+  }
+
+  // Create container div
+  const contentDiv = document.createElement('div')
+  contentDiv.className = 'content_script'
+
+  // Create and append logo image
+  const img = document.createElement('img')
+  img.className = 'content_logo'
+  img.src = logo
+  contentDiv.appendChild(img)
+
+  // Create and append title
+  const title = document.createElement('h1')
+  title.className = 'content_title'
+  title.textContent = 'Welcome to your JavaScript Extension'
+  contentDiv.appendChild(title)
+
+  // Create and append description paragraph
+  const desc = document.createElement('p')
+  desc.className = 'content_description'
+  desc.innerHTML = 'Learn more about creating cross-browser extensions at '
+
+  const link = document.createElement('a')
+  link.href = 'https://extension.js.org'
+  link.target = '_blank'
+  link.textContent = 'https://extension.js.org'
+
+  desc.appendChild(link)
+  contentDiv.appendChild(desc)
+
+  // Append the content div to shadow root
+  shadowRoot.appendChild(contentDiv)
+
+  return () => {
+    rootDiv.remove()
+  }
+}
+
+async function fetchCSS() {
+  const cssUrl = new URL('./styles.css', import.meta.url)
+  const response = await fetch(cssUrl)
+  const text = await response.text()
+  return response.ok ? text : Promise.reject(text)
 }

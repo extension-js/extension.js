@@ -36,7 +36,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["logo.svg"],
+      "resources": ["javascript.png"],
       "matches": ["<all_urls>"]
     }
   ],

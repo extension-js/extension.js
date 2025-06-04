@@ -1,7 +1,6 @@
-// @ts-expect-error - Import handled by webpack
-import logo from '../images/logo.svg'
+import logo from '../images/typescript.png'
 
-let unmount: () => void
+let unmount: (() => void) | undefined
 
 if (import.meta.webpackHot) {
   import.meta.webpackHot?.accept()

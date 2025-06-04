@@ -1,6 +1,6 @@
 <script lang="ts">
 import { defineComponent } from 'vue'
-import vueLogo from '../images/logo.svg'
+import vueLogo from '../images/vue.png'
 
 export default defineComponent({
   name: 'ContentApp',

@@ -1,35 +1,29 @@
-import typescriptLogo from '../images/logo.svg'
 import './styles.css'
+import typescriptLogo from '../images/typescript.png'
 
 function SidebarApp() {
   const root = document.getElementById('root')
   if (!root) return
 
   root.innerHTML = `
-    <div class="p-4">
-      <header class="text-center">
-        <h1 class="mb-4">
-          <img
-            class="typescript mx-auto mb-2"
-            src="${typescriptLogo}"
-            alt="The TypeScript logo"
-            width="120px"
-          />
-          <br />
-          Welcome to your TypeScript Extension
-        </h1>
-        <p class="text-gray-600">
-          Learn more about creating cross-browser extensions at
-          <a
-            href="https://extension.js.org"
-            target="_blank"
-            class="text-blue-600 hover:underline"
-          >
-            https://extension.js.org
-          </a>
-          .
-        </p>
-      </header>
+    <div class="sidebar_app">
+      <img
+        class="sidebar_logo"
+        src="${typescriptLogo}"
+        alt="The TypeScript logo"
+      />
+      <h1 class="sidebar_title">
+        Welcome to your TypeScript Extension
+      </h1>
+      <p class="sidebar_description">
+        Learn more about creating cross-browser extensions at
+        <a
+          href="https://extension.js.org"
+          target="_blank"
+        >
+          https://extension.js.org
+        </a>
+      </p>
     </div>
   `
 }

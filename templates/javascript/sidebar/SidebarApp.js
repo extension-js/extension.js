@@ -1,4 +1,4 @@
-import javascriptLogo from '../images/logo.svg'
+import javascriptLogo from '../images/javascript.png'
 import './styles.css'
 
 function SidebarApp() {
@@ -6,30 +6,24 @@ function SidebarApp() {
   if (!root) return
 
   root.innerHTML = `
-    <div class="p-4">
-      <header class="text-center">
-        <h1 class="mb-4">
-          <img
-            class="javascript mx-auto mb-2"
-            src="${javascriptLogo}"
-            alt="The JavaScript logo"
-            width="120px"
-          />
-          <br />
-          Welcome to your JavaScript Extension
-        </h1>
-        <p class="text-gray-600">
-          Learn more about creating cross-browser extensions at
-          <a
-            href="https://extension.js.org"
-            target="_blank"
-            class="text-blue-600 hover:underline"
-          >
-            https://extension.js.org
-          </a>
-          .
-        </p>
-      </header>
+    <div class="sidebar_app">
+      <img
+        class="sidebar_logo"
+        src="${javascriptLogo}"
+        alt="The JavaScript logo"
+      />
+      <h1 class="sidebar_title">
+        Welcome to your JavaScript Extension
+      </h1>
+      <p class="sidebar_description">
+        Learn more about creating cross-browser extensions at
+        <a
+          href="https://extension.js.org"
+          target="_blank"
+        >
+          https://extension.js.org
+        </a>
+      </p>
     </div>
   `
 }
