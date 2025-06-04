@@ -65,6 +65,12 @@ export async function maybeUseSvelte(
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'svelte')
 
+  // Check if svelte.loader.js is being used
+  const svelteLoaderPath = path.join(projectPath, 'svelte.loader.js')
+  if (fs.existsSync(svelteLoaderPath)) {
+    console.log(messages.isUsingIntegration('svelte.loader.js'))
+  }
+
   const defaultLoaders: JsFramework['loaders'] = [
     {
       test: /\.svelte\.ts$/,
