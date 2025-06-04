@@ -33,13 +33,11 @@ interface OverridePackageJsonOptions {
 export async function overridePackageJson(
   projectPath: string,
   projectName: string,
-  {template, cliVersion}: OverridePackageJsonOptions
+  {cliVersion}: OverridePackageJsonOptions
 ) {
   const templatePath = utils.getTemplatePath(process.cwd())
 
-  const packageJsonPath = utils.isExternalTemplate(template)
-    ? path.join(projectPath, 'package.json')
-    : path.join(templatePath, 'package.json')
+  const packageJsonPath = path.join(templatePath, 'package.json')
 
   const packageJsonContent = await fs.readFile(packageJsonPath)
   const packageJson = JSON.parse(packageJsonContent.toString())

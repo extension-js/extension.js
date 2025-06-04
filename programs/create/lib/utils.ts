@@ -128,10 +128,6 @@ export async function isDirectoryWriteable(
   }
 }
 
-export function isExternalTemplate(templateName: string) {
-  return templateName !== 'init'
-}
-
 export function isTypeScriptTemplate(templateName: string) {
   return (
     templateName.includes('typescript') ||

@@ -64,7 +64,7 @@ describe('extension create', () => {
   it('creates a default project using without template flag', async () => {
     const templatePath = path.resolve(__dirname, 'dist', 'test-template-init')
     await extensionCreate(templatePath, {
-      template: 'init'
+      template: 'init',
     })
 
     expect(fileExists('init', 'package.json')).toBeTruthy()
