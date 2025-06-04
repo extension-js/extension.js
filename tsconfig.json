@@ -23,6 +23,6 @@
     "**/spec",
     "./programs/create/templates/**",
     "./examples/**",
-    "./examples-v2/**"
+    "./templates/**"
   ]
 }

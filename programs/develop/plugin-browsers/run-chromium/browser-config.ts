@@ -60,7 +60,10 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Don't send hyperlink auditing pings
   '--no-pings',
   // Ensure the side panel is visible. This is used for testing the side panel feature.
-  '--enable-features=SidePanelUpdates'
+  '--enable-features=SidePanelUpdates',
+  // Disable the load extension command line switch
+  // @ts-expect-error - this is a valid flag
+  '--disable-features=DisableLoadExtensionCommandLineSwitch'
 ]
 
 export function browserConfig(configOptions: PluginInterface) {

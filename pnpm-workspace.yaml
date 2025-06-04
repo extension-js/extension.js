@@ -3,7 +3,7 @@ packages:
   - './programs/create'
   - './programs/develop'
   - './examples/*'
-  - './examples-v2/*'
+  - './templates/*'
   # Ignore dist folders used for testing
   - "!programs/cli/dist"
   - "!programs/create/dist"
