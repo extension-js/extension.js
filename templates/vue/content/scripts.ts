@@ -3,11 +3,6 @@ import ContentApp from './ContentApp.vue'
 
 let unmount: () => void
 
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-}
-
 if (document.readyState === 'complete') {
   unmount = initial() || (() => {})
 } else {
@@ -19,6 +14,7 @@ if (document.readyState === 'complete') {
 console.log('Hello from content script')
 
 function initial() {
+  // Create a new div element and append it to the document's body
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)
@@ -32,22 +28,16 @@ function initial() {
   shadowRoot.appendChild(styleElement)
   fetchCSS().then((response) => (styleElement.textContent = response))
 
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
-  }
-
   // Create container for Vue app
-  const contentDiv = document.createElement('div')
-  contentDiv.className = 'content_script'
-  shadowRoot.appendChild(contentDiv)
+  const container = document.createElement('div')
+  container.className = 'content_script'
+  shadowRoot.appendChild(container)
 
-  // Mount the Vue app to the container inside the shadow DOM
   const app = createApp(ContentApp)
-  app.mount(contentDiv)
+  app.mount(container)
 
   return () => {
+    app.unmount()
     rootDiv.remove()
   }
 }

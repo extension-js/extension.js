@@ -1,90 +1,72 @@
-<script lang="ts" setup>
-import {ref} from 'vue'
+<script lang="ts">
+import { defineComponent } from 'vue'
+import vueLogo from '../images/logo.svg'
 
-const isdialogOpen = ref(true)
-const setIsDialogOpen = (value: boolean) => (isdialogOpen.value = value)
+export default defineComponent({
+  name: 'ContentApp',
+  setup() {
+    return {
+      vueLogo
+    }
+  }
+})
 </script>
+
 <template>
-  <div v-if="isdialogOpen">
-    <div className="mx-auto max-w-7xl md:px-0 lg:p-6">
-      <div
-        className="relative isolate overflow-hidden bg-gray-900 px-6 pt-16 shadow-2xl lg:rounded-3xl md:pt-24 md:h-full sm:h-[100vh] lg:flex lg:gap-x-20 lg:px-24 lg:pt-0"
-      >
-        <div
-          className="absolute z-20 top-0 inset-x-0 flex justify-center overflow-hidden pointer-events-none"
-        >
-          <div className="w-[108rem] flex-none flex justify-end">
-            <picture>
-              <img
-                src="../images/tailwind_bg.png"
-                alt=""
-                className="w-[90rem] flex-none max-w-none hidden dark:block"
-                decoding="async"
-              />
-            </picture>
-          </div>
-        </div>
-        <div
-          className="mx-auto max-w-md text-center lg:py-12 lg:mx-0 lg:flex-auto lg:text-left"
-        >
-          <div
-            className="flex items-center justify-center space-x-4 my-4 mx-auto"
-          >
-            <img
-              alt="Vue logo"
-              src="../images/logo.svg"
-              className="relative inline-block w-12"
-            />
-            <div className="text-3xl text-white">+</div>
-            <img
-              alt="TypeScript logo"
-              src="../images/typescript.png"
-              className="relative inline-block w-12"
-            />
-            <div className="text-3xl text-white">+</div>
-            <img
-              alt="Tailwind logo"
-              src="../images/tailwind.png"
-              className="relative inline-block w-12"
-            />
-          </div>
-          <h2
-            className="text-3xl font-bold tracking-tight text-white sm:text-4xl"
-          >
-            This is a content script running Vue, TypeScript, and Tailwind.css.
-          </h2>
-          <p className="mt-6 text-lg leading-8 text-gray-300">
-            Learn more about creating cross-browser extensions by
-            <button
-              @click="setIsDialogOpen(false)"
-              className="underline hover:no-underline
-            "
-            >
-              closing this hint
-            </button>
-            .
-          </p>
-        </div>
-        <div className="relative mt-16 h-80 lg:mt-8">
-          <img
-            className="absolute left-0 top-0 w-[57rem] max-w-none rounded-md bg-white/5 ring-1 ring-white/10"
-            src="../images/chromeWindow.png"
-            alt="Chrome window screenshot"
-            width="1824"
-            height="1080"
-          />
-        </div>
-      </div>
-    </div>
-  </div>
-  <div v-else>
-    <div className="mx-auto p-6">
-      <button
-        @click="setIsDialogOpen(true)"
-        className="bg-white rounded-md p-3 text-sm font-semibold text-gray-900 shadow-sm hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-      >
-        🧩 Open content script hint <span aria-hidden="true">+</span>
-      </button>
-    </div>
+  <div class="content_script">
+    <img class="content_logo" :src="vueLogo" alt="Extension Logo" />
+    <h1 class="content_title">Welcome to your<br />Vue Extension</h1>
+    <p class="content_description">
+      Learn more about creating cross-browser extensions at
+      <a href="https://extension.js.org" target="_blank" rel="noopener noreferrer">
+        https://extension.js.org
+      </a>
+    </p>
   </div>
 </template>
+
+<style>
+@import 'sakura.css';
+
+.content_script {
+  color: #c9c9c9;
+  background-color: #0a0c10;
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 9;
+  width: 280px;
+  margin: 1rem;
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  border-radius: 6px;
+  z-index: 9999;
+}
+
+.content_logo {
+  width: 72px;
+}
+
+.content_title {
+  font-size: 1.5em;
+  line-height: 1;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  font-weight: 700;
+  margin: 0;
+}
+
+.content_description {
+  font-size: small;
+  margin: 0;
+}
+
+.content_description a {
+  text-decoration: none;
+  border-bottom: 2px solid #c9c9c9;
+  color: #e5e7eb;
+  margin: 0;
+}
+</style>

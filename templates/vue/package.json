@@ -10,14 +10,11 @@
   },
   "license": "MIT",
   "dependencies": {
-    "vue": "^3.4.21"
+    "vue": "^3.4.21",
+    "sakura.css": "^1.4.1"
   },
   "devDependencies": {
     "@types/vue": "^2.0.0",
-    "@vitejs/plugin-vue": "^5.0.4",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
-    "tailwindcss": "^3.4.13",
     "typescript": "5.3.3"
   },
   "type": "module"
