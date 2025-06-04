@@ -24,7 +24,7 @@
     "extension": "./dist/cli.js"
   },
   "name": "extension",
-  "version": "2.0.0-rc.27",
+  "version": "2.0.0-rc.28",
   "description": "Create cross-browser extensions with no build configuration.",
   "author": {
     "name": "Cezar Augusto",
