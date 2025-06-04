@@ -51,6 +51,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Compile package
+        run: pnpm compile
+
       - name: Run checks
         run: |
           pnpm format
