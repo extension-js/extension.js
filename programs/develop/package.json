@@ -63,7 +63,7 @@
     "micromatch": "^4.0.8",
     "package-manager-detector": "^0.2.7",
     "parse5": "^7.2.1",
-    "parse5-utils": "^2.0.0",
+    "parse5-utilities": "^1.0.0",
     "postcss": "^8.4.49",
     "preact": "^10.22.0",
     "progress": "^2.0.3",
