@@ -2,7 +2,6 @@ import * as path from 'path'
 import * as messages from './lib/messages'
 import * as utils from './lib/utils'
 import {createDirectory} from './steps/create-directory'
-import {importLocalTemplate} from './steps/import-local-template'
 import {importExternalTemplate} from './steps/import-external-template'
 import {overridePackageJson} from './steps/write-package-json'
 import {installDependencies} from './steps/install-dependencies'
@@ -21,7 +20,15 @@ export interface CreateOptions {
 
 export async function extensionCreate(
   projectNameInput: string | undefined,
-  {cliVersion, template = 'init', install = true}: CreateOptions
+  {
+    cliVersion,
+    template = 'init',
+    install = true,
+  }: {
+    cliVersion?: string
+    template?: string
+    install?: boolean
+  }
 ) {
   if (!projectNameInput) {
     throw new Error(messages.noProjectName())
@@ -31,7 +38,6 @@ export async function extensionCreate(
     throw new Error(messages.noUrlAllowed())
   }
 
-  // Check if path is absolute
   const projectPath = path.isAbsolute(projectNameInput)
     ? projectNameInput
     : path.join(process.cwd(), projectNameInput)
@@ -40,16 +46,10 @@ export async function extensionCreate(
 
   try {
     await createDirectory(projectPath, projectName)
-
-    if (template === 'init') {
-      await importLocalTemplate(projectPath, projectName, template)
-    } else {
-      await importExternalTemplate(projectPath, projectName, template)
-    }
-
+    await importExternalTemplate(projectPath, projectName, template)
     await overridePackageJson(projectPath, projectName, {
       template,
-      cliVersion
+      cliVersion,
     })
 
     if (install) {
@@ -66,7 +66,6 @@ export async function extensionCreate(
       await generateExtensionTypes(projectPath, projectName)
     }
 
-    // All good!
     const successfulInstall = await messages.successfullInstall(
       projectPath,
       projectName
@@ -75,7 +74,6 @@ export async function extensionCreate(
     console.log(successfulInstall)
   } catch (error) {
     console.error(error)
-    // Re-throw the error so it can be caught in tests
     throw error
   }
 }
