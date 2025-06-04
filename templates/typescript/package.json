@@ -1,0 +1,19 @@
+{
+  "private": true,
+  "name": "typescript-extension",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Your Name",
+    "email": "your@email.com",
+    "url": "https://yourwebsite.com"
+  },
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "sakura.css": "^1.4.1"
+  },
+  "devDependencies": {
+    "typescript": "5.3.3"
+  }
+}
