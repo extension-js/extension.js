@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {vi, describe, it, expect, afterAll, beforeEach, afterEach} from 'vitest'
-import {extensionBuild, Manifest} from 'extension-develop'
+import {extensionBuild, Manifest} from '../../programs/develop/dist/module.js'
 import {
   ALL_TEMPLATES,
   DEFAULT_TEMPLATE,
