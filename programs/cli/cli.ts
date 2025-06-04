@@ -135,8 +135,7 @@ extensionJs
         browser: vendor as DevOptions['browser'],
         chromiumBinary: devOptions.chromiumBinary,
         geckoBinary: devOptions.geckoBinary,
-        // @ts-expect-error open is a boolean
-        polyfill: devOptions.polyfill === 'false' ? false : true,
+        polyfill: devOptions.polyfill?.toString() === 'false' ? false : true,
         open: devOptions.open,
         startingUrl: devOptions.startingUrl
       })
