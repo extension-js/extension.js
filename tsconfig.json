@@ -21,7 +21,7 @@
     "node_modules",
     "**/dist",
     "**/spec",
-    "./programs/create/templates/**",
+    "./programs/create/template/**",
     "./examples/**",
     "./templates/**"
   ]

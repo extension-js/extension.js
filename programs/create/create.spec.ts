@@ -48,7 +48,7 @@ describe('extension create', () => {
     await removeAllTemplateFolders()
   })
 
-  it.skip('throws an error if no project name is provided', async () => {
+  it('throws an error if no project name is provided', async () => {
     try {
       await extensionCreate(undefined, {
         template: DEFAULT_TEMPLATE.name
@@ -64,7 +64,7 @@ describe('extension create', () => {
   it('creates a default project using without template flag', async () => {
     const templatePath = path.resolve(__dirname, 'dist', 'test-template-init')
     await extensionCreate(templatePath, {
-      template: 'init',
+      template: 'init'
     })
 
     expect(fileExists('init', 'package.json')).toBeTruthy()

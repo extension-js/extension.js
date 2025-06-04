@@ -128,6 +128,10 @@ export async function isDirectoryWriteable(
   }
 }
 
+export function isExternalTemplate(_templateName: string) {
+  return true
+}
+
 export function isTypeScriptTemplate(templateName: string) {
   return (
     templateName.includes('typescript') ||
