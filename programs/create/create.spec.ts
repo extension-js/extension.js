@@ -9,7 +9,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {describe, it, expect, beforeAll} from 'vitest'
 import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../examples/data'
-import {extensionCreate} from 'extension-create'
+import {extensionCreate} from '../../programs/create/dist/module.js'
 
 function fileExists(templateName: string, filePath?: string): boolean {
   const templatePath = path.resolve(
