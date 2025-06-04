@@ -21,7 +21,7 @@
     "dist"
   ],
   "name": "extension-create",
-  "version": "2.0.0-rc.28",
+  "version": "2.0.0-rc.32",
   "description": "The create step of Extension.js",
   "author": {
     "name": "Cezar Augusto",

@@ -1,0 +1,18 @@
+{
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/extension-js/extension.git",
+    "directory": "examples/init"
+  },
+  "type": "module",
+  "name": "init",
+  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "keywords": [
+    "extension",
+    "browser-extension",
+    "web-extension",
+    "template"
+  ]
+}
