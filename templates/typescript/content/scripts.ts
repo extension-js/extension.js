@@ -1,3 +1,4 @@
+import sakuraCSS from 'sakura.css'
 import logo from '../images/typescript.png'
 
 let unmount: (() => void) | undefined
@@ -26,6 +27,15 @@ function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
+
+  // Load sakura.css into the shadow DOM
+  const sakuraStyle = document.createElement('style')
+  shadowRoot.appendChild(sakuraStyle)
+  fetch(sakuraCSS as unknown as string)
+    .then((response) => response.text())
+    .then((text) => {
+      sakuraStyle.textContent = text
+    })
 
   const styleElement = document.createElement('style')
   shadowRoot.appendChild(styleElement)
