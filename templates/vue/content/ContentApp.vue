@@ -26,8 +26,6 @@ export default defineComponent({
 </template>
 
 <style>
-@import 'sakura.css';
-
 .content_script {
   color: #c9c9c9;
   background-color: #0a0c10;
@@ -40,13 +38,14 @@ export default defineComponent({
   padding: 2rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1em;
+  gap: 0.5em;
   border-radius: 6px;
   z-index: 9999;
 }
 
 .content_logo {
   width: 72px;
+  margin-bottom: 0;
 }
 
 .content_title {
