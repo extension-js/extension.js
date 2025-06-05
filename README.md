@@ -4,6 +4,8 @@
 [downloads-url]: https://npmjs.org/package/extension
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main
 [action-url]: https://github.com/extension-js/extension.js/actions
+[coverage-image]: https://img.shields.io/codecov/c/github/extension-js/extension.js
+[coverage-url]: https://codecov.io/github/extension-js/extension.js
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
 [discord-url]: https://discord.gg/v9h2RgeTSN
 [snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg
@@ -11,7 +13,7 @@
 
 > The cross-browser extension framework
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url]  [![coverage][coverage-image]][coverage-url] [![discord][discord-image]][discord-url]
 
 <img alt="Logo" align="right" src="https://github.com/user-attachments/assets/698a3b2e-c77a-4857-bd2a-1d2eb180120b" width="20%" />
 
