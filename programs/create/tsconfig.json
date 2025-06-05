@@ -2,10 +2,8 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Default",
   "compilerOptions": {
-    // "types": ["chrome", "firefox-webext-browser", "node"],
-    // "jsx": "react-jsx",
     "target": "ES2021",
-    "lib": ["ES2021"],
+    "lib": ["ES2021", "DOM"],
     "module": "ESNext",
     "noEmit": true,
     "strict": true,
@@ -15,7 +13,8 @@
     "moduleResolution": "bundler",
     "useDefineForClassFields": true,
     "allowImportingTsExtensions": true,
-    "rootDir": "."
+    "rootDir": ".",
+    "types": ["node", "webextension-polyfill"]
   },
   "include": ["."],
   "exclude": ["dist", "node_modules", "**/*.spec.ts"]
