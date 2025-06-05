@@ -17,7 +17,7 @@ export async function generateExtensionTypes(
   const typePath =
     process.env.EXTENSION_ENV === 'development'
       ? path.resolve(process.cwd(), 'programs/cli/types')
-      : 'extension/dist/types'
+      : 'extension'
 
   const fileContent = `\
 // Required Extension.js types for TypeScript projects.
@@ -25,10 +25,10 @@ export async function generateExtensionTypes(
 // If you need additional types, consider creating a new *.d.ts file and
 // referencing it in the "include" array of your tsconfig.json file.
 // See https://www.typescriptlang.org/tsconfig#include for more information.
-/// <reference types="${typePath}/index.d.ts" />
+/// <reference types="${typePath}/types" />
 
-// Polyfill types for browser.* APIs.
-/// <reference types="${typePath}/polyfill.d.ts" />
+// Polyfill types for browser.* APIs
+/// <reference types="${typePath}/types/polyfill" />
 `
 
   try {
