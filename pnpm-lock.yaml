@@ -621,9 +621,6 @@ importers:
       '@types/chrome':
         specifier: ^0.0.287
         version: 0.0.287
-      '@types/firefox-webext-browser':
-        specifier: ^120.0.4
-        version: 120.0.4
       '@types/node':
         specifier: ^22.10.1
         version: 22.15.29
@@ -676,9 +673,6 @@ importers:
 
   programs/create:
     dependencies:
-      '@types/firefox-webext-browser':
-        specifier: ^120.0.4
-        version: 120.0.4
       chalk:
         specifier: ^5.3.0
         version: 5.4.1
@@ -704,9 +698,6 @@ importers:
       '@types/node':
         specifier: ^22.10.1
         version: 22.15.29
-      '@types/react-dom':
-        specifier: ^19.0.1
-        version: 19.1.6(@types/react@19.1.6)
       '@vitest/coverage-v8':
         specifier: ^1.3.1
         version: 1.6.1(vitest@1.6.1(@types/node@22.15.29)(less@4.3.0)(lightningcss@1.30.1)(sass@1.89.1)(terser@5.40.0))
@@ -734,9 +725,6 @@ importers:
       '@swc/helpers':
         specifier: ^0.5.15
         version: 0.5.17
-      '@types/firefox-webext-browser':
-        specifier: ^120.0.4
-        version: 120.0.4
       '@vue/compiler-sfc':
         specifier: ^3.5.13
         version: 3.5.16
@@ -833,9 +821,6 @@ importers:
       webpack-target-webextension:
         specifier: ^2.1.3
         version: 2.1.3(webpack@5.99.9(esbuild@0.25.5))
-      which:
-        specifier: ^5.0.0
-        version: 5.0.0
       ws:
         specifier: ^8.18.0
         version: 8.18.2
@@ -916,9 +901,6 @@ importers:
       '@types/sass-loader':
         specifier: 8.0.9
         version: 8.0.9
-      '@types/webextension-polyfill':
-        specifier: ^0.12.1
-        version: 0.12.3
       '@types/ws':
         specifier: ^8.5.13
         version: 8.18.1
@@ -3466,9 +3448,6 @@ packages:
   '@types/vue@2.0.0':
     resolution: {integrity: sha512-WDElkBv/o4lVwu6wYHB06AXs4Xo2fwDjJUpvPRc1QQdzkUSiGFjrYuSCy8raxLE5FObgKq8ND7R5gSZTFLK60w==}
     deprecated: This is a stub types definition for vuejs (https://github.com/vuejs/vue). vuejs provides its own type definitions, so you don't need @types/vue installed!
-
-  '@types/webextension-polyfill@0.12.3':
-    resolution: {integrity: sha512-F58aDVSeN/MjUGazXo/cPsmR76EvqQhQ1v4x23hFjUX0cfAJYE+JBWwiOGW36/VJGGxoH74sVlRIF3z7SJCKyg==}
 
   '@types/webpack-sources@3.2.3':
     resolution: {integrity: sha512-4nZOdMwSPHZ4pTEZzSp0AsTM4K7Qmu40UKW4tJDiOVs20UzYF9l+qUe4s0ftfN0pin06n+5cWWDJXH+sbhAiDw==}
@@ -10599,8 +10578,6 @@ snapshots:
       vue: 3.5.16(typescript@5.3.3)
     transitivePeerDependencies:
       - typescript
-
-  '@types/webextension-polyfill@0.12.3': {}
 
   '@types/webpack-sources@3.2.3':
     dependencies:

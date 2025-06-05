@@ -22,7 +22,6 @@ import {
   type Manifest
 } from 'extension-develop'
 import * as messages from './cli-lib/messages'
-import type {BrowsersSupported} from './types'
 import checkUpdates from './check-updates'
 import packageJson from './package.json'
 
@@ -40,7 +39,7 @@ const extensionJs = program
 // ╚██████╗███████╗██║
 //  ╚═════╝╚══════╝╚═╝
 
-const vendors = (browser: BrowsersSupported) =>
+const vendors = (browser: DevOptions['browser'] | 'all') =>
   browser === 'all' ? 'chrome,edge,firefox'.split(',') : browser.split(',')
 
 extensionJs
