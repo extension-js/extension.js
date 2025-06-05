@@ -14,7 +14,7 @@
     "useDefineForClassFields": true,
     "allowImportingTsExtensions": true,
     "rootDir": ".",
-    "types": ["node", "webextension-polyfill"]
+    "types": ["node", "webextension-polyfill", "chrome"]
   },
   "include": ["."],
   "exclude": ["node_modules", "dist", "**/*.spec.ts"]
