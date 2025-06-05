@@ -48,11 +48,7 @@ export async function maybeUseVue(
   try {
     require.resolve('vue-loader')
   } catch (e) {
-    const vueDependencies = [
-      'vue-loader',
-      'vue-template-compiler',
-      '@vue/compiler-sfc'
-    ]
+    const vueDependencies = ['vue-loader', '@vue/compiler-sfc']
 
     await installOptionalDependencies('Vue', vueDependencies)
 
