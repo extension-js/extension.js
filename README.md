@@ -13,7 +13,7 @@
 
 > The cross-browser extension framework
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url]  [![coverage][coverage-image]][coverage-url] [![discord][discord-image]][discord-url]
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url] [![coverage][coverage-image]][coverage-url] [![discord][discord-image]][discord-url]
 
 <img alt="Logo" align="right" src="https://github.com/user-attachments/assets/698a3b2e-c77a-4857-bd2a-1d2eb180120b" width="20%" />
 
