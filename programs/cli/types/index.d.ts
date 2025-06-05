@@ -11,6 +11,7 @@ type ExtensionBrowser =
   | 'firefox'
   | 'chromium-based'
   | 'gecko-based'
+
 type ExtensionMode = 'development' | 'production'
 
 interface ExtensionEnv {
@@ -23,26 +24,37 @@ interface ExtensionEnv {
   EXTENSION_ENV: ExtensionMode
 }
 
-declare namespace NodeJS {
-  interface ProcessEnv extends ExtensionEnv {
+// Global augmentations
+declare global {
+  namespace NodeJS {
+    interface ProcessEnv extends ExtensionEnv {
+      [key: string]: string | undefined
+    }
+  }
+
+  interface ImportMetaEnv extends ExtensionEnv {
     [key: string]: string | undefined
   }
-}
 
-interface ImportMetaEnv extends ExtensionEnv {
-  // Remove duplicate index signature since it's already inherited from ExtensionEnv
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv
-  // @ts-expect-error - This is a webpack specific property
-  readonly webpackHot?: {
-    accept: (module?: string | string[], callback?: () => void) => void
-    dispose: (callback: () => void) => void
+  interface ImportMeta {
+    readonly env: ImportMetaEnv
+    readonly webpackHot?: {
+      accept: (module?: string | string[], callback?: () => void) => void
+      dispose: (callback: () => void) => void
+    }
+    url: string
   }
-  url: string
+
+  interface Window {
+    /**
+     * @deprecated
+     * @description
+     * This is how Extension.js used to inject the shadow root into the window object.
+     * Use the shadowRoot reference from the content script instead.
+     */
+    __EXTENSION_SHADOW_ROOT__: ShadowRoot
+  }
 }
 
-interface Window {
-  __EXTENSION_SHADOW_ROOT__: ShadowRoot
-}
+// This export is needed for TypeScript to treat this file as a module
+export {}

@@ -18,7 +18,8 @@
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "types"
   ],
   "bin": {
     "extension": "./dist/cli.js"
@@ -58,7 +59,6 @@
   "dependencies": {
     "chalk": "^5.3.0",
     "@types/chrome": "^0.0.287",
-    "@types/firefox-webext-browser": "^120.0.4",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
