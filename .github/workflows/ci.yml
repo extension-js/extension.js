@@ -15,6 +15,7 @@ on:
 
 jobs:
   build:
+    name: Build Extension.js
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -23,14 +24,33 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Compile package
+        run: pnpm compile
+
       - name: Run checks
         run: |
-          pnpm compile
           pnpm format
           pnpm types
           pnpm lint
 
-      - name: Upload results to Codecov
-        uses: codecov/codecov-action@v4
+  test:
+    name: Test
+    needs: build
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          node-version: '22'
+
+      - name: Compile package
+        run: pnpm compile
+
+      - name: Run tests with coverage
+        run: pnpm test:coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
