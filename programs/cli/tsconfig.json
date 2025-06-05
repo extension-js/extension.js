@@ -3,7 +3,7 @@
   "display": "Default",
   "compilerOptions": {
     "target": "ES2021",
-    "lib": ["ES2021"],
+    "lib": ["ES2021", "DOM"],
     "module": "ESNext",
     "noEmit": true,
     "strict": true,
@@ -14,7 +14,7 @@
     "useDefineForClassFields": true,
     "allowImportingTsExtensions": true,
     "rootDir": ".",
-    "types": ["node"]
+    "types": ["node", "webextension-polyfill"]
   },
   "include": ["**/*.ts", "types/**/*.d.ts"],
   "exclude": ["dist", "node_modules", "**/*.spec.ts"]
