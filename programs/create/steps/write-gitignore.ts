@@ -21,7 +21,6 @@ const debugFiles = [
   'yarn-debug.log*',
   'yarn-error.log*'
 ]
-const extensionJsFiles = ['', '# extension.js', 'extension-env.d.ts']
 
 const globalLines = [
   '# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.',
@@ -30,8 +29,7 @@ const globalLines = [
   ...globalProduction,
   ...globalMisc,
   ...envFiles,
-  ...debugFiles,
-  ...extensionJsFiles
+  ...debugFiles
 ]
 
 export async function writeGitignore(projectPath: string) {
