@@ -90,7 +90,8 @@
     "jest": "^29.7.0",
     "ts-jest": "^29.3.1",
     "tsup": "^8.3.5",
-    "typescript": "5.7.2"
+    "typescript": "5.7.2",
+    "vitest": "3.2.2"
   },
   "optionalDependencies": {
     "@prefresh/core": "^1.5.2",
