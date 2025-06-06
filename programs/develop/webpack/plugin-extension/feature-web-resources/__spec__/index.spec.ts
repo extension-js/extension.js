@@ -27,7 +27,7 @@ describe('generateManifestPatches', () => {
       source: manifestSource
     } as unknown as Readonly<Asset>
 
-    const updateAssetMock = vi.fn<[string, Asset['source']]>()
+    const updateAssetMock = vi.fn() as any
 
     plugin['generateManifestPatches'](
       {
