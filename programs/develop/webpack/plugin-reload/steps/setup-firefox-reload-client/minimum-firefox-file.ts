@@ -1,4 +1,4 @@
-browser.runtime.onMessageExternal.addListener(async (request, _sender) => {
+browser.runtime.onMessageExternal.addListener(async (request: any, _sender: any) => {
   const managementInfo = await browser.management.getSelf()
 
   // Ping-pong between the user extension background page(this)
