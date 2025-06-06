@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import {Compiler} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
-// import {CleanDistFolderPlugin} from './clean-dist'
+import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from '../lib/messages'
 import {type PluginInterface} from '../webpack-types'
 
@@ -11,10 +11,12 @@ export class CompilationPlugin {
 
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
+  public readonly clean: boolean
 
-  constructor(options: PluginInterface) {
+  constructor(options: PluginInterface & {clean: boolean}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.clean = options.clean || true
   }
 
   public apply(compiler: Compiler): void {
@@ -26,14 +28,13 @@ export class CompilationPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // Clear the cleanup plugin for now.
-    // This is running at an stage that is earlier
-    // than the pulling of remote artifacts,
-    // which causes an error. I have no idea whether
-    // this will make a difference since we enable
-    // "clean" during ddevelopment already.
-    // TODO: cezaraugusto keep an eye on this.
-    // new CleanDistFolderPlugin().apply(compiler)
+    // The CleanDistFolderPlugin will remove the dist folder
+    // before the compilation starts. This is a problem
+    // for preview mode, where we don't want to clean the
+    // folder that is being used by the preview server.
+    if (this.clean) {
+      new CleanDistFolderPlugin().apply(compiler)
+    }
 
     compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
       stats.compilation.name = undefined

@@ -102,7 +102,8 @@ export default function webpackConfig(
     plugins: [
       new CompilationPlugin({
         manifestPath,
-        browser
+        browser,
+        clean: devOptions.output?.clean
       }),
       new StaticAssetsPlugin({
         mode: devOptions.mode,
