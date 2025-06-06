@@ -15,7 +15,7 @@
 
 # Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url] [![coverage][coverage-image]][coverage-url] [![discord][discord-image]][discord-url]
 
-<img alt="Logo" align="right" src="https://github.com/user-attachments/assets/698a3b2e-c77a-4857-bd2a-1d2eb180120b" width="20%" />
+<img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="20%" />
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
