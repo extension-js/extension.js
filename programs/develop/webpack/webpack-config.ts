@@ -9,6 +9,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
 import {DevOptions} from '../commands/commands-lib/config-types'
+import {getProjectOutputPath} from '../commands/commands-lib/get-project-path'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -37,9 +38,9 @@ export default function webpackConfig(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
     devOptions.browser
   )
-  const userExtensionOutputPath = path.join(
+  const userExtensionOutputPath = getProjectOutputPath(
     projectPath,
-    `dist/${devOptions.browser}`
+    devOptions.browser
   )
 
   const browser = devOptions.chromiumBinary
@@ -132,7 +133,9 @@ export default function webpackConfig(
       new BrowsersPlugin({
         extension: [
           userExtensionOutputPath,
-          path.join(__dirname, 'extensions', `${browser}-manager-extension`)
+          devOptions.mode !== 'production'
+            ? path.join(__dirname, 'extensions', `${browser}-manager-extension`)
+            : ''
         ],
         browser,
         open: devOptions.open,
