@@ -39,7 +39,16 @@ export default function webpackConfig(
   )
   const userExtensionOutputPath = path.join(
     projectPath,
-    `dist/${devOptions.browser}`
+    'dist',
+    devOptions.browser
+  )
+
+  const managerExtensionOutputPath = path.join(
+    projectPath,
+    'dist',
+    'extension-js',
+    'extensions',
+    `${devOptions.browser}-manager`
   )
 
   const browser = devOptions.chromiumBinary
@@ -130,10 +139,7 @@ export default function webpackConfig(
         port: devOptions.port || 8080
       }),
       new BrowsersPlugin({
-        extension: [
-          userExtensionOutputPath,
-          path.join(__dirname, 'extensions', `${browser}-manager-extension`)
-        ],
+        extension: [userExtensionOutputPath, managerExtensionOutputPath],
         browser,
         open: devOptions.open,
         startingUrl: devOptions.startingUrl,

@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {exec, ChildProcess} from 'child_process'
-import {type Compiler} from '@rspack/core'
+import {type Compiler, type Compilation} from '@rspack/core'
 import firefoxLocation from 'firefox-location2'
 import {browserConfig} from './firefox/browser-config'
 import {RemoteFirefox} from './remote-firefox'
@@ -73,7 +73,7 @@ export class RunFirefoxPlugin {
   }
 
   private async launchFirefox(
-    compiler: Compiler,
+    compilation: Compilation,
     options: DevOptions & BrowserConfig
   ) {
     const fxRunnerCmd = await this.getFxRunnerCommand()
@@ -102,7 +102,7 @@ export class RunFirefoxPlugin {
       process.exit(1)
     }
 
-    const firefoxConfig = await browserConfig(compiler, options)
+    const firefoxConfig = await browserConfig(compilation, options)
     const cmd = `${firefoxLaunchPath} ${firefoxConfig}`
 
     child = exec(cmd, (error, _stdout, stderr) => {
@@ -124,7 +124,7 @@ export class RunFirefoxPlugin {
     const remoteFirefox = new RemoteFirefox(this)
 
     try {
-      await remoteFirefox.installAddons(compiler)
+      await remoteFirefox.installAddons(compilation)
     } catch (error) {
       const strErr = error?.toString()
       if (strErr?.includes('background.service_worker is currently disabled')) {
@@ -160,7 +160,7 @@ export class RunFirefoxPlugin {
         )
       }, 2000)
 
-      await this.launchFirefox(compiler, {
+      await this.launchFirefox(stats.compilation, {
         browser: this.browser,
         browserFlags: this.browserFlags,
         profile: this.profile,

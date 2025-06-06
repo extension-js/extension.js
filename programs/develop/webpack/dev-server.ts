@@ -126,30 +126,10 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
       'Access-Control-Allow-Origin': '*'
     },
     port,
-    hot: true,
-    webSocketServer: {
-      type: 'ws',
-      options: {
-        port: typeof port === 'number' ? port : undefined
-      }
-    }
+    hot: true
   }
 
   const devServer = new RspackDevServer(serverConfig, compiler as any)
-
-  // Pass the actual port to the reload plugin
-  if (typeof port === 'number') {
-    compiler.options.plugins?.forEach((plugin) => {
-      if (
-        plugin &&
-        typeof plugin === 'object' &&
-        'constructor' in plugin &&
-        plugin.constructor.name === 'ReloadPlugin'
-      ) {
-        ;(plugin as any).port = port
-      }
-    })
-  }
 
   devServer.startCallback((error) => {
     if (error != null) {
