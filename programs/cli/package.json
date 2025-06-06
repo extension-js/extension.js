@@ -2,7 +2,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/extension.git",
+    "url": "https://github.com/extension-js/extension.js.git",
     "directory": "programs/cli"
   },
   "engines": {
@@ -25,7 +25,7 @@
     "extension": "./dist/cli.js"
   },
   "name": "extension",
-  "version": "2.0.0-rc.34",
+  "version": "2.0.0-rc.35",
   "description": "Create cross-browser extensions with no build configuration.",
   "author": {
     "name": "Cezar Augusto",
@@ -76,6 +76,7 @@
     "@types/semver": "^7.5.8",
     "mock-fs": "^5.4.1",
     "tsconfig": "*",
-    "typescript": "5.7.2"
+    "typescript": "5.7.2",
+    "vitest": "3.2.2"
   }
 }

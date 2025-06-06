@@ -25,39 +25,49 @@ export function getAssetsFromHtml(
     return assets
   }
 
-  const htmlString =
-    htmlContent || fs.readFileSync(htmlFilePath, {encoding: 'utf8'})
-  const htmlDocument = parse5utilities.parse(htmlString)
+  try {
+    const htmlString =
+      htmlContent || fs.readFileSync(htmlFilePath, {encoding: 'utf8'})
 
-  const getAbsolutePath = (htmlFilePath: string, filePath: string) => {
-    if (filePath.startsWith('/')) {
-      // For public paths, preserve them as-is
-      return filePath
+    if (!htmlString) {
+      return assets
     }
-    return path.join(path.dirname(htmlFilePath), filePath)
-  }
 
-  parseHtml(htmlDocument as any, ({filePath, assetType}) => {
-    const fileAbsolutePath = getAbsolutePath(htmlFilePath, filePath)
+    const htmlDocument = parse5utilities.parse(htmlString)
 
-    switch (assetType) {
-      case 'script':
-        assets.js?.push(fileAbsolutePath)
-        break
-      case 'css':
-        assets.css?.push(fileAbsolutePath)
-        break
-      case 'staticSrc':
-      case 'staticHref':
-        if (filePath.startsWith('#')) {
+    const getAbsolutePath = (htmlFilePath: string, filePath: string) => {
+      if (filePath.startsWith('/')) {
+        // For public paths, preserve them as-is
+        return filePath
+      }
+      return path.join(path.dirname(htmlFilePath), filePath)
+    }
+
+    parseHtml(htmlDocument as any, ({filePath, assetType}) => {
+      const fileAbsolutePath = getAbsolutePath(htmlFilePath, filePath)
+
+      switch (assetType) {
+        case 'script':
+          assets.js?.push(fileAbsolutePath)
           break
-        }
-        assets.static?.push(fileAbsolutePath)
-        break
-      default:
-        break
-    }
-  })
+        case 'css':
+          assets.css?.push(fileAbsolutePath)
+          break
+        case 'staticSrc':
+        case 'staticHref':
+          if (filePath.startsWith('#')) {
+            break
+          }
+          assets.static?.push(fileAbsolutePath)
+          break
+        default:
+          break
+      }
+    })
+  } catch (error) {
+    // If file doesn't exist or can't be read, return empty assets
+    return assets
+  }
 
   return assets
 }

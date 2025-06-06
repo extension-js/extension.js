@@ -21,7 +21,7 @@
     "dist"
   ],
   "name": "extension-create",
-  "version": "2.0.0-rc.34",
+  "version": "2.0.0-rc.35",
   "description": "The create step of Extension.js",
   "author": {
     "name": "Cezar Augusto",
@@ -46,10 +46,10 @@
     "@rslib/core": "^0.6.9",
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^22.10.1",
-    "@vitest/coverage-v8": "^1.3.1",
+    "@vitest/coverage-v8": "3.2.2",
     "globals": "^15.13.0",
     "tsconfig": "*",
     "typescript": "5.7.2",
-    "vitest": "^1.3.1"
+    "vitest": "3.2.2"
   }
 }
