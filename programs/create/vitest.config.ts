@@ -21,7 +21,7 @@ export default defineConfig({
         '**/*.test.ts',
         '**/*.spec.ts',
         '**/types/**',
-        '**/messages.ts',
+        '**/messages.ts'
       ]
     }
   }

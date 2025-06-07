@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import {defineConfig} from 'vitest/config'
 
 export default defineConfig({
   test: {
@@ -10,8 +10,8 @@ export default defineConfig({
         '**/types/**',
         '**/*.d.ts',
         '**/*.test.ts',
-        '**/*.spec.ts',
-      ],
-    },
-  },
-}) 
+        '**/*.spec.ts'
+      ]
+    }
+  }
+})
