@@ -4,6 +4,7 @@ import {patchHtml} from '../html-lib/patch-html'
 import {getFilePath} from '../html-lib/utils'
 import * as utils from '../../../lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import fs from 'fs'
 
 export class UpdateHtmlFile {
   public readonly manifestPath: string
@@ -34,23 +35,25 @@ export class UpdateHtmlFile {
               const [feature, resource] = field
 
               if (resource) {
-                const updatedHtml = patchHtml(
-                  compilation,
-                  feature,
-                  resource as string,
-                  htmlEntries,
-                  this.excludeList || {}
-                )
-
                 if (
                   !utils.shouldExclude(resource as string, this.excludeList)
                 ) {
-                  if (updatedHtml) {
-                    const rawSource = new sources.RawSource(
-                      updatedHtml.toString()
+                  if (fs.existsSync(resource as string)) {
+                    const updatedHtml = patchHtml(
+                      compilation,
+                      feature,
+                      resource as string,
+                      htmlEntries,
+                      this.excludeList || {}
                     )
-                    const filepath = getFilePath(feature, '.html', false)
-                    compilation.updateAsset(filepath, rawSource)
+
+                    if (updatedHtml) {
+                      const rawSource = new sources.RawSource(
+                        updatedHtml.toString()
+                      )
+                      const filepath = getFilePath(feature, '.html', false)
+                      compilation.updateAsset(filepath, rawSource)
+                    }
                   }
                 }
               }

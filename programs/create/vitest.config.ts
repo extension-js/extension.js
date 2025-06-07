@@ -20,7 +20,8 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.test.ts',
         '**/*.spec.ts',
-        '**/types/**'
+        '**/types/**',
+        '**/messages.ts'
       ]
     }
   }
