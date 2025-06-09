@@ -9,10 +9,8 @@ import {isUsingJSFramework} from '../../../lib/utils'
 
 const schema: Schema = {
   type: 'object',
+  required: ['manifestPath', 'includeList'],
   properties: {
-    test: {
-      type: 'string'
-    },
     manifestPath: {
       type: 'string'
     },
@@ -33,10 +31,14 @@ export default function ensureHMRForScripts(
   const manifestPath = options.manifestPath
   const projectPath = path.dirname(manifestPath)
 
-  validate(schema, options, {
-    name: 'html:ensure-hmr-for-scripts',
-    baseDataPath: 'options'
-  })
+  try {
+    validate(schema, options, {
+      name: 'html:ensure-hmr-for-scripts',
+      baseDataPath: 'options'
+    })
+  } catch (error) {
+    throw error
+  }
 
   const url = urlToRequest(this.resourcePath)
   const reloadCode = `
@@ -52,18 +54,27 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
     const [, resource] = field
 
     // Resources from the manifest lib can come as undefined.
-    if (resource) {
-      if (!fs.existsSync(resource as string)) return
+    if (!resource) continue
 
-      const htmlAssets = getAssetsFromHtml(resource as string)
-      const fileAssets = htmlAssets?.js || []
+    if (!fs.existsSync(resource as string)) {
+      return source
+    }
 
-      for (const asset of fileAssets) {
-        const absoluteUrl = path.resolve(projectPath, asset)
+    const htmlAssets = getAssetsFromHtml(resource as string)
+    const fileAssets = htmlAssets?.js || []
 
-        if (url.includes(absoluteUrl)) {
-          return `${reloadCode}${source}`
-        }
+    for (const asset of fileAssets) {
+      // Remove hash fragments and query parameters for comparison
+      const cleanAsset = asset.split('#')[0].split('?')[0]
+      const cleanUrl = url.split('#')[0].split('?')[0]
+
+      // Normalize paths
+      const normalizedAsset = path.normalize(cleanAsset)
+      const normalizedUrl = path.normalize(cleanUrl)
+
+      // Only match if the paths are exactly the same
+      if (normalizedAsset === normalizedUrl) {
+        return `${reloadCode}${source}`
       }
     }
   }
