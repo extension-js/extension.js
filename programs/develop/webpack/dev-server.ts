@@ -66,7 +66,8 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
     ...browserConfig,
     mode: 'development',
     output: {
-      clean: false
+      clean: false,
+      path: path.join(projectPath, 'dist', devOptions.browser)
     }
   })
 

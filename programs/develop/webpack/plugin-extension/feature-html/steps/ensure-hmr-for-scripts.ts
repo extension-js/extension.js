@@ -9,8 +9,10 @@ import {isUsingJSFramework} from '../../../lib/utils'
 
 const schema: Schema = {
   type: 'object',
-  required: ['manifestPath', 'includeList'],
   properties: {
+    test: {
+      type: 'string'
+    },
     manifestPath: {
       type: 'string'
     },
