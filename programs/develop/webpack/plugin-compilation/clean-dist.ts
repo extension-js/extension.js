@@ -1,10 +1,15 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
+import {getProjectOutputPath} from '../../commands/commands-lib/get-project-path'
 
 export class CleanDistFolderPlugin {
+  constructor(private options: {browser: string}) {}
   apply(compiler: Compiler): void {
-    const outputPath = path.join(compiler.options.output.path || '')
+    const outputPath = getProjectOutputPath(
+      compiler.options.context!,
+      this.options.browser
+    )
 
     if (fs.existsSync(outputPath)) {
       try {

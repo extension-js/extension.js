@@ -9,6 +9,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
 import {DevOptions} from '../commands/commands-lib/config-types'
+import {getProjectOutputPath} from '../commands/commands-lib/get-project-path'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -37,10 +38,17 @@ export default function webpackConfig(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
     devOptions.browser
   )
-  const userExtensionOutputPath = path.join(
+  const userExtensionOutputPath = getProjectOutputPath(
     projectPath,
-    `dist/${devOptions.browser}`
+    devOptions.browser
   )
+  const managerExtensionPath = path.join(
+    __dirname,
+    'extensions',
+    `${devOptions.browser}-manager-extension`
+  )
+
+  console.log('dirname caralho', managerExtensionPath)
 
   const browser = devOptions.chromiumBinary
     ? 'chromium-based'
@@ -101,7 +109,8 @@ export default function webpackConfig(
     plugins: [
       new CompilationPlugin({
         manifestPath,
-        browser
+        browser,
+        clean: devOptions.output?.clean
       }),
       new StaticAssetsPlugin({
         mode: devOptions.mode,
@@ -132,7 +141,7 @@ export default function webpackConfig(
       new BrowsersPlugin({
         extension: [
           userExtensionOutputPath,
-          path.join(__dirname, 'extensions', `${browser}-manager-extension`)
+          devOptions.mode !== 'production' ? managerExtensionPath : ''
         ],
         browser,
         open: devOptions.open,

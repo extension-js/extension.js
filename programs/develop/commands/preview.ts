@@ -10,7 +10,10 @@ import * as path from 'path'
 import {rspack, type Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import webpackConfig from '../webpack/webpack-config'
-import {getProjectPath} from './commands-lib/get-project-path'
+import {
+  getProjectPath,
+  getProjectOutputPath
+} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {loadCustomWebpackConfig} from './commands-lib/get-extension-config'
 import {PreviewOptions} from './commands-lib/config-types'
@@ -47,11 +50,12 @@ export async function extensionPreview(
       }
     })
 
+    const contextPath = getProjectOutputPath(projectPath, browser)
     const onlyBrowserRunners = baseConfig.plugins?.filter((plugin) => {
       return plugin?.constructor.name === 'plugin-browsers'
     })
 
-    const userExtensionConfig = await loadCustomWebpackConfig(projectPath)
+    const userExtensionConfig = await loadCustomWebpackConfig(contextPath)
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: onlyBrowserRunners
@@ -66,9 +70,7 @@ export async function extensionPreview(
       }
 
       if (!stats?.hasErrors()) {
-        console.log(
-          messages.runningInProduction(path.join(projectPath, 'dist', browser))
-        )
+        console.log(messages.runningInProduction(contextPath))
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)

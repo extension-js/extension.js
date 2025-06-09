@@ -236,7 +236,7 @@ export function writingTypeDefinitionsError(error: any) {
 
 export function downloadingText(url: string) {
   return (
-    `${getLoggingPrefix('info')} Downloading extension...\n` +
+    `${getLoggingPrefix('info')} Downloading browser extension...\n` +
     `${chalk.gray('URL')} ${chalk.underline(url)}`
   )
 }
