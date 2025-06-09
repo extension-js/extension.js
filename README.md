@@ -1,14 +1,14 @@
 [npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0971fe
 [npm-version-url]: https://www.npmjs.com/package/extension
-[downloads-image]: https://img.shields.io/npm/dm/extension.svg
+[downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=2ecc40
 [downloads-url]: https://npmjs.org/package/extension
-[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main
+[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=2ecc40
 [action-url]: https://github.com/extension-js/extension.js/actions
-[coverage-image]: https://img.shields.io/codecov/c/github/extension-js/extension.js
+[coverage-image]: https://img.shields.io/codecov/c/github/extension-js/extension.js?color=2ecc40
 [coverage-url]: https://codecov.io/github/extension-js/extension.js
-[discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat
+[discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=2ecc40
 [discord-url]: https://discord.gg/v9h2RgeTSN
-[snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg
+[snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg?color=2ecc40
 [snyk-url]: https://snyk.io/test/github/extension-js/extension
 
 > The cross-browser extension framework
