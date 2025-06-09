@@ -36,23 +36,19 @@ export class EmitHtmlFile {
             const [featureName, resource] = field
 
             if (resource) {
-              // Do not output if file doesn't exist.
-              // If the user updates the path, this script will
-              // run again and update the file accordingly.
-              if (!fs.existsSync(resource as string)) {
+              if (typeof resource !== 'string') continue
+              if (!fs.existsSync(resource)) {
                 const errorMessage = messages.manifestFieldError(
                   manifestName,
                   featureName,
-                  resource as string
+                  resource
                 )
                 compilation.warnings.push(new rspack.WebpackError(errorMessage))
-                // TODO: cezaraugusto this should continue instead of returning
-                return
+                continue
               }
+              const rawHtml = fs.readFileSync(resource, 'utf8')
 
-              const rawHtml = fs.readFileSync(resource as string, 'utf8')
-
-              if (!utils.shouldExclude(resource as string, this.excludeList)) {
+              if (!utils.shouldExclude(resource, this.excludeList)) {
                 const rawSource = new sources.RawSource(rawHtml)
                 const filepath = getFilePath(featureName, '.html', false)
                 compilation.emitAsset(filepath, rawSource)

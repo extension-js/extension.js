@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import type {Compilation, Compiler} from '@rspack/core'
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 import * as utils from '../../html-lib/utils'
@@ -38,14 +39,14 @@ vi.mock('@rspack/core', () => {
 })
 
 describe('AddAssetsToCompilation', () => {
-  let compilation: any
-  let compiler: any
-  let emitAssetSpy: any
-  let getAssetSpy: any
-  let warningsPushSpy: any
-  let existsSyncSpy: any
-  let readFileSyncSpy: any
-  let processAssetsCallback: any
+  let compilation: Partial<Compilation>
+  let compiler: Partial<Compiler>
+  let emitAssetSpy: ReturnType<typeof vi.fn>
+  let getAssetSpy: ReturnType<typeof vi.fn>
+  let warningsPushSpy: ReturnType<typeof vi.fn>
+  let existsSyncSpy: ReturnType<typeof vi.spyOn>
+  let readFileSyncSpy: ReturnType<typeof vi.spyOn>
+  let processAssetsCallback: () => void
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -53,43 +54,46 @@ describe('AddAssetsToCompilation', () => {
     emitAssetSpy = vi.fn()
     getAssetSpy = vi.fn()
     warningsPushSpy = vi.fn()
-    existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true)
+    existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true) as any
     readFileSyncSpy = vi
       .spyOn(fs, 'readFileSync')
-      .mockReturnValue(Buffer.from('file-content'))
+      .mockReturnValue(Buffer.from('file-content')) as any
 
     compilation = {
       hooks: {
         processAssets: {
-          tap: (_opts: any, fn: any) => {
-            processAssetsCallback = fn
+          tap: (_opts: unknown, fn: (assets: Record<string, any>) => void) => {
+            processAssetsCallback = () => fn({})
           }
-        }
-      },
+        } as any
+      } as any,
       getAsset: getAssetSpy,
       emitAsset: emitAssetSpy,
-      warnings: {push: warningsPushSpy},
+      warnings: {push: warningsPushSpy} as any,
       errors: []
     }
 
     compiler = {
       hooks: {
         thisCompilation: {
-          tap: (_name: string, fn: any) => {
-            fn(compilation)
+          tap: (
+            _name: string,
+            fn: (compilation: Compilation, params: any) => void
+          ) => {
+            fn(compilation as Compilation, {})
           }
-        }
-      }
+        } as any
+      } as any
     }
 
     // Default path mocking for all tests
-    vi.spyOn(path, 'join').mockImplementation((...args) => {
+    vi.spyOn(path, 'join').mockImplementation((...args: string[]) => {
       return args.filter(Boolean).join('/')
     })
-    vi.spyOn(path.posix, 'join').mockImplementation((...args) => {
+    vi.spyOn(path.posix, 'join').mockImplementation((...args: string[]) => {
       return args.filter(Boolean).join('/')
     })
-    vi.spyOn(path, 'basename').mockImplementation((p) => {
+    vi.spyOn(path, 'basename').mockImplementation((p: string) => {
       if (p === 'resource.html') return 'resource.html'
       if (p === 'nested/page.html') return 'page.html'
       return p.split('/').pop() || ''
@@ -107,7 +111,7 @@ describe('AddAssetsToCompilation', () => {
       if (name === 'resource.html') {
         return {
           source: {
-            source: () => '<html><img src="foo.png"></html>'
+            source: () => '<html><img src="extensionjs.png"></html>'
           }
         }
       }
@@ -117,18 +121,18 @@ describe('AddAssetsToCompilation', () => {
     vi.mocked(utils.getAssetsFromHtml).mockReturnValue({
       css: [],
       js: [],
-      static: ['foo.png']
+      static: ['extensionjs.png']
     })
     vi.mocked(utils.isFromIncludeList).mockReturnValue(false)
     vi.mocked(webpackUtils.shouldExclude).mockReturnValue(false)
 
-    plugin.apply(compiler)
-    processAssetsCallback()
+    plugin.apply(compiler as Compiler)
+    if (processAssetsCallback) processAssetsCallback()
 
-    expect(emitAssetSpy).toHaveBeenCalled()
-    expect(readFileSyncSpy).toHaveBeenCalledWith('foo.png')
+    expect(emitAssetSpy).toHaveBeenCalledTimes(1)
+    expect(readFileSyncSpy).toHaveBeenCalledWith('extensionjs.png')
     expect(emitAssetSpy).toHaveBeenCalledWith(
-      'assets/foo.png',
+      'assets/extensionjs.png',
       expect.any(Object)
     )
     expect(warningsPushSpy).not.toHaveBeenCalled()
@@ -160,7 +164,7 @@ describe('AddAssetsToCompilation', () => {
     vi.mocked(utils.isFromIncludeList).mockReturnValue(false)
     vi.mocked(webpackUtils.shouldExclude).mockReturnValue(false)
 
-    plugin.apply(compiler)
+    plugin.apply(compiler as Compiler)
     processAssetsCallback()
 
     expect(path.posix.join).toHaveBeenCalledWith(
@@ -203,8 +207,8 @@ describe('AddAssetsToCompilation', () => {
     vi.mocked(webpackUtils.shouldExclude).mockReturnValue(false)
     existsSyncSpy.mockReturnValue(false)
 
-    plugin.apply(compiler)
-    processAssetsCallback()
+    plugin.apply(compiler as Compiler)
+    if (processAssetsCallback) processAssetsCallback()
 
     expect(warningsPushSpy).toHaveBeenCalled()
     expect(emitAssetSpy).not.toHaveBeenCalled()
@@ -238,7 +242,7 @@ describe('AddAssetsToCompilation', () => {
     })
     vi.mocked(webpackUtils.shouldExclude).mockReturnValue(false)
 
-    plugin.apply(compiler)
+    plugin.apply(compiler as Compiler)
     processAssetsCallback()
 
     expect(warningsPushSpy).not.toHaveBeenCalled()

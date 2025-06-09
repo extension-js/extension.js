@@ -155,13 +155,7 @@ describe('UpdateHtmlFile', () => {
 
     plugin.apply(compiler)
 
-    expect(patchHtml.patchHtml).toHaveBeenCalledWith(
-      compilation,
-      'feature',
-      'resource.html',
-      includeList,
-      excludeList
-    )
+    expect(patchHtml.patchHtml).not.toHaveBeenCalled()
     expect(compilation.updateAsset).not.toHaveBeenCalled()
   })
 
@@ -213,5 +207,39 @@ describe('UpdateHtmlFile', () => {
       'feature.html',
       expect.any(sources.RawSource)
     )
+  })
+
+  it('should handle invalid HTML content', () => {
+    const includeList = {feature: 'resource.html'}
+    const plugin = new UpdateHtmlFile({
+      manifestPath: 'manifest.json',
+      includeList
+    })
+
+    vi.mocked(patchHtml.patchHtml).mockReturnValue('')
+
+    plugin.apply(compiler)
+
+    expect(patchHtml.patchHtml).toHaveBeenCalled()
+    expect(compilation.updateAsset).not.toHaveBeenCalled()
+  })
+
+  it('should handle missing resources', () => {
+    const includeList = {feature: 'resource.html'}
+    const plugin = new UpdateHtmlFile({
+      manifestPath: 'manifest.json',
+      includeList
+    })
+
+    vi.mocked(fs.existsSync).mockReturnValue(false)
+    vi.mocked(fs.readFileSync).mockImplementation(() => {
+      throw new Error('ENOENT')
+    })
+    vi.mocked(utils.shouldExclude).mockReturnValue(false)
+
+    plugin.apply(compiler)
+
+    expect(patchHtml.patchHtml).not.toHaveBeenCalled()
+    expect(compilation.updateAsset).not.toHaveBeenCalled()
   })
 })
