@@ -39,7 +39,9 @@ export async function extensionStart(
 
     await extensionPreview(pathOrRemoteUrl, {
       ...startOptions,
-      browser
+      browser,
+      // Starts preview the extension from the build directory
+      outputPath: path.join(projectPath, 'dist', browser)
     })
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {
