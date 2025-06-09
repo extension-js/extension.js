@@ -53,6 +53,7 @@ export interface BuildOptions {
 
 export interface PreviewOptions extends BrowserOptionsBase {
   mode: 'production'
+  outputPath?: string
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
 }
