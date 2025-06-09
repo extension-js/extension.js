@@ -40,7 +40,8 @@ export async function extensionBuild(
       browser,
       mode: 'production',
       output: {
-        clean: true
+        clean: true,
+        path: path.join(projectPath, 'dist', browser)
       }
     })
 

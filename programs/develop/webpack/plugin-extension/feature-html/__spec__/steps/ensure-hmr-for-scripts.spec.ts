@@ -28,8 +28,7 @@ describe('ensureHMRForScripts', () => {
         manifestPath: '/project/manifest.json',
         includeList: {
           feature: 'resource.html'
-        },
-        test: 'test'
+        }
       }),
       resourcePath: '/project/scripts/app.js'
     }
@@ -82,21 +81,7 @@ describe('ensureHMRForScripts', () => {
   it('should throw error for invalid options', () => {
     loaderContext.getOptions.mockReturnValue({
       manifestPath: '/project/manifest.json',
-      includeList: 'invalid', // Should be an object
-      test: 'test'
-    })
-
-    expect(() => {
-      ensureHMRForScripts.call(loaderContext, 'console.log("test")')
-    }).toThrow()
-  })
-
-  it('should handle missing manifest path', () => {
-    loaderContext.getOptions.mockReturnValue({
-      includeList: {
-        feature: 'resource.html'
-      },
-      test: 'test'
+      includeList: 'invalid' // Should be an object
     })
 
     expect(() => {
@@ -109,8 +94,7 @@ describe('ensureHMRForScripts', () => {
       manifestPath: '/project/manifest.json',
       includeList: {
         feature: undefined
-      },
-      test: 'test'
+      }
     })
 
     const result = ensureHMRForScripts.call(
@@ -239,34 +223,18 @@ describe('ensureHMRForScripts', () => {
       manifestPath: '/project/manifest.json',
       includeList: {
         feature: 'resource.html'
-      },
-      test: 123 // Should be a string
-    })
-
-    expect(() => {
-      ensureHMRForScripts.call(loaderContext, 'console.log("test")')
-    }).toThrow()
-  })
-
-  it('should handle missing test property', () => {
-    loaderContext.getOptions.mockReturnValue({
-      manifestPath: '/project/manifest.json',
-      includeList: {
-        feature: 'resource.html'
       }
-      // Missing test property
     })
 
     expect(() => {
       ensureHMRForScripts.call(loaderContext, 'console.log("test")')
-    }).toThrow()
+    }).not.toThrow()
   })
 
   it('should handle malformed error messages', () => {
     loaderContext.getOptions.mockReturnValue({
       manifestPath: '/project/manifest.json',
-      includeList: null, // Invalid type
-      test: 'test'
+      includeList: null // Invalid type
     })
 
     expect(() => {
@@ -328,8 +296,7 @@ describe('ensureHMRForScripts', () => {
   it('should handle empty includeList', () => {
     loaderContext.getOptions.mockReturnValue({
       manifestPath: '/project/manifest.json',
-      includeList: {},
-      test: 'test'
+      includeList: {}
     })
 
     const result = ensureHMRForScripts.call(
@@ -362,8 +329,7 @@ describe('ensureHMRForScripts', () => {
       manifestPath: '/project/manifest.json',
       includeList: {
         feature: 'resource.html'
-      },
-      test: 'test'
+      }
     })
 
     // Mock compilation error

@@ -1,4 +1,5 @@
 import * as path from 'path'
+import * as fs from 'fs'
 import goGitIt from 'go-git-it'
 import * as messages from './messages'
 import {downloadAndExtractZip} from './extract-from-zip'

@@ -11,10 +11,12 @@ export class CompilationPlugin {
 
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
+  public readonly clean: boolean
 
-  constructor(options: PluginInterface) {
+  constructor(options: PluginInterface & {clean: boolean}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.clean = options.clean || true
   }
 
   public apply(compiler: Compiler): void {
@@ -26,7 +28,15 @@ export class CompilationPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    new CleanDistFolderPlugin().apply(compiler)
+    // The CleanDistFolderPlugin will remove the dist folder
+    // before the compilation starts. This is a problem
+    // for preview mode, where we don't want to clean the
+    // folder that is being used by the preview server.
+    if (this.clean) {
+      new CleanDistFolderPlugin({
+        browser: this.browser || 'chrome'
+      }).apply(compiler)
+    }
 
     compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
       stats.compilation.name = undefined

@@ -29,6 +29,7 @@ export default function webpackConfig(
   } & {
     output: {
       clean: boolean
+      path: string
     }
   }
 ): Configuration {
@@ -37,9 +38,11 @@ export default function webpackConfig(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
     devOptions.browser
   )
-  const userExtensionOutputPath = path.join(
-    projectPath,
-    `dist/${devOptions.browser}`
+  const userExtensionOutputPath = devOptions.output.path
+  const managerExtensionPath = path.join(
+    __dirname,
+    'extensions',
+    `${devOptions.browser}-manager-extension`
   )
 
   const browser = devOptions.chromiumBinary
@@ -59,7 +62,7 @@ export default function webpackConfig(
         : 'eval-cheap-source-map',
     output: {
       clean: devOptions.output?.clean,
-      path: userExtensionOutputPath,
+      path:  userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
@@ -101,7 +104,8 @@ export default function webpackConfig(
     plugins: [
       new CompilationPlugin({
         manifestPath,
-        browser
+        browser,
+        clean: devOptions.output?.clean
       }),
       new StaticAssetsPlugin({
         mode: devOptions.mode,
@@ -132,7 +136,7 @@ export default function webpackConfig(
       new BrowsersPlugin({
         extension: [
           userExtensionOutputPath,
-          path.join(__dirname, 'extensions', `${browser}-manager-extension`)
+          devOptions.mode !== 'production' ? managerExtensionPath : ''
         ],
         browser,
         open: devOptions.open,
