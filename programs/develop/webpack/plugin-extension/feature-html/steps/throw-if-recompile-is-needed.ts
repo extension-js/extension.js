@@ -34,29 +34,27 @@ export class ThrowIfRecompileIsNeeded {
 
   private storeInitialHtmlAssets(htmlFields: Record<string, any>) {
     Object.entries(htmlFields).forEach(([key, resource]) => {
-      const htmlFile = resource as string
+      if (typeof resource !== 'string') {
+        return
+      }
 
-      if (htmlFile) {
-        if (!fs.existsSync(htmlFile)) {
-          const manifest = JSON.parse(
-            fs.readFileSync(this.manifestPath, 'utf-8')
-          )
-          const patchedManifest = utils.filterKeysForThisBrowser(
-            manifest,
-            'chrome'
-          )
+      const htmlFile = resource
 
-          const manifestName = patchedManifest.name || 'Extension.js'
-          console.error(
-            messages.manifestFieldError(manifestName, key, htmlFile)
-          )
-          process.exit(1)
-        }
+      if (!fs.existsSync(htmlFile)) {
+        const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
+        const patchedManifest = utils.filterKeysForThisBrowser(
+          manifest,
+          'chrome'
+        )
 
-        this.initialHtmlAssets[htmlFile] = {
-          js: getAssetsFromHtml(htmlFile)?.js || [],
-          css: getAssetsFromHtml(htmlFile)?.css || []
-        }
+        const manifestName = patchedManifest.name || 'Extension.js'
+        console.error(messages.manifestFieldError(manifestName, key, htmlFile))
+        process.exit(1)
+      }
+
+      this.initialHtmlAssets[htmlFile] = {
+        js: getAssetsFromHtml(htmlFile)?.js || [],
+        css: getAssetsFromHtml(htmlFile)?.css || []
       }
     })
   }
