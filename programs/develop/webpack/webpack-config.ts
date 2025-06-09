@@ -62,7 +62,7 @@ export default function webpackConfig(
         : 'eval-cheap-source-map',
     output: {
       clean: devOptions.output?.clean,
-      path:  userExtensionOutputPath,
+      path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
