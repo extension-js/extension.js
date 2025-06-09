@@ -10,9 +10,7 @@ import * as path from 'path'
 import {rspack, type Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import webpackConfig from '../webpack/webpack-config'
-import {
-  getProjectPath,
-} from './commands-lib/get-project-path'
+import {getProjectPath} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {loadCustomWebpackConfig} from './commands-lib/get-extension-config'
 import {PreviewOptions} from './commands-lib/config-types'
@@ -45,7 +43,7 @@ export async function extensionPreview(
     )
     process.exit(1)
   }
- 
+
   try {
     const browser = previewOptions.browser || 'chrome'
     const baseConfig: Configuration = webpackConfig(projectPath, {

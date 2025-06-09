@@ -5,7 +5,11 @@ import {type Compiler} from '@rspack/core'
 export class CleanDistFolderPlugin {
   constructor(private options: {browser: string}) {}
   apply(compiler: Compiler): void {
-    const distPath = path.join(compiler.options.context!, 'dist', this.options.browser)
+    const distPath = path.join(
+      compiler.options.context!,
+      'dist',
+      this.options.browser
+    )
 
     if (fs.existsSync(distPath)) {
       try {
