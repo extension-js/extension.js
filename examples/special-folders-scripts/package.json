@@ -1,13 +1,10 @@
 {
-  "private": true,
-  "name": "special-folders-scripts",
-  "description": "An Extension.js example.",
-  "version": "0.0.1",
-  "author": {
-    "name": "Cezar Augusto",
-    "email": "boss@cezaraugusto.net",
-    "url": "https://cezaraugusto.com"
+  "name": "scripts-plugin-test",
+  "version": "1.0.0",
+  "description": "Test fixture for ScriptsPlugin",
+  "scripts": {
+    "build": "extension.js build",
+    "dev": "extension.js dev"
   },
-  "license": "MIT",
-  "type": "module"
+  "devDependencies": {}
 }

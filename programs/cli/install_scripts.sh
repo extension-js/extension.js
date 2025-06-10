@@ -15,8 +15,8 @@ CLI_DIR="$(dirname "$SCRIPT_DIR")"
 SOURCE_README="$ROOT_DIR/README.md"
 TARGET_README="$CLI_DIR/README.md"
 
-# Function to copy file if content is different
-copy_if_different() {
+# Function to copy and modify file if content is different
+copy_and_modify_if_different() {
     local source="$1"
     local target="$2"
     
@@ -24,15 +24,24 @@ copy_if_different() {
         if [ -f "$target" ]; then
             # Compare files
             if ! cmp -s "$source" "$target"; then
-                cp "$source" "$target"
-                echo "[Extension.js setup] File $(basename "$source") copied to $target"
+                # Create a temporary file
+                TMP_FILE=$(mktemp)
+                # Copy and modify the content
+                sed -e 's/width="20%"/width="15.5%"/' \
+                    -e '/\[coverage-image\].*coverage-url\]/d' \
+                    "$source" > "$TMP_FILE"
+                # Move the modified content to target
+                mv "$TMP_FILE" "$target"
+                echo "[Extension.js setup] File $(basename "$source") copied and modified to $target"
             else
                 echo "[Extension.js setup] File $(basename "$source") haven't changed. Skipping copy..."
             fi
         else
-            # Target doesn't exist, copy directly
-            cp "$source" "$target"
-            echo "[Extension.js setup] File $(basename "$source") copied to $target"
+            # Target doesn't exist, create with modifications
+            sed -e 's/width="20%"/width="15.5%"/' \
+                -e '/\[coverage-image\].*coverage-url\]/d' \
+                "$source" > "$target"
+            echo "[Extension.js setup] File $(basename "$source") copied and modified to $target"
         fi
     else
         echo "Error: Source file $source not found"
@@ -40,7 +49,7 @@ copy_if_different() {
     fi
 }
 
-# Copy README.md
-copy_if_different "$SOURCE_README" "$TARGET_README"
+# Copy and modify README.md
+copy_and_modify_if_different "$SOURCE_README" "$TARGET_README"
 
 echo '►►► All tasks completed'

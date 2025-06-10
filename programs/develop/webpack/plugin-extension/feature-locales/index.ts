@@ -33,8 +33,24 @@ export class LocalesPlugin {
           stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
         () => {
+          console.log('Processing assets...')
+          console.log('Manifest path:', this.manifestPath)
+          console.log('Manifest exists:', fs.existsSync(this.manifestPath))
+
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
+            compilation.errors.push(
+              new rspack.WebpackError(
+                messages.manifestNotFoundError(
+                  'Extension.js',
+                  this.manifestPath
+                )
+              )
+            )
+            return
+          }
+
+          try {
             const manifest = JSON.parse(
               fs.readFileSync(this.manifestPath, 'utf8')
             )
@@ -45,48 +61,61 @@ export class LocalesPlugin {
 
             const manifestName = patchedManifest.name || 'Extension.js'
 
+            if (compilation.errors.length > 0) return
+
+            const localesFields = getLocales(this.manifestPath)
+            console.log('Locales fields:', localesFields)
+
+            if (localesFields) {
+              for (const localeFile of localesFields) {
+                console.log('Processing locale file:', localeFile)
+                console.log('File exists:', fs.existsSync(localeFile))
+                console.log('File extension:', path.extname(localeFile))
+
+                // Only process .json files
+                if (path.extname(localeFile) !== '.json') {
+                  console.log('Skipping non-JSON file')
+                  continue
+                }
+
+                if (!fs.existsSync(localeFile)) {
+                  console.log('File does not exist, adding warning')
+                  compilation.warnings.push(
+                    new rspack.WebpackError(
+                      messages.entryNotFoundWarn('locale', localeFile)
+                    )
+                  )
+                  continue
+                }
+
+                const source = fs.readFileSync(localeFile)
+                const rawSource = new sources.RawSource(source)
+                const context =
+                  compiler.options.context || path.dirname(this.manifestPath)
+                console.log('Context:', context)
+
+                if (!utils.shouldExclude(localeFile, this.excludeList)) {
+                  const filename = path.relative(context, localeFile)
+                  console.log('Emitting asset:', filename)
+                  compilation.emitAsset(filename, rawSource)
+                  compilation.fileDependencies.add(localeFile)
+                } else {
+                  console.log('File excluded')
+                }
+              }
+            } else {
+              console.log('No locale fields found')
+            }
+          } catch (error) {
+            console.error('Error processing manifest:', error)
             compilation.errors.push(
               new rspack.WebpackError(
-                messages.manifestNotFoundError(manifestName, this.manifestPath)
+                messages.manifestNotFoundError(
+                  'Extension.js',
+                  this.manifestPath
+                )
               )
             )
-            return
-          }
-
-          if (compilation.errors.length > 0) return
-
-          const localesFields = getLocales(this.manifestPath)
-
-          for (const field of Object.entries(localesFields || [])) {
-            const [feature, resource] = field
-            const thisResource = resource
-
-            // Resources from the manifest lib can come as undefined.
-            if (thisResource) {
-              // Only process .json files
-              if (path.extname(thisResource) !== '.json') {
-                continue
-              }
-
-              if (!fs.existsSync(thisResource)) {
-                compilation.warnings.push(
-                  new rspack.WebpackError(
-                    messages.entryNotFoundWarn(feature, thisResource)
-                  )
-                )
-                return
-              }
-
-              const source = fs.readFileSync(thisResource)
-              const rawSource = new sources.RawSource(source)
-              const context =
-                compiler.options.context || path.dirname(this.manifestPath)
-
-              if (!utils.shouldExclude(thisResource, this.excludeList)) {
-                const filename = path.relative(context, thisResource)
-                compilation.emitAsset(filename, rawSource)
-              }
-            }
           }
         }
       )
