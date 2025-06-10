@@ -62,10 +62,10 @@
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
     "@types/webextension-polyfill": "0.12.3",
-    "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
+    "pintor": "0.3.0",
     "semver": "^7.6.3",
     "update-check": "^1.5.4",
     "webextension-polyfill": "^0.12.0"
