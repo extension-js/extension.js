@@ -5,7 +5,7 @@ inputs:
   node-version:
     description: 'Node.js version to use'
     required: true
-    default: '22'
+    default: '18'
   install-command:
     description: 'Command to install dependencies'
     required: false

@@ -7,17 +7,17 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import chalk from 'chalk'
+import colors from 'pintor'
 import {detect} from 'package-manager-detector'
 
 export function destinationNotWriteable(workingDir: string) {
   const workingDirFolder = path.basename(workingDir)
 
   return (
-    `${chalk.red('✖︎✖︎✖︎')} ` +
+    `${colors.red('✖︎✖︎✖︎')} ` +
     `Failed to write in the destination directory\n\n` +
     `Path is not writable. Ensure you have write permissions for this folder.\n` +
-    `${chalk.red('NOT WRITEABLE')}: ${chalk.underline(workingDirFolder)}`
+    `${colors.red('NOT WRITEABLE')}: ${colors.underline(workingDirFolder)}`
   )
 }
 
@@ -29,34 +29,34 @@ export async function directoryHasConflicts(
 
   let message =
     `\nConflict! Path to ` +
-    `${chalk.cyan(projectName)} includes conflicting files:\n\n`
+    `${colors.cyan(projectName)} includes conflicting files:\n\n`
 
   for (const file of conflictingFiles) {
     const stats = await fs.promises.lstat(path.join(projectPath, file))
     message += stats.isDirectory()
-      ? `${chalk.gray('-')} ${chalk.yellow(file)}\n`
-      : `${chalk.gray('-')} ${chalk.yellow(file)}\n`
+      ? `${colors.gray('-')} ${colors.yellow(file)}\n`
+      : `${colors.gray('-')} ${colors.yellow(file)}\n`
   }
 
   message +=
     '\nYou need to either rename/remove the files listed above, ' +
     'or choose a new directory name for your extension.\n' +
-    `\nPath to conflicting directory: ${chalk.underline(projectPath)}`
+    `\nPath to conflicting directory: ${colors.underline(projectPath)}`
 
   return message
 }
 
 export function noProjectName() {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} ` +
+    `${colors.red('✖︎✖︎✖︎')} ` +
     'You need to provide an extension name to create one. ' +
-    `See ${chalk.yellow('--help')} for command info.`
+    `See ${colors.yellow('--help')} for command info.`
   )
 }
 
 export function noUrlAllowed() {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} ` +
+    `${colors.red('✖︎✖︎✖︎')} ` +
     'URLs are not allowed as a project path. Either write ' +
     'a name or a path to a local folder.'
   )
@@ -90,18 +90,18 @@ export async function successfullInstall(
   }
 
   return (
-    `🧩 - ${chalk.green('Success!')} Extension ${chalk.cyan(
+    `🧩 - ${colors.green('Success!')} Extension ${colors.cyan(
       projectName
     )} created.\n\n` +
-    `Now ${chalk.magenta(`cd ${chalk.underline(relativePath)}`)} and ` +
-    `${chalk.magenta(`${command}`)} to open a new browser instance\n` +
+    `Now ${colors.magenta(`cd ${colors.underline(relativePath)}`)} and ` +
+    `${colors.magenta(`${command}`)} to open a new browser instance\n` +
     'with your extension installed, loaded, and enabled for development.\n\n' +
-    `${chalk.green('You are ready')}. Time to hack on your extension!`
+    `${colors.green('You are ready')}. Time to hack on your extension!`
   )
 }
 
 export function startingNewExtension(projectName: string) {
-  return `🐣 - Starting a new browser extension named ${chalk.cyan(projectName)}...`
+  return `🐣 - Starting a new browser extension named ${colors.cyan(projectName)}...`
 }
 
 export function checkingIfPathIsWriteable() {
@@ -114,19 +114,19 @@ export function scanningPossiblyConflictingFiles() {
 
 export function createDirectoryError(projectName: string, error: any) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} ` +
-    `Can't create directory ${chalk.cyan(projectName)}:\n${chalk.red(error)}`
+    `${colors.red('✖︎✖︎✖︎')} ` +
+    `Can't create directory ${colors.cyan(projectName)}:\n${colors.red(error)}`
   )
 }
 
 export function writingTypeDefinitions(projectName: string) {
-  return `🔷 - Writing type definitions for ${chalk.cyan(projectName)}...`
+  return `🔷 - Writing type definitions for ${colors.cyan(projectName)}...`
 }
 
 export function writingTypeDefinitionsError(error: any) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Failed to write the extension ` +
-    `type definition.\n${chalk.red(error)}`
+    `${colors.red('✖︎✖︎✖︎')} Failed to write the extension ` +
+    `type definition.\n${colors.red(error)}`
   )
 }
 
@@ -135,12 +135,12 @@ export function installingFromTemplate(
   templateName: string
 ) {
   if (templateName === 'init') {
-    return `🧰 - Installing ${chalk.cyan(projectName)}...`
+    return `🧰 - Installing ${colors.cyan(projectName)}...`
   }
 
   return (
-    `🧰 - Installing ${chalk.cyan(projectName)} from ` +
-    `template ${chalk.magenta(templateName)}...`
+    `🧰 - Installing ${colors.cyan(projectName)} from ` +
+    `template ${colors.magenta(templateName)}...`
   )
 }
 
@@ -150,13 +150,13 @@ export function installingFromTemplateError(
   error: any
 ) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Can't find template ` +
-    `${chalk.magenta(template)} for ${chalk.cyan(projectName)}:\n${chalk.red(error)}`
+    `${colors.red('✖︎✖︎✖︎')} Can't find template ` +
+    `${colors.magenta(template)} for ${colors.cyan(projectName)}:\n${colors.red(error)}`
   )
 }
 
 export function initializingGitForRepository(projectName: string) {
-  return `🌲 - Initializing git repository for ${chalk.cyan(projectName)}...`
+  return `🌲 - Initializing git repository for ${colors.cyan(projectName)}...`
 }
 
 export function initializingGitForRepositoryFailed(
@@ -165,8 +165,8 @@ export function initializingGitForRepositoryFailed(
   code: number | null
 ) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} ` +
-    `Command ${chalk.yellow(gitCommand)} ${chalk.yellow(gitArgs.join(' '))} ` +
+    `${colors.red('✖︎✖︎✖︎')} ` +
+    `Command ${colors.yellow(gitCommand)} ${colors.yellow(gitArgs.join(' '))} ` +
     `failed with exit code ${code}`
   )
 }
@@ -176,9 +176,9 @@ export function initializingGitForRepositoryProcessError(
   error: any
 ) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Child process error: Can't initialize ` +
-    `${chalk.yellow('git')} for ${chalk.cyan(projectName)}:\n` +
-    `${chalk.red(error.message)}`
+    `${colors.red('✖︎✖︎✖︎')} Child process error: Can't initialize ` +
+    `${colors.yellow('git')} for ${colors.cyan(projectName)}:\n` +
+    `${colors.red(error.message)}`
   )
 }
 
@@ -187,9 +187,9 @@ export function initializingGitForRepositoryError(
   error: any
 ) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Can't initialize ` +
-    `${chalk.yellow('git')} for ${chalk.cyan(projectName)}:\n` +
-    `${chalk.red(error.message || error.toString())}`
+    `${colors.red('✖︎✖︎✖︎')} Can't initialize ` +
+    `${colors.yellow('git')} for ${colors.cyan(projectName)}:\n` +
+    `${colors.red(error.message || error.toString())}`
   )
 }
 
@@ -203,7 +203,7 @@ export function installingDependenciesFailed(
   code: number | null
 ) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} ` +
+    `${colors.red('✖︎✖︎✖︎')} ` +
     `Command ${gitCommand} ${gitArgs.join(' ')} ` +
     `failed with exit code ${code}`
   )
@@ -214,20 +214,20 @@ export function installingDependenciesProcessError(
   error: any
 ) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Child process error: Can't ` +
-    `install dependencies for ${chalk.cyan(projectName)}:\n${chalk.red(error)}`
+    `${colors.red('✖︎✖︎✖︎')} Child process error: Can't ` +
+    `install dependencies for ${colors.cyan(projectName)}:\n${colors.red(error)}`
   )
 }
 
 export function cantInstallDependencies(projectName: string, error: any) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Can't install dependencies for ${chalk.cyan(projectName)}:\n` +
-    `${chalk.red(error.message || error.toString())}`
+    `${colors.red('✖︎✖︎✖︎')} Can't install dependencies for ${colors.cyan(projectName)}:\n` +
+    `${colors.red(error.message || error.toString())}`
   )
 }
 
 export function writingPackageJsonMetadata() {
-  return `📝 - Writing ${chalk.yellow('package.json')} metadata...`
+  return `📝 - Writing ${colors.yellow('package.json')} metadata...`
 }
 
 export function writingPackageJsonMetadataError(
@@ -235,13 +235,13 @@ export function writingPackageJsonMetadataError(
   error: any
 ) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Can't write ` +
-    `${chalk.yellow('package.json')} for ${chalk.cyan(projectName)}:\n${chalk.red(error)}`
+    `${colors.red('✖︎✖︎✖︎')} Can't write ` +
+    `${colors.yellow('package.json')} for ${colors.cyan(projectName)}:\n${colors.red(error)}`
   )
 }
 
 export function writingManifestJsonMetadata() {
-  return `📜 - Writing ${chalk.yellow('manifest.json')} metadata...`
+  return `📜 - Writing ${colors.yellow('manifest.json')} metadata...`
 }
 
 export function writingManifestJsonMetadataError(
@@ -249,42 +249,42 @@ export function writingManifestJsonMetadataError(
   error: any
 ) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Can't write ` +
-    `${chalk.yellow('manifest.json')} for ${chalk.cyan(projectName)}:\n${chalk.red(error)}`
+    `${colors.red('✖︎✖︎✖︎')} Can't write ` +
+    `${colors.yellow('manifest.json')} for ${colors.cyan(projectName)}:\n${colors.red(error)}`
   )
 }
 
 export function writingReadmeMetaData() {
-  return `📄 - Writing ${chalk.yellow('README.md')} metadata...`
+  return `📄 - Writing ${colors.yellow('README.md')} metadata...`
 }
 
 export function writingGitIgnore() {
-  return `🙈 - Writing ${chalk.yellow('.gitignore')} lines...`
+  return `🙈 - Writing ${colors.yellow('.gitignore')} lines...`
 }
 
 export function writingReadmeMetaDataEError(projectName: string, error: any) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} ` +
-    `Can't write the ${chalk.yellow('README.md')} file ` +
-    `for ${chalk.cyan(projectName)}:\n${chalk.red(error)}`
+    `${colors.red('✖︎✖︎✖︎')} ` +
+    `Can't write the ${colors.yellow('README.md')} file ` +
+    `for ${colors.cyan(projectName)}:\n${colors.red(error)}`
   )
 }
 
 export function folderExists(projectName: string) {
-  return `🤝 - Ensuring ${chalk.cyan(projectName)} folder exists...`
+  return `🤝 - Ensuring ${colors.cyan(projectName)} folder exists...`
 }
 
 export function writingDirectoryError(error: any) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} ` +
+    `${colors.red('✖︎✖︎✖︎')} ` +
     'Error while checking directory writability:\n' +
-    chalk.red(error)
+    colors.red(error)
   )
 }
 
 export function cantSetupBuiltInTests(projectName: string, error: any) {
   return (
-    `${chalk.red('✖︎✖︎✖︎')} Can't setup built-in tests for ` +
-    `${chalk.cyan(projectName)}:\n${chalk.red(error)}`
+    `${colors.red('✖︎✖︎✖︎')} Can't setup built-in tests for ` +
+    `${colors.cyan(projectName)}:\n${colors.red(error)}`
   )
 }

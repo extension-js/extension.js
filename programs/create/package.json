@@ -36,10 +36,10 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "chalk": "^5.3.0",
     "cross-spawn": "^7.0.6",
     "go-git-it": "4.0.0",
     "package-manager-detector": "^0.2.7",
+    "pintor": "0.3.0",
     "tiny-glob": "^0.2.9"
   },
   "devDependencies": {
