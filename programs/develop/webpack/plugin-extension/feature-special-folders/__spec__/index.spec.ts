@@ -1,7 +1,22 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {describe, expect, it, beforeAll, afterAll} from 'vitest'
+import {describe, expect, it, beforeAll, afterAll, vi} from 'vitest'
 import {extensionBuild} from '../../../../../../programs/develop/dist/module.js'
+
+vi.mock('fs', async (importOriginal) => {
+  const actual = (await importOriginal()) as any
+  return {
+    ...actual,
+    existsSync: actual.existsSync
+      ? vi.fn(actual.existsSync)
+      : vi.fn(() => false),
+    rmSync: actual.rmSync ? vi.fn(actual.rmSync) : vi.fn(),
+    promises: {
+      ...actual.promises,
+      access: actual.promises?.access ? vi.fn(actual.promises.access) : vi.fn()
+    }
+  }
+})
 
 const getFixturesPath = (fixture: string) => {
   return path.resolve(

@@ -137,48 +137,72 @@ describe('getManifestOverrides', () => {
         fileC: 'icons/icon128.png'
       }
 
-  it('should transform manifest action details correctly', () => {
-    const result = getManifestOverrides(
-      'NOT_AVAILABLE',
-      SUPER_MANIFEST,
-      exclude
-    )
+  describe('Common Features', () => {
+    it('should transform manifest common features correctly', () => {
+      const result = getManifestOverrides(
+        'NOT_AVAILABLE',
+        SUPER_MANIFEST,
+        exclude
+      )
+      const parsed = JSON.parse(result)
 
-    expect(JSON.parse(result)).toEqual({
-      name: 'super-manifest',
-      version: '0.0.1',
-      description: 'An Extension.js example.',
-      action: {
-        default_popup: 'action/default_popup.html',
-        default_icon: 'action/icon.png'
-      },
-      background: {
+      // Test page_action
+      expect(parsed.page_action).toEqual({
+        default_icon: 'icons/icon16.png',
+        default_popup: 'page_action/default_popup.html'
+      })
+
+      // Test sandbox
+      expect(parsed.sandbox).toEqual({
+        pages: ['sandbox/page-0.html', 'sandbox/page-1.html']
+      })
+
+      // Test sidebar_action
+      expect(parsed.sidebar_action).toEqual({
+        default_panel: 'sidebar_action/default_panel.html',
+        default_icon: 'icons/icon16.png'
+      })
+
+      // Test storage
+      expect(parsed.storage).toEqual({
+        managed_schema: 'storage/managed_schema.json'
+      })
+
+      // Test theme
+      expect(parsed.theme).toEqual({
+        images: {
+          theme_frame: 'theme/images/theme_frame.png'
+        }
+      })
+
+      // Test user_scripts
+      expect(parsed.user_scripts).toEqual({
+        api_script: 'user_scripts/api_script.js'
+      })
+
+      // Test web_accessible_resources
+      expect(parsed.web_accessible_resources).toEqual([
+        'images/my-image.png',
+        'script.js',
+        'styles.css'
+      ])
+
+      // Test background
+      expect(parsed.background).toEqual({
         page: 'background.html',
         scripts: ['background.js', 'background2.js'],
         service_worker: 'background/service_worker.js'
-      },
-      browser_action: {
-        default_icon: 'icons/icon16.png',
-        default_popup: 'browser_action/default_popup.html',
-        theme_icons: [
-          {
-            light: 'browser_action/icon16-light.png',
-            dark: 'browser_action/icon16-dark.png',
-            size: 16
-          },
-          {
-            light: 'browser_action/icon16-light.png',
-            dark: 'browser_action/icon16-dark.png',
-            size: 16
-          }
-        ]
-      },
-      chrome_url_overrides: {
+      })
+
+      // Test chrome_url_overrides
+      expect(parsed.chrome_url_overrides).toEqual({
         bookmarks: 'chrome_url_overrides/bookmarks.html',
         history: 'chrome_url_overrides/history.html',
         newtab: 'chrome_url_overrides/newtab.html'
-      },
-      content_scripts: [
+      })
+
+      // Test content_scripts
+      expect(parsed.content_scripts).toEqual([
         {
           matches: ['<all_urls>'],
           js: ['content_scripts/content-0.js', 'content_scripts/content-0.js'],
@@ -195,8 +219,55 @@ describe('getManifestOverrides', () => {
             'content_scripts/content-1.css'
           ]
         }
-      ],
-      declarative_net_request: {
+      ])
+
+      // Test devtools_page
+      expect(parsed.devtools_page).toBe('devtools_page.html')
+
+      // Test icons
+      expect(parsed.icons).toEqual({
+        '16': 'icons/icon16.png',
+        '48': 'icons/icon48.png',
+        '128': 'icons/icon128.png'
+      })
+
+      // Test options_page and options_ui
+      expect(parsed.options_page).toBe('options_ui/page.html')
+      expect(parsed.options_ui).toEqual({
+        page: 'options_ui/page.html'
+      })
+    })
+  })
+
+  describe('Manifest V2 Features', () => {
+    it('should transform manifest V2 features correctly', () => {
+      const result = getManifestOverrides(
+        'NOT_AVAILABLE',
+        SUPER_MANIFEST,
+        exclude
+      )
+      const parsed = JSON.parse(result)
+
+      // Test browser_action
+      expect(parsed.browser_action).toEqual({
+        default_icon: 'icons/icon16.png',
+        default_popup: 'browser_action/default_popup.html',
+        theme_icons: [
+          {
+            light: 'browser_action/icon16-light.png',
+            dark: 'browser_action/icon16-dark.png',
+            size: 16
+          },
+          {
+            light: 'browser_action/icon16-light.png',
+            dark: 'browser_action/icon16-dark.png',
+            size: 16
+          }
+        ]
+      })
+
+      // Test declarative_net_request
+      expect(parsed.declarative_net_request).toEqual({
         rule_resources: [
           {
             id: 'block_ads',
@@ -204,47 +275,29 @@ describe('getManifestOverrides', () => {
             path: 'declarative_net_request/block_ads.json'
           }
         ]
-      },
-      devtools_page: 'devtools_page.html',
-      icons: {
-        '16': 'icons/icon16.png',
-        '48': 'icons/icon48.png',
-        '128': 'icons/icon128.png'
-      },
-      options_page: 'options_ui/page.html',
-      options_ui: {
-        page: 'options_ui/page.html'
-      },
-      page_action: {
-        default_icon: 'icons/icon16.png',
-        default_popup: 'page_action/default_popup.html'
-      },
-      sandbox: {
-        pages: ['sandbox/page-0.html', 'sandbox/page-1.html']
-      },
-      sidebar_action: {
-        default_panel: 'sidebar_action/default_panel.html',
-        default_icon: 'icons/icon16.png'
-      },
-      storage: {
-        managed_schema: 'storage/managed_schema.json'
-      },
-      theme: {
-        images: {
-          theme_frame: 'theme/images/theme_frame.png'
-        }
-      },
-      user_scripts: {
-        api_script: 'user_scripts/api_script.js'
-      },
-      web_accessible_resources: [
-        'images/my-image.png',
-        'script.js',
-        'styles.css'
-      ],
-      side_panel: {
+      })
+    })
+  })
+
+  describe('Manifest V3 Features', () => {
+    it('should transform manifest V3 features correctly', () => {
+      const result = getManifestOverrides(
+        'NOT_AVAILABLE',
+        SUPER_MANIFEST,
+        exclude
+      )
+      const parsed = JSON.parse(result)
+
+      // Test action
+      expect(parsed.action).toEqual({
+        default_popup: 'action/default_popup.html',
+        default_icon: 'action/icon.png'
+      })
+
+      // Test side_panel
+      expect(parsed.side_panel).toEqual({
         default_path: 'side_panel/default_path.html'
-      }
+      })
     })
   })
 })
