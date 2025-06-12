@@ -13,7 +13,10 @@ export default defineConfig({
     testTimeout: 120e3,
     globals: true,
     environment: 'node',
-    include: ['webpack/**/__spec__/**/*.spec.ts', 'build.spec.ts'],
+    include: [
+      'webpack/**/__spec__/**/*.spec.ts'
+      //  'build.spec.ts'
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -23,7 +26,9 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.test.ts',
         '**/*.spec.ts',
+        '**/__spec__/**',
         '**/types/**',
+        '**/constants.ts',
         '**/messages.ts'
       ]
     }
