@@ -1,5 +1,5 @@
 import {type Compiler, type EntryObject} from '@rspack/core'
-
+import * as fs from 'fs'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
 
@@ -15,17 +15,18 @@ export class AddScripts {
   }
 
   public apply(compiler: Compiler): void {
-    const scriptFields = this.includeList || {}
-
     const newEntries: Record<string, EntryObject> = {}
 
-    for (const [feature, scriptPath] of Object.entries(scriptFields)) {
-      const scriptImports = getScriptEntries(scriptPath, this.excludeList)
-      const cssImports = getCssEntries(scriptPath, this.excludeList)
-      const entryImports = [...scriptImports, ...cssImports]
+    // Process manifest entries
+    if (fs.existsSync(this.manifestPath)) {
+      for (const [feature, scriptPath] of Object.entries(this.includeList)) {
+        const scriptImports = getScriptEntries(scriptPath, this.excludeList)
+        const cssImports = getCssEntries(scriptPath, this.excludeList)
+        const entryImports = [...scriptImports, ...cssImports]
 
-      if (cssImports.length || scriptImports.length) {
-        newEntries[feature] = {import: entryImports}
+        if (cssImports.length || scriptImports.length) {
+          newEntries[feature] = {import: entryImports}
+        }
       }
     }
 

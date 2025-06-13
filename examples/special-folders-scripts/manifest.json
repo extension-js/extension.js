@@ -7,11 +7,20 @@
   "icons": {
     "48": "images/extension_48.png"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/scripts.js"]
+    }
+  ],
   "background": {
     "chromium:service_worker": "background.js",
     "firefox:scripts": ["background.js"]
   },
   "permissions": ["scripting", "webNavigation", "storage"],
   "host_permissions": ["https://extension.js.org/*"],
-  "action": {}
+  "action": {},
+  "user_scripts": {
+    "api_script": "user_scripts/api-script.js"
+  }
 }

@@ -40,7 +40,13 @@ export class UpdateManifest {
           () => {
             if (compilation.errors.length > 0) return
 
-            const manifest = getManifestContent(compilation, this.manifestPath)
+            let manifest: any
+            try {
+              manifest = getManifestContent(compilation, this.manifestPath)
+            } catch (e) {
+              // If invalid JSON or file not found, skip update logic gracefully
+              return
+            }
 
             const overrides = getManifestOverrides(
               this.manifestPath,
@@ -81,10 +87,13 @@ export class UpdateManifest {
             () => {
               if (compilation.errors.length > 0) return
 
-              const manifest = getManifestContent(
-                compilation,
-                this.manifestPath
-              )
+              let manifest: any
+              try {
+                manifest = getManifestContent(compilation, this.manifestPath)
+              } catch (e) {
+                // If invalid JSON or file not found, skip update logic gracefully
+                return
+              }
 
               const overrides = getManifestOverrides(
                 this.manifestPath,
