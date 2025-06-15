@@ -58,8 +58,8 @@ export class EmitFile {
                   // Output theme_icons to the same folder as browser_action
                   // TODO: cezaraugusto at some point figure out a standard
                   // way to output paths from the manifest fields.
-                  const featureName = feature.endsWith('theme_icons')
-                    ? feature.replace('theme_icons', '')
+                  const featureName = feature.endsWith('_theme_icons')
+                    ? feature.slice(0, -12) // Remove '_theme_icons' suffix
                     : feature
                   const filename = `${featureName}/${basename}`
 

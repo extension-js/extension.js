@@ -17,43 +17,100 @@ const getFixturesPath = (demoDir: string) => {
   )
 }
 
-export const assertFileIsEmitted = async (filePath: string) => {
-  await fs.promises.access(filePath, fs.constants.F_OK)
+const assertFileIsEmitted = async (filePath: string) => {
+  const fileIsEmitted = await fs.promises.access(filePath, fs.constants.F_OK)
+  return expect(fileIsEmitted).toBeUndefined()
 }
 
-export const assertFileIsNotEmitted = async (filePath: string) => {
+const assertFileIsNotEmitted = async (filePath: string) => {
   await fs.promises.access(filePath, fs.constants.F_OK).catch((err) => {
     expect(err).toBeTruthy()
   })
 }
 
-export const findStringInFile = async (
-  filePath: string,
-  searchString: string
-) => {
-  const data = await fs.promises.readFile(filePath, 'utf8')
-  expect(data).toContain(searchString)
-}
-
 describe('LocalesPlugin', () => {
-  const fixturesPath = getFixturesPath('action-locales')
-  const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
+  describe('default locales', () => {
+    const fixturesPath = getFixturesPath('action-locales')
+    const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
-  beforeAll(async () => {
-    await extensionBuild(fixturesPath, {
-      browser: 'chrome'
+    beforeAll(async () => {
+      await extensionBuild(fixturesPath, {
+        browser: 'chrome'
+      })
+    })
+
+    afterAll(() => {
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath, {recursive: true, force: true})
+      }
+    })
+
+    const enMessagesPath = path.join(
+      outputPath,
+      '_locales',
+      'en',
+      'messages.json'
+    )
+    const ptBrMessagesPath = path.join(
+      outputPath,
+      '_locales',
+      'pt_BR',
+      'messages.json'
+    )
+
+    it('outputs locale files to destination folder', async () => {
+      await assertFileIsEmitted(enMessagesPath)
+      await assertFileIsEmitted(ptBrMessagesPath)
+    })
+
+    it('locale file contains expected content', async () => {
+      const enData = await fs.promises.readFile(enMessagesPath, 'utf8')
+      const enMessages = JSON.parse(enData)
+      expect(enMessages).toHaveProperty('title')
+      expect(enMessages.title).toHaveProperty(
+        'message',
+        'Welcome to your Locale Extension'
+      )
+      expect(enMessages).toHaveProperty('learnMore')
+      expect(enMessages.learnMore).toHaveProperty(
+        'message',
+        'Learn more about creating cross-browser extensions at '
+      )
+
+      const ptBrData = await fs.promises.readFile(ptBrMessagesPath, 'utf8')
+      const ptBrMessages = JSON.parse(ptBrData)
+      expect(ptBrMessages).toHaveProperty('title')
+      expect(ptBrMessages.title).toHaveProperty(
+        'message',
+        'Bem-vindo à sua extensão de localização'
+      )
+      expect(ptBrMessages).toHaveProperty('learnMore')
+      expect(ptBrMessages.learnMore).toHaveProperty(
+        'message',
+        'Saiba mais sobre como criar extensões multiplataforma em '
+      )
     })
   })
 
-  afterAll(() => {
-    if (fs.existsSync(outputPath)) {
-      fs.rmSync(outputPath, {recursive: true, force: true})
-    }
-  })
+  describe('no locales', () => {
+    const fixturesPath = getFixturesPath('action')
+    const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
-  const rulesetJson = path.join(outputPath, '_locales', 'en')
+    beforeAll(async () => {
+      await extensionBuild(fixturesPath, {
+        browser: 'chrome'
+      })
+    })
 
-  it('outputs locale file to destination folder', async () => {
-    await assertFileIsEmitted(rulesetJson)
+    afterAll(() => {
+      if (fs.existsSync(outputPath)) {
+        fs.rmSync(outputPath, {recursive: true, force: true})
+      }
+    })
+
+    it('handles no locales gracefully', async () => {
+      const localesDir = path.join(outputPath, '_locales')
+      await assertFileIsNotEmitted(localesDir)
+    })
   })
 })

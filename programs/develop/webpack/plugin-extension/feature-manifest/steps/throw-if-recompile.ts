@@ -61,7 +61,13 @@ export class ThrowIfRecompileIsNeeded {
                 () => {
                   const manifestAsset = compilation.getAsset('manifest.json')
                   const manifestStr = manifestAsset?.source.source().toString()
-                  const updatedManifest = JSON.parse(manifestStr || '{}')
+                  let updatedManifest: any = {}
+                  try {
+                    updatedManifest = JSON.parse(manifestStr || '{}')
+                  } catch (e) {
+                    // If invalid JSON, skip error-throwing logic gracefully
+                    return
+                  }
                   const updatedHtml = this.flattenAndSort(
                     Object.values(htmlFields(context, updatedManifest))
                   )
