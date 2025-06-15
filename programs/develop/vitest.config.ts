@@ -14,8 +14,8 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: [
-      'webpack/**/__spec__/**/*.spec.ts'
-      //  'build.spec.ts'
+      'webpack/**/__spec__/**/*.spec.ts',
+       'build.spec.ts'
     ],
     coverage: {
       provider: 'v8',
