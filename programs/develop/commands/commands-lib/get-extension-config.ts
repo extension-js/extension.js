@@ -4,13 +4,14 @@ import {Configuration} from '@rspack/core'
 import {BrowserConfig, FileConfig} from './config-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import * as messages from './messages'
+import {pathToFileURL} from 'url'
 
 async function loadConfigFile(configPath: string): Promise<FileConfig> {
   const absolutePath = path.resolve(configPath)
 
   try {
     // Try to load as ESM module first
-    const module = await import(absolutePath)
+    const module = await import(pathToFileURL(absolutePath).href)
     return module.default || module
   } catch (err: unknown) {
     const error = err as Error
