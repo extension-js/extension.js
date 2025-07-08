@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as messages from '../lib/messages'
+import {pathToFileURL} from 'url'
 
 let userMessageDelivered = false
 
@@ -20,7 +21,7 @@ export async function loadLoaderOptions(
     }
 
     try {
-      const module = await import(configPath)
+      const module = await import(pathToFileURL(configPath).href)
       return module.default || module
     } catch (err: unknown) {
       const error = err as Error
