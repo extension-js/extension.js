@@ -66,7 +66,7 @@ export class HandleCommonErrors {
               // For that we use the AddAssetsToCompilationPlugin.
               const cantResolveError = handleCantResolveError(
                 this.includeList || {},
-                error
+                error as StatsError
               )
               if (cantResolveError) {
                 compilation.errors[index] = cantResolveError
