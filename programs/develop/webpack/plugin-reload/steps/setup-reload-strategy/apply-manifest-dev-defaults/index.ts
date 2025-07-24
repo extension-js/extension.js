@@ -19,6 +19,15 @@ export class ApplyManifestDevDefaults {
   private generateManifestPatches(compilation: Compilation) {
     const manifest = utils.getManifestContent(compilation, this.manifestPath!)
 
+    if (!manifest) {
+      const errorMessage =
+        'No manifest.json found in your extension bundle. Unable to patch manifest.json.'
+      if (compilation.errors) {
+        compilation.errors.push(new Error(`run-chromium: ${errorMessage}`))
+      }
+      return
+    }
+
     const patchedManifest = {
       // Preserve all other user entries
       ...manifest,

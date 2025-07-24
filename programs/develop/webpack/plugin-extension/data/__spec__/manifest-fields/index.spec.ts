@@ -1,334 +1,359 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import {describe, it, expect, afterAll} from 'vitest'
-import {getManifestFieldsData} from '../../manifest-fields/index'
+import {describe, it, expect, vi, beforeAll, afterAll} from 'vitest'
+import {getManifestFieldsData} from '../../manifest-fields'
+import {type PluginInterface} from '../../../../webpack-types'
 
-const fakeManifestV2: chrome.runtime.ManifestV2 = {
-  manifest_version: 2,
-  name: 'Super Extension',
+const mockContext = '/mock/context'
+const mockManifestPath = path.join(mockContext, 'manifest.json')
+
+const mockManifestV3 = {
+  manifest_version: 3,
+  name: 'Test Extension',
   version: '1.0.0',
   action: {
-    default_popup: 'action/default_popup.html',
-    default_icon: 'action/icon.png'
-  },
-  background: {
-    page: 'background.html',
-    scripts: ['background.js', 'background2.js']
+    default_popup: 'popup.html',
+    default_icon: {
+      '16': 'icons/icon16.png',
+      '48': 'icons/icon48.png',
+      '128': 'icons/icon128.png'
+    }
   },
   browser_action: {
-    default_icon: 'browser_action/icon16.png',
-    default_popup: 'browser_action/default_popup.html',
-    // @ts-expect-error this is specific for Firefox
+    default_popup: 'browser-popup.html',
+    default_icon: {
+      '16': 'icons/browser16.png',
+      '48': 'icons/browser48.png',
+      '128': 'icons/browser128.png'
+    },
     theme_icons: [
       {
-        light: 'browser_action/icon16-light.png',
-        dark: 'browser_action/icon16-dark.png',
+        light: 'icons/light16.png',
+        dark: 'icons/dark16.png',
         size: 16
       },
       {
-        light: 'browser_action/icon16-light.png',
-        dark: 'browser_action/icon16-dark.png',
-        size: 16
+        light: 'icons/light48.png',
+        dark: 'icons/dark48.png',
+        size: 48
       }
     ]
   },
   chrome_url_overrides: {
-    bookmarks: 'chrome_url_overrides/bookmarks.html',
-    history: 'chrome_url_overrides/history.html',
-    newtab: 'chrome_url_overrides/newtab.html'
+    newtab: 'newtab.html'
   },
-  content_scripts: [
-    {
-      matches: ['<all_urls>'],
-      js: ['content_scripts/content-0.js', 'content_scripts/content-0.js'],
-      css: ['content_scripts/content-0.css', 'content_scripts/content-0.css']
-    },
-    {
-      matches: ['<all_urls>'],
-      js: ['content_scripts/content-1.js', 'content_scripts/content-1.js'],
-      css: ['content_scripts/content-1.css', 'content_scripts/content-1.css']
-    }
-  ],
-  declarative_net_request: {
-    rule_resources: [
-      {
-        id: 'block_ads',
-        enabled: true,
-        path: 'declarative_net_request/block_ads.json'
-      }
-    ]
-  },
-  devtools_page: 'devtools_page.html',
+  devtools_page: 'devtools.html',
   icons: {
     '16': 'icons/icon16.png',
     '48': 'icons/icon48.png',
     '128': 'icons/icon128.png'
   },
-  options_page: 'options_ui/page.html',
   options_ui: {
-    page: 'options_ui/page.html'
+    page: 'options.html'
   },
   page_action: {
-    default_icon: 'page_action/icon16.png',
-    default_popup: 'page_action/default_popup.html'
-  },
-  sandbox: {
-    pages: ['sandbox/page-0.html', 'sandbox/page-1.html']
-  },
-  sidebar_action: {
-    default_panel: 'sidebar_action/default_panel.html',
-    default_icon: 'sidebar_action/icon16.png'
-  },
-  storage: {
-    managed_schema: 'storage/managed_schema.json'
-  },
-  theme: {
-    images: {
-      theme_frame: 'theme/images/theme_frame.png'
+    default_popup: 'page-popup.html',
+    default_icon: {
+      '16': 'icons/page16.png',
+      '48': 'icons/page48.png',
+      '128': 'icons/page128.png'
     }
   },
-  user_scripts: {
-    api_script: 'user_scripts/api_script.js'
+  sandbox: {
+    pages: ['sandbox.html']
   },
-  web_accessible_resources: ['images/my-image.png', 'script.js', 'styles.css'],
   side_panel: {
-    default_path: 'side_panel/default_path.html'
-  }
-}
-
-const fakeManifestV3: Partial<chrome.runtime.ManifestV3> = {
-  ...(fakeManifestV2 as any),
-  manifest_version: 3,
+    default_path: 'sidepanel.html'
+  },
+  sidebar_action: {
+    default_panel: 'sidebar.html',
+    default_icon: 'icons/sidebar.png'
+  },
+  declarative_net_request: {
+    rule_resources: [
+      {
+        id: 'ruleset_1',
+        enabled: true,
+        path: 'rules.json'
+      }
+    ]
+  },
+  storage: {
+    managed_schema: 'schema.json'
+  },
+  default_locale: 'en',
   background: {
-    service_worker: 'background/sw.js'
+    service_worker: 'background.js',
+    scripts: ['background-script.js']
+  },
+  content_scripts: [
+    {
+      matches: ['<all_urls>'],
+      js: ['content.js']
+    }
+  ],
+  user_scripts: {
+    api_script: 'user-script.js'
   },
   web_accessible_resources: [
     {
-      resources: ['images/my-image.png', 'script.js', 'styles.css'],
+      resources: ['images/*', 'styles/*'],
       matches: ['<all_urls>']
-    },
-    {
-      resources: ['images/my-image2.png', 'script2.js', 'styles2.css'],
-      matches: ['https://google.com/*']
     }
   ]
 }
 
-const manifestV2Path = path.join(__dirname, 'manifest-v2.json')
-const manifestV3Path = path.join(__dirname, 'manifest-v3.json')
+vi.mock('fs', () => ({
+  readFileSync: (filePath: fs.PathOrFileDescriptor) => {
+    if (filePath === mockManifestPath) {
+      return JSON.stringify(mockManifestV3)
+    }
+    throw new Error(`Unexpected file read: ${filePath}`)
+  },
+  existsSync: (filePath: fs.PathLike) => {
+    if (filePath === path.join(mockContext, '_locales')) {
+      return true
+    }
+    return false
+  },
+  readdirSync: (filePath: fs.PathLike, options?: {withFileTypes?: boolean}) => {
+    const filePathStr = filePath.toString()
+    const localesPath = path.join(mockContext, '_locales')
+    const enPath = path.join(localesPath, 'en')
+    const esPath = path.join(localesPath, 'es')
 
-describe('getManifestFieldsData', () => {
+    if (filePathStr === localesPath) {
+      return (options?.withFileTypes
+        ? ['en', 'es'].map((name) => ({
+            name,
+            isDirectory: () => true,
+            isFile: () => false
+          }))
+        : ['en', 'es']) as unknown as fs.Dirent<Buffer>[]
+    }
+
+    if (filePathStr === enPath || filePathStr === esPath) {
+      return (options?.withFileTypes
+        ? ['messages.json'].map((name) => ({
+            name,
+            isDirectory: () => false,
+            isFile: () => true
+          }))
+        : ['messages.json']) as unknown as fs.Dirent<Buffer>[]
+    }
+
+    throw new Error(`Unexpected directory read: ${filePathStr}`)
+  },
+  statSync: (filePath: fs.PathLike) => {
+    if (
+      filePath === path.join(mockContext, '_locales', 'en') ||
+      filePath === path.join(mockContext, '_locales', 'es')
+    ) {
+      return {isDirectory: () => true} as fs.Stats
+    }
+    throw new Error(`Unexpected stat: ${filePath}`)
+  }
+}))
+
+describe('Manifest Fields', () => {
+  const mockPluginInterface: PluginInterface = {
+    manifestPath: mockManifestPath,
+    browser: 'chrome'
+  }
+
   afterAll(() => {
-    if (fs.existsSync(manifestV2Path)) {
-      fs.unlinkSync(manifestV2Path)
-    }
-    if (fs.existsSync(manifestV3Path)) {
-      fs.unlinkSync(manifestV3Path)
-    }
+    vi.restoreAllMocks()
   })
 
-  it('should transform manifest action details correctly for manifest v2', () => {
-    fs.writeFileSync(manifestV2Path, JSON.stringify(fakeManifestV2, null, 2))
+  describe('HTML Fields', () => {
+    it('extracts action default_popup', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html['action/default_popup']).toBe(
+        path.join(mockContext, 'popup.html')
+      )
+    })
 
-    const allFields = getManifestFieldsData({manifestPath: manifestV2Path})
-    const extensionPath = path.dirname(manifestV2Path)
+    it('extracts browser_action default_popup', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html['browser_action/default_popup']).toBe(
+        path.join(mockContext, 'browser-popup.html')
+      )
+    })
 
-    expect(allFields).toEqual({
-      html: {
-        'action/default_popup': path.join(
-          extensionPath,
-          'action/default_popup.html'
-        ),
-        'browser_action/default_popup': path.join(
-          extensionPath,
-          'browser_action/default_popup.html'
-        ),
-        'chrome_url_overrides/bookmarks': path.join(
-          extensionPath,
-          'chrome_url_overrides/bookmarks.html'
-        ),
-        devtools_page: path.join(extensionPath, 'devtools_page.html'),
-        'options_ui/page': path.join(extensionPath, 'options_ui/page.html'),
-        'page_action/default_popup': path.join(
-          extensionPath,
-          'page_action/default_popup.html'
-        ),
-        'sandbox/page-0': path.join(extensionPath, 'sandbox/page-0.html'),
-        'sandbox/page-1': path.join(extensionPath, 'sandbox/page-1.html'),
-        'side_panel/default_path': path.join(
-          extensionPath,
-          'side_panel/default_path.html'
-        ),
-        'sidebar_action/default_panel': path.join(
-          extensionPath,
-          'sidebar_action/default_panel.html'
-        )
-      },
-      icons: {
-        action: path.join(extensionPath, 'action/icon.png'),
-        browser_action: path.join(extensionPath, 'browser_action/icon16.png'),
-        'browser_action/theme_icons': [
-          {
-            dark: path.join(extensionPath, 'browser_action/icon16-dark.png'),
-            light: path.join(extensionPath, 'browser_action/icon16-light.png')
-          },
-          {
-            dark: path.join(extensionPath, 'browser_action/icon16-dark.png'),
-            light: path.join(extensionPath, 'browser_action/icon16-light.png')
-          }
-        ],
-        icons: [
-          path.join(extensionPath, 'icons/icon16.png'),
-          path.join(extensionPath, 'icons/icon48.png'),
-          path.join(extensionPath, 'icons/icon128.png')
-        ],
-        page_action: path.join(extensionPath, 'page_action/icon16.png'),
-        sidebar_action: path.join(extensionPath, 'sidebar_action/icon16.png')
-      },
-      json: {
-        'declarative_net_request/block_ads': path.join(
-          extensionPath,
-          'declarative_net_request/block_ads.json'
-        ),
-        'storage/managed_schema': path.join(
-          extensionPath,
-          'storage/managed_schema.json'
-        )
-      },
-      scripts: {
-        'background/scripts': [
-          path.join(extensionPath, 'background.js'),
-          path.join(extensionPath, 'background2.js')
-        ],
-        'background/service_worker': undefined,
-        'content_scripts/content-0': [
-          path.join(extensionPath, 'content_scripts/content-0.js'),
-          path.join(extensionPath, 'content_scripts/content-0.js'),
-          path.join(extensionPath, 'content_scripts/content-0.css'),
-          path.join(extensionPath, 'content_scripts/content-0.css')
-        ],
-        'content_scripts/content-1': [
-          path.join(extensionPath, 'content_scripts/content-1.js'),
-          path.join(extensionPath, 'content_scripts/content-1.js'),
-          path.join(extensionPath, 'content_scripts/content-1.css'),
-          path.join(extensionPath, 'content_scripts/content-1.css')
-        ],
-        'user_scripts/api_script': path.join(
-          extensionPath,
-          'user_scripts/api_script.js'
-        )
-      },
-      web_accessible_resources: [
-        'images/my-image.png',
-        'script.js',
-        'styles.css'
-      ],
-      locales: []
+    it('extracts chrome_url_overrides', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html['chrome_url_overrides/newtab']).toBe(
+        path.join(mockContext, 'newtab.html')
+      )
+    })
+
+    it('extracts devtools_page', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html.devtools_page).toBe(
+        path.join(mockContext, 'devtools.html')
+      )
+    })
+
+    it('extracts options_ui page', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html['options_ui/page']).toBe(
+        path.join(mockContext, 'options.html')
+      )
+    })
+
+    it('extracts page_action default_popup', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html['page_action/default_popup']).toBe(
+        path.join(mockContext, 'page-popup.html')
+      )
+    })
+
+    it('extracts sandbox pages', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html['sandbox/page-0']).toBe(
+        path.join(mockContext, 'sandbox.html')
+      )
+    })
+
+    it('extracts side_panel default_path', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html['side_panel/default_path']).toBe(
+        path.join(mockContext, 'sidepanel.html')
+      )
+    })
+
+    it('extracts sidebar_action default_panel', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.html['sidebar_action/default_panel']).toBe(
+        path.join(mockContext, 'sidebar.html')
+      )
     })
   })
 
-  it('should transform manifest action details correctly for manifest v3', () => {
-    fs.writeFileSync(manifestV3Path, JSON.stringify(fakeManifestV3, null, 2))
+  describe('Icon Fields', () => {
+    it('extracts action icons', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.icons.action).toEqual([
+        path.join(mockContext, 'icons/icon16.png'),
+        path.join(mockContext, 'icons/icon48.png'),
+        path.join(mockContext, 'icons/icon128.png')
+      ])
+    })
 
-    const allFields = getManifestFieldsData({manifestPath: manifestV3Path})
-    const extensionPath = path.dirname(manifestV3Path)
+    it('extracts browser_action icons', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.icons.browser_action).toEqual([
+        path.join(mockContext, 'icons/browser16.png'),
+        path.join(mockContext, 'icons/browser48.png'),
+        path.join(mockContext, 'icons/browser128.png')
+      ])
+    })
 
-    expect(allFields).toEqual({
-      html: {
-        'action/default_popup': path.join(
-          extensionPath,
-          'action/default_popup.html'
-        ),
-        'browser_action/default_popup': path.join(
-          extensionPath,
-          'browser_action/default_popup.html'
-        ),
-        'chrome_url_overrides/bookmarks': path.join(
-          extensionPath,
-          'chrome_url_overrides/bookmarks.html'
-        ),
-        devtools_page: path.join(extensionPath, 'devtools_page.html'),
-        'options_ui/page': path.join(extensionPath, 'options_ui/page.html'),
-        'page_action/default_popup': path.join(
-          extensionPath,
-          'page_action/default_popup.html'
-        ),
-        'sandbox/page-0': path.join(extensionPath, 'sandbox/page-0.html'),
-        'sandbox/page-1': path.join(extensionPath, 'sandbox/page-1.html'),
-        'side_panel/default_path': path.join(
-          extensionPath,
-          'side_panel/default_path.html'
-        ),
-        'sidebar_action/default_panel': path.join(
-          extensionPath,
-          'sidebar_action/default_panel.html'
-        )
-      },
-      icons: {
-        action: path.join(extensionPath, 'action/icon.png'),
-        browser_action: path.join(extensionPath, 'browser_action/icon16.png'),
-        'browser_action/theme_icons': [
-          {
-            dark: path.join(extensionPath, 'browser_action/icon16-dark.png'),
-            light: path.join(extensionPath, 'browser_action/icon16-light.png')
-          },
-          {
-            dark: path.join(extensionPath, 'browser_action/icon16-dark.png'),
-            light: path.join(extensionPath, 'browser_action/icon16-light.png')
-          }
-        ],
-        icons: [
-          path.join(extensionPath, 'icons/icon16.png'),
-          path.join(extensionPath, 'icons/icon48.png'),
-          path.join(extensionPath, 'icons/icon128.png')
-        ],
-        page_action: path.join(extensionPath, 'page_action/icon16.png'),
-        sidebar_action: path.join(extensionPath, 'sidebar_action/icon16.png')
-      },
-      json: {
-        'declarative_net_request/block_ads': path.join(
-          extensionPath,
-          'declarative_net_request/block_ads.json'
-        ),
-        'storage/managed_schema': path.join(
-          extensionPath,
-          'storage/managed_schema.json'
-        )
-      },
-      scripts: {
-        'background/scripts': undefined,
-        'background/service_worker': path.join(
-          extensionPath,
-          'background/sw.js'
-        ),
-        'content_scripts/content-0': [
-          path.join(extensionPath, 'content_scripts/content-0.js'),
-          path.join(extensionPath, 'content_scripts/content-0.js'),
-          path.join(extensionPath, 'content_scripts/content-0.css'),
-          path.join(extensionPath, 'content_scripts/content-0.css')
-        ],
-        'content_scripts/content-1': [
-          path.join(extensionPath, 'content_scripts/content-1.js'),
-          path.join(extensionPath, 'content_scripts/content-1.js'),
-          path.join(extensionPath, 'content_scripts/content-1.css'),
-          path.join(extensionPath, 'content_scripts/content-1.css')
-        ],
-        'user_scripts/api_script': path.join(
-          extensionPath,
-          'user_scripts/api_script.js'
-        )
-      },
-      web_accessible_resources: [
+    it('extracts browser_action theme_icons', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.icons['browser_action/theme_icons']).toEqual([
         {
-          matches: ['<all_urls>'],
-          resources: ['images/my-image.png', 'script.js', 'styles.css']
+          light: path.join(mockContext, 'icons/light16.png'),
+          dark: path.join(mockContext, 'icons/dark16.png')
         },
         {
-          matches: ['https://google.com/*'],
-          resources: ['images/my-image2.png', 'script2.js', 'styles2.css']
+          light: path.join(mockContext, 'icons/light48.png'),
+          dark: path.join(mockContext, 'icons/dark48.png')
         }
-      ],
-      locales: []
+      ])
+    })
+
+    it('extracts icons', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.icons.icons).toEqual([
+        path.join(mockContext, 'icons/icon16.png'),
+        path.join(mockContext, 'icons/icon48.png'),
+        path.join(mockContext, 'icons/icon128.png')
+      ])
+    })
+
+    it('extracts page_action icons', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.icons.page_action).toEqual([
+        path.join(mockContext, 'icons/page16.png'),
+        path.join(mockContext, 'icons/page48.png'),
+        path.join(mockContext, 'icons/page128.png')
+      ])
+    })
+
+    it('extracts sidebar_action icons', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.icons.sidebar_action).toBe(
+        path.join(mockContext, 'icons/sidebar.png')
+      )
+    })
+  })
+
+  describe('JSON Fields', () => {
+    it('extracts declarative_net_request rules', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.json['declarative_net_request/ruleset_1']).toBe(
+        path.join(mockContext, 'rules.json')
+      )
+    })
+
+    it('extracts storage managed_schema', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.json['storage/managed_schema']).toBe(
+        path.join(mockContext, 'schema.json')
+      )
+    })
+  })
+
+  describe('Locales Fields', () => {
+    it('extracts locale files', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.locales).toEqual([
+        path.join(mockContext, '_locales', 'en', 'messages.json'),
+        path.join(mockContext, '_locales', 'es', 'messages.json')
+      ])
+    })
+  })
+
+  describe('Scripts Fields', () => {
+    it('extracts background scripts', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.scripts['background/scripts']).toEqual([
+        path.join(mockContext, 'background-script.js')
+      ])
+    })
+
+    it('extracts background service_worker', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.scripts['background/service_worker']).toBe(
+        path.join(mockContext, 'background.js')
+      )
+    })
+
+    it('extracts content scripts', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.scripts['content_scripts/content-0']).toEqual([
+        path.join(mockContext, 'content.js')
+      ])
+    })
+
+    it('extracts user scripts', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.scripts['user_scripts/api_script']).toBe(
+        path.join(mockContext, 'user-script.js')
+      )
+    })
+  })
+
+  describe('Web Resources Fields', () => {
+    it('extracts web_accessible_resources', () => {
+      const fieldData = getManifestFieldsData(mockPluginInterface)
+      expect(fieldData.web_accessible_resources).toEqual([
+        {
+          resources: ['images/*', 'styles/*'],
+          matches: ['<all_urls>']
+        }
+      ])
     })
   })
 })
