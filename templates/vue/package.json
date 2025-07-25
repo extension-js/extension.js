@@ -1,12 +1,12 @@
 {
   "private": true,
-  "name": "vue-extension",
-  "description": "An Extension.js example.",
-  "version": "0.0.1",
+  "name": "vue",
+  "description": "Vue.js-based extension with sidebar panel",
+  "version": "1.0.0",
   "author": {
-    "name": "Your Name",
-    "email": "your@email.com",
-    "url": "https://yourwebsite.com"
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
   },
   "license": "MIT",
   "type": "module",

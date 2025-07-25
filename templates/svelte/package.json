@@ -1,14 +1,15 @@
 {
   "private": true,
-  "name": "svelte-extension",
-  "description": "An Extension.js example.",
-  "version": "0.0.1",
+  "name": "svelte",
+  "description": "Svelte-based extension with sidebar panel",
+  "version": "1.0.0",
   "author": {
-    "name": "Your Name",
-    "email": "your@email.com",
-    "url": "https://yourwebsite.com"
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
   },
   "license": "MIT",
+  "type": "module",
   "dependencies": {
     "svelte": "5.15.0",
     "sakura.css": "^1.4.1"
@@ -16,6 +17,5 @@
   "devDependencies": {
     "@tsconfig/svelte": "5.0.4",
     "typescript": "5.3.3"
-  },
-  "type": "module"
+  }
 }

@@ -1,11 +1,12 @@
 {
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
+  "manifest_version": 3,
+  "version": "1.0.0",
+  "name": "react",
+  "description": "React-based extension with sidebar panel",
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
-  "version": "0.0.1",
-  "name": "react-extension",
   "author": "Your Name",
-  "description": "An Extension.js example.",
   "icons": {
     "48": "images/extension_48.png"
   },
@@ -37,7 +38,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["./content/scripts.tsx"]
+      "js": ["./content/content-script-wrapper.ts"]
     }
   ]
 }
