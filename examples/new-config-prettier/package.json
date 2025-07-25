@@ -1,7 +1,7 @@
 {
   "private": true,
-  "name": "new-config-prettier",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-prettier-new-tab-example",
+  "description": "A modern browser extension new tab page example built with Extension.js and Prettier. Demonstrates how to set up code formatting for new tab pages with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
     "name": "Cezar Augusto",

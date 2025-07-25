@@ -1,7 +1,7 @@
 {
   "private": true,
-  "name": "content-react",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-react-content-script-example",
+  "description": "A modern browser extension content script example built with Extension.js and React. Demonstrates how to create interactive content scripts using React components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
     "name": "Cezar Augusto",

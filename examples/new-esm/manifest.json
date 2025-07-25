@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "New Tab Esm",
-  "description": "An Extension.js example.",
+  "name": "Extension.js - ESM New Tab Example",
+  "description": "A modern browser extension new tab page example built with Extension.js using ES modules. Demonstrates how to create custom new tab pages with modern JavaScript modules and clean, maintainable code.",
   "icons": {
     "48": "images/extension_48.png"
   },
