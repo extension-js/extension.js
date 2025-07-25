@@ -1,4 +1,5 @@
 import logo from '../images/logo.svg'
+// Import LESS file to ensure webpack processes it as an asset
 import './styles.less'
 
 let unmount
@@ -80,9 +81,17 @@ function initial() {
 }
 
 async function fetchLessStyles() {
-  // Using URL constructor to get the resolved path of the LESS file
+  // Fetch the compiled CSS file from the LESS file
   const lessUrl = new URL('./styles.less', import.meta.url)
+  console.log('🔍 Fetching LESS CSS from:', lessUrl.href)
+
   const response = await fetch(lessUrl)
+  console.log('🔍 Response status:', response.status)
+  console.log('🔍 Response ok:', response.ok)
+
   const text = await response.text()
+  console.log('🔍 CSS content length:', text.length)
+  console.log('🔍 CSS content preview:', text.substring(0, 100))
+
   return response.ok ? text : Promise.reject(text)
 }

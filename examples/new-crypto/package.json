@@ -1,7 +1,7 @@
 {
   "private": true,
-  "name": "new-crypto",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-crypto-new-tab-example",
+  "description": "A modern browser extension new tab page example built with Extension.js demonstrating cryptographic features. Shows how to implement secure crypto operations in new tab pages with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
     "name": "Cezar Augusto",
@@ -12,7 +12,6 @@
   "type": "module",
   "dependencies": {},
   "devDependencies": {
-    "node-polyfill-webpack-plugin": "^4.0.0",
     "typescript": "5.3.3"
   }
 }

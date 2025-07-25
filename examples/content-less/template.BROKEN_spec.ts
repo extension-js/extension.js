@@ -4,8 +4,8 @@ import {
   extensionFixtures,
   getShadowRootElement,
   takeScreenshot
-} from '../extension-fixtures'
-import {getDirname} from '../dirname'
+} from '../../../extension.js/examples/extension-fixtures'
+import {getDirname} from '../../../extension.js/examples/dirname'
 
 const __dirname = getDirname(import.meta.url)
 const exampleDir = 'examples/content-less'

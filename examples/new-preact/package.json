@@ -1,12 +1,12 @@
 {
   "private": true,
-  "name": "new-preact",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-preact-new-tab-example",
+  "description": "A modern browser extension new tab page example built with Extension.js and Preact. Demonstrates how to create lightweight interactive new tab pages using Preact components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
-    "name": "OSpoon",
-    "email": "zxin088@gmail.com",
-    "url": "https://hw404.cn"
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
   },
   "license": "MIT",
   "dependencies": {

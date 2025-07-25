@@ -1,5 +1,6 @@
 import logo from '../images/logo.svg'
-import styles from './styles.scss'
+// Import SASS file to ensure webpack processes it as an asset
+import './styles.scss'
 
 let unmount
 
@@ -8,7 +9,7 @@ if (import.meta.webpackHot) {
   import.meta.webpackHot?.dispose(() => unmount?.())
 }
 
-console.log('hello from content_scripts...', styles)
+console.log('hello from content_scripts')
 
 if (document.readyState === 'complete') {
   unmount = initial() || (() => {})
@@ -36,23 +37,23 @@ function initial() {
 
   // Create container div
   const contentDiv = document.createElement('div')
-  contentDiv.className = styles.content_script
+  contentDiv.className = 'content_script'
 
   // Create and append logo image
   const img = document.createElement('img')
-  img.className = styles.logo
+  img.className = 'content_logo'
   img.src = logo
   contentDiv.appendChild(img)
 
   // Create and append title
   const title = document.createElement('h1')
-  title.className = styles.content_title
+  title.className = 'content_title'
   title.textContent = 'Welcome to your SASS Extension'
   contentDiv.appendChild(title)
 
   // Create and append description paragraph
   const desc = document.createElement('p')
-  desc.className = styles.content_description
+  desc.className = 'content_description'
   desc.innerHTML = 'Learn more about creating cross-browser extensions at '
 
   const link = document.createElement('a')
@@ -71,12 +72,18 @@ function initial() {
   }
 }
 
-// IMPORTANT: Hot reloading of SASS files is not supported.
-// You need to reload the current tab to see the changes.
 async function fetchCssStyles() {
-  // Using URL constructor to get the resolved path of the SASS file
-  const sassUrl = new URL('./styles.scss', import.meta.url)
-  const response = await fetch(sassUrl)
+  // Fetch the compiled CSS file from the SASS file
+  const cssUrl = new URL('./styles.scss', import.meta.url)
+  console.log('🔍 Fetching CSS from:', cssUrl.href)
+
+  const response = await fetch(cssUrl)
+  console.log('🔍 Response status:', response.status)
+  console.log('🔍 Response ok:', response.ok)
+
   const text = await response.text()
+  console.log('🔍 CSS content length:', text.length)
+  console.log('🔍 CSS content preview:', text.substring(0, 100))
+
   return response.ok ? text : Promise.reject(text)
 }
