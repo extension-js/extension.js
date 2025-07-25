@@ -1,3 +1,10 @@
+// ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
+// ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
+// ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
+// ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
+// ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
+//  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
+
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import * as messages from '../lib/messages'
@@ -37,7 +44,7 @@ export async function writeGitignore(projectPath: string) {
 
   const fileHandle = await fs.open(gitIgnorePath, 'a+').catch((err) => {
     console.error(err)
-    process.exit(1)
+    throw err
   })
 
   const paths = new Set<String>()
@@ -62,6 +69,6 @@ export async function writeGitignore(projectPath: string) {
   // Append the lines without adding an extra newline at the end
   await fileHandle.appendFile(linesToAdd.join('\n')).catch((err) => {
     console.error(err)
-    process.exit(1)
+    throw err
   })
 }

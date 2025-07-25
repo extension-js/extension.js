@@ -78,7 +78,6 @@ export async function overridePackageJson(
     )
   } catch (error: any) {
     console.error(messages.writingPackageJsonMetadataError(projectName, error))
-
-    process.exit(1)
+    throw error
   }
 }
