@@ -1,6 +1,7 @@
 import * as path from 'path'
 import rspack, {Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
+import * as messages from '../lib/messages'
 
 /**
  * PolyfillPlugin is responsible for providing the `browser`
@@ -16,12 +17,16 @@ export class PolyfillPlugin {
   }
 
   apply(compiler: Compiler) {
-    new rspack.ProvidePlugin({
-      browser: path.resolve(
-        __dirname,
-        '..',
-        'node_modules/webextension-polyfill/dist/browser-polyfill.js'
+    try {
+      const polyfillPath = require.resolve(
+        'webextension-polyfill/dist/browser-polyfill.js'
       )
-    }).apply(compiler)
+
+      new rspack.ProvidePlugin({
+        browser: polyfillPath
+      }).apply(compiler)
+    } catch (error) {
+      console.warn(messages.webextensionPolyfillNotFound())
+    }
   }
 }
