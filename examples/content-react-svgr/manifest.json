@@ -2,19 +2,19 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Content Scripts React SVGR",
-  "description": "An Extension.js example.",
+  "name": "Extension.js - React SVGR Content Script Example",
+  "description": "A modern browser extension content script example built with Extension.js and React using SVGR. Demonstrates how to create interactive content scripts with SVG components using clean, maintainable code.",
+  "icons": {
+    "48": "images/extension_48.png"
+  },
   "background": {
     "chromium:service_worker": "background.ts",
     "firefox:scripts": ["background.ts"]
   },
   "content_scripts": [
     {
-      "matches": ["https://extension.js.org/*"],
+      "matches": ["<all_urls>"],
       "js": ["./content/scripts.tsx"]
     }
-  ],
-  "icons": {
-    "48": "images/extension_48.png"
-  }
+  ]
 }

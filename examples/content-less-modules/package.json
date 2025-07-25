@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "extensionjs-less-modules-content-script-example",
+  "description": "A modern browser extension content script example built with Extension.js using Less CSS Modules. Demonstrates how to create scoped styles for content scripts using Less preprocessing with clean, maintainable code.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "less": "^4.2.0"
+  },
+  "type": "module"
+}

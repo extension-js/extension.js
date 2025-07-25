@@ -1,7 +1,7 @@
 {
   "private": true,
-  "name": "action-chatgpt",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-chatgpt-action-example",
+  "description": "A modern browser extension action popup example built with Extension.js and React, inspired by ChatGPT. Demonstrates how to create AI-powered action popups with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
     "name": "Cezar Augusto",

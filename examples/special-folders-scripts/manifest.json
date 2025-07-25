@@ -1,17 +1,15 @@
 {
-  "name": "Special Folders Scripts",
-  "version": "0.0.1",
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
-  "description": "An Extension.js example.",
+  "version": "0.0.1",
+  "name": "Extension.js - Special Folders Scripts Example",
+  "description": "A modern browser extension example built with Extension.js demonstrating special folder organization. Shows how to structure extension code using dedicated scripts folders for better maintainability.",
   "icons": {
     "48": "images/extension_48.png"
   },
+  "permissions": ["activeTab", "scripting"],
   "background": {
     "chromium:service_worker": "background.js",
     "firefox:scripts": ["background.js"]
-  },
-  "permissions": ["scripting", "webNavigation", "storage"],
-  "host_permissions": ["https://extension.js.org/*"],
-  "action": {}
+  }
 }

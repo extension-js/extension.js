@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "New Tab Preact",
-  "description": "An Extension.js example.",
+  "name": "Extension.js - Preact New Tab Example",
+  "description": "A modern browser extension new tab page example built with Extension.js and Preact. Demonstrates how to create lightweight interactive new tab pages using Preact components with clean, maintainable code.",
   "icons": {
     "48": "images/extension_48.png"
   },

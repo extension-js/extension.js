@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Content Script",
-  "description": "An Extension.js example.",
+  "name": "Extension.js - Content Script Example",
+  "description": "A modern browser extension content script example built with Extension.js. Demonstrates how to inject scripts into web pages with clean, maintainable code.",
   "icons": {
     "48": "images/extension_48.png"
   },
@@ -15,7 +15,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["logo.svg"],
+      "resources": ["logo.png"],
       "matches": ["<all_urls>"]
     }
   ],

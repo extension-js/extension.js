@@ -1,7 +1,7 @@
 {
   "private": true,
-  "name": "new-react",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-react-new-tab-example",
+  "description": "A modern browser extension new tab page example built with Extension.js and React. Demonstrates how to create interactive new tab pages using React components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
     "name": "Cezar Augusto",

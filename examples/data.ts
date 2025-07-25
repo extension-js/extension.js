@@ -38,70 +38,6 @@ const JS_TEMPLATES: Template[] = [
     hasEnv: false,
     configFiles: undefined
   },
-  // {
-  //   name: 'content-css-modules',
-  //   uiContext: ['content'],
-  //   uiFramework: undefined,
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: undefined
-  // },
-  {
-    name: 'content-less',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'less',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  // {
-  //   name: 'content-less-modules',
-  //   uiContext: ['content'],
-  //   uiFramework: undefined,
-  //   css: 'less',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: undefined
-  // },
-  {
-    name: 'content-main-world',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
-    name: 'content-sass',
-    uiContext: ['content'],
-    uiFramework: undefined,
-    css: 'sass',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  // {
-  //   name: 'content-sass-modules',
-  //   uiContext: ['content'],
-  //   uiFramework: undefined,
-  //   css: 'sass',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: undefined
-  // },
-  // TODO: cezaraugusto fix this on Windows
-  // {
-  //   name: 'declarative_net_request',
-  //   uiContext: undefined,
-  //   uiFramework: undefined,
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: undefined
-  // },
   {
     name: 'action-locales',
     uiContext: ['action'],
@@ -148,35 +84,7 @@ const JS_TEMPLATES: Template[] = [
     configFiles: undefined
   },
   {
-    name: 'sidebar',
-    uiContext: ['sidebar'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  // TODO: cezaraugusto fix this on Windows
-  // {
-  //   name: 'special-folders-pages',
-  //   uiContext: undefined,
-  //   uiFramework: undefined,
-  //   css: 'css',
-  //   hasBackground: false,
-  //   hasEnv: false,
-  //   configFiles: undefined
-  // },
-  {
     name: 'special-folders-scripts',
-    uiContext: undefined,
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: undefined
-  },
-  {
-    name: 'storage',
     uiContext: undefined,
     uiFramework: undefined,
     css: 'css',
@@ -224,37 +132,19 @@ const TS_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['tsconfig.json']
+  },
+  {
+    name: 'new-env-esm',
+    uiContext: ['newTab'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: undefined
   }
 ]
 
 const CUSTOM_TEMPLATES: Template[] = [
-  {
-    name: 'action-chatgpt',
-    uiContext: ['action'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: true,
-    configFiles: ['postcss.config.js', 'tsconfig.json']
-  },
-  {
-    name: 'new-crypto',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['tsconfig.json', 'extension.config.js']
-  },
-  {
-    name: 'new-node-apis',
-    uiContext: ['newTab'],
-    uiFramework: undefined,
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['tsconfig.json', 'extension.config.js']
-  },
   {
     name: 'content-react-svgr',
     uiContext: ['content'],
@@ -272,15 +162,6 @@ const CUSTOM_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['tsconfig.json']
-  },
-  {
-    name: 'sidebar-shadcn',
-    uiContext: ['sidebar'],
-    uiFramework: 'react',
-    css: 'css',
-    hasBackground: false,
-    hasEnv: false,
-    configFiles: ['postcss.config.js', 'tsconfig.json']
   }
 ]
 
@@ -356,6 +237,15 @@ const FRAMEWORK_TEMPLATES: Template[] = [
     hasBackground: false,
     hasEnv: false,
     configFiles: ['tsconfig.json']
+  },
+  {
+    name: 'content-svelte',
+    uiContext: ['content'],
+    uiFramework: 'svelte',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['postcss.config.js', 'tsconfig.json']
   }
 ]
 

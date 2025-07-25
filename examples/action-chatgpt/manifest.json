@@ -2,18 +2,19 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Action Chatgpt",
-  "description": "An Extension.js example.",
+  "name": "Extension.js - ChatGPT Action Example",
+  "description": "A modern browser extension action popup example built with Extension.js and React, inspired by ChatGPT. Demonstrates how to create AI-powered action popups with clean, maintainable code.",
   "icons": {
     "16": "images/extension_16.png",
     "48": "images/extension_48.png"
   },
+  "permissions": ["storage", "tabs", "activeTab", "scripting"],
   "action": {
+    "default_popup": "./action/index.html",
+    "default_title": "Extension.js ChatGPT Action",
     "default_icon": {
       "16": "images/extension_16.png",
       "48": "images/extension_48.png"
-    },
-    "default_title": "ChatGPT",
-    "default_popup": "./action/index.html"
+    }
   }
 }
