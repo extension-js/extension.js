@@ -636,3 +636,10 @@ export function isUsingCustomLoader(file: string) {
     `Using custom loader configuration from ${file}`
   )
 }
+
+export function webextensionPolyfillNotFound() {
+  return (
+    `${getLoggingPrefix('Warning', 'warn')} webextension-polyfill not found. Browser API polyfill will not be available.\n` +
+    `To fix this, install webextension-polyfill: npm install webextension-polyfill`
+  )
+}
