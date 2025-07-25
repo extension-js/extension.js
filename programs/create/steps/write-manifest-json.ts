@@ -32,7 +32,6 @@ export async function writeManifestJson(
     )
   } catch (error: any) {
     console.error(messages.writingManifestJsonMetadataError(projectName, error))
-
-    process.exit(1)
+    throw error
   }
 }

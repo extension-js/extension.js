@@ -63,7 +63,6 @@ export async function installDependencies(
     })
   } catch (error: any) {
     console.error(messages.cantInstallDependencies(projectName, error))
-
-    process.exit(1)
+    throw error
   }
 }
