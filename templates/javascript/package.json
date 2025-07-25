@@ -1,21 +1,21 @@
 {
   "private": true,
-  "name": "javascript-extension",
-  "description": "An Extension.js example.",
-  "version": "0.0.1",
+  "name": "javascript",
+  "description": "JavaScript-based extension template",
+  "version": "1.0.0",
   "author": {
-    "name": "Your Name",
-    "email": "your@email.com",
-    "url": "https://yourwebsite.com"
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
   },
   "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "sakura.css": "^1.4.1"
+  },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13"
-  },
-  "type": "module",
-  "dependencies": {
-    "sakura.css": "^1.4.1"
   }
 }

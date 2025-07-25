@@ -1,70 +1,34 @@
 import ReactDOM from 'react-dom/client'
-import sakuraCSS from 'sakura.css'
 import ContentApp from './ContentApp'
+import './styles.css'
 
-let unmount: () => void
-
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
+interface ContentScriptOptions {
+  rootId?: string // ID for the root element
+  containerClass?: string // CSS class for the container
+  stylesheets?: string[] // Array of stylesheet paths to inject
 }
 
-if (document.readyState === 'complete') {
-  unmount = initial() || (() => {})
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') unmount = initial() || (() => {})
-  })
-}
+export default function contentScript({
+  rootId = 'extension-root',
+  containerClass = 'content_script',
+  stylesheets = ['./styles.css']
+}: ContentScriptOptions = {}) {
+  return (container: HTMLElement) => {
+    if (import.meta.env.EXTENSION_MODE === 'development') {
+      console.info('Content script configuration', {
+        rootId,
+        containerClass,
+        stylesheets
+      })
+    }
 
-console.log('Hello from content script')
+    const mountingPoint = ReactDOM.createRoot(container)
+    mountingPoint.render(<ContentApp />)
 
-function initial() {
-  // Create a new div element and append it to the document's body
-  const rootDiv = document.createElement('div')
-  rootDiv.id = 'extension-root'
-  document.body.appendChild(rootDiv)
-
-  // Injecting content_scripts inside a shadow dom
-  // prevents conflicts with the host page's styles.
-  // This way, styles from the extension won't leak into the host page.
-  const shadowRoot = rootDiv.attachShadow({mode: 'open'})
-
-  // Load sakura.css into the shadow DOM
-  const sakuraStyle = document.createElement('style')
-  shadowRoot.appendChild(sakuraStyle)
-  fetch(sakuraCSS as unknown as string)
-    .then((response) => response.text())
-    .then((text) => {
-      sakuraStyle.textContent = text
-    })
-
-  const styleElement = document.createElement('style')
-  shadowRoot.appendChild(styleElement)
-  fetchCSS().then((response) => (styleElement.textContent = response))
-
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
+    // Return cleanup function for unmounting (required)
+    return () => {
+      mountingPoint.unmount()
+      console.clear()
+    }
   }
-
-  // Create container for React app
-  const container = document.createElement('div')
-  container.className = 'content_script'
-  shadowRoot.appendChild(container)
-
-  const mountingPoint = ReactDOM.createRoot(container)
-  mountingPoint.render(<ContentApp />)
-  return () => {
-    mountingPoint.unmount()
-    rootDiv.remove()
-  }
-}
-
-async function fetchCSS() {
-  const cssUrl = new URL('./styles.css', import.meta.url)
-  const response = await fetch(cssUrl)
-  const text = await response.text()
-  return response.ok ? text : Promise.reject(text)
 }
