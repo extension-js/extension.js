@@ -22,7 +22,6 @@ export async function setupBuiltInTests(
     }
   } catch (error: any) {
     console.error(messages.cantSetupBuiltInTests(projectName, error))
-
-    process.exit(1)
+    throw error
   }
 }

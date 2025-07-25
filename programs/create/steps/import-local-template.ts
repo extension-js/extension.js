@@ -27,6 +27,6 @@ export async function importLocalTemplate(
     console.error(
       messages.installingFromTemplateError(projectName, template, error)
     )
-    process.exit(1)
+    throw error
   }
 }
