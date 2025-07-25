@@ -1,7 +1,10 @@
 import path from 'path'
 import {execSync} from 'child_process'
-import {extensionFixtures, getShadowRootElement} from '../extension-fixtures'
-import {getDirname} from '../dirname'
+import {
+  extensionFixtures,
+  getShadowRootElement
+} from '../../templates/extension-fixtures'
+import {getDirname} from '../../templates/dirname'
 
 const __dirname = getDirname(import.meta.url)
 
