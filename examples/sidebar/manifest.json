@@ -2,9 +2,9 @@
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
   "version": "0.0.1",
-  "name": "Sidebar",
+  "name": "Extension.js - Sidebar Example",
   "author": "Cezar Augusto",
-  "description": "An Extension.js example.",
+  "description": "A modern browser extension sidebar example built with Extension.js. Demonstrates how to create custom sidebar panels with clean, maintainable code.",
   "icons": {
     "48": "images/extension_48.png"
   },
@@ -12,21 +12,21 @@
     "default_icon": {
       "48": "images/extension_48.png"
     },
-    "default_title": "Open Side Panel"
+    "default_title": "Open Extension.js Sidebar"
   },
   "firefox:browser_action": {
     "default_icon": {
       "48": "images/extension_48.png"
     },
-    "default_title": "Open Side Panel"
+    "default_title": "Open Extension.js Sidebar"
   },
   "chromium:side_panel": {
     "default_path": "sidebar/index.html",
-    "default_title": "Side Panel Content"
+    "default_title": "Extension.js Sidebar Panel"
   },
   "firefox:sidebar_action": {
     "default_panel": "sidebar/index.html",
-    "default_title": "Side Panel Content"
+    "default_title": "Extension.js Sidebar Panel"
   },
   "chromium:permissions": ["sidePanel"],
   "background": {

@@ -1,12 +1,12 @@
 {
   "private": true,
-  "name": "content-vue",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-vue-content-script-example",
+  "description": "A modern browser extension content script example built with Extension.js and Vue. Demonstrates how to create interactive content scripts using Vue components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
-    "name": "OSpoon",
-    "email": "zxin088@gmail.com",
-    "url": "https://hw404.cn"
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
   },
   "license": "MIT",
   "type": "module",

@@ -2,8 +2,11 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Content Scripts Extension Config",
-  "description": "An Extension.js example.",
+  "name": "Extension.js - Configurable Content Script Example",
+  "description": "A modern browser extension content script example built with Extension.js and React using custom configuration. Demonstrates how to create configurable content scripts with clean, maintainable code.",
+  "icons": {
+    "48": "images/extension_48.png"
+  },
   "background": {
     "chromium:service_worker": "background.ts",
     "firefox:scripts": ["background.ts"]
@@ -13,8 +16,5 @@
       "matches": ["<all_urls>"],
       "js": ["./content/scripts.tsx"]
     }
-  ],
-  "icons": {
-    "48": "images/extension_48.png"
-  }
+  ]
 }

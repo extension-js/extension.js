@@ -2,8 +2,8 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Content Scripts Vue",
-  "description": "An Extension.js example.",
+  "name": "Extension.js - Vue Content Script Example",
+  "description": "A modern browser extension content script example built with Extension.js and Vue. Demonstrates how to create interactive content scripts using Vue components with clean, maintainable code.",
   "icons": {
     "48": "images/extension_48.png"
   },
@@ -13,9 +13,8 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://extension.js.org/*"],
-      "js": ["./content/scripts.ts"],
-      "css": ["./content/styles.css"]
+      "matches": ["<all_urls>"],
+      "js": ["./content/scripts.ts"]
     }
   ]
 }

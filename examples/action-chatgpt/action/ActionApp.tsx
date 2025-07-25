@@ -1,7 +1,7 @@
 import {useState, type FormEvent} from 'react'
 import OpenAI from 'openai'
 import chatgptLogo from '../images/chatgpt.png'
-import extensionJsLogo from '../images/extension.png'
+import extensionJsLogo from '../images/extensionjs.png'
 
 const openai = new OpenAI({
   apiKey: import.meta.env.EXTENSION_PUBLIC_OPENAI_API_KEY!,
@@ -101,7 +101,7 @@ function ActionApp() {
             <button className="btn btn-square" type="submit">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6"
+                className="h-4 w-4"
                 fill="currentColor"
                 viewBox="0 0 16 16"
               >

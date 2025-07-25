@@ -1,9 +1,9 @@
 {
-  "name": "Special Folders Pages",
+  "name": "Special Folders - Pages",
   "version": "0.0.1",
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
-  "description": "An Extension.js example.",
+  "description": "Demonstrates how Extension.js handles HTML files outside manifest.json using the pages folder",
   "icons": {
     "48": "images/extension_48.png"
   },
