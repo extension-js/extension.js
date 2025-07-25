@@ -1,7 +1,7 @@
 {
   "private": true,
-  "name": "new-sass",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-sass-new-tab-example",
+  "description": "A modern browser extension new tab page example built with Extension.js using Sass CSS. Demonstrates how to create custom new tab pages with Sass preprocessing and clean, maintainable code.",
   "version": "0.0.1",
   "author": {
     "name": "Cezar Augusto",

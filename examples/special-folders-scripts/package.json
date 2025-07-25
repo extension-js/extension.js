@@ -1,7 +1,7 @@
 {
   "private": true,
-  "name": "special-folders-scripts",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-special-folders-scripts-example",
+  "description": "A modern browser extension example built with Extension.js demonstrating special folder organization. Shows how to structure extension code using dedicated scripts folders for better maintainability.",
   "version": "0.0.1",
   "author": {
     "name": "Cezar Augusto",

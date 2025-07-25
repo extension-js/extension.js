@@ -1,13 +1,14 @@
 {
   "private": true,
-  "name": "new-less",
-  "description": "An Extension.js example.",
+  "name": "extensionjs-less-new-tab-example",
+  "description": "A modern browser extension new tab page example built with Extension.js using Less CSS. Demonstrates how to create custom new tab pages with Less preprocessing and clean, maintainable code.",
   "version": "0.0.1",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
+  "license": "MIT",
   "devDependencies": {
     "less": "^4.2.0"
   },
