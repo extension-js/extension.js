@@ -53,6 +53,6 @@ export async function initializeGitRepository(
     console.error(
       messages.initializingGitForRepositoryError(projectName, error)
     )
-    process.exit(1)
+    throw error
   }
 }

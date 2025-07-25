@@ -28,7 +28,7 @@ export async function createDirectory(
 
     if (!isCurrentDirWriteable) {
       console.error(messages.destinationNotWriteable(projectPath))
-      process.exit(1)
+      throw new Error(messages.destinationNotWriteable(projectPath))
     }
 
     const currentDir = await fs.readdir(projectPath)
@@ -59,6 +59,6 @@ export async function createDirectory(
     }
   } catch (error: any) {
     console.error(messages.createDirectoryError(projectName, error))
-    process.exit(1)
+    throw error
   }
 }
