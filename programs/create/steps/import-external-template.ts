@@ -66,6 +66,6 @@ export async function importExternalTemplate(
     console.error(
       messages.installingFromTemplateError(projectName, templateName, error)
     )
-    process.exit(1)
+    throw error
   }
 }
