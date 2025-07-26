@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-action-locales-example",
+  "name": "action-locales-example",
   "description": "A modern browser extension action popup example with internationalization built with Extension.js. Demonstrates how to create localized action popups with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

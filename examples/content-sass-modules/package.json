@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-sass-modules-content-script-example",
+  "name": "sass-modules-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js using Sass CSS Modules. Demonstrates how to create scoped styles for content scripts using Sass preprocessing with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

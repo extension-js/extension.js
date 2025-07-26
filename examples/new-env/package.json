@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-environment-new-tab-example",
+  "name": "environment-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js and TypeScript using environment variables. Demonstrates how to use environment configuration in new tab pages with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
