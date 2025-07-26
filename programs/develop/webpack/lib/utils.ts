@@ -190,14 +190,6 @@ export async function installOptionalDependencies(
 }
 
 export function isUsingJSFramework(projectPath: string): boolean {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-
   const frameworks = [
     'react',
     'vue',
@@ -207,16 +199,7 @@ export function isUsingJSFramework(projectPath: string): boolean {
     'preact'
   ]
 
-  const dependencies = packageJson.dependencies || {}
-  const devDependencies = packageJson.devDependencies || {}
-
-  for (const framework of frameworks) {
-    if (dependencies[framework] || devDependencies[framework]) {
-      return true
-    }
-  }
-
-  return false
+  return frameworks.some((framework) => hasDependency(projectPath, framework))
 }
 
 export function isFirstRun(outputPath: string, browser: DevOptions['browser']) {
@@ -289,4 +272,18 @@ export function filterKeysForThisBrowser(
   )
 
   return patchedManifest
+}
+
+export function hasDependency(projectPath: string, dependency: string) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+
+  if (!fs.existsSync(packageJsonPath)) {
+    return false
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+
+  const dependencies = packageJson.dependencies || {}
+
+  return !!dependencies[dependency] || !!packageJson.devDependencies[dependency]
 }

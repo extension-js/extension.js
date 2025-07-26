@@ -2,23 +2,13 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
+import {hasDependency} from '../../lib/utils'
 import {isContentScriptEntry} from '../is-content-script'
 
 let userMessageDelivered = false
 
 export function isUsingLess(projectPath: string): boolean {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
-  const lessAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.less
-  const lessAsDep = packageJson.dependencies && packageJson.dependencies.less
-
-  if (lessAsDevDep || lessAsDep) {
+  if (hasDependency(projectPath, 'less')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.isUsingIntegration('LESS'))
@@ -57,7 +47,6 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
     {
       test: /\.less$/,
       exclude: /\.module\.less$/,
-      type: 'css',
       use: [
         {
           loader: require.resolve('less-loader'),
@@ -70,7 +59,6 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
     // Module .less files
     {
       test: /\.module\.less$/,
-      type: 'css/module',
       use: [
         {
           loader: require.resolve('less-loader'),

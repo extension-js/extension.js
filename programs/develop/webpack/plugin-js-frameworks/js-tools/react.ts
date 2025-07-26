@@ -11,24 +11,13 @@ import {type RspackPluginInstance} from '@rspack/core'
 import ReactRefreshPlugin from '@rspack/plugin-react-refresh'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
+import {hasDependency} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false
 
 export function isUsingReact(projectPath: string) {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-  const reactAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.react
-  const reactAsDep = packageJson.dependencies && packageJson.dependencies.react
-
-  // This message is shown for each JS loader we have, so we only want to show it once.
-  if (reactAsDevDep || reactAsDep) {
+  if (hasDependency(projectPath, 'react')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.isUsingIntegration('React'))
@@ -36,9 +25,10 @@ export function isUsingReact(projectPath: string) {
 
       userMessageDelivered = true
     }
+    return true
   }
 
-  return !!reactAsDevDep || !!reactAsDep
+  return false
 }
 
 export async function maybeUseReact(
