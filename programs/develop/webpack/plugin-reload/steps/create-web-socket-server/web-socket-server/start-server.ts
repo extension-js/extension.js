@@ -55,10 +55,15 @@ function setupServer(port: number, browser: DevOptions['browser']) {
 }
 
 export async function startServer(compiler: Compiler, options: DevOptions) {
-  const projectPath = compiler.options.context || ''
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(projectPath, 'manifest.json'), 'utf-8')
-  )
+  // In monorepo setups, context is packageJsonDir, but manifest is in manifestDir
+  // We need to find the manifest.json by walking up from the output path
+  const outputPath = compiler.options.output?.path as string
+  // The output path is something like /tmp/monorepo-test/apps/extension-a/dist/chrome
+  // We need to go up 2 levels to get to the manifest directory
+  const manifestDir = path.dirname(path.dirname(outputPath))
+  const manifestPath = path.join(manifestDir, 'manifest.json')
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
 
   const {server: webSocketServer} = setupServer(options.port!, options.browser)
 
@@ -85,7 +90,7 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
       if (message.status === 'clientReady') {
         const manifest: Manifest = JSON.parse(
-          fs.readFileSync(path.join(projectPath, 'manifest.json'), 'utf-8')
+          fs.readFileSync(manifestPath, 'utf-8')
         )
 
         setTimeout(() => {

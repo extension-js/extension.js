@@ -14,10 +14,8 @@ export async function generateExtensionTypes(
   projectName: string
 ) {
   const extensionEnvFile = path.join(projectPath, 'extension-env.d.ts')
-  const typePath =
-    process.env.EXTENSION_ENV === 'development'
-      ? path.resolve(process.cwd(), 'programs/cli/types')
-      : 'extension'
+  // Always use the published package path to ensure compatibility in monorepos
+  const typePath = 'extension'
 
   const fileContent = `\
 // Required Extension.js types for TypeScript projects.

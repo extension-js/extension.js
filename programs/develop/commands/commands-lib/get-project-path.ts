@@ -3,6 +3,18 @@ import * as fs from 'fs'
 import goGitIt from 'go-git-it'
 import * as messages from './messages'
 import {downloadAndExtractZip} from './extract-from-zip'
+import {
+  findNearestPackageJson,
+  validatePackageJson
+} from './find-nearest-package'
+
+/**
+ * Represents the project structure with separate manifest and package.json locations
+ */
+export interface ProjectStructure {
+  manifestPath: string
+  packageJsonPath: string
+}
 
 const isUrl = (url: string) => {
   try {
@@ -33,7 +45,9 @@ async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
   // return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))
 }
 
-export async function getProjectPath(pathOrRemoteUrl: string | undefined) {
+export async function getProjectPath(
+  pathOrRemoteUrl: string | undefined
+): Promise<string> {
   if (!pathOrRemoteUrl) {
     return process.cwd()
   }
@@ -68,4 +82,59 @@ export async function getProjectPath(pathOrRemoteUrl: string | undefined) {
   }
 
   return path.resolve(process.cwd(), pathOrRemoteUrl)
+}
+
+/**
+ * Gets the project structure with manifest and package.json locations
+ * Supports monorepo structure where manifest and package.json may be in different directories
+ */
+export async function getProjectStructure(
+  pathOrRemoteUrl: string | undefined
+): Promise<ProjectStructure> {
+  const projectPath = await getProjectPath(pathOrRemoteUrl)
+
+  // Search for manifest.json recursively in the project path
+  let manifestPath = path.join(projectPath, 'manifest.json')
+
+  if (!fs.existsSync(manifestPath)) {
+    // Try to find manifest.json in subdirectories
+    const findManifest = (dir: string): string | null => {
+      const files = fs.readdirSync(dir, {withFileTypes: true})
+
+      for (const file of files) {
+        if (file.isFile() && file.name === 'manifest.json') {
+          return path.join(dir, file.name)
+        }
+        if (
+          file.isDirectory() &&
+          !file.name.startsWith('.') &&
+          file.name !== 'node_modules' &&
+          file.name !== 'dist'
+        ) {
+          const found = findManifest(path.join(dir, file.name))
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    const foundManifest = findManifest(projectPath)
+    if (foundManifest) {
+      manifestPath = foundManifest
+    } else {
+      throw new Error(messages.manifestNotFoundError(manifestPath))
+    }
+  }
+
+  // Find nearest package.json
+  const packageJsonPath = await findNearestPackageJson(manifestPath)
+
+  if (!packageJsonPath || !validatePackageJson(packageJsonPath)) {
+    throw new Error(messages.packageJsonNotFoundError(manifestPath))
+  }
+
+  return {
+    manifestPath,
+    packageJsonPath
+  }
 }

@@ -9,6 +9,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
 import {DevOptions} from '../commands/commands-lib/config-types'
+import {type ProjectStructure} from '../commands/commands-lib/get-project-path'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -22,7 +23,7 @@ import {BrowsersPlugin} from '../plugin-browsers'
 import * as utils from './lib/utils'
 
 export default function webpackConfig(
-  projectPath: string,
+  projectStructure: ProjectStructure,
   devOptions: DevOptions & {
     preferences?: Record<string, string>
     browserFlags?: string[]
@@ -33,7 +34,10 @@ export default function webpackConfig(
     }
   }
 ): Configuration {
-  const manifestPath = path.join(projectPath, 'manifest.json')
+  const {manifestPath, packageJsonPath} = projectStructure
+  const manifestDir = path.dirname(manifestPath)
+  const packageJsonDir = path.dirname(packageJsonPath)
+
   const manifest = utils.filterKeysForThisBrowser(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
     devOptions.browser
@@ -41,7 +45,7 @@ export default function webpackConfig(
   const userExtensionOutputPath = devOptions.output.path
 
   const managerExtensionOutputPath = path.join(
-    projectPath,
+    manifestDir,
     'dist',
     'extension-js',
     'extensions',
@@ -58,7 +62,7 @@ export default function webpackConfig(
     mode: devOptions.mode || 'development',
     entry: {},
     target: 'web',
-    context: projectPath,
+    context: packageJsonDir,
     devtool:
       manifest.manifest_version === 3
         ? 'cheap-source-map'
@@ -76,7 +80,12 @@ export default function webpackConfig(
       }
     },
     resolve: {
-      modules: ['node_modules', path.join(projectPath, 'node_modules')],
+      modules: [
+        'node_modules',
+        path.join(packageJsonDir, 'node_modules'),
+        // Add root node_modules for monorepo support
+        path.join(process.cwd(), 'node_modules')
+      ],
       extensions: [
         '.js',
         '.mjs',

@@ -10,7 +10,7 @@ import * as path from 'path'
 import {rspack, type Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import webpackConfig from '../webpack/webpack-config'
-import {getProjectPath} from './commands-lib/get-project-path'
+import {getProjectStructure} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {loadCustomWebpackConfig} from './commands-lib/get-extension-config'
 import {PreviewOptions} from './commands-lib/config-types'
@@ -19,8 +19,9 @@ export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
   previewOptions: PreviewOptions
 ) {
-  const projectPath = await getProjectPath(pathOrRemoteUrl)
-  const distPath = path.join(projectPath, 'dist', previewOptions.browser)
+  const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+  const manifestDir = path.dirname(projectStructure.manifestPath)
+  const distPath = path.join(manifestDir, 'dist', previewOptions.browser)
 
   // Output path defaults to extensionPreview config.
   // The start command will use the build directory.
@@ -32,21 +33,11 @@ export async function extensionPreview(
     ? previewOptions.outputPath
     : fs.existsSync(distPath)
       ? distPath
-      : projectPath
-
-  if (
-    !pathOrRemoteUrl?.startsWith('http') &&
-    !fs.existsSync(path.join(projectPath, 'manifest.json'))
-  ) {
-    console.log(
-      messages.manifestNotFoundError(path.join(projectPath, 'manifest.json'))
-    )
-    process.exit(1)
-  }
+      : manifestDir
 
   try {
     const browser = previewOptions.browser || 'chrome'
-    const baseConfig: Configuration = webpackConfig(projectPath, {
+    const baseConfig: Configuration = webpackConfig(projectStructure, {
       mode: 'production',
       profile: previewOptions.profile,
       browser,
@@ -65,7 +56,7 @@ export async function extensionPreview(
       return plugin?.constructor.name === 'plugin-browsers'
     })
 
-    const userExtensionConfig = await loadCustomWebpackConfig(projectPath)
+    const userExtensionConfig = await loadCustomWebpackConfig(manifestDir)
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: onlyBrowserRunners
@@ -80,7 +71,7 @@ export async function extensionPreview(
       }
 
       if (!stats?.hasErrors()) {
-        console.log(messages.runningInProduction(projectPath))
+        console.log(messages.runningInProduction(manifestDir))
       } else {
         console.log(stats.toString({colors: true}))
         process.exit(1)
