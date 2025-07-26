@@ -7,7 +7,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {getProjectPath} from './commands-lib/get-project-path'
+import {getProjectStructure} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {extensionBuild} from './build'
 import {extensionPreview} from './preview'
@@ -17,17 +17,7 @@ export async function extensionStart(
   pathOrRemoteUrl: string | undefined,
   startOptions: StartOptions
 ) {
-  const projectPath = await getProjectPath(pathOrRemoteUrl)
-
-  if (
-    !pathOrRemoteUrl?.startsWith('http') &&
-    !fs.existsSync(path.join(projectPath, 'manifest.json'))
-  ) {
-    console.log(
-      messages.manifestNotFoundError(path.join(projectPath, 'manifest.json'))
-    )
-    process.exit(1)
-  }
+  const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
     const browser = startOptions.browser || 'chrome'
@@ -37,11 +27,13 @@ export async function extensionStart(
       silent: true
     })
 
+    const manifestDir = path.dirname(projectStructure.manifestPath)
+
     await extensionPreview(pathOrRemoteUrl, {
       ...startOptions,
       browser,
       // Starts preview the extension from the build directory
-      outputPath: path.join(projectPath, 'dist', browser)
+      outputPath: path.join(manifestDir, 'dist', browser)
     })
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {

@@ -284,6 +284,7 @@ export function hasDependency(projectPath: string, dependency: string) {
   const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
 
   const dependencies = packageJson.dependencies || {}
+  const devDependencies = packageJson.devDependencies || {}
 
-  return !!dependencies[dependency] || !!packageJson.devDependencies[dependency]
+  return !!dependencies[dependency] || !!devDependencies[dependency]
 }
