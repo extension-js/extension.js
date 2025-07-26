@@ -255,3 +255,36 @@ export function isBrowserLauncherOpen(
     `Browser launcher is ${colors.yellow(isOpen ? 'enabled' : 'disabled')}. `
   )
 }
+
+export function pathDoesNotExistError(
+  browser: DevOptions['browser'],
+  profilePath: string
+) {
+  return (
+    `${getLoggingPrefix(browser, 'error')} Profile path does not exist\n\n` +
+    `Please provide a valid directory path and try again.\n` +
+    `${colors.red('NOT FOUND')} ${colors.underline(profilePath)}`
+  )
+}
+
+export function pathPermissionError(
+  browser: DevOptions['browser'],
+  profilePath: string
+) {
+  return (
+    `${getLoggingPrefix(browser, 'error')} Insufficient permissions\n\n` +
+    `Cannot read or write to the profile directory.\n` +
+    `${colors.red('PERMISSION DENIED')} ${colors.underline(profilePath)}`
+  )
+}
+
+export function profileCreationError(
+  browser: DevOptions['browser'],
+  error: any
+) {
+  return (
+    `${getLoggingPrefix(browser, 'error')} Failed to create profile\n\n` +
+    `An error occurred while creating the browser profile:\n` +
+    `${colors.red(error)}`
+  )
+}

@@ -4,16 +4,19 @@ import {SetupChromiumReloadClient} from '../setup-chromium-reload-client'
 import {SetupFirefoxReloadClient} from '../setup-firefox-reload-client'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import {TargetWebExtensionPlugin} from './target-web-extension-plugin'
+import {GenerateManagerExtension} from './generate-manager-extension'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'
 import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
 
 class SetupReloadStrategy {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
+  private readonly port: number
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.port = options.port || 8080
   }
 
   public apply(compiler: Compiler) {
@@ -42,6 +45,14 @@ class SetupReloadStrategy {
     new TargetWebExtensionPlugin({
       manifestPath: this.manifestPath,
       browser: this.browser
+    }).apply(compiler)
+
+    // 4 - Generate the Extension.js manager extension
+    // related to the current browser.
+    new GenerateManagerExtension({
+      manifestPath: this.manifestPath,
+      browser: this.browser,
+      port: this.port
     }).apply(compiler)
   }
 }
