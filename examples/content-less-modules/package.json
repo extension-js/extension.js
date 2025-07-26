@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-less-modules-content-script-example",
+  "name": "less-modules-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js using Less CSS Modules. Demonstrates how to create scoped styles for content scripts using Less preprocessing with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

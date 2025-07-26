@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-new-tab-example",
+  "name": "new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js. Demonstrates how to create custom new tab pages with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

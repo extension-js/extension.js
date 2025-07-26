@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-svelte-content-script-example",
+  "name": "svelte-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js and Svelte. Demonstrates how to create interactive content scripts using Svelte components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

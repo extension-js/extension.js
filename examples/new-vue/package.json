@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-vue-new-tab-example",
+  "name": "vue-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js and Vue. Demonstrates how to create interactive new tab pages using Vue components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

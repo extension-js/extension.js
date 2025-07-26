@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-tailwind-new-tab-example",
+  "name": "tailwind-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js, React, and Tailwind CSS. Demonstrates how to create styled new tab pages using Tailwind CSS with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

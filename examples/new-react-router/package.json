@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-react-router-new-tab-example",
+  "name": "react-router-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js, React, and React Router. Demonstrates how to create multi-page new tab pages using React Router with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
