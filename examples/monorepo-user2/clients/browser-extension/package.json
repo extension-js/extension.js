@@ -1,0 +1,27 @@
+{
+  "private": true,
+  "name": "@extension/browser",
+  "description": "My Browser Extension",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "extension dev --polyfill",
+    "start": "extension start --polyfill",
+    "build": "extension build --polyfill --browser all"
+  },
+  "dependencies": {
+    "@extension/base": "workspace:*",
+    "react": "^18.1.0",
+    "react-dom": "^18.1.0",
+    "react-use": "^17.5.1"
+  },
+  "devDependencies": {
+    "@rspack/core": "^1.3.15",
+    "@swc/core": "^1.7.3",
+    "@types/react": "^18.0.9",
+    "@types/react-dom": "^18.0.5",
+    "dotenv": "^16.4.5",
+    "extension": "2.0.0-rc.36",
+    "swc-loader": "^0.2.6",
+    "typescript": "5.3.3"
+  }
+}
