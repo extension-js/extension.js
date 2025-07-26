@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "name": "@extension/base",
+  "description": "Shared utilities and base components for Extension.js monorepo examples.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "license": "MIT",
+  "main": "index.js"
+}
