@@ -7,21 +7,60 @@ export async function cssInContentScriptLoader(
   projectPath: string,
   mode: DevOptions['mode']
 ) {
-  const manifestPath = path.join(projectPath, 'manifest.json')
+  const isContentScript = (issuer: string) =>
+    isContentScriptEntry(issuer, projectPath + '/manifest.json')
 
-  return [
+  // Define file type configurations
+  const fileTypes = [
+    {test: /\.css$/, loader: null},
     {
-      test: /\.css$/,
-      type: 'asset',
-      generator: {
-        // Add contenthash to avoid naming collisions between
-        // different content script CSS files
-        filename: 'content_scripts/[name].[contenthash:8].css'
-      },
-      issuer: (issuer: string) => isContentScriptEntry(issuer, manifestPath),
-      use: await commonStyleLoaders(projectPath, {
-        mode: mode as 'development' | 'production'
-      })
-    }
+      test: /\.(sass|scss)$/,
+      exclude: /\.module\.(sass|scss)$/,
+      loader: 'sass-loader'
+    },
+    {test: /\.module\.(sass|scss)$/, loader: 'sass-loader'},
+    {test: /\.less$/, exclude: /\.module\.less$/, loader: 'less-loader'},
+    {test: /\.module\.less$/, loader: 'less-loader'}
   ]
+
+  const rules = await Promise.all(
+    fileTypes.map(async ({test, exclude, loader}) => {
+      const baseConfig = {
+        test,
+        exclude,
+        type: 'asset' as const,
+        generator: {
+          filename: 'content_scripts/[name].[contenthash:8].css'
+        },
+        issuer: isContentScript
+      }
+
+      if (!loader) {
+        // Regular CSS - no preprocessor needed
+        return {
+          ...baseConfig,
+          use: await commonStyleLoaders(projectPath, {
+            mode: mode as 'development' | 'production'
+          })
+        }
+      }
+
+      // Preprocessor CSS
+      const loaderOptions =
+        loader === 'sass-loader'
+          ? {sourceMap: true, sassOptions: {outputStyle: 'expanded'}}
+          : {sourceMap: true}
+
+      return {
+        ...baseConfig,
+        use: await commonStyleLoaders(projectPath, {
+          mode: mode as 'development' | 'production',
+          loader: require.resolve(loader),
+          loaderOptions
+        })
+      }
+    })
+  )
+
+  return rules
 }
