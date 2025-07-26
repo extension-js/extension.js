@@ -288,11 +288,8 @@ importers:
         specifier: ^2.1.3
         version: 2.5.5
 
-  examples/monorepo-user:
+  examples/monorepo-user2:
     devDependencies:
-      swc-loader:
-        specifier: 0.2.6
-        version: 0.2.6(@swc/core@1.13.2(@swc/helpers@0.5.17))(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17)))
       turbo:
         specifier: ^2.1.3
         version: 2.5.5
@@ -6856,12 +6853,6 @@ packages:
     engines: {node: '>=14.0.0'}
     hasBin: true
 
-  swc-loader@0.2.6:
-    resolution: {integrity: sha512-9Zi9UP2YmDpgmQVbyOPJClY0dwf58JDyDMQ7uRc4krmc72twNI2fvlBWHLqVekBpPc7h5NJkGVT1zNDxFrqhvg==}
-    peerDependencies:
-      '@swc/core': ^1.2.147
-      webpack: '>=2'
-
   table@6.9.0:
     resolution: {integrity: sha512-9kY+CygyYM6j02t5YFHbNz2FN5QmYGv9zAjVp4lCDjlCw7amdckXlEt/bjMhUIfj4ThGRE4gCUH5+yGnNuPo5A==}
     engines: {node: '>=10.0.0'}
@@ -9826,8 +9817,10 @@ snapshots:
       '@swc/core-win32-ia32-msvc': 1.13.2
       '@swc/core-win32-x64-msvc': 1.13.2
       '@swc/helpers': 0.5.17
+    optional: true
 
-  '@swc/counter@0.1.3': {}
+  '@swc/counter@0.1.3':
+    optional: true
 
   '@swc/helpers@0.5.17':
     dependencies:
@@ -9836,6 +9829,7 @@ snapshots:
   '@swc/types@0.1.23':
     dependencies:
       '@swc/counter': 0.1.3
+    optional: true
 
   '@tailwindcss/node@4.1.11':
     dependencies:
@@ -14210,12 +14204,6 @@ snapshots:
       csso: 5.0.5
       picocolors: 1.1.1
 
-  swc-loader@0.2.6(@swc/core@1.13.2(@swc/helpers@0.5.17))(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))):
-    dependencies:
-      '@swc/core': 1.13.2(@swc/helpers@0.5.17)
-      '@swc/counter': 0.1.3
-      webpack: 5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))
-
   table@6.9.0:
     dependencies:
       ajv: 8.17.1
@@ -14279,17 +14267,6 @@ snapshots:
     optionalDependencies:
       '@swc/core': 1.13.2(@swc/helpers@0.5.17)
       esbuild: 0.25.8
-
-  terser-webpack-plugin@5.3.14(@swc/core@1.13.2(@swc/helpers@0.5.17))(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))):
-    dependencies:
-      '@jridgewell/trace-mapping': 0.3.29
-      jest-worker: 27.5.1
-      schema-utils: 4.3.2
-      serialize-javascript: 6.0.2
-      terser: 5.43.1
-      webpack: 5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))
-    optionalDependencies:
-      '@swc/core': 1.13.2(@swc/helpers@0.5.17)
 
   terser-webpack-plugin@5.3.14(webpack@5.100.2):
     dependencies:
@@ -14788,38 +14765,6 @@ snapshots:
       schema-utils: 4.3.2
       tapable: 2.2.2
       terser-webpack-plugin: 5.3.14(webpack@5.100.2)
-      watchpack: 2.4.4
-      webpack-sources: 3.3.3
-    transitivePeerDependencies:
-      - '@swc/core'
-      - esbuild
-      - uglify-js
-
-  webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17)):
-    dependencies:
-      '@types/eslint-scope': 3.7.7
-      '@types/estree': 1.0.8
-      '@types/json-schema': 7.0.15
-      '@webassemblyjs/ast': 1.14.1
-      '@webassemblyjs/wasm-edit': 1.14.1
-      '@webassemblyjs/wasm-parser': 1.14.1
-      acorn: 8.15.0
-      acorn-import-phases: 1.0.4(acorn@8.15.0)
-      browserslist: 4.25.1
-      chrome-trace-event: 1.0.4
-      enhanced-resolve: 5.18.2
-      es-module-lexer: 1.7.0
-      eslint-scope: 5.1.1
-      events: 3.3.0
-      glob-to-regexp: 0.4.1
-      graceful-fs: 4.2.11
-      json-parse-even-better-errors: 2.3.1
-      loader-runner: 4.3.0
-      mime-types: 2.1.35
-      neo-async: 2.6.2
-      schema-utils: 4.3.2
-      tapable: 2.2.2
-      terser-webpack-plugin: 5.3.14(@swc/core@1.13.2(@swc/helpers@0.5.17))(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17)))
       watchpack: 2.4.4
       webpack-sources: 3.3.3
     transitivePeerDependencies:
