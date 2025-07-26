@@ -1,0 +1,18 @@
+{
+  "$schema": "https://turbo.build/schema.v2.json",
+  "tasks": {
+    "dev": {
+      "persistent": true,
+      "cache": false
+    },
+    "start": {
+      "persistent": true,
+      "cache": false
+    },
+    "build": {
+      "inputs": ["clients/browser-extension/**/*", "packages/**/*"],
+      "outputs": ["dist/**"]
+    }
+  },
+  "globalEnv": ["NODE_ENV"]
+}

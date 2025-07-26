@@ -2,7 +2,7 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Get page views from storage
   chrome.storage.local.get(['pageViews'], (result) => {
-    const pageViews = result.pageViews || 0;
-    document.getElementById('pageViews').textContent = pageViews;
-  });
-}); 
+    const pageViews = result.pageViews || 0
+    document.getElementById('pageViews').textContent = pageViews
+  })
+})
