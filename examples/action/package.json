@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-action-popup-example",
+  "name": "action-popup-example",
   "description": "A modern browser extension popup example built with Extension.js. Demonstrates how to create interactive action popups with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

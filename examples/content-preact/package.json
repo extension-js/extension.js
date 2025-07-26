@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-preact-content-script-example",
+  "name": "preact-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js and Preact. Demonstrates how to create lightweight interactive content scripts using Preact components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

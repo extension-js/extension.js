@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-svelte-new-tab-example",
+  "name": "svelte-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js and Svelte. Demonstrates how to create interactive new tab pages using Svelte components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-tailwind-content-script-example",
+  "name": "tailwind-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js and Tailwind CSS. Demonstrates how to create styled content scripts using Tailwind CSS with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
