@@ -11,6 +11,7 @@ import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
+import {isContentScriptEntry} from './is-content-script'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
@@ -46,12 +47,31 @@ export class CssPlugin {
     const maybeInstallSass = await maybeUseSass(projectPath)
     const maybeInstallLess = await maybeUseLess(projectPath)
 
+    // Add SASS/LESS loaders for content scripts
     if (maybeInstallSass.length) {
-      loaders.push(...maybeInstallSass)
+      loaders.push(
+        // SASS files for content scripts
+        {
+          test: /\.(sass|scss)$/,
+          exclude: /\.module\.(sass|scss)$/,
+          type: 'asset/resource',
+          issuer: (issuer: string) =>
+            isContentScriptEntry(issuer, projectPath + '/manifest.json')
+        }
+      )
     }
 
     if (maybeInstallLess.length) {
-      loaders.push(...maybeInstallLess)
+      loaders.push(
+        // LESS files for content scripts
+        {
+          test: /\.less$/,
+          exclude: /\.module\.less$/,
+          type: 'asset/resource',
+          issuer: (issuer: string) =>
+            isContentScriptEntry(issuer, projectPath + '/manifest.json')
+        }
+      )
     }
 
     // Update compiler configuration
