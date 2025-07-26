@@ -7,17 +7,63 @@ export async function cssInHtmlLoader(
   projectPath: string,
   mode: DevOptions['mode']
 ) {
-  const manifestPath = path.join(projectPath, 'manifest.json')
+  const isNotContentScript = (issuer: string) =>
+    !isContentScriptEntry(issuer, projectPath + '/manifest.json')
 
-  return [
+  // Define file type configurations
+  const fileTypes = [
+    {test: /\.css$/, type: 'css', loader: null},
     {
-      test: /\.css$/,
+      test: /\.(sass|scss)$/,
+      exclude: /\.module\.(sass|scss)$/,
       type: 'css',
-      // type: 'css' breaks content scripts so let's avoid it
-      issuer: (issuer: string) => !isContentScriptEntry(issuer, manifestPath),
-      use: await commonStyleLoaders(projectPath, {
-        mode: mode as 'development' | 'production'
-      })
-    }
+      loader: 'sass-loader'
+    },
+    {test: /\.module\.(sass|scss)$/, type: 'css/module', loader: 'sass-loader'},
+    {
+      test: /\.less$/,
+      exclude: /\.module\.less$/,
+      type: 'css',
+      loader: 'less-loader'
+    },
+    {test: /\.module\.less$/, type: 'css/module', loader: 'less-loader'}
   ]
+
+  const rules = await Promise.all(
+    fileTypes.map(async ({test, exclude, type, loader}) => {
+      const baseConfig = {
+        test,
+        exclude,
+        type,
+        issuer: isNotContentScript
+      }
+
+      if (!loader) {
+        // Regular CSS - no preprocessor needed
+        return {
+          ...baseConfig,
+          use: await commonStyleLoaders(projectPath, {
+            mode: mode as 'development' | 'production'
+          })
+        }
+      }
+
+      // Preprocessor CSS
+      const loaderOptions =
+        loader === 'sass-loader'
+          ? {sourceMap: true, sassOptions: {outputStyle: 'expanded'}}
+          : {sourceMap: true}
+
+      return {
+        ...baseConfig,
+        use: await commonStyleLoaders(projectPath, {
+          mode: mode as 'development' | 'production',
+          loader: require.resolve(loader),
+          loaderOptions
+        })
+      }
+    })
+  )
+
+  return rules
 }
