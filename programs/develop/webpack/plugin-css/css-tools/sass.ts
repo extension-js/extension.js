@@ -1,24 +1,12 @@
 import * as path from 'path'
-import * as fs from 'fs'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
-import {isContentScriptEntry} from '../is-content-script'
+import {hasDependency} from '../../lib/utils'
 
 let userMessageDelivered = false
 
 export function isUsingSass(projectPath: string): boolean {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
-  const sassAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.sass
-  const sassAsDep = packageJson.dependencies && packageJson.dependencies.sass
-
-  if (sassAsDevDep || sassAsDep) {
+  if (hasDependency(projectPath, 'sass')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.isUsingIntegration('SASS'))
@@ -35,6 +23,8 @@ export function isUsingSass(projectPath: string): boolean {
 type Loader = Record<string, any>
 
 export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
+  // Note: manifestPath is used for content script detection
+  // This should be updated to use monorepo paths when the function signature changes
   const manifestPath = path.join(projectPath, 'manifest.json')
 
   if (!isUsingSass(projectPath)) return []
@@ -65,7 +55,6 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
     {
       test: /\.(sass|scss)$/,
       exclude: /\.module\.(sass|scss)$/,
-      type: 'css',
       use: [
         {
           loader: require.resolve('sass-loader'),
@@ -81,7 +70,6 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
     // Module .sass/.scss files
     {
       test: /\.module\.(sass|scss)$/,
-      type: 'css/module',
       use: [
         {
           loader: require.resolve('sass-loader'),
@@ -93,12 +81,6 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
           }
         }
       ]
-    },
-    {
-      test: /\.(sass|scss)$/,
-      exclude: /\.module\.(sass|scss)$/,
-      type: 'asset/resource',
-      issuer: (issuer: string) => isContentScriptEntry(issuer, manifestPath)
     }
   ]
 }
