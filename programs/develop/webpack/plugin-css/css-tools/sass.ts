@@ -23,10 +23,6 @@ export function isUsingSass(projectPath: string): boolean {
 type Loader = Record<string, any>
 
 export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
-  // Note: manifestPath is used for content script detection
-  // This should be updated to use monorepo paths when the function signature changes
-  const manifestPath = path.join(projectPath, 'manifest.json')
-
   if (!isUsingSass(projectPath)) return []
 
   try {
