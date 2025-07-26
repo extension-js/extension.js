@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactLogo from '../images/logo.svg'
+import ReactLogo from '../images/logo.png'
 import tailwindBg from '../images/tailwind_bg.png'
 import typescriptLogo from '../images/typescript.png'
 import tailwindLogo from '../images/tailwind.png'
