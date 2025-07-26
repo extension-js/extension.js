@@ -11,6 +11,7 @@ import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import {DevOptions} from '../commands/commands-lib/config-types'
 import webpackConfig from './webpack-config'
+import {type ProjectStructure} from '../commands/commands-lib/get-project-path'
 import * as utils from './lib/utils'
 import {
   loadBrowserConfig,
@@ -31,30 +32,37 @@ function closeAll(devServer: RspackDevServer) {
     })
 }
 
-export async function devServer(projectPath: string, devOptions: DevOptions) {
+export async function devServer(
+  projectStructure: ProjectStructure,
+  devOptions: DevOptions
+) {
+  const {manifestPath, packageJsonPath} = projectStructure
+  const manifestDir = path.dirname(manifestPath)
+  const packageJsonDir = path.dirname(packageJsonPath)
+
   // Get command defaults from extension.config.js
-  const commandConfig = loadCommandConfig(projectPath, 'dev')
+  const commandConfig = loadCommandConfig(manifestDir, 'dev')
   // Get browser defaults from extension.config.js
-  const browserConfig = loadBrowserConfig(projectPath, devOptions.browser)
+  const browserConfig = loadBrowserConfig(manifestDir, devOptions.browser)
 
   // Initialize port manager and allocate port
   const portManager = new PortManager(devOptions.browser, 8080)
   const portAllocation = await portManager.allocatePorts(devOptions.port)
 
   // Get the user defined args and merge with the Extension.js base webpack config
-  const baseConfig = webpackConfig(projectPath, {
+  const baseConfig = webpackConfig(projectStructure, {
     ...devOptions,
     ...commandConfig,
     ...browserConfig,
     mode: 'development',
     output: {
       clean: false,
-      path: path.join(projectPath, 'dist', devOptions.browser)
+      path: path.join(manifestDir, 'dist', devOptions.browser)
     }
   })
 
   // Get webpack config defaults from extension.config.js
-  const customWebpackConfig = await loadCustomWebpackConfig(projectPath)
+  const customWebpackConfig = await loadCustomWebpackConfig(manifestDir)
   const finalConfig = customWebpackConfig(baseConfig)
 
   // Use merge to combine the base config with the custom config.
@@ -83,10 +91,10 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
     devMiddleware: {
       writeToDisk: true
     },
-    watchFiles: utils.isUsingJSFramework(projectPath)
+    watchFiles: utils.isUsingJSFramework(manifestDir)
       ? undefined
       : {
-          paths: [path.join(projectPath, '**/*.html')],
+          paths: [path.join(manifestDir, '**/*.html')],
           options: {
             usePolling: true,
             interval: 1000
