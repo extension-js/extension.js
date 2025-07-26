@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-css-modules-content-script-example",
+  "name": "css-modules-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js using CSS Modules. Demonstrates how to create scoped styles for content scripts with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

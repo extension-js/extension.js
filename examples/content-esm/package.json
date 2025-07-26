@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-esm-content-script-example",
+  "name": "esm-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js using ES modules. Demonstrates how to use modern JavaScript modules in content scripts with clean, maintainable code.",
   "version": "0.0.1",
   "author": {
