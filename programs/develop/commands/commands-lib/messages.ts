@@ -30,6 +30,14 @@ export function manifestNotFoundError(manifestPath: string) {
   )
 }
 
+export function packageJsonNotFoundError(manifestPath: string) {
+  return (
+    `${getLoggingPrefix('error')} No valid package.json found for manifest.\n\n` +
+    'Ensure there is a valid package.json file in the project or its parent directories.\n' +
+    `${colors.red('MANIFEST')} ${colors.underline(manifestPath)}`
+  )
+}
+
 export function building(browser: DevOptions['browser']): string {
   const extensionOutput =
     browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'

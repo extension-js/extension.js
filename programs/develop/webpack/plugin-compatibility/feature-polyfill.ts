@@ -18,8 +18,13 @@ export class PolyfillPlugin {
 
   apply(compiler: Compiler) {
     try {
+      // The polyfill should be resolved from the
+      // rspack context (package.json directory)
+      // since it's a dependency of that package
+      const context = compiler.options.context as string
       const polyfillPath = require.resolve(
-        'webextension-polyfill/dist/browser-polyfill.js'
+        'webextension-polyfill/dist/browser-polyfill.js',
+        {paths: [context]}
       )
 
       new rspack.ProvidePlugin({

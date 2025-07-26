@@ -11,10 +11,8 @@ import * as messages from './messages'
 
 export async function generateExtensionTypes(projectPath: string) {
   const extensionEnvFile = path.join(projectPath, 'extension-env.d.ts')
-  const typePath =
-    process.env.EXTENSION_ENV === 'development'
-      ? path.resolve(process.cwd(), 'programs/cli/types')
-      : 'extension'
+  // Always use the published package path to ensure compatibility in monorepos
+  const typePath = 'extension'
 
   const fileContent = `\
 // Required Extension.js types for TypeScript projects.
@@ -41,10 +39,8 @@ export async function generateExtensionTypes(projectPath: string) {
       await fs.writeFile(extensionEnvFile, fileContent)
     }
 
-    // For local development we always rewrite the path
-    if (process.env.EXTENSION_ENV === 'development') {
-      await fs.writeFile(extensionEnvFile, fileContent)
-    }
+    // Always rewrite the path to ensure it uses the correct published package path
+    await fs.writeFile(extensionEnvFile, fileContent)
   } catch (err) {
     // File does not exist, continue to write it
     const manifest = require(path.join(projectPath, 'manifest.json'))
