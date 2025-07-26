@@ -1,4 +1,4 @@
-import {Compiler} from '@rspack/core'
+import {Compilation, Compiler} from '@rspack/core'
 import {createProfile} from './create-profile'
 import {
   type DevOptions,
@@ -6,7 +6,7 @@ import {
 } from '../../../commands/commands-lib/config-types'
 
 export async function browserConfig(
-  compiler: Compiler,
+  compilation: Compilation,
   configOptions: DevOptions & BrowserConfig
 ) {
   const {
@@ -17,7 +17,11 @@ export async function browserConfig(
     browserFlags = []
   } = configOptions
 
-  const userProfilePath = createProfile(browser, profile, preferences)
+  const userProfilePath = createProfile(compilation, {
+    browser,
+    userProfilePath: profile,
+    configPreferences: preferences
+  })
   const binaryArgs: string[] = []
 
   if (startingUrl) {
@@ -28,11 +32,9 @@ export async function browserConfig(
     binaryArgs.push(...browserFlags)
   }
 
-  // Calculate Firefox debug port based on webpack dev server port
-  // Add 100 to avoid port conflicts
-  const devServerPort = (compiler.options.devServer as any)?.port
-  const debugPort =
-    typeof devServerPort === 'number' ? devServerPort + 100 : 9222
+  // Use the same port as the dev server for consistency
+  const devServerPort = (compilation.options.devServer as any)?.port
+  const debugPort = typeof devServerPort === 'number' ? devServerPort : 9222
 
   return [
     `--binary-args="${binaryArgs.join(' ')}"`,
