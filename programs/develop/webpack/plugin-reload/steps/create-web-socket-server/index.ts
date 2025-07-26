@@ -3,7 +3,6 @@ import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../../reload-types'
 import {messageDispatcher} from './web-socket-server/message-dispatcher'
 import {startServer} from './web-socket-server/start-server'
-import {replaceDataInFile} from './rewrite-reload-port'
 import {DevOptions} from '../../../../module'
 
 process.on('SIGINT', () => {
@@ -29,10 +28,6 @@ export default class CreateWebSocketServer {
 
   async apply(compiler: Compiler) {
     if (!this.manifestPath) return
-
-    // Before all, rewrite the reload service file
-    // with the user-provided port.
-    replaceDataInFile(this.browser, this.port)
 
     // Start webSocket server to communicate with the extension.
     const wss = await startServer(compiler, {
