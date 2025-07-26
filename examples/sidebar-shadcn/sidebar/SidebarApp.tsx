@@ -14,7 +14,7 @@ export default function SidebarApp() {
   return (
     <Card className="h-full">
       <CardHeader>
-        <img src={shadcnLogo} alt="shadcn Logo" className="w-12 h-12" />
+        <img src={shadcnLogo} alt="shadcn Logo" className="size-12" />
         <CardTitle>Welcome to your shadcn Extension.</CardTitle>
         <CardDescription>Manage your cookie settings here.</CardDescription>
       </CardHeader>
