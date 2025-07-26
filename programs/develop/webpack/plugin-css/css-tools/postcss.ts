@@ -12,6 +12,7 @@ import {isUsingTailwind} from './tailwind'
 import {isUsingSass} from './sass'
 import {isUsingLess} from './less'
 import {installOptionalDependencies} from '../../../webpack/lib/utils'
+import {hasDependency} from '../../../webpack/lib/utils'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 
 let userMessageDelivered = false
@@ -38,27 +39,15 @@ function findPostCssConfig(projectPath: string): string | undefined {
 }
 
 export function isUsingPostCss(projectPath: string): boolean {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  if (fs.existsSync(packageJsonPath)) {
-    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
-    if (
-      (packageJson.dependencies && packageJson.dependencies['postcss']) ||
-      (packageJson.devDependencies && packageJson.devDependencies['postcss'])
-    ) {
-      if (!userMessageDelivered) {
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.log(messages.isUsingIntegration('PostCSS'))
-        }
-
-        userMessageDelivered = true
+  if (hasDependency(projectPath, 'postcss')) {
+    if (!userMessageDelivered) {
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.isUsingIntegration('PostCSS'))
       }
-      return true
+
+      userMessageDelivered = true
     }
+    return true
   }
 
   if (findPostCssConfig(projectPath)) {

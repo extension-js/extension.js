@@ -10,26 +10,14 @@ import * as fs from 'fs'
 import PreactRefreshPlugin from '@rspack/plugin-preact-refresh'
 import * as messages from '../../lib/messages'
 import {installOptionalDependencies} from '../../lib/utils'
+import {hasDependency} from '../../lib/utils'
 import {JsFramework} from '../../webpack-types'
 import {RspackPluginInstance} from '@rspack/core'
 
 let userMessageDelivered = false
 
 export function isUsingPreact(projectPath: string) {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-  const preactAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.preact
-  const preactAsDep =
-    packageJson.dependencies && packageJson.dependencies.preact
-
-  // This message is shown for each JS loader we have, so we only want to show it once.
-  if (preactAsDevDep || preactAsDep) {
+  if (hasDependency(projectPath, 'preact')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.isUsingIntegration('Preact'))
@@ -37,9 +25,10 @@ export function isUsingPreact(projectPath: string) {
 
       userMessageDelivered = true
     }
+    return true
   }
 
-  return !!preactAsDevDep || !!preactAsDep
+  return false
 }
 
 export async function maybeUsePreact(

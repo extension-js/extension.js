@@ -8,25 +8,12 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from '../../lib/messages'
+import {hasDependency} from '../../lib/utils'
 
 let userMessageDelivered = false
 
 export function isUsingTailwind(projectPath: string) {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
-
-  const tailwindAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.tailwindcss
-
-  const tailwindAsDep =
-    packageJson.dependencies && packageJson.dependencies.tailwindcss
-
-  const isUsingTailwind = !!(tailwindAsDevDep || tailwindAsDep)
+  const isUsingTailwind = hasDependency(projectPath, 'tailwindcss')
 
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
