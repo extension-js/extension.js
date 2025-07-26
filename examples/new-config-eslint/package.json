@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-eslint-new-tab-example",
+  "name": "eslint-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js and ESLint. Demonstrates how to set up code linting for new tab pages with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-sidebar-example",
+  "name": "sidebar-example",
   "description": "A modern browser extension sidebar example built with Extension.js. Demonstrates how to create custom sidebar panels with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

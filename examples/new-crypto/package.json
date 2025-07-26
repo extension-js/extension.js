@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-crypto-new-tab-example",
+  "name": "crypto-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js demonstrating cryptographic features. Shows how to implement secure crypto operations in new tab pages with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

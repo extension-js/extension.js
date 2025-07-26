@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-content-script-example",
+  "name": "content-script-example",
   "description": "A modern browser extension content script example built with Extension.js. Demonstrates how to inject scripts into web pages with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

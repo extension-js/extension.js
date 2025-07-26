@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-react-svgr-content-script-example",
+  "name": "react-svgr-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js and React using SVGR. Demonstrates how to create interactive content scripts with SVG components using clean, maintainable code.",
   "version": "0.0.1",
   "author": {

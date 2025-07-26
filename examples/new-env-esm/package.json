@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-esm-environment-new-tab-example",
+  "name": "esm-environment-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js using ES modules and environment variables. Demonstrates how to use modern JavaScript modules with environment configuration in new tab pages.",
   "version": "0.0.1",
   "author": {

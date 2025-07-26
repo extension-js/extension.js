@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-basic-example",
+  "name": "basic-example",
   "description": "A basic browser extension example built with Extension.js. Perfect starting point for developers learning browser extension development with modern tooling.",
   "version": "0.0.1",
   "author": {

@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-preact-new-tab-example",
+  "name": "preact-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js and Preact. Demonstrates how to create lightweight interactive new tab pages using Preact components with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

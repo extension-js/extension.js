@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-environment-content-script-example",
+  "name": "environment-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js and TypeScript using environment variables. Demonstrates how to use environment configuration in content scripts with clean, maintainable code.",
   "version": "0.0.1",
   "author": {

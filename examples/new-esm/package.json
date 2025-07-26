@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "extensionjs-esm-new-tab-example",
+  "name": "esm-new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js using ES modules. Demonstrates how to create custom new tab pages with modern JavaScript modules and clean, maintainable code.",
   "version": "0.0.1",
   "author": {
