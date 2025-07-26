@@ -175,13 +175,13 @@ describe('utils', () => {
   describe('isFirstRun', () => {
     it('should return true if it is the first run for the browser', () => {
       vi.spyOn(fs, 'existsSync').mockReturnValue(false)
-      const result = utils.isFirstRun('chrome')
+      const result = utils.isFirstRun('/project/dist', 'chrome')
       expect(result).toBe(true)
     })
 
     it('should return false if it is not the first run for the browser', () => {
       vi.spyOn(fs, 'existsSync').mockReturnValue(true)
-      const result = utils.isFirstRun('chrome')
+      const result = utils.isFirstRun('/project/dist', 'chrome')
       expect(result).toBe(false)
     })
   })

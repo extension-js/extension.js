@@ -18,29 +18,7 @@ import {
   loadCustomWebpackConfig
 } from '../commands/commands-lib/get-extension-config'
 import * as messages from '../commands/commands-lib/messages'
-import * as net from 'net'
-
-function isPortInUse(port: number): Promise<boolean> {
-  return new Promise((resolve) => {
-    const server = net.createServer()
-    server.once('error', () => {
-      resolve(true)
-    })
-    server.once('listening', () => {
-      server.close()
-      resolve(false)
-    })
-    server.listen(port)
-  })
-}
-
-async function findAvailablePort(startPort: number): Promise<number> {
-  let port = startPort
-  while (await isPortInUse(port)) {
-    port++
-  }
-  return port
-}
+import {PortManager} from './lib/port-manager'
 
 function closeAll(devServer: RspackDevServer) {
   devServer
@@ -58,6 +36,10 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
   const commandConfig = loadCommandConfig(projectPath, 'dev')
   // Get browser defaults from extension.config.js
   const browserConfig = loadBrowserConfig(projectPath, devOptions.browser)
+
+  // Initialize port manager and allocate port
+  const portManager = new PortManager(devOptions.browser, 8080)
+  const portAllocation = await portManager.allocatePorts(devOptions.port)
 
   // Get the user defined args and merge with the Extension.js base webpack config
   const baseConfig = webpackConfig(projectPath, {
@@ -81,14 +63,11 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
   const compilerConfig = merge(finalConfig)
   const compiler = rspack(compilerConfig)
 
-  // Handle port configuration
-  let port = devOptions.port || 'auto'
-  if (typeof port === 'number') {
-    if (await isPortInUse(port)) {
-      const newPort = await findAvailablePort(port + 1)
-      console.log(messages.portInUse(port, newPort))
-      port = newPort
-    }
+  const port = portAllocation.port
+
+  // Log port information
+  if (devOptions.port && devOptions.port !== port) {
+    console.log(messages.portInUse(devOptions.port, port))
   }
 
   // webpack-dev-server configuration
@@ -114,43 +93,18 @@ export async function devServer(projectPath: string, devOptions: DevOptions) {
           }
         },
     client: {
-      // Allows to set log level in the browser, e.g. before reloading,
-      // before an error or when Hot Module Replacement is enabled.
       logging: process.env.EXTENSION_ENV === 'development' ? 'error' : 'none',
-      // Prints compilation progress in percentage in the browser.
       progress: false,
-      // Shows a full-screen overlay in the browser
-      // when there are compiler errors or warnings.
       overlay: false
     },
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
     port,
-    hot: true,
-    webSocketServer: {
-      type: 'ws',
-      options: {
-        port: typeof port === 'number' ? port : undefined
-      }
-    }
+    hot: true
   }
 
   const devServer = new RspackDevServer(serverConfig, compiler as any)
-
-  // Pass the actual port to the reload plugin
-  if (typeof port === 'number') {
-    compiler.options.plugins?.forEach((plugin) => {
-      if (
-        plugin &&
-        typeof plugin === 'object' &&
-        'constructor' in plugin &&
-        plugin.constructor.name === 'ReloadPlugin'
-      ) {
-        ;(plugin as any).port = port
-      }
-    })
-  }
 
   devServer.startCallback((error) => {
     if (error != null) {

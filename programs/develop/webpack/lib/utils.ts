@@ -219,8 +219,11 @@ export function isUsingJSFramework(projectPath: string): boolean {
   return false
 }
 
-export function isFirstRun(browser: string) {
-  return !fs.existsSync(path.resolve(__dirname, `run-${browser}-profile`))
+export function isFirstRun(outputPath: string, browser: DevOptions['browser']) {
+  const distPath = path.dirname(outputPath)
+  return !fs.existsSync(
+    path.resolve(distPath, 'extension-js', 'profiles', `${browser}-profile`)
+  )
 }
 
 export function getHardcodedMessage(manifest: Manifest): {

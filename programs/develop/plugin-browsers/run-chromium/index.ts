@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler} from '@rspack/core'
+import {Compilation, type Compiler} from '@rspack/core'
 import {spawn} from 'child_process'
 import chromeLocation from 'chrome-location2'
 import edgeLocation from 'edge-location'
@@ -42,7 +42,10 @@ export class RunChromiumPlugin {
     this.port = options.port
   }
 
-  private async launchChromium(browser: DevOptions['browser']) {
+  private async launchChromium(
+    compilation: Compilation,
+    browser: DevOptions['browser']
+  ) {
     let browserBinaryLocation: string
 
     switch (browser) {
@@ -70,7 +73,7 @@ export class RunChromiumPlugin {
       process.exit()
     }
 
-    const chromiumConfig = browserConfig(this)
+    const chromiumConfig = browserConfig(compilation, this)
     const launchArgs = this.startingUrl
       ? [this.startingUrl, ...chromiumConfig]
       : [...chromiumConfig]
@@ -99,7 +102,7 @@ export class RunChromiumPlugin {
         return
       }
 
-      this.launchChromium(this.browser)
+      this.launchChromium(compilation as any, this.browser)
 
       setTimeout(() => {
         console.log(

@@ -45,7 +45,8 @@ export class ReloadPlugin {
         manifestPath: this.manifestPath,
         browser: this.browser,
         autoReload: this.autoReload,
-        stats: this.stats
+        stats: this.stats,
+        port: this.port
       }).apply(compiler)
     }
   }

@@ -17,14 +17,18 @@ export async function connect() {
   }
 
   webSocket.onopen = () => {
-    console.info(`[Reload Service] Connection opened.`)
+    console.info(
+      `[Reload Service] Connection opened. Listening on port ${port}...`
+    )
   }
 
   webSocket.onmessage = async (event) => {
     const message = JSON.parse(event.data)
 
     if (message.status === 'serverReady') {
-      console.info('[Reload Service] Connection ready.')
+      console.info(
+        `[Reload Service] Server ready. Requesting initial load data...`
+      )
       await requestInitialLoadData()
     }
 

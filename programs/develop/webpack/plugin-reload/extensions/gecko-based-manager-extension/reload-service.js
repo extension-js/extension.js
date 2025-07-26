@@ -6,7 +6,9 @@ export async function connect() {
     return
   }
 
-  webSocket = new WebSocket('wss://127.0.0.1:8002')
+  // Get port from the placeholder that will be replaced during build
+  const port = '__RELOAD_PORT__'
+  webSocket = new WebSocket(`wss://127.0.0.1:${port + 2}`)
 
   webSocket.onerror = (event) => {
     console.error(`[Reload Service] Connection error: ${JSON.stringify(event)}`)
@@ -14,15 +16,18 @@ export async function connect() {
   }
 
   webSocket.onopen = () => {
-    console.info(`[Reload Service] Connection opened.`)
+    console.info(
+      `[Reload Service] Connection opened. Listening on port ${port}...`
+    )
   }
 
   webSocket.onmessage = async (event) => {
     const message = JSON.parse(event.data)
 
     if (message.status === 'serverReady') {
-      console.info('[Reload Service] Connection ready.')
-      await requestInitialLoadData()
+      console.info(
+        `[Reload Service] Server ready. Requesting initial load data...`
+      )
     }
 
     if (message.changedFile) {
