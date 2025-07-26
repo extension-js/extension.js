@@ -1,0 +1,21 @@
+{
+  "private": true,
+  "name": "@extension/browser",
+  "description": "A browser extension example built with Extension.js in a monorepo structure.",
+  "version": "0.0.1",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "dev": "extension dev",
+    "build": "extension build",
+    "start": "extension start",
+    "preview": "extension preview"
+  },
+  "devDependencies": {
+    "extension": "workspace:*"
+  }
+} 

@@ -282,6 +282,12 @@ importers:
 
   examples/init: {}
 
+  examples/monorepo-turbopack:
+    devDependencies:
+      turbo:
+        specifier: ^2.1.3
+        version: 2.5.5
+
   examples/new: {}
 
   examples/new-config-babel:
@@ -724,6 +730,9 @@ importers:
       edge-location:
         specifier: ^1.1.1
         version: 1.1.1
+      find-up:
+        specifier: ^7.0.0
+        version: 7.0.0
       firefox-location2:
         specifier: 1.0.0
         version: 1.0.0
@@ -4545,6 +4554,10 @@ packages:
     resolution: {integrity: sha512-v2ZsoEuVHYy8ZIlYqwPe/39Cy+cFDzp4dXPaxNvkEuouymu+2Jbz0PxpKarJHYJTmv2HWT3O382qY8l4jMWthw==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
+  find-up@7.0.0:
+    resolution: {integrity: sha512-YyZM99iHrqLKjmt4LJDj58KI+fYyufRLBSYcqycxf//KpBk9FoewoGX0450m9nB44qrZnovzC2oeP5hUibxc/g==}
+    engines: {node: '>=18'}
+
   firefox-location2@1.0.0:
     resolution: {integrity: sha512-kADmu5wYzE2pcZMH6X/C+v9iFss2G9VHSsOkC7SKFe4/eFQTwXYNZq2/THgi/qtabDXG5kp02EqzlPk8s/4QTg==}
 
@@ -7059,6 +7072,10 @@ packages:
   unicode-property-aliases-ecmascript@2.1.0:
     resolution: {integrity: sha512-6t3foTQI9qne+OZoVQB/8x8rk2k1eVy1gRXhV3oFQ5T6R1dqQ1xtin3XqSlx3+ATBkliTaR/hHyJBm+LVPNM8w==}
     engines: {node: '>=4'}
+
+  unicorn-magic@0.1.0:
+    resolution: {integrity: sha512-lRfVq8fE8gz6QMBuDM6a+LO3IAzTi05H6gCVaUpir2E1Rwpo4ZUog45KpNXKC/Mn3Yb9UDuHumeFTo9iV/D9FQ==}
+    engines: {node: '>=18'}
 
   universalify@0.1.2:
     resolution: {integrity: sha512-rBJeI5CXAlmy1pV+617WB9J63U6XcazHHF2f2dbJix4XzpUF0RS3Zbj0FGIOCAva5P/d/GBOYaACQ1w+0azUkg==}
@@ -11541,6 +11558,12 @@ snapshots:
       locate-path: 7.2.0
       path-exists: 5.0.0
 
+  find-up@7.0.0:
+    dependencies:
+      locate-path: 7.2.0
+      path-exists: 5.0.0
+      unicorn-magic: 0.1.0
+
   firefox-location2@1.0.0:
     dependencies:
       userhome: 1.0.1
@@ -14348,6 +14371,8 @@ snapshots:
   unicode-match-property-value-ecmascript@2.2.0: {}
 
   unicode-property-aliases-ecmascript@2.1.0: {}
+
+  unicorn-magic@0.1.0: {}
 
   universalify@0.1.2: {}
 
