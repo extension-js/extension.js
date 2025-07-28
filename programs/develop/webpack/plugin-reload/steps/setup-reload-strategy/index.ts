@@ -12,11 +12,13 @@ class SetupReloadStrategy {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
   private readonly port: number
+  private readonly instanceId?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.port = options.port || 8080
+    this.instanceId = options.instanceId
   }
 
   public apply(compiler: Compiler) {
@@ -49,11 +51,15 @@ class SetupReloadStrategy {
 
     // 4 - Generate the Extension.js manager extension
     // related to the current browser.
-    new GenerateManagerExtension({
-      manifestPath: this.manifestPath,
-      browser: this.browser,
-      port: this.port
-    }).apply(compiler)
+    // Skip the old manager extension generation when using multi-instance support
+    // (when instanceId is present) as DynamicExtensionManager handles it
+    if (!this.instanceId) {
+      new GenerateManagerExtension({
+        manifestPath: this.manifestPath,
+        browser: this.browser,
+        port: this.port
+      }).apply(compiler)
+    }
   }
 }
 
