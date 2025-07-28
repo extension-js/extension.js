@@ -12,8 +12,7 @@
   "type": "module",
   "dependencies": {
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "sakura.css": "^1.4.1"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/react": "^18.2.64",

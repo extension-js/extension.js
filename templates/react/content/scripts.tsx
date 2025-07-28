@@ -1,5 +1,8 @@
 import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
+
+// Import CSS to ensure webpack processes it as an asset
+// This is required for content scripts to have CSS available
 import './styles.css'
 
 interface ContentScriptOptions {
@@ -12,23 +15,21 @@ export default function contentScript({
   rootId = 'extension-root',
   containerClass = 'content_script',
   stylesheets = ['./styles.css']
-}: ContentScriptOptions = {}) {
+}: ContentScriptOptions) {
   return (container: HTMLElement) => {
-    if (import.meta.env.EXTENSION_MODE === 'development') {
-      console.info('Content script configuration', {
-        rootId,
-        containerClass,
-        stylesheets
-      })
-    }
-
     const mountingPoint = ReactDOM.createRoot(container)
+
     mountingPoint.render(<ContentApp />)
+
+    console.info('content_script configuration:', {
+      rootId,
+      containerClass,
+      stylesheets
+    })
 
     // Return cleanup function for unmounting (required)
     return () => {
       mountingPoint.unmount()
-      console.clear()
     }
   }
 }

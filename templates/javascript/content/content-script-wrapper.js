@@ -1,5 +1,5 @@
 /**
- * Content Script Wrapper Module
+ * Content Script Wrapper Module for JavaScript
  *
  * This module handles all the internal content script logic including:
  * - Shadow DOM creation and management
@@ -10,78 +10,32 @@
  */
 
 // Import the content script function and its default options
-import contentScript from './scripts'
+import contentScript from './scripts.js'
 
-// Type declarations for webpack HMR
-declare global {
-  interface ImportMeta {
-    webpackHot?: {
-      accept: (module?: string, callback?: () => void) => void
-      dispose: (callback: () => void) => void
-    }
-  }
-}
-
-export interface ContentScriptOptions {
-  /** ID for the root element */
-  rootId?: string
-  /** CSS class for the container */
-  containerClass?: string
-  /** Custom stylesheets to inject (can be single string or array of strings) */
-  stylesheets?: string | string[]
-}
-
-export interface ContentScriptInstance {
-  /** Mount the content script */
-  mount: (
-    renderFunction: (container: HTMLElement) => (() => void) | void
-  ) => void
-  /** Unmount the content script */
-  unmount: () => void
-  /** Get the current container element */
-  getContainer: () => HTMLElement | null
-  /** Get the shadow root (if using shadow DOM) */
-  getShadowRoot: () => ShadowRoot | null
-}
-
-// Use default options from scripts.tsx to avoid hardcoding
+// Use default options
 const DEFAULT_OPTIONS = {
   rootId: 'extension-root',
   containerClass: 'content_script',
   stylesheets: ['./styles.css']
 }
 
-export class ContentScriptWrapper implements ContentScriptInstance {
-  private options: Required<Omit<ContentScriptOptions, 'stylesheets'>> & {
-    stylesheets: string[]
-  }
-  private rootElement: HTMLElement | null = null
-  private shadowRoot: ShadowRoot | null = null
-  private container: HTMLElement | null = null
-  private unmountFunction: (() => void) | null = null
-  private styleElement: HTMLStyleElement | null = null
-
-  constructor(options: ContentScriptOptions = {}) {
-    // Normalize stylesheets to always be an array
-    const stylesheets = options.stylesheets
-      ? Array.isArray(options.stylesheets)
-        ? options.stylesheets
-        : [options.stylesheets]
-      : DEFAULT_OPTIONS.stylesheets
-
+export class ContentScriptWrapper {
+  constructor(options = {}) {
     this.options = {
       ...DEFAULT_OPTIONS,
-      ...options,
-      stylesheets
+      ...options
     }
+    this.rootElement = null
+    this.shadowRoot = null
+    this.container = null
+    this.unmountFunction = null
+    this.styleElement = null
   }
 
   /**
    * Mount the content script with the provided render function
    */
-  async mount(
-    renderFunction: (container: HTMLElement) => (() => void) | void
-  ): Promise<void> {
+  async mount(renderFunction) {
     if (this.rootElement) {
       console.warn('Content script is already mounted')
       return
@@ -95,19 +49,19 @@ export class ContentScriptWrapper implements ContentScriptInstance {
 
       // Call the render function with the container and store the unmount function
       try {
-        const unmountFn = renderFunction(this.container!)
+        const unmountFn = renderFunction(this.container)
         if (typeof unmountFn === 'function') {
           this.unmountFunction = unmountFn
         }
       } catch (error) {
         console.error('Render function failed, adding fallback content:', error)
-        // Add fallback content if React rendering fails
+        // Add fallback content if JavaScript rendering fails
         const errorMessage =
           error instanceof Error ? error.message : String(error)
-        this.container!.innerHTML = `
+        this.container.innerHTML = `
           <div style="text-align: center;">
             <h3>Extension Content</h3>
-            <p>React rendering failed, but the wrapper is working!</p>
+            <p>JavaScript rendering failed, but the wrapper is working!</p>
             <p>Error: ${errorMessage}</p>
           </div>
         `
@@ -121,7 +75,7 @@ export class ContentScriptWrapper implements ContentScriptInstance {
   /**
    * Unmount the content script and cleanup resources
    */
-  unmount(): void {
+  unmount() {
     if (this.unmountFunction) {
       this.unmountFunction()
       this.unmountFunction = null
@@ -133,20 +87,20 @@ export class ContentScriptWrapper implements ContentScriptInstance {
   /**
    * Get the current container element
    */
-  getContainer(): HTMLElement | null {
+  getContainer() {
     return this.container
   }
 
   /**
    * Get the shadow root (if using shadow DOM) */
-  getShadowRoot(): ShadowRoot | null {
+  getShadowRoot() {
     return this.shadowRoot
   }
 
   /**
    * Create the root element and append to document body
    */
-  private createRootElement(): void {
+  createRootElement() {
     this.rootElement = document.createElement('div')
     this.rootElement.id = this.options.rootId
     document.body.appendChild(this.rootElement)
@@ -155,7 +109,7 @@ export class ContentScriptWrapper implements ContentScriptInstance {
   /**
    * Setup shadow DOM for style isolation
    */
-  private setupShadowDOM(): void {
+  setupShadowDOM() {
     if (!this.rootElement) return
     this.shadowRoot = this.rootElement.attachShadow({mode: 'open'})
   }
@@ -163,17 +117,26 @@ export class ContentScriptWrapper implements ContentScriptInstance {
   /**
    * Inject styles using the working example pattern
    */
-  private async injectStyles(): Promise<void> {
-    const targetRoot = this.shadowRoot || this.rootElement!
+  async injectStyles() {
+    const targetRoot = this.shadowRoot || this.rootElement
 
     // Create style element
     this.styleElement = document.createElement('style')
     targetRoot.appendChild(this.styleElement)
+    console.log('🔍 Style element created and appended')
 
     // Fetch CSS using the working example pattern
     try {
       const cssContent = await this.fetchCSS()
+      console.log(
+        '🔍 Setting style element textContent with length:',
+        cssContent.length
+      )
       this.styleElement.textContent = cssContent
+      console.log(
+        '🔍 Style element textContent after setting:',
+        this.styleElement.textContent?.length || 0
+      )
       console.log('✅ CSS injected successfully')
     } catch (error) {
       console.error('❌ Failed to inject CSS:', error)
@@ -186,17 +149,26 @@ export class ContentScriptWrapper implements ContentScriptInstance {
   /**
    * Fetch CSS using the working example pattern
    */
-  private async fetchCSS(): Promise<string> {
+  async fetchCSS() {
     const cssUrl = new URL('./styles.css', import.meta.url)
+    console.log('🔍 Fetching CSS from:', cssUrl.href)
+    console.log('🔍 import.meta.url:', import.meta.url)
+
     const response = await fetch(cssUrl)
+    console.log('🔍 Response status:', response.status)
+    console.log('🔍 Response ok:', response.ok)
+
     const text = await response.text()
+    console.log('🔍 CSS content length:', text.length)
+    console.log('🔍 CSS content preview:', text.substring(0, 100))
+
     return response.ok ? text : Promise.reject(text)
   }
 
   /**
    * Setup CSS HMR using the working example pattern
    */
-  private setupCSSHMR(): void {
+  setupCSSHMR() {
     if (!import.meta.webpackHot) return
 
     import.meta.webpackHot?.accept('./styles.css', async () => {
@@ -213,20 +185,20 @@ export class ContentScriptWrapper implements ContentScriptInstance {
   }
 
   /**
-   * Create the container element for the React app
+   * Create the container element for the JavaScript app
    */
-  private createContainer(): void {
+  createContainer() {
     this.container = document.createElement('div')
     this.container.className = this.options.containerClass
 
-    const targetRoot = this.shadowRoot || this.rootElement!
+    const targetRoot = this.shadowRoot || this.rootElement
     targetRoot.appendChild(this.container)
   }
 
   /**
    * Cleanup all resources
    */
-  private cleanup(): void {
+  cleanup() {
     if (this.styleElement && this.styleElement.parentNode) {
       this.styleElement.parentNode.removeChild(this.styleElement)
       this.styleElement = null
@@ -245,19 +217,14 @@ export class ContentScriptWrapper implements ContentScriptInstance {
 /**
  * Factory function to create a content script wrapper
  */
-export function createContentScriptWrapper(
-  options?: ContentScriptOptions
-): ContentScriptWrapper {
+export function createContentScriptWrapper(options) {
   return new ContentScriptWrapper(options)
 }
 
 /**
  * Initialize content script when DOM is ready
  */
-export function initializeContentScript(
-  options: ContentScriptOptions = {},
-  renderFunction: (container: HTMLElement) => (() => void) | void
-): ContentScriptInstance {
+export function initializeContentScript(options = {}, renderFunction) {
   const wrapper = createContentScriptWrapper(options)
 
   if (document.readyState === 'complete') {
@@ -274,61 +241,25 @@ export function initializeContentScript(
 }
 
 /**
- * Default export for the content script wrapper
- */
-export default ContentScriptWrapper
-
-/**
  * Auto-initialize the content script with the wrapper
  * This function automatically sets up the content script using the imported contentScript function
  */
-export function autoInitializeContentScript(
-  options: ContentScriptOptions = {}
-): ContentScriptInstance {
-  // Normalize stylesheets to match the scripts.tsx API
-  const normalizedOptions = {
-    ...options,
-    stylesheets: options.stylesheets
-      ? Array.isArray(options.stylesheets)
-        ? options.stylesheets
-        : [options.stylesheets]
-      : undefined
-  }
-
+export function autoInitializeContentScript(options = {}) {
   // Get the render function from the imported contentScript
-  const renderFunction = contentScript(normalizedOptions)
+  const renderFunction = contentScript(options)
 
-  // Initialize with the wrapper using normalized options
-  return initializeContentScript(normalizedOptions, renderFunction)
+  // Initialize with the wrapper
+  return initializeContentScript(options, renderFunction)
 }
 
-// Simple initialization like the original working code
-let unmount: (() => void) | undefined
+// Auto-initialize the content script with the wrapper
+const instance = autoInitializeContentScript()
 
-async function initialize() {
-  if (unmount) {
-    unmount()
-  }
-  const instance = autoInitializeContentScript()
-  unmount = () => instance.unmount()
-}
-
+// Setup HMR for the content script
 if (import.meta.webpackHot) {
   import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-
-  // Accept changes to scripts.tsx specifically
-  import.meta.webpackHot?.accept('./scripts', () => {
-    initialize()
-  })
+  import.meta.webpackHot?.dispose(() => instance.unmount())
 }
 
-if (document.readyState === 'complete') {
-  initialize()
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') {
-      initialize()
-    }
-  })
-}
+// Export the instance for external use if needed
+export default instance
