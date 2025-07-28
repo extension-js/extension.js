@@ -3,7 +3,7 @@
 // ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
-// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+// ╚═════╝ ╚══════╝ ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import * as path from 'path'
 import {rspack} from '@rspack/core'
@@ -20,15 +20,21 @@ import {
 } from '../commands/commands-lib/get-extension-config'
 import * as messages from '../commands/commands-lib/messages'
 import {PortManager} from './lib/port-manager'
+import {DynamicExtensionManager} from '../lib/dynamic-extension-manager'
 
-function closeAll(devServer: RspackDevServer) {
+function closeAll(devServer: RspackDevServer, portManager: PortManager) {
   devServer
     .stop()
-    .then(() => {
+    .then(async () => {
+      // Terminate the current instance
+      await portManager.terminateCurrentInstance()
       process.exit()
     })
-    .catch((error) => {
+    .catch(async (error) => {
       console.log(`Error in the Extension.js runner: ${error.stack || ''}`)
+      // Still try to terminate the instance
+      await portManager.terminateCurrentInstance()
+      process.exit(1)
     })
 }
 
@@ -45,9 +51,25 @@ export async function devServer(
   // Get browser defaults from extension.config.js
   const browserConfig = loadBrowserConfig(manifestDir, devOptions.browser)
 
-  // Initialize port manager and allocate port
+  // Initialize port manager and allocate ports for this instance
   const portManager = new PortManager(devOptions.browser, 8080)
-  const portAllocation = await portManager.allocatePorts(devOptions.port)
+  const portAllocation = await portManager.allocatePorts(
+    devOptions.browser,
+    packageJsonDir,
+    devOptions.port
+  )
+
+  // Initialize dynamic extension manager
+  const extensionManager = new DynamicExtensionManager(packageJsonDir)
+  const currentInstance = portManager.getCurrentInstance()
+
+  if (!currentInstance) {
+    throw new Error('Failed to create instance')
+  }
+
+  // Generate or regenerate the manager extension for this instance
+  const generatedExtension =
+    await extensionManager.regenerateExtensionIfNeeded(currentInstance)
 
   // Get the user defined args and merge with the Extension.js base webpack config
   const baseConfig = webpackConfig(projectStructure, {
@@ -58,7 +80,8 @@ export async function devServer(
     output: {
       clean: false,
       path: path.join(manifestDir, 'dist', devOptions.browser)
-    }
+    },
+    instanceId: currentInstance.instanceId
   })
 
   // Get webpack config defaults from extension.config.js
@@ -77,6 +100,11 @@ export async function devServer(
   if (devOptions.port && devOptions.port !== port) {
     console.log(messages.portInUse(devOptions.port, port))
   }
+
+  // Log instance information
+  console.log(`🧩 Instance ${portAllocation.instanceId.slice(0, 8)} started`)
+  console.log(`   Port: ${port}, WebSocket: ${portAllocation.webSocketPort}`)
+  console.log(`   Manager Extension: ${devOptions.browser}-manager-${port}`)
 
   // webpack-dev-server configuration
   const serverConfig: Configuration = {
@@ -124,13 +152,29 @@ export async function devServer(
     }
   })
 
-  process.on('ERROR', () => {
-    closeAll(devServer)
+  // Handle process termination
+  const cleanup = async () => {
+    try {
+      await closeAll(devServer, portManager)
+    } catch (error) {
+      console.error('Error during cleanup:', error)
+      process.exit(1)
+    }
+  }
+
+  process.on('ERROR', cleanup)
+  process.on('SIGINT', cleanup)
+  process.on('SIGTERM', cleanup)
+  process.on('SIGHUP', cleanup)
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', async (error) => {
+    console.error('Uncaught Exception:', error)
+    await cleanup()
   })
-  process.on('SIGINT', () => {
-    closeAll(devServer)
-  })
-  process.on('SIGTERM', () => {
-    closeAll(devServer)
+
+  process.on('unhandledRejection', async (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason)
+    await cleanup()
   })
 }

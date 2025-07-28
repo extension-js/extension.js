@@ -106,6 +106,7 @@ export interface PluginInterface extends PluginOptions {
   browser: DevOptions['browser']
   extension: string | string[]
   port?: number
+  instanceId?: string
 }
 
 export interface PluginOptions {

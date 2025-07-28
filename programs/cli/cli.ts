@@ -301,4 +301,27 @@ extensionJs
     }
   })
 
+// ██████╗██╗   ██╗██╗███████╗████████╗ ██████╗ ███╗   ██╗ ██████╗ ███████╗███████╗
+// ██╔══██╗██║   ██║██║██╔════╝╚══██╔══╝██╔═══██╗████╗  ██║██╔═══██╗██╔════╝██╔════╝
+// ██████╔╝██║   ██║██║███████╗   ██║   ██║   ██║██╔██╗ ██║██║   ██║███████╗███████╗
+// ██╔══██╗██║   ██║██║╚════██║   ██║   ██║   ██║██║╚██╗██║██║   ██║╚════██║╚════██║
+// ██████╔╝╚██████╔╝██║███████║   ██║   ╚██████╔╝██║ ╚████║╚██████╔╝███████║███████║
+// ╚═════╝  ╚═════╝ ╚═╝╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝ ╚═════╝ ╚══════╝╚══════╝
+
+extensionJs
+  .command('instances')
+  .description('List running extension development instances')
+  .option('--cleanup', 'clean up terminated instances')
+  .option('--kill <instance-id>', 'terminate a specific instance')
+  .action(async function (options) {
+    // This will be implemented to show running instances
+    console.log('🧩 Extension.js Instance Manager')
+    console.log('')
+    console.log('This feature is coming soon!')
+    console.log('')
+    console.log('Running instances will be displayed here.')
+    console.log('Use --cleanup to remove terminated instances.')
+    console.log('Use --kill <instance-id> to terminate a specific instance.')
+  })
+
 extensionJs.parse()

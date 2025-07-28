@@ -16,5 +16,10 @@
       "matches": ["<all_urls>"],
       "js": ["./content/scripts.tsx"]
     }
-  ]
+  ],
+  "applications": {
+    "gecko": {
+      "id": "extension.js---react-content-script-example@extension-js"
+    }
+  }
 }

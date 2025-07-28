@@ -32,6 +32,8 @@ export default function webpackConfig(
       clean: boolean
       path: string
     }
+  } & {
+    instanceId?: string
   }
 ): Configuration {
   const {manifestPath, packageJsonPath} = projectStructure
@@ -143,7 +145,8 @@ export default function webpackConfig(
         manifestPath,
         browser,
         stats: true,
-        port: devOptions.port || 8080
+        port: devOptions.port || 8080,
+        instanceId: devOptions.instanceId
       }),
       new BrowsersPlugin({
         extension: [
@@ -157,7 +160,9 @@ export default function webpackConfig(
         preferences: devOptions.preferences,
         browserFlags: devOptions.browserFlags,
         chromiumBinary: devOptions.chromiumBinary,
-        geckoBinary: devOptions.geckoBinary
+        geckoBinary: devOptions.geckoBinary,
+        instanceId: devOptions.instanceId,
+        port: devOptions.port
       })
     ].filter(Boolean),
     stats: {

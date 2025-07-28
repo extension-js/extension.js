@@ -19,11 +19,6 @@ import * as messages from './browsers-lib/messages'
  * - Browser flags - a set of flags can be specified for the target browser
  * - Chromium binary - a custom path to the Chromium binary can be specified
  * - Gecko binary - a custom path to the Gecko binary can be specified
- *
- * Browsers supported:
- * - Chrome
- * - Edge
- * - Firefox
  */
 export class BrowsersPlugin {
   public static readonly name: string = 'plugin-browsers'
@@ -37,8 +32,13 @@ export class BrowsersPlugin {
   public readonly startingUrl?: string
   public readonly chromiumBinary?: string
   public readonly geckoBinary?: string
+  public readonly instanceId?: string
+  public readonly port?: number | string
 
   constructor(options: PluginInterface) {
+    console.log('🔍 BrowsersPlugin constructor called with options:', options)
+    console.log('🔍 BrowsersPlugin port from options:', options.port)
+    
     // Include extensions and filter out any duplicate load-extension flags
     this.extension = [
       ...options.extension,
@@ -66,6 +66,10 @@ export class BrowsersPlugin {
     this.startingUrl = options.startingUrl || ''
     this.chromiumBinary = options.chromiumBinary
     this.geckoBinary = options.geckoBinary
+    this.instanceId = options.instanceId
+    this.port = options.port
+    
+    console.log('🔍 BrowsersPlugin constructor finished, this.port:', this.port)
   }
 
   private getProfilePath(
@@ -169,8 +173,8 @@ export class BrowsersPlugin {
       this.profile || this.profile
     )
 
-    // Get port from dev server config
-    const port = (compiler.options.devServer as any)?.port || 'auto'
+    // Get port from dev server config if not provided
+    const port = this.port || (compiler.options.devServer as any)?.port || 'auto'
 
     // Pass port to browser specific plugins
     switch (this.browser) {
@@ -181,7 +185,8 @@ export class BrowsersPlugin {
           ...browserConfig,
           browser: this.browser,
           profile,
-          port
+          port,
+          instanceId: this.instanceId
         }).apply(compiler)
         break
       }
@@ -192,7 +197,8 @@ export class BrowsersPlugin {
           ...browserConfig,
           browser: this.browser,
           profile,
-          port
+          port,
+          instanceId: this.instanceId
         }).apply(compiler)
         break
 
@@ -201,7 +207,8 @@ export class BrowsersPlugin {
           ...browserConfig,
           browser: 'chrome',
           profile,
-          port
+          port,
+          instanceId: this.instanceId
         }).apply(compiler)
         break
       }

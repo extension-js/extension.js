@@ -9,6 +9,9 @@ export async function browserConfig(
   compilation: Compilation,
   configOptions: DevOptions & BrowserConfig
 ) {
+  console.log('🔍 browserConfig called!')
+  console.log('🔍 configOptions:', configOptions)
+  
   const {
     browser,
     startingUrl,
@@ -25,16 +28,24 @@ export async function browserConfig(
   const binaryArgs: string[] = []
 
   if (startingUrl) {
-    binaryArgs.push(`--url=${startingUrl}`)
+    binaryArgs.push('--url', startingUrl)
   }
 
   if (browserFlags) {
     binaryArgs.push(...browserFlags)
   }
 
-  // Use the same port as the dev server for consistency
+  // Use port from configOptions if available
+  const portFromConfig = (configOptions as any)?.port
+  console.log('🔍 Browser config - portFromConfig:', portFromConfig)
+
+  // Use portFromConfig if available, otherwise fall back to devServerPort
   const devServerPort = (compilation.options.devServer as any)?.port
-  const debugPort = typeof devServerPort === 'number' ? devServerPort : 9222
+  const finalPort = portFromConfig ? (typeof portFromConfig === 'string' ? parseInt(portFromConfig, 10) : portFromConfig) : devServerPort
+  const debugPort = typeof finalPort === 'number' ? finalPort + 100 : 9222
+  console.log('🔍 Browser config - devServerPort:', devServerPort)
+  console.log('🔍 Browser config - finalPort:', finalPort)
+  console.log('🔍 Browser config - calculated debugPort:', debugPort)
 
   return [
     `--binary-args="${binaryArgs.join(' ')}"`,

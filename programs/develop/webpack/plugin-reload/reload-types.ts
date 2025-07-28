@@ -9,4 +9,5 @@ export interface PluginOptions {
   port?: number
   stats?: boolean
   autoReload?: boolean
+  instanceId?: string
 }

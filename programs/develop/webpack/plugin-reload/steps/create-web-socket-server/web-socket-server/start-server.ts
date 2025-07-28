@@ -8,6 +8,7 @@ import {getHardcodedMessage, isFirstRun} from '../../../../lib/utils'
 import {DevOptions} from '../../../../../module'
 import {CERTIFICATE_DESTINATION_PATH} from '../../../../lib/constants'
 import {httpsServer} from './servers'
+import {InstanceManager} from '../../../../../lib/instance-manager'
 
 interface Data {
   id: string
@@ -18,6 +19,7 @@ interface Data {
 interface Message {
   data?: Data | undefined
   status: string
+  instanceId?: string // Add instance ID for routing
 }
 
 function setupServer(port: number, browser: DevOptions['browser']) {
@@ -65,16 +67,42 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
 
-  const {server: webSocketServer} = setupServer(options.port!, options.browser)
+  // Get the current instance from the compiler options
+  const currentInstance = (compiler.options as any).currentInstance
+  const instanceId = currentInstance?.instanceId
 
-  // Track all active connections
+  if (!instanceId) {
+    throw new Error('No instance ID found in compiler options')
+  }
+
+  // Initialize instance manager
+  const instanceManager = new InstanceManager()
+  const instance = await instanceManager.getInstance(instanceId)
+
+  if (!instance) {
+    throw new Error(`Instance ${instanceId} not found`)
+  }
+
+  // Use the instance-specific WebSocket port
+  const {server: webSocketServer} = setupServer(
+    instance.webSocketPort,
+    options.browser
+  )
+
+  // Track all active connections for this instance
   const connections = new Set<WebSocket>()
 
   webSocketServer.on('connection', (ws) => {
     // Add to active connections
     connections.add(ws)
 
-    ws.send(JSON.stringify({status: 'serverReady'}))
+    // Send instance-specific server ready message
+    ws.send(
+      JSON.stringify({
+        status: 'serverReady',
+        instanceId: instanceId
+      })
+    )
 
     ws.on('error', (error) => {
       console.log(messages.webSocketError(error))
@@ -88,15 +116,37 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
     ws.on('message', (msg) => {
       const message: Message = JSON.parse(msg.toString())
 
+      // Only process messages for this instance
+      if (message.instanceId && message.instanceId !== instanceId) {
+        console.log(
+          `Ignoring message from wrong instance: ${message.instanceId} (expected: ${instanceId})`
+        )
+        return
+      }
+
       if (message.status === 'clientReady') {
         const manifest: Manifest = JSON.parse(
           fs.readFileSync(manifestPath, 'utf-8')
         )
 
+        // Update the instance with the extension ID
+        if (message.data?.id) {
+          instanceManager
+            .updateInstance(instanceId, {
+              extensionId: message.data.id
+            })
+            .catch((error) => {
+              console.warn(
+                `Failed to update instance with extension ID: ${error}`
+              )
+            })
+        }
+
         setTimeout(() => {
           console.log(
             messages.runningInDevelopment(manifest, options.browser, message)
           )
+          console.log(`   Instance: ${instanceId.slice(0, 8)}`)
           console.log('')
         }, 2500)
 
@@ -111,12 +161,6 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
   // Additional logic specific to Firefox, such as certificate checks
   if (options.browser === 'firefox' || options.browser === 'gecko-based') {
-    const hardcodedMessage = getHardcodedMessage(manifest)
-    console.log(
-      messages.runningInDevelopment(manifest, options.browser, hardcodedMessage)
-    )
-    console.log('')
-
     if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
       console.log(messages.certRequired())
       console.log('')
@@ -125,7 +169,7 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
   // Handle graceful shutdown
   const cleanup = () => {
-    // Close all active connections
+    // Close all active connections for this instance
     for (const ws of connections) {
       try {
         ws.close(1000, 'Server shutting down')
@@ -136,7 +180,9 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
     // Close the server
     webSocketServer.close(() => {
-      process.exit(0)
+      console.log(
+        `WebSocket server for instance ${instanceId.slice(0, 8)} closed`
+      )
     })
   }
 

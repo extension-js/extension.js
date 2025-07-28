@@ -8,6 +8,8 @@ import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
 import {PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
+import {DynamicExtensionManager} from '../../lib/dynamic-extension-manager'
+import {InstanceManager} from '../../lib/instance-manager'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -29,6 +31,7 @@ export class RunChromiumPlugin {
   public readonly stats?: boolean
   public readonly chromiumBinary?: string
   public readonly port?: number
+  public readonly instanceId?: string
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -40,6 +43,7 @@ export class RunChromiumPlugin {
     this.startingUrl = options.startingUrl
     this.chromiumBinary = options.chromiumBinary
     this.port = options.port
+    this.instanceId = options.instanceId
   }
 
   private async launchChromium(
@@ -73,7 +77,34 @@ export class RunChromiumPlugin {
       process.exit()
     }
 
-    const chromiumConfig = browserConfig(compilation, this)
+    // Get the current instance and dynamic extension manager
+    const instanceManager = new InstanceManager()
+    
+    // Get project path from compiler context
+    const projectPath = (compilation as any).options?.context || process.cwd()
+    const extensionManager = new DynamicExtensionManager(projectPath)
+
+    let currentInstance = null
+    if (this.instanceId) {
+      currentInstance = await instanceManager.getInstance(this.instanceId)
+    }
+
+    // Prepare extensions list with dynamic manager extension
+    let extensionsToLoad = Array.isArray(this.extension)
+      ? [...this.extension]
+      : [this.extension]
+
+    // Add the dynamic manager extension if we have an instance
+    if (currentInstance) {
+      const generatedExtension =
+        await extensionManager.regenerateExtensionIfNeeded(currentInstance)
+      extensionsToLoad.push(generatedExtension.extensionPath)
+    }
+
+    const chromiumConfig = browserConfig(compilation, {
+      ...this,
+      extension: extensionsToLoad
+    })
     const launchArgs = this.startingUrl
       ? [this.startingUrl, ...chromiumConfig]
       : [...chromiumConfig]
@@ -111,6 +142,9 @@ export class RunChromiumPlugin {
             compilation.compilation.options.mode as 'development' | 'production'
           )
         )
+        if (this.instanceId) {
+          console.log(`   Instance: ${this.instanceId.slice(0, 8)}`)
+        }
       }, 2000)
 
       chromiumDidLaunch = true

@@ -16,5 +16,10 @@
       "matches": ["<all_urls>"],
       "js": ["./content/scripts.ts"]
     }
-  ]
+  ],
+  "applications": {
+    "gecko": {
+      "id": "extension.js---svelte-content-script-example@extension-js"
+    }
+  }
 }
