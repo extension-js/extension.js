@@ -33,6 +33,7 @@ export default function webpackConfig(
       path: string
     }
   } & {
+    // Internal auto-generated instance ID, not user-configurable
     instanceId?: string
   }
 ): Configuration {

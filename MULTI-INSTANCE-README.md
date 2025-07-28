@@ -91,10 +91,10 @@ for i in {1..5}; do
 done
 
 # Each instance gets:
-# - Instance ID: abc12345
+# - Instance ID: auto-generated (e.g., 7af9683b)
 # - Dev Port: 8080, 8081, 8082, etc.
 # - WebSocket Port: 9000, 9001, 9002, etc.
-# - Manager Extension: unique-extension-id-$i
+# - Manager Extension: auto-generated unique extension
 ```
 
 ### Instance Management
@@ -106,8 +106,8 @@ pnpm extension instances
 # Clean up terminated instances
 pnpm extension instances --cleanup
 
-# Terminate specific instance
-pnpm extension instances --kill abc12345
+# Terminate specific instance (instance ID is auto-generated)
+pnpm extension instances --kill 7af9683b
 ```
 
 ## Technical Details
@@ -117,15 +117,15 @@ pnpm extension instances --kill abc12345
 ```json
 {
   "instances": {
-    "abc12345": {
-      "instanceId": "abc12345",
+    "7af9683b": {
+      "instanceId": "7af9683b",
       "processId": 12345,
       "port": 8080,
       "webSocketPort": 9000,
       "browser": "chrome",
       "extensionId": "user-extension-id",
       "managerExtensionId": "manager-extension-id",
-      "profilePath": "/tmp/extension-js-abc12345",
+      "profilePath": "/tmp/extension-js-7af9683b",
       "projectPath": "/path/to/project",
       "startTime": 1703123456789,
       "status": "running"
@@ -146,16 +146,16 @@ pnpm extension instances --kill abc12345
 Each instance gets a unique manager extension with:
 
 - **Unique Extension ID**: 32-character alphanumeric string
-- **Unique Name**: "Extension Manager (abc12345)"
+- **Unique Name**: "Extension Manager (7af9683b)" (auto-generated)
 - **Instance-Specific Port**: Hardcoded WebSocket port
 - **Instance Routing**: Service worker filters messages by instance ID
 
 ### Service Worker Customization
 
 ```javascript
-// Instance-specific service worker
-const instanceId = 'abc12345'
-const port = '9000'
+// Instance-specific service worker (auto-generated)
+const instanceId = '__INSTANCE_ID__' // Replaced with actual instance ID during build
+const port = '__RELOAD_PORT__' // Replaced with actual port during build
 
 // Only process messages for this instance
 if (message.instanceId && message.instanceId !== instanceId) {
@@ -172,11 +172,11 @@ if (message.instanceId && message.instanceId !== instanceId) {
 └── temp/                   # Temporary files
 
 project/.extension-js-temp/
-├── manager-abc12345/       # Instance-specific manager extension
+├── manager-7af9683b/       # Instance-specific manager extension (auto-generated ID)
 │   ├── manifest.json
 │   ├── reload-service.js
 │   └── images/
-└── manager-def67890/       # Another instance
+└── manager-9bc12345/       # Another instance (auto-generated ID)
     ├── manifest.json
     ├── reload-service.js
     └── images/
