@@ -38,7 +38,7 @@ export class BrowsersPlugin {
   constructor(options: PluginInterface) {
     console.log('🔍 BrowsersPlugin constructor called with options:', options)
     console.log('🔍 BrowsersPlugin port from options:', options.port)
-    
+
     // Include extensions and filter out any duplicate load-extension flags
     this.extension = [
       ...options.extension,
@@ -68,7 +68,7 @@ export class BrowsersPlugin {
     this.geckoBinary = options.geckoBinary
     this.instanceId = options.instanceId
     this.port = options.port
-    
+
     console.log('🔍 BrowsersPlugin constructor finished, this.port:', this.port)
   }
 
@@ -174,7 +174,8 @@ export class BrowsersPlugin {
     )
 
     // Get port from dev server config if not provided
-    const port = this.port || (compiler.options.devServer as any)?.port || 'auto'
+    const port =
+      this.port || (compiler.options.devServer as any)?.port || 'auto'
 
     // Pass port to browser specific plugins
     switch (this.browser) {

@@ -154,7 +154,9 @@ export default function webpackConfig(
           userExtensionOutputPath,
           // Only include the old manager extension when not using multi-instance support
           // (when instanceId is not present) as DynamicExtensionManager handles it
-          devOptions.mode !== 'production' && !devOptions.instanceId ? managerExtensionOutputPath : ''
+          devOptions.mode !== 'production' && !devOptions.instanceId
+            ? managerExtensionOutputPath
+            : ''
         ],
         browser,
         open: devOptions.open,

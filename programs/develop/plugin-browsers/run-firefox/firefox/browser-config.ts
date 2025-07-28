@@ -11,7 +11,7 @@ export async function browserConfig(
 ) {
   console.log('🔍 browserConfig called!')
   console.log('🔍 configOptions:', configOptions)
-  
+
   const {
     browser,
     startingUrl,
@@ -41,7 +41,11 @@ export async function browserConfig(
 
   // Use portFromConfig if available, otherwise fall back to devServerPort
   const devServerPort = (compilation.options.devServer as any)?.port
-  const finalPort = portFromConfig ? (typeof portFromConfig === 'string' ? parseInt(portFromConfig, 10) : portFromConfig) : devServerPort
+  const finalPort = portFromConfig
+    ? typeof portFromConfig === 'string'
+      ? parseInt(portFromConfig, 10)
+      : portFromConfig
+    : devServerPort
   const debugPort = typeof finalPort === 'number' ? finalPort + 100 : 9222
   console.log('🔍 Browser config - devServerPort:', devServerPort)
   console.log('🔍 Browser config - finalPort:', finalPort)

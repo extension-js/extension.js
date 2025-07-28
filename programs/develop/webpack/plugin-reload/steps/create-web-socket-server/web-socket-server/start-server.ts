@@ -76,7 +76,8 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
   }
 
   // Initialize instance manager
-  const instanceManager = new InstanceManager()
+  const projectPath = compiler.options.context || process.cwd()
+  const instanceManager = new InstanceManager(projectPath)
   const instance = await instanceManager.getInstance(instanceId)
 
   if (!instance) {

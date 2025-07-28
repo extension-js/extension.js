@@ -19,7 +19,9 @@ export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   devOptions: DevOptions
 ) {
+  console.log('🔍 [extensionDev] called with:', {pathOrRemoteUrl, devOptions})
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+  console.log('🔍 [extensionDev] projectStructure:', projectStructure)
 
   try {
     const manifestDir = path.dirname(projectStructure.manifestPath)
@@ -37,6 +39,14 @@ export async function extensionDev(
       await installDependencies(packageJsonDir)
     }
 
+    console.log('🔍 [extensionDev] calling devServer with:', {
+      projectStructure,
+      devOptions: {
+        ...devOptions,
+        mode: 'development',
+        browser: devOptions.browser || 'chrome'
+      }
+    })
     await devServer(projectStructure, {
       ...devOptions,
       mode: 'development',

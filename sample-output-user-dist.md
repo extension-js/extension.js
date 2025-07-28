@@ -7,10 +7,11 @@ The multi-instance system has been successfully updated to store manager extensi
 ## 📊 Sample Output Structure
 
 ### Content Extension Example
+
 ```
 examples/content/dist/extension-js/extensions/
 ├── chrome-manager/          # Base Chrome manager template
-├── edge-manager/           # Base Edge manager template  
+├── edge-manager/           # Base Edge manager template
 ├── firefox-manager/        # Base Firefox manager template
 └── manager-port-8094/      # Instance-specific manager extension
     ├── background.js
@@ -26,6 +27,7 @@ examples/content/dist/extension-js/extensions/
 ```
 
 ### Manager Extension Manifest Sample
+
 ```json
 {
   "name": "Extension Manager (7af9683b)",
@@ -42,15 +44,12 @@ examples/content/dist/extension-js/extensions/
     "48": "images/logo.png",
     "128": "images/logo.png"
   },
-  "permissions": [
-    "management",
-    "tabs",
-    "storage"
-  ]
+  "permissions": ["management", "tabs", "storage"]
 }
 ```
 
 ### Reload Service Sample
+
 ```javascript
 // Instance: 7af9683b9ab90573
 // Generated: 2025-07-26T21:08:08.239Z
@@ -77,21 +76,25 @@ const port = '9006'
 ## 🎯 Benefits
 
 ### ✅ Project-Specific Organization
+
 - Each project has its own manager extensions
 - Clear separation between different projects
 - No conflicts between different projects
 
 ### ✅ Better Debugging
+
 - Manager extensions live with the project
 - Easier to track and debug issues
 - All project files in one place
 
 ### ✅ Self-Contained Projects
+
 - Each project is self-contained
 - Manager extensions are part of the project build
 - Better for version control and deployment
 
 ### ✅ Improved Isolation
+
 - No global state conflicts
 - Project-specific instance management
 - Cleaner development environment
@@ -105,6 +108,7 @@ pnpm extension dev ./examples/content --browser chrome --port 8094
 ```
 
 This creates:
+
 - `examples/content/dist/extension-js/extensions/manager-port-8094/`
 - Instance-specific manifest and service worker
 - All necessary files for the manager extension
@@ -135,4 +139,4 @@ examples/
 
 ## 🎉 Success!
 
-The multi-instance system now provides better organization and project isolation by storing manager extensions in each project's dist folder. This makes the system more maintainable, debuggable, and user-friendly. 
+The multi-instance system now provides better organization and project isolation by storing manager extensions in each project's dist folder. This makes the system more maintainable, debuggable, and user-friendly.

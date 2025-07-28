@@ -22,22 +22,31 @@ async function showNewStructure() {
 
   try {
     // Check the content example's dist structure
-    const contentDistPath = path.join(__dirname, 'examples/content/dist/extension-js/extensions')
-    
+    const contentDistPath = path.join(
+      __dirname,
+      'examples/content/dist/extension-js/extensions'
+    )
+
     if (fs.existsSync(contentDistPath)) {
-      const entries = await fs.promises.readdir(contentDistPath, {withFileTypes: true})
-      const directories = entries.filter(entry => entry.isDirectory())
+      const entries = await fs.promises.readdir(contentDistPath, {
+        withFileTypes: true
+      })
+      const directories = entries.filter((entry) => entry.isDirectory())
 
       console.log('📁 Content Extension Dist Structure:')
       console.log(`   📂 ${contentDistPath}`)
       console.log('')
-      
+
       // Separate base templates from instances
-      const baseTemplates = directories.filter(dir => 
+      const baseTemplates = directories.filter((dir) =>
         ['chrome-manager', 'edge-manager', 'firefox-manager'].includes(dir.name)
       )
-      const instances = directories.filter(dir => 
-        dir.name.includes('-manager-') && !['chrome-manager', 'edge-manager', 'firefox-manager'].includes(dir.name)
+      const instances = directories.filter(
+        (dir) =>
+          dir.name.includes('-manager-') &&
+          !['chrome-manager', 'edge-manager', 'firefox-manager'].includes(
+            dir.name
+          )
       )
 
       console.log('🔧 Base Manager Templates:')
@@ -49,20 +58,23 @@ async function showNewStructure() {
       console.log('🚀 Instance-Specific Managers:')
       for (const dir of instances) {
         console.log(`   📁 ${dir.name}/`)
-        
+
         // Parse browser and port from name
         const match = dir.name.match(/^(\w+)-manager-(\d+)$/)
         if (match) {
           const [, browser, port] = match
           console.log(`      🌐 Browser: ${browser}`)
           console.log(`      🔌 Port: ${port}`)
-          
+
           // Check if instance is running
           const instancePath = path.join(contentDistPath, dir.name)
           const manifestPath = path.join(instancePath, 'manifest.json')
-          
+
           try {
-            const manifestContent = await fs.promises.readFile(manifestPath, 'utf-8')
+            const manifestContent = await fs.promises.readFile(
+              manifestPath,
+              'utf-8'
+            )
             const manifest = JSON.parse(manifestContent)
             console.log(`      📄 Name: ${manifest.name}`)
             console.log(`      📄 Description: ${manifest.description}`)
@@ -120,10 +132,9 @@ async function showNewStructure() {
     console.log('The multi-instance system now uses a flatter, more intuitive')
     console.log('directory structure with {browser}-manager-{port} naming.')
     console.log('This makes debugging, management, and cleanup much easier!')
-
   } catch (error) {
     console.error('❌ Error reading structure:', error.message)
   }
 }
 
-showNewStructure() 
+showNewStructure()

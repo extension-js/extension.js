@@ -3,6 +3,7 @@
 ## 🚀 Quick Start
 
 ### Start Multiple Instances
+
 ```bash
 # Chrome instances
 pnpm extension dev ./examples/content --browser chrome --port 8094 &
@@ -15,6 +16,7 @@ pnpm extension dev ./examples/content --browser firefox --port 8098 &
 ```
 
 ### Check Running Instances
+
 ```bash
 # View instance registry
 cat ~/.extension-js/instances.json
@@ -29,6 +31,7 @@ ps aux | grep "extension dev"
 ## 🧹 Cleanup Commands
 
 ### Kill Specific Instance
+
 ```bash
 # Kill by port
 pkill -f "extension dev.*--port 8094"
@@ -38,6 +41,7 @@ pkill -f "extension dev.*--browser chrome"
 ```
 
 ### Clean All Instances
+
 ```bash
 # Kill all extension dev processes
 pkill -f "extension dev"
@@ -50,6 +54,7 @@ rm -rf examples/*/dist/extension-js/extensions/*-manager-*
 ```
 
 ### Clean Specific Project
+
 ```bash
 # Clean content example
 rm -rf examples/content/dist/extension-js/extensions/*-manager-*
@@ -58,6 +63,7 @@ rm -rf examples/content/dist/extension-js/extensions/*-manager-*
 ## 🔍 Debugging Commands
 
 ### Check Port Usage
+
 ```bash
 # Check if port is in use
 lsof -i :8094
@@ -67,6 +73,7 @@ lsof -ti:8094 | xargs kill -9
 ```
 
 ### Check Extension Structure
+
 ```bash
 # View extension directory
 ls -la examples/content/dist/extension-js/extensions/
@@ -79,6 +86,7 @@ cat examples/content/dist/extension-js/extensions/chrome-manager-8094/reload-ser
 ```
 
 ### Monitor Logs
+
 ```bash
 # Watch for new instances
 tail -f ~/.extension-js/instances.json
@@ -90,6 +98,7 @@ ps aux | grep "extension dev" | grep -v grep
 ## 📊 Instance Information
 
 ### Expected Output
+
 ```
 🧩 Instance 7af9683b started
    Port: 8094, WebSocket: 9006
@@ -103,6 +112,7 @@ ps aux | grep "extension dev" | grep -v grep
 ```
 
 ### Directory Structure
+
 ```
 examples/content/dist/extension-js/
 ├── extensions/
@@ -117,6 +127,7 @@ examples/content/dist/extension-js/
 ## 🎯 Common Patterns
 
 ### AI Debugging Pattern
+
 ```bash
 # Start 5 different extensions for parallel debugging
 pnpm extension dev ./examples/content --browser chrome --port 8094 &
@@ -130,6 +141,7 @@ watch -n 1 'cat ~/.extension-js/instances.json | jq "."'
 ```
 
 ### Cross-Browser Testing Pattern
+
 ```bash
 # Test same extension across all browsers
 pnpm extension dev ./examples/content --browser chrome --port 8094 &
@@ -141,6 +153,7 @@ ls -la examples/content/dist/extension-js/extensions/*-manager-*
 ```
 
 ### Hot Reload Testing Pattern
+
 ```bash
 # Start instance
 pnpm extension dev ./examples/content --browser chrome --port 8094
@@ -154,6 +167,7 @@ echo "// Test change" >> examples/content/content/scripts.js
 ## ⚠️ Troubleshooting
 
 ### Port Already in Use
+
 ```bash
 # Find process using port
 lsof -i :8094
@@ -166,6 +180,7 @@ pnpm extension dev ./examples/content --browser chrome --port 8099
 ```
 
 ### Extension Won't Load
+
 ```bash
 # Check extension directory exists
 ls -la examples/content/dist/extension-js/extensions/chrome-manager-8094/
@@ -179,6 +194,7 @@ pnpm extension dev ./examples/content --browser chrome --port 8094
 ```
 
 ### WebSocket Connection Failed
+
 ```bash
 # Check WebSocket port
 lsof -i :9006
@@ -205,8 +221,8 @@ pnpm extension dev ./examples/content --browser chrome --port 8094
 ✅ **Extension Loaded**: `Extension ID: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX`  
 ✅ **Hot Reload Working**: Browser updates when files change  
 ✅ **Multiple Instances**: Each has unique extension ID and ports  
-✅ **Cross-Browser**: Works on Chrome, Edge, Firefox  
+✅ **Cross-Browser**: Works on Chrome, Edge, Firefox
 
 ---
 
-For detailed documentation, see [MULTI-INSTANCE-MANAGEMENT.md](./MULTI-INSTANCE-MANAGEMENT.md) 
+For detailed documentation, see [MULTI-INSTANCE-MANAGEMENT.md](./MULTI-INSTANCE-MANAGEMENT.md)

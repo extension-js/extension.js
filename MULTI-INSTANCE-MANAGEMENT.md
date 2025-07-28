@@ -193,6 +193,7 @@ pnpm extension dev ./examples/content --browser firefox --port 8096 &
 ### Instance Information
 
 Each instance logs:
+
 ```
 🧩 Instance 7af9683b started
    Port: 8094, WebSocket: 9006
@@ -202,6 +203,7 @@ Each instance logs:
 ### Extension Information
 
 When extension loads:
+
 ```
 🧩 Extension.js 2.0.0-rc.38
    Extension Name         Extension.js - Content Script Example
@@ -213,6 +215,7 @@ When extension loads:
 ### Directory Structure
 
 Check generated extensions:
+
 ```bash
 ls -la examples/content/dist/extension-js/extensions/
 ```
@@ -220,6 +223,7 @@ ls -la examples/content/dist/extension-js/extensions/
 ### Instance Registry
 
 Check running instances:
+
 ```bash
 cat ~/.extension-js/instances.json
 ```
@@ -250,6 +254,7 @@ rm -rf examples/*/dist/extension-js/extensions/*-manager-*
 ### Port Conflicts
 
 If you see "Port XXXX is in use":
+
 1. Check for existing instances: `cat ~/.extension-js/instances.json`
 2. Kill conflicting processes: `lsof -ti:XXXX | xargs kill -9`
 3. Use a different port: `--port XXXX`
@@ -257,6 +262,7 @@ If you see "Port XXXX is in use":
 ### Extension Loading Errors
 
 If manager extension fails to load:
+
 1. Check extension directory exists
 2. Verify manifest.json is valid
 3. Check browser console for errors
@@ -265,6 +271,7 @@ If manager extension fails to load:
 ### WebSocket Connection Issues
 
 If WebSocket connection fails:
+
 1. Check WebSocket port is available
 2. Verify manager extension is loaded
 3. Check browser console for connection errors
@@ -299,9 +306,16 @@ If WebSocket connection fails:
 
 ```typescript
 class InstanceManager {
-  async createInstance(browser: string, projectPath: string, port?: number): Promise<InstanceInfo>
+  async createInstance(
+    browser: string,
+    projectPath: string,
+    port?: number
+  ): Promise<InstanceInfo>
   async getInstance(instanceId: string): Promise<InstanceInfo | null>
-  async updateInstance(instanceId: string, updates: Partial<InstanceInfo>): Promise<void>
+  async updateInstance(
+    instanceId: string,
+    updates: Partial<InstanceInfo>
+  ): Promise<void>
   async terminateInstance(instanceId: string): Promise<void>
   async getRunningInstances(): Promise<InstanceInfo[]>
   async getStats(): Promise<InstanceStats>
@@ -324,7 +338,11 @@ class DynamicExtensionManager {
 
 ```typescript
 class PortManager {
-  async allocatePorts(browser: string, projectPath: string, requestedPort?: number): Promise<PortAllocation>
+  async allocatePorts(
+    browser: string,
+    projectPath: string,
+    requestedPort?: number
+  ): Promise<PortAllocation>
   getCurrentInstance(): InstanceInfo | null
   async updateExtensionId(extensionId: string): Promise<void>
   async terminateCurrentInstance(): Promise<void>
@@ -347,6 +365,7 @@ If you have old `manager-port-XXXX` directories:
 ### To New Structure
 
 New instances automatically use the improved structure:
+
 - `chrome-manager-8094/` instead of `manager-port-8094/`
 - `edge-manager-8095/` instead of `manager-port-8095/`
 - `firefox-manager-8096/` instead of `manager-port-8096/`
@@ -371,4 +390,4 @@ New instances automatically use the improved structure:
 
 ---
 
-This documentation provides a comprehensive guide to the multi-instance management system. For questions or issues, please refer to the troubleshooting section or create an issue in the repository. 
+This documentation provides a comprehensive guide to the multi-instance management system. For questions or issues, please refer to the troubleshooting section or create an issue in the repository.

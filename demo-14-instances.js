@@ -122,7 +122,9 @@ async function showDemo() {
       console.log(`   Port: ${instance.port}`)
       console.log(`   WebSocket: ${instance.webSocketPort}`)
       console.log(`   Extension ID: ${instance.extensionId}`)
-                     console.log(`   Manager Extension: ${ext.browser.toLowerCase()}-manager-${instance.port}`)
+      console.log(
+        `   Manager Extension: ${ext.browser.toLowerCase()}-manager-${instance.port}`
+      )
       console.log(
         `   Browser Profile: ${instance.profilePath.split('/').pop()}`
       )

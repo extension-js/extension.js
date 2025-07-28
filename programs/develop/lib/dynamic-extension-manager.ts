@@ -36,7 +36,12 @@ export class DynamicExtensionManager {
       '../webpack/plugin-reload/extensions'
     )
     this.projectPath = projectPath || process.cwd()
-    this.userExtensionsPath = path.join(this.projectPath, 'dist', 'extension-js', 'extensions')
+    this.userExtensionsPath = path.join(
+      this.projectPath,
+      'dist',
+      'extension-js',
+      'extensions'
+    )
   }
 
   /**
@@ -230,7 +235,7 @@ console.log('[Extension Manager] Instance ${instanceId} initialized on port ${in
   async cleanupExtension(instanceId: string): Promise<void> {
     // Get the instance to find the port
     const {InstanceManager} = await import('./instance-manager')
-    const instanceManager = new InstanceManager()
+    const instanceManager = new InstanceManager(this.projectPath)
     const instance = await instanceManager.getInstance(instanceId)
 
     if (!instance) {
@@ -278,7 +283,7 @@ console.log('[Extension Manager] Instance ${instanceId} initialized on port ${in
   async extensionExists(instanceId: string): Promise<boolean> {
     // Get the instance to find the port
     const {InstanceManager} = await import('./instance-manager')
-    const instanceManager = new InstanceManager()
+    const instanceManager = new InstanceManager(this.projectPath)
     const instance = await instanceManager.getInstance(instanceId)
 
     if (!instance) {

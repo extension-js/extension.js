@@ -77,11 +77,11 @@ export class RunChromiumPlugin {
       process.exit()
     }
 
-    // Get the current instance and dynamic extension manager
-    const instanceManager = new InstanceManager()
-    
     // Get project path from compiler context
     const projectPath = (compilation as any).options?.context || process.cwd()
+
+    // Get the current instance and dynamic extension manager
+    const instanceManager = new InstanceManager(projectPath)
     const extensionManager = new DynamicExtensionManager(projectPath)
 
     let currentInstance = null

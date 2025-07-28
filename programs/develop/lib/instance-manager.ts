@@ -30,7 +30,11 @@ export class InstanceManager {
   private readonly baseWebSocketPort: number
   private readonly cleanupInterval: number = 5 * 60 * 1000 // 5 minutes
 
-  constructor(basePort: number = 8080, baseWebSocketPort: number = 9000) {
+  constructor(
+    projectPath: string,
+    basePort: number = 8080,
+    baseWebSocketPort: number = 9000
+  ) {
     this.basePort = basePort
     this.baseWebSocketPort = baseWebSocketPort
     this.registryPath = path.join(
@@ -92,8 +96,15 @@ export class InstanceManager {
    * Save the instance registry
    */
   private async saveRegistry(registry: InstanceRegistry): Promise<void> {
-    await this.ensureRegistryDir()
-    await fs.writeFile(this.registryPath, JSON.stringify(registry, null, 2))
+    try {
+      await this.ensureRegistryDir()
+      const data = JSON.stringify(registry, null, 2)
+      await fs.writeFile(this.registryPath, data)
+      console.log('🔍 Registry saved to:', this.registryPath)
+    } catch (error) {
+      console.error('🔍 Error saving registry:', error)
+      throw error
+    }
   }
 
   /**
@@ -153,6 +164,11 @@ export class InstanceManager {
     projectPath: string,
     requestedPort?: number
   ): Promise<InstanceInfo> {
+    console.log('🔍 [InstanceManager] createInstance called', {
+      browser,
+      projectPath,
+      requestedPort
+    })
     const registry = await this.loadRegistry()
 
     // Clean up old instances periodically
@@ -174,33 +190,26 @@ export class InstanceManager {
       (instance) => instance.webSocketPort
     )
 
-    while (
-      usedWebSocketPorts.includes(webSocketPort) ||
-      !(await this.isPortAvailable(webSocketPort))
-    ) {
+    while (usedWebSocketPorts.includes(webSocketPort)) {
       webSocketPort++
     }
 
-    // Create instance-specific profile path
-    const profilePath = path.join(os.tmpdir(), `extension-js-${instanceId}`)
-
     const instance: InstanceInfo = {
       instanceId,
-      processId: process.pid,
-      port: parseInt(port.toString()),
-      webSocketPort,
       browser,
-      managerExtensionId,
-      profilePath,
       projectPath,
+      port,
+      webSocketPort,
+      managerExtensionId,
       startTime: Date.now(),
-      status: 'running'
+      status: 'running',
+      processId: process.pid,
+      profilePath: path.join(os.tmpdir(), `extension-js-${instanceId}`)
     }
 
-    // Register the instance
     registry.instances[instanceId] = instance
     await this.saveRegistry(registry)
-
+    console.log('🔍 [InstanceManager] Registry after createInstance:', registry)
     return instance
   }
 

@@ -34,11 +34,11 @@ async function showFirefoxFrameworks() {
 
     // Filter for Firefox instances with our target projects
     const firefoxInstances = Object.values(registry.instances).filter(
-      (instance) => 
-        instance.browser === 'firefox' && 
+      (instance) =>
+        instance.browser === 'firefox' &&
         (instance.projectPath.includes('content-vue') ||
-         instance.projectPath.includes('content-react') ||
-         instance.projectPath.includes('content-svelte'))
+          instance.projectPath.includes('content-react') ||
+          instance.projectPath.includes('content-svelte'))
     )
 
     console.log(`✅ ${firefoxInstances.length} Firefox instances running`)
@@ -52,21 +52,23 @@ async function showFirefoxFrameworks() {
     ]
 
     for (const framework of frameworks) {
-      const instances = firefoxInstances.filter(instance => 
+      const instances = firefoxInstances.filter((instance) =>
         instance.projectPath.includes(framework.path)
       )
 
       console.log(`${framework.color} ${framework.name} Framework:`)
-      
+
       for (const instance of instances) {
         const projectName = instance.projectPath.split('/').pop()
         const hasExtensionId = instance.extensionId ? '✅' : '⏳'
-        
+
         console.log(`   📁 Project: ${projectName}`)
         console.log(`   🆔 Instance ID: ${instance.instanceId.slice(0, 8)}`)
         console.log(`   🔌 Port: ${instance.port}`)
         console.log(`   🌐 WebSocket: ${instance.webSocketPort}`)
-        console.log(`   📦 Extension ID: ${hasExtensionId} ${instance.extensionId || 'Loading...'}`)
+        console.log(
+          `   📦 Extension ID: ${hasExtensionId} ${instance.extensionId || 'Loading...'}`
+        )
         console.log(`   🧩 Manager Extension: firefox-manager-${instance.port}`)
         console.log(`   📂 Profile: ${instance.profilePath.split('/').pop()}`)
         console.log('')
@@ -76,16 +78,22 @@ async function showFirefoxFrameworks() {
     // Check generated manager extensions
     console.log('📁 Generated Manager Extensions:')
     const projects = ['content-vue', 'content-react', 'content-svelte']
-    
+
     for (const project of projects) {
-      const distPath = path.join(__dirname, `examples/${project}/dist/extension-js/extensions`)
-      
+      const distPath = path.join(
+        __dirname,
+        `examples/${project}/dist/extension-js/extensions`
+      )
+
       if (fs.existsSync(distPath)) {
-        const entries = await fs.promises.readdir(distPath, {withFileTypes: true})
-        const firefoxManagers = entries.filter(entry => 
-          entry.isDirectory() && entry.name.startsWith('firefox-manager-')
+        const entries = await fs.promises.readdir(distPath, {
+          withFileTypes: true
+        })
+        const firefoxManagers = entries.filter(
+          (entry) =>
+            entry.isDirectory() && entry.name.startsWith('firefox-manager-')
         )
-        
+
         console.log(`   📂 ${project}:`)
         for (const manager of firefoxManagers) {
           console.log(`      ✅ ${manager.name}`)
@@ -104,7 +112,9 @@ async function showFirefoxFrameworks() {
     console.log('   Manager Extension: firefox-manager-XXXX')
     console.log('')
     console.log('🧩 Extension.js 2.0.0-rc.38')
-    console.log('   Extension Name         Extension.js - [Framework] Content Script Example')
+    console.log(
+      '   Extension Name         Extension.js - [Framework] Content Script Example'
+    )
     console.log('   Extension Version      0.0.1')
     console.log('   Extension ID           [UNIQUE-32-CHAR-ID]')
     console.log('   Instance: XXXXXXXX')
@@ -116,7 +126,9 @@ async function showFirefoxFrameworks() {
     console.log('✅ Different Instance IDs: Each has unique 16-character ID')
     console.log('✅ Different Ports: Each uses unique dev server port')
     console.log('✅ Different WebSocket Ports: Each uses unique WebSocket port')
-    console.log('✅ Different Extension IDs: Each gets unique browser extension ID')
+    console.log(
+      '✅ Different Extension IDs: Each gets unique browser extension ID'
+    )
     console.log('✅ Different Manager Extensions: firefox-manager-XXXX naming')
     console.log('✅ Different Browser Profiles: Isolated user data')
     console.log('✅ Different Project Paths: Vue, React, Svelte projects')
@@ -150,10 +162,9 @@ async function showFirefoxFrameworks() {
     console.log('✅ Each with unique extension IDs and ports')
     console.log('✅ New flatter directory structure working perfectly')
     console.log('✅ Perfect isolation between instances')
-
   } catch (error) {
     console.error('❌ Error reading status:', error.message)
   }
 }
 
-showFirefoxFrameworks() 
+showFirefoxFrameworks()

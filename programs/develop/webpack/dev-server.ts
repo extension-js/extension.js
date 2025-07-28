@@ -42,6 +42,7 @@ export async function devServer(
   projectStructure: ProjectStructure,
   devOptions: DevOptions
 ) {
+  console.log('🔍 [devServer] called', {projectStructure, devOptions})
   const {manifestPath, packageJsonPath} = projectStructure
   const manifestDir = path.dirname(manifestPath)
   const packageJsonDir = path.dirname(packageJsonPath)
@@ -52,7 +53,7 @@ export async function devServer(
   const browserConfig = loadBrowserConfig(manifestDir, devOptions.browser)
 
   // Initialize port manager and allocate ports for this instance
-  const portManager = new PortManager(devOptions.browser, 8080)
+  const portManager = new PortManager(devOptions.browser, packageJsonDir, 8080)
   const portAllocation = await portManager.allocatePorts(
     devOptions.browser,
     packageJsonDir,
@@ -66,10 +67,6 @@ export async function devServer(
   if (!currentInstance) {
     throw new Error('Failed to create instance')
   }
-
-  // Generate or regenerate the manager extension for this instance
-  const generatedExtension =
-    await extensionManager.regenerateExtensionIfNeeded(currentInstance)
 
   // Get the user defined args and merge with the Extension.js base webpack config
   const baseConfig = webpackConfig(projectStructure, {

@@ -15,9 +15,13 @@ export class PortManager {
   private readonly instanceManager: InstanceManager
   private currentInstance: InstanceInfo | null = null
 
-  constructor(browser: DevOptions['browser'], basePort: number = 8080) {
+  constructor(
+    browser: DevOptions['browser'],
+    projectPath: string,
+    basePort: number = 8080
+  ) {
     this.basePort = basePort
-    this.instanceManager = new InstanceManager(basePort, 9000)
+    this.instanceManager = new InstanceManager(projectPath, basePort, 9000)
   }
 
   private async isPortAvailable(port: number): Promise<boolean> {
@@ -48,19 +52,33 @@ export class PortManager {
     projectPath: string,
     requestedPort?: number
   ): Promise<PortAllocation> {
-    // Create a new instance with unique ports
-    const instance = await this.instanceManager.createInstance(
+    console.log('🔍 [PortManager] allocatePorts called', {
       browser,
       projectPath,
       requestedPort
-    )
+    })
+    try {
+      // Create a new instance with unique ports
+      const instance = await this.instanceManager.createInstance(
+        browser,
+        projectPath,
+        requestedPort
+      )
 
-    this.currentInstance = instance
+      this.currentInstance = instance
+      console.log(
+        '🔍 [PortManager] currentInstance after allocation:',
+        this.currentInstance
+      )
 
-    return {
-      port: instance.port,
-      webSocketPort: instance.webSocketPort,
-      instanceId: instance.instanceId
+      return {
+        port: instance.port,
+        webSocketPort: instance.webSocketPort,
+        instanceId: instance.instanceId
+      }
+    } catch (error) {
+      console.error('🔍 PortManager: Error allocating ports:', error)
+      throw error
     }
   }
 
