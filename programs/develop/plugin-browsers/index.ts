@@ -82,16 +82,7 @@ export class BrowsersPlugin {
       return profile
     }
 
-    // In production, use a random temp directory
-    if (compiler.options.mode === 'production') {
-      return path.join(
-        os.tmpdir(),
-        'extension-js',
-        `${browser}-profile-${Date.now()}`
-      )
-    }
-
-    // In development, use the extension-js/profiles directory
+    // Always use the extension-js/profiles directory in the project
     const distPath = path.dirname(compiler.options.output.path!)
     return path.resolve(
       distPath,

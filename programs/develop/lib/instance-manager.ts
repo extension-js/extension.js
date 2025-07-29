@@ -37,11 +37,34 @@ export class InstanceManager {
   ) {
     this.basePort = basePort
     this.baseWebSocketPort = baseWebSocketPort
-    this.registryPath = path.join(
-      os.homedir(),
-      '.extension-js',
-      'instances.json'
-    )
+    this.registryPath = path.join(this.getDataDirectory(), 'instances.json')
+  }
+
+  /**
+   * Get the appropriate data directory for the current OS
+   */
+  private getDataDirectory(): string {
+    const platform = process.platform
+
+    switch (platform) {
+      case 'darwin': // macOS
+        return path.join(
+          os.homedir(),
+          'Library',
+          'Application Support',
+          'extension-js'
+        )
+
+      case 'win32': // Windows
+        return path.join(process.env.APPDATA || '', 'extension-js')
+
+      case 'linux': // Linux
+        return path.join(os.homedir(), '.config', 'extension-js')
+
+      default:
+        // Fallback to home directory for other platforms
+        return path.join(os.homedir(), '.extension-js')
+    }
   }
 
   /**

@@ -77,17 +77,21 @@ export class RunChromiumPlugin {
       process.exit()
     }
 
-    // Get project path from compiler context
-    const projectPath = (compilation as any).options?.context || process.cwd()
-
-    // Get the current instance and dynamic extension manager
-    const instanceManager = new InstanceManager(projectPath)
-    const extensionManager = new DynamicExtensionManager(projectPath)
-
+    // Get the current instance first to get the correct project path
+    const instanceManager = new InstanceManager(
+      (compilation as any).options?.context || process.cwd()
+    )
     let currentInstance = null
     if (this.instanceId) {
       currentInstance = await instanceManager.getInstance(this.instanceId)
     }
+
+    // Use the project path from the instance, or fallback to compiler context
+    const projectPath =
+      currentInstance?.projectPath ||
+      (compilation as any).options?.context ||
+      process.cwd()
+    const extensionManager = new DynamicExtensionManager(projectPath)
 
     // Prepare extensions list with dynamic manager extension
     let extensionsToLoad = Array.isArray(this.extension)
