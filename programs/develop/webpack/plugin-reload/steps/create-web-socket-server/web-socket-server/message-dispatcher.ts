@@ -61,6 +61,13 @@ export function messageDispatcher(
           changedFile: 'service_worker'
         })
       }
+
+      // Also dispatch for background scripts specifically
+      if (entryName === 'background' || entryName.includes('background')) {
+        dispatchMessage(server, {
+          changedFile: 'background'
+        })
+      }
     }
   })
 

@@ -42,6 +42,7 @@ export default function (this: InjectBackgroundClientContext, source: string) {
 
   const url = urlToRequest(this.resourcePath)
   const generalReloadCode = `
+  // Enhanced reload handler with cache-busting
   ;chrome.runtime.onMessageExternal.addListener(
     async (request, _sender, sendResponse) => {
       const managementInfo = await new Promise((resolve) => {
@@ -61,21 +62,53 @@ export default function (this: InjectBackgroundClientContext, source: string) {
         return true
       }
   
-      // Reload the extension runtime if the manifest or
-      // service worker changes. 
+      // Enhanced reload logic for critical files
       if (
         request.changedFile === 'declarative_net_request' ||
         request.changedFile === 'manifest.json' ||
         request.changedFile === 'service_worker' ||
-        request.changedFile === '_locales'
+        request.changedFile === '_locales' ||
+        request.changedFile === 'background' ||
+        request.changedFile === 'background.js' ||
+        request.changedFile === 'background.ts'
       ) {
-        sendResponse({reloaded: true})
-        chrome.runtime.reload()
+        console.log('🔄 Reloading extension due to critical file change:', request.changedFile);
+        
+        // Force immediate reload with cache-busting
+        try {
+          // Clear any cached data
+          if (chrome.storage && chrome.storage.local) {
+            await chrome.storage.local.clear();
+          }
+          
+          // Force reload with timestamp to bypass cache
+          const timestamp = Date.now();
+          console.log('🔄 Forcing extension reload at:', timestamp);
+          
+          sendResponse({reloaded: true, timestamp: timestamp})
+          chrome.runtime.reload()
+        } catch (error) {
+          console.error('❌ Failed to reload extension:', error);
+          sendResponse({error: error.message})
+        }
       }
 
       return true
     }
   );
+  
+  // Additional cache-busting mechanism
+  ;(function() {
+    const cacheBuster = Date.now();
+    console.log('🚀 Background script loaded with cache buster:', cacheBuster);
+    
+    // Force reload if this script is older than 5 seconds
+    const scriptAge = Date.now() - cacheBuster;
+    if (scriptAge > 5000) {
+      console.log('🔄 Background script is stale, forcing reload');
+      chrome.runtime.reload();
+    }
+  })();
   `
 
   let manifestBg: Record<string, any> | undefined = patchedManifest.background

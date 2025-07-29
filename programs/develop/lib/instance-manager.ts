@@ -164,51 +164,74 @@ export class InstanceManager {
   ): Promise<{port: number; webSocketPort: number}> {
     const registry = await this.loadRegistry()
     const existingInstances = Object.values(registry.instances)
-    
+
     // Get all used ports from existing instances
-    const usedPorts = existingInstances.map(instance => instance.port)
-    const usedWebSocketPorts = existingInstances.map(instance => instance.webSocketPort)
-    
+    const usedPorts = existingInstances.map((instance) => instance.port)
+    const usedWebSocketPorts = existingInstances.map(
+      (instance) => instance.webSocketPort
+    )
+
     console.log('🔍 [SmartPortAllocation] Existing ports:', usedPorts)
-    console.log('🔍 [SmartPortAllocation] Existing WebSocket ports:', usedWebSocketPorts)
-    
+    console.log(
+      '🔍 [SmartPortAllocation] Existing WebSocket ports:',
+      usedWebSocketPorts
+    )
+
     // If user requested a specific port, try to use it
     if (requestedPort) {
       const isPortAvailable = await this.isPortAvailable(requestedPort)
       if (isPortAvailable && !usedPorts.includes(requestedPort)) {
         // Find available WebSocket port for this instance
-        const webSocketPort = await this.findAvailableWebSocketPort(usedWebSocketPorts)
-        console.log('🔍 [SmartPortAllocation] Using requested port:', requestedPort, 'WebSocket:', webSocketPort)
-        return { port: requestedPort, webSocketPort }
+        const webSocketPort =
+          await this.findAvailableWebSocketPort(usedWebSocketPorts)
+        console.log(
+          '🔍 [SmartPortAllocation] Using requested port:',
+          requestedPort,
+          'WebSocket:',
+          webSocketPort
+        )
+        return {port: requestedPort, webSocketPort}
       } else {
-        console.log('🔍 [SmartPortAllocation] Requested port unavailable:', requestedPort)
+        console.log(
+          '🔍 [SmartPortAllocation] Requested port unavailable:',
+          requestedPort
+        )
       }
     }
-    
+
     // Smart port allocation: find the lowest available port
     let port = this.basePort
     while (usedPorts.includes(port) || !(await this.isPortAvailable(port))) {
       port++
     }
-    
+
     // Find available WebSocket port
-    const webSocketPort = await this.findAvailableWebSocketPort(usedWebSocketPorts)
-    
-    console.log('🔍 [SmartPortAllocation] Allocated ports:', { port, webSocketPort })
-    return { port, webSocketPort }
+    const webSocketPort =
+      await this.findAvailableWebSocketPort(usedWebSocketPorts)
+
+    console.log('🔍 [SmartPortAllocation] Allocated ports:', {
+      port,
+      webSocketPort
+    })
+    return {port, webSocketPort}
   }
 
   /**
    * Find available WebSocket port considering existing instances
    */
-  private async findAvailableWebSocketPort(usedWebSocketPorts: number[]): Promise<number> {
+  private async findAvailableWebSocketPort(
+    usedWebSocketPorts: number[]
+  ): Promise<number> {
     let webSocketPort = this.baseWebSocketPort
-    
+
     // Find the lowest available WebSocket port
-    while (usedWebSocketPorts.includes(webSocketPort) || !(await this.isPortAvailable(webSocketPort))) {
+    while (
+      usedWebSocketPorts.includes(webSocketPort) ||
+      !(await this.isPortAvailable(webSocketPort))
+    ) {
       webSocketPort++
     }
-    
+
     return webSocketPort
   }
 
@@ -236,17 +259,17 @@ export class InstanceManager {
   private findPortGaps(usedPorts: number[]): number[] {
     const sortedPorts = [...usedPorts].sort((a, b) => a - b)
     const gaps: number[] = []
-    
+
     for (let i = 0; i < sortedPorts.length - 1; i++) {
       const current = sortedPorts[i]
       const next = sortedPorts[i + 1]
-      
+
       // If there's a gap, add the first available port in the gap
       if (next - current > 1) {
         gaps.push(current + 1)
       }
     }
-    
+
     return gaps
   }
 
