@@ -80,7 +80,25 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // 5 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__
+    // 5 - Add content script wrapper for JS frameworks
+    compiler.options.module.rules.push({
+      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      include: [path.dirname(this.manifestPath)],
+      exclude: [/[\\/]node_modules[\\/]/],
+      use: [
+        {
+          loader: path.resolve(__dirname, 'steps/add-content-script-wrapper'),
+          options: {
+            manifestPath: this.manifestPath,
+            mode: compiler.options.mode,
+            includeList: this.includeList || {},
+            excludeList: this.excludeList || {}
+          }
+        }
+      ]
+    })
+
+    // 6 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__
     compiler.options.module.rules.push({
       test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [path.dirname(this.manifestPath)],

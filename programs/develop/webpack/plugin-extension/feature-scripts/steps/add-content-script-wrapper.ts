@@ -1,3 +1,71 @@
+import * as path from 'path'
+import * as fs from 'fs'
+import {urlToRequest} from 'loader-utils'
+import {validate} from 'schema-utils'
+import {type Schema} from 'schema-utils/declarations/validate'
+import {type LoaderContext} from '../../../webpack-types'
+
+const schema: Schema = {
+  type: 'object',
+  properties: {
+    test: {
+      type: 'string'
+    },
+    manifestPath: {
+      type: 'string'
+    },
+    mode: {
+      type: 'string'
+    },
+    includeList: {
+      type: 'object'
+    },
+    excludeList: {
+      type: 'object'
+    }
+  }
+}
+
+/**
+ * Check if the project is using a JavaScript framework
+ */
+function isUsingJSFramework(projectPath: string): boolean {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+
+  if (!fs.existsSync(packageJsonPath)) {
+    return false
+  }
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+
+  const frameworks = [
+    'react',
+    'vue',
+    '@angular/core',
+    'svelte',
+    'solid-js',
+    'preact'
+  ]
+
+  const dependencies = packageJson.dependencies || {}
+  const devDependencies = packageJson.devDependencies || {}
+
+  for (const framework of frameworks) {
+    if (dependencies[framework] || devDependencies[framework]) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Generate the wrapper code that will be injected
+ */
+function generateWrapperCode(source: string, isReact: boolean, resourcePath: string): string {
+  const fileName = path.basename(resourcePath, path.extname(resourcePath))
+  
+  const wrapperCode = `
 /**
  * Content Script Wrapper Module
  *
@@ -10,7 +78,7 @@
  */
 
 // Import the content script function and its default options
-import contentScript from './scripts'
+import contentScript from './${fileName}'
 
 // Type declarations for webpack HMR
 declare global {
@@ -104,13 +172,13 @@ export class ContentScriptWrapper implements ContentScriptInstance {
         // Add fallback content if React rendering fails
         const errorMessage =
           error instanceof Error ? error.message : String(error)
-        this.container!.innerHTML = `
+        this.container!.innerHTML = \`
           <div style="text-align: center;">
             <h3>Extension Content</h3>
             <p>React rendering failed, but the wrapper is working!</p>
-            <p>Error: ${errorMessage}</p>
+            <p>Error: \${errorMessage}</p>
           </div>
-        `
+        \`
       }
     } catch (error) {
       console.error('Failed to mount content script:', error)
@@ -318,7 +386,7 @@ if (import.meta.webpackHot) {
   import.meta.webpackHot?.dispose(() => unmount?.())
 
   // Accept changes to scripts.tsx specifically
-  import.meta.webpackHot?.accept('./scripts', () => {
+  import.meta.webpackHot?.accept('./${fileName}', () => {
     initialize()
   })
 }
@@ -332,3 +400,47 @@ if (document.readyState === 'complete') {
     }
   })
 }
+`
+
+  return wrapperCode
+}
+
+export default function (this: LoaderContext, source: string) {
+  const options = this.getOptions()
+  const manifestPath = options.manifestPath
+  const projectPath = path.dirname(manifestPath)
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+
+  validate(schema, options, {
+    name: 'scripts:add-content-script-wrapper',
+    baseDataPath: 'options'
+  })
+
+  const url = urlToRequest(this.resourcePath)
+
+  // Only apply to content scripts that are using JS frameworks
+  if (manifest.content_scripts && isUsingJSFramework(projectPath)) {
+    for (const contentScript of manifest.content_scripts) {
+      if (!contentScript.js) continue
+
+      for (const js of contentScript.js) {
+        const absoluteUrl = path.resolve(projectPath, js as string)
+
+        if (url.includes(absoluteUrl)) {
+          // Check if this is a React/JS framework content script
+          const isReact = source.includes('react') || 
+                         source.includes('ReactDOM') || 
+                         source.includes('createRoot') ||
+                         source.includes('render(')
+
+          if (isReact) {
+            const wrapperCode = generateWrapperCode(source, isReact, this.resourcePath)
+            return wrapperCode
+          }
+        }
+      }
+    }
+  }
+
+  return source
+} 
