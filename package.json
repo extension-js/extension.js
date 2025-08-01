@@ -45,5 +45,8 @@
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
     "typescript": "5.7.2"
+  },
+  "dependencies": {
+    "chrome-launcher": "1.2.0"
   }
 }

@@ -89,17 +89,32 @@ export function browserConfig(
     (flag) => !excludeFlags.some((excludeFlag) => flag === excludeFlag)
   )
 
-  // Flags set by default:
-  // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
-  // Added useful flags for tooling:
-  // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
-  return [
+  // Get port for remote debugging
+  const port = (configOptions as any)?.port
+  const debugPort = port ? port + 100 : 9222
+
+  // Check if we need CDP support (for extension reloading)
+  const needsCDP = (configOptions as any)?.enableCDP !== false
+
+  // Base flags
+  const baseFlags = [
     `--load-extension=${extensionsToLoad.join()}`,
     `--user-data-dir=${userProfilePath}`,
+    `--enable-unsafe-extension-debugging`,
     ...filteredFlags,
-
     // Flags to pass to Chrome
     // Any of http://peter.sh/experiments/chromium-command-line-switches/
     ...(configOptions.browserFlags || [])
   ]
+
+  // Add debugging flags based on CDP needs
+  if (needsCDP) {
+    // chrome-launcher will handle the pipe setup automatically
+    // No need to add --remote-debugging-pipe manually
+  } else {
+    // Use port for basic debugging
+    baseFlags.push(`--remote-debugging-port=${debugPort}`)
+  }
+
+  return baseFlags
 }

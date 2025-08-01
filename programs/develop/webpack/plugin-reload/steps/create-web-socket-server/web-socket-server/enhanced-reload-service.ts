@@ -55,6 +55,8 @@ export class EnhancedReloadService {
   }
 
   async reloadExtension(changedFile: string): Promise<void> {
+    const startTime = Date.now()
+    
     // Determine if this is a critical file that needs direct reloading
     const isCriticalFile = this.isCriticalFile(changedFile)
 
@@ -63,15 +65,18 @@ export class EnhancedReloadService {
     if (isCriticalFile && this.isConnected && this.cdpClient) {
       try {
         console.log('🚀 Using CDP-based reloading for critical file')
-        // Use CDP-based reloading for critical files
-        await this.cdpClient.reloadExtension(this.options.extensionPath)
-        console.log(`✅ Enhanced reload completed for: ${changedFile}`)
+        // Use optimized CDP-based reloading
+        await this.cdpClient.reloadExtensionOptimized(this.options.extensionPath, changedFile)
+        
+        const reloadTime = Date.now() - startTime
+        console.log(`✅ Enhanced reload completed for: ${changedFile} (${reloadTime}ms)`)
 
         // Add cache buster to manifest
         await this.addCacheBuster(this.options.extensionPath)
         return
       } catch (error) {
-        console.warn('❌ CDP reload failed, falling back to WebSocket:', error)
+        const reloadTime = Date.now() - startTime
+        console.warn(`❌ CDP reload failed after ${reloadTime}ms, falling back to WebSocket:`, error)
       }
     }
 

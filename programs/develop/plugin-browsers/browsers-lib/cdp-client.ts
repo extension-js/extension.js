@@ -1,6 +1,8 @@
 import {spawn, type ChildProcess} from 'child_process'
+import * as chromeLocation from 'chrome-location2'
 import * as path from 'path'
 import * as fs from 'fs'
+import {createReadStream, createWriteStream} from 'fs'
 
 export interface CDPClientOptions {
   browserBinary?: string
@@ -11,23 +13,35 @@ export interface CDPClientOptions {
 
 export class CDPClient {
   private browserProcess: ChildProcess | null = null
-  private wsUrl: string | null = null
+  private incomingPipe: any = null
+  private outgoingPipe: any = null
   private browserBinary: string
   private userDataDir: string
   private port: number
   private instanceId?: string
+  private receivedData = ''
+  private isProcessingMessage = false
+  private lastId = 0
+  private deferredResponses = new Map()
+  private disconnected = false
+  private disconnectedPromise: Promise<void>
+  private resolveDisconnectedPromise: (() => void) | null = null
 
   constructor(options: CDPClientOptions) {
-    this.browserBinary = options.browserBinary || 'google-chrome'
+    // Use provided browser binary or detect Chrome location
+    this.browserBinary = options.browserBinary || chromeLocation.default()
     this.userDataDir = options.userDataDir || ''
     this.port = options.port || 9222
     this.instanceId = options.instanceId
+
+    this.disconnectedPromise = new Promise((resolve) => {
+      this.resolveDisconnectedPromise = resolve
+    })
   }
 
   async connect(): Promise<void> {
-    // Start browser with remote debugging enabled
+    // Start browser with remote debugging pipe enabled
     const args = [
-      `--remote-debugging-port=${this.port}`,
       '--remote-debugging-pipe',
       '--enable-unsafe-extension-debugging',
       '--no-first-run',
@@ -40,84 +54,184 @@ export class CDPClient {
       args.push(`--user-data-dir=${this.userDataDir}`)
     }
 
+    // Create pipes for CDP communication
+    const {incoming, outgoing} = this.createPipes()
+
     this.browserProcess = spawn(this.browserBinary, args, {
-      stdio: ['pipe', 'pipe', 'pipe']
+      stdio: ['pipe', 'pipe', 'pipe', incoming, outgoing]
     })
 
-    // Wait for browser to start and get WebSocket URL
+    // Set up pipe event handlers
+    this.setupPipeHandlers()
+
+    // Wait for browser to be ready
     await this.waitForBrowser()
   }
 
-  private async waitForBrowser(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('Browser startup timeout'))
-      }, 30000)
+  private createPipes() {
+    // Create pipes for CDP communication
+    // Chrome expects file descriptors 3 and 4 for incoming and outgoing pipes
+    const incoming = createReadStream('', {fd: 3})
+    const outgoing = createWriteStream('', {fd: 4})
 
-      const checkBrowser = async () => {
-        try {
-          const response = await fetch(
-            `http://localhost:${this.port}/json/version`
-          )
-          const data = await response.json()
-          this.wsUrl = data.webSocketDebuggerUrl
-          clearTimeout(timeout)
-          resolve()
-        } catch (error) {
-          // Browser not ready yet, retry
-          setTimeout(checkBrowser, 100)
-        }
-      }
+    this.incomingPipe = incoming
+    this.outgoingPipe = outgoing
 
-      checkBrowser()
+    return {incoming, outgoing}
+  }
+
+  private setupPipeHandlers() {
+    if (!this.incomingPipe || !this.outgoingPipe) {
+      throw new Error('Pipes not initialized')
+    }
+
+    this.incomingPipe.on('data', (data: Buffer) => {
+      this.receivedData += data.toString()
+      this.processNextMessage()
+    })
+
+    this.incomingPipe.on('error', (error: Error) => {
+      console.error('CDP pipe error:', error)
+      this.finalizeDisconnect()
+    })
+
+    this.incomingPipe.on('close', () => {
+      this.finalizeDisconnect()
     })
   }
 
-  async sendCommand(method: string, params: any = {}): Promise<any> {
-    if (!this.wsUrl) {
-      throw new Error('CDP client not connected')
+  private processNextMessage() {
+    if (this.isProcessingMessage) {
+      return
     }
 
-    const WebSocket = require('ws')
-    const ws = new WebSocket(this.wsUrl)
+    this.isProcessingMessage = true
+    let end = this.receivedData.indexOf('\x00')
+
+    while (end !== -1) {
+      const rawMessage = this.receivedData.slice(0, end)
+      this.receivedData = this.receivedData.slice(end + 1) // +1 to skip \x00
+      end = this.receivedData.indexOf('\x00')
+
+      try {
+        const message = JSON.parse(rawMessage)
+        this.handleMessage(message)
+      } catch (error) {
+        console.error('Failed to parse CDP message:', error)
+      }
+    }
+
+    this.isProcessingMessage = false
+  }
+
+  private handleMessage(message: any) {
+    if (message.id && this.deferredResponses.has(message.id)) {
+      const {resolve, reject} = this.deferredResponses.get(message.id)
+      this.deferredResponses.delete(message.id)
+
+      if (message.error) {
+        reject(new Error(message.error.message))
+      } else {
+        resolve(message.result)
+      }
+    }
+  }
+
+  private finalizeDisconnect() {
+    this.disconnected = true
+    if (this.resolveDisconnectedPromise) {
+      this.resolveDisconnectedPromise()
+    }
+  }
+
+  async waitUntilDisconnected(): Promise<void> {
+    return this.disconnectedPromise
+  }
+
+  async sendCommand(method: string, params: any = {}): Promise<any> {
+    if (this.disconnected) {
+      throw new Error(`CDP disconnected, cannot send: command ${method}`)
+    }
+
+    const message = {
+      id: ++this.lastId,
+      method,
+      params
+    }
+
+    const rawMessage = `${JSON.stringify(message)}\x00`
 
     return new Promise((resolve, reject) => {
-      ws.on('open', () => {
-        const message = {
-          id: Date.now(),
-          method,
-          params
-        }
-
-        ws.send(JSON.stringify(message))
-      })
-
-      ws.on('message', (data: Buffer) => {
-        const response = JSON.parse(data.toString())
-        if (response.id) {
-          ws.close()
-          if (response.error) {
-            reject(new Error(response.error.message))
-          } else {
-            resolve(response.result)
-          }
-        }
-      })
-
-      ws.on('error', reject)
+      // CDP will always send a response
+      this.deferredResponses.set(message.id, {resolve, reject})
+      this.outgoingPipe.write(rawMessage)
     })
   }
 
   async reloadExtension(extensionPath: string): Promise<void> {
     try {
       // Try the modern CDP approach first (Chrome 126+)
+      console.log('🚀 Attempting CDP-based extension reload...')
+      
+      // Add a small delay to ensure file system is ready
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
       await this.sendCommand('Extensions.loadUnpacked', {
         path: extensionPath
       })
+      
+      console.log('✅ CDP extension reload completed successfully')
     } catch (error) {
+      console.warn('⚠️ Modern CDP reload failed, trying fallback:', (error as Error).message)
       // Fallback to chrome.developerPrivate API for older Chrome versions
       await this.reloadExtensionFallback(extensionPath)
     }
+  }
+
+  async reloadExtensionOptimized(extensionPath: string, changedFile?: string): Promise<void> {
+    // Optimized reloading based on file type
+    if (changedFile) {
+      const fileName = changedFile.toLowerCase()
+      
+      // For non-critical files, try to avoid full reload
+      if (!this.isCriticalFile(fileName)) {
+        console.log('📝 Non-critical file change, attempting selective reload...')
+        try {
+          // Try to reload just the specific file if possible
+          await this.reloadSpecificFile(changedFile)
+          return
+        } catch (error) {
+          console.warn('⚠️ Selective reload failed, falling back to full reload:', (error as Error).message)
+        }
+      }
+    }
+    
+    // Fall back to full extension reload
+    await this.reloadExtension(extensionPath)
+  }
+
+  private isCriticalFile(fileName: string): boolean {
+    const criticalFiles = [
+      'manifest.json',
+      'background.js',
+      'background.ts',
+      'service-worker.js',
+      'service-worker.ts',
+      'service_worker.js',
+      'service_worker.ts'
+    ]
+    
+    return criticalFiles.some(critical => fileName.includes(critical))
+  }
+
+  private async reloadSpecificFile(filePath: string): Promise<void> {
+    // For content scripts and other non-critical files, we can try to reload them
+    // without reloading the entire extension
+    console.log(`🔄 Attempting selective reload for: ${filePath}`)
+    
+    // This is a placeholder for future optimization
+    // In practice, most file changes require full reload due to extension architecture
+    throw new Error('Selective reload not yet implemented')
   }
 
   private async reloadExtensionFallback(extensionPath: string): Promise<void> {
@@ -196,5 +310,14 @@ export class CDPClient {
       this.browserProcess.kill()
       this.browserProcess = null
     }
+    this.finalizeDisconnect()
+  }
+
+  private async waitForBrowser(): Promise<void> {
+    // For pipe-based CDP, we just need to wait a bit for the browser to start
+    // The pipe connection will be established automatically
+    return new Promise((resolve) => {
+      setTimeout(resolve, 1000)
+    })
   }
 }

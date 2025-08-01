@@ -108,6 +108,7 @@ export interface PluginInterface extends PluginOptions {
   port?: number
   // Internal auto-generated instance ID, not user-configurable
   instanceId?: string
+  enableCDP?: boolean
 }
 
 export interface PluginOptions {

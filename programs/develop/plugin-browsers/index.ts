@@ -34,6 +34,7 @@ export class BrowsersPlugin {
   public readonly geckoBinary?: string
   public readonly instanceId?: string
   public readonly port?: number | string
+  public readonly enableCDP?: boolean
 
   constructor(options: PluginInterface) {
     console.log('🔍 BrowsersPlugin constructor called with options:', options)
@@ -68,6 +69,7 @@ export class BrowsersPlugin {
     this.geckoBinary = options.geckoBinary
     this.instanceId = options.instanceId
     this.port = options.port
+    this.enableCDP = (options as any)?.enableCDP !== false
 
     console.log('🔍 BrowsersPlugin constructor finished, this.port:', this.port)
   }
@@ -178,7 +180,8 @@ export class BrowsersPlugin {
           browser: this.browser,
           profile,
           port,
-          instanceId: this.instanceId
+          instanceId: this.instanceId,
+          enableCDP: this.enableCDP
         }).apply(compiler)
         break
       }
@@ -200,7 +203,8 @@ export class BrowsersPlugin {
           browser: 'chrome',
           profile,
           port,
-          instanceId: this.instanceId
+          instanceId: this.instanceId,
+          enableCDP: this.enableCDP
         }).apply(compiler)
         break
       }

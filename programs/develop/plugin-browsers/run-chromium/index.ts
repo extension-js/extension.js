@@ -2,8 +2,9 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {spawn} from 'child_process'
-import chromeLocation from 'chrome-location2'
+import * as chromeLocation from 'chrome-location2'
 import edgeLocation from 'edge-location'
+import {launch} from 'chrome-launcher'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
 import {PluginInterface} from '../browsers-types'
@@ -32,6 +33,7 @@ export class RunChromiumPlugin {
   public readonly chromiumBinary?: string
   public readonly port?: number
   public readonly instanceId?: string
+  public readonly enableCDP?: boolean
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -44,6 +46,7 @@ export class RunChromiumPlugin {
     this.chromiumBinary = options.chromiumBinary
     this.port = options.port
     this.instanceId = options.instanceId
+    this.enableCDP = (options as any)?.enableCDP !== false
   }
 
   private async launchChromium(
@@ -54,7 +57,8 @@ export class RunChromiumPlugin {
 
     switch (browser) {
       case 'chrome':
-        browserBinaryLocation = chromeLocation()
+        browserBinaryLocation = chromeLocation.default()
+        console.log('🔍 Chrome location detected:', browserBinaryLocation)
         break
 
       case 'edge':
@@ -66,11 +70,24 @@ export class RunChromiumPlugin {
         break
 
       default:
-        browserBinaryLocation = chromeLocation()
+        browserBinaryLocation = chromeLocation.default()
         break
     }
 
-    if (!fs.existsSync(browserBinaryLocation) || '') {
+    // Enhanced Chrome detection for macOS
+    if (
+      browser === 'chrome' &&
+      (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation))
+    ) {
+      const macChromePath =
+        '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+      if (fs.existsSync(macChromePath)) {
+        browserBinaryLocation = macChromePath
+        console.log('🔍 Using macOS Chrome path:', browserBinaryLocation)
+      }
+    }
+
+    if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
       console.error(
         messages.browserNotInstalledError(browser, browserBinaryLocation)
       )
@@ -107,14 +124,72 @@ export class RunChromiumPlugin {
 
     const chromiumConfig = browserConfig(compilation, {
       ...this,
-      extension: extensionsToLoad
+      extension: extensionsToLoad,
+      enableCDP: this.enableCDP
     })
+
+    if (this.enableCDP) {
+      // Use chrome-launcher for CDP support
+      await this.launchWithCDP(browserBinaryLocation, chromiumConfig)
+    } else {
+      // Use direct spawn for basic functionality
+      await this.launchDirect(browserBinaryLocation, chromiumConfig)
+    }
+  }
+
+  private async launchWithCDP(
+    browserBinaryLocation: string,
+    chromeFlags: string[]
+  ) {
+    console.log(
+      '🔧 Initializing enhanced reload service for Chromium-based browser'
+    )
+
+    const launchOptions = {
+      chromePath: browserBinaryLocation,
+      chromeFlags,
+      startingUrl: this.startingUrl,
+      logLevel: (process.env.EXTENSION_ENV === 'development'
+        ? 'verbose'
+        : 'silent') as 'verbose' | 'silent',
+      ignoreDefaultFlags: true
+    }
+
+    try {
+      const chromeInstance = await launch(launchOptions)
+
+      console.log('🔧 Chrome launched with CDP support')
+      console.log('   Process ID:', chromeInstance.pid)
+
+      // Store the chrome instance for potential extension reloading
+      ;(global as any).__extensionChromeInstance = chromeInstance
+
+      chromeInstance.process.on('close', (code: number | null) => {
+        console.log(`🔧 Chrome process exited with code: ${code}`)
+      })
+    } catch (error) {
+      console.error('🔧 Failed to launch Chrome with CDP:', error)
+      // Fallback to direct launch
+      await this.launchDirect(browserBinaryLocation, chromeFlags)
+    }
+  }
+
+  private async launchDirect(
+    browserBinaryLocation: string,
+    chromeFlags: string[]
+  ) {
     const launchArgs = this.startingUrl
-      ? [this.startingUrl, ...chromiumConfig]
-      : [...chromiumConfig]
+      ? [this.startingUrl, ...chromeFlags]
+      : [...chromeFlags]
 
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+
+    console.log('🔍 Spawning browser with:', {
+      binary: browserBinaryLocation,
+      args: launchArgs
+    })
+
     const child = spawn(`${browserBinaryLocation}`, launchArgs, {stdio})
 
     if (process.env.EXTENSION_ENV === 'development') {

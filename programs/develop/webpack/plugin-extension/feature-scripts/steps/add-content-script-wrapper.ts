@@ -62,9 +62,13 @@ function isUsingJSFramework(projectPath: string): boolean {
 /**
  * Generate the wrapper code that will be injected
  */
-function generateWrapperCode(source: string, isReact: boolean, resourcePath: string): string {
+function generateWrapperCode(
+  source: string,
+  isReact: boolean,
+  resourcePath: string
+): string {
   const fileName = path.basename(resourcePath, path.extname(resourcePath))
-  
+
   const wrapperCode = `
 /**
  * Content Script Wrapper Module
@@ -428,13 +432,18 @@ export default function (this: LoaderContext, source: string) {
 
         if (url.includes(absoluteUrl)) {
           // Check if this is a React/JS framework content script
-          const isReact = source.includes('react') || 
-                         source.includes('ReactDOM') || 
-                         source.includes('createRoot') ||
-                         source.includes('render(')
+          const isReact =
+            source.includes('react') ||
+            source.includes('ReactDOM') ||
+            source.includes('createRoot') ||
+            source.includes('render(')
 
           if (isReact) {
-            const wrapperCode = generateWrapperCode(source, isReact, this.resourcePath)
+            const wrapperCode = generateWrapperCode(
+              source,
+              isReact,
+              this.resourcePath
+            )
             return wrapperCode
           }
         }
@@ -443,4 +452,4 @@ export default function (this: LoaderContext, source: string) {
   }
 
   return source
-} 
+}

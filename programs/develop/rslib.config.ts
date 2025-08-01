@@ -19,6 +19,10 @@ export default defineConfig({
         __dirname,
         './webpack/plugin-extension/feature-scripts/steps/deprecated-shadow-root.ts'
       ),
+      // 'react-content-script-loader': path.resolve(
+      //   __dirname,
+      //   './webpack/plugin-extension/feature-scripts/steps/react-content-script-loader.ts'
+      // ),
       // Reload Plugin Loaders
       'inject-chromium-client-loader': path.resolve(
         __dirname,

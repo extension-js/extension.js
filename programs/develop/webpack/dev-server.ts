@@ -78,7 +78,8 @@ export async function devServer(
       clean: false,
       path: path.join(manifestDir, 'dist', devOptions.browser)
     },
-    instanceId: currentInstance.instanceId
+    instanceId: currentInstance.instanceId,
+    port: portAllocation.port // Pass the allocated port to webpack config
   })
 
   // Get webpack config defaults from extension.config.js
