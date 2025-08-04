@@ -37,7 +37,7 @@ import {autoInitializeContentScript} from './index'
 const instance = autoInitializeContentScript({
   rootId: 'my-extension',
   containerClass: 'my-content-script',
-  customStylesheets: ['./styles.css', './custom.css']
+  stylesheets: ['./styles.css', './custom.css']
 })
 ```
 
@@ -48,7 +48,7 @@ import {ContentScriptWrapper} from './index'
 
 const wrapper = new ContentScriptWrapper({
   rootId: 'my-extension',
-  customStylesheets: ['./styles.css']
+  stylesheets: ['./styles.css']
 })
 
 wrapper.mount((container) => {
@@ -66,7 +66,7 @@ import {contentScript} from './index'
 
 const renderFunction = contentScript({
   rootId: 'my-extension',
-  customStylesheets: ['./styles.css']
+  stylesheets: ['./styles.css']
 })
 ```
 
@@ -78,7 +78,7 @@ The `scripts.tsx` API remains unchanged:
 interface ContentScriptOptions {
   rootId?: string // ID for the root element (default: 'extension-root')
   containerClass?: string // CSS class for the container (default: 'content_script')
-  customStylesheets?: string[] // Array of stylesheet paths to inject (default: ['./styles.css'])
+  stylesheets?: string[] // Array of stylesheet paths to inject (default: ['./styles.css'])
 }
 
 export default function contentScript(options?: ContentScriptOptions) {

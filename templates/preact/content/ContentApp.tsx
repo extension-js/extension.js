@@ -3,14 +3,16 @@ import logo from '../images/preact.png'
 
 export default function ContentApp() {
   return (
-    <div class="content_script">
-      <img class="content_logo" src={logo} alt="Extension Logo" />
-      <h1 class="content_title">
-        Welcome to your
+    <div className="content_script">
+      <img className="content_logo" src={logo} alt="Extension Logo" />
+      <h1 className="content_title">
+        Content Script
         <br />
         Preact Extension
       </h1>
-      <p class="content_description">
+      <p className="content_description">
+        This content script runs in the context of web pages.
+        <br />
         Learn more about creating cross-browser extensions at{' '}
         <a
           href="https://extension.js.org"

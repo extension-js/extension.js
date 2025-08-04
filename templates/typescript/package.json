@@ -10,9 +10,6 @@
   },
   "license": "MIT",
   "type": "module",
-  "dependencies": {
-    "sakura.css": "^1.4.1"
-  },
   "devDependencies": {
     "typescript": "5.3.3"
   }

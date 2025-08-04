@@ -1,92 +1,53 @@
-import sakuraCSS from 'sakura.css'
-import logo from '../images/typescript.png'
+import logo from '../images/logo.svg'
 
-let unmount: (() => void) | undefined
-
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
+interface ContentScriptOptions {
+  rootId?: string // ID for the root element
+  containerClass?: string // CSS class for the container
+  stylesheets?: string[] // Array of stylesheet paths to inject
 }
 
-console.log('hello from content_scripts')
+export default function contentScript({
+  rootId = 'extension-root',
+  containerClass = 'content_script',
+  stylesheets = ['./styles.css']
+}: ContentScriptOptions) {
+  return (container: HTMLElement) => {
+    // Create and append logo image
+    const img = document.createElement('img')
+    img.className = 'content_logo'
+    img.src = logo
+    img.alt = 'TypeScript Logo'
+    container.appendChild(img)
 
-if (document.readyState === 'complete') {
-  unmount = initial() || (() => {})
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') unmount = initial() || (() => {})
-  })
-}
+    // Create and append title
+    const title = document.createElement('h1')
+    title.className = 'content_title'
+    title.innerHTML = 'Content Script<br />TypeScript Extension'
+    container.appendChild(title)
 
-function initial() {
-  const rootDiv = document.createElement('div')
-  rootDiv.id = 'extension-root'
-  document.body.appendChild(rootDiv)
+    // Create and append description paragraph
+    const desc = document.createElement('p')
+    desc.className = 'content_description'
+    desc.innerHTML =
+      'This content script runs in the context of web pages.<br />Learn more about creating cross-browser extensions at '
 
-  // Injecting content_scripts inside a shadow dom
-  // prevents conflicts with the host page's styles.
-  // This way, styles from the extension won't leak into the host page.
-  const shadowRoot = rootDiv.attachShadow({mode: 'open'})
+    const link = document.createElement('a')
+    link.href = 'https://extension.js.org'
+    link.target = '_blank'
+    link.textContent = 'https://extension.js.org'
 
-  // Load sakura.css into the shadow DOM
-  const sakuraStyle = document.createElement('style')
-  shadowRoot.appendChild(sakuraStyle)
-  fetch(sakuraCSS as unknown as string)
-    .then((response) => response.text())
-    .then((text) => {
-      sakuraStyle.textContent = text
+    desc.appendChild(link)
+    container.appendChild(desc)
+
+    console.info('content_script configuration:', {
+      rootId,
+      containerClass,
+      stylesheets
     })
 
-  const styleElement = document.createElement('style')
-  shadowRoot.appendChild(styleElement)
-  fetchCSS().then((response) => (styleElement.textContent = response))
-
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
+    // Return cleanup function for unmounting (required)
+    return () => {
+      // TypeScript doesn't need special cleanup, so we just return empty
+    }
   }
-
-  // Create container div
-  const contentDiv = document.createElement('div')
-  contentDiv.className = 'content_script'
-
-  // Create and append logo image
-  const img = document.createElement('img')
-  img.className = 'content_logo'
-  img.src = logo
-  contentDiv.appendChild(img)
-
-  // Create and append title
-  const title = document.createElement('h1')
-  title.className = 'content_title'
-  title.textContent = 'Welcome to your TypeScript Extension'
-  contentDiv.appendChild(title)
-
-  // Create and append description paragraph
-  const desc = document.createElement('p')
-  desc.className = 'content_description'
-  desc.innerHTML = 'Learn more about creating cross-browser extensions at '
-
-  const link = document.createElement('a')
-  link.href = 'https://extension.js.org'
-  link.target = '_blank'
-  link.textContent = 'https://extension.js.org'
-
-  desc.appendChild(link)
-  contentDiv.appendChild(desc)
-
-  // Append the content div to shadow root
-  shadowRoot.appendChild(contentDiv)
-
-  return () => {
-    rootDiv.remove()
-  }
-}
-
-async function fetchCSS() {
-  const cssUrl = new URL('./styles.css', import.meta.url)
-  const response = await fetch(cssUrl)
-  const text = await response.text()
-  return response.ok ? text : Promise.reject(text)
 }
