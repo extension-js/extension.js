@@ -1,8 +1,75 @@
 @import "tailwindcss";
 
+/* 
+  Google Fonts Example for Browser Extensions
+  ===========================================
+  
+  This example shows how to use Google Fonts in browser extensions.
+  Google Fonts are loaded via CDN and work well in extensions.
+  
+  Fonts used:
+  - Inter (sans-serif)
+  - Roboto Mono (monospace)
+  - Poppins (sans-serif)
+  - Open Sans (sans-serif)
+*/
+
+/* Import Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
 .content_script {
   position: fixed;
-  bottom: 0;
-  right: 0;
+  bottom: 20px;
+  right: 20px;
   z-index: 99999;
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+  font-family: 'Inter', sans-serif;
+}
+
+.font_demo {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 4px solid #3b82f6;
+}
+
+.font_demo h3 {
+  margin: 0 0 8px 0;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.font_demo p {
+  margin: 0;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+/* Font-specific styles */
+.font_inter {
+  font-family: 'Inter', sans-serif;
+  background-color: #f3f4f6;
+}
+
+.font_roboto_mono {
+  font-family: 'Roboto Mono', monospace;
+  background-color: #fef3c7;
+}
+
+.font_poppins {
+  font-family: 'Poppins', sans-serif;
+  background-color: #dbeafe;
+}
+
+.font_open_sans {
+  font-family: 'Open Sans', sans-serif;
+  background-color: #fce7f3;
 }

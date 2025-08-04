@@ -1,69 +1,40 @@
+/**
+ * Preact Content Script with Wrapper
+ *
+ * This file provides the wrapper-based approach for consistent CSS HMR experience.
+ * It uses the content script wrapper to provide the same API as other frameworks.
+ */
+
 import {render} from 'preact'
-import sakuraCSS from 'sakura.css'
 import ContentApp from './ContentApp'
 
-let unmount: () => void
+// Import CSS to ensure webpack processes it as an asset
+// This is required for content scripts to have CSS available
+// import './styles.css'
 
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
+interface ContentScriptOptions {
+  rootId?: string // ID for the root element
+  containerClass?: string // CSS class for the container
+  stylesheets?: string[] // Array of stylesheet paths to inject
 }
 
-if (document.readyState === 'complete') {
-  unmount = initial() || (() => {})
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') unmount = initial() || (() => {})
-  })
-}
+export default function contentScript({
+  rootId = 'extension-root',
+  containerClass = 'content_script',
+  stylesheets = ['./styles.css']
+}: ContentScriptOptions) {
+  return (container: HTMLElement) => {
+    render(ContentApp(), container)
 
-console.log('Hello from content script')
-
-function initial() {
-  // Create a new div element and append it to the document's body
-  const rootDiv = document.createElement('div')
-  rootDiv.id = 'extension-root'
-  document.body.appendChild(rootDiv)
-
-  // Injecting content_scripts inside a shadow dom
-  // prevents conflicts with the host page's styles.
-  // This way, styles from the extension won't leak into the host page.
-  const shadowRoot = rootDiv.attachShadow({mode: 'open'})
-
-  // Load sakura.css into the shadow DOM
-  const sakuraStyle = document.createElement('style')
-  shadowRoot.appendChild(sakuraStyle)
-  fetch(sakuraCSS as unknown as string)
-    .then((response) => response.text())
-    .then((text) => {
-      sakuraStyle.textContent = text
+    console.info('content_script configuration:', {
+      rootId,
+      containerClass,
+      stylesheets
     })
 
-  const styleElement = document.createElement('style')
-  shadowRoot.appendChild(styleElement)
-  fetchCSS().then((response) => (styleElement.textContent = response))
-
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
+    // Return cleanup function for unmounting (required)
+    return () => {
+      // Preact doesn't have an unmount function, so we just return empty
+    }
   }
-
-  // Create container for Preact app
-  const container = document.createElement('div')
-  container.className = 'content_script'
-  shadowRoot.appendChild(container)
-
-  render(<ContentApp />, container)
-
-  return () => {
-    rootDiv.remove()
-  }
-}
-
-async function fetchCSS() {
-  const cssUrl = new URL('./styles.css', import.meta.url)
-  const response = await fetch(cssUrl)
-  const text = await response.text()
-  return response.ok ? text : Promise.reject(text)
 }

@@ -14,5 +14,6 @@
       "outputs": ["dist/**"]
     }
   },
-  "globalEnv": ["NODE_ENV"]
+  "globalEnv": ["NODE_ENV"],
+  "extends": ["//"]
 }

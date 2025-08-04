@@ -1,5 +1,4 @@
-import './styles.css'
-import typescriptLogo from '../images/typescript.png'
+import typescriptLogo from '../images/logo.svg'
 
 function SidebarApp() {
   const root = document.getElementById('root')
@@ -13,9 +12,11 @@ function SidebarApp() {
         alt="The TypeScript logo"
       />
       <h1 class="sidebar_title">
-        Welcome to your TypeScript Extension
+        Sidebar Panel TypeScript Extension
       </h1>
       <p class="sidebar_description">
+        This sidebar panel runs in the browser's sidebar.
+        <br />
         Learn more about creating cross-browser extensions at
         <a
           href="https://extension.js.org"
