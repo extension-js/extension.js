@@ -1,92 +1,50 @@
-import sakuraCSS from 'sakura.css'
-import logo from '../images/javascript.png'
+import logo from '../images/logo.png'
 
-let unmount
+// Import CSS to ensure webpack processes it as an asset
+// This is required for content scripts to have CSS available
+import './styles.css'
 
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-}
+export default function contentScript({
+  rootId = 'extension-root',
+  containerClass = 'content_script',
+  stylesheets = ['./styles.css']
+} = {}) {
+  return (container) => {
+    // Create and append logo image
+    const img = document.createElement('img')
+    img.className = 'content_logo'
+    img.src = logo
+    container.appendChild(img)
 
-console.log('hello from content_scripts')
+    // Create and append title
+    const title = document.createElement('h1')
+    title.className = 'content_title'
+    title.innerHTML = 'Content Script<br />JavaScript Extension'
+    container.appendChild(title)
 
-if (document.readyState === 'complete') {
-  unmount = initial() || (() => {})
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') unmount = initial() || (() => {})
-  })
-}
+    // Create and append description paragraph
+    const desc = document.createElement('p')
+    desc.className = 'content_description'
+    desc.innerHTML =
+      'This content script runs in the context of web pages.<br />Learn more about creating cross-browser extensions at '
 
-function initial() {
-  const rootDiv = document.createElement('div')
-  rootDiv.id = 'extension-root'
-  document.body.appendChild(rootDiv)
+    const link = document.createElement('a')
+    link.href = 'https://extension.js.org'
+    link.target = '_blank'
+    link.textContent = 'https://extension.js.org'
 
-  // Injecting content_scripts inside a shadow dom
-  // prevents conflicts with the host page's styles.
-  // This way, styles from the extension won't leak into the host page.
-  const shadowRoot = rootDiv.attachShadow({mode: 'open'})
+    desc.appendChild(link)
+    container.appendChild(desc)
 
-  // Load sakura.css into the shadow DOM
-  const sakuraStyle = document.createElement('style')
-  shadowRoot.appendChild(sakuraStyle)
-  fetch(sakuraCSS)
-    .then((response) => response.text())
-    .then((text) => {
-      sakuraStyle.textContent = text
+    console.info('content_script configuration:', {
+      rootId,
+      containerClass,
+      stylesheets
     })
 
-  const styleElement = document.createElement('style')
-  shadowRoot.appendChild(styleElement)
-  fetchCSS().then((response) => (styleElement.textContent = response))
-
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
+    // Return cleanup function for unmounting (required)
+    return () => {
+      // JavaScript doesn't need special cleanup, so we just return empty
+    }
   }
-
-  // Create container div
-  const contentDiv = document.createElement('div')
-  contentDiv.className = 'content_script'
-
-  // Create and append logo image
-  const img = document.createElement('img')
-  img.className = 'content_logo'
-  img.src = logo
-  contentDiv.appendChild(img)
-
-  // Create and append title
-  const title = document.createElement('h1')
-  title.className = 'content_title'
-  title.textContent = 'Welcome to your JavaScript Extension'
-  contentDiv.appendChild(title)
-
-  // Create and append description paragraph
-  const desc = document.createElement('p')
-  desc.className = 'content_description'
-  desc.innerHTML = 'Learn more about creating cross-browser extensions at '
-
-  const link = document.createElement('a')
-  link.href = 'https://extension.js.org'
-  link.target = '_blank'
-  link.textContent = 'https://extension.js.org'
-
-  desc.appendChild(link)
-  contentDiv.appendChild(desc)
-
-  // Append the content div to shadow root
-  shadowRoot.appendChild(contentDiv)
-
-  return () => {
-    rootDiv.remove()
-  }
-}
-
-async function fetchCSS() {
-  const cssUrl = new URL('./styles.css', import.meta.url)
-  const response = await fetch(cssUrl)
-  const text = await response.text()
-  return response.ok ? text : Promise.reject(text)
 }
