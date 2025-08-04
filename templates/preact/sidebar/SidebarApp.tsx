@@ -3,14 +3,16 @@ import './styles.css'
 
 export default function SidebarApp() {
   return (
-    <div class="sidebar_app">
-      <img class="sidebar_logo" src={logo} alt="The Preact logo" />
-      <h1 class="sidebar_title">
-        Welcome to your
+    <div className="sidebar_app">
+      <img className="sidebar_logo" src={logo} alt="The Preact logo" />
+      <h1 className="sidebar_title">
+        Sidebar Panel
         <br />
         Preact Extension
       </h1>
-      <p class="sidebar_description">
+      <p className="sidebar_description">
+        This sidebar panel runs in the browser's sidebar.
+        <br />
         Learn more about creating cross-browser extensions at{' '}
         <a
           href="https://extension.js.org"

@@ -302,6 +302,15 @@ const CONFIG_TEMPLATES: Template[] = [
     configFiles: ['postcss.config.js']
   },
   {
+    name: 'content-custom-font',
+    uiContext: ['content'],
+    uiFramework: undefined,
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['postcss.config.js']
+  },
+  {
     name: 'new-tailwind',
     uiContext: ['newTab'],
     uiFramework: 'react',
