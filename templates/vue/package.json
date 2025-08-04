@@ -11,8 +11,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "vue": "^3.4.21",
-    "sakura.css": "^1.4.1"
+    "vue": "^3.4.21"
   },
   "devDependencies": {
     "@types/vue": "^2.0.0",
