@@ -14,6 +14,21 @@ export class CopyPublicFolder {
     this.options = options
   }
 
+  // Get the actual case-sensitive path of the public folder
+  // This handles the case where the folder might be named 'Public' on macOS but 'public' on Windows
+  private getPublicFolderPath(projectPath: string): string | null {
+    const possibleNames = ['public', 'Public', 'PUBLIC']
+
+    for (const name of possibleNames) {
+      const folderPath = path.join(projectPath, name)
+      if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+        return folderPath
+      }
+    }
+
+    return null
+  }
+
   private ensureDirectoryExistence(filePath: string) {
     const dirname = path.dirname(filePath)
     if (fs.existsSync(dirname)) {
@@ -46,10 +61,10 @@ export class CopyPublicFolder {
 
   apply(compiler: Compiler): void {
     const projectPath = path.dirname(this.options.manifestPath)
-    const staticDir = path.join(projectPath, 'public')
+    const staticDir = this.getPublicFolderPath(projectPath)
     const output = compiler.options.output?.path || ''
 
-    if (!fs.existsSync(staticDir)) return
+    if (!staticDir) return
 
     compiler.hooks.afterEmit.tap('special-folders:copy-public-folder', () => {
       const target = path.join(output, '/')
@@ -66,7 +81,7 @@ export class CopyPublicFolder {
     compiler.hooks.afterPlugins.tap(
       'special-folders:copy-public-folder',
       () => {
-        const staticPath: string = path.join(projectPath, 'public')
+        const staticPath: string = staticDir
         const watcher = chokidar.watch(staticPath, {ignoreInitial: true})
 
         watcher.on('add', (filePath: string) => {

@@ -1,13 +1,30 @@
+import * as fs from 'fs'
 import * as path from 'path'
 import {PluginInterface} from '../../../webpack-types'
 import {scanFilesInFolder, generateEntries} from './generate-entries'
 
+// Get the actual case-sensitive path of the public folder
+// This handles the case where the folder might be named 'Public' on macOS but 'public' on Windows
+function getPublicFolderPath(projectPath: string): string {
+  const possibleNames = ['public', 'Public', 'PUBLIC']
+
+  for (const name of possibleNames) {
+    const folderPath = path.join(projectPath, name)
+    if (fs.existsSync(folderPath) && fs.statSync(folderPath).isDirectory()) {
+      return folderPath
+    }
+  }
+
+  // Fallback to lowercase 'public' if no folder exists
+  return path.join(projectPath, 'public')
+}
+
 export function getSpecialFoldersData({manifestPath}: PluginInterface) {
   const projectPath = path.dirname(manifestPath)
 
-  // Define special folders
+  // Define special folders with case-sensitive public folder detection
   const folders = {
-    public: path.join(projectPath, 'public'),
+    public: getPublicFolderPath(projectPath),
     pages: path.join(projectPath, 'pages'),
     scripts: path.join(projectPath, 'scripts')
   }
