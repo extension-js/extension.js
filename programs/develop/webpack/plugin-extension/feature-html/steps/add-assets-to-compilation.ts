@@ -16,6 +16,27 @@ export class AddAssetsToCompilation {
     this.excludeList = options.excludeList
   }
 
+  // Normalize public folder path to handle case sensitivity issues
+  // across different operating systems (Windows case-insensitive vs macOS/Linux case-sensitive)
+  private normalizePublicPath(assetPath: string): string {
+    if (!assetPath.startsWith('public/')) {
+      return assetPath
+    }
+
+    const projectPath = path.dirname(this.manifestPath)
+    const publicFolderPath = path.join(projectPath, 'public')
+
+    // Check if the public folder exists with different cases
+    if (fs.existsSync(publicFolderPath)) {
+      // Use the actual case of the public folder
+      const actualPublicFolder = path.basename(publicFolderPath)
+      return assetPath.replace(/^public\//, `${actualPublicFolder}/`)
+    }
+
+    // Fallback to lowercase 'public' if folder doesn't exist
+    return assetPath.replace(/^public\//, 'public/')
+  }
+
   public apply(compiler: Compiler): void {
     compiler.hooks.thisCompilation.tap(
       'html:add-assets-to-compilation',
@@ -51,9 +72,12 @@ export class AddAssetsToCompilation {
                   for (const asset of fileAssets) {
                     // Handle both relative and public paths
                     const isPublicPath = asset.startsWith('/')
-                    const assetPath = isPublicPath
+                    let assetPath = isPublicPath
                       ? path.posix.join('public', asset.slice(1))
                       : asset
+
+                    // Normalize the public path to handle case sensitivity issues
+                    assetPath = this.normalizePublicPath(assetPath)
 
                     // Handle missing static assets. This is not covered
                     // by HandleCommonErrorsPlugin because static assets
