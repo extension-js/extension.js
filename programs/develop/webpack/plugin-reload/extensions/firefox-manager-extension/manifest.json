@@ -1,7 +1,7 @@
 {
-  "name": "Extension Manager",
-  "description": "Extension.js developer tools for tabs and reload management.",
-  "version": "1.0",
+  "name": "Extension.js DevTools",
+  "description": "Extension.js built-in developer tools for instance ID __INSTANCE_ID__",
+  "version": "1.0.0",
   "manifest_version": 2,
   "background": {
     "scripts": ["background.js"],

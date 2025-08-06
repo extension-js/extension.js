@@ -1,12 +1,7 @@
-import os from 'os'
-import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './browsers-types'
-import {RunChromiumPlugin} from './run-chromium'
-import {RunFirefoxPlugin} from './run-firefox'
 import {DevOptions} from '../commands/commands-lib/config-types'
-import {loadBrowserConfig} from '../commands/commands-lib/get-extension-config'
-import * as messages from './browsers-lib/messages'
+import * as messages from '../webpack/lib/messages'
 
 /**
  * BrowsersPlugin works by finding the binary for the browser specified in the
@@ -20,7 +15,7 @@ import * as messages from './browsers-lib/messages'
  * - Chromium binary - a custom path to the Chromium binary can be specified
  * - Gecko binary - a custom path to the Gecko binary can be specified
  *
- * Browsers supported:
+ * First-class browsers supported:
  * - Chrome
  * - Edge
  * - Firefox
@@ -37,6 +32,8 @@ export class BrowsersPlugin {
   public readonly startingUrl?: string
   public readonly chromiumBinary?: string
   public readonly geckoBinary?: string
+  public readonly instanceId?: string
+  public readonly port?: number | string
 
   constructor(options: PluginInterface) {
     // Include extensions and filter out any duplicate load-extension flags
@@ -66,145 +63,51 @@ export class BrowsersPlugin {
     this.startingUrl = options.startingUrl || ''
     this.chromiumBinary = options.chromiumBinary
     this.geckoBinary = options.geckoBinary
+    this.instanceId = options.instanceId
+    this.port = options.port
   }
 
-  private getProfilePath(
-    compiler: Compiler,
-    browser: DevOptions['browser'],
-    profile: string | undefined
-  ) {
-    // If user provided a profile path, use it
-    if (profile) {
-      return profile
-    }
+  apply(compiler: Compiler) {
+    try {
+      let UserDefinedBrowserPlugin: any
 
-    // In production, use a random temp directory
-    if (compiler.options.mode === 'production') {
-      return path.join(
-        os.tmpdir(),
-        'extension-js',
-        `${browser}-profile-${Date.now()}`
-      )
-    }
-
-    // In development, use the extension-js/profiles directory
-    const distPath = path.dirname(compiler.options.output.path!)
-    return path.resolve(
-      distPath,
-      'extension-js',
-      'profiles',
-      `${browser}-profile`
-    )
-  }
-
-  async apply(compiler: Compiler) {
-    const config = {
-      stats: true,
-      // @ts-expect-error it comes as a string from the CLI
-      open: this.open === 'false' ? false : true,
-      extension: this.extension,
-      browser: this.browser,
-      browserFlags: this.browserFlags || [],
-      profile: this.profile,
-      preferences: this.preferences,
-      startingUrl: this.startingUrl,
-      chromiumBinary: this.chromiumBinary,
-      geckoBinary: this.geckoBinary
-    }
-
-    const customUserConfig = await loadBrowserConfig(
-      compiler.context,
-      this.browser
-    )
-    const browserConfig = {
-      ...config,
-      ...customUserConfig
-    }
-
-    if (browserConfig?.open === false) {
-      console.log(messages.isBrowserLauncherOpen(this.browser, false))
-    }
-
-    if (browserConfig?.startingUrl) {
-      console.log(
-        messages.isUsingStartingUrl(
-          browserConfig?.browser,
-          browserConfig?.startingUrl
-        )
-      )
-    }
-
-    if (browserConfig?.chromiumBinary) {
-      console.log(
-        messages.isUsingBrowserBinary('chromium', browserConfig?.chromiumBinary)
-      )
-    }
-
-    if (browserConfig?.geckoBinary) {
-      console.log(
-        messages.isUsingBrowserBinary('gecko', browserConfig?.geckoBinary)
-      )
-    }
-
-    if (browserConfig?.profile) {
-      console.log(
-        messages.isUsingProfile(browserConfig?.browser, browserConfig?.profile)
-      )
-    }
-
-    if (browserConfig?.preferences) {
-      console.log(messages.isUsingPreferences(browserConfig?.browser))
-    }
-
-    if (browserConfig?.browserFlags && browserConfig?.browserFlags.length > 0) {
-      console.log(messages.isUsingBrowserFlags(browserConfig?.browser))
-    }
-
-    // Do not call any browser runner if user decides not to.
-    if (browserConfig.open === false) return
-
-    const profile = this.getProfilePath(
-      compiler,
-      this.browser,
-      this.profile || this.profile
-    )
-
-    // Get port from dev server config
-    const port = (compiler.options.devServer as any)?.port || 'auto'
-
-    // Pass port to browser specific plugins
-    switch (this.browser) {
-      case 'chrome':
-      case 'edge':
-      case 'chromium-based': {
-        new RunChromiumPlugin({
-          ...browserConfig,
-          browser: this.browser,
-          profile,
-          port
-        }).apply(compiler)
-        break
+      // Synchronously import the appropriate browser plugin
+      switch (this.browser) {
+        case 'chrome':
+        case 'edge':
+        case 'chromium-based':
+          const {RunChromiumPlugin} = require('./run-chromium')
+          UserDefinedBrowserPlugin = RunChromiumPlugin
+          break
+        case 'firefox':
+        case 'gecko-based':
+          const {RunFirefoxPlugin} = require('./run-firefox')
+          UserDefinedBrowserPlugin = RunFirefoxPlugin
+          break
+        default:
+          throw new Error(`Unsupported browser: ${this.browser}`)
       }
 
-      case 'firefox':
-      case 'gecko-based':
-        new RunFirefoxPlugin({
-          ...browserConfig,
-          browser: this.browser,
-          profile,
-          port
-        }).apply(compiler)
-        break
-
-      default: {
-        new RunChromiumPlugin({
-          ...browserConfig,
-          browser: 'chrome',
-          profile,
-          port
-        }).apply(compiler)
-        break
+      // Create instance with current options
+      const browserConfig = {
+        extension: this.extension,
+        browser: this.browser,
+        open: this.open,
+        browserFlags: this.browserFlags,
+        profile: this.profile,
+        preferences: this.preferences,
+        startingUrl: this.startingUrl,
+        chromiumBinary: this.chromiumBinary,
+        geckoBinary: this.geckoBinary,
+        instanceId: this.instanceId,
+        port: this.port
       }
+
+      // Apply the browser-specific plugin immediately
+      new UserDefinedBrowserPlugin(browserConfig).apply(compiler)
+    } catch (error) {
+      console.error(messages.browserPluginFailedToLoad(this.browser, error))
+      throw error
     }
   }
 }
