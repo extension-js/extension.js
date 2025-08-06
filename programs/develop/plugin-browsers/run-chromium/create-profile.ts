@@ -8,6 +8,11 @@ import {
 import * as messages from '../browsers-lib/messages'
 import {addProgressBar} from '../browsers-lib/add-progress-bar'
 import {
+  validateProfilePath,
+  getDefaultProfilePath,
+  createProfileDirectory
+} from '../browsers-lib/shared-utils'
+import {
   BrowserConfig,
   DevOptions
 } from '../../commands/commands-lib/config-types'
@@ -18,39 +23,12 @@ interface CreateProfile {
   configPreferences: BrowserConfig['preferences']
 }
 
-function validateProfilePath(
-  browser: DevOptions['browser'],
-  profilePath: string
-): void {
-  // Create directory if it doesn't exist
-  if (!fs.existsSync(profilePath)) {
-    fs.mkdirSync(profilePath, {recursive: true})
-  }
-
-  const stats = fs.statSync(profilePath)
-  if (!stats.isDirectory()) {
-    throw new Error(messages.pathIsNotDirectoryError(browser, profilePath))
-  }
-
-  // Check if we have read/write permissions
-  try {
-    fs.accessSync(profilePath, fs.constants.R_OK | fs.constants.W_OK)
-  } catch (error) {
-    throw new Error(messages.pathPermissionError(browser, profilePath))
-  }
-}
-
 function createNewProfile(
   browser: DevOptions['browser'],
   profilePath: string,
   preferences: Record<string, any>
 ): void {
-  const tempPath = `${profilePath}.tmp`
-
-  try {
-    // Create temporary directory
-    fs.mkdirSync(tempPath, {recursive: true})
-
+  createProfileDirectory(browser, profilePath, (tempPath) => {
     // Create Default directory
     const defaultDir = path.join(tempPath, 'Default')
     fs.mkdirSync(defaultDir, {recursive: true})
@@ -58,16 +36,7 @@ function createNewProfile(
     // Write preferences
     const preferencesPath = path.join(defaultDir, 'Preferences')
     fs.writeFileSync(preferencesPath, JSON.stringify(preferences), 'utf8')
-
-    // Atomic rename
-    fs.renameSync(tempPath, profilePath)
-  } catch (error) {
-    // Cleanup on failure
-    if (fs.existsSync(tempPath)) {
-      fs.rmSync(tempPath, {recursive: true, force: true})
-    }
-    throw new Error(messages.profileCreationError(browser, error))
-  }
+  })
 }
 
 export function createProfile(
@@ -81,17 +50,13 @@ export function createProfile(
     return absoluteUserPath
   }
 
-  // Use consistent path structure in output directory
-  const distPath = path.join(
-    path.dirname(compilation.options.output.path!),
-    '..'
-  )
-  const defaultProfilePath = path.resolve(
-    distPath,
-    'extension-js',
-    'profiles',
-    `${browser}-profile`
-  )
+  // Use the main output directory for profiles, not the browser-specific one
+  // The compilation.options.output.path is browser-specific (e.g., dist/chrome)
+  // We need the main output directory (e.g., dist)
+  const browserSpecificOutputPath =
+    compilation.options.output?.path || process.cwd() + '/dist'
+  const mainOutputPath = path.dirname(browserSpecificOutputPath) // Go up one level from dist/chrome to dist
+  const defaultProfilePath = getDefaultProfilePath(mainOutputPath, browser)
 
   // Create and validate default profile path
   validateProfilePath(browser, defaultProfilePath)

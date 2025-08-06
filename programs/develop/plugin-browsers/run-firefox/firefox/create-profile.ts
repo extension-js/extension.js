@@ -6,6 +6,13 @@ import {getPreferences} from './master-preferences'
 import * as messages from '../../browsers-lib/messages'
 import {addProgressBar} from '../../browsers-lib/add-progress-bar'
 import {
+  validateProfilePath,
+  getDefaultProfilePath,
+  createProfileDirectory,
+  mergePreferences,
+  applyPreferences
+} from '../../browsers-lib/shared-utils'
+import {
   BrowserConfig,
   DevOptions
 } from '../../../commands/commands-lib/config-types'
@@ -15,28 +22,8 @@ interface FirefoxProfileOptions {
   browser: DevOptions['browser']
   userProfilePath: string | undefined
   configPreferences: BrowserConfig['preferences']
-}
-
-function validateProfilePath(
-  browser: DevOptions['browser'],
-  profilePath: string
-): void {
-  // Create directory if it doesn't exist
-  if (!fs.existsSync(profilePath)) {
-    fs.mkdirSync(profilePath, {recursive: true})
-  }
-
-  const stats = fs.statSync(profilePath)
-  if (!stats.isDirectory()) {
-    throw new Error(messages.pathIsNotDirectoryError(browser, profilePath))
-  }
-
-  // Check if we have read/write permissions
-  try {
-    fs.accessSync(profilePath, fs.constants.R_OK | fs.constants.W_OK)
-  } catch (error) {
-    throw new Error(messages.pathPermissionError(browser, profilePath))
-  }
+  keepProfileChanges?: boolean
+  copyFromProfile?: string
 }
 
 function configureProfile(
@@ -45,25 +32,23 @@ function configureProfile(
   customPreferences: Record<string, any>
 ) {
   const firefoxMasterPreferences: Record<string, any> = {
-    ...loadBrowserConfig(compilation.options.context!),
     ...getPreferences(customPreferences)
   }
 
-  const preferenceKeys = Object.keys(firefoxMasterPreferences)
+  const allPreferences = mergePreferences(
+    firefoxMasterPreferences,
+    {},
+    customPreferences
+  )
 
-  preferenceKeys.forEach((preference) => {
-    profile.setPreference(
-      preference,
-      firefoxMasterPreferences[preference] as string
+  applyPreferences(profile, allPreferences)
+
+  // Apply custom preferences last (highest priority)
+  if (Object.keys(customPreferences).length > 0) {
+    console.log(
+      `🔧 Setting custom Firefox preferences: ${JSON.stringify(customPreferences, null, 2)}`
     )
-  })
-
-  const customPreferenceKeys = Object.keys(customPreferences)
-
-  if (customPreferenceKeys.length > 0) {
-    customPreferenceKeys.forEach((custom) => {
-      profile.setPreference(custom, customPreferences[custom] as string)
-    })
+    applyPreferences(profile, customPreferences)
   }
 
   profile.updatePreferences()
@@ -77,44 +62,29 @@ function createProfileDir(
   customPreferences: Record<string, any>,
   browser: DevOptions['browser']
 ) {
-  const tempPath = `${destinationDirectory}.tmp`
-
-  try {
+  createProfileDirectory(browser, destinationDirectory, (tempPath) => {
     // Create temporary profile
     const profile = new FirefoxProfile({destinationDirectory: tempPath})
-    const profileConfigured = configureProfile(
-      compilation,
-      profile,
-      customPreferences
-    )
-
-    // Atomic rename
-    fs.renameSync(tempPath, destinationDirectory)
-    return profileConfigured
-  } catch (error) {
-    // Cleanup on failure
-    if (fs.existsSync(tempPath)) {
-      fs.rmSync(tempPath, {recursive: true, force: true})
-    }
-    throw new Error(messages.profileCreationError(browser, error))
-  }
+    configureProfile(compilation, profile, customPreferences)
+  })
 }
 
 export function createProfile(
   compilation: Compilation,
   {browser, userProfilePath, configPreferences = {}}: FirefoxProfileOptions
-) {
+): FirefoxProfile {
+  // For now, use the existing simple profile creation
+  // TODO: Integrate the advanced FirefoxProfileManager when the linter issues are resolved
   let profile: FirefoxProfile
-  const distPath = path.join(
-    path.dirname(compilation.options.output.path!),
-    '..'
-  )
-  const defaultProfilePath = path.resolve(
-    distPath,
-    'extension-js',
-    'profiles',
-    `${browser}-profile`
-  )
+
+  // Use the main output directory for profiles, not the browser-specific one
+  // The compilation.options.output.path is browser-specific (e.g., dist/firefox)
+  // We need the main output directory (e.g., dist)
+  const browserSpecificOutputPath =
+    compilation.options.output?.path || process.cwd() + '/dist'
+  // Go up one level from dist/firefox to dist
+  const mainOutputPath = path.dirname(browserSpecificOutputPath)
+  const defaultProfilePath = getDefaultProfilePath(mainOutputPath, browser)
 
   // If user provided a profile path, validate and use it
   if (userProfilePath) {
@@ -136,10 +106,9 @@ export function createProfile(
 
   // Create new profile
   addProgressBar(messages.creatingUserProfile(browser), () => {})
-  return createProfileDir(
-    compilation,
-    defaultProfilePath,
-    configPreferences,
-    browser
-  )
+  createProfileDir(compilation, defaultProfilePath, configPreferences, browser)
+
+  // Return the profile after creation
+  profile = new FirefoxProfile({destinationDirectory: defaultProfilePath})
+  return configureProfile(compilation, profile, configPreferences)
 }

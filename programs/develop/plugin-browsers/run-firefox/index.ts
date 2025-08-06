@@ -1,17 +1,18 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {exec, ChildProcess} from 'child_process'
+import {spawn, ChildProcess} from 'child_process'
 import {type Compiler, type Compilation} from '@rspack/core'
-import firefoxLocation from 'firefox-location2'
 import {browserConfig} from './firefox/browser-config'
 import {RemoteFirefox} from './remote-firefox'
+import {FirefoxBinaryDetector} from './firefox/binary-detector'
 import * as messages from '../browsers-lib/messages'
 import {type PluginInterface} from '../browsers-types'
 import {
   BrowserConfig,
   DevOptions
 } from '../../commands/commands-lib/config-types'
-import {isFromPnpx} from '../../webpack/lib/utils'
+import {InstanceManager} from '../../lib/instance-manager'
+import {DynamicExtensionManager} from '../../lib/dynamic-extension-manager'
 
 let child: ChildProcess | null = null
 
@@ -41,6 +42,10 @@ export class RunFirefoxPlugin {
   public readonly autoReload?: boolean
   public readonly stats?: boolean
   public readonly geckoBinary?: string
+  public readonly port?: number
+  public readonly instanceId?: string
+  public readonly keepProfileChanges?: boolean
+  public readonly copyFromProfile?: string
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -50,127 +55,192 @@ export class RunFirefoxPlugin {
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl
     this.geckoBinary = options.geckoBinary
-  }
+    this.port = options.port
+    this.instanceId = options.instanceId
+    this.keepProfileChanges = (options as any)?.keepProfileChanges
+    this.copyFromProfile = (options as any)?.copyFromProfile
 
-  private async getFxRunnerCommand() {
-    const globalNpxPath = isFromPnpx()
-      ? 'pnpm dlx fx-runner'
-      : 'npm exec fx-runner'
-
-    try {
-      // Try executing npx -y fx-runner to see if it is available globally
-      await new Promise((resolve, reject) => {
-        exec(`${globalNpxPath} --version`, (err) => {
-          if (err) reject(err)
-          else resolve(null)
-        })
-      })
-      return globalNpxPath
-    } catch (error) {
-      console.error(messages.browserNotInstalledError('firefox', globalNpxPath))
-      process.exit(1)
-    }
+    console.log(
+      '🔍 RunFirefoxPlugin constructor finished, this.port:',
+      this.port
+    )
   }
 
   private async launchFirefox(
     compilation: Compilation,
     options: DevOptions & BrowserConfig
   ) {
-    const fxRunnerCmd = await this.getFxRunnerCommand()
+    console.log(messages.firefoxLaunchCalled())
 
-    let browserBinaryLocation: string | null = null
-
-    switch (options.browser) {
-      case 'gecko-based':
-        browserBinaryLocation = path.normalize(this.geckoBinary!)
-        break
-
-      default:
-        browserBinaryLocation = firefoxLocation()
-        break
-    }
-
-    const firefoxLaunchPath = `${fxRunnerCmd} start --binary "${browserBinaryLocation}" --foreground --no-remote`
-
-    if (!fs.existsSync(browserBinaryLocation || '')) {
-      console.error(
-        messages.browserNotInstalledError(
-          this.browser,
-          browserBinaryLocation || ''
-        )
+    // Detect Firefox binary with enhanced detection
+    let browserBinaryLocation: string
+    try {
+      browserBinaryLocation = await FirefoxBinaryDetector.detectFirefoxBinary(
+        this.geckoBinary
       )
+      await FirefoxBinaryDetector.validateFirefoxBinary(browserBinaryLocation)
+    } catch (error) {
+      console.error(messages.firefoxDetectionFailed(error))
       process.exit(1)
     }
 
-    const firefoxConfig = await browserConfig(compilation, options)
-    const cmd = `${firefoxLaunchPath} ${firefoxConfig}`
+    // Get project path from compiler context
+    const projectPath = (compilation as any).options?.context || process.cwd()
 
-    child = exec(cmd, (error, _stdout, stderr) => {
-      if (error != null) throw error
-      if (stderr.includes('Unable to move the cache')) {
-        console.log(messages.browserInstanceAlreadyRunning(this.browser))
-      } else {
-        console.log(messages.browserInstanceExited(this.browser))
-        process.exit()
-      }
-    })
+    // Get the current instance and dynamic Extension.js DevTools
+    const instanceManager = new InstanceManager(projectPath)
+    const extensionManager = new DynamicExtensionManager(projectPath)
 
-    if (process.env.EXTENSION_ENV === 'development') {
-      child.stdout?.pipe(process.stdout)
-      child.stderr?.pipe(process.stderr)
+    let currentInstance = null
+    if (this.instanceId) {
+      currentInstance = await instanceManager.getInstance(this.instanceId)
     }
 
-    // Inject the add-ons code into Firefox profile.
-    const remoteFirefox = new RemoteFirefox(this)
+    // Store extensions for later use in RemoteFirefox
+    let extensionsToLoad = Array.isArray(this.extension)
+      ? [...this.extension]
+      : [this.extension]
 
-    try {
-      await remoteFirefox.installAddons(compilation)
-    } catch (error) {
-      const strErr = error?.toString()
-      if (strErr?.includes('background.service_worker is currently disabled')) {
-        console.error(messages.firefoxServiceWorkerError(this.browser))
+    // Add the dynamic manager extension if we have an instance
+    if (currentInstance) {
+      const generatedExtension =
+        await extensionManager.regenerateExtensionIfNeeded(currentInstance)
+      extensionsToLoad.push(generatedExtension.extensionPath)
+    }
+
+    // Store the extensions in the compilation context for RemoteFirefox to use
+    ;(compilation as any).firefoxExtensions = extensionsToLoad
+
+    const firefoxConfig = await browserConfig(compilation, {
+      ...options,
+      profile: this.profile,
+      preferences: this.preferences,
+      keepProfileChanges: this.keepProfileChanges,
+      copyFromProfile: this.copyFromProfile
+    })
+
+    // Parse the browser config to extract arguments
+    const firefoxArgs: string[] = []
+
+    // Extract binary args
+    const binaryArgsMatch = firefoxConfig.match(/--binary-args="([^"]*)"/)
+    if (binaryArgsMatch) {
+      firefoxArgs.push(...binaryArgsMatch[1].split(' '))
+      console.log(messages.firefoxBinaryArgsExtracted(binaryArgsMatch[1]))
+    } else {
+      console.log(messages.firefoxNoBinaryArgsFound())
+    }
+
+    // Extract profile path
+    const profileMatch = firefoxConfig.match(/--profile="([^"]*)"/)
+    if (profileMatch) {
+      const profilePath = profileMatch[1]
+
+      // Generate Firefox arguments based on binary type
+      const {binary, args} = FirefoxBinaryDetector.generateFirefoxArgs(
+        browserBinaryLocation,
+        profilePath,
+        this.port ? this.port + 100 : 9222,
+        firefoxArgs
+      )
+      // Launch Firefox with enhanced binary detection
+      child = spawn(binary, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        detached: false
+      })
+
+      child.on('error', (error) => {
+        console.error(messages.browserLaunchError(this.browser, error))
         process.exit(1)
+      })
+
+      child.on('close', (code) => {
+        if (code === 0) {
+          console.log(messages.browserInstanceExited(this.browser))
+        } else {
+          console.log(messages.browserInstanceExited(this.browser))
+        }
+        process.exit()
+      })
+
+      if (process.env.EXTENSION_ENV === 'development' && child) {
+        child.stdout?.pipe(process.stdout)
+        child.stderr?.pipe(process.stderr)
       }
 
-      console.error(messages.browserLaunchError(this.browser, error))
+      // Wait a minimal time for Firefox to start up (optimized from 3s to 1s)
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
+      // Inject the add-ons code into Firefox profile.
+      const remoteFirefox = new RemoteFirefox(this)
+
+      try {
+        await remoteFirefox.installAddons(compilation)
+      } catch (error) {
+        const strErr = error?.toString()
+        if (
+          strErr?.includes('background.service_worker is currently disabled')
+        ) {
+          console.error(messages.firefoxServiceWorkerError(this.browser))
+          process.exit(1)
+        }
+
+        console.error(messages.browserLaunchError(this.browser, error))
+        process.exit(1)
+      }
+    } else {
+      console.error(messages.firefoxFailedToExtractProfilePath())
       process.exit(1)
     }
   }
 
-  apply(compiler: Compiler) {
+  apply(compiler: any) {
+    console.log(messages.firefoxRunFirefoxPluginApplyArguments(arguments))
     let firefoxDidLaunch = false
 
-    compiler.hooks.done.tapAsync('run-firefox:module', async (stats, done) => {
-      if (stats.compilation.errors.length > 0) {
+    compiler.hooks.done.tapAsync(
+      'run-firefox:module',
+      async (stats: any, done: any) => {
+        if (stats.compilation.errors.length > 0) {
+          done()
+          return
+        }
+
+        if (firefoxDidLaunch) {
+          done()
+          return
+        }
+
+        try {
+          await this.launchFirefox(stats.compilation, {
+            browser: this.browser,
+            browserFlags: this.browserFlags,
+            profile: this.profile,
+            preferences: this.preferences,
+            startingUrl: this.startingUrl,
+            mode: stats.compilation.options.mode as DevOptions['mode'],
+            port: this.port
+          })
+
+          // Only show success message after Firefox has successfully started and add-ons installed
+          setTimeout(() => {
+            console.log(
+              messages.stdoutData(
+                this.browser,
+                stats.compilation.options.mode as DevOptions['mode']
+              )
+            )
+          }, 2000)
+
+          firefoxDidLaunch = true
+        } catch (error) {
+          // Don't show success message if Firefox failed to start
+          console.error(messages.firefoxFailedToStart(error))
+          process.exit(1)
+        }
+
         done()
-        return
       }
-
-      if (firefoxDidLaunch) {
-        done()
-        return
-      }
-
-      setTimeout(() => {
-        console.log(
-          messages.stdoutData(
-            this.browser,
-            stats.compilation.options.mode as DevOptions['mode']
-          )
-        )
-      }, 2000)
-
-      await this.launchFirefox(stats.compilation, {
-        browser: this.browser,
-        browserFlags: this.browserFlags,
-        profile: this.profile,
-        preferences: this.preferences,
-        startingUrl: this.startingUrl,
-        mode: stats.compilation.options.mode as DevOptions['mode']
-      })
-
-      firefoxDidLaunch = true
-      done()
-    })
+    )
   }
 }

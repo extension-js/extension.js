@@ -2,12 +2,14 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {Compilation, type Compiler} from '@rspack/core'
 import {spawn} from 'child_process'
-import chromeLocation from 'chrome-location2'
+import * as chromeLocation from 'chrome-location2'
 import edgeLocation from 'edge-location'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
 import {PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
+import {DynamicExtensionManager} from '../../lib/dynamic-extension-manager'
+import {InstanceManager} from '../../lib/instance-manager'
 
 process.on('SIGINT', () => {
   process.exit()
@@ -29,6 +31,7 @@ export class RunChromiumPlugin {
   public readonly stats?: boolean
   public readonly chromiumBinary?: string
   public readonly port?: number
+  public readonly instanceId?: string
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -40,6 +43,7 @@ export class RunChromiumPlugin {
     this.startingUrl = options.startingUrl
     this.chromiumBinary = options.chromiumBinary
     this.port = options.port
+    this.instanceId = options.instanceId
   }
 
   private async launchChromium(
@@ -50,7 +54,7 @@ export class RunChromiumPlugin {
 
     switch (browser) {
       case 'chrome':
-        browserBinaryLocation = chromeLocation()
+        browserBinaryLocation = chromeLocation.default()
         break
 
       case 'edge':
@@ -62,29 +66,85 @@ export class RunChromiumPlugin {
         break
 
       default:
-        browserBinaryLocation = chromeLocation()
+        browserBinaryLocation = chromeLocation.default()
         break
     }
 
-    if (!fs.existsSync(browserBinaryLocation) || '') {
+    if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
       console.error(
         messages.browserNotInstalledError(browser, browserBinaryLocation)
       )
       process.exit()
     }
 
-    const chromiumConfig = browserConfig(compilation, this)
+    // Get the current instance first to get the correct project path
+    const instanceManager = new InstanceManager(
+      (compilation as any).options?.context || process.cwd()
+    )
+    let currentInstance = null
+    if (this.instanceId) {
+      currentInstance = await instanceManager.getInstance(this.instanceId)
+    }
+
+    // Use the project path from the instance, or fallback to compiler context
+    const projectPath =
+      currentInstance?.projectPath ||
+      (compilation as any).options?.context ||
+      process.cwd()
+    const extensionManager = new DynamicExtensionManager(projectPath)
+
+    // Prepare extensions list with dynamic manager extension
+    let extensionsToLoad = Array.isArray(this.extension)
+      ? [...this.extension]
+      : [this.extension]
+
+    // Add the dynamic manager extension if we have an instance
+    if (currentInstance) {
+      const generatedExtension =
+        await extensionManager.regenerateExtensionIfNeeded(currentInstance)
+      extensionsToLoad.push(generatedExtension.extensionPath)
+    }
+
+    const chromiumConfig = browserConfig(compilation, {
+      ...this,
+      extension: extensionsToLoad
+    })
+
+    // Use direct spawn for basic functionality
+    await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
+  }
+
+  private async launchWithDirectSpawn(
+    browserBinaryLocation: string,
+    chromeFlags: string[]
+  ) {
+    console.log(messages.chromeInitializingEnhancedReload())
+
     const launchArgs = this.startingUrl
-      ? [this.startingUrl, ...chromiumConfig]
-      : [...chromiumConfig]
+      ? [this.startingUrl, ...chromeFlags]
+      : [...chromeFlags]
 
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-    const child = spawn(`${browserBinaryLocation}`, launchArgs, {stdio})
 
-    if (process.env.EXTENSION_ENV === 'development') {
-      child.stdout?.pipe(process.stdout)
-      child.stderr?.pipe(process.stderr)
+    try {
+      const child = spawn(`${browserBinaryLocation}`, launchArgs, {stdio})
+
+      if (process.env.EXTENSION_ENV === 'development') {
+        child.stdout?.pipe(process.stdout)
+        child.stderr?.pipe(process.stderr)
+      }
+
+      child.on('close', (code: number | null) => {
+        console.log(messages.chromeProcessExited(code || 0))
+      })
+
+      child.on('error', (error) => {
+        console.error(messages.chromeProcessError(error))
+      })
+    } catch (error) {
+      console.error(messages.chromeFailedToSpawn(error))
+      throw error
     }
   }
 

@@ -1,8 +1,10 @@
 import {Compilation, type Compiler} from '@rspack/core'
 import {type PluginInterface, type DefaultBrowserFlags} from '../browsers-types'
 import {createProfile} from './create-profile'
+import {filterBrowserFlags} from '../browsers-lib/shared-utils'
 
 // Define the default flags as a constant for maintainability and type checking
+// Removed redundant and outdated flags for better performance
 export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Disable Chrome's native first run experience.
   '--no-first-run',
@@ -32,7 +34,6 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // `Do you want the application "Chromium.app" to accept incoming network connections?`.
   // Also disables the Chrome Media Router which creates background networking activity
   // to discover cast targets.
-  // A superset of disabling DialMediaRouteProvider.
   '--disable-features=MediaRoute',
   // Use mock keychain on Mac to prevent the blocking permissions dialog about
   // "Chrome wants to use your confidential information stored in your keychain"
@@ -47,17 +48,8 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Disables Domain Reliability Monitoring, which tracks whether the browser
   // has difficulty contacting Google-owned sites and uploads reports to Google.
   '--disable-domain-reliability',
-  // Disables autofill server communication. This feature isn't disabled via other 'parent' flags.
-  '--disable-features=AutofillServerCommunicatio',
-  '--disable-features=CertificateTransparencyComponentUpdate',
   // Disable syncing to a Google account
   '--disable-sync',
-  // Used for turning on Breakpad crash reporting in a debug environment where crash
-  // reporting is typically compiled but disabled.
-  // Disable the Chrome Optimization Guide and networking with its service API
-  '--disable-features=OptimizationHints',
-  // A weaker form of disabling the MediaRouter feature. See that flag's details.
-  '--disable-features=DialMediaRouteProvider',
   // Don't send hyperlink auditing pings
   '--no-pings',
   // Ensure the side panel is visible. This is used for testing the side panel feature.
@@ -68,14 +60,16 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
 ]
 
 export function browserConfig(
-  compilation: Compilation,
+  compilation: any,
   configOptions: PluginInterface
 ) {
   const extensionsToLoad = Array.isArray(configOptions.extension)
     ? configOptions.extension
     : [configOptions.extension]
 
-  const userProfilePath = createProfile(compilation, {
+  const actualCompilation = compilation.compilation || compilation
+
+  const userProfilePath = createProfile(actualCompilation, {
     browser: configOptions.browser,
     userProfilePath: configOptions.profile,
     configPreferences: configOptions.preferences
@@ -85,21 +79,21 @@ export function browserConfig(
   const excludeFlags = configOptions.excludeBrowserFlags || []
 
   // Filter out excluded flags
-  const filteredFlags = DEFAULT_BROWSER_FLAGS.filter(
-    (flag) => !excludeFlags.some((excludeFlag) => flag === excludeFlag)
-  )
+  const filteredFlags = filterBrowserFlags(DEFAULT_BROWSER_FLAGS, excludeFlags)
 
   // Flags set by default:
   // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
   // Added useful flags for tooling:
   // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
-  return [
+
+  const baseFlags = [
     `--load-extension=${extensionsToLoad.join()}`,
     `--user-data-dir=${userProfilePath}`,
     ...filteredFlags,
-
     // Flags to pass to Chrome
     // Any of http://peter.sh/experiments/chromium-command-line-switches/
     ...(configOptions.browserFlags || [])
   ]
+
+  return baseFlags
 }

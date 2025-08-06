@@ -4,7 +4,7 @@ async function getDevExtension() {
   return allExtensions.filter((extension) => {
     return (
       // Reload extension
-      extension.name !== 'Extension Manager' &&
+      extension.name !== 'Extension.js DevTools' &&
       // Show only unpackaged extensions
       extension.installType === 'development'
     )
@@ -45,17 +45,34 @@ export async function handleFirstRun() {
       return
     }
 
-    const result = await browser.storage.local.get(devExtension.id)
+    // Use a more robust check that combines storage with a session flag
+    const storageKey = `welcome_shown_${devExtension.id}`
 
-    if (result[devExtension.id] && result[devExtension.id].didRun) {
+    const result = await browser.storage.local.get([
+      storageKey,
+      'welcome_session_flags'
+    ])
+    const hasShownWelcome = result[storageKey] && result[storageKey].didRun
+    const sessionFlags = result.welcome_session_flags || {}
+    const hasShownInSession = sessionFlags[devExtension.id]
+
+    if (hasShownWelcome || hasShownInSession) {
       return
     }
 
     // Open the welcome page
     await browser.tabs.create({url: './pages/welcome.html'})
 
-    // Ensure the welcome page shows only once per extension installation
-    await browser.storage.local.set({[devExtension.id]: {didRun: true}})
+    // Set both persistent and session flags to ensure it doesn't show again
+    const updates = {
+      [storageKey]: {didRun: true, timestamp: Date.now()},
+      welcome_session_flags: {
+        ...sessionFlags,
+        [devExtension.id]: true
+      }
+    }
+
+    await browser.storage.local.set(updates)
   } catch (error) {
     console.error('Error handling tabs on extension load:', error)
   }

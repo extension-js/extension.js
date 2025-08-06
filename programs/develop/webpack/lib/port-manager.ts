@@ -1,48 +1,103 @@
-import * as net from 'net'
 import {DevOptions} from '../../commands/commands-lib/config-types'
+import {InstanceManager, InstanceInfo} from '../../lib/instance-manager'
+import * as messages from './messages'
 
 export interface PortAllocation {
   port: number
+  webSocketPort: number
+  instanceId: string
 }
 
-// Simplified port manager for Extension.js development server
-// Since only one browser runs at a time, we use a single port
+// Enhanced port manager for Extension.js development server
+// Supports multiple instances with unique port allocation
 export class PortManager {
   private readonly basePort: number
+  private readonly instanceManager: InstanceManager
+  private currentInstance: InstanceInfo | null = null
 
-  constructor(_browser: DevOptions['browser'], basePort: number = 8080) {
+  constructor(
+    browser: DevOptions['browser'],
+    projectPath: string,
+    basePort: number = 8080
+  ) {
     this.basePort = basePort
+    this.instanceManager = new InstanceManager(projectPath, basePort, 9000)
   }
 
-  private async isPortAvailable(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const server = net.createServer()
-      server.once('error', () => resolve(false))
-      server.once('listening', () => {
-        server.close()
-        resolve(true)
-      })
-      server.listen(port)
-    })
-  }
+  async allocatePorts(
+    browser: DevOptions['browser'],
+    projectPath: string,
+    requestedPort?: number
+  ): Promise<PortAllocation> {
+    try {
+      // Create a new instance with unique ports
+      const instance = await this.instanceManager.createInstance(
+        browser,
+        projectPath,
+        requestedPort
+      )
 
-  private async findAvailablePort(startPort: number): Promise<number> {
-    let port = startPort
-    while (!(await this.isPortAvailable(port))) {
-      port++
+      this.currentInstance = instance
+
+      return {
+        port: instance.port,
+        webSocketPort: instance.webSocketPort,
+        instanceId: instance.instanceId
+      }
+    } catch (error) {
+      console.error(messages.portManagerErrorAllocatingPorts(error))
+      throw error
     }
-    return port
   }
 
-  async allocatePorts(requestedPort?: number): Promise<PortAllocation> {
-    const port = requestedPort
-      ? await this.findAvailablePort(requestedPort)
-      : await this.findAvailablePort(this.basePort)
+  getCurrentInstance(): InstanceInfo | null {
+    return this.currentInstance
+  }
 
-    return {port}
+  async updateExtensionId(extensionId: string): Promise<void> {
+    if (this.currentInstance) {
+      await this.instanceManager.updateInstance(
+        this.currentInstance.instanceId,
+        {
+          extensionId
+        }
+      )
+      this.currentInstance.extensionId = extensionId
+    }
+  }
+
+  async terminateCurrentInstance(): Promise<void> {
+    if (this.currentInstance) {
+      await this.instanceManager.terminateInstance(
+        this.currentInstance.instanceId
+      )
+      this.currentInstance = null
+    }
   }
 
   getPortInfo(allocation: PortAllocation): string {
-    return `Port: ${allocation.port}`
+    return `Port: ${allocation.port}, WebSocket: ${allocation.webSocketPort}, Instance: ${allocation.instanceId.slice(0, 8)}`
+  }
+
+  getInstanceManager(): InstanceManager {
+    return this.instanceManager
+  }
+
+  async isPortInUse(port: number): Promise<boolean> {
+    const instance = await this.instanceManager.getInstanceByPort(port)
+    return instance !== null
+  }
+
+  async getRunningInstances(): Promise<InstanceInfo[]> {
+    return await this.instanceManager.getRunningInstances()
+  }
+
+  async getStats(): Promise<{
+    total: number
+    running: number
+    terminated: number
+    error: number
+  }> {
+    return await this.instanceManager.getStats()
   }
 }

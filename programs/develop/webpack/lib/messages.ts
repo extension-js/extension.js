@@ -605,6 +605,14 @@ export function defaultPortInUse(port: number) {
   )
 }
 
+export function portInUse(requestedPort: number, newPort: number) {
+  return (
+    `${getLoggingPrefix('Port', 'warn')} ` +
+    `Port ${colors.yellow(requestedPort.toString())} is in use, using ` +
+    `${colors.blue(newPort.toString())} instead.`
+  )
+}
+
 export function noExtensionIdError() {
   return (
     `${getLoggingPrefix('manifest.json', 'error')} Extension ID Not Defined\n\n` +
@@ -639,7 +647,313 @@ export function isUsingCustomLoader(file: string) {
 
 export function webextensionPolyfillNotFound() {
   return (
-    `${getLoggingPrefix('Warning', 'warn')} webextension-polyfill not found. Browser API polyfill will not be available.\n` +
-    `To fix this, install webextension-polyfill: npm install webextension-polyfill`
+    `${getLoggingPrefix('Warning', 'warn')} webextension-polyfill not found. ` +
+    `Browser API polyfill will not be available.\n` +
+    `To fix this, install webextension-polyfill: ` +
+    `npm install webextension-polyfill`
+  )
+}
+
+// Instance Manager messages
+export function registrySaved(registryPath: string) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Instance Manager', 'info')} registry saved to: ` +
+    `${colors.blue(registryPath)}`
+  )
+}
+
+export function registrySaveError(error: unknown) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Instance Manager', 'error')} error saving ` +
+    `registry:\n${colors.red(String(error))}`
+  )
+}
+
+export function smartPortAllocationExistingPorts(usedPorts: number[]) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Smart Port Allocation', 'info')} existing ` +
+    `ports: ${colors.blue(JSON.stringify(usedPorts))}`
+  )
+}
+
+export function smartPortAllocationExistingWebSocketPorts(
+  usedWebSocketPorts: number[]
+) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Smart Port Allocation', 'info')} existing ` +
+    `WebSocket ports: ${colors.blue(JSON.stringify(usedWebSocketPorts))}`
+  )
+}
+
+export function smartPortAllocationUsingRequestedPort(
+  port: number,
+  webSocketPort: number
+) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Smart Port Allocation', 'info')} using requested port: ` +
+    `${colors.blue(port.toString())} WebSocket: ${colors.blue(webSocketPort.toString())}`
+  )
+}
+
+export function smartPortAllocationRequestedPortUnavailable(port: number) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Smart Port Allocation', 'warn')} requested port ` +
+    `unavailable: ${colors.yellow(port.toString())}`
+  )
+}
+
+export function smartPortAllocationAllocatedPorts(
+  port: number,
+  webSocketPort: number
+) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Smart Port Allocation', 'success')} allocated ports ` +
+    `${colors.blue(port.toString())} (port) and ` +
+    `${colors.blue(webSocketPort.toString())} (WebSocket)`
+  )
+}
+
+export function instanceManagerCreateInstanceCalled(params: any) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Instance Manager', 'info')} createInstance called ` +
+    `${colors.blue(JSON.stringify(params))}`
+  )
+}
+
+export function instanceManagerRegistryAfterCreateInstance(registry: any) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Instance Manager', 'info')} registry after ` +
+    `createInstance: ${colors.blue(JSON.stringify(registry))}`
+  )
+}
+
+// Extension.js DevTools messages
+export function extensionManagerInstanceInitialized(
+  instanceId: string,
+  webSocketPort: number
+) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Extension.js DevTools', 'success')} instance ` +
+    `${colors.blue(instanceId)} initialized on port ` +
+    `${colors.blue(webSocketPort.toString())}`
+  )
+}
+
+export function extensionManagerCopyFilesWarning(error: unknown) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Extension.js DevTools', 'warn')} could not copy ` +
+    `extension files: ${colors.yellow(String(error))}`
+  )
+}
+
+export function extensionManagerInstanceNotFoundWarning(instanceId: string) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Extension.js DevTools', 'warn')} instance ` +
+    `${colors.yellow(instanceId)} not found for cleanup`
+  )
+}
+
+export function extensionManagerCleanupWarning(error: unknown) {
+  if (process.env.EXTENSION_ENV !== 'development') return ''
+  return (
+    `${getLoggingPrefix('Extension.js DevTools', 'warn')} could not cleanup ` +
+    `temp extensions: ${colors.yellow(String(error))}`
+  )
+}
+
+// Firefox Binary Detector messages
+export function firefoxDetectedFlatpak() {
+  return (
+    `${getLoggingPrefix('Firefox Detector', 'info')} detected ` +
+    `Flatpak Firefox installation`
+  )
+}
+
+export function firefoxDetectedSnap() {
+  return (
+    `${getLoggingPrefix('Firefox Detector', 'info')} detected ` +
+    `Snap Firefox installation`
+  )
+}
+
+export function firefoxDetectedTraditional(firefoxPath: string) {
+  return (
+    `${getLoggingPrefix('Firefox Detector', 'info')} detected traditional ` +
+    `Firefox at: ${colors.blue(firefoxPath)}`
+  )
+}
+
+export function firefoxDetectedCustom(firefoxPath: string) {
+  return (
+    `${getLoggingPrefix('Firefox Detector', 'info')} detected custom ` +
+    `Firefox build at: ${colors.blue(firefoxPath)}`
+  )
+}
+
+export function firefoxUsingFlatpakWithSandbox() {
+  return (
+    `${getLoggingPrefix('Firefox Detector', 'info')} using Flatpak ` +
+    `Firefox with sandbox permissions`
+  )
+}
+
+export function firefoxVersion(version: string) {
+  return (
+    `${getLoggingPrefix('Firefox Detector', 'info')} Firefox version ` +
+    `is: ${colors.blue(version)}`
+  )
+}
+
+// WebSocket messages
+export function webSocketServerNotRunning() {
+  return `${getLoggingPrefix('WebSocket', 'error')} WebSocket server is not running`
+}
+
+export function webSocketConnectionCloseError(error: unknown) {
+  return (
+    `${getLoggingPrefix('WebSocket', 'error')} error closing ` +
+    `WebSocket connection:\n${colors.red(String(error))}`
+  )
+}
+
+// Port Manager messages
+export function portManagerErrorAllocatingPorts(error: unknown) {
+  return (
+    `${getLoggingPrefix('Port Manager', 'error')} error allocating ` +
+    `ports:\n${colors.red(String(error))}`
+  )
+}
+
+// Browser Plugin messages
+export function browserPluginFailedToLoad(browser: string, error: unknown) {
+  return (
+    `${getLoggingPrefix('Browser Plugin', 'error')} failed to load ` +
+    `${colors.yellow(browser)} plugin:\n${colors.red(String(error))}`
+  )
+}
+
+// Shared Utils messages
+export function sharedUtilsWarning(message: string) {
+  return `${getLoggingPrefix('Shared Utils', 'warn')} ${colors.yellow(message)}`
+}
+
+// Extension.js Runner messages
+export function extensionJsRunnerError(error: unknown) {
+  return (
+    `${getLoggingPrefix('Extension.js Runner', 'error')} error in the ` +
+    `Extension.js runner:\n${colors.red(String(error))}`
+  )
+}
+
+export function extensionJsRunnerCleanupError(error: unknown) {
+  return (
+    `${getLoggingPrefix('Extension.js Runner', 'error')} error during ` +
+    `cleanup:\n${colors.red(String(error))}`
+  )
+}
+
+export function extensionJsRunnerUncaughtException(error: unknown) {
+  return (
+    `${getLoggingPrefix('Extension.js Runner', 'error')} uncaught ` +
+    `exception:\n${colors.red(String(error))}`
+  )
+}
+
+export function extensionJsRunnerUnhandledRejection(
+  promise: Promise<any>,
+  reason: unknown
+) {
+  return (
+    `${getLoggingPrefix('Extension.js Runner', 'error')} unhandled ` +
+    `rejection at: ${colors.yellow(promise.toString())} reason: ` +
+    `${colors.red(String(reason))}`
+  )
+}
+
+export function emptyLine() {
+  return ''
+}
+
+export function configLoadingError(configType: string, error: unknown) {
+  return (
+    `${getLoggingPrefix('Config', 'error')} error loading ` +
+    `${colors.yellow(configType)}: ${colors.red(String(error))}`
+  )
+}
+
+// Reload Client messages
+export function reloadClientForcingExtensionReload(timestamp: string) {
+  return (
+    `${getLoggingPrefix('Reload Client', 'info')} forcing extension ` +
+    `reload at: ${colors.blue(timestamp)}`
+  )
+}
+
+export function reloadClientFailedToReloadExtension(error: unknown) {
+  return (
+    `${getLoggingPrefix('Reload Client', 'error')} failed to reload ` +
+    `extension:\n${colors.red(String(error))}`
+  )
+}
+
+export function reloadClientBackgroundScriptLoaded(cacheBuster: string) {
+  return (
+    `${getLoggingPrefix('Reload Client', 'info')} background script loaded ` +
+    `with cache buster: ${colors.blue(cacheBuster)}`
+  )
+}
+
+export function reloadClientBackgroundScriptStale() {
+  return (
+    `${getLoggingPrefix('Reload Client', 'warn')} background script is ` +
+    `stale, forcing reload`
+  )
+}
+
+// Firefox-specific reload client messages
+export function firefoxReloadClientReloadingExtension(changedFile: string) {
+  return (
+    `${getLoggingPrefix('Firefox Reload Client', 'info')} reloading ` +
+    `extension due to critical file change: ${colors.blue(changedFile)}`
+  )
+}
+
+export function firefoxReloadClientForcingExtensionReload(timestamp: string) {
+  return (
+    `${getLoggingPrefix('Firefox Reload Client', 'info')} forcing ` +
+    `extension reload at: ${colors.blue(timestamp)}`
+  )
+}
+
+export function firefoxReloadClientFailedToReloadExtension(error: unknown) {
+  return (
+    `${getLoggingPrefix('Firefox Reload Client', 'error')} failed to reload ` +
+    `extension:\n${colors.red(String(error))}`
+  )
+}
+
+export function firefoxReloadClientBackgroundScriptLoaded(cacheBuster: string) {
+  return (
+    `${getLoggingPrefix('Firefox Reload Client', 'info')} Firefox background ` +
+    `script loaded with cache buster: ${colors.blue(cacheBuster)}`
+  )
+}
+
+export function firefoxReloadClientBackgroundScriptStale() {
+  return (
+    `${getLoggingPrefix('Firefox Reload Client', 'warn')} Firefox ` +
+    `background script is stale, forcing reload`
   )
 }

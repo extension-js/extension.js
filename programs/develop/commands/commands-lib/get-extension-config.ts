@@ -44,7 +44,7 @@ export async function loadCustomWebpackConfig(projectPath: string) {
         }
       } catch (err: unknown) {
         const error = err as Error
-        console.error(`Error loading webpack config: ${error.message}`)
+        console.error(messages.configLoadingError('extension.config.js', error))
         throw err
       }
     }
@@ -67,13 +67,12 @@ export async function loadCommandConfig(
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
-        if (userConfig) {
-          // @ts-expect-error - TS doesn't know that command is a key of FileConfig['commands']
-          return userConfig[command]
+        if (userConfig && userConfig.commands && userConfig.commands[command]) {
+          return userConfig.commands[command]
         }
       } catch (err: unknown) {
         const error = err as Error
-        console.error(`Error loading command config: ${error.message}`)
+        console.error(messages.configLoadingError('command config', error))
         throw err
       }
     }
@@ -97,11 +96,11 @@ export async function loadBrowserConfig(
       try {
         const userConfig = await loadConfigFile(configPath)
         if (userConfig && userConfig.browser && userConfig.browser[browser]) {
-          return userConfig.browser[browser] || {browser: 'chrome'}
+          return userConfig.browser[browser]
         }
       } catch (err: unknown) {
         const error = err as Error
-        console.error(`Error loading browser config: ${error.message}`)
+        console.error(messages.configLoadingError('browser config', error))
         throw err
       }
     }

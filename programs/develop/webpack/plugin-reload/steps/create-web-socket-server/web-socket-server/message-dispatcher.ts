@@ -1,6 +1,7 @@
 import * as path from 'path'
 import WebSocket, {Server} from 'ws'
 import {getManifestFieldsData} from '../../../../plugin-extension/data/manifest-fields'
+import * as messages from '../../../../lib/messages'
 
 function dispatchMessage(
   server: Server<typeof WebSocket, any>,
@@ -28,7 +29,7 @@ export function messageDispatcher(
 
   if (!server) {
     if (process.env.EXTENSION_ENV === 'development') {
-      console.error('WebSocket server is not running.')
+      console.error(messages.webSocketServerNotRunning())
     }
 
     return
