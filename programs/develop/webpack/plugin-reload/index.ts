@@ -12,6 +12,7 @@ export class ReloadPlugin {
   private readonly port?: number
   private readonly stats?: boolean
   private readonly autoReload?: boolean
+  private readonly instanceId?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -19,9 +20,17 @@ export class ReloadPlugin {
     this.port = options.port
     this.stats = options.stats
     this.autoReload = options.autoReload
+    this.instanceId = options.instanceId
   }
 
   apply(compiler: Compiler) {
+    // Pass instance information to compiler options
+    if (this.instanceId) {
+      ;(compiler.options as any).currentInstance = {
+        instanceId: this.instanceId
+      }
+    }
+
     // 1 - Creates a WebSockets server to communicate with the browser.
     // This server is responsible for sending reload requests to the client,
     // which is a browser extension that is injected into the browser called
@@ -32,7 +41,8 @@ export class ReloadPlugin {
         manifestPath: this.manifestPath,
         browser: this.browser,
         port: this.port,
-        stats: this.stats
+        stats: this.stats,
+        instanceId: this.instanceId
       }).apply(compiler)
     }
 
@@ -46,7 +56,8 @@ export class ReloadPlugin {
         browser: this.browser,
         autoReload: this.autoReload,
         stats: this.stats,
-        port: this.port
+        port: this.port,
+        instanceId: this.instanceId
       }).apply(compiler)
     }
   }

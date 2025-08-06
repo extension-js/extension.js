@@ -2,7 +2,7 @@ import {createExtensionsPageTab, handleFirstRun} from './define-initial-tab.js'
 import {connect, disconnect, keepAlive} from './reload-service.js'
 
 function bgGreen(str) {
-  return `background: #0A0C10; color: #26FFB8; ${str}`
+  return `background: transparent; color: #0971fe; ${str}`
 }
 chrome.tabs.query({active: true}, async ([initialTab]) => {
   console.log(
