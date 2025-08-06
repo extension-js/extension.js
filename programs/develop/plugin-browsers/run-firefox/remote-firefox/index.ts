@@ -43,12 +43,23 @@ export class RemoteFirefox {
 
   public async installAddons(compilation: Compilation) {
     const {devtools} = this.options
-    const extensionsToLoad = Array.isArray(this.options.extension)
-      ? this.options.extension
-      : [this.options.extension]
+
+    // Check for stored extensions from multi-instance support
+    const storedExtensions = (compilation as any).firefoxExtensions
+    const extensionsToLoad =
+      storedExtensions ||
+      (Array.isArray(this.options.extension)
+        ? this.options.extension
+        : [this.options.extension])
 
     const devPort = (compilation.options.devServer as any)?.port
-    const port = devPort ? devPort + 100 : 9222
+    const portFromOptions = (this.options as any)?.port
+    const finalPort = portFromOptions
+      ? typeof portFromOptions === 'string'
+        ? parseInt(portFromOptions, 10)
+        : portFromOptions
+      : devPort
+    const port = finalPort ? finalPort + 100 : 9222
     const client = await this.connectClient(port)
 
     for (const [index, extension] of extensionsToLoad.entries()) {

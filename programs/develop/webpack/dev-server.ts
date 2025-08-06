@@ -18,17 +18,22 @@ import {
   loadCommandConfig,
   loadCustomWebpackConfig
 } from '../commands/commands-lib/get-extension-config'
-import * as messages from '../commands/commands-lib/messages'
+import * as messages from './lib/messages'
 import {PortManager} from './lib/port-manager'
 
-function closeAll(devServer: RspackDevServer) {
+function closeAll(devServer: RspackDevServer, portManager: PortManager) {
   devServer
     .stop()
-    .then(() => {
+    .then(async () => {
+      // Terminate the current instance
+      await portManager.terminateCurrentInstance()
       process.exit()
     })
-    .catch((error) => {
-      console.log(`Error in the Extension.js runner: ${error.stack || ''}`)
+    .catch(async (error) => {
+      console.log(messages.extensionJsRunnerError(error))
+      // Still try to terminate the instance
+      await portManager.terminateCurrentInstance()
+      process.exit(1)
     })
 }
 
@@ -41,13 +46,23 @@ export async function devServer(
   const packageJsonDir = path.dirname(packageJsonPath)
 
   // Get command defaults from extension.config.js
-  const commandConfig = loadCommandConfig(manifestDir, 'dev')
+  const commandConfig = await loadCommandConfig(manifestDir, 'dev')
   // Get browser defaults from extension.config.js
-  const browserConfig = loadBrowserConfig(manifestDir, devOptions.browser)
+  const browserConfig = await loadBrowserConfig(manifestDir, devOptions.browser)
 
-  // Initialize port manager and allocate port
-  const portManager = new PortManager(devOptions.browser, 8080)
-  const portAllocation = await portManager.allocatePorts(devOptions.port)
+  // Initialize port manager and allocate ports for this instance
+  const portManager = new PortManager(devOptions.browser, packageJsonDir, 8080)
+  const portAllocation = await portManager.allocatePorts(
+    devOptions.browser,
+    packageJsonDir,
+    devOptions.port
+  )
+
+  const currentInstance = portManager.getCurrentInstance()
+
+  if (!currentInstance) {
+    throw new Error('Failed to create instance')
+  }
 
   // Get the user defined args and merge with the Extension.js base webpack config
   const baseConfig = webpackConfig(projectStructure, {
@@ -55,6 +70,8 @@ export async function devServer(
     ...commandConfig,
     ...browserConfig,
     mode: 'development',
+    instanceId: currentInstance.instanceId,
+    port: portAllocation.port,
     output: {
       clean: false,
       path: path.join(manifestDir, 'dist', devOptions.browser)
@@ -120,17 +137,33 @@ export async function devServer(
         console.log(messages.portInUse(port as number, (port as number) + 1))
         process.exit(1)
       }
-      console.log(`Error in the Extension.js runner: ${error.stack || ''}`)
+      console.log(messages.extensionJsRunnerError(error))
     }
   })
 
-  process.on('ERROR', () => {
-    closeAll(devServer)
+  // Handle process termination
+  const cleanup = async () => {
+    try {
+      await closeAll(devServer, portManager)
+    } catch (error) {
+      console.error(messages.extensionJsRunnerCleanupError(error))
+      process.exit(1)
+    }
+  }
+
+  process.on('ERROR', cleanup)
+  process.on('SIGINT', cleanup)
+  process.on('SIGTERM', cleanup)
+  process.on('SIGHUP', cleanup)
+
+  // Handle uncaught exceptions
+  process.on('uncaughtException', async (error) => {
+    console.error(messages.extensionJsRunnerUncaughtException(error))
+    await cleanup()
   })
-  process.on('SIGINT', () => {
-    closeAll(devServer)
-  })
-  process.on('SIGTERM', () => {
-    closeAll(devServer)
+
+  process.on('unhandledRejection', async (reason, promise) => {
+    console.error(messages.extensionJsRunnerUnhandledRejection(promise, reason))
+    await cleanup()
   })
 }

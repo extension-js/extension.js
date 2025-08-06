@@ -25,13 +25,16 @@ import * as utils from './lib/utils'
 export default function webpackConfig(
   projectStructure: ProjectStructure,
   devOptions: DevOptions & {
-    preferences?: Record<string, string>
+    preferences?: Record<string, unknown>
     browserFlags?: string[]
   } & {
     output: {
       clean: boolean
       path: string
     }
+  } & {
+    // Internal auto-generated instance ID, not user-configurable
+    instanceId?: string
   }
 ): Configuration {
   const {manifestPath, packageJsonPath} = projectStructure
@@ -99,7 +102,7 @@ export default function webpackConfig(
       ]
     },
     watchOptions: {
-      ignored: /node_modules|dist/
+      ignored: /node_modules|dist|extension-js\/profiles/
     },
     module: {
       rules: [],
@@ -143,12 +146,17 @@ export default function webpackConfig(
         manifestPath,
         browser,
         stats: true,
-        port: devOptions.port || 8080
+        port: devOptions.port || 8080,
+        instanceId: devOptions.instanceId
       }),
       new BrowsersPlugin({
         extension: [
           userExtensionOutputPath,
-          devOptions.mode !== 'production' ? managerExtensionOutputPath : ''
+          // Only include the old manager extension when not using multi-instance support
+          // (when instanceId is not present) as DynamicExtensionManager handles it
+          devOptions.mode !== 'production' && !devOptions.instanceId
+            ? managerExtensionOutputPath
+            : ''
         ],
         browser,
         open: devOptions.open,
@@ -157,7 +165,9 @@ export default function webpackConfig(
         preferences: devOptions.preferences,
         browserFlags: devOptions.browserFlags,
         chromiumBinary: devOptions.chromiumBinary,
-        geckoBinary: devOptions.geckoBinary
+        geckoBinary: devOptions.geckoBinary,
+        instanceId: devOptions.instanceId,
+        port: devOptions.port
       })
     ].filter(Boolean),
     stats: {

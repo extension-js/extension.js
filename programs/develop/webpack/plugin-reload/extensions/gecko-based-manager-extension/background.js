@@ -2,7 +2,7 @@ import {handleFirstRun} from './define-initial-tab.js'
 import {connect, disconnect} from './reload-service.js'
 
 function bgGreen(str) {
-  return `background: #0A0C10; color: #26FFB8; ${str}`
+  return `background: transparent; color: #0971fe; ${str}`
 }
 
 async function handleTabOnExtensionLoad() {

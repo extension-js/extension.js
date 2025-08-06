@@ -1,4 +1,5 @@
 const TEN_SECONDS_MS = 10 * 1000
+const INSTANT_MS = 100
 let webSocket = null
 
 export async function connect() {
@@ -71,8 +72,14 @@ async function getDevExtensions() {
 }
 
 async function hardReloadAllExtensions(changedFile) {
-  // Check if the external extension is ready
-  const isExtensionReady = await checkExtensionReadiness()
+  // For critical files like manifest.json, skip the delay entirely
+  const isCriticalFile =
+    changedFile === 'manifest.json' ||
+    changedFile === 'service_worker' ||
+    changedFile === 'declarative_net_request'
+
+  // Check if the external extension is ready with optimized timing
+  const isExtensionReady = await checkExtensionReadiness(isCriticalFile)
 
   if (isExtensionReady) {
     const devExtensions = await getDevExtensions()
@@ -130,9 +137,11 @@ async function requestInitialLoadData() {
   }
 }
 
-async function checkExtensionReadiness() {
-  // Delay for 1 second
-  await delay(1000)
+async function checkExtensionReadiness(isCriticalFile = false) {
+  // For critical files like manifest.json, use minimal delay
+  // For regular files, use 1 second delay to ensure stability
+  const delayTime = isCriticalFile ? INSTANT_MS : 1000
+  await delay(delayTime)
   // Assume the extension is ready
   return true
 }

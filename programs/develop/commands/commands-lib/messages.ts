@@ -402,3 +402,7 @@ export function portInUse(requestedPort: number, newPort: number) {
     `Using port ${colors.green(newPort.toString())} instead.`
   )
 }
+
+export function configLoadingError(configPath: string, error: unknown) {
+  return `${getLoggingPrefix('error')} Failed to load ${configPath} config.\n${colors.red(String(error))}`
+}

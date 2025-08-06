@@ -164,8 +164,8 @@ export async function installOptionalDependencies(
 
     execSync(installCommand, {stdio: 'inherit'})
 
-    // Adding a delay to ensure the modules are installed and available
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    // Adding a minimal delay to ensure the modules are installed and available (optimized from 2s to 500ms)
+    await new Promise((resolve) => setTimeout(resolve, 500))
 
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.installingRootDependencies(integration))
@@ -207,38 +207,6 @@ export function isFirstRun(outputPath: string, browser: DevOptions['browser']) {
   return !fs.existsSync(
     path.resolve(distPath, 'extension-js', 'profiles', `${browser}-profile`)
   )
-}
-
-export function getHardcodedMessage(manifest: Manifest): {
-  data: messages.MessageData
-} {
-  const manifestName = manifest.name?.replace(/ /g, '-').toLowerCase()
-
-  return {
-    data: {
-      id: `${manifestName}@extension-js`,
-      manifest,
-      management: {
-        id: `${manifestName}@extension-js`,
-        mayDisable: true,
-        optionsUrl: '',
-        installType: 'development' as 'development',
-        type: 'extension' as 'extension',
-        enabled: true,
-        name: manifest.name || '',
-        description: manifest.description || '',
-        version: manifest.version || '',
-        hostPermissions: manifest.host_permissions || [],
-        permissions: manifest.permissions || [],
-        offlineEnabled: manifest.offline_enabled || false,
-        shortName: manifest.short_name || '',
-        isApp:
-          manifest.app &&
-          manifest.app.background &&
-          manifest.app.background.scripts
-      }
-    }
-  }
 }
 
 export function filterKeysForThisBrowser(

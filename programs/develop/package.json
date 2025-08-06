@@ -55,7 +55,6 @@
     "edge-location": "^1.1.1",
     "firefox-location2": "1.0.0",
     "firefox-profile": "^4.7.0",
-    "fx-runner": "^1.4.0",
     "go-git-it": "4.0.0",
     "ignore": "^6.0.2",
     "loader-utils": "^3.3.1",
