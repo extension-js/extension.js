@@ -1,5 +1,9 @@
 const TEN_SECONDS_MS = 10 * 1000
+const INSTANT_MS = 100
 let webSocket = null
+
+// Get instance ID from the service worker context
+const instanceId = '__INSTANCE_ID__'
 
 export async function connect() {
   if (webSocket) {
@@ -18,23 +22,31 @@ export async function connect() {
 
   webSocket.onopen = () => {
     console.info(
-      `[Reload Service] Connection opened. Listening on port ${port}...`
+      `[Reload Service] Connection opened. Listening on port ${port} for instance ${instanceId}...`
     )
   }
 
   webSocket.onmessage = async (event) => {
     const message = JSON.parse(event.data)
 
+    // Only process messages for this instance
+    if (message.instanceId && message.instanceId !== instanceId) {
+      console.log(
+        `[Reload Service] Ignoring message from wrong instance: ${message.instanceId} (expected: ${instanceId})`
+      )
+      return
+    }
+
     if (message.status === 'serverReady') {
       console.info(
-        `[Reload Service] Server ready. Requesting initial load data...`
+        `[Reload Service] Server ready for instance ${instanceId}. Requesting initial load data...`
       )
       await requestInitialLoadData()
     }
 
     if (message.changedFile) {
       console.info(
-        `[Reload Service] Changes detected on ${message.changedFile}. Reloading extension...`
+        `[Reload Service] Changes detected on ${message.changedFile} for instance ${instanceId}. Reloading extension...`
       )
 
       await hardReloadAllExtensions(message.changedFile)
@@ -42,7 +54,9 @@ export async function connect() {
   }
 
   webSocket.onclose = () => {
-    console.info('[Reload Service] Connection closed.')
+    console.info(
+      `[Reload Service] Connection closed for instance ${instanceId}.`
+    )
     webSocket = null
   }
 }
@@ -50,6 +64,33 @@ export async function connect() {
 export function disconnect() {
   if (webSocket) {
     webSocket.close()
+  }
+}
+
+async function requestInitialLoadData() {
+  const devExtensions = await getDevExtensions()
+
+  for (const extension of devExtensions) {
+    try {
+      const response = await chrome.runtime.sendMessage(extension.id, {
+        initialLoadData: true
+      })
+
+      if (response) {
+        // Send the response back to the server with instance ID
+        webSocket.send(
+          JSON.stringify({
+            status: 'clientReady',
+            instanceId: instanceId,
+            data: response
+          })
+        )
+      }
+    } catch (error) {
+      console.error(
+        `Error sending message to ${extension.id}: ${error.message}`
+      )
+    }
   }
 }
 
@@ -71,8 +112,14 @@ async function getDevExtensions() {
 }
 
 async function hardReloadAllExtensions(changedFile) {
-  // Check if the external extension is ready
-  const isExtensionReady = await checkExtensionReadiness()
+  // For critical files like manifest.json, skip the long delay
+  const isCriticalFile =
+    changedFile === 'manifest.json' ||
+    changedFile === 'service_worker' ||
+    changedFile === 'declarative_net_request'
+
+  // Check if the external extension is ready with optimized timing
+  const isExtensionReady = await checkExtensionReadiness(isCriticalFile)
 
   if (isExtensionReady) {
     const devExtensions = await getDevExtensions()
@@ -81,7 +128,9 @@ async function hardReloadAllExtensions(changedFile) {
 
       chrome.runtime.sendMessage(extension.id, {changedFile}, (response) => {
         if (response) {
-          console.info('[Reload Service] Extension reloaded and ready.')
+          console.info(
+            `[Reload Service] Extension reloaded and ready for instance ${instanceId}.`
+          )
         }
       })
 
@@ -90,55 +139,31 @@ async function hardReloadAllExtensions(changedFile) {
 
     await Promise.all(reloadAll)
   } else {
-    console.info('[Reload Service] External extension is not ready.')
+    console.info(
+      `[Reload Service] External extension is not ready for instance ${instanceId}.`
+    )
   }
 }
 
-async function requestInitialLoadData() {
-  const devExtensions = await getDevExtensions()
+async function checkExtensionReadiness(isCriticalFile = false) {
+  return new Promise((resolve) => {
+    // For critical files like manifest.json, use minimal delay
+    // For regular files, use longer delay to ensure stability
+    const delay = isCriticalFile ? INSTANT_MS : TEN_SECONDS_MS
 
-  const messagePromises = devExtensions.map(async (extension) => {
-    return await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        extension.id,
-        {initialLoadData: true},
-        (response) => {
-          if (chrome.runtime.lastError) {
-            console.error(
-              `Error sending message to ${extension.id}: ${chrome.runtime.lastError.message}`
-            )
-            resolve(null)
-          } else {
-            resolve(response)
-          }
-        }
-      )
-    })
+    setTimeout(() => {
+      resolve(true)
+    }, delay)
   })
+}
 
-  const responses = await Promise.all(messagePromises)
-
-  // We received the info from the use extension.
-  // All good, client is ready. Inform the server.
-  if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-    const message = JSON.stringify({
-      status: 'clientReady',
-      data: responses[0]
-    })
-
-    webSocket.send(message)
+async function hardReloadExtension(extensionId) {
+  try {
+    await chrome.management.setEnabled(extensionId, false)
+    await chrome.management.setEnabled(extensionId, true)
+  } catch (error) {
+    console.error(`Error reloading extension ${extensionId}: ${error.message}`)
   }
-}
-
-async function checkExtensionReadiness() {
-  // Delay for 1 second
-  await delay(1000)
-  // Assume the extension is ready
-  return true
-}
-
-async function delay(ms) {
-  return await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export function keepAlive() {
@@ -150,18 +175,4 @@ export function keepAlive() {
       clearInterval(keepAliveIntervalId)
     }
   }, TEN_SECONDS_MS)
-}
-
-const toggleExtensionState = (extensionId, enabled) => {
-  if (extensionId === chrome.runtime.id) {
-    return Promise.resolve()
-  }
-  return new Promise((resolve) => {
-    chrome.management.setEnabled(extensionId, enabled, resolve)
-  })
-}
-
-async function hardReloadExtension(extensionId) {
-  await toggleExtensionState(extensionId, false)
-  await toggleExtensionState(extensionId, true)
 }
