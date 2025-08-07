@@ -82,7 +82,9 @@ export class DynamicExtensionManager {
     // Create unique extension name and description
     // #${instanceId.slice(0, 8)}
     const extensionName = `Extension.js DevTools`
-    const extensionDescription = `Extension.js built-in developer tools for instance ${instanceId.slice(0, 8)}`
+    const extensionDescription =
+      `Extension.js built-in developer tools for instance ` +
+      `${instanceId.slice(0, 8)}`
 
     // Read base extension files
     const baseManifest = await this.readBaseManifest(instance.browser)
@@ -108,15 +110,18 @@ export class DynamicExtensionManager {
       )
 
     // Add instance-specific cache buster and logging
-    const enhancedServiceWorker = `// Instance: ${instanceId}
-// Generated: ${new Date().toISOString()}
-// Cache-buster: ${Date.now()}
-
-${serviceWorkerContent}
-
-// Instance-specific logging
-${process.env.EXTENSION_ENV === 'development' ? `console.log('[Extension.js DevTools] Instance ${instanceId} initialized on port ${instance.webSocketPort}');` : ''}
-`
+    const enhancedServiceWorker =
+      `// Instance: ${instanceId}\n` +
+      `// Generated: ${new Date().toISOString()}\n` +
+      `// Cache-buster: ${Date.now()}\n\n` +
+      `${serviceWorkerContent}\n\n` +
+      `// Instance-specific logging\n` +
+      `${
+        process.env.EXTENSION_ENV === 'development'
+          ? `console.log('[Extension.js DevTools] Instance ${instanceId} ` +
+            `initialized on port ${instance.webSocketPort}');`
+          : ''
+      }\n`
 
     // Create extension directory
     const extensionPath = path.join(
@@ -207,8 +212,7 @@ ${process.env.EXTENSION_ENV === 'development' ? `console.log('[Extension.js DevT
         }
       }
     } catch (error) {
-      const message = messages.extensionManagerCopyFilesWarning(error)
-      if (message) console.warn(message)
+      console.warn(messages.extensionManagerCopyFilesWarning(error))
     }
   }
 
@@ -219,9 +223,7 @@ ${process.env.EXTENSION_ENV === 'development' ? `console.log('[Extension.js DevT
     const instance = await instanceManager.getInstance(instanceId)
 
     if (!instance) {
-      const message =
-        messages.extensionManagerInstanceNotFoundWarning(instanceId)
-      if (message) console.warn(message)
+      console.warn(messages.extensionManagerInstanceNotFoundWarning(instanceId))
       return
     }
 
@@ -235,7 +237,8 @@ ${process.env.EXTENSION_ENV === 'development' ? `console.log('[Extension.js DevT
     } catch (error) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.warn(
-          `Warning: Could not cleanup extension for ${instance.browser}-manager-${instance.port}: ${error}`
+          `Warning: Could not cleanup extension for ` +
+            `${instance.browser}-manager-${instance.port}: ${error}`
         )
       }
     }
@@ -245,8 +248,7 @@ ${process.env.EXTENSION_ENV === 'development' ? `console.log('[Extension.js DevT
     try {
       await fs.rm(this.userExtensionsPath, {recursive: true, force: true})
     } catch (error) {
-      const message = messages.extensionManagerCleanupWarning(error)
-      if (message) console.warn(message)
+      console.warn(messages.extensionManagerCleanupWarning(error))
     }
   }
 
