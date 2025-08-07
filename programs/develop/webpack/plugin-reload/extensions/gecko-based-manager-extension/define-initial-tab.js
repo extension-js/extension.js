@@ -45,34 +45,17 @@ export async function handleFirstRun() {
       return
     }
 
-    // Use a more robust check that combines storage with a session flag
-    const storageKey = `welcome_shown_${devExtension.id}`
+    const result = await browser.storage.local.get(devExtension.id)
 
-    const result = await browser.storage.local.get([
-      storageKey,
-      'welcome_session_flags'
-    ])
-    const hasShownWelcome = result[storageKey] && result[storageKey].didRun
-    const sessionFlags = result.welcome_session_flags || {}
-    const hasShownInSession = sessionFlags[devExtension.id]
-
-    if (hasShownWelcome || hasShownInSession) {
+    if (result[devExtension.id] && result[devExtension.id].didRun) {
       return
     }
 
     // Open the welcome page
     await browser.tabs.create({url: './pages/welcome.html'})
 
-    // Set both persistent and session flags to ensure it doesn't show again
-    const updates = {
-      [storageKey]: {didRun: true, timestamp: Date.now()},
-      welcome_session_flags: {
-        ...sessionFlags,
-        [devExtension.id]: true
-      }
-    }
-
-    await browser.storage.local.set(updates)
+    // Ensure the welcome page shows only once per extension installation
+    await browser.storage.local.set({[devExtension.id]: {didRun: true}})
   } catch (error) {
     console.error('Error handling tabs on extension load:', error)
   }
