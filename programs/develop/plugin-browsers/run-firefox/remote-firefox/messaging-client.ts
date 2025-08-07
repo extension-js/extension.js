@@ -6,6 +6,7 @@ import net from 'net'
 import EventEmitter from 'events'
 import * as messages from '../../browsers-lib/messages'
 import {DevOptions} from '../../../module'
+import * as sourceMessages from '../../../webpack/plugin-reload/reload-lib/messages'
 
 interface Message {
   from?: string
@@ -223,5 +224,146 @@ export class MessagingClient extends EventEmitter {
 
   onTimeout(): void {
     this.emit('timeout')
+  }
+
+  // Source inspection methods for Firefox RDP
+  async getTargets(): Promise<any[]> {
+    const response = await this.request({
+      to: 'root',
+      type: 'listTabs'
+    })
+    return response.tabs || []
+  }
+
+  async navigate(tabId: string, url: string): Promise<void> {
+    await this.request({
+      to: tabId,
+      type: 'navigateTo',
+      url
+    })
+  }
+
+  async waitForLoadEvent(tabId: string): Promise<void> {
+    return new Promise((resolve) => {
+      let resolved = false
+
+      // Listen for page load events
+      const listener = (message: any) => {
+        if (
+          message.from === tabId &&
+          message.type === 'tabNavigated' &&
+          !resolved
+        ) {
+          resolved = true
+          console.log(sourceMessages.firefoxRdpClientPageLoadEventFired())
+          resolve()
+        }
+      }
+
+      // Add temporary listener
+      this.on('message', listener)
+
+      // Remove listener after load event or timeout
+      setTimeout(() => {
+        if (!resolved) {
+          resolved = true
+          console.log(sourceMessages.firefoxRdpClientLoadEventTimeout())
+          resolve()
+        }
+        this.removeListener('message', listener)
+      }, 15000)
+    })
+  }
+
+  async evaluate(tabId: string, expression: string): Promise<any> {
+    const response = await this.request({
+      to: tabId,
+      type: 'evaluateJS',
+      text: expression
+    })
+    return response.result
+  }
+
+  async getPageHTML(tabId: string): Promise<string> {
+    // First, let's test if basic evaluation works
+    console.log(sourceMessages.firefoxRdpClientTestingEvaluation())
+    const testResult = await this.evaluate(tabId, 'document.title')
+    console.log(sourceMessages.firefoxRdpClientDocumentTitle(testResult))
+
+    // Now get the main HTML
+    console.log(sourceMessages.firefoxRdpClientGettingMainHTML())
+    const mainHTML = await this.evaluate(
+      tabId,
+      'document.documentElement.outerHTML'
+    )
+    console.log(
+      sourceMessages.firefoxRdpClientMainHTMLLength(
+        mainHTML ? mainHTML.length : 0
+      )
+    )
+
+    if (!mainHTML) {
+      console.log(sourceMessages.firefoxRdpClientFailedToGetMainHTML())
+      return ''
+    }
+
+    // Now check for Shadow DOM
+    console.log(sourceMessages.firefoxRdpClientCheckingShadowDOM())
+    const shadowContent = await this.evaluate(
+      tabId,
+      `
+      (function() {
+        const extensionRoot = document.getElementById('extension-root');
+        if (extensionRoot && extensionRoot.shadowRoot) {
+          return extensionRoot.shadowRoot.innerHTML;
+        }
+        return null;
+      })()
+    `
+    )
+
+    console.log(
+      sourceMessages.firefoxRdpClientShadowDOMContentFound(!!shadowContent)
+    )
+    if (shadowContent) {
+      console.log(
+        sourceMessages.firefoxRdpClientShadowDOMContentLength(
+          shadowContent.length
+        )
+      )
+      console.log(sourceMessages.firefoxRdpClientProcessingShadowDOM())
+
+      const finalHTML = await this.evaluate(
+        tabId,
+        `
+        (function() {
+          const mainHTML = document.documentElement.outerHTML;
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = mainHTML;
+          const extensionRoot = tempDiv.querySelector('#extension-root');
+          if (extensionRoot) {
+            extensionRoot.innerHTML = ${JSON.stringify(shadowContent)};
+          }
+          return tempDiv.innerHTML;
+        })()
+      `
+      )
+      console.log(
+        sourceMessages.firefoxRdpClientFinalHTMLWithShadowDOMLength(
+          finalHTML ? finalHTML.length : 0
+        )
+      )
+      return finalHTML || ''
+    }
+
+    console.log(sourceMessages.firefoxRdpClientReturningMainHTML())
+    return mainHTML || ''
+  }
+
+  async closeTab(tabId: string): Promise<void> {
+    await this.request({
+      to: tabId,
+      type: 'close'
+    })
   }
 }

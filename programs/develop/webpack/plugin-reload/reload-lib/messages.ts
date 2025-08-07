@@ -34,6 +34,13 @@ export function sourceInspectorChromeDebuggingRequired(port: number) {
   )
 }
 
+export function sourceInspectorFirefoxDebuggingRequired(port: number) {
+  return (
+    `${colors.red('ERROR')} Firefox is not running with remote debugging enabled on port ${port}. ` +
+    `Please ensure Firefox is launched with --listen=${port}`
+  )
+}
+
 export function sourceInspectorWaitingForChrome() {
   return `${colors.cyan('►►►')} Waiting for Chrome to be ready with remote debugging...`
 }
@@ -348,4 +355,85 @@ export function certRequired() {
 
 export function webSocketConnectionCloseError(error: unknown) {
   return `${colors.red('ERROR')} Error closing WebSocket connection: ${String(error)}`
+}
+
+// Firefox RDP Client messages
+export function firefoxRdpClientFoundTargets(count: number) {
+  return `${colors.cyan('►►►')} Found ${count} Firefox targets`
+}
+
+export function firefoxRdpClientUsingTarget(title: string, url: string) {
+  return `${colors.cyan('►►►')} Using Firefox target: ${title} (${url})`
+}
+
+export function firefoxRdpClientConnected(host: string, port: number) {
+  return `${colors.green('►►►')} Connected to Firefox Remote Debugging Protocol on ${host}:${port}`
+}
+
+export function firefoxRdpClientConnectionError(error: string) {
+  return `${colors.red('ERROR')} Firefox RDP connection error: ${error}`
+}
+
+export function firefoxRdpClientConnectionClosed() {
+  return `${colors.yellow('►►►')} Firefox RDP connection closed`
+}
+
+export function firefoxRdpClientNoSuitableTargets() {
+  return `${colors.red('ERROR')} No suitable Firefox targets available`
+}
+
+export function firefoxRdpClientPageLoadEventFired() {
+  return `${colors.cyan('►►►')} Firefox page load event fired`
+}
+
+export function firefoxRdpClientLoadEventTimeout() {
+  return `${colors.yellow('►►►')} Firefox load event timeout, proceeding anyway...`
+}
+
+export function firefoxRdpClientTestingEvaluation() {
+  return `${colors.cyan('►►►')} Testing basic Firefox RDP evaluation...`
+}
+
+export function firefoxRdpClientDocumentTitle(title: string) {
+  return `${colors.cyan('►►►')} Firefox document title: ${title}`
+}
+
+export function firefoxRdpClientGettingMainHTML() {
+  return `${colors.cyan('►►►')} Getting Firefox main HTML...`
+}
+
+export function firefoxRdpClientMainHTMLLength(length: number) {
+  return `${colors.cyan('►►►')} Firefox main HTML length: ${length}`
+}
+
+export function firefoxRdpClientFailedToGetMainHTML() {
+  return `${colors.red('ERROR')} Failed to get Firefox main HTML`
+}
+
+export function firefoxRdpClientCheckingShadowDOM() {
+  return `${colors.cyan('►►►')} Checking Firefox for Shadow DOM...`
+}
+
+export function firefoxRdpClientShadowDOMContentFound(found: boolean) {
+  return `${colors.cyan('►►►')} Firefox Shadow DOM content found: ${found ? 'yes' : 'no'}`
+}
+
+export function firefoxRdpClientShadowDOMContentLength(length: number) {
+  return `${colors.cyan('►►►')} Firefox Shadow DOM content length: ${length}`
+}
+
+export function firefoxRdpClientProcessingShadowDOM() {
+  return `${colors.cyan('►►►')} Processing Firefox Shadow DOM content...`
+}
+
+export function firefoxRdpClientFinalHTMLWithShadowDOMLength(length: number) {
+  return `${colors.cyan('►►►')} Firefox final HTML with Shadow DOM length: ${length}`
+}
+
+export function firefoxRdpClientReturningMainHTML() {
+  return `${colors.cyan('►►►')} Returning Firefox main HTML without Shadow DOM`
+}
+
+export function firefoxRdpClientFinalHTMLLength(length: number) {
+  return `${colors.cyan('►►►')} Firefox final HTML length: ${length}`
 }
