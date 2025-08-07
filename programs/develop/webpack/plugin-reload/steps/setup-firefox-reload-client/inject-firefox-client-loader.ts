@@ -71,7 +71,7 @@ export default function (this: InjectFirefoxClientContext, source: string) {
         try {
           // Firefox-specific cache clearing
           if (browser.storage && browser.storage.local) {
-            await browser.storage.local.clear(); // Note: Welcome page flags are preserved by the extension manager
+            await browser.storage.local.clear();
           }
           
           const timestamp = Date.now();

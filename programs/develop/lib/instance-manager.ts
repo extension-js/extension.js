@@ -106,11 +106,9 @@ export class InstanceManager {
       await this.ensureRegistryDir()
       const data = JSON.stringify(registry, null, 2)
       await fs.writeFile(this.registryPath, data)
-      const message = messages.registrySaved(this.registryPath)
-      if (message) console.log(message)
+      console.log(messages.registrySaved(this.registryPath))
     } catch (error) {
-      const message = messages.registrySaveError(error)
-      if (message) console.error(message)
+      console.error(messages.registrySaveError(error))
       throw error
     }
   }
@@ -142,11 +140,10 @@ export class InstanceManager {
       (instance) => instance.webSocketPort
     )
 
-    const message1 = messages.smartPortAllocationExistingPorts(usedPorts)
-    if (message1) console.log(message1)
-    const message2 =
+    console.log(messages.smartPortAllocationExistingPorts(usedPorts))
+    console.log(
       messages.smartPortAllocationExistingWebSocketPorts(usedWebSocketPorts)
-    if (message2) console.log(message2)
+    )
 
     // If user requested a specific port, try to use it
     if (requestedPort) {
@@ -155,16 +152,17 @@ export class InstanceManager {
         // Find available WebSocket port for this instance
         const webSocketPort =
           await this.findAvailableWebSocketPort(usedWebSocketPorts)
-        const message = messages.smartPortAllocationUsingRequestedPort(
-          requestedPort,
-          webSocketPort
+        console.log(
+          messages.smartPortAllocationUsingRequestedPort(
+            requestedPort,
+            webSocketPort
+          )
         )
-        if (message) console.log(message)
         return {port: requestedPort, webSocketPort}
       } else {
-        const message =
+        console.log(
           messages.smartPortAllocationRequestedPortUnavailable(requestedPort)
-        if (message) console.log(message)
+        )
       }
     }
 
@@ -178,11 +176,7 @@ export class InstanceManager {
     const webSocketPort =
       await this.findAvailableWebSocketPort(usedWebSocketPorts)
 
-    const message = messages.smartPortAllocationAllocatedPorts(
-      port,
-      webSocketPort
-    )
-    if (message) console.log(message)
+    console.log(messages.smartPortAllocationAllocatedPorts(port, webSocketPort))
     return {port, webSocketPort}
   }
 
@@ -227,12 +221,13 @@ export class InstanceManager {
     projectPath: string,
     requestedPort?: number
   ): Promise<InstanceInfo> {
-    const message = messages.instanceManagerCreateInstanceCalled({
-      browser,
-      projectPath,
-      requestedPort
-    })
-    if (message) console.log(message)
+    console.log(
+      messages.instanceManagerCreateInstanceCalled({
+        browser,
+        projectPath,
+        requestedPort
+      })
+    )
     const registry = await this.loadRegistry()
 
     // Clean up old instances periodically
@@ -264,9 +259,7 @@ export class InstanceManager {
     await this.saveRegistry(registry)
 
     if (process.env.EXTENSION_ENV === 'development') {
-      const message =
-        messages.instanceManagerRegistryAfterCreateInstance(registry)
-      if (message) console.log(message)
+      console.log(messages.instanceManagerRegistryAfterCreateInstance(registry))
     }
     return instance
   }

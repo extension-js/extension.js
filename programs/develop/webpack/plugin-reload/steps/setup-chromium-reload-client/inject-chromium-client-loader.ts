@@ -71,28 +71,11 @@ export default function (this: InjectBackgroundClientContext, source: string) {
       ) {
         // Force immediate reload with cache-busting
         try {
-          // Clear any cached data but preserve welcome page flags
+          // Clear any cached data
           if (chrome.storage && chrome.storage.local) {
-            // Get current storage to preserve welcome page flags
-            const currentStorage = await chrome.storage.local.get();
-            const welcomePageFlags = {};
-            
-            // Preserve any welcome page flags (keys that contain 'welcome_shown_' or 'welcome_session_flags')
-            Object.keys(currentStorage).forEach(key => {
-              if (key.startsWith('welcome_shown_') || key === 'welcome_session_flags') {
-                welcomePageFlags[key] = currentStorage[key];
-              }
-            });
-            
-            // Clear all storage
             await chrome.storage.local.clear();
-            
-            // Restore welcome page flags
-            if (Object.keys(welcomePageFlags).length > 0) {
-              await chrome.storage.local.set(welcomePageFlags);
-            }
           }
-            
+          
           // Force reload with timestamp to bypass cache
           const timestamp = Date.now();
           console.log('🔄 Forcing extension reload at:', timestamp);
