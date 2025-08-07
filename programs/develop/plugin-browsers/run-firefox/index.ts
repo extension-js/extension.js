@@ -195,7 +195,6 @@ export class RunFirefoxPlugin {
   }
 
   apply(compiler: any) {
-    console.log(messages.firefoxRunFirefoxPluginApplyArguments(arguments))
     let firefoxDidLaunch = false
 
     compiler.hooks.done.tapAsync(

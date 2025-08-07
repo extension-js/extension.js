@@ -107,7 +107,7 @@ export async function loadBrowserConfig(
   }
 
   return {
-    browser: 'chrome'
+    browser: browser || 'chrome'
   }
 }
 

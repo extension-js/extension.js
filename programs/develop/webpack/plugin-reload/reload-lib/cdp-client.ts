@@ -260,7 +260,7 @@ export class CDPClient {
           resolve()
         }
         this.handleMessage = originalHandleMessage
-      }, 15000)
+      }, 2000)
     })
   }
 
