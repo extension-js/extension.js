@@ -21,7 +21,9 @@ export async function browserConfig(
     profile,
     browserFlags = [],
     keepProfileChanges,
-    copyFromProfile
+    copyFromProfile,
+    source,
+    watchSource
   } = configOptions
 
   const userProfilePath = createProfile(compilation, {
@@ -48,10 +50,14 @@ export async function browserConfig(
   const devServerPort = (compilation.options.devServer as any)?.port
   const debugPort = calculateDebugPort(portFromConfig, devServerPort, 9222)
 
+  // Only enable remote debugging if source inspection is active
+  const isSourceInspectionEnabled = source || watchSource
+  const listenFlag = isSourceInspectionEnabled ? `--listen=${debugPort}` : ''
+
   return [
     `--binary-args="${binaryArgs.join(' ')}"`,
     `--profile="${userProfilePath.path()}"`,
-    `--listen=${debugPort}`,
+    ...(listenFlag ? [listenFlag] : []),
     '--verbose'
   ].join(' ')
 }
