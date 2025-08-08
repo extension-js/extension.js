@@ -1,26 +1,36 @@
-import logo from '../images/logo.png'
+// The directive below tells Extension.js to inject the content
+// script of this file into the shadow DOM of the host page and
+// inject all CSS imports into it. This provides style isolation
+// and prevents conflicts with the host page's styles.
+// See https://extension.js.org/docs/content-scripts#use-shadow-dom
+'use shadow-dom'
 
-// Import CSS to ensure webpack processes it as an asset
-// This is required for content scripts to have CSS available
+import logo from '../images/logo.png'
 import './styles.css'
 
-export default function contentScript({
-  rootId = 'extension-root',
-  containerClass = 'content_script',
-  stylesheets = ['./styles.css']
-} = {}) {
+/**
+ * @typedef {Object} ContentScriptOptions
+ * @property {string} [rootElement] - The root element ID
+ * @property {string} [rootClassName] - The root element class name
+ */
+export default function contentScript(options = {}) {
   return (container) => {
+    // Create content wrapper div
+    const contentDiv = document.createElement('div')
+    contentDiv.className = 'content_script'
+
     // Create and append logo image
     const img = document.createElement('img')
     img.className = 'content_logo'
     img.src = logo
-    container.appendChild(img)
+    img.alt = 'JavaScript Logo'
+    contentDiv.appendChild(img)
 
     // Create and append title
     const title = document.createElement('h1')
     title.className = 'content_title'
-    title.innerHTML = 'Content Script<br />JavaScript Extension'
-    container.appendChild(title)
+    title.textContent = 'JavaScript Extension'
+    contentDiv.appendChild(title)
 
     // Create and append description paragraph
     const desc = document.createElement('p')
@@ -31,20 +41,19 @@ export default function contentScript({
     const link = document.createElement('a')
     link.href = 'https://extension.js.org'
     link.target = '_blank'
+    link.rel = 'noopener noreferrer'
     link.textContent = 'https://extension.js.org'
 
     desc.appendChild(link)
-    container.appendChild(desc)
+    contentDiv.appendChild(desc)
 
-    console.info('content_script configuration:', {
-      rootId,
-      containerClass,
-      stylesheets
-    })
+    // Append content div to container
+    container.appendChild(contentDiv)
 
     // Return cleanup function for unmounting (required)
     return () => {
       // JavaScript doesn't need special cleanup, so we just return empty
+      container.innerHTML = ''
     }
   }
 }

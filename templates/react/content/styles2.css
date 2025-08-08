@@ -7,7 +7,7 @@
   color: var(--content-text);
   background-color: var(--content-bg);
   position: fixed;
-  right: 0;
+  left: 0;
   bottom: 0;
   z-index: 9;
   width: 280px;

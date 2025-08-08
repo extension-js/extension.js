@@ -4,12 +4,8 @@ import logo from '../images/preact.png'
 export default function ContentApp() {
   return (
     <div className="content_script">
-      <img className="content_logo" src={logo} alt="Extension Logo" />
-      <h1 className="content_title">
-        Content Script
-        <br />
-        Preact Extension
-      </h1>
+      <img className="content_logo" src={logo} alt="Preact Logo" />
+      <h1 className="content_title">Preact Extension</h1>
       <p className="content_description">
         This content script runs in the context of web pages.
         <br />

@@ -53,7 +53,7 @@ body {
 
 .sidebar_description a {
   text-decoration: none;
-  border-bottom: 2px solid #c9c9c9;
-  color: #e5e7eb;
+  border-bottom: 2px solid var(--sidebar-border);
+  color: var(--sidebar-link);
   margin: 0;
 }

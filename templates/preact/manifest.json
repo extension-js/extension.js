@@ -38,7 +38,15 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["./content/content-script-wrapper.ts"]
+      "js": ["./content/scripts.tsx"]
     }
-  ]
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["assets/*"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "permissions": ["activeTab", "sidePanel"],
+  "host_permissions": ["<all_urls>"]
 }

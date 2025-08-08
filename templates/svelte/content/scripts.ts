@@ -1,36 +1,27 @@
+// The directive below tells Extension.js to inject the content
+// script of this file into the shadow DOM of the host page and
+// inject all CSS imports into it. This provides style isolation
+// and prevents conflicts with the host page's styles.
+// See https://extension.js.org/docs/content-scripts#use-shadow-dom
+'use shadow-dom'
+
 import {mount} from 'svelte'
 import ContentApp from './ContentApp.svelte'
-
-// Import CSS to ensure webpack processes it as an asset
-// This is required for content scripts to have CSS available
 import './styles.css'
 
-interface ContentScriptOptions {
-  rootId?: string // ID for the root element
-  containerClass?: string // CSS class for the container
-  stylesheets?: string[] // Array of stylesheet paths to inject
+export interface ContentScriptOptions {
+  rootElement?: string
+  rootClassName?: string
 }
 
-export default function contentScript({
-  rootId = 'extension-root',
-  containerClass = 'content_script',
-  stylesheets = ['./styles.css']
-}: ContentScriptOptions) {
+export default function contentScript(options: ContentScriptOptions = {}) {
   return (container: HTMLElement) => {
-    // Mount Svelte app using Svelte 5's mount function
-    mount(ContentApp, {
+    const app = mount(ContentApp, {
       target: container
     })
 
-    console.info('content_script configuration:', {
-      rootId,
-      containerClass,
-      stylesheets
-    })
-
-    // Return cleanup function for unmounting (required)
     return () => {
-      // Svelte doesn't have an unmount function, so we just return empty
+      app.$destroy()
     }
   }
 }

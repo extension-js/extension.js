@@ -11,10 +11,9 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
-    "vue": "^3.4.21"
+    "vue": "^3.4.27"
   },
   "devDependencies": {
-    "@types/vue": "^2.0.0",
     "typescript": "5.3.3"
   }
 }
