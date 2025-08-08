@@ -132,13 +132,21 @@ export class InstanceManager {
     requestedPort?: number
   ): Promise<{port: number; webSocketPort: number}> {
     const registry = await this.loadRegistry()
-    const existingInstances = Object.values(registry.instances)
 
-    // Get all used ports from existing instances
-    const usedPorts = existingInstances.map((instance) => instance.port)
-    const usedWebSocketPorts = existingInstances.map(
-      (instance) => instance.webSocketPort
-    )
+    // Always run cleanup before allocation to ensure fresh state
+    await this.cleanupTerminatedInstances(registry)
+
+    // Refresh registry after cleanup
+    const cleanRegistry = await this.loadRegistry()
+    const existingInstances = Object.values(cleanRegistry.instances)
+
+    // Get all used ports from ACTIVE instances only
+    const usedPorts = existingInstances
+      .filter((instance) => instance.status === 'running')
+      .map((instance) => instance.port)
+    const usedWebSocketPorts = existingInstances
+      .filter((instance) => instance.status === 'running')
+      .map((instance) => instance.webSocketPort)
 
     console.log(messages.smartPortAllocationExistingPorts(usedPorts))
     console.log(
@@ -201,19 +209,63 @@ export class InstanceManager {
   ): Promise<void> {
     const now = Date.now()
     const maxAge = 24 * 60 * 60 * 1000 // 24 hours
+    const instancesToRemove: string[] = []
 
     for (const [instanceId, instance] of Object.entries(registry.instances)) {
-      // Remove instances that are too old or terminated
+      let shouldRemove = false
+
+      // Check if instance is explicitly terminated or errored
       if (
         instance.status === 'terminated' ||
         instance.status === 'error' ||
         now - instance.startTime > maxAge
       ) {
-        delete registry.instances[instanceId]
+        shouldRemove = true
+      }
+      // NEW: Check if process is still running
+      else if (!(await this.isProcessRunning(instance.processId))) {
+        console.log(
+          `Process ${instance.processId} for instance ${instanceId.slice(0, 8)} is no longer running`
+        )
+        shouldRemove = true
+      }
+      // NEW: Check if ports are actually in use (both must be free to consider orphaned)
+      else if (
+        (await this.isPortAvailable(instance.port)) &&
+        (await this.isPortAvailable(instance.webSocketPort))
+      ) {
+        console.log(
+          `Ports ${instance.port}/${instance.webSocketPort} for instance ${instanceId.slice(0, 8)} are not in use`
+        )
+        shouldRemove = true
+      }
+
+      if (shouldRemove) {
+        instancesToRemove.push(instanceId)
       }
     }
 
+    // Remove orphaned instances
+    for (const instanceId of instancesToRemove) {
+      delete registry.instances[instanceId]
+      console.log(`Cleaned up orphaned instance: ${instanceId.slice(0, 8)}`)
+    }
+
     registry.lastCleanup = now
+  }
+
+  /**
+   * Check if a process is still running
+   */
+  private async isProcessRunning(pid: number): Promise<boolean> {
+    try {
+      // Sending signal 0 checks if process exists without actually sending a signal
+      process.kill(pid, 0)
+      return true
+    } catch (error: any) {
+      // ESRCH means process doesn't exist
+      return error.code !== 'ESRCH'
+    }
   }
 
   async createInstance(
@@ -334,6 +386,15 @@ export class InstanceManager {
     const registry = await this.loadRegistry()
     registry.instances = {}
     registry.lastCleanup = Date.now()
+    await this.saveRegistry(registry)
+  }
+
+  /**
+   * Force cleanup of all orphaned instances
+   */
+  async forceCleanupOrphanedInstances(): Promise<void> {
+    const registry = await this.loadRegistry()
+    await this.cleanupTerminatedInstances(registry)
     await this.saveRegistry(registry)
   }
 
