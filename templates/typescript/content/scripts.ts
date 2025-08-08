@@ -1,29 +1,36 @@
-import logo from '../images/logo.svg'
+// The directive below tells Extension.js to inject the content
+// script of this file into the shadow DOM of the host page and
+// inject all CSS imports into it. This provides style isolation
+// and prevents conflicts with the host page's styles.
+// See https://extension.js.org/docs/content-scripts#use-shadow-dom
+'use shadow-dom'
 
-interface ContentScriptOptions {
-  rootId?: string // ID for the root element
-  containerClass?: string // CSS class for the container
-  stylesheets?: string[] // Array of stylesheet paths to inject
+import logo from '../images/logo.svg'
+import './styles.css'
+
+export interface ContentScriptOptions {
+  rootElement?: string
+  rootClassName?: string
 }
 
-export default function contentScript({
-  rootId = 'extension-root',
-  containerClass = 'content_script',
-  stylesheets = ['./styles.css']
-}: ContentScriptOptions) {
+export default function contentScript(options: ContentScriptOptions = {}) {
   return (container: HTMLElement) => {
+    // Create content wrapper div
+    const contentDiv = document.createElement('div')
+    contentDiv.className = 'content_script'
+
     // Create and append logo image
     const img = document.createElement('img')
     img.className = 'content_logo'
     img.src = logo
     img.alt = 'TypeScript Logo'
-    container.appendChild(img)
+    contentDiv.appendChild(img)
 
     // Create and append title
     const title = document.createElement('h1')
     title.className = 'content_title'
-    title.innerHTML = 'Content Script<br />TypeScript Extension'
-    container.appendChild(title)
+    title.textContent = 'TypeScript Extension'
+    contentDiv.appendChild(title)
 
     // Create and append description paragraph
     const desc = document.createElement('p')
@@ -34,20 +41,18 @@ export default function contentScript({
     const link = document.createElement('a')
     link.href = 'https://extension.js.org'
     link.target = '_blank'
+    link.rel = 'noopener noreferrer'
     link.textContent = 'https://extension.js.org'
 
     desc.appendChild(link)
-    container.appendChild(desc)
+    contentDiv.appendChild(desc)
 
-    console.info('content_script configuration:', {
-      rootId,
-      containerClass,
-      stylesheets
-    })
+    // Append content div to container
+    container.appendChild(contentDiv)
 
-    // Return cleanup function for unmounting (required)
     return () => {
-      // TypeScript doesn't need special cleanup, so we just return empty
+      // Cleanup function
+      container.innerHTML = ''
     }
   }
 }

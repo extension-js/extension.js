@@ -1,10 +1,9 @@
-import * as svelte from 'svelte'
-import './styles.css'
+import {mount} from 'svelte'
 import SidebarApp from './SidebarApp.svelte'
 
 const container = document.getElementById('app')
-const app = svelte.mount(SidebarApp, {
-  target: container as HTMLElement
-})
-
-export default app
+if (container) {
+  mount(SidebarApp, {
+    target: container
+  })
+}

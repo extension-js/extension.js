@@ -45,7 +45,28 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // 2 - Ensure scripts are HMR enabled by adding the HMR accept code.
+    // 2 - Apply content script wrapper for shadow DOM and auto-execution
+    compiler.options.module.rules.push({
+      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      include: [path.dirname(this.manifestPath)],
+      exclude: [/[\\/]node_modules[\\/]/],
+      use: [
+        {
+          loader: path.resolve(
+            process.cwd(),
+            'programs/develop/dist/add-content-script-wrapper'
+          ),
+          options: {
+            manifestPath: this.manifestPath,
+            mode: compiler.options.mode,
+            includeList: this.includeList || {},
+            excludeList: this.excludeList || {}
+          }
+        }
+      ]
+    })
+
+    // 3 - Ensure scripts are HMR enabled by adding the HMR accept code.
     compiler.options.module.rules.push({
       test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [path.dirname(this.manifestPath)],
@@ -63,7 +84,7 @@ export class ScriptsPlugin {
       ]
     })
 
-    // 3 - Fix the issue with the public path not being
+    // 4 - Fix the issue with the public path not being
     // available for content_scripts in the production build.
     // See https://github.com/cezaraugusto/extension.js/issues/95
     // See https://github.com/cezaraugusto/extension.js/issues/96
@@ -71,7 +92,7 @@ export class ScriptsPlugin {
       new AddPublicPathRuntimeModule().apply(compiler)
     }
 
-    // 4 - Fix the issue where assets imported via content_scripts
+    // 5 - Fix the issue where assets imported via content_scripts
     // running in the MAIN world could not find the correct public path.
     new AddPublicPathForMainWorld({
       manifestPath: this.manifestPath,
@@ -80,7 +101,7 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // 5 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__
+    // 6 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__
     compiler.options.module.rules.push({
       test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [path.dirname(this.manifestPath)],

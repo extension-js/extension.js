@@ -1,4 +1,4 @@
-@import 'sakura.css';
+/* @import 'sakura.css'; */
 
 :root {
   --sidebar-margin: 1rem;
@@ -6,16 +6,6 @@
   --sidebar-text: #c9c9c9;
   --sidebar-link: #e5e7eb;
   --sidebar-border: #c9c9c9;
-}
-
-.sidebar_app {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 0 1rem;
-  text-align: center;
-  max-height: 100vh;
-  overflow-y: auto;
 }
 
 body {
@@ -28,6 +18,16 @@ body {
   justify-content: center;
   align-items: center;
   overflow: hidden;
+}
+
+.sidebar_app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 1rem;
+  text-align: center;
+  max-height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar_logo {
