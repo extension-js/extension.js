@@ -125,9 +125,10 @@ ${colors.yellow('Browser-Specific Configuration')}
   This applies manifest v2 to Firefox only, v3 to Chrome/Edge.
 
 ${colors.yellow('Special Folders for Entrypoints')}
-- ${colors.blue('public/')} - Static assets (images, fonts, etc.) automatically copied to build
-- ${colors.blue('pages/')} - HTML files not declared in manifest (e.g., options pages)
-- ${colors.blue('scripts/')} - JavaScript files not declared in manifest
+- Use special folders to handle entrypoints and assets not declared in manifest.json:
+- ${colors.blue('public/')} - Static assets automatically copied to build (resolves to output root)
+- ${colors.blue('pages/')} - HTML files not declared in manifest (e.g., welcome pages)
+- ${colors.blue('scripts/')} - JavaScript files not declared in manifest (e.g., executable scripts)
 
 ${colors.yellow('Shadow DOM for Content Scripts')}
 - Add ${colors.blue('use shadow-dom')} directive to content scripts for style isolation
@@ -158,6 +159,17 @@ ${colors.yellow('Webpack/Rspack Configuration')}
   ${colors.blue("    config.module.rules.push({ test: /\\.svg$/, use: ['@svgr/webpack'] })")}
   ${colors.blue('    return config')}
   ${colors.blue('  }')}
+  ${colors.blue('}')}
+
+${colors.yellow('Framework-Specific Configuration')}
+- Create ${colors.blue('vue.loader.js')} for Vue-specific loader configuration
+- Create ${colors.blue('svelte.loader.js')} for Svelte-specific loader configuration
+- Automatically detected and used by Extension.js
+- Example svelte.loader.js:
+  ${colors.blue('module.exports = {')}
+  ${colors.blue('  preprocess: require("svelte-preprocess")({')}
+  ${colors.blue('    typescript: true')}
+  ${colors.blue('  })')}
   ${colors.blue('}')}
 
 ${colors.yellow('Hot Module Replacement (HMR)')}
