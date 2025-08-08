@@ -951,12 +951,9 @@ importers:
   templates/vue:
     dependencies:
       vue:
-        specifier: ^3.4.21
+        specifier: ^3.4.27
         version: 3.5.18(typescript@5.3.3)
     devDependencies:
-      '@types/vue':
-        specifier: ^2.0.0
-        version: 2.0.0(typescript@5.3.3)
       typescript:
         specifier: 5.3.3
         version: 5.3.3
@@ -3360,10 +3357,6 @@ packages:
 
   '@types/uglify-js@3.17.5':
     resolution: {integrity: sha512-TU+fZFBTBcXj/GpDpDaBmgWk/gn96kMZ+uocaFUlV2f8a6WdMzzI44QBCmGcCiYR0Y6ZlNRiyUyKKt5nl/lbzQ==}
-
-  '@types/vue@2.0.0':
-    resolution: {integrity: sha512-WDElkBv/o4lVwu6wYHB06AXs4Xo2fwDjJUpvPRc1QQdzkUSiGFjrYuSCy8raxLE5FObgKq8ND7R5gSZTFLK60w==}
-    deprecated: This is a stub types definition for vuejs (https://github.com/vuejs/vue). vuejs provides its own type definitions, so you don't need @types/vue installed!
 
   '@types/webextension-polyfill@0.12.3':
     resolution: {integrity: sha512-F58aDVSeN/MjUGazXo/cPsmR76EvqQhQ1v4x23hFjUX0cfAJYE+JBWwiOGW36/VJGGxoH74sVlRIF3z7SJCKyg==}
@@ -10034,12 +10027,6 @@ snapshots:
   '@types/uglify-js@3.17.5':
     dependencies:
       source-map: 0.6.1
-
-  '@types/vue@2.0.0(typescript@5.3.3)':
-    dependencies:
-      vue: 3.5.18(typescript@5.3.3)
-    transitivePeerDependencies:
-      - typescript
 
   '@types/webextension-polyfill@0.12.3': {}
 

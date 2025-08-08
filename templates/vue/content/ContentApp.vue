@@ -14,8 +14,8 @@ export default defineComponent({
 
 <template>
   <div class="content_script">
-    <img class="content_logo" :src="vueLogo" alt="Extension Logo" />
-    <h1 class="content_title">Content Script<br />Vue Extension</h1>
+    <img class="content_logo" :src="vueLogo" alt="Vue Logo" />
+    <h1 class="content_title">Vue Extension</h1>
     <p class="content_description">
       This content script runs in the context of web pages.
       <br />
@@ -26,48 +26,3 @@ export default defineComponent({
     </p>
   </div>
 </template>
-
-<style>
-.content_script {
-  color: #c9c9c9;
-  background-color: #0a0c10;
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  z-index: 9;
-  width: 280px;
-  margin: 1rem;
-  padding: 2rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5em;
-  border-radius: 6px;
-  z-index: 9999;
-}
-
-.content_logo {
-  width: 72px;
-  margin-bottom: 0;
-}
-
-.content_title {
-  font-size: 1.5em;
-  line-height: 1;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
-  font-weight: 700;
-  margin: 0;
-}
-
-.content_description {
-  font-size: small;
-  margin: 0;
-}
-
-.content_description a {
-  text-decoration: none;
-  border-bottom: 2px solid #c9c9c9;
-  color: #e5e7eb;
-  margin: 0;
-}
-</style>

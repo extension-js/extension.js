@@ -1,28 +1,24 @@
+// The directive below tells Extension.js to inject the content
+// script of this file into the shadow DOM of the host page and
+// inject all CSS imports into it. This provides style isolation
+// and prevents conflicts with the host page's styles.
+// See https://extension.js.org/docs/content-scripts#use-shadow-dom
+'use shadow-dom'
+
 import {createApp} from 'vue'
 import ContentApp from './ContentApp.vue'
+import './styles.css'
 
-interface ContentScriptOptions {
-  rootId?: string // ID for the root element
-  containerClass?: string // CSS class for the container
-  stylesheets?: string[] // Array of stylesheet paths to inject
+export interface ContentScriptOptions {
+  rootElement?: string
+  rootClassName?: string
 }
 
-export default function contentScript({
-  rootId = 'extension-root',
-  containerClass = 'content_script',
-  stylesheets = ['./styles.css']
-}: ContentScriptOptions) {
+export default function contentScript(options: ContentScriptOptions = {}) {
   return (container: HTMLElement) => {
     const app = createApp(ContentApp)
     app.mount(container)
 
-    console.info('content_script configuration:', {
-      rootId,
-      containerClass,
-      stylesheets
-    })
-
-    // Return cleanup function for unmounting (required)
     return () => {
       app.unmount()
     }
