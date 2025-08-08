@@ -90,6 +90,11 @@ ${colors.green('extension build [project-path|remote-url]')}
 Builds the extension for production deployment. Creates optimized
 bundles ready for packaging and distribution to browser stores.
 
+${colors.green('extension cleanup')}
+Cleans up orphaned instances and frees unused ports. Useful for
+removing stale development server instances that weren't properly
+terminated during previous sessions.
+
 ${colors.yellow('Common Options:')}
 ${colors.blue('--browser <chrome|edge|firefox>')} - Specify target browser (default: chrome)
 ${colors.blue('--profile <path|boolean>')} - Browser profile configuration

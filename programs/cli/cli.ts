@@ -18,6 +18,7 @@ import {
   type BuildOptions,
   extensionPreview,
   type PreviewOptions,
+  cleanupCommand,
   type FileConfig,
   type Manifest
 } from 'extension-develop'
@@ -309,6 +310,20 @@ extensionJs
         silent: buildOptions.silent
       })
     }
+  })
+
+// ██████╗██╗     ███████╗ █████╗ ███╗   ██╗██╗   ██╗██████╗
+// ██╔════╝██║     ██╔════╝██╔══██╗████╗  ██║██║   ██║██╔══██╗
+// ██║     ██║     █████╗  ███████║██╔██╗ ██║██║   ██║██████╔╝
+// ██║     ██║     ██╔══╝  ██╔══██║██║╚██╗██║██║   ██║██╔═══╝
+// ╚██████╗███████╗███████╗██║  ██║██║ ╚████║╚██████╔╝██║
+//  ╚═════╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝
+
+extensionJs
+  .command('cleanup')
+  .description('Clean up orphaned instances and free unused ports')
+  .action(async function () {
+    await cleanupCommand()
   })
 
 extensionJs.parse()

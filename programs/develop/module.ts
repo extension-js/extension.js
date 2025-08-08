@@ -9,6 +9,7 @@ import {extensionBuild} from './commands/build'
 import {extensionDev} from './commands/dev'
 import {extensionPreview} from './commands/preview'
 import {extensionStart} from './commands/start'
+import {cleanupCommand} from './commands/cleanup'
 import {
   type FileConfig,
   type BuildOptions,
@@ -27,6 +28,7 @@ export {
   StartOptions,
   extensionPreview,
   PreviewOptions,
+  cleanupCommand,
   FileConfig,
   Manifest
 }
