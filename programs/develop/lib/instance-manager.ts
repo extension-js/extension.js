@@ -43,6 +43,7 @@ export class InstanceManager {
 
   private getDataDirectory(): string {
     const platform = process.platform
+    const isWSL = process.env.WSL_DISTRO_NAME || process.env.WSLENV
 
     switch (platform) {
       case 'darwin': // macOS
@@ -56,7 +57,14 @@ export class InstanceManager {
       case 'win32': // Windows
         return path.join(process.env.APPDATA || '', 'extension-js')
 
-      case 'linux': // Linux
+      case 'linux': // Linux (including WSL)
+        if (isWSL) {
+          // WSL: Use Windows-style AppData if available, fallback to Linux-style
+          const windowsAppData = process.env.APPDATA
+          if (windowsAppData) {
+            return path.join(windowsAppData, 'extension-js')
+          }
+        }
         return path.join(os.homedir(), '.config', 'extension-js')
 
       default:
