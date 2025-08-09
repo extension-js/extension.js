@@ -34,9 +34,7 @@
   },
   "scripts": {
     "watch": "rslib build --watch",
-    "compile:types": "bash install_scripts.sh",
-    "compile:cli": "rslib build",
-    "compile": "pnpm compile:cli && pnpm compile:types",
+    "compile": "rslib build",
     "clean": "rm -rf dist",
     "test": "echo \"Note: no test specified\" && exit 0",
     "test:cli": "vitest run"

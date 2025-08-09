@@ -31,7 +31,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "watch": "rslib build --watch",
-    "compile": "rslib build && bash install_scripts.sh",
+    "compile": "rslib build",
     "test": "vitest run",
     "test:build": "vitest run build.spec.ts",
     "test:coverage": "vitest run --coverage"
