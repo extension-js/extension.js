@@ -1,5 +1,50 @@
 import * as path from 'path'
+import * as fs from 'fs'
 import {defineConfig} from '@rslib/core'
+import type {RslibConfig} from '@rslib/core'
+
+function copyStaticFilesPlugin() {
+  return {
+    name: 'copy-static-files',
+    setup(api: any) {
+      api.onAfterBuild(() => {
+        const sourceDir = path.resolve(
+          __dirname,
+          './webpack/plugin-reload/extensions'
+        )
+        const targetDir = path.resolve(__dirname, './dist/extensions')
+
+        if (fs.existsSync(sourceDir)) {
+          fs.mkdirSync(targetDir, {recursive: true})
+          copyDirectory(sourceDir, targetDir)
+          console.log(
+            '[Extension.js setup] Extensions directory copied to dist/'
+          )
+        } else {
+          console.warn(
+            '[Extension.js setup] Extensions directory not found:',
+            sourceDir
+          )
+        }
+      })
+    }
+  }
+}
+
+function copyDirectory(source: string, target: string): void {
+  if (!fs.existsSync(target)) fs.mkdirSync(target, {recursive: true})
+
+  for (const item of fs.readdirSync(source)) {
+    const sourcePath = path.join(source, item)
+    const targetPath = path.join(target, item)
+
+    if (fs.statSync(sourcePath).isDirectory()) {
+      copyDirectory(sourcePath, targetPath)
+    } else {
+      fs.copyFileSync(sourcePath, targetPath)
+    }
+  }
+}
 
 export default defineConfig({
   source: {
@@ -57,5 +102,6 @@ export default defineConfig({
       syntax: 'es2021',
       dts: true
     }
-  ]
-})
+  ],
+  plugins: [copyStaticFilesPlugin()]
+} satisfies RslibConfig)
