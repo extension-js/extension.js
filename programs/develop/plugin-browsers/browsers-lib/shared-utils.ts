@@ -78,6 +78,11 @@ export function createProfileDirectory(
   const tempPath = `${profilePath}.tmp`
 
   try {
+    // Remove existing profile directory if it exists
+    if (fs.existsSync(profilePath)) {
+      fs.rmSync(profilePath, {recursive: true, force: true})
+    }
+
     // Create temporary directory
     fs.mkdirSync(tempPath, {recursive: true})
 
@@ -94,16 +99,6 @@ export function createProfileDirectory(
     throw new Error(messages.profileCreationError(browser, error))
   }
 }
-
-// export async function isDirectory(path: string): Promise<boolean> {
-//   try {
-//     const stats = await fs.promises.stat(path)
-//     return stats.isDirectory()
-//   } catch {
-//     return false
-//   }
-// }
-
 // Calculates debug port from various sources
 export function calculateDebugPort(
   portFromConfig?: number | string,

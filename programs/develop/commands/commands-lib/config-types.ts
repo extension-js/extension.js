@@ -40,6 +40,9 @@ export interface DevOptions extends BrowserOptionsBase {
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
+  // Source inspection options
+  source?: string
+  watchSource?: boolean
 }
 
 export interface BuildOptions {
