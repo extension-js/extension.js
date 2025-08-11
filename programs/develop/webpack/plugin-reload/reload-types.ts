@@ -11,4 +11,8 @@ export interface PluginOptions {
   autoReload?: boolean
   // Internal auto-generated instance ID, not user-configurable
   instanceId?: string
+  // Source inspection options
+  source?: string
+  watchSource?: boolean
+  startingUrl?: string
 }

@@ -108,6 +108,9 @@ export interface PluginInterface extends PluginOptions {
   port?: number
   // Internal auto-generated instance ID, not user-configurable
   instanceId?: string
+  // Source inspection options
+  source?: string
+  watchSource?: boolean
 }
 
 export interface PluginOptions {

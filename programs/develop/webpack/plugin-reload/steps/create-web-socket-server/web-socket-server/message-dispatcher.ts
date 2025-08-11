@@ -1,7 +1,7 @@
 import * as path from 'path'
 import WebSocket, {Server} from 'ws'
 import {getManifestFieldsData} from '../../../../plugin-extension/data/manifest-fields'
-import * as messages from '../../../../lib/messages'
+import * as messages from '../../../reload-lib/messages'
 
 function dispatchMessage(
   server: Server<typeof WebSocket, any>,
