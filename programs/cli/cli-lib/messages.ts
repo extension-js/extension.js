@@ -98,6 +98,10 @@ ${colors.blue('--port <number>')} - Development server port (default: 8080)
 ${colors.blue('--starting-url <url>')} - Initial URL to load in browser
 ${colors.blue('--silent [boolean]')} - Suppress console output during build
 
+${colors.yellow('Source Inspection Options:')}
+${colors.blue('--source <url>')} - Opens URL in Chrome and prints full HTML after content scripts are injected
+${colors.blue('--watch-source')} - Continuously monitors rebuild events and prints updated HTML on extension reloads
+
 ${colors.yellow('Browser-Specific Options:')}
 ${colors.blue('--chromium-binary <path>')} - Custom Chromium binary path
 ${colors.blue('--gecko-binary <path>')} - Custom Firefox/Gecko binary path
@@ -162,6 +166,14 @@ ${colors.yellow('Hot Module Replacement (HMR)')}
 - React/Preact/Vue/Svelte components hot reload
 - Content scripts automatically re-inject on changes
 - Service workers, _locales and manifest changes reload the extension
+
+${colors.yellow('Source Inspection & Real-Time Monitoring')}
+- Use ${colors.blue('--source <url>')} to inspect page HTML after content script injection
+- Use ${colors.blue('--watch-source')} to monitor real-time changes in stdout
+- Automatically enables Chrome remote debugging (port 9222) when source inspection is active
+- Extracts Shadow DOM content from ${colors.blue('#extension-root')} elements
+- Perfect for debugging content script behavior and style injection
+- Example: ${colors.blue('extension dev --source=https://example.com --watch-source')}
 
 ${colors.yellow('Cross-Browser Compatibility')}
 - Use ${colors.blue('--polyfill')} flag to enable webextension-polyfill

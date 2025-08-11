@@ -34,6 +34,8 @@ export class BrowsersPlugin {
   public readonly geckoBinary?: string
   public readonly instanceId?: string
   public readonly port?: number | string
+  public readonly source?: string
+  public readonly watchSource?: boolean
 
   constructor(options: PluginInterface) {
     // Include extensions and filter out any duplicate load-extension flags
@@ -65,6 +67,9 @@ export class BrowsersPlugin {
     this.geckoBinary = options.geckoBinary
     this.instanceId = options.instanceId
     this.port = options.port
+    // Add source inspection options
+    this.source = options.source
+    this.watchSource = options.watchSource
   }
 
   apply(compiler: Compiler) {
@@ -100,7 +105,9 @@ export class BrowsersPlugin {
         chromiumBinary: this.chromiumBinary,
         geckoBinary: this.geckoBinary,
         instanceId: this.instanceId,
-        port: this.port
+        port: this.port,
+        source: this.source,
+        watchSource: this.watchSource
       }
 
       // Apply the browser-specific plugin immediately

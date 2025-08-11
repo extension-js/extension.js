@@ -66,6 +66,7 @@ export default function webpackConfig(
     entry: {},
     target: 'web',
     context: packageJsonDir,
+    watch: devOptions.mode === 'development', // Enable watch mode in development to prevent server recreation
     devtool:
       manifest.manifest_version === 3
         ? 'cheap-source-map'
@@ -142,13 +143,6 @@ export default function webpackConfig(
         manifestPath,
         browser
       }),
-      new ReloadPlugin({
-        manifestPath,
-        browser,
-        stats: true,
-        port: devOptions.port || 8080,
-        instanceId: devOptions.instanceId
-      }),
       new BrowsersPlugin({
         extension: [
           userExtensionOutputPath,
@@ -167,7 +161,19 @@ export default function webpackConfig(
         chromiumBinary: devOptions.chromiumBinary,
         geckoBinary: devOptions.geckoBinary,
         instanceId: devOptions.instanceId,
-        port: devOptions.port
+        port: devOptions.port,
+        source: devOptions.source,
+        watchSource: devOptions.watchSource
+      }),
+      new ReloadPlugin({
+        manifestPath,
+        browser,
+        stats: true,
+        port: devOptions.port || 8080,
+        instanceId: devOptions.instanceId,
+        source: devOptions.source,
+        watchSource: devOptions.watchSource,
+        startingUrl: devOptions.startingUrl
       })
     ].filter(Boolean),
     stats: {
