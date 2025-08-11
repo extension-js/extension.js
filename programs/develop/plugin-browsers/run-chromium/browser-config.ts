@@ -81,15 +81,22 @@ export function browserConfig(
   // Filter out excluded flags
   const filteredFlags = filterBrowserFlags(DEFAULT_BROWSER_FLAGS, excludeFlags)
 
+  // Check if source inspection is enabled
+  const isSourceInspectionEnabled =
+    configOptions.source || configOptions.watchSource
+
   // Flags set by default:
   // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
   // Added useful flags for tooling:
   // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
-
   const baseFlags = [
     `--load-extension=${extensionsToLoad.join()}`,
     `--user-data-dir=${userProfilePath}`,
     ...filteredFlags,
+    // Add remote debugging flags if source inspection is enabled
+    ...(isSourceInspectionEnabled
+      ? ['--remote-debugging-port=9222', '--remote-debugging-address=localhost']
+      : []),
     // Flags to pass to Chrome
     // Any of http://peter.sh/experiments/chromium-command-line-switches/
     ...(configOptions.browserFlags || [])

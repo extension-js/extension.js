@@ -32,6 +32,8 @@ export class RunChromiumPlugin {
   public readonly chromiumBinary?: string
   public readonly port?: number
   public readonly instanceId?: string
+  public readonly source?: string
+  public readonly watchSource?: boolean
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -44,6 +46,8 @@ export class RunChromiumPlugin {
     this.chromiumBinary = options.chromiumBinary
     this.port = options.port
     this.instanceId = options.instanceId
+    this.source = options.source
+    this.watchSource = options.watchSource
   }
 
   private async launchChromium(

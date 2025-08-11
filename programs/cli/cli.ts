@@ -123,6 +123,14 @@ extensionJs
     '--port <port>',
     'specify the port to use for the development server. Defaults to `8080`'
   )
+  .option(
+    '--source [url]',
+    'opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
+  )
+  .option(
+    '--watch-source',
+    'continuously monitors rebuild events and prints updated HTML whenever the extension reloads and reinjects into the page'
+  )
   .action(async function (
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...devOptions}: DevOptions
@@ -136,7 +144,9 @@ extensionJs
         geckoBinary: devOptions.geckoBinary,
         polyfill: devOptions.polyfill?.toString() === 'false' ? false : true,
         open: devOptions.open,
-        startingUrl: devOptions.startingUrl
+        startingUrl: devOptions.startingUrl,
+        source: devOptions.source,
+        watchSource: devOptions.watchSource
       })
     }
   })

@@ -2,6 +2,7 @@ import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './reload-types'
 import CreateWebSocketServer from './steps/create-web-socket-server'
 import SetupReloadStrategy from './steps/setup-reload-strategy'
+import {SetupSourceInspectionStep} from './steps/setup-source-inspection'
 import {type DevOptions} from '../../commands/commands-lib/config-types'
 
 export class ReloadPlugin {
@@ -13,6 +14,9 @@ export class ReloadPlugin {
   private readonly stats?: boolean
   private readonly autoReload?: boolean
   private readonly instanceId?: string
+  private readonly source?: string
+  private readonly watchSource?: boolean
+  private readonly startingUrl?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -21,6 +25,9 @@ export class ReloadPlugin {
     this.stats = options.stats
     this.autoReload = options.autoReload
     this.instanceId = options.instanceId
+    this.source = (options as any).source
+    this.watchSource = (options as any).watchSource
+    this.startingUrl = options.startingUrl
   }
 
   apply(compiler: Compiler) {
@@ -58,6 +65,19 @@ export class ReloadPlugin {
         stats: this.stats,
         port: this.port,
         instanceId: this.instanceId
+      }).apply(compiler)
+    }
+
+    // 3 - Sets up source inspection for real-time HTML monitoring
+    // This allows developers to see the full HTML output including
+    // Shadow DOM content from content scripts
+    if (compiler.options.mode === 'development') {
+      new SetupSourceInspectionStep({
+        browser: this.browser,
+        mode: compiler.options.mode || 'development',
+        source: this.source,
+        watchSource: this.watchSource,
+        startingUrl: this.startingUrl
       }).apply(compiler)
     }
   }
