@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function sidebarAction(
@@ -13,7 +13,7 @@ export function sidebarAction(
     return undefined
   }
 
-  const sidebarActionDefaultIcon = path.join(
+  const sidebarActionDefaultIcon = resolveManifestPath(
     context,
     manifest.sidebar_action.default_icon as string
   )

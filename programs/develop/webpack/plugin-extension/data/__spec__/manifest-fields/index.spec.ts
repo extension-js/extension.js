@@ -1,7 +1,150 @@
-import * as path from 'path'
 import * as fs from 'fs'
-import {describe, it, expect, afterAll} from 'vitest'
-import {getManifestFieldsData} from '../../manifest-fields/index'
+import * as os from 'os'
+import * as path from 'path'
+import {describe, it, expect, beforeAll, afterAll} from 'vitest'
+import {getManifestFieldsData} from '../../manifest-fields'
+
+function writeFileEnsured(filePath: string, content: string = ''): void {
+  fs.mkdirSync(path.dirname(filePath), {recursive: true})
+  fs.writeFileSync(filePath, content)
+}
+
+function removeDirIfExists(dirPath: string): void {
+  if (fs.existsSync(dirPath)) {
+    fs.rmSync(dirPath, {recursive: true, force: true})
+  }
+}
+
+describe('getManifestFieldsData', () => {
+  let tmpDir: string
+
+  beforeAll(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-data-manifest-fields-'))
+
+    // Files referenced by manifest
+    writeFileEnsured(
+      path.join(tmpDir, 'public', 'popup.html'),
+      '<!doctype html>'
+    )
+    writeFileEnsured(
+      path.join(tmpDir, 'public', 'popup-ff.html'),
+      '<!doctype html>'
+    )
+    writeFileEnsured(path.join(tmpDir, 'public', 'new.html'), '<!doctype html>')
+    writeFileEnsured(path.join(tmpDir, 'public', 'icons', '16.png'), 'PNG')
+    writeFileEnsured(
+      path.join(tmpDir, 'sw.js'),
+      '// sw root (mv3 allows relative)'
+    )
+    writeFileEnsured(
+      path.join(tmpDir, 'public', 'content.js'),
+      'console.log(1)'
+    )
+    writeFileEnsured(path.join(tmpDir, 'public', 'style.css'), 'body{}')
+    writeFileEnsured(path.join(tmpDir, 'rules.json'), '[]')
+    writeFileEnsured(path.join(tmpDir, 'public', 'schema.json'), '{}')
+
+    // Locales
+    writeFileEnsured(
+      path.join(tmpDir, '_locales', 'en', 'messages.json'),
+      '{"app_name": {"message": "x"}}'
+    )
+    writeFileEnsured(
+      path.join(tmpDir, '_locales', 'fr', 'messages.json'),
+      '{"app_name": {"message": "x"}}'
+    )
+
+    // Manifest with browser-specific keys and various fields
+    const manifest = {
+      name: 'x',
+      manifest_version: 3,
+      // Chromium-prefixed action; Gecko-prefixed alternative
+      'chromium:action': {default_popup: '/popup.html'},
+      'gecko:action': {default_popup: '/popup-ff.html'},
+      chrome_url_overrides: {newtab: '/new.html'},
+      icons: {'16': '/public/icons/16.png'},
+      background: {service_worker: 'sw.js'},
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['/content.js'], css: ['/style.css']}
+      ],
+      declarative_net_request: {
+        rule_resources: [{id: 'rules', path: 'rules.json'}]
+      },
+      storage: {managed_schema: '/schema.json'},
+      web_accessible_resources: [
+        {resources: ['public/icons/16.png'], matches: ['<all_urls>']}
+      ]
+    }
+
+    writeFileEnsured(
+      path.join(tmpDir, 'manifest.json'),
+      JSON.stringify(manifest, null, 2)
+    )
+  })
+
+  afterAll(() => {
+    removeDirIfExists(tmpDir)
+  })
+
+  it('resolves fields for Chromium-based browsers', () => {
+    const result = getManifestFieldsData({
+      manifestPath: path.join(tmpDir, 'manifest.json'),
+      browser: 'chrome'
+    })
+
+    // HTML
+    expect(result.html['action/default_popup']).toBe(
+      path.join(tmpDir, 'public', 'popup.html')
+    )
+    expect(result.html['chrome_url_overrides/newtab']).toBe(
+      path.join(tmpDir, 'public', 'new.html')
+    )
+
+    // Icons
+    expect(result.icons.icons).toContain(
+      path.join(tmpDir, 'public', 'icons', '16.png')
+    )
+
+    // JSON
+    expect(result.json['declarative_net_request/rules']).toBe(
+      path.join(tmpDir, 'rules.json')
+    )
+    expect(result.json['storage/managed_schema']).toBe(
+      path.join(tmpDir, 'public', 'schema.json')
+    )
+
+    // Scripts
+    expect(result.scripts['background/service_worker']).toBe(
+      path.join(tmpDir, 'sw.js')
+    )
+    expect(result.scripts['content_scripts/content-0']).toEqual([
+      path.join(tmpDir, 'public', 'content.js'),
+      path.join(tmpDir, 'public', 'style.css')
+    ])
+
+    // Web resources passthrough
+    expect(result.web_accessible_resources).toEqual([
+      {resources: ['public/icons/16.png'], matches: ['<all_urls>']}
+    ])
+
+    // Locales (not part of documented API, but present)
+    // Ensure it resolves files if folder exists
+    expect(result.locales?.length).toBeGreaterThan(0)
+  })
+
+  it('resolves browser-prefixed manifest keys for Firefox/Gecko', () => {
+    const result = getManifestFieldsData({
+      manifestPath: path.join(tmpDir, 'manifest.json'),
+      browser: 'gecko-based'
+    })
+
+    expect(result.html['action/default_popup']).toBe(
+      path.join(tmpDir, 'public', 'popup-ff.html')
+    )
+  })
+})
+
+// Below: additional test cases for MV2/MV3 field resolution
 
 const fakeManifestV2: chrome.runtime.ManifestV2 = {
   manifest_version: 2,

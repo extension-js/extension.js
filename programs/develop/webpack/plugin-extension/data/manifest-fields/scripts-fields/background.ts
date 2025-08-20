@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function backgroundScripts(
@@ -13,7 +13,7 @@ export function backgroundScripts(
 
   if (scripts) {
     return scripts.map((script: string) => {
-      return path.join(context, script)
+      return resolveManifestPath(context, script)
     })
   }
 

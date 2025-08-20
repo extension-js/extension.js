@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function storage(
@@ -11,5 +11,5 @@ export function storage(
 
   const storageManagedSchema: string = manifest.storage.managed_schema
 
-  return path.join(context, storageManagedSchema)
+  return resolveManifestPath(context, storageManagedSchema)
 }

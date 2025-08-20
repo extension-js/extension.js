@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function contentScripts(
@@ -12,9 +12,7 @@ export function contentScripts(
     if (content.js?.length === 0) return undefined
 
     return content.js?.map((js) => {
-      const contentPath = path.join(context, js)
-
-      return contentPath
+      return resolveManifestPath(context, js)
     })
   }
 
@@ -22,9 +20,7 @@ export function contentScripts(
     if (content.css?.length === 0) return undefined
 
     return content.css?.map((css) => {
-      const contentPath = path.join(context, css)
-
-      return contentPath
+      return resolveManifestPath(context, css)
     })
   }
 

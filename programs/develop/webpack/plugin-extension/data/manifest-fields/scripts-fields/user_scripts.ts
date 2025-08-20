@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function userScripts(
@@ -15,5 +15,5 @@ export function userScripts(
 
   const userScript: string = manifest.user_scripts.api_script
 
-  return path.join(context, userScript)
+  return resolveManifestPath(context, userScript)
 }

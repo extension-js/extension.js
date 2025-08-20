@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 
 import {type Manifest} from '../../../../webpack-types'
 
@@ -17,7 +17,7 @@ export function chromeUrlOverrides(
     const historyPage: string = manifest.chrome_url_overrides.history
 
     chromeUrlOverride = {
-      'chrome_url_overrides/history': path.join(context, historyPage)
+      'chrome_url_overrides/history': resolveManifestPath(context, historyPage)
     }
   }
 
@@ -25,7 +25,7 @@ export function chromeUrlOverrides(
     const newtabPage = manifest.chrome_url_overrides.newtab
 
     chromeUrlOverride = {
-      'chrome_url_overrides/newtab': path.join(context, newtabPage)
+      'chrome_url_overrides/newtab': resolveManifestPath(context, newtabPage)
     }
   }
 
@@ -33,7 +33,10 @@ export function chromeUrlOverrides(
     const bookmarksPage = manifest.chrome_url_overrides.bookmarks
 
     chromeUrlOverride = {
-      'chrome_url_overrides/bookmarks': path.join(context, bookmarksPage)
+      'chrome_url_overrides/bookmarks': resolveManifestPath(
+        context,
+        bookmarksPage
+      )
     }
   }
 

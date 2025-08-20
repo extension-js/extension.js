@@ -1,9 +1,8 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function devtoolsPage(
   context: string,
-
   manifest: Manifest
 ): string | undefined {
   if (!manifest || !manifest.devtools_page) {
@@ -11,6 +10,5 @@ export function devtoolsPage(
   }
 
   const devtoolsPage: string = manifest.devtools_page
-
-  return path.join(context, devtoolsPage)
+  return resolveManifestPath(context, devtoolsPage)
 }
