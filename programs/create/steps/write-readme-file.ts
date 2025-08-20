@@ -14,42 +14,61 @@ export async function writeReadmeFile(
   projectPath: string,
   projectName: string
 ) {
+  // If a README already exists in the target folder, do not overwrite it
+  try {
+    await fs.access(path.join(projectPath, 'README.md'))
+    // README exists; respect the existing file
+    return
+  } catch {}
+
   const initTemplateReadme = `
+<a href="https://extension.js.org" target="_blank"><img src="https://img.shields.io/badge/Powered%20by%20%7C%20Extension.js-0971fe" alt="Powered by Extension.js" align="right" /></a>
+
 # [projectName]
 
 > [templateDescription]
 
-## Available Scripts
+What this example does in the scope of a browser extension. The description should 
+describe for an audience of developers looking to use the example. Avoid jargon and 
+use simple language.
 
-In the project directory, you can run the following scripts:
+## Installation
 
-### [runCommand] dev
+\`\`\`bash
+[runCommand] create <project-name> --template init
+cd <project-name>
+npm install
+\`\`\`
 
-**Development Mode**: This command runs your extension in development mode. It will launch a new browser instance with your extension loaded. The page will automatically reload whenever you make changes to your code, allowing for a smooth development experience.
+## Commands
+
+### dev
+
+Run the extension in development mode.
 
 \`\`\`bash
 [runCommand] dev
 \`\`\`
 
-### [runCommand] start
+### build
 
-**Production Preview**: This command runs your extension in production mode. It will launch a new browser instance with your extension loaded, simulating the environment and behavior of your extension as it will appear once published.
-
-\`\`\`bash
-[runCommand] start
-\`\`\`
-
-### [runCommand] build
-
-**Build for Production**: This command builds your extension for production. It optimizes and bundles your extension, preparing it for deployment to the target browser's store.
+Build the extension for production.
 
 \`\`\`bash
 [runCommand] build
 \`\`\`
 
-## Learn More
+### Preview
 
-To learn more about creating cross-browser extensions with Extension.js, visit the [official documentation](https://extension.js.org).
+Preview the extension in the browser.
+
+\`\`\`bash
+[runCommand] preview
+\`\`\`
+
+## Learn more
+
+Learn more about this and other examples at @https://extension.js.org/
   `
 
   const installCommand = await utils.getInstallCommand()

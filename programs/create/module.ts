@@ -21,7 +21,7 @@ export interface CreateOptions {
 
 export async function extensionCreate(
   projectNameInput: string | undefined,
-  {cliVersion, template = 'init', install = true}: CreateOptions
+  {cliVersion, template = 'init', install = false}: CreateOptions
 ) {
   if (!projectNameInput) {
     throw new Error(messages.noProjectName())
