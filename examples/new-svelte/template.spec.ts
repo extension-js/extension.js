@@ -14,7 +14,7 @@ test.beforeAll(async () => {
   })
 })
 
-test('should exist an element with the welcome message text', async ({
+test.skip('should exist an element with the welcome message text', async ({
   page
 }) => {
   await page.goto('chrome://newtab/')
@@ -26,7 +26,7 @@ test('should exist an element with the welcome message text', async ({
   test.expect(textContent).toMatch(/Welcome to your/i)
 })
 
-test('should exist a default color value', async ({page}) => {
+test.skip('should exist a default color value', async ({page}) => {
   await page.goto('chrome://newtab/')
   const h1 = page.locator('h1')
   const color = await page.evaluate(

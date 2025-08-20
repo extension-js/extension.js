@@ -3,12 +3,13 @@
   "name": "chatgpt-action-example",
   "description": "A modern browser extension action popup example built with Extension.js and React, inspired by ChatGPT. Demonstrates how to create AI-powered action popups with clean, maintainable code.",
   "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "license": "MIT",
   "dependencies": {
     "daisyui": "^5.0.16",
     "openai": "^4.57.2",
@@ -21,6 +22,5 @@
     "@types/react-dom": "^18.3.0",
     "tailwindcss": "^4.1.3",
     "typescript": "5.3.3"
-  },
-  "type": "module"
+  }
 }

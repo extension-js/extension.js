@@ -3,14 +3,14 @@
   "name": "less-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js using Less CSS. Demonstrates how to create styled content scripts using Less preprocessing with clean, maintainable code.",
   "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "license": "MIT",
   "devDependencies": {
     "less": "^4.2.0"
-  },
-  "type": "module"
+  }
 }

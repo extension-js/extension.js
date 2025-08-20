@@ -1,96 +1,47 @@
-# Browser Flags Example
+<a href="https://extension.js.org" target="_blank"><img src="https://img.shields.io/badge/Powered%20by%20%7C%20Extension.js-0971fe" alt="Powered by Extension.js" align="right" /></a>
 
-This example demonstrates how to customize browser flags when developing extensions with extension.js.
+# browser/flags
 
-## Key Features
+> A modern browser extension example built with Extension.js demonstrating browser-specific features and flags. Shows how to handle different browser implementations with clean, maintainable code.
 
-- Excluding default browser flags (new feature)
-- Adding custom browser flags
-- Browser-specific configuration
+What this example does in the scope of a browser extension. The description should
+describe for an audience of developers looking to use the example. Avoid jargon and
+use simple language.
 
-## The Problem
+## Installation
 
-By default, extension.js applies certain flags to the browser during development, including:
-
-- `--hide-scrollbars`: Hides scrollbars in the browser window, which can be problematic for UI testing
-- `--mute-audio`: Mutes all audio in the browser, which blocks sound-related features
-
-Previously, there was no clean way to disable these default flags. Users had to resort to post-install scripts that modified the source code.
-
-## The Solution: excludeBrowserFlags
-
-The `excludeBrowserFlags` option allows you to specify which default flags should be removed from the browser configuration.
-
-```javascript
-export default {
-  browser: {
-    chrome: {
-      excludeBrowserFlags: [
-        '--hide-scrollbars', // Allow scrollbars to be visible
-        '--mute-audio' // Allow audio to play
-      ]
-    }
-  }
-}
+```bash
+npx extension@latest create <project-name> --template browser-flags
+cd <project-name>
+npm install
 ```
 
-## Available Default Flags
+## Commands
 
-Extension.js sets the following default flags that can be excluded:
+### dev
 
-| Flag                                       | Description                                  |
-| ------------------------------------------ | -------------------------------------------- |
-| `--no-first-run`                           | Disable Chrome's native first run experience |
-| `--disable-client-side-phishing-detection` | Disables client-side phishing detection      |
-| `--hide-scrollbars`                        | Hide scrollbars from screenshots             |
-| `--mute-audio`                             | Mute all audio in the browser                |
-| `--no-default-browser-check`               | Disable the default browser check            |
-| `--ash-no-nudges`                          | Avoids blue bubble "user education" nudges   |
-| `--disable-features=MediaRoute`            | Disable Chrome Media Router                  |
-| `--disable-background-networking`          | Disable various background network services  |
-| `--disable-sync`                           | Disable syncing to a Google account          |
-| `--no-pings`                               | Don't send hyperlink auditing pings          |
+Run the extension in development mode.
 
-And many more - see the full list in the source code.
-
-## Type Safety
-
-The `excludeBrowserFlags` option is fully typed, providing autocompletion and documentation in supported editors:
-
-```typescript
-/**
- * Array of browser flags to exclude from the default set
- * @example ['--hide-scrollbars', '--mute-audio']
- */
-excludeBrowserFlags?: Array<DefaultBrowserFlags | string>
+```bash
+npx extension@latest dev
 ```
 
-## Common Use Cases
+### build
 
-### Enabling Audio for Development
+Build the extension for production.
 
-```javascript
-export default {
-  browser: {
-    chrome: {
-      excludeBrowserFlags: ['--mute-audio'],
-      browserFlags: [
-        '--autoplay-policy=no-user-gesture-required',
-        '--disable-features=PreloadMediaEngagementData,AutoplayIgnoreWebAudio'
-      ]
-    }
-  }
-}
+```bash
+npx extension@latest build
 ```
 
-### Showing Scrollbars
+### Preview
 
-```javascript
-export default {
-  browser: {
-    chrome: {
-      excludeBrowserFlags: ['--hide-scrollbars']
-    }
-  }
-}
+Preview the extension in the browser.
+
+```bash
+npx extension@latest preview
 ```
+
+## Learn more
+
+Learn more about this and other examples at @https://extension.js.org/
