@@ -14,12 +14,16 @@ export class StaticAssetsPlugin {
   }
 
   public async apply(compiler: Compiler) {
+    const filenamePattern =
+      this.mode === 'production'
+        ? 'assets/[name].[contenthash:8][ext]'
+        : 'assets/[name][ext]'
     // Define the default SVG rule
     const defaultSvgRule: RuleSetRule = {
       test: /\.svg$/i,
       type: 'asset',
       generator: {
-        filename: 'assets/[name][ext]'
+        filename: filenamePattern
       },
       parser: {
         dataUrlCondition: {
@@ -45,7 +49,7 @@ export class StaticAssetsPlugin {
         test: /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
         type: 'asset',
         generator: {
-          filename: 'assets/[name][ext]'
+          filename: filenamePattern
         },
         parser: {
           dataUrlCondition: {
@@ -57,26 +61,19 @@ export class StaticAssetsPlugin {
         test: /\.(woff|woff2|eot|ttf|otf)$/i,
         type: 'asset',
         generator: {
-          filename: 'assets/[name][ext]'
+          filename: filenamePattern
         }
       },
       {
         test: /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i,
         type: 'asset',
         generator: {
-          filename: 'assets/[name][ext]'
+          filename: filenamePattern
         },
         parser: {
           dataUrlCondition: {
             maxSize: 2 * 1024
           }
-        }
-      },
-      {
-        test: /\.(csv|tsv)$/i,
-        use: ['csv-loader'],
-        generator: {
-          filename: 'assets/[name][ext]'
         }
       }
     ]
