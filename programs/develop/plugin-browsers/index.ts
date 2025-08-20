@@ -2,6 +2,8 @@ import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './browsers-types'
 import {DevOptions} from '../commands/commands-lib/config-types'
 import * as messages from '../webpack/lib/messages'
+import {SetupChromeInspectionStep} from './run-chromium/setup-chrome-inspection'
+import {SetupFirefoxInspectionStep} from './run-firefox/remote-firefox/setup-firefox-inspection'
 
 /**
  * BrowsersPlugin works by finding the binary for the browser specified in the
@@ -27,7 +29,8 @@ export class BrowsersPlugin {
   public readonly browser: DevOptions['browser']
   public readonly open?: boolean
   public readonly browserFlags?: string[]
-  public readonly profile?: string
+  public readonly excludeBrowserFlags?: string[]
+  public readonly profile?: string | false
   public readonly preferences?: Record<string, any>
   public readonly startingUrl?: string
   public readonly chromiumBinary?: string
@@ -36,15 +39,14 @@ export class BrowsersPlugin {
   public readonly port?: number | string
   public readonly source?: string
   public readonly watchSource?: boolean
+  public readonly reuseProfile?: boolean
+  public readonly dryRun?: boolean
 
   constructor(options: PluginInterface) {
-    // Include extensions and filter out any duplicate load-extension flags
-    this.extension = [
-      ...options.extension,
-      ...(options.browserFlags?.filter(
-        (flag) => !flag.startsWith('--load-extension=')
-      ) || [])
-    ]
+    // Environment overrides removed
+
+    // Preserve provided extension paths as-is (do not mix flags)
+    this.extension = options.extension
 
     // Determine browser based on binary flags or fall back to the provided option
     if (options.chromiumBinary) {
@@ -60,7 +62,24 @@ export class BrowsersPlugin {
       options.browserFlags?.filter(
         (flag) => !flag.startsWith('--load-extension=')
       ) || []
-    this.profile = options.profile
+    this.excludeBrowserFlags = options.excludeBrowserFlags
+    // Normalize profile option to avoid accidental string "false" directories
+    if (typeof options.profile === 'string') {
+      const trimmed = options.profile.trim()
+      if (
+        /^(false|null|undefined|off|0)$/i.test(trimmed) ||
+        trimmed.length === 0
+      ) {
+        this.profile = false
+        console.warn(
+          '[plugin-browsers] Normalized profile option from string to false; no managed profile will be used.'
+        )
+      } else {
+        this.profile = trimmed
+      }
+    } else {
+      this.profile = options.profile
+    }
     this.preferences = options.preferences
     this.startingUrl = options.startingUrl || ''
     this.chromiumBinary = options.chromiumBinary
@@ -70,6 +89,14 @@ export class BrowsersPlugin {
     // Add source inspection options
     this.source = options.source
     this.watchSource = options.watchSource
+    this.reuseProfile = options.reuseProfile
+    this.dryRun = (options as any).dryRun as any
+
+    if (this.profile === false) {
+      console.warn(
+        '[plugin-browsers] You are using the system profile (profile: false). This may alter your personal browser data. Consider using managed profiles or backups.'
+      )
+    }
   }
 
   apply(compiler: Compiler) {
@@ -99,6 +126,7 @@ export class BrowsersPlugin {
         browser: this.browser,
         open: this.open,
         browserFlags: this.browserFlags,
+        excludeBrowserFlags: this.excludeBrowserFlags,
         profile: this.profile,
         preferences: this.preferences,
         startingUrl: this.startingUrl,
@@ -107,7 +135,9 @@ export class BrowsersPlugin {
         instanceId: this.instanceId,
         port: this.port,
         source: this.source,
-        watchSource: this.watchSource
+        watchSource: this.watchSource,
+        reuseProfile: this.reuseProfile,
+        dryRun: this.dryRun
       }
 
       // Apply the browser-specific plugin immediately
@@ -115,6 +145,39 @@ export class BrowsersPlugin {
     } catch (error) {
       console.error(messages.browserPluginFailedToLoad(this.browser, error))
       throw error
+    }
+
+    // 3 - Sets up source inspection for real-time HTML monitoring
+    // This allows developers to see the full HTML output including
+    // Shadow DOM content from content scripts
+    if (compiler.options.mode !== 'development') return
+
+    if (this.browser === 'firefox' || this.browser === 'gecko-based') {
+      new SetupFirefoxInspectionStep({
+        browser: this.browser,
+        mode: compiler.options.mode || 'development',
+        source: this.source,
+        watchSource: this.watchSource,
+        startingUrl: this.startingUrl,
+        port: this.port,
+        instanceId: this.instanceId
+      }).apply(compiler)
+    }
+
+    if (
+      this.browser === 'chrome' ||
+      this.browser === 'edge' ||
+      this.browser === 'chromium-based'
+    ) {
+      new SetupChromeInspectionStep({
+        browser: this.browser,
+        mode: compiler.options.mode || 'development',
+        source: this.source,
+        watchSource: this.watchSource,
+        startingUrl: this.startingUrl,
+        port: this.port,
+        instanceId: this.instanceId
+      } as any).apply(compiler)
     }
   }
 }

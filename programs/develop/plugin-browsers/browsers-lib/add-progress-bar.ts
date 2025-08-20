@@ -6,7 +6,7 @@ export function addProgressBar(text: string, completionCallback: () => void) {
   const bar = new ProgressBar(`${text} [:bar] :percent :etas`, {
     complete: '=',
     incomplete: ' ',
-    width: 50,
+    width: 25,
     total: contentLength
   })
 

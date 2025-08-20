@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import * as net from 'net'
 import {Compilation} from '@rspack/core'
 import {DevOptions} from '../../commands/commands-lib/config-types'
 import * as messages from './messages'
@@ -9,6 +10,31 @@ import {
   PROFILE_DIR_NAME,
   PROFILES_SUBDIR
 } from './constants'
+import type {InstanceInfo} from '../../lib/instance-manager'
+
+// Instance helpers
+export function shortInstanceId(instanceId?: string): string {
+  return instanceId ? String(instanceId).slice(0, 8) : ''
+}
+
+export function instanceOffsetFromId(instanceId?: string): number {
+  const short = shortInstanceId(instanceId)
+  return short ? parseInt(short, 16) % 1000 | 0 : 0
+}
+
+// Derive a debug port that includes global offset and per-instance offset
+export function deriveDebugPortWithInstance(
+  optionPort?: number | string,
+  instanceId?: string
+): number {
+  // calculateDebugPort already adds the global PORT_OFFSET
+  const basePlusOffset = calculateDebugPort(
+    optionPort,
+    undefined,
+    DEFAULT_DEBUG_PORT
+  )
+  return basePlusOffset + instanceOffsetFromId(instanceId)
+}
 
 // Validates a profile path exists and is accessible
 // Moved from duplicate implementations in both browsers
@@ -89,8 +115,29 @@ export function createProfileDirectory(
     // Execute the browser-specific creation function
     createFn(tempPath)
 
-    // Atomic rename
-    fs.renameSync(tempPath, profilePath)
+    // Atomic rename with single retry on transient errors
+    try {
+      fs.renameSync(tempPath, profilePath)
+    } catch (err: any) {
+      const code = err?.code || ''
+      const msg = String(err?.message || '')
+      const isTransient =
+        code === 'EACCES' ||
+        code === 'ENOTEMPTY' ||
+        code === 'EBUSY' ||
+        msg.includes('Directory not empty')
+      if (isTransient) {
+        // Ensure destination is purged then retry once
+        try {
+          if (fs.existsSync(profilePath)) {
+            fs.rmSync(profilePath, {recursive: true, force: true})
+          }
+        } catch {}
+        fs.renameSync(tempPath, profilePath)
+      } else {
+        throw err
+      }
+    }
   } catch (error) {
     // Cleanup on failure
     if (fs.existsSync(tempPath)) {
@@ -98,6 +145,32 @@ export function createProfileDirectory(
     }
     throw new Error(messages.profileCreationError(browser, error))
   }
+}
+
+// Detect Chromium lock files under a profile path
+export function isChromiumProfileLocked(baseProfilePath: string): boolean {
+  const lockCandidates = ['SingletonLock', 'SingletonCookie', 'SingletonSocket']
+  return lockCandidates.some((file) =>
+    fs.existsSync(path.join(baseProfilePath, file))
+  )
+}
+
+// Detect Firefox lock file under a profile path
+export function isFirefoxProfileLocked(baseProfilePath: string): boolean {
+  return fs.existsSync(path.join(baseProfilePath, 'parent.lock'))
+}
+
+// Decide which instanceId to use based on reuse intent, concurrency and lock state
+export function chooseEffectiveInstanceId(
+  reuseRequested: boolean | undefined,
+  _concurrent: boolean,
+  lockPresent: boolean,
+  instanceId?: string
+): string | undefined {
+  const reuse = typeof reuseRequested === 'undefined' ? true : !!reuseRequested
+  // Prefer shared profile unless a lock is detected
+  const canShare = reuse && !lockPresent
+  return canShare ? undefined : instanceId
 }
 // Calculates debug port from various sources
 export function calculateDebugPort(
@@ -145,4 +218,33 @@ export function applyPreferences(
   Object.keys(preferences).forEach((pref) => {
     profile.setPreference(pref, preferences[pref] as string | number | boolean)
   })
+}
+
+// Find an available TCP port near a starting port. Defaults to localhost.
+export async function findAvailablePortNear(
+  startPort: number,
+  maxAttempts: number = 20,
+  host: string = '127.0.0.1'
+): Promise<number> {
+  function tryPort(port: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      const server = net.createServer()
+      server.once('error', () => {
+        resolve(false)
+      })
+      server.once('listening', () => {
+        server.close(() => resolve(true))
+      })
+      server.listen(port, host)
+    })
+  }
+
+  let candidate = startPort
+  for (let i = 0; i < maxAttempts; i++) {
+    // eslint-disable-next-line no-await-in-loop
+    const ok = await tryPort(candidate)
+    if (ok) return candidate
+    candidate += 1
+  }
+  return startPort
 }

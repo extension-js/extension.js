@@ -105,7 +105,7 @@ export type DefaultBrowserFlags =
 export interface PluginInterface extends PluginOptions {
   browser: DevOptions['browser']
   extension: string | string[]
-  port?: number
+  port?: string | number
   // Internal auto-generated instance ID, not user-configurable
   instanceId?: string
   // Source inspection options
@@ -121,11 +121,16 @@ export interface PluginOptions {
    * @example ['--hide-scrollbars', '--mute-audio']
    */
   excludeBrowserFlags?: Array<DefaultBrowserFlags | string>
-  profile?: string
+  profile?: string | false
   preferences?: Record<string, any>
   startingUrl?: string
   browserConsole?: boolean
   devtools?: boolean
   chromiumBinary?: string
   geckoBinary?: string
+  /**
+   * When true, reuse a stable profile directory across runs when safe.
+   * If another run is detected for the same project+browser, fallback to per-instance profile.
+   */
+  reuseProfile?: boolean
 }
