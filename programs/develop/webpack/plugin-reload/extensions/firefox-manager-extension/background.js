@@ -1,5 +1,4 @@
-import {handleFirstRun} from './define-initial-tab.js'
-import {connect, disconnect} from './reload-service.js'
+// Raw background: rely on global-scope functions provided by included scripts
 
 function bgGreen(str) {
   return `background: transparent; color: #0971fe; ${str}`
@@ -39,19 +38,48 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors
   try {
     await handleFirstRun()
   } catch (error) {
-    console.error('Error handling tabs on extension load:', error)
+    console.error(
+      '[Extension.js] Error handling tabs on extension load:',
+      error
+    )
   }
+  try {
+    const [initialTab] = await browser.tabs.query({
+      active: true,
+      currentWindow: true
+    })
+    if (initialTab) {
+      await createFirefoxAddonsTab(initialTab, 'about:blank')
+    }
+  } catch {}
 }
 
+// Run on install and on startup to ensure welcome/connection behavior is reliable
 browser.runtime.onInstalled.addListener(async () => {
-  await handleTabOnExtensionLoad()
-
-  let isConnected = false
-
-  if (isConnected) {
-    disconnect()
-  } else {
+  try {
+    await handleFirstRun()
+  } catch {}
+  try {
+    await handleTabOnExtensionLoad()
+  } catch {}
+  try {
     await connect()
-    isConnected = true
-  }
+  } catch {}
 })
+
+browser.runtime.onStartup.addListener(async () => {
+  try {
+    await handleFirstRun()
+  } catch {}
+  try {
+    await handleTabOnExtensionLoad()
+  } catch {}
+  try {
+    await connect()
+  } catch {}
+})
+
+// Attempt immediate connection for resilience
+try {
+  connect()
+} catch {}

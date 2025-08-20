@@ -10,7 +10,7 @@ import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
 class SetupReloadStrategy {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
-  private readonly port: number
+  private readonly port: string | number
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
