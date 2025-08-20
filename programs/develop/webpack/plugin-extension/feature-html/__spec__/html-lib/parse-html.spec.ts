@@ -72,7 +72,7 @@ describe('parseHtml', () => {
     })
   })
 
-  it('should parse static assets with href attribute', () => {
+  it('should ignore anchor href as static asset', () => {
     const mockNode = createHtmlDocument([
       createAnchorNode('document.pdf')
     ]) as any
@@ -86,12 +86,7 @@ describe('parseHtml', () => {
       resources.push(options as any)
     })
 
-    expect(resources).toHaveLength(1)
-    expect(resources[0]).toEqual({
-      filePath: 'document.pdf',
-      childNode: mockNode.childNodes[0].childNodes[0],
-      assetType: 'staticHref'
-    })
+    expect(resources).toHaveLength(0)
   })
 
   it('should ignore comment nodes', () => {

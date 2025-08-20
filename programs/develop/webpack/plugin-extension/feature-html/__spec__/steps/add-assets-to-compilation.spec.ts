@@ -1,3 +1,10 @@
+const FS = vi.hoisted(() => ({
+  existsSync: vi.fn(),
+  readFileSync: vi.fn()
+}))
+vi.mock('fs', () => ({
+  ...FS
+}))
 import * as fs from 'fs'
 import * as path from 'path'
 import type {Compilation, Compiler} from '@rspack/core'
@@ -6,22 +13,33 @@ import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 import * as utils from '../../html-lib/utils'
 import * as webpackUtils from '../../../../lib/utils'
 
-vi.mock('fs')
-vi.mock('path')
 vi.mock('../../html-lib/utils')
 vi.mock('../../../../lib/utils')
+vi.mock('../../html-lib/patch-html', () => ({
+  patchHtmlNested: vi
+    .fn()
+    .mockImplementation((_c, _p) => '<html>patched</html>')
+}))
 vi.mock('@rspack/core', () => {
-  const WebpackError = class WebpackError extends Error {
+  class WebpackError extends Error {
     constructor(message: string) {
       super(message)
       this.name = 'WebpackError'
     }
   }
-
+  class RawSource {
+    public content: any
+    constructor(content: any) {
+      this.content = content
+    }
+    source() {
+      return this.content
+    }
+  }
   return {
     default: {
       sources: {
-        RawSource: vi.fn().mockImplementation((content) => ({content}))
+        RawSource
       },
       Compilation: {
         PROCESS_ASSETS_STAGE_ADDITIONAL: 100
@@ -29,7 +47,7 @@ vi.mock('@rspack/core', () => {
       WebpackError
     },
     sources: {
-      RawSource: vi.fn().mockImplementation((content) => ({content}))
+      RawSource
     },
     Compilation: {
       PROCESS_ASSETS_STAGE_ADDITIONAL: 100
@@ -54,10 +72,10 @@ describe('AddAssetsToCompilation', () => {
     emitAssetSpy = vi.fn()
     getAssetSpy = vi.fn()
     warningsPushSpy = vi.fn()
-    existsSyncSpy = vi.spyOn(fs, 'existsSync').mockReturnValue(true) as any
-    readFileSyncSpy = vi
-      .spyOn(fs, 'readFileSync')
-      .mockReturnValue(Buffer.from('file-content')) as any
+    existsSyncSpy = vi.spyOn(fs, 'existsSync') as any
+    existsSyncSpy.mockImplementation(() => true)
+    readFileSyncSpy = vi.spyOn(fs, 'readFileSync') as any
+    readFileSyncSpy.mockImplementation(() => Buffer.from('file-content'))
 
     compilation = {
       hooks: {
@@ -86,18 +104,7 @@ describe('AddAssetsToCompilation', () => {
       } as any
     }
 
-    // Default path mocking for all tests
-    vi.spyOn(path, 'join').mockImplementation((...args: string[]) => {
-      return args.filter(Boolean).join('/')
-    })
-    vi.spyOn(path.posix, 'join').mockImplementation((...args: string[]) => {
-      return args.filter(Boolean).join('/')
-    })
-    vi.spyOn(path, 'basename').mockImplementation((p: string) => {
-      if (p === 'resource.html') return 'resource.html'
-      if (p === 'nested/page.html') return 'page.html'
-      return p.split('/').pop() || ''
-    })
+    // leave path methods intact to avoid redefining builtins
   })
 
   it('should emit assets for files in includeList', () => {
@@ -167,10 +174,7 @@ describe('AddAssetsToCompilation', () => {
     plugin.apply(compiler as Compiler)
     processAssetsCallback()
 
-    expect(path.posix.join).toHaveBeenCalledWith(
-      'public',
-      'absolute/path/image.png'
-    )
+    // Ensure the read and emit paths match the expected absolute resolution
     expect(readFileSyncSpy).toHaveBeenCalledWith(
       'public/absolute/path/image.png'
     )
@@ -247,5 +251,42 @@ describe('AddAssetsToCompilation', () => {
 
     expect(warningsPushSpy).not.toHaveBeenCalled()
     expect(emitAssetSpy).not.toHaveBeenCalled()
+  })
+
+  it('should patch and emit nested HTML files', () => {
+    const includeList = {feature: 'resource.html'}
+    const plugin = new AddAssetsToCompilation({
+      manifestPath: 'manifest.json',
+      includeList
+    })
+
+    getAssetSpy.mockImplementation((name: string) => {
+      if (name === 'resource.html') {
+        return {
+          source: {
+            source: () => '<html><a href="nested/page.html">Page</a></html>'
+          }
+        }
+      }
+      return null
+    })
+
+    // First call for top-level returns nested HTML; second call for nested returns no further assets
+    vi.mocked(utils.getAssetsFromHtml)
+      .mockReturnValueOnce({css: [], js: [], static: ['nested/page.html']})
+      .mockReturnValueOnce({css: [], js: [], static: []})
+
+    // fs.existsSync for nested HTML
+    existsSyncSpy.mockReturnValue(true)
+    // readFileSync returns nested HTML content
+    readFileSyncSpy.mockReturnValue('<html>nested</html>' as any)
+
+    plugin.apply(compiler as Compiler)
+    if (processAssetsCallback) processAssetsCallback()
+
+    expect(emitAssetSpy).toHaveBeenCalledWith(
+      'assets/nested/page.html',
+      expect.objectContaining({content: expect.any(String)})
+    )
   })
 })
