@@ -10,6 +10,10 @@ import * as fs from 'fs'
 import {describe, it, expect, beforeAll} from 'vitest'
 import {ALL_TEMPLATES, DEFAULT_TEMPLATE} from '../../examples/data'
 import {extensionCreate} from '../../programs/create/dist/module.js'
+import {execFile} from 'child_process'
+import {promisify} from 'util'
+
+const execFileAsync = promisify(execFile)
 
 function fileExists(templateName: string, filePath?: string): boolean {
   const templatePath = path.resolve(
@@ -71,6 +75,89 @@ describe('extension create', () => {
     expect(fileExists('init', 'manifest.json')).toBeTruthy()
     expect(fileExists('init', 'README.md')).toBeTruthy()
   }, 30000)
+
+  it('rejects a URL as project path', async () => {
+    await expect(
+      extensionCreate('http://example.com', {
+        template: DEFAULT_TEMPLATE.name
+      })
+    ).rejects.toThrow('URLs are not allowed as a project path')
+  }, 30000)
+
+  it('generates type definitions for TypeScript templates', async () => {
+    // Ensure we use local examples during tests
+    process.env.EXTENSION_ENV = 'development'
+
+    const projectPath = path.resolve(
+      __dirname,
+      'dist',
+      'test-template-content-typescript'
+    )
+
+    // Cleanup before running
+    await removeDir(projectPath)
+
+    await extensionCreate(projectPath, {
+      template: 'content-typescript'
+    })
+
+    const typesPath = path.join(projectPath, 'extension-env.d.ts')
+    expect(fs.existsSync(typesPath)).toBeTruthy()
+
+    // Cleanup after assertion
+    await removeDir(projectPath)
+  }, 60000)
+
+  it('pnpm extension create creates a project (local template) and build succeeds', async () => {
+    const uniqueSuffix = Date.now().toString()
+    const projectPath = path.resolve(
+      __dirname,
+      'dist',
+      `user-create-init-${uniqueSuffix}`
+    )
+    const cwd = path.resolve(__dirname, '..', '..')
+    const env = {
+      ...process.env,
+      EXTENSION_ENV: 'development'
+    } as unknown as NodeJS.ProcessEnv
+
+    // Ensure target path does not exist
+    fs.rmSync(projectPath, {recursive: true, force: true})
+
+    await execFileAsync(
+      'pnpm',
+      ['extension', 'create', projectPath, '--template', 'init'],
+      {cwd, env}
+    )
+    expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBeTruthy()
+    await execFileAsync(
+      'pnpm',
+      [
+        'extension',
+        'build',
+        projectPath,
+        '--browser',
+        'chrome',
+        '--silent',
+        'true'
+      ],
+      {cwd, env}
+    )
+    const manifestPath = path.join(
+      projectPath,
+      'dist',
+      'chrome',
+      'manifest.json'
+    )
+    expect(fs.existsSync(manifestPath)).toBeTruthy()
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    expect(manifest.name).toBeTruthy()
+    expect(manifest.version).toBeTruthy()
+    expect(manifest.manifest_version).toBeTruthy()
+
+    // Cleanup
+    fs.rmSync(projectPath, {recursive: true, force: true})
+  }, 120000)
 
   describe.skip('using the --template flag', () => {
     it.each(ALL_TEMPLATES)(
