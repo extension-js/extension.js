@@ -1,39 +1,43 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compilation, type Compiler} from '@rspack/core'
-import {spawn} from 'child_process'
+import {spawn, type ChildProcess} from 'child_process'
 import * as chromeLocation from 'chrome-location2'
 import edgeLocation from 'edge-location'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
 import {PluginInterface} from '../browsers-types'
 import {DevOptions} from '../../commands/commands-lib/config-types'
-import {DynamicExtensionManager} from '../../lib/dynamic-extension-manager'
+import {DynamicExtensionManager} from '../browsers-lib/dynamic-extension-manager'
 import {InstanceManager} from '../../lib/instance-manager'
-
-process.on('SIGINT', () => {
-  process.exit()
-})
-
-process.on('SIGTERM', () => {
-  process.exit()
-})
+import {
+  deriveDebugPortWithInstance,
+  findAvailablePortNear
+} from '../browsers-lib/shared-utils'
+import {
+  getDefaultProfilePath,
+  isChromiumProfileLocked,
+  chooseEffectiveInstanceId
+} from '../browsers-lib/shared-utils'
 
 export class RunChromiumPlugin {
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
   public readonly browserFlags?: string[]
   public readonly excludeBrowserFlags?: string[]
-  public readonly profile?: string
+  public readonly profile?: string | false
   public readonly preferences?: Record<string, any>
   public readonly startingUrl?: string
   public readonly autoReload?: boolean
   public readonly stats?: boolean
   public readonly chromiumBinary?: string
-  public readonly port?: number
+  public readonly port?: string | number
   public readonly instanceId?: string
   public readonly source?: string
   public readonly watchSource?: boolean
+  public readonly reuseProfile?: boolean
+  public readonly dryRun?: boolean
+  private browserProcess?: ChildProcess
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -48,6 +52,8 @@ export class RunChromiumPlugin {
     this.instanceId = options.instanceId
     this.source = options.source
     this.watchSource = options.watchSource
+    this.reuseProfile = (options as any).reuseProfile
+    this.dryRun = (options as any).dryRun
   }
 
   private async launchChromium(
@@ -102,17 +108,87 @@ export class RunChromiumPlugin {
       ? [...this.extension]
       : [this.extension]
 
-    // Add the dynamic manager extension if we have an instance
     if (currentInstance) {
       const generatedExtension =
         await extensionManager.regenerateExtensionIfNeeded(currentInstance)
-      extensionsToLoad.push(generatedExtension.extensionPath)
+      extensionsToLoad = [...extensionsToLoad, generatedExtension.extensionPath]
     }
 
-    const chromiumConfig = browserConfig(compilation, {
-      ...this,
-      extension: extensionsToLoad
-    })
+    // Smart profile reuse with graceful fallback
+    let effectiveInstanceId: string | undefined = this.instanceId
+    try {
+      const running = await instanceManager.getRunningInstances()
+      const concurrent = running.some(
+        (i) => i.status === 'running' && i.browser === this.browser
+      )
+      const browserSpecificOutputPath =
+        ((compilation as any).options?.output?.path as string) ||
+        process.cwd() + '/dist'
+      const mainOutputPath = path.dirname(browserSpecificOutputPath)
+      const baseProfilePath = getDefaultProfilePath(
+        mainOutputPath,
+        this.browser
+      )
+      const lockPresent = isChromiumProfileLocked(baseProfilePath)
+      effectiveInstanceId = chooseEffectiveInstanceId(
+        this.reuseProfile,
+        concurrent,
+        lockPresent,
+        this.instanceId
+      )
+    } catch {
+      effectiveInstanceId = this.instanceId
+    }
+
+    let chromiumConfig: string[]
+    try {
+      chromiumConfig = browserConfig(compilation, {
+        ...this,
+        instanceId: effectiveInstanceId,
+        extension: extensionsToLoad
+      } as any)
+    } catch (error) {
+      // Fallback: if shared profile creation fails, retry with per-instance profile
+      if ((this.reuseProfile as boolean | undefined) !== false) {
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.warn(
+            `Falling back to per-instance profile due to error: ${String(error)}`
+          )
+        }
+        chromiumConfig = browserConfig(compilation, {
+          ...this,
+          instanceId: this.instanceId,
+          extension: extensionsToLoad
+        } as any)
+      } else {
+        throw error
+      }
+    }
+
+    // Ensure CDP port availability if source inspection enabled
+    if (this.source || this.watchSource) {
+      const desiredPort = deriveDebugPortWithInstance(
+        this.port as any,
+        this.instanceId
+      )
+      const freePort = await findAvailablePortNear(desiredPort)
+      if (freePort !== desiredPort) {
+        // Replace port occurrences in flags
+        chromiumConfig = chromiumConfig.map((flag) =>
+          flag.startsWith('--remote-debugging-port=')
+            ? `--remote-debugging-port=${freePort}`
+            : flag
+        )
+      }
+    }
+
+    if (this.dryRun) {
+      console.log(messages.chromeInitializingEnhancedReload())
+      console.log('[plugin-browsers] Dry run: not launching browser')
+      console.log('[plugin-browsers] Binary:', browserBinaryLocation)
+      console.log('[plugin-browsers] Flags:', chromiumConfig.join(' '))
+      return
+    }
 
     // Use direct spawn for basic functionality
     await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
@@ -122,7 +198,9 @@ export class RunChromiumPlugin {
     browserBinaryLocation: string,
     chromeFlags: string[]
   ) {
-    console.log(messages.chromeInitializingEnhancedReload())
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(messages.chromeInitializingEnhancedReload())
+    }
 
     const launchArgs = this.startingUrl
       ? [this.startingUrl, ...chromeFlags]
@@ -132,7 +210,19 @@ export class RunChromiumPlugin {
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
 
     try {
-      const child = spawn(`${browserBinaryLocation}`, launchArgs, {stdio})
+      // Enhanced process management for AI usage
+      const child = spawn(`${browserBinaryLocation}`, launchArgs, {
+        stdio,
+        // Ensure child process terminates when parent exits
+        detached: false,
+        // Create new process group for better isolation (Unix-like systems)
+        ...(process.platform !== 'win32' && {
+          group: process.getgid?.()
+        })
+      })
+
+      // Store child process reference for cleanup
+      this.browserProcess = child
 
       if (process.env.EXTENSION_ENV === 'development') {
         child.stdout?.pipe(process.stdout)
@@ -140,15 +230,116 @@ export class RunChromiumPlugin {
       }
 
       child.on('close', (code: number | null) => {
-        console.log(messages.chromeProcessExited(code || 0))
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(messages.chromeProcessExited(code || 0))
+        }
+        // Clean up instance when browser closes
+        this.cleanupInstance()
       })
 
       child.on('error', (error) => {
         console.error(messages.chromeProcessError(error))
+        this.cleanupInstance()
       })
+
+      // Enhanced signal handling for AI usage
+      this.setupProcessSignalHandlers(child)
     } catch (error) {
       console.error(messages.chromeFailedToSpawn(error))
       throw error
+    }
+  }
+
+  private setupProcessSignalHandlers(child: ChildProcess) {
+    const cleanup = () => {
+      try {
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(messages.enhancedProcessManagementCleanup(this.browser))
+        }
+
+        // Terminate browser process gracefully
+        if (child && !child.killed) {
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.log(
+              messages.enhancedProcessManagementTerminating(this.browser)
+            )
+          }
+          child.kill('SIGTERM')
+
+          // Force kill after timeout if needed
+          setTimeout(() => {
+            if (child && !child.killed) {
+              if (process.env.EXTENSION_ENV === 'development') {
+                console.log(
+                  messages.enhancedProcessManagementForceKill(this.browser)
+                )
+              }
+              child.kill('SIGKILL')
+            }
+          }, 5000)
+        }
+
+        // Clean up instance
+        this.cleanupInstance()
+      } catch (error) {
+        console.error(
+          messages.enhancedProcessManagementCleanupError(this.browser, error)
+        )
+      }
+    }
+
+    // Handle various termination signals
+    process.on('SIGINT', cleanup)
+    process.on('SIGTERM', cleanup)
+    process.on('SIGHUP', cleanup)
+    process.on('exit', cleanup)
+
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error) => {
+      console.error(
+        messages.enhancedProcessManagementUncaughtException(this.browser, error)
+      )
+      cleanup()
+      process.exit(1)
+    })
+
+    process.on('unhandledRejection', (reason) => {
+      console.error(
+        messages.enhancedProcessManagementUnhandledRejection(
+          this.browser,
+          reason
+        )
+      )
+      cleanup()
+      process.exit(1)
+    })
+  }
+
+  private async cleanupInstance() {
+    if (this.instanceId) {
+      try {
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            messages.enhancedProcessManagementInstanceCleanup(this.browser)
+          )
+        }
+        const instanceManager = new InstanceManager(process.cwd())
+        await instanceManager.terminateInstance(this.instanceId)
+
+        // Force cleanup of orphaned instances
+        await instanceManager.forceCleanupOrphanedInstances()
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            messages.enhancedProcessManagementInstanceCleanupComplete(
+              this.browser
+            )
+          )
+        }
+      } catch (error) {
+        console.error(
+          messages.enhancedProcessManagementCleanupError(this.browser, error)
+        )
+      }
     }
   }
 
@@ -166,16 +357,14 @@ export class RunChromiumPlugin {
         return
       }
 
-      this.launchChromium(compilation as any, this.browser)
-
-      setTimeout(() => {
+      this.launchChromium(compilation as any, this.browser).then(() => {
         console.log(
           messages.stdoutData(
             this.browser,
             compilation.compilation.options.mode as 'development' | 'production'
           )
         )
-      }, 2000)
+      })
 
       chromiumDidLaunch = true
       done()

@@ -1,6 +1,5 @@
 import {Compilation} from '@rspack/core'
 import {createProfile} from './create-profile'
-import {calculateDebugPort} from '../../browsers-lib/shared-utils'
 import {
   type DevOptions,
   type BrowserConfig
@@ -12,6 +11,7 @@ export async function browserConfig(
     BrowserConfig & {
       keepProfileChanges?: boolean
       copyFromProfile?: string
+      instanceId?: string // Add instanceId for unique profiles
     }
 ) {
   const {
@@ -22,8 +22,7 @@ export async function browserConfig(
     browserFlags = [],
     keepProfileChanges,
     copyFromProfile,
-    source,
-    watchSource
+    instanceId
   } = configOptions
 
   const userProfilePath = createProfile(compilation, {
@@ -31,33 +30,27 @@ export async function browserConfig(
     userProfilePath: profile,
     configPreferences: preferences,
     keepProfileChanges,
-    copyFromProfile
+    copyFromProfile,
+    instanceId
   })
   const binaryArgs: string[] = []
 
-  if (startingUrl) {
-    binaryArgs.push('--url', startingUrl)
+  // Do not open the starting URL at binary launch time.
+  // We will navigate to it after the manager extension is installed and connected.
+
+  // Support excludeBrowserFlags parity with Chromium
+  const excludeFlags = (configOptions as any).excludeBrowserFlags || []
+  const filteredFlags = (browserFlags || []).filter((flag) =>
+    excludeFlags.every((ex: string) => !String(flag).startsWith(ex))
+  )
+  if (filteredFlags.length > 0) {
+    binaryArgs.push(...filteredFlags)
   }
 
-  if (browserFlags) {
-    binaryArgs.push(...browserFlags)
+  const parts = [`--binary-args="${binaryArgs.join(' ')}"`, '--verbose']
+  const profilePath = userProfilePath.path()
+  if (profilePath) {
+    parts.splice(1, 0, `--profile="${profilePath}"`)
   }
-
-  // Use port from configOptions if available
-  const portFromConfig = (configOptions as any)?.port
-
-  // Use portFromConfig if available, otherwise fall back to devServerPort
-  const devServerPort = (compilation.options.devServer as any)?.port
-  const debugPort = calculateDebugPort(portFromConfig, devServerPort, 9222)
-
-  // Only enable remote debugging if source inspection is active
-  const isSourceInspectionEnabled = source || watchSource
-  const listenFlag = isSourceInspectionEnabled ? `--listen=${debugPort}` : ''
-
-  return [
-    `--binary-args="${binaryArgs.join(' ')}"`,
-    `--profile="${userProfilePath.path()}"`,
-    ...(listenFlag ? [listenFlag] : []),
-    '--verbose'
-  ].join(' ')
+  return parts.join(' ')
 }
