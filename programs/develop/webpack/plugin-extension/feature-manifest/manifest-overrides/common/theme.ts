@@ -10,16 +10,18 @@ export function theme(manifest: Manifest, excludeList: FilepathList) {
       theme: {
         ...manifest.theme,
         ...(manifest.theme.images && {
-          images: {
-            ...manifest.theme.images,
-            theme_frame: getFilename(
-              `theme/images/${getBasename(
-                manifest.theme.images.theme_frame as string
-              )}`,
-              manifest.theme.images.theme_frame as string,
-              excludeList
+          images: Object.fromEntries(
+            Object.entries(manifest.theme.images as Record<string, string>).map(
+              ([key, value]) => [
+                key,
+                getFilename(
+                  `theme/images/${getBasename(value)}`,
+                  value,
+                  excludeList
+                )
+              ]
             )
-          }
+          )
         })
       }
     }
