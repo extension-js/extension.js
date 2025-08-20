@@ -21,7 +21,14 @@ export default [
       '**/webpack.config.js',
       '**/postcss.config.js',
       '**/tailwind.config.js',
-      '**/stylelint.config.json'
+      '**/stylelint.config.json',
+      // Ignore fixture/example sources not intended for linting
+      '**/examples/**',
+      'programs/develop/webpack/plugin-reload/extensions/**',
+      'templates/javascript/**',
+      // Ignore helper scripts that intentionally use underscore placeholders
+      'scripts/aggregate-changelog.cjs',
+      'scripts/render-aggregated-changelog.cjs'
     ]
   }
 ]
