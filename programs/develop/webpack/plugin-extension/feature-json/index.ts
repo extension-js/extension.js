@@ -62,13 +62,22 @@ export class JsonPlugin {
                         messages.entryNotFoundWarn(feature, thisResource)
                       )
                     )
-                    return
+                    continue
                   }
 
                   const source = fs.readFileSync(thisResource)
                   const rawSource = new sources.RawSource(source)
+                  const assetName = feature + '.json'
 
-                  compilation.emitAsset(feature + '.json', rawSource)
+                  // If asset already exists (e.g., when handling arrays), update it instead of emitting again
+                  if (
+                    typeof (compilation as any).getAsset === 'function' &&
+                    (compilation as any).getAsset(assetName)
+                  ) {
+                    ;(compilation as any).updateAsset(assetName, rawSource)
+                  } else {
+                    compilation.emitAsset(assetName, rawSource)
+                  }
                 }
               }
             }
