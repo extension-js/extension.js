@@ -38,8 +38,13 @@ export const findStringInFile = async (
 describe('LocalesPlugin', () => {
   const fixturesPath = getFixturesPath('action-locales')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
+  const tmpTxt = path.join(fixturesPath, '_locales', 'en', 'notes.txt')
+  const tmpPng = path.join(fixturesPath, '_locales', 'en', 'logo.png')
 
   beforeAll(async () => {
+    // Create a couple of non-JSON files to ensure they are ignored by the plugin
+    await fs.promises.writeFile(tmpTxt, 'temporary note')
+    await fs.promises.writeFile(tmpPng, '')
     await extensionBuild(fixturesPath, {
       browser: 'chrome'
     })
@@ -49,11 +54,31 @@ describe('LocalesPlugin', () => {
     if (fs.existsSync(outputPath)) {
       fs.rmSync(outputPath, {recursive: true, force: true})
     }
+    if (fs.existsSync(tmpTxt)) {
+      fs.rmSync(tmpTxt, {force: true})
+    }
+    if (fs.existsSync(tmpPng)) {
+      fs.rmSync(tmpPng, {force: true})
+    }
   })
 
-  const rulesetJson = path.join(outputPath, '_locales', 'en')
+  const enMessages = path.join(outputPath, '_locales', 'en', 'messages.json')
+  const ptBRMessages = path.join(
+    outputPath,
+    '_locales',
+    'pt_BR',
+    'messages.json'
+  )
 
-  it('outputs locale file to destination folder', async () => {
-    await assertFileIsEmitted(rulesetJson)
+  it('emits all locale JSON files to the output folder', async () => {
+    await assertFileIsEmitted(enMessages)
+    await assertFileIsEmitted(ptBRMessages)
+  })
+
+  it('skips non-JSON files inside _locales folders', async () => {
+    const emittedTxt = path.join(outputPath, '_locales', 'en', 'notes.txt')
+    const emittedPng = path.join(outputPath, '_locales', 'en', 'logo.png')
+    await assertFileIsNotEmitted(emittedTxt)
+    await assertFileIsNotEmitted(emittedPng)
   })
 })
