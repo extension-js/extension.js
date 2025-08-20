@@ -5,7 +5,7 @@
 <div class="content_script">
   <img class="content_logo" src={logo} alt="Svelte Logo" />
   <h1 class="content_title">
-    Svelte Extension
+    Svelte Extension???
   </h1>
   <p class="content_description">
     This content script runs in the context of web pages.

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Extension.js - ChatGPT Action Example",
+  "name": "Extension.js - action/chatgpt Example",
   "description": "A modern browser extension action popup example built with Extension.js and React, inspired by ChatGPT. Demonstrates how to create AI-powered action popups with clean, maintainable code.",
   "icons": {
     "16": "images/extension_16.png",

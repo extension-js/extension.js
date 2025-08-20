@@ -3,11 +3,11 @@
   "name": "sidebar-example",
   "description": "A modern browser extension sidebar example built with Extension.js. Demonstrates how to create custom sidebar panels with clean, maintainable code.",
   "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
-  },
-  "license": "MIT",
-  "type": "module"
+  }
 }

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Extension.js - Environment Content Script Example",
+  "name": "Extension.js - content/env Example",
   "description": "A modern browser extension content script example built with Extension.js and TypeScript using environment variables. Demonstrates how to use environment configuration in content scripts with clean, maintainable code.",
   "icons": {
     "48": "images/extension_48.png"

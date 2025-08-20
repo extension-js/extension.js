@@ -3,13 +3,13 @@
   "name": "shadcn-extension",
   "description": "An Extension.js example.",
   "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Your Name",
     "email": "your@email.com",
     "url": "https://yourwebsite.com"
   },
-  "license": "MIT",
-  "type": "module",
   "dependencies": {
     "@radix-ui/react-label": "^2.1.0",
     "@radix-ui/react-slot": "^1.1.0",

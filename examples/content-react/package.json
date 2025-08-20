@@ -3,13 +3,13 @@
   "name": "react-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js and React. Demonstrates how to create interactive content scripts using React components with clean, maintainable code.",
   "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "license": "MIT",
-  "type": "module",
   "dependencies": {
     "react": "^18.1.0",
     "react-dom": "^18.1.0"
