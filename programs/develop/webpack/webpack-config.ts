@@ -61,12 +61,22 @@ export default function webpackConfig(
       ? 'gecko-based'
       : devOptions.browser
 
+  // Build list of extensions to load in the browser. Ensure user extension first.
+  const extensionsToLoad = [
+    userExtensionOutputPath,
+    devOptions.mode !== 'production' && !devOptions.instanceId
+      ? managerExtensionOutputPath
+      : null
+  ].filter((p): p is string => typeof p === 'string' && p.length > 0)
+
   return {
     mode: devOptions.mode || 'development',
     entry: {},
     target: 'web',
     context: packageJsonDir,
-    watch: devOptions.mode === 'development', // Enable watch mode in development to prevent server recreation
+    // Let the dev server control watching to avoid rspack(options) deprecation warnings
+    // about requiring a callback when watch is enabled.
+    watch: false,
     devtool:
       manifest.manifest_version === 3
         ? 'cheap-source-map'
@@ -144,14 +154,7 @@ export default function webpackConfig(
         browser
       }),
       new BrowsersPlugin({
-        extension: [
-          userExtensionOutputPath,
-          // Only include the old manager extension when not using multi-instance support
-          // (when instanceId is not present) as DynamicExtensionManager handles it
-          devOptions.mode !== 'production' && !devOptions.instanceId
-            ? managerExtensionOutputPath
-            : ''
-        ],
+        extension: extensionsToLoad,
         browser,
         open: devOptions.open,
         startingUrl: devOptions.startingUrl,
@@ -163,7 +166,14 @@ export default function webpackConfig(
         instanceId: devOptions.instanceId,
         port: devOptions.port,
         source: devOptions.source,
-        watchSource: devOptions.watchSource
+        watchSource: devOptions.watchSource,
+        reuseProfile:
+          (devOptions as any).reuseProfile ??
+          (browser === 'firefox' ||
+            browser === 'chrome' ||
+            browser === 'edge' ||
+            browser === 'chromium-based' ||
+            browser === 'gecko-based')
       }),
       new ReloadPlugin({
         manifestPath,
@@ -184,6 +194,28 @@ export default function webpackConfig(
     infrastructureLogging: {
       level: 'none'
     },
+    ignoreWarnings: [
+      (warning: any) => {
+        try {
+          const message = String(
+            (warning && (warning.message || warning)) || ''
+          )
+          const modulePath =
+            (warning &&
+              warning.module &&
+              (warning.module.resource || warning.module.userRequest)) ||
+            ''
+          return (
+            message.includes('Accessing import.meta directly is unsupported') &&
+            /[\\\/]@huggingface[\\\/]transformers[\\\/].*transformers\.web\.js$/.test(
+              modulePath
+            )
+          )
+        } catch {
+          return false
+        }
+      }
+    ],
     performance: {
       hints: false,
       maxAssetSize: 999000,

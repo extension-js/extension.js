@@ -20,6 +20,7 @@ import {
 } from '../commands/commands-lib/get-extension-config'
 import * as messages from './lib/messages'
 import {PortManager} from './lib/port-manager'
+import {setupAutoExit} from './lib/auto-exit'
 
 function closeAll(devServer: RspackDevServer, portManager: PortManager) {
   devServer
@@ -52,10 +53,14 @@ export async function devServer(
 
   // Initialize port manager and allocate ports for this instance
   const portManager = new PortManager(devOptions.browser, packageJsonDir, 8080)
+  const desiredPort =
+    typeof devOptions.port === 'string'
+      ? parseInt(devOptions.port, 10)
+      : devOptions.port
   const portAllocation = await portManager.allocatePorts(
     devOptions.browser,
     packageJsonDir,
-    devOptions.port
+    desiredPort
   )
 
   const currentInstance = portManager.getCurrentInstance()
@@ -88,11 +93,17 @@ export async function devServer(
   const compilerConfig = merge(finalConfig)
   const compiler = rspack(compilerConfig)
 
+  // remove AI-focused NDJSON event stream hooks
+
   const port = portAllocation.port
 
   // Log port information
-  if (devOptions.port && devOptions.port !== port) {
-    console.log(messages.portInUse(devOptions.port, port))
+  if (typeof devOptions.port !== 'undefined' && devOptions.port !== port) {
+    const requested =
+      typeof devOptions.port === 'string'
+        ? parseInt(devOptions.port, 10)
+        : devOptions.port
+    console.log(messages.portInUse(requested as number, port))
   }
 
   // webpack-dev-server configuration
@@ -131,10 +142,10 @@ export async function devServer(
 
   const devServer = new RspackDevServer(serverConfig, compiler as any)
 
-  devServer.startCallback((error) => {
+  devServer.startCallback(async (error) => {
     if (error != null) {
       if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {
-        console.log(messages.portInUse(port as number, (port as number) + 1))
+        console.log(messages.portInUse(port as number, port as number))
         process.exit(1)
       }
       console.log(messages.extensionJsRunnerError(error))
@@ -166,4 +177,28 @@ export async function devServer(
     console.error(messages.extensionJsRunnerUnhandledRejection(promise, reason))
     await cleanup()
   })
+
+  // Optional auto-exit support for non-interactive (AI/CI) runs
+  const cancelAutoExit = setupAutoExit(
+    process.env.EXTENSION_AUTO_EXIT_MS,
+    process.env.EXTENSION_FORCE_KILL_MS,
+    cleanup
+  )
+
+  // Ensure we clear timers before shutdown
+  const cancelAndCleanup = async () => {
+    try {
+      cancelAutoExit()
+    } catch {}
+    await cleanup()
+  }
+
+  process.removeAllListeners?.('SIGINT')
+  process.removeAllListeners?.('SIGTERM')
+  process.removeAllListeners?.('SIGHUP')
+  process.removeAllListeners?.('ERROR')
+  process.on('ERROR', cancelAndCleanup)
+  process.on('SIGINT', cancelAndCleanup)
+  process.on('SIGTERM', cancelAndCleanup)
+  process.on('SIGHUP', cancelAndCleanup)
 }
