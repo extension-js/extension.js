@@ -1,0 +1,42 @@
+name: README Validation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  readme:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build CLI deps (create + develop)
+        run: pnpm -w --filter ./programs/create --filter ./programs/develop run compile
+
+      - name: Build CLI
+        run: pnpm -w --filter ./programs/cli run compile
+
+      - name: Check markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: "yes"
+          check-modified-files-only: "no"
+          config-file: .github/markdown-link-check.json
+
+      - name: Validate README assumptions
+        run: node ./scripts/check-readme-assumptions.cjs
+
