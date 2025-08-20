@@ -13,52 +13,62 @@ export async function connect() {
 
   // Get port from the placeholder that will be replaced during build
   const port = '__RELOAD_PORT__'
-  webSocket = new WebSocket(`ws://localhost:${port}`)
 
-  webSocket.onerror = (event) => {
-    console.error(`[Reload Service] Connection error: ${JSON.stringify(event)}`)
-    webSocket.close()
-  }
+  let reconnectAttempts = 0
+  const maxReconnectAttempts = 10
+  const baseBackoffMs = 250
+  const maxBackoffMs = 5000
 
-  webSocket.onopen = () => {
-    console.info(
-      `[Reload Service] Connection opened. Listening on port ${port} for instance ${instanceId}...`
-    )
-  }
+  const establish = () => {
+    webSocket = new WebSocket(`ws://127.0.0.1:${port}`)
 
-  webSocket.onmessage = async (event) => {
-    const message = JSON.parse(event.data)
-
-    // Only process messages for this instance
-    if (message.instanceId && message.instanceId !== instanceId) {
-      console.log(
-        `[Reload Service] Ignoring message from wrong instance: ${message.instanceId} (expected: ${instanceId})`
-      )
-      return
+    webSocket.onerror = (_event) => {
+      try {
+        webSocket && webSocket.close()
+      } catch {}
     }
 
-    if (message.status === 'serverReady') {
+    webSocket.onopen = () => {
+      reconnectAttempts = 0
       console.info(
-        `[Reload Service] Server ready for instance ${instanceId}. Requesting initial load data...`
+        `[Extension.js] Connection opened. Listening on port ${port} for instance ${instanceId}...`
       )
-      await requestInitialLoadData()
     }
 
-    if (message.changedFile) {
-      console.info(
-        `[Reload Service] Changes detected on ${message.changedFile} for instance ${instanceId}. Reloading extension...`
-      )
+    let reloadDebounce
+    webSocket.onmessage = async (event) => {
+      const message = JSON.parse(event.data)
 
-      await hardReloadAllExtensions(message.changedFile)
+      // Only process messages for this instance
+      if (message.instanceId && message.instanceId !== instanceId) {
+        return
+      }
+
+      if (message.status === 'serverReady') {
+        await requestInitialLoadData()
+      }
+
+      if (message.changedFile) {
+        clearTimeout(reloadDebounce)
+        reloadDebounce = setTimeout(async () => {
+          await hardReloadAllExtensions(message.changedFile)
+        }, 200)
+      }
+    }
+
+    webSocket.onclose = () => {
+      webSocket = null
+      if (reconnectAttempts >= maxReconnectAttempts) return
+      reconnectAttempts++
+      const backoff = Math.min(
+        maxBackoffMs,
+        baseBackoffMs * 2 ** reconnectAttempts
+      )
+      setTimeout(establish, backoff)
     }
   }
 
-  webSocket.onclose = () => {
-    console.info(
-      `[Reload Service] Connection closed for instance ${instanceId}.`
-    )
-    webSocket = null
-  }
+  establish()
 }
 
 export function disconnect() {
@@ -129,7 +139,7 @@ async function hardReloadAllExtensions(changedFile) {
       chrome.runtime.sendMessage(extension.id, {changedFile}, (response) => {
         if (response) {
           console.info(
-            `[Reload Service] Extension reloaded and ready for instance ${instanceId}.`
+            `[Extension.js] Extension reloaded and ready for instance ${instanceId}.`
           )
         }
       })
@@ -140,7 +150,7 @@ async function hardReloadAllExtensions(changedFile) {
     await Promise.all(reloadAll)
   } else {
     console.info(
-      `[Reload Service] External extension is not ready for instance ${instanceId}.`
+      `[Extension.js] External extension is not ready for instance ${instanceId}.`
     )
   }
 }
@@ -165,18 +175,125 @@ export function keepAlive() {
   const keepAliveIntervalId = setInterval(() => {
     if (webSocket) {
       webSocket.send(JSON.stringify({status: 'ping'}))
-      console.info('[Reload Service] Listening for changes...')
+      console.info('[Extension.js] Listening for changes...')
     } else {
       clearInterval(keepAliveIntervalId)
     }
   }, TEN_SECONDS_MS)
 }
 
+// Smart reload strategy: Try standard method first, fallback to CDP if needed
 async function hardReloadExtension(extensionId) {
   try {
+    // Try the standard enable/disable reload first (feels natural)
     await chrome.management.setEnabled(extensionId, false)
     await chrome.management.setEnabled(extensionId, true)
+
+    // Verify it worked with a simple health check
+    const isHealthy = await verifyExtensionHealth(extensionId)
+    if (isHealthy) {
+      console.info(
+        `[Extension.js] Standard reload successful for ${extensionId}`
+      )
+      return true
+    }
+
+    // If we get here, the reload "succeeded" but extension isn't healthy
+    throw new Error('Extension reloaded but not responding')
   } catch (error) {
-    console.error(`Error reloading extension ${extensionId}: ${error.message}`)
+    console.warn(
+      `[Extension.js] Standard reload failed for ${extensionId}, trying CDP fallback: ${error.message}`
+    )
+
+    // Only use CDP when the natural approach fails
+    return await attemptCDPFallback(extensionId)
+  }
+}
+
+// CDP fallback for when standard reload fails
+async function attemptCDPFallback(extensionId) {
+  try {
+    // Get extension info to find its source path
+    const extensionInfo = await new Promise((resolve) => {
+      chrome.management.get(extensionId, resolve)
+    })
+
+    if (!extensionInfo || !extensionInfo.path) {
+      console.warn(
+        `[Extension.js] No path info for ${extensionId}, CDP fallback not possible`
+      )
+      return false
+    }
+
+    // Use CDP client directly for seamless fallback
+    const cdpClient = await getCDPClient()
+    if (!cdpClient) {
+      console.warn(`[Extension.js] CDP client not available for ${extensionId}`)
+      return false
+    }
+
+    // Use CDP to force reload the extension
+    const success = await cdpClient.forceReloadExtension(extensionId)
+    if (success) {
+      console.info(`[Extension.js] CDP fallback successful for ${extensionId}`)
+      return true
+    } else {
+      console.warn(`[Extension.js] CDP fallback failed for ${extensionId}`)
+      return false
+    }
+  } catch (cdpError) {
+    console.error(
+      `[Extension.js] CDP fallback also failed for ${extensionId}: ${cdpError.message}`
+    )
+    return false
+  }
+}
+
+// Get CDP client instance
+// This will be injected by the build process
+async function getCDPClient() {
+  try {
+    // The CDP client will be available globally when injected
+    if (typeof window !== 'undefined' && window.cdpClient) {
+      return window.cdpClient
+    }
+
+    // Fallback for service worker context
+    if (typeof globalThis !== 'undefined' && globalThis.cdpClient) {
+      return globalThis.cdpClient
+    }
+
+    console.warn(`[Extension.js] CDP client not found in global scope`)
+    return null
+  } catch (error) {
+    console.warn(`[Extension.js] Failed to get CDP client: ${error.message}`)
+    return null
+  }
+}
+
+// Simple health check to verify extension is responsive
+async function verifyExtensionHealth(extensionId) {
+  try {
+    // Simple ping to see if extension responds
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Health check timeout'))
+      }, 2000)
+
+      chrome.runtime.sendMessage(extensionId, {type: 'PING'}, (response) => {
+        clearTimeout(timeout)
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message))
+        } else {
+          resolve(response)
+        }
+      })
+    })
+    return true
+  } catch (error) {
+    console.warn(
+      `[Extension.js] Health check failed for ${extensionId}: ${error.message}`
+    )
+    return false
   }
 }

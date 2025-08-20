@@ -31,7 +31,7 @@ export async function createFirefoxAddonsTab(initialTab, url) {
     // Reactivate the user-selected initial page tab
     await browser.tabs.update(initialTab.id, {active: true})
   } catch (error) {
-    console.error('Error creating and manipulating tabs:', error)
+    console.error('[Extension.js] Error creating and manipulating tabs:', error)
   }
 }
 
@@ -41,7 +41,7 @@ export async function handleFirstRun() {
     const devExtension = await getDevExtension()
 
     if (!devExtension) {
-      console.warn('No development extensions found')
+      console.warn('[Extension.js] No development extensions found')
       return
     }
 
@@ -57,6 +57,9 @@ export async function handleFirstRun() {
     // Ensure the welcome page shows only once per extension installation
     await browser.storage.local.set({[devExtension.id]: {didRun: true}})
   } catch (error) {
-    console.error('Error handling tabs on extension load:', error)
+    console.error(
+      '[Extension.js] Error handling tabs on extension load:',
+      error
+    )
   }
 }

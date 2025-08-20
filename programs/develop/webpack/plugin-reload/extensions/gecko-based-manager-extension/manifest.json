@@ -1,6 +1,6 @@
 {
   "name": "Extension.js DevTools",
-  "description": "Extension.js built-in developer tools for instance ID __INSTANCE_ID__",
+  "description": "Extension.js built-in developer tools for browser instance ID __INSTANCE_ID__",
   "version": "1.0.0",
   "manifest_version": 2,
   "background": {

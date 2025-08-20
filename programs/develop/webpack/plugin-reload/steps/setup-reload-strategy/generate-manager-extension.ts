@@ -10,7 +10,7 @@ export class GenerateManagerExtension {
   private readonly EXTENSION_SOURCE_DIR = 'extensions'
   private readonly EXTENSION_OUTPUT_DIR = 'extension-js'
   private readonly EXTENSIONS_DIR = 'extensions'
-  private readonly port: number
+  private readonly port: string | number
 
   constructor(options: PluginInterface) {
     this.browser = options.browser || 'chrome'
