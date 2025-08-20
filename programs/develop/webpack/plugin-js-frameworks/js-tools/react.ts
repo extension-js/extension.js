@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import * as path from 'path'
+import {createRequire} from 'module'
 import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
 import ReactRefreshPlugin from '@rspack/plugin-react-refresh'
@@ -55,9 +56,36 @@ export async function maybeUseReact(
     }) as any // TODO: cezaraugusto fix this
   ]
 
+  // Ensure a single React/renderer instance is bundled to avoid invalid hook calls
+  const requireFromProject = createRequire(
+    path.join(projectPath, 'package.json')
+  )
+  let reactPath: string | undefined
+  let reactDomPath: string | undefined
+  let reactDomClientPath: string | undefined
+  let jsxRuntimePath: string | undefined
+  try {
+    reactPath = requireFromProject.resolve('react')
+  } catch {}
+  try {
+    reactDomPath = requireFromProject.resolve('react-dom')
+  } catch {}
+  try {
+    reactDomClientPath = requireFromProject.resolve('react-dom/client')
+  } catch {}
+  try {
+    jsxRuntimePath = requireFromProject.resolve('react/jsx-runtime')
+  } catch {}
+
+  const alias: Record<string, string> = {}
+  if (reactPath) alias['react$'] = reactPath
+  if (reactDomPath) alias['react-dom$'] = reactDomPath
+  if (reactDomClientPath) alias['react-dom/client'] = reactDomClientPath
+  if (jsxRuntimePath) alias['react/jsx-runtime'] = jsxRuntimePath
+
   return {
     plugins: reactPlugins,
     loaders: undefined,
-    alias: undefined
+    alias
   }
 }
