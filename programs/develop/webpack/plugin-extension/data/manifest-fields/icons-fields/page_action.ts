@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function pageAction(
@@ -14,13 +14,16 @@ export function pageAction(
   }
 
   if (typeof manifest.page_action.default_icon === 'string') {
-    return path.join(context, manifest.page_action.default_icon as string)
+    return resolveManifestPath(
+      context,
+      manifest.page_action.default_icon as string
+    )
   }
 
   const pageActionDefaultIcons: string[] = []
 
   for (const icon in manifest.page_action.default_icon) {
-    const pageactionDefaultIconAbsolutePath = path.join(
+    const pageactionDefaultIconAbsolutePath = resolveManifestPath(
       context,
       manifest.page_action.default_icon[icon] as string
     )

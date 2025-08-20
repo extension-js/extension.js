@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function sidebarAction(
@@ -13,7 +13,6 @@ export function sidebarAction(
     return undefined
   }
 
-  const sidebarPage: string = manifest.sidebar_action.default_panel
-
-  return path.join(context, sidebarPage)
+  const sidebarActionPage: string = manifest.sidebar_action.default_panel
+  return resolveManifestPath(context, sidebarActionPage)
 }

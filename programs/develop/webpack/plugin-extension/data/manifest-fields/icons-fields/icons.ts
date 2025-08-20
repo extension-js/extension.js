@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function icons(
@@ -9,7 +9,7 @@ export function icons(
 
   const defaultIcons: string[] = []
   for (const icon in manifest.icons) {
-    const iconAbsolutePath = path.join(context, manifest.icons[icon])
+    const iconAbsolutePath = resolveManifestPath(context, manifest.icons[icon])
 
     defaultIcons.push(iconAbsolutePath)
   }
