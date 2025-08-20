@@ -6,7 +6,7 @@ export interface PluginInterface extends PluginOptions {
 
 export interface PluginOptions {
   browser?: DevOptions['browser']
-  port?: number
+  port?: string | number
   stats?: boolean
   autoReload?: boolean
   // Internal auto-generated instance ID, not user-configurable
