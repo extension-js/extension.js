@@ -67,7 +67,7 @@ export class CopyPublicFolder {
     if (!staticDir) return
 
     compiler.hooks.afterEmit.tap('special-folders:copy-public-folder', () => {
-      const target = path.join(output, '/')
+      const target = output
 
       if (!fs.existsSync(target)) fs.mkdirSync(target, {recursive: true})
 
@@ -85,17 +85,20 @@ export class CopyPublicFolder {
         const watcher = chokidar.watch(staticPath, {ignoreInitial: true})
 
         watcher.on('add', (filePath: string) => {
-          const target = path.join(output, path.relative(projectPath, filePath))
+          const relativeToPublic = path.relative(staticPath, filePath)
+          const target = path.join(output, relativeToPublic)
           this.copyFile(filePath, target)
         })
 
         watcher.on('change', (filePath: string) => {
-          const target = path.join(output, path.relative(projectPath, filePath))
+          const relativeToPublic = path.relative(staticPath, filePath)
+          const target = path.join(output, relativeToPublic)
           this.copyFile(filePath, target)
         })
 
         watcher.on('unlink', (filePath: string) => {
-          const target = path.join(output, path.relative(projectPath, filePath))
+          const relativeToPublic = path.relative(staticPath, filePath)
+          const target = path.join(output, relativeToPublic)
 
           if (fs.existsSync(target)) {
             fs.unlinkSync(target)
