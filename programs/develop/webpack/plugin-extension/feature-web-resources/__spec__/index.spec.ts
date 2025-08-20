@@ -131,7 +131,7 @@ describe('generateManifestPatches', () => {
       web_accessible_resources: [
         {
           matches: ['*://example.com/*'],
-          resources: ['existing_resource.svg', 'content_scripts/content-0.svg']
+          resources: ['content_scripts/content-0.svg', 'existing_resource.svg']
         }
       ]
     })
@@ -191,5 +191,62 @@ describe('generateManifestPatches', () => {
         }
       ]
     })
+  })
+
+  it('should merge only when matches sets are equal (mv3) and sort deterministically', () => {
+    const result = runWith(
+      {
+        'content_scripts/content-0': [
+          'content_scripts/b.svg',
+          'content_scripts/a.svg',
+          'content_scripts/a.svg'
+        ]
+      },
+      {
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['https://example.com/*', '*://*.foo.com/*'],
+            js: ['content_scripts/content-0.js']
+          },
+          {
+            // different set, overlapping value present but not equal set
+            matches: ['https://example.com/*'],
+            js: ['content_scripts/other.js']
+          }
+        ],
+        web_accessible_resources: [
+          {
+            matches: ['*://*.foo.com/*', 'https://example.com/*'],
+            resources: ['existing.svg']
+          },
+          {
+            matches: ['https://example.com/*'],
+            resources: ['x.svg']
+          }
+        ]
+      }
+    )
+
+    const groups = (result as any).web_accessible_resources as Array<{
+      matches: string[]
+      resources: string[]
+    }>
+
+    // Should produce two groups; one merged with exact-match set, one untouched
+    expect(groups.length).toBe(2)
+
+    const merged = groups.find(
+      (g) => g.matches.join(',') === '*://*.foo.com/*,https://example.com/*'
+    )!
+    const untouched = groups.find(
+      (g) => g.matches.join(',') === 'https://example.com/*'
+    )!
+
+    // Deterministic sort on resources
+    expect(merged.resources).toEqual(
+      ['content_scripts/a.svg', 'content_scripts/b.svg', 'existing.svg'].sort()
+    )
+    expect(untouched.resources).toEqual(['x.svg'])
   })
 })

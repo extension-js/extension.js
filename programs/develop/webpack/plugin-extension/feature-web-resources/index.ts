@@ -19,12 +19,10 @@ import {cleanMatches} from './clean-matches'
 export class WebResourcesPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
   }
 
   private generateManifestPatches(
@@ -56,21 +54,25 @@ export class WebResourcesPlugin {
         }
 
         if (manifest.manifest_version === 3) {
+          const normalizedMatches = cleanMatches(matches)
           const existingResource = webAccessibleResourcesV3.find(
-            (resourceEntry) =>
-              resourceEntry.matches.some((match) => matches.includes(match))
+            (resourceEntry) => {
+              const a = [...resourceEntry.matches].sort()
+              const b = [...normalizedMatches].sort()
+              return a.length === b.length && a.every((v, i) => v === b[i])
+            }
           )
 
           if (existingResource) {
-            filteredResources.forEach((resource) => {
-              if (!existingResource.resources.includes(resource)) {
-                existingResource.resources.push(resource)
-              }
-            })
+            const merged = Array.from(
+              new Set([...existingResource.resources, ...filteredResources])
+            ).sort()
+            existingResource.resources = merged
+            existingResource.matches = [...existingResource.matches].sort()
           } else {
             webAccessibleResourcesV3.push({
-              resources: filteredResources,
-              matches: cleanMatches(matches)
+              resources: Array.from(new Set(filteredResources)).sort(),
+              matches: [...normalizedMatches].sort()
             })
           }
         } else {
@@ -86,14 +88,20 @@ export class WebResourcesPlugin {
     // Only add web_accessible_resources if there are valid entries
     if (manifest.manifest_version === 3) {
       if (webAccessibleResourcesV3.length > 0) {
-        manifest.web_accessible_resources =
-          webAccessibleResourcesV3 as Manifest['web_accessible_resources']
+        manifest.web_accessible_resources = webAccessibleResourcesV3
+          .map((entry) => ({
+            resources: Array.from(new Set(entry.resources)).sort(),
+            matches: Array.from(new Set(entry.matches)).sort()
+          }))
+          .sort((a, b) =>
+            a.matches.join(',').localeCompare(b.matches.join(','))
+          ) as Manifest['web_accessible_resources']
       }
     } else {
       if (webAccessibleResourcesV2.length > 0) {
         manifest.web_accessible_resources = Array.from(
           new Set(webAccessibleResourcesV2)
-        ) as Manifest['web_accessible_resources']
+        ).sort() as Manifest['web_accessible_resources']
       }
     }
 
