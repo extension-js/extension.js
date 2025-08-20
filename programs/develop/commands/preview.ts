@@ -14,12 +14,19 @@ import {getProjectStructure} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {loadCustomWebpackConfig} from './commands-lib/get-extension-config'
 import {PreviewOptions} from './commands-lib/config-types'
+import {assertNoManagedDependencyConflicts} from './commands-lib/validate-user-dependencies'
+import {BrowsersPlugin} from '../plugin-browsers'
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
   previewOptions: PreviewOptions
 ) {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+  // Guard: only error if user references managed deps in extension.config.js
+  assertNoManagedDependencyConflicts(
+    projectStructure.packageJsonPath,
+    path.dirname(projectStructure.manifestPath)
+  )
   const manifestDir = path.dirname(projectStructure.manifestPath)
   const distPath = path.join(manifestDir, 'dist', previewOptions.browser)
 
@@ -37,6 +44,9 @@ export async function extensionPreview(
 
   try {
     const browser = previewOptions.browser || 'chrome'
+
+    console.log(messages.previewing(browser))
+
     const baseConfig: Configuration = webpackConfig(projectStructure, {
       mode: 'production',
       profile: previewOptions.profile,
@@ -52,9 +62,9 @@ export async function extensionPreview(
       }
     })
 
-    const onlyBrowserRunners = baseConfig.plugins?.filter((plugin) => {
-      return plugin?.constructor.name === 'plugin-browsers'
-    })
+    const onlyBrowserRunners = baseConfig.plugins?.filter(
+      (plugin): plugin is BrowsersPlugin => plugin instanceof BrowsersPlugin
+    )
 
     const userExtensionConfig = await loadCustomWebpackConfig(manifestDir)
     const userConfig = userExtensionConfig({
