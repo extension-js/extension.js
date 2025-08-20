@@ -8,7 +8,7 @@ We will investigate all legitimate reports and work quickly to fix the problem.
 
 Our preferred method is to use GitHub’s private vulnerability reporting feature. To disclose a potential security issue:
 
-1. Go to the [Security tab](../../security/advisories) of this repository.
+1. Go to the [Security tab](https://github.com/extension-js/extension.js/security/advisories) of this repository.
 2. Click **"Report a vulnerability"**.
 3. Provide as much detail as possible, including reproduction steps or a proof-of-concept if applicable.
 

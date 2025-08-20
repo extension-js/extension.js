@@ -1,0 +1,50 @@
+name: Programs – Create
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main, 'v[0-9]+.x' ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: programs-create-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  create:
+    name: Create Tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      EXTENSION_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+          key: pnpm-store-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+
+      - name: Compile
+        run: pnpm compile
+
+      - name: Run Create Tests
+        run: pnpm test:create
+
+      - name: Upload create dist on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: create-dist
+          path: |
+            programs/create/dist
+

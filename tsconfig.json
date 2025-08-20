@@ -21,6 +21,8 @@
     "node_modules",
     "**/dist",
     "**/spec",
+    "**/__spec__/**",
+    "**/*.spec.ts",
     "./programs/create/template/**",
     "./examples/**",
     "./templates/**"

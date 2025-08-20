@@ -1,0 +1,49 @@
+name: Develop – Plugins
+
+on:
+  push:
+    branches: [ main, '**' ]
+  pull_request:
+    branches: [ '**' ]
+
+jobs:
+  test-develop-plugins:
+    name: plugin-${{ matrix.plugin }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin:
+          - plugin-compatibility
+          - plugin-compilation
+          - plugin-css
+          - plugin-extension
+          - plugin-js-frameworks
+          - plugin-reload
+          - plugin-static-assets
+          # plugin-browsers (skipped for now)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack (pnpm)
+        run: |
+          corepack enable
+          corepack prepare pnpm@latest --activate
+
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension-develop
+        run: pnpm --filter extension-develop compile
+
+      - name: Run tests for ${{ matrix.plugin }}
+        working-directory: programs/develop
+        run: pnpm exec vitest run webpack/${{ matrix.plugin }} --reporter=verbose
+
+

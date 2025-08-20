@@ -1,98 +1,140 @@
 # Contributing 🧩
 
-First off, thanks a lot for taking time to read this part. Extension.js' core phiolosophy is to make it very easy to develop browser extensions, and that includes the program that makes it happen as well. Hope this guide makes it very easy for you to contribute ;)
+Thanks for your interest in contributing! Extension.js’ goal is to make developing browser extensions fast and easy. This guide explains how to get a working dev setup, run tests, and send great PRs.
 
-Extension.js runs on top of webpack using custom plugins. The whole Extension.js program consists of three core modules.
+## Monorepo layout
 
-| Program   | Description                                                                                    |
-| --------- | ---------------------------------------------------------------------------------------------- |
-| `cli`     | The Command Line Interface that executes the Extension.js programs.                            |
-| `create`  | Create extensions from built-in templates. This is what runs when `extension create` is fired. |
-| `develop` | Wrapper around the webpack config that consists of the `dev`, `start`, and `build` commands.   |
+Extension.js is a PNPM workspace. Public programs are published to npm; others are internal.
 
-## Installation
+| Program            | Package name        | Description                                             |
+| ------------------ | ------------------- | ------------------------------------------------------- |
+| `programs/cli`     | `extension`         | The CLI that runs `extension <command>`                 |
+| `programs/create`  | `extension-create`  | Scaffolds new extensions (`extension create`)           |
+| `programs/develop` | `extension-develop` | `dev`/`build`/`preview` engines and webpack integration |
 
-1. Clone the project `git@github.com:cezaraugusto/extension.git` && `cd extension`.
-2. Install dependencies (will symlink files where appropriate) `pnpm install`
-3. Create an `.env` file at the project root and add `EXTENSION_ENV=development`
+Related workspaces:
 
-## Usage
+- `examples/*` — runnable example extensions used in tests and docs
+- `templates/*` — templates used by `extension create`
 
-To watch and apply changes to the project, you will need two or more terminals open:
+## Prerequisites
 
-### Terminal 1: Watch mode
+- Node.js 20.x (what CI runs). Node 18 is generally OK, but 20 is recommended.
+- PNPM 9.x (workspace uses `packageManager: pnpm@9.9.0`).
+- macOS, Linux, or Windows.
+- Optional for E2E: browsers used by Playwright (Chrome/Chromium is enough for most).
 
-Use it to watch file changes. Under the hood this runs the compiler (`pnpm compile`) infinitely.
+## Setup
+
+1. Fork and clone the repo
+
+```sh
+git clone https://github.com/extension-js/extension.js.git
+cd extension.js
+```
+
+2. Install dependencies
+
+```sh
+pnpm install
+```
+
+3. Create a `.env` at the repo root to enable verbose dev logs and local behaviors
+
+```dotenv
+EXTENSION_ENV=development
+```
+
+## Day-to-day development
+
+Use two terminals: one watching builds, another to run the CLI locally.
+
+### Terminal 1 — Watch builds
 
 ```sh
 pnpm watch
 ```
 
-### Terminal 2: Mimick `extension` command behavior.
-
-Now that you have the watcher running, running `pnpm extension <command> [argument]` will emulate the production `extension <command> [argument]`. Use it to experiment with the multiple Extension.js CLI commands.
-
-```sh
-pnpm extension <command> [argument]
-```
-
-That's all!
-
-## Templates
-
-Extension.js uses its own templates for testing. If you need to test a React extension behavior for example, running `pnpm extension dev ./examples/new-react` will open the `new-react` template and use the defaults applied for a React configuration.
-
-## Useful Commands
-
-The monorepo's `package.json` includes scripts that affect all programs and packages at once
-and are needed for the project development.
-
-### `extension`
-
-This is the same command users run when they do `npx extension <command>
+### Terminal 2 — Run local CLI (mirrors released `extension`)
 
 ```sh
 pnpm extension <command> [args] [flags]
 ```
 
-### `compile`
-
-Compiles (builds) packages and programns. This npm script generates the `/dist` folder that other packages may consume.
+Examples:
 
 ```sh
-pnpm compile
+# Run dev against a local example
+pnpm extension dev ./examples/new-react
+
+# Create a brand-new extension from templates
+pnpm extension create my-extension
+cd my-extension && pnpm dev
 ```
 
-### `watch`
+## Useful scripts (root)
 
-Like compile, but listens for code changes, where it compiles again.
+- `pnpm compile` — Build all workspaces (produces `dist/` used by the local CLI)
+- `pnpm watch` — Build once then watch all programs for changes
+- `pnpm test` — Run all tests across packages via Turbo
+- `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build` — Focused test groups
+- `pnpm test:e2e` — Playwright end-to-end tests
+- `pnpm lint` — ESLint (config in `eslint.config.mjs`)
+- `pnpm format` — Prettier write
+- `pnpm types` — Typecheck with TypeScript
+- `pnpm clean` — Clear caches, `dist/`, and `node_modules/` across the repo
 
-> Note: You want a terminal always running this command during development.
+Tip: run a single package’s script with Turbo filters, e.g.:
 
 ```sh
-pnpm watch
+pnpm -w turbo run test --filter=./programs/cli
 ```
 
-### `lint`
-
-Iterates over all projects and lint them using ESLint.
+Playwright note: if the first E2E run asks for browsers, install them via:
 
 ```sh
-pnpm lint
+pnpm exec playwright install
 ```
 
-### `test`
+## Coding guidelines
 
-Run the test suite of each package and program (where available).
+- TypeScript-first where applicable; otherwise modern ESNext.
+- ESLint 9 + Prettier 3 are enforced. Run `pnpm lint` and `pnpm format` before pushing.
+- Keep code small, composable, and dependency-light. Prefer standard APIs.
+- Handle errors meaningfully; avoid silent catches.
+- Security: minimize browser permissions; sanitize inputs; validate cross-process messages.
+
+## Submitting changes
+
+1. Create a feature branch from `main`.
+2. Make your changes and add tests.
+3. Run `pnpm test` and ensure lint/types pass.
+4. Add a changeset (required for every PR):
 
 ```sh
-pnpm test
+pnpm changeset
 ```
 
-### `clean`
+Select affected packages and the bump type. Commit the generated file.
 
-Deletes cache, `dist/` and `node_modules/` across packages and programs.
+5. Push and open a PR. CI will run tests and verify the changeset is present.
+
+Release workflow details are in `RELEASING.md` (Next channel on every merge to `main`; Stable via Changesets).
+
+## Debugging & troubleshooting
+
+- Extra logs: ensure `.env` contains `EXTENSION_ENV=development`.
+- Force-clean the repo:
 
 ```sh
-pnpm clean
+pnpm clean && pnpm install && pnpm compile
 ```
+
+- Chrome/Edge/Firefox management logs print only in dev env.
+- If the local CLI prints outdated code, ensure Terminal 1 is running `pnpm watch`.
+
+## Communication
+
+- Discussions and questions: join our Discord — https://discord.gg/v9h2RgeTSN
+
+Thanks again for contributing! 🙌
