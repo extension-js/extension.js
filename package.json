@@ -16,7 +16,9 @@
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
     "lint": "eslint .",
     "lint-staged": "lint-staged",
-    "release": "dotenv -- turbo run compile && changeset publish",
+    "release": "dotenv -- turbo run compile && changeset publish && node ./scripts/aggregate-changelog.cjs",
+    "sync:readme": "node ./scripts/sync-readme.cjs",
+    "check:readme": "node -e \"const fs=require('fs');const a=fs.readFileSync('README.md','utf8');const b=fs.readFileSync('programs/cli/README.md','utf8');process.exit(a===b?0:1)\"",
     "test": "dotenv -- turbo run test",
     "test:coverage": "dotenv -- turbo run test:coverage",
     "test:dev": "dotenv -- turbo run test:dev",
@@ -28,7 +30,15 @@
     "types": "pnpm tsc",
     "version-packages": "changeset version",
     "publish-packages": "turbo run compile lint test && changeset version && changeset publish",
-    "watch": "pnpm compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5"
+    "watch": "pnpm compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5",
+    "messages": "pnpm dlx tsx ./scripts/render-messages.ts",
+    "messages:plain": "pnpm dlx tsx ./scripts/render-messages.ts --plain",
+    "messages:cli": "pnpm dlx tsx ./scripts/render-messages.ts --target=cli",
+    "messages:create": "pnpm dlx tsx ./scripts/render-messages.ts --target=create",
+    "messages:develop": "pnpm dlx tsx ./scripts/render-messages.ts --target=develop",
+    "messages:webpack": "pnpm dlx tsx ./scripts/render-messages.ts --target=webpack",
+    "messages:browser": "pnpm dlx tsx ./scripts/render-messages.ts --target=browsers",
+    "messages:reload": "pnpm dlx tsx ./scripts/render-messages.ts --target=reload"
   },
   "devDependencies": {
     "@changesets/cli": "^2.28.1",
