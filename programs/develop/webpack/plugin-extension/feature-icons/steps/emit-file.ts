@@ -32,13 +32,17 @@ export class EmitFile {
 
             if (resource === undefined) continue
 
-            const iconEntries: string[] = Array.isArray(resource)
+            const iconEntries: unknown[] = Array.isArray(resource)
               ? typeof resource[0] === 'string'
                 ? resource
                 : resource.map(Object.values).flat()
               : [resource]
 
-            for (const entry of iconEntries) {
+            const stringEntries = iconEntries.filter(
+              (entry): entry is string => typeof entry === 'string'
+            )
+
+            for (const entry of stringEntries) {
               // Resources from the manifest lib can come as undefined.
               if (entry) {
                 // Do not output if file doesn't exist.
