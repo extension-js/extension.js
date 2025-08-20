@@ -34,12 +34,14 @@ function getExtensionExtension(vendor: string, isSource?: boolean): string {
 
 function getPackageName(
   manifest: Record<string, string>,
-  options: BuildOptions
+  options: BuildOptions,
+  projectDir: string
 ): string {
-  const sanitizedStr = sanitizeString(options.zipFilename || manifest.name)
-  if (options.zipFilename) return sanitizedStr
-
-  return `${sanitizedStr}-${manifest.version}`
+  const provided = options.zipFilename && sanitizeString(options.zipFilename)
+  if (provided) return provided
+  // Default to manifest name for user-facing artifact names
+  const base = sanitizeString(manifest.name || path.basename(projectDir))
+  return `${base}-${manifest.version}`
 }
 
 async function getFilesToZip(projectDir: string): Promise<string[]> {
@@ -73,7 +75,7 @@ export async function generateZip(
     const manifest: Record<string, string> = JSON.parse(
       fs.readFileSync(manifestPath, 'utf8')
     )
-    const name = getPackageName(manifest, {browser, ...options})
+    const name = getPackageName(manifest, {browser, ...options}, projectDir)
     const ext = getExtensionExtension(browser, options.zipSource)
     // Dist zips are stored in dist/[browser]/[name].zip
     const distZipPath = path.join(outputDir, `${name}.${ext}`)

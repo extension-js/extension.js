@@ -13,6 +13,7 @@ import {isUsingTypeScript} from '../webpack/plugin-js-frameworks/js-tools/typesc
 import {getProjectStructure} from './commands-lib/get-project-path'
 import * as messages from './commands-lib/messages'
 import {installDependencies} from './commands-lib/install-dependencies'
+import {assertNoManagedDependencyConflicts} from './commands-lib/validate-user-dependencies'
 import {DevOptions} from './commands-lib/config-types'
 
 export async function extensionDev(
@@ -28,6 +29,12 @@ export async function extensionDev(
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir)
     }
+
+    // Guard: only error if user references managed deps in extension.config.js
+    assertNoManagedDependencyConflicts(
+      projectStructure.packageJsonPath,
+      path.dirname(projectStructure.manifestPath)
+    )
 
     // Install dependencies if they are not installed.
     const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
