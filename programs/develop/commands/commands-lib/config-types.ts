@@ -9,7 +9,7 @@ export type BrowserType =
 
 export interface BrowserOptionsBase {
   open?: boolean
-  profile?: string
+  profile?: string | false
   startingUrl?: string
   browser: BrowserType
 }
@@ -36,7 +36,7 @@ export type ExtendedBrowserOptions =
 export interface DevOptions extends BrowserOptionsBase {
   mode: 'development' | 'production' | 'none'
   polyfill?: boolean
-  port?: number
+  port?: string | number | undefined
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
@@ -74,6 +74,10 @@ export interface BrowserConfig extends BrowserOptionsBase {
   preferences?: Record<string, unknown>
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
+  // When true, reuse a stable profile directory across runs when safe.
+  // When concurrent runs of the same project+browser are detected or a lock is present,
+  // fallback to per-instance profiles to avoid conflicts.
+  reuseProfile?: boolean
 }
 
 export interface FileConfig {

@@ -8,9 +8,6 @@ import {
   validatePackageJson
 } from './find-nearest-package'
 
-/**
- * Represents the project structure with separate manifest and package.json locations
- */
 export interface ProjectStructure {
   manifestPath: string
   packageJsonPath: string
@@ -32,7 +29,16 @@ async function importUrlSourceFromGithub(
 ) {
   await goGitIt(pathOrRemoteUrl, process.cwd(), text)
 
-  return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))
+  // With go-git-it v5.0.0, files are now downloaded to a subfolder
+  // matching the repository name.
+  // Extract the repository name from the URL pathname
+  const url = new URL(pathOrRemoteUrl)
+  const urlData = url.pathname.split('/')
+  // Get the last part of the path (repository name)
+  const repoName = urlData[urlData.length - 1]
+
+  // Return the path to the subfolder where the repository was downloaded
+  return path.resolve(process.cwd(), repoName)
 }
 
 async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
@@ -84,10 +90,8 @@ export async function getProjectPath(
   return path.resolve(process.cwd(), pathOrRemoteUrl)
 }
 
-/**
- * Gets the project structure with manifest and package.json locations
- * Supports monorepo structure where manifest and package.json may be in different directories
- */
+// Gets the project structure with manifest and package.json locations
+// Supports monorepo structure where manifest and package.json may be in different directories
 export async function getProjectStructure(
   pathOrRemoteUrl: string | undefined
 ): Promise<ProjectStructure> {
