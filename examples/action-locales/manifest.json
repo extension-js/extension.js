@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "__MSG_extName__",
+  "name": "Extension.js - action/locales Example",
   "description": "__MSG_extDesc__",
   "default_locale": "en",
   "icons": {

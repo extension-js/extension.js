@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Extension.js - TypeScript New Tab Example",
+  "name": "Extension.js - new/typescript Example",
   "description": "A modern browser extension new tab page example built with Extension.js and TypeScript. Demonstrates how to create type-safe custom new tab pages with clean, maintainable code.",
   "icons": {
     "48": "images/extension_48.png"

@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Extension.js - Action Popup Example",
+  "name": "Extension.js - action Example",
   "description": "A modern browser extension popup example built with Extension.js. Demonstrates how to create interactive action popups with clean, maintainable code.",
   "icons": {
     "16": "images/extension_16.png",

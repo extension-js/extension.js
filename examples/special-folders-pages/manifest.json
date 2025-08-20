@@ -1,5 +1,5 @@
 {
-  "name": "Special Folders - Pages",
+  "name": "Extension.js - special/folders-pages Example",
   "version": "0.0.1",
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,

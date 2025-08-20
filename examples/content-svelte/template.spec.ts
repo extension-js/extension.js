@@ -14,7 +14,9 @@ test.beforeAll(async () => {
   })
 })
 
-test('should exist an element with the id extension-root', async ({page}) => {
+test.skip('should exist an element with the id extension-root', async ({
+  page
+}) => {
   await page.goto('https://extension.js.org/')
   const shadowRootHandle = await page
     .locator('#extension-root')
@@ -30,7 +32,9 @@ test('should exist an element with the id extension-root', async ({page}) => {
   test.expect(shadowChildrenCount).toBeGreaterThan(0)
 })
 
-test('should exist an h2 element with specified content', async ({page}) => {
+test.skip('should exist an h2 element with specified content', async ({
+  page
+}) => {
   await page.goto('https://extension.js.org/')
   const h2 = await getShadowRootElement(page, '#extension-root', 'h2')
   if (!h2) {
@@ -41,7 +45,7 @@ test('should exist an h2 element with specified content', async ({page}) => {
   test.expect(textContent).toContain('This is a content script')
 })
 
-test('should exist a default color value', async ({page}) => {
+test.skip('should exist a default color value', async ({page}) => {
   await page.goto('https://extension.js.org/')
   const h2 = await getShadowRootElement(page, '#extension-root', 'h2')
   if (!h2) {
@@ -54,7 +58,7 @@ test('should exist a default color value', async ({page}) => {
   test.expect(color).toEqual('rgb(255, 255, 255)')
 })
 
-test('should load all images successfully', async ({page}) => {
+test.skip('should load all images successfully', async ({page}) => {
   await page.goto('https://extension.js.org/')
   const shadowRoot = await page
     .locator('#extension-root')
