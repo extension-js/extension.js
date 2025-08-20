@@ -18,7 +18,6 @@ export const extensionFixtures = (
       const context = await chromium.launchPersistentContext('', {
         headless: false,
         args: [
-          headless ? `--headless=new` : '',
           `--disable-extensions-except=${pathToExtension}`,
           `--load-extension=${pathToExtension}`,
           '--no-first-run', // Disable Chrome's native first run experience.

@@ -3,11 +3,11 @@
   "name": "new-tab-example",
   "description": "A modern browser extension new tab page example built with Extension.js. Demonstrates how to create custom new tab pages with clean, maintainable code.",
   "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
-  },
-  "license": "MIT",
-  "type": "module"
+  }
 }

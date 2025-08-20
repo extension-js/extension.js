@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "name": "content-react-wrapper-example",
+  "description": "An example built with Extension.js.",
+  "version": "0.0.1",
+  "license": "MIT",
+  "type": "module"
+}
