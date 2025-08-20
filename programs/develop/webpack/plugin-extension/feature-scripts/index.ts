@@ -45,44 +45,45 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // 2 - Apply content script wrapper for shadow DOM and auto-execution
-    compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [path.dirname(this.manifestPath)],
-      exclude: [/[\\/]node_modules[\\/]/],
-      use: [
-        {
-          loader: path.resolve(
-            process.cwd(),
-            'programs/develop/dist/add-content-script-wrapper'
-          ),
-          options: {
-            manifestPath: this.manifestPath,
-            mode: compiler.options.mode,
-            includeList: this.includeList || {},
-            excludeList: this.excludeList || {}
+    // 2 - Apply content script wrapper for shadow DOM and auto-execution (development only)
+    if ((compiler.options.mode || 'development') !== 'production') {
+      compiler.options.module.rules.push({
+        test: /(\.m?[jt]sx?)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: [/[\\/]node_modules[\\/]/],
+        use: [
+          {
+            loader: path.resolve(__dirname, 'add-content-script-wrapper'),
+            options: {
+              manifestPath: this.manifestPath,
+              mode: compiler.options.mode,
+              includeList: this.includeList || {},
+              excludeList: this.excludeList || {}
+            }
           }
-        }
-      ]
-    })
+        ]
+      })
+    }
 
-    // 3 - Ensure scripts are HMR enabled by adding the HMR accept code.
-    compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [path.dirname(this.manifestPath)],
-      exclude: [/[\\/]node_modules[\\/]/],
-      use: [
-        {
-          loader: path.resolve(__dirname, 'add-hmr-accept-code'),
-          options: {
-            manifestPath: this.manifestPath,
-            mode: compiler.options.mode,
-            includeList: this.includeList || {},
-            excludeList: this.excludeList || {}
+    // 3 - Ensure scripts are HMR enabled by adding the HMR accept code. (development only)
+    if ((compiler.options.mode || 'development') !== 'production') {
+      compiler.options.module.rules.push({
+        test: /(\.m?[jt]sx?)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: [/[\\/]node_modules[\\/]/],
+        use: [
+          {
+            loader: path.resolve(__dirname, 'add-hmr-accept-code'),
+            options: {
+              manifestPath: this.manifestPath,
+              mode: compiler.options.mode,
+              includeList: this.includeList || {},
+              excludeList: this.excludeList || {}
+            }
           }
-        }
-      ]
-    })
+        ]
+      })
+    }
 
     // 4 - Fix the issue with the public path not being
     // available for content_scripts in the production build.
@@ -101,21 +102,23 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // 6 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__
-    compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [path.dirname(this.manifestPath)],
-      exclude: [/[\\/]node_modules[\\/]/],
-      use: [
-        {
-          loader: path.resolve(__dirname, 'deprecated-shadow-root'),
-          options: {
-            manifestPath: this.manifestPath,
-            includeList: this.includeList || {},
-            excludeList: this.excludeList || {}
+    // 6 - Deprecate the use of window.__EXTENSION_SHADOW_ROOT__ (development only)
+    if ((compiler.options.mode || 'development') !== 'production') {
+      compiler.options.module.rules.push({
+        test: /(\.m?[jt]sx?)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: [/[\\/]node_modules[\\/]/],
+        use: [
+          {
+            loader: path.resolve(__dirname, 'deprecated-shadow-root'),
+            options: {
+              manifestPath: this.manifestPath,
+              includeList: this.includeList || {},
+              excludeList: this.excludeList || {}
+            }
           }
-        }
-      ]
-    })
+        ]
+      })
+    }
   }
 }
