@@ -1,12 +1,12 @@
 import * as fs from 'fs'
 import rspack, {Compiler, Compilation} from '@rspack/core'
-import * as messages from '../../../lib/messages'
+import * as messages from '../../../webpack-lib/messages'
 import * as reloadMessages from '../../../plugin-reload/reload-lib/messages'
-import {DevOptions} from '../../../../commands/commands-lib/config-types'
+import {DevOptions} from '../../../../develop-lib/config-types'
 import {PluginInterface, FilepathList, Manifest} from '../../../webpack-types'
 import {htmlFields} from '../../data/manifest-fields/html-fields'
 import {scriptsFields} from '../../data/manifest-fields/scripts-fields'
-import * as utils from '../../../lib/utils'
+import * as utils from '../../../webpack-lib/utils'
 
 export class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string

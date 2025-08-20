@@ -11,8 +11,8 @@ import {
   getBaseHref
 } from './utils'
 import {type FilepathList} from '../../../webpack-types'
-import * as messages from '../../../lib/messages'
-import * as utils from '../../../lib/utils'
+import * as messages from '../../../webpack-lib/messages'
+import * as utils from '../../../webpack-lib/utils'
 
 interface DocumentFragment {
   toString(): string

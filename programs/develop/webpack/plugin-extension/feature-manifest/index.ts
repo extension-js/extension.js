@@ -8,7 +8,7 @@ import {CheckManifestFiles} from './steps/check-manifest-files'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile'
 
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
-import {DevOptions} from '../../../commands/commands-lib/config-types'
+import {DevOptions} from '../../../develop-lib/config-types'
 
 /**
  * ManifestPlugin is responsible for handling the manifest.json file.

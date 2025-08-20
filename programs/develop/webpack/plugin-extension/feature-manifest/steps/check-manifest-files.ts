@@ -1,8 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import rspack, {Compilation, Compiler} from '@rspack/core'
-import * as utils from '../../../lib/utils'
-import * as messages from '../../../lib/messages'
+import * as utils from '../../../webpack-lib/utils'
+import * as messages from '../../../webpack-lib/messages'
 import {PluginInterface, FilepathList} from '../../../webpack-types'
 
 export class CheckManifestFiles {

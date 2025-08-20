@@ -7,12 +7,12 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import * as messages from '../../../webpack/lib/messages'
+import * as messages from '../../webpack-lib/messages'
 import {
   installOptionalDependencies,
   isUsingJSFramework
-} from '../../../webpack/lib/utils'
-import {type DevOptions} from '../../../commands/commands-lib/config-types'
+} from '../../webpack-lib/utils'
+import {type DevOptions} from '../../../develop-lib/config-types'
 
 let userMessageDelivered = false
 

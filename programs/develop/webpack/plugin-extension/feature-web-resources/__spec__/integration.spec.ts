@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {describe, it, beforeAll, afterAll, expect} from 'vitest'
-import {extensionBuild} from '../../../../commands/build'
+import {extensionBuild} from '../../../../build'
 
 const getFixturesPath = (demoDir: string) => {
   return path.resolve(
