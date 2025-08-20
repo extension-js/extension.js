@@ -8,12 +8,16 @@ import * as messages from '../../../lib/messages'
 export class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
+  public readonly excludeList?: FilepathList
+  public readonly browser?: string
 
   private initialHtmlAssets: Record<string, {js: string[]; css: string[]}> = {}
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
+    this.excludeList = options.excludeList
+    this.browser = options.browser
   }
 
   private hasEntriesChanged(
@@ -41,15 +45,9 @@ export class ThrowIfRecompileIsNeeded {
       const htmlFile = resource
 
       if (!fs.existsSync(htmlFile)) {
-        const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
-        const patchedManifest = utils.filterKeysForThisBrowser(
-          manifest,
-          'chrome'
-        )
-
-        const manifestName = patchedManifest.name || 'Extension.js'
-        console.error(messages.manifestFieldError(manifestName, key, htmlFile))
-        process.exit(1)
+        // Do not exit here; manifest feature is responsible for failing on
+        // entrypoint errors. This step should not terminate the process.
+        return
       }
 
       this.initialHtmlAssets[htmlFile] = {
@@ -71,8 +69,12 @@ export class ThrowIfRecompileIsNeeded {
         const changedFile = Array.from(files)[0]
 
         if (changedFile && this.initialHtmlAssets[changedFile]) {
-          const updatedJsEntries = getAssetsFromHtml(changedFile)?.js || []
-          const updatedCssEntries = getAssetsFromHtml(changedFile)?.css || []
+          const updatedJsEntries = (
+            getAssetsFromHtml(changedFile)?.js || []
+          ).filter((p) => !p.startsWith('/'))
+          const updatedCssEntries = (
+            getAssetsFromHtml(changedFile)?.css || []
+          ).filter((p) => !p.startsWith('/'))
 
           const {js, css} = this.initialHtmlAssets[changedFile]
 
@@ -80,7 +82,7 @@ export class ThrowIfRecompileIsNeeded {
             this.hasEntriesChanged(updatedCssEntries, css) ||
             this.hasEntriesChanged(updatedJsEntries, js)
           ) {
-            console.log(messages.serverRestartRequiredFromHtml(changedFile))
+            console.warn(messages.serverRestartRequiredFromHtml(changedFile))
           }
         }
 

@@ -15,12 +15,14 @@ describe('ThrowIfRecompileIsNeeded', () => {
   let makeCallback: any
   let consoleErrorSpy: any
   let consoleLogSpy: any
+  let consoleWarnSpy: any
   let processExitSpy: any
 
   beforeEach(() => {
     vi.clearAllMocks()
     consoleErrorSpy = vi.spyOn(console, 'error')
     consoleLogSpy = vi.spyOn(console, 'log')
+    consoleWarnSpy = vi.spyOn(console, 'warn')
     processExitSpy = vi
       .spyOn(process, 'exit')
       .mockImplementation(() => undefined as never)
@@ -96,7 +98,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Restart required message')
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Restart required message')
   })
 
   it('should detect changes in CSS entries', async () => {
@@ -125,7 +127,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Restart required message')
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Restart required message')
   })
 
   it('should handle missing HTML files', () => {
@@ -139,8 +141,8 @@ describe('ThrowIfRecompileIsNeeded', () => {
 
     plugin.apply(compiler)
 
-    expect(consoleErrorSpy).toHaveBeenCalledWith('Manifest error message')
-    expect(processExitSpy).toHaveBeenCalledWith(1)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(processExitSpy).not.toHaveBeenCalled()
   })
 
   it('should not detect changes when assets are the same', async () => {
@@ -163,7 +165,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).not.toHaveBeenCalled()
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
   })
 
   it('should handle multiple HTML files', async () => {
@@ -213,7 +215,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource1.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Restart required message')
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Restart required message')
   })
 
   it('should handle empty modified files', async () => {
@@ -234,7 +236,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set()
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).not.toHaveBeenCalled()
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
   })
 
   it('should handle invalid manifest JSON', () => {
@@ -249,7 +251,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
 
     expect(() => {
       plugin.apply(compiler)
-    }).toThrow()
+    }).not.toThrow()
   })
 
   it('should handle missing manifest file', () => {
@@ -266,7 +268,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
 
     expect(() => {
       plugin.apply(compiler)
-    }).toThrow('ENOENT')
+    }).not.toThrow()
   })
 
   it('should handle undefined resources in includeList', () => {
@@ -317,7 +319,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Restart required message')
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Restart required message')
   })
 
   it('should handle assets with query parameters', async () => {
@@ -346,7 +348,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Restart required message')
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Restart required message')
   })
 
   it('should handle assets with hash fragments', async () => {
@@ -375,7 +377,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Restart required message')
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Restart required message')
   })
 
   it('should handle empty includeList', () => {
@@ -465,7 +467,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource1.html', 'resource2.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Restart required message')
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Restart required message')
   })
 
   it('should handle assets with special characters in filenames', async () => {
@@ -494,7 +496,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource.html'])
     await makeCallback({}, () => {})
 
-    expect(consoleLogSpy).toHaveBeenCalledWith('Restart required message')
+    expect(consoleWarnSpy).toHaveBeenCalledWith('Restart required message')
   })
 
   it('should handle compilation errors', async () => {
@@ -515,7 +517,7 @@ describe('ThrowIfRecompileIsNeeded', () => {
     compiler.modifiedFiles = new Set(['resource.html'])
     await makeCallback({errors: ['Some error']}, () => {})
 
-    expect(consoleLogSpy).not.toHaveBeenCalled()
+    expect(consoleWarnSpy).not.toHaveBeenCalled()
   })
 
   it('should skip non-string resource paths when checking for recompilation', () => {

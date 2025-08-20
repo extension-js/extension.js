@@ -35,12 +35,24 @@ export function getAssetsFromHtml(
 
     const htmlDocument = parse5utilities.parse(htmlString)
 
-    const getAbsolutePath = (htmlFilePath: string, filePath: string) => {
-      if (filePath.startsWith('/')) {
+    const baseHref = getBaseHref(htmlDocument)
+
+    const getAbsolutePath = (
+      htmlFilePath: string,
+      filePathWithParts: string
+    ) => {
+      const {cleanPath} = cleanAssetUrl(filePathWithParts)
+      if (cleanPath.startsWith('/')) {
         // For public paths, preserve them as-is
-        return filePath
+        return cleanPath
       }
-      return path.join(path.dirname(htmlFilePath), filePath)
+      // If base href is present and is not a URL, resolve relative to base
+      const isBaseUrl = isUrl(baseHref || '')
+      const baseJoin =
+        baseHref && !isBaseUrl
+          ? path.join(path.dirname(htmlFilePath), baseHref)
+          : path.dirname(htmlFilePath)
+      return path.join(baseJoin, cleanPath)
     }
 
     parseHtml(htmlDocument as any, ({filePath, assetType}) => {
@@ -115,4 +127,59 @@ export function isFromIncludeList(
   return Object.values(includeList || {}).some((value) => {
     return value === filePath
   })
+}
+
+export function isUrl(src: string) {
+  try {
+    // eslint-disable-next-line no-new
+    new URL(src)
+    return true
+  } catch (err) {
+    return false
+  }
+}
+
+export function cleanAssetUrl(url: string): {
+  cleanPath: string
+  hash: string
+  search: string
+} {
+  const hashIndex = url.indexOf('#')
+  const queryIndex = url.indexOf('?')
+  let endIndex = url.length
+  if (hashIndex !== -1 && queryIndex !== -1) {
+    endIndex = Math.min(hashIndex, queryIndex)
+  } else if (hashIndex !== -1) {
+    endIndex = hashIndex
+  } else if (queryIndex !== -1) {
+    endIndex = queryIndex
+  }
+
+  const cleanPath = url.slice(0, endIndex)
+  const hash = hashIndex !== -1 ? url.slice(hashIndex) : ''
+  const search =
+    queryIndex !== -1
+      ? url.slice(queryIndex, hashIndex !== -1 ? hashIndex : undefined)
+      : ''
+  return {cleanPath, hash, search}
+}
+
+export function getBaseHref(htmlDocument: any): string | undefined {
+  // Look for <base href="...">
+  const htmlChildren = htmlDocument.childNodes || []
+  for (const node of htmlChildren) {
+    if (node?.nodeName !== 'html') continue
+    for (const child of node.childNodes || []) {
+      if (child?.nodeName !== 'head') continue
+      for (const headChild of child.childNodes || []) {
+        if (headChild?.nodeName === 'base') {
+          const href = headChild.attrs?.find(
+            (a: any) => a.name === 'href'
+          )?.value
+          if (href) return href
+        }
+      }
+    }
+  }
+  return undefined
 }
