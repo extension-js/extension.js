@@ -9,24 +9,27 @@
 
 import {program} from 'commander'
 import {extensionCreate, type CreateOptions} from 'extension-create'
-import {
-  extensionDev,
-  type DevOptions,
-  extensionStart,
-  type StartOptions,
-  extensionBuild,
-  type BuildOptions,
-  extensionPreview,
-  type PreviewOptions,
-  cleanupCommand,
-  type FileConfig,
-  type Manifest
+import type {
+  DevOptions,
+  StartOptions,
+  BuildOptions,
+  PreviewOptions,
+  FileConfig,
+  Manifest
 } from 'extension-develop'
 import * as messages from './cli-lib/messages'
 import checkUpdates from './check-updates'
 import packageJson from './package.json'
 
-export {type FileConfig, type Manifest}
+export type {FileConfig, Manifest} from 'extension-develop'
+
+function parseOptionalBoolean(value?: string): boolean {
+  // No value provided means flag present => true
+  if (typeof value === 'undefined') return true
+  // Treat "false", "0", and "no" (case-insensitive) as false; everything else true
+  const normalized = String(value).trim().toLowerCase()
+  return !['false', '0', 'no', 'off'].includes(normalized)
+}
 
 // Before all, check for updates.
 checkUpdates(packageJson)
@@ -43,11 +46,23 @@ const extensionJs = program
 const vendors = (browser: DevOptions['browser'] | 'all') =>
   browser === 'all' ? 'chrome,edge,firefox'.split(',') : browser.split(',')
 
+function validateVendorsOrExit(vendorsList: string[]) {
+  const supported = ['chrome', 'edge', 'firefox']
+  for (const v of vendorsList) {
+    if (!supported.includes(v)) {
+      // eslint-disable-next-line no-console
+      console.error(messages.unsupportedBrowserFlag(v, supported))
+      process.exit(1)
+    }
+  }
+}
+
 extensionJs
   .name(packageJson.name)
   .description(packageJson.description)
   .version(packageJson.version)
-  .addHelpText('after', messages.programHelp())
+  .option('--ai-help', 'show AI-assistant oriented help and tips')
+  .addHelpText('after', messages.programUserHelp())
 
 //  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
 // ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
@@ -66,8 +81,10 @@ extensionJs
     'specify a template for the created project'
   )
   .option(
-    '--install',
-    'whether or not to install the dependencies after creating the project'
+    '--install [boolean]',
+    'whether or not to install the dependencies after creating the project (disabled by default)',
+    parseOptionalBoolean,
+    false
   )
   .action(async function (
     pathOrRemoteUrl: string,
@@ -136,7 +153,11 @@ extensionJs
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...devOptions}: DevOptions
   ) {
-    for (const vendor of vendors(browser)) {
+    const list = vendors(browser)
+    validateVendorsOrExit(list)
+
+    const {extensionDev} = await import('extension-develop')
+    for (const vendor of list) {
       await extensionDev(pathOrRemoteUrl, {
         ...devOptions,
         profile: devOptions.profile,
@@ -196,7 +217,11 @@ extensionJs
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...startOptions}: StartOptions
   ) {
-    for (const vendor of vendors(browser)) {
+    const list = vendors(browser)
+    validateVendorsOrExit(list)
+
+    const {extensionStart} = await import('extension-develop')
+    for (const vendor of list) {
       await extensionStart(pathOrRemoteUrl, {
         mode: 'production',
         profile: startOptions.profile,
@@ -248,7 +273,11 @@ extensionJs
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...previewOptions}: PreviewOptions
   ) {
-    for (const vendor of vendors(browser)) {
+    const list = vendors(browser)
+    validateVendorsOrExit(list)
+
+    const {extensionPreview} = await import('extension-develop')
+    for (const vendor of list) {
       await extensionPreview(pathOrRemoteUrl, {
         mode: 'production',
         profile: previewOptions.profile,
@@ -300,7 +329,11 @@ extensionJs
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...buildOptions}: BuildOptions
   ) {
-    for (const vendor of vendors(browser)) {
+    const list = vendors(browser)
+    validateVendorsOrExit(list)
+
+    const {extensionBuild} = await import('extension-develop')
+    for (const vendor of list) {
       await extensionBuild(pathOrRemoteUrl, {
         browser: vendor as BuildOptions['browser'],
         polyfill: buildOptions.polyfill,
@@ -323,7 +356,15 @@ extensionJs
   .command('cleanup')
   .description('Clean up orphaned instances and free unused ports')
   .action(async function () {
+    const {cleanupCommand} = await import('extension-develop')
     await cleanupCommand()
   })
+
+// Print AI-focused help and exit when --ai-help is provided
+extensionJs.on('option:ai-help', function () {
+  // eslint-disable-next-line no-console
+  console.log(messages.programAIHelp())
+  process.exit(0)
+})
 
 extensionJs.parse()
