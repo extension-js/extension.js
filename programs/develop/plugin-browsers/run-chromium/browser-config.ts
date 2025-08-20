@@ -1,7 +1,9 @@
-import {Compilation, type Compiler} from '@rspack/core'
 import {type PluginInterface, type DefaultBrowserFlags} from '../browsers-types'
 import {createProfile} from './create-profile'
-import {filterBrowserFlags} from '../browsers-lib/shared-utils'
+import {
+  filterBrowserFlags,
+  deriveDebugPortWithInstance
+} from '../browsers-lib/shared-utils'
 
 // Define the default flags as a constant for maintainability and type checking
 // Removed redundant and outdated flags for better performance
@@ -72,7 +74,8 @@ export function browserConfig(
   const userProfilePath = createProfile(actualCompilation, {
     browser: configOptions.browser,
     userProfilePath: configOptions.profile,
-    configPreferences: configOptions.preferences
+    configPreferences: configOptions.preferences,
+    instanceId: (configOptions as any).instanceId
   })
 
   // Get excluded flags (if any)
@@ -81,9 +84,34 @@ export function browserConfig(
   // Filter out excluded flags
   const filteredFlags = filterBrowserFlags(DEFAULT_BROWSER_FLAGS, excludeFlags)
 
-  // Check if source inspection is enabled
-  const isSourceInspectionEnabled =
-    configOptions.source || configOptions.watchSource
+  // Source inspection toggles remote debugging flags
+  const sourceEnabled = !!(configOptions.source || configOptions.watchSource)
+  // Compute instance-based CDP port using shared helper
+  const cdpPort = deriveDebugPortWithInstance(
+    configOptions.port,
+    configOptions.instanceId
+  )
+
+  // Enhanced flags for AI usage - ensure clean termination
+  const aiOptimizedFlags = [
+    // AI-optimized flags for better process management
+    '--disable-background-timer-throttling',
+    '--disable-renderer-backgrounding',
+    '--disable-backgrounding-occluded-windows',
+    '--disable-features=TranslateUI',
+    '--disable-ipc-flooding-protection',
+
+    // Ensure clean shutdown
+    '--disable-hang-monitor',
+    '--disable-prompt-on-repost',
+    '--disable-web-security',
+    '--disable-features=VizDisplayCompositor',
+
+    // Memory management for AI usage
+    '--memory-pressure-off',
+    '--max_old_space_size=4096',
+    '--disable-dev-shm-usage'
+  ]
 
   // Flags set by default:
   // https://github.com/GoogleChrome/chrome-launcher/blob/master/src/flags.ts
@@ -91,12 +119,17 @@ export function browserConfig(
   // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
   const baseFlags = [
     `--load-extension=${extensionsToLoad.join()}`,
-    `--user-data-dir=${userProfilePath}`,
-    ...filteredFlags,
+    // Only set user-data-dir when a custom profile path is in use
+    ...(userProfilePath ? [`--user-data-dir=${userProfilePath}`] : []),
+    ...aiOptimizedFlags,
     // Add remote debugging flags if source inspection is enabled
-    ...(isSourceInspectionEnabled
-      ? ['--remote-debugging-port=9222', '--remote-debugging-address=localhost']
+    ...(sourceEnabled
+      ? [
+          `--remote-debugging-port=${cdpPort}`,
+          '--remote-debugging-address=localhost'
+        ]
       : []),
+    ...filteredFlags,
     // Flags to pass to Chrome
     // Any of http://peter.sh/experiments/chromium-command-line-switches/
     ...(configOptions.browserFlags || [])
