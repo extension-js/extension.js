@@ -3,16 +3,17 @@ import {chromeUrlOverrides} from './chrome_url_overrides'
 import {contentScripts} from './content_scripts'
 import {devtoolsPage} from './devtools_page'
 import {icons} from './icons'
+import {commands} from './commands'
+import {permissions} from './permissions'
 import {optionsPage} from './options_page'
 import {optionsUi} from './options_ui'
-import {pageAction} from './page_action'
 import {sandbox} from './sandbox'
-import {sidePanel} from '../mv3/side_panel'
-import {sidebarAction} from './sidebar_action'
 import {storage} from './storage'
 import {theme} from './theme'
 import {userScripts} from './user_scripts'
 import {webAccessibleResources} from './web_accessible_resources'
+import {contentSecurityPolicy} from './content_security_policy'
+import {omnibox} from './omnibox'
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 
 export function manifestCommon(manifest: Manifest, excludeList: FilepathList) {
@@ -22,15 +23,16 @@ export function manifestCommon(manifest: Manifest, excludeList: FilepathList) {
     ...contentScripts(manifest, excludeList),
     ...devtoolsPage(manifest, excludeList),
     ...icons(manifest, excludeList),
+    ...commands(manifest),
+    ...permissions(manifest),
     ...optionsPage(manifest, excludeList),
     ...optionsUi(manifest, excludeList),
-    ...pageAction(manifest, excludeList),
     ...sandbox(manifest, excludeList),
-    ...sidePanel(manifest, excludeList),
-    ...sidebarAction(manifest, excludeList),
     ...storage(manifest, excludeList),
     ...theme(manifest, excludeList),
     ...userScripts(manifest, excludeList),
-    ...webAccessibleResources(manifest)
+    ...webAccessibleResources(manifest, excludeList),
+    ...contentSecurityPolicy(manifest),
+    ...omnibox(manifest, excludeList)
   }
 }
