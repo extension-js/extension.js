@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {FilepathList} from '../../../webpack-types'
-import * as utils from '../../../lib/utils'
+import * as utils from '../../../webpack-lib/utils'
 
 export function getScriptEntries(
   scriptPath: string | string[] | undefined,

@@ -1,6 +1,6 @@
 import {Compiler, Compilation, sources} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
-import {getFilename, getManifestContent} from '../../../lib/utils'
+import {getFilename, getManifestContent} from '../../../webpack-lib/utils'
 import {FilepathList, PluginInterface, Manifest} from '../../../webpack-types'
 
 export class UpdateManifest {

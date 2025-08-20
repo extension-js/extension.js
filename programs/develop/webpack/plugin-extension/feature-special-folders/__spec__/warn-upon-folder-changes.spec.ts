@@ -2,7 +2,7 @@ import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 
 // Mock messages to avoid depending on exact string formatting
-vi.mock('../../lib/messages', () => {
+vi.mock('../../webpack-lib/messages', () => {
   return {
     serverRestartRequiredFromSpecialFolderError: vi.fn(
       (

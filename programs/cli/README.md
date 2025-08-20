@@ -106,9 +106,40 @@ Done. You are all set!
 
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/opera/opera.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chromium/chromium.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari-ios/safari-ios.svg" width="70"> |
 | :-----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: |
-|                                          Chrome browser<br>✅                                           |                                         Edge browser<br>✅                                          |                                           Firefox browser<br>✅                                           |                                          Opera browser<br>☑️                                          |                                          Safari browser<br>🛑                                           |                                            Chromium-based<br>☑️                                             |                                             Gecko-based<br>☑️                                             |                                          Firefox (Android)<br>🛑                                          |                                               Safari (iOS)<br>🛑                                                |
+|                                          Chrome browser<br>✅                                           |                                         Edge browser<br>✅                                          |                                           Firefox browser<br>✅                                           |                                          Opera browser<br>☑️                                          |                                          Safari browser<br>❌                                           |                                            Chromium-based<br>☑️                                             |                                             Gecko-based<br>☑️                                             |                                          Firefox (Android)<br>❌                                          |                                               Safari (iOS)<br>❌                                                |
 
-Works with `extension dev`, `extension start`, and `extension preview`.
+### CSS, preprocessors, and modules
+
+Extension.js auto-wires styles via its CSS plugin:
+
+- CSS in HTML entries and content scripts
+- Optional SASS/SCSS and LESS pipelines (auto-enabled when deps exist)
+- PostCSS/Tailwind when a config is present
+- CSS Modules for `.module.(scss|sass|less)` in HTML entries
+
+### Browser flags and custom binaries
+
+Use these flags with `extension dev`, `extension start`, or `extension preview`:
+
+- Select a browser: `--browser <chrome | edge | firefox>`
+- Custom Chromium binary: `--chromium-binary <path-to-binary>`
+- Custom Gecko (Firefox) binary: `--gecko-binary <path-to-binary>`
+
+Examples:
+
+```bash
+# Chrome (system default)
+npx extension@latest dev --browser=chrome
+
+# Edge
+npx extension@latest dev --browser=edge
+
+# Custom Chrome/Chromium path
+npx extension@latest dev --chromium-binary "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+
+# Custom Firefox path
+npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacOS/firefox"
+```
 
 ## License
 

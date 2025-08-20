@@ -4,11 +4,11 @@ import {WebSocketServer, WebSocket} from 'ws'
 import {Compiler} from '@rspack/core'
 import * as messages from './reload-lib/messages'
 import {type Manifest} from '../../webpack/webpack-types'
-import {isFirstRun} from '../../webpack/lib/utils'
+import {isFirstRun} from '../webpack-lib/utils'
 import {DevOptions} from '../../module'
-import {CERTIFICATE_DESTINATION_PATH} from '../../webpack/lib/constants'
+import {CERTIFICATE_DESTINATION_PATH} from '../webpack-lib/constants'
 import {httpsServer} from './steps/create-web-socket-server/web-socket-server/servers'
-import {InstanceManager} from '../../lib/instance-manager'
+import {InstanceManager} from '../plugin-browsers/browsers-lib/instance-manager'
 
 interface Data {
   id: string

@@ -4,9 +4,9 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type LoaderContext} from '@rspack/core'
 import {type Schema} from 'schema-utils/declarations/validate'
-import * as utils from '../../../lib/utils'
+import * as utils from '../../../webpack-lib/utils'
 import {type Manifest} from '../../../webpack-types'
-import {DevOptions} from '../../../../commands/commands-lib/config-types'
+import {DevOptions} from '../../../../develop-lib/config-types'
 
 const schema: Schema = {
   type: 'object',
