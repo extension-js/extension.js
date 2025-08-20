@@ -16,6 +16,7 @@ import {generateZip} from './commands-lib/generate-zip'
 import {loadCustomWebpackConfig} from './commands-lib/get-extension-config'
 import {BuildOptions} from './commands-lib/config-types'
 import {installDependencies} from './commands-lib/install-dependencies'
+import {assertNoManagedDependencyConflicts} from './commands-lib/validate-user-dependencies'
 
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
@@ -26,6 +27,13 @@ export async function extensionBuild(
   try {
     const browser = buildOptions?.browser || 'chrome'
     const manifestDir = path.dirname(projectStructure.manifestPath)
+    const packageJsonDir = path.dirname(projectStructure.packageJsonPath)
+
+    // Guard: only error if user references managed deps in extension.config.js
+    assertNoManagedDependencyConflicts(
+      projectStructure.packageJsonPath,
+      path.dirname(projectStructure.manifestPath)
+    )
 
     const baseConfig: Configuration = webpackConfig(projectStructure, {
       ...buildOptions,
@@ -54,7 +62,6 @@ export async function extensionBuild(
     const compiler = rspack(compilerConfig)
 
     // Install dependencies if they are not installed.
-    const packageJsonDir = path.dirname(projectStructure.packageJsonPath)
     const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
 
     if (!fs.existsSync(nodeModulesPath)) {

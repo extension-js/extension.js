@@ -6,35 +6,31 @@ import {Manifest} from '../../types'
 import {type DevOptions} from '../commands-lib/config-types'
 import packageJson from '../../package.json'
 
+// Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
-  const arrow =
-    type === 'warn'
-      ? colors.yellow('►►►')
-      : type === 'info'
-        ? colors.cyan('►►►')
-        : type === 'error'
-          ? colors.bold.red('ERROR') +
-            ' in ' +
-            colors.red('Extension.js') +
-            colors.red('✖︎✖︎✖︎')
-          : colors.green('►►►')
-  // return `🧩 ${'Extension.js'} ${arrow}`
-  return `${arrow}`
+  if (type === 'error') return colors.red('ERROR')
+  if (type === 'warn') return colors.brightYellow('►►►')
+  if (type === 'info') return colors.blue('►►►')
+  return colors.green('►►►')
+}
+
+function isPathLike(input: string) {
+  return input.includes('/') || input.includes('\\') || path.isAbsolute(input)
 }
 
 export function manifestNotFoundError(manifestPath: string) {
   return (
-    `${getLoggingPrefix('error')} Manifest file not found.\n\n` +
-    'Ensure the path to your extension exists and try again.\n' +
-    `${colors.red('NOT FOUND')} ${colors.underline(manifestPath)}`
+    `${getLoggingPrefix('error')} Manifest file not found.\n` +
+    `${colors.red('Ensure the path to your extension exists and try again.')}` +
+    `\n${colors.red('NOT FOUND')}\n${colors.gray('PATH')} ${colors.underline(manifestPath)}`
   )
 }
 
 export function packageJsonNotFoundError(manifestPath: string) {
   return (
-    `${getLoggingPrefix('error')} No valid package.json found for manifest.\n\n` +
-    'Ensure there is a valid package.json file in the project or its parent directories.\n' +
-    `${colors.red('MANIFEST')} ${colors.underline(manifestPath)}`
+    `${getLoggingPrefix('error')} No valid package.json found for manifest.\n` +
+    `${colors.red('Ensure there is a valid package.json file in the project or its parent directories.')}` +
+    `\n${colors.red('MANIFEST')}\n${colors.gray('PATH')} ${colors.underline(manifestPath)}`
   )
 }
 
@@ -59,8 +55,7 @@ export function runningInProduction(outputPath: string): string {
   const hasHost = hostPermissions && hostPermissions.length
   const hasPermissions = permissions && permissions.length
 
-  return `
- 🧩 ${colors.green('Extension.js')} ${colors.gray(`${packageJson.version}`)}
+  return `${` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(`${packageJson.version}`)}`}
 ${`    Extension Name        `} ${colors.gray(name)}
 ${`    Extension Version     `} ${colors.gray(version)}
 ${`    Host Permissions      `} ${colors.gray(
@@ -76,7 +71,8 @@ export function ready(
   mode: DevOptions['mode'],
   browser: DevOptions['browser']
 ) {
-  const modeColor = mode === 'production' ? colors.blue : colors.blue
+  const modeColor =
+    mode === 'production' ? colors.brightBlue : colors.brightBlue
   const extensionOutput =
     browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'
 
@@ -88,9 +84,7 @@ export function ready(
 }
 
 export function previewing(browser: DevOptions['browser']) {
-  return `${getLoggingPrefix(
-    'info'
-  )} Previewing the extension on ${capitalizedBrowserName(browser)}...`
+  return `${getLoggingPrefix('info')} Previewing the extension on ${capitalizedBrowserName(browser)}...`
 }
 
 export function previewWebpack() {
@@ -108,9 +102,9 @@ export function buildWebpack(
     fs.readFileSync(manifestPath, 'utf8')
   )
   const assets: any[] = statsJson?.assets
-  const heading = `${getLoggingPrefix('info')} Building ${colors.cyan(
+  const heading = `${getLoggingPrefix('info')} Building ${colors.yellow(
     manifest.name
-  )} extension using ${capitalizedBrowserName(browser)} defaults...\n\n`
+  )} extension using ${capitalizedBrowserName(browser)} defaults...\n`
   const buildTime = `\nBuild completed in ${(
     (statsJson?.time || 0) / 1000
   ).toFixed(2)} seconds.`
@@ -149,13 +143,16 @@ export function fetchingProjectPath(owner: string, project: string) {
 }
 
 export function downloadingProjectPath(projectName: string) {
-  return `${getLoggingPrefix('info')} Downloading ${colors.cyan(projectName)}...`
+  const formatted = isPathLike(projectName)
+    ? colors.underline(projectName)
+    : colors.yellow(projectName)
+  return `${getLoggingPrefix('info')} Downloading ${formatted}...`
 }
 
 export function creatingProjectPath(projectPath: string) {
   return (
-    `\n${getLoggingPrefix('info')} Creating a new browser extension...\n` +
-    `${colors.gray('PATH')} ${colors.underline(`${projectPath}`)}`
+    `${getLoggingPrefix('info')} Creating a new browser extension...\n` +
+    `${colors.gray('PATH')} ${colors.underline(projectPath)}`
   )
 }
 
@@ -192,8 +189,8 @@ export function treeWithSourceAndDistFiles(
     `${'📦 Package name:'} ${colors.yellow(
       `${name}`
     )}, ${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${colors.gray('└─')} ${colors.underline(`${sourceZip}`)} (source)` +
-    `\n   ${colors.gray('└─')} ${colors.underline(`${destZip}`)} (distribution)`
+    `\n   ${colors.gray('└─')} ${colors.underline(`${sourceZip}`)} ${colors.gray('(source)')}` +
+    `\n   ${colors.gray('└─')} ${colors.underline(`${destZip}`)} ${colors.gray('(distribution)')}`
   )
 }
 
@@ -219,7 +216,7 @@ export function treeWithSourceFiles(
   return (
     `${'📦 Package name:'} ${colors.yellow(`${name}-source.${ext}`)}, ` +
     `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
-    `\n   ${colors.gray('└─')} ${colors.underline(`${zipPath}`)} (source)`
+    `\n   ${colors.gray('└─')} ${colors.underline(`${zipPath}`)} ${colors.gray('(source)')}`
   )
 }
 
@@ -232,7 +229,7 @@ export function failedToCompressError(error: any) {
 export function writingTypeDefinitions(manifest: Manifest) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Writing type definitions for ${colors.cyan(manifest.name || '')}...`
+    `Writing type definitions for ${colors.yellow(manifest.name || '')}...`
   )
 }
 
@@ -265,31 +262,39 @@ export function unpackagedSuccessfully() {
 export function failedToDownloadOrExtractZIPFileError(error: any) {
   return (
     `${getLoggingPrefix('error')} ` +
-    `Failed to download or extract ZIP file. ${colors.red(error)}`
+    `Failed to download or extract ZIP file.\n${colors.red(error)}`
   )
 }
 
 // function calculateDirectorySize(dirPath: string): number {
 //   let totalSize = 0
-
+//
 //   const items = fs.readdirSync(dirPath)
-
+//
 //   for (const item of items) {
 //     const fullPath = path.join(dirPath, item)
 //     const stats = fs.statSync(fullPath)
-
+//
 //     if (stats.isFile()) {
 //       totalSize += stats.size
 //     } else if (stats.isDirectory()) {
 //       totalSize += calculateDirectorySize(fullPath)
 //     }
 //   }
-
+//
 //   return totalSize
 // }
 
 function capitalizedBrowserName(browser: DevOptions['browser']) {
-  return browser!.charAt(0).toUpperCase() + browser!.slice(1)
+  const b = String(browser || '')
+  const cap = b.charAt(0).toUpperCase() + b.slice(1)
+  const label = `${cap}`
+  if (b === 'chrome') return colors.yellow(label)
+  if (b === 'edge') return colors.cyan(label)
+  if (b === 'firefox') return colors.magenta(label)
+  if (b === 'chromium') return colors.gray(label)
+  if (b === 'gecko' || b === 'gecko-based') return colors.brightBlue(label)
+  return label
 }
 
 function getFileSize(fileSizeInBytes: number): string {
@@ -310,7 +315,7 @@ function getAssetsSize(assets: {size: number}[] | undefined) {
 //   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
 //   const sizeType = Math.floor(Math.log(fileSizeInBytes) / Math.log(1024))
 //   const size = (fileSizeInBytes / Math.pow(1024, sizeType)).toFixed(1)
-
+//
 //   return `${size} ${sizes[sizeType]}`
 // }
 
@@ -359,15 +364,11 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
 }
 
 export function isUsingExperimentalConfig(integration: any) {
-  return (
-    `${getLoggingPrefix('info')} ` +
-    `Using ${colors.magenta(integration)}. ` +
-    `${colors.yellow('This is very experimental')}.`
-  )
+  return `${getLoggingPrefix('info')} Using ${integration}.`
 }
 
 export function installingDependencies() {
-  return `${getLoggingPrefix('info')} ` + `Installing project dependencies...`
+  return `${getLoggingPrefix('info')} Installing project dependencies...`
 }
 
 export function installingDependenciesFailed(
@@ -375,34 +376,37 @@ export function installingDependenciesFailed(
   gitArgs: string[],
   code: number | null
 ) {
-  return (
-    `${getLoggingPrefix('error')} Command ${gitCommand} ${gitArgs.join(' ')} ` +
-    `failed with exit code ${code}`
-  )
+  return `${getLoggingPrefix('error')} Command ${colors.gray(gitCommand)} ${colors.gray(gitArgs.join(' '))} failed.\n${colors.red(`exit code ${colors.gray(String(code))}`)}`
 }
 
 export function installingDependenciesProcessError(error: any) {
-  return (
-    `${getLoggingPrefix('error')} Child process error: Can't ` +
-    `install project dependencies.\n${colors.red(error)}`
-  )
+  return `${getLoggingPrefix('error')} Child process error: Can't install project dependencies.\n${colors.red(String(error))}`
 }
 
 export function cantInstallDependencies(error: any) {
-  return (
-    `${getLoggingPrefix('error')} Can't install project dependencies. ` +
-    `${colors.red(error.message || error.toString())}`
-  )
+  return `${getLoggingPrefix('error')} Can't install project dependencies.\n${colors.red(String(error?.message || error))}`
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
-  return (
-    `${getLoggingPrefix('warn')} ` +
-    `Port ${colors.yellow(requestedPort.toString())} is in use. ` +
-    `Using port ${colors.green(newPort.toString())} instead.`
-  )
+  return `${getLoggingPrefix('warn')} Port ${colors.gray(requestedPort.toString())} is in use. Using port ${colors.gray(newPort.toString())} instead.`
 }
 
 export function configLoadingError(configPath: string, error: unknown) {
-  return `${getLoggingPrefix('error')} Failed to load ${configPath} config.\n${colors.red(String(error))}`
+  return `${getLoggingPrefix('error')} Failed to load ${colors.underline(configPath)} config.\n${colors.red(String(error))}`
+}
+
+export function managedDependencyConflict(
+  duplicates: string[],
+  userPackageJsonPath: string
+) {
+  const list = duplicates.map((d) => `- ${colors.yellow(d)}`).join('\n')
+  return (
+    `${getLoggingPrefix('error')} Your project declares dependencies that are managed by ${colors.blue('Extension.js')} and referenced in ${colors.underline('extension.config.js')}\n` +
+    `${colors.red('This can cause version conflicts and break the development/build process.')}\n\n` +
+    `${colors.gray('Managed dependencies (remove these from your package.json):')}\n` +
+    `${list}\n\n` +
+    `${colors.gray('PATH')} ${colors.underline(userPackageJsonPath)}\n` +
+    `If you need a different version, open an issue so we can consider bundling it safely.\n` +
+    `Operation aborted.`
+  )
 }

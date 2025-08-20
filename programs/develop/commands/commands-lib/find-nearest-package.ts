@@ -1,15 +1,32 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import {findUp} from 'find-up'
+
+async function findUpLocal(
+  filename: string,
+  options: {cwd: string}
+): Promise<string | undefined> {
+  const root = path.parse(options.cwd).root
+  let currentDir = options.cwd
+
+  while (true) {
+    const candidate = path.join(currentDir, filename)
+    try {
+      const stat = await fs.promises.stat(candidate)
+      if (stat.isFile()) return candidate
+    } catch {}
+
+    if (currentDir === root) return undefined
+    currentDir = path.dirname(currentDir)
+  }
+}
 
 export async function findNearestPackageJson(
   manifestPath: string
 ): Promise<string | null> {
   try {
     const manifestDir = path.dirname(manifestPath)
-    const packageJsonPath = await findUp('package.json', {
-      cwd: manifestDir,
-      type: 'file'
+    const packageJsonPath = await findUpLocal('package.json', {
+      cwd: manifestDir
     })
 
     return packageJsonPath || null
