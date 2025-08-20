@@ -1,4 +1,5 @@
 let webSocket = null
+let triedWsFallback = false
 
 export async function connect() {
   if (webSocket) {
@@ -8,41 +9,63 @@ export async function connect() {
 
   // Get port from the placeholder that will be replaced during build
   const port = '__RELOAD_PORT__'
-  webSocket = new WebSocket(`wss://127.0.0.1:${port + 2}`)
+  let reconnectAttempts = 0
+  const maxReconnectAttempts = 10
+  const baseBackoffMs = 250
+  const maxBackoffMs = 5000
 
-  webSocket.onerror = (event) => {
-    console.error(`[Reload Service] Connection error: ${JSON.stringify(event)}`)
-    webSocket.close()
-  }
+  const connectTo = (url) => {
+    webSocket = new WebSocket(url)
 
-  webSocket.onopen = () => {
-    console.info(
-      `[Reload Service] Connection opened. Listening on port ${port}...`
-    )
-  }
+    webSocket.onerror = (_event) => {
+      try {
+        webSocket && webSocket.close()
+      } catch {}
+      if (!triedWsFallback) {
+        triedWsFallback = true
+        connectTo(`ws://127.0.0.1:${port}`)
+      }
+    }
 
-  webSocket.onmessage = async (event) => {
-    const message = JSON.parse(event.data)
-
-    if (message.status === 'serverReady') {
+    webSocket.onopen = () => {
+      reconnectAttempts = 0
       console.info(
-        `[Reload Service] Server ready. Requesting initial load data...`
+        `[Extension.js] Connection opened. Listening on port ${port}...`
       )
     }
 
-    if (message.changedFile) {
-      console.info(
-        `[Reload Service] Changes detected on ${message.changedFile}. Reloading extension...`
-      )
+    let reloadDebounce
+    webSocket.onmessage = async (event) => {
+      const message = JSON.parse(event.data)
 
-      await messageAllExtensions(message.changedFile)
+      if (message.status === 'serverReady') {
+        console.info(
+          `[Extension.js] Server ready. Requesting initial load data...`
+        )
+      }
+
+      if (message.changedFile) {
+        clearTimeout(reloadDebounce)
+        reloadDebounce = setTimeout(async () => {
+          await messageAllExtensions(message.changedFile)
+        }, 200)
+      }
+    }
+
+    webSocket.onclose = () => {
+      console.info('[Extension.js] Connection closed.')
+      webSocket = null
+      if (reconnectAttempts >= maxReconnectAttempts) return
+      reconnectAttempts++
+      const backoff = Math.min(
+        maxBackoffMs,
+        baseBackoffMs * 2 ** reconnectAttempts
+      )
+      setTimeout(() => connectTo(url), backoff)
     }
   }
 
-  webSocket.onclose = () => {
-    console.info('[Reload Service] Connection closed.')
-    webSocket = null
-  }
+  connectTo(`wss://127.0.0.1:${port}`)
 }
 
 export function disconnect() {
@@ -75,15 +98,15 @@ async function messageAllExtensions(changedFile) {
     for (const extension of devExtensions) {
       try {
         await browser.runtime.sendMessage(extension.id, {changedFile})
-        console.info('[Reload Service] Add-On reloaded and ready.')
+        console.info('[Extension.js] Add-On reloaded and ready.')
       } catch (error) {
         console.error(
-          `Error sending message to ${extension.id}: ${error.message}`
+          `[Extension.js] Error sending message to ${extension.id}: ${error.message}`
         )
       }
     }
   } else {
-    console.info('[Reload Service] External extension is not ready.')
+    console.info('[Extension.js] External extension is not ready.')
   }
 }
 
@@ -129,7 +152,7 @@ async function checkExtensionReadiness() {
 async function delay(ms) {
   return await new Promise((resolve) => setTimeout(resolve, ms)).catch(
     (error) => {
-      console.error(`Error delaying: ${error.message}`)
+      console.error(`[Extension.js] Error delaying: ${error.message}`)
     }
   )
 }

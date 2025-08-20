@@ -4,10 +4,11 @@ import {PluginInterface} from '../../reload-types'
 import {messageDispatcher} from './web-socket-server/message-dispatcher'
 import {startServer} from '../../start-server'
 import * as messages from '../../reload-lib/messages'
+import {getManifestFieldsData} from '../../../plugin-extension/data/manifest-fields'
 
 export default class CreateWebSocketServer {
   private readonly manifestPath: string
-  private readonly port: number
+  private readonly port: string | number
   private readonly browser: string
   private readonly stats: boolean | undefined
   private readonly instanceId?: string
@@ -39,9 +40,15 @@ export default class CreateWebSocketServer {
         mode: compiler.options.mode || 'development'
       })
       this.isServerInitialized = true
-      console.log(messages.webSocketServerInitialized())
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.webSocketServerInitialized())
+      }
     } catch (error) {
-      console.error(messages.webSocketServerInitializationFailed((error as Error).message))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.error(
+          messages.webSocketServerInitializationFailed((error as Error).message)
+        )
+      }
       throw error
     }
   }
@@ -78,9 +85,7 @@ export default class CreateWebSocketServer {
 
         const context = path.relative(process.cwd(), path.dirname(changedFile))
         if (process.env.EXTENSION_ENV === 'development') {
-          console.info(
-            messages.fileUpdated(relativePath, context)
-          )
+          console.info(messages.fileUpdated(relativePath, context))
         }
 
         // Use existing server instead of creating a new one
@@ -91,10 +96,38 @@ export default class CreateWebSocketServer {
             changedFile
           )
         } else {
-          console.warn(
-            messages.webSocketServerNotReady()
-          )
+          console.warn(messages.webSocketServerNotReady())
         }
+
+        // If an HTML entrypoint file changed, trigger a full
+        // recompilation by restarting the process.
+        try {
+          const manifestHtml = getManifestFieldsData({
+            manifestPath: this.manifestPath
+          }).html
+
+          const htmlFiles = Object.values(manifestHtml).filter(
+            (validFile) => typeof validFile === 'string'
+          )
+
+          const isHtmlEntrypointChange = htmlFiles.some((file) =>
+            changedFile.includes(file)
+          )
+
+          if (isHtmlEntrypointChange) {
+            // Let stdout show the intent; Manager extension will
+            // reload on reconnect. Reuse existing message content
+            // semantics for visibility.
+            console.warn(messages.htmlEntrypointChangeRestarting())
+
+            // Small delay to flush logs and WS message before exit.
+            setTimeout(() => {
+              try {
+                process.kill(process.pid, 'SIGINT')
+              } catch {}
+            }, 100)
+          }
+        } catch {}
 
         done()
       }

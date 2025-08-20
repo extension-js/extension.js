@@ -26,6 +26,7 @@ export function messageDispatcher(
   const manifestLocales = getManifestFieldsData({manifestPath}).locales
   const manifestScripts = getManifestFieldsData({manifestPath}).scripts
   const jsonScripts = getManifestFieldsData({manifestPath}).json
+  const manifestHtml = getManifestFieldsData({manifestPath}).html
 
   if (!server) {
     if (process.env.EXTENSION_ENV === 'development') {
@@ -73,6 +74,16 @@ export function messageDispatcher(
           changedFile: 'declarative_net_request'
         })
       }
+    }
+  })
+
+  // Handle HTML entrypoint files (popup/options/etc.)
+  Object.entries(manifestHtml).forEach(([, resource]) => {
+    const htmlPath = typeof resource === 'string' ? resource : undefined
+    if (htmlPath && htmlPath.includes(updatedFile)) {
+      dispatchMessage(server, {
+        changedFile: 'entrypoint'
+      })
     }
   })
 }

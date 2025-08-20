@@ -5,23 +5,21 @@ async function getDevExtension() {
     return (
       // Reload extension
       extension.name !== 'Extension.js DevTools' &&
-      // Show only unpackaged extensions
-      extension.installType === 'development'
+      // Show only unpackaged extensions (Firefox reports "temporary")
+      (extension.installType === 'development' ||
+        extension.installType === 'temporary')
     )
   })[0]
 }
 
 // Create a new tab and set it to background.
-export async function createFirefoxAddonsTab(initialTab, url) {
+async function createFirefoxAddonsTab(initialTab, url) {
   try {
-    // Check if an about:blank tab is already open
-    const tabs = await browser.tabs.query({url: 'about:blank'})
-    const addonsTabExist = tabs.length > 0
+    // If a tab with the desired URL already exists, do nothing
+    const existing = await browser.tabs.query({url})
+    if (existing && existing.length > 0) return
 
-    // Return if url exists, meaning about:blank tab is already open
-    if (addonsTabExist) return
-
-    // Create an inactive about:blank tab
+    // Create an inactive tab with the requested URL
     const addonsTab = await browser.tabs.create({url, active: false})
 
     // Get the initial page tab and move the new addons tab to the first position.
@@ -36,7 +34,7 @@ export async function createFirefoxAddonsTab(initialTab, url) {
 }
 
 // Function to handle first run logic
-export async function handleFirstRun() {
+async function handleFirstRun() {
   try {
     const devExtension = await getDevExtension()
 

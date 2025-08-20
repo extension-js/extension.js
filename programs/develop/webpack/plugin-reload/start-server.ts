@@ -29,8 +29,9 @@ function setupServer(port: number, browser: DevOptions['browser']) {
     case 'edge':
       return {
         server: new WebSocketServer({
-          host: 'localhost',
-          port
+          host: '127.0.0.1',
+          port,
+          perMessageDeflate: false
         }),
         port
       }
@@ -39,7 +40,8 @@ function setupServer(port: number, browser: DevOptions['browser']) {
     case 'gecko-based':
       return {
         server: new WebSocketServer({
-          server: httpsServer(port).server
+          server: httpsServer(port).server,
+          perMessageDeflate: false
         }),
         port
       }
@@ -47,8 +49,9 @@ function setupServer(port: number, browser: DevOptions['browser']) {
     default:
       return {
         server: new WebSocketServer({
-          host: 'localhost',
-          port
+          host: '127.0.0.1',
+          port,
+          perMessageDeflate: false
         }),
         port
       }
@@ -89,10 +92,33 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
   // Track all active connections for this instance
   const connections = new Set<WebSocket>()
+  // Heartbeat to clean up dead connections and avoid hung sockets consuming resources
+  function heartbeat(this: WebSocket) {
+    ;(this as any).isAlive = true
+  }
+
+  const healthInterval = setInterval(() => {
+    try {
+      ;(webSocketServer.clients || new Set()).forEach((ws: any) => {
+        if (ws.isAlive === false) {
+          try {
+            ws.terminate()
+          } catch {}
+          return
+        }
+        ws.isAlive = false
+        try {
+          ws.ping()
+        } catch {}
+      })
+    } catch {}
+  }, 30000)
 
   webSocketServer.on('connection', (ws) => {
     // Add to active connections
     connections.add(ws)
+    ;(ws as any).isAlive = true
+    ws.on('pong', heartbeat)
 
     // Send instance-specific server ready message
     ws.send(
@@ -117,7 +143,10 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
       // Only process messages for this instance
       if (message.instanceId && message.instanceId !== instanceId) {
         console.log(
-          messages.ignoringMessageFromWrongInstance(message.instanceId, instanceId)
+          messages.ignoringMessageFromWrongInstance(
+            message.instanceId,
+            instanceId
+          )
         )
         return
       }
@@ -140,18 +169,17 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
             })
         }
 
-        setTimeout(() => {
-          console.log(
-            messages.runningInDevelopment(manifest, options.browser, message)
-          )
-          console.log(messages.emptyLine())
-        }, 500)
+        console.log(messages.emptyLine())
+        console.log(
+          messages.runningInDevelopment(manifest, options.browser, message)
+        )
 
         if (isFirstRun(compiler.options.output.path!, options.browser)) {
-          setTimeout(() => {
-            console.log(messages.isFirstRun(options.browser))
-          }, 1000)
+          console.log(messages.emptyLine())
+          console.log(messages.isFirstRun(options.browser))
         }
+
+        console.log(messages.emptyLine())
       }
     })
   })
@@ -166,6 +194,9 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
   // Handle graceful shutdown
   const cleanup = () => {
+    try {
+      clearInterval(healthInterval)
+    } catch {}
     // Close all active connections for this instance
     for (const ws of connections) {
       try {

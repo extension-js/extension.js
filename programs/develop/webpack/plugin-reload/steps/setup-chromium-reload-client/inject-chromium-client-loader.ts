@@ -108,30 +108,43 @@ export default function (this: InjectBackgroundClientContext, source: string) {
 
   let manifestBg: Record<string, any> | undefined = patchedManifest.background
 
-  // Check for background scripts
-  if (manifestBg) {
-    const backgroundScripts = manifestBg?.scripts
+  // Handling for specific browsers (Chrome/Edge/Chromium-based only)
+  if (browser !== 'firefox') {
+    manifestBg =
+      manifest[`chromium:background`] ||
+      manifest[`chrome:background`] ||
+      manifest[`edge:background`] ||
+      manifestBg
 
-    if (backgroundScripts) {
-      if (patchedManifest.manifest_version === 2) {
-        for (const bgScript of [backgroundScripts[0]]) {
-          const absoluteUrl = path.resolve(projectPath, bgScript as string)
+    // Check for background scripts
+    if (manifestBg) {
+      const backgroundScripts =
+        manifestBg?.scripts ||
+        manifestBg?.['chromium:scripts'] ||
+        manifestBg?.['chrome:scripts'] ||
+        manifestBg?.['edge:scripts']
 
-          if (url.includes(absoluteUrl)) {
-            return `${generalReloadCode}${source}`
+      if (backgroundScripts) {
+        if (patchedManifest.manifest_version === 2) {
+          for (const bgScript of [backgroundScripts[0]]) {
+            const absoluteUrl = path.resolve(projectPath, bgScript as string)
+
+            if (url.includes(absoluteUrl)) {
+              return `${generalReloadCode}${source}`
+            }
           }
         }
       }
-    }
 
-    const serviceWorker = manifestBg?.service_worker
+      const serviceWorker = manifestBg?.service_worker
 
-    // Check for service workers
-    if (serviceWorker) {
-      if (patchedManifest.manifest_version === 3) {
-        const absoluteUrl = path.resolve(projectPath, serviceWorker as string)
-        if (url.includes(absoluteUrl)) {
-          return `${generalReloadCode}${source}`
+      // Check for service workers
+      if (serviceWorker) {
+        if (patchedManifest.manifest_version === 3) {
+          const absoluteUrl = path.resolve(projectPath, serviceWorker as string)
+          if (url.includes(absoluteUrl)) {
+            return `${generalReloadCode}${source}`
+          }
         }
       }
     }
