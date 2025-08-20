@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function optionsUi(
@@ -9,7 +9,7 @@ export function optionsUi(
   if (manifest.options_page) {
     const optionsPage: string = manifest.options_page
 
-    return path.join(context, optionsPage)
+    return resolveManifestPath(context, optionsPage)
   }
 
   if (!manifest || !manifest.options_ui || !manifest.options_ui.page) {
@@ -18,5 +18,5 @@ export function optionsUi(
 
   const optionsPage: string = manifest.options_ui.page
 
-  return path.join(context, optionsPage)
+  return resolveManifestPath(context, optionsPage)
 }

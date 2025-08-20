@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function browserAction(
@@ -15,5 +15,5 @@ export function browserAction(
 
   const browserActionPage: string = manifest.browser_action.default_popup
 
-  return path.join(context, browserActionPage)
+  return resolveManifestPath(context, browserActionPage)
 }

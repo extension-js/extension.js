@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function action(
@@ -11,5 +11,5 @@ export function action(
 
   const actionPage: string = manifest.action.default_popup
 
-  return path.join(context, actionPage)
+  return resolveManifestPath(context, actionPage)
 }
