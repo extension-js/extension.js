@@ -19,8 +19,8 @@ import {IconsPlugin} from './feature-icons'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {SpecialFoldersPlugin} from './feature-special-folders'
 
+// Types
 import {PluginInterface, FilepathList} from '../webpack-types'
-
 import {DevOptions} from '../../commands/commands-lib/config-types'
 
 export class ExtensionPlugin {
@@ -113,8 +113,7 @@ export class ExtensionPlugin {
       includeList: {
         ...manifestFieldsData.scripts,
         ...specialFoldersData.scripts
-      },
-      excludeList: specialFoldersData.public
+      }
     }).apply(compiler)
 
     // Plugin to add special folders (public, pages, scripts) to the extension
