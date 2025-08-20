@@ -10,11 +10,13 @@ export class UpdateHtmlFile {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
+  public readonly browser?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.excludeList = options.excludeList
+    this.browser = options.browser
   }
 
   public apply(compiler: Compiler): void {
