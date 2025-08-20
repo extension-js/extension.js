@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {ThemeIcon, type Manifest} from '../../../../webpack-types'
 
 export function browserActionThemeIcons(
@@ -17,11 +17,11 @@ export function browserActionThemeIcons(
 
   for (const themeIcon of manifest.browser_action.theme_icons as ThemeIcon[]) {
     if (themeIcon.light) {
-      themeIcon.light = path.join(context, themeIcon.light)
+      themeIcon.light = resolveManifestPath(context, themeIcon.light)
     }
 
     if (themeIcon.dark) {
-      themeIcon.dark = path.join(context, themeIcon.dark)
+      themeIcon.dark = resolveManifestPath(context, themeIcon.dark)
     }
 
     if (themeIcon.size) delete themeIcon.size
