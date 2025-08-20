@@ -1,4 +1,4 @@
-import * as path from 'path'
+import {resolveManifestPath} from '../normalize'
 import {type Manifest} from '../../../../webpack-types'
 
 export function serviceWorker(
@@ -12,7 +12,7 @@ export function serviceWorker(
   const serviceWorker = manifest.background.service_worker
 
   if (serviceWorker) {
-    return path.join(context, serviceWorker)
+    return resolveManifestPath(context, serviceWorker)
   }
 
   return undefined
