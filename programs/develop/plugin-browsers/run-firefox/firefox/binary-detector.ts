@@ -44,7 +44,7 @@ export class FirefoxBinaryDetector {
     }
 
     throw new Error(
-      'Firefox not found. Please install Firefox or specify --geckoBinary path'
+      'Firefox not found. Either install Firefox or specify --geckoBinary path'
     )
   }
 
@@ -141,11 +141,18 @@ export class FirefoxBinaryDetector {
     additionalArgs: string[] = []
   ): {binary: string; args: string[]} {
     const args: string[] = [
+      // Ensure new independent instance and unique profile
       '--no-remote',
       '--new-instance',
-      `-profile=${profilePath}`,
-      `-start-debugger-server=${debugPort}`,
-      '--foreground'
+      '-profile',
+      profilePath,
+      // Start native RDP server: pass as separate args (no equals)
+      ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
+      // Additional flags to prevent conflicts and ensure proper startup
+      '--foreground',
+      '--disable-background-timer-throttling',
+      '--disable-backgrounding-occluded-windows',
+      '--disable-renderer-backgrounding'
     ]
 
     // Add additional arguments
