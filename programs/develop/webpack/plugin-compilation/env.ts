@@ -100,18 +100,19 @@ export class EnvPlugin {
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           (assets) => {
-            const files = Object.keys(assets)
+            // Prefer compilation assets to be robust against different bundler versions
+            const files = Object.keys((compilation as any).assets || assets)
 
             files.forEach((filename) => {
               if (filename.endsWith('.json') || filename.endsWith('.html')) {
-                let fileContent = compilation.assets[filename]
+                let fileContent = (compilation as any).assets[filename]
                   .source()
                   .toString()
 
                 // Replace environment variables in the format $EXTENSION_PUBLIC_VAR (legacy)
                 fileContent = fileContent.replace(
                   /\$EXTENSION_PUBLIC_[A-Z_]+/g,
-                  (match) => {
+                  (match: string) => {
                     const envVarName = match.slice(1) // Remove the '$'
                     const value = combinedVars[envVarName] || match
                     return value
@@ -121,7 +122,7 @@ export class EnvPlugin {
                 // Replace environment variables in the format $EXTENSION_VAR
                 fileContent = fileContent.replace(
                   /\$EXTENSION_[A-Z_]+/g,
-                  (match) => {
+                  (match: string) => {
                     const envVarName = match.slice(1) // Remove the '$'
                     const value = combinedVars[envVarName] || match
                     return value
