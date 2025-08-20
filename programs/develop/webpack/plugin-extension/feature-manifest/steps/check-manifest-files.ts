@@ -53,6 +53,11 @@ export class CheckManifestFiles {
     const scriptExts = ['.js', '.ts', '.jsx', '.tsx', '.mjs', '.cjs']
     const htmlExt = '.html'
 
+    // Parse manifest once and filter per target browser
+    const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
+    const patchedManifest = utils.filterKeysForThisBrowser(manifest, 'chrome')
+    const manifestName = patchedManifest.name || 'Extension.js'
+
     const entries = Object.entries(this.includeList || {})
     for (const [field, value] of entries) {
       if (value) {
@@ -60,21 +65,23 @@ export class CheckManifestFiles {
 
         for (const item of valueArr) {
           const ext = path.extname(item as string)
-          const manifest = JSON.parse(
-            fs.readFileSync(this.manifestPath, 'utf8')
-          )
-          const patchedManifest = utils.filterKeysForThisBrowser(
-            manifest,
-            'chrome'
-          )
-
-          const manifestName = patchedManifest.name || 'Extension.js'
+          // Skip excluded items
+          if (
+            this.excludeList &&
+            Object.values(this.excludeList).some((excluded) =>
+              typeof excluded === 'string'
+                ? excluded === item
+                : Array.isArray(excluded) && excluded.includes(item as string)
+            )
+          ) {
+            continue
+          }
 
           if (!fs.existsSync(item as string)) {
             // Assume that by refrencing an absolute path, the user
-            // know what they are doing.
+            // know what they are doing. Skip absolute paths.
             if (item.startsWith('/')) {
-              return
+              continue
             }
 
             const fieldError = messages.manifestFieldError(
@@ -82,6 +89,12 @@ export class CheckManifestFiles {
               field,
               item as string
             )
+            // Also surface the error immediately in stdout so users see it
+            // before the browser runner attempts to launch.
+            try {
+              // eslint-disable-next-line no-console
+              console.error(fieldError)
+            } catch {}
             if (iconExts.includes(ext)) {
               compilation.errors.push(new WebpackError(fieldError))
             } else if (jsonExts.includes(ext)) {

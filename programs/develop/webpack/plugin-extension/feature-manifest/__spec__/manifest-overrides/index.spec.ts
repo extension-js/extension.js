@@ -150,7 +150,7 @@ describe('getManifestOverrides', () => {
       description: 'An Extension.js example.',
       action: {
         default_popup: 'action/default_popup.html',
-        default_icon: 'action/icon.png'
+        default_icon: 'icons/icon.png'
       },
       background: {
         page: 'background.html',
@@ -205,7 +205,7 @@ describe('getManifestOverrides', () => {
           }
         ]
       },
-      devtools_page: 'devtools_page.html',
+      devtools_page: 'devtools_page/devtools_page.html',
       icons: {
         '16': 'icons/icon16.png',
         '48': 'icons/icon48.png',
@@ -243,6 +243,7 @@ describe('getManifestOverrides', () => {
         'styles.css'
       ],
       side_panel: {
+        default_icon: 'icons/icon16.png',
         default_path: 'side_panel/default_path.html'
       }
     })
