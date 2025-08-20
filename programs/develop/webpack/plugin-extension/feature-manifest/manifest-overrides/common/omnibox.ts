@@ -3,32 +3,28 @@ import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)
-export function action(manifest: Manifest, excludeList: FilepathList) {
-  return (
-    manifest.action && {
-      action: {
-        ...manifest.action,
-        ...(manifest.action.default_popup && {
-          default_popup: getFilename(
-            `action/default_popup.html`,
-            manifest.action.default_popup as string,
-            excludeList
-          )
-        }),
 
-        ...(manifest.action.default_icon && {
+export function omnibox(manifest: Manifest, excludeList: FilepathList) {
+  return (
+    (manifest as any).omnibox && {
+      omnibox: {
+        ...(manifest as any).omnibox,
+        ...(((manifest as any).omnibox as any).default_icon && {
           default_icon:
-            typeof manifest.action.default_icon === 'string'
+            typeof ((manifest as any).omnibox as any).default_icon === 'string'
               ? getFilename(
                   `icons/${getBasename(
-                    manifest.action.default_icon as string
+                    ((manifest as any).omnibox as any).default_icon as string
                   )}`,
-                  manifest.action.default_icon as string,
+                  ((manifest as any).omnibox as any).default_icon as string,
                   excludeList
                 )
               : Object.fromEntries(
                   Object.entries(
-                    manifest.action.default_icon as Record<string, string>
+                    ((manifest as any).omnibox as any).default_icon as Record<
+                      string,
+                      string
+                    >
                   ).map(([size, icon]) => {
                     return [
                       size,

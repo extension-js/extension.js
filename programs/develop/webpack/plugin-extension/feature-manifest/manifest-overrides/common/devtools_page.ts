@@ -8,7 +8,7 @@ export function devtoolsPage(manifest: Manifest, excludeList: FilepathList) {
   return (
     manifest.devtools_page && {
       devtools_page: getFilename(
-        'devtools_page.html',
+        'devtools_page/devtools_page.html',
         manifest.devtools_page,
         excludeList
       )

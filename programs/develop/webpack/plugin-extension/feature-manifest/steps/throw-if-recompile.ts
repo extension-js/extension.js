@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import rspack, {Compiler, Compilation} from '@rspack/core'
 import * as messages from '../../../lib/messages'
+import * as reloadMessages from '../../../plugin-reload/reload-lib/messages'
 import {DevOptions} from '../../../../commands/commands-lib/config-types'
 import {PluginInterface, FilepathList, Manifest} from '../../../webpack-types'
 import {htmlFields} from '../../data/manifest-fields/html-fields'
@@ -79,14 +80,23 @@ export class ThrowIfRecompileIsNeeded {
                     const fileAdded = updatedHtml.filter(
                       (file) => !initialHtml.includes(file)
                     )[0]
-                    const errorMessage =
+                    const warnMessage =
                       messages.serverRestartRequiredFromManifestError(
                         fileAdded,
                         fileRemoved
                       )
-                    compilation.errors.push(
-                      new rspack.WebpackError(errorMessage)
+                    // Log an explicit restart notice and then exit to force a clean recompile
+                    console.warn(
+                      reloadMessages.manifestEntrypointChangeRestarting(
+                        fileAdded || fileRemoved || 'manifest.json'
+                      )
                     )
+                    console.warn(warnMessage)
+                    setTimeout(() => {
+                      try {
+                        process.kill(process.pid, 'SIGINT')
+                      } catch {}
+                    }, 100)
                   }
                 }
               )
