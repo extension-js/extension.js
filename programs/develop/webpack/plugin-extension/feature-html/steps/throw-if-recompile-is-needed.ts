@@ -2,8 +2,8 @@ import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'
-import * as utils from '../../../lib/utils'
-import * as messages from '../../../lib/messages'
+import * as utils from '../../../webpack-lib/utils'
+import * as messages from '../../../webpack-lib/messages'
 
 export class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string

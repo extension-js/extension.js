@@ -4,7 +4,7 @@ import {
   type PluginInterface,
   type Manifest
 } from '../../webpack-types'
-import * as utils from '../../lib/utils'
+import * as utils from '../../webpack-lib/utils'
 import {cleanMatches} from './clean-matches'
 
 /**

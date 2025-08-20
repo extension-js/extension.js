@@ -3,13 +3,13 @@ import {AddScriptsAndStylesToCompilation} from '../../steps/add-scripts-and-styl
 import * as fs from 'fs'
 import * as path from 'path'
 import * as utils from '../../html-lib/utils'
-import * as webpackUtils from '../../../../lib/utils'
+import * as webpackUtils from '../../../../webpack-lib/utils'
 import {type FilepathList} from '../../../../webpack-types'
 
 vi.mock('fs')
 vi.mock('path')
 vi.mock('../../html-lib/utils')
-vi.mock('../../../../lib/utils', () => ({
+vi.mock('../../../../webpack-lib/utils', () => ({
   shouldExclude: vi
     .fn()
     .mockImplementation(

@@ -11,10 +11,10 @@ import type {Compilation, Compiler} from '@rspack/core'
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 import * as utils from '../../html-lib/utils'
-import * as webpackUtils from '../../../../lib/utils'
+import * as webpackUtils from '../../../../webpack-lib/utils'
 
 vi.mock('../../html-lib/utils')
-vi.mock('../../../../lib/utils')
+vi.mock('../../../../webpack-lib/utils')
 vi.mock('../../html-lib/patch-html', () => ({
   patchHtmlNested: vi
     .fn()

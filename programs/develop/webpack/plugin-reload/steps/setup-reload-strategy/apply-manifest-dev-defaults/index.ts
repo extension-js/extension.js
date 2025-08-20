@@ -3,7 +3,7 @@ import {patchV2CSP, patchV3CSP} from './patch-csp'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'
 import patchBackground from './patch-background'
 import patchExternallyConnectable from './patch-externally-connectable'
-import * as utils from '../../../../lib/utils'
+import * as utils from '../../../../webpack-lib/utils'
 import {type PluginInterface} from '../../../reload-types'
 import {DevOptions} from '../../../../../module'
 

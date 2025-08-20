@@ -2,7 +2,7 @@ import * as path from 'path'
 import http from 'http'
 import https from 'https'
 import * as fs from 'fs'
-import * as messages from '../../../../lib/messages'
+import * as messages from '../../../../webpack-lib/messages'
 
 const ensureFile = (filePath: string) => {
   if (!fs.existsSync(filePath)) {

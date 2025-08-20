@@ -1,5 +1,5 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
-import {getFilename} from '../../../../lib/utils'
+import {getFilename} from '../../../../webpack-lib/utils'
 
 export function backgroundServiceWorker(
   manifest: Manifest,

@@ -2,8 +2,8 @@ import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './reload-types'
 import CreateWebSocketServer from './steps/create-web-socket-server'
 import SetupReloadStrategy from './steps/setup-reload-strategy'
-import {type DevOptions} from '../../commands/commands-lib/config-types'
-import {SetupFirefoxInspectionStep} from '../../plugin-browsers/run-firefox/remote-firefox/setup-firefox-inspection'
+import {type DevOptions} from '../../develop-lib/config-types'
+import {SetupFirefoxInspectionStep} from '../plugin-browsers/run-firefox/remote-firefox/setup-firefox-inspection'
 
 export class ReloadPlugin {
   public static readonly name: string = 'plugin-reload'

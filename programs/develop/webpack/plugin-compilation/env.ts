@@ -3,7 +3,7 @@ import * as path from 'path'
 import {Compiler, Compilation, DefinePlugin, sources} from '@rspack/core'
 import * as dotenv from 'dotenv'
 import {PluginInterface} from '../webpack-types'
-import {DevOptions} from '../../commands/commands-lib/config-types'
+import {DevOptions} from '../../develop-lib/config-types'
 
 export class EnvPlugin {
   public readonly manifestPath: string

@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest'
-import {getFilename} from '../../../../lib/utils'
+import {getFilename} from '../../../../webpack-lib/utils'
 
 // Ensure getFilename respects excludeList mappings for public/ assets
 describe('manifest overrides – getFilename with public/ prefix', () => {

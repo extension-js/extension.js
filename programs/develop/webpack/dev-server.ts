@@ -9,18 +9,18 @@ import * as path from 'path'
 import {rspack} from '@rspack/core'
 import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
-import {DevOptions} from '../commands/commands-lib/config-types'
+import {DevOptions} from '../develop-lib/config-types'
 import webpackConfig from './webpack-config'
-import {type ProjectStructure} from '../commands/commands-lib/get-project-path'
-import * as utils from './lib/utils'
+import {type ProjectStructure} from '../develop-lib/get-project-path'
+import * as utils from './webpack-lib/utils'
 import {
   loadBrowserConfig,
   loadCommandConfig,
   loadCustomWebpackConfig
-} from '../commands/commands-lib/get-extension-config'
-import * as messages from './lib/messages'
-import {PortManager} from './lib/port-manager'
-import {setupAutoExit} from './lib/auto-exit'
+} from '../develop-lib/get-extension-config'
+import * as messages from './webpack-lib/messages'
+import {PortManager} from './webpack-lib/port-manager'
+import {setupAutoExit} from './webpack-lib/auto-exit'
 
 function closeAll(devServer: RspackDevServer, portManager: PortManager) {
   devServer

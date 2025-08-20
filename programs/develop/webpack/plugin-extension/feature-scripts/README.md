@@ -90,7 +90,7 @@ export type FilepathList = Record<string, string | string[] | undefined>
 
 export interface PluginInterface {
   manifestPath: string
-  browser?: import('../../commands/commands-lib/config-types').DevOptions['browser']
+  browser?: import('../../../development-lib/config-types').DevOptions['browser']
   includeList?: FilepathList
   excludeList?: FilepathList
 }

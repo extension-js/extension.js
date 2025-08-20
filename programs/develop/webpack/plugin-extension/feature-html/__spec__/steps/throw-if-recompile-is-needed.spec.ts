@@ -2,13 +2,13 @@ import * as fs from 'fs'
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {ThrowIfRecompileIsNeeded} from '../../steps/throw-if-recompile-is-needed'
 import {getAssetsFromHtml} from '../../html-lib/utils'
-import * as utils from '../../../../lib/utils'
-import * as messages from '../../../../lib/messages'
+import * as utils from '../../../../webpack-lib/utils'
+import * as messages from '../../../../webpack-lib/messages'
 
 vi.mock('fs')
 vi.mock('../../html-lib/utils')
-vi.mock('../../../../lib/utils')
-vi.mock('../../../../lib/messages')
+vi.mock('../../../../webpack-lib/utils')
+vi.mock('../../../../webpack-lib/messages')
 
 describe('ThrowIfRecompileIsNeeded', () => {
   let compiler: any

@@ -4,7 +4,7 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {type LoaderContext} from '../../../webpack-types'
-import * as messages from '../../../lib/messages'
+import * as messages from '../../../webpack-lib/messages'
 
 const schema: Schema = {
   type: 'object',

@@ -3,7 +3,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as rspack from '@rspack/core'
 import {PolyfillPlugin} from '../feature-polyfill'
-import * as messages from '../../lib/messages'
+import * as messages from '../../webpack-lib/messages'
 
 describe('PolyfillPlugin', () => {
   beforeEach(() => {

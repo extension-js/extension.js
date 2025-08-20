@@ -1,6 +1,6 @@
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import {DevOptions} from '../../../../commands/commands-lib/config-types'
+import {DevOptions} from '../../../../develop-lib/config-types'
 
 export function SetupChromiumReloadClient(
   compiler: Compiler,
