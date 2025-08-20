@@ -9,38 +9,28 @@ function copyReadmePlugin() {
     setup(api: any) {
       api.onAfterBuild(() => {
         const sourceReadme = path.join(__dirname, '../../README.md')
-        const targetReadme = path.join(__dirname, '../README.md')
-        copyIfDifferent(sourceReadme, targetReadme)
+        const targetReadme = path.join(__dirname, 'README.md')
+        const sourceContent = fs.readFileSync(sourceReadme, 'utf8')
+        copyIfDifferentContent(sourceContent, targetReadme)
       })
     }
   }
 }
 
-function copyIfDifferent(source: string, target: string): void {
-  if (!fs.existsSync(source)) {
-    console.error(`Error: Source file ${source} not found`)
-    process.exit(1)
-  }
-
+function copyIfDifferentContent(sourceContent: string, target: string): void {
   if (fs.existsSync(target)) {
-    const sourceContent = fs.readFileSync(source, 'utf8')
     const targetContent = fs.readFileSync(target, 'utf8')
-
     if (sourceContent !== targetContent) {
-      fs.copyFileSync(source, target)
-      console.log(
-        `[Extension.js setup] File ${path.basename(source)} copied to ${target}`
-      )
+      fs.writeFileSync(target, sourceContent)
+      console.log(`[Extension.js setup] File README.md copied to ${target}`)
     } else {
       console.log(
-        `[Extension.js setup] File ${path.basename(source)} haven't changed. Skipping copy...`
+        `[Extension.js setup] File README.md haven't changed. Skipping copy...`
       )
     }
   } else {
-    fs.copyFileSync(source, target)
-    console.log(
-      `[Extension.js setup] File ${path.basename(source)} copied to ${target}`
-    )
+    fs.writeFileSync(target, sourceContent)
+    console.log(`[Extension.js setup] File README.md copied to ${target}`)
   }
 }
 

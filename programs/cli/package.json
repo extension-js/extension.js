@@ -25,12 +25,16 @@
     "extension": "./dist/cli.js"
   },
   "name": "extension",
-  "version": "2.0.0-rc.38",
+  "version": "2.0.0",
   "description": "Create cross-browser extensions with no build configuration.",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "watch": "rslib build --watch",

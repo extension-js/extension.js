@@ -7,8 +7,21 @@
 
 import colors from 'pintor'
 
+// Prefix candidates (try swapping if desired): '►', '›', '→', '—'
+function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
+  if (type === 'error') return colors.red('ERROR')
+  if (type === 'warn') return colors.brightYellow('►►►')
+  if (type === 'info') return colors.blue('►►►')
+  return colors.green('►►►')
+}
+
+// Standard code style across all messages
+const code = (text: string) => colors.blue(text)
+// Helper to ensure arguments are gray
+const arg = (text: string) => colors.gray(text)
+
 export function updateFailed(err: any) {
-  return '🧩\n' + colors.red(`Failed to check for updates: ${err.message}`)
+  return `${getLoggingPrefix('error')} Failed to check for updates.\n${colors.red(String(err?.message || err))}`
 }
 
 export function checkUpdates(
@@ -16,184 +29,197 @@ export function checkUpdates(
   update: {latest: string}
 ) {
   return (
-    `🧩` +
-    `\n${colors.yellow('Notice:')} A new version of ${colors.green(
-      'Extension.js'
-    )} is available!` +
-    `\nYou are currently using version ${colors.yellow(packageJson.version)}.` +
-    `\nThe latest stable version is ${colors.yellow(update.latest)}.` +
-    `\nPlease update to the latest version to enjoy new features and improvements.\n`
+    `${colors.blue('Extension.js')} update available.\n` +
+    `You are currently using version ${colors.gray(String(packageJson.version))}. ` +
+    `Latest stable is ${colors.gray(String(update.latest))}. ` +
+    `Please update to enjoy new features and improvements.`
   )
 }
 
 export function unsupportedNodeVersion() {
   return (
-    `🧩\n` +
-    colors.red(
-      `You are using an unsupported Node version (${process.version}).\n`
-    ) +
-    `Please update to a version higher than ${colors.green('18')}.\n`
+    `${getLoggingPrefix('error')} You are using an unsupported Node version.\n` +
+    `${colors.red(`${process.version}. Please update to a version higher than 18.`)}`
   )
 }
 
 export function noURLWithoutStart(argument: string) {
   return (
-    `🧩\n` +
-    `The default ${colors.yellow('create')} command does not accept URLs.` +
-    `\nAre you forgetting a ${colors.yellow('start')} command? Maybe:\n\n` +
-    `${colors.blue(`npx extension ${colors.yellow('start')} ${argument}`)}`
+    `The default ${colors.gray('create')} command does not accept URLs.\n` +
+    `Are you forgetting a ${colors.gray('start')} command? Try:\n` +
+    `${code(`npx extension@latest start ${arg(argument)}`)}`
   )
 }
 
 export function notImplemented(argument: string) {
-  return `🧩\n` + colors.red(`${argument} command not implemented yet.`)
+  return `${getLoggingPrefix('error')} ${arg(argument)} command not implemented yet.\n${colors.red('NOT IMPLEMENTED')}`
 }
 
-export function programHelp() {
-  return `🧩
-${colors.underline('Help center for the Extension.js program')}
+export function programUserHelp() {
+  return `\n${getLoggingPrefix('info')} ${colors.underline('Help center for the Extension.js program')}
 
-${colors.yellow('Usage:')} extension [command] [options]
+${'Usage:'} extension [command] [options]
 
-${colors.yellow('Note:')} If you are looking for a specific list of options,
-all high-level commands offer their own \`--help\` file with
-information about usage and a list of command flags available.
+${'Notes'}
+- All high-level commands offer their own \`--help\` with usage and flag lists.
 
-For example:
+${'Example'}
+- ${code('extension create --help')} outputs information about the "create" command.
 
-${colors.green('extension create --help')}
-outputs information about the "create" command.
+${'Available Commands'}
+- ${code('extension create ' + arg('<project-name|project-path>'))}
+  Creates a new extension from a template (React, TypeScript, Vue, Svelte, etc.)
 
-${colors.yellow('Available Commands:')}
+- ${code('extension dev ' + arg('[project-path|remote-url]'))}
+  Starts a development server with hot reloading
 
-${colors.green('extension create <project-name|project-path>')}
-Creates a new extension from a template. The "create" command
-is optional and can be omitted. Supports various templates like
-React, TypeScript, Vue, Svelte, and more.
+- ${code('extension start ' + arg('[project-path|remote-url]'))}
+  Builds and starts the extension in production mode
 
-${colors.green('extension dev [project-path|remote-url]')}
-Starts a development server with hot reloading. Runs the extension
-in development mode with live file watching and automatic browser
-reloading when files change.
+- ${code('extension preview ' + arg('[project-path|remote-url]'))}
+  Previews the extension in production mode without building
 
-${colors.green('extension start [project-path|remote-url]')}
-Builds and starts the extension in production mode. Compiles the
-extension with production optimizations and launches it in a browser
-instance for testing.
+- ${code('extension build ' + arg('[project-path|remote-url]'))}
+  Builds the extension for packaging/distribution
 
-${colors.green('extension preview [project-path|remote-url]')}
-Previews the extension in production mode without building. Useful
-for testing pre-built extensions or remote packages that are ready
-for manual browser testing.
+- ${code('extension cleanup')}
+  Cleans up orphaned instances and frees unused ports
 
-${colors.green('extension build [project-path|remote-url]')}
-Builds the extension for production deployment. Creates optimized
-bundles ready for packaging and distribution to browser stores.
+${'Common Options'}
+- ${code('--browser')} ${arg('<chrome|edge|firefox>')} Target browser (default: chrome)
+- ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
+- ${code('--polyfill')} ${arg('[boolean]')}            Enable/disable cross-browser polyfill
+- ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080)
+- ${code('--starting-url')} ${arg('<url>')}            Initial URL to load in browser
+- ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
 
-${colors.green('extension cleanup')}
-Cleans up orphaned instances and frees unused ports. Useful for
-removing stale development server instances that weren't properly
-terminated during previous sessions.
+${'Source Inspection'}
+- ${code('--source')} ${arg('<url>')}                  Open URL and print HTML after content scripts inject
+- ${code('--watch-source')}                  Monitor rebuild events and print HTML on reloads
 
-${colors.yellow('Common Options:')}
-${colors.blue('--browser <chrome|edge|firefox>')} - Specify target browser (default: chrome)
-${colors.blue('--profile <path|boolean>')} - Browser profile configuration
-${colors.blue('--polyfill [boolean]')} - Enable/disable cross-browser polyfill
-${colors.blue('--port <number>')} - Development server port (default: 8080)
-${colors.blue('--starting-url <url>')} - Initial URL to load in browser
-${colors.blue('--silent [boolean]')} - Suppress console output during build
+${'Browser-Specific Options'}
+- ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
+- ${code('--gecko-binary')} ${arg('<path>')}           Custom Firefox/Gecko binary path
 
-${colors.yellow('Source Inspection Options:')}
-${colors.blue('--source <url>')} - Opens URL in Chrome and prints full HTML after content scripts are injected
-${colors.blue('--watch-source')} - Continuously monitors rebuild events and prints updated HTML on extension reloads
+${'Build Options'}
+- ${code('--zip')} ${arg('[boolean]')}                 Create ZIP archive of built extension
+- ${code('--zip-source')} ${arg('[boolean]')}          Include source files in ZIP
+- ${code('--zip-filename')} ${arg('<name>')}           Custom ZIP filename
 
-${colors.yellow('Browser-Specific Options:')}
-${colors.blue('--chromium-binary <path>')} - Custom Chromium binary path
-${colors.blue('--gecko-binary <path>')} - Custom Firefox/Gecko binary path
+${code('extension --help')}
+This command outputs a help file with key command options.
 
-${colors.yellow('Build Options:')}
-${colors.blue('--zip [boolean]')} - Create ZIP archive of built extension
-${colors.blue('--zip-source [boolean]')} - Include source files in ZIP
-${colors.blue('--zip-filename <name>')} - Custom ZIP filename
+${'AI Assistants'}
+- For AI-oriented guidance and deep-dive tips, run ${code('extension --ai-help')}
 
-${colors.green('extension --help')}
-This command ;) Outputs a help file with key command options.
+ ${'Report issues'}
+ - ${colors.underline('https://github.com/cezaraugusto/extension/issues/new')}`
+}
 
-${colors.yellow('Feels something is wrong? Help by reporting a bug:')}
-${colors.underline('https://github.com/cezaraugusto/extension/issues/new')}
+export function unsupportedBrowserFlag(value: string, supported: string[]) {
+  return `${getLoggingPrefix('error')} Unsupported --browser value: ${value}. Supported: ${supported.join(', ')}.`
+}
 
-## Development tips for extension developers and AI assistants:
+export function programAIHelp() {
+  return `\n${getLoggingPrefix('info')} ${colors.gray('Development tips for extension developers and AI assistants')}
 
-${colors.yellow('Browser-Specific Configuration')}
+${'Browser-Specific Configuration'}
 - Use browser prefixes in manifest.json for browser-specific fields:
-  ${colors.blue('{"firefox:manifest": 2, "chrome:manifest": 3}')}
+  ${code('{"firefox:manifest": 2, "chrome:manifest": 3}')}
   This applies manifest v2 to Firefox only, v3 to Chrome/Edge.
 
-${colors.yellow('Special Folders for Entrypoints')}
+${'Special Folders for Entrypoints'}
 - Use special folders to handle entrypoints and assets not declared in manifest.json:
-- ${colors.blue('public/')} - Static assets automatically copied to build (resolves to output root)
-- ${colors.blue('pages/')} - HTML files not declared in manifest (e.g., welcome pages)
-- ${colors.blue('scripts/')} - JavaScript files not declared in manifest (e.g., executable scripts)
+- ${colors.underline(code('public/'))}  - Static assets automatically copied to build (resolves to output root)
+- ${colors.underline(code('pages/'))}   - HTML files not declared in manifest (e.g., welcome pages)
+- ${colors.underline(code('scripts/'))} - JavaScript files not declared in manifest (e.g., executable scripts)
 
-${colors.yellow('Shadow DOM for Content Scripts')}
-- Add ${colors.blue('use shadow-dom')} directive to content scripts for style isolation
-- Automatically creates ${colors.blue('#extension-root')} element with shadow DOM
+${'Shadow DOM for Content Scripts'}
+- Add ${code('use shadow-dom')} directive to content scripts for style isolation
+- Automatically creates ${code('#extension-root')} element with shadow DOM
 - All CSS imports are automatically injected into shadow DOM
 - Prevents style conflicts with host page
 
-${colors.yellow('Environment Variables')}
-- Use ${colors.blue('EXTENSION_PUBLIC_*')} prefix for variables accessible in extension code
-- Supported in both ${colors.blue('process.env')} and ${colors.blue('import.meta.env')}
-- Environment file priority: ${colors.blue('.env.{browser}.{mode}')} > ${colors.blue('.env.{browser}')} > ${colors.blue('.env.{mode}')} > ${colors.blue('.env')}
-- Example: ${colors.blue('EXTENSION_PUBLIC_API_KEY=your_key')}
+${'Environment Variables'}
+- Use ${code(arg('EXTENSION_PUBLIC_*'))} prefix for variables accessible in extension code
+- Supported in both ${code('process.env')} and ${code('import.meta.env')}
+- Environment file priority: ${colors.underline(code(arg('.env.{browser}.{mode}')))} > ${colors.underline(code(arg('.env.{browser}')))} > ${colors.underline(code(arg('.env.{mode}')))} > ${colors.underline(code(arg('.env')))}
+- Example: ${code(arg('EXTENSION_PUBLIC_API_KEY=your_key'))}
 
-${colors.yellow('Available Templates')}
-- ${colors.green('Frameworks')}: ${colors.blue('react')}, ${colors.blue('preact')}, ${colors.blue('vue')}, ${colors.blue('svelte')}
-- ${colors.green('Languages')}: ${colors.blue('javascript')}, ${colors.blue('typescript')}
-- ${colors.green('Contexts')}: ${colors.blue('content')} (content scripts), ${colors.blue('new')} (new tab), ${colors.blue('action')} (popup)
-- ${colors.green('Styling')}: ${colors.blue('tailwind')}, ${colors.blue('sass')}, ${colors.blue('less')}
-- ${colors.green('Configs')}: ${colors.blue('eslint')}, ${colors.blue('prettier')}, ${colors.blue('stylelint')}
+${'Available Templates'}
+- ${colors.green('Frameworks')}: ${code(arg('react'))}, ${code(arg('preact'))}, ${code(arg('vue'))}, ${code(arg('svelte'))}
+- ${colors.green('Languages')}: ${code(arg('javascript'))}, ${code(arg('typescript'))}
+- ${colors.green('Contexts')}: ${code(arg('content'))} (content scripts), ${code(arg('new'))} (new tab), ${code(arg('action'))} (popup)
+- ${colors.green('Styling')}: ${code(arg('tailwind'))}, ${code(arg('sass'))}, ${code(arg('less'))}
+- ${colors.green('Configs')}: ${code(arg('eslint'))}, ${code(arg('prettier'))}, ${code(arg('stylelint'))}
 
-${colors.yellow('Webpack/Rspack Configuration')}
-- Create ${colors.blue('extension.config.js')} for custom webpack configuration
+${'Webpack/Rspack Configuration'}
+- Create ${colors.underline(code(arg('extension.config.js')))} for custom webpack configuration
 - Function receives base config, return modified config
 - Supports all webpack/rspack loaders and plugins
 - Example:
-  ${colors.blue('export default {')}
-  ${colors.blue('  config: (config) => {')}
-  ${colors.blue("    config.module.rules.push({ test: /\\.svg$/, use: ['@svgr/webpack'] })")}
-  ${colors.blue('    return config')}
-  ${colors.blue('  }')}
-  ${colors.blue('}')}
+  ${code('export default {')}
+  ${code('  config: (config) => {')}
+  ${code("    config.module.rules.push({ test: /\\.svg$/, use: ['@svgr/webpack'] })")}
+  ${code('    return config')}
+  ${code('  }')}
+  ${code('}')}
 
-${colors.yellow('Framework-Specific Configuration')}
-- Create ${colors.blue('vue.loader.js')} for Vue-specific loader configuration
-- Create ${colors.blue('svelte.loader.js')} for Svelte-specific loader configuration
+${'Managed Dependencies (Important)'}
+- ${colors.green('Do not add')} packages that ${colors.blue('Extension.js')} already ships in its own toolchain.
+- The guard only triggers when a managed package is declared in your ${code('package.json')} ${colors.gray('and')} is referenced in your ${colors.underline(code('extension.config.js'))}.
+- In that case, the program will ${colors.red('print an error and abort')} to avoid version conflicts.
+- Remove the duplicate from your project ${code('package.json')} or avoid referencing it in ${colors.underline(code('extension.config.js'))} and rely on the built-in version instead.
+- If you truly need a different version, open an issue so we can evaluate a safe upgrade.
+
+${'Framework-Specific Configuration'}
+- Create ${colors.underline(code(arg('vue.loader.js')))} for Vue-specific loader configuration
+- Create ${colors.underline(code(arg('svelte.loader.js')))} for Svelte-specific loader configuration
 - Automatically detected and used by Extension.js
 - Example svelte.loader.js:
-  ${colors.blue('module.exports = {')}
-  ${colors.blue('  preprocess: require("svelte-preprocess")({')}
-  ${colors.blue('    typescript: true')}
-  ${colors.blue('  })')}
-  ${colors.blue('}')}
+  ${code('module.exports = {')}
+  ${code('  preprocess: require("svelte-preprocess")({')}
+  ${code('    typescript: true')}
+  ${code('  })')}
+  ${code('}')}
 
-${colors.yellow('Hot Module Replacement (HMR)')}
+${'Hot Module Replacement (HMR)'}
 - Automatically enabled in development mode
 - CSS changes trigger automatic style updates
 - React/Preact/Vue/Svelte components hot reload
 - Content scripts automatically re-inject on changes
 - Service workers, _locales and manifest changes reload the extension
 
-${colors.yellow('Source Inspection & Real-Time Monitoring')}
-- Use ${colors.blue('--source <url>')} to inspect page HTML after content script injection
-- Use ${colors.blue('--watch-source')} to monitor real-time changes in stdout
+${'Source Inspection & Real-Time Monitoring'}
+- Use ${code('--source')} ${arg('<url>')} to inspect page HTML after content script injection
+- Use ${code('--watch-source')} to monitor real-time changes in stdout
 - Automatically enables Chrome remote debugging (port 9222) when source inspection is active
-- Extracts Shadow DOM content from ${colors.blue('#extension-root')} elements
+- Extracts Shadow DOM content from ${code('#extension-root')} elements
 - Perfect for debugging content script behavior and style injection
-- Example: ${colors.blue('extension dev --source=https://example.com --watch-source')}
+- Example: ${code('extension dev --source=' + arg('https://example.com') + ' --watch-source')}
 
-${colors.yellow('Cross-Browser Compatibility')}
-- Use ${colors.blue('--polyfill')} flag to enable webextension-polyfill
+${'Non-Destructive Testing in CI'}
+- Prefer ${code('EXTENSION_ENV=development')} to copy local templates and avoid network.
+- Reuse Playwright's Chromium via ${code('--chromium-binary')} path when available.
+- Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} and ${code(arg('EXTENSION_FORCE_KILL_MS'))} for non-interactive dev sessions.
+
+${'File Watching & HMR Examples'}
+- Content script JS/TS changes trigger reinjection; CSS changes update styles live.
+- For watch-source HTML prints, update a visible string in ${code('content/scripts.*')} and assert it appears in stdout.
+
+${'Troubleshooting'}
+- If HTML is not printed, ensure ${code('--source')} is provided and browser launched with debugging port.
+- Use ${code('--silent true')} during builds to reduce noise; logs still surface errors.
+- When ports conflict, pass ${code('--port 0')} to auto-select an available port.
+
+${'Non-Interactive / Auto Mode (CI)'}
+- Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} to enable self-termination after N milliseconds.
+  Useful when ${code('pnpm extension dev')} would otherwise hang under Rspack watch.
+  Example: ${code(arg('EXTENSION_AUTO_EXIT_MS=6000'))} pnpm extension dev ./templates/react --browser chrome --source ${arg('https://example.com')}
+- Optional: ${code(arg('EXTENSION_FORCE_KILL_MS'))} to hard-exit after N ms as a fallback (defaults to auto-exit + 4000).
+
+${'Cross-Browser Compatibility'}
+- Use ${code('--polyfill')} flag to enable webextension-polyfill
 - Automatically handles browser API differences
 - Supports Chrome, Edge, Firefox with single codebase`
 }
