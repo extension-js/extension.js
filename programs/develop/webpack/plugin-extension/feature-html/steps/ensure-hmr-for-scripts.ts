@@ -42,44 +42,14 @@ export default function ensureHMRForScripts(
     throw error
   }
 
-  const url = urlToRequest(this.resourcePath)
+  const resourcePath = this.resourcePath || ''
+  const url = urlToRequest(resourcePath)
   const reloadCode = `
-// TODO: cezaraugusto re-visit this
-if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
-  `
+if (import.meta.webpackHot) { import.meta.webpackHot.accept() }
+`
 
-  if (isUsingJSFramework(projectPath)) return source
+  // Always inject minimal HMR accept to behave like minimal Vite for plain scripts
 
-  const allEntries = options.includeList || {}
-
-  for (const field of Object.entries(allEntries)) {
-    const [, resource] = field
-
-    // Resources from the manifest lib can come as undefined.
-    if (!resource) continue
-
-    if (!fs.existsSync(resource as string)) {
-      return source
-    }
-
-    const htmlAssets = getAssetsFromHtml(resource as string)
-    const fileAssets = htmlAssets?.js || []
-
-    for (const asset of fileAssets) {
-      // Remove hash fragments and query parameters for comparison
-      const cleanAsset = asset.split('#')[0].split('?')[0]
-      const cleanUrl = url.split('#')[0].split('?')[0]
-
-      // Normalize paths
-      const normalizedAsset = path.normalize(cleanAsset)
-      const normalizedUrl = path.normalize(cleanUrl)
-
-      // Only match if the paths are exactly the same
-      if (normalizedAsset === normalizedUrl) {
-        return `${reloadCode}${source}`
-      }
-    }
-  }
-
-  return source
+  // Minimal behavior: inject HMR accept wrapper for any handled script
+  return `${reloadCode}${source}`
 }

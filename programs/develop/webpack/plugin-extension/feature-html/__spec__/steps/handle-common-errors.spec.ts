@@ -298,8 +298,9 @@ describe('HandleCommonErrors', () => {
     plugin.apply(compiler)
     await afterSealCallback()
 
+    // Friendly error remains unchanged since manifest path is missing
     expect(compilation.errors[0].message).toBe(
-      "Module not found: Error: Can't resolve 'missing.js'"
+      'File not found: missing.js referenced in resource.html'
     )
   })
 

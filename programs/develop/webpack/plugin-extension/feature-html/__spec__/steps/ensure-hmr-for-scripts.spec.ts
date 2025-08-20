@@ -74,8 +74,9 @@ describe('ensureHMRForScripts', () => {
       'console.log("test")'
     )
 
-    expect(result).not.toContain('import.meta.webpackHot.accept()')
-    expect(result).toBe('console.log("test")')
+    // In minimal mode we still inject HMR accept for matched files
+    expect(result).toContain('import.meta.webpackHot.accept()')
+    expect(result).toContain('console.log("test")')
   })
 
   it('should throw error for invalid options', () => {
@@ -102,7 +103,8 @@ describe('ensureHMRForScripts', () => {
       'console.log("test")'
     )
 
-    expect(result).toBe('console.log("test")')
+    expect(result).toContain('import.meta.webpackHot.accept()')
+    expect(result).toContain('console.log("test")')
   })
 
   it('should handle absolute paths in script references', () => {
@@ -185,7 +187,8 @@ describe('ensureHMRForScripts', () => {
       'console.log("test")'
     )
 
-    expect(result).toBe('console.log("test")')
+    expect(result).toContain('import.meta.webpackHot.accept()')
+    expect(result).toContain('console.log("test")')
   })
 
   it('should preserve script content exactly', () => {
@@ -215,7 +218,8 @@ describe('ensureHMRForScripts', () => {
       'console.log("test")'
     )
 
-    expect(result).toBe('console.log("test")')
+    expect(result).toContain('import.meta.webpackHot.accept()')
+    expect(result).toContain('console.log("test")')
   })
 
   it('should handle invalid schema properties', () => {
@@ -304,7 +308,8 @@ describe('ensureHMRForScripts', () => {
       'console.log("test")'
     )
 
-    expect(result).toBe('console.log("test")')
+    expect(result).toContain('import.meta.webpackHot.accept()')
+    expect(result).toContain('console.log("test")')
   })
 
   it('should handle circular dependencies', () => {
@@ -332,7 +337,7 @@ describe('ensureHMRForScripts', () => {
       }
     })
 
-    // Mock compilation error
+    // Even with loader errors we still output with HMR in minimal mode
     loaderContext.errors = ['Some error']
 
     const result = ensureHMRForScripts.call(
@@ -340,6 +345,7 @@ describe('ensureHMRForScripts', () => {
       'console.log("test")'
     )
 
-    expect(result).toBe('console.log("test")')
+    expect(result).toContain('import.meta.webpackHot.accept()')
+    expect(result).toContain('console.log("test")')
   })
 })

@@ -56,12 +56,18 @@ describe('EmitHtmlFile', () => {
             fn(compilation)
           }
         }
-      }
+      },
+      options: {}
     }
 
     vi.mocked(utils.filterKeysForThisBrowser).mockReturnValue({
       name: 'Test Extension'
     })
+    // Default behavior: do not exclude unless a test explicitly overrides
+    // Prevents leakage from prior tests that set a different return value
+    if (typeof utils.shouldExclude === 'function') {
+      vi.mocked(utils.shouldExclude as any).mockReturnValue(false as any)
+    }
   })
 
   it('should emit HTML files from include list', () => {
@@ -105,7 +111,8 @@ describe('EmitHtmlFile', () => {
     plugin.apply(compiler)
     if (processAssetsCallback) processAssetsCallback()
 
-    expect(warningsPushSpy).toHaveBeenCalled()
+    // For non-pages features we no longer warn here (manifest handles entrypoints)
+    expect(warningsPushSpy).not.toHaveBeenCalled()
     expect(emitAssetSpy).not.toHaveBeenCalled()
   })
 
@@ -361,10 +368,10 @@ describe('EmitHtmlFile', () => {
     )
   })
 
-  it('should warn and skip missing files', () => {
+  it('should warn and skip missing files for pages/* only', () => {
     const includeList: FilepathList = {
-      feature1: 'resource1.html',
-      feature2: 'missing.html'
+      'pages/feature1': 'resource1.html',
+      'pages/feature2': 'missing.html'
     }
     const plugin = new EmitHtmlFile({
       manifestPath: 'manifest.json',
@@ -383,7 +390,7 @@ describe('EmitHtmlFile', () => {
     expect(existsSyncSpy).toHaveBeenCalledWith('missing.html')
     expect(emitAssetSpy).toHaveBeenCalledTimes(1)
     expect(emitAssetSpy).toHaveBeenCalledWith(
-      'feature1.html',
+      'pages/feature1.html',
       expect.any(Object)
     )
     expect(warningsPushSpy).toHaveBeenCalledTimes(1)

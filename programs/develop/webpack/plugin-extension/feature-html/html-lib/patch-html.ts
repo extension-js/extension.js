@@ -1,10 +1,17 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compilation} from '@rspack/core'
+import rspack, {type Compilation} from '@rspack/core'
 import * as parse5utilities from 'parse5-utilities'
 import {parseHtml} from './parse-html'
-import {getExtname, getFilePath, getHtmlPageDeclaredAssetPath} from './utils'
+import {
+  getExtname,
+  getFilePath,
+  getHtmlPageDeclaredAssetPath,
+  cleanAssetUrl,
+  getBaseHref
+} from './utils'
 import {type FilepathList} from '../../../webpack-types'
+import * as messages from '../../../lib/messages'
 import * as utils from '../../../lib/utils'
 
 interface DocumentFragment {
@@ -20,11 +27,14 @@ export function patchHtml(
 ): string {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
+  const baseHref = getBaseHref(htmlDocument)
 
   // Ensure that not only we cover files imported by the HTML file
   // but also by the JS files imported by the HTML file.
   let hasCssEntry = !!compilation.getAsset(feature + '.css')
   let hasJsEntry = false
+  let firstScriptAttrs: Array<{name: string; value: string}> | undefined
+  let firstLinkAttrs: Array<{name: string; value: string}> | undefined
 
   for (let node of htmlDocument.childNodes) {
     if (node.nodeName !== 'html') continue
@@ -38,7 +48,8 @@ export function patchHtml(
       ) {
         parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
           const htmlDir = path.dirname(htmlEntry)
-          const absolutePath = path.resolve(htmlDir, filePath)
+          const {cleanPath, hash, search} = cleanAssetUrl(filePath)
+          const absolutePath = path.resolve(htmlDir, cleanPath)
           const extname = getExtname(absolutePath)
           // public/ and script/ paths are excluded from the compilation.
           const isExcludedPath = utils.shouldExclude(
@@ -46,7 +57,8 @@ export function patchHtml(
             excludeList
           )
 
-          const excludedFilePath = path.join('/', path.normalize(filePath))
+          const excludedFilePath =
+            path.posix.join('/', cleanPath) + (search || '') + (hash || '')
           // Check if the file is in the compilation entry map.
           const isFilepathListEntry = utils.isFromFilepathList(
             absolutePath,
@@ -69,7 +81,19 @@ export function patchHtml(
                   'src',
                   excludedFilePath
                 )
+              } else if (cleanPath.startsWith('/')) {
+                // Public-root absolute scripts are preserved as-is
+                thisChildNode = parse5utilities.setAttribute(
+                  thisChildNode,
+                  'src',
+                  cleanPath + (search || '') + (hash || '')
+                )
               } else {
+                if (!firstScriptAttrs) {
+                  firstScriptAttrs = Array.isArray((thisChildNode as any).attrs)
+                    ? [...(thisChildNode as any).attrs]
+                    : []
+                }
                 thisChildNode = parse5utilities.remove(thisChildNode)
                 hasJsEntry = true
               }
@@ -82,7 +106,19 @@ export function patchHtml(
                   'href',
                   excludedFilePath
                 )
+              } else if (cleanPath.startsWith('/')) {
+                // Public-root absolute styles are preserved as-is
+                thisChildNode = parse5utilities.setAttribute(
+                  thisChildNode,
+                  'href',
+                  cleanPath + (search || '') + (hash || '')
+                )
               } else {
+                if (!firstLinkAttrs) {
+                  firstLinkAttrs = Array.isArray((thisChildNode as any).attrs)
+                    ? [...(thisChildNode as any).attrs]
+                    : []
+                }
                 thisChildNode = parse5utilities.remove(thisChildNode)
                 hasCssEntry = true
               }
@@ -116,23 +152,42 @@ export function patchHtml(
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
                   assetType === 'staticSrc' ? 'src' : 'href',
-                  filepath
+                  filepath + (search || '') + (hash || '')
                 )
                 // Path is not in the compilation entry map. Resolve to assets folder.
               } else {
                 // If the path starts with /, preserve it exactly as is
-                if (filePath.startsWith('/')) {
+                if (cleanPath.startsWith('/')) {
+                  const publicCandidate = path.posix.join(
+                    'public',
+                    cleanPath.slice(1)
+                  )
+                  if (!fs.existsSync(publicCandidate)) {
+                    const errorMessage = messages.fileNotFound(
+                      htmlEntry,
+                      cleanPath
+                    )
+                    compilation.warnings.push(
+                      new rspack.WebpackError(errorMessage)
+                    )
+                  }
                   thisChildNode = parse5utilities.setAttribute(
                     thisChildNode,
                     assetType === 'staticSrc' ? 'src' : 'href',
-                    filePath
+                    cleanPath + (search || '') + (hash || '')
                   )
                 } else {
-                  // For relative paths, resolve to assets folder
-                  const filepath = path.join(
-                    'assets',
-                    path.basename(absolutePath, extname)
-                  )
+                  // For relative paths, preserve directory structure under assets
+                  // Compute path relative to the HTML directory (optionally considering base href if non-URL)
+                  const baseJoin =
+                    baseHref && !/^\w+:\/\//.test(baseHref)
+                      ? path.resolve(htmlDir, baseHref)
+                      : htmlDir
+                  const relativeFromHtml = path.relative(baseJoin, absolutePath)
+                  const posixRelative = relativeFromHtml
+                    .split(path.sep)
+                    .join('/')
+                  const filepath = path.posix.join('assets', posixRelative)
                   // There will be cases where users can add
                   // a # to a link href, in which case we would try to parse.
                   // This ensures we only parse the file path if its valid.
@@ -140,7 +195,9 @@ export function patchHtml(
                     thisChildNode = parse5utilities.setAttribute(
                       thisChildNode,
                       assetType === 'staticSrc' ? 'src' : 'href',
-                      getFilePath(filepath, '', true)
+                      getFilePath(filepath, '', true) +
+                        (search || '') +
+                        (hash || '')
                     )
                   }
                 }
@@ -164,6 +221,24 @@ export function patchHtml(
             {name: 'rel', value: 'stylesheet'},
             {name: 'href', value: getFilePath(feature, '.css', true)}
           ]
+          const propagateLinkAttrs = new Set([
+            'media',
+            'crossorigin',
+            'integrity',
+            'referrerpolicy',
+            'type',
+            'disabled'
+          ])
+          if (firstLinkAttrs) {
+            for (const attr of firstLinkAttrs) {
+              if (
+                propagateLinkAttrs.has(attr.name) &&
+                !linkTag.attrs.find((a: any) => a.name === attr.name)
+              ) {
+                linkTag.attrs.push({name: attr.name, value: attr.value})
+              }
+            }
+          }
 
           parse5utilities.append(htmlChildNode, linkTag)
         }
@@ -179,6 +254,25 @@ export function patchHtml(
           scriptTag.attrs = [
             {name: 'src', value: getFilePath(feature, '.js', true)}
           ]
+          const propagateScriptAttrs = new Set([
+            'type',
+            'defer',
+            'async',
+            'crossorigin',
+            'integrity',
+            'nonce',
+            'referrerpolicy'
+          ])
+          if (firstScriptAttrs) {
+            for (const attr of firstScriptAttrs) {
+              if (
+                propagateScriptAttrs.has(attr.name) &&
+                !scriptTag.attrs.find((a: any) => a.name === attr.name)
+              ) {
+                scriptTag.attrs.push({name: attr.name, value: attr.value})
+              }
+            }
+          }
 
           parse5utilities.append(htmlChildNode, scriptTag)
         }
@@ -189,5 +283,167 @@ export function patchHtml(
   }
 
   // If we get here, we didn't find an html node
+  return ''
+}
+
+/**
+ * Patches a nested HTML: preserve original script/link tags,
+ * only rewrite static assets, and warn about missing public-root assets.
+ */
+export function patchHtmlNested(
+  compilation: Compilation,
+  htmlEntry: string,
+  excludeList: FilepathList
+): string {
+  const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
+  const htmlDocument = parse5utilities.parse(htmlFile)
+
+  for (let node of htmlDocument.childNodes) {
+    if (node.nodeName !== 'html') continue
+
+    for (const htmlChildNode of node.childNodes) {
+      if (
+        htmlChildNode.nodeName === 'head' ||
+        htmlChildNode.nodeName === 'body'
+      ) {
+        parseHtml(htmlChildNode, ({filePath, childNode, assetType}) => {
+          const htmlDir = path.dirname(htmlEntry)
+          const {cleanPath, hash, search} = cleanAssetUrl(filePath)
+          const absolutePath = path.resolve(htmlDir, cleanPath)
+          const isExcludedPath = utils.shouldExclude(
+            path.resolve(htmlDir, filePath),
+            excludeList
+          )
+
+          let thisChildNode: any = childNode
+
+          switch (assetType) {
+            case 'script': {
+              if (cleanPath.startsWith('/')) {
+                const publicCandidate = path.posix.join(
+                  'public',
+                  cleanPath.slice(1)
+                )
+                if (!fs.existsSync(publicCandidate)) {
+                  const errorMessage = messages.fileNotFound(
+                    htmlEntry,
+                    cleanPath
+                  )
+                  compilation.warnings.push(
+                    new rspack.WebpackError(errorMessage)
+                  )
+                }
+                // Keep as-is (but normalize URL for query/hash)
+                thisChildNode = parse5utilities.setAttribute(
+                  thisChildNode,
+                  'src',
+                  cleanPath + (search || '') + (hash || '')
+                )
+              } else if (isExcludedPath) {
+                // Resolve to an absolute path for excluded paths
+                const excludedFilePath =
+                  path.posix.join('/', cleanPath) +
+                  (search || '') +
+                  (hash || '')
+                thisChildNode = parse5utilities.setAttribute(
+                  thisChildNode,
+                  'src',
+                  excludedFilePath
+                )
+              }
+              break
+            }
+            case 'css': {
+              if (cleanPath.startsWith('/')) {
+                const publicCandidate = path.posix.join(
+                  'public',
+                  cleanPath.slice(1)
+                )
+                if (!fs.existsSync(publicCandidate)) {
+                  const errorMessage = messages.fileNotFound(
+                    htmlEntry,
+                    cleanPath
+                  )
+                  compilation.warnings.push(
+                    new rspack.WebpackError(errorMessage)
+                  )
+                }
+                thisChildNode = parse5utilities.setAttribute(
+                  thisChildNode,
+                  'href',
+                  cleanPath + (search || '') + (hash || '')
+                )
+              } else if (isExcludedPath) {
+                const excludedFilePath =
+                  path.posix.join('/', cleanPath) +
+                  (search || '') +
+                  (hash || '')
+                thisChildNode = parse5utilities.setAttribute(
+                  thisChildNode,
+                  'href',
+                  excludedFilePath
+                )
+              }
+              break
+            }
+            case 'staticHref':
+            case 'staticSrc': {
+              if (isExcludedPath) {
+                const excludedFilePath =
+                  path.posix.join('/', cleanPath) +
+                  (search || '') +
+                  (hash || '')
+                thisChildNode = parse5utilities.setAttribute(
+                  thisChildNode,
+                  assetType === 'staticSrc' ? 'src' : 'href',
+                  excludedFilePath
+                )
+              } else if (cleanPath.startsWith('/')) {
+                const publicCandidate = path.posix.join(
+                  'public',
+                  cleanPath.slice(1)
+                )
+                if (!fs.existsSync(publicCandidate)) {
+                  const errorMessage = messages.fileNotFound(
+                    htmlEntry,
+                    cleanPath
+                  )
+                  compilation.warnings.push(
+                    new rspack.WebpackError(errorMessage)
+                  )
+                }
+                thisChildNode = parse5utilities.setAttribute(
+                  thisChildNode,
+                  assetType === 'staticSrc' ? 'src' : 'href',
+                  cleanPath + (search || '') + (hash || '')
+                )
+              } else {
+                if (fs.existsSync(absolutePath)) {
+                  const relativeFromHtml = path.relative(htmlDir, absolutePath)
+                  const posixRelative = relativeFromHtml
+                    .split(path.sep)
+                    .join('/')
+                  const filepath = path.posix.join('assets', posixRelative)
+                  thisChildNode = parse5utilities.setAttribute(
+                    thisChildNode,
+                    assetType === 'staticSrc' ? 'src' : 'href',
+                    getFilePath(filepath, '', true) +
+                      (search || '') +
+                      (hash || '')
+                  )
+                }
+              }
+              break
+            }
+            default:
+              break
+          }
+        })
+      }
+
+      return parse5utilities.stringify(htmlDocument)
+    }
+  }
+
   return ''
 }
