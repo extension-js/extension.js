@@ -55,7 +55,8 @@ export class HtmlPlugin {
     new EmitHtmlFile({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList
+      excludeList: this.excludeList,
+      browser: this.browser
     }).apply(compiler)
 
     // 2 - Adds the assets within the HTML file to the compilation,
@@ -63,7 +64,8 @@ export class HtmlPlugin {
     new AddAssetsToCompilation({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList
+      excludeList: this.excludeList,
+      browser: this.browser
     }).apply(compiler)
 
     // 3 - Adds the scripts and stylesheets within the HTML file
@@ -71,38 +73,44 @@ export class HtmlPlugin {
     new AddScriptsAndStylesToCompilation({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList
+      excludeList: this.excludeList,
+      browser: this.browser
     }).apply(compiler as any)
 
     // 4 - Updates the HTML file with the new assets and entrypoints.
     new UpdateHtmlFile({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList
+      excludeList: this.excludeList,
+      browser: this.browser
     }).apply(compiler)
 
-    // 5 - Ensure scripts within the HTML file are HMR enabled.
-    compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [path.dirname(this.manifestPath)],
-      exclude: [/[\\/]node_modules[\\/]/],
-      use: [
-        {
-          loader: path.resolve(__dirname, 'ensure-hmr-for-scripts'),
-          options: {
-            manifestPath: this.manifestPath,
-            includeList: this.includeList,
-            excludeList: this.excludeList
+    // 5 - Ensure scripts within the HTML file are HMR enabled (development only).
+    if ((compiler.options.mode || 'development') !== 'production') {
+      compiler.options.module.rules.push({
+        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: [/([\\/])node_modules\1/],
+        use: [
+          {
+            loader: path.resolve(__dirname, 'ensure-hmr-for-scripts'),
+            options: {
+              manifestPath: this.manifestPath,
+              includeList: this.includeList,
+              excludeList: this.excludeList,
+              browser: this.browser
+            }
           }
-        }
-      ]
-    })
+        ]
+      })
+    }
 
     // 6 - Ensure HTML file is recompiled upon changes.
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList
+      excludeList: this.excludeList,
+      browser: this.browser
     }).apply(compiler)
 
     // 7 - Suggest user to recompile if any style
@@ -112,14 +120,16 @@ export class HtmlPlugin {
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList
+      excludeList: this.excludeList,
+      browser: this.browser
     }).apply(compiler)
 
     // 8 - Handle common errors.
     new HandleCommonErrors({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList
+      excludeList: this.excludeList,
+      browser: this.browser
     }).apply(compiler)
   }
 }

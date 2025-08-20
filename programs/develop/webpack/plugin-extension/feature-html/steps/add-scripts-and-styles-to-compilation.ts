@@ -9,11 +9,13 @@ export class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
+  public readonly browser?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.excludeList = options.excludeList
+    this.browser = options.browser
   }
 
   public apply(compiler: Compiler) {
@@ -27,8 +29,22 @@ export class AddScriptsAndStylesToCompilation {
         if (!fs.existsSync(resource as string)) return
 
         const htmlAssets = htmlUtils.getAssetsFromHtml(resource as string)
-        const jsAssets = htmlAssets?.js || []
-        const cssAssets = htmlAssets?.css || []
+        // Treat absolute URL paths that point to files under public/ as public-root assets;
+        // do not add them as entries. Absolute filesystem paths should still be bundled.
+        const projectPath = path.dirname(this.manifestPath)
+        const isPublicRootUrl = (assetPath: string) => {
+          if (!assetPath.startsWith('/')) return false
+          // Map "/foo/bar" → <project>/public/foo/bar (lowercase only)
+          const candidate = path.join(projectPath, 'public', assetPath.slice(1))
+          return fs.existsSync(candidate)
+        }
+
+        const jsAssets = (htmlAssets?.js || []).filter(
+          (asset) => !isPublicRootUrl(asset)
+        )
+        const cssAssets = (htmlAssets?.css || []).filter(
+          (asset) => !isPublicRootUrl(asset)
+        )
         const fileAssets = [...jsAssets, ...cssAssets].filter(
           (asset) => !utils.shouldExclude(asset, this.excludeList)
         )

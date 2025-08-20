@@ -231,7 +231,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
     })
   })
 
-  it('should handle absolute paths in assets', () => {
+  it('should handle absolute paths in assets (do not add as entries)', () => {
     const includeList: FilepathList = {feature: 'resource.html'}
     const plugin = new AddScriptsAndStylesToCompilation({
       manifestPath: 'manifest.json',
@@ -249,7 +249,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
 
     expect(compiler.options.entry).toEqual({
       feature: {
-        import: ['/js/script.js', '/css/style.css']
+        import: []
       }
     })
   })
