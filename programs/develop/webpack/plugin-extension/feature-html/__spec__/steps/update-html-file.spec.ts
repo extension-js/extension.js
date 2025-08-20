@@ -2,16 +2,16 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {UpdateHtmlFile} from '../../steps/update-html-file'
-import * as utils from '../../../../lib/utils'
-import * as messages from '../../../../lib/messages'
+import * as utils from '../../../../webpack-lib/utils'
+import * as messages from '../../../../webpack-lib/messages'
 import {sources} from '@rspack/core'
 import * as patchHtml from '../../html-lib/patch-html'
 
 vi.mock('fs')
 vi.mock('path')
 vi.mock('../../html-lib/patch-html')
-vi.mock('../../../../lib/utils')
-vi.mock('../../../../lib/messages')
+vi.mock('../../../../webpack-lib/utils')
+vi.mock('../../../../webpack-lib/messages')
 
 describe('UpdateHtmlFile', () => {
   let compilation: any

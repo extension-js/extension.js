@@ -7,7 +7,7 @@ import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
 import {isUsingTypeScript} from './js-tools/typescript'
 import {maybeUseSvelte} from './js-tools/svelte'
-import {type DevOptions} from '../../commands/commands-lib/config-types'
+import {type DevOptions} from '../../develop-lib/config-types'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
 

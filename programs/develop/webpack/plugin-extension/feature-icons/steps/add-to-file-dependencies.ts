@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import {type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import * as utils from '../../../lib/utils'
+import * as utils from '../../../webpack-lib/utils'
 
 export class AddToFileDependencies {
   public readonly manifestPath: string

@@ -5,10 +5,10 @@ import {
   type PluginInterface,
   type Manifest
 } from '../../../webpack-types'
-import * as messages from '../../../lib/messages'
-import * as utils from '../../../lib/utils'
-import {DevOptions} from '../../../../commands/commands-lib/config-types'
-import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
+import * as messages from '../../../webpack-lib/messages'
+import * as utils from '../../../webpack-lib/utils'
+import {DevOptions} from '../../../../develop-lib/config-types'
+import {CHROMIUM_BASED_BROWSERS} from '../../../webpack-lib/constants'
 
 export class AddPublicPathForMainWorld {
   public readonly manifestPath: string

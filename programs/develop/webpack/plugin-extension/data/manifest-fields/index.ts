@@ -7,7 +7,7 @@ import {localesFields} from './locales-fields'
 import {scriptsFields} from './scripts-fields'
 import {webResourcesFields} from './web-resources-fields'
 import {type PluginInterface} from '../../../webpack-types'
-import * as utils from '../../../lib/utils'
+import * as utils from '../../../webpack-lib/utils'
 
 // TODO: cezaraugusto type this
 export interface ManifestFields {

@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {EmitHtmlFile} from '../../steps/emit-html-file'
-import * as utils from '../../../../lib/utils'
+import * as utils from '../../../../webpack-lib/utils'
 import {type FilepathList} from '../../../../webpack-types'
 
 vi.mock('fs')
-vi.mock('../../../../lib/utils')
+vi.mock('../../../../webpack-lib/utils')
 
 describe('EmitHtmlFile', () => {
   let emitAssetSpy: ReturnType<typeof vi.fn>

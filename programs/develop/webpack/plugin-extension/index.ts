@@ -21,7 +21,7 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 
 // Types
 import {PluginInterface, FilepathList} from '../webpack-types'
-import {DevOptions} from '../../commands/commands-lib/config-types'
+import {DevOptions} from '../../develop-lib/config-types'
 
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'

@@ -4,7 +4,7 @@ import rspack, {type Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml, isFromIncludeList} from '../html-lib/utils'
 import {patchHtmlNested} from '../html-lib/patch-html'
-import * as messages from '../../../lib/messages'
+import * as messages from '../../../webpack-lib/messages'
 
 export class AddAssetsToCompilation {
   public readonly manifestPath: string

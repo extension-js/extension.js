@@ -5,7 +5,7 @@ import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {LoaderInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'
-import {isUsingJSFramework} from '../../../lib/utils'
+import {isUsingJSFramework} from '../../../webpack-lib/utils'
 
 const schema: Schema = {
   type: 'object',

@@ -2,12 +2,7 @@
 // https://github.com/awesome-webextension/webpack-target-webextension
 // Released under the MIT License.
 
-import {
-  RuntimeGlobals,
-  RuntimeModule,
-  Template,
-  type Compiler
-} from '@rspack/core'
+import {type Compiler} from '@rspack/core'
 
 const basic = [
   `var isBrowser = !!(() => { try { return browser.runtime.getURL("/") } catch(e) {} })()`,
@@ -27,7 +22,7 @@ export class AddPublicPathRuntimeModule {
       compilation.hooks.runtimeRequirementInTree
         .for(RuntimeGlobals.publicPath)
         .tap(AddPublicPathRuntimeModule.name, (chunk) => {
-          const module = PublicPathRuntimeModule()
+          const module = PublicPathRuntimeModule(compiler)
 
           compilation.addRuntimeModule(chunk, module)
 
@@ -37,7 +32,8 @@ export class AddPublicPathRuntimeModule {
   }
 }
 
-function PublicPathRuntimeModule() {
+function PublicPathRuntimeModule(compiler: Compiler) {
+  const {Template, RuntimeModule, RuntimeGlobals} = compiler.webpack
   class PublicPathRuntimeModule extends RuntimeModule {
     constructor() {
       super('publicPath', RuntimeModule.STAGE_BASIC)

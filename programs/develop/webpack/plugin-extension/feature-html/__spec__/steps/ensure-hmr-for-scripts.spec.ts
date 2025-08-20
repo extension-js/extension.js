@@ -2,12 +2,12 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import ensureHMRForScripts from '../../steps/ensure-hmr-for-scripts'
-import * as utils from '../../../../lib/utils'
+import * as utils from '../../../../webpack-lib/utils'
 import {getAssetsFromHtml} from '../../html-lib/utils'
 
 vi.mock('fs')
 vi.mock('path')
-vi.mock('../../../../lib/utils')
+vi.mock('../../../../webpack-lib/utils')
 vi.mock('../../html-lib/utils')
 
 describe('ensureHMRForScripts', () => {

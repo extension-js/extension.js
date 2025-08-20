@@ -4,9 +4,9 @@ import {type Compiler} from '@rspack/core'
 import WebExtension from 'webpack-target-webextension'
 import {type PluginInterface} from '../../../reload-types'
 import {type Manifest} from '../../../../webpack-types'
-import {type DevOptions} from '../../../../../commands/commands-lib/config-types'
-import * as messages from '../../../../lib/messages'
-import * as utils from '../../../../lib/utils'
+import {type DevOptions} from '../../../../../develop-lib/config-types'
+import * as messages from '../../../../webpack-lib/messages'
+import * as utils from '../../../../webpack-lib/utils'
 
 export class TargetWebExtensionPlugin {
   private readonly manifestPath: string

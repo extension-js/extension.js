@@ -7,8 +7,8 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import * as messages from '../../lib/messages'
-import {installOptionalDependencies} from '../../lib/utils'
+import * as messages from '../../webpack-lib/messages'
+import {installOptionalDependencies} from '../../webpack-lib/utils'
 import {JsFramework} from '../../webpack-types'
 import {loadLoaderOptions} from '../load-loader-options'
 

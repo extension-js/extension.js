@@ -2,11 +2,11 @@ import * as fs from 'fs'
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {HandleCommonErrors} from '../../steps/handle-common-errors'
 import {getAssetsFromHtml} from '../../html-lib/utils'
-import * as messages from '../../../../lib/messages'
+import * as messages from '../../../../webpack-lib/messages'
 
 vi.mock('fs')
 vi.mock('../../html-lib/utils')
-vi.mock('../../../../lib/messages')
+vi.mock('../../../../webpack-lib/messages')
 
 describe('HandleCommonErrors', () => {
   let compilation: any

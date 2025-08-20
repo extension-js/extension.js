@@ -2,7 +2,7 @@ import {
   type RspackPluginInstance,
   type LoaderContext as RspackLoaderContext
 } from '@rspack/core'
-import {type DevOptions} from '../commands/commands-lib/config-types'
+import {type DevOptions} from '../develop-lib/config-types'
 
 export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
   Partial<chrome.runtime.ManifestV3> & {
