@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler} from '@rspack/core'
-import * as messages from '../../../lib/messages'
+import * as messages from '../../../webpack-lib/messages'
 import {type PluginInterface} from '../../reload-types'
 import {DevOptions} from '../../../../module'
 

@@ -2,7 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import * as utils from '../../../lib/utils'
+import * as utils from '../../../webpack-lib/utils'
 import * as htmlUtils from '../html-lib/utils'
 
 export class AddScriptsAndStylesToCompilation {

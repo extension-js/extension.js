@@ -1,8 +1,8 @@
 import * as fs from 'fs'
 import rspack, {Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
-import * as utils from '../../lib/utils'
-import * as messages from '../../lib/messages'
+import * as utils from '../../webpack-lib/utils'
+import * as messages from '../../webpack-lib/messages'
 
 /**
  * JsonPlugin is responsible for handling the JSON files defined

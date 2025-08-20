@@ -8,8 +8,8 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
-import {DevOptions} from '../commands/commands-lib/config-types'
-import {type ProjectStructure} from '../commands/commands-lib/get-project-path'
+import {DevOptions} from '../develop-lib/config-types'
+import {type ProjectStructure} from '../develop-lib/get-project-path'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -19,8 +19,8 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {ReloadPlugin} from './plugin-reload'
 import {CompatibilityPlugin} from './plugin-compatibility'
-import {BrowsersPlugin} from '../plugin-browsers'
-import * as utils from './lib/utils'
+import {BrowsersPlugin} from './plugin-browsers'
+import * as utils from './webpack-lib/utils'
 
 export default function webpackConfig(
   projectStructure: ProjectStructure,

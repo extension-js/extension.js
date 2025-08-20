@@ -4,7 +4,7 @@ import {Compiler} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
 import {CleanDistFolderPlugin} from './clean-dist'
-import * as messages from '../lib/messages'
+import * as messages from '../webpack-lib/messages'
 import {type PluginInterface} from '../webpack-types'
 
 // Track repeated "boring" messages and collapse them into a single line with a counter

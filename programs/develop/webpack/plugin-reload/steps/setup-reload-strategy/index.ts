@@ -4,8 +4,8 @@ import {SetupChromiumReloadClient} from '../setup-chromium-reload-client'
 import {SetupFirefoxReloadClient} from '../setup-firefox-reload-client'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import {TargetWebExtensionPlugin} from './target-web-extension-plugin'
-import {DevOptions} from '../../../../commands/commands-lib/config-types'
-import {CHROMIUM_BASED_BROWSERS} from '../../../lib/constants'
+import {DevOptions} from '../../../../develop-lib/config-types'
+import {CHROMIUM_BASED_BROWSERS} from '../../../webpack-lib/constants'
 
 class SetupReloadStrategy {
   private readonly manifestPath: string
