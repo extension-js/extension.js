@@ -45,6 +45,50 @@ export function getFilename(
 
   let fileOutputpath = skipPathResolve ? path.normalize(filePath) : feature
 
+  // If excluded and the excluded path comes from a special folder mapping
+  // (e.g., public/), derive the output from the mapping key so manifest paths
+  // match where SpecialFolders are copied to at build time.
+  if (skipPathResolve) {
+    const matched = Object.entries(excludeList || {}).find(([, value]) => {
+      if (Array.isArray(value)) return value.includes(filePath)
+      return value === filePath
+    })
+
+    const matchedKey = matched?.[0]
+    if (matchedKey && typeof matchedKey === 'string') {
+      const unixKey = unixify(matchedKey)
+      // Only remap when the mapping key represents a public/ path
+      if (/^(?:\.\/)?public\//i.test(unixKey)) {
+        fileOutputpath = unixKey.replace(/^(?:\.\/)?public\//i, '')
+      } else if (/^\/public\//i.test(unixKey)) {
+        fileOutputpath = unixKey.replace(/^\/public\//i, '')
+      } else {
+        // Keep original normalized file path for non-public mapping keys
+        fileOutputpath = path.normalize(filePath)
+      }
+    }
+  }
+
+  // Not excluded by value; try to derive from mapping keys when the manifest
+  // provided a public/ path (standard web convention) and we have a matching
+  // entry from SpecialFolders
+  if (!skipPathResolve && excludeList) {
+    const keys = Object.keys(excludeList)
+    const unixInput = unixify(filePath)
+    const matchKey = keys.find((k) => unixify(k) === unixInput)
+
+    if (matchKey) {
+      const unixKey = unixify(matchKey)
+      if (/^(?:\.\/)?public\//i.test(unixKey)) {
+        fileOutputpath = unixKey.replace(/^(?:\.\/)?public\//i, '')
+      } else if (/^\/public\//i.test(unixKey)) {
+        fileOutputpath = unixKey.replace(/^\/public\//i, '')
+      } else {
+        fileOutputpath = unixKey
+      }
+    }
+  }
+
   if (['.js', '.jsx', '.tsx', '.ts'].includes(entryExt)) {
     fileOutputpath = fileOutputpath.replace(entryExt, '.js')
   }
@@ -78,13 +122,21 @@ export function shouldExclude(
   const unixifiedFilePath = path.normalize(unixify(filePath))
   const isFilePathInExcludedList = Object.values(ignorePatterns).some(
     (pattern) => {
-      if (typeof pattern !== 'string') {
-        return false
+      const matchOne = (candidate: string) => {
+        if (!candidate || typeof candidate !== 'string') return false
+        const normalizedCandidate = path.normalize(unixify(candidate))
+        // Consider a match if the file path is exactly the same or contained under the candidate path
+        return (
+          unixifiedFilePath === normalizedCandidate ||
+          unixifiedFilePath.startsWith(normalizedCandidate)
+        )
       }
 
-      const _pattern = unixify(pattern)
+      if (Array.isArray(pattern)) {
+        return pattern.some((p) => matchOne(p as any))
+      }
 
-      return _pattern.includes(unixifiedFilePath)
+      return matchOne(pattern as any)
     }
   )
 

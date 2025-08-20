@@ -30,6 +30,7 @@ export class InstanceManager {
   private readonly basePort: number
   private readonly baseWebSocketPort: number
   private readonly cleanupInterval: number = 5 * 60 * 1000 // 5 minutes
+  private healthChecks: Map<string, NodeJS.Timeout> = new Map()
 
   constructor(
     projectPath: string,
@@ -114,23 +115,55 @@ export class InstanceManager {
       await this.ensureRegistryDir()
       const data = JSON.stringify(registry, null, 2)
       await fs.writeFile(this.registryPath, data)
-      console.log(messages.registrySaved(this.registryPath))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.registrySaved(this.registryPath))
+      }
     } catch (error) {
-      console.error(messages.registrySaveError(error))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.error(messages.registrySaveError(error))
+      }
       throw error
     }
   }
 
   private async isPortAvailable(port: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      const server = net.createServer()
-      server.once('error', () => resolve(false))
-      server.once('listening', () => {
-        server.close()
-        resolve(true)
+    type CheckResult = {available: boolean; errorCode?: string}
+    const check = (host: string) =>
+      new Promise<CheckResult>((resolve) => {
+        const server = net.createServer()
+        const complete = (result: CheckResult) => {
+          try {
+            server.close(() => resolve(result))
+          } catch {
+            resolve(result)
+          }
+        }
+        server.once('error', (err: NodeJS.ErrnoException) =>
+          resolve({available: false, errorCode: err.code})
+        )
+        server.once('listening', () => complete({available: true}))
+        try {
+          server.listen(port, host)
+        } catch (err: any) {
+          resolve({available: false, errorCode: err?.code})
+        }
       })
-      server.listen(port)
-    })
+
+    const [v6, v4] = await Promise.all([check('::1'), check('127.0.0.1')])
+
+    // If IPv6 stack is unavailable, rely on IPv4 result only
+    const ipv6Unsupported =
+      v6.errorCode === 'EADDRNOTAVAIL' ||
+      v6.errorCode === 'ENETUNREACH' ||
+      v6.errorCode === 'EINVAL' ||
+      typeof v6.errorCode === 'undefined'
+
+    if (ipv6Unsupported) {
+      return v4.available
+    }
+
+    // Otherwise require both to be free to avoid dual-stack collisions
+    return v4.available && v6.available
   }
 
   /**
@@ -156,10 +189,12 @@ export class InstanceManager {
       .filter((instance) => instance.status === 'running')
       .map((instance) => instance.webSocketPort)
 
-    console.log(messages.smartPortAllocationExistingPorts(usedPorts))
-    console.log(
-      messages.smartPortAllocationExistingWebSocketPorts(usedWebSocketPorts)
-    )
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(messages.smartPortAllocationExistingPorts(usedPorts))
+      console.log(
+        messages.smartPortAllocationExistingWebSocketPorts(usedWebSocketPorts)
+      )
+    }
 
     // If user requested a specific port, try to use it
     if (requestedPort) {
@@ -168,17 +203,21 @@ export class InstanceManager {
         // Find available WebSocket port for this instance
         const webSocketPort =
           await this.findAvailableWebSocketPort(usedWebSocketPorts)
-        console.log(
-          messages.smartPortAllocationUsingRequestedPort(
-            requestedPort,
-            webSocketPort
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            messages.smartPortAllocationUsingRequestedPort(
+              requestedPort,
+              webSocketPort
+            )
           )
-        )
+        }
         return {port: requestedPort, webSocketPort}
       } else {
-        console.log(
-          messages.smartPortAllocationRequestedPortUnavailable(requestedPort)
-        )
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            messages.smartPortAllocationRequestedPortUnavailable(requestedPort)
+          )
+        }
       }
     }
 
@@ -192,7 +231,11 @@ export class InstanceManager {
     const webSocketPort =
       await this.findAvailableWebSocketPort(usedWebSocketPorts)
 
-    console.log(messages.smartPortAllocationAllocatedPorts(port, webSocketPort))
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(
+        messages.smartPortAllocationAllocatedPorts(port, webSocketPort)
+      )
+    }
     return {port, webSocketPort}
   }
 
@@ -232,9 +275,14 @@ export class InstanceManager {
       }
       // NEW: Check if process is still running
       else if (!(await this.isProcessRunning(instance.processId))) {
-        console.log(
-          `Process ${instance.processId} for instance ${instanceId.slice(0, 8)} is no longer running`
-        )
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            messages.instanceManagerProcessNoLongerRunning(
+              instanceId,
+              instance.processId
+            )
+          )
+        }
         shouldRemove = true
       }
       // NEW: Check if ports are actually in use (both must be free to consider orphaned)
@@ -242,9 +290,15 @@ export class InstanceManager {
         (await this.isPortAvailable(instance.port)) &&
         (await this.isPortAvailable(instance.webSocketPort))
       ) {
-        console.log(
-          `Ports ${instance.port}/${instance.webSocketPort} for instance ${instanceId.slice(0, 8)} are not in use`
-        )
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            messages.instanceManagerPortsNotInUse(
+              instanceId,
+              instance.port,
+              instance.webSocketPort
+            )
+          )
+        }
         shouldRemove = true
       }
 
@@ -256,7 +310,11 @@ export class InstanceManager {
     // Remove orphaned instances
     for (const instanceId of instancesToRemove) {
       delete registry.instances[instanceId]
-      console.log(`Cleaned up orphaned instance: ${instanceId.slice(0, 8)}`)
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(
+          messages.instanceManagerCleanedUpOrphanedInstance(instanceId)
+        )
+      }
     }
 
     registry.lastCleanup = now
@@ -276,18 +334,164 @@ export class InstanceManager {
     }
   }
 
+  /**
+   * Enhanced process monitoring for AI usage
+   */
+  private async monitorProcessHealth(instanceId: string): Promise<void> {
+    const instance = await this.getInstance(instanceId)
+    if (!instance) return
+
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(messages.instanceManagerHealthMonitoringStart(instanceId))
+    }
+
+    // Check process health every 30 seconds
+    const healthCheck = setInterval(async () => {
+      try {
+        const isHealthy = await this.isProcessRunning(instance.processId)
+        const portsInUse = await this.arePortsInUse(
+          instance.port,
+          instance.webSocketPort
+        )
+
+        // Consider orphaned only when the process is not this process,
+        // the process is not running, and both ports are free
+        const isCurrentProcess = instance.processId === process.pid
+        const definitelyOrphaned =
+          !isCurrentProcess && !isHealthy && !portsInUse
+
+        if (definitelyOrphaned) {
+          console.log(
+            messages.instanceManagerHealthMonitoringOrphaned(instanceId)
+          )
+          await this.terminateInstance(instanceId)
+          clearInterval(healthCheck)
+          this.healthChecks.delete(instanceId)
+        } else {
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.log(
+              messages.instanceManagerHealthMonitoringPassed(instanceId)
+            )
+          }
+        }
+      } catch (error) {
+        console.error(
+          messages.instanceManagerHealthMonitoringFailed(instanceId, error)
+        )
+        clearInterval(healthCheck)
+        this.healthChecks.delete(instanceId)
+      }
+    }, 30000)
+
+    // Store health check reference for cleanup
+    this.healthChecks.set(instanceId, healthCheck)
+  }
+
+  private async arePortsInUse(
+    port: number,
+    webSocketPort: number
+  ): Promise<boolean> {
+    const portInUse = !(await this.isPortAvailable(port))
+    const webSocketPortInUse = !(await this.isPortAvailable(webSocketPort))
+    return portInUse || webSocketPortInUse
+  }
+
+  /**
+   * Force cleanup all processes for this project
+   */
+  async forceCleanupProjectProcesses(projectPath: string): Promise<void> {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(messages.instanceManagerForceCleanupProject(projectPath))
+    }
+
+    const registry = await this.loadRegistry()
+    const projectInstances = Object.values(registry.instances).filter(
+      (instance) => instance.projectPath === projectPath
+    )
+
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(
+        messages.instanceManagerForceCleanupFound(projectInstances.length)
+      )
+    }
+
+    for (const instance of projectInstances) {
+      try {
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            messages.instanceManagerForceCleanupInstance(instance.instanceId)
+          )
+        }
+
+        // Kill process if still running
+        if (await this.isProcessRunning(instance.processId)) {
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.log(
+              messages.instanceManagerForceCleanupTerminating(
+                instance.processId
+              )
+            )
+          }
+          process.kill(instance.processId, 'SIGTERM')
+
+          // Force kill after timeout
+          setTimeout(() => {
+            try {
+              process.kill(instance.processId, 'SIGKILL')
+              if (process.env.EXTENSION_ENV === 'development') {
+                console.log(
+                  messages.instanceManagerForceCleanupForceKilled(
+                    instance.processId
+                  )
+                )
+              }
+            } catch (error) {
+              // Process already terminated
+            }
+          }, 3000)
+        }
+
+        // Mark as terminated
+        instance.status = 'terminated'
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            messages.instanceManagerForceCleanupInstanceTerminated(
+              instance.instanceId
+            )
+          )
+        }
+      } catch (error) {
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.error(
+            messages.instanceManagerForceCleanupError(
+              instance.instanceId,
+              error
+            )
+          )
+        }
+      }
+    }
+
+    await this.saveRegistry(registry)
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(messages.instanceManagerForceCleanupComplete())
+    }
+  }
+
   async createInstance(
     browser: DevOptions['browser'],
     projectPath: string,
     requestedPort?: number
   ): Promise<InstanceInfo> {
-    console.log(
-      messages.instanceManagerCreateInstanceCalled({
-        browser,
-        projectPath,
-        requestedPort
-      })
-    )
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(
+        messages.instanceManagerCreateInstanceCalled({
+          browser,
+          projectPath,
+          requestedPort
+        })
+      )
+    }
     const registry = await this.loadRegistry()
 
     // Clean up old instances periodically
@@ -318,6 +522,9 @@ export class InstanceManager {
     registry.instances[instanceId] = instance
     await this.saveRegistry(registry)
 
+    // Start health monitoring for this instance
+    await this.monitorProcessHealth(instanceId)
+
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.instanceManagerRegistryAfterCreateInstance(registry))
     }
@@ -345,6 +552,13 @@ export class InstanceManager {
     if (registry.instances[instanceId]) {
       registry.instances[instanceId].status = 'terminated'
       await this.saveRegistry(registry)
+
+      // Stop health monitoring for this instance
+      const healthCheck = this.healthChecks.get(instanceId)
+      if (healthCheck) {
+        clearInterval(healthCheck)
+        this.healthChecks.delete(instanceId)
+      }
     }
   }
 
@@ -395,6 +609,12 @@ export class InstanceManager {
     registry.instances = {}
     registry.lastCleanup = Date.now()
     await this.saveRegistry(registry)
+
+    // Stop all health checks
+    for (const healthCheck of this.healthChecks.values()) {
+      clearInterval(healthCheck)
+    }
+    this.healthChecks.clear()
   }
 
   /**
