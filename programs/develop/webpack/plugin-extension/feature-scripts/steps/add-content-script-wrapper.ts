@@ -9,6 +9,7 @@ import {generateVueWrapperCode} from './vue-content-script-wrapper'
 import {generateSvelteWrapperCode} from './svelte-content-script-wrapper'
 import {generatePreactWrapperCode} from './preact-content-script-wrapper'
 import {generateTypeScriptWrapperCode} from './typescript-content-script-wrapper'
+import {generateJavaScriptWrapperCode} from './javascript-content-script-wrapper'
 
 const schema: Schema = {
   type: 'object',
@@ -31,42 +32,6 @@ const schema: Schema = {
   }
 }
 
-/**
- * Check if the project is using a JavaScript framework
- */
-function isUsingJSFramework(projectPath: string): boolean {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-
-  const frameworks = [
-    'react',
-    'vue',
-    '@angular/core',
-    'svelte',
-    'solid-js',
-    'preact'
-  ]
-
-  const dependencies = packageJson.dependencies || {}
-  const devDependencies = packageJson.devDependencies || {}
-
-  for (const framework of frameworks) {
-    if (dependencies[framework] || devDependencies[framework]) {
-      return true
-    }
-  }
-
-  return false
-}
-
-/**
- * Extract CSS imports from the source file
- */
 function extractCSSImports(source: string): string[] {
   const cssImports: string[] = []
 
@@ -101,45 +66,69 @@ function extractCSSImports(source: string): string[] {
   return cssImports
 }
 
-/**
- * Detect framework type from source code and resource path
- */
 function detectFramework(
-  source: string,
-  resourcePath: string
+  resourcePath: string,
+  projectPath: string
 ): 'react' | 'vue' | 'svelte' | 'preact' | 'typescript' | 'javascript' | null {
-  if (
-    source.includes('react') ||
-    source.includes('ReactDOM') ||
-    source.includes('createRoot') ||
-    source.includes('render(')
-  ) {
-    return 'react'
-  }
+  try {
+    const packageJsonPath = path.join(projectPath, 'package.json')
 
-  if (
-    source.includes('vue') ||
-    source.includes('createApp') ||
-    source.includes('mount(')
-  ) {
-    return 'vue'
-  }
+    if (!fs.existsSync(packageJsonPath)) {
+      // Fallback to file extension detection if no package.json
+      if (resourcePath.endsWith('.ts') && !resourcePath.endsWith('.d.ts')) {
+        return 'typescript'
+      }
+      return 'javascript'
+    }
 
-  if (source.includes('svelte') || source.includes('mount(')) {
-    return 'svelte'
-  }
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+    const dependencies = packageJson.dependencies || {}
+    const devDependencies = packageJson.devDependencies || {}
+    const allDeps = {...dependencies, ...devDependencies}
 
-  if (source.includes('preact') || source.includes('render(')) {
-    return 'preact'
-  }
+    // Check for specific frameworks in dependencies
+    if (allDeps['react'] || allDeps['@types/react']) {
+      return 'react'
+    }
 
-  // Check file extension for TypeScript
-  if (resourcePath.endsWith('.ts') && !resourcePath.endsWith('.d.ts')) {
-    return 'typescript'
-  }
+    if (allDeps['vue'] || allDeps['@vue/runtime-core']) {
+      return 'vue'
+    }
 
-  // Default to JavaScript if no specific framework detected
-  return 'javascript'
+    if (allDeps['svelte'] || allDeps['@svelte/runtime']) {
+      return 'svelte'
+    }
+
+    if (allDeps['preact'] || allDeps['@preact/preset-vite']) {
+      return 'preact'
+    }
+
+    // Check for TypeScript
+    if (
+      allDeps['typescript'] ||
+      allDeps['@types/node'] ||
+      resourcePath.endsWith('.ts') ||
+      resourcePath.endsWith('.tsx')
+    ) {
+      return 'typescript'
+    }
+
+    // Default to JavaScript
+    return 'javascript'
+  } catch (error) {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.warn(
+        '[Extension.js] Error detecting framework from package.json:',
+        error
+      )
+    }
+
+    // Fallback to file extension detection
+    if (resourcePath.endsWith('.ts') && !resourcePath.endsWith('.d.ts')) {
+      return 'typescript'
+    }
+    return 'javascript'
+  }
 }
 
 /**
@@ -153,10 +142,12 @@ function generateFrameworkWrapperCode(
   const fileName = path.basename(resourcePath, path.extname(resourcePath))
   const cssImports = extractCSSImports(source)
 
-  console.log(
-    `🔍 Detected ${framework} framework with CSS imports:`,
-    cssImports
-  )
+  if (process.env.EXTENSION_ENV === 'development') {
+    console.log(
+      `🔍 Detected ${framework} framework with CSS imports:`,
+      cssImports
+    )
+  }
 
   // Generate React-specific wrapper code
   if (framework === 'react') {
@@ -179,459 +170,12 @@ function generateFrameworkWrapperCode(
     return generateTypeScriptWrapperCode(source, resourcePath)
   }
 
-  // Generate JavaScript-compatible code for JavaScript framework
   if (framework === 'javascript') {
-    return `
-// Content Script Wrapper - Auto-generated by Extension.js
-// This wrapper provides Shadow DOM isolation and CSS injection for content scripts
-
-// Original content script source
-${source}
-
-// Content script wrapper class
-class ContentScriptWrapper {
-  constructor(renderFunction, options = {}) {
-    this.renderFunction = renderFunction
-    this.options = {
-      rootElement: 'extension-root',
-      rootClassName: undefined,
-      stylesheets: ${JSON.stringify(cssImports)},
-      ...options
-    }
-    this.rootElement = null
-    this.shadowRoot = null
-    this.styleElement = null
-    this.unmountFunction = null
+    return generateJavaScriptWrapperCode(source, resourcePath)
   }
 
-  async mount(container) {
-    console.log('🔍 mount called')
-    if (this.rootElement) {
-      this.unmount()
-    }
-
-    // Create root element
-    this.rootElement = container || document.createElement('div')
-    this.rootElement.id = this.options.rootElement
-    if (this.options.rootClassName) {
-      this.rootElement.className = this.options.rootClassName
-    }
-
-    // Create shadow root for style isolation
-    this.shadowRoot = this.rootElement.attachShadow({ mode: 'open' })
-
-    // Inject styles
-    console.log('🔍 About to call injectStyles')
-    await this.injectStyles()
-
-    // Render content
-    const result = this.renderFunction(this.shadowRoot)
-    if (typeof result === 'function') {
-      this.unmountFunction = result
-    }
-
-    // Append to document if no container provided
-    if (!container) {
-      document.body.appendChild(this.rootElement)
-    }
-  }
-
-  unmount() {
-    if (this.unmountFunction) {
-      this.unmountFunction()
-      this.unmountFunction = null
-    }
-
-    if (this.rootElement && this.rootElement.parentNode) {
-      this.rootElement.parentNode.removeChild(this.rootElement)
-    }
-
-    this.rootElement = null
-    this.shadowRoot = null
-    this.styleElement = null
-  }
-
-  async injectStyles() {
-    console.log('🔍 injectStyles called')
-    const targetRoot = this.shadowRoot || this.rootElement
-
-    // Create style element
-    this.styleElement = document.createElement('style')
-    targetRoot.appendChild(this.styleElement)
-
-    // Fetch CSS using the working example pattern
-    try {
-      console.log('🔍 About to call fetchCSS')
-      const cssContent = await this.fetchCSS()
-      console.log('🔍 fetchCSS returned:', cssContent.substring(0, 100) + '...')
-      this.styleElement.textContent = cssContent
-      console.log('✅ CSS injected successfully')
-    } catch (error) {
-      console.error('❌ Failed to inject CSS:', error)
-    }
-
-    // Setup HMR for CSS files
-    this.setupCSSHMR()
-  }
-
-  async fetchCSS() {
-    let allCSS = ''
-    
-    console.log('🔍 Processing stylesheets:', this.options.stylesheets)
-    
-    for (const stylesheet of this.options.stylesheets) {
-      try {
-        console.log('🔍 Processing stylesheet:', stylesheet)
-
-        const cssUrl = new URL(stylesheet, import.meta.url)
-        const response = await fetch(cssUrl)
-        const text = await response.text()
-        if (response.ok) {
-          allCSS += text + '\\n'
-        } else {
-          console.warn('⚠️ Failed to fetch CSS:', stylesheet)
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to fetch CSS:', stylesheet, error)
-      }
-    }
-    
-    return allCSS
-  }
-
-  setupCSSHMR() {
-    if (!import.meta.webpackHot) return
-
-    // Setup HMR for each CSS file
-    for (const stylesheet of this.options.stylesheets) {
-      import.meta.webpackHot?.accept(stylesheet, async () => {
-        try {
-          const cssContent = await this.fetchCSS()
-          if (this.styleElement) {
-            this.styleElement.textContent = cssContent
-            console.log('✅ CSS updated via HMR:', stylesheet)
-          }
-        } catch (error) {
-          console.error('❌ Failed to update CSS via HMR:', stylesheet, error)
-        }
-      })
-    }
-  }
-}
-
-// Extract the render function from the original content script
-function createRenderFunction(shadowRoot) {
-  // Create container div
-  const contentDiv = document.createElement('div')
-  // No default class - let the content script handle its own styling
-
-  // Create and append logo image
-  const img = document.createElement('img')
-  img.className = 'content_logo'
-  // Use the logo from the original import
-  img.src = logo || '../images/logo.png'
-  contentDiv.appendChild(img)
-
-  // Create and append title
-  const title = document.createElement('h1')
-  title.className = 'content_title'
-  title.textContent = 'Welcome to your Content Script Extension'
-  contentDiv.appendChild(title)
-
-  // Create and append description paragraph
-  const desc = document.createElement('p')
-  desc.className = 'content_description'
-  desc.innerHTML = 'Learn more about creating cross-browser extensions at '
-
-  const link = document.createElement('a')
-  link.href = 'https://extension.js.org'
-  link.target = '_blank'
-  link.textContent = 'https://extension.js.org'
-
-  desc.appendChild(link)
-  contentDiv.appendChild(desc)
-
-  // Append the content div to shadow root
-  shadowRoot.appendChild(contentDiv)
-
-  return () => {
-    contentDiv.remove()
-  }
-}
-
-// Override the initial function to use the wrapper
-async function initial() {
-  console.log('🔍 initial() function called')
-  const wrapper = new ContentScriptWrapper(createRenderFunction, {})
-  console.log('🔍 ContentScriptWrapper created')
-  await wrapper.mount()
-  console.log('🔍 wrapper.mount() called')
-  return () => wrapper.unmount()
-}
-
-
-
-// Simple initialization like the original working code
-let unmount
-
-async function initialize() {
-  if (unmount) {
-    unmount()
-  }
-  
-  // Use the wrapper instead of the original initial function
-  const wrapper = new ContentScriptWrapper(createRenderFunction, {})
-  wrapper.mount()
-  unmount = () => wrapper.unmount()
-}
-
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-
-  // Accept changes to this file
-  import.meta.webpackHot?.accept(() => {
-    initialize()
-  })
-}
-
-if (document.readyState === 'complete') {
-  initialize()
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') {
-      initialize()
-    }
-  })
-}
-`
-  }
-
-  // Generate TypeScript-compatible code for other frameworks
-  const wrapperCode = `
-// Content Script Wrapper - Auto-generated by Extension.js
-// This wrapper provides Shadow DOM isolation and CSS injection for content scripts
-
-// Original content script source
-${source}
-
-// Content script options interface
-export interface ContentScriptOptions {
-  rootElement?: string
-  rootClassName?: string
-  stylesheets?: string[]
-}
-
-// Content script instance interface
-export interface ContentScriptInstance {
-  mount: (container: HTMLElement) => void
-  unmount: () => void
-}
-
-// Content script wrapper class
-class ContentScriptWrapper {
-  private rootElement: HTMLElement | null = null
-  private shadowRoot: ShadowRoot | null = null
-  private styleElement: HTMLStyleElement | null = null
-  private renderFunction: (container: HTMLElement) => (() => void) | void
-  private unmountFunction: (() => void) | null = null
-  private options: ContentScriptOptions
-
-  constructor(renderFunction: (container: HTMLElement) => (() => void) | void, options: ContentScriptOptions = {}) {
-    this.renderFunction = renderFunction
-    this.options = {
-      rootElement: 'extension-root',
-      rootClassName: undefined,
-      stylesheets: ${JSON.stringify(cssImports)},
-      ...options
-    }
-  }
-
-  mount(container?: HTMLElement): void {
-    if (this.rootElement) {
-      this.unmount()
-    }
-
-    // Create root element
-    this.rootElement = container || document.createElement('div')
-    this.rootElement.id = this.options.rootElement!
-    // Don't add containerClass since React component handles its own styling
-
-    // Create shadow root for style isolation
-    this.shadowRoot = this.rootElement.attachShadow({ mode: 'open' })
-
-    // Inject styles
-    this.injectStyles()
-
-    // Render content
-    const result = this.renderFunction(this.shadowRoot as any)
-    if (typeof result === 'function') {
-      this.unmountFunction = result
-    }
-
-    // Append to document if no container provided
-    if (!container) {
-      document.body.appendChild(this.rootElement)
-    }
-  }
-
-  unmount(): void {
-    if (this.unmountFunction) {
-      this.unmountFunction()
-      this.unmountFunction = null
-    }
-
-    if (this.rootElement && this.rootElement.parentNode) {
-      this.rootElement.parentNode.removeChild(this.rootElement)
-    }
-
-    this.rootElement = null
-    this.shadowRoot = null
-    this.styleElement = null
-  }
-
-  /**
-   * Inject styles using the working example pattern
-   */
-  private async injectStyles(): Promise<void> {
-    const targetRoot = this.shadowRoot || this.rootElement!
-
-    // Create style element
-    this.styleElement = document.createElement('style')
-    targetRoot.appendChild(this.styleElement)
-
-    // Fetch CSS using the working example pattern
-    try {
-      const cssContent = await this.fetchCSS()
-      this.styleElement.textContent = cssContent
-      console.log('✅ CSS injected successfully')
-    } catch (error) {
-      console.error('❌ Failed to inject CSS:', error)
-    }
-
-    // Setup HMR for CSS files
-    this.setupCSSHMR()
-  }
-
-  /**
-   * Fetch CSS using the working example pattern
-   */
-  private async fetchCSS(): Promise<string> {
-    let allCSS = ''
-    
-    for (const stylesheet of this.options.stylesheets) {
-      try {
-        
-        const cssUrl = new URL(stylesheet, import.meta.url)
-        const response = await fetch(cssUrl)
-        const text = await response.text()
-        if (response.ok) {
-          allCSS += text + '\\n'
-        } else {
-          console.warn('⚠️ Failed to fetch CSS:', stylesheet)
-        }
-      } catch (error) {
-        console.warn('⚠️ Failed to fetch CSS:', stylesheet, error)
-      }
-    }
-    
-    return allCSS
-  }
-
-  /**
-   * Setup CSS HMR using the working example pattern
-   */
-  private setupCSSHMR(): void {
-    if (!import.meta.webpackHot) return
-
-    // Setup HMR for each CSS file
-    for (const stylesheet of this.options.stylesheets) {
-      import.meta.webpackHot?.accept(stylesheet, async () => {
-        try {
-          const cssContent = await this.fetchCSS()
-          if (this.styleElement) {
-            this.styleElement.textContent = cssContent
-            console.log('✅ CSS updated via HMR:', stylesheet)
-          }
-        } catch (error) {
-          console.error('❌ Failed to update CSS via HMR:', stylesheet, error)
-        }
-      })
-    }
-  }
-}
-
-/**
- * Initialize content script with wrapper
- */
-function initializeContentScript(
-  options: ContentScriptOptions,
-  renderFunction: (container: HTMLElement) => (() => void) | void
-): ContentScriptInstance {
-  const wrapper = new ContentScriptWrapper(renderFunction, options)
-  
-  return {
-    mount: (container?: HTMLElement) => wrapper.mount(container),
-    unmount: () => wrapper.unmount()
-  }
-}
-
-/**
- * Default export for the content script wrapper
- */
-export default ContentScriptWrapper
-
-/**
- * Auto-initialize the content script with the wrapper
- * This function automatically sets up the content script using the imported contentScript function
- */
-export function autoInitializeContentScript(
-  options: ContentScriptOptions = {}
-): ContentScriptInstance {
-  // Get the render function from the imported contentScript
-  const renderFunction = contentScript(options)
-
-  // Initialize with the wrapper using the detected CSS imports
-  return initializeContentScript(options, renderFunction)
-}
-
-// Simple initialization like the original working code
-let unmount: (() => void) | undefined
-
-async function initialize() {
-  if (unmount) {
-    unmount()
-  }
-  
-  // Get the render function from the contentScript function
-  const renderFunction = contentScript({})
-  const wrapper = new ContentScriptWrapper(renderFunction, {})
-  wrapper.mount()
-  unmount = () => wrapper.unmount()
-}
-
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-
-  // Accept changes to this file
-  import.meta.webpackHot?.accept(() => {
-    initialize()
-  })
-}
-
-if (document.readyState === 'complete') {
-  initialize()
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') {
-      initialize()
-    }
-  })
-}
-`
-
-  return wrapperCode
+  // Fallback to TypeScript-compatible code for unknown frameworks
+  return generateTypeScriptWrapperCode(source, resourcePath)
 }
 
 /**
@@ -659,9 +203,9 @@ function shouldUseWrapper(
     for (const js of contentScript.js) {
       const absoluteUrl = path.resolve(projectPath, js as string)
       if (url.includes(absoluteUrl)) {
-        // Apply wrapper by default for content scripts
-        // The directive can be used to explicitly enable/disable
-        return true
+        // Only apply wrapper when the source explicitly opts-in
+        // via the 'use shadow-dom' directive
+        return hasShadowDomDirective
       }
     }
   }
@@ -688,7 +232,7 @@ export default function (this: LoaderContext, source: string) {
   }
 
   // Detect framework and generate appropriate wrapper
-  const framework = detectFramework(source, this.resourcePath)
+  const framework = detectFramework(this.resourcePath, projectPath)
 
   if (framework) {
     const wrapperCode = generateFrameworkWrapperCode(

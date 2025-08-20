@@ -1,5 +1,5 @@
+import * as fs from 'fs'
 import {type Compiler, type EntryObject} from '@rspack/core'
-
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
 
@@ -25,7 +25,23 @@ export class AddScripts {
       const entryImports = [...scriptImports, ...cssImports]
 
       if (cssImports.length || scriptImports.length) {
-        newEntries[feature] = {import: entryImports}
+        // Apply entry-specific configuration for service workers
+        if (feature === 'background/service_worker') {
+          // Check if this is a module service worker
+          const manifest = JSON.parse(
+            fs.readFileSync(this.manifestPath, 'utf8')
+          )
+          const isModuleServiceWorker = manifest.background?.type === 'module'
+
+          newEntries[feature] = {
+            import: entryImports,
+            // Only apply import-scripts for non-module service workers
+            // This ensures non-module service workers work correctly without affecting module ones
+            ...(isModuleServiceWorker ? {} : {chunkLoading: 'import-scripts'})
+          }
+        } else {
+          newEntries[feature] = {import: entryImports}
+        }
       }
     }
 

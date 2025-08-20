@@ -44,10 +44,12 @@ export function generatePreactWrapperCode(
   const cssImports = extractCSSImports(source)
   const resourceDir = path.dirname(resourcePath)
 
-  console.log(
-    `[Extension.js] Detected Preact framework with CSS imports:`,
-    cssImports
-  )
+  if (process.env.EXTENSION_ENV === 'development') {
+    console.log(
+      `[Extension.js] Detected Preact framework with CSS imports:`,
+      cssImports
+    )
+  }
 
   // Read CSS content at build time for hardcoding
   const cssContentMap: Record<string, string> = {}
@@ -65,17 +67,23 @@ export function generatePreactWrapperCode(
           .replace(/\s+/g, ' ')
           .trim()
         cssContentMap[cssImport] = escapedCSS
-        console.log(
-          `[Extension.js] Read CSS content for ${cssImport}, length: ${cssContent.length}`
-        )
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(
+            `[Extension.js] Read CSS content for ${cssImport}, length: ${cssContent.length}`
+          )
+        }
       } else {
-        console.warn(`[Extension.js] CSS file not found: ${cssPath}`)
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.warn(`[Extension.js] CSS file not found: ${cssPath}`)
+        }
       }
     } catch (error) {
-      console.warn(
-        `[Extension.js] Failed to read CSS file ${cssImport}:`,
-        error
-      )
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.warn(
+          `[Extension.js] Failed to read CSS file ${cssImport}:`,
+          error
+        )
+      }
     }
   }
 

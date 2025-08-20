@@ -64,7 +64,7 @@ export default function (this: LoaderContext, source: string) {
   const url = urlToRequest(this.resourcePath)
   const reloadCode = `
 // TODO: cezaraugusto re-visit this
-// if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
+if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
   `
 
   // 1 - Handle background.scripts.
@@ -83,14 +83,13 @@ export default function (this: LoaderContext, source: string) {
 
   // 2 - Handle content_scripts.
   if (manifest.content_scripts) {
-    if (!isUsingJSFramework(projectPath)) {
-      for (const contentScript of manifest.content_scripts) {
-        if (!contentScript.js) continue
-        for (const js of contentScript.js) {
-          const absoluteUrl = path.resolve(projectPath, js as string)
-          if (url.includes(absoluteUrl)) {
-            return `${reloadCode}${source}`
-          }
+    // Always add HMR acceptance to content scripts for proper HMR functionality
+    for (const contentScript of manifest.content_scripts) {
+      if (!contentScript.js) continue
+      for (const js of contentScript.js) {
+        const absoluteUrl = path.resolve(projectPath, js as string)
+        if (url.includes(absoluteUrl)) {
+          return `${reloadCode}${source}`
         }
       }
     }
