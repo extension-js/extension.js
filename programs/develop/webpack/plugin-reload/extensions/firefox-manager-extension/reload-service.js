@@ -1,64 +1,85 @@
 let webSocket = null
+let triedWsFallback = false
 
 // Get instance ID from the service worker context
 const instanceId = '__INSTANCE_ID__'
 
-export async function connect() {
+async function connect() {
   if (webSocket) {
     // If already connected, do nothing
     return
   }
 
   const port = '__RELOAD_PORT__'
-  webSocket = new WebSocket(`wss://127.0.0.1:${port + 2}`)
+  let reconnectAttempts = 0
+  const maxReconnectAttempts = 10
+  const baseBackoffMs = 250
+  const maxBackoffMs = 5000
 
-  webSocket.onerror = (event) => {
-    console.error(`[Reload Service] Connection error: ${JSON.stringify(event)}`)
-    webSocket.close()
-  }
+  const connectTo = (url) => {
+    webSocket = new WebSocket(url)
 
-  webSocket.onopen = () => {
-    console.info(
-      `[Reload Service] Connection opened. Listening on port ${port} for instance ${instanceId}...`
-    )
-  }
-
-  webSocket.onmessage = async (event) => {
-    const message = JSON.parse(event.data)
-
-    // Only process messages for this instance
-    if (message.instanceId && message.instanceId !== instanceId) {
-      console.log(
-        `[Reload Service] Ignoring message from wrong instance: ${message.instanceId} (expected: ${instanceId})`
-      )
-      return
+    webSocket.onerror = (_event) => {
+      try {
+        webSocket && webSocket.close()
+      } catch {}
+      if (!triedWsFallback) {
+        triedWsFallback = true
+        connectTo(`ws://127.0.0.1:${port}`)
+      }
     }
 
-    if (message.status === 'serverReady') {
+    webSocket.onopen = () => {
+      reconnectAttempts = 0
       console.info(
-        `[Reload Service] Server ready for instance ${instanceId}. Requesting initial load data...`
+        `[Extension.js] Connection opened. Listening on port ${port}...`
       )
-      await requestInitialLoadData()
     }
 
-    if (message.changedFile) {
-      console.info(
-        `[Reload Service] Changes detected on ${message.changedFile} for instance ${instanceId}. Reloading extension...`
-      )
+    let reloadDebounce
+    webSocket.onmessage = async (event) => {
+      const message = JSON.parse(event.data)
 
-      await messageAllExtensions(message.changedFile)
+      // Only process messages for this instance
+      if (message.instanceId && message.instanceId !== instanceId) {
+        console.log(
+          `[Reload Service] Ignoring message from wrong instance: ${message.instanceId} (expected: ${instanceId})`
+        )
+        return
+      }
+
+      if (message.status === 'serverReady') {
+        console.info(
+          `[Extension.js] Server ready. Requesting initial load data...`
+        )
+        await requestInitialLoadData()
+      }
+
+      if (message.changedFile) {
+        clearTimeout(reloadDebounce)
+        reloadDebounce = setTimeout(async () => {
+          await messageAllExtensions(message.changedFile)
+        }, 200)
+      }
+    }
+
+    webSocket.onclose = () => {
+      console.info('[Extension.js] Connection closed.')
+      webSocket = null
+      if (reconnectAttempts >= maxReconnectAttempts) return
+      reconnectAttempts++
+      const backoff = Math.min(
+        maxBackoffMs,
+        baseBackoffMs * 2 ** reconnectAttempts
+      )
+      setTimeout(() => connectTo(url), backoff)
     }
   }
 
-  webSocket.onclose = () => {
-    console.info(
-      `[Reload Service] Connection closed for instance ${instanceId}.`
-    )
-    webSocket = null
-  }
+  connectTo(`wss://127.0.0.1:${port}`)
 }
 
-export function disconnect() {
+function disconnect() {
   if (webSocket) {
     webSocket.close()
   }
@@ -93,15 +114,22 @@ async function requestInitialLoadData() {
 
 async function getDevExtensions() {
   const allExtensions = await new Promise((resolve) => {
-    browser.management.getAll(resolve)
+    try {
+      // Firefox MV2 supports callback-style getAll
+      browser.management.getAll(resolve)
+    } catch {
+      // Fallback to promise-based API
+      browser.management.getAll().then(resolve)
+    }
   })
 
   return allExtensions.filter((extension) => {
     return (
       // Do not include itself
       extension.id !== browser.runtime.id &&
-      // Show only unpackaged extensions
-      extension.installType === 'development'
+      // Show only unpackaged extensions (Firefox reports "temporary")
+      (extension.installType === 'development' ||
+        extension.installType === 'temporary')
     )
   })
 }
@@ -116,7 +144,7 @@ async function messageAllExtensions(changedFile) {
       try {
         await browser.runtime.sendMessage(extension.id, {changedFile})
         console.info(
-          `[Reload Service] Add-On reloaded and ready for instance ${instanceId}.`
+          `[Extension.js] Add-On reloaded and ready for instance ${instanceId}.`
         )
       } catch (error) {
         console.error(
@@ -126,7 +154,7 @@ async function messageAllExtensions(changedFile) {
     }
   } else {
     console.info(
-      `[Reload Service] External extension is not ready for instance ${instanceId}.`
+      `[Extension.js] External extension is not ready for instance ${instanceId}.`
     )
   }
 }

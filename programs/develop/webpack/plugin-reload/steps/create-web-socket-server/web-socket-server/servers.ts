@@ -14,10 +14,18 @@ const ensureFile = (filePath: string) => {
 }
 
 export function httpsServer(defaultPort: number): any {
-  const options = {
-    key: ensureFile(path.join(__dirname, 'certs', 'localhost.key')),
-    cert: ensureFile(path.join(__dirname, 'certs', 'localhost.cert'))
+  const key = ensureFile(path.join(__dirname, 'certs', 'localhost.key'))
+  const cert = ensureFile(path.join(__dirname, 'certs', 'localhost.cert'))
+
+  // If certs are missing, fall back to HTTP server (development convenience)
+  if (!key || !cert) {
+    try {
+      console.log(messages.certRequired())
+    } catch {}
+    return httpServer(defaultPort)
   }
+
+  const options = {key, cert}
 
   const server = https.createServer(options, (_req, res) => {
     res.writeHead(200)
@@ -29,6 +37,9 @@ export function httpsServer(defaultPort: number): any {
     throw new Error(err.message)
   })
 
+  try {
+    server.listen(defaultPort, '127.0.0.1')
+  } catch {}
   return {server, port: defaultPort}
 }
 
@@ -43,5 +54,8 @@ export function httpServer(defaultPort: number): any {
     throw new Error(err.message)
   })
 
+  try {
+    server.listen(defaultPort, '127.0.0.1')
+  } catch {}
   return {server, port: defaultPort}
 }
