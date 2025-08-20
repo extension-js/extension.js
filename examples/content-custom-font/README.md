@@ -1,196 +1,66 @@
-# Content Custom Font Example
+<a href="https://extension.js.org" target="_blank"><img src="https://img.shields.io/badge/Powered%20by%20%7C%20Extension.js-0971fe" alt="Powered by Extension.js" align="right" /></a>
 
-A browser extension example demonstrating how to properly load and use custom fonts in browser extensions with Tailwind CSS v4.
+# content/custom-font
 
-## 🎯 Problem Solved
+Content Custom Font Example
 
-This example addresses the common issue where custom fonts fail to load in browser extensions, as reported in [GitHub Issue #271](https://github.com/extension-js/extension.js/issues/271).
+> A browser extension example demonstrating how to load custom fonts with Tailwind CSS v4. Shows proper font file placement, web accessible resources configuration, and CSS font-face declarations for browser extensions.
 
-## 🚀 Features
+What this example does in the scope of a browser extension. The description should
+describe for an audience of developers looking to use the example. Avoid jargon and
+use simple language.
 
-- **Custom Font Loading**: Demonstrates proper font loading in browser extensions
-- **Custom Font Loading**: Demonstrates proper font loading in browser extensions
-- **Multiple Font Formats**: Supports WOFF2, WOFF, TTF, and OTF formats
-- **Web Accessible Resources**: Properly configured manifest.json for font access
-- **Font Display Optimization**: Uses `font-display: swap` for better loading experience
-
-## 📁 Project Structure
-
-```
-content-custom-font/
-├── content/
-│   ├── scripts.js          # Content script with font demo
-│   └── styles.css          # CSS with font-face declarations
-├── public/
-│   ├── fonts/              # Font files directory
-│   │   └── README.md       # Font setup instructions
-│   └── logo.svg            # Extension logo
-├── images/
-│   └── extension_48.png    # Extension icon
-├── manifest.json           # Extension manifest with web accessible resources
-├── package.json            # Dependencies and metadata
-├── postcss.config.js       # PostCSS configuration for Tailwind v4
-└── background.js           # Background script
-```
-
-## 🛠️ Setup Instructions
-
-### 1. Install Dependencies
+## Installation
 
 ```bash
+npx extension@latest create <project-name> --template content-custom-font
+cd <project-name>
 npm install
 ```
 
-### 2. Add Font Files
+## Commands
 
-Place your font files in the `public/fonts/` directory:
+### dev
 
-```
-public/fonts/
-├── DMMono-Regular.woff2
-├── DMMono-Italic.woff2
-├── DMSans-Regular.woff2
-├── DMSans-Italic.woff2
-├── Inter-Regular.woff2
-└── CustomFont-Regular.woff2
-```
-
-### 3. Configure Font Declarations
-
-The CSS file (`content/styles.css`) already includes example `@font-face` declarations:
-
-```css
-@font-face {
-  font-family: 'DM Mono';
-  font-weight: 100 800;
-  font-display: swap;
-  font-style: normal;
-  src:
-    url('/fonts/DMMono-Regular.woff2') format('woff2'),
-    url('/fonts/DMMono-Regular.woff') format('woff');
-}
-```
-
-### 4. Use Custom Fonts in CSS
-
-The CSS file includes custom font classes:
-
-```css
-.font_roboto {
-  font-family: 'Roboto', sans-serif;
-  background-color: #f3f4f6;
-}
-
-.font_source_code_pro {
-  font-family: 'Source Code Pro', monospace;
-  background-color: #fef3c7;
-}
-```
-
-### 5. Verify Manifest Configuration
-
-The `manifest.json` includes proper web accessible resources:
-
-```json
-{
-  "web_accessible_resources": [
-    {
-      "resources": [
-        "fonts/*.woff2",
-        "fonts/*.woff",
-        "fonts/*.ttf",
-        "fonts/*.otf"
-      ],
-      "matches": ["<all_urls>"]
-    }
-  ]
-}
-```
-
-## 🎨 Usage
-
-### Using Custom Fonts with CSS Classes
-
-```html
-<div class="font_roboto">Roboto font</div>
-<div class="font_source_code_pro">Source Code Pro font</div>
-```
-
-### Using Custom Fonts with CSS Classes
-
-```html
-<div class="font_dm_mono">DM Mono font</div>
-<div class="font_dm_sans">DM Sans font</div>
-<div class="font_inter">Inter font</div>
-<div class="font_custom">Custom font</div>
-```
-
-## 🔧 Development
-
-### Build the Extension
+Run the extension in development mode.
 
 ```bash
-npm run build
+npx extension@latest dev
 ```
 
-### Development Mode
+### build
+
+Build the extension for production.
 
 ```bash
-npm run dev
+npx extension@latest build
 ```
 
-### Load in Browser
+### Preview
 
-1. Open Chrome/Edge and go to `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked" and select the extension directory
-4. Navigate to any webpage to see the font demo
+Preview the extension in the browser.
 
-## 🐛 Troubleshooting
+```bash
+npx extension@latest preview
+```
 
-### Fonts Not Loading
+## Learn more
 
-1. **Check File Paths**: Ensure font files are in `public/fonts/` directory
-2. **Verify Manifest**: Check `web_accessible_resources` includes font patterns
-3. **Console Errors**: Check browser console for font loading errors
-4. **File Permissions**: Ensure font files are readable
+Learn more about this and other examples at @https://extension.js.org/
 
-### Common Issues
+## Setup Instructions
 
-- **CORS Errors**: Fonts must be declared in `web_accessible_resources`
-- **Path Issues**: Use relative paths starting with `/fonts/`
-- **Format Support**: Use WOFF2 for best compatibility and performance
+- Place your font files under `public/fonts/`.
+- Update CSS `@font-face` declarations to reference files in `public/fonts/`.
 
-## 📚 Best Practices
+## Troubleshooting
 
-### Font Loading
+- If fonts fail to load, verify `web_accessible_resources` includes `fonts/*` patterns.
+- Confirm your CSS paths are correct and relative to the stylesheet.
 
-- Use `.woff2` format for best compression and performance
-- Include fallback fonts in your CSS declarations
-- Use `font-display: swap` for better user experience
-- Test font loading across different browsers
+## Best Practices
 
-### Browser Extension Specific
+- Use `font-display: swap` to improve perceived performance.
+- Prefer modern formats like WOFF2 when available.
 
-- Always declare fonts in `web_accessible_resources`
-- Use relative paths from the extension root
-- Test in both Chrome and Firefox
-- Consider font file size for extension performance
-
-### CSS Integration
-
-- Define custom font classes in your CSS
-- Use consistent naming conventions
-- Include fallback fonts in font family definitions
-- Test custom classes with your fonts
-
-## 🔗 Related Resources
-
-- [GitHub Issue #271](https://github.com/extension-js/extension.js/issues/271) - Original font loading issue
-- [MDN Web Fonts](https://developer.mozilla.org/en-US/docs/Web/CSS/@font-face) - Font-face documentation
-- [MDN CSS Font Family](https://developer.mozilla.org/en-US/docs/Web/CSS/font-family) - CSS font family documentation
-- [Chrome Extension Manifest](https://developer.chrome.com/docs/extensions/mv3/manifest/) - Manifest documentation
-
-## 📄 License
-
-MIT License - see the main project license for details.
+See GitHub Issue #271 for additional context.

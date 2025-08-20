@@ -3,13 +3,13 @@
   "name": "react-svgr-content-script-example",
   "description": "A modern browser extension content script example built with Extension.js and React using SVGR. Demonstrates how to create interactive content scripts with SVG components using clean, maintainable code.",
   "version": "0.0.1",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "license": "MIT",
-  "type": "module",
   "dependencies": {
     "react": "^18.1.0",
     "react-dom": "^18.1.0"

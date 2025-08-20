@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Extension.js - Special Folders Scripts Example",
+  "name": "Extension.js - special/folders-scripts Example",
   "description": "A modern browser extension example built with Extension.js demonstrating special folder organization. Shows how to structure extension code using dedicated scripts folders for better maintainability.",
   "icons": {
     "48": "images/extension_48.png"

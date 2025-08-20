@@ -1,85 +1,47 @@
-# Monorepo Turbopack Example
+<a href="https://extension.js.org" target="_blank"><img src="https://img.shields.io/badge/Powered%20by%20%7C%20Extension.js-0971fe" alt="Powered by Extension.js" align="right" /></a>
 
-This example demonstrates how to structure multiple browser extensions using Extension.js in a monorepo setup with Turborepo for build optimization.
+# monorepo/turbopack
 
-## Structure
+> A monorepo example demonstrating how to structure multiple browser extensions using Extension.js with Turborepo for build optimization.
 
-```
-monorepo-turbopack/
-├── package.json              # Root package.json with shared dependencies
-├── clients/                  # Extension packages
-│   ├── browser/             # Browser extension
-│   │   ├── manifest.json
-│   │   ├── package.json
-│   │   ├── content.js
-│   │   ├── background.js
-│   │   └── popup.html
-│   └── analytics/           # Analytics extension
-│       ├── manifest.json
-│       ├── package.json
-│       ├── content.js
-│       ├── background.js
-│       ├── popup.html
-│       └── popup.js
-└── packages/                # Shared packages
-    └── base/               # Base utilities
-        ├── package.json
-        ├── index.js
-        └── services/
-```
+What this example does in the scope of a browser extension. The description should
+describe for an audience of developers looking to use the example. Avoid jargon and
+use simple language.
 
-## Usage
-
-### Development
-
-To develop a specific extension:
+## Installation
 
 ```bash
-# Develop the browser extension
-pnpm extension dev ./clients/browser
-
-# Develop the analytics extension
-pnpm extension dev ./clients/analytics
+npx extension@latest create <project-name> --template monorepo-turbopack
+cd <project-name>
+npm install
 ```
 
-### Building
+## Commands
 
-To build a specific extension:
+### dev
+
+Run the extension in development mode.
 
 ```bash
-# Build the browser extension
-pnpm extension build ./clients/browser
-
-# Build the analytics extension
-pnpm extension build ./clients/analytics
+npx extension@latest dev
 ```
 
-### Monorepo Commands
+### build
 
-Using the root package.json scripts:
+Build the extension for production.
 
 ```bash
-# Build all extensions
-pnpm build-browser
-
-# Start development for browser extension
-pnpm dev-browser
+npx extension@latest build
 ```
 
-## Key Features
+### Preview
 
-- **Monorepo Structure**: Multiple extensions in a single repository
-- **Shared Dependencies**: Common dependencies managed at the root level
-- **Workspace Management**: Uses pnpm workspaces for package management
-- **Turborepo Integration**: Parallel builds and caching for optimal performance
-- **Extension.js Integration**: Each extension uses Extension.js for development and building
-- **Type Safety**: Full TypeScript support across all packages
+Preview the extension in the browser.
 
-## Monorepo Benefits
+```bash
+npx extension@latest preview
+```
 
-1. **Code Sharing**: Share utilities and components between extensions
-2. **Dependency Management**: Centralized dependency management with pnpm workspaces
-3. **Build Optimization**: Parallel builds and caching with Turborepo
-4. **Consistent Tooling**: Same Extension.js development tools across all extensions
-5. **Version Management**: Coordinated releases across extensions
-6. **Type Safety**: Shared TypeScript configurations and type definitions
+## Learn more
+
+Learn more about this and other examples at @https://extension.js.org/

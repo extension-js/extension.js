@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "0.0.1",
-  "name": "Extension.js - Environment New Tab Example",
+  "name": "Extension.js - new/env Example",
   "description": "A modern browser extension new tab page example built with Extension.js and TypeScript using environment variables. Demonstrates how to use environment configuration in new tab pages with clean, maintainable code.",
   "icons": {
     "48": "images/extension_48.png"

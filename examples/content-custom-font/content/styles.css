@@ -14,8 +14,8 @@
   font-weight: 400;
   font-display: swap;
   font-style: normal;
-  src: url("/fonts/Roboto-Regular.woff2") format("woff2"),
-       url("/fonts/Roboto-Regular.woff") format("woff");
+  src: url("../fonts/Roboto-Regular.woff2") format("woff2"),
+       url("../fonts/static/Roboto_Condensed-Regular.ttf") format("truetype");
 }
 
 @font-face {
@@ -23,28 +23,12 @@
   font-weight: 700;
   font-display: swap;
   font-style: normal;
-  src: url("/fonts/Roboto-Bold.woff2") format("woff2"),
-       url("/fonts/Roboto-Bold.woff") format("woff");
+  src: url("../fonts/Roboto-Bold.woff2") format("woff2"),
+       url("../fonts/static/Roboto_Condensed-Bold.ttf") format("truetype");
 }
 
 /* Sample Font 2 - Source Code Pro */
-@font-face {
-  font-family: "Source Code Pro";
-  font-weight: 400;
-  font-display: swap;
-  font-style: normal;
-  src: url("/fonts/SourceCodePro-Regular.woff2") format("woff2"),
-       url("/fonts/SourceCodePro-Regular.woff") format("woff");
-}
-
-@font-face {
-  font-family: "Source Code Pro";
-  font-weight: 600;
-  font-display: swap;
-  font-style: normal;
-  src: url("/fonts/SourceCodePro-SemiBold.woff2") format("woff2"),
-       url("/fonts/SourceCodePro-SemiBold.woff") format("woff");
-}
+/* Source Code Pro removed: font files not included in this example */
 
 /* Content Script Styles */
 .content_script {
