@@ -1,0 +1,10 @@
+extends: existence
+message: "Prefer concise wording: '%s'"
+ignorecase: true
+level: warning
+tokens:
+  - really
+  - very
+  - just
+  - literally
+

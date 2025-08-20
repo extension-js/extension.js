@@ -1,4 +1,4 @@
-name: E2E Tests
+name: Examples (Stable)
 
 on:
   push:
@@ -23,7 +23,7 @@ jobs:
 
       - uses: ./.github/actions/setup
         with:
-          node-version: '18'
+          node-version: '20'
 
       - name: Compile Extension.js
         run: pnpm compile
@@ -31,8 +31,10 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Run E2E Tests
-        run: pnpm test:e2e
+      - name: Run E2E Tests (headed under Xvfb)
+        run: xvfb-run -a pnpm test:e2e
+        env:
+          PLAYWRIGHT_HEADLESS: '0'
 
       - name: Upload Test Report
         if: ${{ !cancelled() }}

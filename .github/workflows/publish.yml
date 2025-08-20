@@ -1,22 +1,16 @@
-# Run `pnpm changeset` before running this workflow
-name: Release – Stable
-
-permissions:
-  contents: write
-  packages: write
-  pull-requests: write
-  id-token: write
+name: Release – Stable (Tags)
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*.*.*'
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+permissions:
+  contents: write
+  id-token: write
 
 jobs:
-  release:
-    name: Release – Stable
+  publish:
     runs-on: ubuntu-22.04
     environment: stable
     steps:
@@ -26,24 +20,24 @@ jobs:
         with:
           node-version: '18'
 
-      - name: Publish packages to npm
-        id: changesets
-        uses: changesets/action@v1
-        with:
-          publish: |
-            pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop \
-              publish --access public --provenance
-          commit: "chore: version packages"
-          title: "chore: version packages"
-          createGithubReleases: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
+      - name: Build and test
+        run: |
+          pnpm turbo run compile
+          pnpm turbo run test
 
-      # Note: We now append aggregated changelog to the GitHub Release body instead of committing root CHANGELOG.
+      - name: Publish public packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop \
+            publish --access public --provenance
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
 
       - name: Render aggregated changelog
-        if: steps.changesets.outputs.published == 'true'
         id: agg
         run: |
           node ./scripts/render-aggregated-changelog.cjs > aggregated.md || true
@@ -52,31 +46,30 @@ jobs:
           cat aggregated.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Append to latest GitHub Release body
-        if: steps.changesets.outputs.published == 'true'
+      - name: Append to this tag's GitHub Release body
         uses: actions/github-script@v7
         env:
+          TAG: ${{ github.ref_name }}
           AGG_BODY: ${{ steps.agg.outputs.body }}
         with:
           script: |
             const { owner, repo } = context.repo;
-            const latest = await github.rest.repos.getLatestRelease({ owner, repo });
-            const current = latest.data.body || '';
+            const tag = process.env.TAG;
+            const rel = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+            const current = rel.data.body || '';
             const agg = process.env.AGG_BODY || '';
             await github.rest.repos.updateRelease({
               owner, repo,
-              release_id: latest.data.id,
+              release_id: rel.data.id,
               body: current ? `${current}\n\n${agg}` : agg
             });
 
       - name: Collect versions
-        if: steps.changesets.outputs.published == 'true'
         id: versions
         run: |
           node -e "const fs=require('fs');function v(p){return JSON.parse(fs.readFileSync(p,'utf8')).version;}const obj={'extension':v('programs/cli/package.json'),'extension-create':v('programs/create/package.json'),'extension-develop':v('programs/develop/package.json')};process.stdout.write('versions='+JSON.stringify(obj));" >> $GITHUB_OUTPUT
 
       - name: Create deployment (stable)
-        if: steps.changesets.outputs.published == 'true'
         uses: actions/github-script@v7
         env:
           VERSIONS: ${{ steps.versions.outputs.versions }}
@@ -104,3 +97,5 @@ jobs:
               environment_url: envUrl,
               description: desc
             })
+
+

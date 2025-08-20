@@ -1,0 +1,16 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "https://img.shields.io"
+    },
+    {
+      "pattern": "https://raw.githubusercontent.com/alrra/browser-logos"
+    }
+  ],
+  "replacementPatterns": [
+    {
+      "pattern": "^/",
+      "replacement": "https://github.com/extension-js/extension.js/blob/main/"
+    }
+  ]
+}

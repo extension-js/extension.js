@@ -1,0 +1,66 @@
+name: Programs – Develop
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ main, 'v[0-9]+.x' ]
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: programs-develop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  develop:
+    name: Develop Tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      EXTENSION_ENV: development
+      EXTENSION_AUTO_EXIT_MS: '6000'
+      EXTENSION_FORCE_KILL_MS: '12000'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            ~/.cache/ms-playwright
+          key: pnpm-and-playwright-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+
+      - name: Compile
+        run: pnpm compile
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Run Build Tests
+        run: pnpm test:build
+
+      - name: Run Dev Tests
+        run: pnpm test:dev
+
+      - name: Upload e2e report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: e2e-report/
+
+      - name: Upload dev tmp artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-debug-artifacts
+          path: |
+            programs/develop/.tmp-*/
+

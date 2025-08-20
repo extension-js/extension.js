@@ -1,0 +1,72 @@
+name: Release – Next
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  canary:
+    name: Release – Next
+    runs-on: ubuntu-22.04
+    environment: next
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '18'
+
+      - name: Build and Test
+        run: |
+          pnpm turbo run compile
+          pnpm turbo run test
+
+      - name: Snapshot versions
+        run: pnpm changeset version --snapshot next
+
+      - name: Publish Next (tag=next)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop \
+            publish --tag next --access public --no-git-checks --provenance
+
+      - name: Collect versions
+        id: versions
+        run: |
+          node -e "const fs=require('fs');function v(p){return JSON.parse(fs.readFileSync(p,'utf8')).version;}const obj={'extension':v('programs/cli/package.json'),'extension-create':v('programs/create/package.json'),'extension-develop':v('programs/develop/package.json')};process.stdout.write('versions='+JSON.stringify(obj));" >> $GITHUB_OUTPUT
+
+      - name: Create deployment (next)
+        uses: actions/github-script@v7
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const payload = { channel: 'next', versions: JSON.parse(process.env.VERSIONS || '{}') };
+            const ref = context.sha;
+            const dep = await github.rest.repos.createDeployment({
+              owner, repo, ref,
+              environment: 'next',
+              auto_merge: false,
+              required_contexts: [],
+              transient_environment: true,
+              description: `Published to npm (next)`,
+              payload: JSON.stringify(payload)
+            });
+            const ext = payload.versions['extension'];
+            const envUrl = ext ? `https://www.npmjs.com/package/extension/v/${ext}` : undefined;
+            const desc = `extension ${payload.versions['extension']}, extension-create ${payload.versions['extension-create']}, extension-develop ${payload.versions['extension-develop']}`;
+            await github.rest.repos.createDeploymentStatus({
+              owner, repo, deployment_id: dep.data.id,
+              state: 'success',
+              log_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              environment_url: envUrl,
+              description: desc
+            })
+
+

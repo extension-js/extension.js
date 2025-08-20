@@ -1,0 +1,110 @@
+name: Templates (Nightly)
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nightly-chrome:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      EXTENSION_ENV: development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            ~/.cache/ms-playwright
+          key: nightly-chrome-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+      - name: Compile
+        run: pnpm compile
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      - name: Run CLI Tests
+        run: pnpm test:cli
+      - name: Run Create Tests
+        run: pnpm test:create
+      - name: Build examples (chrome)
+        run: |
+          pnpm extension build examples/content-typescript --browser chrome --silent true
+          pnpm extension build examples/content-react --browser chrome --silent true
+          pnpm extension build examples/content-svelte --browser chrome --silent true
+          pnpm extension build examples/content-vue --browser chrome --silent true
+      - name: Run Dev Tests
+        run: pnpm test:dev
+
+  nightly-edge:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      EXTENSION_ENV: development
+      EXTENSION_AUTO_EXIT_MS: '8000'
+      EXTENSION_FORCE_KILL_MS: '12000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            ~/.cache/ms-playwright
+          key: nightly-edge-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+      - name: Compile
+        run: pnpm compile
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      - name: Resolve Chromium binary
+        run: echo "CHROMIUM_BIN=$(node -e \"console.log(require('playwright-core').chromium.executablePath())\")" >> $GITHUB_ENV
+      - name: Build examples (edge)
+        run: |
+          pnpm extension build examples/content-typescript --browser edge --silent true
+          pnpm extension build examples/content-react --browser edge --silent true
+          pnpm extension build examples/content-svelte --browser edge --silent true
+          pnpm extension build examples/content-vue --browser edge --silent true
+      - name: Dev smoke – edge (Chromium)
+        run: pnpm extension dev examples/content --browser edge --chromium-binary "$CHROMIUM_BIN" --profile false --open false --port 0
+
+  nightly-firefox:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      EXTENSION_ENV: development
+      EXTENSION_AUTO_EXIT_MS: '8000'
+      EXTENSION_FORCE_KILL_MS: '12000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            ~/.cache/ms-playwright
+          key: nightly-firefox-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+      - name: Compile
+        run: pnpm compile
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+      - name: Resolve Firefox binary
+        run: echo "FIREFOX_BIN=$(node -e \"console.log(require('playwright-core').firefox.executablePath())\")" >> $GITHUB_ENV
+      - name: Build examples (firefox)
+        run: |
+          pnpm extension build examples/content-typescript --browser firefox --silent true
+          pnpm extension build examples/content-react --browser firefox --silent true
+          pnpm extension build examples/content-svelte --browser firefox --silent true
+          pnpm extension build examples/content-vue --browser firefox --silent true
+      - name: Dev smoke – firefox (Gecko)
+        run: pnpm extension dev examples/content --browser firefox --gecko-binary "$FIREFOX_BIN" --profile false --open false --port 0
+
