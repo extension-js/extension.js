@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import {type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import * as utils from '../../../lib/utils'
 
 export class AddToFileDependencies {
   public readonly manifestPath: string
@@ -30,20 +31,26 @@ export class AddToFileDependencies {
             for (const field of Object.entries(iconFields)) {
               const [, resource] = field
 
-              const iconEntries: string[] = Array.isArray(resource)
+              const iconEntries: unknown[] = Array.isArray(resource)
                 ? typeof resource[0] === 'string'
                   ? resource
                   : resource.map(Object.values).flat()
                 : [resource]
 
-              for (const entry of iconEntries) {
+              const stringEntries = iconEntries.filter(
+                (entry): entry is string => typeof entry === 'string'
+              )
+
+              for (const entry of stringEntries) {
                 if (entry) {
                   const fileDependencies = new Set(compilation.fileDependencies)
 
                   if (fs.existsSync(entry)) {
-                    if (!fileDependencies.has(entry)) {
-                      fileDependencies.add(entry)
-                      compilation.fileDependencies.add(entry)
+                    if (!utils.shouldExclude(entry, this.excludeList)) {
+                      if (!fileDependencies.has(entry)) {
+                        fileDependencies.add(entry)
+                        compilation.fileDependencies.add(entry)
+                      }
                     }
                   }
                 }
