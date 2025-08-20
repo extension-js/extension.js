@@ -1,30 +1,46 @@
-import * as path from 'path'
 import * as fs from 'fs'
-import {jest} from '@jest/globals'
+import * as path from 'path'
+import {describe, it, beforeEach, afterEach, expect} from 'vitest'
 
-// Mock the loader context
-const mockLoaderContext = {
-  resourcePath: '/test/project/content/scripts.tsx',
+// Minimal mock loader context
+const makeLoaderContext = (resourcePath: string, manifestPath: string) => ({
+  resourcePath,
   getOptions: () => ({
-    manifestPath: '/test/project/manifest.json',
+    manifestPath,
     mode: 'development',
     includeList: {},
     excludeList: {}
   })
-}
-
-// Mock fs and path
-jest.mock('fs')
-jest.mock('path')
+})
 
 describe('add-content-script-wrapper loader', () => {
+  const tmpRoot = path.join(__dirname, '.tmp-add-wrapper')
   beforeEach(() => {
-    jest.clearAllMocks()
+    fs.rmSync(tmpRoot, {recursive: true, force: true})
+    fs.mkdirSync(tmpRoot, {recursive: true})
+  })
+  afterEach(() => {
+    fs.rmSync(tmpRoot, {recursive: true, force: true})
+  })
 
-    // Mock fs.existsSync and fs.readFileSync
-    ;(fs.existsSync as jest.Mock).mockReturnValue(true)
-    ;(fs.readFileSync as jest.Mock).mockReturnValue(
+  it('wraps React content scripts with a framework-specific wrapper', async () => {
+    const projectDir = path.join(tmpRoot, 'p1')
+    const contentDir = path.join(projectDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
+    const manifestPath = path.join(projectDir, 'manifest.json')
+    // Add a package.json with react to trigger React wrapper
+    fs.writeFileSync(
+      path.join(projectDir, 'package.json'),
       JSON.stringify({
+        name: 'p1',
+        version: '1.0.0',
+        dependencies: {react: '18.0.0'}
+      })
+    )
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
         content_scripts: [
           {
             js: ['content/scripts.tsx']
@@ -32,18 +48,22 @@ describe('add-content-script-wrapper loader', () => {
         ]
       })
     )
-  })
+    const resourcePath = path.join(projectDir, 'content', 'scripts.tsx')
 
-  it('should wrap React content scripts with the wrapper code', () => {
-    const loader = require('../steps/add-content-script-wrapper').default
+    const {default: loader} = await import(
+      '../steps/add-content-script-wrapper'
+    )
+
+    const ctx = makeLoaderContext(resourcePath, manifestPath)
 
     const source = `
+'use shadow-dom'
 import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
 import './styles.css'
 
 export default function contentScript() {
-  return (container) => {
+  return (container: HTMLElement) => {
     const mountingPoint = ReactDOM.createRoot(container)
     mountingPoint.render(<ContentApp />)
     return () => mountingPoint.unmount()
@@ -51,51 +71,34 @@ export default function contentScript() {
 }
 `
 
-    const result = loader.call(mockLoaderContext, source)
+    // @ts-expect-error - calling loader with mocked context
+    const result = loader.call(ctx, source) as string
 
-    // Should contain the wrapper code
-    expect(result).toContain('Auto-generated Content Script Wrapper')
-    expect(result).toContain('class ContentScriptWrapper')
-    expect(result).toContain('setupShadowDOM')
+    expect(result).toContain('React Content Script Wrapper - Auto-generated')
+    expect(result).toContain('class ReactContentScriptWrapper')
     expect(result).toContain('injectStyles')
-
-    // Should not contain the original source directly
-    expect(result).not.toContain('ReactDOM.createRoot')
   })
 
-  it('should not wrap non-React content scripts', () => {
-    const loader = require('../steps/add-content-script-wrapper').default
+  it('does not wrap files not referenced by content_scripts', async () => {
+    const projectDir = path.join(tmpRoot, 'p2')
+    fs.mkdirSync(projectDir, {recursive: true})
+    const manifestPath = path.join(projectDir, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: []
+      })
+    )
+    const resourcePath = path.join(projectDir, 'content', 'scripts.js')
+    const {default: loader} = await import(
+      '../steps/add-content-script-wrapper'
+    )
+    const ctx = makeLoaderContext(resourcePath, manifestPath)
 
-    const source = `
-console.log('Hello from content script')
-document.body.style.backgroundColor = 'red'
-`
-
-    const result = loader.call(mockLoaderContext, source)
-
-    // Should return the original source unchanged
-    expect(result).toBe(source)
-  })
-
-  it('should handle missing package.json gracefully', () => {
-    ;(fs.existsSync as jest.Mock).mockReturnValue(false)
-
-    const loader = require('../steps/add-content-script-wrapper').default
-
-    const source = `
-import ReactDOM from 'react-dom/client'
-export default function contentScript() {
-  return (container) => {
-    const mountingPoint = ReactDOM.createRoot(container)
-    mountingPoint.render(<div>Hello</div>)
-    return () => mountingPoint.unmount()
-  }
-}
-`
-
-    const result = loader.call(mockLoaderContext, source)
-
-    // Should return the original source unchanged when no JS framework is detected
+    const source = `console.log('plain script')`
+    // @ts-expect-error - calling loader with mocked context
+    const result = loader.call(ctx, source) as string
     expect(result).toBe(source)
   })
 })

@@ -70,7 +70,9 @@ function injectStyles() {
 
         if (url.includes(absoluteUrl)) {
           if (source.includes('__EXTENSION_SHADOW_ROOT__')) {
-            console.warn(messages.deprecatedShadowRoot())
+            if (process.env.EXTENSION_ENV === 'development') {
+              console.warn(messages.deprecatedShadowRoot())
+            }
             return `${patchCssTag}${source}`
           }
 
