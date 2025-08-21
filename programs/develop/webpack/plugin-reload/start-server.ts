@@ -4,7 +4,11 @@ import {WebSocketServer, WebSocket} from 'ws'
 import {Compiler} from '@rspack/core'
 import * as messages from './reload-lib/messages'
 import {type Manifest} from '../../webpack/webpack-types'
-import {isFirstRun} from '../webpack-lib/utils'
+import {
+  isFirstRun,
+  shouldShowFirstRun,
+  markFirstRunMessageShown
+} from '../webpack-lib/utils'
 import {DevOptions} from '../../module'
 import {CERTIFICATE_DESTINATION_PATH} from '../webpack-lib/constants'
 import {httpsServer} from './steps/create-web-socket-server/web-socket-server/servers'
@@ -174,9 +178,13 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
           messages.runningInDevelopment(manifest, options.browser, message)
         )
 
-        if (isFirstRun(compiler.options.output.path!, options.browser)) {
+        const projectPath = compiler.options.context || process.cwd()
+        const outPath = compiler.options.output.path!
+
+        if (shouldShowFirstRun(outPath, options.browser, projectPath)) {
           console.log(messages.emptyLine())
           console.log(messages.isFirstRun(options.browser))
+          markFirstRunMessageShown(projectPath, options.browser)
         }
 
         console.log(messages.emptyLine())
