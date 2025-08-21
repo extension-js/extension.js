@@ -25,6 +25,8 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
         cache: 'pnpm'
+        registry-url: 'https://registry.npmjs.org'
+        always-auth: true
 
     - name: Install dependencies
       shell: bash
