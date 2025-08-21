@@ -13,15 +13,27 @@ const RESOLVE = vi.hoisted(() => {
   const BUILD_DIR = pathMod.resolve(__dirname, '..', '..')
   return {
     webpackConfig: pathMod.resolve(BUILD_DIR, 'webpack', 'webpack-config'),
-    getProjectPath: pathMod.resolve(BUILD_DIR, 'develop-lib', 'get-project-path'),
-    installDeps: pathMod.resolve(BUILD_DIR, 'develop-lib', 'install-dependencies'),
+    getProjectPath: pathMod.resolve(
+      BUILD_DIR,
+      'develop-lib',
+      'get-project-path'
+    ),
+    installDeps: pathMod.resolve(
+      BUILD_DIR,
+      'develop-lib',
+      'install-dependencies'
+    ),
     validateUserDeps: pathMod.resolve(
       BUILD_DIR,
       'develop-lib',
       'validate-user-dependencies'
     ),
     generateZip: pathMod.resolve(BUILD_DIR, 'develop-lib', 'generate-zip'),
-    getExtensionConfig: pathMod.resolve(BUILD_DIR, 'develop-lib', 'get-extension-config')
+    getExtensionConfig: pathMod.resolve(
+      BUILD_DIR,
+      'develop-lib',
+      'get-extension-config'
+    )
   }
 })
 
