@@ -90,7 +90,11 @@ export async function devServer(
   // Use merge to combine the base config with the custom config.
   // This way if the user define properties we don't have a default for,
   // they will be included in the final config.
-  const compilerConfig = merge(finalConfig)
+  const compilerConfig = merge(finalConfig, {
+    infrastructureLogging: {
+      level: 'error'
+    }
+  } as any)
   const compiler = rspack(compilerConfig)
 
   // remove AI-focused NDJSON event stream hooks
@@ -129,7 +133,7 @@ export async function devServer(
           }
         },
     client: {
-      logging: process.env.EXTENSION_ENV === 'development' ? 'error' : 'none',
+      logging: 'none',
       progress: false,
       overlay: false
     },
