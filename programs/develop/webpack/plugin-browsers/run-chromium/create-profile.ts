@@ -13,10 +13,7 @@ import {
   createProfileDirectory
 } from '../browsers-lib/shared-utils'
 import * as os from 'os'
-import {
-  BrowserConfig,
-  DevOptions
-} from '../../../develop-lib/config-types'
+import {BrowserConfig, DevOptions} from '../../../develop-lib/config-types'
 
 interface CreateProfile {
   browser: DevOptions['browser']

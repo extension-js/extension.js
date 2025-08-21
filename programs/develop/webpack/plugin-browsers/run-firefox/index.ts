@@ -5,10 +5,7 @@ import {RemoteFirefox} from './remote-firefox'
 import {FirefoxBinaryDetector} from './firefox/binary-detector'
 import * as messages from '../browsers-lib/messages'
 import {type PluginInterface} from '../browsers-types'
-import {
-  BrowserConfig,
-  DevOptions
-} from '../../../develop-lib/config-types'
+import {BrowserConfig, DevOptions} from '../../../develop-lib/config-types'
 import {InstanceManager} from '../browsers-lib/instance-manager'
 import {DynamicExtensionManager} from '../browsers-lib/dynamic-extension-manager'
 import {

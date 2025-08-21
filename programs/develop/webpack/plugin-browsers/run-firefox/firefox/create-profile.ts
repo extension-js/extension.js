@@ -12,10 +12,7 @@ import {
   mergePreferences,
   applyPreferences
 } from '../../browsers-lib/shared-utils'
-import {
-  BrowserConfig,
-  DevOptions
-} from '../../../../develop-lib/config-types'
+import {BrowserConfig, DevOptions} from '../../../../develop-lib/config-types'
 import {loadBrowserConfig} from '../../../../develop-lib/get-extension-config'
 
 interface FirefoxProfileOptions {
