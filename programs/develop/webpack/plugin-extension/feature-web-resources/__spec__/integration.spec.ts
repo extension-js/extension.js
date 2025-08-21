@@ -17,6 +17,19 @@ const getFixturesPath = (demoDir: string) => {
   )
 }
 
+async function waitForFile(
+  filePath: string,
+  timeoutMs: number = 2000,
+  intervalMs: number = 50
+) {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (fs.existsSync(filePath)) return
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  throw new Error(`File not found in time: ${filePath}`)
+}
+
 describe('WebResourcesPlugin (integration)', () => {
   const fixturesPath = getFixturesPath('content')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
@@ -33,6 +46,7 @@ describe('WebResourcesPlugin (integration)', () => {
 
   it('adds imported content script assets to web_accessible_resources (mv3)', async () => {
     const manifestPath = path.join(outputPath, 'manifest.json')
+    await waitForFile(manifestPath)
     const manifestText = await fs.promises.readFile(manifestPath, 'utf8')
     const manifest = JSON.parse(manifestText) as chrome.runtime.ManifestV3
 
@@ -64,6 +78,7 @@ describe('WebResourcesPlugin (integration)', () => {
 
   it('merges with existing web_accessible_resources groups when matches set is equal (mv3)', async () => {
     const manifestPath = path.join(outputPath, 'manifest.json')
+    await waitForFile(manifestPath)
     const manifestText = await fs.promises.readFile(manifestPath, 'utf8')
     const manifest = JSON.parse(manifestText) as chrome.runtime.ManifestV3
 
