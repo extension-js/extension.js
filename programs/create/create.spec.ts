@@ -15,6 +15,19 @@ import {promisify} from 'util'
 
 const execFileAsync = promisify(execFile)
 
+async function waitForFile(
+  filePath: string,
+  timeoutMs: number = 5000,
+  intervalMs: number = 50
+) {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (fs.existsSync(filePath)) return
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  throw new Error(`File not found in time: ${filePath}`)
+}
+
 function fileExists(templateName: string, filePath?: string): boolean {
   const templatePath = path.resolve(
     __dirname,
@@ -149,6 +162,7 @@ describe('extension create', () => {
       'chrome',
       'manifest.json'
     )
+    await waitForFile(manifestPath)
     expect(fs.existsSync(manifestPath)).toBeTruthy()
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
     expect(manifest.name).toBeTruthy()
