@@ -150,6 +150,32 @@ Options accepted by each command. Values shown are typical types or enumerations
   - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: launch flags, excluded flags, preferences, binaries, and profile reuse.
 - When detected, a one‑time notice is printed to indicate config is active.
 
+### Environment variables in `extension.config.*`
+
+- `extension.config.*` runs in a Node context during command startup.
+  - Use `process.env.*` to read environment variables inside the config file.
+  - `import.meta.env.*` is available in your extension code at bundle time (via the Env plugin), not in the Node config.
+- During config loading, develop preloads environment files from the project directory into `process.env` using the following order (first match wins):
+  1. `.env.defaults` (always merged first when present)
+  2. `.env.development`
+  3. `.env.local`
+  4. `.env`
+- Only variables you read explicitly in the config are used there; client-side injection still requires the `EXTENSION_PUBLIC_*` prefix.
+- Example:
+
+```js
+// extension.config.js (Node-based)
+export default {
+  browser: {
+    chrome: {
+      startingUrl:
+        process.env.EXTENSION_PUBLIC_START_URL || 'https://example.com'
+    }
+  },
+  config: (config) => config
+}
+```
+
 ## Safety and ergonomics
 
 - Managed dependency guard: If your `extension.config.*` references dependencies that are managed by Extension.js itself, the command aborts with a detailed message to prevent version conflicts.
