@@ -18,8 +18,19 @@ const getFixturesPath = (demoDir: string) => {
 }
 
 const assertFileIsEmitted = async (filePath: string) => {
-  const fileIsEmitted = await fs.promises.access(filePath, fs.constants.F_OK)
-  return expect(fileIsEmitted).toBeUndefined()
+  const start = Date.now()
+  const timeoutMs = 10000
+  const intervalMs = 50
+  while (Date.now() - start < timeoutMs) {
+    try {
+      await fs.promises.access(filePath, fs.constants.F_OK)
+      return expect(undefined).toBeUndefined()
+    } catch {
+      // keep waiting
+    }
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  throw new Error(`File not found in time: ${filePath}`)
 }
 
 describe('ScriptsPlugin (default behavior)', () => {
