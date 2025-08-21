@@ -28,6 +28,19 @@ jobs:
       - name: Snapshot versions
         run: pnpm changeset version --snapshot next
 
+      - name: Configure npm auth (next)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+
+      - name: Debug npm auth (next)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "Registry: $(npm config get registry)"
+          npm whoami || true
+          test -n "$NODE_AUTH_TOKEN" || (echo "NODE_AUTH_TOKEN missing" && exit 1)
+
       - name: Publish Next (tag=next)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
