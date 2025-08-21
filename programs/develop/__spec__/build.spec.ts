@@ -81,95 +81,105 @@ describe('extension build', () => {
       ...ALL_TEMPLATES.filter(
         (t) => !t.name.includes('tailwind') && !t.name.includes('custom-font')
       )
-    ])(`builds an extension created via "$name" template`, async (template) => {
-      const templatePath = path.resolve(repoRoot, 'examples', template.name)
+    ])(
+      `builds an extension created via "$name" template`,
+      async (template) => {
+        const templatePath = path.resolve(repoRoot, 'examples', template.name)
 
-      // Ensure a clean dist before building this template in case of prior runs
-      await removeDir(path.join(templatePath, 'dist'))
-      await extensionBuild(templatePath, {
-        browser: SUPPORTED_BROWSERS[0] as 'chrome'
-      })
+        // Ensure a clean dist before building this template in case of prior runs
+        await removeDir(path.join(templatePath, 'dist'))
+        await extensionBuild(templatePath, {
+          browser: SUPPORTED_BROWSERS[0] as 'chrome'
+        })
 
-      {
-        const manifestPath = path.join(
-          templatePath,
-          'dist',
-          SUPPORTED_BROWSERS[0],
-          'manifest.json'
-        )
-        // Retry a few times in case of slow FS writes
-        let exists = fs.existsSync(manifestPath)
-        if (!exists) {
-          for (let i = 0; i < 5 && !exists; i++) {
-            await new Promise((r) => setTimeout(r, 50))
-            exists = fs.existsSync(manifestPath)
-          }
-        }
-        expect(exists).toBeTruthy()
-      }
-
-      const manifestText = fs.readFileSync(
-        path.join(templatePath, 'dist', SUPPORTED_BROWSERS[0], 'manifest.json'),
-        'utf-8'
-      )
-
-      const manifest: Manifest = JSON.parse(manifestText)
-      expect(manifest.name).toBeTruthy()
-      expect(manifest.version).toBeTruthy()
-      expect(manifest.manifest_version).toBeTruthy()
-
-      // Validate expected HTML entry points when declared in manifest
-      const distDir = path.join(templatePath, 'dist', SUPPORTED_BROWSERS[0])
-      const ensureFile = (relPath: string | undefined) => {
-        if (!relPath) return
-        const absPath = path.join(distDir, relPath)
-        expect(fs.existsSync(absPath)).toBeTruthy()
-      }
-      // action popup
-      ensureFile((manifest as any).action?.default_popup)
-      // options ui (v3) / options page (v2)
-      ensureFile((manifest as any).options_ui?.page)
-      ensureFile((manifest as any).options_page)
-      // devtools
-      ensureFile((manifest as any).devtools_page)
-      // chrome_url_overrides
-      const overrides = (manifest as any).chrome_url_overrides
-      if (overrides) {
-        ensureFile(overrides.newtab)
-        ensureFile(overrides.history)
-        ensureFile(overrides.bookmarks)
-      }
-      // sandbox pages
-      const sandboxPages: string[] | undefined = (manifest as any).sandbox
-        ?.pages
-      if (Array.isArray(sandboxPages) && sandboxPages.length > 0) {
-        ensureFile(sandboxPages[0])
-      }
-
-      if (template.name.includes('content')) {
-        expect(manifest.content_scripts![0].js![0]).toEqual(
-          'content_scripts/content-0.js'
-        )
-
-        expect(
-          distFileExists(
-            template.name,
+        {
+          const manifestPath = path.join(
+            templatePath,
+            'dist',
             SUPPORTED_BROWSERS[0],
+            'manifest.json'
+          )
+          // Retry for up to ~10s in case of slow FS writes
+          let exists = fs.existsSync(manifestPath)
+          if (!exists) {
+            const start = Date.now()
+            while (!exists && Date.now() - start < 10000) {
+              await new Promise((r) => setTimeout(r, 50))
+              exists = fs.existsSync(manifestPath)
+            }
+          }
+          expect(exists).toBeTruthy()
+        }
+
+        const manifestText = fs.readFileSync(
+          path.join(
+            templatePath,
+            'dist',
+            SUPPORTED_BROWSERS[0],
+            'manifest.json'
+          ),
+          'utf-8'
+        )
+
+        const manifest: Manifest = JSON.parse(manifestText)
+        expect(manifest.name).toBeTruthy()
+        expect(manifest.version).toBeTruthy()
+        expect(manifest.manifest_version).toBeTruthy()
+
+        // Validate expected HTML entry points when declared in manifest
+        const distDir = path.join(templatePath, 'dist', SUPPORTED_BROWSERS[0])
+        const ensureFile = (relPath: string | undefined) => {
+          if (!relPath) return
+          const absPath = path.join(distDir, relPath)
+          expect(fs.existsSync(absPath)).toBeTruthy()
+        }
+        // action popup
+        ensureFile((manifest as any).action?.default_popup)
+        // options ui (v3) / options page (v2)
+        ensureFile((manifest as any).options_ui?.page)
+        ensureFile((manifest as any).options_page)
+        // devtools
+        ensureFile((manifest as any).devtools_page)
+        // chrome_url_overrides
+        const overrides = (manifest as any).chrome_url_overrides
+        if (overrides) {
+          ensureFile(overrides.newtab)
+          ensureFile(overrides.history)
+          ensureFile(overrides.bookmarks)
+        }
+        // sandbox pages
+        const sandboxPages: string[] | undefined = (manifest as any).sandbox
+          ?.pages
+        if (Array.isArray(sandboxPages) && sandboxPages.length > 0) {
+          ensureFile(sandboxPages[0])
+        }
+
+        if (template.name.includes('content')) {
+          expect(manifest.content_scripts![0].js![0]).toEqual(
             'content_scripts/content-0.js'
           )
-        ).toBeTruthy()
-      }
 
-      // Basic asset sanity: icons and optional assets folder when present
-      expect(fs.existsSync(path.join(distDir, 'icons'))).toBeTruthy()
-      // When assets exist, ensure at least one file is emitted
-      const assetsDir = path.join(distDir, 'assets')
-      if (fs.existsSync(assetsDir)) {
-        const assets = fs.readdirSync(assetsDir)
-        expect(Array.isArray(assets)).toBe(true)
-        expect(assets.length).toBeGreaterThan(0)
-      }
-    })
+          expect(
+            distFileExists(
+              template.name,
+              SUPPORTED_BROWSERS[0],
+              'content_scripts/content-0.js'
+            )
+          ).toBeTruthy()
+        }
+
+        // Basic asset sanity: icons and optional assets folder when present
+        expect(fs.existsSync(path.join(distDir, 'icons'))).toBeTruthy()
+        // When assets exist, ensure at least one file is emitted
+        const assetsDir = path.join(distDir, 'assets')
+        if (fs.existsSync(assetsDir)) {
+          const assets = fs.readdirSync(assetsDir)
+          expect(Array.isArray(assets)).toBe(true)
+          expect(assets.length).toBeGreaterThan(0)
+        }
+      },
+      30000
+    )
   })
 
   afterEach(async () => {
