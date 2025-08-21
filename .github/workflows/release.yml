@@ -40,6 +40,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
 
+      - name: Debug npm auth (stable)
+        if: steps.changesets.outputs.published != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "Registry: $(npm config get registry)"
+          npm whoami || true
+          test -n "$NODE_AUTH_TOKEN" || (echo "NODE_AUTH_TOKEN missing" && exit 1)
+
       # Note: We now append aggregated changelog to the GitHub Release body instead of committing root CHANGELOG.
 
       - name: Render aggregated changelog
