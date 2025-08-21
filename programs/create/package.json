@@ -40,6 +40,28 @@
     "test:create": "vitest run",
     "test:coverage": "vitest run --coverage"
   },
+  "keywords": [
+    "webextension",
+    "browser-extension",
+    "manifest-v3",
+    "mv3",
+    "cross-browser",
+    "scaffold",
+    "generator",
+    "project-generator",
+    "create-extension",
+    "create-browser-extension",
+    "starter-template",
+    "template",
+    "templates",
+    "starter-kit",
+    "boilerplate",
+    "init",
+    "bootstrap",
+    "chrome-extension",
+    "firefox-extension",
+    "edge-extension"
+  ],
   "dependencies": {
     "cross-spawn": "^7.0.6",
     "go-git-it": "^5.0.0",
