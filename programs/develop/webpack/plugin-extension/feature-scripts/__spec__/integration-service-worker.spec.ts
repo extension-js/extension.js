@@ -6,14 +6,29 @@ import {extensionBuild} from '../../../../../../programs/develop/dist/module.js'
 const fx = (demo: string) =>
   path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'examples', demo)
 
+async function waitForFile(
+  filePath: string,
+  timeoutMs: number = 2000,
+  intervalMs: number = 50
+) {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (fs.existsSync(filePath)) return
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  throw new Error(`File not found in time: ${filePath}`)
+}
+
 describe('ScriptsPlugin service worker modes', () => {
   it('builds classic background.service_worker (chunkLoading import-scripts behavior)', async () => {
     const fixturesPath = fx('content')
     const out = path.resolve(fixturesPath, 'dist', 'chrome')
     await extensionBuild(fixturesPath, {browser: 'chrome'})
 
+    const manifestPath = path.join(out, 'manifest.json')
+    await waitForFile(manifestPath)
     const manifest = JSON.parse(
-      await fs.promises.readFile(path.join(out, 'manifest.json'), 'utf8')
+      await fs.promises.readFile(manifestPath, 'utf8')
     ) as chrome.runtime.ManifestV3
 
     if (manifest.background?.service_worker) {
@@ -36,8 +51,10 @@ describe('ScriptsPlugin service worker modes', () => {
     const out = path.resolve(fixturesPath, 'dist', 'chrome')
     await extensionBuild(fixturesPath, {browser: 'chrome'})
 
+    const manifestPath = path.join(out, 'manifest.json')
+    await waitForFile(manifestPath)
     const manifest = JSON.parse(
-      await fs.promises.readFile(path.join(out, 'manifest.json'), 'utf8')
+      await fs.promises.readFile(manifestPath, 'utf8')
     ) as chrome.runtime.ManifestV3
 
     if (manifest.background?.service_worker) {
