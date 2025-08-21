@@ -13,6 +13,19 @@ import {describe, it, expect} from 'vitest'
 
 const execFileAsync = promisify(execFile)
 
+async function waitForFile(
+  filePath: string,
+  timeoutMs: number = 5000,
+  intervalMs: number = 50
+) {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    if (fs.existsSync(filePath)) return
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+  throw new Error(`File not found in time: ${filePath}`)
+}
+
 export async function extensionProgram(command: string = '') {
   const cliDirectory = path.join(__dirname, '..', 'dist', 'cli.js')
   const args = command ? command.split(' ') : []
@@ -75,6 +88,7 @@ describe('CLI Commands', () => {
     )
     expect(stdout).toBeTypeOf('string')
     const manifest = path.join(exampleDir, 'dist', 'chrome', 'manifest.json')
+    await waitForFile(manifest)
     expect(fs.existsSync(manifest)).toBeTruthy()
   }, 60000)
 
@@ -91,8 +105,8 @@ describe('CLI Commands', () => {
       `build ${exampleDir} --browser chrome,edge`
     )
     expect(stdout).toBeTypeOf('string')
-    expect(
-      fs.existsSync(path.join(exampleDir, 'dist', 'chrome', 'manifest.json'))
-    ).toBeTruthy()
+    const manifest = path.join(exampleDir, 'dist', 'chrome', 'manifest.json')
+    await waitForFile(manifest)
+    expect(fs.existsSync(manifest)).toBeTruthy()
   }, 60000)
 })
