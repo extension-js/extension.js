@@ -108,15 +108,6 @@ Done. You are all set!
 | :-----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------: |
 |                                          Chrome browser<br>✅                                           |                                         Edge browser<br>✅                                          |                                           Firefox browser<br>✅                                           |                                          Opera browser<br>☑️                                          |                                          Safari browser<br>❌                                           |                                            Chromium-based<br>☑️                                             |                                             Gecko-based<br>☑️                                             |                                          Firefox (Android)<br>❌                                          |                                               Safari (iOS)<br>❌                                                |
 
-### CSS, preprocessors, and modules
-
-Extension.js auto-wires styles via its CSS plugin:
-
-- CSS in HTML entries and content scripts
-- Optional SASS/SCSS and LESS pipelines (auto-enabled when deps exist)
-- PostCSS/Tailwind when a config is present
-- CSS Modules for `.module.(scss|sass|less)` in HTML entries
-
 ### Browser flags and custom binaries
 
 Use these flags with `extension dev`, `extension start`, or `extension preview`:
