@@ -3,6 +3,7 @@ import {DevOptions} from '../../../../develop-lib/config-types'
 import * as messages from '../../browsers-lib/messages'
 import {MessagingClient} from './messaging-client'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
+import {InstanceManager} from '../../browsers-lib/instance-manager'
 
 const MAX_CONNECT_RETRIES = 60
 const CONNECT_RETRY_INTERVAL_MS = 500
@@ -38,18 +39,26 @@ export class SetupFirefoxInspectionStep {
     this.devOptions = devOptions
   }
 
-  private getRdpPort() {
-    return deriveDebugPortWithInstance(
-      this.devOptions.port,
-      this.devOptions.instanceId
-    )
+  private async getRdpPort() {
+    const instanceId = this.devOptions.instanceId
+    if (instanceId) {
+      try {
+        const instanceManager = new InstanceManager(process.cwd())
+        const instance = await instanceManager.getInstance(instanceId)
+
+        if (instance?.debugPort && Number.isFinite(instance.debugPort)) {
+          return instance.debugPort
+        }
+      } catch {}
+    }
+    return deriveDebugPortWithInstance(this.devOptions.port, instanceId)
   }
 
   private async initialize() {
     if (this.initialized) return
 
     const client = new MessagingClient()
-    const port = this.getRdpPort()
+    const port = await this.getRdpPort()
 
     try {
       console.log(messages.sourceInspectorWaitingForFirefox())

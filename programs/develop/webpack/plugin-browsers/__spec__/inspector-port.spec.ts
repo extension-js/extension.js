@@ -78,4 +78,19 @@ describe('Inspector CDP port derivation', () => {
     expect(lastChromeInspector.opts.port).toBe(9222)
     expect(lastChromeInspector.opts.instanceId).toBe('abcd1234ef')
   })
+
+  it('would use recorded debugPort when present in instance metadata (smoke)', async () => {
+    // Simulate that instance manager has stored a final port (like fallback chosen)
+    // Here we only verify that inspector receives instanceId so it can retrieve it
+    const plugin = new BrowsersPlugin({
+      extension: ['/path'],
+      browser: 'chrome',
+      port: 9222,
+      instanceId: 'aaaa1111',
+      source: 'https://example.com'
+    } as any)
+    plugin.apply(createCompiler('development'))
+    expect(lastChromeInspector).toBeTruthy()
+    expect(lastChromeInspector.opts.instanceId).toBe('aaaa1111')
+  })
 })

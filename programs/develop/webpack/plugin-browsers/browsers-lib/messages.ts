@@ -845,3 +845,21 @@ export function runningInDevelopment(
 export function emptyLine() {
   return ''
 }
+
+export function devChromiumDebugPort(
+  finalPort: number,
+  requestedPort: number
+): string {
+  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Chromium debug port: ${colors.gray(finalPort.toString())} (requested ${colors.gray(requestedPort.toString())})`
+}
+
+export function devFirefoxDebugPort(
+  finalPort: number,
+  requestedPort: number
+): string {
+  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Firefox debug port: ${colors.gray(finalPort.toString())} (requested ${colors.gray(requestedPort.toString())})`
+}
+
+export function devFirefoxProfilePath(profilePath: string): string {
+  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Firefox profile: ${colors.underline(profilePath)}`
+}

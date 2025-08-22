@@ -2,10 +2,8 @@ import {type Compiler} from '@rspack/core'
 import {CDPClient, checkChromeRemoteDebugging} from './cdp-client'
 import {type DevOptions} from '../../../../develop-lib/config-types'
 import * as messages from '../../browsers-lib/messages'
-import {
-  calculateDebugPort,
-  deriveDebugPortWithInstance
-} from '../../browsers-lib/shared-utils'
+import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
+import {InstanceManager} from '../../browsers-lib/instance-manager'
 
 export class SetupChromeInspectionStep {
   private devOptions: DevOptions & {startingUrl?: string}
@@ -18,18 +16,26 @@ export class SetupChromeInspectionStep {
     this.devOptions = devOptions
   }
 
-  private getCdpPort(): number {
-    // Align with launcher: include per-instance offset for the intended CDP port
-    // Note: runtime fallback to a nearby free port (if any) is handled at launch time;
-    // this method computes the intended port so inspector polling matches defaults.
-    return deriveDebugPortWithInstance(
-      this.devOptions.port as any,
-      (this.devOptions as any).instanceId
-    )
+  private async getCdpPort(): Promise<number> {
+    const instanceId = (this.devOptions as any).instanceId
+
+    if (instanceId) {
+      try {
+        const instanceManager = new InstanceManager(process.cwd())
+        const instance = await instanceManager.getInstance(instanceId)
+
+        if (instance?.debugPort && Number.isFinite(instance.debugPort)) {
+          return instance.debugPort
+        }
+      } catch {}
+    }
+    // Fallback to derived port if registry not available
+    return deriveDebugPortWithInstance(this.devOptions.port as any, instanceId)
   }
 
-  async initialize(port: number = this.getCdpPort()): Promise<void> {
+  async initialize(port?: number): Promise<void> {
     try {
+      if (!port) port = await this.getCdpPort()
       // Only show waiting messages in development
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.sourceInspectorWaitingForChrome())
