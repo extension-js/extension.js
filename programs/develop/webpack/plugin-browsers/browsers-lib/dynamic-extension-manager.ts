@@ -1,4 +1,5 @@
 import * as fs from 'fs/promises'
+import * as fsSync from 'fs'
 import * as path from 'path'
 import * as crypto from 'crypto'
 import {InstanceInfo} from './instance-manager'
@@ -26,10 +27,58 @@ export class DynamicExtensionManager {
   private readonly userExtensionsPath: string
 
   constructor(projectPath?: string) {
-    this.baseExtensionPath = path.join(
-      __dirname,
-      '../webpack/plugin-reload/extensions'
+    // Resolve the base path for bundled manager extension assets.
+    // When bundled (dist/module.js), __dirname points to `.../dist`.
+    // In that case assets live under `dist/webpack/plugin-reload/extensions`.
+    // In source/dev, assets live under `webpack/plugin-reload/extensions`.
+    // Also support a fallback `dist/extensions` if present.
+    const candidateBasePaths: string[] = []
+
+    // 1) Installed package layout: resolve package root reliably
+    try {
+      const pkgJsonPath = require.resolve('extension-develop/package.json')
+      const pkgRoot = path.dirname(pkgJsonPath)
+      candidateBasePaths.push(path.join(pkgRoot, 'dist', 'extensions'))
+    } catch {}
+
+    // 2) Repo build layout: when executing within this package's dist/
+    candidateBasePaths.push(path.join(__dirname, 'extensions'))
+
+    // 3) If __dirname is repo root, prefer root/dist/extensions
+    candidateBasePaths.push(path.join(__dirname, 'dist', 'extensions'))
+
+    // 4) Monorepo root executing compiled bundle: programs/develop/dist/extensions
+    candidateBasePaths.push(
+      path.join(__dirname, 'programs', 'develop', 'dist', 'extensions')
     )
+
+    // 5) Installed indirect: current project node_modules
+    candidateBasePaths.push(
+      path.join(
+        process.cwd(),
+        'node_modules',
+        'extension-develop',
+        'dist',
+        'extensions'
+      )
+    )
+
+    // 6) Source layout during tests/ts-node: programs/develop/webpack/plugin-reload/extensions
+    candidateBasePaths.push(
+      path.join(__dirname, '..', '..', 'plugin-reload', 'extensions')
+    )
+
+    let resolvedBasePath = candidateBasePaths[0]
+    for (const candidate of candidateBasePaths) {
+      try {
+        if (fsSync.existsSync(candidate)) {
+          resolvedBasePath = candidate
+          break
+        }
+      } catch {}
+    }
+
+    this.baseExtensionPath = resolvedBasePath
     this.projectPath = projectPath || process.cwd()
     this.userExtensionsPath = path.join(
       this.projectPath,

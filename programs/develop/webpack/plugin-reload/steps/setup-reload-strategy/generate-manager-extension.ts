@@ -38,11 +38,59 @@ export class GenerateManagerExtension {
   }
 
   private copyExtensionFiles(compiler: Compiler): void {
-    const extensionSourcePath = path.join(
-      __dirname,
-      this.EXTENSION_SOURCE_DIR,
-      `${this.browser}-manager-extension`
+    // Resolve source assets location robustly across source and dist layouts
+    const extensionSourceCandidates: string[] = []
+
+    // 1) Installed package layout
+    try {
+      const pkgJsonPath = require.resolve('extension-develop/package.json')
+      const pkgRoot = path.dirname(pkgJsonPath)
+      extensionSourceCandidates.push(
+        path.join(
+          pkgRoot,
+          'dist',
+          this.EXTENSIONS_DIR,
+          `${this.browser}-manager-extension`
+        )
+      )
+    } catch {}
+
+    // 2) Repo build layout (this package's dist root)
+    extensionSourceCandidates.push(
+      path.join(
+        path.dirname(path.dirname(__dirname)),
+        this.EXTENSIONS_DIR,
+        `${this.browser}-manager-extension`
+      )
     )
+
+    // 3) Monorepo root layout: programs/develop/dist/extensions
+    extensionSourceCandidates.push(
+      path.join(
+        path.dirname(path.dirname(path.dirname(path.dirname(__dirname)))),
+        'dist',
+        this.EXTENSIONS_DIR,
+        `${this.browser}-manager-extension`
+      )
+    )
+
+    // 4) Source layout
+    extensionSourceCandidates.push(
+      path.join(
+        path.dirname(path.dirname(path.dirname(__dirname))),
+        this.EXTENSIONS_DIR,
+        `${this.browser}-manager-extension`
+      )
+    )
+
+    let extensionSourcePath = extensionSourceCandidates[0]
+
+    for (const candidate of extensionSourceCandidates) {
+      if (fs.existsSync(candidate)) {
+        extensionSourcePath = candidate
+        break
+      }
+    }
 
     if (!fs.existsSync(extensionSourcePath)) {
       throw new Error(
