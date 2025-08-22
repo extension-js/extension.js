@@ -180,6 +180,17 @@ export class RunChromiumPlugin {
             : flag
         )
       }
+      // Persist final chosen debug port to instance metadata
+      try {
+        if (this.instanceId) {
+          await instanceManager.updateInstance(this.instanceId, {
+            debugPort: freePort
+          })
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.log(messages.devChromiumDebugPort(freePort, desiredPort))
+          }
+        }
+      } catch {}
     }
 
     if (this.dryRun) {

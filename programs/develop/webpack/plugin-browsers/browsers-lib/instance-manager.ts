@@ -15,6 +15,10 @@ export interface InstanceInfo {
   extensionId?: string
   managerExtensionId: string
   profilePath: string
+  // Final debugging port used by the browser (CDP/RDP)
+  debugPort?: number
+  // Effective profile path used by the browser instance
+  effectiveProfilePath?: string
   projectPath: string
   startTime: number
   status: 'running' | 'terminated' | 'error'
