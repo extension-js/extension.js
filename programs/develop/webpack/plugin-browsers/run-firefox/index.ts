@@ -270,6 +270,22 @@ export class RunFirefoxPlugin {
         process.exit(1)
       }
 
+      // Persist final chosen debug port and effective profile to instance metadata
+      try {
+        if (this.instanceId && profileMatch) {
+          await instanceManager.updateInstance(this.instanceId, {
+            debugPort,
+            effectiveProfilePath: profileMatch[1]
+          })
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.log(
+              messages.devFirefoxDebugPort(debugPort, desiredDebugPort)
+            )
+            console.log(messages.devFirefoxProfilePath(profileMatch[1]))
+          }
+        }
+      } catch {}
+
       // Source inspection is now handled via webpack plugin step (SetupFirefoxInspectionStep)
     } else {
       // No explicit profile specified: launch with default user profile
