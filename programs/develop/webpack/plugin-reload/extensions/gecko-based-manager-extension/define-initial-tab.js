@@ -51,8 +51,12 @@ export async function handleFirstRun() {
       return
     }
 
-    // Open the welcome page
-    await browser.tabs.create({url: './pages/welcome.html'})
+    // Open the welcome page only if not already open
+    const welcomeUrl = browser.runtime.getURL('./pages/welcome.html')
+    const existingWelcome = await browser.tabs.query({url: welcomeUrl})
+    if (!existingWelcome || existingWelcome.length === 0) {
+      await browser.tabs.create({url: './pages/welcome.html'})
+    }
 
     // Ensure the welcome page shows only once per extension installation
     await browser.storage.local.set({[devExtension.id]: {didRun: true}})
