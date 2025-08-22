@@ -60,7 +60,17 @@ export async function handleFirstRun() {
       return
     }
 
-    chrome.tabs.create({url: 'pages/welcome.html'})
+    // Guard against opening multiple welcome pages
+    chrome.tabs.query(
+      {url: chrome.runtime.getURL('pages/welcome.html')},
+      (tabs) => {
+        if (Array.isArray(tabs) && tabs.length > 0) {
+          // Already open; do not create another
+          return
+        }
+        chrome.tabs.create({url: 'pages/welcome.html'})
+      }
+    )
     // Ensure the welcome page shows only once per extension installation
     chrome.storage.local.set({[devExtension.id]: {didRun: true}})
   })
