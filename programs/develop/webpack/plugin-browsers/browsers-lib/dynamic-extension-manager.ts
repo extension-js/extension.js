@@ -34,11 +34,11 @@ export class DynamicExtensionManager {
     // Also support a fallback `dist/extensions` if present.
     const candidateBasePaths: string[] = []
 
-    // 1) Installed package layout: resolve package root reliably
+    // 1) Installed package layout: resolve entry point reliably
     try {
-      const pkgJsonPath = require.resolve('extension-develop/package.json')
-      const pkgRoot = path.dirname(pkgJsonPath)
-      candidateBasePaths.push(path.join(pkgRoot, 'dist', 'extensions'))
+      const entryPath = require.resolve('extension-develop')
+      const distDir = path.dirname(entryPath)
+      candidateBasePaths.push(path.join(distDir, 'extensions'))
     } catch {}
 
     // 2) Repo build layout: when executing within this package's dist/
