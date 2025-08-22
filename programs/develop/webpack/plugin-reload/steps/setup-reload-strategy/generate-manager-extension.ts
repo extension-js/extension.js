@@ -41,14 +41,13 @@ export class GenerateManagerExtension {
     // Resolve source assets location robustly across source and dist layouts
     const extensionSourceCandidates: string[] = []
 
-    // 1) Installed package layout
+    // 1) Installed package layout via entry point
     try {
-      const pkgJsonPath = require.resolve('extension-develop/package.json')
-      const pkgRoot = path.dirname(pkgJsonPath)
+      const entryPath = require.resolve('extension-develop')
+      const distDir = path.dirname(entryPath)
       extensionSourceCandidates.push(
         path.join(
-          pkgRoot,
-          'dist',
+          distDir,
           this.EXTENSIONS_DIR,
           `${this.browser}-manager-extension`
         )
