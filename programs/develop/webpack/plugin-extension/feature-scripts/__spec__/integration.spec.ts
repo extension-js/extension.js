@@ -20,6 +20,19 @@ describe('ScriptsPlugin (integration)', () => {
   const fixturesPath = getFixturesPath('content')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
+  async function waitForFile(
+    filePath: string,
+    timeoutMs: number = 10000,
+    intervalMs: number = 50
+  ) {
+    const start = Date.now()
+    while (Date.now() - start < timeoutMs) {
+      if (fs.existsSync(filePath)) return
+      await new Promise((r) => setTimeout(r, intervalMs))
+    }
+    throw new Error(`File not found in time: ${filePath}`)
+  }
+
   beforeAll(async () => {
     await extensionBuild(fixturesPath, {browser: 'chrome'})
   })
@@ -32,6 +45,7 @@ describe('ScriptsPlugin (integration)', () => {
 
   it('emits content script and background entries and wires CSS/assets', async () => {
     const manifestPath = path.join(outputPath, 'manifest.json')
+    await waitForFile(manifestPath)
     const manifestText = await fs.promises.readFile(manifestPath, 'utf8')
     const manifest = JSON.parse(manifestText) as chrome.runtime.ManifestV3
 
