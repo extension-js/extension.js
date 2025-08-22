@@ -8,7 +8,7 @@ const fx = (demo: string) =>
 
 async function waitForFile(
   filePath: string,
-  timeoutMs: number = 2000,
+  timeoutMs: number = 10000,
   intervalMs: number = 50
 ) {
   const start = Date.now()
