@@ -36,5 +36,3 @@ describe('manager extension assets availability', () => {
     }
   })
 })
-
-

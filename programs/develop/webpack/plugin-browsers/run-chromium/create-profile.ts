@@ -10,7 +10,8 @@ import {addProgressBar} from '../browsers-lib/add-progress-bar'
 import {
   validateProfilePath,
   getDefaultProfilePath,
-  createProfileDirectory
+  createProfileDirectory,
+  isChromiumProfileLocked
 } from '../browsers-lib/shared-utils'
 import * as os from 'os'
 import {BrowserConfig, DevOptions} from '../../../develop-lib/config-types'
@@ -82,25 +83,33 @@ export function createProfile(
   // Create and validate default profile path
   validateProfilePath(browser, instanceAwareProfilePath)
 
-  // If profile directory already exists, let the browser use it as-is to avoid
-  // racing/locking issues on rename. This includes the case where Preferences
-  // don't exist yet; Chromium will initialize them on first run.
-  try {
-    if (fs.existsSync(instanceAwareProfilePath)) {
-      return instanceAwareProfilePath
-    }
-  } catch {}
-
-  // If default profile exists and has Default/Preferences, use it
+  // Resolve Preferences target path for subsequent checks/writes
   const preferencesPath = path.join(
     instanceAwareProfilePath,
     'Default',
     'Preferences'
   )
 
-  if (fs.existsSync(preferencesPath)) {
-    return instanceAwareProfilePath
-  }
+  // If the profile directory already exists, seed Preferences only if missing
+  // and the profile is not locked. Never overwrite an existing Preferences file.
+  try {
+    if (fs.existsSync(instanceAwareProfilePath)) {
+      if (!fs.existsSync(preferencesPath)) {
+        if (!isChromiumProfileLocked(instanceAwareProfilePath)) {
+          const basePrefs =
+            browser === 'chrome'
+              ? chromeMasterPreferences
+              : edgeMasterPreferences
+          const mergedPrefs = {...basePrefs, ...configPreferences}
+          try {
+            fs.mkdirSync(path.dirname(preferencesPath), {recursive: true})
+          } catch {}
+          fs.writeFileSync(preferencesPath, JSON.stringify(mergedPrefs), 'utf8')
+        }
+      }
+      return instanceAwareProfilePath
+    }
+  } catch {}
 
   // Create new profile with preferences
   const preferences =
