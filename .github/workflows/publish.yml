@@ -44,7 +44,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop \
-            publish --access public --provenance
+            publish --access public --provenance --no-git-checks
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
