@@ -95,10 +95,22 @@ jobs:
             const latest = await github.rest.repos.getLatestRelease({ owner, repo });
             const current = latest.data.body || '';
             const agg = process.env.AGG_BODY || '';
+            const toName = (tag) => {
+              const version = (tag || '').replace(/^v/, '');
+              const d = new Date();
+              const month = d.toLocaleString('en-US', { month: 'long' });
+              const day = String(d.getDate()).padStart(2, '0');
+              const year = d.getFullYear();
+              return `${version} (${month} ${day}, ${year})`;
+            };
+            const releaseName = toName(latest.data.tag_name || latest.data.name || '');
             await github.rest.repos.updateRelease({
               owner, repo,
               release_id: latest.data.id,
-              body: current ? `${current}\n\n${agg}` : agg
+              body: current ? `${current}\n\n${agg}` : agg,
+              name: releaseName,
+              draft: false,
+              prerelease: false
             });
 
       

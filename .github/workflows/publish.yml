@@ -50,6 +50,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          draft: false
+          prerelease: false
+          tag_name: ${{ github.ref_name }}
 
       - name: Render aggregated changelog
         id: agg
@@ -70,6 +73,15 @@ jobs:
             const { owner, repo } = context.repo;
             const tag = process.env.TAG;
             const agg = process.env.AGG_BODY || '';
+            const toName = (tag) => {
+              const version = (tag || '').replace(/^v/, '');
+              const d = new Date();
+              const month = d.toLocaleString('en-US', { month: 'long' });
+              const day = String(d.getDate()).padStart(2, '0');
+              const year = d.getFullYear();
+              return `${version} (${month} ${day}, ${year})`;
+            };
+            const releaseName = toName(tag);
             let rel;
             try {
               rel = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
@@ -80,7 +92,7 @@ jobs:
                   owner,
                   repo,
                   tag_name: tag,
-                  name: tag,
+                  name: releaseName,
                   body: agg,
                   draft: false,
                   prerelease: false,
@@ -95,7 +107,10 @@ jobs:
               owner,
               repo,
               release_id: rel.data.id,
-              body: current ? `${current}\n\n${agg}` : agg
+              body: current ? `${current}\n\n${agg}` : agg,
+              name: releaseName,
+              draft: false,
+              prerelease: false
             });
 
       - name: Collect versions
