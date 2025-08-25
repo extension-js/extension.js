@@ -17,8 +17,25 @@ import {
 const repoRoot = path.resolve(__dirname, '..', '..', '..')
 
 async function removeDir(dirPath: string) {
-  if (fs.existsSync(dirPath)) {
-    await fs.promises.rm(dirPath, {recursive: true})
+  if (!fs.existsSync(dirPath)) return
+  const maxAttempts = 10
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      await fs.promises.rm(dirPath, {recursive: true, force: true})
+      return
+    } catch (err: any) {
+      const code = err?.code
+      if (
+        code === 'ENOTEMPTY' ||
+        code === 'EBUSY' ||
+        code === 'EPERM' ||
+        code === 'EACCES'
+      ) {
+        await new Promise((r) => setTimeout(r, 25 * (attempt + 1)))
+        continue
+      }
+      throw err
+    }
   }
 }
 
