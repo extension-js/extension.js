@@ -36,7 +36,7 @@ jobs:
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop publish --access public --provenance
+          publish: pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop publish --access public --provenance --no-git-checks
           commit: "chore: version packages"
           title: "chore: version packages"
           createGithubReleases: true
