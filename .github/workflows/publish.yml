@@ -69,11 +69,31 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const tag = process.env.TAG;
-            const rel = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
-            const current = rel.data.body || '';
             const agg = process.env.AGG_BODY || '';
+            let rel;
+            try {
+              rel = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+            } catch (err) {
+              if (err && err.status === 404) {
+                // Create a release if it doesn't exist yet (e.g., tag just pushed)
+                rel = await github.rest.repos.createRelease({
+                  owner,
+                  repo,
+                  tag_name: tag,
+                  name: tag,
+                  body: agg,
+                  draft: false,
+                  prerelease: false,
+                  generate_release_notes: true
+                });
+                return;
+              }
+              throw err;
+            }
+            const current = rel.data.body || '';
             await github.rest.repos.updateRelease({
-              owner, repo,
+              owner,
+              repo,
               release_id: rel.data.id,
               body: current ? `${current}\n\n${agg}` : agg
             });
