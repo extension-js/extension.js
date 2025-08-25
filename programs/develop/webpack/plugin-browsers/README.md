@@ -89,6 +89,27 @@ export class BrowsersPlugin {
 - When profile reuse is enabled and safe, multiple runs will share a single profile; if a lock or another run is detected, a per‑instance profile is used automatically.
 - `--profile false` is intended for scenarios where you want the browser to use its default user profile and session data.
 
+### Multi-instance behavior
+
+- Each run uses a unique instance with its own dev server port, reload WebSocket port, and (when source inspection is enabled) a unique CDP/RDP port.
+- Managed profiles live under `dist/extension-js/profiles/<browser>-profile`.
+  - When reuse is safe (no concurrent run, no profile lock), a shared profile may be used.
+  - When another run is detected or a profile lock is present, a per-instance subfolder is used automatically: `dist/extension-js/profiles/<browser>-profile/<shortInstanceId>`.
+- A built-in manager extension is generated per instance at `dist/extension-js/extensions/<browser>-manager-<port>`. It connects to the instance’s WebSocket port and includes the instance ID.
+
+### `profile: false` caveats
+
+- `profile: false` disables managed profiles and uses the browser’s default profile.
+- With multiple instances or when another browser using the default profile is open, the browser may fail to start or attach to the wrong session.
+- To ensure stability for multi-instance runs, the tooling automatically falls back to per-instance managed profiles when concurrency is detected.
+- Recommended: avoid `profile: false` while running multiple instances.
+
+### Concurrency and ports
+
+- Dev server and reload WebSocket ports are allocated per instance and persisted in an instance registry.
+- The registry uses a lightweight lock to avoid races under concurrent starts.
+- Remote debugging ports are derived from the configured base port and offset using the instance ID, then probed for availability.
+
 ### License
 
 MIT (c) Cezar Augusto
