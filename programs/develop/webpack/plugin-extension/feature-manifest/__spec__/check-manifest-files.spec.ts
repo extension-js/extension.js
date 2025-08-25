@@ -13,7 +13,7 @@ const makeCompiler = (manifest: any) => {
   }
   const fs = require('fs') as typeof import('fs')
   // Relative paths should be considered missing; absolute paths exist
-  vi.spyOn(fs, 'existsSync').mockImplementation((p: string) =>
+  vi.spyOn(fs, 'existsSync').mockImplementation((p: any) =>
     typeof p === 'string' ? path.isAbsolute(p) : false
   )
   return {compiler, compilation}
@@ -76,5 +76,25 @@ describe('CheckManifestFiles', () => {
     // Should print at least one helpful stdout error before browser launch
     expect(spy).toHaveBeenCalled()
     spy.mockRestore()
+  })
+
+  it('treats /public/foo and /foo as public-root assets and does not error when excluded', () => {
+    const manifest = {name: 'x'}
+    const plugin = new CheckManifestFiles({
+      manifestPath: '/abs/manifest.json',
+      includeList: {
+        icons: ['/public/icon-maro.png', '/icon-maro.png']
+      },
+      excludeList: {
+        '/public/icon-maro.png': '/abs/project/public/icon-maro.png',
+        '/icon-maro.png': '/abs/project/public/icon-maro.png'
+      }
+    } as any)
+
+    const {compiler, compilation} = makeCompiler(manifest)
+    plugin.apply(compiler)
+
+    // Our makeCompiler declares existsSync true for absolute paths, so no errors are expected
+    expect(compilation.errors.length).toBe(0)
   })
 })

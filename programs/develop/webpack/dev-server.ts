@@ -132,11 +132,7 @@ export async function devServer(
             interval: 1000
           }
         },
-    client: {
-      logging: 'none',
-      progress: false,
-      overlay: false
-    },
+    client: false,
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
