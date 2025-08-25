@@ -72,12 +72,26 @@ export function getFilename(
   }
 
   // Not excluded by value; try to derive from mapping keys when the manifest
-  // provided a public/ path (standard web convention) and we have a matching
-  // entry from SpecialFolders
+  // provided a public-root style path and we have a matching entry from
+  // SpecialFolders. This accounts for different authoring forms:
+  // 'public/foo', './public/foo', '/public/foo', or '/foo'.
   if (!skipPathResolve && excludeList) {
     const keys = Object.keys(excludeList)
     const unixInput = unixify(filePath)
-    const matchKey = keys.find((k) => unixify(k) === unixInput)
+
+    // First try exact key match
+    let matchKey = keys.find((k) => unixify(k) === unixInput)
+
+    // If not found, try a normalized public-root equivalence match
+    if (!matchKey) {
+      const stripPublicPrefix = (p: string) =>
+        unixify(p)
+          .replace(/^\/(?:public\/)?/i, '') // '/public/foo' or '/foo' -> 'foo'
+          .replace(/^(?:\.\/)?public\//i, '') // 'public/foo' or './public/foo' -> 'foo'
+
+      const inputStripped = stripPublicPrefix(unixInput)
+      matchKey = keys.find((k) => stripPublicPrefix(k) === inputStripped)
+    }
 
     if (matchKey) {
       const unixKey = unixify(matchKey)
