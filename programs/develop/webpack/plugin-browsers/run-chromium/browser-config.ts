@@ -126,7 +126,7 @@ export function browserConfig(
     ...(sourceEnabled
       ? [
           `--remote-debugging-port=${cdpPort}`,
-          '--remote-debugging-address=localhost'
+          '--remote-debugging-address=127.0.0.1'
         ]
       : []),
     ...filteredFlags,

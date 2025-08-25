@@ -1,4 +1,35 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {PortManager} from '../../webpack-lib/port-manager'
+import {InstanceManager} from '../../plugin-browsers/browsers-lib/instance-manager'
+import * as path from 'path'
+
+describe('PortManager concurrency', () => {
+  const projectPath = path.resolve(__dirname, '..', '..', '..')
+  let instanceManager: InstanceManager
+
+  beforeEach(async () => {
+    instanceManager = new InstanceManager(projectPath, 18080, 19000)
+    await instanceManager.cleanupAllInstances()
+  })
+
+  afterEach(async () => {
+    await instanceManager.cleanupAllInstances()
+  })
+
+  it('allocates unique ports for concurrent instances', async () => {
+    const pm1 = new PortManager('chrome' as any, projectPath, 18080)
+    const pm2 = new PortManager('chrome' as any, projectPath, 18080)
+
+    const [a, b] = await Promise.all([
+      pm1.allocatePorts('chrome' as any, projectPath),
+      pm2.allocatePorts('chrome' as any, projectPath)
+    ])
+
+    expect(a.port).not.toBe(b.port)
+    expect(a.webSocketPort).not.toBe(b.webSocketPort)
+    expect(a.instanceId).not.toBe(b.instanceId)
+  })
+})
 import {PortManager} from '../port-manager'
 
 // Mock InstanceManager used inside PortManager
