@@ -27,13 +27,16 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Build and test
+        run: |
+          pnpm turbo run compile
+          pnpm turbo run test
+
       - name: Publish packages to npm
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: |
-            pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop \
-              publish --access public --provenance
+          publish: pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop publish --access public --provenance
           commit: "chore: version packages"
           title: "chore: version packages"
           createGithubReleases: true
