@@ -148,9 +148,15 @@ export class RunFirefoxPlugin {
 
     let firefoxConfig: string
     try {
+      // Guard profile:false under concurrency by switching to managed per-instance profile
+      const hasConcurrent = (await instanceManager.getRunningInstances()).some(
+        (i) => i.status === 'running' && i.browser === this.browser
+      )
+      const profileForConfig =
+        this.profile === false && hasConcurrent ? undefined : this.profile
       firefoxConfig = await browserConfig(compilation, {
         ...options,
-        profile: this.profile,
+        profile: profileForConfig,
         preferences: this.preferences,
         keepProfileChanges: this.keepProfileChanges,
         copyFromProfile: this.copyFromProfile,

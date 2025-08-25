@@ -68,7 +68,14 @@ export class RunChromiumPlugin {
         break
 
       case 'edge':
-        browserBinaryLocation = edgeLocation()
+        try {
+          browserBinaryLocation = edgeLocation()
+        } catch (e) {
+          console.error(
+            messages.browserNotInstalledError(browser, 'edge binary not found')
+          )
+          process.exit(1)
+        }
         break
 
       case 'chromium-based':
@@ -142,8 +149,17 @@ export class RunChromiumPlugin {
 
     let chromiumConfig: string[]
     try {
+      // Guard profile:false under concurrency by switching to managed per-instance profile
+      const profileForConfig =
+        this.profile === false &&
+        (await instanceManager.getRunningInstances()).some(
+          (i) => i.status === 'running' && i.browser === this.browser
+        )
+          ? undefined
+          : this.profile
       chromiumConfig = browserConfig(compilation, {
         ...this,
+        profile: profileForConfig,
         instanceId: effectiveInstanceId,
         extension: extensionsToLoad
       } as any)

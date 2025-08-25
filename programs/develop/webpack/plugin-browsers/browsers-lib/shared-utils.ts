@@ -168,8 +168,8 @@ export function chooseEffectiveInstanceId(
   instanceId?: string
 ): string | undefined {
   const reuse = typeof reuseRequested === 'undefined' ? true : !!reuseRequested
-  // Prefer shared profile unless a lock is detected
-  const canShare = reuse && !lockPresent
+  // Prefer shared profile only when there is no concurrent run and no lock
+  const canShare = reuse && !_concurrent && !lockPresent
   return canShare ? undefined : instanceId
 }
 // Calculates debug port from various sources

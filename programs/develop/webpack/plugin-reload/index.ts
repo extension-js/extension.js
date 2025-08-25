@@ -60,14 +60,6 @@ export class ReloadPlugin {
       instanceId: this.instanceId
     }).apply(compiler)
 
-    // 3 - Setup Firefox inspection if applicable (mirrors BrowsersPlugin usage)
-    if (this.browser === 'firefox' || this.browser === 'gecko-based') {
-      new SetupFirefoxInspectionStep({
-        browser: this.browser,
-        mode: compiler.options.mode || 'development',
-        port: this.port as any,
-        instanceId: this.instanceId
-      } as any).apply(compiler)
-    }
+    // Firefox inspection is handled by @plugin-browsers to avoid duplicate setup
   }
 }

@@ -487,6 +487,23 @@ export class InstanceManager {
     projectPath: string,
     requestedPort?: number
   ): Promise<InstanceInfo> {
+    const lockPath = path.join(this.getDataDirectory(), 'instances.lock')
+    // Acquire simple inter-process lock to serialize allocation
+    let lockHandle: any = null
+    for (let attempt = 0; attempt < 10; attempt++) {
+      try {
+        lockHandle = await (await import('fs/promises')).open(lockPath, 'wx')
+        break
+      } catch (err: any) {
+        // EEXIST -> someone else holds the lock; backoff and retry
+        if (err && err.code === 'EEXIST') {
+          await new Promise((r) => setTimeout(r, 25 * (attempt + 1)))
+          continue
+        }
+        // Other errors are unexpected; surface them
+        throw err
+      }
+    }
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(
         messages.instanceManagerCreateInstanceCalled({
@@ -532,6 +549,13 @@ export class InstanceManager {
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.instanceManagerRegistryAfterCreateInstance(registry))
     }
+    // Release lock
+    try {
+      if (lockHandle && typeof lockHandle.close === 'function') {
+        await lockHandle.close()
+      }
+      await (await import('fs/promises')).unlink(lockPath)
+    } catch {}
     return instance
   }
 
