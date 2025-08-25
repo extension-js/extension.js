@@ -39,6 +39,7 @@ export default class CreateWebSocketServer {
         browser: this.browser as any,
         mode: compiler.options.mode || 'development'
       })
+      ;(compiler.options as any).webSocketServer = this.webSocketServer
       this.isServerInitialized = true
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.webSocketServerInitialized())

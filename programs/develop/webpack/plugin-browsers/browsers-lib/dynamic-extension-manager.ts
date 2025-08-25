@@ -310,8 +310,35 @@ export class DynamicExtensionManager {
   }
 
   getExtensionPath(instanceId: string): string {
-    // For browser-port naming, we need to get the instance first
-    // This method is mainly for compatibility, but we'll need the instance
+    // Resolve path consistent with generateExtension/extensionExists
+    // Fallback to legacy path only if registry lookup fails
+    try {
+      const InstanceManager = require('./instance-manager')
+        .InstanceManager as any
+      const instanceManager = new InstanceManager(this.projectPath)
+      // Best-effort sync access via deasync is not available; return legacy path if not cached.
+      // Callers using this path for IO will quickly trigger regeneration if missing.
+      const registryPath = path.join(
+        require('os').homedir(),
+        'Library',
+        'Application Support',
+        'extension-js',
+        'instances.json'
+      )
+      if (fsSync.existsSync(registryPath)) {
+        try {
+          const raw = fsSync.readFileSync(registryPath, 'utf-8')
+          const data = JSON.parse(raw) as {instances?: Record<string, any>}
+          const info = data.instances?.[instanceId]
+          if (info && info.browser && typeof info.port === 'number') {
+            return path.join(
+              this.userExtensionsPath,
+              `${info.browser}-manager-${info.port}`
+            )
+          }
+        } catch {}
+      }
+    } catch {}
     return path.join(this.userExtensionsPath, `manager-port-${instanceId}`)
   }
 
@@ -348,7 +375,10 @@ export class DynamicExtensionManager {
     }
 
     // Check if the extension needs to be regenerated (e.g., port changed)
-    const extensionPath = this.getExtensionPath(instance.instanceId)
+    const extensionPath = path.join(
+      this.userExtensionsPath,
+      `${instance.browser}-manager-${instance.port}`
+    )
     const serviceWorkerPath = path.join(extensionPath, 'reload-service.js')
 
     try {
