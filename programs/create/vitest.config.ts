@@ -17,11 +17,17 @@ export default defineConfig({
       exclude: [
         'node_modules/**',
         'dist/**',
+        'coverage/**',
         '**/*.d.ts',
         '**/*.test.ts',
         '**/*.spec.ts',
         '**/types/**',
-        '**/messages.ts'
+        '**/messages.ts',
+        '**/rslib.config.*',
+        '**/vitest.config.*',
+        '**/README.md',
+        '**/CHANGELOG.md',
+        '**/tsconfig.json'
       ]
     }
   }

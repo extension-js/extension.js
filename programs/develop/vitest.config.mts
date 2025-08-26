@@ -5,6 +5,25 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['**/*.spec.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/coverage/**',
+        '**/*.d.ts',
+        '**/*.test.ts',
+        '**/*.spec.ts',
+        '**/types/**',
+        '**/messages.ts',
+        '**/rslib.config.*',
+        '**/vitest.config.*',
+        '**/webpack/**',
+        '**/README.md',
+        '**/CHANGELOG.md'
+      ]
+    },
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
