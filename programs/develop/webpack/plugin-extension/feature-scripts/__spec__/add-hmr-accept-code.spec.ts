@@ -78,4 +78,33 @@ describe('add-hmr-accept-code loader', () => {
 
     expect(result).toContain('import.meta.webpackHot')
   })
+
+  it('skips injection if source already contains import.meta.webpackHot (wrapper present)', async () => {
+    const projectDir = path.join(tmpRoot, 'project-c')
+    const contentDir = path.join(projectDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
+    const manifestPath = path.join(projectDir, 'manifest.json')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: [
+          {
+            js: ['content/scripts.js']
+          }
+        ]
+      })
+    )
+    const resourcePath = path.join(projectDir, 'content', 'scripts.js')
+
+    const {default: loader} = await import('../steps/add-hmr-accept-code')
+
+    const ctx = makeLoaderContext(resourcePath, manifestPath)
+    const source =
+      'if (import.meta.webpackHot) { import.meta.webpackHot.accept() };\nconsole.log("foo")'
+    // @ts-expect-error - calling loader with mocked context
+    const result = loader.call(ctx, source) as string
+
+    expect(result).toBe(source)
+  })
 })
