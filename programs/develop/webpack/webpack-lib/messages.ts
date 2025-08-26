@@ -30,7 +30,7 @@ export function boring(manifestName: string, duration: number, stats: Stats) {
   let didShow = false
 
   if (!didShow) {
-    const arrow = stats.hasErrors() ? colors.red('►►►') : colors.blue('►►►')
+    const arrow = stats.hasErrors() ? colors.red('►►►') : colors.green('►►►')
 
     return `${arrow} ${manifestName} compiled ${
       stats.hasErrors()
