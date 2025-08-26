@@ -20,7 +20,12 @@ export async function connect() {
   const maxBackoffMs = 5000
 
   const establish = () => {
-    webSocket = new WebSocket(`ws://127.0.0.1:${port}`)
+    try {
+      webSocket = new WebSocket(`ws://127.0.0.1:${port}`)
+    } catch (err) {
+      webSocket = null
+      return
+    }
 
     webSocket.onerror = (_event) => {
       try {
@@ -37,7 +42,12 @@ export async function connect() {
 
     let reloadDebounce
     webSocket.onmessage = async (event) => {
-      const message = JSON.parse(event.data)
+      let message = null
+      try {
+        message = JSON.parse(event.data)
+      } catch {
+        return
+      }
 
       // Only process messages for this instance
       if (message.instanceId && message.instanceId !== instanceId) {
@@ -76,6 +86,18 @@ export function disconnect() {
     webSocket.close()
   }
 }
+
+// Ensure sockets are closed when the worker is suspended
+try {
+  chrome.runtime.onSuspend.addListener(() => {
+    if (webSocket) {
+      try {
+        webSocket.close()
+      } catch {}
+      webSocket = null
+    }
+  })
+} catch {}
 
 async function requestInitialLoadData() {
   const devExtensions = await getDevExtensions()
