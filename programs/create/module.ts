@@ -27,10 +27,6 @@ export async function extensionCreate(
     throw new Error(messages.noProjectName())
   }
 
-  if (projectNameInput.startsWith('http')) {
-    throw new Error(messages.noUrlAllowed())
-  }
-
   // Check if path is absolute
   const projectPath = path.isAbsolute(projectNameInput)
     ? projectNameInput
@@ -40,6 +36,8 @@ export async function extensionCreate(
 
   try {
     await createDirectory(projectPath, projectName)
+    // If the template parameter looks like a remote path, import from remote
+    // Otherwise, use the local built-in template workflow
     await importExternalTemplate(projectPath, projectName, template)
     await overridePackageJson(projectPath, projectName, {
       template,

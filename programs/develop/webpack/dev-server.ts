@@ -44,7 +44,9 @@ export async function devServer(
 ) {
   const {manifestPath, packageJsonPath} = projectStructure
   const manifestDir = path.dirname(manifestPath)
-  const packageJsonDir = path.dirname(packageJsonPath)
+  const packageJsonDir = packageJsonPath
+    ? path.dirname(packageJsonPath)
+    : manifestDir
 
   // Get command defaults from extension.config.js
   const commandConfig = await loadCommandConfig(manifestDir, 'dev')
