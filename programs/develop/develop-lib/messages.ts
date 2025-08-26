@@ -266,6 +266,15 @@ export function failedToDownloadOrExtractZIPFileError(error: any) {
   )
 }
 
+export function invalidRemoteZip(url: string, contentType: string) {
+  return (
+    `${getLoggingPrefix('error')} ` +
+    `Remote URL does not appear to be a ZIP archive.\n` +
+    `${colors.gray('URL')} ${colors.underline(url)}\n` +
+    `${colors.gray('Content-Type')} ${colors.underline(contentType || 'unknown')}`
+  )
+}
+
 // function calculateDirectorySize(dirPath: string): number {
 //   let totalSize = 0
 //
