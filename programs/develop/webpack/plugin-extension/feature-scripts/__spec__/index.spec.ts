@@ -62,6 +62,33 @@ describe('ScriptsPlugin (default behavior)', () => {
   })
 })
 
+describe('ScriptsPlugin (wrapper in production)', () => {
+  const fixturesPath = getFixturesPath('content-react')
+  const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
+
+  beforeAll(async () => {
+    await extensionBuild(fixturesPath, {
+      browser: 'chrome',
+      mode: 'production'
+    })
+  })
+
+  afterAll(() => {
+    if (fs.existsSync(outputPath)) {
+      fs.rmSync(outputPath, {recursive: true, force: true})
+    }
+  })
+
+  it('emits content script with Shadow DOM isolation code', async () => {
+    const contentJs = path.join(outputPath, 'content_scripts', 'content-0.js')
+    await assertFileIsEmitted(contentJs)
+    const code = await fs.promises.readFile(contentJs, 'utf-8')
+    // In production, comments are removed; assert on attachShadow and style injection
+    expect(code).toMatch(/attachShadow\(\{\s*mode:\s*['"]open['"]\s*\}\)/)
+    expect(code).toMatch(/document\.createElement\(\s*['"]style['"]\s*\)/)
+  })
+})
+
 // describe('ScriptsPlugin (edge cases)', () => {
 //   const fixturesPath = getFixturesPath('scripting-nojs')
 //   const webpackConfigPath = path.join(fixturesPath, 'webpack.config.js')
