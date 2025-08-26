@@ -45,32 +45,30 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // 2 - Apply content script wrapper for shadow DOM and auto-execution (development only)
-    if ((compiler.options.mode || 'development') !== 'production') {
-      compiler.options.module.rules.push({
-        test: /(\.m?[jt]sx?)$/,
-        include: [path.dirname(this.manifestPath)],
-        exclude: [/[\\/]node_modules[\\/]/],
-        use: [
-          {
-            loader: path.resolve(__dirname, 'add-content-script-wrapper'),
-            options: {
-              manifestPath: this.manifestPath,
-              mode: compiler.options.mode,
-              includeList: this.includeList || {},
-              excludeList: this.excludeList || {}
-            }
+    // 2 - Apply content script wrapper for shadow DOM and auto-execution (all modes)
+    compiler.options.module.rules.push({
+      test: /(\.m?[jt]sx?)$/,
+      include: [path.dirname(this.manifestPath)],
+      exclude: [/[/\\]node_modules[/\\]/],
+      use: [
+        {
+          loader: path.resolve(__dirname, 'add-content-script-wrapper'),
+          options: {
+            manifestPath: this.manifestPath,
+            mode: compiler.options.mode,
+            includeList: this.includeList || {},
+            excludeList: this.excludeList || {}
           }
-        ]
-      })
-    }
+        }
+      ]
+    })
 
     // 3 - Ensure scripts are HMR enabled by adding the HMR accept code. (development only)
     if ((compiler.options.mode || 'development') !== 'production') {
       compiler.options.module.rules.push({
         test: /(\.m?[jt]sx?)$/,
         include: [path.dirname(this.manifestPath)],
-        exclude: [/[\\/]node_modules[\\/]/],
+        exclude: [/[/\\]node_modules[/\\]/],
         use: [
           {
             loader: path.resolve(__dirname, 'add-hmr-accept-code'),
@@ -107,7 +105,7 @@ export class ScriptsPlugin {
       compiler.options.module.rules.push({
         test: /(\.m?[jt]sx?)$/,
         include: [path.dirname(this.manifestPath)],
-        exclude: [/[\\/]node_modules[\\/]/],
+        exclude: [/[/\\]node_modules[/\\]/],
         use: [
           {
             loader: path.resolve(__dirname, 'deprecated-shadow-root'),

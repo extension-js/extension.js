@@ -144,13 +144,17 @@ class ReactContentScriptWrapper {
     // Create shadow root for style isolation
     this.shadowRoot = this.rootElement.attachShadow({ mode: 'open' })
 
+    // Create a host element inside the shadow root for rendering
+    const host = document.createElement('div')
+    this.shadowRoot.appendChild(host)
+
     // Inject styles FIRST
     console.log('[Extension.js] About to inject styles')
     await this.injectStyles()
 
     // Render React content
     console.log('[Extension.js] About to render React content')
-    const result = this.renderFunction(this.shadowRoot as any)
+    const result = this.renderFunction(host)
     if (typeof result === 'function') {
       this.unmountFunction = result
     }
@@ -217,8 +221,8 @@ class ReactContentScriptWrapper {
         // Check if we have hardcoded content for this stylesheet
         if (cssContentMap[stylesheet]) {
           const cssContent = cssContentMap[stylesheet]
-          allCSS += cssContent + '\\n'
-          console.log(\`[Extension.js] Successfully injected React \${stylesheet} content\`)
+          allCSS += cssContent + '\n'
+          console.log('[Extension.js] Successfully injected React', stylesheet, 'content')
           continue
         }
         
@@ -227,7 +231,7 @@ class ReactContentScriptWrapper {
         const response = await fetch(cssUrl)
         const text = await response.text()
         if (response.ok) {
-          allCSS += text + '\\n'
+          allCSS += text + '\n'
           console.log('[Extension.js] Successfully fetched stylesheet:', stylesheet)
         } else {
           console.warn('[Extension.js] Failed to fetch CSS:', stylesheet)
