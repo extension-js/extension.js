@@ -27,13 +27,17 @@ export async function extensionBuild(
   try {
     const browser = buildOptions?.browser || 'chrome'
     const manifestDir = path.dirname(projectStructure.manifestPath)
-    const packageJsonDir = path.dirname(projectStructure.packageJsonPath)
+    const packageJsonDir = projectStructure.packageJsonPath
+      ? path.dirname(projectStructure.packageJsonPath)
+      : manifestDir
 
     // Guard: only error if user references managed deps in extension.config.js
-    assertNoManagedDependencyConflicts(
-      projectStructure.packageJsonPath,
-      path.dirname(projectStructure.manifestPath)
-    )
+    if (projectStructure.packageJsonPath) {
+      assertNoManagedDependencyConflicts(
+        projectStructure.packageJsonPath,
+        path.dirname(projectStructure.manifestPath)
+      )
+    }
 
     const baseConfig: Configuration = webpackConfig(projectStructure, {
       ...buildOptions,
@@ -62,15 +66,16 @@ export async function extensionBuild(
     const compilerConfig = merge(userConfig)
     const compiler = rspack(compilerConfig)
 
-    // Install dependencies if they are not installed.
-    const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
+    // Install dependencies if they are not installed (skip in web-only mode).
+    if (projectStructure.packageJsonPath) {
+      const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
+      if (!fs.existsSync(nodeModulesPath)) {
+        console.log(messages.installingDependencies())
 
-    if (!fs.existsSync(nodeModulesPath)) {
-      console.log(messages.installingDependencies())
-
-      // Prevents `process.chdir() is not supported in workers` error
-      if (process.env.VITEST !== 'true') {
-        await installDependencies(packageJsonDir)
+        // Prevents `process.chdir() is not supported in workers` error
+        if (process.env.VITEST !== 'true') {
+          await installDependencies(packageJsonDir)
+        }
       }
     }
 
