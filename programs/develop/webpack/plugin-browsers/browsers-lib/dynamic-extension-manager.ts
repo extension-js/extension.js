@@ -133,7 +133,7 @@ export class DynamicExtensionManager {
     const extensionName = `Extension.js DevTools`
     const extensionDescription =
       `Extension.js built-in developer tools for instance ` +
-      `${instanceId.slice(0, 8)}`
+      `${instanceId.slice(0, 8)}.`
 
     // Read base extension files
     const baseManifest = await this.readBaseManifest(instance.browser)
