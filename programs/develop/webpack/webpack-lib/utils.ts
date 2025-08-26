@@ -64,6 +64,9 @@ export function getFilename(
         fileOutputpath = unixKey.replace(/^(?:\.\/)?public\//i, '')
       } else if (/^\/public\//i.test(unixKey)) {
         fileOutputpath = unixKey.replace(/^\/public\//i, '')
+      } else if (/^\//.test(unixKey)) {
+        // Root-relative (implicit public root)
+        fileOutputpath = unixKey.replace(/^\//, '')
       } else {
         // Keep original normalized file path for non-public mapping keys
         fileOutputpath = path.normalize(filePath)
