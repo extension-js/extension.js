@@ -61,6 +61,12 @@ export default function (this: LoaderContext, source: string) {
     baseDataPath: 'options'
   })
 
+  // If HMR accept code is already present
+  // (injected by a framework wrapper), skip to avoid duplication
+  if (source.includes('import.meta.webpackHot')) {
+    return source
+  }
+
   const url = urlToRequest(this.resourcePath)
   const reloadCode = `
 // TODO: cezaraugusto re-visit this
