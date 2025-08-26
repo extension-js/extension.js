@@ -23,10 +23,13 @@ export async function extensionPreview(
 ) {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   // Guard: only error if user references managed deps in extension.config.js
-  assertNoManagedDependencyConflicts(
-    projectStructure.packageJsonPath,
-    path.dirname(projectStructure.manifestPath)
-  )
+  if (projectStructure.packageJsonPath) {
+    assertNoManagedDependencyConflicts(
+      projectStructure.packageJsonPath,
+      path.dirname(projectStructure.manifestPath)
+    )
+  }
+
   const manifestDir = path.dirname(projectStructure.manifestPath)
   const distPath = path.join(manifestDir, 'dist', previewOptions.browser)
 
@@ -54,8 +57,7 @@ export async function extensionPreview(
       chromiumBinary: previewOptions.chromiumBinary,
       geckoBinary: previewOptions.geckoBinary,
       startingUrl: previewOptions.startingUrl,
-      // Preview needs a build before running so
-      // we don't want to clean the output directory.
+      // For preview, we only want to run the browser with the outputPath.
       output: {
         clean: false,
         path: outputPath

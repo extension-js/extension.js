@@ -39,7 +39,9 @@ export default function webpackConfig(
 ): Configuration {
   const {manifestPath, packageJsonPath} = projectStructure
   const manifestDir = path.dirname(manifestPath)
-  const packageJsonDir = path.dirname(packageJsonPath)
+  const packageJsonDir = packageJsonPath
+    ? path.dirname(packageJsonPath)
+    : manifestDir
 
   const manifest = utils.filterKeysForThisBrowser(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
@@ -94,12 +96,18 @@ export default function webpackConfig(
       }
     },
     resolve: {
-      modules: [
-        'node_modules',
-        path.join(packageJsonDir, 'node_modules'),
-        // Add root node_modules for monorepo support
-        path.join(process.cwd(), 'node_modules')
-      ],
+      modules: packageJsonPath
+        ? [
+            'node_modules',
+            path.join(packageJsonDir, 'node_modules'),
+            // Add root node_modules for monorepo support
+            path.join(process.cwd(), 'node_modules')
+          ]
+        : [
+            // Web-only mode: keep resolution simple; rely on local sources
+            'node_modules',
+            path.join(process.cwd(), 'node_modules')
+          ],
       extensions: [
         '.js',
         '.mjs',

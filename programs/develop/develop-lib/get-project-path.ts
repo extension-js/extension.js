@@ -1,5 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import * as os from 'os'
 import goGitIt from 'go-git-it'
 import * as messages from './messages'
 import {downloadAndExtractZip} from './extract-from-zip'
@@ -10,7 +11,8 @@ import {
 
 export interface ProjectStructure {
   manifestPath: string
-  packageJsonPath: string
+  // Optional in web-only mode (no package manager present)
+  packageJsonPath?: string
 }
 
 const isUrl = (url: string) => {
@@ -27,28 +29,35 @@ async function importUrlSourceFromGithub(
   pathOrRemoteUrl: string,
   text: string
 ) {
-  await goGitIt(pathOrRemoteUrl, process.cwd(), text)
+  // Create a temporary working directory for the download
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extension-js-'))
 
-  // With go-git-it v5.0.0, files are now downloaded to a subfolder
-  // matching the repository name.
-  // Extract the repository name from the URL pathname
+  await goGitIt(pathOrRemoteUrl, tempRoot, text)
+
+  // With go-git-it v5.0.0, files are downloaded to a subfolder matching the repo name
+  // Robustly resolve the repository name as the second pathname segment: /:owner/:repo/...
   const url = new URL(pathOrRemoteUrl)
-  const urlData = url.pathname.split('/')
-  // Get the last part of the path (repository name)
-  const repoName = urlData[urlData.length - 1]
+  const segments = url.pathname.split('/').filter(Boolean)
+  const repoName =
+    segments.length >= 2 ? segments[1] : segments[segments.length - 1]
 
-  // Return the path to the subfolder where the repository was downloaded
-  return path.resolve(process.cwd(), repoName)
+  const candidates = fs
+    .readdirSync(tempRoot, {withFileTypes: true})
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+
+  // Prefer the expected repo folder, otherwise fall back to the first directory
+  const chosen = candidates.includes(repoName) ? repoName : candidates[0]
+  const resolved = chosen ? path.resolve(tempRoot, chosen) : tempRoot
+  return resolved
 }
 
 async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
-  const zipFilePath = await downloadAndExtractZip(
-    pathOrRemoteUrl,
-    process.cwd()
-  )
+  // Create a temporary working directory for the download and extraction
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extension-js-'))
+  const extractedPath = await downloadAndExtractZip(pathOrRemoteUrl, tempRoot)
 
-  return zipFilePath
-  // return path.resolve(process.cwd(), path.basename(pathOrRemoteUrl))
+  return extractedPath
 }
 
 export async function getProjectPath(
@@ -130,11 +139,14 @@ export async function getProjectStructure(
     }
   }
 
-  // Find nearest package.json
+  // Find nearest package.json, but allow web-only mode when absent or invalid
   const packageJsonPath = await findNearestPackageJson(manifestPath)
 
   if (!packageJsonPath || !validatePackageJson(packageJsonPath)) {
-    throw new Error(messages.packageJsonNotFoundError(manifestPath))
+    // Web-only mode: proceed without a package.json
+    return {
+      manifestPath
+    }
   }
 
   return {
