@@ -4,9 +4,14 @@ import {connect, disconnect, keepAlive} from './reload-service.js'
 function bgGreen(str) {
   return `background: transparent; color: #0971fe; ${str}`
 }
-chrome.tabs.query({active: true}, async ([initialTab]) => {
-  console.log(
-    `%c
+
+async function initManagerUI() {
+  try {
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const initialTab = Array.isArray(tabs) ? tabs[0] : undefined
+
+      console.log(
+        `%c
 ██████████████████████████████████████████████████████████
 ██████████████████████████████████████████████████████████
 ████████████████████████████    ██████████████████████████
@@ -32,21 +37,40 @@ chrome.tabs.query({active: true}, async ([initialTab]) => {
 ██████████████████████████████████████████████████████████
 MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors.
 `,
-    bgGreen('')
-  )
+        bgGreen('')
+      )
 
-  if (
-    initialTab.url === 'chrome://newtab/' ||
-    initialTab.url === 'chrome://welcome/'
-  ) {
-    await handleFirstRun()
-  } else {
-    createExtensionsPageTab(initialTab, 'chrome://extensions/')
-  }
+      if (!initialTab) {
+        try {
+          await handleFirstRun()
+        } catch {
+          try {
+            chrome.tabs.create({url: 'chrome://extensions/'})
+          } catch {}
+        }
+        return
+      }
+
+      if (
+        initialTab.url === 'chrome://newtab/' ||
+        initialTab.url === 'chrome://welcome/'
+      ) {
+        await handleFirstRun()
+      } else {
+        createExtensionsPageTab(initialTab, 'chrome://extensions/')
+      }
+    })
+  } catch {}
+}
+
+chrome.runtime.onStartup.addListener(async () => {
+  await initManagerUI()
 })
 
 chrome.runtime.onInstalled.addListener(async () => {
   let isConnected = false
+
+  await initManagerUI()
 
   if (isConnected) {
     disconnect()

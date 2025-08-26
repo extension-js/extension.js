@@ -5,8 +5,7 @@ function bgGreen(str) {
   return `background: transparent; color: #0971fe; ${str}`
 }
 
-// Guard tab access and run after startup
-chrome.runtime.onStartup.addListener(async () => {
+async function initManagerUI() {
   try {
     chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
       const initialTab = Array.isArray(tabs) ? tabs[0] : undefined
@@ -42,7 +41,13 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors
       )
 
       if (!initialTab) {
-        await handleFirstRun()
+        try {
+          await handleFirstRun()
+        } catch {
+          try {
+            chrome.tabs.create({url: 'chrome://extensions/'})
+          } catch {}
+        }
         return
       }
 
@@ -56,10 +61,18 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors
       }
     })
   } catch {}
+}
+
+// Guard tab access and run after startup
+chrome.runtime.onStartup.addListener(async () => {
+  await initManagerUI()
 })
 
 chrome.runtime.onInstalled.addListener(async () => {
   let isConnected = false
+
+  // Ensure UI setup also runs on install (first run)
+  await initManagerUI()
 
   if (isConnected) {
     disconnect()
