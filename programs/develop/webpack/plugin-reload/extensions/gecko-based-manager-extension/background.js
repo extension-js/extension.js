@@ -55,3 +55,13 @@ browser.runtime.onInstalled.addListener(async () => {
     isConnected = true
   }
 })
+
+// Also initialize on browser startup for parity with Chromium behavior
+browser.runtime.onStartup.addListener(async () => {
+  try {
+    await handleTabOnExtensionLoad()
+  } catch {}
+  try {
+    await connect()
+  } catch {}
+})
