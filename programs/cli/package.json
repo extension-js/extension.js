@@ -27,6 +27,7 @@
   "name": "extension",
   "version": "2.1.0",
   "description": "Create cross-browser extensions with no build configuration.",
+  "homepage": "https://extension.js.org/",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
