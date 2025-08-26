@@ -21,7 +21,7 @@ export default function contentScript(options: ContentScriptOptions = {}) {
     })
 
     return () => {
-      app.$destroy()
+      app.destroy()
     }
   }
 }
