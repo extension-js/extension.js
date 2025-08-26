@@ -1,0 +1,96 @@
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
+import {createServer, type Server} from 'http'
+import AdmZip from 'adm-zip'
+import {describe, it, expect, afterEach} from 'vitest'
+import {spawn} from 'child_process'
+
+function makeZip(structure: Record<string, string>): Buffer {
+  const zip = new AdmZip()
+  for (const [name, content] of Object.entries(structure)) {
+    zip.addFile(name, Buffer.from(content))
+  }
+  return zip.toBuffer()
+}
+
+describe('extension create from remote', () => {
+  let server: Server | undefined
+  afterEach(async () => {
+    await new Promise<void>((resolve) => {
+      try {
+        server?.close(() => resolve())
+      } catch {
+        resolve()
+      }
+    })
+    server = undefined
+  })
+
+  it('creates from a remote zip served over HTTP', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-create-'))
+    const dest = path.join(tmp, 'my-remote-ext')
+    const manifest = JSON.stringify({
+      name: 'Remote Created',
+      version: '0.0.1',
+      manifest_version: 3
+    })
+    const zip = makeZip({'manifest.json': manifest})
+
+    const port = await new Promise<number>((resolve) => {
+      const srv = createServer((req, res) => {
+        if (req.url?.startsWith('/template.zip')) {
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/zip')
+          res.end(zip)
+          return
+        }
+        res.statusCode = 404
+        res.end('not found')
+      })
+      srv.listen(0, '127.0.0.1', () => {
+        server = srv
+        // @ts-ignore
+        resolve((srv.address() as any).port)
+      })
+    })
+    const url = `http://127.0.0.1:${port}/template.zip`
+
+    const repoRoot = path.resolve(__dirname, '..', '..', '..')
+    const cli = path.join(repoRoot, 'programs', 'cli', 'dist', 'cli.js')
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        process.execPath,
+        [cli, 'create', dest, '--template', url, '--install', 'false'],
+        {
+          cwd: repoRoot,
+          // Ensure production-like behavior so remote template fetch path is used
+          env: {...process.env, EXTENSION_ENV: 'test'}
+        }
+      )
+      let err = ''
+      const timeout = setTimeout(() => {
+        try {
+          child.kill('SIGTERM')
+        } catch {}
+        reject(new Error('Timed out creating from remote zip'))
+      }, 60000)
+      child.stderr.on('data', (d) => (err += String(d)))
+      child.on('exit', (code) => {
+        clearTimeout(timeout)
+        if (code === 0 && fs.existsSync(path.join(dest, 'manifest.json'))) {
+          resolve()
+        } else {
+          reject(new Error(`create failed: code=${code}\n${err}`))
+        }
+      })
+      child.on('error', reject)
+    })
+
+    // Cleanup
+    try {
+      fs.rmSync(tmp, {recursive: true, force: true})
+    } catch {}
+  })
+})
