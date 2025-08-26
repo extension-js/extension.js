@@ -150,11 +150,11 @@ export class DynamicExtensionManager {
     // Create instance-specific service worker with unique port
     const serviceWorkerContent = baseServiceWorker
       .replace(
-        /const\s+port\s*=\s*['"](__RELOAD_PORT__|\d+)['"]/,
+        /const\s+port\s*=\s*['"][^'"]+['"]/,
         `const port = '${instance.webSocketPort}'`
       )
       .replace(
-        /const\s+instanceId\s*=\s*['"](__INSTANCE_ID__|\w+)['"]/,
+        /const\s+instanceId\s*=\s*['"][^'"]+['"]/,
         `const instanceId = '${instance.instanceId}'`
       )
 

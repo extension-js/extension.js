@@ -216,9 +216,11 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
     // Close the server
     webSocketServer.close(() => {
-      console.log(
-        messages.webSocketServerForInstanceClosed(instanceId.slice(0, 8))
-      )
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(
+          messages.webSocketServerForInstanceClosed(instanceId.slice(0, 8))
+        )
+      }
     })
   }
 
