@@ -12,6 +12,13 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Skip publish and deployment steps for validation only'
+        required: false
+        default: false
+        type: boolean
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
@@ -35,6 +42,7 @@ jobs:
       - name: Publish packages to npm
         id: changesets
         uses: changesets/action@v1
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         with:
           publish: pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop publish --access public --provenance --no-git-checks
           commit: "chore: version packages"
@@ -45,7 +53,7 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
 
       - name: Debug npm auth (stable)
-        if: steps.changesets.outputs.published != 'true'
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.changesets.outputs.published != 'true' }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
@@ -58,24 +66,52 @@ jobs:
         run: |
           node -e "const fs=require('fs');function v(p){return JSON.parse(fs.readFileSync(p,'utf8')).version;}const obj={'extension':v('programs/cli/package.json'),'extension-create':v('programs/create/package.json'),'extension-develop':v('programs/develop/package.json')};process.stdout.write('versions='+JSON.stringify(obj));" >> $GITHUB_OUTPUT
 
-      - name: Promote next version to latest dist-tag (fallback)
-        if: steps.changesets.outputs.published != 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          V_EXT: ${{ fromJson(steps.versions.outputs.versions).extension }}
-          V_CREATE: ${{ fromJson(steps.versions.outputs.versions)['extension-create'] }}
-          V_DEV: ${{ fromJson(steps.versions.outputs.versions)['extension-develop'] }}
+      - name: Collect npm info (stable)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.changesets.outputs.published == 'true' }}
+        id: npm
         run: |
-          set -e
-          echo "Promoting dist-tags to latest if versions exist on registry..."
-          npm dist-tag add extension@${V_EXT} latest || true
-          npm dist-tag add extension-create@${V_CREATE} latest || true
-          npm dist-tag add extension-develop@${V_DEV} latest || true
+          node -e "
+          const { execSync } = require('child_process');
+          const versions = JSON.parse(process.env.VERSIONS || '{}');
+          const pkgs = ['extension','extension-create','extension-develop'];
+          const out = {};
+          for (const name of pkgs) {
+            const v = versions[name];
+            if (!v) continue;
+            const info = JSON.parse(execSync('npm view ' + name + '@' + v + ' version dist.tarball gitHead --json').toString());
+            const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+            out[name] = { version: info.version, tarball: info.dist?.tarball, gitHead: info.gitHead, distTags: tags };
+          }
+          process.stdout.write('info='+JSON.stringify(out));
+          " >> $GITHUB_OUTPUT
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
+
+      - name: Verify dist-tags (stable)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.changesets.outputs.published == 'true' }}
+        run: |
+          node -e "
+          const { execSync } = require('child_process');
+          const versions = JSON.parse(process.env.VERSIONS || '{}');
+          const pkgs = ['extension','extension-create','extension-develop'];
+          for (const name of pkgs) {
+            const expected = versions[name];
+            if (!expected) continue;
+            const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+            if (tags.latest !== expected) {
+              console.error(`[stable] Dist-tag mismatch for ${name}: latest=${tags.latest} expected=${expected}`);
+              process.exit(1);
+            }
+          }
+          console.log('Stable dist-tags verified.');
+          "
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
 
       # Note: We now append aggregated changelog to the GitHub Release body instead of committing root CHANGELOG.
 
       - name: Render aggregated changelog
-        if: steps.changesets.outputs.published == 'true'
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.changesets.outputs.published == 'true' }}
         id: agg
         run: |
           node ./scripts/render-aggregated-changelog.cjs > aggregated.md || true
@@ -85,7 +121,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Append to latest GitHub Release body
-        if: steps.changesets.outputs.published == 'true'
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.changesets.outputs.published == 'true' }}
         uses: actions/github-script@v7
         env:
           AGG_BODY: ${{ steps.agg.outputs.body }}
@@ -116,14 +152,20 @@ jobs:
       
 
       - name: Create deployment (stable)
-        if: steps.changesets.outputs.published == 'true'
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.changesets.outputs.published == 'true' }}
         uses: actions/github-script@v7
         env:
           VERSIONS: ${{ steps.versions.outputs.versions }}
+          NPM_INFO: ${{ steps.npm.outputs.info }}
         with:
           script: |
             const { owner, repo } = context.repo;
-            const payload = { channel: 'stable', versions: JSON.parse(process.env.VERSIONS || '{}') };
+            const payload = {
+              channel: 'stable',
+              distTag: 'latest',
+              versions: JSON.parse(process.env.VERSIONS || '{}'),
+              npm: JSON.parse(process.env.NPM_INFO || '{}')
+            };
             const ref = context.sha;
             const dep = await github.rest.repos.createDeployment({
               owner, repo, ref,

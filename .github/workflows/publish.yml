@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Skip publish and deployment steps for validation only'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -12,6 +19,7 @@ permissions:
 
 jobs:
   publish:
+    if: ${{ github.actor == 'github-actions[bot]' }}
     runs-on: ubuntu-22.04
     environment: stable
     steps:
@@ -40,11 +48,33 @@ jobs:
           test -n "$NODE_AUTH_TOKEN" || (echo "NODE_AUTH_TOKEN missing" && exit 1)
 
       - name: Publish public packages
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop \
             publish --access public --provenance --no-git-checks
+
+      - name: Verify dist-tags (stable tag)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: |
+          node -e "
+          const { execSync } = require('child_process');
+          const versions = JSON.parse(process.env.VERSIONS || '{}');
+          const pkgs = ['extension','extension-create','extension-develop'];
+          for (const name of pkgs) {
+            const expected = versions[name];
+            if (!expected) continue;
+            const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+            if (tags.latest !== expected) {
+              console.error(`[stable tag] Dist-tag mismatch for ${name}: latest=${tags.latest} expected=${expected}`);
+              process.exit(1);
+            }
+          }
+          console.log('Stable tag dist-tags verified.');
+          "
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -118,14 +148,40 @@ jobs:
         run: |
           node -e "const fs=require('fs');function v(p){return JSON.parse(fs.readFileSync(p,'utf8')).version;}const obj={'extension':v('programs/cli/package.json'),'extension-create':v('programs/create/package.json'),'extension-develop':v('programs/develop/package.json')};process.stdout.write('versions='+JSON.stringify(obj));" >> $GITHUB_OUTPUT
 
+      - name: Collect npm info (stable tag)
+        id: npm
+        run: |
+          node -e "
+          const { execSync } = require('child_process');
+          const versions = JSON.parse(process.env.VERSIONS || '{}');
+          const pkgs = ['extension','extension-create','extension-develop'];
+          const out = {};
+          for (const name of pkgs) {
+            const v = versions[name];
+            if (!v) continue;
+            const info = JSON.parse(execSync('npm view ' + name + '@' + v + ' version dist.tarball gitHead --json').toString());
+            const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+            out[name] = { version: info.version, tarball: info.dist?.tarball, gitHead: info.gitHead, distTags: tags };
+          }
+          process.stdout.write('info='+JSON.stringify(out));
+          " >> $GITHUB_OUTPUT
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
+
       - name: Create deployment (stable)
         uses: actions/github-script@v7
         env:
           VERSIONS: ${{ steps.versions.outputs.versions }}
+          NPM_INFO: ${{ steps.npm.outputs.info }}
         with:
           script: |
             const { owner, repo } = context.repo;
-            const payload = { channel: 'stable', versions: JSON.parse(process.env.VERSIONS || '{}') };
+            const payload = {
+              channel: 'stable',
+              distTag: 'latest',
+              versions: JSON.parse(process.env.VERSIONS || '{}'),
+              npm: JSON.parse(process.env.NPM_INFO || '{}')
+            };
             const ref = context.sha;
             const dep = await github.rest.repos.createDeployment({
               owner, repo, ref,
