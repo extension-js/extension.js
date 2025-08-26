@@ -1,7 +1,5 @@
 [npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0971fe
 [npm-version-url]: https://www.npmjs.com/package/extension
-[downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=2ecc40
-[downloads-url]: https://npmjs.org/package/extension
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=2ecc40
 [action-url]: https://github.com/extension-js/extension.js/actions
 [coverage-image]: https://img.shields.io/codecov/c/github/extension-js/extension.js?color=2ecc40
@@ -13,9 +11,9 @@
 
 > The cross-browser extension framework
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url] [![coverage][coverage-image]][coverage-url] [![discord][discord-image]][discord-url]
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![workflow][action-image]][action-url] [![coverage][coverage-image]][coverage-url] [![discord][discord-image]][discord-url]
 
-<img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="20%" />
+<img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="15.5%" />
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
