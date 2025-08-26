@@ -10,10 +10,13 @@ export default defineConfig({
         '**/messages.ts',
         '**/node_modules/**',
         '**/dist/**',
+        '**/coverage/**',
         '**/types/**',
         '**/*.d.ts',
         '**/*.test.ts',
-        '**/*.spec.ts'
+        '**/*.spec.ts',
+        '**/rslib.config.*',
+        '**/vitest.config.*'
       ]
     }
   }
