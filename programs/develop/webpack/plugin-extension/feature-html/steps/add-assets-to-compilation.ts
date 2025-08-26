@@ -21,11 +21,13 @@ export class AddAssetsToCompilation {
 
   // Normalize public folder path. We standardize on lowercase "public" only.
   private normalizePublicPath(assetPath: string): string {
-    if (!assetPath.startsWith('public/')) return assetPath
+    // Normalize any leading variants of "public/" to canonical lowercase "public/"
+    // Avoid identity replacements; ensure only case-variant prefixes are rewritten.
+    if (assetPath.startsWith('Public/'))
+      return assetPath.replace(/^Public\//, 'public/')
+    if (assetPath.startsWith('PUBLIC/'))
+      return assetPath.replace(/^PUBLIC\//, 'public/')
     return assetPath
-      .replace(/^Public\//, 'public/')
-      .replace(/^PUBLIC\//, 'public/')
-      .replace(/^public\//, 'public/')
   }
 
   public apply(compiler: Compiler): void {
