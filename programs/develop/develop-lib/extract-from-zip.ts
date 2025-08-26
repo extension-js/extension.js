@@ -18,8 +18,21 @@ export async function downloadAndExtractZip(
     // Step 1: Download the ZIP file and pipe it directly to the extraction process
     const response = await axios.get(url, {
       // Stream the response data
-      responseType: 'stream'
+      responseType: 'stream',
+      // Follow redirects by default
+      maxRedirects: 5
     })
+
+    // Basic validation: ensure the URL or content-type looks like a ZIP
+    const contentType = String(response.headers?.['content-type'] || '')
+    const isZipExt = path.extname(urlNoSearchParams).toLowerCase() === '.zip'
+    const isZipType = /zip|octet-stream/i.test(contentType)
+
+    if (!isZipExt && !isZipType) {
+      throw new Error(
+        `${messages.invalidRemoteZip(urlNoSearchParams, contentType)}`
+      )
+    }
 
     const extname = path.extname(urlNoSearchParams)
     const basename = path.basename(urlNoSearchParams, extname)

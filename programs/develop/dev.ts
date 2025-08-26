@@ -24,24 +24,30 @@ export async function extensionDev(
 
   try {
     const manifestDir = path.dirname(projectStructure.manifestPath)
-    const packageJsonDir = path.dirname(projectStructure.packageJsonPath)
+    const packageJsonDir = projectStructure.packageJsonPath
+      ? path.dirname(projectStructure.packageJsonPath)
+      : manifestDir
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir)
     }
 
     // Guard: only error if user references managed deps in extension.config.js
-    assertNoManagedDependencyConflicts(
-      projectStructure.packageJsonPath,
-      path.dirname(projectStructure.manifestPath)
-    )
+    if (projectStructure.packageJsonPath) {
+      assertNoManagedDependencyConflicts(
+        projectStructure.packageJsonPath,
+        path.dirname(projectStructure.manifestPath)
+      )
+    }
 
-    // Install dependencies if they are not installed.
-    const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
+    // Install dependencies if they are not installed (skip in web-only mode).
+    if (projectStructure.packageJsonPath) {
+      const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
 
-    if (!fs.existsSync(nodeModulesPath)) {
-      console.log(messages.installingDependencies())
-      await installDependencies(packageJsonDir)
+      if (!fs.existsSync(nodeModulesPath)) {
+        console.log(messages.installingDependencies())
+        await installDependencies(packageJsonDir)
+      }
     }
 
     await devServer(projectStructure, {
