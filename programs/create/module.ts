@@ -27,6 +27,11 @@ export async function extensionCreate(
     throw new Error(messages.noProjectName())
   }
 
+  // Maintain existing behavior: URLs are not allowed as project paths for create
+  if (projectNameInput.startsWith('http')) {
+    throw new Error(messages.noUrlAllowed())
+  }
+
   // Check if path is absolute
   const projectPath = path.isAbsolute(projectNameInput)
     ? projectNameInput
