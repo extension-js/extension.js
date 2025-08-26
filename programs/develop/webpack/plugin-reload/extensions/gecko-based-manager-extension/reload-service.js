@@ -52,7 +52,9 @@ export async function connect() {
         console.info(
           `[Extension.js] Server ready. Requesting initial load data...`
         )
-        try { await requestInitialLoadData() } catch {}
+        try {
+          await requestInitialLoadData()
+        } catch {}
       }
 
       if (message.changedFile) {
