@@ -37,12 +37,25 @@ export async function overridePackageJson(
 ) {
   const templatePath = utils.getTemplatePath(process.cwd())
 
-  const packageJsonPath = utils.isExternalTemplate(template)
+  const candidatePath = utils.isExternalTemplate(template)
     ? path.join(projectPath, 'package.json')
     : path.join(templatePath, 'package.json')
 
-  const packageJsonContent = await fs.readFile(packageJsonPath)
-  const packageJson = JSON.parse(packageJsonContent.toString())
+  // Web-only remote templates may not include package.json; start from a minimal base
+  let packageJson: Record<string, any> = {}
+
+  try {
+    const packageJsonContent = await fs.readFile(candidatePath)
+    packageJson = JSON.parse(packageJsonContent.toString())
+  } catch {
+    packageJson = {
+      name: path.basename(projectPath),
+      private: true,
+      scripts: {},
+      dependencies: {},
+      devDependencies: {}
+    }
+  }
 
   packageJson.scripts = packageJson.scripts || {}
   packageJson.dependencies = packageJson.dependencies || {}
