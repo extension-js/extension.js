@@ -79,9 +79,21 @@ describe('CheckManifestFiles', () => {
   })
 
   it('treats /public/foo and /foo as public-root assets and does not error when excluded', () => {
+    const manifestPath = path.resolve(
+      __dirname,
+      '..',
+      '..',
+      '..',
+      '..',
+      '..',
+      '..',
+      'examples',
+      'content',
+      'manifest.json'
+    )
     const manifest = {name: 'x'}
     const plugin = new CheckManifestFiles({
-      manifestPath: '/abs/manifest.json',
+      manifestPath,
       includeList: {
         icons: ['/public/icon-maro.png', '/icon-maro.png']
       },
