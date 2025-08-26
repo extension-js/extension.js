@@ -364,7 +364,7 @@ function getAssetsTree(assets: StatsAsset[] | undefined): string {
 }
 
 export function isUsingExperimentalConfig(integration: any) {
-  return `${getLoggingPrefix('info')} Using ${integration}.`
+  return `${getLoggingPrefix('info')} Using ${colors.yellow(integration)}.`
 }
 
 export function installingDependencies() {

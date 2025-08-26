@@ -15,7 +15,12 @@ export async function connect() {
   const maxBackoffMs = 5000
 
   const connectTo = (url) => {
-    webSocket = new WebSocket(url)
+    try {
+      webSocket = new WebSocket(url)
+    } catch (err) {
+      webSocket = null
+      return
+    }
 
     webSocket.onerror = (_event) => {
       try {
@@ -36,12 +41,18 @@ export async function connect() {
 
     let reloadDebounce
     webSocket.onmessage = async (event) => {
-      const message = JSON.parse(event.data)
+      let message = null
+      try {
+        message = JSON.parse(event.data)
+      } catch {
+        return
+      }
 
       if (message.status === 'serverReady') {
         console.info(
           `[Extension.js] Server ready. Requesting initial load data...`
         )
+        try { await requestInitialLoadData() } catch {}
       }
 
       if (message.changedFile) {
