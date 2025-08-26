@@ -99,13 +99,10 @@ export function browserConfig(
     '--disable-renderer-backgrounding',
     '--disable-backgrounding-occluded-windows',
     '--disable-features=TranslateUI',
-    '--disable-ipc-flooding-protection',
 
     // Ensure clean shutdown
     '--disable-hang-monitor',
     '--disable-prompt-on-repost',
-    '--disable-web-security',
-    '--disable-features=VizDisplayCompositor',
 
     // Memory management for AI usage
     '--memory-pressure-off',

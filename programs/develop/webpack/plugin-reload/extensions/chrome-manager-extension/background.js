@@ -4,9 +4,15 @@ import {connect, disconnect, keepAlive} from './reload-service.js'
 function bgGreen(str) {
   return `background: transparent; color: #0971fe; ${str}`
 }
-chrome.tabs.query({active: true}, async ([initialTab]) => {
-  console.log(
-    `%c
+
+// Guard tab access and run after startup
+chrome.runtime.onStartup.addListener(async () => {
+  try {
+    chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
+      const initialTab = Array.isArray(tabs) ? tabs[0] : undefined
+
+      console.log(
+        `%c
 ██████████████████████████████████████████████████████████
 ██████████████████████████████████████████████████████████
 ████████████████████████████    ██████████████████████████
@@ -32,17 +38,24 @@ chrome.tabs.query({active: true}, async ([initialTab]) => {
 ██████████████████████████████████████████████████████████
 MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors.
 `,
-    bgGreen('')
-  )
+        bgGreen('')
+      )
 
-  if (
-    initialTab.url === 'chrome://newtab/' ||
-    initialTab.url === 'chrome://welcome/'
-  ) {
-    await handleFirstRun()
-  } else {
-    createExtensionsPageTab(initialTab, 'chrome://extensions/')
-  }
+      if (!initialTab) {
+        await handleFirstRun()
+        return
+      }
+
+      if (
+        initialTab.url === 'chrome://newtab/' ||
+        initialTab.url === 'chrome://welcome/'
+      ) {
+        await handleFirstRun()
+      } else {
+        createExtensionsPageTab(initialTab, 'chrome://extensions/')
+      }
+    })
+  } catch {}
 })
 
 chrome.runtime.onInstalled.addListener(async () => {

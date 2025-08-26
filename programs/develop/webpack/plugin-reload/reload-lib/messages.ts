@@ -554,7 +554,7 @@ export function failedToUpdateInstanceWithExtensionId(error: string) {
 export function webSocketServerForInstanceClosed(instanceId: string) {
   return (
     getLoggingPrefix(WS, 'success') +
-    ` for instance ${colors.gray(instanceId.slice(0, 8))} closed`
+    ` for instance ${colors.yellow(instanceId.slice(0, 8))} closed`
   )
 }
 
