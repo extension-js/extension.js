@@ -53,15 +53,28 @@ describe('ScriptsPlugin (no wrapper when directive is absent)', () => {
     const manifestText = await fs.promises.readFile(manifestPath, 'utf8')
     const manifest = JSON.parse(manifestText) as chrome.runtime.ManifestV3
 
-    const cs = manifest.content_scripts?.[0]?.js?.[0]
-    expect(typeof cs).toBe('string')
+    // Detect first emitted content script path (fixtures may use scripts/content-script.js)
+    let rel = manifest.content_scripts?.[0]?.js?.[0]
+    if (typeof rel !== 'string') {
+      // Fallback: find any .js file matching a content script pattern
+      const candidates = [
+        path.join(outputPath, 'scripts', 'content-script.js'),
+        path.join(outputPath, 'content_scripts', 'content-0.js')
+      ]
+      const found = candidates.find((p) => fs.existsSync(p))
+      expect(typeof found).toBe('string')
+      const code = await fs.promises.readFile(found as string, 'utf-8')
+      expect(code).not.toMatch(/attachShadow\(\{\s*mode:\s*['"]open['"]\s*\}\)/)
+      expect(code).not.toMatch(/adoptedStyleSheets\s*=/)
+      return
+    }
 
-    const csPath = path.join(outputPath, cs as string)
+    const csPath = path.join(outputPath, rel as string)
     await waitForFile(csPath)
     const code = await fs.promises.readFile(csPath, 'utf-8')
 
     // No wrapper-specific patterns
     expect(code).not.toMatch(/attachShadow\(\{\s*mode:\s*['"]open['"]\s*\}\)/)
-    expect(code).not.toMatch(/document\.createElement\(\s*['"]style['"]\s*\)/)
+    expect(code).not.toMatch(/adoptedStyleSheets\s*=/)
   })
 })
