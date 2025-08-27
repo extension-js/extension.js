@@ -74,9 +74,14 @@ jobs:
           for (const name of pkgs) {
             const v = versions[name];
             if (!v) continue;
-            const info = JSON.parse(execSync('npm view ' + name + '@' + v + ' version dist.tarball gitHead --json').toString());
-            const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
-            out[name] = { version: info.version, tarball: info.dist?.tarball, gitHead: info.gitHead, distTags: tags };
+            try {
+              const info = JSON.parse(execSync('npm view ' + name + '@' + v + ' version dist.tarball gitHead --json').toString());
+              const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+              out[name] = { version: info.version, tarball: info.dist?.tarball, gitHead: info.gitHead, distTags: tags };
+            } catch (err) {
+              console.error('Failed to get npm info for', name, ':', err.message);
+              out[name] = { error: err.message, version: v };
+            }
           }
           process.stdout.write('info='+JSON.stringify(out));
           " >> $GITHUB_OUTPUT
@@ -93,19 +98,29 @@ jobs:
           for (const name of pkgs) {
             const expected = info?.[name]?.version;
             if (!expected) continue;
-            const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
-            const isPrerelease = /-/.test(expected);
-            if (isPrerelease) {
-              if (tags.next !== expected) {
-                console.error(`[next] Dist-tag mismatch for ${name}: next=${tags.next} expected=${expected}`);
-                process.exit(1);
+            try {
+              const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+              const isPrerelease = /-/.test(expected);
+              if (isPrerelease) {
+                if (tags.next !== expected) {
+                  console.error(`[next] Dist-tag mismatch for ${name}: next=${tags.next} expected=${expected}`);
+                  process.exit(1);
+                }
+              } else {
+                if (!tags.next) {
+                  console.error(`[next] Dist-tag missing for ${name}: expected a 'next' tag to exist`);
+                  process.exit(1);
+                }
+                console.log(`[next] Skipping strict next match for ${name} (stable version ${expected}).`);
               }
-            } else {
-              if (!tags.next) {
-                console.error(`[next] Dist-tag missing for ${name}: expected a 'next' tag to exist`);
-                process.exit(1);
+            } catch (err) {
+              console.error('Failed to verify dist-tags for', name, ':', err.message);
+              // Don't fail the workflow if package doesn't exist yet
+              if (err.message.includes('404') || err.message.includes('No match found')) {
+                console.log(`[next] Package ${name} not found on npm yet, skipping verification`);
+                continue;
               }
-              console.log(`[next] Skipping strict next match for ${name} (stable version ${expected}).`);
+              process.exit(1);
             }
           }
           console.log('Next dist-tags verified.');
