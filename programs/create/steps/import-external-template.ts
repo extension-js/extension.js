@@ -26,7 +26,7 @@ export async function importExternalTemplate(
   const installationPath = path.dirname(projectPath)
   const templateName = path.basename(template)
   const examplesUrl =
-    'https://github.com/extension-js/extension.js/tree/main/examples'
+    'https://github.com/extension-js/examples/tree/main/examples'
   const templateUrl = `${examplesUrl}/${template}`
 
   try {
