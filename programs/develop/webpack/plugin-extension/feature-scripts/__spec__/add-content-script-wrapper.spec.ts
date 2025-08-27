@@ -77,6 +77,8 @@ export default function contentScript() {
     expect(result).toContain('React Content Script Wrapper - Auto-generated')
     expect(result).toContain('class ReactContentScriptWrapper')
     expect(result).toContain('injectStyles')
+    // Ensure generated code uses escaped newlines in concatenations
+    expect(result).toContain("+ '\\n'")
   })
 
   it('does not wrap files not referenced by content_scripts', async () => {
