@@ -43,7 +43,31 @@ describe('ScriptsPlugin (no wrapper when directive is absent)', () => {
 
   afterAll(async () => {
     if (fs.existsSync(outputPath)) {
-      await fs.promises.rm(outputPath, {recursive: true, force: true})
+      try {
+        // Force remove the directory and all contents
+        await fs.promises.rm(outputPath, {recursive: true, force: true})
+      } catch (error) {
+        // If rm fails, try to remove files individually
+        try {
+          const files = await fs.promises.readdir(outputPath, {
+            withFileTypes: true
+          })
+          for (const file of files) {
+            const filePath = path.join(outputPath, file.name)
+            if (file.isDirectory()) {
+              await fs.promises.rm(filePath, {recursive: true, force: true})
+            } else {
+              await fs.promises.unlink(filePath)
+            }
+          }
+          await fs.promises.rmdir(outputPath)
+        } catch (cleanupError) {
+          console.warn(
+            'Failed to clean up test output directory:',
+            cleanupError
+          )
+        }
+      }
     }
   })
 

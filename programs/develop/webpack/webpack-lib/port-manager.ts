@@ -33,6 +33,9 @@ export class PortManager {
     requestedPort?: number
   ): Promise<PortAllocation> {
     try {
+      // Pre-flight check: ensure we can create the data directory
+      await this.instanceManager.ensureDataDirectory()
+
       // Create a new instance with unique ports
       const instance = await this.instanceManager.createInstance(
         browser,
