@@ -52,6 +52,8 @@ export interface BuildOptions {
   zipSource?: boolean
   polyfill?: boolean
   silent?: boolean
+  // When true, treat warnings as build failures
+  failOnWarning?: boolean
   // When false, extensionBuild rejects on error instead of exiting the process.
   // Defaults to true for CLI usage.
   exitOnError?: boolean
