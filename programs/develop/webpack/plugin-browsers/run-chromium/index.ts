@@ -229,8 +229,9 @@ export class RunChromiumPlugin {
       console.log(messages.chromeInitializingEnhancedReload())
     }
 
+    // Ensure flags come first so Chrome acknowledges them; URL last
     const launchArgs = this.startingUrl
-      ? [this.startingUrl, ...chromeFlags]
+      ? [...chromeFlags, this.startingUrl]
       : [...chromeFlags]
 
     const stdio =
@@ -252,6 +253,10 @@ export class RunChromiumPlugin {
       this.browserProcess = child
 
       if (process.env.EXTENSION_ENV === 'development') {
+        console.log(
+          '[plugin-browsers] Final Chrome flags:',
+          launchArgs.join(' ')
+        )
         child.stdout?.pipe(process.stdout)
         child.stderr?.pipe(process.stderr)
       }
