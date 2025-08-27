@@ -58,7 +58,7 @@ jobs:
       - name: Verify dist-tags (stable tag)
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         run: |
-          node -e "
+          node - <<'NODE'
           const { execSync } = require('child_process');
           const versions = JSON.parse(process.env.VERSIONS || '{}');
           const pkgs = ['extension','extension-create','extension-develop'];
@@ -72,7 +72,7 @@ jobs:
             }
           }
           console.log('Stable tag dist-tags verified.');
-          "
+          NODE
         env:
           VERSIONS: ${{ steps.versions.outputs.versions }}
 
