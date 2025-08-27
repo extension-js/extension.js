@@ -50,8 +50,8 @@ describe('ScriptsPlugin (reload heuristic)', () => {
 
     const before = (await fs.promises.stat(jsPath)).mtimeMs
 
-    // Touch the source entry to simulate change
-    const src = path.join(fixturesPath, 'content', 'scripts.ts')
+    // Touch the source entry to simulate change (fixture uses JS)
+    const src = path.join(fixturesPath, 'content', 'scripts.js')
     const now = Date.now()
     await fs.promises.utimes(src, now / 1000, now / 1000)
 

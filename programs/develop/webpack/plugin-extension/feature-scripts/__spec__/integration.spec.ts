@@ -43,7 +43,19 @@ describe('ScriptsPlugin (integration)', () => {
 
   afterAll(async () => {
     if (fs.existsSync(outputPath)) {
-      await fs.promises.rm(outputPath, {recursive: true, force: true})
+      try {
+        await fs.promises.rm(outputPath, {recursive: true, force: true})
+      } catch (err: any) {
+        // Ignore transient ENOTEMPTY/ENOENT from concurrent writes in CI
+        if (
+          err &&
+          typeof err.code === 'string' &&
+          (err.code === 'ENOTEMPTY' || err.code === 'ENOENT')
+        ) {
+          return
+        }
+        throw err
+      }
     }
   })
 
