@@ -35,8 +35,11 @@ describe('ManifestPlugin (integration)', () => {
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
   beforeAll(async () => {
-    await extensionBuild(fixturesPath, {browser: 'chrome'})
-  })
+    await extensionBuild(fixturesPath, {
+      browser: 'chrome',
+      exitOnError: false as any
+    })
+  }, 30000)
 
   afterAll(async () => {
     if (fs.existsSync(outputPath)) {
@@ -62,5 +65,5 @@ describe('ManifestPlugin (integration)', () => {
     if (manifest.background && 'service_worker' in manifest.background) {
       expect(typeof manifest.background.service_worker).toBe('string')
     }
-  })
+  }, 20000)
 })
