@@ -45,5 +45,3 @@ npx extension@latest preview
 ## Learn more
 
 Learn more about this and other templates at @https://extension.js.org/
-
-
