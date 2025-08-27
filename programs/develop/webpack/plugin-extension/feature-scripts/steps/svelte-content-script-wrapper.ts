@@ -221,7 +221,7 @@ class SvelteContentScriptWrapper {
         // Check if we have hardcoded content for this stylesheet
         if (cssContentMap[stylesheet]) {
           const cssContent = cssContentMap[stylesheet]
-          allCSS += cssContent + '\n'
+          allCSS += cssContent + '\\n'
           console.log('[Extension.js] Successfully injected Svelte', stylesheet, 'content')
           continue
         }
@@ -231,7 +231,7 @@ class SvelteContentScriptWrapper {
         const response = await fetch(cssUrl)
         const text = await response.text()
         if (response.ok) {
-          allCSS += text + '\n'
+          allCSS += text + '\\n'
           console.log('[Extension.js] Successfully fetched stylesheet:', stylesheet)
         } else {
           console.warn('[Extension.js] Failed to fetch CSS:', stylesheet)
