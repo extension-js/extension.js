@@ -10,13 +10,24 @@ on:
       - '.github/workflows/**'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   actionlint:
     runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      checks: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
       - name: Setup actionlint
-        uses: rhyme951/actionlint-action@v1
-      - name: Run actionlint
-        run: actionlint -color
+        uses: reviewdog/action-actionlint@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-check
+          level: error
+          fail_level: error
+          actionlint_flags: "-color"
 
