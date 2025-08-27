@@ -88,21 +88,30 @@ jobs:
         run: |
           node - <<'NODE'
           const { execSync } = require('child_process');
-          const versions = JSON.parse(process.env.VERSIONS || '{}');
+          const info = JSON.parse(process.env.NPM_INFO || '{}');
           const pkgs = ['extension','extension-create','extension-develop'];
           for (const name of pkgs) {
-            const expected = versions[name];
+            const expected = info?.[name]?.version;
             if (!expected) continue;
             const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
-            if (tags.next !== expected) {
-              console.error(`[next] Dist-tag mismatch for ${name}: next=${tags.next} expected=${expected}`);
-              process.exit(1);
+            const isPrerelease = /-/.test(expected);
+            if (isPrerelease) {
+              if (tags.next !== expected) {
+                console.error(`[next] Dist-tag mismatch for ${name}: next=${tags.next} expected=${expected}`);
+                process.exit(1);
+              }
+            } else {
+              if (!tags.next) {
+                console.error(`[next] Dist-tag missing for ${name}: expected a 'next' tag to exist`);
+                process.exit(1);
+              }
+              console.log(`[next] Skipping strict next match for ${name} (stable version ${expected}).`);
             }
           }
           console.log('Next dist-tags verified.');
           NODE
         env:
-          VERSIONS: ${{ steps.versions.outputs.versions }}
+          NPM_INFO: ${{ steps.npm.outputs.info }}
 
       - name: Create deployment (next)
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
