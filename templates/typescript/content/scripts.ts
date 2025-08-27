@@ -13,7 +13,7 @@ export interface ContentScriptOptions {
   rootClassName?: string
 }
 
-export default function contentScript(options: ContentScriptOptions = {}) {
+export default function contentScript(_options: ContentScriptOptions = {}) {
   return (container: HTMLElement) => {
     // Create content wrapper div
     const contentDiv = document.createElement('div')
