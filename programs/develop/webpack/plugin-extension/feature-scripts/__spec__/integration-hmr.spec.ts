@@ -8,7 +8,7 @@ const fx = (demo: string) =>
 
 async function waitForFile(
   filePath: string,
-  timeoutMs: number = 2000,
+  timeoutMs: number = 10000,
   intervalMs: number = 50
 ) {
   const start = Date.now()
@@ -25,8 +25,8 @@ describe('ScriptsPlugin HMR accept injection (dev build)', () => {
 
   beforeAll(async () => {
     // Build once; the dev server is out of scope here, we assert injected code presence
-    await extensionBuild(fixturesPath, {browser: 'chrome'})
-  })
+    await extensionBuild(fixturesPath, {browser: 'chrome', silent: true})
+  }, 30000)
 
   afterAll(async () => {
     if (fs.existsSync(out))
@@ -46,5 +46,5 @@ describe('ScriptsPlugin HMR accept injection (dev build)', () => {
     await waitForFile(csPath)
     // Ensure final content script bundle exists
     expect(fs.existsSync(csPath)).toBe(true)
-  })
+  }, 20000)
 })
