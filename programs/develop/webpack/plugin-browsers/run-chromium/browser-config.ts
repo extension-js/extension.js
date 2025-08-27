@@ -71,9 +71,12 @@ export function browserConfig(
 
   const actualCompilation = compilation.compilation || compilation
 
+  // Force a managed profile when source inspection is enabled to ensure flags are applied
+  const sourceEnabled = !!(configOptions.source || configOptions.watchSource)
+
   const userProfilePath = createProfile(actualCompilation, {
     browser: configOptions.browser,
-    userProfilePath: configOptions.profile,
+    userProfilePath: sourceEnabled ? undefined : configOptions.profile,
     configPreferences: configOptions.preferences,
     instanceId: (configOptions as any).instanceId
   })
@@ -85,7 +88,6 @@ export function browserConfig(
   const filteredFlags = filterBrowserFlags(DEFAULT_BROWSER_FLAGS, excludeFlags)
 
   // Source inspection toggles remote debugging flags
-  const sourceEnabled = !!(configOptions.source || configOptions.watchSource)
   // Compute instance-based CDP port using shared helper
   const cdpPort = deriveDebugPortWithInstance(
     configOptions.port,
