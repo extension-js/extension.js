@@ -694,7 +694,22 @@ export function webSocketConnectionCloseError(error: unknown) {
 
 // Port Manager messages
 export function portManagerErrorAllocatingPorts(error: unknown) {
-  return `${getLoggingPrefix('Port Manager', 'error')} Failed to allocate ports.\n${colors.red(String(error))}`
+  let errorMessage = String(error)
+
+  // Provide specific guidance for common errors
+  if (errorMessage.includes('ENOENT')) {
+    errorMessage +=
+      '\n\nThis usually means the extension-js data directory could not be created.'
+    errorMessage += '\nPossible solutions:'
+    errorMessage +=
+      '\n1. Check if you have write permissions to your home directory'
+    errorMessage += '\n2. Try running: extension cleanup'
+    errorMessage +=
+      '\n3. Manually delete: ~/Library/Application Support/extension-js (macOS)'
+    errorMessage += '\n4. Restart your terminal and try again'
+  }
+
+  return `${getLoggingPrefix('Port Manager', 'error')} Failed to allocate ports.\n${colors.red(errorMessage)}`
 }
 
 // Browser Plugin messages
