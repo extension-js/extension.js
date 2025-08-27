@@ -1,5 +1,14 @@
 # extension
 
+## 2.1.2
+
+### Patch Changes
+
+- 1981a82: Bug fixes in the reload and browser plugins
+- Updated dependencies [1981a82]
+  - extension-create@2.1.2
+  - extension-develop@2.1.2
+
 ## 2.1.1
 
 ### Patch Changes

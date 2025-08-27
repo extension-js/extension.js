@@ -21,7 +21,7 @@
     "dist"
   ],
   "name": "extension-develop",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "The develop step of Extension.js",
   "author": {
     "name": "Cezar Augusto",
