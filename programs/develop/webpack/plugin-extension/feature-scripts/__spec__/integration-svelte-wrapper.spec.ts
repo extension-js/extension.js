@@ -74,5 +74,3 @@ describe('Svelte wrapper integration (content-svelte example)', () => {
     expect(code.includes("+'\n'"))
   })
 })
-
-
