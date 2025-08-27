@@ -37,7 +37,8 @@ describe('React wrapper integration (content-react-wrapper example)', () => {
     await extensionBuild(fixturesPath, {
       browser: 'chrome',
       silent: true,
-      exitOnError: false as any
+      exitOnError: false as any,
+      failOnWarning: true
     })
   }, 45000)
 
@@ -75,5 +76,3 @@ describe('React wrapper integration (content-react-wrapper example)', () => {
     expect(code.includes("+'\n'"))
   })
 })
-
-
