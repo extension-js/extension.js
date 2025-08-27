@@ -23,53 +23,63 @@ export class CDPClient {
   }
 
   async connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      // Get the list of available targets via HTTP to verify CDP is available
-      const options = {
-        hostname: this.host,
-        port: this.port,
-        path: '/json',
-        method: 'GET'
-      }
-
-      const req = http.request(options, (res) => {
-        let data = ''
-        res.on('data', (chunk) => {
-          data += chunk
-        })
-        res.on('end', () => {
-          try {
-            const targets = JSON.parse(data)
-            console.log(messages.cdpClientFoundTargets(targets.length))
-
-            // Store the first available target's WebSocket URL for future connections
-            const pageTarget = targets.find(
-              (target: any) => target.type === 'page'
-            )
-            if (pageTarget && pageTarget.webSocketDebuggerUrl) {
-              this.targetWebSocketUrl = pageTarget.webSocketDebuggerUrl
-              console.log(messages.cdpClientTargetWebSocketUrlStored())
-            }
-
-            // For source inspection, we establish a connection to chromium's CDP endpoint
-            // This connection will be used for all subsequent operations
-            this.establishBrowserConnection()
-              .then(() => {
-                console.log(messages.cdpClientConnected(this.host, this.port))
-                resolve()
-              })
-              .catch(reject)
-          } catch (error) {
-            reject(new Error(`Failed to parse CDP targets: ${error}`))
+    // Prefer the browser-level websocket (more stable), fallback to first page target
+    const getJson = (path: string) =>
+      new Promise<any>((resolve, reject) => {
+        const req = http.request(
+          {hostname: this.host, port: this.port, path, method: 'GET'},
+          (res) => {
+            let data = ''
+            res.on('data', (chunk) => (data += chunk))
+            res.on('end', () => {
+              try {
+                resolve(JSON.parse(data))
+              } catch (e) {
+                reject(new Error(`Failed to parse ${path}: ${e}`))
+              }
+            })
           }
-        })
+        )
+        req.on('error', (err) => reject(err))
+        req.end()
       })
 
-      req.on('error', (error) => {
-        reject(new Error(`Failed to connect to CDP: ${error.message}`))
-      })
+    return new Promise(async (resolve, reject) => {
+      try {
+        // Try /json/version for browser websocket URL
+        try {
+          const version = await getJson('/json/version')
+          if (version && version.webSocketDebuggerUrl) {
+            this.targetWebSocketUrl = version.webSocketDebuggerUrl
+            console.log(messages.cdpClientTargetWebSocketUrlStored())
+          }
+        } catch {}
 
-      req.end()
+        if (!this.targetWebSocketUrl) {
+          const targets = await getJson('/json')
+          console.log(messages.cdpClientFoundTargets(targets?.length || 0))
+          const pageTarget = (targets || []).find(
+            (target: any) =>
+              target.type === 'page' && target.webSocketDebuggerUrl
+          )
+          if (pageTarget) {
+            this.targetWebSocketUrl = pageTarget.webSocketDebuggerUrl
+            console.log(messages.cdpClientTargetWebSocketUrlStored())
+          }
+        }
+
+        if (!this.targetWebSocketUrl) {
+          return reject(new Error('No CDP WebSocket URL available'))
+        }
+
+        await this.establishBrowserConnection()
+        console.log(messages.cdpClientConnected(this.host, this.port))
+        resolve()
+      } catch (error: any) {
+        reject(
+          new Error(`Failed to connect to CDP: ${error?.message || error}`)
+        )
+      }
     })
   }
 
