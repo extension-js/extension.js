@@ -39,6 +39,22 @@ jobs:
           pnpm turbo run compile
           pnpm turbo run test
 
+      - name: Configure npm auth (stable)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+          npm config set registry https://registry.npmjs.org/
+
+      - name: Debug npm auth (stable)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "Registry: $(npm config get registry)"
+          echo "NPM_TOKEN length: ${#NPM_TOKEN}"
+          npm whoami || echo "npm whoami failed - checking token"
+          test -n "$NODE_AUTH_TOKEN" || (echo "NODE_AUTH_TOKEN missing" && exit 1)
+
       - name: Publish packages to npm
         id: changesets
         uses: changesets/action@v1
@@ -50,7 +66,7 @@ jobs:
           createGithubReleases: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Debug npm auth (stable)
         if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.changesets.outputs.published != 'true' }}
@@ -78,9 +94,14 @@ jobs:
           for (const name of pkgs) {
             const v = versions[name];
             if (!v) continue;
-            const info = JSON.parse(execSync('npm view ' + name + '@' + v + ' version dist.tarball gitHead --json').toString());
-            const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
-            out[name] = { version: info.version, tarball: info.dist?.tarball, gitHead: info.gitHead, distTags: tags };
+            try {
+              const info = JSON.parse(execSync('npm view ' + name + '@' + v + ' version dist.tarball gitHead --json').toString());
+              const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+              out[name] = { version: info.version, tarball: info.dist?.tarball, gitHead: info.gitHead, distTags: tags };
+            } catch (err) {
+              console.error('Failed to get npm info for', name, ':', err.message);
+              out[name] = { error: err.message };
+            }
           }
           process.stdout.write('info='+JSON.stringify(out));
           " >> $GITHUB_OUTPUT
@@ -97,9 +118,14 @@ jobs:
           for (const name of pkgs) {
             const expected = versions[name];
             if (!expected) continue;
-            const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
-            if (tags.latest !== expected) {
-              console.error(`[stable] Dist-tag mismatch for ${name}: latest=${tags.latest} expected=${expected}`);
+            try {
+              const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+              if (tags.latest !== expected) {
+                console.error(`[stable] Dist-tag mismatch for ${name}: latest=${tags.latest} expected=${expected}`);
+                process.exit(1);
+              }
+            } catch (err) {
+              console.error('Failed to verify dist-tags for', name, ':', err.message);
               process.exit(1);
             }
           }
@@ -185,4 +211,35 @@ jobs:
               log_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
               environment_url: envUrl,
               description: desc
-            })
+            });
+
+      - name: Create deployment (stable - failed publish)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && steps.changesets.outputs.published != 'true' }}
+        uses: actions/github-script@v7
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const payload = {
+              channel: 'stable',
+              distTag: 'latest',
+              versions: JSON.parse(process.env.VERSIONS || '{}'),
+              error: 'npm publish failed'
+            };
+            const ref = context.sha;
+            const dep = await github.rest.repos.createDeployment({
+              owner, repo, ref,
+              environment: 'stable',
+              auto_merge: false,
+              required_contexts: [],
+              transient_environment: false,
+              description: `npm publish failed`,
+              payload: JSON.stringify(payload)
+            });
+            await github.rest.repos.createDeploymentStatus({
+              owner, repo, deployment_id: dep.data.id,
+              state: 'failure',
+              log_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              description: 'npm publish failed - check workflow logs'
+            });
