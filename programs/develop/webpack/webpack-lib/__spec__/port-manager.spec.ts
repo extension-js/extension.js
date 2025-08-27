@@ -102,6 +102,32 @@ describe('PortManager', () => {
     expect(pm.getCurrentInstance()).not.toBeNull()
   })
 
+  it('performs pre-flight check for data directory before port allocation', async () => {
+    const pm = new PortManager(browser as any, projectPath, 8080)
+    const ensureDataDirectorySpy = vi.spyOn(
+      pm.getInstanceManager(),
+      'ensureDataDirectory'
+    )
+
+    await pm.allocatePorts(browser as any, projectPath)
+
+    expect(ensureDataDirectorySpy).toHaveBeenCalled()
+  })
+
+  it('handles data directory creation failure gracefully', async () => {
+    const pm = new PortManager(browser as any, projectPath, 8080)
+    const mockInstanceManager = pm.getInstanceManager()
+
+    // Mock ensureDataDirectory to fail
+    vi.spyOn(mockInstanceManager, 'ensureDataDirectory').mockRejectedValueOnce(
+      new Error('ENOENT: no such file or directory')
+    )
+
+    await expect(pm.allocatePorts(browser as any, projectPath)).rejects.toThrow(
+      'ENOENT: no such file or directory'
+    )
+  })
+
   it('updates extension id on current instance', async () => {
     const pm = new PortManager(browser as any, projectPath, 8081)
     await pm.allocatePorts(browser as any, projectPath)
