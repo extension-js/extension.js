@@ -1,5 +1,13 @@
 # extension
 
+## 2.1.3
+
+### Patch Changes
+
+- 0c07631: Hotfix for browser instances not working on macOS
+- Updated dependencies [0c07631]
+  - extension-develop@2.1.3
+
 ## 2.1.2
 
 ### Patch Changes
