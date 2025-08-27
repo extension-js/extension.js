@@ -42,7 +42,7 @@
     "messages:reload": "pnpm dlx tsx ./scripts/render-messages.ts --target=reload"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.28.1",
+    "@changesets/cli": "^2.29.6",
     "@eslint/js": "^9.16.0",
     "@playwright/test": "^1.49.0",
     "@types/chrome": "^0.0.287",
