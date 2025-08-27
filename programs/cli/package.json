@@ -25,7 +25,7 @@
     "extension": "./dist/cli.js"
   },
   "name": "extension",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Create cross-browser extensions with no build configuration.",
   "homepage": "https://extension.js.org/",
   "author": {
