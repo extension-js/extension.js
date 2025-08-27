@@ -29,10 +29,10 @@ export function checkUpdates(
   update: {latest: string}
 ) {
   return (
-    `${colors.blue('Extension.js')} update available.\n` +
-    `You are currently using version ${colors.gray(String(packageJson.version))}. ` +
-    `Latest stable is ${colors.gray(String(update.latest))}. ` +
-    `Please update to enjoy new features and improvements.`
+    `${getLoggingPrefix('info')} 🧩 ${colors.blue('Extension.js')} update available.\n\n` +
+    `You are currently using version ${colors.red(String(packageJson.version))}. ` +
+    `Latest stable is ${colors.green(String(update.latest))}.\n` +
+    `Please update to enjoy new features and improvements.\n`
   )
 }
 

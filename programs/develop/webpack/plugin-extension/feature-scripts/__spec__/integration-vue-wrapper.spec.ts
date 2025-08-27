@@ -37,7 +37,8 @@ describe('Vue wrapper integration (content-vue example)', () => {
     await extensionBuild(fixturesPath, {
       browser: 'chrome',
       silent: true,
-      exitOnError: false as any
+      exitOnError: false as any,
+      failOnWarning: true
     })
   }, 45000)
 
@@ -74,5 +75,3 @@ describe('Vue wrapper integration (content-vue example)', () => {
     expect(code.includes("+'\n'"))
   })
 })
-
-
