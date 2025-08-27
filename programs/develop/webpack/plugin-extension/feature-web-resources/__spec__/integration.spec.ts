@@ -35,7 +35,12 @@ describe.skip('WebResourcesPlugin (integration)', () => {
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
   beforeAll(async () => {
-    await extensionBuild(fixturesPath, {browser: 'chrome', silent: true})
+    await extensionBuild(fixturesPath, {
+      browser: 'chrome',
+      silent: true,
+      // Avoid hard exit so the test can catch failures
+      exitOnError: false as any
+    })
   }, 30000)
 
   afterAll(async () => {
