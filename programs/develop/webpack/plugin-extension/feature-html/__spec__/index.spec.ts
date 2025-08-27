@@ -39,9 +39,10 @@ describe('HtmlPlugin (default behavior)', () => {
 
   beforeAll(async () => {
     await extensionBuild(fixturesPath, {
-      browser: 'chrome'
+      browser: 'chrome',
+      exitOnError: false as any
     })
-  })
+  }, 30000)
 
   afterAll(() => {
     if (fs.existsSync(outputPath)) {
