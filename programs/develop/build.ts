@@ -101,7 +101,11 @@ export async function extensionBuild(
           console.log(messages.buildSuccess())
           resolve()
         } else {
+          // Print stats and reject to let callers (tests/CLI) decide on process exit
           console.log(stats.toString({colors: true}))
+          if (buildOptions?.exitOnError === false) {
+            return reject(new Error('Build failed with errors'))
+          }
           process.exit(1)
         }
       })
@@ -109,6 +113,9 @@ export async function extensionBuild(
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {
       console.error(error)
+    }
+    if (buildOptions?.exitOnError === false) {
+      throw error
     }
     process.exit(1)
   }
