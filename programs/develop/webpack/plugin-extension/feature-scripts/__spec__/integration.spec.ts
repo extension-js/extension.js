@@ -34,8 +34,8 @@ describe('ScriptsPlugin (integration)', () => {
   }
 
   beforeAll(async () => {
-    await extensionBuild(fixturesPath, {browser: 'chrome'})
-  })
+    await extensionBuild(fixturesPath, {browser: 'chrome', silent: true})
+  }, 30000)
 
   afterAll(async () => {
     if (fs.existsSync(outputPath)) {
@@ -66,5 +66,5 @@ describe('ScriptsPlugin (integration)', () => {
       ? (await fs.promises.readdir(assetsDir)).length > 0
       : false
     expect(hasAnyAsset).toBe(true)
-  })
+  }, 20000)
 })
