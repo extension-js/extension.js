@@ -101,6 +101,15 @@ export class InstanceManager {
     }
   }
 
+  public async ensureDataDirectory(): Promise<void> {
+    const dataDir = this.getDataDirectory()
+    try {
+      await fs.access(dataDir)
+    } catch {
+      await fs.mkdir(dataDir, {recursive: true})
+    }
+  }
+
   private async loadRegistry(): Promise<InstanceRegistry> {
     try {
       await this.ensureRegistryDir()
@@ -487,6 +496,9 @@ export class InstanceManager {
     projectPath: string,
     requestedPort?: number
   ): Promise<InstanceInfo> {
+    // Ensure data directory exists before creating lock file
+    await this.ensureDataDirectory()
+
     const lockPath = path.join(this.getDataDirectory(), 'instances.lock')
     // Acquire simple inter-process lock to serialize allocation
     let lockHandle: any = null
@@ -504,6 +516,12 @@ export class InstanceManager {
         throw err
       }
     }
+
+    // Check if we successfully acquired the lock
+    if (!lockHandle) {
+      throw new Error('Failed to acquire instance lock after 10 attempts')
+    }
+
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(
         messages.instanceManagerCreateInstanceCalled({
