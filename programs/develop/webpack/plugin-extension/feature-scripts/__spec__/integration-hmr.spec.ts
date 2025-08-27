@@ -25,7 +25,11 @@ describe('ScriptsPlugin HMR accept injection (dev build)', () => {
 
   beforeAll(async () => {
     // Build once; the dev server is out of scope here, we assert injected code presence
-    await extensionBuild(fixturesPath, {browser: 'chrome', silent: true})
+    await extensionBuild(fixturesPath, {
+      browser: 'chrome',
+      silent: true,
+      exitOnError: false as any
+    })
   }, 30000)
 
   afterAll(async () => {
@@ -47,4 +51,22 @@ describe('ScriptsPlugin HMR accept injection (dev build)', () => {
     // Ensure final content script bundle exists
     expect(fs.existsSync(csPath)).toBe(true)
   }, 20000)
+
+  it("wrapped content script has mount+dispose pattern when 'use shadow-dom' is present", async () => {
+    const manifestPath = path.join(out, 'manifest.json')
+    await waitForFile(manifestPath)
+    const manifest = JSON.parse(
+      await fs.promises.readFile(manifestPath, 'utf8')
+    ) as chrome.runtime.ManifestV3
+    const cs = manifest.content_scripts?.[0]?.js?.[0]
+    const csPath = path.join(out, cs as string)
+    const code = await fs.promises.readFile(csPath, 'utf-8')
+
+    // Heuristic: presence of attachShadow + createElement('style') indicates wrapper
+    expect(code).toMatch(/attachShadow\(\{\s*mode:\s*['"]open['"]\s*\}\)/)
+    expect(code).toMatch(/document\.createElement\(\s*['"]style['"]\s*\)/)
+
+    // HMR accept presence ensures reload hook exists
+    expect(code).toMatch(/import\.meta\.webpackHot/)
+  })
 })

@@ -14,7 +14,7 @@ export interface ContentScriptOptions {
   rootClassName?: string
 }
 
-export default function contentScript({}: ContentScriptOptions) {
+export default function contentScript(_options: ContentScriptOptions = {}) {
   return (container: HTMLElement) => {
     const mountingPoint = ReactDOM.createRoot(container)
 

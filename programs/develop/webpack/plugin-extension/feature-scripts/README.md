@@ -74,6 +74,18 @@ export default config
 - Fixes publicPath for assets imported by content scripts running in the main world.
 - For non‑module `background.service_worker`, configures `chunkLoading: 'import-scripts'` for correct runtime behavior (module workers are left as‑is).
 
+### Ccontent scripts via `'use shadow-dom'` directive
+
+- When `'use shadow-dom'` is present (wrapper enabled): your content script must export a default function returning a function `(container: HTMLElement) => () => void`.
+- When the directive is NOT present: no wrapper is applied; your content script runs as a normal script, and no specific export shape is required.
+- The `container` argument (wrapper enabled) is always an `HTMLElement` host created for you. When Shadow DOM is enabled, this host is inside a `ShadowRoot`; your code should treat it as a normal element.
+- The returned cleanup function is required and is called on HMR/teardown (wrapper enabled).
+
+### CSP considerations
+
+- The wrapper injects styles by creating a `<style>` element with text content. Ensure your extension’s CSP permits style injection in content scripts, or configure policies accordingly.
+- Script execution is bundled; no remote code is injected by the wrapper.
+
 ## Supported fields and behavior
 
 | Feature                        | Description                                                                                                            |
