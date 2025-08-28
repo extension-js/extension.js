@@ -329,8 +329,8 @@ export function serverRestartRequiredFromManifestError(
     ? `${colors.gray('PATH')} ${colors.green('ADDED')} ${colors.underline(fileAdded)}`
     : ''
   return (
-    `${getLoggingPrefix('manifest.json', 'error')} Manifest Entry Point Modification\n` +
-    `Changing the path of HTML or script files in manifest.json after compilation requires a server restart.\n` +
+    `${colors.red('ERROR')} in ${colors.yellow('manifest.json')} entrypoint: ` +
+    `Changing the path of HTML or script files after compilation requires a server restart.\n` +
     fileRemovedText +
     fileAddedText
   )
@@ -367,10 +367,7 @@ export function serverRestartRequiredFromSpecialFolderError(
   pathRelative: string
 ) {
   return (
-    `${getLoggingPrefix(
-      'manifest.json',
-      'error'
-    )} Manifest Entry Point Modification\n` +
+    `${colors.red('ERROR')} in ${colors.yellow('manifest.json')} entrypoint: ` +
     `${colors.underline(pathRelative)} in the ${colors.underline(
       folder + '/'
     )} folder after compilation requires a server restart.`
