@@ -62,6 +62,16 @@ export async function maybeUseSvelte(
     process.exit(0)
   }
 
+  // Ensure TypeScript is available for Svelte toolchain expectations (even without preprocess)
+  try {
+    require.resolve('typescript')
+  } catch (e) {
+    const typeScriptDependencies = ['typescript']
+    await installOptionalDependencies('TypeScript', typeScriptDependencies)
+    console.log(messages.youAreAllSet('TypeScript'))
+    process.exit(0)
+  }
+
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'svelte')
 
@@ -85,9 +95,9 @@ export async function maybeUseSvelte(
         options: {
           emitCss: true,
           compilerOptions: {
-            dev: mode === 'development',
-            css: 'injected'
+            dev: mode === 'development'
           },
+          // Do not use svelte-preprocess; rely on Svelte 5 built-in TS support.
           hotReload: mode === 'development',
           ...(customOptions || {})
         }
@@ -96,7 +106,7 @@ export async function maybeUseSvelte(
       exclude: /node_modules/
     },
     {
-      // Required to prevent errors from Svelte on Webpack 5+
+      // Required to prevent errors from Svelte on Webpack/Rspack 5+
       test: /node_modules\/svelte\/.*\.mjs$/,
       resolve: {
         fullySpecified: false
@@ -104,9 +114,43 @@ export async function maybeUseSvelte(
     }
   ]
 
+  // Do not alias 'svelte'. Let Rspack resolve via package exports.
+  const alias: Record<string, string> | undefined = undefined
+
+  // Small plugin to update resolver fields to align with Svelte ecosystem
+  const resolverPlugin = {
+    apply(compiler: any) {
+      const existingMainFields =
+        (compiler.options.resolve && compiler.options.resolve.mainFields) || []
+      const existingConditionNames =
+        (compiler.options.resolve &&
+          (compiler.options.resolve.conditionNames ||
+            compiler.options.resolve.conditions)) || []
+      const existingExtensions =
+        (compiler.options.resolve && compiler.options.resolve.extensions) || []
+
+      const nextMainFields = [
+        'svelte',
+        'browser',
+        'module',
+        'main',
+        ...existingMainFields
+      ]
+      // de-duplicate while preserving order
+      const dedupe = (arr: string[]) => Array.from(new Set(arr))
+
+      compiler.options.resolve = {
+        ...compiler.options.resolve,
+        mainFields: dedupe(nextMainFields),
+        conditionNames: dedupe(['svelte', ...existingConditionNames]),
+        extensions: dedupe(['.svelte', ...existingExtensions])
+      }
+    }
+  }
+
   return {
-    plugins: undefined,
+    plugins: [resolverPlugin],
     loaders: defaultLoaders,
-    alias: undefined
+    alias
   }
 }
