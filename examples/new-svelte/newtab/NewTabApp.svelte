@@ -9,7 +9,7 @@
     {message}
   </h1>
   <p>
-    Learn more about creating browser extensions at
+    Learn more about creating browser extensions at...
     <a href="https://extension.js.org" target="_blank">
       https://extension.js.org
     </a>.

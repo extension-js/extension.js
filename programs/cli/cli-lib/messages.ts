@@ -32,7 +32,7 @@ export function checkUpdates(
     `${getLoggingPrefix('info')} 🧩 ${colors.blue('Extension.js')} update available.\n\n` +
     `You are currently using version ${colors.red(String(packageJson.version))}. ` +
     `Latest stable is ${colors.green(String(update.latest))}.\n` +
-    `Please update to enjoy new features and improvements.\n`
+    `Please update to enjoy new features and improvements.`
   )
 }
 
