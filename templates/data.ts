@@ -29,6 +29,15 @@ const ALL_TEMPLATES: Template[] = [
     configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
   },
   {
+    name: 'centralized-logger',
+    uiContext: ['content'],
+    uiFramework: 'react',
+    css: 'css',
+    hasBackground: false,
+    hasEnv: false,
+    configFiles: ['postcss.config.js', 'tailwind.config.js', 'tsconfig.json']
+  },
+  {
     name: 'preact',
     uiContext: ['content'],
     uiFramework: 'preact',

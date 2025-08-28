@@ -16,5 +16,8 @@
   "devDependencies": {
     "@tsconfig/svelte": "5.0.4",
     "typescript": "5.3.3"
+  },
+  "scripts": {
+    "extension": "node ../../programs/cli/dist/cli.js"
   }
 }
