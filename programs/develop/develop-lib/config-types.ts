@@ -43,6 +43,22 @@ export interface DevOptions extends BrowserOptionsBase {
   // Source inspection options
   source?: string
   watchSource?: boolean
+  // Unified logger CLI output options
+  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
+  logContexts?: (
+    | 'background'
+    | 'content'
+    | 'page'
+    | 'sidebar'
+    | 'popup'
+    | 'options'
+    | 'devtools'
+  )[]
+  logFormat?: 'pretty' | 'json'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: number | string
 }
 
 export interface BuildOptions {
