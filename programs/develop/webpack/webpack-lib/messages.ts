@@ -617,7 +617,7 @@ export function extensionManagerInstanceInitialized(
   if (process.env.EXTENSION_ENV !== 'development') return ''
   return (
     `${getLoggingPrefix('Extension.js DevTools', 'success')} instance ` +
-    `${colors.gray(instanceId)} initialized on port ` +
+    `${colors.yellow(instanceId)} initialized on port ` +
     `${colors.gray(webSocketPort.toString())}`
   )
 }
@@ -879,19 +879,19 @@ export function enhancedProcessManagementUnhandledRejection(
 export function instanceManagerHealthMonitoringStart(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('Instance Manager', 'info')} starting health monitoring for instance ${colors.gray(instanceId.slice(0, 8))}`
+  return `${getLoggingPrefix('Instance Manager', 'info')} starting health monitoring for instance ${colors.brightBlue(instanceId.slice(0, 8))}`
 }
 
 export function instanceManagerHealthMonitoringPassed(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('Instance Manager', 'success')} instance ${colors.gray(instanceId.slice(0, 8))} health check passed`
+  return `${getLoggingPrefix('Instance Manager', 'success')} instance ${colors.brightBlue(instanceId.slice(0, 8))} health check passed`
 }
 
 export function instanceManagerHealthMonitoringOrphaned(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('Instance Manager', 'warn')} instance ${colors.gray(instanceId.slice(0, 8))} appears orphaned, cleaning up`
+  return `${getLoggingPrefix('Instance Manager', 'warn')} instance ${colors.brightBlue(instanceId.slice(0, 8))} appears orphaned, cleaning up`
 }
 
 export function instanceManagerHealthMonitoringFailed(
@@ -899,7 +899,7 @@ export function instanceManagerHealthMonitoringFailed(
   error: unknown
 ): string {
   return (
-    `${getLoggingPrefix('Instance Manager', 'error')} health check failed for instance ${colors.gray(instanceId.slice(0, 8))}:\n` +
+    `${getLoggingPrefix('Instance Manager', 'error')} health check failed for instance ${colors.brightBlue(instanceId.slice(0, 8))}:\n` +
     `${colors.red(String(error))}`
   )
 }
@@ -919,7 +919,7 @@ export function instanceManagerForceCleanupFound(
 export function instanceManagerForceCleanupInstance(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('Instance Manager', 'info')} cleaning up instance ${colors.gray(instanceId.slice(0, 8))}`
+  return `${getLoggingPrefix('Instance Manager', 'info')} cleaning up instance ${colors.brightBlue(instanceId.slice(0, 8))}`
 }
 
 export function instanceManagerForceCleanupTerminating(
@@ -937,7 +937,7 @@ export function instanceManagerForceCleanupForceKilled(
 export function instanceManagerForceCleanupInstanceTerminated(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('Instance Manager', 'success')} instance ${colors.gray(instanceId.slice(0, 8))} marked as terminated`
+  return `${getLoggingPrefix('Instance Manager', 'success')} instance ${colors.brightBlue(instanceId.slice(0, 8))} marked as terminated`
 }
 
 export function instanceManagerForceCleanupError(
@@ -945,7 +945,7 @@ export function instanceManagerForceCleanupError(
   error: unknown
 ): string {
   return (
-    `${getLoggingPrefix('Instance Manager', 'error')} error terminating instance ${colors.gray(instanceId)}:\n` +
+    `${getLoggingPrefix('Instance Manager', 'error')} error terminating instance ${colors.brightBlue(instanceId)}:\n` +
     `${colors.red(String(error))}`
   )
 }
@@ -959,7 +959,7 @@ export function instanceManagerProcessNoLongerRunning(
   instanceId: string,
   processId: number
 ): string {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} process ${colors.gray(processId.toString())} for instance ${colors.gray(instanceId.slice(0, 8))} is no longer running`
+  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} process ${colors.gray(processId.toString())} for instance ${colors.brightBlue(instanceId.slice(0, 8))} is no longer running`
 }
 
 export function instanceManagerPortsNotInUse(
@@ -967,11 +967,11 @@ export function instanceManagerPortsNotInUse(
   port: number,
   webSocketPort: number
 ): string {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} ports ${colors.gray(port.toString())} ${colors.gray('(')}${colors.gray('port')}${colors.gray(')')}/${colors.gray(webSocketPort.toString())} ${colors.gray('(')}${colors.gray('WebSocket')}${colors.gray(')')} for instance ${colors.gray(instanceId.slice(0, 8))} are not in use`
+  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} ports ${colors.gray(port.toString())} ${colors.gray('(')}${colors.gray('port')}${colors.gray(')')}/${colors.gray(webSocketPort.toString())} ${colors.gray('(')}${colors.gray('WebSocket')}${colors.gray(')')} for instance ${colors.brightBlue(instanceId.slice(0, 8))} are not in use`
 }
 
 export function instanceManagerCleanedUpOrphanedInstance(
   instanceId: string
 ): string {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} cleaned up orphaned instance: ${colors.gray(instanceId.slice(0, 8))}`
+  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} cleaned up orphaned instance: ${colors.brightBlue(instanceId.slice(0, 8))}`
 }

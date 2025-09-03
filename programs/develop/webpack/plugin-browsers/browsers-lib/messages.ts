@@ -334,19 +334,19 @@ export function firefoxFailedToStart(error: unknown): string {
 export function instanceManagerHealthMonitoringStart(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('info')} Starting health monitoring for Chrome instance ${colors.gray(instanceId.slice(0, 8))}`
+  return `${getLoggingPrefix('info')} Starting health monitoring for Chrome instance ${colors.brightBlue(instanceId.slice(0, 8))}`
 }
 
 export function instanceManagerHealthMonitoringPassed(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('success')} Chrome instance ${colors.gray(instanceId.slice(0, 8))} health check passed`
+  return `${getLoggingPrefix('success')} Chrome instance ${colors.brightBlue(instanceId.slice(0, 8))} health check passed`
 }
 
 export function instanceManagerHealthMonitoringOrphaned(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('warn')} Chrome instance ${colors.gray(instanceId.slice(0, 8))} appears orphaned, cleaning up`
+  return `${getLoggingPrefix('warn')} Chrome instance ${colors.brightBlue(instanceId.slice(0, 8))} appears orphaned, cleaning up`
 }
 
 export function instanceManagerHealthMonitoringFailed(
@@ -354,7 +354,7 @@ export function instanceManagerHealthMonitoringFailed(
   error: unknown
 ): string {
   return (
-    `${getLoggingPrefix('error')} Health check failed for Chrome instance ${colors.gray(instanceId.slice(0, 8))}:\n` +
+    `${getLoggingPrefix('error')} Health check failed for Chrome instance ${colors.brightBlue(instanceId.slice(0, 8))}:\n` +
     `${colors.red(String(error))}`
   )
 }
@@ -368,31 +368,31 @@ export function instanceManagerForceCleanupProject(
 export function instanceManagerForceCleanupFound(
   instanceCount: number
 ): string {
-  return `${getLoggingPrefix('info')} Found ${colors.gray(instanceCount.toString())} Chrome instances to clean up`
+  return `${getLoggingPrefix('info')} Found ${colors.brightBlue(instanceCount.toString())} Chrome instances to clean up`
 }
 
 export function instanceManagerForceCleanupInstance(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('info')} Cleaning up Chrome instance ${colors.gray(instanceId.slice(0, 8))}`
+  return `${getLoggingPrefix('info')} Cleaning up Chrome instance ${colors.brightBlue(instanceId.slice(0, 8))}`
 }
 
 export function instanceManagerForceCleanupTerminating(
   processId: number
 ): string {
-  return `${getLoggingPrefix('info')} Terminating Chrome process ${colors.gray(processId.toString())}`
+  return `${getLoggingPrefix('info')} Terminating Chrome process ${colors.brightBlue(processId.toString())}`
 }
 
 export function instanceManagerForceCleanupForceKilled(
   processId: number
 ): string {
-  return `${getLoggingPrefix('error')} Force killed Chrome process ${colors.gray(processId.toString())}`
+  return `${getLoggingPrefix('error')} Force killed Chrome process ${colors.brightBlue(processId.toString())}`
 }
 
 export function instanceManagerForceCleanupInstanceTerminated(
   instanceId: string
 ): string {
-  return `${getLoggingPrefix('success')} Chrome instance ${colors.gray(instanceId.slice(0, 8))} marked as terminated`
+  return `${getLoggingPrefix('success')} Chrome instance ${colors.brightBlue(instanceId.slice(0, 8))} marked as terminated`
 }
 
 export function instanceManagerForceCleanupError(
@@ -400,7 +400,7 @@ export function instanceManagerForceCleanupError(
   error: unknown
 ): string {
   return (
-    `${getLoggingPrefix('error')} Error terminating Chrome instance ${colors.gray(instanceId.slice(0, 8))}:\n` +
+    `${getLoggingPrefix('error')} Error terminating Chrome instance ${colors.brightBlue(instanceId.slice(0, 8))}:\n` +
     `${colors.red(String(error))}`
   )
 }
