@@ -52,25 +52,25 @@
       }
     ]
   },
-  "devtools_page": "devtools_page.html",
+  "devtools_page": "devtools/index.html",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "options_page": "options_ui/page.html",
+  "options_page": "options/index.html",
   "options_ui": {
     "page": "options_ui/page.html"
   },
   "page_action": {
     "default_icon": "page_action/icon16.png",
-    "default_popup": "page_action/default_popup.html"
+    "default_popup": "action/index.html"
   },
   "sandbox": {
     "pages": ["sandbox/page-0.html", "sandbox/page-1.html"]
   },
   "sidebar_action": {
-    "default_panel": "sidebar_action/default_panel.html",
+    "default_panel": "sidebar/index.html",
     "default_icon": "sidebar_action/icon16.png"
   },
   "storage": {
@@ -90,6 +90,6 @@
     "styles.css"
   ],
   "side_panel": {
-    "default_path": "side_panel/default_path.html"
+    "default_path": "sidebar/index.html"
   }
 }
