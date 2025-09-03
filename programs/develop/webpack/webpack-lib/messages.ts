@@ -545,9 +545,9 @@ export function isUsingCustomLoader(file: string) {
 
 export function webextensionPolyfillNotFound() {
   return (
-    `${getLoggingPrefix('Warning', 'warn')} ${colors.gray('webextension-polyfill')} not found. ` +
+    `${getLoggingPrefix('Warning', 'warn')} ${colors.brightBlue('webextension-polyfill')} not found. ` +
     `Browser API polyfill will not be available.\n` +
-    `To fix this, install ${colors.gray('webextension-polyfill')}: ` +
+    `To fix this, install ${colors.brightBlue('webextension-polyfill')}: ` +
     `${colors.blue('npm install webextension-polyfill')}`
   )
 }
