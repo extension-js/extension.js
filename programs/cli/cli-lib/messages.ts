@@ -134,6 +134,25 @@ ${'Special Folders for Entrypoints'}
 - ${colors.underline(code('pages/'))}   - HTML files not declared in manifest (e.g., welcome pages)
 - ${colors.underline(code('scripts/'))} - JavaScript files not declared in manifest (e.g., executable scripts)
 
+${'Predictable Output Paths'}
+- Core HTML destinations are standardized across browsers so you can reference them safely in code/tests:
+  - ${code('devtools_page')} → ${code('devtools/index.html')}
+  - ${code('sidebar_action.default_panel')} (MV2) and ${code('side_panel.default_path')} (MV3) → ${code('sidebar/index.html')}
+  - ${code('options_ui.page')} and ${code('options_page')} → ${code('options/index.html')}
+  - ${code('background.page')} → ${code('background/index.html')}
+  - ${code('action.default_popup')}, ${code('browser_action.default_popup')}, ${code('page_action.default_popup')} → ${code('action/index.html')}
+- Other predictable outputs:
+  - ${code('chrome_url_overrides.*')} → ${code('chrome_url_overrides/<key>.html')}
+  - ${code('content_scripts[n].js/css')} → ${code('content_scripts/content-<n>.{js,css}')}
+  - ${code('sandbox.pages[]')} → ${code('sandbox/page-<n>.html')}
+  - ${code('user_scripts.api_script')} → ${code('user_scripts/api_script.js')}
+  - ${code('icons/*')} → ${code('icons/')} (feature-specific icon folders preserved where applicable)
+
+${'Public & Special Folders (Output Behavior)'}
+- ${colors.underline(code('public/'))} is the web root in output. Authors can use ${code('/foo')}, ${code('/public/foo')}, ${code('public/foo')}, or ${code('./public/foo')} and they all emit as ${code('dist/<browser>/foo')}.
+- ${colors.underline(code('pages/'))} files emit as ${code('pages/<name>.html')}. Relative assets referenced inside page HTML are emitted under ${code('assets/')} preserving relative structure; public-root URLs are preserved.
+- ${colors.underline(code('scripts/'))} files emit as ${code('scripts/<name>.js')} with extracted CSS when applicable.
+
 ${'Shadow DOM for Content Scripts'}
 - Add ${code('use shadow-dom')} directive to content scripts for style isolation
 - Automatically creates ${code('#extension-root')} element with shadow DOM

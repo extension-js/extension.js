@@ -6,6 +6,7 @@ import {UpdateManifest} from './steps/update-manifest'
 import {AddDependencies} from './steps/add-dependencies'
 import {CheckManifestFiles} from './steps/check-manifest-files'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile'
+import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {DevOptions} from '../../../develop-lib/config-types'
@@ -69,5 +70,8 @@ export class ManifestPlugin {
       browser: this.browser,
       includeList: this.includeList
     }).apply(compiler)
+
+    // 6 - Deprecation warnings for legacy paths (development only)
+    new ManifestLegacyWarnings().apply(compiler)
   }
 }
