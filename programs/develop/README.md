@@ -72,7 +72,7 @@ run()
 - Zipping: distribution and/or source packages (respects `.gitignore`)
 - Auto-install of missing dependencies and package manager detection
 - Type generation for TS projects via `extension-env.d.ts`
-- User config via `extension.config.(js|mjs)` for commands, browser launch, and webpack config hooks
+- User config via `extension.config.(js|mjs)` for commands, browser launch, unified logger defaults, and webpack config hooks
 - Managed dependency guard to avoid conflicts
 
 ## Commands
@@ -102,13 +102,20 @@ Options accepted by each command. Values shown are typical types or enumerations
 
 ### dev
 
-| Option      | Type / Values                 | Description                                   |
-| ----------- | ----------------------------- | --------------------------------------------- |
-| mode        | development, production, none | Build mode                                    |
-| polyfill    | boolean                       | Include `webextension-polyfill` when possible |
-| port        | number or string              | Dev server port                               |
-| source      | string                        | Inspect a source directory                    |
-| watchSource | boolean                       | Watch the source directory                    |
+| Option        | Type / Values                       | Description                                                                       |
+| ------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| mode          | development, production, none       | Build mode                                                                        |
+| polyfill      | boolean                             | Include `webextension-polyfill` when possible                                     |
+| port          | number or string                    | Dev server port                                                                   |
+| source        | string                              | Inspect a source directory                                                        |
+| watchSource   | boolean                             | Watch the source directory                                                        |
+| logs          | off,error,warn,info,debug,trace,all | Unified logger verbosity (all shows everything)                                   |
+| logContext    | list or `all`                       | Comma-separated contexts (background,content,page,sidebar,popup,options,devtools) |
+| logFormat     | pretty,json                         | Pretty text or JSON output                                                        |
+| logTimestamps | boolean                             | Include timestamps in pretty output                                               |
+| logColor      | boolean                             | Colorize pretty output                                                            |
+| logUrl        | string or /regex/flags              | Filter by URL substring or JS-style regex literal                                 |
+| logTab        | number                              | Filter by tabId                                                                   |
 
 ### build
 
@@ -146,7 +153,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 - Provide `extension.config.js` or `extension.config.mjs` in your project root.
 - Supported sections:
   - config(config: Configuration): mutate the assembled Rspack config.
-  - commands.dev | .build | .start | .preview: per-command options (browser, profile, binaries, flags, preferences, packaging).
+  - commands.dev | .build | .start | .preview: per-command options (browser, profile, binaries, flags, preferences, unified logger defaults, packaging).
   - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: launch flags, excluded flags, preferences, binaries, and profile reuse.
 - When detected, a one‑time notice is printed to indicate config is active.
 
@@ -170,6 +177,20 @@ export default {
     chrome: {
       startingUrl:
         process.env.EXTENSION_PUBLIC_START_URL || 'https://example.com'
+    }
+  },
+  commands: {
+    dev: {
+      // Unified logger defaults for `extension dev`
+      logLevel: 'info',
+      // omit or set to undefined to include all
+      logContexts: ['background', 'content'],
+      logFormat: 'pretty',
+      logTimestamps: true,
+      logColor: true,
+      // Optional filters
+      logUrl: '/example\\.com/i',
+      logTab: 123
     }
   },
   config: (config) => config
@@ -204,15 +225,15 @@ dist/
 
 ## Plugins
 
-| Name                 | Group | Summary                                                                                                                                                                                                         |
-| -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| plugin-extension     | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
-| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                    |
-| plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
-| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules |
-| plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium                                                                                   |
-| plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
-| plugin-reload        | core  | - Dev‑time live reload/HMR orchestration<br/>- Per‑instance WebSocket server<br/>- Manifest dev overrides<br/>- Full recompiles on HTML entry changes                                                           |
+| Name                 | Group | Summary                                                                                                                                                                                                                                                        |
+| -------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| plugin-extension     | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output                                                             |
+| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                                                                   |
+| plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production                                                         |
+| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules                                                |
+| plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium                                                                                                                                  |
+| plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                                                                    |
+| plugin-reload        | core  | - Dev‑time live reload/HMR orchestration<br/>- Per‑instance WebSocket server<br/>- Unified logger forwarding to CLI (filters: level/context/url/tab; color-by-context; rate limiting)<br/>- Manifest dev overrides<br/>- Full recompiles on HTML entry changes |
 
 ## Notes and compatibility
 
