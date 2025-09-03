@@ -47,7 +47,7 @@ export async function connect() {
       }
 
       if (message.status === 'serverReady') {
-        await requestInitialLoadData()
+        await ensureClientReadyHandshake()
       }
 
       if (message.changedFile) {
@@ -141,37 +141,38 @@ async function hardReloadAllExtensions(changedFile) {
 async function requestInitialLoadData() {
   const devExtensions = await getDevExtensions()
 
-  const messagePromises = devExtensions.map(async (extension) => {
-    return await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        extension.id,
-        {initialLoadData: true},
-        (response) => {
-          if (chrome.runtime.lastError) {
-            console.error(
-              `Error sending message to ${extension.id}: ${chrome.runtime.lastError.message}`
-            )
-            resolve(null)
-          } else {
-            resolve(response)
+  for (const extension of devExtensions) {
+    try {
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          extension.id,
+          {initialLoadData: true},
+          (res) => {
+            if (chrome.runtime.lastError) {
+              console.error(
+                `Error sending message to ${extension.id}: ${chrome.runtime.lastError.message}`
+              )
+              resolve(null)
+            } else {
+              resolve(res)
+            }
           }
-        }
-      )
-    })
-  })
+        )
+      })
 
-  const responses = await Promise.all(messagePromises)
-
-  // We received the info from the use extension.
-  // All good, client is ready. Inform the server.
-  if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-    const message = JSON.stringify({
-      status: 'clientReady',
-      data: responses[0]
-    })
-
-    webSocket.send(message)
+      if (response && webSocket && webSocket.readyState === WebSocket.OPEN) {
+        webSocket.send(
+          JSON.stringify({
+            status: 'clientReady',
+            data: response
+          })
+        )
+        return true
+      }
+    } catch {}
   }
+
+  return false
 }
 
 async function checkExtensionReadiness(isCriticalFile = false) {
@@ -181,6 +182,21 @@ async function checkExtensionReadiness(isCriticalFile = false) {
   await delay(delayTime)
   // Assume the extension is ready
   return true
+}
+
+// Retry handshake until the user extension responds or timeout elapses
+async function ensureClientReadyHandshake() {
+  const start = Date.now()
+  const timeoutMs = 15000
+  const attemptDelayMs = 500
+
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const ok = await requestInitialLoadData()
+      if (ok) return
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, attemptDelayMs))
+  }
 }
 
 async function delay(ms) {
