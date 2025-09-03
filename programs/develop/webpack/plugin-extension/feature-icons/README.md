@@ -19,11 +19,11 @@ Output mapping:
 | Manifest field                | Output folder     |
 | ----------------------------- | ----------------- |
 | `icons/*`                     | `icons/`          |
-| `action.default_icon`         | `action/`         |
-| `browser_action.default_icon` | `browser_action/` |
+| `action.default_icon`         | `icons/`          |
+| `browser_action.default_icon` | `icons/`          |
 | `browser_action.theme_icons`  | `browser_action/` |
-| `page_action.default_icon`    | `page_action/`    |
-| `sidebar_action.default_icon` | `sidebar_action/` |
+| `page_action.default_icon`    | `icons/`          |
+| `sidebar_action.default_icon` | `icons/`          |
 
 ## Usage
 
@@ -59,12 +59,12 @@ export default {
           path.resolve(__dirname, 'icons/extension_48.png')
         ],
 
-        // Emits to dist/action/
+        // Emits to dist/icons/
         'action/default_icon': [
           path.resolve(__dirname, 'icons/extension_16.png')
         ],
 
-        // Emits to dist/browser_action/
+        // Emits to dist/icons/
         'browser_action/default_icon': [
           path.resolve(__dirname, 'icons/extension_16.png')
         ],
@@ -75,12 +75,12 @@ export default {
           path.resolve(__dirname, 'icons/extension_48.png')
         ],
 
-        // Emits to dist/page_action/
+        // Emits to dist/icons/
         'page_action/default_icon': [
           path.resolve(__dirname, 'icons/extension_16.png')
         ],
 
-        // Emits to dist/sidebar_action/
+        // Emits to dist/icons/
         'sidebar_action/default_icon': [
           path.resolve(__dirname, 'icons/extension_16.png')
         ]
