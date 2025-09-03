@@ -69,7 +69,12 @@ export async function extensionBuild(
     // Install dependencies if they are not installed (skip in web-only mode).
     if (projectStructure.packageJsonPath) {
       const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
-      if (!fs.existsSync(nodeModulesPath)) {
+      const needsInstall =
+        !fs.existsSync(nodeModulesPath) ||
+        (fs.existsSync(nodeModulesPath) &&
+          fs.readdirSync(nodeModulesPath).length === 0)
+
+      if (needsInstall) {
         console.log(messages.installingDependencies())
 
         // Prevents `process.chdir() is not supported in workers` error
