@@ -60,9 +60,9 @@ async function connect() {
 
       if (message.status === 'serverReady') {
         console.info(
-          `[Extension.js] Server ready. Requesting initial load data...`
+          `[Extension.js] Server ready. Ensuring initial load handshake...`
         )
-        await requestInitialLoadData()
+        await ensureClientReadyHandshake()
       }
 
       if (message.changedFile) {
@@ -113,6 +113,7 @@ async function requestInitialLoadData() {
             data: response
           })
         )
+        return true
       }
     } catch (error) {
       console.error(
@@ -120,6 +121,7 @@ async function requestInitialLoadData() {
       )
     }
   }
+  return false
 }
 
 async function getDevExtensions() {
@@ -175,4 +177,19 @@ async function checkExtensionReadiness() {
       resolve(true)
     }, 1000)
   })
+}
+
+// Retry handshake until the user extension responds or timeout elapses
+async function ensureClientReadyHandshake() {
+  const start = Date.now()
+  const timeoutMs = 15000
+  const attemptDelayMs = 500
+
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const ok = await requestInitialLoadData()
+      if (ok) return
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, attemptDelayMs))
+  }
 }
