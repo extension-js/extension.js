@@ -278,10 +278,7 @@ describe('getManifestFieldsData', () => {
 
     expect(allFields).toEqual({
       html: {
-        'action/index': path.join(
-          extensionPath,
-          'action/default_popup.html'
-        ),
+        'action/index': path.join(extensionPath, 'action/default_popup.html'),
         'background/index': path.join(extensionPath, 'background.html'),
         'chrome_url_overrides/bookmarks': path.join(
           extensionPath,
@@ -367,10 +364,7 @@ describe('getManifestFieldsData', () => {
 
     expect(allFields).toEqual({
       html: {
-        'action/index': path.join(
-          extensionPath,
-          'action/default_popup.html'
-        ),
+        'action/index': path.join(extensionPath, 'action/default_popup.html'),
         'chrome_url_overrides/bookmarks': path.join(
           extensionPath,
           'chrome_url_overrides/bookmarks.html'

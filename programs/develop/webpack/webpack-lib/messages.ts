@@ -747,6 +747,23 @@ export function emptyLine() {
   return ''
 }
 
+// Plugin Extension general messages
+export function outputMapHeader() {
+  return `${getLoggingPrefix('plugin-extension', 'info')} Output map:`
+}
+
+export function outputMapItem(assetPath: string) {
+  return ` - ${assetPath}`
+}
+
+export function legacyManifestPathWarning(legacyPath: string) {
+  return (
+    `${getLoggingPrefix('manifest.json', 'warn')} Deprecated Path Detected\n` +
+    `Found legacy output path ${colors.yellow(legacyPath)}. ` +
+    `This will be rewritten to standardized folders in the next major.`
+  )
+}
+
 export function configLoadingError(configType: string, error: unknown) {
   return `${getLoggingPrefix('Config', 'error')} Failed to load ${colors.gray(configType)}.\n${colors.red(String(error))}`
 }
