@@ -50,11 +50,9 @@ export async function connect() {
 
       if (message.status === 'serverReady') {
         console.info(
-          `[Extension.js] Server ready. Requesting initial load data...`
+          `[Extension.js] Server ready. Ensuring initial load handshake...`
         )
-        try {
-          await requestInitialLoadData()
-        } catch {}
+        await ensureClientReadyHandshake()
       }
 
       if (message.changedFile) {
@@ -126,33 +124,27 @@ async function messageAllExtensions(changedFile) {
 async function requestInitialLoadData() {
   const devExtensions = await getDevExtensions()
 
-  const responses = await Promise.all(
-    devExtensions.map(async (extension) => {
-      try {
-        const result = await browser.runtime.sendMessage(extension.id, {
-          initialLoadData: true
-        })
-
-        return result
-      } catch (error) {
-        console.error(
-          `Error sending message to ${extension.id}: ${error.message}`
+  for (const extension of devExtensions) {
+    try {
+      const result = await browser.runtime.sendMessage(extension.id, {
+        initialLoadData: true
+      })
+      if (result && webSocket && webSocket.readyState === WebSocket.OPEN) {
+        webSocket.send(
+          JSON.stringify({
+            status: 'clientReady',
+            data: result
+          })
         )
-        return null
+        return true
       }
-    })
-  )
-
-  // We received the info from the use extension.
-  // All good, client is ready. Inform the server.
-  if (webSocket && webSocket.readyState === WebSocket.OPEN) {
-    const message = JSON.stringify({
-      status: 'clientReady',
-      data: responses.find((response) => response !== null)
-    })
-
-    webSocket.send(message)
+    } catch (error) {
+      console.error(
+        `Error sending message to ${extension.id}: ${error.message}`
+      )
+    }
   }
+  return false
 }
 
 async function checkExtensionReadiness() {
@@ -168,4 +160,19 @@ async function delay(ms) {
       console.error(`[Extension.js] Error delaying: ${error.message}`)
     }
   )
+}
+
+// Retry handshake until the user extension responds or timeout elapses
+async function ensureClientReadyHandshake() {
+  const start = Date.now()
+  const timeoutMs = 15000
+  const attemptDelayMs = 500
+
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const ok = await requestInitialLoadData()
+      if (ok) return
+    } catch {}
+    await delay(attemptDelayMs)
+  }
 }
