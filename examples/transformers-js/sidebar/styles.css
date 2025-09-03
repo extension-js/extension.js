@@ -1,0 +1,152 @@
+/* Reset and base styles */
+* {
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+}
+
+.sidebar_app {
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 100%;
+}
+
+.sidebar_logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.sidebar_title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  color: #111827;
+  line-height: 1.2;
+}
+
+.sidebar_description {
+  font-size: 0.875rem;
+  margin: 0;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.sidebar_description a {
+  color: #3b82f6;
+  text-decoration: none;
+  border-bottom: 1px solid #3b82f6;
+}
+
+.sidebar_description a:hover {
+  color: #1d4ed8;
+  border-bottom-color: #1d4ed8;
+}
+
+.sidebar_input_section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sidebar_label { font-weight: 600; }
+
+/* Let sakura.css style inputs/textareas; keep layout spacing only */
+textarea { min-height: 100px; }
+
+.sidebar_output_section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sidebar_output_title {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+}
+
+.sidebar_output {
+  font-size: 0.75rem;
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas,
+    'Courier New', monospace;
+  background-color: #f9fafb;
+  color: #374151;
+  padding: 1rem;
+  border-radius: 6px;
+  height: calc(100vh - 100px);
+  /* min-height: 120px;
+  max-height: 400px; */
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border: 1px solid #e5e7eb;
+  line-height: 1.5;
+}
+
+.sidebar_output--loading {
+  background-color: #eff6ff;
+  border-color: #3b82f6;
+  color: #1e40af;
+  position: relative;
+}
+
+.sidebar_output--loading::after {
+  content: '';
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.sidebar_output--success {
+  background-color: #f0fdf4;
+  border-color: #22c55e;
+  color: #166534;
+}
+
+.sidebar_output--error {
+  background-color: #fef2f2;
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
+/* Scrollbar styling for webkit browsers */
+.sidebar_output::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar_output::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.sidebar_output::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.sidebar_output::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
