@@ -29,34 +29,75 @@ async function importUrlSourceFromGithub(
   pathOrRemoteUrl: string,
   text: string
 ) {
-  // Create a temporary working directory for the download
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extension-js-'))
-
-  await goGitIt(pathOrRemoteUrl, tempRoot, text)
-
-  // With go-git-it v5.0.0, files are downloaded to a subfolder matching the repo name
-  // Robustly resolve the repository name as the second pathname segment: /:owner/:repo/...
+  // Clone into the current working directory. go-git-it creates a subfolder
+  // typically matching the repo name (or last segment for tree URLs).
+  const cwd = process.cwd()
   const url = new URL(pathOrRemoteUrl)
   const segments = url.pathname.split('/').filter(Boolean)
   const repoName =
     segments.length >= 2 ? segments[1] : segments[segments.length - 1]
+  const treeIndex = segments.indexOf('tree')
 
-  const candidates = fs
-    .readdirSync(tempRoot, {withFileTypes: true})
+  // If a previous run left an empty directory with the expected name, remove it
+  // to avoid go-git-it failing on rename with ENOTEMPTY.
+  const expectedName =
+    treeIndex !== -1 && segments.length > treeIndex + 2
+      ? segments[segments.length - 1]
+      : repoName
+
+  const expectedPath = path.resolve(cwd, expectedName)
+
+  if (fs.existsSync(expectedPath)) {
+    try {
+      const entries = fs.readdirSync(expectedPath)
+      if (entries.length === 0) {
+        fs.rmSync(expectedPath, {recursive: true, force: true})
+      } else {
+        // Directory exists with content: assume user wants to use it
+        return expectedPath
+      }
+    } catch {
+      // If we cannot read dir, proceed and let go-git-it attempt clone
+    }
+  }
+
+  await goGitIt(pathOrRemoteUrl, cwd, text)
+
+  // Prefer candidates based on URL
+  const candidates: string[] = []
+
+  if (treeIndex !== -1 && segments.length > treeIndex + 2) {
+    candidates.push(segments[segments.length - 1])
+  }
+
+  candidates.push(repoName)
+
+  for (const name of candidates) {
+    const p = path.resolve(cwd, name)
+
+    if (fs.existsSync(p)) {
+      return p
+    }
+  }
+
+  // As a last resort, attempt to find a newly created directory that has a manifest.json
+  const dirs = fs
+    .readdirSync(cwd, {withFileTypes: true})
     .filter((d) => d.isDirectory())
     .map((d) => d.name)
 
-  // Prefer the expected repo folder, otherwise fall back to the first directory
-  const chosen = candidates.includes(repoName) ? repoName : candidates[0]
-  const resolved = chosen ? path.resolve(tempRoot, chosen) : tempRoot
-  return resolved
+  for (const dir of dirs) {
+    const manifestPath = path.join(cwd, dir, 'manifest.json')
+    if (fs.existsSync(manifestPath)) return path.join(cwd, dir)
+  }
+
+  throw new Error(messages.downloadedProjectFolderNotFound(cwd, candidates))
 }
 
 async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
-  // Create a temporary working directory for the download and extraction
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extension-js-'))
-  const extractedPath = await downloadAndExtractZip(pathOrRemoteUrl, tempRoot)
-
+  // Extract directly into the current working directory so users can edit it
+  const cwd = process.cwd()
+  const extractedPath = await downloadAndExtractZip(pathOrRemoteUrl, cwd)
   return extractedPath
 }
 
