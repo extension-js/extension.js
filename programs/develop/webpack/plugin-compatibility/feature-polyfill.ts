@@ -1,4 +1,3 @@
-import * as path from 'path'
 import rspack, {Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import * as messages from '../webpack-lib/messages'
@@ -18,13 +17,11 @@ export class PolyfillPlugin {
 
   apply(compiler: Compiler) {
     try {
-      // The polyfill should be resolved from the
-      // rspack context (package.json directory)
-      // since it's a dependency of that package
-      const context = compiler.options.context as string
+      // Resolve the polyfill relative to this plugin's own package/dist
+      // because `webextension-polyfill` is a dependency of this package
       const polyfillPath = require.resolve(
         'webextension-polyfill/dist/browser-polyfill.js',
-        {paths: [context]}
+        {paths: [__dirname]}
       )
 
       new rspack.ProvidePlugin({
