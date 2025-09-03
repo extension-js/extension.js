@@ -105,13 +105,13 @@ This plugin focuses on JSON assets. Icon-related fields below are handled by `Ic
 | Feature                       | Description                                         |
 | ----------------------------- | --------------------------------------------------- |
 | `icons`                       | Handled by IconsPlugin; emits to `icons/`.          |
-| `action.default_icon`         | Handled by IconsPlugin; emits to `action/`.         |
-| `browser_action.default_icon` | Handled by IconsPlugin; emits to `browser_action/`. |
+| `action.default_icon`         | Handled by IconsPlugin; emits to `icons/`.          |
+| `browser_action.default_icon` | Handled by IconsPlugin; emits to `icons/`.          |
 | `browser_action.theme_icons`  | Handled by IconsPlugin; emits to `browser_action/`. |
-| `page_action.default_icon`    | Handled by IconsPlugin; emits to `page_action/`.    |
-| `sidebar_action.default_icon` | Handled by IconsPlugin; emits to `sidebar_action/`. |
+| `page_action.default_icon`    | Handled by IconsPlugin; emits to `icons/`.          |
+| `sidebar_action.default_icon` | Handled by IconsPlugin; emits to `icons/`.          |
 
-Icon fields map to folders like `icons/`, `action/`, `browser_action/`, `page_action/`, `sidebar_action/` respectively, and are emitted by the Icons feature.
+Icon fields map to folders like `icons/` (for default_icon) and `browser_action/` (for theme_icons) and are emitted by the Icons feature.
 
 ### Compatibility
 
