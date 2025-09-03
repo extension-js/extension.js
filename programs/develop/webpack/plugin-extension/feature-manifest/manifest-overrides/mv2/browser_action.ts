@@ -10,7 +10,7 @@ export function browserAction(manifest: Manifest, excludeList: FilepathList) {
         ...manifest.browser_action,
         ...(manifest.browser_action.default_popup && {
           default_popup: getFilename(
-            'browser_action/default_popup.html',
+            'action/index.html',
             manifest.browser_action.default_popup as string,
             excludeList
           )

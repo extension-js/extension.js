@@ -9,7 +9,7 @@ export function backgroundPage(manifest: Manifest, excludeList: FilepathList) {
         ...manifest.background,
         ...(manifest.background.page && {
           page: getFilename(
-            'background/page.html',
+            'background/index.html',
             manifest.background.page as string,
             excludeList
           )

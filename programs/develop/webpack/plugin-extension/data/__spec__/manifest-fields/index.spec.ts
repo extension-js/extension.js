@@ -93,7 +93,7 @@ describe('getManifestFieldsData', () => {
     })
 
     // HTML
-    expect(result.html['action/default_popup']).toBe(
+    expect(result.html['action/index']).toBe(
       path.join(tmpDir, 'public', 'popup.html')
     )
     expect(result.html['chrome_url_overrides/newtab']).toBe(
@@ -138,7 +138,7 @@ describe('getManifestFieldsData', () => {
       browser: 'gecko-based'
     })
 
-    expect(result.html['action/default_popup']).toBe(
+    expect(result.html['action/index']).toBe(
       path.join(tmpDir, 'public', 'popup-ff.html')
     )
   })
@@ -278,33 +278,22 @@ describe('getManifestFieldsData', () => {
 
     expect(allFields).toEqual({
       html: {
-        'action/default_popup': path.join(
+        'action/index': path.join(
           extensionPath,
           'action/default_popup.html'
         ),
-        'browser_action/default_popup': path.join(
-          extensionPath,
-          'browser_action/default_popup.html'
-        ),
+        'background/index': path.join(extensionPath, 'background.html'),
         'chrome_url_overrides/bookmarks': path.join(
           extensionPath,
           'chrome_url_overrides/bookmarks.html'
         ),
-        devtools_page: path.join(extensionPath, 'devtools_page.html'),
-        'options_ui/page': path.join(extensionPath, 'options_ui/page.html'),
-        'page_action/default_popup': path.join(
-          extensionPath,
-          'page_action/default_popup.html'
-        ),
+        'devtools/index': path.join(extensionPath, 'devtools_page.html'),
+        'options/index': path.join(extensionPath, 'options_ui/page.html'),
         'sandbox/page-0': path.join(extensionPath, 'sandbox/page-0.html'),
         'sandbox/page-1': path.join(extensionPath, 'sandbox/page-1.html'),
-        'side_panel/default_path': path.join(
+        'sidebar/index': path.join(
           extensionPath,
           'side_panel/default_path.html'
-        ),
-        'sidebar_action/default_panel': path.join(
-          extensionPath,
-          'sidebar_action/default_panel.html'
         )
       },
       icons: {
@@ -378,33 +367,21 @@ describe('getManifestFieldsData', () => {
 
     expect(allFields).toEqual({
       html: {
-        'action/default_popup': path.join(
+        'action/index': path.join(
           extensionPath,
           'action/default_popup.html'
-        ),
-        'browser_action/default_popup': path.join(
-          extensionPath,
-          'browser_action/default_popup.html'
         ),
         'chrome_url_overrides/bookmarks': path.join(
           extensionPath,
           'chrome_url_overrides/bookmarks.html'
         ),
-        devtools_page: path.join(extensionPath, 'devtools_page.html'),
-        'options_ui/page': path.join(extensionPath, 'options_ui/page.html'),
-        'page_action/default_popup': path.join(
-          extensionPath,
-          'page_action/default_popup.html'
-        ),
+        'devtools/index': path.join(extensionPath, 'devtools_page.html'),
+        'options/index': path.join(extensionPath, 'options_ui/page.html'),
         'sandbox/page-0': path.join(extensionPath, 'sandbox/page-0.html'),
         'sandbox/page-1': path.join(extensionPath, 'sandbox/page-1.html'),
-        'side_panel/default_path': path.join(
+        'sidebar/index': path.join(
           extensionPath,
           'side_panel/default_path.html'
-        ),
-        'sidebar_action/default_panel': path.join(
-          extensionPath,
-          'sidebar_action/default_panel.html'
         )
       },
       icons: {

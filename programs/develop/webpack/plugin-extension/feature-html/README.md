@@ -45,18 +45,18 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 
 ## Supported pages/fields
 
-| Feature                        | Description                                               |
-| ------------------------------ | --------------------------------------------------------- |
-| `action.default_popup`         | Popup HTML page (MV3 `action`).                           |
-| `page_action.default_popup`    | Popup HTML page (MV2 `page_action`).                      |
-| `sidebar_action.default_panel` | Sidebar panel HTML (MV2/Firefox).                         |
-| `side_panel.default_panel`     | Side panel HTML (MV3).                                    |
-| `options_ui.page`              | Options UI HTML page.                                     |
-| `devtools_page`                | DevTools extension HTML page.                             |
-| `sandbox.page`                 | Sandboxed HTML page.                                      |
-| `background.page`              | Background HTML page (MV2).                               |
-| `chrome_url_overrides.*`       | Override New Tab, Bookmarks, or History with custom HTML. |
-| Include list entries           | Additional HTML pages provided via `includeList`.         |
+| Feature                         | Output folder/page           | Description                                |
+| ------------------------------- | ---------------------------- | ------------------------------------------ |
+| `action.default_popup`          | `action/index.html`          | Popup HTML (MV2/3, unified).               |
+| `page_action.default_popup`     | `action/index.html`          | Popup HTML (MV2, unified).                 |
+| `sidebar_action.default_panel`  | `sidebar/index.html`         | Sidebar (MV2/Firefox, unified).            |
+| `side_panel.default_path`       | `sidebar/index.html`         | Side panel (MV3, unified).                 |
+| `options_ui.page` / `options_page` | `options/index.html`      | Options UI/page (MV2/3, unified).          |
+| `devtools_page`                 | `devtools/index.html`        | DevTools extension page.                   |
+| `sandbox.page`                  | `sandbox/page-<n>.html`      | Sandboxed HTML pages.                      |
+| `background.page`               | `background/index.html`      | Background HTML page (MV2).                |
+| `chrome_url_overrides.*`        | `chrome_url_overrides/*.html`| Override New Tab/Bookmarks/History.        |
+| Include list entries            | `pages/<name>.html`          | Additional HTML pages via `includeList`.   |
 
 ## Usage
 
