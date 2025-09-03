@@ -125,7 +125,8 @@ export async function maybeUseSvelte(
       const existingConditionNames =
         (compiler.options.resolve &&
           (compiler.options.resolve.conditionNames ||
-            compiler.options.resolve.conditions)) || []
+            compiler.options.resolve.conditions)) ||
+        []
       const existingExtensions =
         (compiler.options.resolve && compiler.options.resolve.extensions) || []
 

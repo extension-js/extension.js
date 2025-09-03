@@ -65,7 +65,19 @@ export class EmitFile {
                   const featureName = feature.endsWith('theme_icons')
                     ? feature.replace('theme_icons', '')
                     : feature
-                  const filename = `${featureName}/${basename}`
+                  // Align emitted asset folders with manifest overrides:
+                  // - action.default_icon → icons/
+                  // - browser_action.default_icon → icons/
+                  // - page_action.default_icon → icons/
+                  // - sidebar_action.default_icon → icons/
+                  const outputDir =
+                    featureName === 'action' ||
+                    featureName === 'browser_action' ||
+                    featureName === 'page_action' ||
+                    featureName === 'sidebar_action'
+                      ? 'icons'
+                      : featureName
+                  const filename = `${outputDir}/${basename}`
 
                   compilation.emitAsset(filename, rawSource)
                 }
