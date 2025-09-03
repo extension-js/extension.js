@@ -142,6 +142,25 @@ extensionJs
     'specify the port to use for the development server. Defaults to `8080`'
   )
   .option(
+    '--logs <off|error|warn|info|debug|trace|all>',
+    'filter unified logger events sent to CLI. Use `all` to show everything. Defaults to `info`'
+  )
+  .option(
+    '--log-context <list>',
+    'comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
+  )
+  .option(
+    '--log-format <pretty|json>',
+    'output format for logger events. Defaults to `pretty`'
+  )
+  .option('--no-log-timestamps', 'disable ISO timestamps in pretty output')
+  .option('--no-log-color', 'disable color in pretty output')
+  .option(
+    '--log-url <pattern>',
+    'only show logs where event.url matches this substring or regex (/re/i)'
+  )
+  .option('--log-tab <id>', 'only show logs for a specific tabId (number)')
+  .option(
     '--source [url]',
     'opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
   )
@@ -168,7 +187,36 @@ extensionJs
         open: devOptions.open,
         startingUrl: devOptions.startingUrl,
         source: devOptions.source,
-        watchSource: devOptions.watchSource
+        watchSource: devOptions.watchSource,
+        logLevel: (devOptions as any).logs || 'info',
+        logContexts: (() => {
+          const raw = (devOptions as any).logContext
+          if (!raw || String(raw).trim().length === 0) return undefined
+          if (String(raw).trim().toLowerCase() === 'all') return undefined
+          const allowed = [
+            'background',
+            'content',
+            'page',
+            'sidebar',
+            'popup',
+            'options',
+            'devtools'
+          ] as const
+          type Context = (typeof allowed)[number]
+          const values = String(raw)
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
+            .filter((c: string): c is Context =>
+              (allowed as readonly string[]).includes(c)
+            )
+          return values.length ? values : undefined
+        })(),
+        logFormat: (devOptions as any).logFormat || 'pretty',
+        logTimestamps: (devOptions as any).logTimestamps !== false,
+        logColor: (devOptions as any).logColor !== false,
+        logUrl: (devOptions as any).logUrl,
+        logTab: (devOptions as any).logTab
       })
     }
   })
