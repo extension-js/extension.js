@@ -90,7 +90,7 @@ export async function getProjectPath(
         messages.downloadingProjectPath(projectName)
       )
 
-      console.log(messages.creatingProjectPath(projectName))
+      console.log(messages.creatingProjectPath(url.pathname))
 
       return urlSource
     }
