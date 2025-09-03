@@ -67,3 +67,19 @@ describe('ReloadPlugin', () => {
     expect((compiler.options as any).currentInstance).toBeUndefined()
   })
 })
+
+describe('manager reload-service handshake', () => {
+  it('should include ensureClientReadyHandshake in chrome manager extension', () => {
+    const fs = require('fs') as typeof import('fs')
+    const path = require('path') as typeof import('path')
+    const base = path.join(
+      __dirname,
+      '..',
+      'extensions',
+      'chrome-manager-extension',
+      'reload-service.js'
+    )
+    const content = fs.readFileSync(base, 'utf-8')
+    expect(content).toMatch(/ensureClientReadyHandshake/)
+  })
+})

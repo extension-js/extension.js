@@ -385,8 +385,13 @@ export class DynamicExtensionManager {
       const content = await fs.readFile(serviceWorkerPath, 'utf-8')
       const portMatch = content.match(/const\s+port\s*=\s*['"](\d+)['"]/)
 
-      if (portMatch && parseInt(portMatch[1]) !== instance.webSocketPort) {
-        // Port changed, regenerate
+      // If base logic changed (e.g., handshake improvements), force regeneration
+      const needsLogicUpgrade = !content.includes('ensureClientReadyHandshake')
+
+      if (
+        needsLogicUpgrade ||
+        (portMatch && parseInt(portMatch[1]) !== instance.webSocketPort)
+      ) {
         await this.cleanupExtension(instance.instanceId)
         return await this.generateExtension(instance)
       }
