@@ -42,9 +42,14 @@ export async function extensionDev(
 
     // Install dependencies if they are not installed (skip in web-only mode).
     if (projectStructure.packageJsonPath) {
+      // Install if node_modules is missing or empty
       const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
+      const needsInstall =
+        !fs.existsSync(nodeModulesPath) ||
+        (fs.existsSync(nodeModulesPath) &&
+          fs.readdirSync(nodeModulesPath).length === 0)
 
-      if (!fs.existsSync(nodeModulesPath)) {
+      if (needsInstall) {
         console.log(messages.installingDependencies())
         await installDependencies(packageJsonDir)
       }
