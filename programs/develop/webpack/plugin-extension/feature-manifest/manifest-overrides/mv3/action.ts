@@ -10,7 +10,7 @@ export function action(manifest: Manifest, excludeList: FilepathList) {
         ...manifest.action,
         ...(manifest.action.default_popup && {
           default_popup: getFilename(
-            `action/default_popup.html`,
+            `action/index.html`,
             manifest.action.default_popup as string,
             excludeList
           )
