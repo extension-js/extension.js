@@ -156,6 +156,17 @@ export function creatingProjectPath(projectPath: string) {
   )
 }
 
+export function downloadedProjectFolderNotFound(
+  cwd: string,
+  candidates: string[]
+) {
+  return (
+    `${getLoggingPrefix('error')} Downloaded project folder not found.\n` +
+    `${colors.gray('PATH')} ${colors.underline(cwd)}\n` +
+    `${colors.gray('Tried')} ${colors.underline(candidates.join(', '))}`
+  )
+}
+
 export function noGitIgnoreFound(projectDir: string) {
   return (
     `${getLoggingPrefix('info')} No ${colors.yellow('.gitignore')} found, ` +
