@@ -10,7 +10,7 @@ export function sidebarAction(manifest: Manifest, excludeList: FilepathList) {
         ...manifest.sidebar_action,
         ...(manifest.sidebar_action.default_panel && {
           default_panel: getFilename(
-            `sidebar_action/default_panel.html`,
+            `sidebar/index.html`,
             manifest.sidebar_action.default_panel as string,
             excludeList
           )

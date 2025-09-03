@@ -149,7 +149,7 @@ describe('getManifestOverrides', () => {
       version: '0.0.1',
       description: 'An Extension.js example.',
       action: {
-        default_popup: 'action/default_popup.html',
+        default_popup: 'action/index.html',
         default_icon: 'icons/icon.png'
       },
       background: {
@@ -159,7 +159,7 @@ describe('getManifestOverrides', () => {
       },
       browser_action: {
         default_icon: 'icons/icon16.png',
-        default_popup: 'browser_action/default_popup.html',
+        default_popup: 'action/index.html',
         theme_icons: [
           {
             light: 'browser_action/icon16-light.png',
@@ -205,25 +205,25 @@ describe('getManifestOverrides', () => {
           }
         ]
       },
-      devtools_page: 'devtools_page/devtools_page.html',
+      devtools_page: 'devtools/index.html',
       icons: {
         '16': 'icons/icon16.png',
         '48': 'icons/icon48.png',
         '128': 'icons/icon128.png'
       },
-      options_page: 'options_ui/page.html',
+      options_page: 'options/index.html',
       options_ui: {
-        page: 'options_ui/page.html'
+        page: 'options/index.html'
       },
       page_action: {
         default_icon: 'icons/icon16.png',
-        default_popup: 'page_action/default_popup.html'
+        default_popup: 'action/index.html'
       },
       sandbox: {
         pages: ['sandbox/page-0.html', 'sandbox/page-1.html']
       },
       sidebar_action: {
-        default_panel: 'sidebar_action/default_panel.html',
+        default_panel: 'sidebar/index.html',
         default_icon: 'icons/icon16.png'
       },
       storage: {
@@ -244,7 +244,7 @@ describe('getManifestOverrides', () => {
       ],
       side_panel: {
         default_icon: 'icons/icon16.png',
-        default_path: 'side_panel/default_path.html'
+        default_path: 'sidebar/index.html'
       }
     })
   })

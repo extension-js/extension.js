@@ -114,18 +114,18 @@ new ManifestPlugin({
 
 | Manifest field                     | Example input                      | Output path example                                |
 | ---------------------------------- | ---------------------------------- | -------------------------------------------------- |
-| action.default_popup               | popup.html                         | action/default_popup.html                          |
+| action.default_popup               | popup.html                         | action/index.html                                  |
 | action.default_icon                | icons/icon.png                     | icons/icon.png (folder preserved under `icons/`)   |
 | background.service_worker (MV3)    | service-worker.ts                  | background/service_worker.js                       |
-| background.page (MV2/common)       | background.html                    | background.html                                    |
+| background.page (MV2/common)       | background.html                    | background/index.html                              |
 | content_scripts[].js/css           | content/scripts.ts                 | content_scripts/content-<index>.js / .css          |
-| devtools_page                      | devtools.html                      | devtools_page/devtools_page.html                   |
-| options_ui.page                    | options.html                       | options_ui/page.html                               |
-| page_action.default_popup (MV2)    | popup.html                         | page_action/default_popup.html                     |
+| devtools_page                      | devtools.html                      | devtools/index.html                                |
+| options_ui.page                    | options.html                       | options/index.html                                 |
+| page_action.default_popup (MV2)    | popup.html                         | action/index.html                                  |
 | sandbox.pages[]                    | sandbox.html                       | sandbox/page-<index>.html                          |
-| side_panel.default_path (MV3)      | panel.html                         | side_panel/default_path.html                       |
+| side_panel.default_path (MV3)      | panel.html                         | sidebar/index.html                                 |
 | side_panel.default_icon (MV3)      | icons/icon16.png                   | icons/icon16.png                                   |
-| sidebar_action.default_panel (MV2) | sidebar.html                       | sidebar_action/default_panel.html                  |
+| sidebar_action.default_panel (MV2) | sidebar.html                       | sidebar/index.html                                 |
 | storage.managed_schema             | schema.json                        | storage/managed_schema.json                        |
 | theme.images.theme_frame           | images/theme_frame.png             | theme/images/theme_frame.png                       |
 | user_scripts.api_script            | api.js                             | user_scripts/api_script.js                         |

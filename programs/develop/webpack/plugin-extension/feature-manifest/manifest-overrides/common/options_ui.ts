@@ -8,7 +8,7 @@ export function optionsUi(manifest: Manifest, excludeList: FilepathList) {
         ...manifest.options_ui,
         ...(manifest.options_ui.page && {
           page: getFilename(
-            'options_ui/page.html',
+            'options/index.html',
             manifest.options_ui.page,
             excludeList
           )
