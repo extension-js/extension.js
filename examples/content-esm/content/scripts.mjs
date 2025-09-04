@@ -2,6 +2,11 @@ import {contentComponent} from './contentComponent.mjs'
 
 let unmount
 
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
+
 console.log('hello from content_scripts')
 
 if (document.readyState === 'complete') {
@@ -27,6 +32,11 @@ function initial() {
   shadowRoot.appendChild(styleElement)
   fetchCSS().then((response) => (styleElement.textContent = response))
 
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.css', () => {
+      fetchCSS().then((response) => (styleElement.textContent = response))
+    })
+  }
 
   // Create container div and inject content
   const contentDiv = document.createElement('div')

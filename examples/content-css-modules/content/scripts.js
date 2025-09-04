@@ -4,6 +4,11 @@ import './styles.module.css'
 
 let unmount
 
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
+
 console.log('hello from content_scripts')
 
 if (document.readyState === 'complete') {
@@ -32,6 +37,14 @@ function initial() {
   fetchCssStyles().then((response) => {
     styleElement.textContent = response
   })
+
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.module.css', () => {
+      fetchCssStyles().then((response) => {
+        styleElement.textContent = response
+      })
+    })
+  }
 
   // Create container div
   const contentDiv = document.createElement('div')
