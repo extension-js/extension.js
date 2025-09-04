@@ -4,6 +4,11 @@ import './styles.less'
 
 let unmount
 
+if (import.meta.webpackHot) {
+  import.meta.webpackHot?.accept()
+  import.meta.webpackHot?.dispose(() => unmount?.())
+}
+
 console.log('hello from content_scripts')
 
 if (document.readyState === 'complete') {
@@ -29,6 +34,14 @@ function initial() {
 
   // Fetch and apply LESS styles
   fetchLessStyles().then((response) => (styleElement.textContent = response))
+
+  if (import.meta.webpackHot) {
+    import.meta.webpackHot?.accept('./styles.less', () => {
+      fetchLessStyles().then(
+        (response) => (styleElement.textContent = response)
+      )
+    })
+  }
 
   // Create container div
   const contentDiv = document.createElement('div')
