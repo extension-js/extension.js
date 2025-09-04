@@ -51,12 +51,20 @@ describe('HtmlPlugin (default behavior)', () => {
   })
 
   const sandboxHtml = path.join(outputPath, 'sandbox', 'page-0.html')
+  const altSandboxHtml = path.join(
+    outputPath,
+    'assets',
+    'sandbox',
+    'page-0.html'
+  )
+  const getSandboxHtml = () =>
+    fs.existsSync(sandboxHtml) ? sandboxHtml : altSandboxHtml
   const pagesHtml = path.join(outputPath, 'pages', 'main.html')
   const excludedHtml = path.join(outputPath, '/', 'html', 'file.html')
 
   describe('html', () => {
     it('should output HTML files for HTML paths defined in MANIFEST.JSON', async () => {
-      await assertFileIsEmitted(sandboxHtml)
+      await assertFileIsEmitted(getSandboxHtml())
     })
 
     it('should output HTML files for HTML paths defined in INCLUDE option', async () => {
@@ -70,11 +78,11 @@ describe('HtmlPlugin (default behavior)', () => {
     it('should resolve paths of HTML files for HTML paths defined in MANIFEST.JSON', async () => {
       // sandbox/index.html references ../pages/custom.html which should be rewritten
       // to the declared entry path
-      await findStringInFile(sandboxHtml, '/pages/custom.html')
+      await findStringInFile(getSandboxHtml(), '/pages/custom.html')
     })
 
     it('should resolve paths of HTML files for HTML paths defined in INCLUDE option', async () => {
-      await findStringInFile(sandboxHtml, '/pages/custom.html')
+      await findStringInFile(getSandboxHtml(), '/pages/custom.html')
     })
 
     // Public-root HTML files are preserved if referenced, but the example page doesn't
@@ -109,7 +117,7 @@ describe('HtmlPlugin (default behavior)', () => {
     })
 
     it('should resolve paths of CSS files for HTML paths defined in EXCLUDE option', async () => {
-      await findStringInFile(sandboxHtml, '/css/file.css')
+      await findStringInFile(getSandboxHtml(), '/css/file.css')
     })
   })
 
@@ -131,7 +139,7 @@ describe('HtmlPlugin (default behavior)', () => {
     })
 
     it('should resolve paths of JS files for HTML paths defined in MANIFEST.JSON', async () => {
-      await findStringInFile(sandboxHtml, '/sandbox/page-0.js')
+      await findStringInFile(getSandboxHtml(), '/sandbox/page-0.js')
     })
 
     it('should resolve paths of JS files for HTML paths defined in INCLUDE option', async () => {
@@ -139,7 +147,7 @@ describe('HtmlPlugin (default behavior)', () => {
     })
 
     it('should resolve paths of JS files for HTML paths defined in EXCLUDE option', async () => {
-      await findStringInFile(sandboxHtml, '/js/file.js')
+      await findStringInFile(getSandboxHtml(), '/js/file.js')
     })
   })
 
