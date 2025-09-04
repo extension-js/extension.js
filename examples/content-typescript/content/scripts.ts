@@ -3,11 +3,6 @@ import logo from '../images/logo.svg'
 
 let unmount: () => void
 
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-}
-
 console.log('hello from content_scripts')
 
 if (document.readyState === 'complete') {
@@ -30,12 +25,6 @@ function initial() {
   const style = new CSSStyleSheet()
   shadowRoot.adoptedStyleSheets = [style]
   fetchCSS().then((response) => style.replace(response))
-
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => style.replace(response))
-    })
-  }
 
   // Create container div
   const contentDiv = document.createElement('div')
