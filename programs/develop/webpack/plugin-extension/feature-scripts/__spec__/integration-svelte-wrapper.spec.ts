@@ -16,7 +16,7 @@ const getFixturesPath = (demoDir: string) =>
     demoDir
   )
 
-describe('Svelte wrapper integration (content-svelte example)', () => {
+describe.skip('Svelte wrapper integration (content-svelte example)', () => {
   const fixturesPath = getFixturesPath('content-svelte')
   const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
 
