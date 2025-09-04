@@ -106,8 +106,26 @@ ${'Build Options'}
 - ${code('--zip-source')} ${arg('[boolean]')}          Include source files in ZIP
 - ${code('--zip-filename')} ${arg('<name>')}           Custom ZIP filename
 
+${colors.underline('Centralized Logger (terminal output)')}
+- The manager extension embeds a centralized logger that streams events to the CLI.
+- Enable and filter logs directly via ${code('extension dev')} flags:
+  - ${code('--logs')} ${arg('<off|error|warn|info|debug|trace>')}    Minimum level (default: info)
+  - ${code('--log-context')} ${arg('<list|all>')}                     Contexts: background,content,page,sidebar,popup,options,devtools
+  - ${code('--log-format')} ${arg('<pretty|json>')}                   Output format (default: pretty)
+  - ${code('--no-log-timestamps')}                                   Hide ISO timestamps in pretty output
+  - ${code('--no-log-color')}                                        Disable color in pretty output
+  - ${code('--log-url')} ${arg('<substring|/regex/>')}                Filter by event.url
+  - ${code('--log-tab')} ${arg('<id>')}                               Filter by tabId
+- Example: ${code('extension dev ./my-ext --logs=debug --log-context=all --log-format=pretty')}
+
 ${code('extension --help')}
 This command outputs a help file with key command options.
+
+${colors.underline('Path Resolution (important)')}
+- Leading ${code('/')} in manifest/HTML means extension root (the directory containing ${code('manifest.json')}).
+- Relative paths resolve from the ${code('manifest.json')} directory.
+- Absolute OS paths are used as-is.
+
 
 ${'AI Assistants'}
 - For AI-oriented guidance and deep-dive tips, run ${code('extension --ai-help')}
@@ -127,6 +145,18 @@ ${'Browser-Specific Configuration'}
 - Use browser prefixes in manifest.json for browser-specific fields:
   ${code('{"firefox:manifest": 2, "chrome:manifest": 3}')}
   This applies manifest v2 to Firefox only, v3 to Chrome/Edge.
+
+${'Centralized Logger (for AI & CI)'}
+- Logs from all contexts are centralized by the manager extension and streamed to the CLI.
+- Prefer these flags to control terminal logs during ${code('extension dev')}:
+  - ${code('--logs')} ${arg('<off|error|warn|info|debug|trace>')}    Minimum level
+  - ${code('--log-context')} ${arg('<list|all>')}                     Contexts to include
+  - ${code('--log-format')} ${arg('<pretty|json>')}                   Pretty for humans; JSON for machines/NDJSON pipelines
+  - ${code('--no-log-timestamps')} ${arg(' ')}                        Disable timestamps (pretty)
+  - ${code('--no-log-color')} ${arg(' ')}                             Disable ANSI colors (pretty)
+  - ${code('--log-url')} ${arg('<substring|/regex/>')}                Filter by URL
+  - ${code('--log-tab')} ${arg('<id>')}                               Filter by tabId
+- Good CI pattern: ${code('EXTENSION_ENV=development EXTENSION_AUTO_EXIT_MS=6000 extension dev ./ext --logs=info --log-format=json')}
 
 ${'Special Folders for Entrypoints'}
 - Use special folders to handle entrypoints and assets not declared in manifest.json:
