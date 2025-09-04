@@ -80,9 +80,11 @@ export default function webpackConfig(
     // about requiring a callback when watch is enabled.
     watch: false,
     devtool:
-      manifest.manifest_version === 3
-        ? 'cheap-source-map'
-        : 'eval-cheap-source-map',
+      (devOptions.mode || 'development') === 'production'
+        ? false
+        : manifest.manifest_version === 3
+          ? 'cheap-source-map'
+          : 'eval-cheap-source-map',
     output: {
       clean: devOptions.output?.clean,
       path: userExtensionOutputPath,
@@ -118,7 +120,11 @@ export default function webpackConfig(
         '.json',
         '.wasm',
         '.svelte'
-      ]
+      ],
+      // Prefer browser fields and conditions; avoid Node-targeted builds
+      mainFields: ['browser', 'module', 'main'],
+      conditionNames: ['browser', 'import', 'module', 'default'],
+      aliasFields: ['browser']
     },
     watchOptions: {
       ignored: /node_modules|dist|extension-js\/profiles/
@@ -230,7 +236,21 @@ export default function webpackConfig(
       maxEntrypointSize: 999000
     },
     optimization: {
-      minimize: devOptions.mode === 'production'
+      // Minify only in production to reduce bundle size
+      minimize: devOptions.mode === 'production',
+      // Honor package.json sideEffects for better tree-shaking
+      sideEffects: true,
+      // Mark used exports globally to help dead-code elimination
+      usedExports: 'global',
+      // Merge small modules for smaller, faster bundles
+      concatenateModules: true,
+      // Keep a single file per entry (extensions expect static file names)
+      splitChunks: false,
+      // Do not extract runtime into a separate chunk (keep runtime inline)
+      runtimeChunk: false,
+      // Stable ids for reproducible builds and better caching
+      moduleIds: 'deterministic',
+      chunkIds: 'deterministic'
     },
     experiments: {
       // Enable native CSS support by default
