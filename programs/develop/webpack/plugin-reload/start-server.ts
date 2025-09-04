@@ -143,6 +143,14 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
     ws.on('message', (msg) => {
       const message: Message = JSON.parse(msg.toString())
+      try {
+        if (process.env.EXTENSION_ENV === 'development') {
+          // Lightweight visibility for WS traffic in dev
+          console.log(
+            `[Extension.js] WS message status: ${message.status || 'unknown'}`
+          )
+        }
+      } catch {}
 
       // Only process messages for this instance
       if (message.instanceId && message.instanceId !== instanceId) {
@@ -188,6 +196,109 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
         }
 
         console.log(messages.emptyLine())
+      }
+
+      // Centralized logs forwarded from manager extension → print to terminal
+      if (message.status === 'log' && message.data) {
+        try {
+          const evt: any = message.data
+
+          // level filter
+          const levelOrder: Record<string, number> = {
+            trace: 10,
+            debug: 20,
+            info: 30,
+            warn: 40,
+            error: 50
+          }
+          const rawLevel = (options as any).logLevel || 'info'
+          const minLevel = typeof rawLevel === 'string' ? rawLevel : 'info'
+          if (
+            evt?.level &&
+            levelOrder[evt.level] != null &&
+            levelOrder[minLevel] != null &&
+            levelOrder[evt.level] < levelOrder[minLevel]
+          ) {
+            return
+          }
+
+          // context filter
+          const allowedContexts = (options as any).logContexts as
+            | string[]
+            | undefined
+          if (
+            Array.isArray(allowedContexts) &&
+            allowedContexts.length &&
+            evt?.context &&
+            !allowedContexts.includes(evt.context)
+          ) {
+            return
+          }
+
+          // url filter
+          const urlFilter = (options as any).logUrl as string | undefined
+          if (urlFilter && evt?.url) {
+            let match = false
+            try {
+              if (
+                typeof urlFilter === 'string' &&
+                urlFilter.startsWith('/') &&
+                urlFilter.endsWith('/')
+              ) {
+                const body = urlFilter.slice(1, -1)
+                match = new RegExp(body).test(String(evt.url))
+              } else {
+                match = String(evt.url).includes(urlFilter)
+              }
+            } catch {
+              match = String(evt.url).includes(String(urlFilter))
+            }
+            if (!match) return
+          }
+
+          // tab filter
+          const tabFilter = (options as any).logTab as number | undefined
+          if (
+            typeof tabFilter === 'number' &&
+            evt?.tabId != null &&
+            Number(evt.tabId) !== Number(tabFilter)
+          ) {
+            return
+          }
+
+          const format = (options as any).logFormat || 'pretty'
+          const showTs = (options as any).logTimestamps !== false
+          // const useColor = (options as any).logColor !== false // reserved
+
+          if (format === 'json') {
+            console.log(JSON.stringify(evt))
+            return
+          }
+
+          const ts = showTs
+            ? new Date(Number(evt.timestamp) || Date.now()).toISOString() + ' '
+            : ''
+          const lvl = String(evt.level || 'info')
+            .toUpperCase()
+            .padEnd(5)
+          const ctx = String(evt.context || 'unknown')
+          const tab = evt.tabId != null ? `#${evt.tabId}` : ''
+          const url = evt.url ? ` ${evt.url}` : ''
+          const head = `${ts}[${lvl}] ${ctx}${tab}${url}`
+          const msg = Array.isArray(evt.messageParts)
+            ? evt.messageParts
+                .map((a: any) => {
+                  try {
+                    return typeof a === 'string' ? a : JSON.stringify(a)
+                  } catch {
+                    return String(a)
+                  }
+                })
+                .join(' ')
+            : String(evt.message || '')
+
+          console.log(`${head} - ${msg}`)
+        } catch {}
       }
     })
   })

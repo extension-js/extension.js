@@ -31,7 +31,7 @@ export const extensionFixtures = (
           '--mute-audio', // Mute any audio
           '--no-default-browser-check', // Disable the default browser check, do not prompt to set it as such
           '--no-first-run', // Skip first run wizards
-          '--ash-no-nudges', // Avoids blue bubble "user education" nudges (eg., "… give your browser a new look", Memory Saver)
+          '--ash-no-nudges', // Avoids blue bubble "user education" nudges (eg., "... give your browser a new look", Memory Saver)
           '--disable-search-engine-choice-screen', // Disable the 2023+ search engine choice screen
           '--disable-features=MediaRoute', // Avoid the startup dialog for `Do you want the application “Chromium.app” to accept incoming network connections?`.  Also disables the Chrome Media Router which creates background networking activity to discover cast targets. A superset of disabling DialMediaRouteProvider.
           '--use-mock-keychain', // Use mock keychain on Mac to prevent the blocking permissions dialog about "Chrome wants to use your confidential information stored in your keychain"
