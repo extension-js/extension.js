@@ -175,8 +175,10 @@ describe('extensionBuild branches', () => {
       packageJsonPath: temp.pkg
     })
 
-    // Create node_modules
-    fs.mkdirSync(path.join(path.dirname(temp.pkg), 'node_modules'))
+    // Create node_modules (non-empty) so install is skipped
+    const nm = path.join(path.dirname(temp.pkg), 'node_modules')
+    fs.mkdirSync(nm, {recursive: true})
+    fs.writeFileSync(path.join(nm, '.placeholder'), '')
 
     const install = (await import(RESOLVE.installDeps))
       .installDependencies as unknown as ReturnType<typeof vi.fn>
