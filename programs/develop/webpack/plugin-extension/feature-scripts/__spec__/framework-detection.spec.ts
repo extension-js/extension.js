@@ -33,12 +33,12 @@ describe('framework detection paths', () => {
     const {default: loader} = await import(
       '../steps/add-content-script-wrapper'
     )
-    const result = loader.call(
+    const result = (loader as any).call(
       ctx(
         path.join(projectDir, 'content', 'scripts.ts'),
         path.join(projectDir, 'manifest.json')
       ),
-      `'use shadow-dom'\nexport default function contentScript(){ return () => {} }`
+      `export default function contentScript(){ return () => {} }`
     ) as string
     expect(result).toContain('TypeScript Content Script Wrapper')
   })
@@ -54,12 +54,12 @@ describe('framework detection paths', () => {
     const {default: loader} = await import(
       '../steps/add-content-script-wrapper'
     )
-    const result = loader.call(
+    const result = (loader as any).call(
       ctx(
         path.join(projectDir, 'content', 'scripts.js'),
         path.join(projectDir, 'manifest.json')
       ),
-      `'use shadow-dom'\nexport default function contentScript(){ return () => {} }`
+      `export default function contentScript(){ return () => {} }`
     ) as string
     expect(result).toContain('JavaScript Content Script Wrapper')
   })
