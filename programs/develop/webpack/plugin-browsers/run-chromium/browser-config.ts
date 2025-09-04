@@ -28,7 +28,7 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // Disable the default browser check, do not prompt to set it as such
   '--no-default-browser-check',
   // Avoids blue bubble "user education" nudges
-  // (eg., "… give your browser a new look", Memory Saver)
+  // (eg., "... give your browser a new look", Memory Saver)
   '--ash-no-nudges',
   // Disable the 2023+ search engine choice screen
   '--disable-search-engine-choice-screen',
