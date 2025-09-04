@@ -4,12 +4,12 @@ import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {type LoaderContext} from '../../../webpack-types'
-import {generateReactWrapperCode} from './react-content-script-wrapper'
-import {generateVueWrapperCode} from './vue-content-script-wrapper'
-import {generateSvelteWrapperCode} from './svelte-content-script-wrapper'
-import {generatePreactWrapperCode} from './preact-content-script-wrapper'
-import {generateTypeScriptWrapperCode} from './typescript-content-script-wrapper'
-import {generateJavaScriptWrapperCode} from './javascript-content-script-wrapper'
+import {generateReactWrapperCode} from '../wrappers/react'
+import {generateVueWrapperCode} from '../wrappers/vue'
+import {generateSvelteWrapperCode} from '../wrappers/svelte'
+import {generatePreactWrapperCode} from '../wrappers/preact'
+import {generateTypeScriptWrapperCode} from '../wrappers/typescript'
+import {generateJavaScriptWrapperCode} from '../wrappers/javascript'
 
 const schema: Schema = {
   type: 'object',
@@ -182,34 +182,23 @@ function generateFrameworkWrapperCode(
  * Check if content script should use wrapper
  */
 function shouldUseWrapper(
-  source: string,
+  _source: string,
   manifest: any,
   projectPath: string,
   url: string
 ): boolean {
-  // Check if the source has the 'use shadow-dom' directive
-  const hasShadowDomDirective =
-    source.includes("'use shadow-dom'") || source.includes('"use shadow-dom"')
+  // Apply wrapper by default to files referenced by manifest.content_scripts
+  if (!manifest.content_scripts) return false
 
-  // Check if content scripts are configured
-  if (!manifest.content_scripts) {
-    return false
-  }
-
-  // Check if this file is referenced in any content script
   for (const contentScript of manifest.content_scripts) {
     if (!contentScript.js) continue
-
     for (const js of contentScript.js) {
       const absoluteUrl = path.resolve(projectPath, js as string)
       if (url.includes(absoluteUrl)) {
-        // Only apply wrapper when the source explicitly opts-in
-        // via the 'use shadow-dom' directive
-        return hasShadowDomDirective
+        return true
       }
     }
   }
-
   return false
 }
 

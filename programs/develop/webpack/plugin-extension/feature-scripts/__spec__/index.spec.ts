@@ -69,7 +69,8 @@ describe('ScriptsPlugin (wrapper in production)', () => {
   beforeAll(async () => {
     await extensionBuild(fixturesPath, {
       browser: 'chrome',
-      mode: 'production'
+      mode: 'production',
+      exitOnError: false as any
     })
   })
 

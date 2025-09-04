@@ -57,7 +57,6 @@ describe('add-content-script-wrapper loader', () => {
     const ctx = makeLoaderContext(resourcePath, manifestPath)
 
     const source = `
-'use shadow-dom'
 import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
 import './styles.css'
@@ -71,8 +70,7 @@ export default function contentScript() {
 }
 `
 
-    // @ts-expect-error - calling loader with mocked context
-    const result = loader.call(ctx, source) as string
+    const result = (loader as any).call(ctx, source) as string
 
     expect(result).toContain('React Content Script Wrapper - Auto-generated')
     expect(result).toContain('class ReactContentScriptWrapper')
@@ -99,8 +97,7 @@ export default function contentScript() {
     const ctx = makeLoaderContext(resourcePath, manifestPath)
 
     const source = `console.log('plain script')`
-    // @ts-expect-error - calling loader with mocked context
-    const result = loader.call(ctx, source) as string
+    const result = (loader as any).call(ctx, source) as string
     expect(result).toBe(source)
   })
 })
