@@ -1,4 +1,5 @@
 import * as path from 'path'
+import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseBabel} from './js-tools/babel'
@@ -31,6 +32,30 @@ export class JsFrameworksPlugin {
     const maybeInstallVue = await maybeUseVue(projectPath)
     const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode as any)
 
+    // Derive transpile targets from extension manifest for leaner output
+    let targets: string[] = ['chrome >= 100']
+
+    try {
+      const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
+      if (manifest?.minimum_chrome_version) {
+        targets = [`chrome >= ${manifest.minimum_chrome_version}`]
+      }
+
+      const geckoMin =
+        manifest?.browser_specific_settings?.gecko?.strict_min_version ||
+        manifest?.applications?.gecko?.strict_min_version
+
+      if (geckoMin) {
+        const major = parseInt(String(geckoMin).split('.')[0], 10)
+
+        if (!Number.isNaN(major)) {
+          targets.push(`firefox >= ${major}`)
+        }
+      }
+    } catch {
+      // Fail silently
+    }
+
     compiler.options.resolve.alias = {
       ...(maybeInstallBabel?.alias || {}),
       ...(maybeInstallReact?.alias || {}),
@@ -55,7 +80,7 @@ export class JsFrameworksPlugin {
             minify: mode === 'production',
             isModule: true,
             sourceMap: this.mode === 'development',
-            env: {targets: ['chrome >= 100']},
+            env: {targets},
             jsc: {
               parser: {
                 syntax: isUsingTypeScript(projectPath)
