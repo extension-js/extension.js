@@ -46,6 +46,14 @@ export default {
 - This plugin does not accept `includeList`/`excludeList`. It always copies from `public/` and watches `pages/` and `scripts/` (dev-only) based on the `manifestPath` project root.
 - For include/exclude of specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) which support `includeList`/`excludeList`.
 
+## Path resolution convention (consistent across @plugin-extension)
+
+- Leading `/` means extension root (public root) relative to the directory containing `manifest.json`.
+- Relative paths are resolved from the manifest directory.
+- Absolute OS paths are used as-is.
+
+This plugin mirrors that convention by copying `public/` into the output root so assets addressed as `/foo.png` in manifests/HTML resolve correctly at runtime.
+
 ## Compatibility
 
 - Typed against `@rspack/core` and tested with Rspack.
