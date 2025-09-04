@@ -340,14 +340,14 @@ export function sourceInspectorCleanupError(error: string) {
 export function htmlEntrypointChangeRestarting() {
   return (
     getLoggingPrefix('HTML', 'warn') +
-    ' Entrypoint change detected. Restarting dev server to recompile…'
+    ' Entrypoint change detected. Restarting dev server to recompile...'
   )
 }
 
 export function manifestEntrypointChangeRestarting(filePath: string) {
   return (
     getLoggingPrefix('manifest.json', 'warn') +
-    ` Entrypoint change detected at ${colors.underline(filePath)}. Restarting dev server to recompile…`
+    ` Entrypoint change detected at ${colors.underline(filePath)}. Restarting dev server to recompile...`
   )
 }
 

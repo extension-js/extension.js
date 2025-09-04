@@ -35,6 +35,14 @@ export function stdoutData(browser: Browser, mode: Mode): string {
   return `${getLoggingPrefix('info')} ${capitalizedBrowserName(browser)} ${extensionOutput} running in ${mode || 'unknown'} mode.`
 }
 
+export function skippingBrowserLaunchDueToCompileErrors(): string {
+  return `${getLoggingPrefix('warn')} Skipping browser launch due to compile errors`
+}
+
+export function manifestPreflightSummary(errorCount: number): string {
+  return `${getLoggingPrefix('warn')} Preflight manifest/asset check found ${errorCount} error(s)`
+}
+
 export function browserNotInstalledError(
   browser: Browser,
   browserBinaryLocation: string

@@ -49,7 +49,7 @@ export function integrationNotInstalled(
   return (
     `${getLoggingPrefix(integration, 'info')} Using ${integration}. ` +
     `Installing required dependencies via ` +
-    `${colors.gray(packageManager)}...`
+    `${colors.brightBlue(packageManager)}...`
   )
 }
 
@@ -91,7 +91,7 @@ export function failedToInstallIntegration(
 ) {
   return (
     `${getLoggingPrefix('Integration', 'error')} ` +
-    `${colors.gray(integration)} Installation Error\n` +
+    `${colors.brightBlue(integration)} Installation Error\n` +
     `${colors.red('Failed to detect package manager or install dependencies.')}\n` +
     `${colors.red(String(error ?? ''))}`
   )
@@ -117,9 +117,9 @@ export function insecurePolicy() {
       'content-security-policy',
       'error'
     )} Insecure Content-Security-Policy\n\n` +
-    `${colors.red('Manifest includes insecure content-security-policy value ')}${colors.brightBlue("'unsafe-eval'")} ${colors.gray('(in ')}${colors.gray(
+    `${colors.red('Manifest includes insecure content-security-policy value ')}${colors.brightBlue("'unsafe-eval'")} ${colors.brightBlue('(in ')}${colors.brightBlue(
       "'script-src'"
-    )}${colors.gray(')')}.`
+    )}${colors.brightBlue(')')}.`
   )
 }
 
@@ -143,7 +143,7 @@ function getManifestDocumentationURL(browser: DevOptions['browser']) {
 export function webAccessibleResourcesV2Type(browser: DevOptions['browser']) {
   return (
     `${getLoggingPrefix('manifest.json', 'error')} has a wrong manifest field type\n\n` +
-    `Field ${colors.yellow('web_accessible_resources')} must be a string array in ${colors.yellow('Manifest')} version ${colors.gray('2')}.\n\n` +
+    `Field ${colors.yellow('web_accessible_resources')} must be a string array in ${colors.yellow('Manifest')} version ${colors.brightBlue('2')}.\n\n` +
     `Read more: ${getManifestDocumentationURL(browser)}`
   )
 }
@@ -151,7 +151,7 @@ export function webAccessibleResourcesV2Type(browser: DevOptions['browser']) {
 export function webAccessibleResourcesV3Type(browser: DevOptions['browser']) {
   return (
     `${getLoggingPrefix('manifest.json', 'error')} has a wrong manifest field type\n\n` +
-    `Field ${colors.yellow('web_accessible_resources')} must be an array of objects in ${colors.yellow('Manifest')} version ${colors.gray('3')}.\n\n` +
+    `Field ${colors.yellow('web_accessible_resources')} must be an array of objects in ${colors.yellow('Manifest')} version ${colors.brightBlue('3')}.\n\n` +
     `Read more: ${getManifestDocumentationURL(browser)}`
   )
 }
@@ -181,7 +181,7 @@ export function invalidFieldType(
 
   return (
     `${getLoggingPrefix('manifest.json', 'error')} Invalid Manifest Field\n\n` +
-    `Field ${colors.yellow(field)} must be of type ${colors.gray(type)}.\n\n` +
+    `Field ${colors.yellow(field)} must be of type ${colors.brightBlue(type)}.\n\n` +
     `Read more: ${getManifestDocumentationURL(browser)}`
   )
 }
@@ -323,10 +323,10 @@ export function serverRestartRequiredFromManifestError(
   fileRemoved: string
 ) {
   const fileRemovedText = fileRemoved
-    ? `${colors.gray('PATH')} ${colors.red('REMOVED')} ${colors.underline(fileRemoved)}\n`
+    ? `${colors.brightBlue('PATH')} ${colors.red('REMOVED')} ${colors.underline(fileRemoved)}\n`
     : ''
   const fileAddedText = fileAdded
-    ? `${colors.gray('PATH')} ${colors.green('ADDED')} ${colors.underline(fileAdded)}`
+    ? `${colors.brightBlue('PATH')} ${colors.green('ADDED')} ${colors.underline(fileAdded)}`
     : ''
   return (
     `${colors.red('ERROR')} in ${colors.yellow('manifest.json')} entrypoint: ` +
@@ -438,7 +438,7 @@ export function serverRestartRequiredFromHtml(filePath: string) {
     `Detected changes to ${colors.yellow('<script>')} or ${colors.yellow(
       '<link rel="stylesheet">'
     )} references in HTML. The extension will undergo a full recompilation and a reload.\n` +
-    `${colors.gray('PATH')} ${colors.underline(filePath)}`
+    `${colors.brightBlue('PATH')} ${colors.underline(filePath)}`
   )
 }
 
@@ -487,27 +487,27 @@ export function certRequired() {
     )}: Firefox requires a secure certificate for localhost connections, ` +
     `needed for the reloader to work.\nBy default, your ${colors.yellow('manifest.json')} file ` +
     `is not being watched. To enable this feature, run:\n\n` +
-    `  npx -y ${colors.gray('mkcert-cli')} \\\n` +
+    `  npx -y ${colors.brightBlue('mkcert-cli')} \\\n` +
     `    ${colors.blue('--outDir')} ${colors.underline(CERTIFICATE_DESTINATION_PATH)} \\\n` +
     `    ${colors.blue('--cert')} ${colors.yellow('localhost.cert')} \\\n` +
     `    ${colors.blue('--key')} ${colors.yellow('localhost.key')}\n\n` +
-    `This will enable the secure certificate needed for Firefox via ${colors.gray('mkcert')}.\n\n` +
-    `Learn more about ${colors.gray('mkcert')}: ${colors.underline('https://github.com/FiloSottile/mkcert')}`
+    `This will enable the secure certificate needed for Firefox via ${colors.brightBlue('mkcert')}.\n\n` +
+    `Learn more about ${colors.brightBlue('mkcert')}: ${colors.underline('https://github.com/FiloSottile/mkcert')}`
   )
 }
 
 export function defaultPortInUse(port: number) {
   return (
     `${getLoggingPrefix('Port', 'error')} ` +
-    `Selected port ${colors.gray(port.toString())} in use. Choose a new port. `
+    `Selected port ${colors.brightBlue(port.toString())} in use. Choose a new port. `
   )
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
   return (
     `${getLoggingPrefix('Port', 'warn')} ` +
-    `Requested port ${colors.gray(requestedPort.toString())} is in use; using ` +
-    `${colors.gray(newPort.toString())} instead.`
+    `Requested port ${colors.brightBlue(requestedPort.toString())} is in use; using ` +
+    `${colors.brightBlue(newPort.toString())} instead.`
   )
 }
 
@@ -527,7 +527,7 @@ export function deprecatedShadowRoot() {
     'and will be removed in a future version of Extension.js. To use content_scripts with\nthe shadow DOM, ' +
     'see one of the many examples at:\nhttps://github.com/extension-js/extension.js/tree/main/examples\n\n' +
     'If you really need to use the shadow DOM as-is, the latest version of Extension.js\n' +
-    `to support it is ${colors.gray('extension@2.0.0-beta.9')}.\n`
+    `to support it is ${colors.brightBlue('extension@2.0.0-beta.9')}.\n`
   )
 }
 
@@ -568,44 +568,44 @@ export function registrySaveError(error: unknown) {
 }
 
 export function smartPortAllocationExistingPorts(usedPorts: number[]) {
-  return `${getLoggingPrefix('Smart Port Allocation', 'info')} existing ports: ${colors.gray(JSON.stringify(usedPorts))}`
+  return `${getLoggingPrefix('Smart Port Allocation', 'info')} existing ports: ${colors.brightBlue(JSON.stringify(usedPorts))}`
 }
 
 export function smartPortAllocationExistingWebSocketPorts(
   usedWebSocketPorts: number[]
 ) {
-  return `${getLoggingPrefix('Smart Port Allocation', 'info')} existing WebSocket ports: ${colors.gray(JSON.stringify(usedWebSocketPorts))}`
+  return `${getLoggingPrefix('Smart Port Allocation', 'info')} existing WebSocket ports: ${colors.brightBlue(JSON.stringify(usedWebSocketPorts))}`
 }
 
 export function smartPortAllocationUsingRequestedPort(
   port: number,
   webSocketPort: number
 ) {
-  return `${getLoggingPrefix('Smart Port Allocation', 'info')} using requested port ${colors.gray(port.toString())}; WebSocket ${colors.gray(webSocketPort.toString())}`
+  return `${getLoggingPrefix('Smart Port Allocation', 'info')} using requested port ${colors.brightBlue(port.toString())}; WebSocket ${colors.brightBlue(webSocketPort.toString())}`
 }
 
 export function smartPortAllocationRequestedPortUnavailable(port: number) {
-  return `${getLoggingPrefix('Smart Port Allocation', 'warn')} requested port is unavailable: ${colors.gray(port.toString())}`
+  return `${getLoggingPrefix('Smart Port Allocation', 'warn')} requested port is unavailable: ${colors.brightBlue(port.toString())}`
 }
 
 export function smartPortAllocationAllocatedPorts(
   port: number,
   webSocketPort: number
 ) {
-  return `${getLoggingPrefix('Smart Port Allocation', 'success')} allocated ports ${colors.gray(port.toString())} ${colors.gray('(port)')} and ${colors.gray(webSocketPort.toString())} ${colors.gray('(WebSocket)')}`
+  return `${getLoggingPrefix('Smart Port Allocation', 'success')} allocated ports ${colors.brightBlue(port.toString())} ${colors.brightBlue('(port)')} and ${colors.brightBlue(webSocketPort.toString())} ${colors.brightBlue('(WebSocket)')}`
 }
 
 export function instanceManagerCreateInstanceCalled(params: any) {
   return (
     `${getLoggingPrefix('Instance Manager', 'info')} createInstance called ` +
-    `${colors.gray(JSON.stringify(params))}`
+    `${colors.brightBlue(JSON.stringify(params))}`
   )
 }
 
 export function instanceManagerRegistryAfterCreateInstance(registry: any) {
   return (
     `${getLoggingPrefix('Instance Manager', 'info')} registry after ` +
-    `createInstance: ${colors.gray(JSON.stringify(registry))}`
+    `createInstance: ${colors.brightBlue(JSON.stringify(registry))}`
   )
 }
 
@@ -618,7 +618,7 @@ export function extensionManagerInstanceInitialized(
   return (
     `${getLoggingPrefix('Extension.js DevTools', 'success')} instance ` +
     `${colors.yellow(instanceId)} initialized on port ` +
-    `${colors.gray(webSocketPort.toString())}`
+    `${colors.brightBlue(webSocketPort.toString())}`
   )
 }
 
@@ -676,7 +676,7 @@ export function firefoxUsingFlatpakWithSandbox() {
 export function firefoxVersion(version: string) {
   return (
     `${getLoggingPrefix('Firefox Detector', 'info')} Firefox version ` +
-    `is: ${colors.gray(version)}`
+    `is: ${colors.brightBlue(version)}`
   )
 }
 
@@ -711,7 +711,7 @@ export function portManagerErrorAllocatingPorts(error: unknown) {
 
 // Browser Plugin messages
 export function browserPluginFailedToLoad(browser: string, error: unknown) {
-  return `${getLoggingPrefix('Browser Plugin', 'error')} Failed to load the ${colors.gray(browser)} plugin.\n${colors.red(String(error))}`
+  return `${getLoggingPrefix('Browser Plugin', 'error')} Failed to load the ${colors.brightBlue(browser)} plugin.\n${colors.red(String(error))}`
 }
 
 // Shared Utils messages
@@ -738,7 +738,7 @@ export function extensionJsRunnerUnhandledRejection(
 ) {
   return (
     `${getLoggingPrefix('Extension.js Runner', 'error')} unhandled ` +
-    `rejection at: ${colors.gray(promise.toString())} reason: ` +
+    `rejection at: ${colors.brightBlue(promise.toString())} reason: ` +
     `${colors.red(String(reason))}`
   )
 }
@@ -765,25 +765,25 @@ export function legacyManifestPathWarning(legacyPath: string) {
 }
 
 export function configLoadingError(configType: string, error: unknown) {
-  return `${getLoggingPrefix('Config', 'error')} Failed to load ${colors.gray(configType)}.\n${colors.red(String(error))}`
+  return `${getLoggingPrefix('Config', 'error')} Failed to load ${colors.brightBlue(configType)}.\n${colors.red(String(error))}`
 }
 
 // Auto mode hints for CI/AI runs
 export function autoExitModeEnabled(ms: number) {
-  return `${getLoggingPrefix('Auto Mode', 'info')} is enabled. The program will exit automatically after ${colors.gray('(' + ms.toString() + 'ms)')}.`
+  return `${getLoggingPrefix('Auto Mode', 'info')} is enabled. The program will exit automatically after ${colors.brightBlue('(' + ms.toString() + 'ms)')}.`
 }
 
 export function autoExitTriggered(ms: number) {
-  return `${getLoggingPrefix('Auto Mode', 'warn')} timer has elapsed ${colors.gray('(' + ms.toString() + 'ms)')}. Cleaning up…`
+  return `${getLoggingPrefix('Auto Mode', 'warn')} timer has elapsed ${colors.brightBlue('(' + ms.toString() + 'ms)')}. Cleaning up...`
 }
 
 export function autoExitForceKill(ms: number) {
-  return `${getLoggingPrefix('Auto Mode', 'error')} is force-killing the process after the fallback ${colors.gray('(' + ms.toString() + 'ms)')}.`
+  return `${getLoggingPrefix('Auto Mode', 'error')} is force-killing the process after the fallback ${colors.brightBlue('(' + ms.toString() + 'ms)')}.`
 }
 
 // Reload Client messages
 export function reloadClientForcingExtensionReload(timestamp: string) {
-  return `${getLoggingPrefix('Reload Client', 'info')} is forcing an extension reload at ${colors.gray(timestamp)}`
+  return `${getLoggingPrefix('Reload Client', 'info')} is forcing an extension reload at ${colors.brightBlue(timestamp)}`
 }
 
 export function reloadClientFailedToReloadExtension(error: unknown) {
@@ -791,7 +791,7 @@ export function reloadClientFailedToReloadExtension(error: unknown) {
 }
 
 export function reloadClientBackgroundScriptLoaded(cacheBuster: string) {
-  return `${getLoggingPrefix('Reload Client', 'info')} background script loaded with cache buster: ${colors.gray(cacheBuster)}`
+  return `${getLoggingPrefix('Reload Client', 'info')} background script loaded with cache buster: ${colors.brightBlue(cacheBuster)}`
 }
 
 export function reloadClientBackgroundScriptStale() {
@@ -800,11 +800,11 @@ export function reloadClientBackgroundScriptStale() {
 
 // Firefox-specific reload client messages
 export function firefoxReloadClientReloadingExtension(changedFile: string) {
-  return `${getLoggingPrefix('Firefox Reload Client', 'info')} is reloading the extension due to a critical file change: ${colors.gray(changedFile)}`
+  return `${getLoggingPrefix('Firefox Reload Client', 'info')} is reloading the extension due to a critical file change: ${colors.brightBlue(changedFile)}`
 }
 
 export function firefoxReloadClientForcingExtensionReload(timestamp: string) {
-  return `${getLoggingPrefix('Firefox Reload Client', 'info')} is forcing an extension reload at ${colors.gray(timestamp)}`
+  return `${getLoggingPrefix('Firefox Reload Client', 'info')} is forcing an extension reload at ${colors.brightBlue(timestamp)}`
 }
 
 export function firefoxReloadClientFailedToReloadExtension(error: unknown) {
@@ -812,7 +812,7 @@ export function firefoxReloadClientFailedToReloadExtension(error: unknown) {
 }
 
 export function firefoxReloadClientBackgroundScriptLoaded(cacheBuster: string) {
-  return `${getLoggingPrefix('Firefox Reload Client', 'info')} Firefox background script loaded with cache buster: ${colors.gray(cacheBuster)}`
+  return `${getLoggingPrefix('Firefox Reload Client', 'info')} Firefox background script loaded with cache buster: ${colors.brightBlue(cacheBuster)}`
 }
 
 export function firefoxReloadClientBackgroundScriptStale() {
@@ -930,7 +930,7 @@ export function instanceManagerForceCleanupProject(
 export function instanceManagerForceCleanupFound(
   instanceCount: number
 ): string {
-  return `${getLoggingPrefix('Instance Manager', 'info')} found ${colors.gray(instanceCount.toString())} instances to clean up`
+  return `${getLoggingPrefix('Instance Manager', 'info')} found ${colors.brightBlue(instanceCount.toString())} instances to clean up`
 }
 
 export function instanceManagerForceCleanupInstance(
@@ -942,13 +942,13 @@ export function instanceManagerForceCleanupInstance(
 export function instanceManagerForceCleanupTerminating(
   processId: number
 ): string {
-  return `${getLoggingPrefix('Instance Manager', 'info')} terminating process ${colors.gray(processId.toString())}`
+  return `${getLoggingPrefix('Instance Manager', 'info')} terminating process ${colors.brightBlue(processId.toString())}`
 }
 
 export function instanceManagerForceCleanupForceKilled(
   processId: number
 ): string {
-  return `${getLoggingPrefix('Instance Manager', 'error')} force killed process ${colors.gray(processId.toString())}`
+  return `${getLoggingPrefix('Instance Manager', 'error')} force killed process ${colors.brightBlue(processId.toString())}`
 }
 
 export function instanceManagerForceCleanupInstanceTerminated(
@@ -976,7 +976,7 @@ export function instanceManagerProcessNoLongerRunning(
   instanceId: string,
   processId: number
 ): string {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} process ${colors.gray(processId.toString())} for instance ${colors.brightBlue(instanceId.slice(0, 8))} is no longer running`
+  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} process ${colors.brightBlue(processId.toString())} for instance ${colors.brightBlue(instanceId.slice(0, 8))} is no longer running`
 }
 
 export function instanceManagerPortsNotInUse(
@@ -984,7 +984,7 @@ export function instanceManagerPortsNotInUse(
   port: number,
   webSocketPort: number
 ): string {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} ports ${colors.gray(port.toString())} ${colors.gray('(')}${colors.gray('port')}${colors.gray(')')}/${colors.gray(webSocketPort.toString())} ${colors.gray('(')}${colors.gray('WebSocket')}${colors.gray(')')} for instance ${colors.brightBlue(instanceId.slice(0, 8))} are not in use`
+  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Instance Manager')} ports ${colors.brightBlue(port.toString())} ${colors.brightBlue('(')}${colors.brightBlue('port')}${colors.brightBlue(')')}/${colors.brightBlue(webSocketPort.toString())} ${colors.brightBlue('(')}${colors.brightBlue('WebSocket')}${colors.brightBlue(')')} for instance ${colors.brightBlue(instanceId.slice(0, 8))} are not in use`
 }
 
 export function instanceManagerCleanedUpOrphanedInstance(
