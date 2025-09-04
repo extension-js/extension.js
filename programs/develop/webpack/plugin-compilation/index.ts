@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import colors from 'pintor'
-import {Compiler} from '@rspack/core'
+import {Compiler, DefinePlugin} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
 import {CleanDistFolderPlugin} from './clean-dist'
@@ -49,51 +49,57 @@ export class CompilationPlugin {
       }).apply(compiler)
     }
 
-    compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
-      stats.compilation.name = undefined
+    ;(new DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(
+        compiler.options.mode || 'development'
+      )
+    }),
+      compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
+        stats.compilation.name = undefined
 
-      // Calculate compilation time
-      const duration = stats.compilation.endTime! - stats.compilation.startTime!
+        // Calculate compilation time
+        const duration =
+          stats.compilation.endTime! - stats.compilation.startTime!
 
-      const manifestName = JSON.parse(
-        fs.readFileSync(this.manifestPath, 'utf-8')
-      ).name
+        const manifestName = JSON.parse(
+          fs.readFileSync(this.manifestPath, 'utf-8')
+        ).name
 
-      const hasErrors = stats.hasErrors()
-      const key = getCompilationKey(manifestName, hasErrors)
-      const rawLine = messages.boring(manifestName, duration, stats)
-      if (!rawLine) {
-        done()
-        return
-      }
-      const line: string = rawLine
+        const hasErrors = stats.hasErrors()
+        const key = getCompilationKey(manifestName, hasErrors)
+        const rawLine = messages.boring(manifestName, duration, stats)
+        if (!rawLine) {
+          done()
+          return
+        }
+        const line: string = rawLine
 
-      // If message repeats, overwrite previous compilation line and append (Nx)
-      if (key === lastCompilationKey) {
-        repeatCompilationCount += 1
-        const suffix = colors.gray(` (${repeatCompilationCount}x) `)
+        // If message repeats, overwrite previous compilation line and append (Nx)
+        if (key === lastCompilationKey) {
+          repeatCompilationCount += 1
+          const suffix = colors.gray(` (${repeatCompilationCount}x) `)
 
-        // In TTY, overwrite only from the 3rd time onward to preserve the first blank line after summary
-        if (process.stdout.isTTY && repeatCompilationCount > 2) {
-          process.stdout.write('\u001b[1A')
-          process.stdout.write('\u001b[2K')
-          process.stdout.write(line + suffix + '\n')
+          // In TTY, overwrite only from the 3rd time onward to preserve the first blank line after summary
+          if (process.stdout.isTTY && repeatCompilationCount > 2) {
+            process.stdout.write('\u001b[1A')
+            process.stdout.write('\u001b[2K')
+            process.stdout.write(line + suffix + '\n')
+          } else {
+            console.log(line + suffix)
+          }
         } else {
-          console.log(line + suffix)
-        }
-      } else {
-        // New key: reset counter and print fresh line with newline
-        lastCompilationKey = key
-        repeatCompilationCount = 1
+          // New key: reset counter and print fresh line with newline
+          lastCompilationKey = key
+          repeatCompilationCount = 1
 
-        // Do not insert extra blank lines; keep messages sequential
-        if (!printedFirstCompilation) {
-          printedFirstCompilation = true
+          // Do not insert extra blank lines; keep messages sequential
+          if (!printedFirstCompilation) {
+            printedFirstCompilation = true
+          }
+          console.log(line)
         }
-        console.log(line)
-      }
 
-      done()
-    })
+        done()
+      }))
   }
 }
