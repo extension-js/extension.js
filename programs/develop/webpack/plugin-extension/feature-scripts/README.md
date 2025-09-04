@@ -12,7 +12,7 @@
 
 Handles all script-like entries in a browser extension: `background.scripts`, `background.service_worker`, `content_scripts` (JS and CSS), and `user_scripts.api_script`. It creates proper Rspack entries, applies framework‑aware wrappers for content scripts (React, Vue, Svelte, Preact, TypeScript, JavaScript), enables HMR during development, and ensures correct publicPath resolution in production. This module is part of the Extension.js project.
 
-Emits and wires bundles for all script‑related manifest fields and optional extras provided via `includeList`. For content scripts, it can inject a wrapper that isolates styles via Shadow DOM and wires CSS import handling and HMR. Wrapper activation is explicit: add `'use shadow-dom'` at the top of your content script file to enable the wrapper. For background workers, it respects classic vs module workers.
+Emits and wires bundles for all script‑related manifest fields and optional extras provided via `includeList`. For content scripts, a wrapper is applied by default that isolates styles via Shadow DOM and wires CSS import handling and HMR automatically. No directives are required. For background workers, it respects classic vs module workers.
 
 | Manifest field              | includeList key               | Output path example                        |
 | --------------------------- | ----------------------------- | ------------------------------------------ |
@@ -65,21 +65,22 @@ export default config
 ### Details
 
 - Adds entries for script-like manifest fields and optional extra scripts you pass via `includeList`.
-- Applies a content‑script wrapper that:
-  - Mounts in an isolated Shadow DOM container (requires `'use shadow-dom'` directive in the content script)
+- Applies a content‑script wrapper (default) that:
+  - Mounts in an isolated Shadow DOM container (automatic)
   - Injects referenced CSS (including `.css`, `.scss`, `.sass`, `.less`)
   - Detects common frameworks (React, Vue, Svelte, Preact) and generates framework‑specific bootstrap code
-  - Enables HMR for both JS and CSS during development
+  - Enables HMR for both JS and CSS during development, with safe cleanup
 - Ensures publicPath is available for content scripts in production builds.
 - Fixes publicPath for assets imported by content scripts running in the main world.
 - For non‑module `background.service_worker`, configures `chunkLoading: 'import-scripts'` for correct runtime behavior (module workers are left as‑is).
 
-### Ccontent scripts via `'use shadow-dom'` directive
+### Content scripts wrapper contract
 
-- When `'use shadow-dom'` is present (wrapper enabled): your content script must export a default function returning a function `(container: HTMLElement) => () => void`.
-- When the directive is NOT present: no wrapper is applied; your content script runs as a normal script, and no specific export shape is required.
-- The `container` argument (wrapper enabled) is always an `HTMLElement` host created for you. When Shadow DOM is enabled, this host is inside a `ShadowRoot`; your code should treat it as a normal element.
-- The returned cleanup function is required and is called on HMR/teardown (wrapper enabled).
+- The wrapper applies automatically to any file referenced in `manifest.content_scripts`.
+- You do not need to add `import.meta.webpackHot` or any tool‑specific HMR code; Extension.js handles HMR registration and cleanup.
+- Your script can be self‑bootstrapping (imperative DOM mount) or export a default mount function; the wrapper adapts to common patterns across frameworks.
+- The wrapper provides an isolated host element inside a `ShadowRoot` so styles and markup are sandboxed from the host page.
+- HMR performs safe cleanup between updates to prevent duplicate mounts.
 
 ### CSP considerations
 
@@ -144,11 +145,14 @@ new ScriptsPlugin({
 
 ### Wrapper behavior (content scripts)
 
-- Applied to files referenced by `manifest.content_scripts` when the file contains the `'use shadow-dom'` directive at the top of the file.
+- Applied by default to files referenced by `manifest.content_scripts`.
 - Detects React, Vue, Svelte, Preact, or falls back to TypeScript/JavaScript.
-- Injects CSS imported from the content script and wires HMR for style updates.
-- The wrapper does not apply by default. You must explicitly annotate your content script with `'use shadow-dom'` for the wrapper to be generated.
+- Injects CSS imported from the content script and wires HMR for script and style updates with safe cleanup.
 - Classic vs module service worker: non‑module workers get `chunkLoading: 'import-scripts'` to ensure correct runtime behavior, while module workers are left untouched.
+
+### Development warnings (backwards compatibility)
+
+- In development, a dedicated loader emits a warning if your source contains `import.meta.webpackHot` or `import.meta.hot`, since HMR is handled automatically by Extension.js.
 
 ## Tested behavior
 

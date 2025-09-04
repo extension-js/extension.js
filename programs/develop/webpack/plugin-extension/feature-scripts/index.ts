@@ -1,4 +1,5 @@
 import * as path from 'path'
+import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
@@ -65,6 +66,35 @@ export class ScriptsPlugin {
 
     // 3 - Ensure scripts are HMR enabled by adding the HMR accept code. (development only)
     if ((compiler.options.mode || 'development') !== 'production') {
+      // 3a - Warn users if they still have import.meta.*hot in their sources (backwards compatibility)
+      // Only apply warn-import-meta loader if its compiled artifact exists
+      try {
+        const warnLoaderBase = path.resolve(
+          __dirname,
+          'steps',
+          'warn-import-meta'
+        )
+        const warnLoaderPath =
+          fs.existsSync(warnLoaderBase + '.js') || fs.existsSync(warnLoaderBase)
+            ? warnLoaderBase
+            : null
+        if (warnLoaderPath) {
+          compiler.options.module.rules.push({
+            test: /(\.m?[jt]sx?)$/,
+            include: [path.dirname(this.manifestPath)],
+            exclude: [/[/\\]node_modules[/\\]/],
+            use: [
+              {
+                loader: warnLoaderPath,
+                options: {
+                  manifestPath: this.manifestPath
+                }
+              }
+            ]
+          })
+        }
+      } catch {}
+
       compiler.options.module.rules.push({
         test: /(\.m?[jt]sx?)$/,
         include: [path.dirname(this.manifestPath)],
