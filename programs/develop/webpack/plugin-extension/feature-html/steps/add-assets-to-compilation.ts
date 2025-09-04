@@ -86,7 +86,9 @@ export class AddAssetsToCompilation {
                             projectPath,
                             this.normalizePublicPath(asset)
                           )
-                        : asset
+                        : path.isAbsolute(asset)
+                          ? asset
+                          : path.join(projectPath, asset)
                   const isUnderPublicRoot =
                     String(absoluteFsPath).startsWith(publicRoot)
 
