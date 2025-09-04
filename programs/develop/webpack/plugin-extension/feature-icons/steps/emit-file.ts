@@ -45,20 +45,36 @@ export class EmitFile {
             for (const entry of stringEntries) {
               // Resources from the manifest lib can come as undefined.
               if (entry) {
+                // Normalize manifest paths:
+                // - Leading "/" means extension root (public root), not OS root
+                // - Relative paths are resolved from manifest directory
+                // - Absolute OS paths are used as-is
+                const manifestDir = path.dirname(this.manifestPath)
+                // Prefer real absolute filesystem paths when they exist.
+                // Otherwise, treat leading "/" as extension root.
+                let resolved = entry
+                if (!fs.existsSync(resolved)) {
+                  resolved = entry.startsWith('/')
+                    ? path.join(manifestDir, entry.slice(1))
+                    : path.isAbsolute(entry)
+                      ? entry
+                      : path.join(manifestDir, entry)
+                }
+
                 // Do not output if file doesn't exist.
                 // If the user updates the path, this script runs again
                 // and output the file accordingly.
-                if (!fs.existsSync(entry)) {
+                if (!fs.existsSync(resolved)) {
                   // WARN: This is handled by the manifest plugin.
                   // Do not add an error handler here.
                   continue
                 }
 
-                if (!utils.shouldExclude(entry, this.excludeList)) {
-                  const source = fs.readFileSync(entry)
+                if (!utils.shouldExclude(resolved, this.excludeList)) {
+                  const source = fs.readFileSync(resolved)
                   const rawSource = new sources.RawSource(source)
 
-                  const basename = path.basename(entry)
+                  const basename = path.basename(resolved)
                   // Output theme_icons to the same folder as browser_action
                   // TODO: cezaraugusto at some point figure out a standard
                   // way to output paths from the manifest fields.

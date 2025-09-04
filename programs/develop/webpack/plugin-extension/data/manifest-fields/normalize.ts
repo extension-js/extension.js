@@ -3,7 +3,7 @@ import * as path from 'path'
 /**
  * Resolve a manifest-declared path to an absolute filesystem path.
  * Handles public-root style inputs consistently across OS/runners:
- * - '/foo'          => '<context>/public/foo'
+ * - '/foo'          => '<context>/foo'
  * - '/public/foo'   => '<context>/public/foo'
  * - 'public/foo'    => '<context>/public/foo'
  * - './public/foo'  => '<context>/public/foo'
@@ -27,7 +27,7 @@ export function resolveManifestPath(context: string, relativePath: string) {
 
   if (/^\//.test(unix)) {
     const rest = unix.slice(1)
-    return path.join(context, 'public', rest)
+    return path.join(context, rest)
   }
 
   return path.join(context, unix)

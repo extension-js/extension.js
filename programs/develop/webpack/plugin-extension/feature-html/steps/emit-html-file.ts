@@ -35,7 +35,18 @@ export class EmitHtmlFile {
 
           if (resource) {
             if (typeof resource !== 'string') continue
-            if (!fs.existsSync(resource)) {
+            // Normalize HTML resource path relative to manifest:
+            // - Leading "/" means extension root (manifest dir)
+            // - Relative paths are resolved from manifest dir
+            // - Absolute OS paths are used as-is
+            const projectDir = require('path').dirname(this.manifestPath)
+            const resolved = require('path').isAbsolute(resource)
+              ? resource
+              : resource.startsWith('/')
+                ? require('path').join(projectDir, resource.slice(1))
+                : require('path').join(projectDir, resource)
+
+            if (!fs.existsSync(resolved)) {
               const errorMessage = messages.manifestFieldError(
                 manifestName,
                 featureName,
@@ -52,9 +63,9 @@ export class EmitHtmlFile {
               }
               continue
             }
-            const rawHtml = fs.readFileSync(resource, 'utf8')
+            const rawHtml = fs.readFileSync(resolved, 'utf8')
 
-            if (!utils.shouldExclude(resource, this.excludeList)) {
+            if (!utils.shouldExclude(resolved, this.excludeList)) {
               const rawSource = new sources.RawSource(rawHtml)
               const filepath = getFilePath(featureName, '.html', false)
               compilation.emitAsset(filepath, rawSource)

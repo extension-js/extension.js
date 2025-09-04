@@ -78,9 +78,26 @@ export class CheckManifestFiles {
           }
 
           if (!fs.existsSync(item as string)) {
-            // Assume that by refrencing an absolute path, the user
-            // know what they are doing. Skip absolute paths.
-            if (item.startsWith('/')) {
+            // Normalize manifest-referenced paths before deciding:
+            // - Leading "/" means extension root (relative to manifest dir)
+            // - Relative paths resolved from manifest dir
+            // - Absolute OS paths used as-is
+            const manifestDir = path.dirname(this.manifestPath)
+            const candidate = item as string
+
+            // If the provided path exists as-is (absolute or relative from cwd), accept it.
+            // Otherwise, normalize leading "/" to extension root.
+            let resolved = candidate
+
+            if (!fs.existsSync(resolved)) {
+              resolved = candidate.startsWith('/')
+                ? path.join(manifestDir, candidate.slice(1))
+                : path.isAbsolute(candidate)
+                  ? candidate
+                  : path.join(manifestDir, candidate)
+            }
+
+            if (fs.existsSync(resolved)) {
               continue
             }
 

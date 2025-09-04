@@ -20,7 +20,7 @@ const makeCompiler = (manifest: any) => {
 }
 
 describe('CheckManifestFiles', () => {
-  it('reports errors for missing relative files and ignores absolute paths', () => {
+  it('reports errors for missing relative files; leading "/" is extension root', () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const manifest = {
       name: 'x',
@@ -50,14 +50,14 @@ describe('CheckManifestFiles', () => {
       ),
       includeList: {
         'icons/icon16.png': 'icons/icon16.png', // relative -> should error
-        // public/ assets should be considered excluded from validation
-        'public/icon-maro.png': '/abs/public/icon-maro.png',
         'browser_action/default_icon': 'icons/icon16.png', // relative -> should error
         'browser_action/theme_icons': [
           'icons/icon16-light.png',
           'icons/icon16-dark.png'
         ],
-        'options_ui/page': '/abs/options.html', // absolute -> ok
+        // Leading slash is treated as extension root (public-root), so a non-existent
+        // "/abs/options.html" should be reported as missing.
+        'options_ui/page': '/abs/options.html',
         'storage/managed_schema': 'schema.json' // relative -> should error
       }
     } as any)
@@ -67,11 +67,11 @@ describe('CheckManifestFiles', () => {
 
     // Should push errors for non-existent relative paths (since existsSync returns false for non-/abs)
     expect(compilation.errors.length).toBeGreaterThan(0)
-    // Absolute path should not add an error
+    // Leading "/" treated as extension root and should error when missing
     const absError = compilation.errors.find((e: any) =>
       /\/abs\/options\.html/.test(String(e?.message || e))
     )
-    expect(absError).toBeUndefined()
+    expect(absError).toBeDefined()
 
     // Should print at least one helpful stdout error before browser launch
     expect(spy).toHaveBeenCalled()
@@ -97,16 +97,16 @@ describe('CheckManifestFiles', () => {
       includeList: {
         icons: ['/public/icon-maro.png', '/icon-maro.png']
       },
+      // Exclude list values are matched, so exclude by the same public-root strings
       excludeList: {
-        '/public/icon-maro.png': '/abs/project/public/icon-maro.png',
-        '/icon-maro.png': '/abs/project/public/icon-maro.png'
+        icons: ['/public/icon-maro.png', '/icon-maro.png']
       }
     } as any)
 
     const {compiler, compilation} = makeCompiler(manifest)
     plugin.apply(compiler)
 
-    // Our makeCompiler declares existsSync true for absolute paths, so no errors are expected
+    // No errors expected when public-root assets are excluded
     expect(compilation.errors.length).toBe(0)
   })
 })
