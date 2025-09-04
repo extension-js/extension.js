@@ -3,11 +3,6 @@ import ContentApp from './ContentApp.svelte'
 
 let unmount: () => void
 
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-}
-
 if (document.readyState === 'complete') {
   unmount = initial() || (() => {})
 } else {
@@ -31,12 +26,6 @@ function initial() {
   const styleElement = document.createElement('style')
   shadowRoot.appendChild(styleElement)
   fetchCSS().then((response) => (styleElement.textContent = response))
-
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
-  }
 
   // Create container for Svelte app
   const contentDiv = document.createElement('div')

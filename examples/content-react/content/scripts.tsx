@@ -3,11 +3,6 @@ import ContentApp from './ContentApp'
 
 let unmount: () => void
 
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-}
-
 if (document.readyState === 'complete') {
   unmount = initial() || (() => {})
 } else {
@@ -33,12 +28,6 @@ function initial() {
   shadowRoot.appendChild(styleElement)
   fetchCSS().then((response) => (styleElement.textContent = response))
 
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
-  }
-
   // Create a container for React to render into
   const container = document.createElement('div')
   shadowRoot.appendChild(container)
@@ -49,6 +38,7 @@ function initial() {
       <ContentApp />
     </div>
   )
+
   return () => {
     mountingPoint.unmount()
     rootDiv.remove()
