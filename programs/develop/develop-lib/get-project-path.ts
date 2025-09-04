@@ -53,15 +53,80 @@ async function importUrlSourceFromGithub(
       if (entries.length === 0) {
         fs.rmSync(expectedPath, {recursive: true, force: true})
       } else {
-        // Directory exists with content: assume user wants to use it
-        return expectedPath
+        // If directory exists but does not contain a manifest.json anywhere,
+        // remove it and re-fetch to avoid stale/partial folders.
+        const hasManifest = (dir: string): boolean => {
+          const stack: string[] = [dir]
+          while (stack.length) {
+            const current = stack.pop() as string
+            const items = fs.readdirSync(current, {withFileTypes: true})
+            for (const it of items) {
+              if (it.isFile() && it.name === 'manifest.json') return true
+              if (
+                it.isDirectory() &&
+                it.name !== 'node_modules' &&
+                it.name !== 'dist' &&
+                !it.name.startsWith('.')
+              ) {
+                stack.push(path.join(current, it.name))
+              }
+            }
+          }
+          return false
+        }
+
+        if (!hasManifest(expectedPath)) {
+          fs.rmSync(expectedPath, {recursive: true, force: true})
+        } else {
+          // Directory exists and is a valid extension root; use it as-is
+          return expectedPath
+        }
       }
     } catch {
       // If we cannot read dir, proceed and let go-git-it attempt clone
     }
   }
 
-  await goGitIt(pathOrRemoteUrl, cwd, text)
+  async function tryGitClone() {
+    await goGitIt(pathOrRemoteUrl, cwd, text)
+  }
+
+  async function tryZipFallback() {
+    // Build a GitHub ZIP URL and extract the repository, then resolve subdir
+    const branch =
+      treeIndex !== -1 && segments.length > treeIndex + 1
+        ? segments[treeIndex + 1]
+        : 'main'
+    const owner = segments[0]
+    const repo = segments[1]
+    const subdir =
+      treeIndex !== -1 && segments.length > treeIndex + 2
+        ? segments.slice(treeIndex + 2).join('/')
+        : ''
+
+    const zipUrl = `https://codeload.github.com/${owner}/${repo}/zip/refs/heads/${branch}`
+    const extractedPath = await importUrlSourceFromZip(zipUrl)
+
+    // Locate the extracted repo root (usually <repo>-<branch>)
+    const extractedDirs = fs
+      .readdirSync(extractedPath, {withFileTypes: true})
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+    const repoRootDir = extractedDirs.find((d) =>
+      d.startsWith(`${repo}-${branch}`)
+    )
+    const repoRoot = repoRootDir
+      ? path.join(extractedPath, repoRootDir)
+      : extractedPath
+
+    return subdir ? path.join(repoRoot, subdir) : repoRoot
+  }
+
+  try {
+    await tryGitClone()
+  } catch {
+    return await tryZipFallback()
+  }
 
   // Prefer candidates based on URL
   const candidates: string[] = []
@@ -90,6 +155,20 @@ async function importUrlSourceFromGithub(
     const manifestPath = path.join(cwd, dir, 'manifest.json')
     if (fs.existsSync(manifestPath)) return path.join(cwd, dir)
   }
+
+  // As a last attempt for GitHub ZIP fallback, scan for a newly extracted repo root
+  try {
+    const dirs = fs
+      .readdirSync(cwd, {withFileTypes: true})
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+
+    const ghRoot = dirs.find((d) => /-main$|-master$/.test(d))
+
+    if (ghRoot) {
+      return path.join(cwd, ghRoot)
+    }
+  } catch {}
 
   throw new Error(messages.downloadedProjectFolderNotFound(cwd, candidates))
 }
