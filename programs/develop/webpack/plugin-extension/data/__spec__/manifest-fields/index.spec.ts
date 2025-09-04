@@ -93,11 +93,9 @@ describe('getManifestFieldsData', () => {
     })
 
     // HTML
-    expect(result.html['action/index']).toBe(
-      path.join(tmpDir, 'public', 'popup.html')
-    )
+    expect(result.html['action/index']).toBe(path.join(tmpDir, 'popup.html'))
     expect(result.html['chrome_url_overrides/newtab']).toBe(
-      path.join(tmpDir, 'public', 'new.html')
+      path.join(tmpDir, 'new.html')
     )
 
     // Icons
@@ -110,7 +108,7 @@ describe('getManifestFieldsData', () => {
       path.join(tmpDir, 'rules.json')
     )
     expect(result.json['storage/managed_schema']).toBe(
-      path.join(tmpDir, 'public', 'schema.json')
+      path.join(tmpDir, 'schema.json')
     )
 
     // Scripts
@@ -118,8 +116,8 @@ describe('getManifestFieldsData', () => {
       path.join(tmpDir, 'sw.js')
     )
     expect(result.scripts['content_scripts/content-0']).toEqual([
-      path.join(tmpDir, 'public', 'content.js'),
-      path.join(tmpDir, 'public', 'style.css')
+      path.join(tmpDir, 'content.js'),
+      path.join(tmpDir, 'style.css')
     ])
 
     // Web resources passthrough
@@ -138,9 +136,7 @@ describe('getManifestFieldsData', () => {
       browser: 'gecko-based'
     })
 
-    expect(result.html['action/index']).toBe(
-      path.join(tmpDir, 'public', 'popup-ff.html')
-    )
+    expect(result.html['action/index']).toBe(path.join(tmpDir, 'popup-ff.html'))
   })
 })
 

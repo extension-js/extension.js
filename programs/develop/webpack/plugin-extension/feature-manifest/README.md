@@ -77,7 +77,8 @@ Paths are normalized and rewritten to match the final output structure. Files in
 
 - If a `content_scripts` entry contains only CSS in development mode, a small JS stub is added to enable HMR of styles.
 - When entrypoints (HTML or script lists) change at runtime, the plugin warns and asks the dev server to restart to avoid inconsistent incremental rebuilds.
-- Public folder convention: files referenced from `public/` (or `/...` which maps to `public/...`) are copied to the output root by the special-folders plugin. Manifest paths declared as `public/foo.png` are rewritten to `foo.png` in the emitted manifest so browsers can load them from the root. To preserve a path exactly, pass it via `excludeList`.
+- Public folder convention: files referenced from `public/` (or `/...` which maps to the extension root) are copied to the output root by the special-folders plugin. Manifest paths declared as `public/foo.png` are rewritten to `foo.png` in the emitted manifest so browsers can load them from the root. To preserve a path exactly, pass it via `excludeList`.
+- Leading `/` in manifest paths is treated as extension root (relative to the directory containing `manifest.json`), not the OS filesystem root. This matches industry expectations where `/` denotes public root in web bundles.
 - Early failure: manifest-referenced files (icons, JSON, scripts, HTML) are validated during compilation. Missing files cause compilation errors and are logged to stderr before any browser launch.
 
 ## Include/Exclude semantics

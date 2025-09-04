@@ -111,6 +111,14 @@ export default {
 - `excludeList`: a map of feature keys to absolute file paths you want to skip emitting. If a file path in `includeList` matches (or is contained within) a value in `excludeList`, it will not be emitted. This is commonly used to avoid duplicating assets already handled via special folders (e.g., `public/`).
 - Excluded files are not emitted or added to the compilation dependency graph. Static assets under `public/` are handled by the Special Folders feature, which copies and watches them independently.
 
+## Path resolution rules
+
+- Leading `/` in manifest resources means extension root (public root), not OS root. The plugin resolves `/foo/bar.png` as `<manifestDir>/foo/bar.png` prior to validation and emission.
+- Relative paths are resolved from the directory containing `manifest.json`.
+- Absolute OS paths are used as-is.
+
+These rules align with the common bundler convention that `/` points to the packaged app's public root while still operating correctly during local development.
+
 ## Compatibility
 
 - This plugin is typed against `@rspack/core` and tested with Rspack.

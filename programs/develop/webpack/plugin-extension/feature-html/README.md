@@ -23,6 +23,12 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 - Rewrites relative static assets (images/fonts/etc.) under `assets/<relative path>` while preserving directory structure and extensions.
 - Tracks file dependencies to recompile on change, provides HMR hooks for local scripts during development, and warns if page entry lists change (restart required).
 
+### Path resolution convention (consistent across @plugin-extension)
+
+- Leading `/` means extension root (public root) relative to the directory containing `manifest.json`.
+- Relative paths are resolved from the manifest directory.
+- Absolute OS paths are used as-is.
+
 ### Public folder convention and early failure
 
 - Public-root references are resolved to the project’s `public/` folder:
