@@ -20,14 +20,27 @@ export default function contentScript(_options: ContentScriptOptions = {}) {
     // Initialize content logger client (console overrides + error forwarding)
     setupLoggerClient('content')
 
+    // Bridge page -> content -> background (port-based)
+    const pagePort = chrome.runtime.connect({name: 'logger'})
+    const onWindowMessage = (ev: MessageEvent) => {
+      const data = (ev?.data || {}) as any
+      if (!data || data.__reactLogger !== true || data.type !== 'log') return
+      try {
+        pagePort.postMessage({
+          type: 'log',
+          level: data.level,
+          messageParts: data.messageParts,
+          context: 'page',
+          url: data.url
+        })
+      } catch {}
+    }
+    window.addEventListener('message', onWindowMessage)
+
     // Inject a page script to capture in-page console (page context)
     try {
       const code = `(() => {
-        const port = chrome.runtime.connect({ name: 'logger' });
         const post = (level, parts) => {
-          try {
-            port.postMessage({ type: 'log', level, messageParts: parts, context: 'page', url: location.href });
-          } catch {}
           try {
             window.postMessage({ __reactLogger: true, type: 'log', level, messageParts: parts, context: 'page', url: location.href }, '*');
           } catch {}
@@ -35,11 +48,18 @@ export default function contentScript(_options: ContentScriptOptions = {}) {
         const levels = ['log','info','warn','error','debug','trace'];
         const originals = {};
         for (const level of levels) {
-          originals[level] = console[level].bind(console);
-          console[level] = (...args) => { try { post(level, args); } catch {}; originals[level](...args); };
+          originals[level] = (console[level] || console.log).bind(console);
+          console[level] = (...args) => { try { post(level, args); } catch {}; try { originals[level](...args); } catch {} };
         }
         window.addEventListener('error', (ev) => { try { post('error', [ev.message]); } catch {} });
         window.addEventListener('unhandledrejection', (ev) => { try { post('error', ['unhandledrejection', String(ev.reason)]); } catch {} });
+        // Unload/visibility signals
+        window.addEventListener('pagehide', () => { try { post('info', ['pagehide']); } catch {} }, { capture: true });
+        document.addEventListener('visibilitychange', () => {
+          try { if (document.visibilityState === 'hidden') post('info', ['visibility:hidden']); } catch {}
+        }, { capture: true });
+        // Emit a deterministic test line for CLI verification
+        try { console.info('TEST_LOG: page-start'); } catch {}
       })();`
 
       const s = document.createElement('script')
@@ -54,6 +74,10 @@ export default function contentScript(_options: ContentScriptOptions = {}) {
     mountingPoint.render(<ContentApp portalContainer={root} />)
 
     return () => {
+      try {
+        window.removeEventListener('message', onWindowMessage)
+        pagePort.disconnect()
+      } catch {}
       mountingPoint.unmount()
     }
   }

@@ -61,6 +61,146 @@ Extending
   })
   ```
 
+## Usage (from your extension)
+
+This logger no longer injects its own content/page script. To centralize your extension's logs, import the client from the logger extension and initialize it in each context you want to capture.
+
+1. Import and initialize
+
+```ts
+// Anywhere in your extension (e.g., content script, background, popup)
+// Replace <LOGGER_EXTENSION_ID> with the installed centralized-logger's ID.
+import {setupLoggerClient} from 'chrome-extension://<LOGGER_EXTENSION_ID>/scripts/logger-client.js'
+
+// Minimal (no stacks):
+setupLoggerClient({
+  context: 'content',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>'
+})
+
+// With error stack capture:
+setupLoggerClient({
+  context: 'content',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>',
+  captureStacks: true
+})
+
+// With optional external auth token (if the logger has a token set, this must match):
+setupLoggerClient({
+  context: 'content',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>',
+  token: '<SHARED_TOKEN>'
+})
+```
+
+Supported `context` values: `background`, `content`, `page`, `sidebar`, `popup`, `options`, `devtools`.
+
+2. Optional: enable/disable stack capture at runtime
+
+```ts
+// In the logger extension (e.g., DevTools console or background):
+chrome.storage.session.set({logger_capture_stacks: true}) // or false
+```
+
+3. Optional: require a token for external logs (hardening)
+
+```ts
+// In the logger extension (e.g., DevTools console):
+chrome.storage.local.set({logger_external_token: '<SHARED_TOKEN>'})
+
+// Then pass the same token in your setupLoggerClient options:
+setupLoggerClient({
+  context: 'content',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>',
+  token: '<SHARED_TOKEN>'
+})
+```
+
+Notes
+
+- The logger filters out its own logs; only the user extension(s) integrating the client will be captured.
+- Logs are rate limited per sender and message parts are sanitized to prevent oversized payloads.
+- The background service worker persists a recent slice of events and restores them on startup.
+
+### Find your logger extension ID
+
+- Open `chrome://extensions`
+- Enable "Developer mode"
+- Locate the centralized-logger and copy its "ID" (use this as `<LOGGER_EXTENSION_ID>`)
+
+### Configuration knobs (in `background.ts`)
+
+- `MAX_EVENTS` (default 1000): max in-memory buffer for broadcast
+- Persisted slice size (default 200): saved to `chrome.storage.session`
+- Save interval (default 2000ms): cadence for persisting the slice
+- Rate limit (default 200 events/sec per sender)
+
+Adjust in `background.ts` if you need different limits for your project.
+
+### Usage by context
+
+```ts
+// Background (service worker)
+import {setupLoggerClient} from 'chrome-extension://<LOGGER_EXTENSION_ID>/scripts/logger-client.js'
+setupLoggerClient({
+  context: 'background',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>'
+})
+
+// Content script
+setupLoggerClient({
+  context: 'content',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>'
+})
+
+// Popup
+setupLoggerClient({
+  context: 'popup',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>'
+})
+
+// Options
+setupLoggerClient({
+  context: 'options',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>'
+})
+
+// DevTools page
+setupLoggerClient({
+  context: 'devtools',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>'
+})
+```
+
+### Security
+
+- In production, consider restricting `externally_connectable.ids` to an allowlist of known user extensions.
+- If using token hardening, set in logger extension:
+
+```ts
+chrome.storage.local.set({logger_external_token: '<SHARED_TOKEN>'})
+```
+
+and always call the client with:
+
+```ts
+setupLoggerClient({
+  context: 'content',
+  targetExtensionId: '<LOGGER_EXTENSION_ID>',
+  token: '<SHARED_TOKEN>'
+})
+```
+
+### Quick test checklist
+
+- Content/background/popup logs appear in the sidebar
+- SPA route changes are visible (History API updates)
+- Tab create/update/remove events show
+- `pagehide` and `visibility:hidden` events captured on navigation/unload
+- Toggling `chrome.storage.session.logger_capture_stacks` adds/removes stacks on errors
+- Incorrect tokens are rejected when `logger_external_token` is set
+- Logs persist across service worker restarts (recent slice)
+
 ## Installation
 
 ```bash

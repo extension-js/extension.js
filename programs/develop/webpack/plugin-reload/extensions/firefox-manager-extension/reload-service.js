@@ -39,6 +39,25 @@ async function connect() {
       console.info(
         `[Extension.js] Connection opened. Listening on port ${port}...`
       )
+      try {
+        subscribeAllLoggers()
+      } catch {}
+      try {
+        if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+          webSocket.send(
+            JSON.stringify({
+              status: 'log',
+              instanceId: instanceId,
+              data: {
+                level: 'info',
+                context: 'manager',
+                timestamp: Date.now(),
+                messageParts: ['manager connected']
+              }
+            })
+          )
+        }
+      } catch {}
     }
 
     let reloadDebounce
@@ -63,6 +82,9 @@ async function connect() {
           `[Extension.js] Server ready. Ensuring initial load handshake...`
         )
         await ensureClientReadyHandshake()
+        try {
+          subscribeAllLoggers()
+        } catch {}
       }
 
       if (message.changedFile) {
@@ -143,6 +165,60 @@ async function getDevExtensions() {
       (extension.installType === 'development' ||
         extension.installType === 'temporary')
     )
+  })
+}
+
+function subscribeAllLoggers() {
+  getDevExtensions().then((devExtensions) => {
+    for (const extension of devExtensions) {
+      try {
+        const port = browser.runtime.connect(extension.id, {name: 'logger'})
+        try {
+          port.postMessage({type: 'subscribe'})
+        } catch {}
+        port.onMessage.addListener((msg) => {
+          try {
+            if (!webSocket) return
+            if (webSocket.readyState !== WebSocket.OPEN) return
+            if (msg && msg.type === 'append' && msg.event) {
+              webSocket.send(
+                JSON.stringify({
+                  status: 'log',
+                  instanceId: instanceId,
+                  data: msg.event
+                })
+              )
+            } else if (
+              msg &&
+              msg.type === 'init' &&
+              Array.isArray(msg.events)
+            ) {
+              for (const ev of msg.events) {
+                webSocket.send(
+                  JSON.stringify({
+                    status: 'log',
+                    instanceId: instanceId,
+                    data: ev
+                  })
+                )
+              }
+            }
+          } catch {}
+        })
+        port.onDisconnect.addListener(() => {
+          try {
+            setTimeout(() => {
+              try {
+                const p = browser.runtime.connect(extension.id, {
+                  name: 'logger'
+                })
+                p.postMessage({type: 'subscribe'})
+              } catch {}
+            }, 1000)
+          } catch {}
+        })
+      } catch {}
+    }
   })
 }
 

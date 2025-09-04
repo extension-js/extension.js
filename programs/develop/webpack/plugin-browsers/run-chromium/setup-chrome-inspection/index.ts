@@ -152,6 +152,17 @@ export class SetupChromeInspectionStep {
       // This is the real inspection data step for the user:
       const html = await this.cdpClient.getPageHTML(this.currentSessionId)
 
+      // Svelte-specific: if Shadow DOM isn't printable, assert via probe marker
+      try {
+        const probe = await this.cdpClient.evaluate(
+          this.currentSessionId,
+          "(function(){ var p = document.getElementById('extension-probe-svelte'); return p ? String(p.textContent||'') : '' })()"
+        )
+        if (probe) {
+          console.log(`[Extension.js] Svelte probe detected: ${probe}`)
+        }
+      } catch {}
+
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.sourceInspectorHTMLExtractionComplete())
       }
@@ -233,6 +244,16 @@ export class SetupChromeInspectionStep {
         )
         console.log(messages.sourceInspectorReExtractingHTML())
         const html = await this.cdpClient!.getPageHTML(this.currentSessionId!)
+        // Svelte-specific: check probe marker on update
+        try {
+          const probe = await this.cdpClient!.evaluate(
+            this.currentSessionId!,
+            "(function(){ var p = document.getElementById('extension-probe-svelte'); return p ? String(p.textContent||'') : '' })()"
+          )
+          if (probe) {
+            console.log(`[Extension.js] Svelte probe detected: ${probe}`)
+          }
+        } catch {}
         this.printUpdatedHTML(html)
       } catch (error) {
         console.error(
