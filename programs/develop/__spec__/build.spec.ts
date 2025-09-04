@@ -80,8 +80,8 @@ function distFileExists(
 
 describe('extension build', () => {
   afterAll(async () => {
-    // Clean up any remaining test artifacts
-    await removeAllTemplateDistFolders()
+    // Avoid cross-suite races by not deleting all example dist folders here.
+    // Suites that build specific examples are responsible for their own cleanup.
     // Extra wait to ensure FS settles before other suites run
     await new Promise((r) => setTimeout(r, 50))
     // Clear all timers
@@ -247,16 +247,22 @@ describe('extension build', () => {
           polyfill: true
         })
 
-        expect(
-          fs.existsSync(
-            path.join(
-              templatePath,
-              'dist',
-              SUPPORTED_BROWSERS[0],
-              'manifest.json'
-            )
-          )
-        ).toBeTruthy()
+        const distManifestPath = path.join(
+          templatePath,
+          'dist',
+          SUPPORTED_BROWSERS[0],
+          'manifest.json'
+        )
+        // Retry up to ~10s to avoid flakiness on slower FS or CI
+        let exists = fs.existsSync(distManifestPath)
+        if (!exists) {
+          const start = Date.now()
+          while (!exists && Date.now() - start < 10000) {
+            await new Promise((r) => setTimeout(r, 50))
+            exists = fs.existsSync(distManifestPath)
+          }
+        }
+        expect(exists).toBeTruthy()
       }
     )
   })
