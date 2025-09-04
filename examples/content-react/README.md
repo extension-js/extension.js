@@ -42,6 +42,11 @@ Preview the extension in the browser.
 npx extension@latest preview
 ```
 
+## Development (HMR)
+
+- Hot reload for content scripts, styles, and React components is automatic in development (`npx extension@latest dev`).
+- Do not add framework/tool-specific HMR code (no `import.meta.webpackHot` / `import.meta.hot`). Extension.js injects and manages HMR for you.
+
 ## Learn more
 
 Learn more about this and other examples at @https://extension.js.org/

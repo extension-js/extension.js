@@ -4,11 +4,6 @@ import './styles.scss'
 
 let unmount
 
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-}
-
 console.log('hello from content_scripts')
 
 if (document.readyState === 'complete') {
