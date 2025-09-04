@@ -126,7 +126,10 @@ describe('extensionDev unit', () => {
   })
 
   it('skips install when node_modules exists', async () => {
-    fs.mkdirSync(path.join(packageJsonDir, 'node_modules'), {recursive: true})
+    const nm = path.join(packageJsonDir, 'node_modules')
+    fs.mkdirSync(nm, {recursive: true})
+    // Ensure directory is non-empty to reflect real projects
+    fs.writeFileSync(path.join(nm, '.placeholder'), '')
     const {extensionDev} = await import('../dev')
 
     await extensionDev(packageJsonDir, {browser: 'chrome', mode: 'development'})

@@ -1,6 +1,7 @@
 const TEN_SECONDS_MS = 10 * 1000
 const INSTANT_MS = 100
 let webSocket = null
+let subscribeTimer = null
 
 // Get instance ID from the service worker context
 const instanceId = '__INSTANCE_ID__'
@@ -38,6 +39,46 @@ export async function connect() {
       console.info(
         `[Extension.js] Connection opened. Listening on port ${port} for instance ${instanceId}...`
       )
+      // Attempt to subscribe to centralized logger streams from dev extensions
+      try {
+        subscribeAllLoggers()
+      } catch {}
+      try {
+        if (subscribeTimer) clearInterval(subscribeTimer)
+      } catch {}
+      try {
+        // Retry subscription for a short window to catch late-loading extensions
+        let attempts = 0
+        subscribeTimer = setInterval(() => {
+          attempts++
+          try {
+            subscribeAllLoggers()
+          } catch {}
+          if (attempts >= 20) {
+            try {
+              clearInterval(subscribeTimer)
+            } catch {}
+            subscribeTimer = null
+          }
+        }, 1000)
+      } catch {}
+      // Emit manager hello so CLI can verify logging path immediately
+      try {
+        if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+          webSocket.send(
+            JSON.stringify({
+              status: 'log',
+              instanceId: instanceId,
+              data: {
+                level: 'info',
+                context: 'manager',
+                timestamp: Date.now(),
+                messageParts: ['manager connected']
+              }
+            })
+          )
+        }
+      } catch {}
     }
 
     let reloadDebounce
@@ -56,6 +97,9 @@ export async function connect() {
 
       if (message.status === 'serverReady') {
         await ensureClientReadyHandshake()
+        try {
+          subscribeAllLoggers()
+        } catch {}
       }
 
       if (message.changedFile) {
@@ -143,6 +187,61 @@ async function getDevExtensions() {
       // Show only unpackaged extensions
       extension.installType === 'development'
     )
+  })
+}
+
+// Subscribe to '_centralized-logger' background ports and pipe to WS
+function subscribeAllLoggers() {
+  getDevExtensions().then((devExtensions) => {
+    for (const extension of devExtensions) {
+      try {
+        const port = chrome.runtime.connect(extension.id, {name: 'logger'})
+        // Request backlog and subscribe
+        try {
+          port.postMessage({type: 'subscribe'})
+        } catch {}
+        port.onMessage.addListener((msg) => {
+          try {
+            if (!webSocket) return
+            if (webSocket.readyState !== WebSocket.OPEN) return
+            if (msg && msg.type === 'append' && msg.event) {
+              webSocket.send(
+                JSON.stringify({
+                  status: 'log',
+                  instanceId: instanceId,
+                  data: msg.event
+                })
+              )
+            } else if (
+              msg &&
+              msg.type === 'init' &&
+              Array.isArray(msg.events)
+            ) {
+              for (const ev of msg.events) {
+                webSocket.send(
+                  JSON.stringify({
+                    status: 'log',
+                    instanceId: instanceId,
+                    data: ev
+                  })
+                )
+              }
+            }
+          } catch {}
+        })
+        port.onDisconnect.addListener(() => {
+          // Best effort: try to resubscribe later
+          try {
+            setTimeout(() => {
+              try {
+                const p = chrome.runtime.connect(extension.id, {name: 'logger'})
+                p.postMessage({type: 'subscribe'})
+              } catch {}
+            }, 1000)
+          } catch {}
+        })
+      } catch {}
+    }
   })
 }
 
