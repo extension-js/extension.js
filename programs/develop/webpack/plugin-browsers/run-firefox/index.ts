@@ -343,7 +343,35 @@ export class RunFirefoxPlugin {
     compiler.hooks.done.tapAsync(
       'run-firefox:module',
       async (stats: any, done: any) => {
-        if (stats.compilation.errors.length > 0) {
+        const hasErrors =
+          typeof stats?.hasErrors === 'function'
+            ? stats.hasErrors()
+            : !!stats?.compilation?.errors?.length
+
+        if (hasErrors) {
+          try {
+            const compileErrors: any[] = stats?.compilation?.errors || []
+            const manifestErrors = compileErrors.filter((err) => {
+              const msg: string = String(
+                (err && (err.message || err.toString())) || ''
+              )
+              return (
+                msg.includes('manifest.json') && msg.includes('File Not Found')
+              )
+            })
+            if (
+              manifestErrors.length &&
+              process.env.EXTENSION_ENV === 'development'
+            ) {
+              console.log(
+                messages.manifestPreflightSummary(manifestErrors.length)
+              )
+            }
+          } catch {}
+
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.log(messages.skippingBrowserLaunchDueToCompileErrors())
+          }
           done()
           return
         }

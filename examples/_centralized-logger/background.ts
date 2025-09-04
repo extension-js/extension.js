@@ -19,6 +19,7 @@ interface IncomingLogMessage {
   url?: string
   stack?: string
   errorName?: string
+  token?: string
 }
 
 interface SubscribeMessage {
@@ -51,12 +52,16 @@ interface LogEvent {
   frameId?: number
   title?: string
   hostname?: string
+  sourceExtensionId?: string
+  incognito?: boolean
+  windowId?: number
 }
 
 const MAX_EVENTS = 1000
 const eventsBuffer: LogEvent[] = []
 const subscribers = new Set<chrome.runtime.Port>()
 let captureStacks = false
+let externalToken: string | null = null
 
 // Load settings
 try {
@@ -73,6 +78,24 @@ try {
     }
   }
   chrome.storage.session.onChanged.addListener(onSessionChanged as never)
+} catch {}
+
+// Load external token (optional hardening)
+try {
+  chrome.storage.local.get(['logger_external_token'], (data) => {
+    if (typeof data?.logger_external_token === 'string')
+      externalToken = data.logger_external_token
+  })
+  const onLocalChanged = (
+    changes: {[key: string]: chrome.storage.StorageChange},
+    area: 'local' | 'sync' | 'session'
+  ) => {
+    if (area === 'local' && 'logger_external_token' in changes) {
+      const nv = changes.logger_external_token?.newValue
+      externalToken = typeof nv === 'string' ? nv : null
+    }
+  }
+  chrome.storage.onChanged.addListener(onLocalChanged as never)
 } catch {}
 
 function uuid(): string {
@@ -109,19 +132,33 @@ function handleClientMessage(port: chrome.runtime.Port, msg: ClientMessage) {
     return
   }
 
+  // Ignore self logs (only accept user extension logs)
+  const senderExtensionId = port.sender?.id
+  if (senderExtensionId && senderExtensionId === chrome.runtime.id) return
+
   const senderTabId = port.sender?.tab?.id
   const senderFrameId = port.sender?.frameId
+  const incognito = port.sender?.tab?.incognito
+  const windowId = port.sender?.tab?.windowId
+  // Per-sender rate limiting (optional hardening)
+  const rateKey = senderExtensionId || `tab:${senderTabId ?? 'unknown'}`
+  if (!allowRate(rateKey)) return
+
+  const sanitizedParts = sanitizeParts(msg.messageParts)
   const event: LogEvent = {
     id: uuid(),
     timestamp: Date.now(),
     level: msg.level,
     context: msg.context,
-    messageParts: msg.messageParts,
+    messageParts: sanitizedParts,
     url: msg.url,
     stack: msg.stack,
     errorName: msg.errorName,
     tabId: senderTabId,
-    frameId: senderFrameId
+    frameId: senderFrameId,
+    sourceExtensionId: senderExtensionId,
+    incognito,
+    windowId
   }
 
   enrichEventAndBroadcast(event)
@@ -143,7 +180,12 @@ chrome.runtime.onConnect.addListener((port) => {
 try {
   chrome.runtime.onConnectExternal.addListener((port) => {
     if (port.name !== 'logger') return
-    const onMessage = (msg: ClientMessage) => handleClientMessage(port, msg)
+    if (port.sender?.id && port.sender.id === chrome.runtime.id) return
+    const onMessage = (msg: ClientMessage) => {
+      // Enforce token if configured
+      if (externalToken && (msg as any)?.token !== externalToken) return
+      handleClientMessage(port, msg)
+    }
     port.onMessage.addListener(onMessage)
     port.onDisconnect.addListener(() => {
       subscribers.delete(port)
@@ -160,6 +202,9 @@ try {
           msg !== null &&
           (msg as {type?: string}).type === 'log'
         ) {
+          if (sender?.id && sender.id === chrome.runtime.id) return false
+          if (externalToken && (msg as any)?.token !== externalToken)
+            return false
           const fakePort = {sender} as chrome.runtime.Port
           handleClientMessage(fakePort, msg as ClientMessage)
           sendResponse?.({ok: true})
@@ -232,3 +277,206 @@ function enrichEventAndBroadcast(event: LogEvent) {
 
   appendEventAndBroadcast(event)
 }
+// Rate limit map (per sender)
+const RATE_WINDOW_MS = 1000
+const RATE_LIMIT = 200
+const rateMap = new Map<string, {ts: number; count: number}>()
+
+function allowRate(key: string): boolean {
+  const now = Date.now()
+  const entry = rateMap.get(key)
+
+  if (!entry) {
+    rateMap.set(key, {ts: now, count: 1})
+    return true
+  }
+
+  if (now - entry.ts > RATE_WINDOW_MS) {
+    entry.ts = now
+    entry.count = 1
+    return true
+  }
+
+  entry.count += 1
+
+  if (entry.count > RATE_LIMIT) return false
+  return true
+}
+
+function truncate(str: string, max = 2048): string {
+  if (str.length <= max) return str
+  return str.slice(0, max) + '...'
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    try {
+      return String(value)
+    } catch {
+      return '[unserializable]'
+    }
+  }
+}
+
+function sanitizeParts(parts: unknown[]): unknown[] {
+  try {
+    const out: string[] = []
+    for (const p of parts ?? []) {
+      if (typeof p === 'string') {
+        out.push(truncate(p))
+      } else if (p instanceof Error) {
+        out.push(truncate(`${p.name}: ${p.message}`))
+      } else {
+        out.push(truncate(safeStringify(p)))
+      }
+      if (out.join(' ').length > 8192) break
+    }
+    return out
+  } catch {
+    return [safeStringify(parts)]
+  }
+}
+
+function logLifecycle(
+  level: LogLevel,
+  parts: unknown[],
+  meta: Partial<LogEvent> = {}
+) {
+  const event: LogEvent = {
+    id: uuid(),
+    timestamp: Date.now(),
+    level,
+    context: 'background',
+    messageParts: parts,
+    url: typeof meta.url === 'string' ? meta.url : undefined,
+    tabId: typeof meta.tabId === 'number' ? meta.tabId : undefined,
+    frameId: typeof meta.frameId === 'number' ? meta.frameId : undefined
+  }
+  appendEventWithEnrich(event)
+}
+
+// Extension lifecycle
+try {
+  chrome.runtime.onInstalled.addListener((details) => {
+    logLifecycle('info', [
+      'extension installed',
+      details.reason,
+      details.previousVersion ?? null
+    ])
+  })
+} catch {}
+
+// Persist/restore last events to survive SW restarts
+try {
+  chrome.storage.session.get(['logger_events'], (data) => {
+    const saved = Array.isArray(data?.logger_events)
+      ? (data.logger_events as LogEvent[])
+      : []
+    if (saved.length) {
+      for (const ev of saved.slice(-MAX_EVENTS)) {
+        eventsBuffer.push(ev)
+      }
+    }
+  })
+  setInterval(() => {
+    try {
+      chrome.storage.session.set({logger_events: eventsBuffer.slice(-200)})
+    } catch {}
+  }, 2000)
+} catch {}
+
+try {
+  chrome.runtime.onStartup.addListener(() => {
+    logLifecycle('info', ['extension startup'])
+    // Emit a deterministic test signal for CLI verification
+    try {
+      logLifecycle('info', ['TEST_LOG: background-start'])
+    } catch {}
+  })
+} catch {}
+
+// Tabs lifecycle
+try {
+  chrome.tabs.onCreated.addListener((tab) => {
+    logLifecycle('info', ['tab created'], {
+      tabId: tab.id ?? undefined,
+      url: tab.url
+    })
+  })
+
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'loading') {
+      logLifecycle('debug', ['tab loading'], {tabId, url: tab.url})
+    }
+    if (changeInfo.status === 'complete') {
+      logLifecycle('debug', ['tab complete'], {tabId, url: tab.url})
+    }
+    if (typeof changeInfo.url === 'string') {
+      logLifecycle('info', ['tab url changed', changeInfo.url], {
+        tabId,
+        url: changeInfo.url
+      })
+    }
+  })
+
+  chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+    logLifecycle(
+      'info',
+      [
+        'tab removed',
+        {
+          windowId: removeInfo.windowId,
+          isWindowClosing: removeInfo.isWindowClosing
+        }
+      ],
+      {tabId}
+    )
+  })
+} catch {}
+
+// Navigation (frame-level and SPA)
+try {
+  // These require "webNavigation" permission
+  chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+    logLifecycle('debug', ['before navigate'], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url
+    })
+  })
+
+  chrome.webNavigation.onCommitted.addListener((details) => {
+    logLifecycle('debug', ['navigation committed'], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url
+    })
+  })
+
+  chrome.webNavigation.onCompleted.addListener((details) => {
+    logLifecycle('debug', ['navigation completed'], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url
+    })
+  })
+
+  chrome.webNavigation.onErrorOccurred.addListener((details) => {
+    logLifecycle('error', ['navigation error', details.error], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url
+    })
+  })
+
+  chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+    // Covers SPA route changes
+    logLifecycle('debug', ['history state updated'], {
+      tabId: details.tabId,
+      frameId: details.frameId,
+      url: details.url
+    })
+  })
+} catch {}

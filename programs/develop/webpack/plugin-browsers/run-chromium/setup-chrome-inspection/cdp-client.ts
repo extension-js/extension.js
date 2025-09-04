@@ -345,18 +345,28 @@ export class CDPClient {
 
     // Check for Shadow DOM
     console.log(messages.cdpClientCheckingShadowDOM())
-    const shadowContent = await this.evaluate(
-      sessionId,
+    // Retry a few times to allow wrapper mount before inspection
+    let shadowContent: string | null = null
+    for (let attempt = 0; attempt < 15; attempt++) {
+      shadowContent = await this.evaluate(
+        sessionId,
+        `
+        (function() {
+          try {
+            const host = document.querySelector('#extension-root, [data-extension-root="true"]');
+            if (!host || !host.shadowRoot) return null;
+            const s = new XMLSerializer();
+            return Array.from(host.shadowRoot.childNodes).map(function(n){
+              try { return s.serializeToString(n) } catch(e){ return '' }
+            }).join('');
+          } catch (_) { return null }
+        })()
       `
-      (function() {
-        const extensionRoot = document.getElementById('extension-root');
-        if (extensionRoot && extensionRoot.shadowRoot) {
-          return extensionRoot.shadowRoot.innerHTML;
-        }
-        return null;
-      })()
-    `
-    )
+      )
+      if (shadowContent) break
+      // small delay between attempts
+      await new Promise((r) => setTimeout(r, 300))
+    }
 
     console.log(messages.cdpClientShadowDOMContentFound(!!shadowContent))
     if (shadowContent) {

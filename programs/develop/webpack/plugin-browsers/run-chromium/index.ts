@@ -378,28 +378,59 @@ export class RunChromiumPlugin {
   apply(compiler: Compiler) {
     let chromiumDidLaunch = false
 
-    compiler.hooks.done.tapAsync('run-browsers:module', (compilation, done) => {
-      if (compilation.compilation.errors.length > 0) {
-        done()
-        return
-      }
+    compiler.hooks.done.tapAsync(
+      'run-browsers:module',
+      (stats: any, done: any) => {
+        const hasErrors =
+          typeof stats?.hasErrors === 'function'
+            ? stats.hasErrors()
+            : !!stats?.compilation?.errors?.length
 
-      if (chromiumDidLaunch) {
-        done()
-        return
-      }
+        if (hasErrors) {
+          try {
+            const compileErrors: any[] = stats?.compilation?.errors || []
+            const manifestErrors = compileErrors.filter((err) => {
+              const msg: string = String(
+                (err && (err.message || err.toString())) || ''
+              )
+              return (
+                msg.includes('manifest.json') && msg.includes('File Not Found')
+              )
+            })
+            if (
+              manifestErrors.length &&
+              process.env.EXTENSION_ENV === 'development'
+            ) {
+              console.log(
+                messages.manifestPreflightSummary(manifestErrors.length)
+              )
+            }
+          } catch {}
 
-      this.launchChromium(compilation as any, this.browser).then(() => {
-        console.log(
-          messages.stdoutData(
-            this.browser,
-            compilation.compilation.options.mode as 'development' | 'production'
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.log(messages.skippingBrowserLaunchDueToCompileErrors())
+          }
+          done()
+          return
+        }
+
+        if (chromiumDidLaunch) {
+          done()
+          return
+        }
+
+        this.launchChromium(stats as any, this.browser).then(() => {
+          console.log(
+            messages.stdoutData(
+              this.browser,
+              stats.compilation.options.mode as 'development' | 'production'
+            )
           )
-        )
-      })
+        })
 
-      chromiumDidLaunch = true
-      done()
-    })
+        chromiumDidLaunch = true
+        done()
+      }
+    )
   }
 }

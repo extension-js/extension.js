@@ -20,4 +20,9 @@ export interface LogEvent {
   errorName?: string
   tabId?: number
   frameId?: number
+  title?: string
+  hostname?: string
+  sourceExtensionId?: string
+  incognito?: boolean
+  windowId?: number
 }
