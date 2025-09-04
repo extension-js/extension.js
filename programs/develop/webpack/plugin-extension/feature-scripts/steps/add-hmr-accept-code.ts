@@ -68,9 +68,29 @@ export default function (this: LoaderContext, source: string) {
   }
 
   const url = urlToRequest(this.resourcePath)
-  const reloadCode = `
-// TODO: cezaraugusto re-visit this
-if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
+  const reloadCodeContent = `
+// Extension.js HMR registration (injected)
+if (import.meta.webpackHot) {
+  try {
+    import.meta.webpackHot.accept();
+    import.meta.webpackHot.dispose(() => {
+      try {
+        if (typeof document !== 'undefined') {
+          const knownRoots = ['#extension-root','[data-extension-root="true"]'];
+          for (const selector of knownRoots) {
+            const el = document.querySelector(selector as any) as any;
+            if (el && (el as any).parentElement) { (el as any).parentElement.removeChild(el as any); }
+          }
+        }
+      } catch (_) {}
+    });
+  } catch (_) {}
+}
+  `
+
+  const reloadCodeBackground = `
+// Extension.js HMR registration (injected)
+if (import.meta.webpackHot) { try { import.meta.webpackHot.accept(); } catch (_) {} }
   `
 
   // 1 - Handle background.scripts.
@@ -81,7 +101,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
       for (const bgScript of manifest.background.scripts) {
         const absoluteUrl = path.resolve(projectPath, bgScript as string)
         if (url.includes(absoluteUrl)) {
-          return `${reloadCode}${source}`
+          return `${reloadCodeBackground}${source}`
         }
       }
     }
@@ -95,7 +115,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
       for (const js of contentScript.js) {
         const absoluteUrl = path.resolve(projectPath, js as string)
         if (url.includes(absoluteUrl)) {
-          return `${reloadCode}${source}`
+          return `${reloadCodeContent}${source}`
         }
       }
     }
@@ -106,7 +126,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() };
     for (const userScript of manifest.user_scripts) {
       const absoluteUrl = path.resolve(projectPath, userScript as string)
       if (url.includes(absoluteUrl)) {
-        return `${reloadCode}${source}`
+        return `${reloadCodeBackground}${source}`
       }
     }
   }

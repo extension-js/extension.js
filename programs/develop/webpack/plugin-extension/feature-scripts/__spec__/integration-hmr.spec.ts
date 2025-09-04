@@ -20,7 +20,7 @@ async function waitForFile(
   throw new Error(`File not found in time: ${filePath}`)
 }
 
-describe('ScriptsPlugin HMR accept injection (dev build)', () => {
+describe('ScriptsPlugin wrapper + asset emission (dev build)', () => {
   const sourceFixture = fx('content')
   let suiteRoot: string
   let out: string
@@ -58,7 +58,7 @@ describe('ScriptsPlugin HMR accept injection (dev build)', () => {
     expect(fs.existsSync(csPath)).toBe(true)
   }, 20000)
 
-  it("wrapped content script has mount+dispose pattern when 'use shadow-dom' is present", async () => {
+  it('wrapped content script has mount+dispose pattern', async () => {
     const manifestPath = path.join(out, 'manifest.json')
     await waitForFile(manifestPath)
     const manifest = JSON.parse(
