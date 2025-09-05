@@ -3,9 +3,9 @@
 
 declare global {
   interface ImportMeta {
-    webpackHot?: {
-      accept: (dep?: any, cb?: () => void) => void
-      dispose: (cb: () => void) => void
+    readonly webpackHot?: {
+      accept: (module?: string | string[], callback?: () => void) => void
+      dispose: (callback: () => void) => void
     }
   }
 }
@@ -17,11 +17,17 @@ if (import.meta.webpackHot) {
       try {
         // Best-effort cleanup: remove a known extension root if present
         const knownRoots = ['#extension-root', '[data-extension-root="true"]']
+        const d: any =
+          typeof globalThis !== 'undefined'
+            ? (globalThis as any).document
+            : undefined
         for (const selector of knownRoots) {
-          const el = document.querySelector(selector) as HTMLElement | null
-          if (el && el.parentElement) {
-            el.parentElement.removeChild(el)
-          }
+          const el =
+            d && d.querySelector
+              ? (d.querySelector(selector) as any | null)
+              : null
+          const parent = (el && (el as any).parentElement) || null
+          if (el && parent && parent.removeChild) parent.removeChild(el)
         }
       } catch (e) {
         // noop
