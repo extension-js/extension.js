@@ -100,6 +100,7 @@ const masterPreferences = {
       use_system: false
     },
     toolbarsize: -1,
+    developer_mode: true,
     ui: {
       developer_mode: true
     }
