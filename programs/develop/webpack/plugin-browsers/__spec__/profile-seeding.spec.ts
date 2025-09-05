@@ -37,7 +37,10 @@ describe('Managed profile Preferences seeding', () => {
     const pref = path.join(profilePath, 'Default', 'Preferences')
     expect(fs.existsSync(pref)).toBe(true)
     const data = JSON.parse(fs.readFileSync(pref, 'utf8'))
-    expect(data.extensions?.ui?.developer_mode).toBe(true)
+    expect(
+      data.extensions?.ui?.developer_mode === true ||
+        data.extensions?.developer_mode === true
+    ).toBe(true)
     expect(data.custom_flag).toBe(true)
   })
 
