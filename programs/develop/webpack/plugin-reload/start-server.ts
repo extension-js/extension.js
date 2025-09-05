@@ -13,6 +13,7 @@ import {DevOptions} from '../../module'
 import {CERTIFICATE_DESTINATION_PATH} from '../webpack-lib/constants'
 import {httpsServer} from './steps/create-web-socket-server/web-socket-server/servers'
 import {InstanceManager} from '../plugin-browsers/browsers-lib/instance-manager'
+import colors from 'pintor'
 
 interface Data {
   id: string
@@ -268,23 +269,78 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
           const format = (options as any).logFormat || 'pretty'
           const showTs = (options as any).logTimestamps !== false
-          // const useColor = (options as any).logColor !== false // reserved
+          const useColor = (options as any).logColor !== false
 
           if (format === 'json') {
             console.log(JSON.stringify(evt))
             return
           }
 
+          const levelRaw = String(evt.level || 'info').toLowerCase()
+
+          // Color map (CLI):
+          // - log: gray, info: blue, warn: yellow, debug: magenta, trace: white, error: red
+          const arrow = (() => {
+            if (!useColor) return '►►►'
+            switch (levelRaw) {
+              case 'error':
+                return colors.red('►►►')
+              case 'warn':
+                return colors.brightYellow('►►►')
+              case 'debug':
+                return (colors as any).magenta
+                  ? (colors as any).magenta('►►►')
+                  : colors.gray('►►►')
+              case 'trace':
+                return (colors as any).white
+                  ? (colors as any).white('►►►')
+                  : '►►►'
+              case 'log':
+                return colors.gray('►►►')
+              case 'info':
+              default:
+                return colors.blue('►►►')
+            }
+          })()
+
           const ts = showTs
             ? new Date(Number(evt.timestamp) || Date.now()).toISOString() + ' '
             : ''
-          const lvl = String(evt.level || 'info')
-            .toUpperCase()
-            .padEnd(5)
+          const lvlBase = String(evt.level || 'info').toUpperCase()
+          // When colors are disabled, we show [LEVEL]; otherwise we hide it in favor of the arrow
+          const lvl = (() => {
+            if (!useColor) return lvlBase
+            switch (levelRaw) {
+              case 'error':
+                return colors.red(lvlBase)
+              case 'warn':
+                return colors.brightYellow(lvlBase)
+              case 'debug':
+                return (colors as any).magenta
+                  ? (colors as any).magenta(lvlBase)
+                  : colors.gray(lvlBase)
+              case 'trace':
+                return (colors as any).white
+                  ? (colors as any).white(lvlBase)
+                  : lvlBase
+              case 'log':
+                return colors.gray(lvlBase)
+              case 'info':
+              default:
+                return colors.blue(lvlBase)
+            }
+          })()
           const ctx = String(evt.context || 'unknown')
           const tab = evt.tabId != null ? `#${evt.tabId}` : ''
           const url = evt.url ? ` ${evt.url}` : ''
-          const head = `${ts}[${lvl}] ${ctx}${tab}${url}`
+          // Pretty output header:
+          // With color: show colored arrows, drop [LEVEL]
+          //   // sample (color on): "►►► 2025-09-05T15:31:43.193Z background#3 https://example.com/path"
+          // Without color: show [LEVEL], drop arrows
+          //   // sample (no color): "2025-09-05T15:31:43.193Z [INFO] background#3 https://example.com/path"
+          const head = useColor
+            ? `${arrow} ${ts}${ctx}${tab}${url}`
+            : `${ts}[${lvl}] ${ctx}${tab}${url}`
           const msg = Array.isArray(evt.messageParts)
             ? evt.messageParts
                 .map((a: any) => {

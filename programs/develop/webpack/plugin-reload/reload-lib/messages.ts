@@ -540,7 +540,7 @@ export function ignoringMessageFromWrongInstance(
 ) {
   return (
     getLoggingPrefix(WS, 'warn') +
-    ` Ignoring message from wrong instance: ${colors.gray(actualInstanceId)} (expected: ${colors.gray(expectedInstanceId)})`
+    ` Ignoring message from wrong instance: ${colors.red(actualInstanceId)} (expected: ${colors.green(expectedInstanceId)})`
   )
 }
 
