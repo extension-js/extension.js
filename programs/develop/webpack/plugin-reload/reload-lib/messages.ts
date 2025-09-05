@@ -732,3 +732,48 @@ export function runningInDevelopment(
 
   return lines.join('\n')
 }
+
+export function clientReadyTimeoutSummary(args: {
+  manifestName: string
+  browser: string
+  expectedInstanceId: string
+  webSocketPort: number
+  sawManagerHello: boolean
+  wrongInstanceCount: number
+}) {
+  const {
+    manifestName,
+    browser,
+    expectedInstanceId,
+    webSocketPort,
+    sawManagerHello,
+    wrongInstanceCount
+  } = args
+  const header =
+    getLoggingPrefix(WS, 'warn') + ' Client readiness not confirmed'
+  const facts = [
+    ` expected instance ${colors.yellow(expectedInstanceId.slice(0, 8))}`,
+    ` listening on ws://127.0.0.1:${colors.gray(String(webSocketPort))}`,
+    ` manager ${sawManagerHello ? colors.green('connected') : colors.red('not connected')}`,
+    wrongInstanceCount > 0
+      ? ` received ${colors.brightYellow(String(wrongInstanceCount))} connection(s) from other instances`
+      : ''
+  ]
+    .filter(Boolean)
+    .join(' | ')
+
+  const suggestions = [
+    `- Ensure ${colors.yellow(manifestName)} background is instrumented (loader injected initialLoadData handler).`,
+    `- Verify ${colors.yellow('externally_connectable.ids')} allows '*' or the manager extension.`,
+    `- Check only one manager is active for this profile; close stale sessions.`,
+    `- Open the extensions page (${colors.underline(
+      browser === 'firefox'
+        ? 'about:debugging#/runtime/this-firefox'
+        : browser === 'edge'
+          ? 'edge://extensions'
+          : 'chrome://extensions'
+    )}) and confirm both extensions are Enabled.`
+  ]
+
+  return `${header}\n ${facts}\n${suggestions.join('\n')}`
+}
