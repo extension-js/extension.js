@@ -172,11 +172,31 @@ export class DynamicExtensionManager {
           : ''
       }\n`
 
-    // Create extension directory
+    // Create extension directory (ensure only one manager per project/profile)
     const extensionPath = path.join(
       this.userExtensionsPath,
       `${instance.browser}-manager-${instance.port}`
     )
+    try {
+      // Proactively remove stale manager folders to avoid multiple managers reconnecting
+      const entries = await fs.readdir(this.userExtensionsPath, {
+        withFileTypes: true
+      })
+      for (const entry of entries) {
+        try {
+          if (
+            entry.isDirectory() &&
+            entry.name.startsWith(`${instance.browser}-manager-`) &&
+            path.join(this.userExtensionsPath, entry.name) !== extensionPath
+          ) {
+            await fs.rm(path.join(this.userExtensionsPath, entry.name), {
+              recursive: true,
+              force: true
+            })
+          }
+        } catch {}
+      }
+    } catch {}
     await fs.mkdir(extensionPath, {recursive: true})
 
     // Write manifest with instance ID replacement
@@ -384,21 +404,98 @@ export class DynamicExtensionManager {
     try {
       const content = await fs.readFile(serviceWorkerPath, 'utf-8')
       const portMatch = content.match(/const\s+port\s*=\s*['"](\d+)['"]/)
+      const idMatch = content.match(
+        /const\s+instanceId\s*=\s*['"]([^'\"]+)['"]/
+      )
 
       // If base logic changed (e.g., handshake improvements), force regeneration
       const needsLogicUpgrade = !content.includes('ensureClientReadyHandshake')
 
-      if (
-        needsLogicUpgrade ||
-        (portMatch && parseInt(portMatch[1]) !== instance.webSocketPort)
-      ) {
+      const needsPortUpdate =
+        !!portMatch && parseInt(portMatch[1]) !== instance.webSocketPort
+      const needsIdUpdate = !idMatch || idMatch[1] !== instance.instanceId
+
+      if (needsLogicUpgrade) {
+        // Preserve existing manifest.key during regeneration
+        let preservedKey: string | undefined
+        try {
+          const manifestPath = path.join(extensionPath, 'manifest.json')
+          const raw = await fs.readFile(manifestPath, 'utf-8')
+          const parsed = JSON.parse(raw)
+          if (parsed && typeof parsed.key === 'string')
+            preservedKey = parsed.key
+        } catch {}
+
         await this.cleanupExtension(instance.instanceId)
-        return await this.generateExtension(instance)
+        const generated = await this.generateExtension(instance)
+        // Re-apply preserved key if present
+        if (preservedKey) {
+          try {
+            const manifestPath = path.join(
+              generated.extensionPath,
+              'manifest.json'
+            )
+            const raw = await fs.readFile(manifestPath, 'utf-8')
+            const parsed = JSON.parse(raw)
+            parsed.key = preservedKey
+            await fs.writeFile(manifestPath, JSON.stringify(parsed, null, 2))
+          } catch {}
+        }
+        return generated
+      }
+
+      if (needsPortUpdate || needsIdUpdate) {
+        // In-place update of reload-service.js to keep manager extension stable
+        let updated = content
+          .replace(
+            /const\s+port\s*=\s*['"][^'\"]+['"]/,
+            `const port = '${instance.webSocketPort}'`
+          )
+          .replace(
+            /const\s+instanceId\s*=\s*['"][^'\"]+['"]/,
+            `const instanceId = '${instance.instanceId}'`
+          )
+
+        // Prepend cache-buster for SW reload
+        const cacheBuster = `// Cache-buster: ${Date.now()}\n`
+        updated = cacheBuster + updated
+        await fs.writeFile(serviceWorkerPath, updated)
+
+        // Return current artifact references
+        const manifest = await this.readBaseManifest(instance.browser)
+        return {
+          extensionId: instance.managerExtensionId,
+          manifest,
+          serviceWorkerPath,
+          extensionPath
+        }
       }
     } catch (error) {
       // File doesn't exist or can't be read, regenerate
+      // Attempt to preserve manifest.key if present
+      let preservedKey: string | undefined
+      try {
+        const manifestPath = path.join(extensionPath, 'manifest.json')
+        const raw = await fs.readFile(manifestPath, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed.key === 'string') preservedKey = parsed.key
+      } catch {}
+
       await this.cleanupExtension(instance.instanceId)
-      return await this.generateExtension(instance)
+      const generated = await this.generateExtension(instance)
+      if (preservedKey) {
+        try {
+          const manifestPath = path.join(
+            generated.extensionPath,
+            'manifest.json'
+          )
+          const raw = await fs.readFile(manifestPath, 'utf-8')
+          const parsed = JSON.parse(raw)
+          parsed.key = preservedKey
+          await fs.writeFile(manifestPath, JSON.stringify(parsed, null, 2))
+        } catch {}
+      }
+      return generated
     }
 
     // Extension exists and is up to date
