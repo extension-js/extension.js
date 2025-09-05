@@ -197,7 +197,16 @@ export default function webpackConfig(
         instanceId: devOptions.instanceId,
         source: devOptions.source,
         watchSource: devOptions.watchSource,
-        startingUrl: devOptions.startingUrl
+        startingUrl: devOptions.startingUrl,
+        // Unified logger flags from CLI/config
+        logLevel: (devOptions as any).logs || (devOptions as any).logLevel,
+        // Pass raw user input; normalization occurs inside ReloadPlugin
+        logContexts: (devOptions as any).logContext,
+        logFormat: (devOptions as any).logFormat,
+        logTimestamps: (devOptions as any).logTimestamps,
+        logColor: (devOptions as any).logColor,
+        logUrl: (devOptions as any).logUrl,
+        logTab: (devOptions as any).logTab
       })
     ].filter(Boolean),
     stats: {

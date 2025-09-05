@@ -11,10 +11,12 @@ export class GenerateManagerExtension {
   private readonly EXTENSION_OUTPUT_DIR = 'extension-js'
   private readonly EXTENSIONS_DIR = 'extensions'
   private readonly port: string | number
+  private readonly instanceId?: string
 
   constructor(options: PluginInterface) {
     this.browser = options.browser || 'chrome'
     this.port = options.port!
+    this.instanceId = options.instanceId
   }
 
   private copyRecursively(sourcePath: string, targetPath: string): void {
@@ -129,26 +131,19 @@ export class GenerateManagerExtension {
 
     const content = fs.readFileSync(reloadServicePath, 'utf8')
 
-    // Check if we need to update the port - either has placeholder or different port
+    // Replace port and instanceId placeholders then add a cache-buster
     const portRegex = /const\s+port\s*=\s*['"](__RELOAD_PORT__|\d+)['"]/
-    const match = content.match(portRegex)
-    const needsUpdate =
-      match &&
-      (match[1] === '__RELOAD_PORT__' || parseInt(match[1]) !== currentPort)
-
-    if (needsUpdate) {
-      // Add a cache-busting comment to force reload
-      const cacheBuster = `// Cache-buster: ${Date.now()}\n`
-      const updatedContent =
-        cacheBuster +
-        content.replace(portRegex, `const port = '${currentPort}'`)
-      fs.writeFileSync(reloadServicePath, updatedContent)
-    } else {
-      // Even if port doesn't need update, add cache-buster to force reload
-      const cacheBuster = `// Cache-buster: ${Date.now()}\n`
-      const updatedContent = cacheBuster + content
-      fs.writeFileSync(reloadServicePath, updatedContent)
+    const idRegex =
+      /const\s+instanceId\s*=\s*['"](__INSTANCE_ID__|[^'"\\]+)['"]/
+    let updated = content.replace(portRegex, `const port = '${currentPort}'`)
+    if (this.instanceId) {
+      updated = updated.replace(
+        idRegex,
+        `const instanceId = '${this.instanceId}'`
+      )
     }
+    const cacheBuster = `// Cache-buster: ${Date.now()}\n`
+    fs.writeFileSync(reloadServicePath, cacheBuster + updated)
   }
 
   apply(compiler: Compiler): void {
