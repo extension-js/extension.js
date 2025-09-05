@@ -251,6 +251,16 @@ export function isUsingProfile(browser: Browser, profilePath: unknown): string {
   return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} ${capitalizedBrowserName(browser)} using profile: ${colors.underline(String(profilePath))}`
 }
 
+export function profileFallbackWarning(
+  browser: Browser,
+  reason: string
+): string {
+  return (
+    `${colors.brightYellow('►►►')} ${colors.brightYellow('Dev')} ${capitalizedBrowserName(browser)} falling back to per-instance profile` +
+    (reason ? `: ${colors.gray(reason)}` : '')
+  )
+}
+
 export function isUsingPreferences(browser: Browser): string {
   return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Using custom preferences for ${capitalizedBrowserName(browser)}`
 }

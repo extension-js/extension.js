@@ -107,13 +107,50 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
 
     sendServerReady(ws, instanceId)
 
+    // Dev-only watchdog: if clientReady doesn't arrive, provide diagnostics
+    let sawManagerHello = false
+    let wrongInstanceCount = 0
+    const watchdogMs = Number(
+      process.env.EXTENSION_CLIENT_READY_TIMEOUT_MS || 15000
+    )
+    const watchdog = setTimeout(() => {
+      try {
+        if (process.env.EXTENSION_ENV === 'development') {
+          const manifestName = (() => {
+            try {
+              const raw = fs.readFileSync(manifestPath, 'utf-8')
+              return (JSON.parse(raw) as any)?.name || 'Extension.js'
+            } catch {
+              return 'Extension.js'
+            }
+          })()
+          console.log(
+            (messages as any).clientReadyTimeoutSummary?.({
+              manifestName,
+              browser: options.browser,
+              expectedInstanceId: instanceId,
+              webSocketPort: instance.webSocketPort,
+              sawManagerHello,
+              wrongInstanceCount
+            })
+          )
+        }
+      } catch {}
+    }, watchdogMs)
+
     ws.on('error', (error) => {
       console.log(messages.webSocketError(error))
       connections.delete(ws)
+      try {
+        clearTimeout(watchdog)
+      } catch {}
     })
 
     ws.on('close', () => {
       connections.delete(ws)
+      try {
+        clearTimeout(watchdog)
+      } catch {}
     })
 
     ws.on('message', (msg) => {
@@ -121,6 +158,7 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
       logWsStatus(message)
 
       if (message.instanceId && message.instanceId !== instanceId) {
+        wrongInstanceCount++
         console.log(
           messages.ignoringMessageFromWrongInstance(
             message.instanceId,
@@ -134,7 +172,25 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
         return
       }
 
+      if (message.status === 'log' && (message as any).data) {
+        try {
+          const data: any = (message as any).data
+          if (
+            String(data?.context).toLowerCase() === 'manager' &&
+            Array.isArray(data?.messageParts) &&
+            data.messageParts.some((p: any) =>
+              String(p).includes('manager connected')
+            )
+          ) {
+            sawManagerHello = true
+          }
+        } catch {}
+      }
+
       if (message.status === 'clientReady') {
+        try {
+          clearTimeout(watchdog)
+        } catch {}
         handleClientReady({
           compiler,
           options,

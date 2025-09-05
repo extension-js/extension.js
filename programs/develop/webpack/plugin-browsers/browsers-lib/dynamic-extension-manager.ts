@@ -94,6 +94,55 @@ export class DynamicExtensionManager {
     return keyData.toString('base64')
   }
 
+  private getManagerKeyStorePath(): string {
+    // Cross-platform user config dir
+    const home = require('os').homedir()
+    let baseDir: string
+    if (process.platform === 'win32') {
+      const appData =
+        process.env.APPDATA || path.join(home, 'AppData', 'Roaming')
+      baseDir = path.join(appData, 'extension-js', 'manager-keys')
+    } else if (process.platform === 'darwin') {
+      baseDir = path.join(
+        home,
+        'Library',
+        'Application Support',
+        'extension-js',
+        'manager-keys'
+      )
+    } else {
+      baseDir = path.join(home, '.config', 'extension-js', 'manager-keys')
+    }
+    return baseDir
+  }
+
+  private async getOrCreatePersistentManagerKey(): Promise<string> {
+    try {
+      const storeDir = this.getManagerKeyStorePath()
+      await fs.mkdir(storeDir, {recursive: true})
+      const projectHash = crypto
+        .createHash('sha1')
+        .update(this.projectPath || process.cwd())
+        .digest('hex')
+      const keyPath = path.join(storeDir, `${projectHash}.json`)
+      try {
+        const raw = await fs.readFile(keyPath, 'utf-8')
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed.key === 'string' && parsed.key.length > 0) {
+          return parsed.key
+        }
+      } catch {}
+      const newKey = this.generateExtensionKey()
+      try {
+        await fs.writeFile(keyPath, JSON.stringify({key: newKey}, null, 2))
+      } catch {}
+      return newKey
+    } catch {
+      // Fallback to ephemeral key if persistence fails
+      return this.generateExtensionKey()
+    }
+  }
+
   private getBaseExtensionPath(browser: DevOptions['browser']): string {
     const browserMap: Record<string, string> = {
       chrome: 'chrome-manager-extension',
@@ -144,7 +193,7 @@ export class DynamicExtensionManager {
       ...baseManifest,
       name: extensionName,
       description: extensionDescription,
-      key: this.generateExtensionKey()
+      key: await this.getOrCreatePersistentManagerKey()
     }
 
     // Create instance-specific service worker with unique port
