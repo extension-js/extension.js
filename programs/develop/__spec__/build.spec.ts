@@ -263,7 +263,9 @@ describe('extension build', () => {
           }
         }
         expect(exists).toBeTruthy()
-      }
+      },
+      // Increase time budget for heavier templates like content-custom-font
+      20000
     )
   })
 

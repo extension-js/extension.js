@@ -43,7 +43,11 @@ async function connect() {
         subscribeAllLoggers()
       } catch {}
       try {
-        if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+        if (
+          !self.__managerHelloSent &&
+          webSocket &&
+          webSocket.readyState === WebSocket.OPEN
+        ) {
           webSocket.send(
             JSON.stringify({
               status: 'log',
@@ -56,6 +60,7 @@ async function connect() {
               }
             })
           )
+          self.__managerHelloSent = true
         }
       } catch {}
     }
@@ -258,7 +263,7 @@ async function checkExtensionReadiness() {
 // Retry handshake until the user extension responds or timeout elapses
 async function ensureClientReadyHandshake() {
   const start = Date.now()
-  const timeoutMs = 15000
+  const timeoutMs = Number(self.EXTENSION_CLIENT_READY_TIMEOUT_MS || 15000)
   const attemptDelayMs = 500
 
   while (Date.now() - start < timeoutMs) {

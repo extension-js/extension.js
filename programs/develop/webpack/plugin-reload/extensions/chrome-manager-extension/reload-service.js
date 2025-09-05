@@ -62,9 +62,13 @@ export async function connect() {
           }
         }, 1000)
       } catch {}
-      // Emit manager hello so CLI can verify logging path immediately
+      // Emit manager hello so CLI can verify logging path immediately (once per connection)
       try {
-        if (webSocket && webSocket.readyState === WebSocket.OPEN) {
+        if (
+          !self.__managerHelloSent &&
+          webSocket &&
+          webSocket.readyState === WebSocket.OPEN
+        ) {
           webSocket.send(
             JSON.stringify({
               status: 'log',
@@ -77,6 +81,7 @@ export async function connect() {
               }
             })
           )
+          self.__managerHelloSent = true
         }
       } catch {}
     }
@@ -248,7 +253,7 @@ function subscribeAllLoggers() {
 // Retry handshake until the user extension responds or timeout elapses
 async function ensureClientReadyHandshake() {
   const start = Date.now()
-  const timeoutMs = 15000
+  const timeoutMs = Number(self.EXTENSION_CLIENT_READY_TIMEOUT_MS || 15000)
   const attemptDelayMs = 500
 
   while (Date.now() - start < timeoutMs) {

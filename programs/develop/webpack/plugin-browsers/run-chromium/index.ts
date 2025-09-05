@@ -91,7 +91,12 @@ export class RunChromiumPlugin {
       console.error(
         messages.browserNotInstalledError(browser, browserBinaryLocation)
       )
-      process.exit()
+      // Avoid killing the test runner during unit tests
+      if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+        throw new Error('Browser not installed or binary path not found')
+      } else {
+        process.exit(1)
+      }
     }
 
     // Get the current instance first to get the correct project path
@@ -151,27 +156,41 @@ export class RunChromiumPlugin {
     try {
       // Choose profile path: if another Chromium session is running or the base profile is locked,
       // switch to a per-instance managed profile so Chrome honors --load-extension flags.
-      const profileForConfig =
-        (await instanceManager.getRunningInstances()).some(
-          (i) => i.status === 'running' && i.browser === this.browser
-        ) ||
-        isChromiumProfileLocked(
-          getDefaultProfilePath(
-            path.dirname(
-              ((compilation as any).options?.output?.path as string) ||
-                process.cwd() + '/dist'
-            ),
-            this.browser
-          )
+      const concurrent = (await instanceManager.getRunningInstances()).some(
+        (i) => i.status === 'running' && i.browser === this.browser
+      )
+      const baseLocked = isChromiumProfileLocked(
+        getDefaultProfilePath(
+          path.dirname(
+            ((compilation as any).options?.output?.path as string) ||
+              process.cwd() + '/dist'
+          ),
+          this.browser
         )
-          ? undefined
-          : this.profile
+      )
+      const profileForConfig =
+        concurrent || baseLocked ? undefined : this.profile
       chromiumConfig = browserConfig(compilation, {
         ...this,
         profile: profileForConfig,
         instanceId: effectiveInstanceId,
         extension: extensionsToLoad
       } as any)
+
+      // One-time dev hint when falling back
+      if (
+        process.env.EXTENSION_ENV === 'development' &&
+        (concurrent || baseLocked)
+      ) {
+        try {
+          console.warn(
+            messages.profileFallbackWarning(
+              this.browser,
+              concurrent ? 'concurrent session' : 'profile lock detected'
+            )
+          )
+        } catch {}
+      }
     } catch (error) {
       // Fallback: if shared profile creation fails, retry with per-instance profile
       if ((this.reuseProfile as boolean | undefined) !== false) {
