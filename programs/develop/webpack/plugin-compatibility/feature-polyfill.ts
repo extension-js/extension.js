@@ -24,8 +24,23 @@ export class PolyfillPlugin {
         {paths: [__dirname]}
       )
 
+      // Ensure the module specifier resolves to our absolute polyfill path,
+      // regardless of the consumer project's node_modules layout
+      const currentResolve = compiler.options.resolve || {}
+      const existingAlias = currentResolve.alias || {}
+
+      compiler.options.resolve = {
+        ...currentResolve,
+        alias: {
+          ...existingAlias,
+          // Use `$` to exactly match the package name
+          'webextension-polyfill$': polyfillPath
+        }
+      }
+
+      // Provide `browser` by importing the aliased module
       new rspack.ProvidePlugin({
-        browser: polyfillPath
+        browser: 'webextension-polyfill'
       }).apply(compiler)
     } catch (error) {
       console.warn(messages.webextensionPolyfillNotFound())

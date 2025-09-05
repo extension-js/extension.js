@@ -78,8 +78,8 @@ if (import.meta.webpackHot) {
         if (typeof document !== 'undefined') {
           const knownRoots = ['#extension-root','[data-extension-root="true"]'];
           for (const selector of knownRoots) {
-            const el = document.querySelector(selector as any) as any;
-            if (el && (el as any).parentElement) { (el as any).parentElement.removeChild(el as any); }
+            const el = document.querySelector(selector);
+            if (el && el.parentElement) { el.parentElement.removeChild(el); }
           }
         }
       } catch (_) {}
