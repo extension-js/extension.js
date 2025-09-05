@@ -95,14 +95,95 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
     options.browser
   )
 
-  // Track all active connections for this instance
+  // Track all active connections and start health checks
   const connections = new Set<WebSocket>()
-  // Heartbeat to clean up dead connections and avoid hung sockets consuming resources
-  function heartbeat(this: WebSocket) {
-    ;(this as any).isAlive = true
+  const heartbeat = createHeartbeat()
+  const healthInterval = startHealthChecks(webSocketServer)
+
+  webSocketServer.on('connection', (ws) => {
+    connections.add(ws)
+    ;(ws as any).isAlive = true
+    ws.on('pong', heartbeat)
+
+    sendServerReady(ws, instanceId)
+
+    ws.on('error', (error) => {
+      console.log(messages.webSocketError(error))
+      connections.delete(ws)
+    })
+
+    ws.on('close', () => {
+      connections.delete(ws)
+    })
+
+    ws.on('message', (msg) => {
+      const message: Message = JSON.parse(msg.toString())
+      logWsStatus(message)
+
+      if (message.instanceId && message.instanceId !== instanceId) {
+        console.log(
+          messages.ignoringMessageFromWrongInstance(
+            message.instanceId,
+            instanceId
+          )
+        )
+        try {
+          // Actively drop noisy connections from wrong instances
+          ;(ws as any)?.close?.(1008, 'Wrong instance')
+        } catch {}
+        return
+      }
+
+      if (message.status === 'clientReady') {
+        handleClientReady({
+          compiler,
+          options,
+          instanceManager,
+          instanceId,
+          manifestPath,
+          message
+        })
+      }
+
+      if (message.status === 'log' && message.data) {
+        handleForwardedLog({message, options})
+      }
+    })
+  })
+
+  // Additional logic specific to Firefox, such as certificate checks
+  if (options.browser === 'firefox' || options.browser === 'gecko-based') {
+    if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
+      console.log(messages.certRequired())
+      console.log(messages.emptyLine())
+    }
   }
 
-  const healthInterval = setInterval(() => {
+  // Handle graceful shutdown
+  const cleanup = () =>
+    gracefulShutdown({
+      healthInterval,
+      connections,
+      webSocketServer,
+      instanceId
+    })
+
+  // Handle process termination signals
+  process.on('SIGINT', cleanup)
+  process.on('SIGTERM', cleanup)
+  process.on('SIGHUP', cleanup)
+
+  return webSocketServer
+}
+
+function createHeartbeat() {
+  return function heartbeat(this: WebSocket) {
+    ;(this as any).isAlive = true
+  }
+}
+
+function startHealthChecks(webSocketServer: WebSocketServer) {
+  return setInterval(() => {
     try {
       ;(webSocketServer.clients || new Set()).forEach((ws: any) => {
         if (ws.isAlive === false) {
@@ -118,283 +199,289 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
       })
     } catch {}
   }, 30000)
+}
 
-  webSocketServer.on('connection', (ws) => {
-    // Add to active connections
-    connections.add(ws)
-    ;(ws as any).isAlive = true
-    ws.on('pong', heartbeat)
+function sendServerReady(ws: WebSocket, instanceId: string) {
+  ws.send(
+    JSON.stringify({
+      status: 'serverReady',
+      instanceId
+    })
+  )
+}
 
-    // Send instance-specific server ready message
-    ws.send(
-      JSON.stringify({
-        status: 'serverReady',
-        instanceId: instanceId
+function logWsStatus(message: Message) {
+  try {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(
+        `[Extension.js] WS message status: ${message.status || 'unknown'}`
+      )
+    }
+  } catch {}
+}
+
+function handleClientReady(args: {
+  compiler: Compiler
+  options: DevOptions
+  instanceManager: InstanceManager
+  instanceId: string
+  manifestPath: string
+  message: Message
+}) {
+  const {
+    compiler,
+    options,
+    instanceManager,
+    instanceId,
+    manifestPath,
+    message
+  } = args
+  const manifest: Manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+
+  if (message.data?.id) {
+    instanceManager
+      .updateInstance(instanceId, {extensionId: message.data.id})
+      .catch((error) => {
+        console.warn(
+          messages.failedToUpdateInstanceWithExtensionId(String(error))
+        )
       })
-    )
-
-    ws.on('error', (error) => {
-      console.log(messages.webSocketError(error))
-      connections.delete(ws)
-    })
-
-    ws.on('close', () => {
-      connections.delete(ws)
-    })
-
-    ws.on('message', (msg) => {
-      const message: Message = JSON.parse(msg.toString())
-      try {
-        if (process.env.EXTENSION_ENV === 'development') {
-          // Lightweight visibility for WS traffic in dev
-          console.log(
-            `[Extension.js] WS message status: ${message.status || 'unknown'}`
-          )
-        }
-      } catch {}
-
-      // Only process messages for this instance
-      if (message.instanceId && message.instanceId !== instanceId) {
-        console.log(
-          messages.ignoringMessageFromWrongInstance(
-            message.instanceId,
-            instanceId
-          )
-        )
-        return
-      }
-
-      if (message.status === 'clientReady') {
-        const manifest: Manifest = JSON.parse(
-          fs.readFileSync(manifestPath, 'utf-8')
-        )
-
-        // Update the instance with the extension ID
-        if (message.data?.id) {
-          instanceManager
-            .updateInstance(instanceId, {
-              extensionId: message.data.id
-            })
-            .catch((error) => {
-              console.warn(
-                messages.failedToUpdateInstanceWithExtensionId(String(error))
-              )
-            })
-        }
-
-        console.log(messages.emptyLine())
-        console.log(
-          messages.runningInDevelopment(manifest, options.browser, message)
-        )
-
-        const projectPath = compiler.options.context || process.cwd()
-        const outPath = compiler.options.output.path!
-
-        if (shouldShowFirstRun(outPath, options.browser, projectPath)) {
-          console.log(messages.emptyLine())
-          console.log(messages.isFirstRun(options.browser))
-          markFirstRunMessageShown(projectPath, options.browser)
-        }
-
-        console.log(messages.emptyLine())
-      }
-
-      // Centralized logs forwarded from manager extension → print to terminal
-      if (message.status === 'log' && message.data) {
-        try {
-          const evt: any = message.data
-
-          // level filter
-          const levelOrder: Record<string, number> = {
-            trace: 10,
-            debug: 20,
-            info: 30,
-            warn: 40,
-            error: 50
-          }
-          const rawLevel = (options as any).logLevel || 'info'
-          const minLevel = typeof rawLevel === 'string' ? rawLevel : 'info'
-          if (
-            evt?.level &&
-            levelOrder[evt.level] != null &&
-            levelOrder[minLevel] != null &&
-            levelOrder[evt.level] < levelOrder[minLevel]
-          ) {
-            return
-          }
-
-          // context filter
-          const allowedContexts = (options as any).logContexts as
-            | string[]
-            | undefined
-          if (
-            Array.isArray(allowedContexts) &&
-            allowedContexts.length &&
-            evt?.context &&
-            !allowedContexts.includes(evt.context)
-          ) {
-            return
-          }
-
-          // url filter
-          const urlFilter = (options as any).logUrl as string | undefined
-          if (urlFilter && evt?.url) {
-            let match = false
-            try {
-              if (
-                typeof urlFilter === 'string' &&
-                urlFilter.startsWith('/') &&
-                urlFilter.endsWith('/')
-              ) {
-                const body = urlFilter.slice(1, -1)
-                match = new RegExp(body).test(String(evt.url))
-              } else {
-                match = String(evt.url).includes(urlFilter)
-              }
-            } catch {
-              match = String(evt.url).includes(String(urlFilter))
-            }
-            if (!match) return
-          }
-
-          // tab filter
-          const tabFilter = (options as any).logTab as number | undefined
-          if (
-            typeof tabFilter === 'number' &&
-            evt?.tabId != null &&
-            Number(evt.tabId) !== Number(tabFilter)
-          ) {
-            return
-          }
-
-          const format = (options as any).logFormat || 'pretty'
-          const showTs = (options as any).logTimestamps !== false
-          const useColor = (options as any).logColor !== false
-
-          if (format === 'json') {
-            console.log(JSON.stringify(evt))
-            return
-          }
-
-          const levelRaw = String(evt.level || 'info').toLowerCase()
-
-          // Color map (CLI):
-          // - log: gray, info: blue, warn: yellow, debug: magenta, trace: white, error: red
-          const arrow = (() => {
-            if (!useColor) return '►►►'
-            switch (levelRaw) {
-              case 'error':
-                return colors.red('►►►')
-              case 'warn':
-                return colors.brightYellow('►►►')
-              case 'debug':
-                return (colors as any).magenta
-                  ? (colors as any).magenta('►►►')
-                  : colors.gray('►►►')
-              case 'trace':
-                return (colors as any).white
-                  ? (colors as any).white('►►►')
-                  : '►►►'
-              case 'log':
-                return colors.gray('►►►')
-              case 'info':
-              default:
-                return colors.blue('►►►')
-            }
-          })()
-
-          const ts = showTs
-            ? new Date(Number(evt.timestamp) || Date.now()).toISOString() + ' '
-            : ''
-          const lvlBase = String(evt.level || 'info').toUpperCase()
-          // When colors are disabled, we show [LEVEL]; otherwise we hide it in favor of the arrow
-          const lvl = (() => {
-            if (!useColor) return lvlBase
-            switch (levelRaw) {
-              case 'error':
-                return colors.red(lvlBase)
-              case 'warn':
-                return colors.brightYellow(lvlBase)
-              case 'debug':
-                return (colors as any).magenta
-                  ? (colors as any).magenta(lvlBase)
-                  : colors.gray(lvlBase)
-              case 'trace':
-                return (colors as any).white
-                  ? (colors as any).white(lvlBase)
-                  : lvlBase
-              case 'log':
-                return colors.gray(lvlBase)
-              case 'info':
-              default:
-                return colors.blue(lvlBase)
-            }
-          })()
-          const ctx = String(evt.context || 'unknown')
-          const tab = evt.tabId != null ? `#${evt.tabId}` : ''
-          const url = evt.url ? ` ${evt.url}` : ''
-          // Pretty output header:
-          // With color: show colored arrows, drop [LEVEL]
-          //   // sample (color on): "►►► 2025-09-05T15:31:43.193Z background#3 https://example.com/path"
-          // Without color: show [LEVEL], drop arrows
-          //   // sample (no color): "2025-09-05T15:31:43.193Z [INFO] background#3 https://example.com/path"
-          const head = useColor
-            ? `${arrow} ${ts}${ctx}${tab}${url}`
-            : `${ts}[${lvl}] ${ctx}${tab}${url}`
-          const msg = Array.isArray(evt.messageParts)
-            ? evt.messageParts
-                .map((a: any) => {
-                  try {
-                    return typeof a === 'string' ? a : JSON.stringify(a)
-                  } catch {
-                    return String(a)
-                  }
-                })
-                .join(' ')
-            : String(evt.message || '')
-
-          console.log(`${head} - ${msg}`)
-        } catch {}
-      }
-    })
-  })
-
-  // Additional logic specific to Firefox, such as certificate checks
-  if (options.browser === 'firefox' || options.browser === 'gecko-based') {
-    if (!fs.existsSync(CERTIFICATE_DESTINATION_PATH)) {
-      console.log(messages.certRequired())
-      console.log(messages.emptyLine())
-    }
   }
 
-  // Handle graceful shutdown
-  const cleanup = () => {
+  console.log(messages.emptyLine())
+  console.log(messages.runningInDevelopment(manifest, options.browser, message))
+
+  const projectPath = compiler.options.context || process.cwd()
+  const outPath = compiler.options.output.path!
+  if (shouldShowFirstRun(outPath, options.browser, projectPath)) {
+    console.log(messages.emptyLine())
+    console.log(messages.isFirstRun(options.browser))
+    markFirstRunMessageShown(projectPath, options.browser)
+  }
+  console.log(messages.emptyLine())
+}
+
+function handleForwardedLog(args: {message: Message; options: DevOptions}) {
+  try {
+    const {message, options} = args
+    const evt: any = (message as any).data
+
+    const levelOrder: Record<string, number> = {
+      trace: 10,
+      debug: 20,
+      info: 30,
+      warn: 40,
+      error: 50
+    }
+    const rawLevel = (options as any).logLevel || 'info'
+    const minLevel = typeof rawLevel === 'string' ? rawLevel : 'info'
+    if (
+      evt?.level &&
+      levelOrder[evt.level] != null &&
+      levelOrder[minLevel] != null &&
+      levelOrder[evt.level] < levelOrder[minLevel]
+    ) {
+      return
+    }
+
+    const allowedContexts = (options as any).logContexts as string[] | undefined
+    if (
+      Array.isArray(allowedContexts) &&
+      allowedContexts.length &&
+      evt?.context &&
+      !allowedContexts.includes(evt.context)
+    ) {
+      return
+    }
+
+    const urlFilter = (options as any).logUrl as string | undefined
+    if (urlFilter && evt?.url) {
+      let match = false
+      try {
+        if (
+          typeof urlFilter === 'string' &&
+          urlFilter.startsWith('/') &&
+          urlFilter.endsWith('/')
+        ) {
+          const body = urlFilter.slice(1, -1)
+          match = new RegExp(body).test(String(evt.url))
+        } else {
+          match = String(evt.url).includes(urlFilter)
+        }
+      } catch {
+        match = String(evt.url).includes(String(urlFilter))
+      }
+      if (!match) return
+    }
+
+    const tabFilter = (options as any).logTab as number | undefined
+    if (
+      typeof tabFilter === 'number' &&
+      evt?.tabId != null &&
+      Number(evt.tabId) !== Number(tabFilter)
+    ) {
+      return
+    }
+
+    const format = (options as any).logFormat || 'pretty'
+    const showTs = (options as any).logTimestamps !== false
+    const useColor = (options as any).logColor !== false
+
+    if (format === 'json') {
+      console.log(JSON.stringify(evt))
+      return
+    }
+
+    const levelRaw = String(evt.level || 'info').toLowerCase()
+    const arrow = (() => {
+      if (!useColor) return '►►►'
+      switch (levelRaw) {
+        case 'error':
+          return colors.red('►►►')
+        case 'warn':
+          return colors.brightYellow('►►►')
+        case 'debug':
+          return (colors as any).magenta
+            ? (colors as any).magenta('►►►')
+            : colors.gray('►►►')
+        case 'trace':
+          return (colors as any).white ? (colors as any).white('►►►') : '►►►'
+        case 'log':
+          return colors.gray('►►►')
+        case 'info':
+        default:
+          return colors.blue('►►►')
+      }
+    })()
+
+    const rawTs =
+      new Date(Number(evt.timestamp) || Date.now()).toISOString() + ' '
+    const ts = showTs ? (useColor ? colors.gray(rawTs) : rawTs) : ''
+    const lvlBase = String(evt.level || 'info').toUpperCase()
+    const lvl = (() => {
+      if (!useColor) return lvlBase
+      switch (levelRaw) {
+        case 'error':
+          return colors.red(lvlBase)
+        case 'warn':
+          return colors.brightYellow(lvlBase)
+        case 'debug':
+          return (colors as any).magenta
+            ? (colors as any).magenta(lvlBase)
+            : colors.gray(lvlBase)
+        case 'trace':
+          return (colors as any).white
+            ? (colors as any).white(lvlBase)
+            : lvlBase
+        case 'log':
+          return colors.gray(lvlBase)
+        case 'info':
+        default:
+          return colors.blue(lvlBase)
+      }
+    })()
+    const ctx = String(evt.context || 'unknown')
+    const tab = evt.tabId != null ? `#${evt.tabId}` : ''
+    const url = evt.url ? ` ${evt.url}` : ''
+    // Refine context/tab display: omit tab for background/manager contexts
+    const isBgOrManager =
+      String(evt.context).toLowerCase() === 'background' ||
+      String(evt.context).toLowerCase() === 'manager'
+    const tabForHead =
+      !isBgOrManager && evt?.tabId != null ? `#${evt.tabId}` : ''
+
+    // Incognito indicator
+    const incog = evt && evt.incognito ? ' (incognito)' : ''
+
+    const coloredCtx = (() => {
+      if (!useColor) return ctx
+      switch (String(evt.context || '').toLowerCase()) {
+        case 'background':
+          return colors.green(ctx)
+        case 'manager':
+          return colors.blue(ctx)
+        case 'content':
+          return (colors as any).magenta
+            ? (colors as any).magenta(ctx)
+            : colors.blue(ctx)
+        case 'page':
+          return colors.brightYellow
+            ? colors.brightYellow(ctx)
+            : colors.yellow
+              ? (colors as any).yellow(ctx)
+              : ctx
+        case 'sidebar':
+          return (colors as any).cyan
+            ? (colors as any).cyan(ctx)
+            : colors.brightBlue(ctx)
+        case 'popup':
+          return (colors as any).brightGreen
+            ? (colors as any).brightGreen(ctx)
+            : colors.green(ctx)
+        case 'options':
+          return (colors as any).cyan
+            ? (colors as any).cyan(ctx)
+            : colors.blue(ctx)
+        case 'devtools':
+          return colors.brightYellow
+            ? colors.brightYellow(ctx)
+            : colors.yellow
+              ? (colors as any).yellow(ctx)
+              : ctx
+        default:
+          return colors.gray(ctx)
+      }
+    })()
+
+    const head = useColor
+      ? `${arrow} ${ts}${coloredCtx}${tabForHead}${url}${incog}`
+      : `${ts}[${lvl}] ${ctx}${tabForHead}${url}${incog}`
+
+    // Clean up message parts: replace null/undefined with (unknown), drop empty strings
+    let msg = ''
+    if (Array.isArray(evt.messageParts)) {
+      const cleanParts = (evt.messageParts as any[])
+        .map((a: any) => {
+          try {
+            if (a == null) return '(unknown)'
+            if (typeof a === 'string') return a.trim()
+            return JSON.stringify(a)
+          } catch {
+            return String(a)
+          }
+        })
+        .filter((s: any) => typeof s === 'string' && s.length > 0)
+      msg = cleanParts.length ? cleanParts.join(' ') : '(none)'
+    } else {
+      msg = String(evt.message || '(none)')
+    }
+
+    console.log(`${head} - ${msg}`)
+  } catch {}
+}
+
+function gracefulShutdown(args: {
+  healthInterval: NodeJS.Timeout
+  connections: Set<WebSocket>
+  webSocketServer: WebSocketServer
+  instanceId: string
+}) {
+  const {healthInterval, connections, webSocketServer, instanceId} = args
+  try {
+    clearInterval(healthInterval)
+  } catch {}
+  for (const ws of connections) {
     try {
-      clearInterval(healthInterval)
-    } catch {}
-    // Close all active connections for this instance
-    for (const ws of connections) {
-      try {
-        ws.close(1000, 'Server shutting down')
-      } catch (error) {
-        console.error(messages.webSocketConnectionCloseError(error))
-      }
+      ws.close(1000, 'Server shutting down')
+    } catch (error) {
+      console.error(messages.webSocketConnectionCloseError(error))
     }
-
-    // Close the server
-    webSocketServer.close(() => {
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(
-          messages.webSocketServerForInstanceClosed(instanceId.slice(0, 8))
-        )
-      }
-    })
   }
-
-  // Handle process termination signals
-  process.on('SIGINT', cleanup)
-  process.on('SIGTERM', cleanup)
-  process.on('SIGHUP', cleanup)
-
-  return webSocketServer
+  webSocketServer.close(() => {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(
+        messages.webSocketServerForInstanceClosed(instanceId.slice(0, 8))
+      )
+    }
+  })
 }
