@@ -252,26 +252,27 @@ function initializeJavaScriptContentScript(options, renderFunction) {
 }
 
 // Simple initialization for JavaScript
-let unmount
+let __extensionjs_unmount
 
 async function initialize() {
   console.log('[Extension.js] JavaScript wrapper initialize called')
-  if (unmount) {
+  if (__extensionjs_unmount) {
     console.log('[Extension.js] Unmounting previous JavaScript instance')
-    unmount()
+    __extensionjs_unmount()
   }
   
-  // Get the render function from the contentScript function
-  const renderFunction = contentScript({})
+  // Get the render function from the default export if provided
+  const renderFunction = typeof __extensionjs_default === 'function' ? __extensionjs_default({}) : undefined
+  if (!renderFunction) return
   const wrapper = new JavaScriptContentScriptWrapper(renderFunction, {})
   await wrapper.mount()
-  unmount = () => wrapper.unmount()
+  __extensionjs_unmount = () => wrapper.unmount()
   console.log('[Extension.js] JavaScript wrapper initialization complete')
 }
 
 if (import.meta.webpackHot) {
   import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
+  import.meta.webpackHot?.dispose(() => __extensionjs_unmount?.())
 
   // Accept changes to this file
   import.meta.webpackHot?.accept(() => {

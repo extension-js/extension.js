@@ -1,59 +1,27 @@
-// The directive below tells Extension.js to inject the content
-// script of this file into the shadow DOM of the host page and
-// inject all CSS imports into it. This provides style isolation
-// and prevents conflicts with the host page's styles.
-// See https://extension.js.org/docs/content-scripts#use-shadow-dom
-'use shadow-dom'
+// Extension.js content script template (JavaScript)
+// - Export a default function (required in v3) that mounts your UI
+// - Wrapper handles Shadow DOM isolation, CSS injection, HMR and cleanup
+// - Avoid adding your own HMR code; dev warnings will be shown if detected
+// Docs: https://extension.js.org/docs/content-scripts
+export default function () {
+  const host = document.createElement('div')
+  document.body.appendChild(host)
+  const shadow = host.attachShadow({mode: 'open'})
 
-import logo from '../images/logo.png'
-import './styles.css'
+  const style = document.createElement('style')
+  shadow.appendChild(style)
+  fetchCSS().then((css) => (style.textContent = css))
 
-/**
- * @typedef {Object} ContentScriptOptions
- * @property {string} [rootElement] - The root element ID
- * @property {string} [rootClassName] - The root element class name
- */
-export default function contentScript(options = {}) {
-  return (container) => {
-    // Create content wrapper div
-    const contentDiv = document.createElement('div')
-    contentDiv.className = 'content_script'
+  const el = document.createElement('div')
+  el.textContent = 'Hello from content script'
+  shadow.appendChild(el)
 
-    // Create and append logo image
-    const img = document.createElement('img')
-    img.className = 'content_logo'
-    img.src = logo
-    img.alt = 'JavaScript Logo'
-    contentDiv.appendChild(img)
+  return () => host.remove()
+}
 
-    // Create and append title
-    const title = document.createElement('h1')
-    title.className = 'content_title'
-    title.textContent = 'JavaScript Extension'
-    contentDiv.appendChild(title)
-
-    // Create and append description paragraph
-    const desc = document.createElement('p')
-    desc.className = 'content_description'
-    desc.innerHTML =
-      'This content script runs in the context of web pages.<br />Learn more about creating cross-browser extensions at '
-
-    const link = document.createElement('a')
-    link.href = 'https://extension.js.org'
-    link.target = '_blank'
-    link.rel = 'noopener noreferrer'
-    link.textContent = 'https://extension.js.org'
-
-    desc.appendChild(link)
-    contentDiv.appendChild(desc)
-
-    // Append content div to container
-    container.appendChild(contentDiv)
-
-    // Return cleanup function for unmounting (required)
-    return () => {
-      // JavaScript doesn't need special cleanup, so we just return empty
-      container.innerHTML = ''
-    }
-  }
+async function fetchCSS() {
+  const url = new URL('./styles.css', import.meta.url)
+  const res = await fetch(url)
+  const css = await res.text()
+  return res.ok ? css : Promise.reject(css)
 }
