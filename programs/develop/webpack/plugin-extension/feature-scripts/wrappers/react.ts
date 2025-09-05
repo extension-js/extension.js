@@ -122,7 +122,7 @@ class ReactContentScriptWrapper {
     this.options = {
       rootElement: 'extension-root',
       rootClassName: undefined, // React handles its own styling
-      stylesheets: ${JSON.stringify(cssImports.length > 0 ? cssImports : ['./styles.css'])},
+      stylesheets: ${JSON.stringify(cssImports)},
       ...options
     }
   }
@@ -268,31 +268,36 @@ function initializeReactContentScript(
 export function autoInitializeReactContentScript(
   options: ContentScriptOptions = {}
 ): ContentScriptInstance {
-  // Get the render function from the imported contentScript
-  const renderFunction = contentScript(options)
+  // Prefer default export; fall back to legacy named export for back-compat
+  const renderFunction =
+    (typeof __extensionjs_default === 'function' && __extensionjs_default(options)) ||
+    (typeof contentScript === 'function' ? contentScript(options) : undefined)
 
   // Initialize with the wrapper using the detected CSS imports
   return initializeReactContentScript(options, renderFunction)
 }
 
 // Simple initialization for React
-let unmount: (() => void) | undefined
+let __extensionjs_unmount: (() => void) | undefined
 
 async function initialize() {
-  if (unmount) {
-    unmount()
+  if (__extensionjs_unmount) {
+    __extensionjs_unmount()
   }
   
-  // Get the render function from the contentScript function
-  const renderFunction = contentScript({})
+  // Prefer default export; fall back to legacy named export for back-compat
+  const renderFunction =
+    (typeof __extensionjs_default === 'function' && __extensionjs_default({})) ||
+    (typeof contentScript === 'function' ? contentScript({}) : undefined)
+  if (!renderFunction) return
   const wrapper = new ReactContentScriptWrapper(renderFunction, {})
   await wrapper.mount()
-  unmount = () => wrapper.unmount()
+  __extensionjs_unmount = () => wrapper.unmount()
 }
 
 if (import.meta.webpackHot) {
   import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
+  import.meta.webpackHot?.dispose(() => __extensionjs_unmount?.())
 
   // Accept changes to this file
   import.meta.webpackHot?.accept(() => {

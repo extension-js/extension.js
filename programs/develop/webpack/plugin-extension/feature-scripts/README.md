@@ -81,6 +81,11 @@ export default config
 - Your script can be self‑bootstrapping (imperative DOM mount) or export a default mount function; the wrapper adapts to common patterns across frameworks.
 - The wrapper provides an isolated host element inside a `ShadowRoot` so styles and markup are sandboxed from the host page.
 - HMR performs safe cleanup between updates to prevent duplicate mounts.
+- Default export contract:
+  - Preferred: export a callable default function returning an optional cleanup.
+  - Back‑compat: missing default export is tolerated in dev with a warning, but will be required in v3.
+  - Returning a cleanup function is respected for back‑compat, but the wrapper provides its own unmount; returning cleanup is discouraged.
+  - Side‑effect only defaults are supported; the wrapper detects and removes created nodes on unmount/HMR.
 
 ### CSP considerations
 
@@ -152,7 +157,10 @@ new ScriptsPlugin({
 
 ### Development warnings (backwards compatibility)
 
-- In development, a dedicated loader emits a warning if your source contains `import.meta.webpackHot` or `import.meta.hot`, since HMR is handled automatically by Extension.js.
+- In development, a dedicated loader emits warnings for:
+  - User HMR code (`import.meta.webpackHot`, `import.meta.hot`, `module.hot`) present in content scripts. Remove it; the wrapper handles HMR.
+  - Missing default export in a content script. This is allowed for now but will be required in v3.
+  - Default export that returns a cleanup function. The wrapper will call it for back‑compat, but it is discouraged since the wrapper handles unmount.
 
 ## Tested behavior
 
