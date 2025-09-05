@@ -30,6 +30,54 @@ UI (sidebar)
 - Expand row shows structured JSON details in Monaco (lazy), falls back to `<pre>`
 - Toaster feedback on copy
 
+CLI output (parity)
+
+- Pretty-mode CLI output mirrors the sidebar semantics:
+  - Time: gray
+  - Context colors (approximate ANSI palette; avoids dark/black):
+
+    | Context    | CLI color        |
+    | ---------- | ---------------- |
+    | background | green            |
+    | content    | magenta          |
+    | page       | yellow/bright    |
+    | sidebar    | cyan/bright blue |
+    | popup      | bright green     |
+    | options    | cyan             |
+    | devtools   | yellow/bright    |
+
+  - Tab suffix `#<id>` is included only for tabbed contexts (content/page/sidebar/popup/options/devtools). It is omitted for background and manager logs.
+  - Incognito logs append ` (incognito)` after the header when available.
+  - Message parts are sanitized: null/undefined → `(unknown)`; all-empty → `(none)`.
+
+- Example (pretty):
+
+  ```
+  ►►► 2025-09-05T18:16:44.178Z background - extension installed (reason: unknown)
+  ►►► 2025-09-05T18:16:44.272Z content#123 https://example.com - console log text
+  ```
+
+- Example (JSON):
+
+  ```json
+  {
+    "timestamp": 1693934204178,
+    "level": "info",
+    "context": "content",
+    "tabId": 123,
+    "url": "https://example.com/",
+    "messageParts": ["console log text"]
+  }
+  ```
+
+CLI flags quick reference
+
+- `--logs <off|error|warn|info|debug|trace>`: minimum level
+- `--log-context <list|all>`: filter by contexts (e.g. `background,content`)
+- `--log-format <pretty|json>`: output format
+- `--no-log-timestamps` / `--no-log-color`: disable timestamps or color
+- `--log-url <substring|/regex/>` and `--log-tab <id>`: additional filtering
+
 Background enrichment
 
 - Title (via tabs API) and hostname/path where available
