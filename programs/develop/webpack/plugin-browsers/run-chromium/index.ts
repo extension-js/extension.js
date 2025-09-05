@@ -149,11 +149,20 @@ export class RunChromiumPlugin {
 
     let chromiumConfig: string[]
     try {
-      // Guard profile:false under concurrency by switching to managed per-instance profile
+      // Choose profile path: if another Chromium session is running or the base profile is locked,
+      // switch to a per-instance managed profile so Chrome honors --load-extension flags.
       const profileForConfig =
-        this.profile === false &&
         (await instanceManager.getRunningInstances()).some(
           (i) => i.status === 'running' && i.browser === this.browser
+        ) ||
+        isChromiumProfileLocked(
+          getDefaultProfilePath(
+            path.dirname(
+              ((compilation as any).options?.output?.path as string) ||
+                process.cwd() + '/dist'
+            ),
+            this.browser
+          )
         )
           ? undefined
           : this.profile
