@@ -1,5 +1,5 @@
 import {type Compiler} from '@rspack/core'
-import {type PluginInterface} from './reload-types'
+import {type PluginInterface, type LogContext} from './reload-types'
 import CreateWebSocketServer from './steps/create-web-socket-server'
 import SetupReloadStrategy from './steps/setup-reload-strategy'
 import {type DevOptions} from '../../develop-lib/config-types'
@@ -44,7 +44,17 @@ export class ReloadPlugin {
       browser: this.browser,
       port: this.port as any,
       stats: this.stats,
-      instanceId: this.instanceId
+      instanceId: this.instanceId,
+      // Pass unified logger options through the plugin pipeline
+      logLevel: (compiler.options as any).logLevel,
+      logContexts: this.normalizeLogContexts(
+        (compiler.options as any).logContexts
+      ),
+      logFormat: (compiler.options as any).logFormat,
+      logTimestamps: (compiler.options as any).logTimestamps,
+      logColor: (compiler.options as any).logColor,
+      logUrl: (compiler.options as any).logUrl,
+      logTab: (compiler.options as any).logTab
     }).apply(compiler)
 
     // 2 - Patches the manifest file, modifies the background script to
@@ -61,5 +71,45 @@ export class ReloadPlugin {
     }).apply(compiler)
 
     // Firefox inspection is handled by @plugin-browsers to avoid duplicate setup
+  }
+
+  private normalizeLogContexts(raw: unknown): LogContext[] | undefined {
+    try {
+      if (raw == null) return undefined
+      const allowed: readonly LogContext[] = [
+        'background',
+        'content',
+        'page',
+        'sidebar',
+        'popup',
+        'options',
+        'devtools'
+      ]
+      // Accept 'all' or 'ALL' → undefined (means no filtering)
+      if (typeof raw === 'string') {
+        const trimmed = raw.trim()
+        if (trimmed.length === 0) return undefined
+        if (trimmed.toLowerCase() === 'all') return undefined
+        const values = trimmed
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
+          .filter((c): c is LogContext =>
+            (allowed as readonly string[]).includes(c)
+          )
+        return values.length ? values : undefined
+      }
+      if (Array.isArray(raw)) {
+        const values = (raw as unknown[])
+          .map((s) => String(s).trim())
+          .filter((s) =>
+            (allowed as readonly string[]).includes(s)
+          ) as LogContext[]
+        return values.length ? values : undefined
+      }
+      return undefined
+    } catch {
+      return undefined
+    }
   }
 }

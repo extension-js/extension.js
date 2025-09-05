@@ -9,6 +9,8 @@ export function levelColumn(): ColumnDef<LogEvent> {
     header: () => 'Level',
     cell: ({row}) => {
       const e = row.original
+      // Color mapping aligned with CLI:
+      // - log: gray, info: blue (sky), warn: yellow, debug: magenta (violet), trace: white (rendered hollow), error: red
       const colorClass =
         e.level === 'error'
           ? 'text-red-400'
@@ -19,14 +21,23 @@ export function levelColumn(): ColumnDef<LogEvent> {
               : e.level === 'debug'
                 ? 'text-violet-400'
                 : e.level === 'trace'
-                  ? 'text-neutral-400'
+                  ? 'text-white'
                   : 'text-neutral-300'
       return (
         <span className="inline-flex items-center gap-1.5 ml-0.5">
-          <span
-            aria-hidden
-            className={`inline-block w-2 h-2 rounded-full ${colorClass.replace('text-', 'bg-')}`}
-          />
+          {e.level === 'trace' ? (
+            // Trace: hollow circle with border color matching "log" (gray)
+            <span
+              aria-hidden
+              className="inline-block w-2 h-2 rounded-full border border-neutral-400"
+              style={{backgroundColor: 'transparent'}}
+            />
+          ) : (
+            <span
+              aria-hidden
+              className={`inline-block w-2 h-2 rounded-full ${colorClass.replace('text-', 'bg-')}`}
+            />
+          )}
           <span className={colorClass}>{e.level}</span>
         </span>
       )

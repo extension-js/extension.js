@@ -37,8 +37,16 @@ export default class CreateWebSocketServer {
     try {
       this.webSocketServer = await startServer(compiler, {
         browser: this.browser as any,
-        mode: compiler.options.mode || 'development'
-      })
+        mode: compiler.options.mode || 'development',
+        // Forward optional unified logger flags if provided by user config
+        logLevel: (compiler.options as any)?.logLevel,
+        logContexts: (compiler.options as any)?.logContexts,
+        logFormat: (compiler.options as any)?.logFormat,
+        logTimestamps: (compiler.options as any)?.logTimestamps,
+        logColor: (compiler.options as any)?.logColor,
+        logUrl: (compiler.options as any)?.logUrl,
+        logTab: (compiler.options as any)?.logTab
+      } as any)
       ;(compiler.options as any).webSocketServer = this.webSocketServer
       this.isServerInitialized = true
       if (process.env.EXTENSION_ENV === 'development') {
