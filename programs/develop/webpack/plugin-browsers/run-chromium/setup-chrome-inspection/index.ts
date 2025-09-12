@@ -11,6 +11,8 @@ export class SetupChromeInspectionStep {
   private currentTargetId: string | null = null
   private currentSessionId: string | null = null
   private isInitialized = false
+  private lastSvelteProbe: string | null = null
+  private probeTimer: NodeJS.Timeout | null = null
 
   constructor(devOptions: DevOptions & {startingUrl?: string}) {
     this.devOptions = devOptions
