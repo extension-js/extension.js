@@ -264,7 +264,7 @@ async function checkExtensionReadiness() {
 async function ensureClientReadyHandshake() {
   const start = Date.now()
   const timeoutMs = Number(self.EXTENSION_CLIENT_READY_TIMEOUT_MS || 15000)
-  const attemptDelayMs = 500
+  const attemptDelayMs = Number(self.EXTENSION_CLIENT_READY_POLL_MS || 250)
 
   while (Date.now() - start < timeoutMs) {
     try {

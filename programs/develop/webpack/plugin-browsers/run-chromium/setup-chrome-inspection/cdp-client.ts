@@ -302,9 +302,8 @@ export class CDPClient {
 
   // Wait for content script injection with reasonable timeout
   async waitForContentScriptInjection(sessionId: string): Promise<void> {
-    // Use a reasonable delay for content script injection
-    // This is more reliable than complex event waiting
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    // Use a shorter delay for content script injection to improve responsiveness
+    await new Promise((resolve) => setTimeout(resolve, 1000))
   }
 
   // Evaluate JavaScript in the page context

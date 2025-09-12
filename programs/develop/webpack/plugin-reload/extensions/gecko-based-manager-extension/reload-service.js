@@ -165,8 +165,8 @@ async function delay(ms) {
 // Retry handshake until the user extension responds or timeout elapses
 async function ensureClientReadyHandshake() {
   const start = Date.now()
-  const timeoutMs = 15000
-  const attemptDelayMs = 500
+  const timeoutMs = Number(self.EXTENSION_CLIENT_READY_TIMEOUT_MS || 15000)
+  const attemptDelayMs = Number(self.EXTENSION_CLIENT_READY_POLL_MS || 250)
 
   while (Date.now() - start < timeoutMs) {
     try {

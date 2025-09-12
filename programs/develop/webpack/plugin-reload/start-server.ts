@@ -111,7 +111,7 @@ export async function startServer(compiler: Compiler, options: DevOptions) {
     let sawManagerHello = false
     let wrongInstanceCount = 0
     const watchdogMs = Number(
-      process.env.EXTENSION_CLIENT_READY_TIMEOUT_MS || 15000
+      process.env.EXTENSION_CLIENT_READY_TIMEOUT_MS || 8000
     )
     const watchdog = setTimeout(() => {
       try {

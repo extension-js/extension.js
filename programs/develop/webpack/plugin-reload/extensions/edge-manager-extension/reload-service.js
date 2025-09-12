@@ -1,5 +1,6 @@
 const TEN_SECONDS_MS = 10 * 1000
 const INSTANT_MS = 100
+const READINESS_DELAY_MS = 1000
 let webSocket = null
 
 // Get instance ID from the service worker context
@@ -257,8 +258,8 @@ async function hardReloadAllExtensions(changedFile) {
 async function checkExtensionReadiness(isCriticalFile = false) {
   return new Promise((resolve) => {
     // For critical files like manifest.json, use minimal delay
-    // For regular files, use longer delay to ensure stability
-    const delay = isCriticalFile ? INSTANT_MS : TEN_SECONDS_MS
+    // For regular files, use shorter delay to improve responsiveness
+    const delay = isCriticalFile ? INSTANT_MS : READINESS_DELAY_MS
 
     setTimeout(() => {
       resolve(true)
@@ -284,8 +285,8 @@ export function keepAlive() {
 // Retry handshake until the user extension responds or timeout elapses
 async function ensureClientReadyHandshake() {
   const start = Date.now()
-  const timeoutMs = 15000
-  const attemptDelayMs = 500
+  const timeoutMs = Number(self.EXTENSION_CLIENT_READY_TIMEOUT_MS || 15000)
+  const attemptDelayMs = Number(self.EXTENSION_CLIENT_READY_POLL_MS || 250)
 
   while (Date.now() - start < timeoutMs) {
     try {

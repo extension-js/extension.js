@@ -1,5 +1,7 @@
 const TEN_SECONDS_MS = 10 * 1000
 const INSTANT_MS = 100
+const KEEPALIVE_INTERVAL_MS = TEN_SECONDS_MS
+const READINESS_DELAY_MS = 1000
 let webSocket = null
 let subscribeTimer = null
 
@@ -254,7 +256,7 @@ function subscribeAllLoggers() {
 async function ensureClientReadyHandshake() {
   const start = Date.now()
   const timeoutMs = Number(self.EXTENSION_CLIENT_READY_TIMEOUT_MS || 15000)
-  const attemptDelayMs = 500
+  const attemptDelayMs = Number(self.EXTENSION_CLIENT_READY_POLL_MS || 250)
 
   while (Date.now() - start < timeoutMs) {
     try {
@@ -302,8 +304,8 @@ async function hardReloadAllExtensions(changedFile) {
 async function checkExtensionReadiness(isCriticalFile = false) {
   return new Promise((resolve) => {
     // For critical files like manifest.json, use minimal delay
-    // For regular files, use longer delay to ensure stability
-    const delay = isCriticalFile ? INSTANT_MS : TEN_SECONDS_MS
+    // For regular files, use shorter delay to improve responsiveness
+    const delay = isCriticalFile ? INSTANT_MS : READINESS_DELAY_MS
 
     setTimeout(() => {
       resolve(true)
@@ -437,5 +439,5 @@ export function keepAlive() {
     } else {
       clearInterval(keepAliveIntervalId)
     }
-  }, TEN_SECONDS_MS)
+  }, KEEPALIVE_INTERVAL_MS)
 }
