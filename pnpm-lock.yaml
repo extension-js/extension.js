@@ -74,6 +74,9 @@ importers:
       '@radix-ui/react-select':
         specifier: ^2.1.2
         version: 2.2.6(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@radix-ui/react-separator':
+        specifier: 1.1.7
+        version: 1.1.7(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@radix-ui/react-slot':
         specifier: ^1.1.0
         version: 1.2.3(@types/react@18.3.23)(react@18.3.1)
@@ -674,7 +677,7 @@ importers:
         version: 12.0.2(webpack@5.100.2(webpack-cli@5.1.4))
       extension:
         specifier: ^2.1.3
-        version: 2.1.3(@babel/core@7.28.0)(@prefresh/babel-plugin@0.5.2)(less@4.4.0)(sass@1.89.2)(svelte@5.15.0)(typescript@5.7.2)(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4))
+        version: 2.1.3(@babel/core@7.28.0)(@prefresh/babel-plugin@0.5.2)(less@4.4.0)(sass@1.89.2)(svelte@5.38.7)(typescript@5.7.2)(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4))
       html-webpack-plugin:
         specifier: ^5.6.3
         version: 5.6.4(@rspack/core@1.4.10(@swc/helpers@0.5.17))(webpack@5.100.2(webpack-cli@5.1.4))
@@ -939,9 +942,6 @@ importers:
       sass-loader:
         specifier: ^16.0.4
         version: 16.0.5(@rspack/core@1.4.10(@swc/helpers@0.5.17))(sass@1.89.2)(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))(esbuild@0.25.8))
-      svelte-loader:
-        specifier: ^3.2.4
-        version: 3.2.4(svelte@5.15.0)
       vue-loader:
         specifier: ^17.4.2
         version: 17.4.2(@vue/compiler-sfc@3.5.18)(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))(esbuild@0.25.8))
@@ -2551,6 +2551,9 @@ packages:
   '@jridgewell/gen-mapping@0.3.12':
     resolution: {integrity: sha512-OuLGC46TjB5BbN1dH8JULVVZY4WTdkF7tV9Ys6wLL1rubZnCMstOhNHueU5bLCrnRuDhKPDM4g6sw4Bel5Gzqg==}
 
+  '@jridgewell/remapping@2.3.5':
+    resolution: {integrity: sha512-LI9u/+laYG4Ds1TDKSJW2YPrIlcVYOwi2fUC6xB43lueCjgxV4lffOCZCtYFiH6TNOX+tQKXx97T4IKHbhyHEQ==}
+
   '@jridgewell/resolve-uri@3.1.2':
     resolution: {integrity: sha512-bRISgCIjP20/tbWSPWMEi54QVPRZExkuD9lJL+UIxUKtwVJA8wW1Trb1jMs1RFXo1CBTNZ/5hpC9QvmKWdopKw==}
     engines: {node: '>=6.0.0'}
@@ -3067,6 +3070,19 @@ packages:
       '@types/react-dom':
         optional: true
 
+  '@radix-ui/react-separator@1.1.7':
+    resolution: {integrity: sha512-0HEb8R9E8A+jZjvmFCy/J4xhbXy3TV+9XSnGJ3KvTtjlIUy/YQ/p6UYZvi7YbeoeXdyU9+Y3scizK6hkY37baA==}
+    peerDependencies:
+      '@types/react': '*'
+      '@types/react-dom': '*'
+      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      '@types/react-dom':
+        optional: true
+
   '@radix-ui/react-slot@1.2.3':
     resolution: {integrity: sha512-aeNmHnBxbi2St0au6VBVC7JXFlhLlOnvIIlePNniyUNAClzmtAUEY8/pBiK3iHjufOlwA+c20/8jngo7xcrg8A==}
     peerDependencies:
@@ -3502,6 +3518,11 @@ packages:
 
   '@sinonjs/fake-timers@10.3.0':
     resolution: {integrity: sha512-V4BG07kuYSUkTCSBHG8G8TNhM+F19jXFWnQtzj+we8DrkpSBCee9Z3Ms8yiGer/dlmhe35/Xdgyo3/0rQKg7YA==}
+
+  '@sveltejs/acorn-typescript@1.0.5':
+    resolution: {integrity: sha512-IwQk4yfwLdibDlrXVE04jTZYlLnwsTT2PIOQQGNLWfjavGifnk1JD1LcZjZaBTRcxZu2FfPfNLOE04DSu9lqtQ==}
+    peerDependencies:
+      acorn: ^8.9.0
 
   '@svgr/babel-plugin-add-jsx-attribute@8.0.0':
     resolution: {integrity: sha512-b9MIk7yhdS1pMCZM8VeNfUlSKVRhsHZNMl5O9SfaX0l0t5wjdgu4IDzGB8bpnGBBOjGST3rRFVsaaEtI4W6f7g==}
@@ -5164,6 +5185,9 @@ packages:
 
   esrap@1.4.9:
     resolution: {integrity: sha512-3OMlcd0a03UGuZpPeUC1HxR3nA23l+HEyCiZw3b3FumJIN9KphoGzDJKMXI1S72jVS1dsenDyQC0kJlO1U9E1g==}
+
+  esrap@2.1.0:
+    resolution: {integrity: sha512-yzmPNpl7TBbMRC5Lj2JlJZNPml0tzqoqP5B1JXycNUwtqma9AKCO0M2wHrdgsHcy1WRW7S9rJknAMtByg3usgA==}
 
   esrecurse@4.3.0:
     resolution: {integrity: sha512-KmfKL3b6G+RXvP8N1vr3Tq1kL/oCFgn2NYXEtqP8/L3pKapUA4G8cFVaoF3SU323CD4XypR/ffioHmkti6/Tag==}
@@ -7644,6 +7668,10 @@ packages:
 
   svelte@5.15.0:
     resolution: {integrity: sha512-YWl8rAd4hSjERLtLvP6h2pflGtmrJwv+L12BgrOtHYJCpvLS9WKp/YNAdyolw3FymXtcYZqhSWvWlu5O1X7tgQ==}
+    engines: {node: '>=18'}
+
+  svelte@5.38.7:
+    resolution: {integrity: sha512-1ld9TPZSdUS3EtYGQzisU2nhwXoIzNQcZ71IOU9fEmltaUofQnVfW5CQuhgM/zFsZ43arZXS1BRKi0MYgUV91w==}
     engines: {node: '>=18'}
 
   svg-parser@2.0.4:
@@ -10152,6 +10180,12 @@ snapshots:
       '@jridgewell/sourcemap-codec': 1.5.4
       '@jridgewell/trace-mapping': 0.3.29
 
+  '@jridgewell/remapping@2.3.5':
+    dependencies:
+      '@jridgewell/gen-mapping': 0.3.12
+      '@jridgewell/trace-mapping': 0.3.29
+    optional: true
+
   '@jridgewell/resolve-uri@3.1.2': {}
 
   '@jridgewell/source-map@0.3.10':
@@ -10723,6 +10757,15 @@ snapshots:
       '@types/react': 18.3.23
       '@types/react-dom': 18.3.7(@types/react@18.3.23)
 
+  '@radix-ui/react-separator@1.1.7(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@radix-ui/react-primitive': 2.1.3(@types/react-dom@18.3.7(@types/react@18.3.23))(@types/react@18.3.23)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+    optionalDependencies:
+      '@types/react': 18.3.23
+      '@types/react-dom': 18.3.7(@types/react@18.3.23)
+
   '@radix-ui/react-slot@1.2.3(@types/react@18.0.9)(react@18.1.0)':
     dependencies:
       '@radix-ui/react-compose-refs': 1.1.2(@types/react@18.0.9)(react@18.1.0)
@@ -11165,6 +11208,11 @@ snapshots:
   '@sinonjs/fake-timers@10.3.0':
     dependencies:
       '@sinonjs/commons': 3.0.1
+
+  '@sveltejs/acorn-typescript@1.0.5(acorn@8.15.0)':
+    dependencies:
+      acorn: 8.15.0
+    optional: true
 
   '@svgr/babel-plugin-add-jsx-attribute@8.0.0(@babel/core@7.28.0)':
     dependencies:
@@ -13107,6 +13155,11 @@ snapshots:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.4
 
+  esrap@2.1.0:
+    dependencies:
+      '@jridgewell/sourcemap-codec': 1.5.4
+    optional: true
+
   esrecurse@4.3.0:
     dependencies:
       estraverse: 5.3.0
@@ -13207,7 +13260,7 @@ snapshots:
     transitivePeerDependencies:
       - debug
 
-  extension-develop@2.1.3(@babel/core@7.28.0)(@prefresh/babel-plugin@0.5.2)(less@4.4.0)(sass@1.89.2)(svelte@5.15.0)(typescript@5.7.2)(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4)):
+  extension-develop@2.1.3(@babel/core@7.28.0)(@prefresh/babel-plugin@0.5.2)(less@4.4.0)(sass@1.89.2)(svelte@5.38.7)(typescript@5.7.2)(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4)):
     dependencies:
       '@rspack/core': 1.4.10(@swc/helpers@0.5.17)
       '@rspack/dev-server': 1.1.3(@rspack/core@1.4.10(@swc/helpers@0.5.17))(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4))
@@ -13257,7 +13310,7 @@ snapshots:
       postcss-preset-env: 10.2.4(postcss@8.5.6)
       react-refresh: 0.14.2
       sass-loader: 16.0.5(@rspack/core@1.4.10(@swc/helpers@0.5.17))(sass@1.89.2)(webpack@5.100.2(webpack-cli@5.1.4))
-      svelte-loader: 3.2.4(svelte@5.15.0)
+      svelte-loader: 3.2.4(svelte@5.38.7)
       vue-loader: 17.4.2(@vue/compiler-sfc@3.5.18)(webpack@5.100.2(webpack-cli@5.1.4))
       vue-style-loader: 4.1.3
     transitivePeerDependencies:
@@ -13279,7 +13332,7 @@ snapshots:
       - webpack-cli
       - webpack-hot-middleware
 
-  extension@2.1.3(@babel/core@7.28.0)(@prefresh/babel-plugin@0.5.2)(less@4.4.0)(sass@1.89.2)(svelte@5.15.0)(typescript@5.7.2)(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4)):
+  extension@2.1.3(@babel/core@7.28.0)(@prefresh/babel-plugin@0.5.2)(less@4.4.0)(sass@1.89.2)(svelte@5.38.7)(typescript@5.7.2)(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4)):
     dependencies:
       '@types/chrome': 0.0.287
       '@types/node': 22.16.5
@@ -13288,7 +13341,7 @@ snapshots:
       '@types/webextension-polyfill': 0.12.3
       commander: 12.1.0
       extension-create: 2.1.2
-      extension-develop: 2.1.3(@babel/core@7.28.0)(@prefresh/babel-plugin@0.5.2)(less@4.4.0)(sass@1.89.2)(svelte@5.15.0)(typescript@5.7.2)(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4))
+      extension-develop: 2.1.3(@babel/core@7.28.0)(@prefresh/babel-plugin@0.5.2)(less@4.4.0)(sass@1.89.2)(svelte@5.38.7)(typescript@5.7.2)(webpack-cli@5.1.4(webpack@5.100.2))(webpack@5.100.2(webpack-cli@5.1.4))
       pintor: 0.3.0
       semver: 7.7.2
       update-check: 1.5.4
@@ -16115,17 +16168,17 @@ snapshots:
   svelte-dev-helper@1.1.9:
     optional: true
 
-  svelte-hmr@0.14.12(svelte@5.15.0):
+  svelte-hmr@0.14.12(svelte@5.38.7):
     dependencies:
-      svelte: 5.15.0
+      svelte: 5.38.7
     optional: true
 
-  svelte-loader@3.2.4(svelte@5.15.0):
+  svelte-loader@3.2.4(svelte@5.38.7):
     dependencies:
       loader-utils: 2.0.4
-      svelte: 5.15.0
+      svelte: 5.38.7
       svelte-dev-helper: 1.1.9
-      svelte-hmr: 0.14.12(svelte@5.15.0)
+      svelte-hmr: 0.14.12(svelte@5.38.7)
     optional: true
 
   svelte@5.15.0:
@@ -16143,6 +16196,24 @@ snapshots:
       locate-character: 3.0.0
       magic-string: 0.30.17
       zimmerframe: 1.1.2
+
+  svelte@5.38.7:
+    dependencies:
+      '@jridgewell/remapping': 2.3.5
+      '@jridgewell/sourcemap-codec': 1.5.4
+      '@sveltejs/acorn-typescript': 1.0.5(acorn@8.15.0)
+      '@types/estree': 1.0.8
+      acorn: 8.15.0
+      aria-query: 5.3.2
+      axobject-query: 4.1.0
+      clsx: 2.1.1
+      esm-env: 1.2.2
+      esrap: 2.1.0
+      is-reference: 3.0.3
+      locate-character: 3.0.0
+      magic-string: 0.30.17
+      zimmerframe: 1.1.2
+    optional: true
 
   svg-parser@2.0.4: {}
 
