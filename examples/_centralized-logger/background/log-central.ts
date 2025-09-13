@@ -1,5 +1,3 @@
-// Background Log Hub: centralizes logs from all contexts (background, content, page, sidebar)
-
 type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug' | 'trace'
 
 type ContextType =
@@ -358,125 +356,113 @@ function logLifecycle(
 }
 
 // Extension lifecycle
-try {
-  chrome.runtime.onInstalled.addListener((details) => {
-    logLifecycle('info', [
-      'extension installed',
-      details.reason,
-      details.previousVersion ?? null
-    ])
-  })
-} catch {}
+chrome.runtime.onInstalled.addListener((details) => {
+  logLifecycle('info', [
+    'extension installed',
+    details.reason,
+    details.previousVersion ?? null
+  ])
+})
 
 // Persist/restore last events to survive SW restarts
-try {
-  chrome.storage.session.get(['logger_events'], (data) => {
-    const saved = Array.isArray(data?.logger_events)
-      ? (data.logger_events as LogEvent[])
-      : []
-    if (saved.length) {
-      for (const ev of saved.slice(-MAX_EVENTS)) {
-        eventsBuffer.push(ev)
-      }
+chrome.storage.session.get(['logger_events'], (data) => {
+  const saved = Array.isArray(data?.logger_events)
+    ? (data.logger_events as LogEvent[])
+    : []
+  if (saved.length) {
+    for (const ev of saved.slice(-MAX_EVENTS)) {
+      eventsBuffer.push(ev)
     }
-  })
-  setInterval(() => {
-    try {
-      chrome.storage.session.set({logger_events: eventsBuffer.slice(-200)})
-    } catch {}
-  }, 2000)
-} catch {}
+  }
+})
 
-try {
-  chrome.runtime.onStartup.addListener(() => {
-    logLifecycle('info', ['extension startup'])
-    // Emit a deterministic test signal for CLI verification
-    try {
-      logLifecycle('info', ['TEST_LOG: background-start'])
-    } catch {}
-  })
-} catch {}
+setInterval(() => {
+  chrome.storage.session.set({logger_events: eventsBuffer.slice(-200)})
+}, 2000)
+
+chrome.runtime.onStartup.addListener(() => {
+  logLifecycle('info', ['extension startup'])
+  // Emit a deterministic test signal for CLI verification
+  try {
+    logLifecycle('info', ['TEST_LOG: background-start'])
+  } catch {}
+})
 
 // Tabs lifecycle
-try {
-  chrome.tabs.onCreated.addListener((tab) => {
-    logLifecycle('info', ['tab created'], {
-      tabId: tab.id ?? undefined,
-      url: tab.url
+chrome.tabs.onCreated.addListener((tab) => {
+  logLifecycle('info', ['tab created'], {
+    tabId: tab.id ?? undefined,
+    url: tab.url
+  })
+})
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading') {
+    logLifecycle('debug', ['tab loading'], {tabId, url: tab.url})
+  }
+  if (changeInfo.status === 'complete') {
+    logLifecycle('debug', ['tab complete'], {tabId, url: tab.url})
+  }
+  if (typeof changeInfo.url === 'string') {
+    logLifecycle('info', ['tab url changed', changeInfo.url], {
+      tabId,
+      url: changeInfo.url
     })
-  })
+  }
+})
 
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'loading') {
-      logLifecycle('debug', ['tab loading'], {tabId, url: tab.url})
-    }
-    if (changeInfo.status === 'complete') {
-      logLifecycle('debug', ['tab complete'], {tabId, url: tab.url})
-    }
-    if (typeof changeInfo.url === 'string') {
-      logLifecycle('info', ['tab url changed', changeInfo.url], {
-        tabId,
-        url: changeInfo.url
-      })
-    }
-  })
+chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
+  logLifecycle(
+    'info',
+    [
+      'tab removed',
+      {
+        windowId: removeInfo.windowId,
+        isWindowClosing: removeInfo.isWindowClosing
+      }
+    ],
+    {tabId}
+  )
+})
 
-  chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-    logLifecycle(
-      'info',
-      [
-        'tab removed',
-        {
-          windowId: removeInfo.windowId,
-          isWindowClosing: removeInfo.isWindowClosing
-        }
-      ],
-      {tabId}
-    )
+// These require "webNavigation" permission
+chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+  logLifecycle('debug', ['before navigate'], {
+    tabId: details.tabId,
+    frameId: details.frameId,
+    url: details.url
   })
-} catch {}
+})
 
-// Navigation (frame-level and SPA)
-try {
-  // These require "webNavigation" permission
-  chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-    logLifecycle('debug', ['before navigate'], {
-      tabId: details.tabId,
-      frameId: details.frameId,
-      url: details.url
-    })
+chrome.webNavigation.onCommitted.addListener((details) => {
+  logLifecycle('debug', ['navigation committed'], {
+    tabId: details.tabId,
+    frameId: details.frameId,
+    url: details.url
   })
+})
 
-  chrome.webNavigation.onCommitted.addListener((details) => {
-    logLifecycle('debug', ['navigation committed'], {
-      tabId: details.tabId,
-      frameId: details.frameId,
-      url: details.url
-    })
+chrome.webNavigation.onCompleted.addListener((details) => {
+  logLifecycle('debug', ['navigation completed'], {
+    tabId: details.tabId,
+    frameId: details.frameId,
+    url: details.url
   })
+})
 
-  chrome.webNavigation.onCompleted.addListener((details) => {
-    logLifecycle('debug', ['navigation completed'], {
-      tabId: details.tabId,
-      frameId: details.frameId,
-      url: details.url
-    })
+chrome.webNavigation.onErrorOccurred.addListener((details) => {
+  logLifecycle('error', ['navigation error', details.error], {
+    tabId: details.tabId,
+    frameId: details.frameId,
+    url: details.url
   })
+})
 
-  chrome.webNavigation.onErrorOccurred.addListener((details) => {
-    logLifecycle('error', ['navigation error', details.error], {
-      tabId: details.tabId,
-      frameId: details.frameId,
-      url: details.url
-    })
+chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
+  // Covers SPA route changes
+  logLifecycle('debug', ['history state updated'], {
+    tabId: details.tabId,
+    frameId: details.frameId,
+    url: details.url
   })
-
-  chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
-    // Covers SPA route changes
-    logLifecycle('debug', ['history state updated'], {
-      tabId: details.tabId,
-      frameId: details.frameId,
-      url: details.url
-    })
-  })
-} catch {}
+})
