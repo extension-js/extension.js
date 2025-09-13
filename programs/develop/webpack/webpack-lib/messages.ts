@@ -338,7 +338,7 @@ export function serverRestartRequiredFromManifestError(
 
 export function resolverHtmlError(manifestName: string, filePath: string) {
   return (
-    `${getLoggingPrefix(manifestName, 'error')} HTML File Not Found\n\n` +
+    `${getLoggingPrefix(manifestName, 'error')} File Not Found in HTML Entrypoint\n\n` +
     `Either add it to the ${colors.yellow('public')} directory or create an HTML file in the ${colors.yellow('pages/')} directory.\n\n` +
     `${colors.red('NOT FOUND')} ${colors.underline(filePath)}`
   )
