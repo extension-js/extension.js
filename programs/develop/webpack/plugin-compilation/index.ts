@@ -49,57 +49,57 @@ export class CompilationPlugin {
       }).apply(compiler)
     }
 
-    ;(new DefinePlugin({
+    new DefinePlugin({
       'process.env.NODE_ENV': JSON.stringify(
         compiler.options.mode || 'development'
       )
-    }),
-      compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
-        stats.compilation.name = undefined
+    })
 
-        // Calculate compilation time
-        const duration =
-          stats.compilation.endTime! - stats.compilation.startTime!
+    compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
+      stats.compilation.name = undefined
 
-        const manifestName = JSON.parse(
-          fs.readFileSync(this.manifestPath, 'utf-8')
-        ).name
+      // Calculate compilation time
+      const duration = stats.compilation.endTime! - stats.compilation.startTime!
 
-        const hasErrors = stats.hasErrors()
-        const key = getCompilationKey(manifestName, hasErrors)
-        const rawLine = messages.boring(manifestName, duration, stats)
-        if (!rawLine) {
-          done()
-          return
-        }
-        const line: string = rawLine
+      const manifestName = JSON.parse(
+        fs.readFileSync(this.manifestPath, 'utf-8')
+      ).name
 
-        // If message repeats, overwrite previous compilation line and append (Nx)
-        if (key === lastCompilationKey) {
-          repeatCompilationCount += 1
-          const suffix = colors.gray(` (${repeatCompilationCount}x) `)
-
-          // In TTY, overwrite only from the 3rd time onward to preserve the first blank line after summary
-          if (process.stdout.isTTY && repeatCompilationCount > 2) {
-            process.stdout.write('\u001b[1A')
-            process.stdout.write('\u001b[2K')
-            process.stdout.write(line + suffix + '\n')
-          } else {
-            console.log(line + suffix)
-          }
-        } else {
-          // New key: reset counter and print fresh line with newline
-          lastCompilationKey = key
-          repeatCompilationCount = 1
-
-          // Do not insert extra blank lines; keep messages sequential
-          if (!printedFirstCompilation) {
-            printedFirstCompilation = true
-          }
-          console.log(line)
-        }
-
+      const hasErrors = stats.hasErrors()
+      const key = getCompilationKey(manifestName, hasErrors)
+      const rawLine = messages.boring(manifestName, duration, stats)
+      if (!rawLine) {
         done()
-      }))
+        return
+      }
+      const line: string = rawLine
+
+      // If message repeats, overwrite previous compilation line and append (Nx)
+      if (key === lastCompilationKey) {
+        repeatCompilationCount += 1
+        const suffix = colors.gray(` (${repeatCompilationCount}x) `)
+
+        // In TTY, overwrite only from the 3rd time onward to preserve the first blank line after summary
+        if (process.stdout.isTTY && repeatCompilationCount > 2) {
+          process.stdout.write('\u001b[1A')
+          process.stdout.write('\u001b[2K')
+          process.stdout.write(line + suffix + '\n')
+        } else {
+          console.log(line + suffix)
+        }
+      } else {
+        // New key: reset counter and print fresh line with newline
+        lastCompilationKey = key
+        repeatCompilationCount = 1
+
+        // Do not insert extra blank lines; keep messages sequential
+        if (!printedFirstCompilation) {
+          printedFirstCompilation = true
+        }
+        console.log(line)
+      }
+
+      done()
+    })
   }
 }

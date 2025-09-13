@@ -83,10 +83,11 @@ export class TargetWebExtensionPlugin {
           'chrome'
         )
 
-        const manifestName = patchedManifest.name || 'Extension.js'
-
-        const fieldError = messages.backgroundIsRequired(manifestName, filePath)
-        console.error(fieldError)
+        const fieldKey =
+          patchedManifest.manifest_version === 3
+            ? 'background/service_worker'
+            : 'background/scripts'
+        const fieldError = messages.backgroundIsRequired(fieldKey, filePath)
         throw new Error(fieldError)
       }
     }
