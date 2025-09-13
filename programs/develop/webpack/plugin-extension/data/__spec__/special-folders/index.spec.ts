@@ -80,10 +80,10 @@ describe('getSpecialFoldersData', () => {
       )
     })
 
-    // pages: keys are pages/<filename>, values are absolute paths
+    // pages: preserve nested path and collapse directory index
     expect(result.pages).toMatchObject({
       ['pages/index']: path.join(tmpDir, 'pages', 'index.html'),
-      ['pages/about']: path.join(tmpDir, 'pages', 'nested', 'about.html')
+      ['pages/nested/about']: path.join(tmpDir, 'pages', 'nested', 'about.html')
     })
     // non-html files should be ignored
     expect(Object.keys(result.pages).some((k) => k.includes('readme'))).toBe(

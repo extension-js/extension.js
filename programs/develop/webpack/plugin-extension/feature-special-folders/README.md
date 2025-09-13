@@ -22,7 +22,7 @@ Output mapping overview:
 | Source pattern | Output behavior                                                                  |
 | -------------- | -------------------------------------------------------------------------------- |
 | `public/**`    | Copied 1:1 into output root (e.g., `public/img/icon.png` → `dist/img/icon.png`). |
-| `pages/**`     | Surfaced via HTML feature; not copied by this plugin.                            |
+| `pages/**`     | Surfaced via HTML feature; nested routes preserved and `/index` collapses.       |
 | `scripts/**`   | Surfaced via Scripts feature; not copied by this plugin.                         |
 
 ## Usage

@@ -51,18 +51,28 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 
 ## Supported pages/fields
 
-| Feature                            | Output folder/page            | Description                              |
-| ---------------------------------- | ----------------------------- | ---------------------------------------- |
-| `action.default_popup`             | `action/index.html`           | Popup HTML (MV2/3, unified).             |
-| `page_action.default_popup`        | `action/index.html`           | Popup HTML (MV2, unified).               |
-| `sidebar_action.default_panel`     | `sidebar/index.html`          | Sidebar (MV2/Firefox, unified).          |
-| `side_panel.default_path`          | `sidebar/index.html`          | Side panel (MV3, unified).               |
-| `options_ui.page` / `options_page` | `options/index.html`          | Options UI/page (MV2/3, unified).        |
-| `devtools_page`                    | `devtools/index.html`         | DevTools extension page.                 |
-| `sandbox.page`                     | `sandbox/page-<n>.html`       | Sandboxed HTML pages.                    |
-| `background.page`                  | `background/index.html`       | Background HTML page (MV2).              |
-| `chrome_url_overrides.*`           | `chrome_url_overrides/*.html` | Override New Tab/Bookmarks/History.      |
-| Include list entries               | `pages/<name>.html`           | Additional HTML pages via `includeList`. |
+| Feature                            | Output folder/page            | Description                                 |
+| ---------------------------------- | ----------------------------- | ------------------------------------------- |
+| `action.default_popup`             | `action/index.html`           | Popup HTML (MV2/3, unified).                |
+| `page_action.default_popup`        | `action/index.html`           | Popup HTML (MV2, unified).                  |
+| `sidebar_action.default_panel`     | `sidebar/index.html`          | Sidebar (MV2/Firefox, unified).             |
+| `side_panel.default_path`          | `sidebar/index.html`          | Side panel (MV3, unified).                  |
+| `options_ui.page` / `options_page` | `options/index.html`          | Options UI/page (MV2/3, unified).           |
+| `devtools_page`                    | `devtools/index.html`         | DevTools extension page.                    |
+| `sandbox.page`                     | `sandbox/page-<n>.html`       | Sandboxed HTML pages.                       |
+| `background.page`                  | `background/index.html`       | Background HTML page (MV2).                 |
+| `chrome_url_overrides.*`           | `chrome_url_overrides/*.html` | Override New Tab/Bookmarks/History.         |
+| Include list entries               | `pages/<route>.html`          | Nested paths preserved; `/index` collapses. |
+
+### pages/ routing and output mapping
+
+- The `pages/` special folder supports nested routes similar to Next.js conventions.
+- Mapping rules:
+  - `pages/foo.html` → `pages/foo.html`
+  - `pages/blog/post.html` → `pages/blog/post.html`
+  - `pages/welcome/index.html` → `pages/welcome.html`
+  - `pages/index.html` → `pages/index.html`
+- This allows authors to structure pages predictably without manifest entries.
 
 ## Usage
 
