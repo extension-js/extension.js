@@ -39,6 +39,30 @@ export function generateEntries(
 
   return includes.reduce((acc, include) => {
     const extname = path.extname(include)
+
+    // Special handling for pages/: preserve nested path and collapse "/index"
+    if (folderName === 'pages') {
+      const pagesRoot = path.join(projectPath, folderName)
+      // Relative path inside pages/, normalized to unix style
+      const rel = path.relative(pagesRoot, include).split(path.sep).join('/')
+
+      // Strip extension
+      let relNoExt = rel.slice(0, -extname.length)
+
+      // Collapse nested "/index" -> its parent.
+      // Root "index" remains "index"
+      if (relNoExt.endsWith('/index')) {
+        relNoExt = relNoExt.slice(0, -'/index'.length)
+      }
+      if (relNoExt === '') {
+        relNoExt = 'index'
+      }
+
+      const key = `${folderName}/${relNoExt}`
+      return {...acc, [key]: include}
+    }
+
+    // Default behavior (public/, scripts/, etc...)
     const filename = path.basename(include, extname)
     const key = folderName
       ? `${folderName}/${filename}`
