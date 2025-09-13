@@ -65,7 +65,7 @@
   ],
   "dependencies": {
     "adm-zip": "^0.5.12",
-    "axios": "^1.7.2",
+    "axios": "^1.12.0",
     "cross-spawn": "^7.0.6",
     "go-git-it": "^5.0.0",
     "package-manager-detector": "^0.2.7",
