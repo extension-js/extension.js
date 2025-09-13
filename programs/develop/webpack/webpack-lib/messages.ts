@@ -30,7 +30,7 @@ export function boring(manifestName: string, duration: number, stats: Stats) {
   let didShow = false
 
   if (!didShow) {
-    const arrow = stats.hasErrors() ? colors.red('►►►') : colors.green('►►►')
+    const arrow = stats.hasErrors() ? colors.red('✖✖✖') : colors.green('►►►')
 
     return `${arrow} ${manifestName} compiled ${
       stats.hasErrors()
@@ -284,17 +284,17 @@ export function manifestFieldError(
   const contentIndex = manifestField.split('-')[1]
   const isPage = manifestField.startsWith('pages')
 
-  const field = manifestName.includes('content_scripts')
-    ? `(index ${contentIndex})\n\n`
+  const isContentScripts = manifestField.startsWith('content_scripts')
+  const fieldLabel = isContentScripts
+    ? `content_scripts (index ${contentIndex})`
     : manifestFieldName
+
   return (
-    `${getLoggingPrefix('manifest.json', 'error')} File Not Found\n\n` +
+    '' +
     `${
       isPage
-        ? `Check the ${colors.yellow(
-            'pages'
-          )} folder in your project root directory.\n\n`
-        : `Check the ${colors.yellow(field)} field in your ${colors.yellow('manifest.json')} file.\n\n`
+        ? `Check the ${colors.yellow('pages')} folder in your project root directory.\n\n`
+        : `Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.\n\n`
     }` +
     `${colors.red('NOT FOUND')} ${colors.underline(filePath)}`
   )
@@ -424,8 +424,7 @@ export function backgroundIsRequired(
   filePath: string
 ) {
   return (
-    `${getLoggingPrefix('manifest.json', 'error')} ` +
-    `File Not Found\n` +
+    '' +
     `Check the ${colors.yellow(backgroundChunkName.replace('/', '.'))} ` +
     `field in your ${colors.yellow('manifest.json')} file.\n` +
     `${colors.red('NOT FOUND')} ${colors.underline(filePath)}`

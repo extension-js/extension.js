@@ -73,6 +73,16 @@ export class RunFirefoxPlugin {
     compilation: Compilation,
     options: DevOptions & BrowserConfig
   ) {
+    // Extra guard: never launch if compilation has errors
+    const compilationErrors: any[] = (compilation as any)?.errors || []
+
+    if (compilationErrors.length > 0) {
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.skippingBrowserLaunchDueToCompileErrors())
+      }
+      return
+    }
+
     console.log(messages.firefoxLaunchCalled())
 
     // Detect Firefox binary with enhanced detection

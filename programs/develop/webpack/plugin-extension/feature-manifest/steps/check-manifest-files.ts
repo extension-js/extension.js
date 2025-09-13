@@ -106,23 +106,10 @@ export class CheckManifestFiles {
               field,
               item as string
             )
-            // Also surface the error immediately in stdout so users see it
-            // before the browser runner attempts to launch.
-            try {
-              // eslint-disable-next-line no-console
-              console.error(fieldError)
-            } catch {}
-            if (iconExts.includes(ext)) {
-              compilation.errors.push(new WebpackError(fieldError))
-            } else if (jsonExts.includes(ext)) {
-              compilation.errors.push(new WebpackError(fieldError))
-            } else if (scriptExts.includes(ext)) {
-              compilation.errors.push(new WebpackError(fieldError))
-            } else if (ext === htmlExt) {
-              compilation.errors.push(new WebpackError(fieldError))
-            } else {
-              compilation.errors.push(new WebpackError(fieldError))
-            }
+            const err = new WebpackError(fieldError) as Error & {file: string}
+            // Hint Rspack to display "ERROR in manifest.json × ..."
+            err.file = 'manifest.json'
+            compilation.errors.push(err)
           }
         }
       }

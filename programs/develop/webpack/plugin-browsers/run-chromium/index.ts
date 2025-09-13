@@ -60,6 +60,16 @@ export class RunChromiumPlugin {
     compilation: Compilation,
     browser: DevOptions['browser']
   ) {
+    // Extra guard: never launch if compilation has errors
+    const compilationErrors = compilation?.errors || []
+    
+    if (compilationErrors.length > 0) {
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.skippingBrowserLaunchDueToCompileErrors())
+      }
+      return
+    }
+
     let browserBinaryLocation: string
 
     switch (browser) {
