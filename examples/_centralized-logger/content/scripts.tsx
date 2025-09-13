@@ -33,7 +33,7 @@ function initial() {
   shadowRoot.appendChild(style)
   fetchCSS().then((css) => (style.textContent = css))
   if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
+    import.meta.webpackHot?.accept('../shared/styles.css', () => {
       fetchCSS().then((css) => (style.textContent = css))
     })
   }
@@ -109,7 +109,7 @@ function initial() {
 }
 
 async function fetchCSS() {
-  const url = new URL('./styles.css', import.meta.url)
+  const url = new URL('../shared/styles.css', import.meta.url)
   const res = await fetch(url)
   const css = await res.text()
   return res.ok ? css : Promise.reject(css)

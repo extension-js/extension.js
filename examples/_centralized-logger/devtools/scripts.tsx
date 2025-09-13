@@ -1,7 +1,10 @@
 try {
   chrome.devtools?.panels.create(
     'Extension Logs',
-    'images/extension_48.png',
+    'images/logo.png',
+    // Refer to the output folder for the path
     'sidebar/index.html'
   )
-} catch {}
+} catch {
+  console.error('[Extension.js] Failed to create devtools panel')
+}

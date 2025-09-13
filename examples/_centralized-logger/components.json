@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": ["sidebar/styles.css", "content/styles.css"],
+    "css": ["shared/styles.css", "content/styles.css"],
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
