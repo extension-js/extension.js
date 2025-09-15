@@ -942,6 +942,9 @@ importers:
       sass-loader:
         specifier: ^16.0.4
         version: 16.0.5(@rspack/core@1.4.10(@swc/helpers@0.5.17))(sass@1.89.2)(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))(esbuild@0.25.8))
+      svelte-loader:
+        specifier: ^3.2.4
+        version: 3.2.4(svelte@5.38.7)
       vue-loader:
         specifier: ^17.4.2
         version: 17.4.2(@vue/compiler-sfc@3.5.18)(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))(esbuild@0.25.8))

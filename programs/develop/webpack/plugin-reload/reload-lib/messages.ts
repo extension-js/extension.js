@@ -340,7 +340,7 @@ export function sourceInspectorCleanupError(error: string) {
 export function htmlEntrypointChangeRestarting() {
   return (
     getLoggingPrefix('HTML', 'warn') +
-    ' Entrypoint change detected. Restarting dev server to recompile...'
+    ' Entrypoint change detected. Restart the extension server to recompile...'
   )
 }
 
