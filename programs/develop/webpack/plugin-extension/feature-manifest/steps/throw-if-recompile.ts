@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import rspack, {Compiler, Compilation} from '@rspack/core'
+import {Compiler, Compilation} from '@rspack/core'
 import * as messages from '../../../webpack-lib/messages'
 import * as reloadMessages from '../../../plugin-reload/reload-lib/messages'
 import {DevOptions} from '../../../../develop-lib/config-types'

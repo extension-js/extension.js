@@ -108,8 +108,7 @@ export default class CreateWebSocketServer {
           console.warn(messages.webSocketServerNotReady())
         }
 
-        // If an HTML entrypoint file changed, trigger a full
-        // recompilation by restarting the process.
+        // If an HTML entrypoint file changed, only warn; do not restart
         try {
           const manifestHtml = getManifestFieldsData({
             manifestPath: this.manifestPath
@@ -124,17 +123,7 @@ export default class CreateWebSocketServer {
           )
 
           if (isHtmlEntrypointChange) {
-            // Let stdout show the intent; Manager extension will
-            // reload on reconnect. Reuse existing message content
-            // semantics for visibility.
             console.warn(messages.htmlEntrypointChangeRestarting())
-
-            // Small delay to flush logs and WS message before exit.
-            setTimeout(() => {
-              try {
-                process.kill(process.pid, 'SIGINT')
-              } catch {}
-            }, 100)
           }
         } catch {}
 

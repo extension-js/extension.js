@@ -134,7 +134,16 @@ export async function devServer(
             interval: 1000
           }
         },
-    client: false,
+    client: {
+      logging: process.env.EXTENSION_ENV === 'development' ? 'error' : 'none',
+      progress: false,
+      overlay: false,
+      webSocketURL: {
+        protocol: 'ws',
+        hostname: '127.0.0.1',
+        port
+      }
+    },
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
@@ -146,10 +155,6 @@ export async function devServer(
 
   devServer.startCallback(async (error) => {
     if (error != null) {
-      if ((error as NodeJS.ErrnoException).code === 'EADDRINUSE') {
-        console.log(messages.portInUse(port as number, port as number))
-        process.exit(1)
-      }
       console.log(messages.extensionJsRunnerError(error))
     }
   })
