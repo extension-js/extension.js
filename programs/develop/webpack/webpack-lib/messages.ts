@@ -433,11 +433,10 @@ export function backgroundIsRequired(
 
 export function serverRestartRequiredFromHtml(filePath: string) {
   return (
-    `${getLoggingPrefix('HTML', 'warn')} Entrypoint Change\n` +
-    `Detected changes to ${colors.yellow('<script>')} or ${colors.yellow(
-      '<link rel="stylesheet">'
-    )} references in HTML. The extension will undergo a full recompilation and a reload.\n` +
-    `${colors.brightBlue('PATH')} ${colors.underline(filePath)}`
+    `${getLoggingPrefix('Detected', 'warn')} changes to ${colors.yellow(
+      '<script>'
+    )} or ${colors.yellow('<link rel="stylesheet">')} references in HTML.\n` +
+    `${colors.gray('PATH')} ${colors.underline(filePath)}`
   )
 }
 
@@ -728,7 +727,9 @@ export function extensionJsRunnerCleanupError(error: unknown) {
 }
 
 export function extensionJsRunnerUncaughtException(error: unknown) {
-  return `${getLoggingPrefix('Extension.js Runner', 'error')} Uncaught exception.\n${colors.red(String(error))}`
+  const err = error as any
+  const stack = (err && (err.stack || err.message)) || String(error)
+  return `${getLoggingPrefix('Extension.js Runner', 'error')} Uncaught exception.\n${colors.red(String(stack))}`
 }
 
 export function extensionJsRunnerUnhandledRejection(
