@@ -78,7 +78,7 @@ const Welcome: React.FC = () => {
           >
             {/* {extension ? extension.name : ''}
             <br /> */}
-            ready for development??
+            ready for development
           </span>
         </a>
       </h1>
@@ -93,8 +93,9 @@ const Welcome: React.FC = () => {
         >
           Extension.js
         </a>{' '}
-        is a development toolkit for building cross-browser extensions with
-        modern web technologies.
+        is a development toolkit for building
+        <br />
+        cross-browser extensions with modern web technologies.
       </p>
       <div className="mt-6 flex items-center gap-2">
         <Button onClick={handleLearnMore}>

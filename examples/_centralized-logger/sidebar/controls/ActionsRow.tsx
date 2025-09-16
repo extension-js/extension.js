@@ -65,7 +65,7 @@ export function ActionsRow({
         placeholder="Search messages/URL..."
         value={search}
         onChange={handleSearchChange}
-        className="h-7 px-2 text-xs"
+        className="hidden sm:block h-7 px-2 text-xs"
       />
       <Button
         variant="outline"
