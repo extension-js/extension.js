@@ -159,7 +159,7 @@ export default function SidebarApp() {
   }, [searchInput])
 
   return (
-    <div className="sidebar_app p-2">
+    <div className="sidebar_app">
       <style>
         {`
         :root { color-scheme: light dark; }
@@ -171,7 +171,7 @@ export default function SidebarApp() {
       `}
       </style>
       <Toaster />
-      <div className="contents grid gap-2 h-screen">
+      <div className="contents grid p-2 gap-2 h-screen">
         <div className="flex items-center gap-1.5 flex-wrap">
           <FiltersRow
             contextFilter={contextFilter}
