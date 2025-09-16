@@ -123,13 +123,13 @@ export function LogTableView({
                       <TableHead
                         key={header.id}
                         className={
-                          `group h-7 select-none relative sticky top-0 z-[1] bg-muted text-muted-foreground border-b border-border py-[2px] ` +
+                          `group h-7 select-none relative sticky top-0 z-[1] bg-background border-b border-border py-[2px] ` +
                           `${header.column.getCanSort() ? 'cursor-pointer' : ''} ` +
                           `${header.column.id === 'time' ? 'w-[9ch] min-w-[9ch]' : ''} ` +
                           `${header.column.id === 'context' ? 'w-[20ch] min-w-[20ch]' : ''} ` +
                           `${header.column.id === 'source' ? 'w-[20ch] min-w-[20ch]' : ''} ` +
                           `${header.column.id === 'level' ? 'w-[7ch] min-w-[7ch]' : ''} ` +
-                          `${header.column.id === 'expand-action' ? 'w-[9ch] min-w-[9ch]' : ''} ` +
+                          `${header.column.id === 'expand-action' ? 'w-[9ch] min-w-[9ch] hidden sm:table-cell' : ''} ` +
                           `${header.column.id === 'expand-action' ? 'text-right' : 'text-left'} ` +
                           `${idx === 0 ? 'rounded-tl-lg' : ''} ` +
                           `${idx === arr.length - 1 ? 'rounded-tr-lg' : ''}`
@@ -156,7 +156,7 @@ export function LogTableView({
                     data-row-id={row.original.id}
                     className={
                       Number(row.id.split(':').pop() || 0) % 2 === 1
-                        ? 'border-b border-border bg-muted'
+                        ? 'border-b border-border bg-background'
                         : 'border-b border-border'
                     }
                   >
@@ -169,7 +169,7 @@ export function LogTableView({
                           `${cell.column.id === 'context' ? 'w-[20ch] min-w-[20ch]' : ''} ` +
                           `${cell.column.id === 'source' ? 'w-[20ch] min-w-[20ch]' : ''} ` +
                           `${cell.column.id === 'level' ? 'w-[7ch] min-w-[7ch]' : ''} ` +
-                          `${cell.column.id === 'expand-action' ? 'w-[9ch] min-w-[9ch]' : ''}`
+                          `${cell.column.id === 'expand-action' ? 'w-[9ch] min-w-[9ch] hidden sm:table-cell' : ''}`
                         }
                       >
                         {flexRender(
