@@ -7,22 +7,28 @@ import {render} from 'preact'
 import ContentApp from './ContentApp'
 
 export default function () {
-  const host = document.createElement('div')
-  document.body.appendChild(host)
-  const shadow = host.attachShadow({mode: 'open'})
+  // Create a new div element and append it to the document's body
+  const rootDiv = document.createElement('div')
+  document.body.appendChild(rootDiv)
 
-  const style = document.createElement('style')
-  shadow.appendChild(style)
-  fetchCSS().then((css) => (style.textContent = css))
+  // Injecting content_scripts inside a shadow dom
+  // prevents conflicts with the host page's styles.
+  // This way, styles from the extension won't leak into the host page.
+  const shadowRoot = rootDiv.attachShadow({mode: 'open'})
 
+  const styleElement = document.createElement('style')
+  shadowRoot.appendChild(styleElement)
+  fetchCSS().then((response) => (styleElement.textContent = response))
+
+  // Create container for Preact app
   const container = document.createElement('div')
-  shadow.appendChild(container)
+  container.className = 'content_script'
+  shadowRoot.appendChild(container)
 
   render(<ContentApp />, container)
 
   return () => {
-    render(null, container)
-    host.remove()
+    rootDiv.remove()
   }
 }
 

@@ -6,30 +6,67 @@
 import {createApp} from 'vue'
 import ContentApp from './ContentApp.vue'
 
-export default function () {
-  const host = document.createElement('div')
-  document.body.appendChild(host)
-  const shadow = host.attachShadow({mode: 'open'})
+console.log('Hello from content script')
 
-  const style = document.createElement('style')
-  shadow.appendChild(style)
-  fetchCSS().then((css) => (style.textContent = css))
+export default function initial(host?: HTMLElement) {
+  // If wrapper provides a host container inside a ShadowRoot, render into it.
+  // Otherwise, operate in standalone mode and create our own shadow root.
+  let cleanup: (() => void) | undefined
 
-  const container = document.createElement('div')
-  shadow.appendChild(container)
+  if (host) {
+    const rootNode = host.getRootNode?.()
+    const shadowRoot =
+      rootNode && rootNode instanceof ShadowRoot
+        ? (rootNode as ShadowRoot)
+        : undefined
 
-  const app = createApp(ContentApp)
-  app.mount(container)
+    // Inject CSS into the existing shadow root if available
+    if (shadowRoot) {
+      const styleElement = document.createElement('style')
+      shadowRoot.appendChild(styleElement)
+      fetchCSS().then((response) => (styleElement.textContent = response))
+    }
 
-  return () => {
-    app.unmount()
-    host.remove()
+    // Ensure a mount container exists (host itself is fine)
+    const app = createApp(ContentApp)
+    app.mount(host)
+    cleanup = () => {
+      try {
+        app.unmount()
+      } catch {}
+    }
+  } else {
+    const rootDiv = document.createElement('div')
+    document.body.appendChild(rootDiv)
+
+    // Standalone: create shadow root and inject CSS locally
+    const shadowRoot = rootDiv.attachShadow({mode: 'open'})
+    const styleElement = document.createElement('style')
+    shadowRoot.appendChild(styleElement)
+    fetchCSS().then((response) => (styleElement.textContent = response))
+
+    const contentDiv = document.createElement('div')
+    contentDiv.className = 'content_script'
+    shadowRoot.appendChild(contentDiv)
+
+    const app = createApp(ContentApp)
+    app.mount(contentDiv)
+    cleanup = () => {
+      try {
+        app.unmount()
+      } catch {}
+      try {
+        rootDiv.remove()
+      } catch {}
+    }
   }
+
+  return cleanup
 }
 
 async function fetchCSS() {
-  const url = new URL('./styles.css', import.meta.url)
-  const res = await fetch(url)
-  const css = await res.text()
-  return res.ok ? css : Promise.reject(css)
+  const cssUrl = new URL('./styles2.css', import.meta.url)
+  const response = await fetch(cssUrl)
+  const text = await response.text()
+  return response.ok ? text : Promise.reject(text)
 }
