@@ -5,11 +5,11 @@ import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {type LoaderContext} from '../../../webpack-types'
 import {generateReactWrapperCode} from '../wrappers/react'
-import {generateVueWrapperCode} from '../wrappers/vue'
-import {generateSvelteWrapperCode} from '../wrappers/svelte'
+// import {generateVueWrapperCode} from '../wrappers/vue'
+// import {generateSvelteWrapperCode} from '../wrappers/svelte'
 import {generatePreactWrapperCode} from '../wrappers/preact'
-import {generateTypeScriptWrapperCode} from '../wrappers/typescript'
-import {generateJavaScriptWrapperCode} from '../wrappers/javascript'
+// import {generateTypeScriptWrapperCode} from '../wrappers/typescript'
+// import {generateJavaScriptWrapperCode} from '../wrappers/javascript'
 
 const schema: Schema = {
   type: 'object',
@@ -64,6 +64,18 @@ function extractCSSImports(source: string): string[] {
   }
 
   return cssImports
+}
+
+// Extract CSS URLs referenced via new URL('./styles.css', import.meta.url)
+function extractCssUrlsViaNewURL(source: string): string[] {
+  const matches: string[] = []
+  const re =
+    /new\s+URL\(\s*['"]([^'"]+\.(?:css|scss|sass|less))['"]\s*,\s*import\.meta\.url\s*\)/g
+  let m
+  while ((m = re.exec(source))) {
+    if (m[1] && !matches.includes(m[1])) matches.push(m[1])
+  }
+  return matches
 }
 
 function detectFramework(
@@ -140,7 +152,9 @@ function generateFrameworkWrapperCode(
   resourcePath: string
 ): string {
   const fileName = path.basename(resourcePath, path.extname(resourcePath))
-  const cssImports = extractCSSImports(source)
+  const cssImports = Array.from(
+    new Set([...extractCSSImports(source), ...extractCssUrlsViaNewURL(source)])
+  )
 
   if (process.env.EXTENSION_ENV === 'development') {
     console.log(
@@ -154,47 +168,65 @@ function generateFrameworkWrapperCode(
     return generateReactWrapperCode(source, resourcePath)
   }
 
-  if (framework === 'vue') {
-    return generateVueWrapperCode(source, resourcePath)
-  }
+  // if (framework === 'vue') {
+  //   return generateVueWrapperCode(source, resourcePath)
+  // }
 
-  if (framework === 'svelte') {
-    return generateSvelteWrapperCode(source, resourcePath)
-  }
+  // if (framework === 'svelte') {
+  //   return generateSvelteWrapperCode(source, resourcePath)
+  // }
 
   if (framework === 'preact') {
     return generatePreactWrapperCode(source, resourcePath)
   }
 
-  if (framework === 'typescript') {
-    return generateTypeScriptWrapperCode(source, resourcePath)
-  }
+  // if (framework === 'typescript') {
+  //   return generateTypeScriptWrapperCode(source, resourcePath)
+  // }
 
-  if (framework === 'javascript') {
-    return generateJavaScriptWrapperCode(source, resourcePath)
-  }
+  // if (framework === 'javascript') {
+  //   return generateJavaScriptWrapperCode(source, resourcePath)
+  // }
 
-  // Fallback to TypeScript-compatible code for unknown frameworks
-  return generateTypeScriptWrapperCode(source, resourcePath)
+  // // Fallback to TypeScript-compatible code for unknown frameworks
+  // return generateTypeScriptWrapperCode(source, resourcePath)
+  return source
 }
 
 /**
  * Check if content script should use wrapper
  */
 function shouldUseWrapper(
-  _source: string,
+  source: string,
   manifest: any,
   projectPath: string,
-  url: string
+  requestUrl: string,
+  resourcePathAbs: string
 ): boolean {
-  // Apply wrapper by default to files referenced by manifest.content_scripts
+  // New contract: only apply wrapper when the user provides a default export
+  // This lets us know which function to apply our rules to, and avoids
+  // being invasive for legacy scripts without a default export.
+  const hasDefaultExport = /\bexport\s+default\b/.test(source)
+  if (!hasDefaultExport) return false
+
+  // Apply wrapper only to files referenced by manifest.content_scripts
   if (!manifest.content_scripts) return false
 
   for (const contentScript of manifest.content_scripts) {
     if (!contentScript.js) continue
     for (const js of contentScript.js) {
       const absoluteUrl = path.resolve(projectPath, js as string)
-      if (url.includes(absoluteUrl)) {
+      // Match by absolute filesystem path
+      if (
+        resourcePathAbs === absoluteUrl ||
+        resourcePathAbs.includes(absoluteUrl)
+      ) {
+        return true
+      }
+      // Fallback: match by normalized request path substrings
+      const normalizedReq = requestUrl.replace(/\\/g, '/')
+      const normalizedAbs = absoluteUrl.replace(/\\/g, '/')
+      if (normalizedReq.includes(normalizedAbs)) {
         return true
       }
     }
@@ -215,8 +247,30 @@ export default function (this: LoaderContext, source: string) {
 
   const url = urlToRequest(this.resourcePath)
 
+  // Bypass wrapper when explicitly requesting raw module (used by wrapper dynamic import)
+  try {
+    const req: string = (this as any).request || ''
+    if (req.includes('__extensionjs_raw__=1')) {
+      return source
+    }
+    // Generate an HMR-declined proxy when requested
+    if (req.includes('__extensionjs_decline__=1')) {
+      // Re-import the original resource path (absolute) and decline HMR for this proxy.
+      const absFile = this.resourcePath
+      const proxyCode = `
+if (import.meta.webpackHot) {
+  try { import.meta.webpackHot.decline() } catch {}
+}
+export { default as default, contentScript } from ${JSON.stringify(absFile)}
+`
+      return proxyCode
+    }
+  } catch {}
+
   // Check if we should use the wrapper
-  if (!shouldUseWrapper(source, manifest, projectPath, url)) {
+  if (
+    !shouldUseWrapper(source, manifest, projectPath, url, this.resourcePath)
+  ) {
     return source
   }
 
@@ -224,11 +278,15 @@ export default function (this: LoaderContext, source: string) {
   const framework = detectFramework(this.resourcePath, projectPath)
 
   if (framework) {
-    const wrapperCode = generateFrameworkWrapperCode(
+    const wrapperRaw = generateFrameworkWrapperCode(
       source,
       framework,
       this.resourcePath
     )
+    // Use absolute resource path to avoid malformed './/' requests from urlToRequest
+    const userRequest = this.resourcePath + '?__extensionjs_decline__=1'
+    const placeholder = "'__EXTENSIONJS_USER_REQUEST__'"
+    const wrapperCode = wrapperRaw.split(placeholder).join(JSON.stringify(userRequest))
     return wrapperCode
   }
 
