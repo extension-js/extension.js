@@ -86,6 +86,12 @@ export default config
   - Back‑compat: missing default export is tolerated in dev with a warning, but will be required in v3.
   - Returning a cleanup function is respected for back‑compat, but the wrapper provides its own unmount; returning cleanup is discouraged.
   - Side‑effect only defaults are supported; the wrapper detects and removes created nodes on unmount/HMR.
+  - Required for wrapper application: the loader only applies wrappers when a `export default` is present in the content script. This ensures we can target the correct function and avoid wrapping legacy files unintentionally.
+
+CSS handling and HMR:
+
+- CSS referenced via ES imports (e.g., `import './styles.css'`) is injected and hot‑reloaded.
+- CSS referenced via `new URL('./styles.css', import.meta.url)` is also detected, injected, and hot‑reloaded. Renaming the URL path (e.g., switching to `styles2.css`) is picked up on rebuild and the new stylesheet is injected without a full page reload.
 
 ### CSP considerations
 
@@ -168,18 +174,4 @@ new ScriptsPlugin({
 - Injects HMR accept code into content scripts and background scripts (not service workers).
 - Emits a minimal JS bundle even for CSS-only content scripts, so they can be loaded reliably in development.
 - In production, ensures publicPath is available and corrected for content scripts and main-world asset resolution.
-- Honors `includeList` and `excludeList` for script and CSS files; excluded file paths (or subpaths) are not emitted.
-
-### Compatibility
-
-- Built and typed against `@rspack/core`.
-- Webpack 5 may work (compiler interfaces are similar), but it is not officially supported here.
-
-### Learn more
-
-- Extension.js website: `https://extension.js.org`
-- Source repo: `https://github.com/extension-js/extension.js`
-
-## License
-
-MIT (c) Cezar Augusto
+- Honors `
