@@ -62,7 +62,7 @@ export class RunChromiumPlugin {
   ) {
     // Extra guard: never launch if compilation has errors
     const compilationErrors = compilation?.errors || []
-    
+
     if (compilationErrors.length > 0) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.skippingBrowserLaunchDueToCompileErrors())
