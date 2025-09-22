@@ -177,7 +177,7 @@ extensionJs
 
     const {extensionDev} = await import('extension-develop')
     for (const vendor of list) {
-      await extensionDev(pathOrRemoteUrl, {
+      const devArgs: any = {
         ...devOptions,
         profile: devOptions.profile,
         browser: vendor as DevOptions['browser'],
@@ -188,6 +188,7 @@ extensionJs
         startingUrl: devOptions.startingUrl,
         source: devOptions.source,
         watchSource: devOptions.watchSource,
+        // Unified logger options (not part of DevOptions type):
         logLevel: (devOptions as any).logs || 'info',
         logContexts: (() => {
           const raw = (devOptions as any).logContext
@@ -217,7 +218,9 @@ extensionJs
         logColor: (devOptions as any).logColor !== false,
         logUrl: (devOptions as any).logUrl,
         logTab: (devOptions as any).logTab
-      })
+      }
+
+      await extensionDev(pathOrRemoteUrl, devArgs)
     }
   })
 

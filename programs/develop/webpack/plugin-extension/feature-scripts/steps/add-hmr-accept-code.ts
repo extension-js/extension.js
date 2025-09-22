@@ -68,26 +68,7 @@ export default function (this: LoaderContext, source: string) {
   }
 
   const url = urlToRequest(this.resourcePath)
-  const reloadCodeContent = `
-// Extension.js HMR registration (injected)
-if (import.meta.webpackHot) {
-  try {
-    import.meta.webpackHot.accept();
-    import.meta.webpackHot.dispose(() => {
-      try {
-        if (typeof document !== 'undefined') {
-          const knownRoots = ['#extension-root','[data-extension-root="true"]'];
-          for (const selector of knownRoots) {
-            const el = document.querySelector(selector);
-            if (el && el.parentElement) { el.parentElement.removeChild(el); }
-          }
-        }
-      } catch (_) {}
-    });
-  } catch (_) {}
-}
-  `
-
+  const reloadCodeContent = ``
   const reloadCodeBackground = `
 // Extension.js HMR registration (injected)
 if (import.meta.webpackHot) { try { import.meta.webpackHot.accept(); } catch (_) {} }

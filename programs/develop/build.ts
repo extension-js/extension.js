@@ -23,6 +23,8 @@ export async function extensionBuild(
   buildOptions?: BuildOptions
 ): Promise<void> {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+  const isVitest = process.env.VITEST === 'true'
+  const shouldExitOnError = (buildOptions?.exitOnError ?? true) && !isVitest
 
   try {
     const browser = buildOptions?.browser || 'chrome'
@@ -108,7 +110,7 @@ export async function extensionBuild(
         } else {
           // Print stats and reject to let callers (tests/CLI) decide on process exit
           console.log(stats.toString({colors: true}))
-          if (buildOptions?.exitOnError === false) {
+          if (!shouldExitOnError) {
             return reject(new Error('Build failed with errors'))
           }
           process.exit(1)
@@ -119,7 +121,7 @@ export async function extensionBuild(
     if (process.env.EXTENSION_ENV === 'development') {
       console.error(error)
     }
-    if (buildOptions?.exitOnError === false) {
+    if (!shouldExitOnError) {
       throw error
     }
     process.exit(1)
