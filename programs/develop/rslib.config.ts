@@ -60,10 +60,6 @@ export default defineConfig({
         __dirname,
         './webpack/plugin-extension/feature-scripts/steps/add-hmr-accept-code.ts'
       ),
-      'add-content-script-wrapper': path.resolve(
-        __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/add-content-script-wrapper.ts'
-      ),
       'deprecated-shadow-root': path.resolve(
         __dirname,
         './webpack/plugin-extension/feature-scripts/steps/deprecated-shadow-root.ts'
