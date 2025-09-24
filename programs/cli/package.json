@@ -97,6 +97,6 @@
     "mock-fs": "^5.4.1",
     "tsconfig": "*",
     "typescript": "5.7.2",
-    "vitest": "3.2.2"
+    "vitest": "^3.2.4"
   }
 }
