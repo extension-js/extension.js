@@ -178,8 +178,19 @@ export class RunChromiumPlugin {
           this.browser
         )
       )
-      const profileForConfig =
-        concurrent || baseLocked ? undefined : this.profile
+      // The logic below determines which Chrome user profile directory to use.
+      // If the user explicitly provided a profile path, always use it.
+      // Otherwise, if there's a concurrent Chromium session or the base profile is locked,
+      // we must NOT use the default profile (to avoid Chrome ignoring --load-extension),
+      // so we pass undefined to trigger per-instance profile creation.
+      // If neither of those is true, we fall back to this.profile (which is likely undefined anyway)
+      const hasExplicitProfile =
+        typeof this.profile === 'string' && this.profile.trim().length > 0
+      const profileForConfig = hasExplicitProfile
+        ? this.profile
+        : concurrent || baseLocked
+          ? undefined
+          : this.profile
       chromiumConfig = browserConfig(compilation, {
         ...this,
         profile: profileForConfig,

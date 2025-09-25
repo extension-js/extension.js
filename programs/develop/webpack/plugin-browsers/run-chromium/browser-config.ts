@@ -71,12 +71,17 @@ export function browserConfig(
 
   const actualCompilation = compilation.compilation || compilation
 
-  // Force a managed profile when source inspection is enabled to ensure flags are applied
+  // Force a managed profile when source inspection is enabled to ensure flags are applied,
+  // except when the user explicitly provided a profile path
   const sourceEnabled = !!(configOptions.source || configOptions.watchSource)
+  const hasExplicitProfile =
+    typeof configOptions.profile === 'string' &&
+    configOptions.profile.trim().length > 0
 
   const userProfilePath = createProfile(actualCompilation, {
     browser: configOptions.browser,
-    userProfilePath: sourceEnabled ? undefined : configOptions.profile,
+    userProfilePath:
+      sourceEnabled && !hasExplicitProfile ? undefined : configOptions.profile,
     configPreferences: configOptions.preferences,
     instanceId: (configOptions as any).instanceId
   })
