@@ -1,4 +1,5 @@
 import {test, expect} from '@playwright/test'
+import path from 'path'
 import {
   getExtensionId,
   getPathToExtension,
@@ -19,7 +20,7 @@ test('should exist as a directory', async () => {
 
 test('should have a manifest.json file', async () => {
   const manifestPath = `${pathToExtension}/manifest.json`
-  const fs = require('fs')
+  const fs = await import('fs')
   expect(fs.existsSync(manifestPath)).toBe(true)
 })
 
@@ -32,6 +33,8 @@ test('should have sidebar functionality', async ({page, context}) => {
   // Navigate to the sidebar
   const sidebarPath = getSidebarPath(extensionId)
   await page.goto(sidebarPath)
+  // Wait for service worker/side panel to be ready
+  await page.waitForLoadState('load')
 
   // Check that the sidebar loads
   await expect(page.locator('h1')).toContainText('Transformers.js')
@@ -47,6 +50,7 @@ test('should have sidebar functionality', async ({page, context}) => {
 test('should have working text input', async ({page}) => {
   const sidebarPath = getSidebarPath(extensionId)
   await page.goto(sidebarPath)
+  await page.waitForLoadState('load')
 
   // Wait for the page to load
   await page.waitForSelector('#text')
@@ -62,6 +66,7 @@ test('should have working text input', async ({page}) => {
 test('should have proper styling', async ({page}) => {
   const sidebarPath = getSidebarPath(extensionId)
   await page.goto(sidebarPath)
+  await page.waitForLoadState('load')
 
   // Check that styles are applied
   const container = page.locator('.container')
@@ -79,4 +84,14 @@ test('should have proper styling', async ({page}) => {
   })
 
   expect(outputStyles.fontFamily).toContain('Roboto Mono')
+})
+
+test.afterAll(async () => {
+  const fs = await import('fs')
+  try {
+    const distDir = path.dirname(pathToExtension)
+    if (fs.existsSync(distDir)) {
+      fs.rmSync(distDir, {recursive: true, force: true})
+    }
+  } catch {}
 })

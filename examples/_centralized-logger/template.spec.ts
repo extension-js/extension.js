@@ -8,7 +8,7 @@ import {getDirname} from '../../templates/dirname'
 
 const __dirname = getDirname(import.meta.url)
 
-const exampleDir = 'templates/centralized-logger'
+const exampleDir = 'examples/_centralized-logger'
 const pathToExtension = path.join(__dirname, `dist/chrome`)
 const test = extensionFixtures(pathToExtension, true)
 
@@ -83,4 +83,14 @@ test('should load all images successfully', async ({page}) => {
   }
 
   test.expect(results.every((result) => result)).toBeTruthy()
+})
+
+test.afterAll(async () => {
+  const fs = await import('fs')
+  try {
+    const distDir = path.join(__dirname, 'dist')
+    if (fs.existsSync(distDir)) {
+      fs.rmSync(distDir, {recursive: true, force: true})
+    }
+  } catch {}
 })
