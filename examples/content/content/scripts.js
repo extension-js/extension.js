@@ -1,9 +1,11 @@
+// Extension.js content script template (React)
+// - Export a default function (required in v3) that mounts your UI
+// - Wrapper handles Shadow DOM isolation, CSS injection, HMR and cleanup
+// - Avoid adding your own HMR code; dev warnings will be shown if detected
+// Docs: https://extension.js.org/docs/content-scripts
 import logo from '../images/logo.png'
 
-const UNMOUNT_GLOBAL_KEY = '__EXTJS_CONTENT_UNMOUNT__'
-// Use var so re-injection doesn't throw on redeclaration
-// Also pick up any previous unmount function from the last injection
-var unmount = (globalThis && globalThis[UNMOUNT_GLOBAL_KEY]) || undefined
+let unmount
 
 if (import.meta.webpackHot) {
   import.meta.webpackHot?.accept()
@@ -12,30 +14,8 @@ if (import.meta.webpackHot) {
 
 console.log('hello from content_scripts')
 
-if (document.readyState === 'complete') {
-  // Clean up previous mount if any (e.g., re-injection)
-  try {
-    typeof unmount === 'function' && unmount()
-  } catch {}
-  unmount = initial() || (() => {})
-  try {
-    globalThis && (globalThis[UNMOUNT_GLOBAL_KEY] = unmount)
-  } catch {}
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') {
-      try {
-        typeof unmount === 'function' && unmount()
-      } catch {}
-      unmount = initial() || (() => {})
-      try {
-        globalThis && (globalThis[UNMOUNT_GLOBAL_KEY] = unmount)
-      } catch {}
-    }
-  })
-}
-
-function initial() {
+export default function initial() {
+  // Create a new div element and append it to the document's body
   const rootDiv = document.createElement('div')
   rootDiv.id = 'extension-root'
   document.body.appendChild(rootDiv)
@@ -44,31 +24,33 @@ function initial() {
   // prevents conflicts with the host page's styles.
   // This way, styles from the extension won't leak into the host page.
   const shadowRoot = rootDiv.attachShadow({mode: 'open'})
-  const style = new CSSStyleSheet()
-  shadowRoot.adoptedStyleSheets = [style]
-  fetchCSS().then((response) => style.replace(response))
+
+  const styleElement = document.createElement('style')
+  shadowRoot.appendChild(styleElement)
+  fetchCSS().then((response) => (styleElement.textContent = response))
 
   if (import.meta.webpackHot) {
     import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => style.replace(response))
+      fetchCSS().then((response) => (styleElement.textContent = response))
     })
   }
 
-  // Create container div
-  const contentDiv = document.createElement('div')
-  contentDiv.className = 'content_script'
+  // Create container for JavaScript app
+  const container = document.createElement('div')
+  container.className = 'content_script'
+  shadowRoot.appendChild(container)
 
   // Create and append logo image
   const img = document.createElement('img')
   img.className = 'content_logo'
   img.src = logo
-  contentDiv.appendChild(img)
+  container.appendChild(img)
 
   // Create and append title
   const title = document.createElement('h1')
   title.className = 'content_title'
-  title.textContent = 'Welcome to your Content Script Extension'
-  contentDiv.appendChild(title)
+  title.textContent = 'Welcome to your TyeScript Extension'
+  container.appendChild(title)
 
   // Create and append description paragraph
   const desc = document.createElement('p')
@@ -80,10 +62,7 @@ function initial() {
   link.textContent = 'https://extension.js.org'
 
   desc.appendChild(link)
-  contentDiv.appendChild(desc)
-
-  // Append the content div to shadow root
-  shadowRoot.appendChild(contentDiv)
+  container.appendChild(desc)
 
   return () => {
     rootDiv.remove()
@@ -95,4 +74,12 @@ async function fetchCSS() {
   const response = await fetch(cssUrl)
   const text = await response.text()
   return response.ok ? text : Promise.reject(text)
+}
+
+if (document.readyState === 'complete') {
+  unmount = initial() || (() => {})
+} else {
+  document.addEventListener('readystatechange', () => {
+    if (document.readyState === 'complete') unmount = initial() || (() => {})
+  })
 }
