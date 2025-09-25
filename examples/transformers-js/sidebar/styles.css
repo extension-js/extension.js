@@ -84,7 +84,6 @@ textarea { min-height: 100px; }
   color: #374151;
   padding: 1rem;
   border-radius: 6px;
-  height: calc(100vh - 100px);
   /* min-height: 120px;
   max-height: 400px; */
   overflow-y: auto;
