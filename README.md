@@ -132,6 +132,15 @@ npx extension@latest dev --chromium-binary "/Applications/Google Chrome.app/Cont
 npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacOS/firefox"
 ```
 
+<div align="center">
+  <p>
+    <span style="font-size:21px; color:black;">Browser testing via</span><br>
+    <a href="https://www.lambdatest.com/?utm_source=extensionjs&utm_medium=sponsor" target="_blank">
+      <img src="https://www.lambdatest.com/blue-logo.png" width="250" height="45" alt="LambdaTest Logo" />
+    </a>
+  </p>
+</div>
+
 ## License
 
 MIT (c) Cezar Augusto and the Extension.js Authors.
