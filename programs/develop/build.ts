@@ -12,9 +12,8 @@ import {merge} from 'webpack-merge'
 import webpackConfig from './webpack/webpack-config'
 import {getProjectStructure} from './develop-lib/get-project-path'
 import * as messages from './develop-lib/messages'
-import {generateZip} from './develop-lib/generate-zip'
 import {loadCustomWebpackConfig} from './develop-lib/get-extension-config'
-import {BuildOptions} from './develop-lib/config-types'
+import {BuildOptions} from './types/options'
 import {installDependencies} from './develop-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './develop-lib/validate-user-dependencies'
 
@@ -53,10 +52,7 @@ export async function extensionBuild(
 
     const allPluginsButBrowserRunners = baseConfig.plugins?.filter((plugin) => {
       const ctorName = (plugin as any)?.constructor?.name
-      return (
-        plugin?.constructor.name !== 'plugin-browsers' &&
-        plugin?.constructor.name !== 'plugin-reload'
-      )
+      return plugin?.constructor.name !== 'plugin-browsers'
     })
 
     const userExtensionConfig = await loadCustomWebpackConfig(manifestDir)
@@ -97,12 +93,7 @@ export async function extensionBuild(
           console.log(messages.buildWebpack(manifestDir, stats, browser))
         }
 
-        if (buildOptions?.zip || buildOptions?.zipSource) {
-          await generateZip(manifestDir, {
-            ...buildOptions,
-            browser
-          })
-        }
+        // Packaging handled by ZipPlugin when enabled in the config
 
         if (!stats?.hasErrors()) {
           console.log(messages.buildSuccess())

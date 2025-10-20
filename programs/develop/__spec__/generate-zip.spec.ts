@@ -1,0 +1,55 @@
+import {describe, it, expect} from 'vitest'
+import * as fs from 'fs'
+import * as path from 'path'
+import os from 'os'
+import {ZipPlugin} from '../webpack/plugin-compilation/plugin-zip'
+import {rspack} from '@rspack/core'
+
+function makeTempDir(prefix: string) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+  return dir
+}
+
+describe('ZipPlugin', () => {
+  it('writes dist zips when options.zip or zipSource are set', async () => {
+    const root = makeTempDir('extjs-zip-')
+    // ensure .gitignore exists to satisfy getFilesToZip
+    fs.writeFileSync(path.join(root, '.gitignore'), '')
+    const dist = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(dist, {recursive: true})
+    // minimal manifest in output dir (distribution zip)
+    fs.writeFileSync(
+      path.join(dist, 'manifest.json'),
+      JSON.stringify({name: 'x', version: '1.0.0'})
+    )
+    // also put a manifest at project root for source zipping
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'x', version: '1.0.0'})
+    )
+
+    const compiler = rspack({
+      mode: 'production',
+      entry: {},
+      output: {path: dist}
+    })
+    new ZipPlugin({
+      projectDir: root,
+      browser: 'chrome',
+      zip: true,
+      zipSource: true
+    }).apply(compiler as any)
+
+    await new Promise<void>((resolve, reject) =>
+      compiler.run((err) => (err ? reject(err) : resolve()))
+    )
+    const files = fs.readdirSync(path.join(root, 'dist', 'chrome'))
+    const hasDistZip = files.some((f) => f.endsWith('.zip'))
+    expect(hasDistZip).toBe(true)
+    const rootFiles = fs.readdirSync(path.join(root, 'dist'))
+    const hasSourceZip = rootFiles.some(
+      (f) => f.includes('-source.') && f.endsWith('.zip')
+    )
+    expect(hasSourceZip).toBe(true)
+  })
+})

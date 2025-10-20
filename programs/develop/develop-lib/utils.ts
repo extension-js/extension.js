@@ -5,10 +5,10 @@ import * as crypto from 'crypto'
 import {type Compilation} from '@rspack/core'
 import {execSync} from 'child_process'
 import {detect} from 'package-manager-detector'
-import * as messages from './messages'
-import {type Manifest, type FilepathList} from '../webpack-types'
+import * as messages from '../webpack/plugin-js-frameworks/js-frameworks-lib/messages.ts'
+import {type Manifest, type FilepathList} from '../webpack/webpack-types.ts'
 import {CHROMIUM_BASED_BROWSERS} from './constants'
-import {DevOptions} from '../../module'
+import {DevOptions} from '../module.ts'
 
 export function getResolvedPath(
   context: string,
@@ -174,7 +174,15 @@ export function getManifestContent(
     return JSON.parse(manifest || '{}')
   }
 
-  return require(manifestPath)
+  // Prefer direct fs read to support ESM and test environments reliably
+  try {
+    const text = require('fs').readFileSync(manifestPath, 'utf8')
+    return JSON.parse(text)
+  } catch {
+    // Fallback to require when available
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require(manifestPath)
+  }
 }
 
 export function getRelativePath(from: string, to: string) {
@@ -400,14 +408,32 @@ export function filterKeysForThisBrowser(
 }
 
 export function hasDependency(projectPath: string, dependency: string) {
-  const packageJsonPath = path.join(projectPath, 'package.json')
+  // Find nearest package.json starting from projectPath and walking up a few levels
+  const findNearestPackageJsonDirectory = (
+    startPath: string
+  ): string | undefined => {
+    let currentDirectory = startPath
+    const maxDepth = 4
 
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
+    for (let i = 0; i < maxDepth; i++) {
+      const candidate = path.join(currentDirectory, 'package.json')
+      if (fs.existsSync(candidate)) return currentDirectory
+
+      const parentDirectory = path.dirname(currentDirectory)
+      if (parentDirectory === currentDirectory) break
+
+      currentDirectory = parentDirectory
+    }
+    return undefined
   }
 
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+  const packageJsonDirectory = findNearestPackageJsonDirectory(projectPath)
+  if (!packageJsonDirectory) return false
 
+  const packageJsonPath = path.join(packageJsonDirectory, 'package.json')
+  if (!fs.existsSync(packageJsonPath)) return false
+
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
   const dependencies = packageJson.dependencies || {}
   const devDependencies = packageJson.devDependencies || {}
 

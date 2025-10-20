@@ -1,9 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
-import goGitIt from 'go-git-it'
 import * as messages from './messages'
-import {downloadAndExtractZip} from './extract-from-zip'
 import {
   findNearestPackageJson,
   validatePackageJson
@@ -88,6 +86,7 @@ async function importUrlSourceFromGithub(
   }
 
   async function tryGitClone() {
+    const {default: goGitIt} = await import('go-git-it')
     await goGitIt(pathOrRemoteUrl, cwd, text)
   }
 
@@ -176,6 +175,7 @@ async function importUrlSourceFromGithub(
 async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
   // Extract directly into the current working directory so users can edit it
   const cwd = process.cwd()
+  const {downloadAndExtractZip} = await import('./extract-from-zip')
   const extractedPath = await downloadAndExtractZip(pathOrRemoteUrl, cwd)
   return extractedPath
 }

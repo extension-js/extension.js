@@ -9,8 +9,11 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as messages from './messages'
 
-export async function generateExtensionTypes(projectPath: string) {
-  const extensionEnvFile = path.join(projectPath, 'extension-env.d.ts')
+export async function generateExtensionTypes(
+  manifestDir: string,
+  packageJsonDir: string
+) {
+  const extensionEnvFile = path.join(packageJsonDir, 'extension-env.d.ts')
   // Always use the published package path to ensure compatibility in monorepos
   const typePath = 'extension'
 
@@ -43,7 +46,7 @@ export async function generateExtensionTypes(projectPath: string) {
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (err) {
     // File does not exist, continue to write it
-    const manifest = require(path.join(projectPath, 'manifest.json'))
+    const manifest = require(path.join(manifestDir, 'manifest.json'))
     console.log(messages.writingTypeDefinitions(manifest))
     try {
       await fs.writeFile(extensionEnvFile, fileContent)

@@ -11,7 +11,7 @@ import {getProjectStructure} from './develop-lib/get-project-path'
 import * as messages from './develop-lib/messages'
 import {extensionBuild} from './build'
 import {extensionPreview} from './preview'
-import {StartOptions} from './develop-lib/config-types'
+import {StartOptions} from './types/options'
 
 export async function extensionStart(
   pathOrRemoteUrl: string | undefined,
