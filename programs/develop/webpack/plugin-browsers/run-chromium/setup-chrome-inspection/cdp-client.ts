@@ -1,8 +1,17 @@
-import * as net from 'net'
-import * as http from 'http'
 import WebSocket from 'ws'
 import * as messages from '../../browsers-lib/messages'
-import {mergeShadowIntoDocument} from '../../browsers-lib/html-merge'
+import {
+  getExtensionInfo,
+  loadUnpackedExtension,
+  unloadExtension
+} from './extensions'
+import {discoverWebSocketDebuggerUrl} from './discovery'
+import {establishBrowserConnection} from './ws'
+import {
+  waitForLoadEvent,
+  waitForContentScriptInjection,
+  getPageHTML
+} from './page'
 
 // Chrome DevTools Protocol Client for source inspection
 // Handles communication with Chrome's remote debugging interface
@@ -10,75 +19,62 @@ export class CDPClient {
   private port: number
   private host: string
   private ws: WebSocket | null = null
+  private targetWebSocketUrl: string | null = null
+  private eventCallback?: (message: Record<string, unknown>) => void
   private messageId = 0
   private pendingRequests = new Map<
     number,
     {resolve: Function; reject: Function}
   >()
-  private targetWebSocketUrl: string | null = null
 
   constructor(port: number = 9222, host: string = '127.0.0.1') {
     this.port = port
     this.host = host
   }
 
+  private isDev() {
+    return process.env.EXTENSION_ENV === 'development'
+  }
+
   async connect(): Promise<void> {
-    // Prefer the browser-level websocket (more stable), fallback to first page target
-    const getJson = (path: string) =>
-      new Promise<any>((resolve, reject) => {
-        const req = http.request(
-          {hostname: this.host, port: this.port, path, method: 'GET'},
-          (res) => {
-            let data = ''
-            res.on('data', (chunk) => (data += chunk))
-            res.on('end', () => {
+    return new Promise(async (resolve, reject) => {
+      try {
+        this.targetWebSocketUrl = await discoverWebSocketDebuggerUrl(
+          this.host,
+          this.port,
+          this.isDev()
+        )
+
+        this.ws = await establishBrowserConnection(
+          this.targetWebSocketUrl!,
+          this.isDev(),
+          (data) => this.handleMessage(data),
+          (reason) => {
+            // Reject any pending requests to avoid hangs
+            this.pendingRequests.forEach(({reject}, id) => {
               try {
-                resolve(JSON.parse(data))
-              } catch (e) {
-                reject(new Error(`Failed to parse ${path}: ${e}`))
+                reject(new Error(reason))
+              } catch (error) {
+                if (this.isDev()) {
+                  const err = error as Error
+                  console.warn(
+                    messages.cdpPendingRejectFailed(String(err.message || err))
+                  )
+                }
               }
+              this.pendingRequests.delete(id)
             })
           }
         )
-        req.on('error', (err) => reject(err))
-        req.end()
-      })
 
-    return new Promise(async (resolve, reject) => {
-      try {
-        // Try /json/version for browser websocket URL
-        try {
-          const version = await getJson('/json/version')
-          if (version && version.webSocketDebuggerUrl) {
-            this.targetWebSocketUrl = version.webSocketDebuggerUrl
-            console.log(messages.cdpClientTargetWebSocketUrlStored())
-          }
-        } catch {}
-
-        if (!this.targetWebSocketUrl) {
-          const targets = await getJson('/json')
-          console.log(messages.cdpClientFoundTargets(targets?.length || 0))
-          const pageTarget = (targets || []).find(
-            (target: any) =>
-              target.type === 'page' && target.webSocketDebuggerUrl
-          )
-          if (pageTarget) {
-            this.targetWebSocketUrl = pageTarget.webSocketDebuggerUrl
-            console.log(messages.cdpClientTargetWebSocketUrlStored())
-          }
+        if (this.isDev()) {
+          console.log(messages.cdpClientConnected(this.host, this.port))
         }
 
-        if (!this.targetWebSocketUrl) {
-          return reject(new Error('No CDP WebSocket URL available'))
-        }
-
-        await this.establishBrowserConnection()
-        console.log(messages.cdpClientConnected(this.host, this.port))
         resolve()
-      } catch (error: any) {
-        reject(
-          new Error(`Failed to connect to CDP: ${error?.message || error}`)
-        )
+      } catch (error) {
+        const err = error as Error
+        reject(new Error(`Failed to connect to CDP: ${err.message || err}`))
       }
     })
   }
@@ -87,336 +83,210 @@ export class CDPClient {
     if (this.ws) {
       try {
         this.ws.close()
-      } catch {}
+      } catch {
+        // ignore
+      }
       this.ws = null
     }
-    // Reject any pending requests to avoid dangling promises
-    this.pendingRequests.forEach(({reject}, id) => {
-      try {
-        reject(new Error('CDP client disconnected'))
-      } catch {}
-      this.pendingRequests.delete(id)
-    })
   }
 
-  async sendCommand(
-    method: string,
-    params: any = {},
-    sessionId?: string
-  ): Promise<any> {
-    if (!this.ws) {
-      throw new Error('CDP client not connected')
-    }
-
-    const id = ++this.messageId
-    const message: any = {
-      id,
-      method,
-      params
-    }
-
-    if (sessionId) {
-      message.sessionId = sessionId
-    }
-
-    return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, {resolve, reject})
-
-      const messageStr = JSON.stringify(message)
-      this.ws!.send(messageStr)
-    })
+  onProtocolEvent(handler: (message: Record<string, unknown>) => void) {
+    this.eventCallback = handler
   }
 
   private handleMessage(data: string) {
-    const messageData = data.split('\0').filter((msg) => msg.trim())
+    try {
+      const message = JSON.parse(data)
 
-    for (const messageStr of messageData) {
-      try {
-        const message = JSON.parse(messageStr)
+      if (message.id) {
+        const pending = this.pendingRequests.get(message.id)
 
-        // Debug logging for important events
-        if (message.method === 'Page.loadEventFired') {
-          console.log(messages.cdpClientPageLoadEventFired())
-        }
-
-        if (message.id && this.pendingRequests.has(message.id)) {
-          const {resolve, reject} = this.pendingRequests.get(message.id)!
+        if (pending) {
           this.pendingRequests.delete(message.id)
-
           if (message.error) {
-            reject(new Error(message.error.message))
+            pending.reject(new Error(JSON.stringify(message.error)))
           } else {
-            resolve(message.result)
+            pending.resolve(message.result)
           }
         }
-      } catch (error) {
-        console.error(
-          messages.cdpClientMessageParseError((error as Error).message)
+        return
+      }
+
+      if (message.method === 'Target.attachedToTarget') {
+        const params = message.params || {}
+
+        if (this.isDev()) {
+          console.log(
+            messages.cdpClientAttachedToTarget(
+              String(params.sessionId || ''),
+              String(params.targetInfo?.type || '')
+            )
+          )
+        }
+      }
+
+      if (this.eventCallback) this.eventCallback(message)
+    } catch (error) {
+      if (this.isDev()) {
+        const err = error as Error
+        console.warn(
+          messages.cdpFailedToHandleMessage(String(err.message || err))
         )
       }
     }
   }
 
-  // Get all available tabs
-  async getTargets(): Promise<any[]> {
-    const response = await this.sendCommand('Target.getTargets')
-    return response.targetInfos || []
-  }
-
-  // Create a new tab with the specified URL
-  async createTarget(url: string): Promise<string> {
-    // Ensure we have a WebSocket connection
-    if (!this.ws) {
-      throw new Error('CDP client not connected. Call connect() first.')
-    }
-
-    // Create the target with the URL. Should automatically navigate
-    const response = await this.sendCommand('Target.createTarget', {
-      url,
-      newWindow: false
-    })
-
-    const targetId = response.targetId
-
-    // Wait a moment for the target to be created and start navigating
-    // Using a reasonable delay instead of complex event waiting
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    return targetId
-  }
-
-  // Navigate to a URL in an existing target
-  async navigateToUrl(targetId: string, url: string): Promise<void> {
-    // First attach to the target to get a session
-    const attachResponse = await this.sendCommand('Target.attachToTarget', {
-      targetId,
-      flatten: true
-    })
-
-    const sessionId = attachResponse.sessionId
-
-    // Enable page domain to receive load events
-    await this.sendCommand('Page.enable', {}, sessionId)
-
-    // Navigate to the URL
-    await this.sendCommand('Page.navigate', {url}, sessionId)
-  }
-
-  // Establish connection to the chromes's CDP endpoint (not to a specific target)
-  private async establishBrowserConnection(): Promise<void> {
-    if (!this.targetWebSocketUrl) {
-      throw new Error('No target WebSocket URL available')
-    }
-
+  // Send a command to the CDP endpoint
+  async sendCommand(
+    method: string,
+    params: Record<string, unknown> = {},
+    sessionId?: string
+  ): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(this.targetWebSocketUrl!)
+      if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+        return reject(new Error('WebSocket is not open'))
+      }
 
-      this.ws.on('open', () => {
-        console.log(messages.cdpClientBrowserConnectionEstablished())
-        resolve()
-      })
+      const id = ++this.messageId
+      const message: Record<string, unknown> = {id, method, params}
+      if (sessionId) message.sessionId = sessionId
 
-      this.ws.on('message', (data: WebSocket.Data) => {
-        this.handleMessage(data.toString())
-      })
-
-      this.ws.on('error', (error: Error) => {
-        console.error(messages.cdpClientConnectionError(error.message))
-        // Reject all pending to avoid hangs
-        this.pendingRequests.forEach(({reject}, id) => {
-          try {
-            reject(new Error(error.message))
-          } catch {}
-          this.pendingRequests.delete(id)
-        })
+      try {
+        this.pendingRequests.set(id, {resolve, reject})
+        this.ws.send(JSON.stringify(message))
+      } catch (error) {
+        this.pendingRequests.delete(id)
         reject(error)
-      })
-
-      this.ws.on('close', () => {
-        console.log(messages.cdpClientConnectionClosed())
-        // Reject any pending requests
-        this.pendingRequests.forEach(({reject}, id) => {
-          try {
-            reject(new Error('CDP connection closed'))
-          } catch {}
-          this.pendingRequests.delete(id)
-        })
-      })
+      }
     })
   }
 
-  // Attach to a tab
-  async attachToTarget(targetId: string): Promise<string> {
-    const response = await this.sendCommand('Target.attachToTarget', {
+  // Target and Session Management
+  async getTargets() {
+    const response = (await this.sendCommand('Target.getTargets')) as
+      | {targetInfos?: Array<Record<string, unknown>>}
+      | undefined
+
+    return response?.targetInfos || []
+  }
+
+  async getBrowserVersion() {
+    const response = (await this.sendCommand('Browser.getVersion')) as
+      | {product?: string; userAgent?: string; jsVersion?: string}
+      | undefined
+
+    return response || {}
+  }
+
+  async attachToTarget(targetId: string) {
+    const response = (await this.sendCommand('Target.attachToTarget', {
       targetId,
       flatten: true
+    })) as {sessionId?: string}
+
+    return response.sessionId || ''
+  }
+
+  async enableAutoAttach() {
+    await this.sendCommand('Target.setAutoAttach', {
+      autoAttach: true,
+      waitForDebuggerOnStart: false,
+      flatten: true
     })
-    return response.sessionId
+  }
+
+  async enableRuntimeAndLog(sessionId?: string) {
+    // Enable across browser for Log domain; Runtime enables per-session
+    await this.sendCommand('Log.enable', {}, sessionId)
+
+    if (sessionId) {
+      await this.sendCommand('Runtime.enable', {}, sessionId)
+    }
   }
 
   // Navigate to a URL in the specified session
-  async navigate(sessionId: string, url: string): Promise<void> {
+  async navigate(sessionId: string, url: string) {
     await this.sendCommand('Page.navigate', {url}, sessionId)
   }
 
+  // Create a new target (tab) at a given URL and return its targetId
+  async createTarget(url: string): Promise<string> {
+    const res = (await this.sendCommand('Target.createTarget', {
+      url
+    })) as {targetId?: string}
+    return String(res?.targetId || '')
+  }
+
+  // Activate/focus an existing target by id
+  async activateTarget(targetId: string): Promise<void> {
+    await this.sendCommand('Target.activateTarget', {targetId})
+  }
+
   // Wait for the page to finish loading
-  async waitForLoadEvent(sessionId: string): Promise<void> {
-    return new Promise((resolve) => {
-      let resolved = false
-
-      // Listen for Page.loadEventFired
-      const listener = (data: string) => {
-        try {
-          const message = JSON.parse(data)
-          if (
-            message.method === 'Page.loadEventFired' &&
-            message.sessionId === sessionId &&
-            !resolved
-          ) {
-            resolved = true
-            resolve()
-          }
-        } catch (error) {
-          // Ignore parsing errors
-        }
-      }
-
-      // Add temporary listener
-      const originalHandleMessage = this.handleMessage.bind(this)
-      this.handleMessage = (data: string) => {
-        originalHandleMessage(data)
-        listener(data)
-      }
-
-      // Remove listener after load event or timeout
-      setTimeout(() => {
-        if (!resolved) {
-          resolved = true
-          console.log(messages.cdpClientLoadEventTimeout())
-          resolve()
-        }
-        this.handleMessage = originalHandleMessage
-      }, 2000)
-    })
+  async waitForLoadEvent(sessionId: string) {
+    return waitForLoadEvent(this, sessionId)
   }
 
   // Wait for content script injection with reasonable timeout
-  async waitForContentScriptInjection(sessionId: string): Promise<void> {
-    // Use a shorter delay for content script injection to improve responsiveness
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+  async waitForContentScriptInjection(sessionId: string) {
+    return waitForContentScriptInjection(this, sessionId)
   }
 
   // Evaluate JavaScript in the page context
-  async evaluate(sessionId: string, expression: string): Promise<any> {
-    const response = await this.sendCommand(
+  async evaluate(sessionId: string, expression: string): Promise<unknown> {
+    const response = (await this.sendCommand(
       'Runtime.evaluate',
       {
         expression,
         returnByValue: true
       },
       sessionId
-    )
+    )) as {result?: {value?: unknown}}
 
-    return response.result?.value
+    return response.result?.value as unknown
   }
 
   // Get the full HTML of the page including Shadow DOM content
-  async getPageHTML(sessionId: string): Promise<string> {
-    // Test if basic evaluation works
-    console.log(messages.cdpClientTestingEvaluation())
-    const testResult = await this.evaluate(sessionId, 'document.title')
-    console.log(messages.cdpClientDocumentTitle(testResult))
-
-    // Get the main HTML
-    console.log(messages.cdpClientGettingMainHTML())
-    const mainHTML = await this.evaluate(
-      sessionId,
-      'document.documentElement.outerHTML'
-    )
-    console.log(
-      messages.cdpClientMainHTMLLength(mainHTML ? mainHTML.length : 0)
-    )
-
-    if (!mainHTML) {
-      console.log(messages.cdpClientFailedToGetMainHTML())
-      return ''
-    }
-
-    // Check for Shadow DOM
-    console.log(messages.cdpClientCheckingShadowDOM())
-    // Retry a few times to allow wrapper mount before inspection
-    let shadowContent: string | null = null
-    for (let attempt = 0; attempt < 15; attempt++) {
-      shadowContent = await this.evaluate(
-        sessionId,
-        `
-        (function() {
-          try {
-            const host = document.querySelector('#extension-root, [data-extension-root="true"]');
-            if (!host || !host.shadowRoot) return null;
-            const s = new XMLSerializer();
-            return Array.from(host.shadowRoot.childNodes).map(function(n){
-              try { return s.serializeToString(n) } catch(e){ return '' }
-            }).join('');
-          } catch (_) { return null }
-        })()
-      `
-      )
-      if (shadowContent) break
-      // small delay between attempts
-      await new Promise((r) => setTimeout(r, 300))
-    }
-
-    console.log(messages.cdpClientShadowDOMContentFound(!!shadowContent))
-    if (shadowContent) {
-      console.log(
-        messages.cdpClientShadowDOMContentLength(shadowContent.length)
-      )
-      console.log(messages.cdpClientProcessingShadowDOM())
-
-      const finalHTML = mergeShadowIntoDocument(mainHTML, shadowContent)
-      console.log(
-        messages.cdpClientFinalHTMLWithShadowDOMLength(
-          finalHTML ? finalHTML.length : 0
-        )
-      )
-      return finalHTML || ''
-    }
-
-    console.log(messages.cdpClientReturningMainHTML())
-    return mainHTML || ''
+  async getPageHTML(sessionId: string) {
+    return getPageHTML(this, sessionId)
   }
 
   // Close a target (tab)
-  async closeTarget(targetId: string): Promise<void> {
+  async closeTarget(targetId: string) {
     await this.sendCommand('Target.closeTarget', {targetId})
   }
 
   // Extension Management Methods
-  async forceReloadExtension(extensionId: string): Promise<boolean> {
+  async forceReloadExtension(extensionId: string) {
     try {
       await this.sendCommand('Extensions.reload', {
         extensionId: extensionId,
         forceReload: true
       })
+
       return true
     } catch (error) {
-      console.error(
-        messages.cdpClientExtensionReloadFailed(
-          extensionId,
-          (error as Error).message
-        )
-      )
-      return false
+      // Fallback path when Extensions domain is unavailable in this build
+      const ok = await this.reloadExtensionViaTargetEval(extensionId)
+      if (!ok) {
+        try {
+          console.error(
+            messages.cdpClientExtensionReloadFailed(
+              extensionId,
+              (error as Error).message
+            )
+          )
+        } catch {
+          // ignore
+        }
+      }
+      return ok
     }
   }
 
-  async getExtensionInfo(extensionId: string): Promise<any> {
+  async getExtensionInfo(extensionId: string) {
     try {
-      const response = await this.sendCommand('Extensions.getExtensionInfo', {
-        extensionId: extensionId
-      })
-      return response
+      return await getExtensionInfo(this, extensionId)
     } catch (error) {
       throw new Error(
         messages.cdpClientExtensionInfoFailed(
@@ -427,12 +297,52 @@ export class CDPClient {
     }
   }
 
-  async loadUnpackedExtension(path: string): Promise<string> {
+  private async reloadExtensionViaTargetEval(extensionId: string) {
     try {
-      const response = await this.sendCommand('Extensions.loadUnpacked', {
-        path: path
-      })
-      return response.extensionId
+      const targets = await this.getTargets()
+      const preferredOrder = ['service_worker', 'background_page', 'worker']
+
+      for (const type of preferredOrder) {
+        const t = (targets || []).find((t: Record<string, unknown>) => {
+          const url: string = String((t as any)?.url || '')
+          const tt: string = String((t as any)?.type || '')
+
+          return (
+            tt === type && url.startsWith(`chrome-extension://${extensionId}/`)
+          )
+        })
+
+        if (!t) continue
+
+        const targetId: string | undefined = (t as any)?.targetId
+
+        if (!targetId) continue
+
+        try {
+          const sessionId = await this.attachToTarget(targetId)
+          await this.sendCommand('Runtime.enable', {}, sessionId)
+          await this.sendCommand(
+            'Runtime.evaluate',
+            {
+              expression:
+                'chrome && chrome.runtime && chrome.runtime.reload && chrome.runtime.reload()'
+            },
+            sessionId
+          )
+          return true
+        } catch {
+          // ignore
+        }
+      }
+      return false
+    } catch {
+      return false
+    }
+  }
+
+  async loadUnpackedExtension(path: string) {
+    try {
+      return await loadUnpackedExtension(this, path)
     } catch (error) {
       throw new Error(
         messages.cdpClientExtensionLoadFailed(path, (error as Error).message)
@@ -440,12 +350,9 @@ export class CDPClient {
     }
   }
 
-  async unloadExtension(extensionId: string): Promise<boolean> {
+  async unloadExtension(extensionId: string) {
     try {
-      await this.sendCommand('Extensions.unload', {
-        extensionId: extensionId
-      })
-      return true
+      return await unloadExtension(this, extensionId)
     } catch (error) {
       console.error(
         messages.cdpClientExtensionUnloadFailed(
@@ -456,30 +363,4 @@ export class CDPClient {
       return false
     }
   }
-}
-
-// Utility function to check if Chrome is running with remote debugging
-export async function checkChromeRemoteDebugging(
-  port: number = 9222
-): Promise<boolean> {
-  return new Promise((resolve) => {
-    const socket = new net.Socket()
-
-    socket.on('connect', () => {
-      socket.destroy()
-      resolve(true)
-    })
-
-    socket.on('error', () => {
-      resolve(false)
-    })
-
-    socket.on('timeout', () => {
-      socket.destroy()
-      resolve(false)
-    })
-
-    socket.setTimeout(2000)
-    socket.connect(port, 'localhost')
-  })
 }

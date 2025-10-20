@@ -1,17 +1,38 @@
-import * as path from 'path'
-import * as fs from 'fs'
 import {Compilation} from '@rspack/core'
 import {MessagingClient} from './messaging-client'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
+import {resolveAddonDirectory} from './addons'
 import {type PluginInterface} from '../../browsers-types'
+import colors from 'pintor'
 import * as messages from '../../browsers-lib/messages'
+import {
+  printRunningInDevelopmentSummary,
+  printSourceInspection,
+  printLogEventJson,
+  printLogEventPretty
+} from '../firefox-utils'
+import {
+  getAddonsActorWithRetry,
+  computeCandidateAddonPaths,
+  waitForManagerWelcome,
+  installTemporaryAddon
+} from './addons-install'
+import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
+import {deriveMozExtensionId} from './moz-id'
+import {ensureTabForUrl, navigateTo, getPageHTML} from './source-inspect'
 
 const MAX_RETRIES = 150
 const RETRY_INTERVAL = 1000
 
 export class RemoteFirefox {
-  private readonly options: PluginInterface
+  private readonly options: PluginInterface & {extensionsToLoad?: string[]}
+  private needsReinstall = false
   private client: MessagingClient | null = null
+  private loggingAttached = false
+  private cachedAddonsActor: string | undefined
+  private cachedSupportsReload: boolean | null = null
+  private lastInstalledAddonPath: string | undefined
+  private derivedExtensionId: string | undefined
 
   constructor(configOptions: PluginInterface) {
     this.options = configOptions
@@ -27,15 +48,19 @@ export class RemoteFirefox {
         await client.connect(port)
         this.client = client
         return client
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (isErrorWithCode('ECONNREFUSED', error)) {
           await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
           lastError = error
         } else {
+          const err = error as Error
           console.error(
-            messages.generalBrowserError(this.options.browser, error.stack)
+            messages.generalBrowserError(
+              this.options.browser,
+              err.stack || String(error)
+            )
           )
-          throw error
+          throw err
         }
       }
     }
@@ -47,11 +72,12 @@ export class RemoteFirefox {
   public async installAddons(compilation: Compilation) {
     const {devtools} = this.options
 
-    // Check for stored extensions from multi-instance support
-    const storedExtensions = (compilation as any).firefoxExtensions
     // Ensure user extension is first, manager after (if present)
     const rawExtensions =
-      storedExtensions ||
+      (Array.isArray(this.options.extensionsToLoad) &&
+      this.options.extensionsToLoad.length
+        ? this.options.extensionsToLoad
+        : undefined) ||
       (Array.isArray(this.options.extension)
         ? this.options.extension
         : [this.options.extension])
@@ -62,6 +88,7 @@ export class RemoteFirefox {
         )
       )
     )
+
     // If two are present, heuristic: path containing '/extensions/<browser>-manager' is manager
     const userFirst = unique.sort((a: string, b: string): number => {
       const isAManager = /extensions\/[a-z-]+-manager/.test(a)
@@ -71,115 +98,51 @@ export class RemoteFirefox {
       return 0
     })
     const extensionsToLoad = userFirst
-
-    const devPort = (compilation.options.devServer as any)?.port
-    const optionPort = (this.options as any)?.port
+    const devPort = (
+      compilation.options as unknown as {devServer?: {port?: number}}
+    )?.devServer?.port as number | undefined
+    const optionPort = (this.options as unknown as {port?: number})?.port as
+      | number
+      | string
+      | undefined
     const normalizedOptionPort =
       typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
     // If a port is provided via options, assume it's the actual RDP port
     const port =
       (normalizedOptionPort as number) || (devPort ? devPort + 100 : 9222)
     const client = await this.connectClient(port)
-    // Fetch addonsActor with retries using getRoot with fallback to listTabs
-    let addonsActor: string | undefined
-    const maxTries = 40
-    const delayMs = 250
-    for (let i = 0; i < maxTries && !addonsActor; i++) {
+    // Fetch addonsActor with retries via helper
+    let addonsActor: string | undefined = await getAddonsActorWithRetry(
+      client,
+      this.cachedAddonsActor
+    )
+    if (addonsActor) this.cachedAddonsActor = addonsActor
+
+    const candidateAddonPaths: string[] = computeCandidateAddonPaths(
+      compilation,
+      extensionsToLoad
+    )
+
+    for (const [index, addonPath] of candidateAddonPaths.entries()) {
+      const isDevtoolsEnabled = index === 0 && Boolean(devtools)
       try {
-        const root = await client.request('getRoot')
-        if (root && root.addonsActor) {
-          addonsActor = root.addonsActor
-          break
-        }
-      } catch {}
-      if (!addonsActor) {
-        try {
-          const tabs = await client.request('listTabs')
-          if (tabs && tabs.addonsActor) {
-            addonsActor = tabs.addonsActor
-            break
-          }
-        } catch {}
-      }
-      if (!addonsActor) {
-        await new Promise((r) => setTimeout(r, delayMs))
-      }
-    }
-
-    // Resolve addon directory to an absolute path that contains a manifest.json
-    const resolveAddonDirectory = (
-      baseDir: string,
-      inputPath: string
-    ): string => {
-      let candidate = inputPath.replace(/\"/g, '')
-      if (!path.isAbsolute(candidate)) {
-        candidate = path.resolve(baseDir, candidate)
-      }
-      try {
-        const stat = fs.statSync(candidate)
-        if (stat.isFile()) {
-          // If a file is passed, use its directory
-          candidate = path.dirname(candidate)
-        }
-      } catch {}
-
-      const hasManifest = fs.existsSync(path.join(candidate, 'manifest.json'))
-      if (hasManifest) return candidate
-
-      // Try common build output location
-      const distFirefox = path.join(candidate, 'dist', 'firefox')
-      if (fs.existsSync(path.join(distFirefox, 'manifest.json'))) {
-        return distFirefox
-      }
-
-      return candidate
-    }
-
-    const candidateAddonPaths: string[] = []
-    for (const [index, extension] of extensionsToLoad.entries()) {
-      const projectPath = (compilation as any).options?.context || process.cwd()
-      const addonPath = resolveAddonDirectory(projectPath, extension)
-      const isDevtoolsEnabled = index === 0 && devtools
-      candidateAddonPaths.push(addonPath)
-
-      try {
-        const toActor = addonsActor
-        if (!toActor) {
-          throw new Error(
-            messages.addonInstallError(
-              this.options.browser,
-              'No addonsActor available from Firefox RDP.'
-            )
-          )
-        }
-
-        await client.request({
-          to: toActor,
-          type: 'installTemporaryAddon',
+        const installResponse = await installTemporaryAddon(
+          client,
+          String(addonsActor || ''),
           addonPath,
-          openDevTools: isDevtoolsEnabled
-        })
-        // After installing the first add-on (manager), wait for tabs to settle
+          isDevtoolsEnabled
+        )
+        if (!this.derivedExtensionId) {
+          const maybeId = installResponse?.addon?.id
+          if (typeof maybeId === 'string' && maybeId.length > 0) {
+            this.derivedExtensionId = maybeId
+          }
+        }
         if (
           index === 1 ||
           (index === 0 && /extensions\/[a-z-]+-manager/.test(String(addonPath)))
         ) {
-          // Wait for the manager welcome page to open before proceeding
-          for (let i = 0; i < 20; i++) {
-            try {
-              const tabs = await client.request('listTabs')
-              const hasWelcome = Array.isArray(tabs?.tabs)
-                ? tabs.tabs.some(
-                    (t: any) =>
-                      typeof t?.url === 'string' &&
-                      (t.url.includes('welcome.html') ||
-                        t.url.includes('about:home'))
-                  )
-                : false
-              if (hasWelcome) break
-            } catch {}
-            await new Promise((r) => setTimeout(r, 200))
-          }
+          await waitForManagerWelcome(client)
         }
       } catch (err) {
         const message = requestErrorToMessage(err)
@@ -189,50 +152,129 @@ export class RemoteFirefox {
       }
     }
 
-    // Fallback: print running in development summary for Firefox even when WS isn't ready
+    // If flagged by reload pipeline, force reinstall of the first (user) add-on
     try {
-      // Prefer a path whose manifest name is not the manager name
-      let chosenPath: string | null = null
-      for (const p of candidateAddonPaths) {
-        const mp = path.join(p, 'manifest.json')
-        if (fs.existsSync(mp)) {
-          const mf = JSON.parse(fs.readFileSync(mp, 'utf-8'))
-          const name = mf?.name || ''
-          if (
-            typeof name === 'string' &&
-            !/Extension\.js DevTools/i.test(name)
-          ) {
-            chosenPath = p
-            break
-          }
+      if (this.needsReinstall && candidateAddonPaths[0]) {
+        const toActor = addonsActor
+        if (toActor) {
+          await client.request({
+            to: toActor,
+            type: 'installTemporaryAddon',
+            addonPath: candidateAddonPaths[0],
+            openDevTools: false
+          })
         }
-      }
-
-      // Fallback to last candidate if none matched
-      if (!chosenPath && candidateAddonPaths.length > 0) {
-        chosenPath = candidateAddonPaths[candidateAddonPaths.length - 1]
-      }
-      if (chosenPath) {
-        const manifestPath = path.join(chosenPath, 'manifest.json')
-        if (fs.existsSync(manifestPath)) {
-          const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
-          const message = {
-            data: {
-              id: '(temporary)',
-              management: {
-                name: manifest.name || '(unknown)',
-                version: manifest.version || '0.0.0'
-              }
-            }
-          }
-          console.log(messages.emptyLine())
-          console.log(
-            messages.runningInDevelopment(manifest, 'firefox', message as any)
-          )
-          console.log(messages.emptyLine())
-        }
+        this.needsReinstall = false
       }
     } catch {}
+
+    // Best-effort: if no explicit id yet, try to infer from any moz-extension URL target
+    try {
+      if (!this.derivedExtensionId) {
+        this.derivedExtensionId = await deriveMozExtensionId(client)
+      }
+    } catch {}
+
+    // Print banner with best-effort extensionId when available (development only)
+    this.lastInstalledAddonPath = candidateAddonPaths[0]
+
+    if (compilation?.options?.mode !== 'production') {
+      printRunningInDevelopmentSummary(
+        candidateAddonPaths,
+        'firefox',
+        this.derivedExtensionId
+      )
+    }
+  }
+
+  public markNeedsReinstall() {
+    this.needsReinstall = true
+  }
+
+  // Capability probing: check if reloadAddon is supported by addonsActor
+  private async ensureCapabilities(client: MessagingClient): Promise<void> {
+    if (this.cachedSupportsReload !== null) return
+    const toActor = this.cachedAddonsActor
+    try {
+      if (!toActor) return
+      const desc = (await client.request({
+        to: toActor,
+        type: 'requestTypes'
+      })) as {
+        types?: string[]
+      }
+      const types = Array.isArray(desc?.types) ? desc.types : []
+      this.cachedSupportsReload =
+        types.includes('reloadAddon') || types.includes('reloadTemporaryAddon')
+      try {
+        console.log(
+          messages.firefoxRdpReloadCapabilitySummary(
+            this.cachedSupportsReload ? 'native' : 'reinstall'
+          )
+        )
+      } catch {}
+    } catch {
+      this.cachedSupportsReload = false
+    }
+  }
+
+  private async reloadAddonOrReinstall(client: MessagingClient): Promise<void> {
+    const toActor = this.cachedAddonsActor
+    if (!toActor || !this.lastInstalledAddonPath) return
+
+    await this.ensureCapabilities(client)
+    if (this.cachedSupportsReload) {
+      try {
+        // Try modern name first, then alias
+        try {
+          await client.request({to: toActor, type: 'reloadAddon'})
+        } catch {
+          await client.request({to: toActor, type: 'reloadTemporaryAddon'})
+        }
+        return
+      } catch {
+        // fall back to reinstall below
+      }
+    }
+
+    try {
+      await client.request({
+        to: toActor,
+        type: 'installTemporaryAddon',
+        addonPath: this.lastInstalledAddonPath,
+        openDevTools: false
+      })
+    } catch {
+      // ignore best-effort
+    }
+  }
+
+  public async hardReloadIfNeeded(
+    compilation: Compilation,
+    changedAssets: string[]
+  ): Promise<void> {
+    try {
+      const devPort = (
+        compilation.options.devServer as unknown as {port?: number}
+      )?.port
+      const optionPort = (this.options as unknown as {port?: number})?.port
+      const normalizedOptionPort =
+        typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
+      const rdpPort =
+        (normalizedOptionPort as number) || (devPort ? devPort + 100 : 9222)
+      const client = this.client || (await this.connectClient(rdpPort))
+
+      const critical = (changedAssets || []).some((n) =>
+        /(^|\/)manifest\.json$|(^|\/)background\/(service_worker|script)\.js$/i.test(
+          String(n || '')
+        )
+      )
+      if (!critical) return
+
+      await this.reloadAddonOrReinstall(client)
+    } catch {
+      // Ignore
+    }
   }
 
   // RDP-based source inspection for Firefox
@@ -241,8 +283,10 @@ export class RemoteFirefox {
     opts: {startingUrl?: string; source?: string | boolean}
   ): Promise<void> {
     try {
-      const devServerPort = (compilation.options.devServer as any)?.port
-      const optionPort = (this.options as any)?.port
+      const devServerPort = (
+        compilation.options.devServer as unknown as {port?: number}
+      )?.port
+      const optionPort = (this.options as unknown as {port?: number})?.port
       const normalizedOptionPort =
         typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
       const rdpPort =
@@ -251,68 +295,80 @@ export class RemoteFirefox {
 
       const client = this.client || (await this.connectClient(rdpPort))
 
-      // Determine destination URL (prefer explicit --source URL, else startingUrl)
-      let urlToInspect: string | undefined
-      if (typeof opts.source === 'string' && opts.source !== 'true') {
-        urlToInspect = opts.source
-      } else if (opts.startingUrl) {
-        urlToInspect = opts.startingUrl
-      }
+      const urlToInspect =
+        typeof opts.source === 'string' && opts.source !== 'true'
+          ? opts.source
+          : opts.startingUrl
 
-      // Get tabs and pick best candidate in a sequential manner
-      const targets = await client.getTargets()
-      let tab = (targets as any[]).find(
-        (t: any) => t && t.url === urlToInspect && t.actor
-      )
-      if (!tab)
-        tab =
-          (targets as any[]).find(
-            (t: any) => t && (t.actor || t.outerWindowID)
-          ) || (targets as any[])[0]
-      if (!tab || !tab.actor) return
+      const tab = await ensureTabForUrl(client, urlToInspect)
+      if (!tab) return
 
-      // Only navigate when we have a target URL. This ensures the manager extension
-      // has already been installed before we leave the initial about:home/welcome
       if (urlToInspect) {
-        // Use consoleActor-based navigation via evaluateJS hack first
-        try {
-          const detail = await client.getTargetFromDescriptor(tab.actor)
-          const consoleActor =
-            detail.consoleActor || (tab as any).consoleActor || tab.actor
-          await client.navigateViaScript(consoleActor, urlToInspect)
-          await client.waitForPageReady(consoleActor, urlToInspect, 8000)
-        } catch {
-          // Fallback to native navigate
-          let targetActor = tab.actor
-          try {
-            const detail2 = await client.getTargetFromDescriptor(tab.actor)
-            if (detail2.targetActor) targetActor = detail2.targetActor
-          } catch {}
-          try {
-            await client.attach(targetActor)
-          } catch {}
-          await client.navigate(targetActor, urlToInspect)
-          await client.waitForLoadEvent(targetActor)
-        }
+        await navigateTo(client, tab.actor, tab.consoleActor, urlToInspect)
       }
 
-      // Prefer consoleActor for JS evaluation (evaluateJS is exposed there)
-      // Resolve consoleActor from descriptor when available
-      let consoleActor = (tab as any).consoleActor || tab.actor
-      try {
-        const detail = await client.getTargetFromDescriptor(tab.actor)
-        if (detail.consoleActor) consoleActor = detail.consoleActor
-      } catch {}
-      const html = (await client.getPageHTML(tab.actor, consoleActor)) || ''
-      console.log(''.padEnd(80, '='))
-      console.log(''.padEnd(80, '='))
-      console.log(html)
-      console.log(''.padEnd(80, '='))
-    } catch (err: any) {
+      const html =
+        (await getPageHTML(client, tab.actor, tab.consoleActor)) || ''
+      printSourceInspection(html)
+    } catch (error) {
+      const err = error as Error
       console.warn(
-        '[firefox][inspectSource] non-fatal error:',
-        err?.message || String(err)
+        messages.firefoxInspectSourceNonFatal(err?.message || String(err))
       )
+    }
+  }
+
+  // Unified logging via Firefox RDP (parity with Chromium CDP)
+  // Emits LogEvent-like lines to stdout according to filters/format
+  public async enableUnifiedLogging(opts: {
+    level?: string
+    contexts?: string[] | undefined
+    urlFilter?: string | undefined
+    tabFilter?: number | string | undefined
+    format?: 'pretty' | 'json' | 'ndjson'
+    timestamps?: boolean
+    color?: boolean
+  }) {
+    try {
+      if (this.loggingAttached) return
+
+      const devPort = (this.options as unknown as {port?: number})?.port
+      const normalized =
+        typeof devPort === 'string' ? parseInt(devPort, 10) : devPort
+      const rdpPort = (normalized as number) || 9222
+      const client = this.client || (await this.connectClient(rdpPort))
+
+      // Proactively attach console listeners to all known targets
+      await attachConsoleListeners(client)
+
+      // Prepare logging options (mirrors previous inline variables)
+      const levelMap = ['trace', 'debug', 'log', 'info', 'warn', 'error']
+      const wantLevel = String(opts.level || 'info').toLowerCase()
+      const wantContexts = Array.isArray(opts.contexts)
+        ? opts.contexts.map((s) => String(s))
+        : undefined
+      const urlFilter = String(opts.urlFilter || '')
+      const tabFilter =
+        typeof opts.tabFilter === 'number' || typeof opts.tabFilter === 'string'
+          ? String(opts.tabFilter)
+          : ''
+      const fmt = (opts.format as 'pretty' | 'json' | 'ndjson') || 'pretty'
+      const showTs = opts.timestamps !== false
+      const color = !!opts.color
+
+      subscribeUnifiedLogging(client, {
+        level: wantLevel,
+        contexts: wantContexts,
+        urlFilter,
+        tabFilter,
+        format: fmt,
+        timestamps: showTs,
+        color
+      })
+
+      this.loggingAttached = true
+    } catch {
+      // Ignore
     }
   }
 }

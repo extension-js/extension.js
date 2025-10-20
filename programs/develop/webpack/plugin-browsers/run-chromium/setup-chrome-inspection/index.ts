@@ -1,72 +1,44 @@
 import {type Compiler} from '@rspack/core'
-import {CDPClient, checkChromeRemoteDebugging} from './cdp-client'
-import {type DevOptions} from '../../../../develop-lib/config-types'
+import {WebSocketServer} from 'ws'
+import {CDPClient} from './cdp-client'
+import {waitForChromeRemoteDebugging} from './readiness'
+import {ensureTargetAndSession} from './targets'
+import {extractPageHtml} from './extract'
+import {type DevOptions} from '../../../../types/options'
 import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
-import {InstanceManager} from '../../browsers-lib/instance-manager'
 
 export class SetupChromeInspectionStep {
-  private devOptions: DevOptions & {startingUrl?: string}
+  private devOptions: DevOptions & {startingUrl?: string; instanceId?: string}
   private cdpClient: CDPClient | null = null
   private currentTargetId: string | null = null
   private currentSessionId: string | null = null
   private isInitialized = false
-  private lastSvelteProbe: string | null = null
-  private probeTimer: NodeJS.Timeout | null = null
+  private isWatching = false
+  private debounceTimer: NodeJS.Timeout | null = null
 
-  constructor(devOptions: DevOptions & {startingUrl?: string}) {
+  constructor(
+    devOptions: DevOptions & {startingUrl?: string; instanceId?: string}
+  ) {
     this.devOptions = devOptions
   }
 
   private async getCdpPort(): Promise<number> {
-    const instanceId = (this.devOptions as any).instanceId
-
-    if (instanceId) {
-      try {
-        const instanceManager = new InstanceManager(process.cwd())
-        const instance = await instanceManager.getInstance(instanceId)
-
-        if (instance?.debugPort && Number.isFinite(instance.debugPort)) {
-          return instance.debugPort
-        }
-      } catch {}
-    }
-    // Fallback to derived port if registry not available
-    return deriveDebugPortWithInstance(this.devOptions.port as any, instanceId)
+    const instanceId = (this.devOptions as unknown as {instanceId?: string})
+      .instanceId
+    // Registry removed; always derive
+    return deriveDebugPortWithInstance(
+      this.devOptions.port as unknown as number,
+      instanceId
+    )
   }
 
   async initialize(port?: number): Promise<void> {
     try {
       if (!port) port = await this.getCdpPort()
-      // Only show waiting messages in development
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.sourceInspectorWaitingForChrome())
-      }
-      let retries = 0
-      const maxRetries = 60
-      // Ensure we do not spin CPU too fast on repeated polling
-      const backoffMs = 500
-
-      while (retries < maxRetries) {
-        const isDebuggingEnabled = await checkChromeRemoteDebugging(port)
-        if (isDebuggingEnabled) {
-          if (process.env.EXTENSION_ENV === 'development') {
-            console.log(messages.chromeRemoteDebuggingReady())
-          }
-          break
-        }
-        retries++
-        if (retries % 10 === 0 && process.env.EXTENSION_ENV === 'development') {
-          console.log(
-            messages.sourceInspectorChromeNotReadyYet(retries, maxRetries)
-          )
-        }
-        await new Promise((resolve) => setTimeout(resolve, backoffMs))
-      }
-
-      if (retries >= maxRetries) {
-        throw new Error(messages.sourceInspectorChromeDebuggingRequired(port))
-      }
+      const instanceId = (this.devOptions as unknown as {instanceId?: string})
+        .instanceId
+      await waitForChromeRemoteDebugging(port, instanceId)
 
       this.cdpClient = new CDPClient(port)
       await this.cdpClient.connect()
@@ -74,6 +46,7 @@ export class SetupChromeInspectionStep {
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.sourceInspectorInitialized())
       }
+
       this.isInitialized = true
     } catch (error) {
       if (process.env.EXTENSION_ENV === 'development') {
@@ -92,82 +65,47 @@ export class SetupChromeInspectionStep {
     }
 
     try {
-      // Only log in development
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.sourceInspectorOpeningUrl(url))
         console.log(messages.sourceInspectorFindingExistingTarget())
       }
-      const targets = await this.cdpClient.getTargets()
-      const existingTarget = targets.find(
-        (target) => target.url === url && target.type === 'page'
+      const {targetId, sessionId} = await ensureTargetAndSession(
+        this.cdpClient,
+        url
       )
-
-      if (existingTarget) {
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.log(
-            messages.sourceInspectorUsingExistingTarget(existingTarget.targetId)
-          )
-        }
-        this.currentTargetId = existingTarget.targetId
-      } else {
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.log(messages.sourceInspectorCreatingTarget())
-        }
-        this.currentTargetId = await this.cdpClient.createTarget(url)
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.log(
-            messages.sourceInspectorTargetCreated(this.currentTargetId)
-          )
-          console.log(messages.sourceInspectorEnsuringNavigation())
-        }
-        await this.cdpClient.navigateToUrl(this.currentTargetId, url)
-      }
-
-      if (!this.currentTargetId) {
-        throw new Error('Failed to get or create target')
-      }
-
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.sourceInspectorAttachingToTarget())
-      }
-      this.currentSessionId = await this.cdpClient.attachToTarget(
-        this.currentTargetId
-      )
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(
-          messages.sourceInspectorAttachedToTarget(this.currentSessionId)
-        )
-        console.log(messages.sourceInspectorEnablingPageDomain())
-      }
-      await this.cdpClient.sendCommand('Page.enable', {}, this.currentSessionId)
+      this.currentTargetId = targetId
+      this.currentSessionId = sessionId
 
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.sourceInspectorWaitingForPageLoad())
       }
+
       await this.cdpClient.waitForLoadEvent(this.currentSessionId)
 
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.sourceInspectorWaitingForContentScripts())
       }
+
       await this.cdpClient.waitForContentScriptInjection(this.currentSessionId)
 
-      // This is the real inspection data step for the user:
-      const html = await this.cdpClient.getPageHTML(this.currentSessionId)
-
-      // Svelte-specific: if Shadow DOM isn't printable, assert via probe marker
+      // Extra reliable poll: wait until #extension-root with shadowRoot exists (up to ~12s)
       try {
-        const probe = await this.cdpClient.evaluate(
-          this.currentSessionId,
-          "(function(){ var p = document.getElementById('extension-probe-svelte'); return p ? String(p.textContent||'') : '' })()"
-        )
-        if (probe) {
-          console.log(`[Extension.js] Svelte probe detected: ${probe}`)
-        }
-      } catch {}
+        const deadline = Date.now() + 12000
 
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.sourceInspectorHTMLExtractionComplete())
+        while (Date.now() < deadline) {
+          const hasRoot = await this.cdpClient.evaluate(
+            this.currentSessionId,
+            `(() => { try { const h = document.querySelector('#extension-root,[data-extension-root="true"]'); return !!(h && h.shadowRoot) } catch { return false } })()`
+          )
+          if (hasRoot) break
+          await new Promise((r) => setTimeout(r, 300))
+        }
+      } catch {
+        // ignore
       }
+
+      // This is the real inspection data step for the user:
+      const html = await extractPageHtml(this.cdpClient, this.currentSessionId)
       return html
     } catch (error) {
       if (process.env.EXTENSION_ENV === 'development') {
@@ -175,43 +113,55 @@ export class SetupChromeInspectionStep {
           messages.sourceInspectorInspectionFailed((error as Error).message)
         )
       }
+
       throw error
     }
   }
 
   // Only relevant for development: watch mode and file change handling
-  async startWatching(websocketServer: any): Promise<void> {
+  async startWatching(websocketServer: WebSocketServer): Promise<void> {
     if (process.env.EXTENSION_ENV !== 'development') return
-    if ((this as any).isWatching) {
+
+    if (this.isWatching) {
       console.log(messages.sourceInspectorWatchModeActive())
       return
     }
-    ;(this as any).isWatching = true
+    this.isWatching = true
     console.log(messages.sourceInspectorStartingWatchMode())
     this.setupWebSocketHandler(websocketServer)
     console.log(messages.sourceInspectorCDPConnectionMaintained())
   }
 
-  private setupWebSocketHandler(websocketServer: any): void {
+  private setupWebSocketHandler(websocketServer: WebSocketServer) {
     if (process.env.EXTENSION_ENV !== 'development') return
+
     if (!websocketServer || !websocketServer.clients) {
       console.warn(messages.sourceInspectorInvalidWebSocketServer())
       return
     }
-    websocketServer.clients.forEach((ws: any) => {
-      this.setupConnectionHandler(ws)
+
+    websocketServer.clients.forEach((ws: unknown) => {
+      this.setupConnectionHandler(
+        ws as {on: (event: 'message', cb: (data: string) => void) => void}
+      )
     })
-    websocketServer.on('connection', (ws: any) => {
-      this.setupConnectionHandler(ws)
+
+    websocketServer.on('connection', (ws: unknown) => {
+      this.setupConnectionHandler(
+        ws as {on: (event: 'message', cb: (data: string) => void) => void}
+      )
     })
   }
 
-  private setupConnectionHandler(ws: any): void {
+  private setupConnectionHandler(ws: {
+    on: (event: 'message', cb: (data: string) => void) => void
+  }) {
     if (process.env.EXTENSION_ENV !== 'development') return
+
     ws.on('message', async (data: string) => {
       try {
         const message = JSON.parse(data)
-        if (message.type === 'changedFile' && (this as any).isWatching) {
+        if (message.type === 'changedFile' && this.isWatching) {
           await this.handleFileChange()
         }
       } catch (error) {
@@ -220,43 +170,61 @@ export class SetupChromeInspectionStep {
     })
   }
 
-  stopWatching(): void {
+  stopWatching() {
     if (process.env.EXTENSION_ENV !== 'development') return
-    ;(this as any).isWatching = false
+    this.isWatching = false
     console.log(messages.sourceInspectorWatchModeStopped())
   }
 
   private async handleFileChange(): Promise<void> {
     if (process.env.EXTENSION_ENV !== 'development') return
+
     if (!this.cdpClient || !this.currentSessionId) {
       console.warn(messages.sourceInspectorNoActiveSession())
       return
     }
-    if ((this as any).debounceTimer) {
-      clearTimeout((this as any).debounceTimer)
+
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer)
     }
-    ;(this as any).debounceTimer = setTimeout(async () => {
+
+    this.debounceTimer = setTimeout(async () => {
       try {
         console.log(messages.sourceInspectorFileChanged())
         console.log(
           messages.sourceInspectorWaitingForContentScriptReinjection()
         )
+
         await this.cdpClient!.waitForContentScriptInjection(
           this.currentSessionId!
         )
+
         console.log(messages.sourceInspectorReExtractingHTML())
-        const html = await this.cdpClient!.getPageHTML(this.currentSessionId!)
-        // Svelte-specific: check probe marker on update
+        let html = ''
+
         try {
-          const probe = await this.cdpClient!.evaluate(
-            this.currentSessionId!,
-            "(function(){ var p = document.getElementById('extension-probe-svelte'); return p ? String(p.textContent||'') : '' })()"
-          )
-          if (probe) {
-            console.log(`[Extension.js] Svelte probe detected: ${probe}`)
+          html = await this.cdpClient!.getPageHTML(this.currentSessionId!)
+        } catch (e) {
+          // Fallback: small delay then try one more time to ensure a print even if timing is tight
+          await new Promise((r) => setTimeout(r, 250))
+          try {
+            html = await this.cdpClient!.getPageHTML(this.currentSessionId!)
+          } catch {
+            // ignore
           }
-        } catch {}
-        this.printUpdatedHTML(html)
+        }
+
+        // If still empty, force one more probe read a moment later (JS can be late)
+        if (!html) {
+          await new Promise((r) => setTimeout(r, 300))
+          try {
+            html = await this.cdpClient!.getPageHTML(this.currentSessionId!)
+          } catch {
+            // ignore
+          }
+        }
+
+        this.printUpdatedHTML(html || '')
       } catch (error) {
         console.error(
           messages.sourceInspectorHTMLUpdateFailed((error as Error).message)
@@ -274,17 +242,17 @@ export class SetupChromeInspectionStep {
 
   private async reconnectToTarget(): Promise<void> {
     if (process.env.EXTENSION_ENV !== 'development') return
+
     try {
       if (!this.cdpClient || !this.currentTargetId) {
         console.warn(messages.sourceInspectorCannotReconnect())
         return
       }
       console.log(messages.sourceInspectorReconnectingToTarget())
-      this.currentSessionId = await this.cdpClient.attachToTarget(
-        this.currentTargetId
-      )
+      this.currentSessionId =
+        (await this.cdpClient.attachToTarget(this.currentTargetId)) || null
       console.log(
-        messages.sourceInspectorReconnectedToTarget(this.currentSessionId)
+        messages.sourceInspectorReconnectedToTarget(this.currentSessionId || '')
       )
     } catch (error) {
       console.error(
@@ -294,14 +262,14 @@ export class SetupChromeInspectionStep {
   }
 
   // For the user: print the HTML inspection result
-  printHTML(html: string): void {
+  printHTML(html: string) {
     console.log(messages.sourceInspectorHTMLOutputHeader())
     console.log(html)
     console.log(messages.sourceInspectorHTMLOutputFooter())
   }
 
   // Only for development: print updated HTML after file change
-  printUpdatedHTML(html: string): void {
+  printUpdatedHTML(html: string) {
     if (process.env.EXTENSION_ENV !== 'development') return
     console.log(messages.sourceInspectorHTMLOutputHeader())
     console.log(
@@ -344,7 +312,7 @@ export class SetupChromeInspectionStep {
     }
 
     compiler.hooks.done.tapAsync(
-      'plugin-reload:setup-chrome-inspection',
+      'setup-chrome-inspection',
       async (stats, done) => {
         try {
           if (!this.isInitialized) {
@@ -370,14 +338,25 @@ export class SetupChromeInspectionStep {
           const html = await this.inspectSource(urlToInspect)
           this.printHTML(html)
 
-          // Watch mode is only for development
+          // Watch mode is only for development. Prefer websocket if present; otherwise fallback to immediate re-extract on rebuild.
           const webSocketServer = (compiler.options as any).webSocketServer
           if (
             this.devOptions.watchSource &&
-            webSocketServer &&
             process.env.EXTENSION_ENV === 'development'
           ) {
-            this.startWatching(webSocketServer)
+            if (webSocketServer) {
+              this.startWatching(webSocketServer)
+            } else {
+              // Fallback: trigger re-extraction on each rebuild
+              try {
+                const updated = await this.cdpClient!.getPageHTML(
+                  this.currentSessionId!
+                )
+                this.printUpdatedHTML(updated || '')
+              } catch {
+                // ignore best-effort fallback
+              }
+            }
           }
 
           done()

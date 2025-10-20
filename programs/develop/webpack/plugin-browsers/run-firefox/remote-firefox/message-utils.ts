@@ -1,16 +1,21 @@
-export function requestErrorToMessage(err: any) {
-  if (err instanceof Error) {
-    return String(err)
+export function requestErrorToMessage(error: unknown) {
+  if (error instanceof Error) return String(error)
+
+  try {
+    const asObj = error as Record<string, unknown>
+    const code = asObj?.error || 'Error'
+    const msg = asObj?.message || 'Unknown error'
+
+    return `${code}: ${msg}`
+  } catch {
+    return 'Unknown error'
   }
-  return `${err.error}: ${err.message}`
 }
 
-export function isErrorWithCode(codeWanted: any, error: any) {
-  if (Array.isArray(codeWanted) && codeWanted.includes(error.code)) {
-    return true
-  } else if (error.code === codeWanted) {
-    return true
-  }
+export function isErrorWithCode(codeWanted: string | string[], error: unknown) {
+  const code = (error as any)?.code
 
-  return false
+  if (Array.isArray(codeWanted)) return codeWanted.includes(code)
+
+  return code === codeWanted
 }
