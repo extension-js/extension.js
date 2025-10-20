@@ -5,7 +5,7 @@ import {createRequire} from 'module'
 import * as os from 'os'
 import dotenv from 'dotenv'
 import {Configuration} from '@rspack/core'
-import {BrowserConfig, FileConfig, DevOptions} from './config-types'
+import {BrowserConfig, FileConfig, DevOptions} from '../types/options'
 import * as messages from './messages'
 
 function preloadEnvFiles(projectDir: string) {

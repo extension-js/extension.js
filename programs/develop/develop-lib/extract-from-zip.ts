@@ -64,6 +64,13 @@ export async function downloadAndExtractZip(
     return destinationPath
   } catch (error: any) {
     console.error(messages.failedToDownloadOrExtractZIPFileError(error))
-    throw error
+    // Ensure non-zip error yields a non-zero exit code when invoked via CLI
+    // by propagating an error instance with a clear message
+    const err = new Error(
+      `${messages.failedToDownloadOrExtractZIPFileError(error)}`
+    )
+    // @ts-expect-error - Error type does not have a code property
+    err.code = 'EZIP'
+    throw err
   }
 }

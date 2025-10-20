@@ -2,7 +2,7 @@ import {
   type RspackPluginInstance,
   type LoaderContext as RspackLoaderContext
 } from '@rspack/core'
-import {type DevOptions} from '../develop-lib/config-types'
+import {type DevOptions} from '../types/options'
 
 export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
   Partial<chrome.runtime.ManifestV3> & {
@@ -57,6 +57,7 @@ export type HtmlFilepathList = Record<
 export interface LoaderContext {
   resourcePath: string
   emitFile: (name: string, content: string) => void
+  emitWarning?: (error: Error | string) => void
   getOptions: () => {
     test: string
     manifestPath: string

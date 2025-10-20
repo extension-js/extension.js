@@ -3,7 +3,7 @@ import * as path from 'path'
 import {StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import {Manifest} from '../webpack/webpack-types'
-import {type DevOptions} from './config-types'
+import {type DevOptions} from '../types/options'
 import packageJson from '../package.json'
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
@@ -286,25 +286,6 @@ export function invalidRemoteZip(url: string, contentType: string) {
   )
 }
 
-// function calculateDirectorySize(dirPath: string): number {
-//   let totalSize = 0
-//
-//   const items = fs.readdirSync(dirPath)
-//
-//   for (const item of items) {
-//     const fullPath = path.join(dirPath, item)
-//     const stats = fs.statSync(fullPath)
-//
-//     if (stats.isFile()) {
-//       totalSize += stats.size
-//     } else if (stats.isDirectory()) {
-//       totalSize += calculateDirectorySize(fullPath)
-//     }
-//   }
-//
-//   return totalSize
-// }
-
 function capitalizedBrowserName(browser: DevOptions['browser']) {
   const b = String(browser || '')
   const cap = b.charAt(0).toUpperCase() + b.slice(1)
@@ -329,15 +310,6 @@ function getAssetsSize(assets: {size: number}[] | undefined) {
 
   return getFileSize(totalSize)
 }
-
-// function getDirectorySize(filepath: string): string {
-//   const fileSizeInBytes = calculateDirectorySize(filepath)
-//   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-//   const sizeType = Math.floor(Math.log(fileSizeInBytes) / Math.log(1024))
-//   const size = (fileSizeInBytes / Math.pow(1024, sizeType)).toFixed(1)
-//
-//   return `${size} ${sizes[sizeType]}`
-// }
 
 function printTree(node: Record<string, any>, prefix = ''): string {
   let output = ''
@@ -429,4 +401,21 @@ export function managedDependencyConflict(
     `If you need a different version, open an issue so we can consider bundling it safely.\n` +
     `Operation aborted.`
   )
+}
+
+// Auto-exit helpers used by dev server for non-interactive runs
+export function autoExitModeEnabled(autoExitMs: number) {
+  return `${getLoggingPrefix('info')} Auto-exit enabled. Exiting after ${colors.gray(`${autoExitMs}ms`)}.`
+}
+
+export function autoExitTriggered(autoExitMs: number) {
+  return `${getLoggingPrefix('info')} Auto-exit timer elapsed (${colors.gray(`${autoExitMs}ms`)}) – cleaning up...`
+}
+
+export function autoExitForceKill(forceKillMs: number) {
+  return `${getLoggingPrefix('warn')} Force-killing process after fallback (${colors.gray(`${forceKillMs}ms`)})`
+}
+
+export function isUsingCustomLoader(loaderPath: string) {
+  return `${getLoggingPrefix('info')} Using custom loader: ${colors.yellow(loaderPath)}.`
 }

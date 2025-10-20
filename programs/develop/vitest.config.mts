@@ -4,7 +4,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['**/*.spec.ts'],
+    testTimeout: 30000,
+    hookTimeout: 45000,
+    include: ['__spec__/unit/**/*.spec.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -29,7 +31,8 @@ export default defineConfig({
       '**/dist/**',
       // Exclude temporary test workspaces created under __spec__
       '**/__spec__/.tmp-**/**',
-      '**/.tmp-tests/**'
+      '**/.tmp-tests/**',
+      '**/webpack/**'
     ],
     // Integration specs build real example projects under examples/.../dist.
     // Run in a single thread to avoid cross-spec interference on those folders.

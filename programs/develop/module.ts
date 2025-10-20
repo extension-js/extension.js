@@ -9,14 +9,13 @@ import {extensionBuild} from './build'
 import {extensionDev} from './dev'
 import {extensionPreview} from './preview'
 import {extensionStart} from './start'
-import {cleanupCommand} from './cleanup'
 import {
   type FileConfig,
   type BuildOptions,
   type DevOptions,
   type PreviewOptions,
   type StartOptions
-} from './develop-lib/config-types'
+} from './types/options'
 import {type Manifest} from './webpack/webpack-types'
 
 export {
@@ -28,7 +27,6 @@ export {
   StartOptions,
   extensionPreview,
   PreviewOptions,
-  cleanupCommand,
   FileConfig,
   Manifest
 }
