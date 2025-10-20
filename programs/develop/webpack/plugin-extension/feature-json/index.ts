@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import rspack, {Compiler, sources, Compilation} from '@rspack/core'
+import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as utils from '../../webpack-lib/utils'
 import * as messages from '../../webpack-lib/messages'
@@ -57,11 +57,12 @@ export class JsonPlugin {
                 // and output the file accordingly.
                 if (!utils.shouldExclude(thisResource, this.excludeList)) {
                   if (!fs.existsSync(thisResource)) {
-                    compilation.warnings.push(
-                      new rspack.WebpackError(
-                        messages.entryNotFoundWarn(feature, thisResource)
-                      )
+                    const warn = new WebpackError(
+                      messages.entryNotFoundMessageOnly(feature)
                     )
+                    warn.name = 'JsonPluginMissingFile'
+                    warn.file = thisResource
+                    compilation.warnings.push(warn)
                     continue
                   }
 
