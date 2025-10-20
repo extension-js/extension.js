@@ -3,8 +3,11 @@ import * as path from 'path'
 import {describe, it, beforeAll, afterAll, expect} from 'vitest'
 import {getLocales} from '../get-locales'
 
-describe('getLocales', () => {
-  const tmpRoot = path.resolve(__dirname, '__tmp__')
+// These tests verify that getLocales walks _locales/*/* and returns absolute file paths.
+// They avoid framework/e2e concerns and operate purely on the filesystem.
+
+describe('getLocales (unit)', () => {
+  const tmpRoot = path.resolve(__dirname, '__tmp_locales__')
   const manifestPath = path.join(tmpRoot, 'manifest.json')
   const localesRoot = path.join(tmpRoot, '_locales')
   const enDir = path.join(localesRoot, 'en')
@@ -22,7 +25,7 @@ describe('getLocales', () => {
       path.join(ptDir, 'messages.json'),
       '{"hello":{"message":"oi"}}'
     )
-    // extra non-json files
+    // extra non-json files should still be returned; LocalesPlugin filters later
     fs.writeFileSync(path.join(enDir, 'notes.txt'), 'note')
     fs.writeFileSync(path.join(enDir, 'logo.png'), '')
   })
@@ -30,6 +33,21 @@ describe('getLocales', () => {
   afterAll(() => {
     if (fs.existsSync(tmpRoot))
       fs.rmSync(tmpRoot, {recursive: true, force: true})
+  })
+
+  it('returns empty array if _locales does not exist', () => {
+    const emptyRoot = path.resolve(__dirname, '__tmp_empty__')
+    const emptyManifest = path.join(emptyRoot, 'manifest.json')
+    fs.mkdirSync(emptyRoot, {recursive: true})
+    fs.writeFileSync(emptyManifest, '{"name":"x"}')
+    try {
+      const files = getLocales(emptyManifest) || []
+      expect(Array.isArray(files)).toBe(true)
+      expect(files.length).toBe(0)
+    } finally {
+      if (fs.existsSync(emptyRoot))
+        fs.rmSync(emptyRoot, {recursive: true, force: true})
+    }
   })
 
   it('collects all files under _locales subfolders', () => {
