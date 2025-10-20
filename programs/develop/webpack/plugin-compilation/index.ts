@@ -3,8 +3,17 @@ import colors from 'pintor'
 import {Compiler, DefinePlugin} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
+import * as messages from './compilation-lib/messages'
 import {CleanDistFolderPlugin} from './clean-dist'
-import * as messages from '../webpack-lib/messages'
+// Local compact build summary helper
+function formatBuildSummary(
+  manifestName: string,
+  durationMs: number,
+  hasErrors: boolean
+) {
+  const arrow = hasErrors ? colors.red('✖✖✖') : colors.green('►►►')
+  return `${arrow} ${manifestName} compiled ${hasErrors ? colors.red('with errors') : colors.green('successfully')} in ${durationMs} ms.`
+}
 import {type PluginInterface} from '../webpack-types'
 
 // Track repeated "boring" messages and collapse them into a single line with a counter
@@ -69,12 +78,7 @@ export class CompilationPlugin {
 
       const hasErrors = stats.hasErrors()
       const key = getCompilationKey(manifestName, hasErrors)
-      const rawLine = messages.boring(manifestName, duration, stats)
-      if (!rawLine) {
-        done()
-        return
-      }
-      const line: string = rawLine
+      const line = messages.boring(manifestName, duration, stats)
 
       // If message repeats, overwrite previous compilation line and append (Nx)
       if (key === lastCompilationKey) {

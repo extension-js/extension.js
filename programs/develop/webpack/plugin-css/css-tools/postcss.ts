@@ -7,12 +7,12 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import * as messages from '../../webpack-lib/messages'
+import * as messages from '../css-lib/messages'
 import {isUsingTailwind} from './tailwind'
 import {isUsingSass} from './sass'
 import {isUsingLess} from './less'
-import {installOptionalDependencies} from '../../webpack-lib/utils'
-import {hasDependency} from '../../webpack-lib/utils'
+import {installOptionalDependencies} from '../../../develop-lib/utils'
+import {hasDependency} from '../../../develop-lib/utils'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 
 let userMessageDelivered = false

@@ -11,13 +11,15 @@ import {
   getUserTypeScriptConfigFile
 } from './js-tools/typescript'
 import {maybeUseSvelte} from './js-tools/svelte'
-import {type DevOptions} from '../../develop-lib/config-types'
+import {type DevOptions} from '../../types/options'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
 
 const hasTsxSourceFiles = (directoryPath: string): boolean => {
   try {
-    const entries: fs.Dirent[] = fs.readdirSync(directoryPath, {withFileTypes: true})
+    const entries: fs.Dirent[] = fs.readdirSync(directoryPath, {
+      withFileTypes: true
+    })
     return entries.some((entry: fs.Dirent) => {
       if (entry.isFile()) return /\.tsx$/i.test(entry.name)
       if (entry.isDirectory()) {

@@ -8,9 +8,9 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import PreactRefreshPlugin from '@rspack/plugin-preact-refresh'
-import * as messages from '../../webpack-lib/messages'
-import {installOptionalDependencies} from '../../webpack-lib/utils'
-import {hasDependency} from '../../webpack-lib/utils'
+import * as messages from '../js-frameworks-lib/messages'
+import {installOptionalDependencies} from '../../../develop-lib/utils'
+import {hasDependency} from '../../../develop-lib/utils'
 import {JsFramework} from '../../webpack-types'
 import {RspackPluginInstance} from '@rspack/core'
 

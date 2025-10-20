@@ -7,12 +7,12 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import * as messages from '../../webpack-lib/messages'
-import {installOptionalDependencies} from '../../webpack-lib/utils'
+import * as messages from '../js-frameworks-lib/messages'
+import {installOptionalDependencies} from '../../../develop-lib/utils'
 import {JsFramework} from '../../webpack-types'
-import {hasDependency} from '../../webpack-lib/utils'
-import {loadLoaderOptions} from '../load-loader-options'
-import {type DevOptions} from '../../../develop-lib/config-types'
+import {hasDependency} from '../../../develop-lib/utils'
+import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
+import {type DevOptions} from '../../../types/options'
 
 let userMessageDelivered = false
 

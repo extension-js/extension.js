@@ -1,7 +1,7 @@
 import * as path from 'path'
-import * as messages from '../../webpack-lib/messages'
-import {installOptionalDependencies} from '../../webpack-lib/utils'
-import {hasDependency} from '../../webpack-lib/utils'
+import * as messages from '../css-lib/messages'
+import {installOptionalDependencies} from '../../../develop-lib/utils'
+import {hasDependency} from '../../../develop-lib/utils'
 
 let userMessageDelivered = false
 

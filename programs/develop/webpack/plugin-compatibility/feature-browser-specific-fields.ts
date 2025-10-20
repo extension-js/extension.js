@@ -1,8 +1,8 @@
 import {type Compiler, Compilation, sources} from '@rspack/core'
 import {type PluginInterface, type Manifest} from '../webpack-types'
-import {type DevOptions} from '../../develop-lib/config-types'
-import {getManifestContent} from '../webpack-lib/utils'
-import * as utils from '../webpack-lib/utils'
+import {type DevOptions} from '../../types/options'
+import {getManifestContent} from '../../develop-lib/utils'
+import * as utils from '../../develop-lib/utils'
 
 export class BrowserSpecificFieldsPlugin {
   private readonly browser: DevOptions['browser']
