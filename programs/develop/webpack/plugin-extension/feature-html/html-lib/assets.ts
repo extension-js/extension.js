@@ -2,10 +2,10 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as parse5utilities from 'parse5-utilities'
 import {WebpackError} from '@rspack/core'
-import * as messages from '../../../webpack-lib/messages'
+import * as messages from './messages'
 import {getFilePath, getHtmlPageDeclaredAssetPath} from './utils'
 import {type FilepathList} from '../../../webpack-types'
-import * as utils from '../../../webpack-lib/utils'
+import * as utils from '../../../../develop-lib/utils'
 
 export function handleStaticAsset(
   compilation: any,

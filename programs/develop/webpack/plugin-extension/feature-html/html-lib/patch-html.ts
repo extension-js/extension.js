@@ -3,17 +3,12 @@ import * as path from 'path'
 import {WebpackError, type Compilation} from '@rspack/core'
 import * as parse5utilities from 'parse5-utilities'
 import {parseHtml} from './parse-html'
-import {
-  getExtname,
-  getFilePath,
-  cleanAssetUrl,
-  getBaseHref
-} from './utils'
+import {getExtname, getFilePath, cleanAssetUrl, getBaseHref} from './utils'
 import {type FilepathList} from '../../../webpack-types'
 import {handleStaticAsset} from './assets'
 import {injectCssLink, injectJsScript} from './inject'
-import * as messages from '../../../webpack-lib/messages'
-import * as utils from '../../../webpack-lib/utils'
+import * as messages from './messages'
+import * as utils from '../../../../develop-lib/utils'
 
 interface DocumentFragment {
   toString(): string
@@ -227,10 +222,13 @@ export function patchHtmlNested(
 
                   const warn = new WebpackError(errorMessage)
                   warn.name = 'HtmlPublicAssetMissing'
+                  // @ts-expect-error file is not typed
                   warn.file = htmlEntry
 
                   const lines = String(warn.message).split('\n')
-                  const filtered = lines.filter((line) => !line.includes(String(cleanPath)))
+                  const filtered = lines.filter(
+                    (line) => !line.includes(String(cleanPath))
+                  )
                   warn.message = filtered.join('\n').trim()
 
                   compilation.warnings.push(warn)
@@ -274,6 +272,7 @@ export function patchHtmlNested(
 
                   const warn = new WebpackError(errorMessage)
                   warn.name = 'HtmlPublicAssetMissing'
+                  // @ts-expect-error file is not typed
                   warn.file = htmlEntry
 
                   const lines = String(warn.message).split('\n')
@@ -327,6 +326,7 @@ export function patchHtmlNested(
                   )
                   const warn = new WebpackError(errorMessage)
                   warn.name = 'HtmlPublicAssetMissing'
+                  // @ts-expect-error file is not typed
                   warn.file = htmlEntry
                   const lines = String(warn.message).split('\n')
                   const filtered = lines.filter(
