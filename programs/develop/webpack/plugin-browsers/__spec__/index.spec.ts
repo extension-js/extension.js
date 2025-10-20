@@ -1,78 +1,43 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - private API acceptable in tests
-import Module from 'module'
 
-const paths = vi.hoisted(() => {
-  const path = require('node:path') as typeof import('node:path')
-  const base = __dirname
-  return {
-    chromium: path.resolve(base, '../run-chromium/index.ts'),
-    firefox: path.resolve(base, '../run-firefox/index.ts'),
-    chromeInspection: path.resolve(
-      base,
-      '../run-chromium/setup-chrome-inspection/index.ts'
-    ),
-    firefoxInspection: path.resolve(
-      base,
-      '../run-firefox/remote-firefox/setup-firefox-inspection/index.ts'
-    )
-  }
-})
-
-// Mocks capturing instances created by the plugin
+// ESM-friendly mocks for runner plugins and inspection steps
 let lastChromiumRunner: any = null
 let lastFirefoxRunner: any = null
 let lastChromeInspector: any = null
 let lastFirefoxInspector: any = null
 
-// Intercept CommonJS require used inside BrowsersPlugin.apply
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - private API acceptable in tests
-const originalLoad = (Module as any)._load
-beforeEach(() => {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - private API acceptable in tests
-  ;(Module as any)._load = function (
-    request: string,
-    parent: any,
-    isMain: boolean
-  ) {
-    const isFromBrowsersIndex = parent?.id?.endsWith(
-      '/plugin-browsers/index.ts'
-    )
-    if (isFromBrowsersIndex && request === './run-chromium') {
-      class RunChromiumPlugin {
-        public opts: any
-        public apply = vi.fn()
-        constructor(opts: any) {
-          this.opts = opts
-          lastChromiumRunner = this
-        }
-      }
-      return {RunChromiumPlugin}
+vi.mock('../run-chromium', () => {
+  class RunChromiumPlugin {
+    public opts: any
+    public apply = vi.fn()
+    constructor(opts: any) {
+      this.opts = opts
+      lastChromiumRunner = this
     }
-    if (isFromBrowsersIndex && request === './run-firefox') {
-      class RunFirefoxPlugin {
-        public opts: any
-        public apply = vi.fn()
-        constructor(opts: any) {
-          this.opts = opts
-          lastFirefoxRunner = this
-        }
-      }
-      return {RunFirefoxPlugin}
-    }
-    return originalLoad(request as any, parent, isMain)
-  } as any
-})
-afterEach(() => {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore - private API acceptable in tests
-  ;(Module as any)._load = originalLoad
+  }
+  return {RunChromiumPlugin}
 })
 
-vi.mock(paths.chromeInspection, () => {
+vi.mock('../run-firefox', () => {
+  class RunFirefoxPlugin {
+    public opts: any
+    public apply = vi.fn()
+    constructor(opts: any) {
+      this.opts = opts
+      lastFirefoxRunner = this
+    }
+  }
+  return {RunFirefoxPlugin}
+})
+
+beforeEach(() => {
+  lastChromiumRunner = null
+  lastFirefoxRunner = null
+  lastChromeInspector = null
+  lastFirefoxInspector = null
+})
+
+vi.mock('../run-chromium/setup-chrome-inspection', () => {
   class SetupChromeInspectionStep {
     public opts: any
     public apply = vi.fn()
@@ -84,7 +49,7 @@ vi.mock(paths.chromeInspection, () => {
   return {SetupChromeInspectionStep}
 })
 
-vi.mock(paths.firefoxInspection, () => {
+vi.mock('../run-firefox/remote-firefox/setup-firefox-inspection', () => {
   class SetupFirefoxInspectionStep {
     public opts: any
     public apply = vi.fn()
@@ -104,10 +69,6 @@ function createCompiler(mode: 'development' | 'production') {
 }
 
 beforeEach(() => {
-  lastChromiumRunner = null
-  lastFirefoxRunner = null
-  lastChromeInspector = null
-  lastFirefoxInspector = null
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 

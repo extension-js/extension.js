@@ -1,9 +1,12 @@
 import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './browsers-types'
-import {DevOptions} from '../../develop-lib/config-types'
-import * as messages from '../webpack-lib/messages'
+import {DevOptions} from '../../types/options'
+import * as messages from './browsers-lib/messages'
 import {SetupChromeInspectionStep} from './run-chromium/setup-chrome-inspection'
 import {SetupFirefoxInspectionStep} from './run-firefox/remote-firefox/setup-firefox-inspection'
+import {RunChromiumPlugin} from './run-chromium'
+import {RunFirefoxPlugin} from './run-firefox'
+import {normalizePluginOptions} from './browsers-lib/normalize-options'
 
 /**
  * BrowsersPlugin works by finding the binary for the browser specified in the
@@ -31,7 +34,7 @@ export class BrowsersPlugin {
   public readonly browserFlags?: string[]
   public readonly excludeBrowserFlags?: string[]
   public readonly profile?: string | false
-  public readonly preferences?: Record<string, any>
+  public readonly preferences?: Record<string, unknown>
   public readonly startingUrl?: string
   public readonly chromiumBinary?: string
   public readonly geckoBinary?: string
@@ -39,81 +42,83 @@ export class BrowsersPlugin {
   public readonly port?: number | string
   public readonly source?: string
   public readonly watchSource?: boolean
-  public readonly reuseProfile?: boolean
   public readonly dryRun?: boolean
+  // Unified logger options (for CDP streaming in Chromium path)
+  public readonly logLevel?:
+    | 'off'
+    | 'error'
+    | 'warn'
+    | 'info'
+    | 'debug'
+    | 'trace'
+    | 'all'
+  public readonly logContexts?: Array<
+    | 'background'
+    | 'content'
+    | 'page'
+    | 'sidebar'
+    | 'popup'
+    | 'options'
+    | 'devtools'
+  >
+  public readonly logFormat?: 'pretty' | 'json' | 'ndjson'
+  public readonly logTimestamps?: boolean
+  public readonly logColor?: boolean
+  public readonly logUrl?: string
+  public readonly logTab?: number | string
 
   constructor(options: PluginInterface) {
-    // Environment overrides removed
-
-    // Preserve provided extension paths as-is (do not mix flags)
-    this.extension = options.extension
-
-    // Determine browser based on binary flags or fall back to the provided option
-    if (options.chromiumBinary) {
-      this.browser = 'chromium-based'
-    } else if (options.geckoBinary) {
-      this.browser = 'gecko-based'
-    } else {
-      this.browser = options.browser || 'chrome'
-    }
-
-    this.open = options.open
+    const normalized = normalizePluginOptions(options)
+    this.extension = normalized.extension
+    this.browser = normalized.browser
+    this.open = normalized.open
     this.browserFlags =
-      options.browserFlags?.filter(
+      normalized.browserFlags?.filter(
         (flag) => !flag.startsWith('--load-extension=')
       ) || []
-    this.excludeBrowserFlags = options.excludeBrowserFlags
-    // Normalize profile option to avoid accidental string "false" directories
-    if (typeof options.profile === 'string') {
-      const trimmed = options.profile.trim()
-      if (
-        /^(false|null|undefined|off|0)$/i.test(trimmed) ||
-        trimmed.length === 0
-      ) {
-        this.profile = false
-        console.warn(
-          '[plugin-browsers] Normalized profile option from string to false; no managed profile will be used.'
-        )
-      } else {
-        this.profile = trimmed
-      }
-    } else {
-      this.profile = options.profile
-    }
-    this.preferences = options.preferences
-    this.startingUrl = options.startingUrl || ''
-    this.chromiumBinary = options.chromiumBinary
-    this.geckoBinary = options.geckoBinary
-    this.instanceId = options.instanceId
-    this.port = options.port
-    // Add source inspection options
-    this.source = options.source
-    this.watchSource = options.watchSource
-    this.reuseProfile = options.reuseProfile
-    this.dryRun = (options as any).dryRun as any
+    this.excludeBrowserFlags = normalized.excludeBrowserFlags
+    this.profile = normalized.profile
+    this.preferences = normalized.preferences
+    this.startingUrl = normalized.startingUrl
+    this.chromiumBinary = normalized.chromiumBinary
+    this.geckoBinary = normalized.geckoBinary
+    this.instanceId = normalized.instanceId
+    this.port = normalized.port
+    this.source = normalized.source
+    this.watchSource = normalized.watchSource
+    this.dryRun = normalized.dryRun
+    this.logLevel = normalized.logLevel
+    this.logContexts = normalized.logContexts
+    this.logFormat = normalized.logFormat
+    this.logTimestamps = normalized.logTimestamps
+    this.logColor = normalized.logColor
+    this.logUrl = normalized.logUrl
+    this.logTab = normalized.logTab
 
-    if (this.profile === false) {
+    if (this.profile === false && process.env.EXTENSION_ENV === 'development') {
       console.warn(
-        '[plugin-browsers] You are using the system profile (profile: false). This may alter your personal browser data. Consider using managed profiles or backups.'
+        messages.profileFallbackWarning(
+          this.browser,
+          'system profile in use (profile: false)'
+        )
       )
     }
   }
 
   apply(compiler: Compiler) {
     try {
-      let UserDefinedBrowserPlugin: any
+      let UserDefinedBrowserPlugin: new (options: PluginInterface) => {
+        apply: (c: Compiler) => void
+      }
 
-      // Synchronously import the appropriate browser plugin
       switch (this.browser) {
         case 'chrome':
         case 'edge':
         case 'chromium-based':
-          const {RunChromiumPlugin} = require('./run-chromium')
           UserDefinedBrowserPlugin = RunChromiumPlugin
           break
         case 'firefox':
         case 'gecko-based':
-          const {RunFirefoxPlugin} = require('./run-firefox')
           UserDefinedBrowserPlugin = RunFirefoxPlugin
           break
         default:
@@ -136,8 +141,15 @@ export class BrowsersPlugin {
         port: this.port,
         source: this.source,
         watchSource: this.watchSource,
-        reuseProfile: this.reuseProfile,
-        dryRun: this.dryRun
+        dryRun: this.dryRun,
+        // Logger flags forwarded into browser plugin (Chromium consumes for CDP logs)
+        logLevel: this.logLevel,
+        logContexts: this.logContexts,
+        logFormat: this.logFormat,
+        logTimestamps: this.logTimestamps,
+        logColor: this.logColor,
+        logUrl: this.logUrl,
+        logTab: this.logTab
       }
 
       // Apply the browser-specific plugin immediately
@@ -152,7 +164,7 @@ export class BrowsersPlugin {
     // Shadow DOM content from content scripts
     if (compiler.options.mode !== 'development') return
 
-    if (this.browser === 'firefox' || this.browser === 'gecko-based') {
+    if (this.browser === 'firefox') {
       new SetupFirefoxInspectionStep({
         browser: this.browser,
         mode: compiler.options.mode || 'development',
@@ -164,11 +176,7 @@ export class BrowsersPlugin {
       }).apply(compiler)
     }
 
-    if (
-      this.browser === 'chrome' ||
-      this.browser === 'edge' ||
-      this.browser === 'chromium-based'
-    ) {
+    if (this.browser === 'chrome' || this.browser === 'edge') {
       new SetupChromeInspectionStep({
         browser: this.browser,
         mode: compiler.options.mode || 'development',
@@ -177,7 +185,7 @@ export class BrowsersPlugin {
         startingUrl: this.startingUrl,
         port: this.port,
         instanceId: this.instanceId
-      } as any).apply(compiler)
+      }).apply(compiler)
     }
   }
 }

@@ -6,19 +6,17 @@ import * as chromeLocation from 'chrome-location2'
 import edgeLocation from 'edge-location'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
-import {PluginInterface} from '../browsers-types'
-import {DevOptions} from '../../../develop-lib/config-types'
-import {DynamicExtensionManager} from '../browsers-lib/dynamic-extension-manager'
-import {InstanceManager} from '../browsers-lib/instance-manager'
+import {PluginInterface, type PluginRuntime} from '../browsers-types'
+import {DevOptions} from '../../../types/options'
+import {CDPExtensionController} from './setup-chrome-inspection/cdp-extension-controller'
+import {logChromiumDryRun} from './dry-run'
+import {setupCdpAfterLaunch} from './setup-cdp-after-launch'
+import {setInstancePorts} from '../browsers-lib/instance-registry'
 import {
   deriveDebugPortWithInstance,
   findAvailablePortNear
 } from '../browsers-lib/shared-utils'
-import {
-  getDefaultProfilePath,
-  isChromiumProfileLocked,
-  chooseEffectiveInstanceId
-} from '../browsers-lib/shared-utils'
+import {setupProcessSignalHandlers} from './process-handlers'
 
 export class RunChromiumPlugin {
   public readonly extension: string | string[]
@@ -35,9 +33,33 @@ export class RunChromiumPlugin {
   public readonly instanceId?: string
   public readonly source?: string
   public readonly watchSource?: boolean
-  public readonly reuseProfile?: boolean
   public readonly dryRun?: boolean
-  private browserProcess?: ChildProcess
+  private cdpController?: CDPExtensionController
+  // Logger flags
+  private logLevel?:
+    | 'off'
+    | 'error'
+    | 'warn'
+    | 'info'
+    | 'debug'
+    | 'trace'
+    | 'all'
+  private logContexts?: Array<
+    | 'background'
+    | 'content'
+    | 'page'
+    | 'sidebar'
+    | 'popup'
+    | 'options'
+    | 'devtools'
+  >
+  private logFormat?: 'pretty' | 'json' | 'ndjson'
+  private logTimestamps?: boolean
+  private logColor?: boolean
+  private logUrl?: string
+  private logTab?: number | string
+  private bannerPrintedOnce?: boolean
+  private logger?: ReturnType<Compiler['getInfrastructureLogger']>
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -52,8 +74,15 @@ export class RunChromiumPlugin {
     this.instanceId = options.instanceId
     this.source = options.source
     this.watchSource = options.watchSource
-    this.reuseProfile = (options as any).reuseProfile
-    this.dryRun = (options as any).dryRun
+    this.dryRun = options.dryRun
+    // Logger flags
+    this.logLevel = options.logLevel
+    this.logContexts = options.logContexts
+    this.logFormat = options.logFormat
+    this.logTimestamps = options.logTimestamps
+    this.logColor = options.logColor
+    this.logUrl = options.logUrl
+    this.logTab = options.logTab
   }
 
   private async launchChromium(
@@ -64,9 +93,7 @@ export class RunChromiumPlugin {
     const compilationErrors = compilation?.errors || []
 
     if (compilationErrors.length > 0) {
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.skippingBrowserLaunchDueToCompileErrors())
-      }
+      this.logger?.info(messages.skippingBrowserLaunchDueToCompileErrors())
       return
     }
 
@@ -81,7 +108,7 @@ export class RunChromiumPlugin {
         try {
           browserBinaryLocation = edgeLocation()
         } catch (e) {
-          console.error(
+          this.logger?.error(
             messages.browserNotInstalledError(browser, 'edge binary not found')
           )
           process.exit(1)
@@ -98,7 +125,7 @@ export class RunChromiumPlugin {
     }
 
     if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
-      console.error(
+      this.logger?.error(
         messages.browserNotInstalledError(browser, browserBinaryLocation)
       )
       // Avoid killing the test runner during unit tests
@@ -109,182 +136,118 @@ export class RunChromiumPlugin {
       }
     }
 
-    // Get the current instance first to get the correct project path
-    const instanceManager = new InstanceManager(
-      (compilation as any).options?.context || process.cwd()
-    )
-    let currentInstance = null
-    if (this.instanceId) {
-      currentInstance = await instanceManager.getInstance(this.instanceId)
-    }
-
-    // Use the project path from the instance, or fallback to compiler context
-    const projectPath =
-      currentInstance?.projectPath ||
-      (compilation as any).options?.context ||
-      process.cwd()
-    const extensionManager = new DynamicExtensionManager(projectPath)
-
-    // Prepare extensions list with dynamic manager extension
-    let extensionsToLoad = Array.isArray(this.extension)
+    // Determine project/output paths
+    // No instance manager; rely on profile locks only
+    // Prepare only user extension(s)
+    const extensionsToLoad = Array.isArray(this.extension)
       ? [...this.extension]
       : [this.extension]
 
-    if (currentInstance) {
-      const generatedExtension =
-        await extensionManager.regenerateExtensionIfNeeded(currentInstance)
-      extensionsToLoad = [...extensionsToLoad, generatedExtension.extensionPath]
-    }
-
-    // Smart profile reuse with graceful fallback
-    let effectiveInstanceId: string | undefined = this.instanceId
-    try {
-      const running = await instanceManager.getRunningInstances()
-      const concurrent = running.some(
-        (i) => i.status === 'running' && i.browser === this.browser
-      )
-      const browserSpecificOutputPath =
-        ((compilation as any).options?.output?.path as string) ||
-        process.cwd() + '/dist'
-      const mainOutputPath = path.dirname(browserSpecificOutputPath)
-      const baseProfilePath = getDefaultProfilePath(
-        mainOutputPath,
-        this.browser
-      )
-      const lockPresent = isChromiumProfileLocked(baseProfilePath)
-      effectiveInstanceId = chooseEffectiveInstanceId(
-        this.reuseProfile,
-        concurrent,
-        lockPresent,
-        this.instanceId
-      )
-    } catch {
-      effectiveInstanceId = this.instanceId
-    }
+    const effectiveInstanceId: string | undefined = this.instanceId
 
     let chromiumConfig: string[]
     try {
-      // Choose profile path: if another Chromium session is running or the base profile is locked,
-      // switch to a per-instance managed profile so Chrome honors --load-extension flags.
-      const concurrent = (await instanceManager.getRunningInstances()).some(
-        (i) => i.status === 'running' && i.browser === this.browser
-      )
-      const baseLocked = isChromiumProfileLocked(
-        getDefaultProfilePath(
-          path.dirname(
-            ((compilation as any).options?.output?.path as string) ||
-              process.cwd() + '/dist'
-          ),
-          this.browser
-        )
-      )
-      // The logic below determines which Chrome user profile directory to use.
-      // If the user explicitly provided a profile path, always use it.
-      // Otherwise, if there's a concurrent Chromium session or the base profile is locked,
-      // we must NOT use the default profile (to avoid Chrome ignoring --load-extension),
-      // so we pass undefined to trigger per-instance profile creation.
-      // If neither of those is true, we fall back to this.profile (which is likely undefined anyway)
-      const hasExplicitProfile =
-        typeof this.profile === 'string' && this.profile.trim().length > 0
-      const profileForConfig = hasExplicitProfile
-        ? this.profile
-        : concurrent || baseLocked
-          ? undefined
-          : this.profile
       chromiumConfig = browserConfig(compilation, {
         ...this,
-        profile: profileForConfig,
+        profile: this.profile,
         instanceId: effectiveInstanceId,
-        extension: extensionsToLoad
-      } as any)
+        extension: extensionsToLoad,
+        logLevel: this.logLevel
+      })
 
       // One-time dev hint when falling back
-      if (
-        process.env.EXTENSION_ENV === 'development' &&
-        (concurrent || baseLocked)
-      ) {
-        try {
-          console.warn(
-            messages.profileFallbackWarning(
-              this.browser,
-              concurrent ? 'concurrent session' : 'profile lock detected'
-            )
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.warn(
+          messages.profileFallbackWarning(
+            this.browser,
+            'ephemeral/persistent profile selection handled by config'
           )
-        } catch {}
-      }
-    } catch (error) {
-      // Fallback: if shared profile creation fails, retry with per-instance profile
-      if ((this.reuseProfile as boolean | undefined) !== false) {
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.warn(
-            `Falling back to per-instance profile due to error: ${String(error)}`
-          )
-        }
-        chromiumConfig = browserConfig(compilation, {
-          ...this,
-          instanceId: this.instanceId,
-          extension: extensionsToLoad
-        } as any)
-      } else {
-        throw error
-      }
-    }
-
-    // Ensure CDP port availability if source inspection enabled
-    if (this.source || this.watchSource) {
-      const desiredPort = deriveDebugPortWithInstance(
-        this.port as any,
-        this.instanceId
-      )
-      const freePort = await findAvailablePortNear(desiredPort)
-      if (freePort !== desiredPort) {
-        // Replace port occurrences in flags
-        chromiumConfig = chromiumConfig.map((flag) =>
-          flag.startsWith('--remote-debugging-port=')
-            ? `--remote-debugging-port=${freePort}`
-            : flag
         )
       }
-      // Persist final chosen debug port to instance metadata
-      try {
-        if (this.instanceId) {
-          await instanceManager.updateInstance(this.instanceId, {
-            debugPort: freePort
-          })
-          if (process.env.EXTENSION_ENV === 'development') {
-            console.log(messages.devChromiumDebugPort(freePort, desiredPort))
-          }
-        }
-      } catch {}
+    } catch (error) {
+      throw error
     }
 
+    // Ensure CDP port availability (always in dev; already added flags)
+    const desiredPort = deriveDebugPortWithInstance(this.port, this.instanceId)
+    const freePort = await findAvailablePortNear(desiredPort)
+    const selectedPort = freePort
+
+    if (freePort !== desiredPort) {
+      // Replace port occurrences in flags
+      chromiumConfig = chromiumConfig.map((flag) =>
+        flag.startsWith('--remote-debugging-port=')
+          ? `--remote-debugging-port=${selectedPort}`
+          : flag
+      )
+    }
+
+    if (process.env.EXTENSION_ENV === 'development') {
+      this.logger?.info(
+        messages.devChromiumDebugPort(selectedPort, desiredPort)
+      )
+    }
+
+    // Record actual CDP port for this instance for downstream steps
+    setInstancePorts(this.instanceId, {cdpPort: selectedPort})
+
     if (this.dryRun) {
-      console.log(messages.chromeInitializingEnhancedReload())
-      console.log('[plugin-browsers] Dry run: not launching browser')
-      console.log('[plugin-browsers] Binary:', browserBinaryLocation)
-      console.log('[plugin-browsers] Flags:', chromiumConfig.join(' '))
+      logChromiumDryRun(browserBinaryLocation, chromiumConfig)
       return
     }
 
     // Use direct spawn for basic functionality
     await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
+
+    // After launch, connect CDP and load the extension to get runtime info and logs
+    try {
+      const cdpConfig: PluginRuntime = {
+        extension: Array.isArray(this.extension)
+          ? this.extension
+          : [this.extension],
+        browser: this.browser as
+          | 'chrome'
+          | 'edge'
+          | 'firefox'
+          | 'chromium-based',
+        port: this.port,
+        instanceId: this.instanceId,
+        bannerPrintedOnce: this.bannerPrintedOnce,
+        logLevel: this.logLevel,
+        logContexts: this.logContexts,
+        logUrl: this.logUrl,
+        logTab: this.logTab,
+        logFormat: this.logFormat,
+        logTimestamps: this.logTimestamps,
+        logColor: this.logColor,
+        cdpController: this.cdpController
+      }
+
+      await setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
+    } catch (error) {
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.warn(
+          '[plugin-browsers] CDP post-launch setup failed:',
+          String(error)
+        )
+      }
+    }
   }
 
   private async launchWithDirectSpawn(
     browserBinaryLocation: string,
     chromeFlags: string[]
   ) {
-    if (process.env.EXTENSION_ENV === 'development') {
-      console.log(messages.chromeInitializingEnhancedReload())
-    }
+    this.logger?.info(messages.chromeInitializingEnhancedReload())
 
     // Ensure flags come first so Chrome acknowledges them; URL last
     const launchArgs = this.startingUrl
       ? [...chromeFlags, this.startingUrl]
       : [...chromeFlags]
 
-    const stdio =
-      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+    // Suppress raw Chromium stdout/stderr to avoid noisy updater logs.
+    // Unified logs are streamed via CDP instead.
+    const stdio = 'ignore'
 
     try {
       // Enhanced process management for AI usage
@@ -298,188 +261,163 @@ export class RunChromiumPlugin {
         })
       })
 
-      // Store child process reference for cleanup
-      this.browserProcess = child
-
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(
-          '[plugin-browsers] Final Chrome flags:',
-          launchArgs.join(' ')
-        )
-        child.stdout?.pipe(process.stdout)
-        child.stderr?.pipe(process.stderr)
-      }
+      this.logger?.debug?.(
+        '[plugin-browsers] Final Chrome flags:',
+        launchArgs.join(' ')
+      )
 
       child.on('close', (code: number | null) => {
         if (process.env.EXTENSION_ENV === 'development') {
-          console.log(messages.chromeProcessExited(code || 0))
+          this.logger?.info(messages.chromeProcessExited(code || 0))
         }
-        // Clean up instance when browser closes
-        this.cleanupInstance()
       })
 
       child.on('error', (error) => {
-        console.error(messages.chromeProcessError(error))
-        this.cleanupInstance()
+        this.logger?.error(messages.chromeProcessError(error))
       })
 
-      // Enhanced signal handling for AI usage
-      this.setupProcessSignalHandlers(child)
+      setupProcessSignalHandlers(this.browser, child, () => {})
     } catch (error) {
-      console.error(messages.chromeFailedToSpawn(error))
+      this.logger?.error(messages.chromeFailedToSpawn(error))
       throw error
-    }
-  }
-
-  private setupProcessSignalHandlers(child: ChildProcess) {
-    const cleanup = () => {
-      try {
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.log(messages.enhancedProcessManagementCleanup(this.browser))
-        }
-
-        // Terminate browser process gracefully
-        if (child && !child.killed) {
-          if (process.env.EXTENSION_ENV === 'development') {
-            console.log(
-              messages.enhancedProcessManagementTerminating(this.browser)
-            )
-          }
-          child.kill('SIGTERM')
-
-          // Force kill after timeout if needed
-          setTimeout(() => {
-            if (child && !child.killed) {
-              if (process.env.EXTENSION_ENV === 'development') {
-                console.log(
-                  messages.enhancedProcessManagementForceKill(this.browser)
-                )
-              }
-              child.kill('SIGKILL')
-            }
-          }, 5000)
-        }
-
-        // Clean up instance
-        this.cleanupInstance()
-      } catch (error) {
-        console.error(
-          messages.enhancedProcessManagementCleanupError(this.browser, error)
-        )
-      }
-    }
-
-    // Handle various termination signals
-    process.on('SIGINT', cleanup)
-    process.on('SIGTERM', cleanup)
-    process.on('SIGHUP', cleanup)
-    process.on('exit', cleanup)
-
-    // Handle uncaught exceptions
-    process.on('uncaughtException', (error) => {
-      console.error(
-        messages.enhancedProcessManagementUncaughtException(this.browser, error)
-      )
-      cleanup()
-      process.exit(1)
-    })
-
-    process.on('unhandledRejection', (reason) => {
-      console.error(
-        messages.enhancedProcessManagementUnhandledRejection(
-          this.browser,
-          reason
-        )
-      )
-      cleanup()
-      process.exit(1)
-    })
-  }
-
-  private async cleanupInstance() {
-    if (this.instanceId) {
-      try {
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.log(
-            messages.enhancedProcessManagementInstanceCleanup(this.browser)
-          )
-        }
-        const instanceManager = new InstanceManager(process.cwd())
-        await instanceManager.terminateInstance(this.instanceId)
-
-        // Force cleanup of orphaned instances
-        await instanceManager.forceCleanupOrphanedInstances()
-        if (process.env.EXTENSION_ENV === 'development') {
-          console.log(
-            messages.enhancedProcessManagementInstanceCleanupComplete(
-              this.browser
-            )
-          )
-        }
-      } catch (error) {
-        console.error(
-          messages.enhancedProcessManagementCleanupError(this.browser, error)
-        )
-      }
     }
   }
 
   apply(compiler: Compiler) {
     let chromiumDidLaunch = false
 
-    compiler.hooks.done.tapAsync(
-      'run-browsers:module',
-      (stats: any, done: any) => {
-        const hasErrors =
-          typeof stats?.hasErrors === 'function'
-            ? stats.hasErrors()
-            : !!stats?.compilation?.errors?.length
+    const fallbackLogger = () => ({
+      info: (...a: unknown[]) => console.log(...a),
+      warn: (...a: unknown[]) => console.warn(...a),
+      error: (...a: unknown[]) => console.error(...a),
+      debug: (...a: unknown[]) => console.debug?.(...a)
+    })
+    this.logger =
+      typeof (compiler as any)?.getInfrastructureLogger === 'function'
+        ? (compiler as any).getInfrastructureLogger(RunChromiumPlugin.name)
+        : (fallbackLogger() as ReturnType<Compiler['getInfrastructureLogger']>)
 
-        if (hasErrors) {
-          try {
-            const compileErrors: any[] = stats?.compilation?.errors || []
-            const manifestErrors = compileErrors.filter((err) => {
-              const msg: string = String(
-                (err && (err.message || err.toString())) || ''
-              )
-              return (
-                msg.includes('manifest.json') && msg.includes('File Not Found')
-              )
-            })
-            if (
-              manifestErrors.length &&
-              process.env.EXTENSION_ENV === 'development'
-            ) {
-              console.log(
-                messages.manifestPreflightSummary(manifestErrors.length)
-              )
-            }
-          } catch {}
+    compiler.hooks.done.tapAsync('run-browsers:module', (stats, done) => {
+      const hasErrors =
+        typeof stats?.hasErrors === 'function'
+          ? stats.hasErrors()
+          : !!stats?.compilation?.errors?.length
 
-          if (process.env.EXTENSION_ENV === 'development') {
-            console.log(messages.skippingBrowserLaunchDueToCompileErrors())
-          }
-          done()
-          return
-        }
-
-        if (chromiumDidLaunch) {
-          done()
-          return
-        }
-
-        this.launchChromium(stats as any, this.browser).then(() => {
-          console.log(
-            messages.stdoutData(
-              this.browser,
-              stats.compilation.options.mode as 'development' | 'production'
+      if (hasErrors) {
+        try {
+          const compileErrors = stats?.compilation?.errors || []
+          const manifestErrors = compileErrors.filter((err) => {
+            const msg: string = String(
+              (err && (err.message || err.toString())) || ''
             )
-          )
-        })
+            return (
+              msg.includes('manifest.json') && msg.includes('File Not Found')
+            )
+          })
 
-        chromiumDidLaunch = true
+          if (manifestErrors.length) {
+            this.logger?.warn(
+              messages.manifestPreflightSummary(manifestErrors.length)
+            )
+          }
+        } catch {
+          // ignore
+        }
+
+        this.logger?.info(messages.skippingBrowserLaunchDueToCompileErrors())
         done()
+        return
       }
-    )
+
+      if (chromiumDidLaunch) {
+        // Subsequent rebuilds: trigger hard reload only if manifest or background changed
+        void this.conditionalHardReload(stats)
+        done()
+        return
+      }
+
+      this.launchChromium(stats.compilation, this.browser).then(() => {
+        this.logger?.info(
+          messages.stdoutData(
+            this.browser,
+            stats.compilation.options.mode as 'development' | 'production'
+          )
+        )
+      })
+
+      chromiumDidLaunch = true
+      done()
+    })
+  }
+
+  private async conditionalHardReload(stats: unknown): Promise<void> {
+    // Accept anything with .compilation.getAssets() matching Rspack's type shape
+    try {
+      // Do not reload on error builds. Wait until the next successful build
+      const hasErrors =
+      // @ts-expect-error - stats is unknown
+        typeof stats?.hasErrors === 'function'
+          // @ts-expect-error - stats is unknown
+          ? stats?.hasErrors()
+          // @ts-expect-error - stats is unknown
+          : !!stats?.compilation?.errors?.length
+
+      if (hasErrors) return
+
+      const s = stats as {
+        compilation?: {
+          getAssets?: () => Array<{name: string; emitted?: boolean}>
+        }
+      }
+      const comp =
+        s?.compilation && typeof s.compilation.getAssets === 'function'
+          ? s.compilation
+          : undefined
+
+      if (!comp) return
+
+      const getAssets = comp.getAssets as () => Array<{
+        name: string
+        emitted?: boolean
+      }>
+      const emitted: string[] = getAssets()
+        .filter((a) => (a as {emitted?: boolean})?.emitted)
+        .map((a) => (a as {name: string}).name)
+
+      const changedCritical = emitted.some((n: string) =>
+        /(^|\/)manifest\.json$|(^|\/)background\/(service_worker|script)\.js$/i.test(
+          String(n || '')
+        )
+      )
+      if (changedCritical) {
+        const ctrl = this.cdpController
+
+        const retryReload = async () => {
+          if (!ctrl) return
+
+          const attempts = 3
+          let last: unknown
+
+          for (let i = 0; i < attempts; i++) {
+            try {
+              await ctrl.hardReload()
+              return
+            } catch (e) {
+              last = e
+              await new Promise((r) => setTimeout(r, 150 * (i + 1)))
+            }
+          }
+          throw last
+        }
+        await retryReload()
+      }
+    } catch (e) {
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.warn(
+          '[plugin-browsers] CDP conditional hard reload failed:',
+          String(e)
+        )
+      }
+    }
   }
 }

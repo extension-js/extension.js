@@ -1,41 +1,26 @@
 import {spawn, ChildProcess} from 'child_process'
-import {type Compilation} from '@rspack/core'
+import {type Compilation, type Compiler} from '@rspack/core'
 import {browserConfig} from './firefox/browser-config'
-import {RemoteFirefox} from './remote-firefox'
+import {setupFirefoxProcessHandlers} from './process-handlers'
+import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {FirefoxBinaryDetector} from './firefox/binary-detector'
 import * as messages from '../browsers-lib/messages'
 import {type PluginInterface} from '../browsers-types'
-import {BrowserConfig, DevOptions} from '../../../develop-lib/config-types'
-import {InstanceManager} from '../browsers-lib/instance-manager'
-import {DynamicExtensionManager} from '../browsers-lib/dynamic-extension-manager'
+import {BrowserConfig, DevOptions} from '../../../types/options'
 import {
   deriveDebugPortWithInstance,
-  getDefaultProfilePath,
-  isFirefoxProfileLocked,
-  chooseEffectiveInstanceId,
   findAvailablePortNear
 } from '../browsers-lib/shared-utils'
-import * as path from 'path'
-import * as fs from 'fs'
+import {logFirefoxDryRun} from './dry-run'
 
 let child: ChildProcess | null = null
-let isCleaningUp = false
-
-// function toNumberOrUndefined(value: string | number | undefined): number | undefined {
-//   if (typeof value === 'number') return value
-//   if (typeof value === 'string') {
-//     const n = parseInt(value, 10)
-//     return Number.isFinite(n) ? n : undefined
-//   }
-//   return undefined
-// }
 
 export class RunFirefoxPlugin {
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
   public readonly browserFlags?: string[]
   public readonly profile?: string | false
-  public readonly preferences?: Record<string, any>
+  public readonly preferences?: Record<string, unknown>
   public readonly startingUrl?: string
   public readonly autoReload?: boolean
   public readonly stats?: boolean
@@ -46,8 +31,33 @@ export class RunFirefoxPlugin {
   public readonly copyFromProfile?: string
   public readonly source?: string | boolean
   public readonly watchSource?: boolean
-  public readonly reuseProfile?: boolean
   public readonly dryRun?: boolean
+  // Unified logging flags (parity with Chromium path)
+  private logLevel?:
+    | 'off'
+    | 'error'
+    | 'warn'
+    | 'info'
+    | 'debug'
+    | 'trace'
+    | 'all'
+  private logContexts?: Array<
+    | 'background'
+    | 'content'
+    | 'page'
+    | 'sidebar'
+    | 'popup'
+    | 'options'
+    | 'devtools'
+  >
+  private logFormat?: 'pretty' | 'json' | 'ndjson'
+  private logTimestamps?: boolean
+  private logColor?: boolean
+  private logUrl?: string
+  private logTab?: number | string
+
+  private remoteFirefox?: unknown | null
+  private logger?: ReturnType<Compiler['getInfrastructureLogger']>
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -61,12 +71,19 @@ export class RunFirefoxPlugin {
     this.instanceId = options.instanceId
     this.keepProfileChanges = (options as any)?.keepProfileChanges
     this.copyFromProfile = (options as any)?.copyFromProfile
-    this.source = (options as any).source
-    this.watchSource = (options as any).watchSource
-    ;(this.reuseProfile as boolean | undefined) = (options as any).reuseProfile
-    ;(this.dryRun as boolean | undefined) = (options as any).dryRun
+    this.source = options.source
+    this.watchSource = options.watchSource
+    ;(this.dryRun as boolean | undefined) = options.dryRun
 
     // Quiet constructor: avoid noisy logs in normal runs
+    // Capture unified logging flags if provided
+    this.logLevel = options.logLevel
+    this.logContexts = options.logContexts
+    this.logFormat = options.logFormat
+    this.logTimestamps = options.logTimestamps
+    this.logColor = options.logColor
+    this.logUrl = options.logUrl
+    this.logTab = options.logTab
   }
 
   private async launchFirefox(
@@ -74,16 +91,16 @@ export class RunFirefoxPlugin {
     options: DevOptions & BrowserConfig
   ) {
     // Extra guard: never launch if compilation has errors
-    const compilationErrors: any[] = (compilation as any)?.errors || []
+    const compilationErrors: unknown[] = (compilation as any)?.errors || []
 
     if (compilationErrors.length > 0) {
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.skippingBrowserLaunchDueToCompileErrors())
-      }
+      this.logger?.info(messages.skippingBrowserLaunchDueToCompileErrors())
       return
     }
 
-    console.log(messages.firefoxLaunchCalled())
+    if (process.env.EXTENSION_ENV === 'development') {
+      this.logger?.info(messages.firefoxLaunchCalled())
+    }
 
     // Detect Firefox binary with enhanced detection
     let browserBinaryLocation: string
@@ -93,108 +110,38 @@ export class RunFirefoxPlugin {
       )
       await FirefoxBinaryDetector.validateFirefoxBinary(browserBinaryLocation)
     } catch (error) {
-      console.error(messages.firefoxDetectionFailed(error))
+      this.logger?.error(messages.firefoxDetectionFailed(error))
       process.exit(1)
     }
 
-    // Get project path from compiler context
-    const projectPath = (compilation as any).options?.context || process.cwd()
-
-    // Get the current instance and dynamic Extension.js DevTools
-    const instanceManager = new InstanceManager(projectPath)
-    const extensionManager = new DynamicExtensionManager(projectPath)
-
-    let currentInstance = null
-    if (this.instanceId) {
-      currentInstance = await instanceManager.getInstance(this.instanceId)
-    }
-
-    // Store extensions for later use in RemoteFirefox
-    let extensionsToLoad = Array.isArray(this.extension)
+    // Prepare user extension(s) to forward into the RemoteFirefox setup
+    const extensionsToLoad = Array.isArray(this.extension)
       ? [...this.extension]
       : [this.extension]
 
-    // Add the dynamic manager extension first so it initializes before user extension
-    if (currentInstance) {
-      const generatedExtension =
-        await extensionManager.regenerateExtensionIfNeeded(currentInstance)
-      extensionsToLoad = [generatedExtension.extensionPath, ...extensionsToLoad]
-    }
-
-    // Store the extensions in the compilation context for RemoteFirefox to use
-    ;(compilation as any).firefoxExtensions = extensionsToLoad
-
-    // Instance-based debug port (shared helper) with availability check
+    // Debug port (shared helper) with availability check
     const desiredDebugPort = deriveDebugPortWithInstance(
       this.port,
       this.instanceId
     )
     const debugPort = await findAvailablePortNear(desiredDebugPort)
 
-    // Smart profile reuse with graceful fallback for Firefox
-    let effectiveInstanceId: string | undefined = this.instanceId
-    try {
-      const running = await instanceManager.getRunningInstances()
-      const concurrent = running.some(
-        (i) => i.status === 'running' && i.browser === this.browser
-      )
-      const browserSpecificOutputPath =
-        (compilation as any).options?.output?.path || process.cwd() + '/dist'
-      const mainOutputPath = path.dirname(browserSpecificOutputPath)
-      const baseProfilePath = getDefaultProfilePath(
-        mainOutputPath,
-        this.browser
-      )
-      const lockPresent = isFirefoxProfileLocked(baseProfilePath)
-      effectiveInstanceId = chooseEffectiveInstanceId(
-        this.reuseProfile,
-        concurrent,
-        lockPresent,
-        this.instanceId
-      )
-    } catch {
-      effectiveInstanceId = this.instanceId
-    }
+    const effectiveInstanceId: string | undefined = this.instanceId
 
     let firefoxConfig: string
     try {
-      // Guard profile:false under concurrency by switching to managed per-instance profile
-      const hasConcurrent = (await instanceManager.getRunningInstances()).some(
-        (i) => i.status === 'running' && i.browser === this.browser
-      )
-      const profileForConfig =
-        this.profile === false && hasConcurrent ? undefined : this.profile
       firefoxConfig = await browserConfig(compilation, {
         ...options,
-        profile: profileForConfig,
+        profile: this.profile,
         preferences: this.preferences,
-        keepProfileChanges: this.keepProfileChanges,
-        copyFromProfile: this.copyFromProfile,
         instanceId: effectiveInstanceId // unique profiles when concurrent
       })
     } catch (error) {
-      if ((this.reuseProfile as boolean | undefined) !== false) {
-        console.warn(
-          `Falling back to per-instance profile due to error: ${String(error)}`
-        )
-        firefoxConfig = await browserConfig(compilation, {
-          ...options,
-          profile: this.profile,
-          preferences: this.preferences,
-          keepProfileChanges: this.keepProfileChanges,
-          copyFromProfile: this.copyFromProfile,
-          instanceId: this.instanceId
-        })
-      } else {
-        throw error
-      }
+      throw error
     }
 
     if (this.dryRun) {
-      console.log(messages.firefoxLaunchCalled())
-      console.log('[plugin-browsers] Dry run: not launching browser')
-      console.log('[plugin-browsers] Binary (detected):', browserBinaryLocation)
-      console.log('[plugin-browsers] Config:', firefoxConfig)
+      logFirefoxDryRun(browserBinaryLocation, firefoxConfig)
       return
     }
 
@@ -205,9 +152,15 @@ export class RunFirefoxPlugin {
     const binaryArgsMatch = firefoxConfig.match(/--binary-args="([^"]*)"/)
     if (binaryArgsMatch) {
       firefoxArgs.push(...binaryArgsMatch[1].split(' '))
-      console.log(messages.firefoxBinaryArgsExtracted(binaryArgsMatch[1]))
+      if (process.env.EXTENSION_ENV === 'development') {
+        this.logger?.info(
+          messages.firefoxBinaryArgsExtracted(binaryArgsMatch[1])
+        )
+      }
     } else {
-      console.log(messages.firefoxNoBinaryArgsFound())
+      if (process.env.EXTENSION_ENV === 'development') {
+        this.logger?.info(messages.firefoxNoBinaryArgsFound())
+      }
     }
 
     // Extract profile path (optional when profile === false)
@@ -231,12 +184,14 @@ export class RunFirefoxPlugin {
       })
 
       child.on('error', (error) => {
-        console.error(messages.browserLaunchError(this.browser, error))
+        this.logger?.error(messages.browserLaunchError(this.browser, error))
         process.exit(1)
       })
 
       child.on('close', (code) => {
-        console.log(messages.browserInstanceExited(this.browser))
+        if (process.env.EXTENSION_ENV === 'development') {
+          this.logger?.info(messages.browserInstanceExited(this.browser))
+        }
         // Ensure instance cleanup even if process is closing independently
         this.cleanupInstance().finally(() => {
           process.exit()
@@ -249,60 +204,44 @@ export class RunFirefoxPlugin {
       }
 
       // Enhanced signal handling: ensure child is terminated on parent exit
-      this.setupProcessSignalHandlers()
+      setupFirefoxProcessHandlers(
+        this.browser as any,
+        () => child,
+        () => this.cleanupInstance()
+      )
 
       // Connect to Firefox RDP server will be handled by the client with retries
-
-      // Inject the add-ons code into Firefox profile.
-      const remoteFirefox = new RemoteFirefox({
-        // Satisfy PluginInterface shape
-        ...({} as any),
-        extension: this.extension,
-        browser: this.browser,
-        browserFlags: this.browserFlags,
-        profile: this.profile,
-        preferences: this.preferences,
-        startingUrl: this.startingUrl,
-        chromiumBinary: undefined,
-        geckoBinary: this.geckoBinary,
-        instanceId: this.instanceId,
-        port: debugPort, // Use the unique debug port
-        source: typeof this.source === 'string' ? this.source : undefined,
-        watchSource: this.watchSource
-      })
-
       try {
-        await remoteFirefox.installAddons(compilation)
+        await setupRdpAfterLaunch(
+          {...(this as any), extensionsToLoad},
+          compilation,
+          debugPort
+        )
       } catch (error) {
         const strErr = error?.toString()
         if (
           strErr?.includes('background.service_worker is currently disabled')
         ) {
-          console.error(messages.firefoxServiceWorkerError(this.browser))
+          this.logger?.error(messages.firefoxServiceWorkerError(this.browser))
           process.exit(1)
         }
 
-        console.error(messages.browserLaunchError(this.browser, error))
+        this.logger?.error(messages.browserLaunchError(this.browser, error))
         process.exit(1)
       }
 
-      // Persist final chosen debug port and effective profile to instance metadata
       try {
-        if (this.instanceId && profileMatch) {
-          await instanceManager.updateInstance(this.instanceId, {
-            debugPort,
-            effectiveProfilePath: profileMatch[1]
-          })
-          if (process.env.EXTENSION_ENV === 'development') {
-            console.log(
-              messages.devFirefoxDebugPort(debugPort, desiredDebugPort)
-            )
-            console.log(messages.devFirefoxProfilePath(profileMatch[1]))
-          }
+        if (
+          process.env.EXTENSION_ENV === 'development' &&
+          this.instanceId &&
+          profileMatch
+        ) {
+          this.logger?.info(
+            messages.devFirefoxDebugPort(debugPort, desiredDebugPort)
+          )
+          this.logger?.info(messages.devFirefoxProfilePath(profileMatch[1]))
         }
       } catch {}
-
-      // Source inspection is now handled via webpack plugin step (SetupFirefoxInspectionStep)
     } else {
       // No explicit profile specified: launch with default user profile
       const args: string[] = [
@@ -327,12 +266,15 @@ export class RunFirefoxPlugin {
       })
 
       child.on('error', (error) => {
-        console.error(messages.browserLaunchError(this.browser, error))
+        this.logger?.error(messages.browserLaunchError(this.browser, error))
         process.exit(1)
       })
 
       child.on('close', (code) => {
-        console.log(messages.browserInstanceExited(this.browser))
+        if (process.env.EXTENSION_ENV === 'development') {
+          this.logger?.info(messages.browserInstanceExited(this.browser))
+        }
+
         this.cleanupInstance().finally(() => {
           process.exit()
         })
@@ -343,158 +285,136 @@ export class RunFirefoxPlugin {
         child.stderr?.pipe(process.stderr)
       }
 
-      this.setupProcessSignalHandlers()
+      setupFirefoxProcessHandlers(
+        this.browser as any,
+        () => child,
+        () => this.cleanupInstance()
+      )
     }
   }
 
-  apply(compiler: any) {
+  apply(compiler: Compiler) {
     let firefoxDidLaunch = false
+    this.remoteFirefox = this.remoteFirefox || null
 
-    compiler.hooks.done.tapAsync(
-      'run-firefox:module',
-      async (stats: any, done: any) => {
-        const hasErrors =
-          typeof stats?.hasErrors === 'function'
-            ? stats.hasErrors()
-            : !!stats?.compilation?.errors?.length
+    const logger =
+      typeof (compiler as any)?.getInfrastructureLogger === 'function'
+        ? (compiler as any).getInfrastructureLogger(RunFirefoxPlugin.name)
+        : ({
+            info: (...a: unknown[]) => console.log(...a),
+            warn: (...a: unknown[]) => console.warn(...a),
+            error: (...a: unknown[]) => console.error(...a),
+            debug: (...a: unknown[]) => console.debug?.(...a)
+          } as ReturnType<Compiler['getInfrastructureLogger']>)
 
-        if (hasErrors) {
-          try {
-            const compileErrors: any[] = stats?.compilation?.errors || []
-            const manifestErrors = compileErrors.filter((err) => {
-              const msg: string = String(
-                (err && (err.message || err.toString())) || ''
-              )
-              return (
-                msg.includes('manifest.json') && msg.includes('File Not Found')
-              )
-            })
-            if (
-              manifestErrors.length &&
-              process.env.EXTENSION_ENV === 'development'
-            ) {
-              console.log(
-                messages.manifestPreflightSummary(manifestErrors.length)
-              )
-            }
-          } catch {}
+    this.logger = logger
 
-          if (process.env.EXTENSION_ENV === 'development') {
-            console.log(messages.skippingBrowserLaunchDueToCompileErrors())
-          }
-          done()
-          return
-        }
+    compiler.hooks.done.tapAsync('run-firefox:module', async (stats, done) => {
+      const hasErrors =
+        typeof stats?.hasErrors === 'function'
+          ? stats.hasErrors()
+          : !!stats?.compilation?.errors?.length
 
-        if (firefoxDidLaunch) {
-          done()
-          return
-        }
-
+      if (hasErrors) {
         try {
-          await this.launchFirefox(stats.compilation, {
-            browser: this.browser,
-            browserFlags: this.browserFlags,
-            profile: this.profile,
-            preferences: this.preferences,
-            startingUrl: this.startingUrl,
-            mode: stats.compilation.options.mode as DevOptions['mode'],
-            port: this.port
-          })
-
-          // Show success message after Firefox has successfully started and add-ons installed
-          console.log(
-            messages.stdoutData(
-              this.browser,
-              stats.compilation.options.mode as DevOptions['mode']
+          const compileErrors = stats?.compilation?.errors || []
+          const manifestErrors = compileErrors.filter((err) => {
+            const msg: string = String(
+              (err && (err.message || err.toString())) || ''
             )
-          )
+            return (
+              msg.includes('manifest.json') && msg.includes('File Not Found')
+            )
+          })
+          if (manifestErrors.length) {
+            this.logger?.warn(
+              messages.manifestPreflightSummary(manifestErrors.length)
+            )
+          }
+        } catch {}
 
-          firefoxDidLaunch = true
-        } catch (error) {
-          // Don't show success message if Firefox failed to start
-          console.error(messages.firefoxFailedToStart(error))
-          process.exit(1)
-        }
-
+        this.logger?.info(messages.skippingBrowserLaunchDueToCompileErrors())
         done()
+        return
       }
-    )
+
+      if (firefoxDidLaunch) {
+        try {
+          const comp = stats?.compilation
+          const assetsArr: Array<{name: string; emitted?: boolean}> =
+            Array.isArray(comp?.getAssets?.())
+              ? (comp!.getAssets() as unknown as Array<{
+                  name: string
+                  emitted?: boolean
+                }>)
+              : []
+          const emitted = assetsArr
+            .filter((a) => (a as any)?.emitted)
+            .map((a) => a.name)
+
+          const changed = (emitted || []) as string[]
+          const controller = (this as any).rdpController as
+            | {hardReload: (c: any, a: string[]) => Promise<void>}
+            | undefined
+          if (controller) {
+            await controller.hardReload(stats.compilation, changed)
+          }
+        } catch {
+          // Ignore
+        }
+        done()
+        return
+      }
+
+      try {
+        await this.launchFirefox(stats.compilation, {
+          browser: this.browser,
+          browserFlags: this.browserFlags,
+          profile: this.profile,
+          preferences: this.preferences,
+          startingUrl: this.startingUrl,
+          mode: stats.compilation.options.mode as DevOptions['mode'],
+          port: this.port
+        })
+
+        // Show success message after Firefox has successfully started and add-ons installed
+        this.logger?.info(
+          messages.stdoutData(
+            this.browser,
+            stats.compilation.options.mode as DevOptions['mode']
+          )
+        )
+
+        firefoxDidLaunch = true
+      } catch (error) {
+        // Don't show success message if Firefox failed to start
+        this.logger?.error(messages.firefoxFailedToStart(error))
+        process.exit(1)
+      }
+
+      done()
+    })
   }
 
-  private setupProcessSignalHandlers() {
-    const attemptCleanup = async () => {
-      if (isCleaningUp) return
-      isCleaningUp = true
-      try {
-        console.log(messages.enhancedProcessManagementCleanup(this.browser))
-        if (child && !child.killed) {
-          console.log(
-            messages.enhancedProcessManagementTerminating(this.browser)
-          )
-          child.kill('SIGTERM')
-          setTimeout(() => {
-            if (child && !child.killed) {
-              console.log(
-                messages.enhancedProcessManagementForceKill(this.browser)
-              )
-              child.kill('SIGKILL')
-            }
-          }, 5000)
-        }
-        await this.cleanupInstance()
-      } catch (error) {
-        console.error(
-          messages.enhancedProcessManagementCleanupError(this.browser, error)
-        )
-      }
-    }
-
-    process.on('exit', () => {
-      // Best-effort synchronous cleanup
+  private async cleanupInstance(): Promise<void> {
+    try {
       if (child && !child.killed) {
         try {
           child.kill('SIGTERM')
-        } catch {}
+        } catch {
+          // Ignore
+        }
+
+        setTimeout(() => {
+          try {
+            if (child && !child.killed) child.kill('SIGKILL')
+          } catch {
+            // Ignore
+          }
+        }, 2000)
       }
-    })
-
-    process.on('uncaughtException', async (error) => {
-      console.error(
-        messages.enhancedProcessManagementUncaughtException(this.browser, error)
-      )
-      await attemptCleanup()
-      process.exit(1)
-    })
-
-    process.on('unhandledRejection', async (reason) => {
-      console.error(
-        messages.enhancedProcessManagementUnhandledRejection(
-          this.browser,
-          reason
-        )
-      )
-      await attemptCleanup()
-      process.exit(1)
-    })
-  }
-
-  private async cleanupInstance() {
-    if (!this.instanceId) return
-    try {
-      console.log(
-        messages.enhancedProcessManagementInstanceCleanup(this.browser)
-      )
-      const instanceManager = new InstanceManager(process.cwd())
-      await instanceManager.terminateInstance(this.instanceId)
-      await instanceManager.forceCleanupOrphanedInstances()
-      console.log(
-        messages.enhancedProcessManagementInstanceCleanupComplete(this.browser)
-      )
-    } catch (error) {
-      console.error(
-        messages.enhancedProcessManagementCleanupError(this.browser, error)
-      )
+    } catch {
+      // Ignore
     }
   }
 }

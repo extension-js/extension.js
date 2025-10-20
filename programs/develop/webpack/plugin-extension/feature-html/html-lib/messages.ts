@@ -109,5 +109,3 @@ export function manifestFieldMessageOnly(manifestField: string) {
     : manifestFieldName
   return `Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.`
 }
-
-

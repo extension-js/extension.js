@@ -1,9 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {promisify} from 'util'
-import * as messages from '../../../webpack-lib/messages'
+import {exec as execCb} from 'child_process'
+import * as messages from '../../browsers-lib/messages'
 
-const exec = promisify(require('child_process').exec)
+const exec = promisify(execCb)
 
 // Firefox Binary Detector
 // Supports multiple Firefox distribution methods including Flatpak
@@ -106,7 +107,10 @@ export class FirefoxBinaryDetector {
 
     for (const firefoxPath of possiblePaths) {
       if (fs.existsSync(firefoxPath)) {
-        console.log(messages.firefoxDetectedTraditional(firefoxPath))
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.log(messages.firefoxDetectedTraditional(firefoxPath))
+        }
+
         return firefoxPath
       }
     }
@@ -194,7 +198,9 @@ export class FirefoxBinaryDetector {
       const {stdout} = await exec(`${command} ${args.join(' ')}`)
       const version = stdout.trim()
 
-      console.log(messages.firefoxVersion(version))
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.log(messages.firefoxVersion(version))
+      }
 
       return {version, path: binaryPath}
     } catch (error) {

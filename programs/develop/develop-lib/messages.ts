@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {StatsAsset} from '@rspack/core'
+import type {Stats, StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import {Manifest} from '../webpack/webpack-types'
 import {type DevOptions} from '../types/options'
@@ -93,7 +93,7 @@ export function previewWebpack() {
 
 export function buildWebpack(
   projectDir: string,
-  stats: any,
+  stats: Stats,
   browser: DevOptions['browser']
 ): string {
   const statsJson = stats?.toJson()
@@ -101,7 +101,7 @@ export function buildWebpack(
   const manifest: Record<string, string> = JSON.parse(
     fs.readFileSync(manifestPath, 'utf8')
   )
-  const assets: any[] = statsJson?.assets
+  const assets = statsJson?.assets as unknown as StatsAsset[] | undefined
   const heading = `${getLoggingPrefix('info')} Building ${colors.yellow(
     manifest.name
   )} extension using ${capitalizedBrowserName(browser)} defaults...\n`

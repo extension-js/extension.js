@@ -8,23 +8,30 @@
 
 ## @/plugin-browsers
 
-Launches a target browser (Chrome, Edge, Firefox, or custom binaries) with your extension loaded, managing user profiles, flags, and live inspection options.
+Launches a target browser (Chrome, Edge, Firefox, or custom binaries) with your extension loaded, managing user profiles, flags, live inspection (CDP/RDP), and optional unified logging to the CLI.
 
 ### Feature overview
 
-|                                                                            | Feature                                                                                                              |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Managed profiles**<br/>Creates and reuses profiles under `dist/extension-js/profiles/<browser>-profile` when safe. |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Custom profiles**<br/>Use a specific profile directory via `--profile <path>` (validated/created if missing).      |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **System profile opt‑out**<br/>`--profile false` uses the browser’s default profile (no managed dir created).        |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Flags & prefs**<br/>Append or exclude browser flags; merge master preferences with user overrides.                 |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Binary selection**<br/>Support for system Chrome/Edge, Playwright Chromium, custom Chromium/Gecko binaries.        |
+|                                                                            | Feature                                                                                  |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Ephemeral profiles**<br/>Default per-run profiles under `dist/extension-js/profiles`.  |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Persistent dev profile (opt-in)**<br/>`persistProfile: true` uses `/dev`.              |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **System profile (opt-in)**<br/>`EXTENSION_USE_SYSTEM_PROFILE=true` uses system profile. |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Flags & prefs**<br/>Append/exclude flags; merge preferences.                           |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Binary selection**<br/>System Chrome/Edge, custom Chromium/Gecko binaries.             |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Protocol inspection**<br/>CDP (Chromium) and RDP (Firefox) setup after launch.         |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Unified logging (Chromium)**<br/>Stream console/log events per-context to the CLI.     |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Port selection**<br/>Derives per-instance port and falls back to a free one.           |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Dry-run**<br/>Print resolved binary/flags without launching the browser.               |
 
 ### Profile behavior
 
-- No `--profile` provided: uses a managed shared profile at `dist/extension-js/profiles/<browser>-profile`. When a lock or concurrent run is detected, falls back to a per‑instance subfolder using a short instance ID.
-- `--profile <path>`: uses the provided directory after validation; it will be created if missing and populated with baseline preferences.
-- `--profile false`: disables managed profiles and launches the browser with its default user profile (Chromium without `--user-data-dir`, Firefox without `-profile`). No `false` directory is created.
+- Default (no `profile`): ephemeral profile at `dist/extension-js/profiles/<browser>-profile/tmp-*`.
+- `persistProfile: true`: stable `dist/extension-js/profiles/<browser>-profile/dev`.
+- `profile: '<path>'`: use the provided directory.
+- `profile: false`: skip managed profile (Chromium omits `--user-data-dir`, Firefox omits `--profile`).
+- `EXTENSION_USE_SYSTEM_PROFILE=true`: force system profile (skip managed flags entirely).
+- `EXTENSION_TMP_PROFILE_MAX_AGE_HOURS=<n>`: retention for old `tmp-*` dirs (default 12).
 
 ### Usage
 
@@ -35,21 +42,39 @@ export default {
   plugins: [
     new BrowsersPlugin({
       extension: ['/abs/path/to/dist/chrome'],
-      browser: 'chrome',
+      browser: 'chrome', // 'edge' | 'firefox' also supported; or provide binaries
       // Profile options (see Profile behavior):
-      // profile: '/custom/profile/path'
-      // profile: false
+      // profile: '/custom/profile/path' | false
+      persistProfile: false,
       browserFlags: ['--hide-scrollbars'],
       excludeBrowserFlags: ['--mute-audio'],
-      preferences: {
-        /* browser-specific prefs */
-      }
+      preferences: {},
+      startingUrl: 'http://localhost:5173',
+      // Custom binaries (auto-sets browser to chromium-based/gecko-based)
+      // chromiumBinary: '/path/to/chromium'
+      // geckoBinary: '/path/to/firefox'
+      port: 9222,
+      dryRun: false,
+      // Unified logging (Chromium via CDP)
+      logLevel: 'info',
+      logContexts: [
+        'background',
+        'content',
+        'page',
+        'sidebar',
+        'popup',
+        'options',
+        'devtools'
+      ],
+      logFormat: 'pretty', // 'json' | 'ndjson'
+      logTimestamps: true,
+      logColor: true
     })
   ]
 }
 ```
 
-### API
+### API (constructor options)
 
 ```ts
 export class BrowsersPlugin {
@@ -61,54 +86,67 @@ export class BrowsersPlugin {
     browserFlags?: string[]
     excludeBrowserFlags?: string[]
     profile?: string | false
-    preferences?: Record<string, any>
+    persistProfile?: boolean
+    preferences?: Record<string, unknown>
     startingUrl?: string
     chromiumBinary?: string
     geckoBinary?: string
     port?: number | string
-    // Internal: instanceId and reuseProfile are wired by the dev server
     instanceId?: string
-    reuseProfile?: boolean
     // Source inspection (dev only)
     source?: string
     watchSource?: boolean
+    // Dry-run (print binary/flags and exit)
+    dryRun?: boolean
+    // Unified logging (Chromium CDP)
+    logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
+    logContexts?: Array<
+      | 'background'
+      | 'content'
+      | 'page'
+      | 'sidebar'
+      | 'popup'
+      | 'options'
+      | 'devtools'
+    >
+    logFormat?: 'pretty' | 'json' | 'ndjson'
+    logTimestamps?: boolean
+    logColor?: boolean
+    logUrl?: string
+    logTab?: number | string
   })
-  apply(compiler: import('@rspack/core').Compiler): void
+  apply(compiler: import('@rspack/core').Compiler)
 }
 ```
 
+### Port behavior
+
+- Base port taken from `port` (or dev-server) plus per-instance offset; if busy, a nearby free port is selected.
+- The effective port is recorded internally for downstream inspection steps.
+
 ### Quality of life
 
-- **Dry-run mode**: Skip launching the browser and print the resolved binary and flags
-- **Port fallback**: If the chosen CDP/RDP port is busy, the plugin falls back to a nearby free port
-- **Safer defaults**: Suppresses `--load-extension` pollution in flags, supports `excludeBrowserFlags`, and warns when using `profile: false`
+- **Dry-run mode**: Skip launching the browser and print the resolved binary and flags.
+- **Port fallback**: If the chosen CDP/RDP port is busy, the plugin falls back to a nearby free port.
+- **Safer defaults**: Suppresses `--load-extension` pollution in flags, supports `excludeBrowserFlags`, and warns when using `profile: false`.
 
 ### Notes
 
-- Managed profiles are stored inside the bundler output directory to keep build artifacts self‑contained and easy to clean.
-- When profile reuse is enabled and safe, multiple runs will share a single profile; if a lock or another run is detected, a per‑instance profile is used automatically.
-- `--profile false` is intended for scenarios where you want the browser to use its default user profile and session data.
+- Inspection: CDP (Chromium) and RDP (Firefox) are wired for reload/inspection in development mode.
+- Ports: chosen via `port` and probed for availability; fallback to nearby free port.
 
-### Multi-instance behavior
+### Logging (CLI unified stream)
 
-- Each run uses a unique instance with its own dev server port, reload WebSocket port, and (when source inspection is enabled) a unique CDP/RDP port.
-- Managed profiles live under `dist/extension-js/profiles/<browser>-profile`.
-  - When reuse is safe (no concurrent run, no profile lock), a shared profile may be used.
-  - When another run is detected or a profile lock is present, a per-instance subfolder is used automatically: `dist/extension-js/profiles/<browser>-profile/<shortInstanceId>`.
-- A built-in manager extension is generated per instance at `dist/extension-js/extensions/<browser>-manager-<port>`. It connects to the instance’s WebSocket port and includes the instance ID.
+Chromium can stream unified logs from different contexts to the CLI:
 
-### `profile: false` caveats
+- `logLevel`: filter which events are printed (`off|error|warn|info|debug|trace|all`).
+- `logContexts`: contexts to include (`background,content,page,sidebar,popup,options,devtools`).
+- Optional formatting: `logFormat` (`pretty|json|ndjson`), `logTimestamps`, `logColor`.
 
-- `profile: false` disables managed profiles and uses the browser’s default profile.
-- With multiple instances or when another browser using the default profile is open, the browser may fail to start or attach to the wrong session.
-- To ensure stability for multi-instance runs, the tooling automatically falls back to per-instance managed profiles when concurrency is detected.
-- Recommended: avoid `profile: false` while running multiple instances.
+Notes:
 
-### Concurrency and ports
-
-- Dev server and reload WebSocket ports are allocated per instance and persisted in an instance registry.
-- The registry uses a lightweight lock to avoid races under concurrent starts.
-- Remote debugging ports are derived from the configured base port and offset using the instance ID, then probed for availability.
+- These flags affect only CLI output. They do not change the centralized DevTools UI.
+- The centralized DevTools UI (see `templates/extension-js-devtools/`) is independent and runs in DevTools.
 
 ### License
 
