@@ -7,8 +7,8 @@ import rspack, {
   WebpackError
 } from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
-import * as messages from '../../webpack-lib/messages'
-import * as utils from '../../webpack-lib/utils'
+import * as messages from './messages'
+import * as utils from '../../../develop-lib/utils'
 import {getLocales} from './get-locales'
 
 /**
@@ -40,9 +40,7 @@ export class LocalesPlugin {
         () => {
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
-            const err = new WebpackError(
-              messages.manifestNotFoundMessageOnly()
-            )
+            const err = new WebpackError(messages.manifestNotFoundMessageOnly())
             err.name = 'ManifestNotFoundError'
             // @ts-expect-error file is not typed
             err.file = this.manifestPath

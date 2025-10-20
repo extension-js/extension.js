@@ -1,5 +1,5 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
-import {getFilename} from '../../../../webpack-lib/utils'
+import {getFilename} from '../../../../../develop-lib/utils'
 
 // A DevTools extension adds functionality to the Chrome DevTools.
 // It can add new UI panels and sidebars, interact with the

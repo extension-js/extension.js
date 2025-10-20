@@ -1,6 +1,6 @@
 import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from '../../../../../webpack-types'
-import {type DevOptions} from '../../../../../../develop-lib/config-types'
+import {type DevOptions} from '../../../../../../types/options'
 import * as path from 'path'
 
 export class AddContentScriptWrapper {
