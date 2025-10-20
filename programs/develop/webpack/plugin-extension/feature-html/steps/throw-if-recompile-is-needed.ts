@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import {type Compiler} from '@rspack/core'
+import {type Compiler, WebpackError} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'
 import * as utils from '../../../webpack-lib/utils'
@@ -64,7 +64,7 @@ export class ThrowIfRecompileIsNeeded {
 
     compiler.hooks.make.tapAsync(
       'html:throw-if-recompile-is-needed',
-      (_compilation, done) => {
+      (compilation, done) => {
         const files = compiler.modifiedFiles || new Set<string>()
         const changedFile = Array.from(files)[0]
 
@@ -82,7 +82,11 @@ export class ThrowIfRecompileIsNeeded {
             this.hasEntriesChanged(updatedCssEntries, css) ||
             this.hasEntriesChanged(updatedJsEntries, js)
           ) {
-            console.warn(messages.serverRestartRequiredFromHtml(changedFile))
+            compilation.warnings.push(
+              new WebpackError(
+                messages.serverRestartRequiredFromHtml(changedFile)
+              )
+            )
           }
         }
 

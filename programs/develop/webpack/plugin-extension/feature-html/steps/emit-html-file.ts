@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import rspack, {sources, type Compiler, Compilation} from '@rspack/core'
+import {WebpackError, sources, type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../../../webpack-lib/messages'
 import * as utils from '../../../webpack-lib/utils'
@@ -9,24 +9,18 @@ export class EmitHtmlFile {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
   public readonly excludeList?: FilepathList
+  public readonly browser?: PluginInterface['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.excludeList = options.excludeList
+    this.browser = options.browser
   }
 
   public apply(compiler: Compiler): void {
-    const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
-    const patchedManifest = utils.filterKeysForThisBrowser(
-      manifest,
-      (compiler.options as any)?.devServer?.browser || 'chrome'
-    )
-
-    const manifestName = patchedManifest.name || 'Extension.js'
-
     compiler.hooks.thisCompilation.tap('html:emit-html-file', (compilation) => {
-      const processAssetsHook: any = (compilation as any).hooks?.processAssets
+      const processAssetsHook = compilation.hooks?.processAssets
       const runner = () => {
         const htmlFields = Object.entries(this.includeList || {})
 
@@ -47,19 +41,16 @@ export class EmitHtmlFile {
                 : require('path').join(projectDir, resource)
 
             if (!fs.existsSync(resolved)) {
-              const errorMessage = messages.manifestFieldError(
-                manifestName,
-                featureName,
-                resource
-              )
               // Only warn for non-entrypoint HTML (special pages/*). Entrypoint
               // errors are handled by the manifest feature checks.
               if (featureName.startsWith('pages/')) {
-                try {
-                  // eslint-disable-next-line no-console
-                  console.error(errorMessage)
-                } catch {}
-                compilation.warnings.push(new rspack.WebpackError(errorMessage))
+                const warn = new WebpackError(
+                  messages.manifestFieldMessageOnly(featureName)
+                )
+                warn.name = 'HtmlIncludeMissing'
+                // @ts-expect-error - file is not a property of WebpackError
+                warn.file = resource
+                compilation.warnings.push(warn)
               }
               continue
             }

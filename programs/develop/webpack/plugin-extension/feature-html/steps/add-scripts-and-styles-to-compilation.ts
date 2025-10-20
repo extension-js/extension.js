@@ -26,7 +26,7 @@ export class AddScriptsAndStylesToCompilation {
 
       // Resources from the manifest lib can come as undefined.
       if (resource) {
-        if (!fs.existsSync(resource as string)) return
+        if (!fs.existsSync(resource as string)) continue
 
         const htmlAssets = htmlUtils.getAssetsFromHtml(resource as string)
         // Treat absolute URL paths that point to files under public/ as public-root assets;
