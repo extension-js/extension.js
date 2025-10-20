@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compiler, sources, Compilation} from '@rspack/core'
+import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'
+import * as messages from '../../../webpack-lib/messages'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as utils from '../../../webpack-lib/utils'
 
@@ -65,8 +66,17 @@ export class EmitFile {
                 // If the user updates the path, this script runs again
                 // and output the file accordingly.
                 if (!fs.existsSync(resolved)) {
-                  // WARN: This is handled by the manifest plugin.
-                  // Do not add an error handler here.
+                  // Surface a non-fatal warning when an expected icon file is missing,
+                  // unless it is explicitly excluded by user configuration.
+                  if (!utils.shouldExclude(entry, this.excludeList)) {
+                    const warn = new WebpackError(
+                      messages.iconsMissingFile(entry)
+                    )
+                    warn.name = 'IconsPluginMissingFile'
+                    // @ts-expect-error file is not typed
+                    warn.file = entry
+                    compilation.warnings.push(warn)
+                  }
                   continue
                 }
 
@@ -75,24 +85,32 @@ export class EmitFile {
                   const rawSource = new sources.RawSource(source)
 
                   const basename = path.basename(resolved)
-                  // Output theme_icons to the same folder as browser_action
-                  // TODO: cezaraugusto at some point figure out a standard
-                  // way to output paths from the manifest fields.
-                  const featureName = feature.endsWith('theme_icons')
-                    ? feature.replace('theme_icons', '')
-                    : feature
-                  // Align emitted asset folders with manifest overrides:
-                  // - action.default_icon → icons/
-                  // - browser_action.default_icon → icons/
-                  // - page_action.default_icon → icons/
-                  // - sidebar_action.default_icon → icons/
-                  const outputDir =
-                    featureName === 'action' ||
-                    featureName === 'browser_action' ||
-                    featureName === 'page_action' ||
-                    featureName === 'sidebar_action'
-                      ? 'icons'
-                      : featureName
+                  // Determine output directory from feature key. Supported keys:
+                  // - icons
+                  // - action/default_icon
+                  // - browser_action/default_icon
+                  // - browser_action/theme_icons
+                  // - page_action/default_icon
+                  // - sidebar_action/default_icon
+                  const parts = String(feature).split('/')
+                  const group = parts[0]
+                  const sub = parts[1] || ''
+
+                  let outputDir = group
+                  if (
+                    (group === 'action' ||
+                      group === 'browser_action' ||
+                      group === 'page_action' ||
+                      group === 'sidebar_action') &&
+                    sub === 'default_icon'
+                  ) {
+                    outputDir = 'icons'
+                  } else if (
+                    group === 'browser_action' &&
+                    sub === 'theme_icons'
+                  ) {
+                    outputDir = 'browser_action'
+                  }
                   const filename = `${outputDir}/${basename}`
 
                   compilation.emitAsset(filename, rawSource)
