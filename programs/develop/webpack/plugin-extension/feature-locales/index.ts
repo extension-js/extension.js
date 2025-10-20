@@ -1,6 +1,11 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import rspack, {Compiler, sources, Compilation} from '@rspack/core'
+import rspack, {
+  Compiler,
+  sources,
+  Compilation,
+  WebpackError
+} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from '../../webpack-lib/messages'
 import * as utils from '../../webpack-lib/utils'
@@ -35,21 +40,13 @@ export class LocalesPlugin {
         () => {
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
-            const manifest = JSON.parse(
-              fs.readFileSync(this.manifestPath, 'utf8')
+            const err = new WebpackError(
+              messages.manifestNotFoundMessageOnly()
             )
-            const patchedManifest = utils.filterKeysForThisBrowser(
-              manifest,
-              'chrome'
-            )
-
-            const manifestName = patchedManifest.name || 'Extension.js'
-
-            compilation.errors.push(
-              new rspack.WebpackError(
-                messages.manifestNotFoundError(manifestName, this.manifestPath)
-              )
-            )
+            err.name = 'ManifestNotFoundError'
+            // @ts-expect-error file is not typed
+            err.file = this.manifestPath
+            compilation.errors.push(err)
             return
           }
 
@@ -69,12 +66,14 @@ export class LocalesPlugin {
               }
 
               if (!fs.existsSync(thisResource)) {
-                compilation.warnings.push(
-                  new rspack.WebpackError(
-                    messages.entryNotFoundWarn(feature, thisResource)
-                  )
+                const warn = new WebpackError(
+                  messages.entryNotFoundMessageOnly(feature)
                 )
-                return
+                warn.name = 'LocalesPluginMissingFile'
+                // @ts-expect-error file is not typed
+                warn.file = thisResource
+                compilation.warnings.push(warn)
+                continue
               }
 
               const source = fs.readFileSync(thisResource)

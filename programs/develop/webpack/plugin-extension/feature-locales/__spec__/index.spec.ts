@@ -1,84 +1,196 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {describe, it, beforeAll, afterAll, expect} from 'vitest'
-import {extensionBuild} from '../../../../../../programs/develop/dist/module.js'
+import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
+import {LocalesPlugin} from '../index'
+import * as getLocalesModule from '../get-locales'
 
-const getFixturesPath = (demoDir: string) => {
-  return path.resolve(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    'examples',
-    demoDir
-  )
-}
-
-export const assertFileIsEmitted = async (filePath: string) => {
-  await fs.promises.access(filePath, fs.constants.F_OK)
-}
-
-export const assertFileIsNotEmitted = async (filePath: string) => {
-  await fs.promises.access(filePath, fs.constants.F_OK).catch((err) => {
-    expect(err).toBeTruthy()
-  })
-}
-
-export const findStringInFile = async (
-  filePath: string,
-  searchString: string
-) => {
-  const data = await fs.promises.readFile(filePath, 'utf8')
-  expect(data).toContain(searchString)
-}
-
-describe('LocalesPlugin', () => {
-  const fixturesPath = getFixturesPath('action-locales')
-  const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
-  const tmpTxt = path.join(fixturesPath, '_locales', 'en', 'notes.txt')
-  const tmpPng = path.join(fixturesPath, '_locales', 'en', 'logo.png')
-
-  beforeAll(async () => {
-    // Create a couple of non-JSON files to ensure they are ignored by the plugin
-    await fs.promises.writeFile(tmpTxt, 'temporary note')
-    await fs.promises.writeFile(tmpPng, '')
-    await extensionBuild(fixturesPath, {
-      browser: 'chrome'
-    })
-  })
-
-  afterAll(() => {
-    if (fs.existsSync(outputPath)) {
-      fs.rmSync(outputPath, {recursive: true, force: true})
+// Minimal tapable-like hook helper
+function createHook() {
+  const taps: Array<() => void> = []
+  return {
+    tap: (_name: string | {name: string; stage?: number}, fn: () => void) => {
+      taps.push(fn)
+    },
+    _runAll: () => {
+      for (const fn of taps) fn()
     }
-    if (fs.existsSync(tmpTxt)) {
-      fs.rmSync(tmpTxt, {force: true})
-    }
-    if (fs.existsSync(tmpPng)) {
-      fs.rmSync(tmpPng, {force: true})
-    }
+  }
+}
+
+const hasAnsi = (s: string) => /\u001b\[[0-9;]*m/.test(s)
+
+describe('LocalesPlugin (unit)', () => {
+  const tmpRoot = path.resolve(__dirname, '__tmp_locales_plugin__')
+  const manifestPath = path.join(tmpRoot, 'manifest.json')
+  const localesRoot = path.join(tmpRoot, '_locales')
+  const enDir = path.join(localesRoot, 'en')
+  const ptDir = path.join(localesRoot, 'pt_BR')
+
+  beforeEach(() => {
+    fs.mkdirSync(enDir, {recursive: true})
+    fs.mkdirSync(ptDir, {recursive: true})
+    fs.writeFileSync(manifestPath, '{"name":"x"}')
+    fs.writeFileSync(
+      path.join(enDir, 'messages.json'),
+      '{"hello":{"message":"hi"}}'
+    )
+    fs.writeFileSync(
+      path.join(ptDir, 'messages.json'),
+      '{"hello":{"message":"oi"}}'
+    )
+    fs.writeFileSync(path.join(enDir, 'notes.txt'), 'note')
+    fs.writeFileSync(path.join(enDir, 'logo.png'), '')
   })
 
-  const enMessages = path.join(outputPath, '_locales', 'en', 'messages.json')
-  const ptBRMessages = path.join(
-    outputPath,
-    '_locales',
-    'pt_BR',
-    'messages.json'
-  )
-
-  it('emits all locale JSON files to the output folder', async () => {
-    await assertFileIsEmitted(enMessages)
-    await assertFileIsEmitted(ptBRMessages)
+  afterEach(() => {
+    vi.restoreAllMocks()
+    if (fs.existsSync(tmpRoot))
+      fs.rmSync(tmpRoot, {recursive: true, force: true})
   })
 
-  it('skips non-JSON files inside _locales folders', async () => {
-    const emittedTxt = path.join(outputPath, '_locales', 'en', 'notes.txt')
-    const emittedPng = path.join(outputPath, '_locales', 'en', 'logo.png')
-    await assertFileIsNotEmitted(emittedTxt)
-    await assertFileIsNotEmitted(emittedPng)
+  function applyAndProcess(
+    plugin: LocalesPlugin,
+    overrides?: {mockGetLocales?: string[]}
+  ) {
+    const processAssetsHook = createHook()
+    const thisCompilationHook = {
+      tap: (_name: string, cb: (compilation: any) => void) => {
+        cb(compilation)
+      }
+    }
+
+    const compilation = {
+      assets: {},
+      errors: [] as any[],
+      warnings: [] as any[],
+      fileDependencies: new Set<string>(),
+      hooks: {processAssets: processAssetsHook},
+      emitAsset: (filename: string) => {
+        ;(compilation as any)._emitted = (compilation as any)._emitted || []
+        ;(compilation as any)._emitted.push(filename)
+      }
+    }
+
+    const compiler = {
+      options: {context: tmpRoot},
+      hooks: {thisCompilation: thisCompilationHook}
+    } as any
+
+    if (overrides?.mockGetLocales) {
+      vi.spyOn(getLocalesModule, 'getLocales').mockReturnValue(
+        overrides.mockGetLocales
+      )
+    }
+
+    plugin.apply(compiler)
+    // run all registered processAssets hooks
+    ;(processAssetsHook as any)._runAll()
+    return compilation as any
+  }
+
+  it('emits only .json locale files and skips non-json', () => {
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    const emitted: string[] = (compilation as any)._emitted || []
+    expect(emitted.some((p) => p.endsWith('_locales/en/messages.json'))).toBe(
+      true
+    )
+    expect(
+      emitted.some((p) => p.endsWith('_locales/pt_BR/messages.json'))
+    ).toBe(true)
+    expect(emitted.some((p) => p.endsWith('_locales/en/notes.txt'))).toBe(false)
+    expect(emitted.some((p) => p.endsWith('_locales/en/logo.png'))).toBe(false)
+    // No warnings/errors for existing files
+    expect(compilation.warnings.length).toBe(0)
+    expect(compilation.errors.length).toBe(0)
+  })
+
+  it('does not emit when excluded by excludeList', () => {
+    const excludedPath = path.join(enDir, 'messages.json')
+    const plugin = new LocalesPlugin({
+      manifestPath,
+      excludeList: {any: excludedPath}
+    } as any)
+    const compilation = applyAndProcess(plugin)
+
+    const emitted: string[] = (compilation as any)._emitted || []
+    expect(emitted.some((p) => p.endsWith('_locales/en/messages.json'))).toBe(
+      false
+    )
+    expect(
+      emitted.some((p) => p.endsWith('_locales/pt_BR/messages.json'))
+    ).toBe(true)
+  })
+
+  it('adds discovered .json files to fileDependencies', () => {
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    const deps = Array.from(compilation.fileDependencies)
+    expect(deps.some((p) => p.endsWith('_locales/en/messages.json'))).toBe(true)
+    expect(deps.some((p) => p.endsWith('_locales/pt_BR/messages.json'))).toBe(
+      true
+    )
+  })
+
+  it('warns when a referenced file is missing (with metadata, no path in message)', () => {
+    const missing = path.join(tmpRoot, '_locales', 'en', 'missing.json')
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin, {mockGetLocales: [missing]})
+
+    expect(compilation.warnings.length).toBe(1)
+    const warn: any = compilation.warnings[0]
+    expect(warn.name).toBe('LocalesPluginMissingFile')
+    expect(warn.file).toBe(missing)
+    expect(typeof warn.message).toBe('string')
+    expect(warn.message).not.toContain(missing)
+    expect(hasAnsi(warn.message)).toBe(false)
+    const emitted: string[] = (compilation as any)._emitted || []
+    expect(emitted.length).toBe(0)
+  })
+
+  it('pushes an error and does not throw when manifest.json is missing (with metadata, no path in message)', () => {
+    // create a clean temp root without a manifest.json
+    const cleanRoot = path.resolve(__dirname, '__tmp_locales_plugin_missing__')
+    if (fs.existsSync(cleanRoot))
+      fs.rmSync(cleanRoot, {recursive: true, force: true})
+    fs.mkdirSync(cleanRoot, {recursive: true})
+    const missingManifestPath = path.join(cleanRoot, 'manifest.json')
+
+    const processAssetsHook = createHook()
+    const thisCompilationHook = {
+      tap: (_name: string, cb: (compilation: any) => void) => cb(compilation)
+    }
+    const compilation: any = {
+      assets: {},
+      errors: [],
+      warnings: [],
+      fileDependencies: new Set<string>(),
+      hooks: {processAssets: processAssetsHook},
+      emitAsset: vi.fn()
+    }
+    const compiler: any = {
+      options: {context: cleanRoot},
+      hooks: {thisCompilation: thisCompilationHook}
+    }
+
+    const plugin = new LocalesPlugin({manifestPath: missingManifestPath})
+    plugin.apply(compiler)
+    ;(processAssetsHook as any)._runAll()
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('ManifestNotFoundError')
+    expect(err.file).toBe(missingManifestPath)
+    expect(typeof err.message).toBe('string')
+    // Message should avoid duplicating path; keep summary only
+    expect(err.message).toContain('Manifest Not Found')
+    expect(hasAnsi(err.message)).toBe(false)
+    expect((compilation as any)._emitted).toBeUndefined()
+
+    // cleanup
+    if (fs.existsSync(cleanRoot))
+      fs.rmSync(cleanRoot, {recursive: true, force: true})
   })
 })
