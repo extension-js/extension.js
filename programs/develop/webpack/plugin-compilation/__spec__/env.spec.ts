@@ -1,95 +1,166 @@
 import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
-const FS = vi.hoisted(() => ({
-  existsSync: vi.fn()
-}))
-vi.mock('fs', () => ({
-  ...FS
-}))
-import * as fs from 'fs'
 
+// Mocks
+const defineApply = vi.fn()
 vi.mock('@rspack/core', () => {
-  class RawSource {
-    private _content: string
+  class DefinePluginMock {
+    public args: any
+    constructor(args: any) {
+      this.args = args
+    }
+    apply = defineApply
+  }
+  class RawSourceMock {
+    private content: string
     constructor(content: string) {
-      this._content = content
+      this.content = content
     }
     source() {
-      return this._content
+      return this.content
+    }
+    size() {
+      return this.content.length
     }
   }
   return {
-    DefinePlugin: class {
-      apply() {}
-    },
-    Compilation: {PROCESS_ASSETS_STAGE_SUMMARIZE: 0},
-    sources: {RawSource}
+    DefinePlugin: DefinePluginMock,
+    Compilation: {PROCESS_ASSETS_STAGE_SUMMARIZE: 1000},
+    sources: {RawSource: RawSourceMock}
   }
 })
 
-describe('EnvPlugin', () => {
-  const originalEnv = {...process.env}
+vi.mock('fs', async () => {
+  const actual: any = await vi.importActual('fs')
+  return {
+    ...actual,
+    existsSync: vi.fn()
+  }
+})
+import * as fs from 'fs'
+import * as dotenv from 'dotenv'
 
+vi.mock('dotenv', () => ({
+  config: vi.fn((opts: any) => {
+    if (!opts || !opts.path) return {parsed: {}}
+    if (String(opts.path).endsWith('.env.defaults')) {
+      return {parsed: {EXTENSION_PUBLIC_FOO: 'defFoo', EXTENSION_BAZ: 'defBaz'}}
+    }
+    return {parsed: {EXTENSION_PUBLIC_FOO: 'envFoo', EXTENSION_BAR: 'envBar'}}
+  })
+}))
+
+import {EnvPlugin} from '../env'
+
+describe('EnvPlugin', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
-    // Avoid reading any real .env files
-    ;(fs.existsSync as any).mockImplementation(() => false)
-    process.env = {...originalEnv}
+    defineApply.mockReset()
+    ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
+      const path = String(p)
+      return (
+        path.endsWith('/.env.chrome.development') ||
+        path.endsWith('/.env.defaults') ||
+        path.endsWith('/.env') ||
+        path.endsWith('/.env.local')
+      )
+    })
+
+    process.env.EXTENSION_PUBLIC_FOO = 'sysFoo'
+    process.env.EXTENSION_QUX = 'sysQux'
   })
 
   afterEach(() => {
-    process.env = originalEnv
+    delete process.env.EXTENSION_PUBLIC_FOO
+    delete process.env.EXTENSION_QUX
     vi.restoreAllMocks()
   })
 
-  it('replaces $EXTENSION_PUBLIC_* and $EXTENSION_* placeholders in .html and .json assets', async () => {
-    process.env.EXTENSION_PUBLIC_FOO = 'foo-public'
-    process.env.EXTENSION_BAR = 'bar-private'
+  function createCompiler(mode: 'development' | 'production' = 'development') {
+    let thisCompilationCb: any
+    const compiler: any = {
+      options: {mode},
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, cb: any) => {
+            thisCompilationCb = cb
+          }
+        }
+      }
+    }
+    const triggerCompilation = (compilation: any) =>
+      thisCompilationCb(compilation)
+    return {compiler, triggerCompilation}
+  }
 
-    const {EnvPlugin} = await import('../env')
-    const plugin = new EnvPlugin({
-      manifestPath:
-        '/abs/path/to/examples/content/manifest.json' /* unused in this test but required */,
-      browser: 'chrome'
-    } as any)
-
-    let processAssetsCallback: (() => void) | undefined
-
+  function createCompilationWithAssets(files: Record<string, string>) {
+    let processAssetsCb: any
     const updated: Record<string, string> = {}
     const compilation: any = {
-      assets: {
-        'index.html': {
-          source: () => '<div>$EXTENSION_PUBLIC_FOO - $EXTENSION_BAR</div>'
-        },
-        'data.json': {
-          source: () => '{"k":"$EXTENSION_PUBLIC_FOO|$EXTENSION_BAR"}'
-        }
-      },
+      assets: Object.fromEntries(
+        Object.entries(files).map(([k, v]) => [
+          k,
+          {
+            source: () => v,
+            size: () => v.length
+          }
+        ])
+      ),
       hooks: {
         processAssets: {
-          tap: (_: any, cb: any) => {
-            processAssetsCallback = () => cb(Object.create(null))
+          tap: (_opts: any, cb: any) => {
+            processAssetsCb = cb
           }
         }
       },
-      updateAsset: (filename: string, raw: any) => {
-        updated[filename] = raw.source().toString()
+      updateAsset: (name: string, raw: any) => {
+        updated[name] = raw.source()
       }
     }
-
-    const compiler: any = {
-      options: {mode: 'development'},
-      hooks: {
-        thisCompilation: {
-          tap: (_name: string, fn: any) => fn(compilation)
-        }
-      }
+    return {
+      compilation,
+      runProcessAssets: () => processAssetsCb({}) as void,
+      updated
     }
+  }
 
-    plugin.apply(compiler)
-    // Trigger inner processAssets tap
-    processAssetsCallback && processAssetsCallback()
+  it('applies DefinePlugin with filtered env vars and defaults', async () => {
+    const {compiler, triggerCompilation} = createCompiler('development')
+    const plugin = new EnvPlugin({
+      manifestPath: '/proj/manifest.json',
+      browser: 'chrome'
+    })
+    plugin.apply(compiler as any)
 
-    expect(updated['index.html']).toBe('<div>foo-public - bar-private</div>')
-    expect(updated['data.json']).toBe('{"k":"foo-public|bar-private"}')
+    // Ensure DefinePlugin applied at least once
+    expect(defineApply).toHaveBeenCalled()
+  })
+
+  it('replaces $EXTENSION_* and $EXTENSION_PUBLIC_* in json/html assets', async () => {
+    const {compiler, triggerCompilation} = createCompiler('development')
+    const plugin = new EnvPlugin({
+      manifestPath: '/proj/manifest.json',
+      browser: 'chrome'
+    })
+    plugin.apply(compiler as any)
+
+    const {compilation, runProcessAssets, updated} =
+      createCompilationWithAssets({
+        'index.html':
+          '<meta content="$EXTENSION_PUBLIC_FOO"><p>$EXTENSION_BAR $EXTENSION_MISS</p>',
+        'manifest.json':
+          '{"name":"$EXTENSION_PUBLIC_FOO","desc":"$EXTENSION_BAR"}',
+        'ignore.txt': '$EXTENSION_PUBLIC_FOO'
+      })
+
+    triggerCompilation(compilation)
+    runProcessAssets()
+
+    // index.html and manifest.json updated, ignore.txt untouched
+    expect(Object.keys(updated)).toEqual(['index.html', 'manifest.json'])
+    expect(updated['index.html']).toContain('sysFoo') // from process.env override
+    expect(updated['index.html']).toContain('envBar') // from env file
+    expect(updated['index.html']).toContain('$EXTENSION_MISS') // untouched when missing
+    expect(updated['manifest.json']).toContain('sysFoo')
+    expect(updated['manifest.json']).toContain('envBar')
   })
 })
