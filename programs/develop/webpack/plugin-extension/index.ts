@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import {Compiler} from '@rspack/core'
-import {getManifestFieldsData} from './data/manifest-fields'
-import {getSpecialFoldersData} from './data/special-folders'
+import {getManifestFieldsData} from 'browser-extension-manifest-fields'
+import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
 
 // Plugins
 import {ManifestPlugin} from './feature-manifest'
@@ -21,7 +21,7 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 
 // Types
 import {PluginInterface, FilepathList} from '../webpack-types'
-import {DevOptions} from '../../develop-lib/config-types'
+import {DevOptions} from '../../types/options'
 
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
@@ -41,8 +41,7 @@ export class ExtensionPlugin {
       browser: this.browser
     })
     const specialFoldersData = getSpecialFoldersData({
-      manifestPath,
-      browser: this.browser
+      manifestPath
     })
 
     // Generate a manifest file with all the assets we need

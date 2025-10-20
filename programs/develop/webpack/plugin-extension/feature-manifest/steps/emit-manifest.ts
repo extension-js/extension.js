@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import rspack, {sources, Compiler, Compilation} from '@rspack/core'
-import * as messages from '../../../webpack-lib/messages'
+import * as messages from '../messages'
 import {type PluginInterface} from '../../../webpack-types'
 
 export class EmitManifest {

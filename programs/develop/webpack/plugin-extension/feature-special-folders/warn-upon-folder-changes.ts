@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as chokidar from 'chokidar'
 import {type Compiler, type Compilation, WebpackError} from '@rspack/core'
-import * as messages from '../../webpack-lib/messages'
+import * as messages from './messages'
 
 export class WarnUponFolderChanges {
   private readonly manifestPath: string

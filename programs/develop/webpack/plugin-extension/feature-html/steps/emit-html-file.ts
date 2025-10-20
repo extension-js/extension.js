@@ -1,8 +1,8 @@
 import * as fs from 'fs'
 import {WebpackError, sources, type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import * as messages from '../../../webpack-lib/messages'
-import * as utils from '../../../webpack-lib/utils'
+import * as messages from '../html-lib/messages'
+import * as utils from '../../../../develop-lib/utils'
 import {getFilePath} from '../html-lib/utils'
 
 export class EmitHtmlFile {

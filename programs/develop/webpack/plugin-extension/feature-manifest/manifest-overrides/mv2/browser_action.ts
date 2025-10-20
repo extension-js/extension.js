@@ -1,6 +1,6 @@
 import * as path from 'path'
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
-import {getFilename} from '../../../../webpack-lib/utils'
+import {getFilename} from '../../../../../develop-lib/utils'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 export function browserAction(manifest: Manifest, excludeList: FilepathList) {
