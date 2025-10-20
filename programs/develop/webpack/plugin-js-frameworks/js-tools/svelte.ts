@@ -10,40 +10,26 @@ import * as fs from 'fs'
 import * as messages from '../../webpack-lib/messages'
 import {installOptionalDependencies} from '../../webpack-lib/utils'
 import {JsFramework} from '../../webpack-types'
+import {hasDependency} from '../../webpack-lib/utils'
 import {loadLoaderOptions} from '../load-loader-options'
+import {type DevOptions} from '../../../develop-lib/config-types'
 
 let userMessageDelivered = false
 
 export function isUsingSvelte(projectPath: string) {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-
-  const svelteAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies?.svelte
-  const svelteAsDep =
-    packageJson.dependencies && packageJson.dependencies.svelte
-
-  if (svelteAsDevDep || svelteAsDep) {
-    if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration('Svelte'))
-      }
-
-      userMessageDelivered = true
+  const using = hasDependency(projectPath, 'svelte')
+  if (using && !userMessageDelivered) {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(messages.isUsingIntegration('Svelte'))
     }
+    userMessageDelivered = true
   }
-
-  return !!svelteAsDevDep || !!svelteAsDep
+  return using
 }
 
 export async function maybeUseSvelte(
   projectPath: string,
-  mode: 'development' | 'production'
+  mode: DevOptions['mode']
 ): Promise<JsFramework | undefined> {
   if (!isUsingSvelte(projectPath)) return undefined
 
@@ -114,7 +100,7 @@ export async function maybeUseSvelte(
     }
   ]
 
-  // Do not alias 'svelte'. Let Rspack resolve via package exports.
+  // Do not alias 'svelte'; rely on export maps for subpath resolution
   const alias: Record<string, string> | undefined = undefined
 
   // Small plugin to update resolver fields to align with Svelte ecosystem
