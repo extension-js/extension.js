@@ -1,11 +1,6 @@
-import * as path from 'path'
-import * as fs from 'fs'
-import {urlToRequest} from 'loader-utils'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {LoaderInterface} from '../../../webpack-types'
-import {getAssetsFromHtml} from '../html-lib/utils'
-import {isUsingJSFramework} from '../../../webpack-lib/utils'
 
 const schema: Schema = {
   type: 'object',
@@ -22,7 +17,8 @@ const schema: Schema = {
     excludeList: {
       type: 'object'
     }
-  }
+  },
+  additionalProperties: false
 }
 
 export default function ensureHMRForScripts(
@@ -30,8 +26,6 @@ export default function ensureHMRForScripts(
   source: string
 ) {
   const options = this.getOptions()
-  const manifestPath = options.manifestPath
-  const projectPath = path.dirname(manifestPath)
 
   try {
     validate(schema, options, {
@@ -42,8 +36,6 @@ export default function ensureHMRForScripts(
     throw error
   }
 
-  const resourcePath = this.resourcePath || ''
-  const url = urlToRequest(resourcePath)
   const reloadCode = `
 if (import.meta.webpackHot) { import.meta.webpackHot.accept() }
 `
