@@ -2,7 +2,7 @@
   "private": true,
   "name": "typescript",
   "description": "TypeScript-based extension template",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
