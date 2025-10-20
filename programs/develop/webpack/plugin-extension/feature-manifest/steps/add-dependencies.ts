@@ -14,15 +14,23 @@ export class AddDependencies {
       (compilation) => {
         if (compilation.errors?.length) return
 
-        const fileDependencies = new Set(compilation.fileDependencies)
+        const deps = compilation.fileDependencies
 
         if (this.dependencyList) {
           this.dependencyList.forEach((dependency) => {
-            if (!fs.existsSync(dependency)) return
+            const alreadyPresent =
+              typeof deps?.has === 'function' ? deps.has(dependency) : false
 
-            if (!fileDependencies.has(dependency)) {
-              fileDependencies.add(dependency)
-              compilation.fileDependencies.add(dependency)
+            if (!alreadyPresent) {
+              if (typeof deps?.add === 'function') deps.add(dependency)
+
+              // Fallback for implementations that expect mutation via original reference
+              if (
+                deps !== compilation.fileDependencies &&
+                typeof compilation.fileDependencies?.add === 'function'
+              ) {
+                compilation.fileDependencies.add(dependency)
+              }
             }
           })
         }
