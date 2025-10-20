@@ -1,12 +1,10 @@
 import * as fs from 'fs'
-import {Compiler, Compilation} from '@rspack/core'
+import * as path from 'path'
+import {Compiler, Compilation, WebpackError} from '@rspack/core'
 import * as messages from '../../../webpack-lib/messages'
-import * as reloadMessages from '../../../plugin-reload/reload-lib/messages'
 import {DevOptions} from '../../../../develop-lib/config-types'
-import {PluginInterface, FilepathList, Manifest} from '../../../webpack-types'
-import {htmlFields} from '../../data/manifest-fields/html-fields'
-import {scriptsFields} from '../../data/manifest-fields/scripts-fields'
-import * as utils from '../../../webpack-lib/utils'
+import {PluginInterface, FilepathList} from '../../../webpack-types'
+import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 
 export class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
@@ -37,18 +35,15 @@ export class ThrowIfRecompileIsNeeded {
             return
           }
 
-          const initialManifest: Manifest = JSON.parse(
-            fs.readFileSync(this.manifestPath, 'utf-8')
-          )
-          const manifest = utils.filterKeysForThisBrowser(
-            initialManifest,
-            this.browser
-          )
+          const initialFields = getManifestFieldsData({
+            manifestPath: this.manifestPath,
+            browser: this.browser
+          })
           const initialHtml = this.flattenAndSort(
-            Object.values(htmlFields(context, manifest))
+            Object.values(initialFields.html)
           )
           const initialScripts = this.flattenAndSort(
-            Object.values(scriptsFields(context, manifest))
+            Object.values(initialFields.scripts)
           )
 
           compiler.hooks.thisCompilation.tap(
@@ -63,12 +58,35 @@ export class ThrowIfRecompileIsNeeded {
                   const manifestAsset = compilation.getAsset('manifest.json')
                   const manifestStr = manifestAsset?.source.source().toString()
                   const updatedManifest = JSON.parse(manifestStr || '{}')
-                  const updatedHtml = this.flattenAndSort(
-                    Object.values(htmlFields(context, updatedManifest))
-                  )
-                  const updatedScripts = this.flattenAndSort(
-                    Object.values(scriptsFields(context, updatedManifest))
-                  )
+                  let updatedHtml: string[] = []
+                  let updatedScripts: string[] = []
+
+                  try {
+                    const tempManifestPath = path.join(
+                      context || process.cwd(),
+                      '.extension-manifest.tmp.json'
+                    )
+                    fs.writeFileSync(
+                      tempManifestPath,
+                      JSON.stringify(updatedManifest, null, 2),
+                      'utf-8'
+                    )
+                    const updatedFields = getManifestFieldsData({
+                      manifestPath: tempManifestPath,
+                      browser: this.browser
+                    })
+                    updatedHtml = this.flattenAndSort(
+                      Object.values(updatedFields.html)
+                    )
+                    updatedScripts = this.flattenAndSort(
+                      Object.values(updatedFields.scripts)
+                    )
+                    fs.unlinkSync(tempManifestPath)
+                  } catch (e) {
+                    // If temp write fails, fallback to initial to avoid crash
+                    updatedHtml = initialHtml
+                    updatedScripts = initialScripts
+                  }
 
                   if (
                     initialScripts.toString() !== updatedScripts.toString() ||
@@ -85,18 +103,21 @@ export class ThrowIfRecompileIsNeeded {
                         fileAdded,
                         fileRemoved
                       )
-                    // Log an explicit restart notice and then exit to force a clean recompile
-                    console.warn(
-                      reloadMessages.manifestEntrypointChangeRestarting(
+                    const restartNoticeWarning = new WebpackError(
+                      messages.manifestEntrypointChangeRestarting(
                         fileAdded || fileRemoved || 'manifest.json'
                       )
                     )
-                    console.warn(warnMessage)
-                    setTimeout(() => {
-                      try {
-                        process.kill(process.pid, 'SIGINT')
-                      } catch {}
-                    }, 100)
+                    // @ts-expect-error file is not typed
+                    restartNoticeWarning.file = 'manifest.json'
+                    compilation.warnings.push(restartNoticeWarning)
+
+                    const manifestEntrypointChangeWarning = new WebpackError(
+                      warnMessage
+                    )
+                    // @ts-expect-error file is not typed
+                    manifestEntrypointChangeWarning.file = 'manifest.json'
+                    compilation.warnings.push(manifestEntrypointChangeWarning)
                   }
                 }
               )

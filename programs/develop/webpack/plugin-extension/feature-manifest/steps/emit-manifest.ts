@@ -33,9 +33,11 @@ export class EmitManifest {
                 delete jsonContent['$schema']
               }
             } catch (error: any) {
-              compilation.errors.push(
-                new rspack.WebpackError(messages.manifestInvalidError(error))
-              )
+              const err = new rspack.WebpackError(
+                messages.manifestInvalidError(error)
+              ) as Error & {file?: string}
+              err.file = 'manifest.json'
+              compilation.errors.push(err)
               return
             }
 
