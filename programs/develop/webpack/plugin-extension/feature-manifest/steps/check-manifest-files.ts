@@ -106,11 +106,6 @@ export class CheckManifestFiles {
               field,
               item as string
             )
-            // Print a helpful error to stdout to guide users before compilation fails.
-            // Tests expect at least one console error to be emitted for missing files.
-            try {
-              console.error(fieldError)
-            } catch {}
             const err = new WebpackError(fieldError) as Error & {file: string}
             // Hint Rspack to display "ERROR in manifest.json × ..."
             err.file = 'manifest.json'
