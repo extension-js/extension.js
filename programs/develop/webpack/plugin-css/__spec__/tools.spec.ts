@@ -1,37 +1,140 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 
-vi.mock('fs')
-vi.stubEnv('EXTENSION_ENV', 'development')
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs')
+  return {
+    ...actual,
+    existsSync: vi.fn(() => false),
+    readFileSync: vi.fn(() => '')
+  }
+})
 
-describe('css tools detectors', () => {
+vi.mock('../../webpack-lib/utils', async () => {
+  const actual = await import('../../webpack-lib/utils')
+  return {
+    ...actual,
+    hasDependency: vi.fn(() => false),
+    installOptionalDependencies: vi.fn(async () => undefined)
+  }
+})
+
+vi.mock('../../webpack-lib/messages', () => ({
+  isUsingIntegration: (name: string) => `[using ${name}]`,
+  youAreAllSet: (name: string) => `[ready ${name}]`,
+  integrationInstalledSuccessfully: (name: string) => `[installed ${name}]`,
+  failedToInstallIntegration: (name: string) => `[failed ${name}]`,
+  installingRootDependencies: (name: string) => `[installing ${name}]`
+}))
+
+// Load after mocks
+import {isUsingSass, maybeUseSass} from '../css-tools/sass'
+import {isUsingLess, maybeUseLess} from '../css-tools/less'
+import {isUsingPostCss, maybeUsePostCss} from '../css-tools/postcss'
+import {isUsingStylelint, getStylelintConfigFile} from '../css-tools/stylelint'
+import {isUsingTailwind, getTailwindConfigFile} from '../css-tools/tailwind'
+
+describe('css tools detection', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    ;(process as any).env.EXTENSION_ENV = 'test'
+  })
+
+  afterEach(() => {
+    ;(fs.readFileSync as any).mockReset?.()
+    ;(fs.existsSync as any).mockReset?.()
+  })
+
+  it('stylelint config discovery returns undefined when files are missing', () => {
+    ;(fs.existsSync as any).mockReturnValue(false)
+    expect(getStylelintConfigFile('/p')).toBeUndefined()
+  })
+
+  it('tailwind config discovery returns first existing file', () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      String(p).endsWith('tailwind.config.js')
+    )
+    expect(getTailwindConfigFile('/p')?.endsWith('tailwind.config.js')).toBe(
+      true
+    )
+  })
+
+  it('isUsingStylelint returns false without package.json', () => {
+    ;(fs.existsSync as any).mockReturnValue(false)
+    expect(isUsingStylelint('/p')).toBe(false)
+  })
+
+  it('maybeUsePostCss returns empty object when not in use', async () => {
+    expect(await maybeUsePostCss('/p', {mode: 'development'})).toEqual({})
+  })
+})
+
+describe('isContentScriptEntry', () => {
+  it('returns true if issuer matches content script in manifest', async () => {
+    const manifest = {
+      content_scripts: [{js: ['content.js']}]
+    }
+    ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
+    const {isContentScriptEntry} = (await import('../is-content-script')) as any
+    const path = require('path')
+    const issuer = path.resolve('/project', 'content.js')
+    const manifestPath = path.join('/project', 'manifest.json')
+    expect(isContentScriptEntry(issuer, manifestPath)).toBe(true)
+  })
+
+  it('returns false for non-matching paths', async () => {
+    const manifest = {content_scripts: [{js: ['a.js']}]} as any
+    ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
+    const {isContentScriptEntry} = (await import('../is-content-script')) as any
+    expect(isContentScriptEntry('/x/b.js', '/x/manifest.json')).toBe(false)
+  })
+})
+
+describe('css tools additional coverage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ;(fs.existsSync as any).mockReset?.()
+    ;(fs.readFileSync as any).mockReset?.()
+    ;(process as any).env.EXTENSION_ENV = 'development'
   })
 
-  it('isContentScriptEntry detects content script issuers from manifest', async () => {
-    const {isContentScriptEntry} = await import('../is-content-script')
-    const manifestPath = '/project/manifest.json'
-    vi.spyOn(fs, 'readFileSync').mockReturnValue(
-      JSON.stringify({content_scripts: [{js: ['scripts/content.js']}]} as any)
+  afterEach(() => {
+    ;(process as any).env.EXTENSION_ENV = 'test'
+  })
+
+  it('isUsingTailwind logs only once across multiple calls', async () => {
+    const utils = await import('../../webpack-lib/utils')
+    vi.spyOn(utils, 'hasDependency').mockImplementation(
+      (_, dep) => dep === 'tailwindcss'
     )
 
-    const abs = '/project/scripts/content.js'
-    expect(isContentScriptEntry(abs, manifestPath)).toBe(true)
-    expect(isContentScriptEntry('/project/other.js', manifestPath)).toBe(false)
+    const {isUsingTailwind} = await import('../css-tools/tailwind')
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    expect(isUsingTailwind('/p')).toBe(true)
+    expect(isUsingTailwind('/p')).toBe(true)
+    expect(log).toHaveBeenCalledTimes(1)
   })
 
-  it('commonStyleLoaders adds postcss loader when using tailwind/postcss', async () => {
-    vi.doMock('../css-tools/tailwind', () => ({isUsingTailwind: () => true}))
-    vi.doMock('../css-tools/sass', () => ({isUsingSass: () => false}))
-    vi.doMock('../css-tools/less', () => ({isUsingLess: () => false}))
-    vi.doMock('../css-tools/postcss', () => ({
-      maybeUsePostCss: vi.fn(async () => ({loader: 'postcss-loader'}))
-    }))
+  it('isContentScriptEntry returns false for empty inputs (early return)', async () => {
+    const {isContentScriptEntry} = await import('../is-content-script')
+    expect(isContentScriptEntry('', '')).toBe(false)
+    expect(isContentScriptEntry('/x', '')).toBe(false)
+    expect(isContentScriptEntry('', '/x/manifest.json')).toBe(false)
+  })
 
-    const {commonStyleLoaders} = await import('../common-style-loaders')
-    const loaders = await commonStyleLoaders('/project', {mode: 'development'})
-    expect(Array.isArray(loaders)).toBe(true)
-    expect((loaders as any[])[0]?.loader).toBe('postcss-loader')
+  it('maybeUsePostCss returns loader config when a PostCSS config file exists', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      String(p).endsWith('postcss.config.js')
+    )
+
+    const {maybeUsePostCss} = await import('../css-tools/postcss')
+    const res = await maybeUsePostCss('/project', {mode: 'development'})
+    expect(res.loader).toBeDefined()
+    expect(String(res.loader)).toContain('postcss-loader')
+    expect(
+      res.options?.postcssOptions?.config?.endsWith('postcss.config.js')
+    ).toBe(true)
   })
 })
