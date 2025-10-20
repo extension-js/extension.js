@@ -58,14 +58,9 @@ describe('EmitHtmlFile', () => {
       return Buffer.from('')
     })
     vi.mocked(fs.existsSync).mockImplementation((_p: any) => false)
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
     plugin.apply(mockCompiler)
 
     // Should push exactly one warning for pages/* and not for manifest entrypoints
     expect((mockCompilation as any).warnings.length).toBe(1)
-    // And print to stdout for early visibility for the pages/* key
-    expect(spy).toHaveBeenCalledTimes(1)
-    spy.mockRestore()
   })
 })

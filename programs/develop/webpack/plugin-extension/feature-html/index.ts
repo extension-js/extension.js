@@ -131,5 +131,25 @@ export class HtmlPlugin {
       excludeList: this.excludeList,
       browser: this.browser
     }).apply(compiler)
+
+    // 9 - Add centralized logger script.
+    if ((compiler.options.mode || 'development') !== 'production') {
+      compiler.options.module.rules.push({
+        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: [/([\\/])node_modules\1/],
+        use: [
+          {
+            loader: path.resolve(__dirname, 'add-centralized-logger-script'),
+            options: {
+              manifestPath: this.manifestPath,
+              includeList: this.includeList,
+              excludeList: this.excludeList,
+              browser: this.browser
+            }
+          }
+        ]
+      })
+    }
   }
 }
