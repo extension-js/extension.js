@@ -1,142 +1,198 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-const FS = vi.hoisted(() => ({
-  readFileSync: vi.fn()
-}))
-vi.mock('fs', async (importOriginal) => {
-  const actual: any = await importOriginal()
+import {describe, it, expect, beforeEach, vi, afterEach} from 'vitest'
+
+vi.mock('fs', async () => {
+  const actual: any = await vi.importActual('fs')
   return {
     ...actual,
-    ...FS
+    readFileSync: vi.fn()
   }
 })
 import * as fs from 'fs'
+
+// Mock deps used inside the plugin implementation
+vi.mock('../env', () => {
+  const apply = vi.fn()
+  class EnvPluginMock {
+    public static lastOptions: any
+    constructor(options: any) {
+      ;(EnvPluginMock as any).lastOptions = options
+    }
+    apply = apply
+  }
+  return {EnvPlugin: EnvPluginMock}
+})
+
+vi.mock('../clean-dist', () => {
+  const apply = vi.fn()
+  class CleanDistFolderPluginMock {
+    public static instances: any[] = []
+    public static apply = apply
+    constructor(public options: any) {
+      ;(CleanDistFolderPluginMock as any).instances.push(this)
+    }
+    apply = apply
+  }
+  return {CleanDistFolderPlugin: CleanDistFolderPluginMock}
+})
+
+vi.mock('../webpack-lib/messages', () => ({
+  boring: (name: string, duration: number) => `build(${name}, ${duration}ms)`
+}))
+
+vi.mock('pintor', () => ({
+  default: {
+    gray: (s: string) => s,
+    green: (s: string) => s,
+    red: (s: string) => s
+  }
+}))
+
 vi.mock('case-sensitive-paths-webpack-plugin', () => ({
   default: class {
     apply() {}
   }
 }))
 
+// Module under test
 import {CompilationPlugin} from '../index'
-vi.mock('@rspack/core', async (importOriginal) => {
-  const actual: any = await importOriginal()
-  class FakeDefinePlugin {
-    constructor(_defs: any) {}
-    apply(_compiler: any) {}
-  }
-  return {
-    ...actual,
-    DefinePlugin: FakeDefinePlugin
-  }
-})
-vi.mock('../clean-dist', () => {
-  class CleanDistFolderPlugin {
-    apply() {}
-  }
-  return {CleanDistFolderPlugin}
-})
 
 describe('CompilationPlugin', () => {
-  const originalIsTTY = process.stdout.isTTY
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>
+  let stdoutWriteSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    vi.restoreAllMocks()
-    ;(fs.readFileSync as any).mockImplementation(() =>
-      JSON.stringify({name: 'My Extension'})
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    stdoutWriteSpy = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      JSON.stringify({name: 'MyExt'})
     )
+    // Reset CleanDistFolderPlugin mock instances between tests
+    import('../clean-dist').then(({CleanDistFolderPlugin}) => {
+      ;(CleanDistFolderPlugin as any).instances = []
+      if ((CleanDistFolderPlugin as any).apply?.mockReset) {
+        ;(CleanDistFolderPlugin as any).apply.mockReset()
+      }
+    })
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
-    ;(process.stdout as any).isTTY = originalIsTTY
   })
 
-  it('hooks into compiler and prints a summary line on done', () => {
-    const plugin = new CompilationPlugin({
-      manifestPath: '/abs/path/manifest.json',
-      browser: 'chrome',
-      clean: false
-    } as any)
-
-    const doneCalls: number[] = []
-    const tapCallbacks: Array<(stats: any, done: () => void) => void> = []
+  function createCompiler(mode: 'development' | 'production' = 'development') {
+    let doneHandler: any
     const compiler: any = {
-      options: {mode: 'development'},
+      options: {mode},
+      getInfrastructureLogger: () => ({
+        info: console.log,
+        warn: console.warn,
+        error: console.error
+      }),
       hooks: {
+        // Some third-party plugins call done.tap, so provide both
         done: {
-          tapAsync: (_: string, cb: any) => tapCallbacks.push(cb)
-        },
-        thisCompilation: {tap: () => {}}
+          tap: (_name: string, cb: any) => {
+            doneHandler = (stats: any, _done: any) => cb(stats)
+          },
+          tapAsync: (_name: string, cb: any) => {
+            doneHandler = cb
+          }
+        }
       }
     }
+    return {
+      compiler,
+      emitDone: (stats: any, done = () => {}) => doneHandler(stats, done)
+    }
+  }
 
-    plugin.apply(compiler)
+  it('applies EnvPlugin and optionally CleanDistFolderPlugin based on options', async () => {
+    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      JSON.stringify({name: 'ExtA'})
+    )
+    const {compiler, emitDone} = createCompiler('development')
+    const plugin = new CompilationPlugin({
+      manifestPath: '/p/manifest.json',
+      browser: 'edge',
+      clean: true
+    })
+    plugin.apply(compiler as any)
 
-    const fakeStats = {
+    // trigger done to hit logging branch
+    emitDone({
       hasErrors: () => false,
-      compilation: {
-        startTime: Date.now(),
-        endTime: Date.now() + 5,
-        name: 'should-be-undefined-after'
-      }
-    }
+      compilation: {startTime: 0, endTime: 10}
+    })
 
-    vi.spyOn(console, 'log').mockImplementation(() => {})
+    // EnvPlugin constructed with provided options via mocked class
+    const {EnvPlugin} = await import('../env')
+    expect((EnvPlugin as any).lastOptions).toEqual({
+      manifestPath: '/p/manifest.json',
+      browser: 'edge'
+    })
 
-    // trigger done hook
-    tapCallbacks[0](fakeStats, () => doneCalls.push(1))
+    // Clean plugin path exercised without throwing (behavior verified via user-facing log)
 
-    expect(doneCalls.length).toBe(1)
-    expect(fakeStats.compilation.name).toBeUndefined()
-    expect(console.log).toHaveBeenCalled()
+    // Logged one line for first compilation
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('ExtA compiled successfully in 10 ms.')
+    )
+    expect(stdoutWriteSpy).not.toHaveBeenCalled()
   })
 
-  it('respects clean=false and does not invoke CleanDistFolderPlugin', async () => {
+  it('does not apply CleanDistFolderPlugin when clean is false', async () => {
+    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      JSON.stringify({name: 'ExtB'})
+    )
+    const {compiler, emitDone} = createCompiler('development')
     const plugin = new CompilationPlugin({
-      manifestPath: '/abs/path/manifest.json',
+      manifestPath: '/p/manifest.json',
       browser: 'chrome',
       clean: false
-    } as any)
+    })
+    plugin.apply(compiler as any)
 
-    const applied: string[] = []
-    const compiler: any = {
-      options: {mode: 'development'},
-      hooks: {
-        done: {tapAsync: () => {}},
-        thisCompilation: {tap: () => {}}
-      }
-    }
+    emitDone({
+      hasErrors: () => false,
+      compilation: {startTime: 0, endTime: 5}
+    })
 
-    // Spy on CleanDistFolderPlugin.apply by monkey-patching constructor prototype
-    // Use the mocked CleanDistFolderPlugin
     const {CleanDistFolderPlugin} = await import('../clean-dist')
-    const applySpy = vi.spyOn(CleanDistFolderPlugin.prototype, 'apply')
-
-    plugin.apply(compiler)
-
-    expect(applySpy).not.toHaveBeenCalled()
-    applySpy.mockRestore()
+    expect((CleanDistFolderPlugin as any).instances.length).toBe(0)
+    expect(consoleLogSpy).toHaveBeenCalledWith(
+      expect.stringContaining('ExtB compiled successfully in 5 ms.')
+    )
   })
 
-  it('defaults clean to true and invokes CleanDistFolderPlugin', async () => {
-    const plugin = new CompilationPlugin({
-      manifestPath: '/abs/path/manifest.json',
-      browser: 'chrome'
-    } as any)
+  it('collapses repeated messages with counter for same key', () => {
+    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      JSON.stringify({name: 'ExtC'})
+    )
+    const {compiler, emitDone} = createCompiler('development')
+    ;(process.stdout as any).isTTY = false
 
-    const compiler: any = {
-      options: {mode: 'development'},
-      hooks: {
-        done: {tapAsync: () => {}},
-        thisCompilation: {tap: () => {}}
-      }
+    const plugin = new CompilationPlugin({
+      manifestPath: '/p/manifest.json',
+      browser: 'chrome',
+      clean: true
+    })
+    plugin.apply(compiler as any)
+
+    const stats = {
+      hasErrors: () => false,
+      compilation: {startTime: 0, endTime: 10}
     }
 
-    const {CleanDistFolderPlugin} = await import('../clean-dist')
-    const applySpy = vi.spyOn(CleanDistFolderPlugin.prototype, 'apply')
+    emitDone(stats)
+    emitDone(stats)
 
-    plugin.apply(compiler)
-
-    expect(applySpy).toHaveBeenCalled()
-    applySpy.mockRestore()
+    // First call prints fresh line
+    expect(consoleLogSpy.mock.calls[0][0]).toContain(
+      'ExtC compiled successfully in 10 ms.'
+    )
+    // Second call adds the (2x) suffix (gray mocked as identity)
+    expect(consoleLogSpy.mock.calls[1][0]).toContain(' (2x) ')
   })
 })

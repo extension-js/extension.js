@@ -1,55 +1,108 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-const FS = vi.hoisted(() => ({
-  existsSync: vi.fn(),
-  rmSync: vi.fn()
-}))
-vi.mock('fs', () => ({
-  ...FS
-}))
+import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
+vi.mock('fs', async () => {
+  const actual: any = await vi.importActual('fs')
+  return {
+    ...actual,
+    rmSync: vi.fn(),
+    existsSync: vi.fn()
+  }
+})
 import * as fs from 'fs'
 import * as path from 'path'
 import {CleanDistFolderPlugin} from '../clean-dist'
 
 describe('CleanDistFolderPlugin', () => {
-  const realExists = fs.existsSync
-  const realRmSync = fs.rmSync
+  const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
   beforeEach(() => {
     vi.restoreAllMocks()
-    ;(fs.existsSync as any).mockImplementation((p: any) => realExists(p))
-    ;(fs.rmSync as any).mockImplementation(() => undefined)
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
-  it('removes dist/<browser> folder if it exists', () => {
-    const distPath = path.join(process.cwd(), 'dist', 'chrome')
-    vi.mocked(fs.existsSync).mockReturnValue(true as any)
-
-    const plugin = new CleanDistFolderPlugin({browser: 'chrome'})
-
-    const compiler: any = {
-      options: {context: process.cwd()}
+  function compilerWithContext(
+    context: string,
+    logger?: {
+      info: (...a: any[]) => void
+      warn: (...a: any[]) => void
+      error: (...a: any[]) => void
     }
+  ) {
+    const l =
+      logger ||
+      ({
+        info: () => {},
+        warn: () => {},
+        error: () => {}
+      } as any)
+    return {
+      options: {context},
+      getInfrastructureLogger: () => l
+    } as any
+  }
 
-    plugin.apply(compiler)
+  it('removes dist/<browser> when it exists', () => {
+    ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      true
+    )
+    const rm = fs.rmSync as unknown as ReturnType<typeof vi.fn>
+    rm.mockImplementation(() => {})
+    const plugin = new CleanDistFolderPlugin({browser: 'chrome'})
+    plugin.apply(compilerWithContext('/proj'))
 
-    expect(fs.rmSync).toHaveBeenCalledWith(distPath, {
+    expect(rm).toHaveBeenCalledWith(path.join('/proj', 'dist', 'chrome'), {
       recursive: true,
       force: true
     })
   })
 
-  it('does nothing if dist/<browser> does not exist', () => {
-    vi.mocked(fs.existsSync).mockReturnValue(false as any)
+  it('logs a friendly message in development', () => {
+    ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      true
+    )
+    ;(fs.rmSync as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      () => {}
+    )
+    const info = vi.fn()
+    const plugin = new CleanDistFolderPlugin({browser: 'edge'})
+    process.env.EXTENSION_ENV = 'development'
+    plugin.apply(
+      compilerWithContext('/p', {info, warn: vi.fn(), error: vi.fn()})
+    )
+    delete process.env.EXTENSION_ENV
+    expect(info).toHaveBeenCalled()
+  })
 
+  it('handles removal errors gracefully', () => {
+    ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      true
+    )
+    ;(fs.rmSync as unknown as ReturnType<typeof vi.fn>).mockImplementation(
+      () => {
+        throw new Error('boom')
+      }
+    )
+    const err = vi.fn()
     const plugin = new CleanDistFolderPlugin({browser: 'firefox'})
-    const compiler: any = {options: {context: process.cwd()}}
+    plugin.apply(
+      compilerWithContext('/x', {info: vi.fn(), warn: vi.fn(), error: err})
+    )
+    expect(err).toHaveBeenCalled()
+  })
 
-    plugin.apply(compiler)
-
-    expect(fs.rmSync).not.toHaveBeenCalled()
+  it('does nothing when folder does not exist', () => {
+    ;(fs.existsSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      false
+    )
+    const rm = fs.rmSync as unknown as ReturnType<typeof vi.fn>
+    rm.mockImplementation(() => {})
+    const plugin = new CleanDistFolderPlugin({browser: 'chrome'})
+    plugin.apply(compilerWithContext('/proj'))
+    expect(rm).not.toHaveBeenCalled()
   })
 })
