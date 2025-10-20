@@ -13,7 +13,7 @@ import webpackConfig from './webpack/webpack-config'
 import {getProjectStructure} from './develop-lib/get-project-path'
 import * as messages from './develop-lib/messages'
 import {loadCustomWebpackConfig} from './develop-lib/get-extension-config'
-import {PreviewOptions} from './develop-lib/config-types'
+import {PreviewOptions} from './types/options'
 import {assertNoManagedDependencyConflicts} from './develop-lib/validate-user-dependencies'
 import {BrowsersPlugin} from './webpack/plugin-browsers'
 

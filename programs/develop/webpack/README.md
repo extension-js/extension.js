@@ -22,7 +22,6 @@ A curated set of Rspack-powered plugins used by Extension.js to build browser ex
 | plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules |
 | plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium                                                                                   |
 | plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
-| plugin-reload        | core  | - Dev‑time live reload/HMR orchestration<br/>- Per‑instance WebSocket server<br/>- Manifest dev overrides<br/>- Full recompiles on HTML entry changes                                                           |
 
 ### Notes and compatibility
 

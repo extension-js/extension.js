@@ -10,6 +10,11 @@ export type BrowserType =
 export interface BrowserOptionsBase {
   open?: boolean
   profile?: string | false
+  /**
+   * Opt-in persistent managed profile for development.
+   * Defaults to false (ephemeral temp profiles are used).
+   */
+  persistProfile?: boolean
   startingUrl?: string
   browser: BrowserType
 }
@@ -95,10 +100,6 @@ export interface BrowserConfig extends BrowserOptionsBase {
   preferences?: Record<string, unknown>
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
-  // When true, reuse a stable profile directory across runs when safe.
-  // When concurrent runs of the same project+browser are detected or a lock is present,
-  // fallback to per-instance profiles to avoid conflicts.
-  reuseProfile?: boolean
 }
 
 export interface FileConfig {
