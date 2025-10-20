@@ -1,50 +1,58 @@
-import * as fs from 'fs'
-import * as path from 'path'
-import {describe, it, beforeAll, afterAll, expect} from 'vitest'
-import {extensionBuild} from '../../../../../../programs/develop/dist/module.js'
+import {describe, it, expect, vi, beforeEach} from 'vitest'
 
-const getFixturesPath = (demoDir: string) => {
-  return path.resolve(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    'examples',
-    demoDir
-  )
-}
+// Mock step classes so we can assert construction and apply() calls
+const EmitFileMock = vi.fn().mockImplementation(function (
+  this: any,
+  _opts: any
+) {
+  this.apply = vi.fn()
+})
+const AddToFileDependenciesMock = vi.fn().mockImplementation(function (
+  this: any,
+  _opts: any
+) {
+  this.apply = vi.fn()
+})
 
-const assertFileIsEmitted = async (filePath: string) => {
-  const fileIsEmitted = await fs.promises.access(filePath, fs.constants.F_OK)
-  return expect(fileIsEmitted).toBeUndefined()
-}
+vi.mock('../steps/emit-file', () => ({
+  EmitFile: EmitFileMock
+}))
+vi.mock('../steps/add-to-file-dependencies', () => ({
+  AddToFileDependencies: AddToFileDependenciesMock
+}))
 
-describe('IconsPlugin', () => {
-  describe.each(['action'])('dealing with %s', (directory) => {
-    const fixturesPath = getFixturesPath(directory)
-    const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
+describe('IconsPlugin (index.ts)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
 
-    beforeAll(async () => {
-      await extensionBuild(fixturesPath, {
-        browser: 'chrome'
-      })
-    })
+  it('constructs steps with provided options and calls apply on each', async () => {
+    const {IconsPlugin} = await import('..')
 
-    afterAll(() => {
-      if (fs.existsSync(outputPath)) {
-        fs.rmSync(outputPath, {recursive: true, force: true})
-      }
-    })
+    const options = {
+      manifestPath: '/project/manifest.json',
+      includeList: {icons: ['/icons/a.png']},
+      excludeList: {icons: ['/icons/skip.png']}
+    } as any
 
-    const assetsPng = path.join(outputPath, 'icons', 'extension_16.png')
-    const assetsPng2 = path.join(outputPath, 'icons', 'extension_48.png')
+    const plugin = new IconsPlugin(options)
+    const fakeCompiler: any = {hooks: {}} // not used by this test beyond type
 
-    it('outputs icon file to destination folder', async () => {
-      await assertFileIsEmitted(assetsPng)
-      await assertFileIsEmitted(assetsPng2)
-    })
+    plugin.apply(fakeCompiler)
+
+    expect(EmitFileMock).toHaveBeenCalledTimes(1)
+    expect(AddToFileDependenciesMock).toHaveBeenCalledTimes(1)
+
+    // Ensure options are passed through to both steps
+    const emitCtorArgs = EmitFileMock.mock.calls[0][0]
+    const depsCtorArgs = AddToFileDependenciesMock.mock.calls[0][0]
+    expect(emitCtorArgs).toEqual(options)
+    expect(depsCtorArgs).toEqual(options)
+
+    // Ensure each step's apply() was called with the compiler
+    const emitInstance = (EmitFileMock as any).mock.instances[0]
+    const depsInstance = (AddToFileDependenciesMock as any).mock.instances[0]
+    expect(emitInstance.apply).toHaveBeenCalledWith(fakeCompiler)
+    expect(depsInstance.apply).toHaveBeenCalledWith(fakeCompiler)
   })
 })
