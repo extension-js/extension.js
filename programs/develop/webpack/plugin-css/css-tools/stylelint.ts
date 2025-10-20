@@ -8,7 +8,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
-import * as messages from '../../webpack-lib/messages'
+import * as messages from '../css-lib/messages'
 
 export function getStylelintConfigFile(projectPath: string) {
   const stylelintConfigJs = path.join(projectPath, 'stylelint.config.json')

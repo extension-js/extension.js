@@ -10,9 +10,9 @@ import {createRequire} from 'module'
 import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
 import ReactRefreshPlugin from '@rspack/plugin-react-refresh'
-import * as messages from '../../webpack-lib/messages'
-import {installOptionalDependencies} from '../../webpack-lib/utils'
-import {hasDependency} from '../../webpack-lib/utils'
+import * as messages from '../js-frameworks-lib/messages'
+import {installOptionalDependencies} from '../../../develop-lib/utils'
+import {hasDependency} from '../../../develop-lib/utils'
 import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false
