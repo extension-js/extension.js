@@ -29,17 +29,13 @@ export function setupAutoExit(
   // Log that auto-exit mode is enabled
   try {
     console.log(messages.autoExitModeEnabled(autoExitMs))
-  } catch (err) {
-    // Ignore logging errors
-  }
+  } catch {}
 
   // Set up the timer for graceful exit
   autoExitTimer = setTimeout(async () => {
     try {
       console.log(messages.autoExitTriggered(autoExitMs))
-    } catch (err) {
-      // Ignore logging errors
-    }
+    } catch {}
     await onCleanup()
   }, autoExitMs)
 
@@ -54,9 +50,7 @@ export function setupAutoExit(
   forceKillTimer = setTimeout(() => {
     try {
       console.log(messages.autoExitForceKill(forceKillMs))
-    } catch (err) {
-      // Ignore logging errors
-    }
+    } catch {}
     process.exit(0)
   }, forceKillMs)
 
