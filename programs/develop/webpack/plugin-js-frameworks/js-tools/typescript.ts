@@ -14,37 +14,83 @@ import {
 } from '../../webpack-lib/utils'
 import {type DevOptions} from '../../../develop-lib/config-types'
 
-let userMessageDelivered = false
+let hasShownUserMessage = false
 
-export function isUsingTypeScript(projectPath: string): boolean {
-  const packageJsonPath = path.join(projectPath, 'package.json')
+function findNearestPackageJsonDirectory(
+  startPath: string
+): string | undefined {
+  let currentDirectory = startPath
+  const maxDepth = 6
 
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
+  for (let i = 0; i < maxDepth; i++) {
+    const candidate = path.join(currentDirectory, 'package.json')
+    if (fs.existsSync(candidate)) return currentDirectory
+    const parentDirectory = path.dirname(currentDirectory)
+    if (parentDirectory === currentDirectory) break
+    currentDirectory = parentDirectory
   }
 
-  const configFile = getUserTypeScriptConfigFile(projectPath)
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+  return undefined
+}
 
-  const TypeScriptAsDevDep = packageJson.devDependencies?.typescript
-  const TypeScriptAsDep = packageJson.dependencies?.typescript
+function hasTypeScriptSourceFiles(projectPath: string): boolean {
+  try {
+    const entries = fs.readdirSync(projectPath, {withFileTypes: true})
 
-  if (!userMessageDelivered) {
-    if (TypeScriptAsDevDep || TypeScriptAsDep) {
-      if (configFile) {
+    return entries.some((e) => {
+      if (e.isFile()) return /\.(ts|tsx|mts|mtsx)$/i.test(e.name)
+      if (e.isDirectory()) {
+        if (!['src', 'content', 'sidebar', 'background'].includes(e.name))
+          return false
+        const sub = path.join(projectPath, e.name)
+        return hasTypeScriptSourceFiles(sub)
+      }
+      return false
+    })
+  } catch {
+    return false
+  }
+}
+
+export function isUsingTypeScript(projectPath: string): boolean {
+  const packageJsonDirectory = findNearestPackageJsonDirectory(projectPath)
+  const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
+
+  const packageJson = packageJsonDirectory
+    ? JSON.parse(
+        fs.readFileSync(path.join(packageJsonDirectory, 'package.json'), 'utf8')
+      )
+    : undefined
+
+  const TypeScriptAsDevDep = packageJson?.devDependencies?.typescript
+  const TypeScriptAsDep = packageJson?.dependencies?.typescript
+  const hasTsFiles = hasTypeScriptSourceFiles(projectPath)
+
+  if (!hasShownUserMessage) {
+    if (TypeScriptAsDevDep || TypeScriptAsDep || hasTsFiles) {
+      if (tsConfigFilePath) {
         if (process.env.EXTENSION_ENV === 'development') {
           console.log(messages.isUsingIntegration('TypeScript'))
         }
       } else {
-        console.log(messages.creatingTSConfig())
-        writeTsConfig(projectPath)
+        if (hasTsFiles) {
+          console.warn(
+            '[Extension.js] TypeScript/TSX files detected but no tsconfig.json found near manifest. Consider adding src/tsconfig.json with { "extends": "../tsconfig.json" }.'
+          )
+        } else {
+          console.log(messages.creatingTSConfig())
+          writeTsConfig(projectPath)
+        }
       }
     }
 
-    userMessageDelivered = true
+    hasShownUserMessage = true
   }
 
-  return !!configFile && !!(TypeScriptAsDevDep || TypeScriptAsDep)
+  return (
+    !!tsConfigFilePath &&
+    !!(TypeScriptAsDevDep || TypeScriptAsDep || hasTsFiles)
+  )
 }
 
 export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
@@ -92,9 +138,14 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
 }
 
 export function getUserTypeScriptConfigFile(projectPath: string) {
-  const configFile = path.join(projectPath, 'tsconfig.json')
+  const local = path.join(projectPath, 'tsconfig.json')
+  if (fs.existsSync(local)) return local
 
-  if (fs.existsSync(configFile)) return configFile
+  const pkgDir = findNearestPackageJsonDirectory(projectPath)
+  if (pkgDir) {
+    const rootTs = path.join(pkgDir, 'tsconfig.json')
+    if (fs.existsSync(rootTs)) return rootTs
+  }
 
   return undefined
 }
