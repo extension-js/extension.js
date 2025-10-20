@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import rspack, {type Compiler, sources, Compilation} from '@rspack/core'
+import {type Compiler, sources, Compilation, WebpackError} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml, isFromIncludeList} from '../html-lib/utils'
 import {patchHtmlNested} from '../html-lib/patch-html'
@@ -107,13 +107,13 @@ export class AddAssetsToCompilation {
                     if (!FilepathListEntry) {
                       // Skip warning for hash references and public paths
                       if (!path.basename(asset).startsWith('#')) {
-                        const errorMessage = messages.fileNotFound(
-                          resource as string,
-                          asset
+                        const warn = new WebpackError(
+                          messages.htmlFileNotFoundMessageOnly('static')
                         )
-                        compilation.warnings.push(
-                          new rspack.WebpackError(errorMessage)
-                        )
+                        warn.name = 'HtmlStaticAssetMissing'
+                        // @ts-expect-error - file is not a property of WebpackError
+                        warn.file = resource as string
+                        compilation.warnings.push(warn)
                         continue
                       }
                     }

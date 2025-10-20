@@ -34,7 +34,16 @@ function handleCantResolveError(includesList: FilepathList, error: StatsError) {
             resource as string,
             wrongFilename
           )
-          return new WebpackError(errorMsg)
+          const warn = new WebpackError(errorMsg)
+          warn.name = 'HtmlEntrypointMissing'
+          // @ts-expect-error - file is not a property of WebpackError
+          warn.file = resource as string
+          const lines = String(warn.message).split('\n')
+          const filtered = lines.filter(
+            (line) => !line.includes(String(wrongFilename))
+          )
+          warn.message = filtered.join('\n').trim()
+          return warn
         }
       }
     }
