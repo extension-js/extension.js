@@ -50,8 +50,8 @@ vi.mock('chokidar', () => {
 // Minimal Compiler hook surface
 const createFakeCompiler = () => {
   const hooks: any = {
-    afterPlugins: {
-      tap: (_name: string, fn: () => void) => fn()
+    thisCompilation: {
+      tap: (_name: string, fn: (c: any) => void) => fn(compilation)
     },
     watchClose: {
       tap: (_name: string, fn: () => void) => fn()
@@ -72,25 +72,22 @@ const createFakeCompiler = () => {
   return compiler
 }
 
+// Provide a shared compilation-like sink to capture warnings/errors
+let compilation: any
+
 describe('WarnUponFolderChanges', () => {
-  let warnSpy: ReturnType<typeof vi.spyOn>
-  let errorSpy: ReturnType<typeof vi.spyOn>
-  let exitSpy: ReturnType<typeof vi.spyOn>
+  let warningsPush: ReturnType<typeof vi.fn>
+  let errorsPush: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     createdWatchers.length = 0
-    warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    exitSpy = vi.spyOn(process, 'exit').mockImplementation(
-      // @ts-expect-error allow fake exit
-      () => undefined
-    )
+    warningsPush = vi.fn()
+    errorsPush = vi.fn()
+    compilation = {warnings: {push: warningsPush}, errors: {push: errorsPush}}
   })
 
   afterEach(() => {
-    warnSpy.mockRestore()
-    errorSpy.mockRestore()
-    exitSpy.mockRestore()
+    // no-op
   })
 
   it('warns when adding HTML under pages and errors/exits when removing it', async () => {
@@ -103,11 +100,10 @@ describe('WarnUponFolderChanges', () => {
     const pagesWatcher = createdWatchers[0]
 
     pagesWatcher.emit('add', '/tmp/project/pages/foo.html')
-    expect(warnSpy).toHaveBeenCalledTimes(1)
+    expect(warningsPush).toHaveBeenCalledTimes(1)
 
     pagesWatcher.emit('unlink', '/tmp/project/pages/foo.html')
-    expect(errorSpy).toHaveBeenCalledTimes(1)
-    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(errorsPush).toHaveBeenCalledTimes(1)
   })
 
   it('warns when adding supported script under scripts and errors/exits when removing it', async () => {
@@ -120,10 +116,9 @@ describe('WarnUponFolderChanges', () => {
     const scriptsWatcher = createdWatchers[1]
 
     scriptsWatcher.emit('add', '/tmp/project/scripts/content.js')
-    expect(warnSpy).toHaveBeenCalled()
+    expect(warningsPush).toHaveBeenCalled()
 
     scriptsWatcher.emit('unlink', '/tmp/project/scripts/content.js')
-    expect(errorSpy).toHaveBeenCalled()
-    expect(exitSpy).toHaveBeenCalledWith(1)
+    expect(errorsPush).toHaveBeenCalled()
   })
 })

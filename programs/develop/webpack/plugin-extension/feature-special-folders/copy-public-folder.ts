@@ -108,7 +108,7 @@ export class CopyPublicFolder {
         compiler.hooks.watchClose.tap(
           'special-folders:copy-public-folder',
           () => {
-            watcher.close().catch(console.error)
+            watcher.close().catch(() => {})
           }
         )
       }
