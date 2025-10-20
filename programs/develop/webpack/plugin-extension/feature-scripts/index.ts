@@ -5,7 +5,7 @@ import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 import {AddCentralizedLoggerScript} from './steps/add-centralized-logger-script'
-import {type DevOptions} from '../../../develop-lib/config-types'
+import {type DevOptions} from '../../../types/options'
 
 /**
  * ScriptsPlugin handles JavaScript and CSS entries declared in manifest.json.

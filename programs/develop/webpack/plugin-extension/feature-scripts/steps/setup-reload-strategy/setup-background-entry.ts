@@ -1,10 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import * as messages from '../../../../webpack-lib/messages'
-import * as utils from '../../../../webpack-lib/utils'
+import * as messages from '../../scripts-lib/messages'
+import * as utils from '../../../../../develop-lib/utils'
 import {type Manifest} from '../../../../webpack-types'
-import {type DevOptions} from '../../../../../develop-lib/config-types'
+import {type DevOptions} from '../../../../../types/options'
 
 export class SetupBackgroundEntry {
   private readonly manifestPath: string

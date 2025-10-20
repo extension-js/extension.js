@@ -3,7 +3,7 @@ import path from 'path'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {type LoaderContext} from '../../../../webpack-types'
-import * as utils from '../../../../webpack-lib/utils'
+import * as utils from '../../../../../develop-lib/utils'
 
 const schema: Schema = {
   type: 'object',

@@ -3,7 +3,7 @@ import {type Compiler} from '@rspack/core'
 import {sources, Compilation} from '@rspack/core'
 import {patchHtml} from '../html-lib/patch-html'
 import {getFilePath} from '../html-lib/utils'
-import * as utils from '../../../webpack-lib/utils'
+import * as utils from '../../../../develop-lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 
 export class UpdateHtmlFile {

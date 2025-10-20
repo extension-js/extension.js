@@ -4,7 +4,7 @@ import {
   type FilepathList,
   type PluginInterface
 } from '../../../../webpack-types'
-import {type DevOptions} from '../../../../../develop-lib/config-types'
+import {type DevOptions} from '../../../../../types/options'
 
 export class AddCentralizedLoggerScript {
   public readonly manifestPath: string

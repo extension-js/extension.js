@@ -1,9 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'
-import * as messages from '../../../webpack-lib/messages'
+import * as messages from '../messages'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import * as utils from '../../../webpack-lib/utils'
+import * as utils from '../../../../develop-lib/utils'
 
 export class EmitFile {
   public readonly manifestPath: string

@@ -1,5 +1,5 @@
 import {type Compiler, WebpackError} from '@rspack/core'
-import * as messages from '../../../webpack-lib/messages'
+import * as messages from '../messages'
 
 export class ManifestLegacyWarnings {
   public static readonly name: string = 'manifest:legacy-warnings'

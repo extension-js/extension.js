@@ -1,8 +1,8 @@
 import * as fs from 'fs'
 import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
-import * as utils from '../../webpack-lib/utils'
-import * as messages from '../../webpack-lib/messages'
+import * as utils from '../../../develop-lib/utils'
+import * as messages from './messages'
 
 /**
  * JsonPlugin is responsible for handling the JSON files defined
@@ -61,6 +61,7 @@ export class JsonPlugin {
                       messages.entryNotFoundMessageOnly(feature)
                     )
                     warn.name = 'JsonPluginMissingFile'
+                    // @ts-expect-error file is not typed
                     warn.file = thisResource
                     compilation.warnings.push(warn)
                     continue

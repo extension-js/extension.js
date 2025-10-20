@@ -1,12 +1,12 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import WebExtension from 'webpack-target-webextension'
-import * as utils from '../../../../webpack-lib/utils'
+import * as utils from '../../../../../develop-lib/utils'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import {AddContentScriptWrapper} from './add-content-script-wrapper'
 import {type Manifest, type PluginInterface} from '../../../../webpack-types'
-import {type DevOptions} from '../../../../../develop-lib/config-types'
+import {type DevOptions} from '../../../../../types/options'
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string
