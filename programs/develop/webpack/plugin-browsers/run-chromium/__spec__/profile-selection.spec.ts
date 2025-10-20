@@ -16,32 +16,6 @@ vi.mock('../browser-config', () => ({
   browserConfig: (...args: any[]) => browserConfigMock(...args)
 }))
 
-// Mock instance manager to simulate a running instance to force per-instance profile
-vi.mock('../../browsers-lib/instance-manager', () => {
-  return {
-    InstanceManager: class {
-      constructor(_: any) {}
-      async getRunningInstances() {
-        return [{status: 'running', browser: 'chrome'}]
-      }
-      async getInstance() {
-        return {
-          instanceId: 'abc',
-          browser: 'chrome',
-          projectPath: process.cwd(),
-          port: 8081,
-          webSocketPort: 9001,
-          managerExtensionId: 'x',
-          startTime: Date.now(),
-          status: 'running',
-          processId: process.pid
-        }
-      }
-      async updateInstance() {}
-    }
-  }
-})
-
 import {RunChromiumPlugin} from '../index'
 
 function mkCompiler() {

@@ -1,9 +1,15 @@
 import {type Compiler} from '@rspack/core'
-import {DevOptions} from '../../../../develop-lib/config-types'
+import {DevOptions} from '../../../../types/options'
 import * as messages from '../../browsers-lib/messages'
 import {MessagingClient} from './messaging-client'
+import {selectActors} from './setup-firefox-inspection-actors'
+import {ensureNavigatedAndLoaded} from './setup-firefox-inspection-navigation'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
-import {InstanceManager} from '../../browsers-lib/instance-manager'
+import {
+  resolveConsoleActorMethod,
+  waitForContentScriptInjectionMethod,
+  getPageHTML
+} from './source-inspect'
 
 const MAX_CONNECT_RETRIES = 60
 const CONNECT_RETRY_INTERVAL_MS = 500
@@ -14,8 +20,6 @@ const CHANGE_DEBOUNCE_MS = 300
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
-
-// DEBUG logging removed
 
 interface SetupFirefoxInspectionStepOptions extends DevOptions {
   startingUrl?: string
@@ -41,16 +45,6 @@ export class SetupFirefoxInspectionStep {
 
   private async getRdpPort() {
     const instanceId = this.devOptions.instanceId
-    if (instanceId) {
-      try {
-        const instanceManager = new InstanceManager(process.cwd())
-        const instance = await instanceManager.getInstance(instanceId)
-
-        if (instance?.debugPort && Number.isFinite(instance.debugPort)) {
-          return instance.debugPort
-        }
-      } catch {}
-    }
     return deriveDebugPortWithInstance(this.devOptions.port, instanceId)
   }
 
@@ -60,9 +54,9 @@ export class SetupFirefoxInspectionStep {
     const client = new MessagingClient()
     const port = await this.getRdpPort()
 
-    try {
+    if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.sourceInspectorWaitingForFirefox())
-    } catch {}
+    }
 
     let retries = 0
 
@@ -71,27 +65,28 @@ export class SetupFirefoxInspectionStep {
         await client.connect(port)
         this.client = client
         this.initialized = true
-        try {
+        if (process.env.EXTENSION_ENV === 'development') {
           console.log(messages.firefoxRemoteDebuggingReady())
           console.log(messages.sourceInspectorInitialized())
-        } catch {}
+        }
         return
       } catch (err) {
         retries++
 
         if (retries % 10 === 0) {
-          try {
+          if (process.env.EXTENSION_ENV === 'development') {
             console.log(
               messages.sourceInspectorFirefoxNotReadyYet(
                 retries,
                 MAX_CONNECT_RETRIES
               )
             )
-          } catch {}
+          }
         }
         await wait(CONNECT_RETRY_INTERVAL_MS)
       }
     }
+
     throw new Error(messages.sourceInspectorFirefoxDebuggingRequired(port))
   }
 
@@ -114,51 +109,7 @@ export class SetupFirefoxInspectionStep {
       throw new Error(messages.sourceInspectorClientNotInitialized())
     }
 
-    const deadline = Date.now() + 10000
-    let triedAddTab = false
-
-    while (Date.now() < deadline) {
-      const allTargets = ((await this.client.getTargets()) as any[]) || []
-
-      // 1) Exact URL match
-      for (const target of allTargets) {
-        if (
-          target &&
-          typeof target.url === 'string' &&
-          target.url === urlToInspect &&
-          target.actor
-        ) {
-          return {
-            tabActor: target.actor,
-            consoleActor: target.consoleActor || target.actor
-          }
-        }
-      }
-
-      // 2) Try to open the tab once if no match yet
-      if (!triedAddTab && urlToInspect) {
-        triedAddTab = true
-        try {
-          await this.client.addTab(urlToInspect)
-          await wait(300)
-          continue
-        } catch {}
-      }
-
-      // 3) Fallback to first valid target with an actor
-      for (const target of allTargets) {
-        if (target && (target.actor || target.outerWindowID)) {
-          return {
-            tabActor: target.actor,
-            consoleActor: target.consoleActor || target.actor
-          }
-        }
-      }
-
-      await wait(TARGET_SCAN_INTERVAL_MS)
-    }
-
-    throw new Error(messages.sourceInspectorNoTabTargetFound())
+    return selectActors(this.client, urlToInspect)
   }
 
   private async ensureNavigatedAndLoaded(
@@ -169,47 +120,7 @@ export class SetupFirefoxInspectionStep {
       throw new Error(messages.sourceInspectorClientNotInitialized())
     }
 
-    if (!tabActor) {
-      throw new Error(messages.sourceInspectorNoTabActorAvailable())
-    }
-
-    // Navigate explicitly; current URL may not be reliable via RDP
-    // Resolve real target/console actors and attach to frame first
-    let consoleActor = tabActor
-    let frameActor = tabActor
-
-    try {
-      const detail = await this.client.getTargetFromDescriptor(tabActor)
-      if (detail.consoleActor) consoleActor = detail.consoleActor
-      if (detail.targetActor) frameActor = detail.targetActor
-    } catch {}
-
-    try {
-      await this.client.attach(frameActor)
-    } catch {}
-
-    try {
-      await this.client.navigateViaScript(consoleActor, urlToInspect)
-      await this.client.waitForPageReady(
-        consoleActor,
-        urlToInspect,
-        PAGE_READY_TIMEOUT_MS
-      )
-      return
-    } catch {}
-
-    // Fallback to native navigate when available
-    try {
-      const detail = await this.client.getTargetFromDescriptor(tabActor)
-      const targetActor = detail.targetActor || tabActor
-
-      try {
-        await this.client.attach(targetActor)
-      } catch {}
-
-      await this.client.navigate(targetActor, urlToInspect)
-      await this.client.waitForLoadEvent(targetActor)
-    } catch {}
+    return ensureNavigatedAndLoaded(this.client, urlToInspect, tabActor)
   }
 
   private async ensureUrlAndReady(consoleActor: string, urlToInspect: string) {
@@ -222,10 +133,19 @@ export class SetupFirefoxInspectionStep {
         consoleActor,
         'String(location.href)'
       )
+
       if (typeof href !== 'string' || !href.startsWith(urlToInspect)) {
         await this.client.navigateViaScript(consoleActor, urlToInspect)
       }
-    } catch {}
+    } catch (error) {
+      if (process.env.EXTENSION_ENV === 'development') {
+        const err = error as Error
+        console.warn(
+          '[RDP] ensureUrlAndReady evaluate/navigateViaScript failed:',
+          String(err.message || err)
+        )
+      }
+    }
 
     await this.client.waitForPageReady(
       consoleActor,
@@ -235,32 +155,9 @@ export class SetupFirefoxInspectionStep {
   }
 
   private async resolveConsoleActor(tabActor: string, urlToInspect: string) {
-    if (!this.client) {
+    if (!this.client)
       throw new Error(messages.sourceInspectorClientNotInitialized())
-    }
-    const start = Date.now()
-
-    while (Date.now() - start < PAGE_READY_TIMEOUT_MS) {
-      try {
-        const targets = (await this.client.getTargets()) as any[]
-        const byActor = targets.find((t: any) => t && t.actor === tabActor)
-        const byUrl = targets.find((t: any) => t && t.url === urlToInspect)
-        const match = byActor || byUrl
-        const ca = match?.consoleActor || match?.webConsoleActor
-        if (typeof ca === 'string' && ca.length > 0) return ca
-        // Try probing the tab actor for more info
-        try {
-          const detail = await this.client.getTargetFromDescriptor(tabActor)
-          const guessed = detail.consoleActor
-          if (typeof guessed === 'string' && guessed.length > 0) return guessed
-        } catch {}
-      } catch {}
-
-      await wait(200)
-    }
-
-    // Fallback to tabActor if we couldn't resolve; may fail for evaluate
-    return tabActor
+    return await resolveConsoleActorMethod(this.client, tabActor, urlToInspect)
   }
 
   private async printHTML(consoleActor: string) {
@@ -269,10 +166,11 @@ export class SetupFirefoxInspectionStep {
     }
 
     // Retry up to 3 times, re-resolving console actor between attempts
-    let lastError: any = null
+    let lastError = null
 
     for (let attempt = 0; attempt < 3; attempt++) {
       let actorToUse = consoleActor
+
       try {
         if (this.currentTabActor && this.lastUrlToInspect) {
           const fresh = await this.resolveConsoleActor(
@@ -281,13 +179,16 @@ export class SetupFirefoxInspectionStep {
           )
           if (fresh) actorToUse = fresh
         }
-      } catch {}
+      } catch (error) {
+        // Ignore
+      }
 
       try {
         const descriptor = this.currentTabActor || actorToUse
         if (this.lastUrlToInspect) {
           await this.ensureUrlAndReady(actorToUse, this.lastUrlToInspect)
         }
+
         // Print page header (URL and title)
         try {
           const currentUrl = await this.client.evaluate(
@@ -304,66 +205,32 @@ export class SetupFirefoxInspectionStep {
               `URL: ${currentUrl} | TITLE: ${currentTitle}`
             )
           )
-        } catch {}
+        } catch {
+          // Ignore
+        }
 
         const html =
-          (await this.client.getPageHTML(descriptor, actorToUse)) || ''
+          (await getPageHTML(this.client, descriptor, actorToUse)) || ''
         // Already printed a header above with title; print content now
         console.log(html)
         console.log(messages.sourceInspectorHTMLOutputFooter())
+
         return
       } catch (err) {
         lastError = err
       }
       await wait(200)
     }
+
     throw lastError || new Error(messages.sourceInspectorHtmlExtractFailed())
   }
 
   private async waitForContentScriptInjection(consoleActor: string) {
-    if (!this.client) {
-      return
-    }
-
-    const deadline = Date.now() + PAGE_READY_TIMEOUT_MS
-
-    while (Date.now() < deadline) {
-      try {
-        const injected = await this.client.evaluate(
-          consoleActor,
-          `(() => {
-            const root = document.getElementById('extension-root');
-            if (!root || !root.shadowRoot) return false;
-            const html = root.shadowRoot.innerHTML || '';
-            return html.length > 0;
-          })()`
-        )
-        if (injected) return
-      } catch {}
-      await wait(200)
-    }
+    if (!this.client) return
+    await waitForContentScriptInjectionMethod(this.client, consoleActor)
   }
 
-  private setupWebSocketHandler(websocketServer: any) {
-    if (!websocketServer || !websocketServer.clients) return
-    websocketServer.clients.forEach((ws: any) => {
-      this.attachConnection(ws)
-    })
-    websocketServer.on('connection', (ws: any) => {
-      this.attachConnection(ws)
-    })
-  }
-
-  private attachConnection(ws: any) {
-    ws.on('message', async (data: string) => {
-      try {
-        const message = JSON.parse(data)
-        if (message.type === 'changedFile' && this.isWatching) {
-          await this.handleFileChange()
-        }
-      } catch {}
-    })
-  }
+  // WS-free path: no devServer WebSocket usage in Firefox.
 
   private async handleFileChange() {
     if (!this.client || !this.currentConsoleActor) return
@@ -388,12 +255,13 @@ export class SetupFirefoxInspectionStep {
         }
 
         await this.waitForContentScriptInjection(this.currentConsoleActor!)
-        let lastError: any = null
+        let lastError: unknown = null
 
         for (let attempt = 0; attempt < 3; attempt++) {
           try {
             const descriptor = this.currentTabActor || this.currentConsoleActor!
-            const html = (await this.client!.getPageHTML(
+            const html = (await getPageHTML(
+              this.client!,
               descriptor,
               this.currentConsoleActor!
             )) as string
@@ -426,7 +294,7 @@ export class SetupFirefoxInspectionStep {
     }
 
     compiler.hooks.done.tapAsync(
-      'plugin-reload:setup-firefox-inspection',
+      'setup-firefox-inspection',
       async (_stats, done) => {
         try {
           if (!this.initialized) {
@@ -435,7 +303,10 @@ export class SetupFirefoxInspectionStep {
 
           const urlToInspect = this.resolveUrlToInspect()
           this.lastUrlToInspect = urlToInspect
-          console.log(messages.sourceInspectorWillInspect(urlToInspect))
+
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.log(messages.sourceInspectorWillInspect(urlToInspect))
+          }
 
           const {tabActor, consoleActor} = await this.selectActors(urlToInspect)
           this.currentTabActor = tabActor
@@ -444,6 +315,7 @@ export class SetupFirefoxInspectionStep {
             tabActor,
             urlToInspect
           )
+
           this.currentConsoleActor = resolvedConsoleActor || consoleActor
 
           if (this.currentConsoleActor) {
@@ -452,19 +324,17 @@ export class SetupFirefoxInspectionStep {
             await this.printHTML(this.currentConsoleActor)
           }
 
-          const webSocketServer = (compiler.options as any).webSocketServer
-          if (
-            this.devOptions.watchSource &&
-            webSocketServer &&
-            !this.isWatching
-          ) {
+          if (this.devOptions.watchSource) {
+            // On each rebuild, re-print current HTML immediately (debounced by handleFileChange)
             this.isWatching = true
-            this.setupWebSocketHandler(webSocketServer)
+            await this.handleFileChange()
           }
         } catch (error) {
-          console.error(
-            messages.sourceInspectorSetupFailed((error as Error).message)
-          )
+          if (process.env.EXTENSION_ENV === 'development') {
+            console.error(
+              messages.sourceInspectorSetupFailed((error as Error).message)
+            )
+          }
         }
         done()
       }

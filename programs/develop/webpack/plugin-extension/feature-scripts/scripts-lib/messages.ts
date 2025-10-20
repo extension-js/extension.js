@@ -7,5 +7,3 @@ export function backgroundIsRequiredMessageOnly(backgroundChunkName: string) {
     `field in your ${colors.yellow('manifest.json')} file.`
   )
 }
-
-

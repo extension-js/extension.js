@@ -1,9 +1,19 @@
+import * as fs from 'fs'
+import * as path from 'path'
+import {type Compilation} from '@rspack/core'
 import {type PluginInterface, type DefaultBrowserFlags} from '../browsers-types'
-import {createProfile} from './create-profile'
 import {
   filterBrowserFlags,
   deriveDebugPortWithInstance
 } from '../browsers-lib/shared-utils'
+import {cleanupOldTempProfiles} from '../browsers-lib/shared-utils'
+import * as messages from '../browsers-lib/messages'
+import {
+  uniqueNamesGenerator,
+  adjectives,
+  colors as ucColors,
+  animals
+} from 'unique-names-generator'
 
 // Define the default flags as a constant for maintainability and type checking
 // Removed redundant and outdated flags for better performance
@@ -62,29 +72,106 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
 ]
 
 export function browserConfig(
-  compilation: any,
+  compilation: Compilation,
   configOptions: PluginInterface
 ) {
   const extensionsToLoad = Array.isArray(configOptions.extension)
     ? configOptions.extension
     : [configOptions.extension]
 
-  const actualCompilation = compilation.compilation || compilation
-
-  // Force a managed profile when source inspection is enabled to ensure flags are applied,
-  // except when the user explicitly provided a profile path
+  // Use ephemeral profile under dist unless explicit profile provided
   const sourceEnabled = !!(configOptions.source || configOptions.watchSource)
+  const devWantsCDP = compilation?.options?.mode === 'development'
+  const rawProfile = configOptions.profile
   const hasExplicitProfile =
-    typeof configOptions.profile === 'string' &&
-    configOptions.profile.trim().length > 0
+    typeof rawProfile === 'string' && rawProfile.trim().length > 0
+  const useSystemProfile =
+    String(
+      process.env.EXTENSION_USE_SYSTEM_PROFILE ||
+        process.env.EXTJS_USE_SYSTEM_PROFILE ||
+        ''
+    )
+      .toLowerCase()
+      .trim() === 'true'
 
-  const userProfilePath = createProfile(actualCompilation, {
-    browser: configOptions.browser,
-    userProfilePath:
-      sourceEnabled && !hasExplicitProfile ? undefined : configOptions.profile,
-    configPreferences: configOptions.preferences,
-    instanceId: (configOptions as any).instanceId
-  })
+  let userProfilePath: string
+
+  const contextDir = compilation?.options?.context || process.cwd()
+
+  const shownPath = (p: string) => {
+    try {
+      const rel = path.relative(contextDir, p)
+      return rel && !rel.startsWith('..') && !path.isAbsolute(rel) ? rel : p
+    } catch {
+      return p
+    }
+  }
+
+  if (hasExplicitProfile) {
+    userProfilePath = path.resolve(rawProfile.trim())
+  } else if (!useSystemProfile) {
+    const outPath =
+      compilation?.options?.output?.path ||
+      path.resolve(process.cwd(), 'dist/chrome')
+    const distRoot = path.dirname(outPath)
+    const base = path.resolve(
+      distRoot,
+      'extension-js',
+      'profiles',
+      `${configOptions.browser}-profile`
+    )
+    const persist = Boolean(configOptions.persistProfile)
+
+    if (persist) {
+      const stableDir = path.join(base, 'dev')
+
+      // Visual hint while creating persistent dev profile
+      // eslint-disable-next-line no-console
+      console.log(
+        messages.creatingUserProfile(
+          hasExplicitProfile ? stableDir : shownPath(stableDir)
+        )
+      )
+
+      fs.mkdirSync(stableDir, {recursive: true})
+      userProfilePath = stableDir
+    } else {
+      const human = uniqueNamesGenerator({
+        dictionaries: [adjectives, ucColors, animals],
+        separator: '-',
+        length: 3
+      })
+      const ephemDir = path.join(base, human)
+
+      // Visual hint while creating ephemeral temp profile
+      // eslint-disable-next-line no-console
+      console.log(
+        messages.creatingUserProfile(
+          hasExplicitProfile ? ephemDir : shownPath(ephemDir)
+        )
+      )
+
+      fs.mkdirSync(ephemDir, {recursive: true})
+      userProfilePath = ephemDir
+
+      // Best-effort cleanup of old tmp-* profiles; exclude current basename
+      try {
+        const maxAgeHours = parseInt(
+          String(process.env.EXTENSION_TMP_PROFILE_MAX_AGE_HOURS || ''),
+          10
+        )
+        cleanupOldTempProfiles(
+          base,
+          path.basename(ephemDir),
+          Number.isFinite(maxAgeHours) ? maxAgeHours : 12
+        )
+      } catch {
+        // ignore
+      }
+    }
+  } else {
+    userProfilePath = ''
+  }
 
   // Get excluded flags (if any)
   const excludeFlags = configOptions.excludeBrowserFlags || []
@@ -123,19 +210,15 @@ export function browserConfig(
   // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
   const baseFlags = [
     `--load-extension=${extensionsToLoad.join()}`,
-    // Only set user-data-dir when a custom profile path is in use
-    ...(userProfilePath ? [`--user-data-dir=${userProfilePath}`] : []),
+    ...(userProfilePath ? [`--user-data-dir="${userProfilePath}"`] : []),
     ...aiOptimizedFlags,
-    // Add remote debugging flags if source inspection is enabled
-    ...(sourceEnabled
+    ...(sourceEnabled || devWantsCDP
       ? [
           `--remote-debugging-port=${cdpPort}`,
           '--remote-debugging-address=127.0.0.1'
         ]
       : []),
     ...filteredFlags,
-    // Flags to pass to Chrome
-    // Any of http://peter.sh/experiments/chromium-command-line-switches/
     ...(configOptions.browserFlags || [])
   ]
 
