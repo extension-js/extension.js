@@ -6,11 +6,32 @@ import {maybeUseBabel} from './js-tools/babel'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
-import {isUsingTypeScript} from './js-tools/typescript'
+import {
+  isUsingTypeScript,
+  getUserTypeScriptConfigFile
+} from './js-tools/typescript'
 import {maybeUseSvelte} from './js-tools/svelte'
 import {type DevOptions} from '../../develop-lib/config-types'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
+
+const hasTsxSourceFiles = (directoryPath: string): boolean => {
+  try {
+    const entries: fs.Dirent[] = fs.readdirSync(directoryPath, {withFileTypes: true})
+    return entries.some((entry: fs.Dirent) => {
+      if (entry.isFile()) return /\.tsx$/i.test(entry.name)
+      if (entry.isDirectory()) {
+        if (!['src', 'content', 'sidebar', 'background'].includes(entry.name)) {
+          return false
+        }
+        return hasTsxSourceFiles(path.join(directoryPath, entry.name))
+      }
+      return false
+    })
+  } catch {
+    return false
+  }
+}
 
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'
@@ -30,7 +51,9 @@ export class JsFrameworksPlugin {
     const maybeInstallReact = await maybeUseReact(projectPath)
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath)
-    const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode as any)
+    const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
+    const hasTsxSourceFilesInProject = hasTsxSourceFiles(projectPath)
+    const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
 
     // Derive transpile targets from extension manifest for leaner output
     let targets: string[] = ['chrome >= 100']
@@ -87,8 +110,11 @@ export class JsFrameworksPlugin {
                   ? 'typescript'
                   : 'ecmascript',
                 tsx:
-                  isUsingTypeScript(projectPath) &&
-                  (isUsingReact(projectPath) || isUsingPreact(projectPath)),
+                  (isUsingTypeScript(projectPath) ||
+                    hasTsxSourceFilesInProject) &&
+                  (isUsingReact(projectPath) ||
+                    isUsingPreact(projectPath) ||
+                    hasTsxSourceFilesInProject),
                 jsx:
                   !isUsingTypeScript(projectPath) &&
                   (isUsingReact(projectPath) || isUsingPreact(projectPath)),
@@ -127,12 +153,9 @@ export class JsFrameworksPlugin {
     maybeInstallVue?.plugins?.forEach((plugin) => plugin.apply(compiler))
     maybeInstallSvelte?.plugins?.forEach((plugin) => plugin.apply(compiler))
 
-    if (isUsingTypeScript(projectPath)) {
+    if (isUsingTypeScript(projectPath) || !!tsConfigPath) {
       compiler.options.resolve.tsConfig = {
-        configFile: path.resolve(
-          path.dirname(this.manifestPath),
-          'tsconfig.json'
-        )
+        configFile: tsConfigPath as string
       }
     }
   }

@@ -11,33 +11,20 @@ import {VueLoaderPlugin} from 'vue-loader'
 import * as messages from '../../webpack-lib/messages'
 import {installOptionalDependencies} from '../../webpack-lib/utils'
 import {JsFramework} from '../../webpack-types'
+import {hasDependency} from '../../webpack-lib/utils'
 import {loadLoaderOptions} from '../load-loader-options'
 
 let userMessageDelivered = false
 
 export function isUsingVue(projectPath: string) {
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
-
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
-  const vueAsDevDep =
-    packageJson.devDependencies && packageJson.devDependencies.vue
-  const vueAsDep = packageJson.dependencies && packageJson.dependencies.vue
-
-  if (vueAsDevDep || vueAsDep) {
-    if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.log(messages.isUsingIntegration('Vue'))
-      }
-
-      userMessageDelivered = true
+  const using = hasDependency(projectPath, 'vue')
+  if (using && !userMessageDelivered) {
+    if (process.env.EXTENSION_ENV === 'development') {
+      console.log(messages.isUsingIntegration('Vue'))
     }
+    userMessageDelivered = true
   }
-
-  return !!vueAsDevDep || !!vueAsDep
+  return using
 }
 
 export async function maybeUseVue(
