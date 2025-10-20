@@ -1,53 +1,34 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import Module from 'module'
 import {BrowsersPlugin} from '../index'
 
 let lastChromiumRunner: any = null
 let lastChromeInspector: any = null
-const originalLoad = (Module as any)._load
 
-beforeEach(() => {
-  lastChromiumRunner = null
-  lastChromeInspector = null
-  ;(Module as any)._load = function (
-    request: string,
-    parent: any,
-    isMain: boolean
-  ) {
-    const isFromBrowsersIndex = parent?.id?.endsWith(
-      '/plugin-browsers/index.ts'
-    )
-    if (isFromBrowsersIndex && request === './run-chromium') {
-      class RunChromiumPlugin {
-        public opts: any
-        public apply = vi.fn()
-        constructor(opts: any) {
-          this.opts = opts
-          lastChromiumRunner = this
-        }
-      }
-      return {RunChromiumPlugin}
+vi.mock('../run-chromium', () => {
+  class RunChromiumPlugin {
+    public opts: any
+    public apply = vi.fn()
+    constructor(opts: any) {
+      this.opts = opts
+      lastChromiumRunner = this
     }
-    if (
-      isFromBrowsersIndex &&
-      request === './run-chromium/setup-chrome-inspection'
-    ) {
-      class SetupChromeInspectionStep {
-        public opts: any
-        public apply = vi.fn()
-        constructor(opts: any) {
-          this.opts = opts
-          lastChromeInspector = this
-        }
-      }
-      return {SetupChromeInspectionStep}
+  }
+  return {RunChromiumPlugin}
+})
+
+vi.mock('../run-chromium/setup-chrome-inspection', () => {
+  class SetupChromeInspectionStep {
+    public opts: any
+    public apply = vi.fn()
+    constructor(opts: any) {
+      this.opts = opts
+      lastChromeInspector = this
     }
-    return originalLoad(request as any, parent, isMain)
-  } as any
+  }
+  return {SetupChromeInspectionStep}
 })
 
 afterEach(() => {
-  ;(Module as any)._load = originalLoad
   vi.restoreAllMocks()
 })
 
