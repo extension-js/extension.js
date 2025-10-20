@@ -1,4 +1,4 @@
-import {type Compiler} from '@rspack/core'
+import {type Compiler, WebpackError} from '@rspack/core'
 import * as messages from '../../../webpack-lib/messages'
 
 export class ManifestLegacyWarnings {
@@ -27,7 +27,12 @@ export class ManifestLegacyWarnings {
           const text = asset.source.source().toString()
           legacy.forEach((needle) => {
             if (text.includes(needle)) {
-              console.warn(messages.legacyManifestPathWarning(needle))
+              const warn = new WebpackError(
+                messages.legacyManifestPathWarning(needle)
+              ) as Error & {file?: string; name?: string}
+              warn.name = 'ManifestLegacyWarning'
+              warn.file = 'manifest.json'
+              compilation.warnings.push(warn)
             }
           })
         } catch {}

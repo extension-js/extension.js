@@ -1,40 +1,29 @@
-import {describe, it, expect, vi} from 'vitest'
-import * as path from 'path'
+import {describe, it, expect} from 'vitest'
 import {AddDependencies} from '../steps/add-dependencies'
 
 describe('AddDependencies', () => {
-  it('adds existing files to compilation.fileDependencies idempotently', () => {
-    const file = path.resolve(
-      __dirname,
-      '..',
-      '..',
-      '..',
-      '..',
-      '..',
-      '..',
-      'examples',
-      'content',
-      'manifest.json'
-    )
-    const fs = require('fs') as typeof import('fs')
-    vi.spyOn(fs, 'existsSync').mockImplementation((p: string) => p === file)
-
+  it('adds dependencies to compilation.fileDependencies if missing', () => {
+    const added: string[] = []
+    const deps = new Set<string>()
     const compilation: any = {
       errors: [],
-      fileDependencies: new Set<string>([])
+      fileDependencies: deps
     }
 
     const compiler: any = {
       hooks: {
-        afterCompile: {tap: (_: string, cb: Function) => cb(compilation)}
+        afterCompile: {
+          tap: (_name: string, fn: any) => fn(compilation)
+        }
       }
     }
 
-    const plugin = new AddDependencies([file])
-    plugin.apply(compiler)
-    plugin.apply(compiler) // apply twice to ensure no duplicates added
+    // monkey-patch add to capture
+    ;(deps as any).add = (x: string) => added.push(x)
 
-    // afterCompile tap runs synchronously in our fake hooks, ensure it added
-    expect(compilation.fileDependencies.has(file)).toBe(true)
+    const plugin = new AddDependencies(['/a', '/b'])
+    plugin.apply(compiler as any)
+
+    expect(added).toEqual(['/a', '/b'])
   })
 })
