@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/chrome-manifest.json",
+  "manifest_version": 3,
+  "version": "1.0.0",
+  "name": "vue",
+  "description": "Vue.js-based extension with sidebar panel",
+  "chromium:manifest_version": 3,
+  "firefox:manifest_version": 2,
+  "author": "Your Name",
+  "icons": {
+    "48": "images/extension_48.png"
+  },
+  "chromium:action": {
+    "default_icon": {
+      "48": "images/extension_48.png"
+    },
+    "default_title": "Open Side Panel"
+  },
+  "firefox:browser_action": {
+    "default_icon": {
+      "48": "images/extension_48.png"
+    },
+    "default_title": "Open Side Panel"
+  },
+  "chromium:side_panel": {
+    "default_path": "sidebar/index.html",
+    "default_title": "Side Panel Content"
+  },
+  "firefox:sidebar_action": {
+    "default_panel": "sidebar/index.html",
+    "default_title": "Side Panel Content"
+  },
+  "chromium:permissions": ["sidePanel"],
+  "background": {
+    "chromium:service_worker": "background.ts",
+    "firefox:scripts": ["background.ts"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/scripts.ts"]
+    }
+  ]
+}
