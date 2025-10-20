@@ -1,50 +1,6 @@
 import * as path from 'path'
-import * as fs from 'fs'
 import {defineConfig} from '@rslib/core'
 import type {RslibConfig} from '@rslib/core'
-
-function copyStaticFilesPlugin() {
-  return {
-    name: 'copy-static-files',
-    setup(api: any) {
-      api.onAfterBuild(() => {
-        const sourceDir = path.resolve(
-          __dirname,
-          './webpack/plugin-reload/extensions'
-        )
-        const targetDir = path.resolve(__dirname, './dist/extensions')
-
-        if (fs.existsSync(sourceDir)) {
-          fs.mkdirSync(targetDir, {recursive: true})
-          copyDirectory(sourceDir, targetDir)
-          console.log(
-            '[Extension.js setup] Extensions directory copied to dist/'
-          )
-        } else {
-          console.warn(
-            '[Extension.js setup] Extensions directory not found:',
-            sourceDir
-          )
-        }
-      })
-    }
-  }
-}
-
-function copyDirectory(source: string, target: string): void {
-  if (!fs.existsSync(target)) fs.mkdirSync(target, {recursive: true})
-
-  for (const item of fs.readdirSync(source)) {
-    const sourcePath = path.join(source, item)
-    const targetPath = path.join(target, item)
-
-    if (fs.statSync(sourcePath).isDirectory()) {
-      copyDirectory(sourcePath, targetPath)
-    } else {
-      fs.copyFileSync(sourcePath, targetPath)
-    }
-  }
-}
 
 export default defineConfig({
   source: {
@@ -55,40 +11,42 @@ export default defineConfig({
         __dirname,
         './webpack/plugin-extension/feature-html/steps/ensure-hmr-for-scripts.ts'
       ),
-      // Scripts Plugin Loaders
-      'add-hmr-accept-code': path.resolve(
+      'add-centralized-logger-script': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/add-hmr-accept-code.ts'
-      ),
-      'deprecated-shadow-root': path.resolve(
-        __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/deprecated-shadow-root.ts'
-      ),
-      // Reload Plugin Loaders
-      'inject-chromium-client-loader': path.resolve(
-        __dirname,
-        './webpack/plugin-reload/steps/setup-chromium-reload-client/inject-chromium-client-loader.ts'
-      ),
-      'inject-firefox-client-loader': path.resolve(
-        __dirname,
-        './webpack/plugin-reload/steps/setup-firefox-reload-client/inject-firefox-client-loader.ts'
-      ),
-      // Minimum files
-      'minimum-content-file': path.resolve(
-        __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/minimum-content-file.ts'
-      ),
-      'minimum-chromium-file': path.resolve(
-        __dirname,
-        './webpack/plugin-reload/steps/setup-chromium-reload-client/minimum-chromium-file.ts'
-      ),
-      'minimum-firefox-file': path.resolve(
-        __dirname,
-        './webpack/plugin-reload/steps/setup-firefox-reload-client/minimum-firefox-file.ts'
+        './webpack/plugin-extension/feature-html/steps/add-centralized-logger-script.ts'
       ),
       'minimum-script-file': path.resolve(
         __dirname,
         './webpack/plugin-extension/feature-html/steps/minimum-script-file.ts'
+      ),
+      // Scripts Plugin Loaders
+      'add-hmr-accept-code': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/add-hmr-accept-code.ts'
+      ),
+      'content-script-wrapper': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper.ts'
+      ),
+      'warn-no-default-export': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/warn-no-default-export.ts'
+      ),
+      'add-centralized-logger-script-background': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-scripts/steps/add-centralized-logger-script/logger-background.ts'
+      ),
+      'add-centralized-logger-script-content': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-scripts/steps/add-centralized-logger-script/logger-script.ts'
+      ),
+      'minimum-chromium-file': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-chromium.ts'
+      ),
+      'minimum-firefox-file': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-firefox.ts'
       )
     }
   },
@@ -98,6 +56,5 @@ export default defineConfig({
       syntax: 'es2021',
       dts: true
     }
-  ],
-  plugins: [copyStaticFilesPlugin()]
+  ]
 } satisfies RslibConfig)

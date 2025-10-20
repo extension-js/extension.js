@@ -9,18 +9,18 @@ import * as path from 'path'
 import {rspack} from '@rspack/core'
 import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
-import {DevOptions} from '../develop-lib/config-types'
+import {DevOptions} from '../types/options'
 import webpackConfig from './webpack-config'
 import {type ProjectStructure} from '../develop-lib/get-project-path'
-import * as utils from './webpack-lib/utils'
+import * as utils from '../develop-lib/utils'
 import {
   loadBrowserConfig,
   loadCommandConfig,
   loadCustomWebpackConfig
 } from '../develop-lib/get-extension-config'
-import * as messages from './webpack-lib/messages'
-import {PortManager} from './webpack-lib/port-manager'
-import {setupAutoExit} from './webpack-lib/auto-exit'
+import * as messages from './plugin-compilation/compilation-lib/messages'
+import {PortManager} from '../develop-lib/port-manager'
+import {setupAutoExit} from '../develop-lib/auto-exit'
 
 function closeAll(devServer: RspackDevServer, portManager: PortManager) {
   devServer
@@ -92,11 +92,7 @@ export async function devServer(
   // Use merge to combine the base config with the custom config.
   // This way if the user define properties we don't have a default for,
   // they will be included in the final config.
-  const compilerConfig = merge(finalConfig, {
-    infrastructureLogging: {
-      level: 'error'
-    }
-  } as any)
+  const compilerConfig = merge(finalConfig, {} as any)
   const compiler = rspack(compilerConfig)
 
   // remove AI-focused NDJSON event stream hooks
@@ -123,7 +119,9 @@ export async function devServer(
     },
     compress: false,
     devMiddleware: {
-      writeToDisk: true
+      writeToDisk: true,
+      // Ensure no server-side stats spam leaks to users
+      stats: false as any
     },
     watchFiles: utils.isUsingJSFramework(manifestDir)
       ? undefined
@@ -135,7 +133,8 @@ export async function devServer(
           }
         },
     client: {
-      logging: process.env.EXTENSION_ENV === 'development' ? 'error' : 'none',
+      // Do not surface bundler/dev-server names to end users
+      logging: 'none',
       progress: false,
       overlay: false,
       webSocketURL: {
@@ -155,7 +154,7 @@ export async function devServer(
 
   devServer.startCallback(async (error) => {
     if (error != null) {
-      console.log(messages.extensionJsRunnerError(error))
+      console.log('[Extension.js Runner] Error in the runner.', error)
     }
   })
 
@@ -164,7 +163,7 @@ export async function devServer(
     try {
       await closeAll(devServer, portManager)
     } catch (error) {
-      console.error(messages.extensionJsRunnerCleanupError(error))
+      console.error('[Extension.js Runner] Error during cleanup.', error)
       process.exit(1)
     }
   }
@@ -176,12 +175,12 @@ export async function devServer(
 
   // Handle uncaught exceptions
   process.on('uncaughtException', async (error) => {
-    console.error(messages.extensionJsRunnerUncaughtException(error))
+    console.error('[Extension.js Runner] Uncaught exception.', error)
     await cleanup()
   })
 
   process.on('unhandledRejection', async (reason, promise) => {
-    console.error(messages.extensionJsRunnerUnhandledRejection(promise, reason))
+    console.error('[Extension.js Runner] Unhandled rejection.', promise, reason)
     await cleanup()
   })
 

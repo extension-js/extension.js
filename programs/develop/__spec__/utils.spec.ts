@@ -1,9 +1,10 @@
+import {resolveExamplePath} from '../../../__spec__/examples-path'
 import * as fs from 'fs'
 import * as path from 'path'
 import {describe, it, expect, vi} from 'vitest'
 import {Compilation} from '@rspack/core'
 import * as utils from '../utils'
-import {Manifest, FilepathList} from '../../webpack-types'
+import {Manifest, FilepathList} from '../webpack/webpack-types'
 
 vi.mock('fs')
 vi.mock('child_process')
@@ -116,22 +117,23 @@ describe('utils', () => {
         assets: {}
       }
       const manifestPath = path.resolve(
-        __dirname,
-        '..',
-        '..',
-        '..',
-        '..',
-        '..',
-        'examples',
-        'init',
+        resolveExamplePath('init'),
         'manifest.json'
+      )
+
+      const expected = {name: 'FromFile', manifest_version: 3}
+      // Spy on the same module instance used by utils via require('fs')
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fsm = require('fs') as typeof fs
+      vi.spyOn(fsm as any, 'readFileSync').mockReturnValue(
+        JSON.stringify(expected)
       )
 
       const result = utils.getManifestContent(
         compilation as Compilation,
         manifestPath
       )
-      expect(result).toEqual(require(manifestPath))
+      expect(result).toEqual(expected)
     })
   })
 

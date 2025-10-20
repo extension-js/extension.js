@@ -14,7 +14,7 @@ import {getProjectStructure} from './develop-lib/get-project-path'
 import * as messages from './develop-lib/messages'
 import {installDependencies} from './develop-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './develop-lib/validate-user-dependencies'
-import {DevOptions} from './develop-lib/config-types'
+import {DevOptions} from './types/options'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
@@ -29,7 +29,7 @@ export async function extensionDev(
       : manifestDir
 
     if (isUsingTypeScript(manifestDir)) {
-      await generateExtensionTypes(manifestDir)
+      await generateExtensionTypes(manifestDir, packageJsonDir)
     }
 
     // Guard: only error if user references managed deps in extension.config.js
