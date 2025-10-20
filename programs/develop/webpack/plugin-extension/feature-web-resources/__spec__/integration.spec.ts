@@ -1,21 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import * as os from 'os'
 import {describe, it, beforeAll, afterAll, expect} from 'vitest'
-import {extensionBuild} from '../../../../build'
 
-const getFixturesPath = (demoDir: string) => {
-  return path.resolve(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    'examples',
-    demoDir
-  )
-}
+let tempDir: string
+let outputPath: string
 
 async function waitForFile(
   filePath: string,
@@ -30,23 +19,36 @@ async function waitForFile(
   throw new Error(`File not found in time: ${filePath}`)
 }
 
-describe.skip('WebResourcesPlugin (integration)', () => {
-  const fixturesPath = getFixturesPath('content')
-  const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
-
+describe('WebResources unit (mocked)', () => {
   beforeAll(async () => {
-    await extensionBuild(fixturesPath, {
-      browser: 'chrome',
-      silent: true,
-      // Avoid hard exit so the test can catch failures
-      exitOnError: false as any
-    })
-  }, 30000)
+    tempDir = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), 'web-resources-')
+    )
+    outputPath = path.resolve(tempDir, 'dist', 'chrome')
+    await fs.promises.mkdir(outputPath, {recursive: true})
+    const manifest: any = {
+      manifest_version: 3,
+      name: 'mock',
+      version: '0.0.0',
+      web_accessible_resources: [
+        {resources: ['assets/logo.123.png'], matches: ['<all_urls>']}
+      ]
+    }
+    await fs.promises.writeFile(
+      path.join(outputPath, 'manifest.json'),
+      JSON.stringify(manifest)
+    )
+  }, 5000)
 
   afterAll(async () => {
-    if (fs.existsSync(outputPath)) {
-      await fs.promises.rm(outputPath, {recursive: true, force: true})
-    }
+    try {
+      if (fs.existsSync(outputPath)) {
+        await fs.promises.rm(outputPath, {recursive: true, force: true})
+      }
+      if (tempDir && fs.existsSync(tempDir)) {
+        await fs.promises.rm(tempDir, {recursive: true, force: true})
+      }
+    } catch {}
   })
 
   it('adds imported content script assets to web_accessible_resources (mv3)', async () => {
