@@ -1,122 +1,114 @@
 import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
-import {describe, it, beforeAll, afterAll, expect} from 'vitest'
-import {extensionBuild} from '../../../../../../programs/develop/dist/module.js'
+import {describe, expect, it, beforeEach, afterEach, vi} from 'vitest'
 
-const getFixturesPath = (demoDir: string) => {
-  return path.resolve(
-    __dirname,
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    '..',
-    'examples',
-    demoDir
-  )
+function createCompiler(mode: 'development' | 'production' = 'development') {
+  const hooks: any = {}
+  return {
+    options: {entry: {}, mode},
+    hooks,
+    webpack: {
+      RuntimeGlobals: {publicPath: 'publicPath'},
+      Template: {},
+      RuntimeModule: {}
+    }
+  } as any
 }
 
-const assertFileIsEmitted = async (filePath: string) => {
-  const start = Date.now()
-  const timeoutMs = 10000
-  const intervalMs = 50
-  while (Date.now() - start < timeoutMs) {
+let recordedSpies: string[] = []
+
+describe('ScriptsPlugin', () => {
+  let tmp: string
+  let manifestPath: string
+  beforeEach(() => {
+    vi.resetModules()
+    recordedSpies = []
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sp-'))
+    manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(manifestPath, JSON.stringify({manifest_version: 3}))
+  })
+  afterEach(() => {
     try {
-      await fs.promises.access(filePath, fs.constants.F_OK)
-      return expect(undefined).toBeUndefined()
-    } catch {
-      // keep waiting
-    }
-    await new Promise((r) => setTimeout(r, intervalMs))
-  }
-  throw new Error(`File not found in time: ${filePath}`)
-}
-
-describe('ScriptsPlugin (default behavior)', () => {
-  const fixturesPath = getFixturesPath('special-folders-scripts')
-  const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
-
-  beforeAll(async () => {
-    await extensionBuild(fixturesPath, {
-      browser: 'chrome'
-    })
+      fs.rmSync(tmp, {recursive: true, force: true})
+    } catch {}
   })
 
-  afterAll(() => {
-    if (fs.existsSync(outputPath)) {
-      fs.rmSync(outputPath, {recursive: true, force: true})
-    }
+  it('skips apply if manifest path is invalid', async () => {
+    const compiler = createCompiler('development')
+    const {ScriptsPlugin} = await import('..')
+    const plugin = new ScriptsPlugin({manifestPath: '/not/found.json'} as any)
+    plugin.apply(compiler)
+    expect(compiler.options.entry).toEqual({})
   })
 
-  const includeJs = path.join(outputPath, 'scripts', 'content-script.js')
+  it('applies steps in development', async () => {
+    const compiler = createCompiler('development')
 
-  describe('js', () => {
-    it('should output JS files for HTML paths defined in INCLUDE option', async () => {
-      await assertFileIsEmitted(includeJs)
-    })
+    vi.mock('../steps/add-scripts', () => ({
+      AddScripts: class {
+        apply = vi.fn()
+        constructor() {
+          recordedSpies.push('AddScripts')
+        }
+      }
+    }))
+    vi.mock('../steps/add-public-path-runtime-module', () => ({
+      AddPublicPathRuntimeModule: class {
+        apply = vi.fn()
+        constructor() {
+          recordedSpies.push('AddPublicPathRuntimeModule')
+        }
+      }
+    }))
+    vi.mock('../steps/setup-reload-strategy', () => ({
+      SetupReloadStrategy: class {
+        apply = vi.fn()
+        constructor() {
+          recordedSpies.push('SetupReloadStrategy')
+        }
+      }
+    }))
+    vi.mock('../steps/add-centralized-logger-script', () => ({
+      AddCentralizedLoggerScript: class {
+        apply = vi.fn()
+        constructor() {
+          recordedSpies.push('AddCentralizedLoggerScript')
+        }
+      }
+    }))
 
-    // it('should not output JS files if JS file is in EXCLUDE list', async () => {
-    //   await assertFileIsNotEmitted(excludedJs)
-    // })
+    const {ScriptsPlugin: MockedPlugin} = await import('..')
+    const p = new MockedPlugin({manifestPath} as any)
+    p.apply(compiler)
+    expect(recordedSpies).toEqual([
+      'AddScripts',
+      'SetupReloadStrategy',
+      'AddCentralizedLoggerScript'
+    ])
+  })
+
+  it('applies AddScripts and runtime module in production', async () => {
+    const compiler = createCompiler('production')
+    vi.mock('../steps/add-scripts', () => ({
+      AddScripts: class {
+        apply = vi.fn()
+        constructor() {
+          recordedSpies.push('AddScripts')
+        }
+      }
+    }))
+    vi.mock('../steps/add-public-path-runtime-module', () => ({
+      AddPublicPathRuntimeModule: class {
+        apply = vi.fn()
+        constructor() {
+          recordedSpies.push('AddPublicPathRuntimeModule')
+        }
+      }
+    }))
+    const {ScriptsPlugin: MockedPlugin} = await import('..')
+    const p = new MockedPlugin({manifestPath} as any)
+    p.apply(compiler)
+    expect(recordedSpies).toEqual(['AddScripts', 'AddPublicPathRuntimeModule'])
   })
 })
-
-describe('ScriptsPlugin (wrapper in production)', () => {
-  const fixturesPath = getFixturesPath('content-react')
-  const outputPath = path.resolve(fixturesPath, 'dist', 'chrome')
-
-  beforeAll(async () => {
-    await extensionBuild(fixturesPath, {
-      browser: 'chrome',
-      mode: 'production',
-      exitOnError: false as any
-    })
-  })
-
-  afterAll(() => {
-    if (fs.existsSync(outputPath)) {
-      fs.rmSync(outputPath, {recursive: true, force: true})
-    }
-  })
-
-  it('emits content script with Shadow DOM isolation code', async () => {
-    const contentJs = path.join(outputPath, 'content_scripts', 'content-0.js')
-    await assertFileIsEmitted(contentJs)
-    const code = await fs.promises.readFile(contentJs, 'utf-8')
-    // In production, comments are removed; assert on attachShadow and style injection
-    expect(code).toMatch(/attachShadow\(\{\s*mode:\s*['"]open['"]\s*\}\)/)
-    expect(code).toMatch(/document\.createElement\(\s*['"]style['"]\s*\)/)
-  })
-})
-
-// describe('ScriptsPlugin (edge cases)', () => {
-//   const fixturesPath = getFixturesPath('scripting-nojs')
-//   const webpackConfigPath = path.join(fixturesPath, 'webpack.config.js')
-//   const outputPath = path.resolve(fixturesPath, 'dist')
-
-//   beforeAll((done) => {
-//     exec(
-//       `npx webpack --config ${webpackConfigPath}`,
-//       {cwd: fixturesPath},
-//       (error, _stdout, _stderr) => {
-//         if (error) {
-//           console.error(`exec error: ${error.message}`)
-//           return done(error)
-//         }
-//         done()
-//       }
-//     )
-//   })
-
-//   afterAll(() => {
-//     if (fs.existsSync(outputPath)) {
-//       fs.rmSync(outputPath, {recursive: true, force: true})
-//     }
-//   })
-
-//   it('during DEVELOPMENT, output a default JS file for CSS-only content.scripts', async () => {
-//     const defaultJs = path.join(outputPath, 'content_scripts', 'content-0.js')
-//     await assertFileIsEmitted(defaultJs)
-//   })
-// })

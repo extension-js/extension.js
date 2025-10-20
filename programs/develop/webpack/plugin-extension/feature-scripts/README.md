@@ -71,7 +71,10 @@ export default config
   - Detects common frameworks (React, Vue, Svelte, Preact) and generates framework‑specific bootstrap code
   - Enables HMR for both JS and CSS during development, with safe cleanup
 - Ensures publicPath is available for content scripts in production builds.
-- Fixes publicPath for assets imported by content scripts running in the main world.
+- Reload integration (development):
+  - Patches CSP, permissions, and web_accessible_resources automatically.
+  - Ensures a minimal background entry exists and injects the HMR reloader.
+  - Wraps content scripts so no user HMR code is required.
 - For non‑module `background.service_worker`, configures `chunkLoading: 'import-scripts'` for correct runtime behavior (module workers are left as‑is).
 
 ### Content scripts wrapper contract
@@ -86,7 +89,7 @@ export default config
   - Back‑compat: missing default export is tolerated in dev with a warning, but will be required in v3.
   - Returning a cleanup function is respected for back‑compat, but the wrapper provides its own unmount; returning cleanup is discouraged.
   - Side‑effect only defaults are supported; the wrapper detects and removes created nodes on unmount/HMR.
-  - Required for wrapper application: the loader only applies wrappers when a `export default` is present in the content script. This ensures we can target the correct function and avoid wrapping legacy files unintentionally.
+- Required for wrapper application: the loader applies wrappers when a `export default` is present in the content script, ensuring correct targeting and avoiding legacy files unintentionally.
 
 CSS handling and HMR:
 
