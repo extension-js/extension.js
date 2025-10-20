@@ -55,6 +55,8 @@ export class CompilationPlugin {
       )
     })
 
+    const logger = compiler.getInfrastructureLogger('plugin-compilation')
+
     compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
       stats.compilation.name = undefined
 
@@ -78,15 +80,7 @@ export class CompilationPlugin {
       if (key === lastCompilationKey) {
         repeatCompilationCount += 1
         const suffix = colors.gray(` (${repeatCompilationCount}x) `)
-
-        // In TTY, overwrite only from the 3rd time onward to preserve the first blank line after summary
-        if (process.stdout.isTTY && repeatCompilationCount > 2) {
-          process.stdout.write('\u001b[1A')
-          process.stdout.write('\u001b[2K')
-          process.stdout.write(line + suffix + '\n')
-        } else {
-          console.log(line + suffix)
-        }
+        logger.info(line + suffix)
       } else {
         // New key: reset counter and print fresh line with newline
         lastCompilationKey = key
@@ -96,7 +90,7 @@ export class CompilationPlugin {
         if (!printedFirstCompilation) {
           printedFirstCompilation = true
         }
-        console.log(line)
+        logger.info(line)
       }
 
       done()

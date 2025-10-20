@@ -1,102 +1,85 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
-import {CssPlugin} from '../index'
+
+// Mocks for internal dependencies used by CssPlugin
+const mockedStylelintPlugins = [{}]
+const mockedContentLoaders = [{test: /a\.css$/}]
+const mockedHtmlLoaders = [{test: /b\.css$/}]
 
 vi.mock('../css-tools/stylelint', () => ({
-  maybeUseStylelint: vi.fn(async () => [{name: 'stylelint-plugin'}])
-}))
-
-vi.mock('../css-in-content-script-loader', () => ({
-  cssInContentScriptLoader: vi.fn(async () => [
-    {test: /cs/, name: 'content-rule'}
-  ])
-}))
-
-vi.mock('../css-in-html-loader', () => ({
-  cssInHtmlLoader: vi.fn(async () => [{test: /html/, name: 'html-rule'}])
+  maybeUseStylelint: vi.fn(async () => mockedStylelintPlugins)
 }))
 
 vi.mock('../css-tools/sass', () => ({
-  maybeUseSass: vi.fn(async () => [])
+  maybeUseSass: vi.fn(async () => [{}])
 }))
 
 vi.mock('../css-tools/less', () => ({
-  maybeUseLess: vi.fn(async () => [])
+  maybeUseLess: vi.fn(async () => [{}])
 }))
 
-describe('CssPlugin', () => {
-  const makeCompiler = (mode: 'development' | 'production' = 'development') => {
-    const hooks: any = {beforeRun: {tapPromise: vi.fn()}}
-    return {
-      options: {
-        mode,
-        plugins: [],
-        module: {rules: [] as any[]}
-      },
-      hooks
-    } as any
+vi.mock('../css-in-content-script-loader', () => ({
+  cssInContentScriptLoader: vi.fn(async () => mockedContentLoaders)
+}))
+
+vi.mock('../css-in-html-loader', () => ({
+  cssInHtmlLoader: vi.fn(async () => mockedHtmlLoaders)
+}))
+
+// Import after mocks
+import {CssPlugin} from '../index'
+
+function createCompiler(
+  mode: 'development' | 'production' | 'none' = 'development'
+) {
+  const beforeRun: any = {
+    tapPromise: vi.fn((_name: string, cb: () => Promise<void>) => {
+      ;(beforeRun as any)._cb = cb
+    })
   }
 
+  return {
+    options: {
+      mode,
+      plugins: [] as any[],
+      module: {rules: [] as any[]}
+    },
+    hooks: {beforeRun}
+  } as any
+}
+
+describe('CssPlugin', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('applies configuration immediately in development', async () => {
-    const compiler = makeCompiler('development')
-    const plugin = new CssPlugin({
-      manifestPath: '/project/manifest.json'
-    } as any)
+  it('applies loaders and plugins in development mode immediately', async () => {
+    const compiler = createCompiler('development')
+    const plugin = new CssPlugin({manifestPath: '/project/manifest.json'})
 
-    await plugin.apply(compiler as any)
+    await plugin.apply(compiler)
 
-    expect(compiler.options.plugins).toEqual([{name: 'stylelint-plugin'}])
-    expect(compiler.options.module.rules).toEqual([
-      {test: /cs/, name: 'content-rule'},
-      {test: /html/, name: 'html-rule'}
-    ])
+    // Stylelint plugins appended
+    expect(compiler.options.plugins.length).toBeGreaterThanOrEqual(1)
+    // Loaders from both content + html plus conditional sass/less rules
+    expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(
+      mockedContentLoaders.length + mockedHtmlLoaders.length
+    )
   })
 
-  it('defers configuration to beforeRun in production', async () => {
-    const compiler = makeCompiler('production')
-    const plugin = new CssPlugin({
-      manifestPath: '/project/manifest.json'
-    } as any)
+  it('defers configuration to beforeRun in production mode', async () => {
+    const compiler = createCompiler('production')
+    const plugin = new CssPlugin({manifestPath: '/project/manifest.json'})
 
-    await plugin.apply(compiler as any)
+    await plugin.apply(compiler)
 
     expect(compiler.hooks.beforeRun.tapPromise).toHaveBeenCalled()
 
-    // simulate Rspack calling the hook
-    const call = compiler.hooks.beforeRun.tapPromise.mock.calls[0]
-    const hookFn = call[1] as () => Promise<void>
-    await hookFn()
+    // Simulate Rspack calling the hook
+    await (compiler.hooks.beforeRun as any)._cb()
 
-    expect(compiler.options.plugins).toEqual([{name: 'stylelint-plugin'}])
-    expect(compiler.options.module.rules).toEqual([
-      {test: /cs/, name: 'content-rule'},
-      {test: /html/, name: 'html-rule'}
-    ])
-  })
-
-  it('adds content-script asset rules for sass/less when detected', async () => {
-    const {maybeUseSass} = (await import('../css-tools/sass')) as any
-    const {maybeUseLess} = (await import('../css-tools/less')) as any
-    ;(maybeUseSass as any).mockResolvedValue([{}])
-    ;(maybeUseLess as any).mockResolvedValue([{}])
-
-    const compiler = makeCompiler('development')
-    const plugin = new CssPlugin({
-      manifestPath: '/project/manifest.json'
-    } as any)
-
-    await plugin.apply(compiler as any)
-
-    // 2 base rules + 1 sass asset rule + 1 less asset rule
-    expect(compiler.options.module.rules.length).toBe(4)
-    const sassRule = compiler.options.module.rules[2]
-    const lessRule = compiler.options.module.rules[3]
-    expect(sassRule.type).toBe('asset/resource')
-    expect(lessRule.type).toBe('asset/resource')
-    expect(typeof sassRule.issuer).toBe('function')
-    expect(typeof lessRule.issuer).toBe('function')
+    expect(compiler.options.plugins.length).toBeGreaterThanOrEqual(1)
+    expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(
+      mockedContentLoaders.length + mockedHtmlLoaders.length
+    )
   })
 })

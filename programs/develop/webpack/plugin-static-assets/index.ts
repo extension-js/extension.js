@@ -14,6 +14,10 @@ export class StaticAssetsPlugin {
   }
 
   public async apply(compiler: Compiler) {
+    // Defensive defaults in case consumers did not initialize module/rules
+    compiler.options.module = compiler.options.module || {rules: []}
+    compiler.options.module.rules = compiler.options.module.rules || []
+
     const filenamePattern =
       this.mode === 'production'
         ? 'assets/[name].[contenthash:8][ext]'

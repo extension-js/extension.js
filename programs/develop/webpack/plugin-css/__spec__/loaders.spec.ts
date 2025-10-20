@@ -1,39 +1,45 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
-describe('css loaders helpers (mocked to avoid optional deps)', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-  })
+vi.mock('../common-style-loaders', () => ({
+  commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
+}))
 
-  it('cssInContentScriptLoader returns asset rules shape (mocked)', async () => {
-    vi.doMock('../css-in-content-script-loader', () => ({
-      cssInContentScriptLoader: vi.fn(async () => [
-        {
-          type: 'asset',
-          generator: {filename: 'content_scripts/[name].css'},
-          issuer: () => true
-        }
-      ])
-    }))
-    const {cssInContentScriptLoader} = await import(
-      '../css-in-content-script-loader'
-    )
+vi.mock('../is-content-script', () => ({
+  isContentScriptEntry: vi.fn((issuer: string) => issuer.includes('content'))
+}))
+
+import {cssInContentScriptLoader} from '../css-in-content-script-loader'
+import {cssInHtmlLoader} from '../css-in-html-loader'
+
+describe('cssInContentScriptLoader', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns rules with asset type and generator for content scripts', async () => {
     const rules = await cssInContentScriptLoader('/project', 'development')
-    expect(rules[0].type).toBe('asset')
-    expect(rules[0].generator.filename).toContain('content_scripts')
-    expect(typeof rules[0].issuer).toBe('function')
+    expect(Array.isArray(rules)).toBe(true)
+    for (const rule of rules) {
+      expect(rule.type).toBe('asset')
+      expect(rule.generator?.filename).toContain('content_scripts')
+      expect(typeof rule.issuer).toBe('function')
+      expect(rule.use?.length).toBeGreaterThan(0)
+    }
   })
+})
 
-  it('cssInHtmlLoader returns css/css-module rules shape (mocked)', async () => {
-    vi.doMock('../css-in-html-loader', () => ({
-      cssInHtmlLoader: vi.fn(async () => [
-        {type: 'css', issuer: () => true},
-        {type: 'css/module', issuer: () => true}
-      ])
-    }))
-    const {cssInHtmlLoader} = await import('../css-in-html-loader')
+describe('cssInHtmlLoader', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns rules with css types and not content script issuer', async () => {
     const rules = await cssInHtmlLoader('/project', 'development')
-    expect(rules.map((r: any) => r.type)).toEqual(['css', 'css/module'])
+    expect(Array.isArray(rules)).toBe(true)
+    expect(rules.some((r: any) => r.type === 'css')).toBe(true)
+    expect(rules.some((r: any) => r.type === 'css/module')).toBe(true)
+
+    // Ensure issuer returns false for content-like issuer
+    for (const rule of rules) {
+      expect(typeof rule.issuer).toBe('function')
+      expect(rule.issuer('content.js')).toBe(false)
+      expect(rule.use?.length).toBeGreaterThan(0)
+    }
   })
 })
