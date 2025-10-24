@@ -10,8 +10,10 @@ vi.mock('fs', async () => {
   }
 })
 
-vi.mock('../../webpack-lib/utils', async () => {
-  const actual = await import('../../webpack-lib/utils')
+vi.mock('../../../develop-lib/utils', async () => {
+  const actual = await vi.importActual<
+    typeof import('../../../develop-lib/utils')
+  >('../../../develop-lib/utils')
   return {
     ...actual,
     hasDependency: vi.fn(() => false),
@@ -76,7 +78,13 @@ describe('isContentScriptEntry', () => {
       content_scripts: [{js: ['content.js']}]
     }
     ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
-    const {isContentScriptEntry} = (await import('../is-content-script')) as any
+    // Ensure manifest path existence check passes
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      String(p).endsWith('manifest.json')
+    )
+    const {isContentScriptEntry} = (await import(
+      '../css-lib/is-content-script'
+    )) as any
     const path = require('path')
     const issuer = path.resolve('/project', 'content.js')
     const manifestPath = path.join('/project', 'manifest.json')
@@ -86,7 +94,9 @@ describe('isContentScriptEntry', () => {
   it('returns false for non-matching paths', async () => {
     const manifest = {content_scripts: [{js: ['a.js']}]} as any
     ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
-    const {isContentScriptEntry} = (await import('../is-content-script')) as any
+    const {isContentScriptEntry} = (await import(
+      '../css-lib/is-content-script'
+    )) as any
     expect(isContentScriptEntry('/x/b.js', '/x/manifest.json')).toBe(false)
   })
 })
@@ -104,21 +114,25 @@ describe('css tools additional coverage', () => {
   })
 
   it('isUsingTailwind logs only once across multiple calls', async () => {
-    const utils = await import('../../webpack-lib/utils')
-    vi.spyOn(utils, 'hasDependency').mockImplementation(
-      (_, dep) => dep === 'tailwindcss'
+    // Work with the mocked module (declared above) so the implementation used by code under test is affected.
+    const mockedUtils = (await import(
+      '../../../develop-lib/utils'
+    )) as unknown as {hasDependency: any}
+    mockedUtils.hasDependency.mockImplementation(
+      (_: any, dep: string) => dep === 'tailwindcss'
     )
 
     const {isUsingTailwind} = await import('../css-tools/tailwind')
 
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     expect(isUsingTailwind('/p')).toBe(true)
+    // Second call should not re-log
     expect(isUsingTailwind('/p')).toBe(true)
     expect(log).toHaveBeenCalledTimes(1)
   })
 
   it('isContentScriptEntry returns false for empty inputs (early return)', async () => {
-    const {isContentScriptEntry} = await import('../is-content-script')
+    const {isContentScriptEntry} = await import('../css-lib/is-content-script')
     expect(isContentScriptEntry('', '')).toBe(false)
     expect(isContentScriptEntry('/x', '')).toBe(false)
     expect(isContentScriptEntry('', '/x/manifest.json')).toBe(false)
