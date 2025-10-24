@@ -11,7 +11,7 @@ import colors from 'pintor'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   if (type === 'error') return colors.red('ERROR')
   if (type === 'warn') return colors.brightYellow('►►►')
-  if (type === 'info') return colors.blue('►►►')
+  if (type === 'info') return '►►►'
   return colors.green('►►►')
 }
 
@@ -89,6 +89,7 @@ ${'Common Options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox>')} Target browser (default: chrome)
 - ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
 - ${code('--polyfill')} ${arg('[boolean]')}            Enable/disable cross-browser polyfill
+- ${code('--no-telemetry')}                            Disable anonymous telemetry for this run
 - ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080)
 - ${code('--starting-url')} ${arg('<url>')}            Initial URL to load in browser
 - ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
