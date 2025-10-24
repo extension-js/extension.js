@@ -22,6 +22,6 @@
       "react-dom/*": ["./node_modules/preact/compat/*"]
     }
   },
-  "include": ["./"],
+  "include": ["./", "extension-env.d.ts"],
   "exclude": ["node_modules", "dist"]
 }
