@@ -27,6 +27,8 @@ export default function SidebarApp() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [paused, setPaused] = useState(false)
   const [pausedSnapshot, setPausedSnapshot] = useState<LogEvent[] | null>(null)
+  const [clearOnNav, setClearOnNav] = useState(false)
+  const [followTab, setFollowTab] = useState(true)
 
   useEffect(() => {
     const port = chrome.runtime.connect({name: 'logger'})
@@ -73,33 +75,65 @@ export default function SidebarApp() {
 
   // Load persisted UI settings
   useEffect(() => {
-    try {
-      chrome.storage.session.get(
-        ['logger_context', 'logger_tab', 'logger_level', 'logger_autoscroll'],
-        (data) => {
-          if (data?.logger_context) {
-            setContextFilter(data.logger_context)
-            return
-          }
-
-          if (typeof data?.logger_tab !== 'undefined') {
-            setTabFilter(data.logger_tab)
-            return
-          }
-
-          if (data?.logger_level) {
-            setLevelFilter(data.logger_level)
-            return
-          }
-
-          if (typeof data?.logger_autoscroll === 'boolean') {
-            setAutoScroll(data.logger_autoscroll)
-            return
-          }
+    chrome.storage.session.get(
+      [
+        'logger_context',
+        'logger_tab',
+        'logger_level',
+        'logger_autoscroll',
+        'logger_clear_on_nav',
+        'logger_follow_tab',
+        'logger_search',
+        'logger_paused'
+      ],
+      (data) => {
+        if (data?.logger_context) {
+          setContextFilter(data.logger_context)
+          return
         }
-      )
-    } catch {}
+
+        if (typeof data?.logger_tab !== 'undefined') {
+          setTabFilter(data.logger_tab)
+          return
+        }
+
+        if (data?.logger_level) {
+          setLevelFilter(data.logger_level)
+          return
+        }
+
+        if (typeof data?.logger_autoscroll === 'boolean') {
+          setAutoScroll(data.logger_autoscroll)
+          return
+        }
+
+        if (typeof data?.logger_clear_on_nav === 'boolean') {
+          setClearOnNav(data.logger_clear_on_nav)
+        }
+
+        if (typeof data?.logger_follow_tab === 'boolean') {
+          setFollowTab(data.logger_follow_tab)
+        }
+
+        if (typeof data?.logger_search === 'string') {
+          setSearchInput(data.logger_search)
+        }
+
+        if (typeof data?.logger_paused === 'boolean') {
+          setPaused(data.logger_paused)
+        }
+      }
+    )
   }, [])
+
+  // Default tab filter to the currently inspected tab in DevTools if available
+  useEffect(() => {
+    const inspectedId = chrome.devtools.inspectedWindow.tabId
+
+    if (followTab && typeof inspectedId === 'number') {
+      setTabFilter(inspectedId)
+    }
+  }, [followTab])
 
   // Persist on change
   useEffect(() => {
@@ -108,10 +142,37 @@ export default function SidebarApp() {
         logger_context: contextFilter,
         logger_tab: tabFilter,
         logger_level: levelFilter,
-        logger_autoscroll: autoScroll
+        logger_autoscroll: autoScroll,
+        logger_clear_on_nav: clearOnNav,
+        logger_follow_tab: followTab,
+        logger_search: searchInput,
+        logger_paused: paused
       })
     } catch {}
-  }, [contextFilter, tabFilter, levelFilter, autoScroll])
+  }, [
+    contextFilter,
+    tabFilter,
+    levelFilter,
+    autoScroll,
+    clearOnNav,
+    followTab,
+    searchInput,
+    paused
+  ])
+
+  // Follow inspected tab and clear on navigation
+  useEffect(() => {
+    const onNav = (_: string) => {
+      const inspectedId = chrome.devtools.inspectedWindow.tabId
+      if (followTab && typeof inspectedId === 'number')
+        setTabFilter(inspectedId)
+      if (clearOnNav) setEvents([])
+    }
+    chrome.devtools.network.onNavigated.addListener(onNav)
+    return () => {
+      chrome.devtools.network.onNavigated.removeListener(onNav)
+    }
+  }, [followTab, clearOnNav])
 
   const filtered = useMemo(() => {
     const query = debouncedSearch.trim().toLowerCase()
@@ -176,7 +237,7 @@ export default function SidebarApp() {
   }, [searchInput])
 
   return (
-    <div className="sidebar_app" data-testid="logger-app">
+    <div className="sidebar_app text-xs" data-testid="logger-app">
       <style>
         {`
         :root { color-scheme: light dark; }

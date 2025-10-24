@@ -96,11 +96,26 @@ export function LogTableView({
           ariaLabel="Copy details"
           className="copy-btn absolute top-[6px] right-[6px] z-[1]"
         />
-        <pre
-          className={`whitespace-pre-wrap m-0 overflow-auto p-2 text-[0.75rem] ${heightClass}`}
-        >
-          {json}
-        </pre>
+        {event.stack ? (
+          <div className={`overflow-auto p-2 ${heightClass}`}>
+            <div className="text-[0.75rem] font-medium mb-1">Stack trace</div>
+            <pre className="whitespace-pre-wrap m-0 text-[0.72rem] opacity-90">
+              {event.stack}
+            </pre>
+            <div className="text-[0.75rem] font-medium mt-2 mb-1 opacity-80">
+              Event JSON
+            </div>
+            <pre className="whitespace-pre-wrap m-0 text-[0.72rem] opacity-80">
+              {json}
+            </pre>
+          </div>
+        ) : (
+          <pre
+            className={`whitespace-pre-wrap m-0 overflow-auto p-2 text-[0.75rem] ${heightClass}`}
+          >
+            {json}
+          </pre>
+        )}
       </div>
     )
   }
@@ -152,6 +167,19 @@ export function LogTableView({
             <TableBody>
               {table.getRowModel().rows.map((row) => (
                 <React.Fragment key={row.id}>
+                  {row.original.title === '[navigation]' ? (
+                    <TableRow className="bg-muted/40">
+                      <TableCell
+                        colSpan={table.getVisibleLeafColumns().length}
+                        className="py-1 text-center text-[0.7rem] opacity-70"
+                      >
+                        {(Array.isArray(row.original.messageParts)
+                          ? row.original.messageParts.join(' • ')
+                          : String(row.original.messageParts || 'Navigation')) +
+                          (row.original.url ? ` — ${row.original.url}` : '')}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
                   <TableRow
                     data-row-id={row.original.id}
                     data-testid="log-row"

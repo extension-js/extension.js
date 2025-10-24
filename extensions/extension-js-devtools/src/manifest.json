@@ -57,14 +57,13 @@
     "chromium:service_worker": "background/index.ts",
     "firefox:scripts": ["background/index.ts"]
   },
-  "devtools_page": "devtools/index.html",
   "chromium:web_accessible_resources": [
     {
-      "resources": ["assets/*", "scripts/*"],
+      "resources": ["assets/*", "scripts/*", "pages/*"],
       "matches": ["<all_urls>"]
     }
   ],
-  "firefox:web_accessible_resources": ["assets/*", "scripts/*"],
+  "firefox:web_accessible_resources": ["assets/*", "scripts/*", "pages/*"],
   "firefox:browser_specific_settings": {
     "gecko": {
       "id": "extension-js-devtools@extension.js.org"
