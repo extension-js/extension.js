@@ -55,8 +55,10 @@ interface LogEvent {
   windowId?: number
 }
 
-const MAX_EVENTS = 1000
-const eventsBuffer: LogEvent[] = []
+const MAX_EVENTS_ALL = 2000
+const MAX_EVENTS_PER_TAB = 1000
+const eventsBufferAll: LogEvent[] = []
+const perTabBuffers = new Map<number, LogEvent[]>()
 const subscribers = new Set<chrome.runtime.Port>()
 let captureStacks = false
 let externalToken: string | null = null
@@ -108,8 +110,15 @@ function uuid(): string {
 let isInternalConsoleWrite = false
 
 function appendEventAndBroadcast(event: LogEvent) {
-  eventsBuffer.push(event)
-  if (eventsBuffer.length > MAX_EVENTS) eventsBuffer.shift()
+  eventsBufferAll.push(event)
+  if (eventsBufferAll.length > MAX_EVENTS_ALL) eventsBufferAll.shift()
+
+  if (typeof event.tabId === 'number') {
+    const buf = perTabBuffers.get(event.tabId) || []
+    buf.push(event)
+    if (buf.length > MAX_EVENTS_PER_TAB) buf.shift()
+    perTabBuffers.set(event.tabId, buf)
+  }
   // Do not mirror into background console to avoid self-noise
   // Broadcast to subscribers (e.g., sidebar)
   for (const port of subscribers) {
@@ -123,7 +132,7 @@ function appendEventAndBroadcast(event: LogEvent) {
 function handleClientMessage(port: chrome.runtime.Port, msg: ClientMessage) {
   if (msg.type === 'subscribe') {
     subscribers.add(port)
-    const initMsg: InitMessage = {type: 'init', events: eventsBuffer}
+    const initMsg: InitMessage = {type: 'init', events: eventsBufferAll}
     try {
       port.postMessage(initMsg)
     } catch {}
@@ -397,14 +406,14 @@ chrome.storage.session.get(['logger_events'], (data) => {
     ? (data.logger_events as LogEvent[])
     : []
   if (saved.length) {
-    for (const ev of saved.slice(-MAX_EVENTS)) {
-      eventsBuffer.push(ev)
+    for (const ev of saved.slice(-MAX_EVENTS_ALL)) {
+      eventsBufferAll.push(ev)
     }
   }
 })
 
 setInterval(() => {
-  chrome.storage.session.set({logger_events: eventsBuffer.slice(-200)})
+  chrome.storage.session.set({logger_events: eventsBufferAll.slice(-200)})
 }, 2000)
 
 chrome.runtime.onStartup.addListener(() => {
@@ -454,43 +463,53 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
 
 // These require "webNavigation" permission
 chrome.webNavigation.onBeforeNavigate.addListener((details) => {
-  logLifecycle('trace', ['before navigate'], {
+  if (details.frameId !== 0) return
+  logLifecycle('info', ['Before navigate'], {
     tabId: details.tabId,
     frameId: details.frameId,
-    url: details.url
+    url: details.url,
+    title: '[navigation]'
   })
 })
 
 chrome.webNavigation.onCommitted.addListener((details) => {
-  logLifecycle('trace', ['navigation committed'], {
+  if (details.frameId !== 0) return
+  logLifecycle('info', ['Navigation committed'], {
     tabId: details.tabId,
     frameId: details.frameId,
-    url: details.url
+    url: details.url,
+    title: '[navigation]'
   })
 })
 
 chrome.webNavigation.onCompleted.addListener((details) => {
-  logLifecycle('trace', ['navigation completed'], {
+  if (details.frameId !== 0) return
+  logLifecycle('info', ['Navigation completed'], {
     tabId: details.tabId,
     frameId: details.frameId,
-    url: details.url
+    url: details.url,
+    title: '[navigation]'
   })
 })
 
 chrome.webNavigation.onErrorOccurred.addListener((details) => {
-  logLifecycle('error', ['navigation error', details.error], {
+  if (details.frameId !== 0) return
+  logLifecycle('error', ['Navigation error', details.error], {
     tabId: details.tabId,
     frameId: details.frameId,
-    url: details.url
+    url: details.url,
+    title: '[navigation]'
   })
 })
 
 chrome.webNavigation.onHistoryStateUpdated.addListener((details) => {
   // Covers SPA route changes
-  logLifecycle('trace', ['history state updated'], {
+  if (details.frameId !== 0) return
+  logLifecycle('info', ['History state updated'], {
     tabId: details.tabId,
     frameId: details.frameId,
-    url: details.url
+    url: details.url,
+    title: '[navigation]'
   })
 })
 
@@ -498,12 +517,12 @@ chrome.runtime.onMessage.addListener((msg: unknown, _sender, sendResponse) => {
   const m = msg as {type?: string}
 
   if (m && m.type === 'get-events') {
-    sendResponse({events: eventsBuffer.slice(-500)})
+    sendResponse({events: eventsBufferAll.slice(-500)})
     return true
   }
 
   if (m && m.type === 'clear-events') {
-    eventsBuffer.length = 0
+    eventsBufferAll.length = 0
     sendResponse({ok: true})
 
     return true

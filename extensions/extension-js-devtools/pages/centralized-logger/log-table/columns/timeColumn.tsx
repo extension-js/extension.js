@@ -8,7 +8,7 @@ export function timeColumn(): ColumnDef<LogEvent> {
     accessorFn: (row) => row.timestamp,
     header: () => 'Time',
     cell: ({row}) => (
-      <span className="opacity-70 whitespace-nowrap text-sm">
+      <span className="opacity-70 whitespace-nowrap text-xs">
         {new Date(row.original.timestamp).toLocaleTimeString()}
       </span>
     ),

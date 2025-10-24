@@ -29,3 +29,5 @@ yarn-error.log*
 
 # extension.js
 extension-env.d.ts
+
+pages/centralized-logger/*
