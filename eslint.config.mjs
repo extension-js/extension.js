@@ -16,16 +16,17 @@ export default [
     ignores: [
       '__TEST__',
       '**/dist/',
+      '**/coverage/**',
       '**/e2e-report/',
-      '**/coverage/',
+      '**/.turbo/**',
+      '**/.pnpm-store/**',
       '**/webpack.config.js',
       '**/postcss.config.js',
       '**/tailwind.config.js',
       '**/stylelint.config.json',
       // Ignore fixture/example sources not intended for linting
-      '**/examples/**',
-      'programs/develop/webpack/plugin-reload/extensions/**',
-      'templates/javascript/**',
+      '**/extensions/**',
+      'templates-artifacts/**',
       // Ignore helper scripts that intentionally use underscore placeholders
       'scripts/aggregate-changelog.cjs',
       'scripts/render-aggregated-changelog.cjs'
