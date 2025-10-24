@@ -1,11 +1,9 @@
 packages:
   - './programs/cli'
-  - './programs/create'
   - './programs/develop'
-  - './examples/*'
+  - './extensions/*'
   - './templates/*'
   # Ignore dist folders used for testing
   - "!programs/cli/dist"
-  - "!programs/create/dist"
   - "!programs/develop/dist"
   
