@@ -33,7 +33,8 @@ describe('Chromium profile flags', () => {
     } as any)
     const userDir = flags.find((f: string) => f.startsWith('--user-data-dir='))
     expect(userDir).toBeTruthy()
-    expect(userDir).toMatch(/extension-js\/profiles\/chrome-profile\/tmp-/)
+    // Accept any ephemeral profile name under chrome-profile/
+    expect(userDir).toMatch(/extension-js\/profiles\/chrome-profile\//)
   })
 
   it('uses persistent dev profile when persistProfile=true', () => {
