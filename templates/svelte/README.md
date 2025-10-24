@@ -3,7 +3,7 @@
 
 ![Powered by Extension.js][powered-image]
 
-# svelte
+# Svelte Template
 
 > Svelte-based extension with sidebar panel
 

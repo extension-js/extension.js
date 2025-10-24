@@ -3,7 +3,7 @@
 
 ![Powered by Extension.js][powered-image]
 
-# javascript
+# JavaScript Template
 
 > JavaScript-based extension template
 

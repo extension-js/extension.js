@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "vue",
+  "name": "@extension-js/vue",
   "description": "Vue.js-based extension with sidebar panel",
   "version": "3.0.0",
   "author": {

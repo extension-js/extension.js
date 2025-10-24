@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "typescript",
+  "name": "@extension-js/typescript",
   "description": "TypeScript-based extension template",
   "version": "3.0.0",
   "author": {

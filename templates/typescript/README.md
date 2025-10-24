@@ -3,7 +3,7 @@
 
 ![Powered by Extension.js][powered-image]
 
-# typescript
+# TypeScript Template
 
 > TypeScript-based extension template
 

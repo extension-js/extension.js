@@ -3,7 +3,7 @@
 
 ![Powered by Extension.js][powered-image]
 
-# vue
+# Vue Template
 
 > Vue.js-based extension with sidebar panel
 
