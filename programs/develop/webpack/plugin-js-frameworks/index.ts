@@ -15,26 +15,6 @@ import {type DevOptions} from '../../types/options'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
 
-const hasTsxSourceFiles = (directoryPath: string): boolean => {
-  try {
-    const entries: fs.Dirent[] = fs.readdirSync(directoryPath, {
-      withFileTypes: true
-    })
-    return entries.some((entry: fs.Dirent) => {
-      if (entry.isFile()) return /\.tsx$/i.test(entry.name)
-      if (entry.isDirectory()) {
-        if (!['src', 'content', 'sidebar', 'background'].includes(entry.name)) {
-          return false
-        }
-        return hasTsxSourceFiles(path.join(directoryPath, entry.name))
-      }
-      return false
-    })
-  } catch {
-    return false
-  }
-}
-
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'
   public readonly manifestPath: string
@@ -48,14 +28,17 @@ export class JsFrameworksPlugin {
   private async configureOptions(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
     const projectPath = path.dirname(this.manifestPath)
+    const packageRoot = path.resolve(projectPath, '..')
 
     const maybeInstallBabel = await maybeUseBabel(compiler, projectPath)
     const maybeInstallReact = await maybeUseReact(projectPath)
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath)
     const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
-    const hasTsxSourceFilesInProject = hasTsxSourceFiles(projectPath)
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
+    const manifestDir = path.dirname(this.manifestPath)
+    const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
+    const preferTypeScript = !!tsConfigPath || isUsingTypeScript(projectPath)
 
     // Derive transpile targets from extension manifest for leaner output
     let targets: string[] = ['chrome >= 100']
@@ -93,7 +76,7 @@ export class JsFrameworksPlugin {
     compiler.options.module.rules = [
       {
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: [path.dirname(this.manifestPath)],
+        include: Array.from(new Set([tsRoot, manifestDir])),
         exclude: [/[\\/]node_modules[\\/]/],
         use: {
           loader: 'builtin:swc-loader',
@@ -108,17 +91,13 @@ export class JsFrameworksPlugin {
             env: {targets},
             jsc: {
               parser: {
-                syntax: isUsingTypeScript(projectPath)
-                  ? 'typescript'
-                  : 'ecmascript',
-                tsx:
-                  (isUsingTypeScript(projectPath) ||
-                    hasTsxSourceFilesInProject) &&
-                  (isUsingReact(projectPath) ||
-                    isUsingPreact(projectPath) ||
-                    hasTsxSourceFilesInProject),
+                syntax: preferTypeScript ? 'typescript' : 'ecmascript',
+                tsx: preferTypeScript
+                  ? true
+                  : isUsingTypeScript(projectPath) &&
+                    (isUsingReact(projectPath) || isUsingPreact(projectPath)),
                 jsx:
-                  !isUsingTypeScript(projectPath) &&
+                  !preferTypeScript &&
                   (isUsingReact(projectPath) || isUsingPreact(projectPath)),
                 dynamicImport: true
               },
