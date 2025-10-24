@@ -5,6 +5,7 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
+import path from 'path'
 import {Compiler} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
@@ -40,8 +41,11 @@ export class ExtensionPlugin {
       manifestPath,
       browser: this.browser
     })
+
     const specialFoldersData = getSpecialFoldersData({
-      manifestPath
+      // Hack: Let's pretend the manifest is in the package.json file.
+      // Under the hoot it will get the dirname and scan the files in the folder.
+      manifestPath: path.join(compiler.options.context || '', 'package.json')
     })
 
     // Generate a manifest file with all the assets we need

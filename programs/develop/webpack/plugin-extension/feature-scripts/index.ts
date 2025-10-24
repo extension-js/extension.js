@@ -6,6 +6,7 @@ import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 import {AddCentralizedLoggerScript} from './steps/add-centralized-logger-script'
 import {type DevOptions} from '../../../types/options'
+import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
 
 /**
  * ScriptsPlugin handles JavaScript and CSS entries declared in manifest.json.
@@ -56,20 +57,28 @@ export class ScriptsPlugin {
       excludeList: this.excludeList || {}
     }).apply(compiler)
 
-    // 2 - Add the public path runtime module (all modes)
+    // 2 - Add the content script wrapper.
+    // The contract requires the user to export a
+    // default function that returns an optional cleanup function.
+    new AddContentScriptWrapper({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
+
+    // 3 - Add the public path runtime module (all modes)
     // Guard for tests that pass a partial compiler without webpack internals
     if (compiler.options.mode === 'production') {
       new AddPublicPathRuntimeModule().apply(compiler)
     }
 
     if (compiler.options.mode !== 'production') {
-      // 3 - Apply reload strategy and background setup (development only)
+      // 4 - Apply reload strategy and background setup (development only)
       new SetupReloadStrategy({
         manifestPath: this.manifestPath,
         browser: this.browser
       }).apply(compiler)
 
-      // 4 - Inject centralized logger (development only)
+      // 5 - Inject centralized logger (development only)
       new AddCentralizedLoggerScript({
         manifestPath: this.manifestPath,
         includeList: this.includeList || {},
