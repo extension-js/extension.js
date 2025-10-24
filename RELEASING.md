@@ -11,7 +11,6 @@ This repo uses Changesets + GitHub Actions to publish only the public packages.
 ## Scope (public packages)
 
 - `programs/cli` → package: `extension`
-- `programs/create` → package: `extension-create`
 - `programs/develop` → package: `extension-develop`
 
 All other packages are private and not published.
@@ -31,7 +30,7 @@ Select affected packages and bump type. PR CI fails if missing a changeset.
 ### 2) Next releases
 
 - Trigger: every merge to `main`
-- Action: CI versions in snapshot mode and publishes `extension`, `extension-create`, and `extension-develop` to npm with tag `next`.
+- Action: CI versions in snapshot mode and publishes `extension` and `extension-develop` to npm with tag `next`.
 - A GitHub Deployment is created in environment `next` with published versions annotated and npm info (tarball URL, gitHead, dist-tags).
 
 ### 3) Stable releases
@@ -62,7 +61,7 @@ pnpm changeset pre enter rc
 
 ```
 pnpm changeset version
-pnpm -r --filter ./programs/cli --filter ./programs/create --filter ./programs/develop \
+pnpm -r --filter ./programs/cli --filter ./programs/develop \
   publish --tag rc --access public --provenance
 ```
 
@@ -80,7 +79,7 @@ pnpm changeset pre exit
 
 ## Optional hardening implemented
 
-- `publishConfig.tag: "latest"` explicitly set in public packages (`extension`, `extension-create`, `extension-develop`).
+- `publishConfig.tag: "latest"` explicitly set in public packages (`extension`, `extension-develop`).
 - Tag workflow gated to CI bot.
 - Dist‑tag verification steps in both next and stable workflows.
 
