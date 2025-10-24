@@ -1,4 +1,4 @@
-import type {LoggerContext, LogEvent} from '@/types/logger'
+import type {LoggerContext, LogEvent} from '../types/logger'
 
 export function formatMessageParts(parts: unknown[]): string {
   try {

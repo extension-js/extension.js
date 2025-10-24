@@ -86,7 +86,7 @@ export async function connect() {
       } catch {}
     }
 
-    let reloadDebounce: NodeJS.Timeout | null = null
+    let reloadDebounce: ReturnType<typeof setTimeout> | null = null
     webSocket.onmessage = async (event) => {
       let message: WebSocketMessage | null = null
       try {
@@ -107,10 +107,13 @@ export async function connect() {
         } catch {}
       }
 
-      if (message.changedFile) {
-        clearTimeout(reloadDebounce!)
+      if (message && message.changedFile) {
+        if (reloadDebounce) clearTimeout(reloadDebounce)
+
+        const changedFile = message.changedFile
+
         reloadDebounce = setTimeout(async () => {
-          await hardReloadAllExtensions(message.changedFile!)
+          await hardReloadAllExtensions(changedFile)
         }, 200)
       }
     }
