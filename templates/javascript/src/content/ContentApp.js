@@ -10,8 +10,14 @@ export default function createContentApp() {
   pill.setAttribute('aria-label', 'Open sidebar')
   pill.addEventListener('click', () => {
     try {
-      globalThis.browser?.runtime?.sendMessage?.({type: 'openSidebar'})
-      globalThis.chrome?.runtime?.sendMessage?.({type: 'openSidebar'})
+      if (
+        import.meta.env.EXTENSION_PUBLIC_BROWSER === 'firefox' ||
+        import.meta.env.EXTENSION_PUBLIC_BROWSER === 'gecko-based'
+      ) {
+        browser.runtime.sendMessage({type: 'openSidebar'})
+      } else {
+        chrome.runtime.sendMessage({type: 'openSidebar'})
+      }
     } catch (error) {
       console.error(error)
     }
