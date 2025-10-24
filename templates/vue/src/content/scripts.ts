@@ -1,26 +1,12 @@
 import {createApp} from 'vue'
 import ContentApp from './ContentApp.vue'
-
-let unmount: () => void
-
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-}
-
-if (document.readyState === 'complete') {
-  unmount = initial() || (() => {})
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') unmount = initial() || (() => {})
-  })
-}
+import './styles.css'
 
 console.log('Hello from content script')
 
-function initial() {
+export default function initial() {
   const rootDiv = document.createElement('div')
-  rootDiv.id = 'extension-root'
+  rootDiv.setAttribute('data-extension-root', 'true')
   document.body.appendChild(rootDiv)
 
   // Injecting content_scripts inside a shadow dom
@@ -31,12 +17,6 @@ function initial() {
   const styleElement = document.createElement('style')
   shadowRoot.appendChild(styleElement)
   fetchCSS().then((response) => (styleElement.textContent = response))
-
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
-  }
 
   // Create container for Vue app
   const contentDiv = document.createElement('div')
