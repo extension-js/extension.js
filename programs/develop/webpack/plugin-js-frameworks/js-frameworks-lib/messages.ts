@@ -5,14 +5,14 @@ export function integrationNotInstalled(
   packageManager: string
 ) {
   return (
-    `${colors.blue('►►►')} Using ${colors.brightBlue(integration)}. ` +
+    `${colors.gray('►►►')} Using ${colors.brightBlue(integration)}. ` +
     `Installing required dependencies via ${colors.brightBlue(packageManager)}...`
   )
 }
 
 export function installingRootDependencies(integration: string) {
   return (
-    `${colors.blue('►►►')} ${integration} dependencies are being installed. ` +
+    `${colors.gray('►►►')} ${integration} dependencies are being installed. ` +
     `This only happens for core contributors...`
   )
 }
@@ -22,7 +22,7 @@ export function integrationInstalledSuccessfully(integration: string) {
 }
 
 export function isUsingIntegration(name: string) {
-  return `${colors.blue('►►►')} Using ${colors.brightBlue(name)}...`
+  return `${colors.gray('►►►')} Using ${colors.brightBlue(name)}...`
 }
 
 export function youAreAllSet(name: string) {
@@ -30,7 +30,7 @@ export function youAreAllSet(name: string) {
 }
 
 export function creatingTSConfig() {
-  return `${colors.blue('►►►')} Creating default tsconfig.json...`
+  return `${colors.gray('►►►')} Creating default tsconfig.json...`
 }
 
 export function failedToInstallIntegration(
@@ -42,4 +42,8 @@ export function failedToInstallIntegration(
     `${colors.red('Failed to detect package manager or install dependencies.')}\n` +
     `${colors.red(String(error ?? ''))}`
   )
+}
+
+export function isUsingCustomLoader(loaderPath: string) {
+  return `${colors.gray('►►►')} Using custom loader: ${colors.yellow(loaderPath)}.`
 }
