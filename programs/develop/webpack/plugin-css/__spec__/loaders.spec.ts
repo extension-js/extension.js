@@ -4,7 +4,7 @@ vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
 }))
 
-vi.mock('../is-content-script', () => ({
+vi.mock('../css-lib/is-content-script', () => ({
   isContentScriptEntry: vi.fn((issuer: string) => issuer.includes('content'))
 }))
 
@@ -21,7 +21,7 @@ describe('cssInContentScriptLoader', () => {
       expect(rule.type).toBe('asset')
       expect(rule.generator?.filename).toContain('content_scripts')
       expect(typeof rule.issuer).toBe('function')
-      expect(rule.use?.length).toBeGreaterThan(0)
+      expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })
 })
@@ -38,8 +38,10 @@ describe('cssInHtmlLoader', () => {
     // Ensure issuer returns false for content-like issuer
     for (const rule of rules) {
       expect(typeof rule.issuer).toBe('function')
+      // Our mocked isContentScriptEntry returns true when path contains 'content'
+      // cssInHtmlLoader uses the negation (!isContentScriptEntry), so issuer('content.js') should be false
       expect(rule.issuer('content.js')).toBe(false)
-      expect(rule.use?.length).toBeGreaterThan(0)
+      expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
   })
 })
