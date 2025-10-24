@@ -55,7 +55,7 @@ export function FiltersRow({
         }
         data-testid="context-filter"
       >
-        <SelectTrigger id="ctx" className="h-9 px-3 text-sm w-[140px]">
+        <SelectTrigger id="ctx" className="h-9 px-3 text-xs w-[140px]">
           <SelectValue placeholder="Context" />
         </SelectTrigger>
         <SelectContent className="p-0 text-xs">
@@ -88,7 +88,7 @@ export function FiltersRow({
         onValueChange={(v) => setTabFilter(v === 'all' ? 'all' : Number(v))}
         data-testid="tab-filter"
       >
-        <SelectTrigger id="tab" className="h-9 px-3 text-sm w-[180px]">
+        <SelectTrigger id="tab" className="h-9 px-3 text-xs w-[180px]">
           {tabFilter === 'all' ? 'All' : `Tab #${tabFilter}`}
         </SelectTrigger>
         <SelectContent className="p-0 text-xs w-auto max-w-[75vw]">
@@ -129,7 +129,7 @@ export function FiltersRow({
         onValueChange={(value) => setLevelFilter(value as LogLevel | 'all')}
         data-testid="level-filter"
       >
-        <SelectTrigger id="level" className="h-9 px-3 text-sm w-[110px]">
+        <SelectTrigger id="level" className="h-9 px-3 text-xs w-[110px]">
           <SelectValue placeholder="Level" />
         </SelectTrigger>
         <SelectContent className="p-0 text-xs">
@@ -167,7 +167,7 @@ export function FiltersRow({
               key={lvl}
               value={lvl}
               aria-label={`toggle ${lvl}`}
-              className="text-sm h-9 px-2"
+              className="text-xs h-9 px-2"
             >
               <span className="inline-flex items-center gap-1.5">
                 <span
