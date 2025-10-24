@@ -8,8 +8,9 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
-import {DevOptions} from '../develop-lib/config-types'
+import {DevOptions} from '../types/options'
 import {type ProjectStructure} from '../develop-lib/get-project-path'
+import {makeSanitizedConsole} from './branding'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -17,10 +18,9 @@ import {CssPlugin} from './plugin-css'
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
-import {ReloadPlugin} from './plugin-reload'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
-import * as utils from './webpack-lib/utils'
+import * as utils from '../develop-lib/utils'
 
 export default function webpackConfig(
   projectStructure: ProjectStructure,
@@ -47,15 +47,9 @@ export default function webpackConfig(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
     devOptions.browser
   )
-  const userExtensionOutputPath = devOptions.output.path
-
-  const managerExtensionOutputPath = path.join(
-    manifestDir,
-    'dist',
-    'extension-js',
-    'extensions',
-    `${devOptions.browser}-manager`
-  )
+  const userExtensionOutputPath = path.isAbsolute(devOptions.output.path)
+    ? devOptions.output.path
+    : path.resolve(packageJsonDir, devOptions.output.path)
 
   const browser = devOptions.chromiumBinary
     ? 'chromium-based'
@@ -63,22 +57,32 @@ export default function webpackConfig(
       ? 'gecko-based'
       : devOptions.browser
 
-  // Build list of extensions to load in the browser. Ensure user extension first.
-  const extensionsToLoad = [
-    userExtensionOutputPath,
-    devOptions.mode !== 'production' && !devOptions.instanceId
-      ? managerExtensionOutputPath
-      : null
-  ].filter((p): p is string => typeof p === 'string' && p.length > 0)
+  // Build list of extensions to load in the browser.
+  // Always load the user extension; in development, also load the devtools manager for this browser when present.
+  const extensionsToLoad = [userExtensionOutputPath]
+
+  if (devOptions.mode !== 'production') {
+    // Look for devtools dist mirrored by programs/develop build pipeline
+    const devtoolsRoot = path.resolve(
+      __dirname,
+      '../dist/extension-js-devtools'
+    )
+    const vendor =
+      devOptions.browser === 'firefox' || devOptions.browser === 'gecko-based'
+        ? 'firefox'
+        : 'chrome'
+    const devtoolsForBrowser = path.join(devtoolsRoot, vendor)
+
+    if (fs.existsSync(devtoolsForBrowser)) {
+      extensionsToLoad.push(devtoolsForBrowser)
+    }
+  }
 
   return {
     mode: devOptions.mode || 'development',
     entry: {},
     target: 'web',
     context: packageJsonDir,
-    // Let the dev server control watching to avoid rspack(options) deprecation warnings
-    // about requiring a callback when watch is enabled.
-    watch: false,
     devtool:
       (devOptions.mode || 'development') === 'production'
         ? false
@@ -145,7 +149,10 @@ export default function webpackConfig(
       new CompilationPlugin({
         manifestPath,
         browser,
-        clean: devOptions.output?.clean
+        clean: devOptions.output?.clean,
+        zip: devOptions.zip === true,
+        zipSource: devOptions.zipSource === true,
+        zipFilename: devOptions.zipFilename
       }),
       new StaticAssetsPlugin({
         mode: devOptions.mode,
@@ -181,41 +188,38 @@ export default function webpackConfig(
         port: devOptions.port,
         source: devOptions.source,
         watchSource: devOptions.watchSource,
-        reuseProfile:
-          (devOptions as any).reuseProfile ??
-          (browser === 'firefox' ||
-            browser === 'chrome' ||
-            browser === 'edge' ||
-            browser === 'chromium-based' ||
-            browser === 'gecko-based')
-      }),
-      new ReloadPlugin({
-        manifestPath,
-        browser,
-        stats: true,
-        port: devOptions.port || 8080,
-        instanceId: devOptions.instanceId,
-        source: devOptions.source,
-        watchSource: devOptions.watchSource,
-        startingUrl: devOptions.startingUrl,
-        // Unified logger flags from CLI/config
-        logLevel: (devOptions as any).logs || (devOptions as any).logLevel,
-        // Pass raw user input; normalization occurs inside ReloadPlugin
-        logContexts: (devOptions as any).logContext,
-        logFormat: (devOptions as any).logFormat,
-        logTimestamps: (devOptions as any).logTimestamps,
-        logColor: (devOptions as any).logColor,
-        logUrl: (devOptions as any).logUrl,
-        logTab: (devOptions as any).logTab
+        // Forward unified logger options to BrowsersPlugin (CDP logger)
+        logLevel: devOptions.logLevel,
+        logContexts: devOptions.logContexts,
+        logFormat: devOptions.logFormat,
+        logTimestamps: devOptions.logTimestamps,
+        logColor: devOptions.logColor,
+        logUrl: devOptions.logUrl,
+        logTab: devOptions.logTab
       })
+      // Production packaging handled inside CompilationPlugin
     ].filter(Boolean),
+    // Be quiet about build internals; keep output user-focused.
+    // We intentionally do not expose underlying bundler names.
     stats: {
       all: false,
       errors: true,
-      warnings: true
+      warnings: true,
+      colors: true,
+      errorDetails: false,
+      moduleTrace: false,
+      logging: 'none'
     },
     infrastructureLogging: {
-      level: 'none'
+      // Keep third-party/bundler/dev-server logs hidden by default
+      // Only surface when explicitly requested for debugging
+      level:
+        devOptions.mode === 'development' &&
+        String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
+          ? 'info'
+          : 'error',
+      // Sanitize any bundler/dev-server infra logs to use Extension.js branding
+      console: makeSanitizedConsole('Extension.js') as any
     },
     ignoreWarnings: [
       (warning: any) => {
@@ -240,9 +244,8 @@ export default function webpackConfig(
       }
     ],
     performance: {
-      hints: false,
-      maxAssetSize: 999000,
-      maxEntrypointSize: 999000
+      // Align with defaults: warn in production only
+      hints: devOptions.mode === 'production' ? 'warning' : false
     },
     optimization: {
       // Minify only in production to reduce bundle size
