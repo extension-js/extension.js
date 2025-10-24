@@ -60,7 +60,9 @@ export class CopyPublicFolder {
   }
 
   apply(compiler: Compiler): void {
-    const projectPath = path.dirname(this.options.manifestPath)
+    const projectPath =
+      (compiler.options && compiler.options.context) ||
+      path.dirname(this.options.manifestPath)
     const staticDir = this.getPublicFolderPath(projectPath)
     const output = compiler.options.output?.path || ''
 

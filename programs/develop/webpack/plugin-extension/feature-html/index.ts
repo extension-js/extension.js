@@ -97,8 +97,7 @@ export class HtmlPlugin {
             options: {
               manifestPath: this.manifestPath,
               includeList: this.includeList,
-              excludeList: this.excludeList,
-              browser: this.browser
+              excludeList: this.excludeList
             }
           }
         ]
