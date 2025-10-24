@@ -1,0 +1,29 @@
+name: Tests – Plugin Extension
+
+on: [push, pull_request]
+
+jobs:
+  plugin-extension:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        feature:
+          - feature-html
+          - feature-icons
+          - feature-json
+          - feature-locales
+          - feature-manifest
+          - feature-scripts
+          - feature-special-folders
+          - feature-static-assets
+          - feature-web-resources
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+      - run: pnpm compile
+      - run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/plugin-extension/${{ matrix.feature }}/**/__spec__/**/*.spec.ts"
+      - run: pnpm test:cleanup
+
+
