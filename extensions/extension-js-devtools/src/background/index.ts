@@ -1,7 +1,6 @@
 import {initManagerUI} from './manager-ui'
 import {appendExternalLog} from './log-central'
-import {LogLevel} from '@/types/logger'
-// import {connect, disconnect, keepAlive} from './reload-service'
+import {type LogLevel} from '@/types/logger'
 
 chrome.runtime.onStartup.addListener(async () => {
   await initManagerUI()
@@ -11,8 +10,9 @@ chrome.runtime.onInstalled.addListener(async () => {
   await initManagerUI()
 })
 
-// Optional: capture page logs via chrome.debugger (no user content injection required)
-const ATTACHED = new Set<number>()
+// Optional: capture page logs via chrome.debugger
+// (no user content injection required)
+const ATTACHED: Set<number> = new Set()
 
 chrome.tabs.onUpdated.addListener(
   async (tabId: number, info: chrome.tabs.TabChangeInfo) => {
