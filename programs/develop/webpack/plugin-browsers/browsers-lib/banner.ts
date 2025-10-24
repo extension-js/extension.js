@@ -2,14 +2,18 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as messages from './messages'
 import {markBannerPrinted} from '../../shared-state'
+import {DevOptions} from '../../../types/options'
 
-type Browser = 'chrome' | 'edge' | 'firefox'
 type Info = {extensionId: string; name?: string; version?: string} | null
 type HostPort = {host?: string; port?: number | string}
 
 const printedKeys = new Set<string>()
 
-function keyFor(browser: Browser, outPath: string, hp?: HostPort) {
+function keyFor(
+  browser: DevOptions['browser'],
+  outPath: string,
+  hp?: HostPort
+) {
   const host = (hp?.host || '127.0.0.1').toString()
   const port = hp?.port == null ? '' : String(hp.port)
 
@@ -17,7 +21,7 @@ function keyFor(browser: Browser, outPath: string, hp?: HostPort) {
 }
 
 export async function printDevBannerOnce(opts: {
-  browser: Browser
+  browser: DevOptions['browser']
   outPath: string
   hostPort?: HostPort
   getInfo: () => Promise<Info>

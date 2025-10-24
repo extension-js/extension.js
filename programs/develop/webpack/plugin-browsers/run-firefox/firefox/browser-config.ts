@@ -94,9 +94,7 @@ export async function browserConfig(
       // Visual hint while creating ephemeral temp profile
       // eslint-disable-next-line no-console
       console.log(
-        messages.creatingUserProfile(
-          hasExplicitProfile ? tmp : shownPath(tmp)
-        )
+        messages.creatingUserProfile(hasExplicitProfile ? tmp : shownPath(tmp))
       )
 
       profilePath = tmp
