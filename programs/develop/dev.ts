@@ -61,9 +61,8 @@ export async function extensionDev(
       browser: devOptions.browser || 'chrome'
     })
   } catch (error) {
-    if (process.env.EXTENSION_ENV === 'development') {
-      console.error(error)
-    }
+    // Always surface a minimal error so users aren't left with a silent exit
+    console.error(error)
     process.exit(1)
   }
 }

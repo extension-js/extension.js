@@ -1,21 +1,11 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "Default",
+  "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "target": "ES2021",
-    "lib": ["ES2021", "DOM"],
-    "module": "ESNext",
-    "noEmit": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "isolatedModules": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "bundler",
-    "useDefineForClassFields": true,
-    "allowImportingTsExtensions": true,
-    "rootDir": ".",
-    "types": ["node", "webextension-polyfill", "chrome"]
+    "noEmit": false,
+    "types": ["node", "chrome"],
+    "lib": ["ES2021", "DOM"]
   },
-  "include": [".", "types/**/*.d.ts"],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+  "include": ["./**/*.ts"],
+  "exclude": ["./dist", "./__spec__/**", "./**/*.spec.ts"]
 }

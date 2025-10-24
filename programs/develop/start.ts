@@ -28,12 +28,15 @@ export async function extensionStart(
     })
 
     const manifestDir = path.dirname(projectStructure.manifestPath)
+    const packageJsonDir = projectStructure.packageJsonPath
+      ? path.dirname(projectStructure.packageJsonPath)
+      : manifestDir
 
     await extensionPreview(pathOrRemoteUrl, {
       ...startOptions,
       browser,
       // Starts preview the extension from the build directory
-      outputPath: path.join(manifestDir, 'dist', browser)
+      outputPath: path.join(packageJsonDir, 'dist', browser)
     })
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {
