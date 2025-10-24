@@ -1,0 +1,17 @@
+name: Tests – Plugin JS Frameworks
+
+on: [push, pull_request]
+
+jobs:
+  plugin-js-frameworks:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+      - run: pnpm compile
+      - run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/plugin-js-frameworks/**/__spec__/**/*.spec.ts"
+      - run: pnpm test:cleanup
+
+

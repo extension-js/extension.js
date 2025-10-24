@@ -1,0 +1,32 @@
+name: telemetry-smoke
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      # Telemetry is normally disabled in CI; explicitly opt-in for this job only
+      EXTENSION_TELEMETRY_DISABLED: '0'
+      EXTENSION_TELEMETRY_DEBUG: '1'
+      EXTENSION_PUBLIC_POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+      EXTENSION_PUBLIC_POSTHOG_KEY: ${{ secrets.POSTHOG_INGESTION_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Seed a minimal extension (manifest.json)
+        run: |
+          rm -rf tmp-ext && mkdir -p tmp-ext
+          cat > tmp-ext/manifest.json <<'JSON'
+          { "manifest_version": 3, "name": "telemetry-smoke", "version": "0.0.1" }
+          JSON
+      - name: Emit telemetry via CLI (dev/build/preview)
+        working-directory: tmp-ext
+        run: |
+          npx -y extension@latest dev --browser=chrome --open=false || true
+          npx -y extension@latest build --browser=chrome || true
+          npx -y extension@latest preview --browser=chrome --open=false || true
+
