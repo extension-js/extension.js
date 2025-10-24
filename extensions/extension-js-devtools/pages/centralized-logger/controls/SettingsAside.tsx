@@ -1,4 +1,4 @@
-import React from 'react'
+import React, {useEffect, useState} from 'react'
 import {
   ExternalLink as ExternalLinkIcon,
   MoonIcon,
@@ -19,8 +19,84 @@ import {Button} from '@/components/ui/button'
 import {Table, TableBody, TableRow, TableCell} from '@/components/ui/table'
 import {Card, CardContent} from '@/components/ui/card'
 import {Switch} from '@/components/ui/switch'
+import {Input} from '@/components/ui/input'
 
 export function SettingsAside() {
+  const [themeChecked, setThemeChecked] = useState<boolean | undefined>(
+    undefined
+  )
+  const [captureStacks, setCaptureStacks] = useState(false)
+  const [externalToken, setExternalToken] = useState('')
+  const [clearOnNav, setClearOnNav] = useState(false)
+  const [followTab, setFollowTab] = useState(true)
+
+  useEffect(() => {
+    // Theme
+    chrome.storage.local.get(['logger_theme'], (data) => {
+      const theme = data?.logger_theme
+      if (theme === 'light') {
+        setThemeChecked(false)
+      } else if (theme === 'dark') {
+        setThemeChecked(true)
+      } else {
+        // Fallback to system preference
+        const prefersDark = window.matchMedia(
+          '(prefers-color-scheme: dark)'
+        ).matches
+        setThemeChecked(prefersDark)
+      }
+    })
+
+    // Session options
+    chrome.storage.session.get(
+      ['logger_capture_stacks', 'logger_clear_on_nav', 'logger_follow_tab'],
+      (data) => {
+        if (typeof data?.logger_capture_stacks === 'boolean') {
+          setCaptureStacks(data.logger_capture_stacks)
+        }
+        if (typeof data?.logger_clear_on_nav === 'boolean') {
+          setClearOnNav(data.logger_clear_on_nav)
+        }
+        if (typeof data?.logger_follow_tab === 'boolean') {
+          setFollowTab(data.logger_follow_tab)
+        }
+      }
+    )
+
+    // External token
+    chrome.storage.local.get(['logger_external_token'], (data) => {
+      if (typeof data?.logger_external_token === 'string') {
+        setExternalToken(data.logger_external_token)
+      }
+    })
+  }, [])
+
+  // Handlers
+  function handleThemeSwitch(checked: boolean | undefined) {
+    if (checked === undefined) return
+    document.documentElement.classList.toggle('dark', checked)
+    setThemeChecked(!!checked)
+    chrome.storage.local.set({
+      logger_theme: checked ? 'dark' : 'light'
+    })
+  }
+
+  function handleSwitchSessionOption(
+    key: string,
+    value: boolean,
+    setter: (v: boolean) => void
+  ) {
+    setter(value)
+    chrome.storage.session.set({[key]: value})
+  }
+
+  function handleExternalTokenChange(value: string) {
+    setExternalToken(value)
+    chrome.storage.local.set({
+      logger_external_token: value || undefined
+    })
+  }
+
   return (
     <aside className="max-[1024px]:hidden ml-auto inline-flex items-center gap-2">
       <Drawer>
@@ -42,7 +118,7 @@ export function SettingsAside() {
               <DrawerClose asChild>
                 <button
                   aria-label="Close"
-                  className=" inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted"
                 >
                   <XIcon className="h-4 w-4" />
                 </button>
@@ -63,30 +139,82 @@ export function SettingsAside() {
                           </span>
                           <Switch
                             id="theme-switch"
-                            onCheckedChange={(checked) => {
-                              try {
-                                const root = document.documentElement
-                                if (checked === undefined) return
-                                if (checked) root.classList.add('dark')
-                                else root.classList.remove('dark')
-                                chrome.storage?.session?.set?.({
-                                  logger_theme: checked ? 'dark' : 'light'
-                                })
-                              } catch {}
-                            }}
-                            defaultChecked={(() => {
-                              try {
-                                return matchMedia(
-                                  '(prefers-color-scheme: dark)'
-                                ).matches
-                              } catch {
-                                return false
-                              }
-                            })()}
+                            checked={themeChecked}
+                            onCheckedChange={handleThemeSwitch}
                           />
                           <span className="text-xs">
                             <MoonIcon className="h-3.5 w-3.5" />
                           </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="w-[200px] px-4">
+                        Follow inspected tab
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          id="follow-tab"
+                          checked={followTab}
+                          onCheckedChange={(v) =>
+                            handleSwitchSessionOption(
+                              'logger_follow_tab',
+                              Boolean(v),
+                              setFollowTab
+                            )
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="w-[200px] px-4">
+                        Clear on navigation
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          id="clear-on-nav"
+                          checked={clearOnNav}
+                          onCheckedChange={(v) =>
+                            handleSwitchSessionOption(
+                              'logger_clear_on_nav',
+                              Boolean(v),
+                              setClearOnNav
+                            )
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="w-[200px] px-4">
+                        Capture stacks
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          id="capture-stacks"
+                          checked={captureStacks}
+                          onCheckedChange={(v) =>
+                            handleSwitchSessionOption(
+                              'logger_capture_stacks',
+                              Boolean(v),
+                              setCaptureStacks
+                            )
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="w-[200px] px-4">
+                        External token
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2 max-w-[320px]">
+                          <Input
+                            value={externalToken}
+                            placeholder="Optional token for external logs"
+                            onChange={(e) =>
+                              handleExternalTokenChange(e.currentTarget.value)
+                            }
+                          />
                         </div>
                       </TableCell>
                     </TableRow>

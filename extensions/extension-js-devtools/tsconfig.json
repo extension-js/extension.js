@@ -4,7 +4,8 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "jsx": "preserve",
+    "isolatedModules": true,
+    "jsx": "react-jsx",
     "lib": ["dom", "dom.iterable", "esnext"],
     "moduleResolution": "node",
     "module": "esnext",
@@ -12,13 +13,14 @@
     "resolveJsonModule": true,
     "strict": true,
     "target": "esnext",
-    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "useDefineForClassFields": true,
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["src/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["./", "extension-env.d.ts"],
   "exclude": ["node_modules", "dist"]
 }
