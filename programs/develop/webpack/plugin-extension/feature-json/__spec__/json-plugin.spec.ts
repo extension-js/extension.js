@@ -4,7 +4,7 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn()
 }))
 import * as fs from 'fs'
-import * as messages from '../../../webpack-lib/messages'
+import * as messages from '../messages'
 import {JsonPlugin} from '../index'
 
 function createCompilerHarness() {

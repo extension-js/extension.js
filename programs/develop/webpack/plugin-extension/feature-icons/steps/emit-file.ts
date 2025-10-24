@@ -1,9 +1,27 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'
+import {Compiler, sources, Compilation} from '@rspack/core'
 import * as messages from '../messages'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as utils from '../../../../develop-lib/utils'
+
+// Shared utility for reporting errors or warnings to the compilation
+function reportToCompilation(
+  compilation: Compilation,
+  message: string,
+  compiler: Compiler,
+  opts?: {type?: 'error' | 'warning'}
+) {
+  const ErrorConstructor = compiler?.rspack?.WebpackError || Error
+  const errObj = new ErrorConstructor(message)
+  const arrKey = opts?.type === 'warning' ? 'warnings' : 'errors'
+
+  if (!compilation[arrKey]) {
+    compilation[arrKey] = []
+  }
+
+  compilation[arrKey].push(errObj)
+}
 
 export class EmitFile {
   public readonly manifestPath: string
@@ -69,13 +87,12 @@ export class EmitFile {
                   // Surface a non-fatal warning when an expected icon file is missing,
                   // unless it is explicitly excluded by user configuration.
                   if (!utils.shouldExclude(entry, this.excludeList)) {
-                    const warn = new WebpackError(
-                      messages.iconsMissingFile(entry)
+                    reportToCompilation(
+                      compilation,
+                      messages.iconsMissingFile(entry),
+                      compiler,
+                      {type: 'warning'}
                     )
-                    warn.name = 'IconsPluginMissingFile'
-                    // @ts-expect-error file is not typed
-                    warn.file = entry
-                    compilation.warnings.push(warn)
                   }
                   continue
                 }

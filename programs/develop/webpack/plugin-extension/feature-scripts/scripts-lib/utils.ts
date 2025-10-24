@@ -1,3 +1,30 @@
+import type {Compilation, Compiler} from '@rspack/core'
+
+export type IssueType = 'error' | 'warning'
+
+export function createIssue(
+  compiler: Compiler,
+  message: string,
+  type: IssueType = 'error'
+) {
+  const ErrorCtor = compiler.rspack.WebpackError || Error
+  const issue = new ErrorCtor(message) as Error & {name?: string}
+  issue.name = type === 'warning' ? 'ExtensionWarning' : 'ExtensionError'
+  return issue
+}
+
+export function reportToCompilation(
+  compilation: Compilation,
+  compiler: Compiler,
+  message: string,
+  type: IssueType = 'error'
+) {
+  const issue = createIssue(compiler, message, type)
+  const bucket = type === 'warning' ? 'warnings' : 'errors'
+  compilation[bucket] ||= []
+  compilation[bucket].push(issue)
+}
+
 import * as fs from 'fs'
 import * as path from 'path'
 import {FilepathList} from '../../../webpack-types'
