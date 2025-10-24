@@ -1,14 +1,9 @@
-name: Examples (Stable)
+name: E2E (Manual / Nightly)
 
 on:
-  push:
-    branches:
-      - main
-      - 'v[0-9]+.x'
-  pull_request:
-    branches:
-      - main
-      - 'v[0-9]+.x'
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * *'
 
 permissions:
   contents: read

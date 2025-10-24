@@ -1,0 +1,24 @@
+name: Tests – Develop
+
+on: [push, pull_request]
+
+jobs:
+  develop:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+      - run: pnpm compile
+      - name: Dev
+        run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/**/__spec__/**/*dev*.spec.ts"
+      - name: Build
+        run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/**/__spec__/**/*build*.spec.ts"
+      - name: Start
+        run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/**/__spec__/**/*start*.spec.ts"
+      - name: Preview
+        run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/**/__spec__/**/*preview*.spec.ts"
+      - run: pnpm test:cleanup
+
+

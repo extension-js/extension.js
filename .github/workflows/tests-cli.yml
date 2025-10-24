@@ -1,0 +1,17 @@
+name: Tests – CLI
+
+on: [push, pull_request]
+
+jobs:
+  cli:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '20'
+      - run: pnpm compile
+      - run: pnpm -w --filter ./programs/cli exec vitest run
+      - run: pnpm test:cleanup
+
+
