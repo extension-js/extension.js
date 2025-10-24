@@ -16,17 +16,35 @@ import {loadCustomWebpackConfig} from './develop-lib/get-extension-config'
 import {BuildOptions} from './types/options'
 import {installDependencies} from './develop-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './develop-lib/validate-user-dependencies'
+import {scrubBrand} from './webpack/branding'
+
+export type BuildSummary = {
+  browser: string
+  total_assets: number
+  total_bytes: number
+  largest_asset_bytes: number
+  warnings_count: number
+  errors_count: number
+}
 
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
   buildOptions?: BuildOptions
-): Promise<void> {
+): Promise<BuildSummary> {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const isVitest = process.env.VITEST === 'true'
   const shouldExitOnError = (buildOptions?.exitOnError ?? true) && !isVitest
+  const browser = buildOptions?.browser || 'chrome'
+  const summary: BuildSummary = {
+    browser,
+    total_assets: 0,
+    total_bytes: 0,
+    largest_asset_bytes: 0,
+    warnings_count: 0,
+    errors_count: 0
+  }
 
   try {
-    const browser = buildOptions?.browser || 'chrome'
     const manifestDir = path.dirname(projectStructure.manifestPath)
     const packageJsonDir = projectStructure.packageJsonPath
       ? path.dirname(projectStructure.packageJsonPath)
@@ -46,12 +64,11 @@ export async function extensionBuild(
       mode: 'production',
       output: {
         clean: true,
-        path: path.join(manifestDir, 'dist', browser)
+        path: path.join(packageJsonDir, 'dist', browser)
       }
     })
 
     const allPluginsButBrowserRunners = baseConfig.plugins?.filter((plugin) => {
-      const ctorName = (plugin as any)?.constructor?.name
       return plugin?.constructor.name !== 'plugin-browsers'
     })
 
@@ -89,18 +106,61 @@ export async function extensionBuild(
           return reject(err)
         }
 
-        if (!buildOptions?.silent) {
+        if (!buildOptions?.silent && stats) {
           console.log(messages.buildWebpack(manifestDir, stats, browser))
         }
 
         // Packaging handled by ZipPlugin when enabled in the config
 
         if (!stats?.hasErrors()) {
+          // anonymized aggregates (no filenames or paths)
+          const info = stats?.toJson({
+            assets: true,
+            warnings: true,
+            errors: true
+          })
+
+          const assets = info?.assets || []
+          summary.total_assets = assets.length
+          summary.total_bytes = assets.reduce((n, a) => n + (a.size || 0), 0)
+          summary.largest_asset_bytes = assets.reduce(
+            (m, a) => Math.max(m, a.size || 0),
+            0
+          )
+          summary.warnings_count = (info?.warnings || []).length
+          summary.errors_count = (info?.errors || []).length
+
           console.log(messages.buildSuccess())
           resolve()
         } else {
-          // Print stats and reject to let callers (tests/CLI) decide on process exit
-          console.log(stats.toString({colors: true}))
+          // Print sanitized bundler output using stats.toString
+          try {
+            const verbose =
+              String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
+
+            const str = stats.toString({
+              colors: true,
+              all: false,
+              errors: true,
+              warnings: !!verbose
+            })
+
+            if (str) console.error(scrubBrand(str))
+          } catch {
+            try {
+              const str = stats.toString({
+                colors: true,
+                all: false,
+                errors: true,
+                warnings: true
+              })
+
+              if (str) console.error(str)
+            } catch {
+              // Ignore
+            }
+          }
+
           if (!shouldExitOnError) {
             return reject(new Error('Build failed with errors'))
           }
@@ -108,6 +168,8 @@ export async function extensionBuild(
         }
       })
     })
+
+    return summary
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {
       console.error(error)

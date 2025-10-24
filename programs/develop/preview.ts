@@ -31,7 +31,10 @@ export async function extensionPreview(
   }
 
   const manifestDir = path.dirname(projectStructure.manifestPath)
-  const distPath = path.join(manifestDir, 'dist', previewOptions.browser)
+  const packageJsonDir = projectStructure.packageJsonPath
+    ? path.dirname(projectStructure.packageJsonPath)
+    : manifestDir
+  const distPath = path.join(packageJsonDir, 'dist', previewOptions.browser)
 
   // Output path defaults to extensionPreview config.
   // The start command will use the build directory.
@@ -39,11 +42,16 @@ export async function extensionPreview(
   // otherwise it will use the project path.
   // This is useful for remote packages that don't have a build directory.
   // but are ready for manual browser testing.
-  const outputPath = previewOptions.outputPath
-    ? previewOptions.outputPath
-    : fs.existsSync(distPath)
-      ? distPath
-      : manifestDir
+  // Enforce parity: always preview from dist/<browser> and create it if missing
+  const outputPath = previewOptions.outputPath || distPath
+
+  try {
+    if (!fs.existsSync(outputPath)) {
+      fs.mkdirSync(outputPath, {recursive: true})
+    }
+  } catch {
+    // Ignore
+  }
 
   try {
     const browser = previewOptions.browser || 'chrome'
@@ -76,17 +84,60 @@ export async function extensionPreview(
     const compilerConfig = merge(userConfig)
     const compiler = rspack(compilerConfig)
 
+    // Fast cancel on Ctrl+C / termination signals: close compiler and exit
+    let isShuttingDown = false
+    const shutdown = (code = 0) => {
+      if (isShuttingDown) return
+      isShuttingDown = true
+
+      try {
+        compiler.close(() => {
+          process.exit(code)
+        })
+
+        // Safety net in case close callback never fires
+        setTimeout(() => process.exit(code), 2000)
+      } catch {
+        process.exit(code)
+      }
+    }
+
+    process.on('SIGINT', () => shutdown(0))
+    process.on('SIGTERM', () => shutdown(0))
+    process.on('SIGHUP', () => shutdown(0))
+
     compiler.run((err, stats) => {
       if (err) {
         console.error(err.stack || err)
-        process.exit(1)
+        shutdown(1)
       }
 
       if (!stats?.hasErrors()) {
         console.log(messages.runningInProduction(manifestDir))
       } else {
-        console.log(stats.toString({colors: true}))
-        process.exit(1)
+        try {
+          const {scrubBrand} = require('./webpack/branding')
+          const verbose =
+            String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
+          const str = stats?.toString?.({
+            colors: true,
+            all: false,
+            errors: true,
+            warnings: !!verbose
+          })
+          if (str) console.error(scrubBrand(str))
+        } catch {
+          try {
+            const str = stats?.toString?.({
+              colors: true,
+              all: false,
+              errors: true,
+              warnings: true
+            })
+            if (str) console.error(str)
+          } catch {}
+        }
+        shutdown(1)
       }
     })
   } catch (error) {

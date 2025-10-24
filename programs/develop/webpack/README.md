@@ -31,7 +31,7 @@ A curated set of Rspack-powered plugins used by Extension.js to build browser ex
 ### Related files in this folder
 
 - `webpack-config.ts`: Assembles the plugin stack and shared configuration.
-- `dev-server.ts`: Local development server wiring and reload orchestration.
+- `dev-server/`: Local development server wiring and reload orchestration.
 - `webpack-types.ts`: Common types for the plugin stack.
 
 ### License

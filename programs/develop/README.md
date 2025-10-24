@@ -238,7 +238,7 @@ dist/
 ## Related files in this folder
 
 - `webpack/webpack-config.ts`: Assembles the plugin stack and shared configuration.
-- `webpack/dev-server.ts`: Local development server wiring and reload orchestration.
+- `dev-server/`: Local development server wiring and reload orchestration.
 - `webpack/webpack-types.ts`: Common types for the plugin stack.
 
 ## License

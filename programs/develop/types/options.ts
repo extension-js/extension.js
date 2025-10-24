@@ -45,6 +45,10 @@ export interface DevOptions extends BrowserOptionsBase {
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
+  // Packaging options (used when mode === 'production')
+  zip?: boolean
+  zipSource?: boolean
+  zipFilename?: string
   // Source inspection options
   source?: string
   watchSource?: boolean

@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import type {Stats, StatsAsset} from '@rspack/core'
+import {StatsAsset} from '@rspack/core'
 import colors from 'pintor'
 import {Manifest} from '../webpack/webpack-types'
 import {type DevOptions} from '../types/options'
@@ -10,7 +10,7 @@ import packageJson from '../package.json'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
   if (type === 'error') return colors.red('ERROR')
   if (type === 'warn') return colors.brightYellow('►►►')
-  if (type === 'info') return colors.blue('►►►')
+  if (type === 'info') return colors.gray('►►►')
   return colors.green('►►►')
 }
 
@@ -67,22 +67,6 @@ ${`    Permissions           `} ${colors.gray(
 `
 }
 
-export function ready(
-  mode: DevOptions['mode'],
-  browser: DevOptions['browser']
-) {
-  const modeColor =
-    mode === 'production' ? colors.brightBlue : colors.brightBlue
-  const extensionOutput =
-    browser === 'firefox' || browser === 'gecko-based' ? 'Add-on' : 'Extension'
-
-  return (
-    `${getLoggingPrefix('success')} ` +
-    `${capitalizedBrowserName(browser)} ${extensionOutput} ready for ` +
-    `${modeColor(mode || 'unknown')}.`
-  )
-}
-
 export function previewing(browser: DevOptions['browser']) {
   return `${getLoggingPrefix('info')} Previewing the extension on ${capitalizedBrowserName(browser)}...`
 }
@@ -93,7 +77,7 @@ export function previewWebpack() {
 
 export function buildWebpack(
   projectDir: string,
-  stats: Stats,
+  stats: any,
   browser: DevOptions['browser']
 ): string {
   const statsJson = stats?.toJson()
@@ -101,8 +85,8 @@ export function buildWebpack(
   const manifest: Record<string, string> = JSON.parse(
     fs.readFileSync(manifestPath, 'utf8')
   )
-  const assets = statsJson?.assets as unknown as StatsAsset[] | undefined
-  const heading = `${getLoggingPrefix('info')} Building ${colors.yellow(
+  const assets: any[] = statsJson?.assets
+  const heading = `${getLoggingPrefix('info')} Building ${colors.blue(
     manifest.name
   )} extension using ${capitalizedBrowserName(browser)} defaults...\n`
   const buildTime = `\nBuild completed in ${(
@@ -197,7 +181,7 @@ export function treeWithSourceAndDistFiles(
   destZip: string
 ) {
   return (
-    `${'📦 Package name:'} ${colors.yellow(
+    `${'📦 Package name:'} ${colors.blue(
       `${name}`
     )}, ${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
     `\n   ${colors.gray('└─')} ${colors.underline(`${sourceZip}`)} ${colors.gray('(source)')}` +
@@ -212,7 +196,7 @@ export function treeWithDistFilesbrowser(
   zipPath: string
 ) {
   return (
-    `${'📦 Package name:'} ${colors.yellow(`${name}.${ext}`)}, ` +
+    `${'📦 Package name:'} ${colors.blue(`${name}.${ext}`)}, ` +
     `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
     `\n   ${colors.gray('└─')} ${colors.underline(`${zipPath}`)} ${colors.gray('(distribution)')}`
   )
@@ -225,7 +209,7 @@ export function treeWithSourceFiles(
   zipPath: string
 ) {
   return (
-    `${'📦 Package name:'} ${colors.yellow(`${name}-source.${ext}`)}, ` +
+    `${'📦 Package name:'} ${colors.blue(`${name}-source.${ext}`)}, ` +
     `${'Target Browser:'} ${`${capitalizedBrowserName(browser)}`}` +
     `\n   ${colors.gray('└─')} ${colors.underline(`${zipPath}`)} ${colors.gray('(source)')}`
   )
@@ -240,7 +224,7 @@ export function failedToCompressError(error: any) {
 export function writingTypeDefinitions(manifest: Manifest) {
   return (
     `${getLoggingPrefix('info')} ` +
-    `Writing type definitions for ${colors.yellow(manifest.name || '')}...`
+    `Writing type definitions for ${colors.blue(manifest.name || '')}...`
   )
 }
 
@@ -289,13 +273,7 @@ export function invalidRemoteZip(url: string, contentType: string) {
 function capitalizedBrowserName(browser: DevOptions['browser']) {
   const b = String(browser || '')
   const cap = b.charAt(0).toUpperCase() + b.slice(1)
-  const label = `${cap}`
-  if (b === 'chrome') return colors.yellow(label)
-  if (b === 'edge') return colors.cyan(label)
-  if (b === 'firefox') return colors.magenta(label)
-  if (b === 'chromium') return colors.gray(label)
-  if (b === 'gecko' || b === 'gecko-based') return colors.brightBlue(label)
-  return label
+  return colors.yellow(`${cap}`)
 }
 
 function getFileSize(fileSizeInBytes: number): string {
