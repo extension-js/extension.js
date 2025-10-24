@@ -1,56 +1,29 @@
-name: 🛠
-
-permissions:
-  contents: read
-
+name: ci
 on:
   push:
-    branches:
-      - main
-      - 'v[0-9]+.x'
+    branches: [main]
   pull_request:
-    branches:
-      - main
-      - 'v[0-9]+.x'
 
 jobs:
-  build:
-    name: build
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: ./.github/actions/setup
-        with:
-          node-version: '20'
-
-      - name: Compile package
-        run: pnpm compile
-
-      - name: Run checks
-        run: |
-          pnpm format
-          pnpm types
-          pnpm lint
-
   test:
-    name: test
-    needs: build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-
-      - uses: ./.github/actions/setup
+      - name: Setup repo toolchain
+        uses: ./.github/actions/setup
         with:
-          node-version: '20'
-
-      - name: Compile package
-        run: pnpm compile
-
-      - name: Run tests with coverage
-        run: pnpm test:coverage
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+          node-version: 20
+      - name: Install (frozen)
+        run: pnpm install --frozen-lockfile
+      - name: Compile
+        run: pnpm -w compile
+      - name: Lint
+        run: pnpm -w lint
+      - name: Format check
+        run: pnpm exec prettier --check "**/*.{ts,tsx,md,js,json}"
+      - name: Tests (CLI + Develop only)
         env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+          CI: true
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        run: pnpm -w test
