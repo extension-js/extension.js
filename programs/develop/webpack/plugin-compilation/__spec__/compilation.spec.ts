@@ -135,10 +135,9 @@ describe('CompilationPlugin', () => {
 
     // Clean plugin path exercised without throwing (behavior verified via user-facing log)
 
-    // Logged one line for first compilation
-    expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('ExtA compiled successfully in 10 ms.')
-    )
+    // Success logs are now emitted via the infrastructure logger only when there are errors.
+    // We no longer print success lines to console.log.
+    expect(consoleLogSpy).not.toHaveBeenCalled()
     expect(stdoutWriteSpy).not.toHaveBeenCalled()
   })
 
@@ -161,9 +160,8 @@ describe('CompilationPlugin', () => {
 
     const {CleanDistFolderPlugin} = await import('../clean-dist')
     expect((CleanDistFolderPlugin as any).instances.length).toBe(0)
-    expect(consoleLogSpy).toHaveBeenCalledWith(
-      expect.stringContaining('ExtB compiled successfully in 5 ms.')
-    )
+    // Success logs are suppressed on console.log
+    expect(consoleLogSpy).not.toHaveBeenCalled()
   })
 
   it('collapses repeated messages with counter for same key', () => {
@@ -188,11 +186,7 @@ describe('CompilationPlugin', () => {
     emitDone(stats)
     emitDone(stats)
 
-    // First call prints fresh line
-    expect(consoleLogSpy.mock.calls[0][0]).toContain(
-      'ExtC compiled successfully in 10 ms.'
-    )
-    // Second call adds the (2x) suffix (gray mocked as identity)
-    expect(consoleLogSpy.mock.calls[1][0]).toContain(' (2x) ')
+    // Success messages are not printed to console.log anymore
+    expect(consoleLogSpy).not.toHaveBeenCalled()
   })
 })
