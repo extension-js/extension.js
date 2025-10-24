@@ -5,35 +5,59 @@ import {cn, applyTheme} from '@/lib/utils'
 import {getDevExtension} from '@/background/define-initial-tab'
 import logo from '@/images/logo.png'
 
-import '../../styles.css'
+import '@/styles.css'
 
 applyTheme()
-
-function getBrowserExtensionType() {
-  const browser = import.meta.env.EXTENSION_BROWSER
-
-  switch (browser) {
-    case 'chrome':
-      return 'Chrome Extension'
-    case 'edge':
-      return 'Edge Add-on'
-    case 'firefox':
-      return 'Firefox Add-on'
-    default:
-      return 'Extension'
-  }
-}
 
 async function onStartup(
   setExtension: (extension: chrome.management.ExtensionInfo) => void,
   setDescription: (description: string) => void
 ) {
-  const userExtensions = await getDevExtension()
-
-  if (userExtensions) {
-    setExtension(userExtensions)
-    setDescription(userExtensions.description)
+  // Try via shared helper first
+  const fromBg = await getDevExtension()
+  if (fromBg) {
+    setExtension(fromBg)
+    setDescription(fromBg.description)
+    return
   }
+
+  // Fallback: call chrome.management directly in this page context
+  const all = (await new Promise((resolve) => {
+    try {
+      chrome.management.getAll(resolve)
+    } catch {
+      resolve([])
+    }
+  })) as chrome.management.ExtensionInfo[]
+
+  const devExt = (all || []).find(
+    (e) =>
+      e &&
+      e.installType === 'development' &&
+      e.id !== chrome.runtime.id &&
+      e.enabled
+  )
+
+  if (devExt) {
+    setExtension(devExt)
+    setDescription(devExt.description)
+    return
+  }
+
+  // Final fallback: use this extension's manifest for a sensible name
+  const manifest = chrome.runtime.getManifest()
+
+  setExtension({
+    id: chrome.runtime.id,
+    name: manifest?.name || 'Extension',
+    shortName: manifest?.short_name,
+    description: manifest?.description || '',
+    version: manifest?.version || '',
+    enabled: true,
+    installType: 'development'
+  } as chrome.management.ExtensionInfo)
+
+  setDescription(manifest?.description || '')
 }
 
 const Welcome: React.FC = () => {
@@ -56,11 +80,12 @@ const Welcome: React.FC = () => {
       )}
     >
       <header className="mb-4 flex gap-2">
-        <img className="size-24" alt="Extension.js logo" src={logo} />
+        <img className="size-16" alt="Extension.js logo" src={logo} />
       </header>
       <h1 className="mx-auto text-center text-4xl lg:text-5xl xl:text-6xl font-semibold tracking-tight">
-        {getBrowserExtensionType()}
+        <span>{extension?.name || 'My Extension'}</span>
         <br />
+        <span>is{' '}</span>
         <a href="#">
           <span
             id="extensionName"
@@ -77,14 +102,7 @@ const Welcome: React.FC = () => {
         </a>
       </h1>
       <p className="text-lg mt-3 text-muted-foreground max-w-xl mx-auto text-center">
-        <a
-          target="_blank"
-          href="https://extension.js.org"
-          rel="noopener noreferrer"
-        >
-          Extension.js
-        </a>{' '}
-        is a development toolkit for building
+        Extension.js is a development toolkit for building
         <br />
         cross-browser extensions with modern web technologies.
       </p>
@@ -99,6 +117,7 @@ const Welcome: React.FC = () => {
 
 // React mount code
 const rootElement = document.getElementById('root')
+
 if (rootElement) {
   const root = ReactDOM.createRoot(rootElement)
   root.render(<Welcome />)
