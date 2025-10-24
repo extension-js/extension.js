@@ -17,6 +17,16 @@
   },
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
+  "typesVersions": {
+    "*": {
+      "types": [
+        "./types/index.d.ts"
+      ],
+      "types/*": [
+        "./types/*"
+      ]
+    }
+  },
   "files": [
     "dist",
     "types"
@@ -39,11 +49,9 @@
     "tag": "latest"
   },
   "scripts": {
-    "watch": "rslib build --watch",
     "compile": "rslib build",
-    "clean": "rm -rf dist",
-    "test": "echo \"Note: no test specified\" && exit 0",
-    "test:cli": "vitest run"
+    "watch": "rslib build --watch",
+    "test": "vitest run"
   },
   "keywords": [
     "zero-config",
@@ -83,9 +91,10 @@
     "@types/react-dom": "^19.0.1",
     "@types/webextension-polyfill": "0.12.3",
     "commander": "^12.1.0",
-    "extension-create": "workspace:*",
+    "extension-create": "^2.2.0",
     "extension-develop": "workspace:*",
     "pintor": "0.3.0",
+    "posthog-node": "5.9.2",
     "semver": "^7.6.3",
     "update-check": "^1.5.4",
     "webextension-polyfill": "^0.12.0"
