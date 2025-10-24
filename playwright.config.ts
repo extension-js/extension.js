@@ -20,7 +20,9 @@ import {defineConfig, devices} from '@playwright/test'
 export default defineConfig({
   // Increase global timeout for CI environments
   timeout: process.env.CI ? 90_000 : 60_000,
-  testDir: './examples',
+  testDir: '.',
+  testMatch: ['templates/**/*.spec.ts'],
+  testIgnore: ['dist/**', '**/dist/**', 'extensions/**', 'e2e/**'],
 
   // Disable parallel execution if tests are interdependent
   fullyParallel: false,
@@ -32,7 +34,7 @@ export default defineConfig({
   retries: process.env.CI ? 3 : 2,
 
   // Reduce concurrent workers to prevent resource contention
-  workers: process.env.CI ? 1 : 2,
+  workers: process.env.CI ? 2 : 2,
 
   // Enhanced reporting for better debugging
   reporter: [
@@ -43,7 +45,7 @@ export default defineConfig({
 
   use: {
     // Always collect traces for better debugging
-    trace: 'on',
+    trace: 'retain-on-failure',
 
     // Capture media for all test failures
     screenshot: 'only-on-failure',
@@ -70,12 +72,12 @@ export default defineConfig({
     {
       name: 'chromium',
       use: {...devices['Desktop Chrome']}
-    }
+    },
 
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
+    {
+      name: 'firefox',
+      use: {...devices['Desktop Firefox']}
+    }
 
     // {
     //   name: 'webkit',
