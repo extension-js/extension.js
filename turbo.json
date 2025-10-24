@@ -14,7 +14,7 @@
       "dependsOn": ["^compile"]
     },
     "test": {},
-    "test:coverage": {},
+
     "test:build": {},
     "test:create": {},
     "test:cli": {},
