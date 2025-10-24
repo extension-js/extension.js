@@ -1,11 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import rspack, {
-  Compiler,
-  sources,
-  Compilation,
-  WebpackError
-} from '@rspack/core'
+import {Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from './messages'
 import * as utils from '../../../develop-lib/utils'
@@ -40,11 +35,20 @@ export class LocalesPlugin {
         () => {
           // Do not emit if manifest doesn't exist.
           if (!fs.existsSync(this.manifestPath)) {
-            const err = new WebpackError(messages.manifestNotFoundMessageOnly())
-            err.name = 'ManifestNotFoundError'
-            // @ts-expect-error file is not typed
-            err.file = this.manifestPath
-            compilation.errors.push(err)
+            const ErrorConstructor = compiler?.rspack?.WebpackError || Error
+            const error = new ErrorConstructor(
+              messages.manifestNotFoundMessageOnly()
+            )
+
+            error.name = 'ManifestNotFoundError'
+            // @ts-expect-error - file is not a property of Error
+            error.file = this.manifestPath
+
+            if (!compilation.errors) {
+              compilation.errors = []
+            }
+
+            compilation.errors.push(error)
             return
           }
 
@@ -64,13 +68,20 @@ export class LocalesPlugin {
               }
 
               if (!fs.existsSync(thisResource)) {
-                const warn = new WebpackError(
+                const ErrorConstructor = compiler?.rspack?.WebpackError || Error
+                const warning = new ErrorConstructor(
                   messages.entryNotFoundMessageOnly(feature)
                 )
-                warn.name = 'LocalesPluginMissingFile'
-                // @ts-expect-error file is not typed
-                warn.file = thisResource
-                compilation.warnings.push(warn)
+
+                // @ts-expect-error - file is not a property of Error
+                warning.file = thisResource
+                ;(warning as any).name = 'LocalesPluginMissingFile'
+
+                if (!compilation.warnings) {
+                  compilation.warnings = []
+                }
+
+                compilation.warnings.push(warning)
                 continue
               }
 
