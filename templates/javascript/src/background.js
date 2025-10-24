@@ -1,4 +1,4 @@
-console.log('Hello from the background script!')
+console.log('Hello from the background script')
 
 const isFirefoxLike =
   import.meta.env.EXTENSION_PUBLIC_BROWSER === 'firefox' ||
@@ -24,9 +24,10 @@ if (!isFirefoxLike) {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (!message || message.type !== 'openSidebar') return
-  chrome.sidePanel?.setPanelBehavior?.({openPanelOnActionClick: true})
 
-  if (!chrome?.sidePanel?.open) return
+  chrome.sidePanel.setPanelBehavior({openPanelOnActionClick: true})
+
+  if (!chrome.sidePanel.open) return
 
   chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
     const activeTabId = tabs && tabs[0] && tabs[0].id
