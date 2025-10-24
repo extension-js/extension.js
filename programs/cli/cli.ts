@@ -13,13 +13,12 @@ import type {
   DevOptions,
   StartOptions,
   BuildOptions,
-  PreviewOptions,
-  FileConfig,
-  Manifest
+  PreviewOptions
 } from 'extension-develop'
 import * as messages from './cli-lib/messages'
 import checkUpdates from './check-updates'
 import packageJson from './package.json'
+import {telemetry} from './cli-lib/telemetry-cli'
 
 export type {FileConfig, Manifest} from 'extension-develop'
 
@@ -57,10 +56,13 @@ function validateVendorsOrExit(vendorsList: string[]) {
   }
 }
 
+// telemetry boot, manifest summary, and process handlers are initialized in cli-lib/telemetry-cli
+
 extensionJs
   .name(packageJson.name)
   .description(packageJson.description)
   .version(packageJson.version)
+  .option('--no-telemetry', 'disable anonymous telemetry for this run')
   .option('--ai-help', 'show AI-assistant oriented help and tips')
   .addHelpText('after', messages.programUserHelp())
 
@@ -90,11 +92,34 @@ extensionJs
     pathOrRemoteUrl: string,
     {template, install}: CreateOptions
   ) {
-    await extensionCreate(pathOrRemoteUrl, {
-      template,
-      install,
-      cliVersion: packageJson.version
+    const startedAt = Date.now()
+    telemetry.track('cli_command_start', {
+      command: 'create',
+      template: template || 'default',
+      install: Boolean(install)
     })
+
+    try {
+      await extensionCreate(pathOrRemoteUrl, {
+        template,
+        install,
+        cliVersion: packageJson.version
+      })
+      telemetry.track('cli_command_finish', {
+        command: 'create',
+        duration_ms: Date.now() - startedAt,
+        success: true,
+        exit_code: 0
+      })
+    } catch (err) {
+      telemetry.track('cli_command_finish', {
+        command: 'create',
+        duration_ms: Date.now() - startedAt,
+        success: false,
+        exit_code: 1
+      })
+      throw err
+    }
   })
 
 // ██████╗ ███████╗██╗   ██╗
@@ -172,11 +197,46 @@ extensionJs
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...devOptions}: DevOptions
   ) {
+    const cmdStart = Date.now()
+    // command start snapshot
+    telemetry.track('cli_command_start', {
+      command: 'dev',
+      vendors: vendors(browser),
+      polyfill_used: devOptions.polyfill?.toString() === 'false' ? false : true,
+      log_level: devOptions.logLevel || 'off',
+      log_format: devOptions.logFormat || 'pretty',
+      custom_binary_used: Boolean(
+        devOptions.chromiumBinary || devOptions.geckoBinary
+      )
+    })
+
     const list = vendors(browser)
     validateVendorsOrExit(list)
 
+    // Enforce: --source/--watch-source require --starting-url
+    if (devOptions.source || devOptions.watchSource) {
+      const hasExplicitSourceString =
+        typeof devOptions.source === 'string' &&
+        String(devOptions.source).trim().toLowerCase() !== 'true'
+
+      const hasStartingUrl =
+        typeof devOptions.startingUrl === 'string' &&
+        String(devOptions.startingUrl).trim().length > 0
+
+      if (!hasExplicitSourceString && !hasStartingUrl) {
+        process.exit(1)
+      }
+    }
+
     const {extensionDev} = await import('extension-develop')
     for (const vendor of list) {
+      const vendorStart = Date.now()
+      telemetry.track('cli_vendor_start', {command: 'dev', vendor})
+      // Map CLI flags to internal logger fields
+      const logsOption = (devOptions as unknown as {logs?: string}).logs
+      const logContextOption = (devOptions as unknown as {logContext?: string})
+        .logContext
+
       const devArgs: any = {
         ...devOptions,
         profile: devOptions.profile,
@@ -189,9 +249,12 @@ extensionJs
         source: devOptions.source,
         watchSource: devOptions.watchSource,
         // Unified logger options (not part of DevOptions type):
-        logLevel: (devOptions as any).logs || 'info',
+        // Default to 'off' unless user explicitly opts in via --logs
+        logLevel: (logsOption || devOptions.logLevel || 'off') as any,
         logContexts: (() => {
-          const raw = (devOptions as any).logContext
+          const raw = (logContextOption || (devOptions as any).logContexts) as
+            | string
+            | undefined
           if (!raw || String(raw).trim().length === 0) return undefined
           if (String(raw).trim().toLowerCase() === 'all') return undefined
           const allowed = [
@@ -213,15 +276,28 @@ extensionJs
             )
           return values.length ? values : undefined
         })(),
-        logFormat: (devOptions as any).logFormat || 'pretty',
-        logTimestamps: (devOptions as any).logTimestamps !== false,
-        logColor: (devOptions as any).logColor !== false,
-        logUrl: (devOptions as any).logUrl,
-        logTab: (devOptions as any).logTab
+        logFormat: devOptions.logFormat || 'pretty',
+        logTimestamps: devOptions.logTimestamps !== false,
+        logColor: devOptions.logColor !== false,
+        logUrl: devOptions.logUrl,
+        logTab: devOptions.logTab
       }
 
       await extensionDev(pathOrRemoteUrl, devArgs)
+
+      telemetry.track('cli_vendor_finish', {
+        command: 'dev',
+        vendor,
+        duration_ms: Date.now() - vendorStart
+      })
     }
+
+    telemetry.track('cli_command_finish', {
+      command: 'dev',
+      duration_ms: Date.now() - cmdStart,
+      success: process.exitCode === 0 || process.exitCode == null,
+      exit_code: process.exitCode ?? 0
+    })
   })
 
 // ███████╗████████╗ █████╗ ██████╗ ████████╗
@@ -268,11 +344,21 @@ extensionJs
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...startOptions}: StartOptions
   ) {
+    const cmdStart = Date.now()
+    telemetry.track('cli_command_start', {
+      command: 'start',
+      vendors: vendors(browser),
+      polyfill_used: startOptions.polyfill?.toString() !== 'false'
+    })
+
     const list = vendors(browser)
     validateVendorsOrExit(list)
 
     const {extensionStart} = await import('extension-develop')
     for (const vendor of list) {
+      const vendorStart = Date.now()
+      telemetry.track('cli_vendor_start', {command: 'start', vendor})
+
       await extensionStart(pathOrRemoteUrl, {
         mode: 'production',
         profile: startOptions.profile,
@@ -281,7 +367,20 @@ extensionJs
         geckoBinary: startOptions.geckoBinary,
         startingUrl: startOptions.startingUrl
       })
+
+      telemetry.track('cli_vendor_finish', {
+        command: 'start',
+        vendor,
+        duration_ms: Date.now() - vendorStart
+      })
     }
+
+    telemetry.track('cli_command_finish', {
+      command: 'start',
+      duration_ms: Date.now() - cmdStart,
+      success: process.exitCode === 0 || process.exitCode == null,
+      exit_code: process.exitCode ?? 0
+    })
   })
 
 // ██████╗ ██████╗ ███████╗██╗   ██╗██╗███████╗██╗    ██╗
@@ -324,11 +423,20 @@ extensionJs
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...previewOptions}: PreviewOptions
   ) {
+    const cmdStart = Date.now()
+    telemetry.track('cli_command_start', {
+      command: 'preview',
+      vendors: vendors(browser)
+    })
+
     const list = vendors(browser)
     validateVendorsOrExit(list)
 
     const {extensionPreview} = await import('extension-develop')
     for (const vendor of list) {
+      const vendorStart = Date.now()
+      telemetry.track('cli_vendor_start', {command: 'preview', vendor})
+
       await extensionPreview(pathOrRemoteUrl, {
         mode: 'production',
         profile: previewOptions.profile,
@@ -337,7 +445,19 @@ extensionJs
         geckoBinary: previewOptions.geckoBinary,
         startingUrl: previewOptions.startingUrl
       })
+      telemetry.track('cli_vendor_finish', {
+        command: 'preview',
+        vendor,
+        duration_ms: Date.now() - vendorStart
+      })
     }
+
+    telemetry.track('cli_command_finish', {
+      command: 'preview',
+      duration_ms: Date.now() - cmdStart,
+      success: process.exitCode === 0 || process.exitCode == null,
+      exit_code: process.exitCode ?? 0
+    })
   })
 
 // ██████╗ ██╗   ██╗██╗██╗     ██████╗
@@ -380,12 +500,24 @@ extensionJs
     pathOrRemoteUrl: string,
     {browser = 'chrome', ...buildOptions}: BuildOptions
   ) {
+    const cmdStart = Date.now()
+    telemetry.track('cli_command_start', {
+      command: 'build',
+      vendors: vendors(browser),
+      polyfill_used: buildOptions.polyfill || false,
+      zip: buildOptions.zip || false,
+      zip_source: buildOptions.zipSource || false
+    })
+
     const list = vendors(browser)
     validateVendorsOrExit(list)
 
     const {extensionBuild} = await import('extension-develop')
     for (const vendor of list) {
-      await extensionBuild(pathOrRemoteUrl, {
+      const vendorStart = Date.now()
+      telemetry.track('cli_vendor_start', {command: 'build', vendor})
+
+      const buildSummary = await extensionBuild(pathOrRemoteUrl, {
         browser: vendor as BuildOptions['browser'],
         polyfill: buildOptions.polyfill,
         zip: buildOptions.zip,
@@ -393,22 +525,22 @@ extensionJs
         zipFilename: buildOptions.zipFilename,
         silent: buildOptions.silent
       })
+      telemetry.track('cli_build_summary', {
+        ...buildSummary
+      })
+      telemetry.track('cli_vendor_finish', {
+        command: 'build',
+        vendor,
+        duration_ms: Date.now() - vendorStart
+      })
     }
-  })
 
-// ██████╗██╗     ███████╗ █████╗ ███╗   ██╗██╗   ██╗██████╗
-// ██╔════╝██║     ██╔════╝██╔══██╗████╗  ██║██║   ██║██╔══██╗
-// ██║     ██║     █████╗  ███████║██╔██╗ ██║██║   ██║██████╔╝
-// ██║     ██║     ██╔══╝  ██╔══██║██║╚██╗██║██║   ██║██╔═══╝
-// ╚██████╗███████╗███████╗██║  ██║██║ ╚████║╚██████╔╝██║
-//  ╚═════╝╚══════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝
-
-extensionJs
-  .command('cleanup')
-  .description('Clean up orphaned instances and free unused ports')
-  .action(async function () {
-    const {cleanupCommand} = await import('extension-develop')
-    await cleanupCommand()
+    telemetry.track('cli_command_finish', {
+      command: 'build',
+      duration_ms: Date.now() - cmdStart,
+      success: process.exitCode === 0 || process.exitCode == null,
+      exit_code: process.exitCode ?? 0
+    })
   })
 
 // Print AI-focused help and exit when --ai-help is provided
