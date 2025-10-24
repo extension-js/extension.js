@@ -30,5 +30,9 @@ describe('assertNoManagedDependencyConflicts', () => {
     assertNoManagedDependencyConflicts(pkgPath, project)
     expect(exitSpy).toHaveBeenCalledWith(1)
     exitSpy.mockRestore()
+
+    try {
+      fs.rmSync(project, {recursive: true, force: true})
+    } catch {}
   })
 })
