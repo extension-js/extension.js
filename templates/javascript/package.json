@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "javascript",
+  "name": "@extension-js/javascript",
   "description": "JavaScript-based extension template",
   "version": "3.0.0",
   "author": {

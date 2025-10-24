@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "svelte",
+  "name": "@extension-js/svelte",
   "description": "Svelte-based extension with sidebar panel",
   "version": "3.0.0",
   "author": {

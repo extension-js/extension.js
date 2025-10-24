@@ -3,7 +3,7 @@
 
 ![Powered by Extension.js][powered-image]
 
-# react
+# React Template
 
 > React-based extension with sidebar panel
 

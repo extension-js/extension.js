@@ -1,23 +1,9 @@
-import createContentApp from './ContentApp'
+import createContentApp from './ContentApp.js'
+import './styles.css'
 
-let unmount = undefined
-
-if (import.meta.webpackHot) {
-  import.meta.webpackHot?.accept()
-  import.meta.webpackHot?.dispose(() => unmount?.())
-}
-
-if (document.readyState === 'complete') {
-  unmount = initial() || (() => {})
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') unmount = initial() || (() => {})
-  })
-}
-
-function initial() {
+export default function initial() {
   const rootDiv = document.createElement('div')
-  rootDiv.id = 'extension-root'
+  rootDiv.setAttribute('data-extension-root', 'true')
   document.body.appendChild(rootDiv)
 
   // Injecting content_scripts inside a shadow dom
@@ -28,12 +14,6 @@ function initial() {
   const styleElement = document.createElement('style')
   shadowRoot.appendChild(styleElement)
   fetchCSS().then((response) => (styleElement.textContent = response))
-
-  if (import.meta.webpackHot) {
-    import.meta.webpackHot?.accept('./styles.css', () => {
-      fetchCSS().then((response) => (styleElement.textContent = response))
-    })
-  }
 
   // Render ContentApp inside shadow root
   const container = createContentApp()

@@ -5,10 +5,11 @@
 // Docs: https://extension.js.org/docs/content-scripts
 import {mount} from 'svelte'
 import ContentApp from './ContentApp.svelte'
+import './styles.css'
 
 export default function initial() {
   const rootDiv = document.createElement('div')
-  rootDiv.id = 'extension-root'
+  rootDiv.setAttribute('data-extension-root', 'true')
   document.body.appendChild(rootDiv)
 
   // Injecting content_scripts inside a shadow dom
@@ -33,16 +34,6 @@ export default function initial() {
   return () => {
     rootDiv.remove()
   }
-}
-
-// Bootstrap once the page is fully loaded (consistent with other templates)
-let unmount: (() => void) | undefined
-if (document.readyState === 'complete') {
-  unmount = initial() || (() => {})
-} else {
-  document.addEventListener('readystatechange', () => {
-    if (document.readyState === 'complete') unmount = initial() || (() => {})
-  })
 }
 
 async function fetchCSS() {
