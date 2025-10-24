@@ -3,7 +3,7 @@
 
 ![Powered by Extension.js][powered-image]
 
-# preact
+# Preact Template
 
 > Preact-based extension with sidebar panel
 

@@ -1,6 +1,6 @@
 {
   "private": true,
-  "name": "preact",
+  "name": "@extension-js/preact",
   "description": "Preact-based extension with sidebar panel",
   "version": "3.0.0",
   "author": {
