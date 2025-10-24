@@ -76,6 +76,23 @@ export default function (this: LoaderContext, source: string) {
     if (port && port.postMessage) { port.postMessage(msg); }
   }
 
+  // Forward page window.postMessage events from injected page script -> background
+  window.addEventListener('message', function(ev){
+    try {
+      var data = (ev && ev.data) || {};
+      if (!data || data.__reactLogger !== true || data.type !== 'log') return;
+      safePost({ type: 'log', level: String(data.level || 'log'), context: 'page', messageParts: Array.isArray(data.messageParts) ? data.messageParts : [data.messageParts], url: data.url });
+    } catch (e) {}
+  });
+
+  // Inject a page-context script that patches console.* to post window messages
+    var s = document.createElement('script');
+    s.textContent = '(function(){try{var post=function(m){try{window.postMessage(m,"*");}catch(_){}};\
+window.addEventListener("error",function(e){post({__reactLogger:true,type:"log",level:"error",messageParts:[String(e&&e.message||""),String(e&&e.filename||""),e&&e.lineno,e&&e.colno],url:String(location&&location.href||"")});});\
+window.addEventListener("unhandledrejection",function(e){var r="";try{r=typeof e.reason==="string"?e.reason:JSON.stringify(e.reason);}catch(_){r=String(e.reason);}post({__reactLogger:true,type:"log",level:"error",messageParts:["Unhandled Rejection",r],url:String(location&&location.href||"")});});\
+["log","info","warn","error","debug"].forEach(function(k){try{var o=console[k]&&console[k].bind?console[k].bind(console):console[k];console[k]=function(){var a=[].slice.call(arguments);post({__reactLogger:true,type:"log",level:k,messageParts:a,url:String(location&&location.href||"")});try{return o&&o.apply?o.apply(console,a):void 0;}catch(_){}}}catch(_){}});}catch(_){}})();';
+    (document.documentElement || document.head || document.body).appendChild(s);
+
   ['log','info','warn','error','debug'].forEach(function(lvl) {
     if (typeof console !== "undefined" && typeof console[lvl] === "function") {
       var orig = console[lvl].bind(console);

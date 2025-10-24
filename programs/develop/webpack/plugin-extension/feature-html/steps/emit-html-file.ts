@@ -4,6 +4,7 @@ import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../html-lib/messages'
 import * as utils from '../../../../develop-lib/utils'
 import {getFilePath} from '../html-lib/utils'
+import {reportToCompilation} from '../html-lib/utils'
 
 export class EmitHtmlFile {
   public readonly manifestPath: string
@@ -44,13 +45,12 @@ export class EmitHtmlFile {
               // Only warn for non-entrypoint HTML (special pages/*). Entrypoint
               // errors are handled by the manifest feature checks.
               if (featureName.startsWith('pages/')) {
-                const warn = new WebpackError(
-                  messages.manifestFieldMessageOnly(featureName)
+                reportToCompilation(
+                  compilation,
+                  compiler,
+                  messages.manifestFieldMessageOnly(featureName),
+                  'warning'
                 )
-                warn.name = 'HtmlIncludeMissing'
-                // @ts-expect-error - file is not a property of WebpackError
-                warn.file = resource
-                compilation.warnings.push(warn)
               }
               continue
             }

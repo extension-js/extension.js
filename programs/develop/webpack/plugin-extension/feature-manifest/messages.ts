@@ -6,7 +6,7 @@ function getLoggingPrefix(
 ) {
   if (type === 'error') return `${colors.red('ERROR')} ${feature}`
   if (type === 'warn') return `${colors.brightYellow('►►►')} ${feature}`
-  const arrow = type === 'info' ? colors.blue('►►►') : colors.green('►►►')
+  const arrow = type === 'info' ? colors.gray('►►►') : colors.green('►►►')
   return `${arrow} ${feature}`
 }
 

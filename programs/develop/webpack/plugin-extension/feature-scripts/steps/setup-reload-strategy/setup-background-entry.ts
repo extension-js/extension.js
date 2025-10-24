@@ -1,14 +1,14 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler} from '@rspack/core'
+import {Compiler} from '@rspack/core'
 import * as messages from '../../scripts-lib/messages'
+import {reportToCompilation} from '../../scripts-lib/utils'
 import * as utils from '../../../../../develop-lib/utils'
-import {type Manifest} from '../../../../webpack-types'
-import {type DevOptions} from '../../../../../types/options'
+import {DevOptions} from '../../../../../types/options'
 
 export class SetupBackgroundEntry {
-  private readonly manifestPath: string
-  private readonly browser: DevOptions['browser']
+  private manifestPath: string
+  private browser: DevOptions['browser']
 
   constructor(options: {
     manifestPath: string
@@ -18,21 +18,15 @@ export class SetupBackgroundEntry {
     this.browser = options.browser || 'chrome'
   }
 
-  private getMissingBackgroundError(filePath: string): string | undefined {
-    if (!fs.existsSync(filePath)) {
-      if (this.manifestPath) {
-        const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
-        const patchedManifest = utils.filterKeysForThisBrowser(
-          manifest,
-          this.browser
-        )
-
-        const fieldKey =
-          patchedManifest.manifest_version === 3
-            ? 'background/service_worker'
-            : 'background/scripts'
-        return messages.backgroundIsRequiredMessageOnly(fieldKey)
-      }
+  private getMissingBackgroundError(bgFile: string) {
+    if (!fs.existsSync(bgFile) && this.manifestPath) {
+      const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
+      const patched = utils.filterKeysForThisBrowser(manifest, this.browser)
+      const fieldKey =
+        patched.manifest_version === 3
+          ? 'background/service_worker'
+          : 'background/scripts'
+      return messages.backgroundIsRequiredMessageOnly(fieldKey)
     }
     return undefined
   }
@@ -50,10 +44,7 @@ export class SetupBackgroundEntry {
 
   apply(compiler: Compiler) {
     // Guards are handled at the root plugin level
-
-    const manifest: Manifest = JSON.parse(
-      fs.readFileSync(this.manifestPath, 'utf-8')
-    )
+    const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
     const browser = this.browser
     const minimumBgScript = path.resolve(
       __dirname,
@@ -61,90 +52,57 @@ export class SetupBackgroundEntry {
         ? 'minimum-firefox-file'
         : 'minimum-chromium-file'
     )
-
     const dirname = path.dirname(this.manifestPath)
-    let manifestBg: Record<string, any> | undefined =
-      utils.filterKeysForThisBrowser(manifest, browser)
+    let manifestBg = utils.filterKeysForThisBrowser(manifest, browser)
+    manifestBg = manifestBg?.background ?? manifest.background
+
+    function hookError(maybeError: string) {
+      compiler.hooks.thisCompilation.tap(
+        'run-chromium:setup-background-entry',
+        (compilation) => {
+          reportToCompilation(compilation, compiler, maybeError, 'error')
+        }
+      )
+    }
 
     if (browser === 'firefox' || browser === 'gecko-based') {
-      manifestBg = (manifestBg as any)?.background ?? manifest.background
+      const bgScripts = manifestBg?.scripts
 
-      const backgroundScripts = manifestBg?.scripts
-
-      if (backgroundScripts && backgroundScripts.length > 0) {
-        const backgroundScriptsPath = path.join(dirname, backgroundScripts[0])
-        const maybeError = this.getMissingBackgroundError(backgroundScriptsPath)
-        if (maybeError) {
-          compiler.hooks.thisCompilation.tap(
-            'run-chromium:setup-background-entry',
-            (compilation: any) => {
-              const WebpackErrorCtor = (compiler as any)?.rspack?.WebpackError
-              compilation.errors = compilation.errors || []
-              compilation.errors.push(
-                WebpackErrorCtor
-                  ? new WebpackErrorCtor(maybeError)
-                  : new Error(maybeError)
-              )
-            }
-          )
-        }
+      if (bgScripts && bgScripts.length > 0) {
+        const bgScriptPath = path.join(dirname, bgScripts[0])
+        const maybeError = this.getMissingBackgroundError(bgScriptPath)
+        if (maybeError) hookError(maybeError)
       } else {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
-    } else {
-      manifestBg = (manifestBg as any)?.background ?? manifest.background
+      return
+    }
 
-      if ((manifestBg as any) && (manifest as any).manifest_version === 3) {
-        const serviceWorker = manifestBg?.service_worker
+    // chromium / manifest v3 or v2
+    if (manifestBg && manifest.manifest_version === 3) {
+      const serviceWorker = manifestBg?.service_worker
+      if (serviceWorker) {
+        const swPath = path.join(dirname, serviceWorker)
+        const maybeError = this.getMissingBackgroundError(swPath)
 
-        if (serviceWorker) {
-          const serviceWorkerPath = path.join(dirname, serviceWorker)
-          const maybeError = this.getMissingBackgroundError(serviceWorkerPath)
-          if (maybeError) {
-            compiler.hooks.thisCompilation.tap(
-              'run-chromium:setup-background-entry',
-              (compilation: any) => {
-                const WebpackErrorCtor = (compiler as any)?.rspack?.WebpackError
-                compilation.errors = compilation.errors || []
-                compilation.errors.push(
-                  WebpackErrorCtor
-                    ? new WebpackErrorCtor(maybeError)
-                    : new Error(maybeError)
-                )
-              }
-            )
-          }
-        } else {
-          this.addDefaultEntry(
-            compiler,
-            'background/service_worker',
-            minimumBgScript
-          )
-        }
-      } else if ((manifest as any).manifest_version === 2) {
-        const backgroundScripts = manifestBg?.scripts
+        if (maybeError) hookError(maybeError)
+      } else {
+        this.addDefaultEntry(
+          compiler,
+          'background/service_worker',
+          minimumBgScript
+        )
+      }
+    } else if (manifest.manifest_version === 2) {
+      const bgScripts = manifestBg?.scripts
 
-        if (backgroundScripts && backgroundScripts.length > 0) {
-          const backgroundScriptPath = path.join(dirname, backgroundScripts[0])
-          const maybeError =
-            this.getMissingBackgroundError(backgroundScriptPath)
-          if (maybeError) {
-            compiler.hooks.thisCompilation.tap(
-              'run-chromium:setup-background-entry',
-              (compilation: any) => {
-                const WebpackErrorCtor = (compiler as any)?.rspack?.WebpackError
-                compilation.errors = compilation.errors || []
-                compilation.errors.push(
-                  WebpackErrorCtor
-                    ? new WebpackErrorCtor(maybeError)
-                    : new Error(maybeError)
-                )
-              }
-            )
-          }
-        } else {
-          this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
-        }
+      if (bgScripts && bgScripts.length > 0) {
+        const bgScriptPath = path.join(dirname, bgScripts[0])
+        const maybeError = this.getMissingBackgroundError(bgScriptPath)
+
+        if (maybeError) hookError(maybeError)
+      } else {
+        this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
       }
     }
   }

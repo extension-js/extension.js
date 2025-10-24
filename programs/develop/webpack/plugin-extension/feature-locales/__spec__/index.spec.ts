@@ -184,8 +184,8 @@ describe('LocalesPlugin (unit)', () => {
     expect(err.name).toBe('ManifestNotFoundError')
     expect(err.file).toBe(missingManifestPath)
     expect(typeof err.message).toBe('string')
-    // Message should avoid duplicating path; keep summary only
-    expect(err.message).toContain('Manifest Not Found')
+    // Message format updated to a prefixed ERROR banner
+    expect(err.message).toContain('ERROR manifest.json')
     expect(hasAnsi(err.message)).toBe(false)
     expect((compilation as any)._emitted).toBeUndefined()
 
