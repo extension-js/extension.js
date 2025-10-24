@@ -355,12 +355,12 @@ export class RunChromiumPlugin {
     try {
       // Do not reload on error builds. Wait until the next successful build
       const hasErrors =
-      // @ts-expect-error - stats is unknown
+        // @ts-expect-error - stats is unknown
         typeof stats?.hasErrors === 'function'
-          // @ts-expect-error - stats is unknown
-          ? stats?.hasErrors()
-          // @ts-expect-error - stats is unknown
-          : !!stats?.compilation?.errors?.length
+          ? // @ts-expect-error - stats is unknown
+            stats?.hasErrors()
+          : // @ts-expect-error - stats is unknown
+            !!stats?.compilation?.errors?.length
 
       if (hasErrors) return
 

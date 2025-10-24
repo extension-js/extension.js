@@ -768,7 +768,7 @@ export interface DevClientMessage {
 
 export function runningInDevelopment(
   manifest: DevManifestInfo,
-  browser: 'chrome' | 'edge' | 'firefox',
+  browser: DevOptions['browser'],
   message: DevClientMessage
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)

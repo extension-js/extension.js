@@ -15,7 +15,7 @@ export class RdpTransport extends EventEmitter {
     await new Promise<void>((resolve, reject) => {
       try {
         const c = net.createConnection({host: '127.0.0.1', port}, () => {
-            if (process.env.EXTENSION_ENV === 'development') {
+          if (process.env.EXTENSION_ENV === 'development') {
             console.log(messages.firefoxRdpClientConnected('127.0.0.1', port))
           }
           resolve()

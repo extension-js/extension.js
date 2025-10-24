@@ -1,5 +1,5 @@
 import * as path from 'path'
-import { Compilation } from '@rspack/core'
+import {Compilation} from '@rspack/core'
 import * as messages from '../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../browsers-lib/shared-utils'
 import {printDevBannerOnce} from '../browsers-lib/banner'
@@ -87,22 +87,17 @@ export async function setupCdpAfterLaunch(
 
   await retryAsync(() => cdpExtensionController.connect())
   if (process.env.EXTENSION_ENV === 'development') {
-      console.log(
-        messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort)
-      )
+    console.log(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
   }
 
   // Get extension and environment info after ensuring everything is loaded
   const extensionControllerInfo = await cdpExtensionController.ensureLoaded()
 
-  if (compilation?.options?.mode !==
-    'production') {
+  if (compilation?.options?.mode !== 'production') {
     try {
       const bannerPrinted = await printDevBannerOnce({
         outPath: extensionOutputPath,
-        browser: (plugin.browser === 'chromium-based'
-          ? 'chrome'
-          : plugin.browser) as 'chrome' | 'edge',
+        browser: plugin.browser,
         hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
         getInfo: async () => extensionControllerInfo
       })
@@ -110,9 +105,7 @@ export async function setupCdpAfterLaunch(
       if (!bannerPrinted) {
         await printDevBannerOnce({
           outPath: extensionOutputPath,
-          browser: (plugin.browser === 'chromium-based'
-            ? 'chrome'
-            : plugin.browser) as 'chrome' | 'edge',
+          browser: plugin.browser,
           hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
           getInfo: async () => cdpExtensionController.getInfoBestEffort()
         })
