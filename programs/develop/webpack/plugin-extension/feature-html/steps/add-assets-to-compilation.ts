@@ -1,10 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {type Compiler, sources, Compilation, WebpackError} from '@rspack/core'
+import {type Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml, isFromIncludeList} from '../html-lib/utils'
 import {patchHtmlNested} from '../html-lib/patch-html'
 import * as messages from '../html-lib/messages'
+import {reportToCompilation} from '../html-lib/utils'
 
 export class AddAssetsToCompilation {
   public readonly manifestPath: string
@@ -107,13 +108,12 @@ export class AddAssetsToCompilation {
                     if (!FilepathListEntry) {
                       // Skip warning for hash references and public paths
                       if (!path.basename(asset).startsWith('#')) {
-                        const warn = new WebpackError(
-                          messages.htmlFileNotFoundMessageOnly('static')
+                        reportToCompilation(
+                          compilation,
+                          compiler,
+                          messages.htmlFileNotFoundMessageOnly('static'),
+                          'warning'
                         )
-                        warn.name = 'HtmlStaticAssetMissing'
-                        // @ts-expect-error - file is not a property of WebpackError
-                        warn.file = resource as string
-                        compilation.warnings.push(warn)
                         continue
                       }
                     }

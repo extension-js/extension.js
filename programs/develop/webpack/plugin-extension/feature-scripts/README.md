@@ -69,7 +69,11 @@ export default config
   - Mounts in an isolated Shadow DOM container (automatic)
   - Injects referenced CSS (including `.css`, `.scss`, `.sass`, `.less`)
   - Detects common frameworks (React, Vue, Svelte, Preact) and generates framework‑specific bootstrap code
-  - Enables HMR for both JS and CSS during development, with safe cleanup
+- Enables HMR for both JS and CSS during development, with safe cleanup
+- Injects a development‑only centralized logger bridge:
+  - Content scripts forward their `console.*` to the centralized DevTools logger
+  - A small page script is injected to forward page `console.*` via `window.postMessage` to the content script, which relays to background
+  - Background scripts forward their `console.*` to the centralized logger
 - Ensures publicPath is available for content scripts in production builds.
 - Reload integration (development):
   - Patches CSP, permissions, and web_accessible_resources automatically.

@@ -81,14 +81,5 @@ export class SetupReloadStrategy {
       background: this.getEntryName(patchedManifest),
       weakRuntimeCheck: true
     }).apply(compiler as any)
-
-    // 5 - Add the content script wrapper. webpack-target-webextension
-    // needs mounting and internal HMR code to work. This plugin abstracts
-    // this away from the user. The contract requires the user to export a
-    // default function that returns an optional cleanup function.
-    new AddContentScriptWrapper({
-      manifestPath: this.manifestPath,
-      browser: this.browser
-    }).apply(compiler)
   }
 }

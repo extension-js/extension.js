@@ -32,37 +32,39 @@ export class AddContentScriptWrapper {
       ]
     })
 
-    // 2- The wrapper above requires a default export.
-    // This loader will warn if the script does not have a default export.
-    compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [path.dirname(this.manifestPath)],
-      exclude: [/([\\/])node_modules\1/],
-      use: [
-        {
-          loader: path.resolve(__dirname, 'warn-no-default-export'),
-          options: {
-            manifestPath: this.manifestPath,
-            mode: compiler.options.mode
+    if (compiler.options.mode !== 'production') {
+      // 2- The wrapper above requires a default export.
+      // This loader will warn if the script does not have a default export.
+      compiler.options.module.rules.push({
+        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: [/([\\/])node_modules\1/],
+        use: [
+          {
+            loader: path.resolve(__dirname, 'warn-no-default-export'),
+            options: {
+              manifestPath: this.manifestPath,
+              mode: compiler.options.mode
+            }
           }
-        }
-      ]
-    })
+        ]
+      })
 
-    // 3- Inject minimal HMR accept code for declared background and user scripts
-    compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [path.dirname(this.manifestPath)],
-      exclude: [/([\\/])node_modules\1/],
-      use: [
-        {
-          loader: path.resolve(__dirname, 'add-hmr-accept-code'),
-          options: {
-            manifestPath: this.manifestPath,
-            mode: compiler.options.mode
+      // 3- Inject minimal HMR accept code for declared background and user scripts
+      compiler.options.module.rules.push({
+        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [path.dirname(this.manifestPath)],
+        exclude: [/([\\/])node_modules\1/],
+        use: [
+          {
+            loader: path.resolve(__dirname, 'add-hmr-accept-code'),
+            options: {
+              manifestPath: this.manifestPath,
+              mode: compiler.options.mode
+            }
           }
-        }
-      ]
-    })
+        ]
+      })
+    }
   }
 }
