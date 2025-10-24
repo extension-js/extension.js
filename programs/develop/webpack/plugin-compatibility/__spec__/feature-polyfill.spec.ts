@@ -1,9 +1,8 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as path from 'path'
 import * as fs from 'fs'
-import * as rspack from '@rspack/core'
 import {PolyfillPlugin} from '../feature-polyfill'
-import * as messages from '../../webpack-lib/messages'
+import * as messages from '../../plugin-compatibility/compatibility-lib/messages'
 
 describe('PolyfillPlugin', () => {
   beforeEach(() => {
@@ -43,7 +42,6 @@ describe('PolyfillPlugin', () => {
     const compiler = {options: {context: '/project/root'}} as any
 
     // Force resolution to fail
-    // @ts-expect-error spying on Node require.resolve
     vi.spyOn(require as any, 'resolve').mockImplementation(() => {
       throw new Error('Cannot find module')
     })
