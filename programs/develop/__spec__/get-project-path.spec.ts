@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
@@ -7,13 +7,24 @@ import {
   getProjectStructure
 } from '../develop-lib/get-project-path'
 
+const created: string[] = []
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+  created.push(dir)
   return dir
 }
 
 beforeEach(() => {
   vi.resetModules()
+})
+
+afterEach(() => {
+  for (const d of created) {
+    try {
+      fs.rmSync(d, {recursive: true, force: true})
+    } catch {}
+  }
+  created.length = 0
 })
 
 describe('get-project-path', () => {

@@ -1,14 +1,25 @@
-import {describe, it, expect} from 'vitest'
+import {describe, it, expect, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
 import {ZipPlugin} from '../webpack/plugin-compilation/plugin-zip'
 import {rspack} from '@rspack/core'
 
+const created: string[] = []
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
+  created.push(dir)
   return dir
 }
+
+afterEach(() => {
+  for (const d of created) {
+    try {
+      fs.rmSync(d, {recursive: true, force: true})
+    } catch {}
+  }
+  created.length = 0
+})
 
 describe('ZipPlugin', () => {
   it('writes dist zips when options.zip or zipSource are set', async () => {
