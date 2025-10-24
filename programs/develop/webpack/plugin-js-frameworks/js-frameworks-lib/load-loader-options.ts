@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import * as messages from '../../../develop-lib/messages'
+import * as messages from './messages'
 import {pathToFileURL} from 'url'
 
 let userMessageDelivered = false
