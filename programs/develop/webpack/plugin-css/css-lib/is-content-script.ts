@@ -9,6 +9,8 @@ export function isContentScriptEntry(
   if (!absolutePath || !manifestPath) {
     return false
   }
+  if (!fs.existsSync(manifestPath)) return false
+
   const manifest: Manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 
   for (const content of manifest.content_scripts || []) {
