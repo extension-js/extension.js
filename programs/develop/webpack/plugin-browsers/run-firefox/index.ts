@@ -58,6 +58,8 @@ export class RunFirefoxPlugin {
 
   private remoteFirefox?: unknown | null
   private logger?: ReturnType<Compiler['getInfrastructureLogger']>
+  private pendingHardReloadReason?: 'manifest' | 'locales' // removed 'sw'
+  // removed lastServiceWorkerRelPath
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -232,14 +234,6 @@ export class RunFirefoxPlugin {
         )
         ;(this as any).rdpController = ctrl
       } catch (error) {
-        const strErr = error?.toString()
-        if (
-          strErr?.includes('background.service_worker is currently disabled')
-        ) {
-          this.logger?.error(messages.firefoxServiceWorkerError(this.browser))
-          process.exit(1)
-        }
-
         this.logger?.error(messages.browserLaunchError(this.browser, error))
         if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
           throw new Error('Firefox inspector initialization failed')
@@ -331,6 +325,29 @@ export class RunFirefoxPlugin {
 
     this.logger = logger
 
+    // Detect manifest/locales changes as early as possible (source files)
+    compiler.hooks.watchRun.tapAsync('run-browsers:watch', (compilation, done) => {
+      try {
+        const files =
+          compilation?.modifiedFiles ||
+          new Set<string>()
+        const normalizedFilePaths = Array.from(files).map((filePath) =>
+          filePath.replace(/\\/g, '/')
+        )
+
+        const hitManifest = normalizedFilePaths.some((filePath) => /(^|\/)manifest\.json$/i.test(filePath))
+        const hitLocales = normalizedFilePaths.some((filePath) =>
+          /(^|\/)__?locales\/.+\.json$/i.test(filePath)
+        )
+
+        if (hitManifest) this.pendingHardReloadReason = 'manifest'
+        else if (hitLocales) this.pendingHardReloadReason = 'locales'
+      } catch (error) {
+        this.logger?.warn?.('[reload] watchRun inspect failed:', String(error))
+      }
+      done()
+    })
+
     compiler.hooks.done.tapAsync('run-firefox:module', async (stats, done) => {
       const hasErrors =
         typeof stats?.hasErrors === 'function'
@@ -361,6 +378,47 @@ export class RunFirefoxPlugin {
       }
 
       if (firefoxDidLaunch) {
+        const hasErr =
+          typeof stats?.hasErrors === 'function'
+            ? stats.hasErrors()
+            : !!stats?.compilation?.errors?.length
+
+        if (!hasErr && this.pendingHardReloadReason) {
+          const reason = this.pendingHardReloadReason
+          this.pendingHardReloadReason = undefined
+
+          try {
+            const compilation = stats?.compilation
+            const assetsArr: Array<{name: string; emitted?: boolean}> =
+              Array.isArray(compilation?.getAssets?.())
+                ? (compilation!.getAssets() as any)
+                : []
+
+            const emitted = assetsArr
+              .filter((a) => (a as any)?.emitted)
+              .map((a) => String((a as any)?.name || ''))
+
+            const controller = (this as any).rdpController as
+              | {hardReload: (c: any, a: string[]) => Promise<void>}
+              | undefined
+
+            if (controller) {
+              this.logger?.info?.(
+                `[reload] reloading extension (reason:${reason})`
+              )
+              await controller.hardReload(stats.compilation, emitted)
+            } else {
+              this.logger?.warn?.(
+                '[reload] controller not ready; skipping reload'
+              )
+            }
+          } catch (error) {
+            this.logger?.warn?.('[reload] reload failed:', String(error))
+          }
+          done()
+          return
+        }
+
         try {
           const comp = stats?.compilation
           const assetsArr: Array<{name: string; emitted?: boolean}> =

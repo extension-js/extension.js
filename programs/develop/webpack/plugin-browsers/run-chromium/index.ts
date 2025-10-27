@@ -59,7 +59,11 @@ export class RunChromiumPlugin {
   private logUrl?: string
   private logTab?: number | string
   private bannerPrintedOnce?: boolean
-  private logger?: ReturnType<Compiler['getInfrastructureLogger']>
+  private logger!: ReturnType<Compiler['getInfrastructureLogger']>
+  private lastManifestString?: string
+  private pendingHardReloadReason?: 'manifest' | 'locales' | 'sw'
+  private lastServiceWorkerAbsPath?: string
+  private lastServiceWorkerMtimeMs?: number
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -93,7 +97,7 @@ export class RunChromiumPlugin {
     const compilationErrors = compilation?.errors || []
 
     if (compilationErrors.length > 0) {
-      this.logger?.info(messages.skippingBrowserLaunchDueToCompileErrors())
+      this.logger.info(messages.skippingBrowserLaunchDueToCompileErrors())
       return
     }
 
@@ -114,7 +118,7 @@ export class RunChromiumPlugin {
         try {
           browserBinaryLocation = edgeLocation()
         } catch (e) {
-          this.logger?.error(
+          this.logger.error(
             messages.browserNotInstalledError(browser, 'edge binary not found')
           )
           if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
@@ -135,7 +139,7 @@ export class RunChromiumPlugin {
     }
 
     if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
-      this.logger?.error(
+      this.logger.error(
         messages.browserNotInstalledError(browser, browserBinaryLocation)
       )
       // Avoid killing the test runner during unit tests
@@ -197,9 +201,7 @@ export class RunChromiumPlugin {
     }
 
     if (process.env.EXTENSION_ENV === 'development') {
-      this.logger?.info(
-        messages.devChromiumDebugPort(selectedPort, desiredPort)
-      )
+      this.logger.info(messages.devChromiumDebugPort(selectedPort, desiredPort))
     }
 
     // Record actual CDP port for this instance for downstream steps
@@ -257,7 +259,7 @@ export class RunChromiumPlugin {
     browserBinaryLocation: string,
     chromeFlags: string[]
   ) {
-    this.logger?.info(messages.chromeInitializingEnhancedReload())
+    this.logger.info(messages.chromeInitializingEnhancedReload())
 
     // Ensure flags come first so Chrome acknowledges them; URL last
     const launchArgs = this.startingUrl
@@ -280,24 +282,24 @@ export class RunChromiumPlugin {
         })
       })
 
-      this.logger?.debug?.(
+      this.logger.debug?.(
         '[plugin-browsers] Final Chrome flags:',
         launchArgs.join(' ')
       )
 
       child.on('close', (code: number | null) => {
         if (process.env.EXTENSION_ENV === 'development') {
-          this.logger?.info(messages.chromeProcessExited(code || 0))
+          this.logger.info(messages.chromeProcessExited(code || 0))
         }
       })
 
       child.on('error', (error) => {
-        this.logger?.error(messages.chromeProcessError(error))
+        this.logger.error(messages.chromeProcessError(error))
       })
 
       setupProcessSignalHandlers(this.browser, child, () => {})
     } catch (error) {
-      this.logger?.error(messages.chromeFailedToSpawn(error))
+      this.logger.error(messages.chromeFailedToSpawn(error))
       throw error
     }
   }
@@ -312,9 +314,45 @@ export class RunChromiumPlugin {
       debug: (...a: unknown[]) => console.debug?.(...a)
     })
     this.logger =
-      typeof (compiler as any)?.getInfrastructureLogger === 'function'
-        ? (compiler as any).getInfrastructureLogger(RunChromiumPlugin.name)
+      typeof compiler?.getInfrastructureLogger === 'function'
+        ? compiler.getInfrastructureLogger(RunChromiumPlugin.name)
         : (fallbackLogger() as ReturnType<Compiler['getInfrastructureLogger']>)
+
+    // Detect manifest/locales/SW changes as early as possible (source files)
+    compiler.hooks.watchRun.tapAsync(
+      'run-browsers:watch',
+      (compilation, done) => {
+        try {
+          const files = compilation?.modifiedFiles || new Set<string>()
+          const normalizedFilePaths = Array.from(files).map((filePath) =>
+            filePath.replace(/\\/g, '/')
+          )
+
+          const hitManifest = normalizedFilePaths.some((filePath) =>
+            /(^|\/)manifest\.json$/i.test(filePath)
+          )
+          const hitLocales = normalizedFilePaths.some((filePath) =>
+            /(^|\/)__?locales\/.+\.json$/i.test(filePath)
+          )
+
+          let hitServiceWorker = false
+
+          if (this.lastServiceWorkerAbsPath) {
+            const absoluteFilePath = this.lastServiceWorkerAbsPath.replace(/\\/g, '/')
+            hitServiceWorker = normalizedFilePaths.some(
+              (filePath) => filePath === absoluteFilePath || filePath.endsWith(absoluteFilePath)
+            )
+          }
+
+          if (hitManifest) this.pendingHardReloadReason = 'manifest'
+          else if (hitLocales) this.pendingHardReloadReason = 'locales'
+          else if (hitServiceWorker) this.pendingHardReloadReason = 'sw'
+        } catch (error) {
+          this.logger.warn?.('[reload-debug] watchRun inspect failed:', String(error))
+        }
+        done()
+      }
+    )
 
     compiler.hooks.done.tapAsync('run-browsers:module', (stats, done) => {
       const hasErrors =
@@ -323,40 +361,84 @@ export class RunChromiumPlugin {
           : !!stats?.compilation?.errors?.length
 
       if (hasErrors) {
-        try {
-          const compileErrors = stats?.compilation?.errors || []
-          const manifestErrors = compileErrors.filter((err) => {
-            const msg: string = String(
-              (err && (err.message || err.toString())) || ''
-            )
-            return (
-              msg.includes('manifest.json') && msg.includes('File Not Found')
-            )
-          })
-
-          if (manifestErrors.length) {
-            this.logger?.warn(
-              messages.manifestPreflightSummary(manifestErrors.length)
-            )
-          }
-        } catch {
-          // ignore
-        }
-
-        this.logger?.info(messages.skippingBrowserLaunchDueToCompileErrors())
+        this.logger.info(messages.skippingBrowserLaunchDueToCompileErrors())
         done()
         return
       }
 
       if (chromiumDidLaunch) {
-        // Subsequent rebuilds: trigger hard reload only if manifest or background changed
-        void this.conditionalHardReload(stats)
+        // Refresh SW absolute path and detect change via mtime
+        try {
+          const extensionRoot = Array.isArray(this.extension)
+            ? (this.extension.find((e): e is string => typeof e === 'string') || '')
+            : (this.extension as string)
+
+          if (extensionRoot) {
+            const manifestPath = path.join(extensionRoot, 'manifest.json')
+
+            if (fs.existsSync(manifestPath)) {
+              const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+              const serviceWorker = parsed.background?.service_worker
+
+              if (typeof serviceWorker === 'string' && serviceWorker) {
+                const serviceWorkerAbs = path.join(extensionRoot, serviceWorker)
+                this.lastServiceWorkerAbsPath = serviceWorkerAbs
+
+                try {
+                  const serviceWorkerStat = fs.statSync(serviceWorkerAbs)
+                  const mtime = Math.floor(serviceWorkerStat.mtimeMs)
+
+                  if (
+                    typeof this.lastServiceWorkerMtimeMs === 'number' &&
+                    mtime !== this.lastServiceWorkerMtimeMs
+                  ) {
+                    this.pendingHardReloadReason = 'sw'
+                  }
+                  this.lastServiceWorkerMtimeMs = mtime
+                } catch {
+                  // ignore
+                }
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+
+        const noErr =
+          typeof stats?.hasErrors === 'function'
+            ? !stats.hasErrors()
+            : !stats?.compilation?.errors?.length
+
+        if (noErr && this.pendingHardReloadReason) {
+          const reason = this.pendingHardReloadReason
+          this.pendingHardReloadReason = undefined
+
+          const ctrl = this.cdpController
+
+          const tryReload = async () => {
+            if (!ctrl) {
+              this.logger.warn?.('[reload] controller not ready; skipping reload')
+              return
+            }
+
+            this.logger.info?.(`[reload] reloading extension (reason:${reason})`)
+            await ctrl.hardReload()
+          }
+
+          tryReload()
+          done()
+          return
+        }
+
+        // Fallback
+        this.conditionalHardReload(stats)
         done()
         return
       }
 
       this.launchChromium(stats.compilation, this.browser).then(() => {
-        this.logger?.info(
+        this.logger.info(
           messages.stdoutData(
             this.browser,
             stats.compilation.options.mode as 'development' | 'production'
@@ -383,46 +465,46 @@ export class RunChromiumPlugin {
 
       if (hasErrors) return
 
-      const s = stats as {
-        compilation?: {
-          getAssets?: () => Array<{name: string; emitted?: boolean}>
-        }
-      }
-      const comp =
-        s?.compilation && typeof s.compilation.getAssets === 'function'
-          ? s.compilation
-          : undefined
+      const emitted: string[] = (stats as {compilation: Compilation}).compilation
+        .getAssets()
+        .filter((asset: any) => asset?.emitted)
+        .map((asset) => asset.name.replace(/\\/g, '/'))
 
-      if (!comp) return
+      this.logger.info('[reload-debug] chromium emitted assets:', emitted)
 
-      const getAssets = comp.getAssets as () => Array<{
-        name: string
-        emitted?: boolean
-      }>
-      const emitted: string[] = getAssets()
-        .filter((a) => (a as {emitted?: boolean})?.emitted)
-        .map((a) => String((a as {name: string}).name || ''))
-        .map((n) => n.replace(/\\/g, '/'))
-
-      // Use in-memory manifest asset from the real compilation if present
-      const manifestAsset = (stats as any)?.compilation?.getAsset?.(
-        'manifest.json'
-      )
-      const manifestStr = manifestAsset?.source?.source()?.toString() || ''
+      // Use the same pattern as feature-manifest: read from compilation.assets
+      const assetsObj = (stats as {compilation: Compilation}).compilation.assets as unknown as Record<
+        string,
+        {source: () => unknown}
+      >
+      const manifestAsset = assetsObj['manifest.json']
+      const manifestStr = manifestAsset ? String(manifestAsset.source()) : ''
 
       let serviceWorker: string | undefined
       if (manifestStr) {
-        const manifest = JSON.parse(manifestStr)
-        if (
-          manifest &&
-          manifest.background &&
-          typeof manifest.background.service_worker === 'string'
-        ) {
-          serviceWorker = String(manifest.background.service_worker)
+        try {
+          const manifest = JSON.parse(manifestStr)
+          if (
+            manifest &&
+            manifest.background &&
+            typeof manifest.background.service_worker === 'string'
+          ) {
+            serviceWorker = String(manifest.background.service_worker)
+          }
+        } catch (e) {
+          this.logger.warn('[reload-debug] manifest parse failed:', String(e))
         }
       }
 
-      const isManifestChanged = emitted.includes('manifest.json')
+      // Detect manifest change robustly by comparing asset content
+      let changedByManifestContent = false
+      if (manifestStr) {
+        changedByManifestContent = this.lastManifestString !== manifestStr
+        this.lastManifestString = manifestStr
+      }
+
+      const isManifestChanged =
+        emitted.includes('manifest.json') || changedByManifestContent
       const isLocalesChanged = emitted.some((n) =>
         /(^|\/)__?locales\/.+\.json$/i.test(n)
       )
@@ -432,6 +514,7 @@ export class RunChromiumPlugin {
 
       const changedCritical =
         isManifestChanged || isLocalesChanged || isServiceWorkerChanged
+
       if (changedCritical) {
         const ctrl = this.cdpController
 
