@@ -20,13 +20,22 @@ function createHook() {
 const hasAnsi = (s: string) => /\u001b\[[0-9;]*m/.test(s)
 
 describe('LocalesPlugin (unit)', () => {
-  const tmpRoot = path.resolve(__dirname, '__tmp_locales_plugin__')
-  const manifestPath = path.join(tmpRoot, 'manifest.json')
-  const localesRoot = path.join(tmpRoot, '_locales')
-  const enDir = path.join(localesRoot, 'en')
-  const ptDir = path.join(localesRoot, 'pt_BR')
+  let tmpRoot: string
+  let manifestPath: string
+  let localesRoot: string
+  let enDir: string
+  let ptDir: string
 
   beforeEach(() => {
+    const uniq = `${process.pid}-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2)}`
+    tmpRoot = path.resolve(__dirname, '__tmp_locales_plugin__', uniq)
+    manifestPath = path.join(tmpRoot, 'manifest.json')
+    localesRoot = path.join(tmpRoot, '_locales')
+    enDir = path.join(localesRoot, 'en')
+    ptDir = path.join(localesRoot, 'pt_BR')
+
     fs.mkdirSync(enDir, {recursive: true})
     fs.mkdirSync(ptDir, {recursive: true})
     fs.writeFileSync(manifestPath, '{"name":"x"}')
@@ -44,7 +53,7 @@ describe('LocalesPlugin (unit)', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
-    if (fs.existsSync(tmpRoot))
+    if (tmpRoot && fs.existsSync(tmpRoot))
       fs.rmSync(tmpRoot, {recursive: true, force: true})
   })
 

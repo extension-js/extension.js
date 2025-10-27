@@ -289,7 +289,7 @@ export class CDPExtensionController {
     }
   }
 
-  // Best-effort info retrieval without throwing; returns null if id cannot be determined yet
+  // Best-effort info retrieval without throwing
   async getInfoBestEffort(): Promise<ExtensionInfoResult | null> {
     try {
       if (!this.cdp) return null

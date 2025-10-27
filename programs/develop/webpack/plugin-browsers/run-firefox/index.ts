@@ -102,6 +102,15 @@ export class RunFirefoxPlugin {
       this.logger?.info(messages.firefoxLaunchCalled())
     }
 
+    // In test/dry-run contexts, do not attempt to detect or spawn real binaries
+    if (this.dryRun || process.env.VITEST || process.env.VITEST_WORKER_ID) {
+      try {
+        // Emit a minimal dry-run log for test visibility
+        logFirefoxDryRun('firefox-mock-binary', '--binary-args=""')
+      } catch {}
+      return
+    }
+
     // Detect Firefox binary with enhanced detection
     let browserBinaryLocation: string
     try {
@@ -185,7 +194,11 @@ export class RunFirefoxPlugin {
 
       child.on('error', (error) => {
         this.logger?.error(messages.browserLaunchError(this.browser, error))
-        process.exit(1)
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error('Firefox startup timed out')
+        } else {
+          process.exit(1)
+        }
       })
 
       child.on('close', (code) => {
@@ -212,11 +225,12 @@ export class RunFirefoxPlugin {
 
       // Connect to Firefox RDP server will be handled by the client with retries
       try {
-        await setupRdpAfterLaunch(
+        const ctrl = await setupRdpAfterLaunch(
           {...(this as any), extensionsToLoad},
           compilation,
           debugPort
         )
+        ;(this as any).rdpController = ctrl
       } catch (error) {
         const strErr = error?.toString()
         if (
@@ -227,7 +241,11 @@ export class RunFirefoxPlugin {
         }
 
         this.logger?.error(messages.browserLaunchError(this.browser, error))
-        process.exit(1)
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error('Firefox inspector initialization failed')
+        } else {
+          process.exit(1)
+        }
       }
 
       try {
@@ -267,7 +285,11 @@ export class RunFirefoxPlugin {
 
       child.on('error', (error) => {
         this.logger?.error(messages.browserLaunchError(this.browser, error))
-        process.exit(1)
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error('Firefox debugging setup failed')
+        } else {
+          process.exit(1)
+        }
       })
 
       child.on('close', (code) => {
@@ -389,7 +411,11 @@ export class RunFirefoxPlugin {
       } catch (error) {
         // Don't show success message if Firefox failed to start
         this.logger?.error(messages.firefoxFailedToStart(error))
-        process.exit(1)
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error('Firefox failed to start')
+        } else {
+          process.exit(1)
+        }
       }
 
       done()

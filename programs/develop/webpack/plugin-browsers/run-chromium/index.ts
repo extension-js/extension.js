@@ -97,6 +97,12 @@ export class RunChromiumPlugin {
       return
     }
 
+    // In test/dry-run contexts, skip binary detection and spawning
+    if (this.dryRun || process.env.VITEST || process.env.VITEST_WORKER_ID) {
+      logChromiumDryRun('chromium-mock-binary', [])
+      return
+    }
+
     let browserBinaryLocation: string
 
     switch (browser) {
@@ -111,7 +117,11 @@ export class RunChromiumPlugin {
           this.logger?.error(
             messages.browserNotInstalledError(browser, 'edge binary not found')
           )
-          process.exit(1)
+          if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+            throw new Error('Chromium launch failed')
+          } else {
+            process.exit(1)
+          }
         }
         break
 
@@ -132,7 +142,11 @@ export class RunChromiumPlugin {
       if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
         throw new Error('Browser not installed or binary path not found')
       } else {
-        process.exit(1)
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error('Chromium process crashed')
+        } else {
+          process.exit(1)
+        }
       }
     }
 
@@ -224,6 +238,11 @@ export class RunChromiumPlugin {
       }
 
       await setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
+
+      // Persist controller so subsequent rebuilds can trigger hard reloads
+      if (cdpConfig.cdpController) {
+        this.cdpController = cdpConfig.cdpController as CDPExtensionController
+      }
     } catch (error) {
       if (process.env.EXTENSION_ENV === 'development') {
         console.warn(
@@ -382,13 +401,37 @@ export class RunChromiumPlugin {
       }>
       const emitted: string[] = getAssets()
         .filter((a) => (a as {emitted?: boolean})?.emitted)
-        .map((a) => (a as {name: string}).name)
+        .map((a) => String((a as {name: string}).name || ''))
+        .map((n) => n.replace(/\\/g, '/'))
 
-      const changedCritical = emitted.some((n: string) =>
-        /(^|\/)manifest\.json$|(^|\/)background\/(service_worker|script)\.js$/i.test(
-          String(n || '')
-        )
+      // Use in-memory manifest asset from the real compilation if present
+      const manifestAsset = (stats as any)?.compilation?.getAsset?.(
+        'manifest.json'
       )
+      const manifestStr = manifestAsset?.source?.source()?.toString() || ''
+
+      let serviceWorker: string | undefined
+      if (manifestStr) {
+        const manifest = JSON.parse(manifestStr)
+        if (
+          manifest &&
+          manifest.background &&
+          typeof manifest.background.service_worker === 'string'
+        ) {
+          serviceWorker = String(manifest.background.service_worker)
+        }
+      }
+
+      const isManifestChanged = emitted.includes('manifest.json')
+      const isLocalesChanged = emitted.some((n) =>
+        /(^|\/)__?locales\/.+\.json$/i.test(n)
+      )
+      const isServiceWorkerChanged = !!(
+        serviceWorker && emitted.includes(serviceWorker.replace(/\\/g, '/'))
+      )
+
+      const changedCritical =
+        isManifestChanged || isLocalesChanged || isServiceWorkerChanged
       if (changedCritical) {
         const ctrl = this.cdpController
 

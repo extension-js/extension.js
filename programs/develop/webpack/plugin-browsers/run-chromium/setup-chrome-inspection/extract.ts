@@ -18,7 +18,7 @@ export async function extractPageHtml(
       const fallbackTarget = targets.find(
         (target) =>
           target.type === 'page' &&
-          /example\.com|pudim|http/.test(String(target.url || ''))
+          /example\.com|http/.test(String(target.url || ''))
       )
 
       if (fallbackTarget && fallbackTarget.targetId) {
