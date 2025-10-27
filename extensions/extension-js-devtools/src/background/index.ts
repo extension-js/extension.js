@@ -2,6 +2,9 @@ import {initManagerUI} from './manager-ui'
 import {appendExternalLog} from './log-central'
 import {type LogLevel} from '@/types/logger'
 
+// Feature flag: off by default. When false, Debugger-based capture is disabled.
+const ENABLE_DEBUGGER_CAPTURE = false
+
 chrome.runtime.onStartup.addListener(async () => {
   await initManagerUI()
 })
@@ -16,27 +19,26 @@ const ATTACHED: Set<number> = new Set()
 
 chrome.tabs.onUpdated.addListener(
   async (tabId: number, info: chrome.tabs.TabChangeInfo) => {
+    if (!ENABLE_DEBUGGER_CAPTURE) return
     if (info.status !== 'complete') return
     if (ATTACHED.has(tabId)) return
 
     // Only available in Chromium. Guard on Firefox
     // @ts-ignore
     const isFirefox = import.meta.env.EXTENSION_BROWSER === 'firefox'
-
     if (isFirefox) return
 
     await chrome.debugger.attach({tabId}, '1.3')
     ATTACHED.add(tabId)
     await chrome.debugger.sendCommand({tabId}, 'Runtime.enable')
     await chrome.debugger.sendCommand({tabId}, 'Log.enable')
-    // Enable network to observe 404/failed requests
     await chrome.debugger.sendCommand({tabId}, 'Network.enable')
   }
 )
 
 chrome.tabs.onRemoved.addListener((tabId: number) => {
+  if (!ENABLE_DEBUGGER_CAPTURE) return
   if (!ATTACHED.has(tabId)) return
-
   // Only available in Chromium. Guard on Firefox
   // @ts-ignore
   const isFirefox = import.meta.env.EXTENSION_BROWSER === 'firefox'
@@ -65,6 +67,7 @@ type NetworkLoadingFailedParams = {
 
 // Guard listener registration where debugger api exists
 if (
+  ENABLE_DEBUGGER_CAPTURE &&
   typeof chrome?.debugger !== 'undefined' &&
   chrome.debugger?.onEvent?.addListener
 ) {
