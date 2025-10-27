@@ -113,6 +113,7 @@ export async function extensionPreview(
       }
 
       if (!stats?.hasErrors()) {
+        console.log('')
         console.log(messages.runningInProduction(manifestDir))
       } else {
         try {
