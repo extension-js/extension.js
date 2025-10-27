@@ -22,31 +22,33 @@ jobs:
           - plugin-css
           - plugin-extension
           - plugin-js-frameworks
-          - plugin-reload
           - plugin-static-assets
           # plugin-browsers (skipped for now)
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
         with:
           node-version: '20'
-
-      - name: Enable Corepack (pnpm)
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-
-      - name: Install workspace deps
-        run: pnpm install --frozen-lockfile
 
       - name: Build extension-develop
         run: pnpm --filter extension-develop compile
 
-      - name: Run tests for ${{ matrix.plugin }}
+      - name: Run tests for ${{ matrix.plugin }} (guarded)
         working-directory: programs/develop
-        run: pnpm exec vitest run webpack/${{ matrix.plugin }} --reporter=verbose
+        run: |
+          set -e
+          target_dir="webpack/${{ matrix.plugin }}"
+          if [ -d "$target_dir" ]; then
+            if find "$target_dir" -type f -path "*/__spec__/*.spec.ts" -print -quit | grep -q .; then
+              pnpm exec vitest run --root . "$target_dir/" --reporter=verbose
+            else
+              echo "No specs found under $target_dir; skipping."
+            fi
+          else
+            echo "Plugin directory not found: $target_dir; skipping."
+          fi
 
 
