@@ -1,15 +1,11 @@
 import {Compilation} from '@rspack/core'
 import {MessagingClient} from './messaging-client'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
-import {resolveAddonDirectory} from './addons'
 import {type PluginInterface} from '../../browsers-types'
-import colors from 'pintor'
 import * as messages from '../../browsers-lib/messages'
 import {
   printRunningInDevelopmentSummary,
-  printSourceInspection,
-  printLogEventJson,
-  printLogEventPretty
+  printSourceInspection
 } from '../firefox-utils'
 import {
   getAddonsActorWithRetry,
@@ -264,11 +260,35 @@ export class RemoteFirefox {
         (normalizedOptionPort as number) || (devPort ? devPort + 100 : 9222)
       const client = this.client || (await this.connectClient(rdpPort))
 
-      const critical = (changedAssets || []).some((n) =>
-        /(^|\/)manifest\.json$|(^|\/)background\/(service_worker|script)\.js$/i.test(
-          String(n || '')
-        )
+      const manifestAsset = compilation.getAsset('manifest.json')
+      const manifestStr = manifestAsset?.source?.source()?.toString() || ''
+
+      if (!manifestStr) return
+
+      let serviceWorker: string | undefined
+
+      if (manifestStr) {
+        const manifest = JSON.parse(manifestStr)
+        serviceWorker =
+          typeof manifest?.background?.service_worker === 'string'
+            ? String(manifest.background.service_worker)
+            : undefined
+      }
+
+      const normalized = (changedAssets || [])
+        .map((n) => String(n || ''))
+        .map((n) => n.replace(/\\/g, '/'))
+
+      const isManifestChanged = normalized.includes('manifest.json')
+      const isLocalesChanged = normalized.some((n) =>
+        /(^|\/)__?locales\/.+\.json$/i.test(n)
       )
+      const isServiceWorkerChanged = !!(
+        serviceWorker && normalized.includes(serviceWorker.replace(/\\/g, '/'))
+      )
+
+      const critical =
+        isManifestChanged || isLocalesChanged || isServiceWorkerChanged
       if (!critical) return
 
       await this.reloadAddonOrReinstall(client)
