@@ -7,9 +7,8 @@
 
 > Preact-based extension with sidebar panel
 
-What this template does in the scope of a browser extension. The description should
-describe for an audience of developers looking to use the template. Avoid jargon and
-use simple language.
+Ultra-light extension UI with Preact. Instant dev server, production-grade builds,
+and previews that mirror the browser. Minimal footprint, maximum speed.
 
 ## Installation
 
@@ -47,4 +46,4 @@ npx extension@latest preview
 
 ## Learn more
 
-Learn more about this and other templates at @https://extension.js.org/
+Learn more about this and other templates at https://extension.js.org/

@@ -1,4 +1,4 @@
-name: ci-tests
+name: Tests – Core
 
 permissions:
   contents: read
@@ -14,65 +14,32 @@ on:
   pull_request:
 
 jobs:
-  unit:
-    runs-on: ubuntu-latest
+  cli-unit:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup
         with:
           node-version: 20
-          cache: 'pnpm'
-      - uses: pnpm/action-setup@v4
-      - run: pnpm i --frozen-lockfile
       - name: Turbo cache
         uses: actions/cache@v4
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
-      - run: pnpm test:unit
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: '**/coverage/lcov.info'
-          fail_ci_if_error: false
+      - name: Run CLI unit tests
+        run: pnpm -w --filter ./programs/cli test
+      # Coverage upload removed
 
-  specs:
-    runs-on: ubuntu-latest
+  develop-unit:
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: ./.github/actions/setup
         with:
           node-version: 20
-          cache: 'pnpm'
-      - uses: pnpm/action-setup@v4
-      - run: pnpm i --frozen-lockfile
-      - run: pnpm test:specs
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: '**/coverage/lcov.info'
-          fail_ci_if_error: false
+      - name: Run Develop unit/integration tests
+        run: pnpm -w --filter ./programs/develop test
+      # Coverage upload removed
 
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-      - uses: pnpm/action-setup@v4
-      - run: pnpm i --frozen-lockfile
-      - name: Cache Playwright
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: pw-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
-      - run: pnpm e2e:install-browsers
-      - run: pnpm test:e2e
-      - if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: e2e-report
+  # E2E tests run in dedicated workflow .github/workflows/e2e.yml
 

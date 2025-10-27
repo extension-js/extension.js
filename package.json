@@ -13,7 +13,11 @@
     "watch": "pnpm compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
     "lint": "eslint .",
-    "test": "dotenv -- turbo run test --filter=./programs/cli --filter=./programs/develop"
+    "test": "dotenv -- turbo run test --filter=./programs/cli --filter=./programs/develop",
+    "test:cli": "dotenv -- turbo run test --filter=./programs/cli",
+    "test:build": "dotenv -- turbo run test --filter=./programs/develop",
+    "test:dev": "dotenv -- turbo run test --filter=./programs/develop",
+    "test:e2e": "pnpm exec playwright test"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.6",

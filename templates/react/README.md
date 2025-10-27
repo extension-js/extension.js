@@ -7,9 +7,8 @@
 
 > React-based extension with sidebar panel
 
-What this template does in the scope of a browser extension. The description should
-describe for an audience of developers looking to use the template. Avoid jargon and
-use simple language.
+Build a fast, modern extension UI with React. Live reload, optimized builds, and
+instant previews tuned for browser extensions. No config—just ship.
 
 ## Installation
 
@@ -47,4 +46,4 @@ npx extension@latest preview
 
 ## Learn more
 
-Learn more about this and other templates at @https://extension.js.org/
+Learn more about this and other templates at https://extension.js.org/

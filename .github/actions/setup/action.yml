@@ -15,10 +15,13 @@ runs:
   using: "composite"
   steps:
     - name: Checkout repository
+      if: ${{ env.ACT != 'true' }}
       uses: actions/checkout@v4
 
     - name: Install pnpm
       uses: pnpm/action-setup@v4
+      with:
+        version: 9.9.0
 
     - name: Use Node.js ${{ inputs.node-version }}
       uses: actions/setup-node@v4
@@ -27,6 +30,10 @@ runs:
         cache: 'pnpm'
         registry-url: 'https://registry.npmjs.org'
         always-auth: true
+
+    - name: Verify pnpm
+      shell: bash
+      run: pnpm --version
 
     - name: Install dependencies
       shell: bash

@@ -12,6 +12,5 @@ jobs:
           node-version: '20'
       - run: pnpm compile
       - run: pnpm -w --filter ./programs/cli exec vitest run
-      - run: pnpm test:cleanup
 
 

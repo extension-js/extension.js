@@ -1,4 +1,4 @@
-name: Develop – Tests
+name: Tests – Develop (Package)
 
 on:
   push:
@@ -16,23 +16,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup toolchain
+        uses: ./.github/actions/setup
         with:
           node-version: '20'
 
-      - name: Enable Corepack (pnpm)
-        run: |
-          corepack enable
-          corepack prepare pnpm@latest --activate
-
-      - name: Install workspace deps
-        run: pnpm install --frozen-lockfile
-
       - name: Build extension-develop
-        run: pnpm --filter extension-develop compile
+        run: pnpm -w --filter ./programs/develop compile
 
       - name: Run tests for extension-develop
-        run: pnpm -F extension-develop test
+        run: pnpm -w --filter ./programs/develop test
 
 
