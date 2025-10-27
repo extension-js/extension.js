@@ -40,7 +40,6 @@
     "tabs",
     "sidePanel",
     "webNavigation",
-    "debugger",
     "webRequest"
   ],
   "firefox:permissions": [
