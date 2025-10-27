@@ -1,0 +1,99 @@
+const fs = require('fs')
+const path = require('path')
+const {execSync} = require('child_process')
+
+function copyDir(src, dest) {
+  if (!fs.existsSync(src)) return
+  if (!fs.existsSync(dest)) fs.mkdirSync(dest, {recursive: true})
+
+  const entries = fs.readdirSync(src, {withFileTypes: true})
+
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name)
+    const destPath = path.join(dest, entry.name)
+
+    if (entry.isDirectory()) {
+      copyDir(srcPath, destPath)
+    } else if (entry.isSymbolicLink()) {
+      try {
+        const real = fs.realpathSync(srcPath)
+        const data = fs.readFileSync(real)
+        fs.writeFileSync(destPath, data)
+      } catch {
+        // Ignore
+      }
+    } else {
+      fs.copyFileSync(srcPath, destPath)
+    }
+  }
+}
+
+function main() {
+  const root = path.resolve(__dirname, '..')
+  const extensionsDir = path.join(root, 'extensions')
+  const developDistRoot = path.join(root, 'programs', 'develop', 'dist')
+
+  if (!fs.existsSync(extensionsDir)) return
+  const entries = fs.readdirSync(extensionsDir, {withFileTypes: true})
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    const extName = entry.name
+    const extRoot = path.join(extensionsDir, extName)
+
+    // Skip folders without package.json
+    const pkgJson = path.join(extRoot, 'package.json')
+    if (!fs.existsSync(pkgJson)) continue
+
+    try {
+      const nodeModules = path.join(extRoot, 'node_modules')
+      const needsInstall =
+        !fs.existsSync(nodeModules) ||
+        (fs.existsSync(nodeModules) && fs.readdirSync(nodeModules).length === 0)
+      if (needsInstall) {
+        execSync('pnpm install --silent', {cwd: extRoot, stdio: 'inherit'})
+      }
+    } catch {
+      // Ignore
+    }
+
+    // Build chrome and firefox if scripts exist. Otherwise, try a generic build
+    let built = false
+    try {
+      execSync('pnpm run -s build:chrome', {cwd: extRoot, stdio: 'inherit'})
+      built = true
+    } catch {
+      // Ignore
+    }
+    try {
+      execSync('pnpm run -s build:firefox', {cwd: extRoot, stdio: 'inherit'})
+      built = true
+    } catch {
+      // Ignore
+    }
+    if (!built) {
+      try {
+        execSync('pnpm run -s build', {cwd: extRoot, stdio: 'inherit'})
+      } catch {
+        // Ignore
+      }
+    }
+
+    // Prefer src/dist first, then dist
+    const extensionDistDir = path.join(extRoot, 'dist')
+    if (!fs.existsSync(extensionDistDir)) continue
+
+    const targets = ['chrome', 'firefox']
+
+    for (const browser of targets) {
+      const src = path.join(extensionDistDir, browser)
+
+      if (!fs.existsSync(src)) continue
+
+      const dest = path.join(developDistRoot, extName, browser)
+      copyDir(src, dest)
+    }
+  }
+}
+
+main()
