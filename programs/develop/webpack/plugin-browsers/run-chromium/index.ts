@@ -338,9 +338,14 @@ export class RunChromiumPlugin {
           let hitServiceWorker = false
 
           if (this.lastServiceWorkerAbsPath) {
-            const absoluteFilePath = this.lastServiceWorkerAbsPath.replace(/\\/g, '/')
+            const absoluteFilePath = this.lastServiceWorkerAbsPath.replace(
+              /\\/g,
+              '/'
+            )
             hitServiceWorker = normalizedFilePaths.some(
-              (filePath) => filePath === absoluteFilePath || filePath.endsWith(absoluteFilePath)
+              (filePath) =>
+                filePath === absoluteFilePath ||
+                filePath.endsWith(absoluteFilePath)
             )
           }
 
@@ -348,7 +353,10 @@ export class RunChromiumPlugin {
           else if (hitLocales) this.pendingHardReloadReason = 'locales'
           else if (hitServiceWorker) this.pendingHardReloadReason = 'sw'
         } catch (error) {
-          this.logger.warn?.('[reload-debug] watchRun inspect failed:', String(error))
+          this.logger.warn?.(
+            '[reload-debug] watchRun inspect failed:',
+            String(error)
+          )
         }
         done()
       }
@@ -370,7 +378,8 @@ export class RunChromiumPlugin {
         // Refresh SW absolute path and detect change via mtime
         try {
           const extensionRoot = Array.isArray(this.extension)
-            ? (this.extension.find((e): e is string => typeof e === 'string') || '')
+            ? this.extension.find((e): e is string => typeof e === 'string') ||
+              ''
             : (this.extension as string)
 
           if (extensionRoot) {
@@ -418,11 +427,15 @@ export class RunChromiumPlugin {
 
           const tryReload = async () => {
             if (!ctrl) {
-              this.logger.warn?.('[reload] controller not ready; skipping reload')
+              this.logger.warn?.(
+                '[reload] controller not ready; skipping reload'
+              )
               return
             }
 
-            this.logger.info?.(`[reload] reloading extension (reason:${reason})`)
+            this.logger.info?.(
+              `[reload] reloading extension (reason:${reason})`
+            )
             await ctrl.hardReload()
           }
 
@@ -465,7 +478,9 @@ export class RunChromiumPlugin {
 
       if (hasErrors) return
 
-      const emitted: string[] = (stats as {compilation: Compilation}).compilation
+      const emitted: string[] = (
+        stats as {compilation: Compilation}
+      ).compilation
         .getAssets()
         .filter((asset: any) => asset?.emitted)
         .map((asset) => asset.name.replace(/\\/g, '/'))
@@ -473,10 +488,8 @@ export class RunChromiumPlugin {
       this.logger.info('[reload-debug] chromium emitted assets:', emitted)
 
       // Use the same pattern as feature-manifest: read from compilation.assets
-      const assetsObj = (stats as {compilation: Compilation}).compilation.assets as unknown as Record<
-        string,
-        {source: () => unknown}
-      >
+      const assetsObj = (stats as {compilation: Compilation}).compilation
+        .assets as unknown as Record<string, {source: () => unknown}>
       const manifestAsset = assetsObj['manifest.json']
       const manifestStr = manifestAsset ? String(manifestAsset.source()) : ''
 
