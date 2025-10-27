@@ -24,20 +24,15 @@ export class SetupChromeInspectionStep {
   }
 
   private async getCdpPort(): Promise<number> {
-    const instanceId = (this.devOptions as unknown as {instanceId?: string})
-      .instanceId
-    // Registry removed; always derive
-    return deriveDebugPortWithInstance(
-      this.devOptions.port as unknown as number,
-      instanceId
-    )
+    const instanceId = this.devOptions.instanceId
+    return deriveDebugPortWithInstance(this.devOptions.port, instanceId)
   }
 
   async initialize(port?: number): Promise<void> {
     try {
       if (!port) port = await this.getCdpPort()
-      const instanceId = (this.devOptions as unknown as {instanceId?: string})
-        .instanceId
+
+      const instanceId = this.devOptions.instanceId
       await waitForChromeRemoteDebugging(port, instanceId)
 
       this.cdpClient = new CDPClient(port)
@@ -338,7 +333,7 @@ export class SetupChromeInspectionStep {
           const html = await this.inspectSource(urlToInspect)
           this.printHTML(html)
 
-          // Watch mode is only for development. Prefer websocket if present; otherwise fallback to immediate re-extract on rebuild.
+          // Watch mode is only for development.
           const webSocketServer = (compiler.options as any).webSocketServer
           if (
             this.devOptions.watchSource &&

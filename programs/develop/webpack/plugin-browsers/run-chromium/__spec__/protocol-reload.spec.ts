@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {describe, it, expect, vi, afterEach} from 'vitest'
 import Module from 'module'
 import {RunChromiumPlugin} from '../index'
 
@@ -52,5 +52,36 @@ describe('Chromium protocol reload path', () => {
     plugin.apply(compiler)
     // If no exceptions here, the controller successfully attached in dryRun
     expect(true).toBe(true)
+  })
+
+  it('triggers hard reload when manifest-derived SW .mjs asset is emitted', async () => {
+    const plugin = new RunChromiumPlugin({
+      extension: '/ext',
+      browser: 'chrome',
+      port: 9333,
+      dryRun: true
+    } as any)
+
+    // Inject a mock controller retained by plugin
+    const ctrl = {hardReload: vi.fn(async () => {})}
+    ;(plugin as any).cdpController = ctrl
+
+    const getAssets = () => [
+      {name: 'background/service_worker.mjs', emitted: true},
+      {name: 'manifest.json', emitted: true}
+    ]
+
+    const stats: any = {
+      compilation: {
+        options: {mode: 'development', context: process.cwd()},
+        getAssets
+      },
+      hasErrors: () => false
+    }
+
+    // Call the private method through casting
+    await (plugin as any).conditionalHardReload(stats)
+
+    expect(ctrl.hardReload).toHaveBeenCalled()
   })
 })

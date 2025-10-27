@@ -44,7 +44,7 @@ export async function setupRdpAfterLaunch(
   plugin: PluginLike & {[k: string]: unknown},
   compilation: Compilation,
   debugPort: number
-) {
+): Promise<FirefoxRDPController> {
   const controller = new FirefoxRDPController(plugin, debugPort)
 
   const retry = async <T>(fn: () => Promise<T>, attempts = 5, baseMs = 150) => {
@@ -93,4 +93,5 @@ export async function setupRdpAfterLaunch(
       }
     }
   }
+  return controller
 }

@@ -7,7 +7,8 @@ import {getLocales} from '../get-locales'
 // They avoid framework/e2e concerns and operate purely on the filesystem.
 
 describe('getLocales (unit)', () => {
-  const tmpRoot = path.resolve(__dirname, '__tmp_locales__')
+  const uniq = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const tmpRoot = path.resolve(__dirname, '__tmp_locales__', uniq)
   const manifestPath = path.join(tmpRoot, 'manifest.json')
   const localesRoot = path.join(tmpRoot, '_locales')
   const enDir = path.join(localesRoot, 'en')
