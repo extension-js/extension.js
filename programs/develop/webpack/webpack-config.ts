@@ -43,19 +43,19 @@ export default function webpackConfig(
     ? path.dirname(packageJsonPath)
     : manifestDir
 
-  const manifest = utils.filterKeysForThisBrowser(
-    JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
-    devOptions.browser
-  )
-  const userExtensionOutputPath = path.isAbsolute(devOptions.output.path)
-    ? devOptions.output.path
-    : path.resolve(packageJsonDir, devOptions.output.path)
-
   const browser = devOptions.chromiumBinary
     ? 'chromium-based'
     : devOptions.geckoBinary
       ? 'gecko-based'
       : devOptions.browser
+
+  const manifest = utils.filterKeysForThisBrowser(
+    JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
+    browser
+  )
+  const userExtensionOutputPath = path.isAbsolute(devOptions.output.path)
+    ? devOptions.output.path
+    : path.resolve(packageJsonDir, devOptions.output.path)
 
   // Build list of extensions to load in the browser.
   // Always load the user extension; in development, also load the devtools manager for this browser when present.
@@ -68,9 +68,7 @@ export default function webpackConfig(
       '../dist/extension-js-devtools'
     )
     const vendor =
-      devOptions.browser === 'firefox' || devOptions.browser === 'gecko-based'
-        ? 'firefox'
-        : 'chrome'
+      browser === 'firefox' || browser === 'gecko-based' ? 'firefox' : 'chrome'
     const devtoolsForBrowser = path.join(devtoolsRoot, vendor)
 
     if (fs.existsSync(devtoolsForBrowser)) {
