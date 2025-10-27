@@ -31,8 +31,6 @@ jobs:
         run: npx playwright install --with-deps
       - name: Run CLI Tests
         run: pnpm test:cli
-      - name: Run Create Tests
-        run: pnpm test:create
       - name: Build examples (chrome)
         run: |
           pnpm extension build examples/content-typescript --browser chrome --silent true

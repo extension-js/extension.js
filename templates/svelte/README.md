@@ -7,9 +7,8 @@
 
 > Svelte-based extension with sidebar panel
 
-What this template does in the scope of a browser extension. The description should
-describe for an audience of developers looking to use the template. Avoid jargon and
-use simple language.
+Lean, reactive extension UI with Svelte. Hot reloading, tight DX, and zero-runtime
+overhead where it counts. Build and preview exactly how it will run in the browser.
 
 ## Installation
 
@@ -47,4 +46,4 @@ npx extension@latest preview
 
 ## Learn more
 
-Learn more about this and other templates at @https://extension.js.org/
+Learn more about this and other templates at https://extension.js.org/

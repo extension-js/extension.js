@@ -1,11 +1,8 @@
 name: Programs – Create
 
 on:
+  # Disabled from automatic CI triggers; keep manual dispatch only
   workflow_dispatch:
-  pull_request:
-    branches: [ main, 'v[0-9]+.x' ]
-  push:
-    branches: [ main ]
 
 permissions:
   contents: read
@@ -16,6 +13,8 @@ concurrency:
 
 jobs:
   create:
+    # Fully disable this job in CI (kept for reference only)
+    if: ${{ false }}
     name: Create Tests
     runs-on: ubuntu-22.04
     timeout-minutes: 45
@@ -37,8 +36,7 @@ jobs:
       - name: Compile
         run: pnpm compile
 
-      - name: Run Create Tests
-        run: pnpm test:create
+      # Create tests removed; package no longer exists in this repo
 
       - name: Upload create dist on failure
         if: failure()

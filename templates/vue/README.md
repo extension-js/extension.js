@@ -7,9 +7,8 @@
 
 > Vue.js-based extension with sidebar panel
 
-What this template does in the scope of a browser extension. The description should
-describe for an audience of developers looking to use the template. Avoid jargon and
-use simple language.
+Vue-first extension development. Fast feedback loop, production-ready output, and
+browser-accurate previews. Focus on the UI—everything else is handled.
 
 ## Installation
 
@@ -47,4 +46,4 @@ npx extension@latest preview
 
 ## Learn more
 
-Learn more about this and other templates at @https://extension.js.org/
+Learn more about this and other templates at https://extension.js.org/

@@ -7,9 +7,8 @@
 
 > JavaScript-based extension template
 
-What this template does in the scope of a browser extension. The description should
-describe for an audience of developers looking to use the template. Avoid jargon and
-use simple language.
+Lightweight JavaScript starter for extensions. Instant dev server, production builds,
+and previews that match the browser environment. Start simple, scale when needed.
 
 ## Installation
 
@@ -47,4 +46,4 @@ npx extension@latest preview
 
 ## Learn more
 
-Learn more about this and other templates at @https://extension.js.org/
+Learn more about this and other templates at https://extension.js.org/

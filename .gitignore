@@ -66,6 +66,12 @@ test-results.json
 /playwright/.cache/
 /e2e-report/
 specs/
+
+# test temp folders (generated during specs)
+# ensure nested .tmp-* directories are ignored anywhere in the tree
+.tmp-*/
+**/.tmp-*/
+**/.tmp-*/**
 templates/wasm/
 programs/develop/webpack/plugin-extension/feature-html/html-lib/parse5-utilities
 

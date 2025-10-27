@@ -7,9 +7,8 @@
 
 > TypeScript-based extension template
 
-What this template does in the scope of a browser extension. The description should
-describe for an audience of developers looking to use the template. Avoid jargon and
-use simple language.
+Type-safe extension foundation with zero framework. Ship background and content
+logic confidently with fast builds and accurate previews—no boilerplate required.
 
 ## Installation
 
@@ -47,4 +46,4 @@ npx extension@latest preview
 
 ## Learn more
 
-Learn more about this and other templates at @https://extension.js.org/
+Learn more about this and other templates at https://extension.js.org/

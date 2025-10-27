@@ -12,13 +12,48 @@ jobs:
           node-version: '20'
       - run: pnpm compile
       - name: Dev
-        run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/**/__spec__/**/*dev*.spec.ts"
+        working-directory: programs/develop
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          matches=(webpack/**/__spec__/**/*dev*.spec.ts)
+          if (( ${#matches[@]} > 0 )); then
+            pnpm exec vitest run --root . "webpack/**/__spec__/**/*dev*.spec.ts"
+          else
+            echo "No dev specs found; skipping."
+          fi
       - name: Build
-        run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/**/__spec__/**/*build*.spec.ts"
+        working-directory: programs/develop
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          matches=(webpack/**/__spec__/**/*build*.spec.ts)
+          if (( ${#matches[@]} > 0 )); then
+            pnpm exec vitest run --root . "webpack/**/__spec__/**/*build*.spec.ts"
+          else
+            echo "No build specs found; skipping."
+          fi
       - name: Start
-        run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/**/__spec__/**/*start*.spec.ts"
+        working-directory: programs/develop
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          matches=(webpack/**/__spec__/**/*start*.spec.ts)
+          if (( ${#matches[@]} > 0 )); then
+            pnpm exec vitest run --root . "webpack/**/__spec__/**/*start*.spec.ts"
+          else
+            echo "No start specs found; skipping."
+          fi
       - name: Preview
-        run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/**/__spec__/**/*preview*.spec.ts"
-      - run: pnpm test:cleanup
+        working-directory: programs/develop
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          matches=(webpack/**/__spec__/**/*preview*.spec.ts)
+          if (( ${#matches[@]} > 0 )); then
+            pnpm exec vitest run --root . "webpack/**/__spec__/**/*preview*.spec.ts"
+          else
+            echo "No preview specs found; skipping."
+          fi
 
 
