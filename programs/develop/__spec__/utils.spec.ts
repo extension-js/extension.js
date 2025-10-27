@@ -204,6 +204,32 @@ describe('utils', () => {
         background: {scripts: ['background.js']}
       })
     })
+
+    it('should map chromium-based to accept chromium:, chrome:, and edge: prefixes', () => {
+      const manifest: Manifest = {
+        name: 'X',
+        'chromium:action': {default_title: 'A'},
+        'chrome:action': {default_title: 'B'},
+        'edge:action': {default_title: 'C'},
+        'firefox:browser_action': {default_title: 'F'}
+      } as any
+      const result = utils.filterKeysForThisBrowser(manifest, 'chromium-based')
+      // Last write wins in our JSON reviver when multiple prefixed keys map to same plain key
+      expect(result.action).toBeDefined()
+      expect(result.browser_action).toBeUndefined()
+    })
+
+    it('should map gecko-based to accept gecko: and firefox: prefixes', () => {
+      const manifest: Manifest = {
+        name: 'Y',
+        'gecko:browser_specific_settings': {gecko: {id: 'addon@example.com'}},
+        'firefox:browser_specific_settings': {gecko: {id: 'other@example.com'}},
+        'chrome:action': {default_title: 'C'}
+      } as any
+      const result = utils.filterKeysForThisBrowser(manifest, 'gecko-based')
+      expect(result.browser_specific_settings).toBeDefined()
+      expect(result.action).toBeUndefined()
+    })
   })
 
   describe('isFromPnpx', () => {

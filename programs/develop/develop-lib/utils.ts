@@ -7,7 +7,7 @@ import {execSync} from 'child_process'
 import {detect} from 'package-manager-detector'
 import * as messages from '../webpack/plugin-js-frameworks/js-frameworks-lib/messages.ts'
 import {type Manifest, type FilepathList} from '../webpack/webpack-types.ts'
-import {CHROMIUM_BASED_BROWSERS} from './constants'
+import {CHROMIUM_BASED_BROWSERS, GECKO_BASED_BROWSERS} from './constants'
 import {DevOptions} from '../module.ts'
 
 export function getResolvedPath(
@@ -378,6 +378,16 @@ export function filterKeysForThisBrowser(
   manifest: Manifest,
   browser: DevOptions['browser']
 ) {
+  const isChromiumTarget =
+    CHROMIUM_BASED_BROWSERS.includes(browser) ||
+    String(browser).includes('chromium')
+
+  const isGeckoTarget =
+    GECKO_BASED_BROWSERS.includes(browser) || String(browser).includes('gecko')
+
+  const chromiumPrefixes = new Set(['chromium', 'chrome', 'edge'])
+  const geckoPrefixes = new Set(['gecko', 'firefox'])
+
   const patchedManifest = JSON.parse(
     JSON.stringify(manifest),
     function reviver(this: any, key: string, value: any) {
@@ -392,10 +402,12 @@ export function filterKeysForThisBrowser(
       const prefix = key.substring(0, indexOfColon)
 
       if (
+        // exact browser match (e.g., 'firefox')
         prefix === browser ||
-        (prefix === 'chromium' && CHROMIUM_BASED_BROWSERS.includes(browser)) ||
-        (prefix === 'chromium' && browser.includes('chromium')) ||
-        (prefix === 'gecko' && browser.includes('gecko'))
+        // chromium family
+        (isChromiumTarget && chromiumPrefixes.has(prefix)) ||
+        // gecko/firefox family
+        (isGeckoTarget && geckoPrefixes.has(prefix))
       ) {
         this[key.substring(indexOfColon + 1)] = value
       }
