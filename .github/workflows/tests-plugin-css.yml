@@ -11,7 +11,7 @@ jobs:
         with:
           node-version: '20'
       - run: pnpm compile
-      - run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/plugin-css/**/__spec__/**/*.spec.ts"
-      - run: pnpm test:cleanup
+      - run: pnpm exec vitest run --root . "webpack/plugin-css/"
+        working-directory: programs/develop
 
 

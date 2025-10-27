@@ -1,5 +1,7 @@
 [npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0971fe
 [npm-version-url]: https://www.npmjs.com/package/extension
+[downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=2ecc40
+[downloads-url]: https://npmjs.org/package/extension
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=2ecc40
 [action-url]: https://github.com/extension-js/extension.js/actions
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=2ecc40
@@ -9,9 +11,9 @@
 
 > The cross-browser extension framework
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
 
-<img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="15.5%" />
+<img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="20%" />
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
 - [Get Started Immediately](#get-started-immediately) — Get work done in no time.
@@ -104,7 +106,7 @@ Done. You are all set!
 
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chromium/chromium.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> |
 | :-----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: |
-|                                          Chrome browser<br>✅                                           |                                         Edge browser<br>✅                                          |                                           Firefox browser<br>✅                                           |                                        Safari browser<br>(soon)                                         |                                            Chromium-based<br>✅                                             |                                     Gecko-based<br>✅                                     |
+|                                          Chrome browser<br>✅                                           |                                         Edge browser<br>✅                                          |                                           Firefox browser<br>✅                                           |                                        Safari browser<br>(soon)                                         |                                            Chromium-based<br>✅                                             |                                             Gecko-based<br>✅                                             |
 
 ### Browser flags and custom binaries
 
@@ -112,7 +114,7 @@ Use these flags with `extension dev`, `extension start`, or `extension preview`:
 
 - Select a browser: `--browser <chrome | edge | firefox>`
 - Custom Chromium binary: `--chromium-binary <path-to-binary>`
-- Custom Gecko/Firefox binary: `--gecko-binary <path-to-binary>`
+- Custom Gecko (Firefox) binary: `--gecko-binary <path-to-binary>`
 
 Examples:
 

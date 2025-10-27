@@ -1,4 +1,4 @@
-name: E2E (Manual / Nightly)
+name: Tests – E2E
 
 on:
   workflow_dispatch:
@@ -20,10 +20,16 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Cache Playwright
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+
       - name: Compile Extension.js
         run: pnpm compile
 
-      - name: Install Playwright Browsers
+      - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
       - name: Run E2E Tests (headed under Xvfb)
