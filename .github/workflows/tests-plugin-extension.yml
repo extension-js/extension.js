@@ -23,7 +23,16 @@ jobs:
         with:
           node-version: '20'
       - run: pnpm compile
-      - run: pnpm -w --filter ./programs/develop exec vitest run --include "webpack/plugin-extension/${{ matrix.feature }}/**/__spec__/**/*.spec.ts"
-      - run: pnpm test:cleanup
+      - name: Run tests for ${{ matrix.feature }} (if any)
+        working-directory: programs/develop
+        run: |
+          set -e
+          shopt -s globstar nullglob
+          matches=(webpack/plugin-extension/${{ matrix.feature }}/**/__spec__/**/*.spec.ts)
+          if (( ${#matches[@]} > 0 )); then
+            pnpm exec vitest run --root . "webpack/plugin-extension/${{ matrix.feature }}/"
+          else
+            echo "No specs found for ${{ matrix.feature }}; skipping."
+          fi
 
 
