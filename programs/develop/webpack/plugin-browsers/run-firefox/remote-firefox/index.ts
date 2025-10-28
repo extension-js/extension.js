@@ -260,9 +260,6 @@ export class RemoteFirefox {
         (normalizedOptionPort as number) || (devPort ? devPort + 100 : 9222)
       const client = this.client || (await this.connectClient(rdpPort))
 
-      const manifestAsset = compilation.getAsset('manifest.json')
-      const manifestStr = manifestAsset?.source?.source()?.toString() || ''
-
       const normalized = (changedAssets || [])
         .map((n) => String(n || ''))
         .map((n) => n.replace(/\\/g, '/'))

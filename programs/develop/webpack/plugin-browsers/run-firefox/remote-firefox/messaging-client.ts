@@ -39,7 +39,7 @@ export class MessagingClient extends EventEmitter {
       const to = typeof rp.to === 'string' ? rp.to : 'root'
       return await this.transport.request({...rp, to})
     }
-    throw new Error('Invalid RDP request payload')
+    throw new Error(messages.rdpInvalidRequestPayload())
   }
 
   onError(error: Error) {

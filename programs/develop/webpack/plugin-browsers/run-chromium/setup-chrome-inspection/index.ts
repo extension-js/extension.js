@@ -333,7 +333,7 @@ export class SetupChromeInspectionStep {
           const html = await this.inspectSource(urlToInspect)
           this.printHTML(html)
 
-          // Watch mode is only for development.
+          // Watch mode is only for development
           const webSocketServer = (compiler.options as any).webSocketServer
           if (
             this.devOptions.watchSource &&

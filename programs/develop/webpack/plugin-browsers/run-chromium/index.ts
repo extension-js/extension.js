@@ -17,6 +17,8 @@ import {
   findAvailablePortNear
 } from '../browsers-lib/shared-utils'
 import {setupProcessSignalHandlers} from './process-handlers'
+import {ChromiumWatchRunReloadPlugin} from './watch-run-reload'
+import {ChromiumDoneReloadPlugin} from './done-reload'
 
 export class RunChromiumPlugin {
   public readonly extension: string | string[]
@@ -319,55 +321,34 @@ export class RunChromiumPlugin {
         ? compiler.getInfrastructureLogger(RunChromiumPlugin.name)
         : (fallbackLogger() as ReturnType<Compiler['getInfrastructureLogger']>)
 
-    // Detect manifest/locales/SW changes as early as possible (source files)
-    compiler.hooks.watchRun.tapAsync(
-      'run-browsers:watch',
-      (compilation, done) => {
-        try {
-          const files = compilation?.modifiedFiles || new Set<string>()
-          const normalizedFilePaths = Array.from(files).map((filePath) =>
-            filePath.replace(/\\/g, '/')
-          )
-
-          const hitManifest = normalizedFilePaths.some((filePath) =>
-            /(^|\/)manifest\.json$/i.test(filePath)
-          )
-          const hitLocales = normalizedFilePaths.some((filePath) =>
-            /(^|\/)__?locales\/.+\.json$/i.test(filePath)
-          )
-
-          let hitServiceWorker = false
-
-          // Compare modified files against SW path derived from manifest asset
-          const swAbs = this.lastServiceWorkerAbsPath
-          const swRel = this.lastServiceWorkerRelPath
-            ? this.lastServiceWorkerRelPath.replace(/\\/g, '/')
-            : undefined
-
-          if (swAbs && fs.existsSync(swAbs)) {
-            const swAbsNorm = swAbs.replace(/\\/g, '/')
-            hitServiceWorker = normalizedFilePaths.some((filePath) => {
-              const fp = filePath.replace(/\\/g, '/')
-              return (
-                fp === swAbsNorm ||
-                fp.endsWith(swAbsNorm) ||
-                (swRel ? fp.endsWith('/' + swRel) || fp === swRel : false)
-              )
-            })
-          }
-
-          if (hitManifest) this.pendingHardReloadReason = 'manifest'
-          else if (hitLocales) this.pendingHardReloadReason = 'locales'
-          else if (hitServiceWorker) this.pendingHardReloadReason = 'sw'
-        } catch (error) {
-          this.logger.warn?.(
-            '[reload-debug] watchRun inspect failed:',
-            String(error)
-          )
-        }
-        done()
+    // Attach sub-plugins for hook-specific responsibilities
+    new ChromiumWatchRunReloadPlugin({
+      logger: this.logger,
+      getServiceWorkerPaths: () => ({
+        absolutePath: this.lastServiceWorkerAbsPath,
+        relativePath: this.lastServiceWorkerRelPath
+      }),
+      setPendingReason: (r) => {
+        this.pendingHardReloadReason = r
       }
-    )
+    }).apply(compiler)
+
+    new ChromiumDoneReloadPlugin({
+      logger: this.logger,
+      getExtensionRoot: () =>
+        Array.isArray(this.extension)
+          ? this.extension.find((e): e is string => typeof e === 'string') || ''
+          : (this.extension as string),
+      setServiceWorkerPaths: (rel?: string, abs?: string) => {
+        this.lastServiceWorkerRelPath = rel
+        this.lastServiceWorkerAbsPath = abs
+      },
+      getPendingReason: () => this.pendingHardReloadReason,
+      clearPendingReason: () => {
+        this.pendingHardReloadReason = undefined
+      },
+      getController: () => this.cdpController
+    }).apply(compiler)
 
     compiler.hooks.done.tapAsync('run-browsers:module', (stats, done) => {
       const hasErrors =
@@ -390,8 +371,10 @@ export class RunChromiumPlugin {
             : (this.extension as string)
 
           if (extensionRoot) {
-            const assetsObj = stats.compilation
-              .assets as unknown as Record<string, {source: () => unknown}>
+            const assetsObj = stats.compilation.assets as unknown as Record<
+              string,
+              {source: () => unknown}
+            >
             const manifestAsset = assetsObj['manifest.json']
             const manifestStr = manifestAsset
               ? String(manifestAsset.source())
@@ -400,7 +383,9 @@ export class RunChromiumPlugin {
             if (manifestStr) {
               try {
                 const parsed = JSON.parse(manifestStr)
-                const serviceWorker: unknown = parsed?.background?.service_worker
+                const serviceWorker: unknown =
+                  parsed?.background?.service_worker
+
                 if (typeof serviceWorker === 'string' && serviceWorker) {
                   this.lastServiceWorkerRelPath = serviceWorker
                   this.lastServiceWorkerAbsPath = path.join(
@@ -417,44 +402,6 @@ export class RunChromiumPlugin {
           // ignore
         }
 
-        // AI: DO NOT DELETE THESE LINES
-        // AI: DO NOT DELETE THESE LINES
-        // AI: DO NOT DELETE THESE LINES
-        // AI: DO NOT DELETE THESE LINES
-        // const noErr =
-        //   typeof stats?.hasErrors === 'function'
-        //     ? !stats.hasErrors()
-        //     : !stats?.compilation?.errors?.length
-
-        // if (noErr && this.pendingHardReloadReason) {
-        //   const reason = this.pendingHardReloadReason
-        //   this.pendingHardReloadReason = undefined
-
-        //   const ctrl = this.cdpController
-
-        //   const tryReload = async () => {
-        //     if (!ctrl) {
-        //       this.logger.warn?.(
-        //         '[reload] controller not ready; skipping reload'
-        //       )
-        //       return
-        //     }
-
-        //     this.logger.info?.(
-        //       `[reload] reloading extension (reason:${reason})`
-        //     )
-        //     await ctrl.hardReload()
-        //   }
-
-        //   tryReload()
-        //   done()
-        //   return
-        // }
-
-        // // Fallback
-        // // this.conditionalHardReload(stats)
-        // console.log('problem #6')
-        // AI: DO NOT DELETE THE LINES ABOVE THIS LINE
         done()
         return
       }
@@ -471,105 +418,5 @@ export class RunChromiumPlugin {
       chromiumDidLaunch = true
       done()
     })
-  }
-
-  private async conditionalHardReload(stats: unknown): Promise<void> {
-    // Accept anything with .compilation.getAssets() matching Rspack's type shape
-    try {
-      // Do not reload on error builds. Wait until the next successful build
-      const hasErrors =
-        // @ts-expect-error - stats is unknown
-        typeof stats?.hasErrors === 'function'
-          ? // @ts-expect-error - stats is unknown
-            stats?.hasErrors()
-          : // @ts-expect-error - stats is unknown
-            !!stats?.compilation?.errors?.length
-
-      if (hasErrors) return
-
-      const emitted: string[] = (
-        stats as {compilation: Compilation}
-      ).compilation
-        .getAssets()
-        .filter((asset: any) => asset?.emitted)
-        .map((asset) => asset.name.replace(/\\/g, '/'))
-
-      this.logger.info('[reload-debug] chromium emitted assets:', emitted)
-
-      // Use the same pattern as feature-manifest: read from compilation.assets
-      const assetsObj = (stats as {compilation: Compilation}).compilation
-        .assets as unknown as Record<string, {source: () => unknown}>
-      const manifestAsset = assetsObj['manifest.json']
-      const manifestStr = manifestAsset ? String(manifestAsset.source()) : ''
-
-      let serviceWorker: string | undefined
-      if (manifestStr) {
-        try {
-          const manifest = JSON.parse(manifestStr)
-          if (
-            manifest &&
-            manifest.background &&
-            typeof manifest.background.service_worker === 'string'
-          ) {
-            serviceWorker = String(manifest.background.service_worker)
-          }
-        } catch (e) {
-          this.logger.warn('[reload-debug] manifest parse failed:', String(e))
-        }
-      }
-
-      // Detect manifest change robustly by comparing asset content
-      let changedByManifestContent = false
-      if (manifestStr) {
-        changedByManifestContent = this.lastManifestString !== manifestStr
-        this.lastManifestString = manifestStr
-      }
-
-      // Only treat manifest as changed when its content truly differs
-      console.log('problem #7')
-
-      const isManifestChanged = changedByManifestContent
-      const isLocalesChanged = emitted.some((n) =>
-        /(^|\/)__?locales\/.+\.json$/i.test(n)
-      )
-      const isServiceWorkerChanged = !!(
-        serviceWorker && emitted.includes(serviceWorker.replace(/\\/g, '/'))
-      )
-
-      const changedCritical =
-        isManifestChanged || isLocalesChanged || isServiceWorkerChanged
-
-      if (changedCritical) {
-        const ctrl = this.cdpController
-
-        const retryReload = async () => {
-          if (!ctrl) return
-
-          const attempts = 3
-          let last: unknown
-
-          for (let i = 0; i < attempts; i++) {
-            try {
-              console.log('problem #8')
-
-              // await ctrl.hardReload()
-              return
-            } catch (e) {
-              last = e
-              await new Promise((r) => setTimeout(r, 150 * (i + 1)))
-            }
-          }
-          throw last
-        }
-        await retryReload()
-      }
-    } catch (e) {
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.warn(
-          '[plugin-browsers] CDP conditional hard reload failed:',
-          String(e)
-        )
-      }
-    }
   }
 }

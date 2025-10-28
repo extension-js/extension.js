@@ -49,10 +49,8 @@ export function computeCandidateAddonPaths(
   projectContext?: string
 ): string[] {
   const projectPath =
-    (compilation as unknown as {options?: {context?: string}}).options
-      ?.context ||
-    projectContext ||
-    process.cwd()
+    compilation.options.context || projectContext || process.cwd()
+
   return extensionsToLoad.map((ext) => resolveAddonDirectory(projectPath, ext))
 }
 
@@ -96,10 +94,12 @@ export async function installTemporaryAddon(
     )
   }
 
-  return (await client.request({
+  const clientResponse = await client.request({
     to: addonsActor,
     type: 'installTemporaryAddon',
     addonPath,
     openDevTools
-  })) as {addon?: {id?: string}} | undefined
+  })
+
+  return clientResponse as {addon?: {id?: string}} | undefined
 }

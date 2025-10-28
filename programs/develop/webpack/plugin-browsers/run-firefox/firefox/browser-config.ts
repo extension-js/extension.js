@@ -81,7 +81,7 @@ export async function browserConfig(
           hasExplicitProfile ? stable : shownPath(stable)
         )
       )
-
+      fs.mkdirSync(stable, {recursive: true})
       profilePath = stable
     } else {
       const human = uniqueNamesGenerator({
@@ -96,10 +96,11 @@ export async function browserConfig(
       console.log(
         messages.creatingUserProfile(hasExplicitProfile ? tmp : shownPath(tmp))
       )
-
+      fs.mkdirSync(tmp, {recursive: true})
       profilePath = tmp
     }
 
+    // mkdir already handled by progress bar section above; keep as best-effort
     fs.mkdirSync(profilePath, {recursive: true})
 
     // Write Firefox profile preferences (user.js) to enable RDP and unsigned add-ons
