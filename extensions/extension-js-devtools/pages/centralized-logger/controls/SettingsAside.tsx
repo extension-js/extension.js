@@ -5,6 +5,7 @@ import {
   SunIcon,
   XIcon,
   Settings as SettingsIcon,
+  Cog,
   CogIcon
 } from 'lucide-react'
 import {
@@ -17,114 +18,65 @@ import {
 } from '@/components/ui/drawer'
 import {Button} from '@/components/ui/button'
 import {Table, TableBody, TableRow, TableCell} from '@/components/ui/table'
-import {Card, CardContent} from '@/components/ui/card'
+import {Card, CardContent, CardFooter} from '@/components/ui/card'
 import {Switch} from '@/components/ui/switch'
-import {Input} from '@/components/ui/input'
+import {toast} from '@/components/ui/sonner'
+
+const AnyDrawerTrigger = DrawerTrigger as any
+const AnyDrawerContent = DrawerContent as any
+const AnyDrawerHeader = DrawerHeader as any
+const AnyDrawerTitle = DrawerTitle as any
+const AnyDrawerClose = DrawerClose as any
 
 export function SettingsAside() {
-  const [themeChecked, setThemeChecked] = useState<boolean | undefined>(
-    undefined
-  )
-  const [captureStacks, setCaptureStacks] = useState(false)
-  const [externalToken, setExternalToken] = useState('')
-  const [clearOnNav, setClearOnNav] = useState(false)
-  const [followTab, setFollowTab] = useState(true)
+  const [captureStacks, setCaptureStacks] = useState<boolean>(false)
+  const [captureNetworkErrors, setCaptureNetworkErrors] =
+    useState<boolean>(false)
 
   useEffect(() => {
-    // Theme
-    chrome.storage.local.get(['logger_theme'], (data) => {
-      const theme = data?.logger_theme
-      if (theme === 'light') {
-        setThemeChecked(false)
-      } else if (theme === 'dark') {
-        setThemeChecked(true)
-      } else {
-        // Fallback to system preference
-        const prefersDark = window.matchMedia(
-          '(prefers-color-scheme: dark)'
-        ).matches
-        setThemeChecked(prefersDark)
-      }
-    })
-
-    // Session options
-    chrome.storage.session.get(
-      ['logger_capture_stacks', 'logger_clear_on_nav', 'logger_follow_tab'],
-      (data) => {
-        if (typeof data?.logger_capture_stacks === 'boolean') {
-          setCaptureStacks(data.logger_capture_stacks)
+    try {
+      chrome.storage.session.get(
+        ['logger_capture_stacks', 'logger_capture_network'],
+        (data) => {
+          try {
+            setCaptureStacks(Boolean(data?.logger_capture_stacks))
+            setCaptureNetworkErrors(
+              String(data?.logger_capture_network || 'off') === 'errors'
+            )
+          } catch {}
         }
-        if (typeof data?.logger_clear_on_nav === 'boolean') {
-          setClearOnNav(data.logger_clear_on_nav)
-        }
-        if (typeof data?.logger_follow_tab === 'boolean') {
-          setFollowTab(data.logger_follow_tab)
-        }
-      }
-    )
-
-    // External token
-    chrome.storage.local.get(['logger_external_token'], (data) => {
-      if (typeof data?.logger_external_token === 'string') {
-        setExternalToken(data.logger_external_token)
-      }
-    })
+      )
+    } catch {}
   }, [])
-
-  // Handlers
-  function handleThemeSwitch(checked: boolean | undefined) {
-    if (checked === undefined) return
-    document.documentElement.classList.toggle('dark', checked)
-    setThemeChecked(!!checked)
-    chrome.storage.local.set({
-      logger_theme: checked ? 'dark' : 'light'
-    })
-  }
-
-  function handleSwitchSessionOption(
-    key: string,
-    value: boolean,
-    setter: (v: boolean) => void
-  ) {
-    setter(value)
-    chrome.storage.session.set({[key]: value})
-  }
-
-  function handleExternalTokenChange(value: string) {
-    setExternalToken(value)
-    chrome.storage.local.set({
-      logger_external_token: value || undefined
-    })
-  }
 
   return (
     <aside className="max-[1024px]:hidden ml-auto inline-flex items-center gap-2">
       <Drawer>
-        <DrawerTrigger asChild>
+        <AnyDrawerTrigger asChild>
           <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
             <span className="inline-flex items-center gap-1.5">
               <SettingsIcon className="h-3 w-3" />
               Settings
             </span>
           </Button>
-        </DrawerTrigger>
-        <DrawerContent className="w-full">
-          <DrawerHeader>
-            <div className="relative flex items-center justify-between">
-              <DrawerTitle className="flex items-center gap-2">
+        </AnyDrawerTrigger>
+        <AnyDrawerContent className="w-full">
+          <AnyDrawerHeader>
+            <div className="relative">
+              <AnyDrawerTitle className="flex items-center gap-2">
                 <CogIcon className="size-5" />
                 Settings
-              </DrawerTitle>
-              <DrawerClose asChild>
+              </AnyDrawerTitle>
+              <AnyDrawerClose asChild>
                 <button
                   aria-label="Close"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted"
+                  className="absolute right-2 top-[-5px] inline-flex h-7 w-7 items-center justify-center rounded hover:bg-muted"
                 >
                   <XIcon className="h-4 w-4" />
                 </button>
-              </DrawerClose>
+              </AnyDrawerClose>
             </div>
-          </DrawerHeader>
+          </AnyDrawerHeader>
           <div className="px-4 pb-4">
             <Card className="w-full">
               <CardContent className="p-0">
@@ -139,8 +91,26 @@ export function SettingsAside() {
                           </span>
                           <Switch
                             id="theme-switch"
-                            checked={themeChecked}
-                            onCheckedChange={handleThemeSwitch}
+                            onCheckedChange={(checked) => {
+                              try {
+                                const root = document.documentElement
+                                if (checked === undefined) return
+                                if (checked) root.classList.add('dark')
+                                else root.classList.remove('dark')
+                                chrome.storage?.session?.set?.({
+                                  logger_theme: checked ? 'dark' : 'light'
+                                })
+                              } catch {}
+                            }}
+                            defaultChecked={(() => {
+                              try {
+                                return matchMedia(
+                                  '(prefers-color-scheme: dark)'
+                                ).matches
+                              } catch {
+                                return false
+                              }
+                            })()}
                           />
                           <span className="text-xs">
                             <MoonIcon className="h-3.5 w-3.5" />
@@ -150,70 +120,46 @@ export function SettingsAside() {
                     </TableRow>
                     <TableRow>
                       <TableCell className="w-[200px] px-4">
-                        Follow inspected tab
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          id="follow-tab"
-                          checked={followTab}
-                          onCheckedChange={(v) =>
-                            handleSwitchSessionOption(
-                              'logger_follow_tab',
-                              Boolean(v),
-                              setFollowTab
-                            )
-                          }
-                        />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="w-[200px] px-4">
-                        Clear on navigation
-                      </TableCell>
-                      <TableCell>
-                        <Switch
-                          id="clear-on-nav"
-                          checked={clearOnNav}
-                          onCheckedChange={(v) =>
-                            handleSwitchSessionOption(
-                              'logger_clear_on_nav',
-                              Boolean(v),
-                              setClearOnNav
-                            )
-                          }
-                        />
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell className="w-[200px] px-4">
                         Capture stacks
                       </TableCell>
                       <TableCell>
-                        <Switch
-                          id="capture-stacks"
-                          checked={captureStacks}
-                          onCheckedChange={(v) =>
-                            handleSwitchSessionOption(
-                              'logger_capture_stacks',
-                              Boolean(v),
-                              setCaptureStacks
-                            )
-                          }
-                        />
+                        <div className="inline-flex items-center gap-2">
+                          <Switch
+                            id="stacks-switch"
+                            checked={captureStacks}
+                            onCheckedChange={(checked) => {
+                              try {
+                                const next = Boolean(checked)
+                                setCaptureStacks(next)
+                                chrome.storage?.session?.set?.({
+                                  logger_capture_stacks: next
+                                })
+                              } catch {}
+                            }}
+                          />
+                        </div>
                       </TableCell>
                     </TableRow>
                     <TableRow>
                       <TableCell className="w-[200px] px-4">
-                        External token
+                        Capture network errors
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2 max-w-[320px]">
-                          <Input
-                            value={externalToken}
-                            placeholder="Optional token for external logs"
-                            onChange={(e) =>
-                              handleExternalTokenChange(e.currentTarget.value)
-                            }
+                        <div className="inline-flex items-center gap-2">
+                          <Switch
+                            id="network-switch"
+                            checked={captureNetworkErrors}
+                            onCheckedChange={(checked) => {
+                              try {
+                                const next = Boolean(checked)
+                                setCaptureNetworkErrors(next)
+                                chrome.storage?.session?.set?.({
+                                  logger_capture_network: next
+                                    ? 'errors'
+                                    : 'off'
+                                })
+                              } catch {}
+                            }}
                           />
                         </div>
                       </TableCell>
@@ -253,7 +199,7 @@ export function SettingsAside() {
               </CardContent>
             </Card>
           </div>
-        </DrawerContent>
+        </AnyDrawerContent>
       </Drawer>
       <a
         href="https://extension.js.org"

@@ -52,12 +52,17 @@ export default function (this: LoaderContext, source: string) {
     '    var reason; try { reason = typeof e.reason === "string" ? e.reason : JSON.stringify(e.reason) } catch (_) { reason = String(e.reason) }',
     '    post({ __reactLogger: true, type: "log", level: "error", messageParts: ["Unhandled Rejection", reason], url: String(location && location.href || "") })',
     '  })',
-    '  ["log","info","warn","error","debug"].forEach(function(level){',
+    '  ["log","info","warn","error","debug","trace"].forEach(function(level){',
     '    try {',
     '      var original = console[level] && console[level].bind ? console[level].bind(console) : console[level]',
     '      console[level] = function(){ var args = [].slice.call(arguments); post({ __reactLogger: true, type: "log", level: level, messageParts: args, url: String(location && location.href || "") }); try { return original && original.apply ? original.apply(console, args) : void 0 } catch (_) {} }',
     '    } catch (_) {}',
     '  })',
+    '  try {',
+    '    var oc = console.clear && console.clear.bind ? console.clear.bind(console) : console.clear; if (oc) console.clear = function(){ try { post({ __reactLogger: true, type: "log", level: "info", messageParts: ["console.clear"], url: String(location && location.href || ""), meta: { kind: "clear" } }) } catch (_) {} try { return oc.apply(console, arguments) } catch (_) {} }',
+    '  } catch (_) {}',
+    '  ;["group","groupCollapsed","groupEnd"].forEach(function(k){ try { var og = console[k] && console[k].bind ? console[k].bind(console) : console[k]; if (!og) return; console[k] = function(){ var args = [].slice.call(arguments); try { post({ __reactLogger: true, type: "log", level: "log", messageParts: args, url: String(location && location.href || ""), meta: { kind: k } }) } catch (_) {} try { return og.apply(console, args) } catch (_) {} } } catch (_) {} })',
+    '  ;["time","timeLog","timeEnd","count","countReset","table"].forEach(function(k){ try { var oo = console[k] && console[k].bind ? console[k].bind(console) : console[k]; if (!oo) return; console[k] = function(){ var args = [].slice.call(arguments); try { post({ __reactLogger: true, type: "log", level: "log", messageParts: args, url: String(location && location.href || ""), meta: { kind: k } }) } catch (_) {} try { return oo.apply(console, args) } catch (_) {} } } catch (_) {} })',
     '})()'
   ].join('\n')
   this.emitFile(pageScriptName, pageScriptContent)
@@ -93,7 +98,8 @@ export default function (this: LoaderContext, source: string) {
       var data = (event && event.data) || {}
       if (!data || data.__reactLogger !== true || data.type !== 'log') return
       var parts = Array.isArray(data.messageParts) ? data.messageParts : [data.messageParts]
-      safePost({ type: 'log', level: String(data.level || 'log'), context: 'page', messageParts: parts, url: data.url })
+      var meta = (typeof data.meta === 'object' && data.meta) ? data.meta : undefined
+      safePost({ type: 'log', level: String(data.level || 'log'), context: 'page', messageParts: parts, url: data.url, meta: meta })
     } catch (_) {}
   })
 
@@ -101,7 +107,7 @@ export default function (this: LoaderContext, source: string) {
   try { el.src = chrome.runtime.getURL('${pageScriptName}') } catch (_) {}
   (document.documentElement || document.head || document.body).appendChild(el)
 
-  ;['log','info','warn','error','debug'].forEach(function(level) {
+  ;['log','info','warn','error','debug','trace'].forEach(function(level) {
     if (typeof console !== 'undefined' && typeof console[level] === 'function') {
       var original = console[level].bind(console)
       console[level] = function() {
