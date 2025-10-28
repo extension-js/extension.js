@@ -18,7 +18,7 @@
     "test:build": "dotenv -- turbo run test --filter=./programs/develop",
     "test:dev": "dotenv -- turbo run test --filter=./programs/develop",
     "test:e2e": "pnpm exec playwright test",
-    "postinstall": "node scripts/build-extensions.cjs"
+    "postcompile": "node scripts/build-extensions.cjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.6",
