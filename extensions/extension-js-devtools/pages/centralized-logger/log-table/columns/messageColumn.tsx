@@ -33,10 +33,7 @@ export function messageColumn(searchQuery: string): ColumnDef<LogEvent> {
       const event = row.original
 
       return (
-        <div
-          className="flex items-center gap-1.5 text-neutral-400"
-          data-testid="log-message"
-        >
+        <div className="flex items-center gap-1.5 text-neutral-400">
           <span
             className="whitespace-nowrap overflow-hidden text-ellipsis"
             title={formatMessageParts(event.messageParts)}

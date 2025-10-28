@@ -20,17 +20,7 @@ interface LoggerMessage {
   events?: unknown[]
 }
 
-interface CDPClient {
-  forceReloadExtension(extensionId: string): Promise<boolean>
-}
-
-// Extend global types for CDP client
-declare global {
-  interface Window {
-    cdpClient?: CDPClient
-  }
-  var cdpClient: CDPClient | undefined
-}
+// CDP fallback removed; relying on management-only reload
 
 export async function connect() {
   if (webSocket) {
@@ -353,85 +343,20 @@ async function hardReloadExtension(extensionId: string) {
       )
       return true
     }
-
     // If we get here, the reload "succeeded" but extension isn't healthy
-    throw new Error('Extension reloaded but not responding')
+    console.warn('[Extension.js] Extension reloaded but not responding')
+    return false
   } catch (error: unknown) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown error'
     console.warn(
-      `[Extension.js] Standard reload failed for ${extensionId}, trying CDP fallback: ${errorMessage}`
-    )
-
-    // Only use CDP when the natural approach fails
-    return await attemptCDPFallback(extensionId)
-  }
-}
-
-// CDP fallback for when standard reload fails
-async function attemptCDPFallback(extensionId: string) {
-  try {
-    // Get extension info to find its source path
-    const extensionInfo = (await new Promise((resolve) => {
-      chrome.management.get(extensionId, resolve)
-    })) as chrome.management.ExtensionInfo
-
-    if (!extensionInfo) {
-      console.warn(
-        `[Extension.js] No path info for ${extensionId}, CDP fallback not possible`
-      )
-      return false
-    }
-
-    // Use CDP client directly for seamless fallback
-    const cdpClient = await getCDPClient()
-    if (!cdpClient) {
-      console.warn(`[Extension.js] CDP client not available for ${extensionId}`)
-      return false
-    }
-
-    // Use CDP to force reload the extension
-    const success = await cdpClient.forceReloadExtension(extensionId)
-    if (success) {
-      console.info(`[Extension.js] CDP fallback successful for ${extensionId}`)
-      return true
-    } else {
-      console.warn(`[Extension.js] CDP fallback failed for ${extensionId}`)
-      return false
-    }
-  } catch (cdpError: unknown) {
-    const errorMessage =
-      cdpError instanceof Error ? cdpError.message : 'Unknown error'
-    console.error(
-      `[Extension.js] CDP fallback also failed for ${extensionId}: ${errorMessage}`
+      `[Extension.js] Standard reload failed for ${extensionId}: ${errorMessage}`
     )
     return false
   }
 }
 
-// Get CDP client instance
-// This will be injected by the build process
-async function getCDPClient() {
-  try {
-    // The CDP client will be available globally when injected
-    if (typeof window !== 'undefined' && window.cdpClient) {
-      return window.cdpClient
-    }
-
-    // Fallback for service worker context
-    if (typeof globalThis !== 'undefined' && globalThis.cdpClient) {
-      return globalThis.cdpClient
-    }
-
-    console.warn(`[Extension.js] CDP client not found in global scope`)
-    return null
-  } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : 'Unknown error'
-    console.warn(`[Extension.js] Failed to get CDP client: ${errorMessage}`)
-    return null
-  }
-}
+// CDP fallback and client resolution removed
 
 // Simple health check to verify extension is responsive
 async function verifyExtensionHealth(extensionId: string) {

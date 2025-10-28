@@ -1,55 +1,42 @@
 {
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
-  "chromium:key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArE2nQ0rW2r9i2v3zZbXb7YyVZk7fC2lXH3F8l3Vw2G9Yh9k8L5mZtZp5a1m2c4u8G7Xn5o0zV1y2f3g6h7j8k9l0m1n2o3p4q5r6s7t8u9v0w1x2y3z4A5B6C7D8E9F0G1H2I3J4K5L6M7N8O9P0Q1R2S3T4U5V6W7X8Y9Z0",
+  "manifest_version": 3,
   "version": "1.0.0",
-  "name": "Extension.js DevTools",
-  "description": "Extension.js built-in developer tools",
+  "name": "centralized-logger",
+  "description": "Centralized logger for all extension contexts with React UI",
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
   "author": "Cezar Augusto",
   "icons": {
-    "16": "images/logo.png",
-    "32": "images/logo.png",
-    "48": "images/logo.png",
-    "128": "images/logo.png"
+    "48": "images/logo.png"
   },
   "chromium:action": {
     "default_icon": {
-      "16": "images/logo.png",
-      "32": "images/logo.png",
-      "48": "images/logo.png",
-      "128": "images/logo.png"
+      "48": "images/logo.png"
     },
     "default_title": "Open Side Panel"
   },
   "firefox:browser_action": {
     "default_icon": {
-      "16": "images/logo.png",
-      "32": "images/logo.png",
-      "48": "images/logo.png",
-      "128": "images/logo.png"
+      "48": "images/logo.png"
     },
     "default_title": "Open Side Panel"
+  },
+  "devtools_page": "devtools/index.html",
+  "chromium:side_panel": {
+    "default_path": "devtools/index.html",
+    "default_title": "Side Panel Content"
+  },
+  "firefox:sidebar_action": {
+    "default_panel": "devtools/index.html",
+    "default_title": "Side Panel Content"
   },
   "chromium:permissions": [
     "management",
     "tabs",
     "storage",
-    "activeTab",
-    "scripting",
-    "tabs",
     "sidePanel",
-    "webNavigation",
-    "webRequest"
-  ],
-  "firefox:permissions": [
-    "management",
-    "tabs",
-    "storage",
-    "activeTab",
-    "webNavigation",
-    "webRequest",
-    "<all_urls>"
+    "webNavigation"
   ],
   "host_permissions": ["<all_urls>"],
   "background": {
@@ -61,11 +48,5 @@
       "resources": ["assets/*", "scripts/*", "pages/*"],
       "matches": ["<all_urls>"]
     }
-  ],
-  "firefox:web_accessible_resources": ["assets/*", "scripts/*", "pages/*"],
-  "firefox:browser_specific_settings": {
-    "gecko": {
-      "id": "extension-js-devtools@extension.js.org"
-    }
-  }
+  ]
 }

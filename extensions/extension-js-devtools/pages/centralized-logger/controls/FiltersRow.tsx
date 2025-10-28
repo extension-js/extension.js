@@ -44,7 +44,7 @@ export function FiltersRow({
   getContextColorClass
 }: FiltersRowProps) {
   return (
-    <div className="flex items-center gap-2 flex-wrap">
+    <div className="flex items-center gap-3 flex-wrap">
       <Label htmlFor="ctx" className="text-xs">
         Context:
       </Label>
@@ -53,9 +53,11 @@ export function FiltersRow({
         onValueChange={(value) =>
           setContextFilter(value as LoggerContext | 'all')
         }
-        data-testid="context-filter"
       >
-        <SelectTrigger id="ctx" className="h-9 px-3 text-xs w-[140px]">
+        <SelectTrigger
+          id="ctx"
+          className="h-7 px-2 py-1 text-xs w-auto w-[120px]"
+        >
           <SelectValue placeholder="Context" />
         </SelectTrigger>
         <SelectContent className="p-0 text-xs">
@@ -86,9 +88,11 @@ export function FiltersRow({
       <Select
         value={tabFilter === 'all' ? 'all' : String(tabFilter)}
         onValueChange={(v) => setTabFilter(v === 'all' ? 'all' : Number(v))}
-        data-testid="tab-filter"
       >
-        <SelectTrigger id="tab" className="h-9 px-3 text-xs w-[180px]">
+        <SelectTrigger
+          id="tab"
+          className="h-7 px-2 py-1 text-xs w-auto w-[140px]"
+        >
           {tabFilter === 'all' ? 'All' : `Tab #${tabFilter}`}
         </SelectTrigger>
         <SelectContent className="p-0 text-xs w-auto max-w-[75vw]">
@@ -127,9 +131,11 @@ export function FiltersRow({
       <Select
         value={levelFilter}
         onValueChange={(value) => setLevelFilter(value as LogLevel | 'all')}
-        data-testid="level-filter"
       >
-        <SelectTrigger id="level" className="h-9 px-3 text-xs w-[110px]">
+        <SelectTrigger
+          id="level"
+          className="h-7 px-2 py-1 text-xs w-auto w-[90px]"
+        >
           <SelectValue placeholder="Level" />
         </SelectTrigger>
         <SelectContent className="p-0 text-xs">
@@ -167,7 +173,7 @@ export function FiltersRow({
               key={lvl}
               value={lvl}
               aria-label={`toggle ${lvl}`}
-              className="text-xs h-9 px-2"
+              className="text-xs h-7 px-1.5 py-0"
             >
               <span className="inline-flex items-center gap-1.5">
                 <span

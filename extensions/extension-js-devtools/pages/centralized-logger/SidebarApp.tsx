@@ -27,8 +27,6 @@ export default function SidebarApp() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [paused, setPaused] = useState(false)
   const [pausedSnapshot, setPausedSnapshot] = useState<LogEvent[] | null>(null)
-  const [clearOnNav, setClearOnNav] = useState(false)
-  const [followTab, setFollowTab] = useState(true)
 
   useEffect(() => {
     const port = chrome.runtime.connect({name: 'logger'})
@@ -56,84 +54,35 @@ export default function SidebarApp() {
     }
   }, [])
 
-  // URL param defaults:
-  // ?context=content&level=info&search=foo&pause=1
-  useEffect(() => {
-    const u = new URL(String(location.href))
-    const ctx = u.searchParams.get('context')
-    if (ctx) setContextFilter((ctx as any) || 'all')
-
-    const lvl = u.searchParams.get('level')
-    if (lvl) setLevelFilter((lvl as any) || 'all')
-
-    const q = u.searchParams.get('search')
-    if (q) setSearchInput(q)
-
-    const pause = u.searchParams.get('pause')
-    if (pause === '1' || pause === 'true') setPaused(true)
-  }, [])
-
   // Load persisted UI settings
   useEffect(() => {
-    chrome.storage.session.get(
-      [
-        'logger_context',
-        'logger_tab',
-        'logger_level',
-        'logger_autoscroll',
-        'logger_clear_on_nav',
-        'logger_follow_tab',
-        'logger_search',
-        'logger_paused'
-      ],
-      (data) => {
-        if (data?.logger_context) {
-          setContextFilter(data.logger_context)
-          return
-        }
+    try {
+      chrome.storage.session.get(
+        ['logger_context', 'logger_tab', 'logger_level', 'logger_autoscroll'],
+        (data) => {
+          if (data?.logger_context) {
+            setContextFilter(data.logger_context)
+            return
+          }
 
-        if (typeof data?.logger_tab !== 'undefined') {
-          setTabFilter(data.logger_tab)
-          return
-        }
+          if (typeof data?.logger_tab !== 'undefined') {
+            setTabFilter(data.logger_tab)
+            return
+          }
 
-        if (data?.logger_level) {
-          setLevelFilter(data.logger_level)
-          return
-        }
+          if (data?.logger_level) {
+            setLevelFilter(data.logger_level)
+            return
+          }
 
-        if (typeof data?.logger_autoscroll === 'boolean') {
-          setAutoScroll(data.logger_autoscroll)
-          return
+          if (typeof data?.logger_autoscroll === 'boolean') {
+            setAutoScroll(data.logger_autoscroll)
+            return
+          }
         }
-
-        if (typeof data?.logger_clear_on_nav === 'boolean') {
-          setClearOnNav(data.logger_clear_on_nav)
-        }
-
-        if (typeof data?.logger_follow_tab === 'boolean') {
-          setFollowTab(data.logger_follow_tab)
-        }
-
-        if (typeof data?.logger_search === 'string') {
-          setSearchInput(data.logger_search)
-        }
-
-        if (typeof data?.logger_paused === 'boolean') {
-          setPaused(data.logger_paused)
-        }
-      }
-    )
+      )
+    } catch {}
   }, [])
-
-  // Default tab filter to the currently inspected tab in DevTools if available
-  useEffect(() => {
-    const inspectedId = chrome.devtools.inspectedWindow.tabId
-
-    if (followTab && typeof inspectedId === 'number') {
-      setTabFilter(inspectedId)
-    }
-  }, [followTab])
 
   // Persist on change
   useEffect(() => {
@@ -142,37 +91,10 @@ export default function SidebarApp() {
         logger_context: contextFilter,
         logger_tab: tabFilter,
         logger_level: levelFilter,
-        logger_autoscroll: autoScroll,
-        logger_clear_on_nav: clearOnNav,
-        logger_follow_tab: followTab,
-        logger_search: searchInput,
-        logger_paused: paused
+        logger_autoscroll: autoScroll
       })
     } catch {}
-  }, [
-    contextFilter,
-    tabFilter,
-    levelFilter,
-    autoScroll,
-    clearOnNav,
-    followTab,
-    searchInput,
-    paused
-  ])
-
-  // Follow inspected tab and clear on navigation
-  useEffect(() => {
-    const onNav = (_: string) => {
-      const inspectedId = chrome.devtools.inspectedWindow.tabId
-      if (followTab && typeof inspectedId === 'number')
-        setTabFilter(inspectedId)
-      if (clearOnNav) setEvents([])
-    }
-    chrome.devtools.network.onNavigated.addListener(onNav)
-    return () => {
-      chrome.devtools.network.onNavigated.removeListener(onNav)
-    }
-  }, [followTab, clearOnNav])
+  }, [contextFilter, tabFilter, levelFilter, autoScroll])
 
   const filtered = useMemo(() => {
     const query = debouncedSearch.trim().toLowerCase()
@@ -237,20 +159,20 @@ export default function SidebarApp() {
   }, [searchInput])
 
   return (
-    <div className="sidebar_app text-xs" data-testid="logger-app">
+    <div className="sidebar_app">
       <style>
         {`
         :root { color-scheme: light dark; }
         /* Fixed controls height and full-height table */
         .sidebar_app { height: 100vh; }
-        .sidebar_app section.controls { height: 52px; margin: 0; padding: 0; }
-        /* respect p-2 outer gutter (8px top + 8px bottom) and 8px gap */
-        .sidebar_app .log-container { height: calc(100vh - 52px - 24px); }
+        .sidebar_app section.controls { height: 65px; margin: 0; padding: 0; }
+        /* respect p-2 outer gutter (8px top + 8px bottom) */
+        .sidebar_app .log-container { height: calc(100vh - 65px - 25px); }
       `}
       </style>
       <Toaster />
       <div className="contents grid p-2 gap-2 h-screen">
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <FiltersRow
             contextFilter={contextFilter}
             setContextFilter={(v) => setContextFilter(v)}
