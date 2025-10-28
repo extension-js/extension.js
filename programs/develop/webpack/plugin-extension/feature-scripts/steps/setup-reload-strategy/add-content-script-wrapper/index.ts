@@ -47,7 +47,8 @@ export class AddContentScriptWrapper {
               mode: compiler.options.mode
             }
           }
-        ]
+        ],
+        enforce: 'pre'
       })
 
       // 3- Inject minimal HMR accept code for declared background and user scripts

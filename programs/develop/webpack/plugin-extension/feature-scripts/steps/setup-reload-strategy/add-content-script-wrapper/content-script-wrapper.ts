@@ -55,6 +55,13 @@ export default function (this: LoaderContext, source: string) {
   const resourceQuery = String((this as any).resourceQuery || '')
   const isInnerWrapperRequest = /\b__extjs_inner=1\b/.test(resourceQuery)
 
+  // Skip entirely when there is no default export
+  // This ensures no proxy or runtime code is injected for such modules
+  const hasDefaultExport = /\bexport\s+default\b/.test(source)
+  if (!hasDefaultExport) {
+    return source
+  }
+
   if (!isInnerWrapperRequest) {
     const innerSpecifier = JSON.stringify(
       this.resourcePath.replace(/\\/g, '/') + '?__extjs_inner=1'
@@ -73,11 +80,6 @@ export default function (this: LoaderContext, source: string) {
       'export {}\n'
     ].join('\n')
     return proxyCode
-  }
-
-  // Only proceed if a default export exists; a sibling loader warns if missing
-  if (!/\bexport\s+default\b/.test(source)) {
-    return source
   }
 
   // Avoid double injection
