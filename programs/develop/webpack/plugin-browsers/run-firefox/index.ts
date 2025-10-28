@@ -1,17 +1,19 @@
 import {spawn, ChildProcess} from 'child_process'
 import {type Compilation, type Compiler} from '@rspack/core'
 import {browserConfig} from './firefox/browser-config'
-import {setupFirefoxProcessHandlers} from './process-handlers'
-import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {FirefoxBinaryDetector} from './firefox/binary-detector'
 import * as messages from '../browsers-lib/messages'
+import {setInstancePorts} from '../browsers-lib/instance-registry'
+import {setupFirefoxProcessHandlers} from './process-handlers'
+import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
+import {logFirefoxDryRun} from './dry-run'
+import {FirefoxDoneReloadPlugin} from './done-reload'
 import {type PluginInterface} from '../browsers-types'
 import {BrowserConfig, DevOptions} from '../../../types/options'
 import {
   deriveDebugPortWithInstance,
   findAvailablePortNear
 } from '../browsers-lib/shared-utils'
-import {logFirefoxDryRun} from './dry-run'
 
 let child: ChildProcess | null = null
 
@@ -136,6 +138,8 @@ export class RunFirefoxPlugin {
       this.instanceId
     )
     const debugPort = await findAvailablePortNear(desiredDebugPort)
+    // Record actual RDP port for this instance for downstream steps (parity with CDP)
+    setInstancePorts(this.instanceId, {rdpPort: debugPort})
 
     const effectiveInstanceId: string | undefined = this.instanceId
 
@@ -384,74 +388,7 @@ export class RunFirefoxPlugin {
       }
 
       if (firefoxDidLaunch) {
-        const hasErr =
-          typeof stats?.hasErrors === 'function'
-            ? stats.hasErrors()
-            : !!stats?.compilation?.errors?.length
-
-        if (!hasErr && this.pendingHardReloadReason) {
-          const reason = this.pendingHardReloadReason
-          this.pendingHardReloadReason = undefined
-
-          try {
-            const compilation = stats?.compilation
-            const assetsArr: Array<{name: string; emitted?: boolean}> =
-              Array.isArray(compilation?.getAssets?.())
-                ? (compilation!.getAssets() as any)
-                : []
-
-            const emitted = assetsArr
-              .filter((a) => (a as any)?.emitted)
-              .map((a) => String((a as any)?.name || ''))
-
-            const controller = (this as any).rdpController as
-              | {hardReload: (c: any, a: string[]) => Promise<void>}
-              | undefined
-
-            if (controller) {
-              this.logger?.info?.(
-                `[reload] reloading extension (reason:${reason})`
-              )
-              console.log('problem #2')
-
-              // await controller.hardReload(stats.compilation, emitted)
-            } else {
-              this.logger?.warn?.(
-                '[reload] controller not ready; skipping reload'
-              )
-            }
-          } catch (error) {
-            this.logger?.warn?.('[reload] reload failed:', String(error))
-          }
-          done()
-          return
-        }
-
-        try {
-          const comp = stats?.compilation
-          const assetsArr: Array<{name: string; emitted?: boolean}> =
-            Array.isArray(comp?.getAssets?.())
-              ? (comp!.getAssets() as unknown as Array<{
-                  name: string
-                  emitted?: boolean
-                }>)
-              : []
-          const emitted = assetsArr
-            .filter((a) => (a as any)?.emitted)
-            .map((a) => a.name)
-
-          const changed = (emitted || []) as string[]
-          const controller = (this as any).rdpController as
-            | {hardReload: (c: any, a: string[]) => Promise<void>}
-            | undefined
-          if (controller) {
-            console.log('problem #3')
-
-            // await controller.hardReload(stats.compilation, changed)
-          }
-        } catch {
-          // Ignore
-        }
+        // Delegate reload logic to sub-plugin that calls controller.hardReload
         done()
         return
       }
@@ -485,6 +422,12 @@ export class RunFirefoxPlugin {
           process.exit(1)
         }
       }
+
+      // Attach sub-plugin to drive reloads via controller
+      new FirefoxDoneReloadPlugin(
+        () => (this as any).rdpController,
+        this.logger as any
+      ).apply(compiler)
 
       done()
     })

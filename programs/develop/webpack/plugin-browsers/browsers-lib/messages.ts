@@ -23,7 +23,7 @@ export function capitalizedBrowserName(browser: Browser) {
 }
 
 export function creatingUserProfile(profilePath: string) {
-  return `${getLoggingPrefix('info')} Creating a new user profile at ${colors.underline(profilePath)}...`
+  return `${getLoggingPrefix('info')} Creating a fresh user profile at ${colors.underline(profilePath)}...`
 }
 
 export function browserInstanceAlreadyRunning(browser: Browser) {
@@ -905,4 +905,8 @@ export function firefoxUsingFlatpakWithSandbox() {
 
 export function firefoxVersion(version: string) {
   return `${colors.gray('►►►')} Firefox version ${colors.gray(version)}`
+}
+
+export function rdpInvalidRequestPayload() {
+  return `${getLoggingPrefix('error')} Invalid RDP request payload`
 }

@@ -132,7 +132,6 @@ export function browserConfig(
           hasExplicitProfile ? stableDir : shownPath(stableDir)
         )
       )
-
       fs.mkdirSync(stableDir, {recursive: true})
       userProfilePath = stableDir
     } else {
@@ -150,7 +149,6 @@ export function browserConfig(
           hasExplicitProfile ? ephemDir : shownPath(ephemDir)
         )
       )
-
       fs.mkdirSync(ephemDir, {recursive: true})
       userProfilePath = ephemDir
 
