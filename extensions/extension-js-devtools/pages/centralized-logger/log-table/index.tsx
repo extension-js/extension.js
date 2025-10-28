@@ -96,26 +96,11 @@ export function LogTableView({
           ariaLabel="Copy details"
           className="copy-btn absolute top-[6px] right-[6px] z-[1]"
         />
-        {event.stack ? (
-          <div className={`overflow-auto p-2 ${heightClass}`}>
-            <div className="text-[0.75rem] font-medium mb-1">Stack trace</div>
-            <pre className="whitespace-pre-wrap m-0 text-[0.72rem] opacity-90">
-              {event.stack}
-            </pre>
-            <div className="text-[0.75rem] font-medium mt-2 mb-1 opacity-80">
-              Event JSON
-            </div>
-            <pre className="whitespace-pre-wrap m-0 text-[0.72rem] opacity-80">
-              {json}
-            </pre>
-          </div>
-        ) : (
-          <pre
-            className={`whitespace-pre-wrap m-0 overflow-auto p-2 text-[0.75rem] ${heightClass}`}
-          >
-            {json}
-          </pre>
-        )}
+        <pre
+          className={`whitespace-pre-wrap m-0 overflow-auto p-2 text-[0.75rem] ${heightClass}`}
+        >
+          {json}
+        </pre>
       </div>
     )
   }
@@ -126,7 +111,7 @@ export function LogTableView({
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          className="min-h-[120px] h-[calc(100vh-65px-16px-24px)] overflow-auto"
+          className="min-h-[120px] h-[calc(100vh-65px-16px-16px)] overflow-auto"
         >
           <Table className="h-full table-fixed w-full border-collapse border-b border-border">
             <TableHeader className="">
@@ -141,9 +126,9 @@ export function LogTableView({
                           `group h-7 select-none relative sticky top-0 z-[1] bg-background border-b border-border py-[2px] ` +
                           `${header.column.getCanSort() ? 'cursor-pointer' : ''} ` +
                           `${header.column.id === 'time' ? 'w-[9ch] min-w-[9ch]' : ''} ` +
-                          `${header.column.id === 'context' ? 'w-[12ch] min-w-[12ch]' : ''} ` +
+                          `${header.column.id === 'context' ? 'w-[20ch] min-w-[20ch]' : ''} ` +
                           `${header.column.id === 'source' ? 'w-[20ch] min-w-[20ch]' : ''} ` +
-                          `${header.column.id === 'level' ? 'w-[8ch] min-w-[8ch]' : ''} ` +
+                          `${header.column.id === 'level' ? 'w-[7ch] min-w-[7ch]' : ''} ` +
                           `${header.column.id === 'expand-action' ? 'w-[9ch] min-w-[9ch] hidden sm:table-cell' : ''} ` +
                           `${header.column.id === 'expand-action' ? 'text-right' : 'text-left'} ` +
                           `${idx === 0 ? 'rounded-tl-lg' : ''} ` +
@@ -167,24 +152,8 @@ export function LogTableView({
             <TableBody>
               {table.getRowModel().rows.map((row) => (
                 <React.Fragment key={row.id}>
-                  {row.original.title === '[navigation]' ? (
-                    <TableRow className="bg-muted/40">
-                      <TableCell
-                        colSpan={table.getVisibleLeafColumns().length}
-                        className="py-1 text-center text-[0.7rem] opacity-70"
-                      >
-                        {(Array.isArray(row.original.messageParts)
-                          ? row.original.messageParts.join(' • ')
-                          : String(row.original.messageParts || 'Navigation')) +
-                          (row.original.url ? ` — ${row.original.url}` : '')}
-                      </TableCell>
-                    </TableRow>
-                  ) : null}
                   <TableRow
                     data-row-id={row.original.id}
-                    data-testid="log-row"
-                    data-context={row.original.context}
-                    data-level={row.original.level}
                     className={
                       Number(row.id.split(':').pop() || 0) % 2 === 1
                         ? 'border-b border-border bg-background'
@@ -197,9 +166,9 @@ export function LogTableView({
                         className={
                           `py-[3px] px-[6px] whitespace-nowrap overflow-hidden text-ellipsis ${cell.column.id === 'expand-action' ? 'text-right' : 'text-left'} ` +
                           `${cell.column.id === 'time' ? 'w-[9ch] min-w-[9ch]' : ''} ` +
-                          `${cell.column.id === 'context' ? 'w-[12ch] min-w-[12ch]' : ''} ` +
+                          `${cell.column.id === 'context' ? 'w-[20ch] min-w-[20ch]' : ''} ` +
                           `${cell.column.id === 'source' ? 'w-[20ch] min-w-[20ch]' : ''} ` +
-                          `${cell.column.id === 'level' ? 'w-[8ch] min-w-[8ch]' : ''} ` +
+                          `${cell.column.id === 'level' ? 'w-[7ch] min-w-[7ch]' : ''} ` +
                           `${cell.column.id === 'expand-action' ? 'w-[9ch] min-w-[9ch] hidden sm:table-cell' : ''}`
                         }
                       >

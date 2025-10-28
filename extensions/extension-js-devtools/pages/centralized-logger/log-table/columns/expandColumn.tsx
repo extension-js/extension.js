@@ -43,7 +43,6 @@ export function expandColumn(
             size="sm"
             className="h-6 px-2 bg-transparent"
             onClick={handleToggleExpand}
-            data-testid="expand-button"
           >
             <span className="inline-flex items-center gap-1.5">
               {expanded.has(row.original.id) ? 'Hide' : 'More'}
