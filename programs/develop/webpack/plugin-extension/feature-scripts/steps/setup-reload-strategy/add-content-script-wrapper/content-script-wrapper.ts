@@ -52,6 +52,29 @@ export default function (this: LoaderContext, source: string) {
     return source
   }
 
+  const resourceQuery = String((this as any).resourceQuery || '')
+  const isInnerWrapperRequest = /\b__extjs_inner=1\b/.test(resourceQuery)
+
+  if (!isInnerWrapperRequest) {
+    const innerSpecifier = JSON.stringify(
+      this.resourcePath.replace(/\\/g, '/') + '?__extjs_inner=1'
+    )
+    const proxyCode = [
+      '/* extension.js content script proxy */',
+      'async function loadInnerWrappedModule(){',
+      `  try { await import(${innerSpecifier}) } catch (e) { console.warn('[extension.js] content script failed to load. waiting for next successful compile', e) }`,
+      '}',
+      'loadInnerWrappedModule()',
+      'if (import.meta && (import.meta).webpackHot) {',
+      '  const hot = (import.meta).webpackHot',
+      '  if (typeof hot.accept === "function") hot.accept(() => { loadInnerWrappedModule() })',
+      '  if (typeof hot.addStatusHandler === "function") hot.addStatusHandler((s) => { if (s === "apply" || s === "idle") loadInnerWrappedModule() })',
+      '}',
+      'export {}\n'
+    ].join('\n')
+    return proxyCode
+  }
+
   // Only proceed if a default export exists; a sibling loader warns if missing
   if (!/\bexport\s+default\b/.test(source)) {
     return source
@@ -76,25 +99,27 @@ export default function (this: LoaderContext, source: string) {
   const runtimeInline =
     'function __EXTENSIONJS_mountWithHMR(mount){\n' +
     '  var cleanup;\n' +
-    '  function apply(){ try { cleanup = mount() } catch(e){} }\n' +
-    "  function unmount(){ try { typeof cleanup === 'function' && cleanup() } catch(e){} }\n" +
+    '  function apply(){ cleanup = mount() }\n' +
+    "  function unmount(){ if (typeof cleanup === 'function') cleanup() }\n" +
     '  function remount(){ unmount(); apply(); }\n' +
     "  if (typeof document !== 'undefined') {\n" +
     "    if (document.readyState === 'complete') { apply(); }\n" +
     '    else {\n' +
-    "      var onReady = function(){ try { if (document.readyState === 'complete') { document.removeEventListener('readystatechange', onReady); apply(); } } catch(e){} };\n" +
+    "      var onReady = function(){ if (document.readyState === 'complete') { document.removeEventListener('readystatechange', onReady); apply(); } };\n" +
     "      document.addEventListener('readystatechange', onReady);\n" +
     '    }\n' +
-    '  } else { try { apply(); } catch(e){} }\n' +
-    '  try {\n' +
-    '    if (import.meta && import.meta.webpackHot) {\n' +
-    '      try { import.meta.webpackHot.accept(); import.meta.webpackHot.dispose(unmount); } catch(e){}\n' +
+    '  } else { apply() }\n' +
+    '  if (import.meta && import.meta.webpackHot) {\n' +
+    '    if (typeof import.meta.webpackHot.accept === "function") import.meta.webpackHot.accept();\n' +
+    '    if (typeof import.meta.webpackHot.dispose === "function") import.meta.webpackHot.dispose(unmount);\n' +
+    '    if (typeof import.meta.webpackHot.addStatusHandler === "function") {\n' +
+    "      import.meta.webpackHot.addStatusHandler(function(s){ if (s==='abort'||s==='fail') { console.warn('[extension.js] HMR status:', s) } });\n" +
     '    }\n' +
-    '  } catch(e){}\n' +
+    '  }\n' +
     "  var cssEvt='__EXTENSIONJS_CSS_UPDATE__';\n" +
-    '  var onCss=function(){ try { remount(); } catch(e){} };\n' +
-    '  try { window.addEventListener(cssEvt, onCss); } catch(e){}\n' +
-    '  return function(){ try { window.removeEventListener(cssEvt, onCss); } catch(e){}; unmount(); };\n' +
+    '  var onCss=function(){ remount() };\n' +
+    '  window.addEventListener(cssEvt, onCss);\n' +
+    '  return function(){ window.removeEventListener(cssEvt, onCss); unmount(); };\n' +
     '}\n'
 
   // Guard: if default export is an invocation (e.g., export default init())

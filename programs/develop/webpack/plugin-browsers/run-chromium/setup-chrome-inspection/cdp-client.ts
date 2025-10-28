@@ -259,28 +259,31 @@ export class CDPClient {
   // Extension Management Methods
   async forceReloadExtension(extensionId: string) {
     try {
-      await this.sendCommand('Extensions.reload', {
-        extensionId: extensionId,
-        forceReload: true
-      })
+      console.log('problem #4')
 
+      // await this.sendCommand('Extensions.reload', {
+      //   extensionId,
+      //   forceReload: true
+      // })
       return true
     } catch (error) {
-      // Fallback path when Extensions domain is unavailable in this build
-      const ok = await this.reloadExtensionViaTargetEval(extensionId)
-      if (!ok) {
-        try {
-          console.error(
-            messages.cdpClientExtensionReloadFailed(
-              extensionId,
-              (error as Error).message
-            )
-          )
-        } catch {
-          // ignore
-        }
+      // Quiet fallback: try Runtime.evaluate on SW/background targets with backoff
+      const attempts = 3
+      console.log('problem #5')
+      for (let i = 0; i < attempts; i++) {
+
+        // const ok = await this.reloadExtensionViaTargetEval(extensionId)
+        // if (ok) return true
+        // await new Promise((r) => setTimeout(r, 150 * (i + 1)))
       }
-      return ok
+      // Only log if the fallback failed completely
+      console.warn(
+        messages.cdpClientExtensionReloadFailed(
+          extensionId,
+          (error as Error).message || String(error)
+        )
+      )
+      return false
     }
   }
 

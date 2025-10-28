@@ -38,72 +38,80 @@ export default function (this: LoaderContext, source: string) {
 
   const resourceAbsPath = path.normalize(this.resourcePath)
 
-  // Build UI logger bridge (content context)
+  // Emit a page-context script file to avoid inline injection under page CSP
+  const pageScriptName = 'content-logger.page.js'
+  const pageScriptContent = [
+    '(function(){',
+    '  function post(msg){ try { window.postMessage(msg, "*") } catch (_) {} }',
+    '  window.addEventListener("error", function(e){',
+    '    post({ __reactLogger: true, type: "log", level: "error",',
+    '      messageParts: [ String(e && e.message || ""), String(e && e.filename || ""), e && e.lineno, e && e.colno ],',
+    '      url: String(location && location.href || "") })',
+    '  })',
+    '  window.addEventListener("unhandledrejection", function(e){',
+    '    var reason; try { reason = typeof e.reason === "string" ? e.reason : JSON.stringify(e.reason) } catch (_) { reason = String(e.reason) }',
+    '    post({ __reactLogger: true, type: "log", level: "error", messageParts: ["Unhandled Rejection", reason], url: String(location && location.href || "") })',
+    '  })',
+    '  ["log","info","warn","error","debug"].forEach(function(level){',
+    '    try {',
+    '      var original = console[level] && console[level].bind ? console[level].bind(console) : console[level]',
+    '      console[level] = function(){ var args = [].slice.call(arguments); post({ __reactLogger: true, type: "log", level: level, messageParts: args, url: String(location && location.href || "") }); try { return original && original.apply ? original.apply(console, args) : void 0 } catch (_) {} }',
+    '    } catch (_) {}',
+    '  })',
+    '})()'
+  ].join('\n')
+  this.emitFile(pageScriptName, pageScriptContent)
+
+  // Build UI logger bridge for content context
   const loggerBootstrap = `
 /* centralized content logger bootstrap */
 (function() {
-  var ctx = 'content';
-  var port;
-  if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.connect) {
+  var contextLabel = 'content'
+  var port
+  if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.connect) {
     var targetId = (function(){
-      if (typeof window !== 'undefined' && (window).__EXT_LOGGER_ID__) return String((window).__EXT_LOGGER_ID__);
-      try { 
-        var u = new URL(typeof location !== 'undefined' ? String(location.href) : ''); 
-        var v = u.searchParams.get('loggerId'); 
-        if (v) return v; 
-      } catch {}
-      return '';
-    })();
+      if (typeof window !== 'undefined' && (window).__EXT_LOGGER_ID__) return String((window).__EXT_LOGGER_ID__)
+      try { var u = new URL(typeof location !== 'undefined' ? String(location.href) : ''); var v = u.searchParams.get('loggerId'); if (v) return v } catch {}
+      return ''
+    })()
 
-    if (targetId) {
-      try { port = chrome.runtime.connect(targetId, { name: 'logger' }); } catch (e) {}
-    }
-    if (!port) {
-      try { port = chrome.runtime.connect({ name: 'logger' }); } catch (e) {}
-    }
+    if (targetId) { try { port = chrome.runtime.connect(targetId, { name: 'logger' }) } catch (_) {} }
+    if (!port) { try { port = chrome.runtime.connect({ name: 'logger' }) } catch (_) {} }
 
     if (!port && chrome.management && typeof chrome.management.getAll === 'function') {
       chrome.management.getAll(function(list){
-        var found = (list||[]).find(function(it){ return it && typeof it.name === 'string' && it.name.toLowerCase().includes('centralized-logger'); });
-        if (found && found.id) {
-          try { port = chrome.runtime.connect(found.id, { name: 'logger' }); } catch (e) {}
-        }
-      });
+        var found = (list||[]).find(function(it){ return it && typeof it.name === 'string' && it.name.toLowerCase().includes('centralized-logger') })
+        if (found && found.id) { try { port = chrome.runtime.connect(found.id, { name: 'logger' }) } catch (_) {} }
+      })
     }
   }
 
-  function safePost(msg) {
-    if (port && port.postMessage) { port.postMessage(msg); }
-  }
+  function safePost(msg) { if (port && port.postMessage) { port.postMessage(msg) } }
 
-  // Forward page window.postMessage events from injected page script -> background
-  window.addEventListener('message', function(ev){
+  window.addEventListener('message', function(event){
     try {
-      var data = (ev && ev.data) || {};
-      if (!data || data.__reactLogger !== true || data.type !== 'log') return;
-      safePost({ type: 'log', level: String(data.level || 'log'), context: 'page', messageParts: Array.isArray(data.messageParts) ? data.messageParts : [data.messageParts], url: data.url });
-    } catch (e) {}
-  });
+      var data = (event && event.data) || {}
+      if (!data || data.__reactLogger !== true || data.type !== 'log') return
+      var parts = Array.isArray(data.messageParts) ? data.messageParts : [data.messageParts]
+      safePost({ type: 'log', level: String(data.level || 'log'), context: 'page', messageParts: parts, url: data.url })
+    } catch (_) {}
+  })
 
-  // Inject a page-context script that patches console.* to post window messages
-    var s = document.createElement('script');
-    s.textContent = '(function(){try{var post=function(m){try{window.postMessage(m,"*");}catch(_){}};\
-window.addEventListener("error",function(e){post({__reactLogger:true,type:"log",level:"error",messageParts:[String(e&&e.message||""),String(e&&e.filename||""),e&&e.lineno,e&&e.colno],url:String(location&&location.href||"")});});\
-window.addEventListener("unhandledrejection",function(e){var r="";try{r=typeof e.reason==="string"?e.reason:JSON.stringify(e.reason);}catch(_){r=String(e.reason);}post({__reactLogger:true,type:"log",level:"error",messageParts:["Unhandled Rejection",r],url:String(location&&location.href||"")});});\
-["log","info","warn","error","debug"].forEach(function(k){try{var o=console[k]&&console[k].bind?console[k].bind(console):console[k];console[k]=function(){var a=[].slice.call(arguments);post({__reactLogger:true,type:"log",level:k,messageParts:a,url:String(location&&location.href||"")});try{return o&&o.apply?o.apply(console,a):void 0;}catch(_){}}}catch(_){}});}catch(_){}})();';
-    (document.documentElement || document.head || document.body).appendChild(s);
+  var el = document.createElement('script')
+  try { el.src = chrome.runtime.getURL('${pageScriptName}') } catch (_) {}
+  (document.documentElement || document.head || document.body).appendChild(el)
 
-  ['log','info','warn','error','debug'].forEach(function(lvl) {
-    if (typeof console !== "undefined" && typeof console[lvl] === "function") {
-      var orig = console[lvl].bind(console);
-      console[lvl] = function() {
-        var args = Array.prototype.slice.call(arguments);
-        try { safePost({ type:'log', level:String(lvl), context: ctx, messageParts: args }); } catch (e) {}
-        orig.apply(console, args);
-      };
+  ;['log','info','warn','error','debug'].forEach(function(level) {
+    if (typeof console !== 'undefined' && typeof console[level] === 'function') {
+      var original = console[level].bind(console)
+      console[level] = function() {
+        var args = Array.prototype.slice.call(arguments)
+        try { safePost({ type:'log', level:String(level), context: contextLabel, messageParts: args }) } catch (_) {}
+        original.apply(console, args)
+      }
     }
-  });
-})();
+  })
+})()
 `
 
   // Determine if this resource is a content script declared in manifest
