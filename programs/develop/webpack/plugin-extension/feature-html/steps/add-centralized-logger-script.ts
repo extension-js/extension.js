@@ -141,7 +141,7 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() }
     if (port && port.postMessage) { port.postMessage(msg); }
   }
 
-  ['log','info','warn','error','debug'].forEach(function(lvl) {
+  ['log','info','warn','error','debug','trace'].forEach(function(lvl) {
     if (typeof console !== "undefined" && typeof console[lvl] === "function") {
       var orig = console[lvl].bind(console);
       console[lvl] = function() {
@@ -151,6 +151,10 @@ if (import.meta.webpackHot) { import.meta.webpackHot.accept() }
       };
     }
   });
+  if (typeof console !== 'undefined' && typeof console.clear === 'function') {
+    var _clear = console.clear.bind(console);
+    console.clear = function(){ try { safePost({ type:'log', level:'info', context: ctx, messageParts:['console.clear'], meta: { kind: 'clear' } }) } catch (e) {} try { return _clear.apply(console, arguments) } catch (e) {} }
+  }
 })();
 `
     return `${loggerPrelude}${loggerBridge}${source}`

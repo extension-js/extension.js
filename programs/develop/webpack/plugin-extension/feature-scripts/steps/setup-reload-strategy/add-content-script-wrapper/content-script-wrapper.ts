@@ -59,6 +59,19 @@ export default function (this: LoaderContext, source: string) {
   // This ensures no proxy or runtime code is injected for such modules
   const hasDefaultExport = /\bexport\s+default\b/.test(source)
   if (!hasDefaultExport) {
+    try {
+      const relativeFile = path.relative(projectPath, resourceAbsPath)
+      const message = [
+        'Content script missing default export.',
+        `File: ${relativeFile}`,
+        '',
+        'Why: The hot-reload (HMR) wrapper for content scripts expects a default export to attach to.',
+        'Fix:',
+        '  - Export a default function from your content script, for example:',
+        '      export default function main() {\n        // setup code...\n      }\n'
+      ].join('\n')
+      ;(this as any).emitWarning?.(new Error(message))
+    } catch {}
     return source
   }
 

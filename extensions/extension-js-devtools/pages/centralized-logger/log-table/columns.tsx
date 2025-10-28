@@ -25,15 +25,3 @@ export function createLogColumns(args: {
     expandColumn(expanded, setExpanded, containerRef)
   ]
 }
-
-// 4 vira 2
-// 5 vira 3
-
-// 9ch
-// 20ch
-// 20ch
-// 8ch
-// fluid
-// 9ch
-
-// time / level / msg / context / source / more

@@ -40,9 +40,9 @@ export function ActionsRow({
     setPaused(!paused)
   }
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       <Button
-        className="h-9 px-3 text-xs"
+        className="h-7 px-2 text-xs"
         variant="secondary"
         onClick={onClear}
       >
@@ -51,7 +51,7 @@ export function ActionsRow({
           Clear
         </span>
       </Button>
-      <div className="inline-flex items-center gap-2 min-w-[120px]">
+      <div className="inline-flex items-center gap-1.5 min-w-[110px]">
         <Label htmlFor="autoscroll" className="text-xs">
           Auto-scroll
         </Label>
@@ -65,11 +65,11 @@ export function ActionsRow({
         placeholder="Search messages/URL..."
         value={search}
         onChange={handleSearchChange}
-        className="hidden sm:block h-9 px-3 text-xs"
+        className="hidden sm:block h-7 px-2 text-xs"
       />
       <Button
         variant="outline"
-        className="h-9 px-3 text-xs"
+        className="h-7 px-2 text-xs"
         onClick={handleTogglePause}
       >
         <span className="inline-flex items-center gap-1.5">
@@ -83,7 +83,7 @@ export function ActionsRow({
       </Button>
       <Button
         variant="outline"
-        className="h-9 px-3 text-xs"
+        className="h-7 px-2 text-xs"
         onClick={onExportJson}
       >
         <span className="inline-flex items-center gap-1.5">
@@ -93,7 +93,7 @@ export function ActionsRow({
       </Button>
       <Button
         variant="outline"
-        className="h-9 px-3 text-xs"
+        className="h-7 px-2 text-xs"
         onClick={onExportNdjson}
       >
         <span className="inline-flex items-center gap-1.5">
