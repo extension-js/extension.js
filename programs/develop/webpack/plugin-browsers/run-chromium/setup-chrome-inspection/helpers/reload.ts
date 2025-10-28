@@ -5,7 +5,7 @@ export async function tryForceReloadExtension(
   extensionId: string
 ): Promise<boolean> {
   try {
-    const ok = await (cdp as any).forceReloadExtension(extensionId)
+    const ok = await cdp.forceReloadExtension(extensionId)
     return !!ok
   } catch {
     return false
