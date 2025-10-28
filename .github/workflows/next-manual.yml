@@ -1,0 +1,252 @@
+name: Release – Next (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish to next (include prerelease suffix, e.g., 2.2.0-next.1)'
+        required: true
+        type: string
+      packages:
+        description: 'Which packages to publish'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - cli
+          - develop
+      dry_run:
+        description: 'Skip publish and deployment steps for validation only'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  id-token: write
+  deployments: write
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  next_manual:
+    name: Release – Next (Manual)
+    runs-on: ubuntu-22.04
+    environment: next
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: '18'
+
+      - name: Preflight – summarize inputs
+        run: |
+          echo "Channel: next"
+          echo "Packages: ${{ inputs.packages }}"
+          echo "Version:   ${{ inputs.version }}"
+          echo "Dry-run:   ${{ inputs.dry_run }}"
+
+      - name: Preflight – validate version contains prerelease suffix (e.g., -next)
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node -e "
+          const v = process.env.VERSION || '';
+          const semverOk = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(v);
+          const hasPre = /-/.test(v);
+          if (!semverOk) {
+            console.error('Version is not valid semver:', v);
+            process.exit(1);
+          }
+          if (!hasPre) {
+            console.error('Version must include a prerelease suffix (e.g., -next.1). Got:', v);
+            process.exit(1);
+          }
+          console.log('Version looks good for next channel:', v);
+          "
+
+      - name: Build and test
+        run: |
+          pnpm turbo run compile
+          pnpm turbo run test
+
+      - name: Apply versions from input (no commit)
+        env:
+          VERSION: ${{ inputs.version }}
+          PACKAGES: ${{ inputs.packages }}
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+
+          const v = process.env.VERSION;
+          const pkgs = process.env.PACKAGES || 'both';
+
+          const setVersion = (file, version) => {
+            const json = JSON.parse(fs.readFileSync(file, 'utf8'));
+            json.version = version;
+            fs.writeFileSync(file, JSON.stringify(json, null, 2) + '\n');
+            console.log('Set', file, 'to', version);
+          };
+
+          const updateCliDep = (cliFile, devVersionOrNull) => {
+            const json = JSON.parse(fs.readFileSync(cliFile, 'utf8'));
+            if (devVersionOrNull) {
+              if (json.dependencies && json.dependencies['extension-develop']) {
+                json.dependencies['extension-develop'] = `^${devVersionOrNull}`;
+                console.log('Pinned CLI dependency extension-develop to', `^${devVersionOrNull}`);
+              }
+            }
+            fs.writeFileSync(cliFile, JSON.stringify(json, null, 2) + '\n');
+          };
+
+          const devFile = 'programs/develop/package.json';
+          const cliFile = 'programs/cli/package.json';
+
+          if (pkgs === 'develop') {
+            setVersion(devFile, v);
+            updateCliDep(cliFile, null);
+          } else if (pkgs === 'cli') {
+            setVersion(cliFile, v);
+          } else {
+            setVersion(devFile, v);
+            setVersion(cliFile, v);
+            updateCliDep(cliFile, v);
+          }
+          NODE
+
+      - name: Configure npm auth (next)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+          npm config set registry https://registry.npmjs.org/
+
+      - name: Debug npm auth (next)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "Registry: $(npm config get registry)"
+          npm whoami || echo "npm whoami failed - checking token"
+          test -n "$NODE_AUTH_TOKEN" || (echo "NODE_AUTH_TOKEN missing" && exit 1)
+
+      - name: Publish selected packages (tag=next)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "${{ inputs.packages }}" = "develop" ]; then
+            pnpm -r --filter ./programs/develop publish --tag next --access public --no-git-checks --provenance
+          elif [ "${{ inputs.packages }}" = "cli" ]; then
+            pnpm -r --filter ./programs/cli publish --tag next --access public --no-git-checks --provenance
+          else
+            pnpm -r --filter ./programs/develop --filter ./programs/cli publish --tag next --access public --no-git-checks --provenance
+          fi
+
+      - name: Collect versions
+        id: versions
+        run: |
+          node -e "const fs=require('fs');function v(p){return JSON.parse(fs.readFileSync(p,'utf8')).version;}const obj={'extension':v('programs/cli/package.json'),'extension-develop':v('programs/develop/package.json')};process.stdout.write('versions='+JSON.stringify(obj));" >> $GITHUB_OUTPUT
+
+      - name: Collect npm info (next)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        id: npm
+        run: |
+          node -e "
+          const { execSync } = require('child_process');
+          const versions = JSON.parse(process.env.VERSIONS || '{}');
+          const pkgs = ['extension','extension-develop'];
+          const out = {};
+          for (const name of pkgs) {
+            const v = versions[name];
+            if (!v) continue;
+            try {
+              const info = JSON.parse(execSync('npm view ' + name + '@' + v + ' version dist.tarball gitHead --json').toString());
+              const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+              out[name] = { version: info.version, tarball: info.dist?.tarball, gitHead: info.gitHead, distTags: tags };
+            } catch (err) {
+              console.error('Failed to get npm info for', name, ':', err.message);
+              out[name] = { error: err.message, version: v };
+            }
+          }
+          process.stdout.write('info='+JSON.stringify(out));
+          " >> $GITHUB_OUTPUT
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
+
+      - name: Verify dist-tags (next)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: |
+          node - <<'NODE'
+          const { execSync } = require('child_process');
+          const info = JSON.parse(process.env.NPM_INFO || '{}');
+          const pkgs = ['extension','extension-develop'];
+          for (const name of pkgs) {
+            const expected = info?.[name]?.version;
+            if (!expected) continue;
+            try {
+              const tags = JSON.parse(execSync('npm view ' + name + ' dist-tags --json').toString());
+              const isPrerelease = /-/.test(expected);
+              if (isPrerelease) {
+                if (tags.next !== expected) {
+                  console.error(`[next] Dist-tag mismatch for ${name}: next=${tags.next} expected=${expected}`);
+                  process.exit(1);
+                }
+              } else {
+                if (!tags.next) {
+                  console.error(`[next] Dist-tag missing for ${name}: expected a 'next' tag to exist`);
+                  process.exit(1);
+                }
+                console.log(`[next] Skipping strict next match for ${name} (stable version ${expected}).`);
+              }
+            } catch (err) {
+              console.error('Failed to verify dist-tags for', name, ':', err.message);
+              if (err.message.includes('404') || err.message.includes('No match found')) {
+                console.log(`[next] Package ${name} not found on npm yet, skipping verification`);
+                continue;
+              }
+              process.exit(1);
+            }
+          }
+          console.log('Next dist-tags verified.');
+          NODE
+        env:
+          NPM_INFO: ${{ steps.npm.outputs.info }}
+
+      - name: Create deployment (next)
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        uses: actions/github-script@v7
+        env:
+          VERSIONS: ${{ steps.versions.outputs.versions }}
+          NPM_INFO: ${{ steps.npm.outputs.info }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const payload = {
+              channel: 'next',
+              distTag: 'next',
+              versions: JSON.parse(process.env.VERSIONS || '{}'),
+              npm: JSON.parse(process.env.NPM_INFO || '{}')
+            };
+            const ref = context.sha;
+            const dep = await github.rest.repos.createDeployment({
+              owner, repo, ref,
+              environment: 'next',
+              auto_merge: false,
+              required_contexts: [],
+              transient_environment: true,
+              description: `Published to npm (next)`,
+              payload: JSON.stringify(payload)
+            });
+            const ext = payload.versions['extension'];
+            const envUrl = ext ? `https://www.npmjs.com/package/extension/v/${ext}` : undefined;
+            const desc = `extension ${payload.versions['extension']}, extension-develop ${payload.versions['extension-develop']}`;
+            await github.rest.repos.createDeploymentStatus({
+              owner, repo, deployment_id: dep.data.id,
+              state: 'success',
+              log_url: `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`,
+              environment_url: envUrl,
+              description: desc
+            });
+
