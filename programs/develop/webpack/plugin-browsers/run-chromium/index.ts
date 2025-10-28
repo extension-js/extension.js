@@ -64,6 +64,7 @@ export class RunChromiumPlugin {
   private pendingHardReloadReason?: 'manifest' | 'locales' | 'sw'
   private lastServiceWorkerAbsPath?: string
   private lastServiceWorkerMtimeMs?: number
+  private lastServiceWorkerRelPath?: string
 
   constructor(options: PluginInterface) {
     this.extension = options.extension
@@ -337,16 +338,22 @@ export class RunChromiumPlugin {
 
           let hitServiceWorker = false
 
-          if (this.lastServiceWorkerAbsPath) {
-            const absoluteFilePath = this.lastServiceWorkerAbsPath.replace(
-              /\\/g,
-              '/'
-            )
-            hitServiceWorker = normalizedFilePaths.some(
-              (filePath) =>
-                filePath === absoluteFilePath ||
-                filePath.endsWith(absoluteFilePath)
-            )
+          // Compare modified files against SW path derived from manifest asset
+          const swAbs = this.lastServiceWorkerAbsPath
+          const swRel = this.lastServiceWorkerRelPath
+            ? this.lastServiceWorkerRelPath.replace(/\\/g, '/')
+            : undefined
+
+          if (swAbs && fs.existsSync(swAbs)) {
+            const swAbsNorm = swAbs.replace(/\\/g, '/')
+            hitServiceWorker = normalizedFilePaths.some((filePath) => {
+              const fp = filePath.replace(/\\/g, '/')
+              return (
+                fp === swAbsNorm ||
+                fp.endsWith(swAbsNorm) ||
+                (swRel ? fp.endsWith('/' + swRel) || fp === swRel : false)
+              )
+            })
           }
 
           if (hitManifest) this.pendingHardReloadReason = 'manifest'
@@ -375,7 +382,7 @@ export class RunChromiumPlugin {
       }
 
       if (chromiumDidLaunch) {
-        // Refresh SW absolute path and detect change via mtime
+        // Refresh SW path from manifest asset to be used by watchRun comparisons
         try {
           const extensionRoot = Array.isArray(this.extension)
             ? this.extension.find((e): e is string => typeof e === 'string') ||
@@ -383,30 +390,26 @@ export class RunChromiumPlugin {
             : (this.extension as string)
 
           if (extensionRoot) {
-            const manifestPath = path.join(extensionRoot, 'manifest.json')
+            const assetsObj = stats.compilation
+              .assets as unknown as Record<string, {source: () => unknown}>
+            const manifestAsset = assetsObj['manifest.json']
+            const manifestStr = manifestAsset
+              ? String(manifestAsset.source())
+              : ''
 
-            if (fs.existsSync(manifestPath)) {
-              const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
-              const serviceWorker = parsed.background?.service_worker
-
-              if (typeof serviceWorker === 'string' && serviceWorker) {
-                const serviceWorkerAbs = path.join(extensionRoot, serviceWorker)
-                this.lastServiceWorkerAbsPath = serviceWorkerAbs
-
-                try {
-                  const serviceWorkerStat = fs.statSync(serviceWorkerAbs)
-                  const mtime = Math.floor(serviceWorkerStat.mtimeMs)
-
-                  if (
-                    typeof this.lastServiceWorkerMtimeMs === 'number' &&
-                    mtime !== this.lastServiceWorkerMtimeMs
-                  ) {
-                    this.pendingHardReloadReason = 'sw'
-                  }
-                  this.lastServiceWorkerMtimeMs = mtime
-                } catch {
-                  // ignore
+            if (manifestStr) {
+              try {
+                const parsed = JSON.parse(manifestStr)
+                const serviceWorker: unknown = parsed?.background?.service_worker
+                if (typeof serviceWorker === 'string' && serviceWorker) {
+                  this.lastServiceWorkerRelPath = serviceWorker
+                  this.lastServiceWorkerAbsPath = path.join(
+                    extensionRoot,
+                    serviceWorker
+                  )
                 }
+              } catch {
+                // ignore
               }
             }
           }
@@ -414,38 +417,44 @@ export class RunChromiumPlugin {
           // ignore
         }
 
-        const noErr =
-          typeof stats?.hasErrors === 'function'
-            ? !stats.hasErrors()
-            : !stats?.compilation?.errors?.length
+        // AI: DO NOT DELETE THESE LINES
+        // AI: DO NOT DELETE THESE LINES
+        // AI: DO NOT DELETE THESE LINES
+        // AI: DO NOT DELETE THESE LINES
+        // const noErr =
+        //   typeof stats?.hasErrors === 'function'
+        //     ? !stats.hasErrors()
+        //     : !stats?.compilation?.errors?.length
 
-        if (noErr && this.pendingHardReloadReason) {
-          const reason = this.pendingHardReloadReason
-          this.pendingHardReloadReason = undefined
+        // if (noErr && this.pendingHardReloadReason) {
+        //   const reason = this.pendingHardReloadReason
+        //   this.pendingHardReloadReason = undefined
 
-          const ctrl = this.cdpController
+        //   const ctrl = this.cdpController
 
-          const tryReload = async () => {
-            if (!ctrl) {
-              this.logger.warn?.(
-                '[reload] controller not ready; skipping reload'
-              )
-              return
-            }
+        //   const tryReload = async () => {
+        //     if (!ctrl) {
+        //       this.logger.warn?.(
+        //         '[reload] controller not ready; skipping reload'
+        //       )
+        //       return
+        //     }
 
-            this.logger.info?.(
-              `[reload] reloading extension (reason:${reason})`
-            )
-            await ctrl.hardReload()
-          }
+        //     this.logger.info?.(
+        //       `[reload] reloading extension (reason:${reason})`
+        //     )
+        //     await ctrl.hardReload()
+        //   }
 
-          tryReload()
-          done()
-          return
-        }
+        //   tryReload()
+        //   done()
+        //   return
+        // }
 
-        // Fallback
-        this.conditionalHardReload(stats)
+        // // Fallback
+        // // this.conditionalHardReload(stats)
+        // console.log('problem #6')
+        // AI: DO NOT DELETE THE LINES ABOVE THIS LINE
         done()
         return
       }
@@ -516,8 +525,10 @@ export class RunChromiumPlugin {
         this.lastManifestString = manifestStr
       }
 
-      const isManifestChanged =
-        emitted.includes('manifest.json') || changedByManifestContent
+      // Only treat manifest as changed when its content truly differs
+      console.log('problem #7')
+
+      const isManifestChanged = changedByManifestContent
       const isLocalesChanged = emitted.some((n) =>
         /(^|\/)__?locales\/.+\.json$/i.test(n)
       )
@@ -539,7 +550,9 @@ export class RunChromiumPlugin {
 
           for (let i = 0; i < attempts; i++) {
             try {
-              await ctrl.hardReload()
+              console.log('problem #8')
+
+              // await ctrl.hardReload()
               return
             } catch (e) {
               last = e

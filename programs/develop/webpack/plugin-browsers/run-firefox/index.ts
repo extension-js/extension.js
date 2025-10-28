@@ -412,7 +412,9 @@ export class RunFirefoxPlugin {
               this.logger?.info?.(
                 `[reload] reloading extension (reason:${reason})`
               )
-              await controller.hardReload(stats.compilation, emitted)
+              console.log('problem #2')
+
+              // await controller.hardReload(stats.compilation, emitted)
             } else {
               this.logger?.warn?.(
                 '[reload] controller not ready; skipping reload'
@@ -443,7 +445,9 @@ export class RunFirefoxPlugin {
             | {hardReload: (c: any, a: string[]) => Promise<void>}
             | undefined
           if (controller) {
-            await controller.hardReload(stats.compilation, changed)
+            console.log('problem #3')
+
+            // await controller.hardReload(stats.compilation, changed)
           }
         } catch {
           // Ignore

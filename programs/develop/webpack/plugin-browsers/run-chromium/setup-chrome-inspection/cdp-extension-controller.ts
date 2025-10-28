@@ -172,8 +172,10 @@ export class CDPExtensionController {
   }
 
   async hardReload(): Promise<boolean> {
+    console.log('problem #1')
     if (!this.cdp || !this.extensionId) return false
-    return await tryForceReloadExtension(this.cdp, this.extensionId)
+    // return await tryForceReloadExtension(this.cdp, this.extensionId)
+    return true
   }
 
   onProtocolEvent(
