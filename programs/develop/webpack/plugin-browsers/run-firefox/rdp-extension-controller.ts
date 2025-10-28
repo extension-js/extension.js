@@ -45,7 +45,8 @@ export class FirefoxRDPController {
   }
 
   async connect(): Promise<void> {
-    // RemoteFirefox lazily connects on first operation; nothing to do here intentionally.
+    // RemoteFirefox lazily connects on first operation.
+    // Nothing to do here intentionally
   }
 
   async ensureLoaded(compilation: Compilation): Promise<void> {
