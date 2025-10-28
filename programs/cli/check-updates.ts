@@ -1,9 +1,10 @@
 import checkForUpdate from 'update-check'
 import * as messages from './cli-lib/messages'
+import * as semver from 'semver'
 
 function isStableVersion(version: string) {
-  // Check if the version string contains "alpha", "beta", or any other pre-release identifiers
-  return !/[a-zA-Z]/.test(version)
+  const v = semver.parse(version)
+  return Boolean(v && v.prerelease.length === 0)
 }
 
 export default async function checkUpdates(packageJson: Record<string, any>) {
