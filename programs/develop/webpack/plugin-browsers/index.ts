@@ -164,7 +164,7 @@ export class BrowsersPlugin {
     // Shadow DOM content from content scripts
     if (compiler.options.mode !== 'development') return
 
-    if (this.browser === 'firefox') {
+    if (this.browser === 'firefox' || this.browser === 'gecko-based') {
       new SetupFirefoxInspectionStep({
         browser: this.browser,
         mode: compiler.options.mode || 'development',
@@ -176,7 +176,11 @@ export class BrowsersPlugin {
       }).apply(compiler)
     }
 
-    if (this.browser === 'chrome' || this.browser === 'edge') {
+    if (
+      this.browser === 'chrome' ||
+      this.browser === 'edge' ||
+      this.browser === 'chromium-based'
+    ) {
       new SetupChromeInspectionStep({
         browser: this.browser,
         mode: compiler.options.mode || 'development',
