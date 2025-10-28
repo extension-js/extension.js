@@ -230,8 +230,6 @@ export class SetupFirefoxInspectionStep {
     await waitForContentScriptInjectionMethod(this.client, consoleActor)
   }
 
-  // WS-free path: no devServer WebSocket usage in Firefox.
-
   private async handleFileChange() {
     if (!this.client || !this.currentConsoleActor) return
 

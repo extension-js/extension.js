@@ -9,7 +9,7 @@ export async function getPageHTML(
   try {
     const testResult = await cdp.evaluate(sessionId, 'document.title')
     if (typeof testResult !== 'string') {
-      // Ignore, proceed; some sites guard document.title access
+      // Ignore, proceed. Some sites guard document.title access
     }
   } catch {
     // ignore

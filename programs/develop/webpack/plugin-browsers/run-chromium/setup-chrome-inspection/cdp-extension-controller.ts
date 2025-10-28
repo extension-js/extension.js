@@ -5,7 +5,6 @@ import {CDPClient} from './cdp-client'
 import {deriveExtensionIdFromTargetsHelper} from './helpers/derive-id'
 import {connectToChromeCdp} from './helpers/connect'
 import {loadUnpackedIfNeeded, readManifestInfo} from './helpers/ensure'
-import {tryForceReloadExtension} from './helpers/reload'
 import {registerAutoEnableLogging} from './helpers/logging'
 import {type UnifiedLoggingOptions} from '../unified-logging'
 
@@ -172,10 +171,12 @@ export class CDPExtensionController {
   }
 
   async hardReload(): Promise<boolean> {
-    console.log('problem #1')
     if (!this.cdp || !this.extensionId) return false
-    // return await tryForceReloadExtension(this.cdp, this.extensionId)
-    return true
+    try {
+      return await this.cdp.forceReloadExtension(this.extensionId)
+    } catch {
+      return false
+    }
   }
 
   onProtocolEvent(
@@ -205,6 +206,7 @@ export class CDPExtensionController {
     try {
       await this.cdp.enableAutoAttach()
       await this.cdp.enableRuntimeAndLog()
+
       // Proactively attach to existing targets and enable Runtime/Log per-session
       try {
         const targets = await this.cdp.getTargets()
