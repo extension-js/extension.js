@@ -81,8 +81,12 @@ export class Telemetry {
     this.debug = process.env.EXTENSION_TELEMETRY_DEBUG === '1'
     this.disabled = Boolean(init.disabled)
 
-    const idFile = path.join(configDir(), 'telemetry', 'anonymous-id')
-    this.anonId = loadOrCreateId(idFile)
+    // When telemetry is disabled, avoid creating or reading any identifiers
+    this.anonId = 'disabled'
+    if (!this.disabled) {
+      const idFile = path.join(configDir(), 'telemetry', 'anonymous-id')
+      this.anonId = loadOrCreateId(idFile)
+    }
 
     this.common = {
       app: init.app,
