@@ -18,7 +18,7 @@ export function levelColumn(): ColumnDef<LogEvent> {
         trace: 'text-white',
         log: 'text-neutral-300'
       }
-      const colorClass = colorByLevel[e.level] || 'text-neutral-300'
+      const colorClass = colorByLevel[e.level]
       return (
         <span className="inline-flex items-center gap-1.5 ml-0.5">
           {renderLevelDot(e.level, colorClass)}
@@ -53,9 +53,7 @@ function renderLevelDot(level: LogLevel, colorClass: string) {
       />
     )
   }
-  const safeColor =
-    typeof colorClass === 'string' ? colorClass : 'text-neutral-300'
-  const bgClass = safeColor.replace('text-', 'bg-')
+  const bgClass = colorClass.replace('text-', 'bg-')
   return (
     <span
       aria-hidden

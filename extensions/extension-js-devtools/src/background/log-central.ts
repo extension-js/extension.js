@@ -17,7 +17,6 @@ interface IncomingLogMessage {
   url?: string
   stack?: string
   errorName?: string
-  token?: string
 }
 
 interface SubscribeMessage {
@@ -61,7 +60,6 @@ const eventsBufferAll: LogEvent[] = []
 const perTabBuffers = new Map<number, LogEvent[]>()
 const subscribers = new Set<chrome.runtime.Port>()
 let captureStacks = false
-let externalToken: string | null = null
 
 // Load settings
 try {
@@ -80,23 +78,7 @@ try {
   chrome.storage.session.onChanged.addListener(onSessionChanged as never)
 } catch {}
 
-// Load external token (optional hardening)
-try {
-  chrome.storage.local.get(['logger_external_token'], (data) => {
-    if (typeof data?.logger_external_token === 'string')
-      externalToken = data.logger_external_token
-  })
-  const onLocalChanged = (
-    changes: {[key: string]: chrome.storage.StorageChange},
-    area: 'local' | 'sync' | 'session'
-  ) => {
-    if (area === 'local' && 'logger_external_token' in changes) {
-      const nv = changes.logger_external_token?.newValue
-      externalToken = typeof nv === 'string' ? nv : null
-    }
-  }
-  chrome.storage.onChanged.addListener(onLocalChanged as never)
-} catch {}
+// External token support removed
 
 function uuid(): string {
   // Simple UUID v4-ish for event IDs
@@ -183,49 +165,7 @@ chrome.runtime.onConnect.addListener((port) => {
   })
 })
 
-// Accept logs from other extensions (manager mode)
-try {
-  chrome.runtime.onConnectExternal.addListener((port) => {
-    if (port.name !== 'logger') return
-    if (port.sender?.id && port.sender.id === chrome.runtime.id) return
-    const onMessage = (msg: ClientMessage) => {
-      // Enforce token if configured
-      if (externalToken && (msg as any)?.token !== externalToken) return
-      handleClientMessage(port, msg)
-    }
-    port.onMessage.addListener(onMessage)
-    port.onDisconnect.addListener(() => {
-      subscribers.delete(port)
-      try {
-        port.onMessage.removeListener(onMessage)
-      } catch {}
-    })
-  })
-  chrome.runtime.onMessageExternal.addListener(
-    (msg: unknown, sender, sendResponse) => {
-      try {
-        if (
-          typeof msg === 'object' &&
-          msg !== null &&
-          (msg as {type?: string}).type === 'log'
-        ) {
-          if (sender?.id && sender.id === chrome.runtime.id) return false
-          if (externalToken && (msg as any)?.token !== externalToken)
-            return false
-          const fakePort = {sender} as chrome.runtime.Port
-          handleClientMessage(fakePort, msg as ClientMessage)
-          sendResponse?.({ok: true})
-          return true
-        }
-
-        // Allow other listeners (e.g., dev reload client) to handle non-log messages.
-        return false
-      } catch {
-        return false
-      }
-    }
-  )
-} catch {}
+// External logging acceptance removed
 
 chrome.action.onClicked.addListener(async () => {
   try {

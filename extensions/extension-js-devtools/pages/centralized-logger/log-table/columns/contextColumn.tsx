@@ -6,29 +6,21 @@ import type {LogEvent} from '@/types/logger'
 export function contextColumn(): ColumnDef<LogEvent> {
   return {
     id: 'context',
-    accessorFn: (row) => row.context,
+    accessorFn: (row) =>
+      `${row.context}${typeof row.tabId === 'number' ? `#${row.tabId}` : ''}${typeof row.frameId === 'number' ? `:${row.frameId}` : ''}`,
     header: () => 'Context',
-    cell: ({row, table}) => {
+    cell: ({row}) => {
       const event = row.original
       const contextColorClass = getContextColorClass(event.context)
-      const title = `${event.context}${typeof event.tabId === 'number' ? ` · tab#${event.tabId}` : ''}${typeof event.frameId === 'number' ? ` · frame#${event.frameId}` : ''}${event.incognito ? ' · incognito' : ''}`
-      const onFilter = () => {
-        try {
-          ;(table as any)
-            ?.getColumn?.('context')
-            ?.setFilterValue?.(event.context)
-        } catch {}
-      }
       return (
-        <button
-          type="button"
-          onClick={onFilter}
+        <span
           className={`opacity-90 whitespace-nowrap ${contextColorClass}`}
-          title={title}
+          title={`${event.context}${typeof event.tabId === 'number' ? `#${event.tabId}` : ''}${typeof event.frameId === 'number' ? `:${event.frameId}` : ''}`}
         >
-          [{event.context}]
-          {event.incognito ? <span className="ml-1 opacity-75">🔒</span> : null}
-        </button>
+          [{event.context}
+          {typeof event.tabId === 'number' ? `#${event.tabId}` : ''}
+          {typeof event.frameId === 'number' ? `:${event.frameId}` : ''}]
+        </span>
       )
     },
     enableSorting: false
