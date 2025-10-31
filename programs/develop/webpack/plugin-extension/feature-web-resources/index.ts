@@ -1,11 +1,8 @@
-import {Compilation, Compiler, sources} from '@rspack/core'
-import {
-  type FilepathList,
-  type PluginInterface,
-  type Manifest
-} from '../../webpack-types'
-import * as utils from '../../../develop-lib/utils'
-import {cleanMatches} from './clean-matches'
+import {Compiler} from '@rspack/core'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
+import {CollectContentEntryImports} from './steps/collect-content-entry-imports'
+import {PatchManifestWebResources} from './steps/patch-manifest-war'
+import {generateManifestPatches as generateManifestPatchesUtil} from './web-resources-lib/generate-manifest'
 
 /**
  * ResourcesPlugin is responsible for adding resources required
@@ -13,160 +10,54 @@ import {cleanMatches} from './clean-matches'
  *
  * Feature supported:
  *
- * - web_accessible_resources paths in the manifest.json file.
  * - Assets imported from content_scripts files.
+ * - web_accessible_resources paths in the manifest.json file.
  */
 export class WebResourcesPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
+  public readonly excludeList?: FilepathList
+  public readonly browser?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
+    this.excludeList = options.excludeList
+    this.browser = options.browser || 'chrome'
   }
 
+  // For unit tests that call this private helper directly
   private generateManifestPatches(
-    compilation: Compilation,
+    compilation: import('@rspack/core').Compilation,
     entryImports: Record<string, string[]>
   ) {
-    const manifest = utils.getManifestContent(compilation, this.manifestPath!)
-
-    const webAccessibleResourcesV3: {resources: string[]; matches: string[]}[] =
-      manifest.web_accessible_resources || []
-    const webAccessibleResourcesV2: string[] =
-      manifest.web_accessible_resources || []
-
-    for (const [entryName, resources] of Object.entries(entryImports)) {
-      const contentScript = manifest.content_scripts?.find((script) =>
-        script.js?.some((jsFile: string) => jsFile.includes(entryName))
-      )
-
-      if (contentScript) {
-        const matches = contentScript.matches || []
-
-        // No need to add the output .css and .js to web_accessible_resources
-        const filteredResources = resources.filter(
-          (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
-        )
-
-        if (filteredResources.length === 0) {
-          continue
-        }
-
-        if (manifest.manifest_version === 3) {
-          const normalizedMatches = cleanMatches(matches)
-          const existingResource = webAccessibleResourcesV3.find(
-            (resourceEntry) => {
-              const a = [...resourceEntry.matches].sort()
-              const b = [...normalizedMatches].sort()
-              return a.length === b.length && a.every((v, i) => v === b[i])
-            }
-          )
-
-          if (existingResource) {
-            const merged = Array.from(
-              new Set([...existingResource.resources, ...filteredResources])
-            ).sort()
-            existingResource.resources = merged
-            existingResource.matches = [...existingResource.matches].sort()
-          } else {
-            webAccessibleResourcesV3.push({
-              resources: Array.from(new Set(filteredResources)).sort(),
-              matches: [...normalizedMatches].sort()
-            })
-          }
-        } else {
-          filteredResources.forEach((resource) => {
-            if (!webAccessibleResourcesV2.includes(resource)) {
-              webAccessibleResourcesV2.push(resource)
-            }
-          })
-        }
-      }
-    }
-
-    // Only add web_accessible_resources if there are valid entries
-    if (manifest.manifest_version === 3) {
-      if (webAccessibleResourcesV3.length > 0) {
-        manifest.web_accessible_resources = webAccessibleResourcesV3
-          .map((entry) => ({
-            resources: Array.from(new Set(entry.resources)).sort(),
-            matches: Array.from(new Set(entry.matches)).sort()
-          }))
-          .sort((a, b) =>
-            a.matches.join(',').localeCompare(b.matches.join(','))
-          ) as Manifest['web_accessible_resources']
-      }
-    } else {
-      if (webAccessibleResourcesV2.length > 0) {
-        manifest.web_accessible_resources = Array.from(
-          new Set(webAccessibleResourcesV2)
-        ).sort() as Manifest['web_accessible_resources']
-      }
-    }
-
-    const source = JSON.stringify(manifest, null, 2)
-    const rawSource = new sources.RawSource(source)
-
-    if (compilation.getAsset('manifest.json')) {
-      compilation.updateAsset('manifest.json', rawSource)
-    }
+    generateManifestPatchesUtil(
+      compilation,
+      this.manifestPath,
+      this.excludeList as unknown as
+        | Record<string, string | string[]>
+        | undefined,
+      entryImports,
+      this.browser
+    )
   }
 
-  apply(compiler: Compiler): void {
-    compiler.hooks.thisCompilation.tap(
-      'plugin-extension:feature-web-resources',
-      (compilation: Compilation) => {
-        compilation.hooks.processAssets.tap(
-          {
-            name: 'plugin-extension:feature-web-resources',
-            stage: Compilation.PROCESS_ASSETS_STAGE_ANALYSE
-          },
-          () => {
-            const contentEntries: string[] = []
-            const entryNames = Object.keys(this.includeList || {})
+  apply(compiler: Compiler) {
+    // 1 - Collect the content entry imports.
+    // When a content_script imports a file, we
+    // need to add it to the manifest.
+    new CollectContentEntryImports({
+      manifestPath: this.manifestPath,
+      includeList: this.includeList
+    }).apply(compiler)
 
-            for (const key of entryNames.filter(Boolean)) {
-              if (key.startsWith('content_scripts')) {
-                if (Array.isArray(key)) {
-                  contentEntries.push(...key)
-                } else if (typeof key === 'string') {
-                  contentEntries.push(key)
-                }
-              }
-            }
-
-            const chunkGraph = compilation.chunkGraph
-            const entryImports: Record<string, string[]> = {}
-
-            compilation.entrypoints.forEach((entry, entryName) => {
-              if (contentEntries.includes(entryName)) {
-                const importedFiles: string[] = []
-
-                entry.chunks.forEach((chunk) => {
-                  const modules = Array.from(
-                    chunkGraph.getChunkModulesIterable(chunk)
-                  )
-
-                  modules.forEach((module) => {
-                    chunkGraph.getModuleChunks(module).forEach((chunk) => {
-                      chunk.auxiliaryFiles.forEach((file) => {
-                        if (!importedFiles.includes(file)) {
-                          importedFiles.push(file)
-                        }
-                      })
-                    })
-                  })
-                })
-
-                entryImports[entryName] = importedFiles
-              }
-            })
-
-            this.generateManifestPatches(compilation, entryImports)
-          }
-        )
-      }
-    )
+    // 2 - Patch the manifest.json file to add the
+    // web_accessible_resources paths. This is used
+    // to add the web_accessible_resources paths.
+    new PatchManifestWebResources({
+      manifestPath: this.manifestPath,
+      excludeList: this.excludeList,
+      browser: this.browser
+    }).apply(compiler)
   }
 }
