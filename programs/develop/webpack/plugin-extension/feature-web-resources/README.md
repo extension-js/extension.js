@@ -56,8 +56,8 @@ export default {
 
 ## Include/Exclude semantics
 
-- `includeList`: a map of feature keys to absolute file paths (string or string[]). For this plugin, keys typically reference content script entries (e.g., `content_scripts:content/scripts`).
-- `excludeList`: not used by this plugin. Exclusion typically applies to features that emit direct file paths from the manifest (e.g., Icons, JSON). For Web Resources, files are discovered by analyzing the graph of content script imports; if you need to prevent a specific asset from being emitted, exclude it at the bundler level (e.g., via loader config or alias), or avoid importing it from the content script.
+- **includeList**: a map of feature keys to absolute file paths (string or string[]). For this plugin, keys typically reference content script entries (e.g., `content_scripts:content/scripts`). It determines which entries are scanned for imported assets.
+- **excludeList**: respected when the user declares `web_accessible_resources` directly in `manifest.json`. When a declared resource matches the exclude list, it is preserved as-is (no validation, no path rewrite, no emission), allowing intentional bypass.
 
 ## Output path mapping (summary)
 
@@ -86,6 +86,13 @@ export class WebResourcesPlugin {
 - Manifest v3: resources are grouped by the exact `matches` set (normalized), merged per group, and sorted deterministically.
 - Manifest v2: resources are appended to a flat array, de-duplicated and sorted.
 - Source maps (`.map`) and JavaScript outputs (`.js`) are excluded.
+
+## User-declared WAR behavior
+
+- Relative files are validated and emitted as assets (development: `assets/[name][ext]`, production: `assets/[name].[contenthash:8][ext]`).
+- Public-root-like paths (`/foo.png`, `public/foo.png`, `./public/foo.png`) are preserved as `foo.png`. If the referenced file is missing under the extension `public/` folder, a warning is emitted with guidance.
+- Glob patterns (e.g., `assets/*.svg`, `/*.json`) are preserved as-is.
+- When a resource is both user-declared and auto-discovered from a content script, it is de-duplicated.
 
 ## License
 
