@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest'
-import {cleanMatches} from '../clean-matches'
+import {cleanMatches} from '../web-resources-lib/clean-matches'
 
 describe('cleanMatches', () => {
   it('does not handle non-urls', () => {
