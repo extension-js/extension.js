@@ -1,5 +1,8 @@
 import {Asset, Compilation} from '@rspack/core'
-import {describe, it, expect, vi} from 'vitest'
+import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
 import {WebResourcesPlugin} from '..'
 
 type Manifest =
@@ -7,13 +10,31 @@ type Manifest =
   | Partial<chrome.runtime.ManifestV3>
 
 describe('generateManifestPatches', () => {
-  const plugin = new WebResourcesPlugin({
-    manifestPath: 'manifest.json'
+  let tmpRoot: string
+  let manifestPath: string
+
+  beforeEach(() => {
+    tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'war-plugin-'))
+    manifestPath = path.join(tmpRoot, 'manifest.json')
+    // Ensure manifest root exists
+    fs.writeFileSync(manifestPath, '{}')
+  })
+
+  afterEach(() => {
+    try {
+      fs.rmSync(tmpRoot, {recursive: true, force: true})
+    } catch {
+      // ignore
+    }
   })
 
   function runWith(
     entryImports: Record<string, string[]>,
-    partialManifest: Manifest = {}
+    partialManifest: Manifest = {},
+    options?: {
+      mode?: 'development' | 'production'
+      excludeList?: Record<string, string | string[]>
+    }
   ) {
     const manifest = {
       ...partialManifest
@@ -27,7 +48,13 @@ describe('generateManifestPatches', () => {
       source: manifestSource
     } as unknown as Readonly<Asset>
 
-    const updateAssetMock = vi.fn() as any
+    const updateAssetMock = vi.fn()
+    const emitAssetMock = vi.fn()
+
+    const plugin = new WebResourcesPlugin({
+      manifestPath,
+      ...(options?.excludeList ? {excludeList: options.excludeList} : {})
+    })
 
     plugin['generateManifestPatches'](
       {
@@ -35,13 +62,16 @@ describe('generateManifestPatches', () => {
         assets: {
           'manifest.json': manifestSource
         },
-        updateAsset: updateAssetMock
-      } as unknown as Compilation,
+        updateAsset: updateAssetMock,
+        emitAsset: emitAssetMock,
+        fileDependencies: new Set(),
+        options: {mode: options?.mode || 'development'}
+      } as Compilation,
       entryImports
     )
 
     expect(updateAssetMock).toHaveBeenCalledTimes(1)
-    const callArgs: any = updateAssetMock.mock.calls[0]
+    const callArgs = updateAssetMock.mock.calls[0]
     expect(callArgs[0]).toEqual('manifest.json')
     return JSON.parse(callArgs[1].source().toString()) as Manifest
   }
@@ -79,6 +109,59 @@ describe('generateManifestPatches', () => {
         }
       ]
     })
+  })
+
+  it('preserves globs as-is for mv3 user-declared', () => {
+    const result = runWith(
+      {},
+      {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['<all_urls>'], resources: ['/*.json', 'assets/*.svg']}
+        ]
+      }
+    )
+    const groups = (result as any).web_accessible_resources as {
+      matches: string[]
+      resources: string[]
+    }[]
+    expect(groups[0].resources).toEqual(['/*.json', 'assets/*.svg'])
+  })
+
+  it('emits production filenames with contenthash for relative files', () => {
+    const rel = 'docs/readme.md'
+    const abs = path.join(tmpRoot, rel)
+    fs.mkdirSync(path.dirname(abs), {recursive: true})
+    fs.writeFileSync(abs, 'hello')
+
+    const updated = runWith(
+      {},
+      {
+        manifest_version: 3,
+        web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
+      },
+      {mode: 'production'}
+    )
+    const res = updated.web_accessible_resources[0].resources[0] as string
+    expect(res.startsWith('assets/readme.')).toBe(true)
+    expect(res.endsWith('.md')).toBe(true)
+  })
+
+  it('respects excludeList and preserves user-declared resource without rewrite', () => {
+    const rel = 'images/icon.png'
+    const abs = path.join(tmpRoot, rel)
+    fs.mkdirSync(path.dirname(abs), {recursive: true})
+    fs.writeFileSync(abs, 'x')
+    const updated = runWith(
+      {},
+      {
+        manifest_version: 3,
+        web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
+      },
+      {excludeList: {'images/icon.png': rel}}
+    )
+    const res = updated.web_accessible_resources[0].resources[0]
+    expect(res).toBe('images/icon.png')
   })
 
   it('should not generate web_accessible_resources if content scripts have no imports', () => {
@@ -193,6 +276,240 @@ describe('generateManifestPatches', () => {
     })
   })
 
+  describe('user-declared web_accessible_resources resolution', () => {
+    it('resolves relative file to emitted asset (mv3)', () => {
+      const rel = 'images/logo.png'
+      const abs = path.join(tmpRoot, rel)
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, 'img')
+
+      const result = runWith(
+        {},
+        {
+          manifest_version: 3,
+          web_accessible_resources: [
+            {matches: ['<all_urls>'], resources: [rel]}
+          ]
+        },
+        {mode: 'development'}
+      )
+
+      const groups = result.web_accessible_resources as {
+        matches: string[]
+        resources: string[]
+      }[]
+      expect(groups.length).toBe(1)
+      expect(groups[0].resources).toEqual(['assets/logo.png'])
+    })
+
+    it('preserves public-root path and warns if missing under public/', () => {
+      const pub = '/img/logo.png'
+      // Do not create public/img/logo.png to trigger warning and preserve string
+
+      const result = runWith(
+        {},
+        {
+          manifest_version: 3,
+          web_accessible_resources: [
+            {matches: ['<all_urls>'], resources: [pub]}
+          ]
+        }
+      )
+
+      const groups = (result as any).web_accessible_resources as {
+        matches: string[]
+        resources: string[]
+      }[]
+      expect(groups[0].resources).toEqual(['img/logo.png'])
+    })
+
+    it('de-dupes between user-declared and auto-collected resources', () => {
+      const result = runWith(
+        {
+          'content_scripts/content-0': ['assets/a.svg']
+        },
+        {
+          manifest_version: 3,
+          content_scripts: [
+            {
+              matches: ['*://example.com/*'],
+              js: ['content_scripts/content-0.js']
+            }
+          ],
+          web_accessible_resources: [
+            {matches: ['*://example.com/*'], resources: ['assets/a.svg']}
+          ]
+        }
+      )
+
+      const groups = (result as any).web_accessible_resources as {
+        matches: string[]
+        resources: string[]
+      }[]
+      expect(groups[0].resources).toEqual(['assets/a.svg'])
+    })
+
+    it('de-dupes public-root asset when also auto-collected (mv3)', () => {
+      const result = runWith(
+        {
+          'content_scripts/content-0': ['assets/logo.svg']
+        },
+        {
+          manifest_version: 3,
+          content_scripts: [
+            {
+              matches: ['*://example.com/*'],
+              js: ['content_scripts/content-0.js']
+            }
+          ],
+          web_accessible_resources: [
+            {matches: ['*://example.com/*'], resources: ['/assets/logo.svg']}
+          ]
+        }
+      )
+
+      const groups = (result as any).web_accessible_resources as {
+        matches: string[]
+        resources: string[]
+      }[]
+      expect(groups.length).toBe(1)
+      expect(groups[0].resources).toEqual(['assets/logo.svg'])
+    })
+
+    it('rewrites mv2 string[] relative file to emitted asset', () => {
+      const rel = 'data/file.json'
+      const abs = path.join(tmpRoot, rel)
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, '{"a":1}')
+
+      const result = runWith(
+        {},
+        {
+          manifest_version: 2,
+          web_accessible_resources: [rel]
+        },
+        {mode: 'development'}
+      )
+
+      const arr = result.web_accessible_resources
+      expect(arr).toEqual(['assets/file.json'])
+    })
+
+    it('keeps user-provided mv3 matches intact on firefox', () => {
+      const pluginFx = new WebResourcesPlugin({
+        manifestPath,
+        browser: 'firefox'
+      })
+
+      const manifest = {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['https://example.com/logout?e=4'], resources: ['/*.json']}
+        ]
+      }
+
+      const manifestSource = {source: () => JSON.stringify(manifest)}
+      const updateAssetMock = vi.fn()
+      pluginFx['generateManifestPatches'](
+        {
+          getAsset: () => ({name: 'manifest.json', source: manifestSource}),
+          assets: {'manifest.json': manifestSource},
+          updateAsset: updateAssetMock,
+          emitAsset: vi.fn(),
+          fileDependencies: new Set(),
+          options: {mode: 'development'}
+        } as Compilation,
+        {}
+      )
+
+      const updated = JSON.parse(
+        updateAssetMock.mock.calls[0][1].source().toString()
+      )
+      expect(updated.web_accessible_resources[0].matches).toEqual([
+        'https://example.com/logout?e=4'
+      ])
+    })
+
+    it('emits a warning for missing public-root path', () => {
+      const pluginLocal = new WebResourcesPlugin({
+        manifestPath
+      })
+
+      // public-root points to /root/app/public/img/logo.png which does not exist
+      const manifest = {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['<all_urls>'], resources: ['/img/logo.png']}
+        ]
+      }
+
+      // Ensure missing under public/
+
+      const manifestSource = {source: () => JSON.stringify(manifest)}
+      const compilation = {
+        getAsset: () => ({name: 'manifest.json', source: manifestSource}),
+        assets: {'manifest.json': manifestSource},
+        updateAsset: vi.fn(),
+        emitAsset: vi.fn(),
+        fileDependencies: new Set(),
+        options: {mode: 'development'},
+        warnings: []
+      }
+
+      pluginLocal['generateManifestPatches'](compilation as Compilation, {})
+
+      expect(compilation.warnings.length).toBeGreaterThan(0)
+      const msg = String(
+        (compilation.warnings[0] && compilation.warnings[0].message) || ''
+      )
+      expect(msg).toContain('NOT FOUND')
+      expect(compilation.warnings[0].file).toBe('manifest.json')
+    })
+
+    it('emits a warning for missing relative file (mv3) and preserves string', () => {
+      const pluginLocal = new WebResourcesPlugin({
+        manifestPath
+      })
+
+      const rel = 'images/missing.png'
+      const manifest = {
+        manifest_version: 3,
+        web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
+      }
+
+      const manifestSource = {source: () => JSON.stringify(manifest)}
+      const compilation = {
+        getAsset: () => ({name: 'manifest.json', source: manifestSource}),
+        assets: {'manifest.json': manifestSource},
+        updateAsset: vi.fn(),
+        emitAsset: vi.fn(),
+        fileDependencies: new Set(),
+        options: {mode: 'development'},
+        warnings: [] as any[]
+      }
+
+      pluginLocal['generateManifestPatches'](
+        compilation as unknown as Compilation,
+        {}
+      )
+
+      expect(compilation.warnings.length).toBeGreaterThan(0)
+      const msg = String(
+        (compilation.warnings[0] && compilation.warnings[0].message) || ''
+      )
+      expect(msg).toContain('NOT FOUND')
+
+      const updated = JSON.parse(
+        (compilation.updateAsset as any).mock.calls[0][1].source().toString()
+      )
+      const war = (updated as any).web_accessible_resources as {
+        matches: string[]
+        resources: string[]
+      }[]
+      expect(war[0].resources).toEqual([rel])
+    })
+  })
+
   it('should merge only when matches sets are equal (mv3) and sort deterministically', () => {
     const result = runWith(
       {
@@ -228,10 +545,10 @@ describe('generateManifestPatches', () => {
       }
     )
 
-    const groups = (result as any).web_accessible_resources as Array<{
+    const groups = (result as any).web_accessible_resources as {
       matches: string[]
       resources: string[]
-    }>
+    }[]
 
     // Should produce two groups; one merged with exact-match set, one untouched
     expect(groups.length).toBe(2)
