@@ -17,11 +17,21 @@ export function reportToCompilation(
   compilation: Compilation,
   compiler: Compiler,
   message: string,
-  type: IssueType = 'error'
+  type: IssueType = 'error',
+  file?: string
 ) {
-  const issue = createIssue(compiler, message, type)
+  const issue = createIssue(compiler, message, type) as Error & {file?: string}
+  if (file) issue.file = file
   const bucket = type === 'warning' ? 'warnings' : 'errors'
   compilation[bucket] ||= []
+  // de-dupe by file + message text
+  const already = (compilation[bucket] as any[]).some((e: any) => {
+    return (
+      (e?.file || '') === (issue.file || '') &&
+      String(e?.message) === String(issue.message)
+    )
+  })
+  if (already) return
   compilation[bucket].push(issue)
 }
 
@@ -189,6 +199,60 @@ export function cleanAssetUrl(url: string): {
       ? url.slice(queryIndex, hashIndex !== -1 ? hashIndex : undefined)
       : ''
   return {cleanPath, hash, search}
+}
+
+// Shared helpers used by multiple steps
+export function isHttpLike(inputUrl: string): boolean {
+  return /^https?:\/\//i.test(inputUrl) || inputUrl.startsWith('//')
+}
+
+export function isSpecialScheme(u: string): boolean {
+  return /^(data:|blob:|chrome-extension:|javascript:|about:)/i.test(u)
+}
+
+export function cleanLeading(s: string): string {
+  return s.replace(/^\/+/, '').replace(/^\.\//, '').replace(/^\./, '')
+}
+
+export function computePosixRelative(fromPath: string, toPath: string): string {
+  const rel = (path as any).relative?.(path.dirname(fromPath), toPath) || toPath
+  const sep = (path as any).sep || '/'
+  return rel.split(sep).join('/')
+}
+
+export function resolveAbsoluteFsPath(params: {
+  asset: string
+  projectRoot: string
+  publicRootForResource: string
+  outputRoot: string
+}): {absoluteFsPath: string; isUnderPublicRoot: boolean; isRootUrl: boolean} {
+  const {asset, projectRoot, publicRootForResource, outputRoot} = params
+  const isRootUrl = asset.startsWith('/')
+  const isDotPublic = asset.startsWith('./public/')
+  const isPlainPublic = asset.startsWith('public/')
+
+  const absoluteFsPath = isRootUrl
+    ? (() => {
+        const rootRelative = asset.slice(1)
+        const normalized = cleanLeading(rootRelative)
+        const withoutPublicPrefix = normalized.replace(/^public\//, '')
+        const candidate = path.join(publicRootForResource, withoutPublicPrefix)
+        const outCandidate = path.join(outputRoot, withoutPublicPrefix)
+        return fs.existsSync(candidate) ? candidate : outCandidate
+      })()
+    : isDotPublic
+      ? path.join(projectRoot, cleanLeading(asset))
+      : isPlainPublic
+        ? path.join(projectRoot, asset.replace(/^\./, ''))
+        : path.isAbsolute(asset)
+          ? asset
+          : path.join(projectRoot, asset)
+
+  const isUnderPublicRoot = String(absoluteFsPath).startsWith(
+    publicRootForResource
+  )
+
+  return {absoluteFsPath, isUnderPublicRoot, isRootUrl}
 }
 
 export function getBaseHref(htmlDocument: any): string | undefined {

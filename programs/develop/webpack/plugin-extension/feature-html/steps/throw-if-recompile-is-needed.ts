@@ -2,7 +2,6 @@ import * as fs from 'fs'
 import {type Compiler, WebpackError} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'
-import * as utils from '../../../../develop-lib/utils'
 import * as messages from '../html-lib/messages'
 
 export class ThrowIfRecompileIsNeeded {
@@ -16,7 +15,7 @@ export class ThrowIfRecompileIsNeeded {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
+    this.excludeList = {}
     this.browser = options.browser
   }
 
@@ -50,9 +49,20 @@ export class ThrowIfRecompileIsNeeded {
         return
       }
 
+      const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
+      const looksLikePublicRootUrl = (p: string) =>
+        p.startsWith('/') && !fs.existsSync(p)
+
+      const initialJs = (getAssetsFromHtml(htmlFile)?.js || []).filter(
+        (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
+      )
+      const initialCss = (getAssetsFromHtml(htmlFile)?.css || []).filter(
+        (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
+      )
+
       this.initialHtmlAssets[htmlFile] = {
-        js: getAssetsFromHtml(htmlFile)?.js || [],
-        css: getAssetsFromHtml(htmlFile)?.css || []
+        js: initialJs,
+        css: initialCss
       }
     })
   }
@@ -69,12 +79,16 @@ export class ThrowIfRecompileIsNeeded {
         const changedFile = Array.from(files)[0]
 
         if (changedFile && this.initialHtmlAssets[changedFile]) {
+          const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
+          const looksLikePublicRootUrl = (p: string) =>
+            p.startsWith('/') && !fs.existsSync(p)
+
           const updatedJsEntries = (
             getAssetsFromHtml(changedFile)?.js || []
-          ).filter((p) => !p.startsWith('/'))
+          ).filter((p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p))
           const updatedCssEntries = (
             getAssetsFromHtml(changedFile)?.css || []
-          ).filter((p) => !p.startsWith('/'))
+          ).filter((p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p))
 
           const {js, css} = this.initialHtmlAssets[changedFile]
 
@@ -82,11 +96,17 @@ export class ThrowIfRecompileIsNeeded {
             this.hasEntriesChanged(updatedCssEntries, css) ||
             this.hasEntriesChanged(updatedJsEntries, js)
           ) {
-            compilation.warnings.push(
-              new WebpackError(
-                messages.serverRestartRequiredFromHtml(changedFile)
-              )
+            const projectRoot = require('path').dirname(this.manifestPath)
+            const relToManifest = require('path').relative(
+              projectRoot,
+              changedFile
             )
+            const err = new WebpackError(
+              messages.serverRestartRequiredFromHtml(relToManifest, changedFile)
+            ) as Error & {file?: string}
+            err.name = 'HtmlEntrypointChanged'
+            err.file = relToManifest
+            compilation.errors.push(err)
           }
         }
 

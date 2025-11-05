@@ -19,7 +19,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 
 - Emits HTML for pages declared in the manifest and via `includeList`.
 - Consolidates local JS/CSS referenced by the HTML into page-level bundles.
-- Preserves public-root absolute URLs (leading `/`) for scripts/styles and warns if missing under `public/`.
+- Preserves public-root absolute URLs (leading `/`) for scripts/styles and warns if missing under `public/`. Assets under `public/` are not re‑emitted by this plugin; they are delegated to the special‑folders plugin (Rspack copy plugin or internal fallback).
 - Rewrites relative static assets (images/fonts/etc.) under `assets/<relative path>` while preserving directory structure and extensions.
 - Tracks file dependencies to recompile on change, provides HMR hooks for local scripts during development, and warns if page entry lists change (restart required).
 
@@ -35,7 +35,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
   - `/foo` → `<project>/public/foo`
   - `./public/foo` → `<project>/public/foo`
   - `public/foo` → `<project>/public/foo`
-    Emitted output preserves the `public/` structure where applicable and keeps relative assets under `assets/`.
+    Output preserves the `public/` structure via the special‑folders plugin; this plugin only emits non‑public assets (under `assets/`).
 - Missing HTML entrypoints referenced by the manifest fail the compilation via the manifest feature checks and are printed to stderr before any browser launch.
 - Missing static assets referenced from within HTML (that are not produced by other plugins) generate warnings during compilation so you can iterate without a hard stop.
 

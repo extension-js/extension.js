@@ -48,6 +48,6 @@ describe('AddAssetsToCompilation', () => {
       manifestPath,
       includeList: {'feature/index': html}
     } as any).apply(c as any)
-    expect((c as any).assets['favicon.png']).toBeTruthy()
+    expect((c as any).assets['favicon.png']).toBeUndefined()
   })
 })

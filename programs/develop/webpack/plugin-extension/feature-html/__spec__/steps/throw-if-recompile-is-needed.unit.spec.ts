@@ -4,18 +4,18 @@ import * as path from 'path'
 import {ThrowIfRecompileIsNeeded} from '../../steps/throw-if-recompile-is-needed'
 
 function makeCompiler(modified: string[]) {
-  const warnings: any[] = []
+  const errors: any[] = []
   return {
     modifiedFiles: new Set(modified),
     hooks: {
-      make: {tapAsync: (_: any, fn: any) => fn({warnings} as any, () => {})}
+      make: {tapAsync: (_: any, fn: any) => fn({errors} as any, () => {})}
     },
-    _warnings: warnings
+    _errors: errors
   } as any
 }
 
 describe('ThrowIfRecompileIsNeeded', () => {
-  it('pushes warning when js/css entries changed', () => {
+  it('pushes error when js/css entries changed', () => {
     const tmp = path.join(__dirname, '.tmp-recompile')
     fs.rmSync(tmp, {recursive: true, force: true})
     fs.mkdirSync(tmp, {recursive: true})
@@ -37,6 +37,6 @@ describe('ThrowIfRecompileIsNeeded', () => {
     )
     // Re-run make hook
     compiler.hooks.make.tapAsync('', (compiler as any).hooks.make.tapAsync)
-    expect((compiler as any)._warnings.length >= 0).toBe(true)
+    expect((compiler as any)._errors.length >= 0).toBe(true)
   })
 })
