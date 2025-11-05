@@ -1,6 +1,6 @@
 import type {Compilation} from '@rspack/core'
 import type {FilepathList} from '../../webpack-types'
-import * as utils from '../../../develop-lib/utils'
+import {unixify} from '../../webpack-lib/paths'
 
 export function collectContentScriptEntryImports(
   compilation: Compilation,
@@ -48,7 +48,7 @@ export function collectContentScriptEntryImports(
 
   // Normalize to unix path separators for consistency
   for (const [name, files] of Object.entries(entryImports)) {
-    entryImports[name] = files.map((f) => utils.unixify(f))
+    entryImports[name] = files.map((f) => unixify(f))
   }
 
   return entryImports

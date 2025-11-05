@@ -1,5 +1,5 @@
 import {Compilation, sources} from '@rspack/core'
-import * as utils from '../../../../develop-lib/utils'
+import {getManifestContent} from '../../../webpack-lib/manifest'
 import {resolveUserDeclaredWAR} from './resolve-war'
 import {cleanMatches} from './clean-matches'
 import type {Manifest} from '../../../webpack-types'
@@ -11,7 +11,7 @@ export function generateManifestPatches(
   entryImports: Record<string, string[]>,
   browser?: string
 ) {
-  const manifest = utils.getManifestContent(compilation, manifestPath)
+  const manifest = getManifestContent(compilation, manifestPath)
 
   const resolved = resolveUserDeclaredWAR(
     compilation,
@@ -32,7 +32,7 @@ export function generateManifestPatches(
     manifest.manifest_version === 2 ? Array.from(resolved.v2) : []
 
   for (const [entryName, resources] of Object.entries(entryImports)) {
-    const contentScript = manifest.content_scripts?.find((script) =>
+    const contentScript = manifest.content_scripts?.find((script: any) =>
       script.js?.some((jsFile: string) => jsFile.includes(entryName))
     )
 

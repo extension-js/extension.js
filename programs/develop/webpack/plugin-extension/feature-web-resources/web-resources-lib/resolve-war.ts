@@ -1,11 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compilation, sources, WebpackError} from '@rspack/core'
-import * as utils from '../../../../develop-lib/utils'
+import {unixify, shouldExclude} from '../../../webpack-lib/paths'
 import * as warMessages from './messages'
 
 function isPublicRootLike(possiblePath: string) {
-  const normalizedPath = utils.unixify(possiblePath || '')
+  const normalizedPath = unixify(possiblePath || '')
   return (
     normalizedPath.startsWith('/') ||
     /^(?:\.\/)?public\//i.test(normalizedPath) ||
@@ -14,7 +14,7 @@ function isPublicRootLike(possiblePath: string) {
 }
 
 function toPublicOutput(possiblePath: string) {
-  const normalizedPath = utils.unixify(possiblePath || '')
+  const normalizedPath = unixify(possiblePath || '')
   if (/^\/public\//i.test(normalizedPath)) {
     return normalizedPath.replace(/^\/public\//i, '')
   } else if (/^(?:\.\/)?public\//i.test(normalizedPath)) {
@@ -55,7 +55,7 @@ function emitFileAsAsset(compilation: Compilation, absPath: string): string {
 
   compilation.fileDependencies.add(absPath)
 
-  return utils.unixify(outName)
+  return unixify(outName)
 }
 
 function isFirefox(browser?: string) {
@@ -63,6 +63,9 @@ function isFirefox(browser?: string) {
 }
 
 function isValidChromeMatchPattern(pattern: string): boolean {
+  // Special token is allowed by Chrome for WAR
+  if (pattern === '<all_urls>') return true
+
   if (/[?#]/.test(pattern)) return false
 
   if (!pattern.endsWith('/*')) return false
@@ -73,7 +76,7 @@ function isValidChromeMatchPattern(pattern: string): boolean {
     const u = new URL(parseable)
     return u.pathname === '/'
   } catch {
-    return pattern === '<all_urls>'
+    return false
   }
 }
 
@@ -123,6 +126,7 @@ export function resolveUserDeclaredWAR(
 
   const isV2 = Array.isArray(war) && typeof war[0] === 'string'
   const manifestDir = path.dirname(manifestPath)
+  const projectPath = (compilation.options?.context as string) || manifestDir
 
   const pushResource = (matches: string[] | undefined, resource: string) => {
     if (manifestObj.manifest_version === 2 || isV2) {
@@ -153,8 +157,8 @@ export function resolveUserDeclaredWAR(
         )
 
     if (
-      utils.shouldExclude(absForExclude, excludeList) ||
-      utils.shouldExclude(res, excludeList)
+      shouldExclude(absForExclude, excludeList) ||
+      shouldExclude(res, excludeList)
     ) {
       pushResource(matches, res)
       return
@@ -167,7 +171,7 @@ export function resolveUserDeclaredWAR(
 
     if (isPublicRootLike(res)) {
       const output = toPublicOutput(res)
-      const publicAbs = path.join(manifestDir, 'public', output)
+      const publicAbs = path.join(projectPath, 'public', output)
 
       if (!fs.existsSync(publicAbs)) {
         const outputRoot =
