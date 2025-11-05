@@ -1,6 +1,6 @@
 import {type Compiler} from '@rspack/core'
 import {type PluginInterface} from './browsers-types'
-import {DevOptions} from '../../types/options'
+import {DevOptions} from '../types/options'
 import * as messages from './browsers-lib/messages'
 import {SetupChromeInspectionStep} from './run-chromium/setup-chrome-inspection'
 import {SetupFirefoxInspectionStep} from './run-firefox/remote-firefox/setup-firefox-inspection'

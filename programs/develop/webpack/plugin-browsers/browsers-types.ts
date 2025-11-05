@@ -1,4 +1,4 @@
-import {DevOptions} from '../../types/options'
+import {DevOptions} from '../types/options'
 
 /**
  * List of default browser flags used by extension.js.
