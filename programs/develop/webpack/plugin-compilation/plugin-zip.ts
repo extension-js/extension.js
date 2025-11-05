@@ -4,13 +4,16 @@ import AdmZip from 'adm-zip'
 import glob from 'tiny-glob'
 import ignore from 'ignore'
 import type {Compiler} from '@rspack/core'
+import {DevOptions} from '../types/options'
 
 export interface ZipPluginOptions {
-  projectDir: string
-  browser: string
-  zip?: boolean
-  zipSource?: boolean
-  zipFilename?: string
+  manifestPath?: string
+  browser: DevOptions['browser']
+  zipData: {
+    zip?: boolean
+    zipSource?: boolean
+    zipFilename?: string
+  }
 }
 
 function sanitize(input: string): string {
@@ -24,68 +27,81 @@ function sanitize(input: string): string {
 async function getFilesToZip(projectDir: string): Promise<string[]> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const ig = ignore()
+
   try {
     const content = fs.readFileSync(gitignorePath, 'utf8')
     if (content) ig.add(content)
-  } catch {}
+  } catch {
+    // Ignore errors reading .gitignore
+  }
+
   const files = await glob('**/*', {cwd: projectDir, dot: true})
   return files.filter((file) => !ig.ignores(file))
 }
 
 export class ZipPlugin {
-  constructor(private readonly options: ZipPluginOptions) {}
+  private readonly browser: DevOptions['browser']
+  private readonly zipData: {
+    zip?: boolean
+    zipSource?: boolean
+    zipFilename?: string
+  }
+
+  constructor(private readonly options: ZipPluginOptions) {
+    this.browser = this.options.browser || 'chrome'
+    this.zipData = this.options.zipData
+  }
 
   apply(compiler: Compiler) {
     compiler.hooks.done.tapPromise('plugin-zip', async (stats) => {
-      if (!(this.options.zip || this.options.zipSource)) return
+      if (!(this.zipData.zip || this.zipData.zipSource)) return
 
       try {
-        // Try to read manifest name/version from output (dist) or project dir (for source)
-        const outDir = path.join(
-          this.options.projectDir,
-          'dist',
-          this.options.browser
-        )
+        // Try to read manifest name/version from output (dist)
+        // Use output.path for outDir instead of assuming dist/browser
+        const outPath = compiler.options.output?.path as string
+        const packageJsonDir = compiler.options.context as string
 
-        const manifestPath = path.join(
-          this.options.zipSource ? this.options.projectDir : outDir,
-          'manifest.json'
-        )
+        const manifestPath = this.options.manifestPath
+          ? this.options.manifestPath
+          : path.join(
+              this.zipData.zipSource ? packageJsonDir : outPath,
+              'manifest.json'
+            )
 
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
-          name?: string
-          version?: string
-        }
+        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
 
-        const base = sanitize(
-          manifest.name || path.basename(this.options.projectDir)
-        )
+        const base = sanitize(manifest.name || path.basename(packageJsonDir))
         const name = `${base}-${manifest.version || '0.0.0'}`
 
-        if (this.options.zipSource) {
+        if (this.zipData.zipSource) {
           const sourceZip = new AdmZip()
-          const files = await getFilesToZip(this.options.projectDir)
+          const files = await getFilesToZip(packageJsonDir)
           files.forEach((file) => {
             sourceZip.addLocalFile(
-              path.join(this.options.projectDir, file),
+              path.join(packageJsonDir, file),
               path.dirname(file)
             )
           })
+
+          // "dist" before the browser name for dirname of the output path
+          // For example, if outPath is "dist/chrome", then the source path
+          // will be "dist/my-extension-1.0.0-source.zip"
           const sourcePath = path.join(
-            this.options.projectDir,
-            'dist',
+            path.dirname(outPath),
             `${name}-source.zip`
           )
           sourceZip.writeZip(sourcePath)
         }
 
-        if (this.options.zip) {
+        if (this.zipData.zip) {
           const distZip = new AdmZip()
-          distZip.addLocalFolder(outDir)
-          const filename = this.options.zipFilename
-            ? sanitize(this.options.zipFilename)
+          distZip.addLocalFolder(outPath)
+          const filename = this.zipData.zipFilename
+            ? sanitize(this.zipData.zipFilename)
             : name
-          const distPath = path.join(outDir, `${filename}.zip`)
+          const distPath = path.join(outPath, `${filename}.zip`)
+
           distZip.writeZip(distPath)
         }
       } catch (error) {

@@ -3,19 +3,17 @@ import * as path from 'path'
 import {Compiler, Compilation, DefinePlugin, sources} from '@rspack/core'
 import * as dotenv from 'dotenv'
 import {PluginInterface} from '../webpack-types'
-import {DevOptions} from '../../types/options'
+import {DevOptions} from '../types/options'
 
 export class EnvPlugin {
-  public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
 
-  constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath
+  constructor(options: Partial<PluginInterface>) {
     this.browser = options.browser || 'chrome'
   }
 
   apply(compiler: Compiler) {
-    const projectPath = path.dirname(this.manifestPath)
+    const projectPath = (compiler.options.context as string) || ''
     const mode = compiler.options.mode || 'development'
 
     // Collect .env files based on browser and mode
@@ -69,7 +67,10 @@ export class EnvPlugin {
     // - EXTENSION_PUBLIC_BROWSER (legacy)
     // - EXTENSION_PUBLIC_MODE (legacy)
     // - EXTENSION_BROWSER
+    // - BROWSER
+    // (after v3)
     // - EXTENSION_MODE
+    // - MODE
     filteredEnvVars['process.env.EXTENSION_PUBLIC_BROWSER'] = JSON.stringify(
       this.browser
     )
@@ -86,6 +87,12 @@ export class EnvPlugin {
     )
     filteredEnvVars['process.env.EXTENSION_MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.EXTENSION_MODE'] = JSON.stringify(mode)
+
+    // New after v3
+    filteredEnvVars['process.env.BROWSER'] = JSON.stringify(this.browser)
+    filteredEnvVars['import.meta.env.BROWSER'] = JSON.stringify(this.browser)
+    filteredEnvVars['process.env.MODE'] = JSON.stringify(mode)
+    filteredEnvVars['import.meta.env.MODE'] = JSON.stringify(mode)
 
     // Apply DefinePlugin to expose filtered variables
     new DefinePlugin(filteredEnvVars).apply(compiler)
@@ -109,13 +116,44 @@ export class EnvPlugin {
                   .source()
                   .toString()
 
+                const resolveVar = (name: string): string => {
+                  // Prefer system > explicit env file > defaults; preserve when missing
+                  if (Object.prototype.hasOwnProperty.call(process.env, name)) {
+                    const systemValue = process.env[name]
+                    if (typeof systemValue === 'string') return systemValue
+                  }
+
+                  if (Object.prototype.hasOwnProperty.call(envVars, name)) {
+                    const explicitEnvValue = (
+                      envVars as Record<string, string | undefined>
+                    )[name]
+                    if (typeof explicitEnvValue === 'string')
+                      return explicitEnvValue
+                  }
+
+                  if (
+                    Object.prototype.hasOwnProperty.call(defaultsVars, name)
+                  ) {
+                    const defaultsValue = (
+                      defaultsVars as Record<string, string | undefined>
+                    )[name]
+                    if (typeof defaultsValue === 'string') return defaultsValue
+                  }
+                  const combinedValue = (combinedVars as Record<string, any>)[
+                    name
+                  ]
+
+                  return typeof combinedValue === 'string'
+                    ? combinedValue
+                    : `$${name}`
+                }
+
                 // Replace environment variables in the format $EXTENSION_PUBLIC_VAR (legacy)
                 fileContent = fileContent.replace(
                   /\$EXTENSION_PUBLIC_[A-Z_]+/g,
                   (match: string) => {
                     const envVarName = match.slice(1) // Remove the '$'
-                    const value = combinedVars[envVarName] || match
-                    return value
+                    return resolveVar(envVarName)
                   }
                 )
 
@@ -124,8 +162,7 @@ export class EnvPlugin {
                   /\$EXTENSION_[A-Z_]+/g,
                   (match: string) => {
                     const envVarName = match.slice(1) // Remove the '$'
-                    const value = combinedVars[envVarName] || match
-                    return value
+                    return resolveVar(envVarName)
                   }
                 )
 

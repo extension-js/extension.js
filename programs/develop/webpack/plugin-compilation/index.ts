@@ -7,9 +7,9 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+import * as readline from 'node:readline'
 import colors from 'pintor'
 import {Compiler, DefinePlugin} from '@rspack/core'
-import * as readline from 'node:readline'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {EnvPlugin} from './env'
 import * as messages from './compilation-lib/messages'
@@ -17,7 +17,7 @@ import {
   isBannerPrinted,
   setPendingCompilationLine,
   sharedState
-} from '../shared-state'
+} from '../webpack-lib/shared-state'
 import {CleanDistFolderPlugin} from './clean-dist'
 import {ZipPlugin} from './plugin-zip'
 // no shared banner gating; boring plugin will overwrite initial placeholder from banner
@@ -65,8 +65,7 @@ export class CompilationPlugin {
     new CaseSensitivePathsPlugin().apply(compiler as any)
 
     new EnvPlugin({
-      manifestPath: this.manifestPath,
-      browser: this.browser
+      browser: this.browser || 'chrome'
     }).apply(compiler)
 
     // The CleanDistFolderPlugin will remove the dist folder
@@ -85,19 +84,19 @@ export class CompilationPlugin {
       )
     })
 
-    const logger = compiler.getInfrastructureLogger('plugin-compilation')
-
     // Register packaging only for production builds when requested
     if (
       (this.zip || this.zipSource) &&
       compiler.options.mode === 'production'
     ) {
       new ZipPlugin({
-        projectDir: path.dirname(this.manifestPath),
-        browser: String(this.browser || 'chrome'),
-        zip: this.zip,
-        zipSource: this.zipSource,
-        zipFilename: this.zipFilename
+        manifestPath: this.manifestPath,
+        browser: this.browser || 'chrome',
+        zipData: {
+          zip: this.zip,
+          zipSource: this.zipSource,
+          zipFilename: this.zipFilename
+        }
       }).apply(compiler)
     }
 
