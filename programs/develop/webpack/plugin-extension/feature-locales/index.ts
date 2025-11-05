@@ -3,8 +3,25 @@ import * as fs from 'fs'
 import {Compiler, sources, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from './messages'
-import * as utils from '../../../develop-lib/utils'
 import {getLocales} from './get-locales'
+
+function pushCompilationError(
+  compiler: Compiler,
+  compilation: Compilation,
+  name: string,
+  message: string,
+  file?: string
+) {
+  const ErrorConstructor = (compiler as any)?.rspack?.WebpackError || Error
+  const error = new ErrorConstructor(message) as Error & {file?: string}
+  error.name = name
+  if (file) error.file = file
+
+  if (!compilation.errors) {
+    compilation.errors = []
+  }
+  compilation.errors.push(error)
+}
 
 /**
  * LocalesPlugin is responsible for emitting the locales files
@@ -13,12 +30,10 @@ import {getLocales} from './get-locales'
 export class LocalesPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
   }
 
   public apply(compiler: Compiler): void {
@@ -37,12 +52,12 @@ export class LocalesPlugin {
           if (!fs.existsSync(this.manifestPath)) {
             const ErrorConstructor = compiler?.rspack?.WebpackError || Error
             const error = new ErrorConstructor(
-              messages.manifestNotFoundMessageOnly()
+              messages.manifestNotFoundMessageOnly(this.manifestPath)
             )
 
             error.name = 'ManifestNotFoundError'
             // @ts-expect-error - file is not a property of Error
-            error.file = this.manifestPath
+            error.file = String(this.manifestPath)
 
             if (!compilation.errors) {
               compilation.errors = []
@@ -52,7 +67,118 @@ export class LocalesPlugin {
             return
           }
 
+          // Validate locales/default_locale consistency across browsers
+          try {
+            const manifestDir = path.dirname(this.manifestPath)
+            const manifestRaw = fs.readFileSync(this.manifestPath, 'utf8')
+            const manifest = JSON.parse(manifestRaw) as Record<string, any>
+            const defaultLocale = manifest?.default_locale
+
+            const localesRoot = path.join(manifestDir, '_locales')
+            const hasLocalesRoot = fs.existsSync(localesRoot)
+
+            if (typeof defaultLocale === 'string' && defaultLocale.trim()) {
+              if (!hasLocalesRoot) {
+                pushCompilationError(
+                  compiler,
+                  compilation,
+                  'LocalesValidationError',
+                  messages.defaultLocaleSpecifiedButLocalesMissing(),
+                  'manifest.json'
+                )
+                return
+              }
+
+              const defaultLocaleDir = path.join(localesRoot, defaultLocale)
+              if (!fs.existsSync(defaultLocaleDir)) {
+                pushCompilationError(
+                  compiler,
+                  compilation,
+                  'LocalesValidationError',
+                  messages.defaultLocaleFolderMissing(defaultLocale),
+                  'manifest.json'
+                )
+                return
+              }
+
+              const messagesJsonPath = path.join(
+                defaultLocaleDir,
+                'messages.json'
+              )
+              if (!fs.existsSync(messagesJsonPath)) {
+                pushCompilationError(
+                  compiler,
+                  compilation,
+                  'LocalesValidationError',
+                  messages.defaultLocaleMessagesMissing(defaultLocale),
+                  'manifest.json'
+                )
+                return
+              }
+
+              // Validate JSON of default locale messages
+              try {
+                const content = fs.readFileSync(messagesJsonPath, 'utf8')
+                JSON.parse(content)
+              } catch (e) {
+                pushCompilationError(
+                  compiler,
+                  compilation,
+                  'LocalesValidationError',
+                  messages.invalidMessagesJson(messagesJsonPath),
+                  'manifest.json'
+                )
+                return
+              }
+            } else if (hasLocalesRoot) {
+              // _locales present but no default_locale in manifest: browsers reject the extension
+              pushCompilationError(
+                compiler,
+                compilation,
+                'LocalesValidationError',
+                messages.localesPresentButNoDefaultLocale(),
+                'manifest.json'
+              )
+              return
+            }
+          } catch {
+            // If manifest cannot be parsed, defer to manifest feature/other validators
+          }
+
           if (compilation.errors.length > 0) return
+
+          // Validate all locale JSON files are syntactically valid
+          try {
+            const manifestDir = path.dirname(this.manifestPath)
+            const localesRoot = path.join(manifestDir, '_locales')
+            if (fs.existsSync(localesRoot)) {
+              const localeDirs = fs
+                .readdirSync(localesRoot)
+                .map((d) => path.join(localesRoot, d))
+                .filter((p) => fs.statSync(p).isDirectory())
+
+              for (const localeDir of localeDirs) {
+                const msgPath = path.join(localeDir, 'messages.json')
+                if (fs.existsSync(msgPath)) {
+                  try {
+                    const s = fs.readFileSync(msgPath, 'utf8')
+                    JSON.parse(s)
+                  } catch {
+                    pushCompilationError(
+                      compiler,
+                      compilation,
+                      'LocalesValidationError',
+                      messages.invalidMessagesJson(msgPath),
+                      'manifest.json'
+                    )
+                    return
+                  }
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
 
           const localesFields = getLocales(this.manifestPath)
 
@@ -90,10 +216,8 @@ export class LocalesPlugin {
               const context =
                 compiler.options.context || path.dirname(this.manifestPath)
 
-              if (!utils.shouldExclude(thisResource, this.excludeList)) {
-                const filename = path.relative(context, thisResource)
-                compilation.emitAsset(filename, rawSource)
-              }
+              const filename = path.relative(context, thisResource)
+              compilation.emitAsset(filename, rawSource)
             }
           }
         }
