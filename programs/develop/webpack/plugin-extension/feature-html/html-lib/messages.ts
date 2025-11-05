@@ -142,6 +142,30 @@ export function serverRestartRequiredFromHtml(
   return lines.join('\n')
 }
 
+export function manifestHtmlEntrypointChange(
+  manifestField?: string,
+  pathAfter?: string,
+  pathBefore?: string
+) {
+  const lines: string[] = []
+  const fieldLabel = manifestField
+    ? manifestField.replace(/\//g, '.')
+    : undefined
+  lines.push(
+    `Entrypoint references changed${
+      fieldLabel ? ` in ${colors.yellow(fieldLabel)}` : ''
+    }. Restart the dev server to pick up changes to manifest entrypoints.`
+  )
+  lines.push('')
+  if (pathBefore) {
+    lines.push(`${colors.red('PATH BEFORE')} ${colors.underline(pathBefore)}`)
+  }
+  if (pathAfter) {
+    lines.push(`${colors.green('PATH AFTER')} ${colors.underline(pathAfter)}`)
+  }
+  return lines.join('\n')
+}
+
 export function manifestFieldMessageOnly(manifestField: string) {
   const manifestFieldName = manifestField.startsWith('content_scripts')
     ? `content_scripts`

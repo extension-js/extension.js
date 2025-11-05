@@ -17,22 +17,14 @@ export function serverRestartRequiredFromManifestError(
   const lines: string[] = []
   // Short actionable message, consistent with MESSAGE_STYLE.md
   lines.push(
-    `${colors.red('×')} Entrypoint references changed. Restart the dev server to pick up changes to manifest entrypoints.`
+    `Entrypoint references changed. Restart the dev server to pick up changes to manifest entrypoints.`
   )
   lines.push('')
   if (fileRemoved) {
-    lines.push(
-      `${colors.brightBlue('PATH')} ${colors.red('REMOVED')} ${colors.underline(
-        fileRemoved
-      )}`
-    )
+    lines.push(`${colors.red('PATH BEFORE')} ${colors.underline(fileRemoved)}`)
   }
   if (fileAdded) {
-    lines.push(
-      `${colors.brightBlue('PATH')} ${colors.green('ADDED')} ${colors.underline(
-        fileAdded
-      )}`
-    )
+    lines.push(`${colors.green('PATH AFTER')} ${colors.underline(fileAdded)}`)
   }
   return lines.join('\n')
 }
@@ -55,8 +47,8 @@ export function manifestFieldError(
   const lines: string[] = []
   lines.push(
     isPage
-      ? `${colors.red('×')} Check the ${colors.yellow('pages')} folder in your project root directory.`
-      : `${colors.red('×')} Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.`
+      ? `Check the ${colors.yellow('pages')} folder in your project root directory.`
+      : `Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.`
   )
   if (opts?.publicRootHint) {
     lines.push(
@@ -85,7 +77,7 @@ export function legacyManifestPathWarning(legacyPath: string) {
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
   const lines: string[] = []
   lines.push(
-    `${colors.red('×')} Invalid ${colors.yellow('manifest.json')}. Update your manifest and try again.`
+    `Invalid ${colors.yellow('manifest.json')}. Update your manifest and try again.`
   )
   lines.push('')
   lines.push(`${colors.red('ERROR')} ${colors.red(String(error))}`)

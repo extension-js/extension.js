@@ -79,15 +79,16 @@ export class ThrowIfRecompileIsNeeded {
           return
         }
 
-        const htmlChanged = this.prevHtml.toString() !== nextHtml.toString()
         const scriptsChanged =
           this.prevScripts.toString() !== nextScripts.toString()
 
-        if (htmlChanged || scriptsChanged) {
+        if (scriptsChanged) {
           const fileRemoved =
-            this.prevHtml.filter((p) => !nextHtml.includes(p))[0] || undefined
+            this.prevScripts.filter((p) => !nextScripts.includes(p))[0] ||
+            undefined
           const fileAdded =
-            nextHtml.filter((p) => !this.prevHtml!.includes(p))[0] || undefined
+            nextScripts.filter((p) => !this.prevScripts!.includes(p))[0] ||
+            undefined
           this.pendingChange = {hasChange: true, fileAdded, fileRemoved}
         } else {
           this.pendingChange = null
