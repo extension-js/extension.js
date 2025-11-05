@@ -9,7 +9,7 @@ import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile'
 import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
-import {DevOptions} from '../../../types/options'
+import {DevOptions} from '../../types/options'
 
 /**
  * ManifestPlugin is responsible for handling the manifest.json file.
@@ -25,13 +25,11 @@ export class ManifestPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface & {browser: DevOptions['browser']}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
   }
 
   public apply(compiler: Compiler) {
@@ -47,15 +45,13 @@ export class ManifestPlugin {
     // throwing errors if they don't.
     new CheckManifestFiles({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
-      excludeList: this.excludeList
+      includeList: this.includeList
     }).apply(compiler)
 
     // 3 - This is the end result of the manifest plugin, it updates the
     // manifest with the output path of relevant files.
     new UpdateManifest({
-      manifestPath: this.manifestPath,
-      excludeList: this.excludeList
+      manifestPath: this.manifestPath
     }).apply(compiler)
 
     // 4 - Ensure this manifest is stored as file dependency

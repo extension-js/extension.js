@@ -35,7 +35,8 @@ export function manifestEntrypointChangeRestarting(filePath: string) {
 export function manifestFieldError(
   manifestName: string,
   manifestField: string,
-  filePath: string
+  filePath: string,
+  opts?: {publicRootHint?: boolean; overrideNotFoundPath?: string}
 ) {
   const manifestFieldName = manifestField.startsWith('content_scripts')
     ? `content_scripts`
@@ -46,15 +47,24 @@ export function manifestFieldError(
   const fieldLabel = isContentScripts
     ? `content_scripts (index ${contentIndex})`
     : manifestFieldName
-  return (
-    '' +
-    `${
-      isPage
-        ? `Check the ${colors.yellow('pages')} folder in your project root directory.\n\n`
-        : `Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.\n\n`
-    }` +
-    `${colors.red('NOT FOUND')} ${colors.underline(filePath)}`
+  const lines: string[] = []
+  lines.push(
+    isPage
+      ? `Check the ${colors.yellow('pages')} folder in your project root directory.`
+      : `Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.`
   )
+  if (opts?.publicRootHint) {
+    lines.push(
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+    )
+  }
+  lines.push('')
+  lines.push(
+    `${colors.red('NOT FOUND')} ${colors.underline(
+      opts?.overrideNotFoundPath || filePath
+    )}`
+  )
+  return lines.join('\n')
 }
 
 export function legacyManifestPathWarning(legacyPath: string) {
