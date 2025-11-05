@@ -2,7 +2,6 @@ import os from 'node:os'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import {PostHog} from 'posthog-node'
 
 type TelemetryInit = {
   app: string
@@ -70,12 +69,27 @@ function auditFilePath(): string {
   return path.join(dir, 'events.jsonl')
 }
 
+const DEFAULT_FLUSH_AT = Number(process.env.EXTENSION_TELEMETRY_FLUSH_AT || 10)
+const DEFAULT_FLUSH_INTERVAL = Number(
+  process.env.EXTENSION_TELEMETRY_FLUSH_INTERVAL || 2000
+)
+const DEFAULT_TIMEOUT_MS = Number(
+  process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 200
+)
+
 export class Telemetry {
-  private client: PostHog | null
   private anonId: string
   private common: CommonProps
   private debug: boolean
   private disabled: boolean
+  private apiKey?: string
+  private host?: string
+  private buffer: Array<{
+    event: string
+    properties: Record<string, unknown>
+    distinct_id: string
+  }> = []
+  private timer: NodeJS.Timeout | null = null
 
   constructor(init: TelemetryInit) {
     this.debug = process.env.EXTENSION_TELEMETRY_DEBUG === '1'
@@ -98,27 +112,22 @@ export class Telemetry {
       schema_version: 1
     }
 
-    const key = init.apiKey || process.env.EXTENSION_PUBLIC_POSTHOG_KEY
-    const host = init.host || process.env.EXTENSION_PUBLIC_POSTHOG_HOST
-
-    this.client =
-      !this.disabled && key && host
-        ? new PostHog(key, {host, flushAt: 10, flushInterval: 2000})
-        : null
+    this.apiKey = init.apiKey || process.env.EXTENSION_PUBLIC_POSTHOG_KEY
+    this.host = init.host || process.env.EXTENSION_PUBLIC_POSTHOG_HOST
 
     // First-run consent marker (non-blocking, no prompt here; just record anonymous opt-in once)
     // Only record consent when telemetry is enabled.
     if (!this.disabled) {
       const consentPath = path.join(configDir(), 'telemetry', 'consent')
 
-      if (fs.existsSync(consentPath)) return
+      if (!fs.existsSync(consentPath)) {
+        fs.writeFileSync(consentPath, 'ok', 'utf8')
+        this.track('cli_telemetry_consent', {value: 'implicit_opt_in'})
 
-      fs.writeFileSync(consentPath, 'ok', 'utf8')
-      this.track('cli_telemetry_consent', {value: 'implicit_opt_in'})
-
-      console.log(
-        '[extension] anonymous telemetry helps us improve. Pass --no-telemetry to opt out. Read more in TELEMETRY.md.'
-      )
+        console.log(
+          '[extension] anonymous telemetry helps us improve. Pass --no-telemetry to opt out. Read more in TELEMETRY.md.'
+        )
+      }
     }
   }
 
@@ -129,7 +138,7 @@ export class Telemetry {
       event,
       // $ip: null prevents IP storage on the server even if project settings change
       properties: {...this.common, ...props, $ip: null as unknown as undefined},
-      distinctId: this.anonId
+      distinct_id: this.anonId
     }
 
     fs.appendFileSync(auditFilePath(), JSON.stringify(payload) + '\n')
@@ -139,27 +148,53 @@ export class Telemetry {
       console.error('[telemetry]', JSON.stringify(payload))
     }
 
-    if (this.client) this.client.capture(payload)
+    // No network configured; skip sending
+    if (!this.apiKey || !this.host) return
+
+    this.buffer.push(payload)
+    if (this.buffer.length >= DEFAULT_FLUSH_AT) {
+      void this.flush()
+      return
+    }
+    if (!this.timer) {
+      this.timer = setTimeout(() => {
+        this.timer = null
+        void this.flush()
+      }, DEFAULT_FLUSH_INTERVAL)
+    }
   }
 
   async flush() {
-    if (!this.client) return
+    if (this.disabled || !this.apiKey || !this.host) return
+    if (this.buffer.length === 0) return
 
-    const c: any = this.client as any
-    if (typeof c.flushAsync === 'function') {
-      await c.flushAsync()
-      return
-    }
-
-    if (typeof c.flush === 'function') {
-      const maybePromise = c.flush(() => {})
-      if (maybePromise && typeof maybePromise.then === 'function') {
-        await maybePromise
-      }
+    const batch = this.buffer.splice(0, this.buffer.length)
+    try {
+      const ac = new AbortController()
+      const t = setTimeout(() => ac.abort(), DEFAULT_TIMEOUT_MS)
+      const url = new URL('/capture/', this.host)
+      await fetch(url.toString(), {
+        method: 'POST',
+        headers: {'content-type': 'application/json'},
+        body: JSON.stringify({
+          api_key: this.apiKey,
+          batch: batch.map((e) => ({
+            event: e.event,
+            properties: e.properties,
+            distinct_id: e.distinct_id
+          }))
+        }),
+        signal: ac.signal,
+        // Best effort; avoid keeping the process alive
+        keepalive: true as unknown as boolean
+      }).catch(() => {})
+      clearTimeout(t)
+    } catch {
+      // swallow — best-effort
     }
   }
 
   shutdown() {
-    if (this.client) this.client.shutdown()
+    // no-op
   }
 }

@@ -85,25 +85,23 @@
     "cli"
   ],
   "dependencies": {
+    "commander": "^12.1.0",
+    "extension-create": "^2.2.0",
+    "pintor": "0.3.0",
+    "semver": "^7.6.3",
+    "update-check": "^1.5.4"
+  },
+  "devDependencies": {
+    "@rslib/core": "^0.6.9",
     "@types/chrome": "^0.0.287",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",
     "@types/webextension-polyfill": "0.12.3",
-    "commander": "^12.1.0",
-    "extension-create": "^2.2.0",
-    "extension-develop": "workspace:*",
-    "pintor": "0.3.0",
-    "posthog-node": "5.9.2",
-    "semver": "^7.6.3",
-    "update-check": "^1.5.4",
-    "webextension-polyfill": "^0.12.0"
-  },
-  "devDependencies": {
-    "@rslib/core": "^0.6.9",
     "@types/mock-fs": "^4.13.4",
     "@types/semver": "^7.5.8",
     "mock-fs": "^5.4.1",
+    "webextension-polyfill": "^0.12.0",
     "tsconfig": "*",
     "typescript": "5.7.2",
     "vitest": "^3.2.4"

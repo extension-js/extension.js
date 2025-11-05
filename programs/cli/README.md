@@ -104,7 +104,7 @@ Done. You are all set!
 
 | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chromium/chromium.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> |
 | :-----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: |
-|                                          Chrome browser<br>✅                                           |                                         Edge browser<br>✅                                          |                                           Firefox browser<br>✅                                           |                                        Safari browser<br>(soon)                                         |                                            Chromium-based<br>✅                                             |                                             Gecko-based<br>✅                                             |
+|                                          Chrome browser<br>✅                                           |                                         Edge browser<br>✅                                          |                                           Firefox browser<br>✅                                           |                                        Safari browser<br>(soon)                                         |                                            Chromium-based<br>✅                                             |                                            Firefox-based<br>✅                                            |
 
 ### Browser flags and custom binaries
 
@@ -112,7 +112,7 @@ Use these flags with `extension dev`, `extension start`, or `extension preview`:
 
 - Select a browser: `--browser <chrome | edge | firefox>`
 - Custom Chromium binary: `--chromium-binary <path-to-binary>`
-- Custom Gecko (Firefox) binary: `--gecko-binary <path-to-binary>`
+- Custom Gecko (Firefox) binary: `--gecko-binary <path-to-binary>` (alias: `--firefox-binary`)
 
 Examples:
 
