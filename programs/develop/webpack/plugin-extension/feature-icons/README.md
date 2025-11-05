@@ -119,6 +119,11 @@ export default {
 
 These rules align with the common bundler convention that `/` points to the packaged app's public root while still operating correctly during local development.
 
+## Compile-time validation
+
+- Missing icon files referenced by supported manifest fields are reported as warnings during the build with a guided, multi‑line message. These typically do not block the browser from loading the extension, but will result in missing toolbar or menu icons if left unresolved.
+- Manifest field presence/shape is validated by other features; this plugin focuses on file existence and emission.
+
 ## Compatibility
 
 - This plugin is typed against `@rspack/core` and tested with Rspack.

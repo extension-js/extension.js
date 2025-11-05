@@ -3,18 +3,19 @@ import * as path from 'path'
 import {Compiler, sources, Compilation} from '@rspack/core'
 import * as messages from '../messages'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import * as utils from '../../../../develop-lib/utils'
 
 // Shared utility for reporting errors or warnings to the compilation
 function reportToCompilation(
   compilation: Compilation,
   message: string,
   compiler: Compiler,
-  opts?: {type?: 'error' | 'warning'}
+  opts?: {type?: 'error' | 'warning'; file?: string}
 ) {
   const ErrorConstructor = compiler?.rspack?.WebpackError || Error
-  const errObj = new ErrorConstructor(message)
+  const errObj = new ErrorConstructor(message) as Error & {file?: string}
   const arrKey = opts?.type === 'warning' ? 'warnings' : 'errors'
+
+  if (opts?.file) errObj.file = opts.file
 
   if (!compilation[arrKey]) {
     compilation[arrKey] = []
@@ -26,12 +27,10 @@ function reportToCompilation(
 export class EmitFile {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
   }
 
   public apply(compiler: Compiler): void {
@@ -45,6 +44,9 @@ export class EmitFile {
           if (compilation.errors.length > 0) return
 
           const iconFields = this.includeList || {}
+          const manifestDir = path.dirname(this.manifestPath)
+          const projectPath = compiler.options.context as string
+          const publicDir = path.join(projectPath, 'public' + path.sep)
 
           for (const field of Object.entries(iconFields)) {
             const [feature, resource] = field
@@ -70,68 +72,84 @@ export class EmitFile {
                 // - Absolute OS paths are used as-is
                 const manifestDir = path.dirname(this.manifestPath)
                 // Prefer real absolute filesystem paths when they exist.
-                // Otherwise, treat leading "/" as extension root.
+                // Otherwise, treat leading "/" as extension root (package root / public root).
                 let resolved = entry
                 if (!fs.existsSync(resolved)) {
                   resolved = entry.startsWith('/')
-                    ? path.join(manifestDir, entry.slice(1))
+                    ? path.join(projectPath, entry.slice(1))
                     : path.isAbsolute(entry)
                       ? entry
                       : path.join(manifestDir, entry)
                 }
 
-                // Do not output if file doesn't exist.
-                // If the user updates the path, this script runs again
-                // and output the file accordingly.
+                const isUnderPublic =
+                  String(resolved).startsWith(publicDir) ||
+                  (entry.startsWith('/') &&
+                    fs.existsSync(
+                      path.join(projectPath, 'public', entry.slice(1))
+                    ))
+
+                // Missing file: warn and skip
                 if (!fs.existsSync(resolved)) {
-                  // Surface a non-fatal warning when an expected icon file is missing,
-                  // unless it is explicitly excluded by user configuration.
-                  if (!utils.shouldExclude(entry, this.excludeList)) {
-                    reportToCompilation(
-                      compilation,
-                      messages.iconsMissingFile(entry),
-                      compiler,
-                      {type: 'warning'}
-                    )
-                  }
+                  const isPublicRoot = entry.startsWith('/')
+                  const outputRoot = compilation.options?.output?.path || ''
+                  const displayPath = isPublicRoot
+                    ? outputRoot
+                      ? path.join(outputRoot, entry.slice(1))
+                      : entry
+                    : resolved
+                  reportToCompilation(
+                    compilation,
+                    messages.iconsMissingFile(feature, displayPath, {
+                      publicRootHint: isPublicRoot
+                    }),
+                    compiler,
+                    {type: 'warning', file: 'manifest.json'}
+                  )
                   continue
                 }
 
-                if (!utils.shouldExclude(resolved, this.excludeList)) {
-                  const source = fs.readFileSync(resolved)
-                  const rawSource = new sources.RawSource(source)
-
-                  const basename = path.basename(resolved)
-                  // Determine output directory from feature key. Supported keys:
-                  // - icons
-                  // - action/default_icon
-                  // - browser_action/default_icon
-                  // - browser_action/theme_icons
-                  // - page_action/default_icon
-                  // - sidebar_action/default_icon
-                  const parts = String(feature).split('/')
-                  const group = parts[0]
-                  const sub = parts[1] || ''
-
-                  let outputDir = group
-                  if (
-                    (group === 'action' ||
-                      group === 'browser_action' ||
-                      group === 'page_action' ||
-                      group === 'sidebar_action') &&
-                    sub === 'default_icon'
-                  ) {
-                    outputDir = 'icons'
-                  } else if (
-                    group === 'browser_action' &&
-                    sub === 'theme_icons'
-                  ) {
-                    outputDir = 'browser_action'
-                  }
-                  const filename = `${outputDir}/${basename}`
-
-                  compilation.emitAsset(filename, rawSource)
+                // Under public: do not emit; track for watch
+                if (isUnderPublic) {
+                  try {
+                    compilation.fileDependencies.add(resolved)
+                  } catch {}
+                  continue
                 }
+
+                const source = fs.readFileSync(resolved)
+                const rawSource = new sources.RawSource(source)
+
+                const basename = path.basename(resolved)
+                // Determine output directory from feature key. Supported keys:
+                // - icons
+                // - action/default_icon
+                // - browser_action/default_icon
+                // - browser_action/theme_icons
+                // - page_action/default_icon
+                // - sidebar_action/default_icon
+                const parts = String(feature).split('/')
+                const group = parts[0]
+                const sub = parts[1] || ''
+
+                let outputDir = group
+                if (
+                  (group === 'action' ||
+                    group === 'browser_action' ||
+                    group === 'page_action' ||
+                    group === 'sidebar_action') &&
+                  sub === 'default_icon'
+                ) {
+                  outputDir = 'icons'
+                } else if (
+                  group === 'browser_action' &&
+                  sub === 'theme_icons'
+                ) {
+                  outputDir = 'browser_action'
+                }
+                const filename = `${outputDir}/${basename}`
+
+                compilation.emitAsset(filename, rawSource)
               }
             }
           }

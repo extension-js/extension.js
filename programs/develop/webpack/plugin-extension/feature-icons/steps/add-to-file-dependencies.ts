@@ -1,7 +1,6 @@
 import * as fs from 'fs'
 import {type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import * as utils from '../../../../develop-lib/utils'
 
 export class AddToFileDependencies {
   public readonly manifestPath: string
@@ -11,7 +10,7 @@ export class AddToFileDependencies {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
+    this.excludeList = {}
   }
 
   public apply(compiler: Compiler): void {
@@ -46,11 +45,9 @@ export class AddToFileDependencies {
                   const fileDependencies = new Set(compilation.fileDependencies)
 
                   if (fs.existsSync(entry)) {
-                    if (!utils.shouldExclude(entry, this.excludeList)) {
-                      if (!fileDependencies.has(entry)) {
-                        fileDependencies.add(entry)
-                        compilation.fileDependencies.add(entry)
-                      }
+                    if (!fileDependencies.has(entry)) {
+                      fileDependencies.add(entry)
+                      compilation.fileDependencies.add(entry)
                     }
                   }
                 }
