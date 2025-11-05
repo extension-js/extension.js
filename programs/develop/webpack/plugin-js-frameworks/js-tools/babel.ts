@@ -9,7 +9,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {Compiler} from '@rspack/core'
 import * as messages from '../js-frameworks-lib/messages'
-import {DevOptions} from '../../../types/options'
+import {DevOptions} from '../../types/options'
 import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false

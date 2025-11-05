@@ -8,11 +8,13 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from '../js-frameworks-lib/messages'
-import {installOptionalDependencies} from '../../../develop-lib/utils'
+import {
+  installOptionalDependencies,
+  hasDependency
+} from '../../webpack-lib/integrations'
 import {JsFramework} from '../../webpack-types'
-import {hasDependency} from '../../../develop-lib/utils'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
-import {type DevOptions} from '../../../types/options'
+import {type DevOptions} from '../../types/options'
 
 let userMessageDelivered = false
 
@@ -60,12 +62,6 @@ export async function maybeUseSvelte(
 
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'svelte')
-
-  // Check if svelte.loader.js is being used
-  const svelteLoaderPath = path.join(projectPath, 'svelte.loader.js')
-  if (fs.existsSync(svelteLoaderPath)) {
-    console.log(messages.isUsingIntegration('svelte.loader.js'))
-  }
 
   const defaultLoaders: JsFramework['loaders'] = [
     {

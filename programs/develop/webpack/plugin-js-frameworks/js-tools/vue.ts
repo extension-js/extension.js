@@ -9,9 +9,11 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {VueLoaderPlugin} from 'vue-loader'
 import * as messages from '../js-frameworks-lib/messages'
-import {installOptionalDependencies} from '../../../develop-lib/utils'
+import {
+  installOptionalDependencies,
+  hasDependency
+} from '../../webpack-lib/integrations'
 import {JsFramework} from '../../webpack-types'
-import {hasDependency} from '../../../develop-lib/utils'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 
 let userMessageDelivered = false
@@ -45,12 +47,6 @@ export async function maybeUseVue(
 
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'vue')
-
-  // Check if vue.loader.js is being used
-  const vueLoaderPath = path.join(projectPath, 'vue.loader.js')
-  if (fs.existsSync(vueLoaderPath)) {
-    console.log(messages.isUsingIntegration('vue.loader.js'))
-  }
 
   const defaultLoaders: JsFramework['loaders'] = [
     {
