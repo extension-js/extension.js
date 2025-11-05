@@ -1,6 +1,6 @@
 import {ChildProcess} from 'child_process'
 import * as messages from '../browsers-lib/messages'
-import {DevOptions} from '../../../types/options'
+import {DevOptions} from '../../types/options'
 
 export function setupProcessSignalHandlers(
   browser: DevOptions['browser'],

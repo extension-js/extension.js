@@ -1,5 +1,5 @@
 import colors from 'pintor'
-import type {DevOptions} from '../../../types/options'
+import type {DevOptions} from '../../types/options'
 
 type Browser = NonNullable<DevOptions['browser']>
 type Mode = DevOptions['mode']

@@ -1,5 +1,5 @@
 import {type Compiler} from '@rspack/core'
-import {DevOptions} from '../../../../types/options'
+import {DevOptions} from '../../../types/options'
 import * as messages from '../../browsers-lib/messages'
 import {MessagingClient} from './messaging-client'
 import {selectActors} from './setup-firefox-inspection-actors'

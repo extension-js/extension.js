@@ -45,7 +45,7 @@ export class FirefoxBinaryDetector {
     }
 
     throw new Error(
-      'Firefox not found. Either install Firefox or specify --geckoBinary path'
+      'Firefox not found. Either install Firefox or specify --gecko-binary or --firefox-binary path'
     )
   }
 
