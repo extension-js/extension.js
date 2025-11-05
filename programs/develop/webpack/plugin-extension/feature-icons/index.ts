@@ -1,6 +1,7 @@
 import {type Compiler} from '@rspack/core'
 import {EmitFile} from './steps/emit-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
+import {ThrowIfManifestIconsChange} from './steps/throw-if-manifest-icons-change'
 import {
   ThemeIcon,
   type FilepathList,
@@ -34,6 +35,11 @@ export class IconsPlugin {
     }).apply(compiler)
 
     new AddToFileDependencies({
+      manifestPath: this.manifestPath,
+      includeList: this.includeList as FilepathList
+    }).apply(compiler)
+
+    new ThrowIfManifestIconsChange({
       manifestPath: this.manifestPath,
       includeList: this.includeList as FilepathList
     }).apply(compiler)

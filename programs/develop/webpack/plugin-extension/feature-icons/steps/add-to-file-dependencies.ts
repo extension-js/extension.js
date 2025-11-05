@@ -30,15 +30,35 @@ export class AddToFileDependencies {
             for (const field of Object.entries(iconFields)) {
               const [, resource] = field
 
-              const iconEntries: unknown[] = Array.isArray(resource)
-                ? typeof resource[0] === 'string'
-                  ? resource
-                  : resource.map(Object.values).flat()
-                : [resource]
+              const normalizeToStrings = (response: unknown): string[] => {
+                if (!response) return []
 
-              const stringEntries = iconEntries.filter(
-                (entry): entry is string => typeof entry === 'string'
-              )
+                if (typeof response === 'string') return [response]
+
+                if (Array.isArray(response)) {
+                  const flat = response.flatMap((value) => {
+                    if (typeof value === 'string') return [value]
+
+                    if (value && typeof value === 'object') {
+                      return Object.values(value)
+                    }
+
+                    return []
+                  })
+
+                  return flat.filter((s): s is string => typeof s === 'string')
+                }
+
+                if (typeof response === 'object') {
+                  return Object.values(response).filter(
+                    (value): value is string => typeof value === 'string'
+                  )
+                }
+
+                return []
+              }
+
+              const stringEntries = normalizeToStrings(resource)
 
               for (const entry of stringEntries) {
                 if (entry) {
