@@ -1,4 +1,5 @@
 import * as fs from 'fs'
+import * as path from 'path'
 import {type Compiler, type EntryObject} from '@rspack/core'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
@@ -6,12 +7,10 @@ import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 export class AddScripts {
   public readonly manifestPath: string
   public readonly includeList: FilepathList
-  public readonly excludeList: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList || {}
-    this.excludeList = options.excludeList || {}
   }
 
   public apply(compiler: Compiler): void {
@@ -19,10 +18,16 @@ export class AddScripts {
 
     const newEntries: Record<string, EntryObject> = {}
 
+    const projectPath = compiler.options.context as string
+    const publicDir = path.join(projectPath, 'public' + path.sep)
+
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
-      const scriptImports = getScriptEntries(scriptPath, this.excludeList)
-      const cssImports = getCssEntries(scriptPath, this.excludeList)
-      const entryImports = [...scriptImports, ...cssImports]
+      const scriptImports = getScriptEntries(scriptPath)
+      const cssImports = getCssEntries(scriptPath)
+      const allImports = [...scriptImports, ...cssImports]
+      const entryImports = allImports.filter(
+        (p) => !String(p).startsWith(publicDir)
+      )
 
       if (cssImports.length || scriptImports.length) {
         // Apply entry-specific configuration for service workers
@@ -49,6 +54,41 @@ export class AddScripts {
     compiler.options.entry = {
       ...compiler.options.entry,
       ...newEntries
+    }
+
+    // Track public files for watch; emission handled by SpecialFolders
+    if (compiler?.hooks?.thisCompilation?.tap) {
+      compiler.hooks.thisCompilation.tap(
+        'scripts:add-public-deps',
+        (compilation) => {
+          try {
+            // Recompute all script field entries to avoid closure issues per entry
+            const allScriptFieldImports: string[] = Object.values(
+              scriptFields
+            ).flatMap((scriptFieldEntry: any) =>
+              [].concat(
+                ...(Array.isArray(scriptFieldEntry)
+                  ? scriptFieldEntry
+                  : scriptFieldEntry
+                    ? [scriptFieldEntry]
+                    : [])
+              )
+            )
+
+            const publicFilesOnly: string[] = allScriptFieldImports.filter(
+              (importPath) => String(importPath).startsWith(publicDir)
+            )
+
+            for (const publicFilePath of publicFilesOnly) {
+              if (fs.existsSync(publicFilePath)) {
+                compilation.fileDependencies.add(publicFilePath)
+              }
+            }
+          } catch {
+            // ignore guard errors
+          }
+        }
+      )
     }
   }
 }

@@ -29,7 +29,7 @@ Notes:
 
 ## Usage
 
-Standalone usage (manual include/exclude lists):
+Standalone usage (manual include list):
 
 ```ts
 import * as path from 'path'
@@ -50,10 +50,6 @@ const config: Configuration = {
           path.resolve(__dirname, 'src/content.css')
         ],
         'user_scripts/api_script': path.resolve(__dirname, 'src/user-script.js')
-      },
-      // Optionally skip files (exact or subpath match)
-      excludeList: {
-        // 'public/some-file': path.resolve(__dirname, 'public/some-file.js')
       }
     })
   ]
@@ -123,7 +119,6 @@ export interface PluginInterface {
   manifestPath: string
   browser?: import('../../../development-lib/config-types').DevOptions['browser']
   includeList?: FilepathList
-  excludeList?: FilepathList
 }
 
 export class ScriptsPlugin {
@@ -140,45 +135,3 @@ export class ScriptsPlugin {
 | `background/service_worker`       | Logical entry for background service worker (MV3).                              |
 | `content_scripts/content-<index>` | Generated per item in `manifest.content_scripts`; includes JS and/or CSS.       |
 | `user_scripts/api_script`         | Logical entry for user scripts API script.                                      |
-
-### Include/Exclude semantics
-
-- **includeList**: Map of feature keys to absolute file paths. Values can be a `string` or `string[]`.
-- **excludeList**: Map of feature keys to absolute file paths you want to skip. If a file path in `includeList` matches (or is contained within) a value in `excludeList`, it will not be emitted or added to entries/file‑dependencies. Use this to prevent duplication with special folders like `public/`.
-
-Example:
-
-```ts
-new ScriptsPlugin({
-  manifestPath: '/abs/manifest.json',
-  includeList: {
-    'background/scripts': ['/abs/a.js', '/abs/b.js']
-  },
-  excludeList: {
-    'background/scripts': ['/abs/b.js']
-  }
-})
-// Resulting entry imports only ['/abs/a.js']
-```
-
-### Wrapper behavior (content scripts)
-
-- Applied by default to files referenced by `manifest.content_scripts`.
-- Detects React, Vue, Svelte, Preact, or falls back to TypeScript/JavaScript.
-- Injects CSS imported from the content script and wires HMR for script and style updates with safe cleanup.
-- Classic vs module service worker: non‑module workers get `chunkLoading: 'import-scripts'` to ensure correct runtime behavior, while module workers are left untouched.
-
-### Development warnings (backwards compatibility)
-
-- In development, a dedicated loader emits warnings for:
-  - User HMR code (`import.meta.webpackHot`, `import.meta.hot`, `module.hot`) present in content scripts. Remove it; the wrapper handles HMR.
-  - Missing default export in a content script. This is allowed for now but will be required in v3.
-  - Default export that returns a cleanup function. The wrapper will call it for back‑compat, but it is discouraged since the wrapper handles unmount.
-
-## Tested behavior
-
-- Adds entries for `background.scripts`, `background.service_worker`, `content_scripts` (JS/CSS), and `user_scripts.api_script`.
-- Injects HMR accept code into content scripts and background scripts (not service workers).
-- Emits a minimal JS bundle even for CSS-only content scripts, so they can be loaded reliably in development.
-- In production, ensures publicPath is available and corrected for content scripts and main-world asset resolution.
-- Honors `

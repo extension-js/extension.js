@@ -3,7 +3,8 @@ import {patchV2CSP, patchV3CSP} from './patch-csp'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'
 import patchBackground from './patch-background'
 import patchExternallyConnectable from './patch-externally-connectable'
-import * as utils from '../../../../../../develop-lib/utils'
+import {getManifestContent} from '../../../../../webpack-lib/manifest'
+import {filterKeysForThisBrowser} from '../../../../../webpack-lib/manifest'
 import {type PluginInterface} from '../../../../../webpack-types'
 import {DevOptions} from '../../../../../../module'
 
@@ -18,9 +19,9 @@ export class ApplyManifestDevDefaults {
 
   private generateManifestPatches(compilation: Compilation) {
     // Read original manifest then filter namespaced keys for the active browser
-    const manifest = utils.getManifestContent(compilation, this.manifestPath!)
+    const manifest = getManifestContent(compilation, this.manifestPath!)
     const browser = this.browser as DevOptions['browser']
-    const filtered = utils.filterKeysForThisBrowser(manifest, browser)
+    const filtered = filterKeysForThisBrowser(manifest, browser)
 
     const patchedManifest = {
       // Preserve all other user entries

@@ -5,7 +5,7 @@ import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 import {AddCentralizedLoggerScript} from './steps/add-centralized-logger-script'
-import {type DevOptions} from '../../../types/options'
+import {type DevOptions} from '../../types/options'
 import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
 
 /**
@@ -28,13 +28,11 @@ import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content
 export class ScriptsPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
   public readonly browser?: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
     this.browser = options.browser || 'chrome'
   }
 
@@ -53,8 +51,7 @@ export class ScriptsPlugin {
     // to the compilation.
     new AddScripts({
       manifestPath: this.manifestPath,
-      includeList: this.includeList || {},
-      excludeList: this.excludeList || {}
+      includeList: this.includeList || {}
     }).apply(compiler)
 
     // 2 - Add the content script wrapper.
@@ -79,12 +76,12 @@ export class ScriptsPlugin {
       }).apply(compiler)
 
       // 5 - Inject centralized logger (development only)
-      new AddCentralizedLoggerScript({
-        manifestPath: this.manifestPath,
-        includeList: this.includeList || {},
-        excludeList: this.excludeList || {},
-        browser: this.browser
-      }).apply(compiler)
+      // TODO: cezaraugusto enable this after v3
+      // new AddCentralizedLoggerScript({
+      //   manifestPath: this.manifestPath,
+      //   includeList: this.includeList || {},
+      //   browser: this.browser
+      // }).apply(compiler)
     }
   }
 }
