@@ -14,22 +14,27 @@ export function serverRestartRequiredFromManifestError(
   fileAdded: string,
   fileRemoved: string
 ) {
-  const fileRemovedText = fileRemoved
-    ? `${colors.brightBlue('PATH')} ${colors.red('REMOVED')} ${colors.underline(fileRemoved)}\n`
-    : ''
-  const fileAddedText = fileAdded
-    ? `${colors.brightBlue('PATH')} ${colors.green('ADDED')} ${colors.underline(fileAdded)}`
-    : ''
-  return (
-    `${colors.red('ERROR')} Entrypoint Change Detected\n` +
-    `Changing the path of HTML or script files after compilation requires a server restart.\n` +
-    fileRemovedText +
-    fileAddedText
+  const lines: string[] = []
+  // Short actionable message, consistent with MESSAGE_STYLE.md
+  lines.push(
+    `${colors.red('×')} Entrypoint references changed. Restart the dev server to pick up changes to manifest entrypoints.`
   )
-}
-
-export function manifestEntrypointChangeRestarting(filePath: string) {
-  return `${getLoggingPrefix('manifest.json', 'warn')} Entrypoint change detected at ${colors.underline(filePath)}. Restarting dev server to recompile...`
+  lines.push('')
+  if (fileRemoved) {
+    lines.push(
+      `${colors.brightBlue('PATH')} ${colors.red('REMOVED')} ${colors.underline(
+        fileRemoved
+      )}`
+    )
+  }
+  if (fileAdded) {
+    lines.push(
+      `${colors.brightBlue('PATH')} ${colors.green('ADDED')} ${colors.underline(
+        fileAdded
+      )}`
+    )
+  }
+  return lines.join('\n')
 }
 
 export function manifestFieldError(
@@ -50,8 +55,8 @@ export function manifestFieldError(
   const lines: string[] = []
   lines.push(
     isPage
-      ? `Check the ${colors.yellow('pages')} folder in your project root directory.`
-      : `Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.`
+      ? `${colors.red('×')} Check the ${colors.yellow('pages')} folder in your project root directory.`
+      : `${colors.red('×')} Check the ${colors.yellow(fieldLabel)} field in your ${colors.yellow('manifest.json')} file.`
   )
   if (opts?.publicRootHint) {
     lines.push(
@@ -68,17 +73,21 @@ export function manifestFieldError(
 }
 
 export function legacyManifestPathWarning(legacyPath: string) {
-  return (
-    `${getLoggingPrefix('manifest.json', 'warn')} Deprecated Path Detected\n` +
-    `Found legacy output path ${colors.yellow(legacyPath)}. ` +
-    `This will be rewritten to standardized folders in the next major.`
+  const lines: string[] = []
+  lines.push(
+    `⚠ Deprecated manifest path detected. This will be rewritten to standardized folders in the next major.`
   )
+  lines.push('')
+  lines.push(`${colors.brightBlue('PATH')} ${colors.underline(legacyPath)}`)
+  return lines.join('\n')
 }
 
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
-  return (
-    `${getLoggingPrefix('manifest.json', 'error')} Invalid Manifest\n\n` +
-    `Update your ${colors.yellow('manifest.json')} file and try again.\n\n` +
-    colors.red(error.toString())
+  const lines: string[] = []
+  lines.push(
+    `${colors.red('×')} Invalid ${colors.yellow('manifest.json')}. Update your manifest and try again.`
   )
+  lines.push('')
+  lines.push(`${colors.red('ERROR')} ${colors.red(String(error))}`)
+  return lines.join('\n')
 }
