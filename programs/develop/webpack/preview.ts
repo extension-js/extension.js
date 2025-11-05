@@ -9,13 +9,15 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {rspack, type Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
-import webpackConfig from './webpack/webpack-config'
-import {getProjectStructure} from './develop-lib/get-project-path'
-import * as messages from './develop-lib/messages'
-import {loadCustomWebpackConfig} from './develop-lib/get-extension-config'
+import webpackConfig from './webpack-config'
+import {getProjectStructure} from './webpack-lib/project'
+import * as messages from './webpack-lib/messages'
+import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
+import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
+import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
+import {BrowsersPlugin} from './plugin-browsers'
 import {PreviewOptions} from './types/options'
-import {assertNoManagedDependencyConflicts} from './develop-lib/validate-user-dependencies'
-import {BrowsersPlugin} from './webpack/plugin-browsers'
+import {scrubBrand} from './webpack-lib/branding'
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
@@ -56,9 +58,14 @@ export async function extensionPreview(
   try {
     const browser = previewOptions.browser || 'chrome'
 
+    const commandConfig = await loadCommandConfig(manifestDir, 'preview')
+    const browserConfig = await loadBrowserConfig(manifestDir, browser)
+
     console.log(messages.previewing(browser))
 
     const baseConfig: Configuration = webpackConfig(projectStructure, {
+      ...browserConfig,
+      ...commandConfig,
       mode: 'production',
       profile: previewOptions.profile,
       browser,
@@ -117,7 +124,6 @@ export async function extensionPreview(
         console.log(messages.runningInProduction(manifestDir))
       } else {
         try {
-          const {scrubBrand} = require('./webpack/branding')
           const verbose =
             String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
           const str = stats?.toString?.({
@@ -126,6 +132,7 @@ export async function extensionPreview(
             errors: true,
             warnings: !!verbose
           })
+
           if (str) console.error(scrubBrand(str))
         } catch {
           try {
@@ -136,7 +143,9 @@ export async function extensionPreview(
               warnings: true
             })
             if (str) console.error(str)
-          } catch {}
+          } catch {
+            // Ignore
+          }
         }
         shutdown(1)
       }

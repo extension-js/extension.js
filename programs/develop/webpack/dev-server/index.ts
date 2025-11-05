@@ -9,20 +9,19 @@ import * as path from 'path'
 import {rspack} from '@rspack/core'
 import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
-import {DevOptions} from '../../types/options'
+import * as messages from './messages'
+import {PortManager} from './port-manager'
+import {setupAutoExit} from './auto-exit'
 import webpackConfig from '../webpack-config'
-import {type ProjectStructure} from '../../develop-lib/get-project-path'
-import * as utils from '../../develop-lib/utils'
+import {type ProjectStructure} from '../webpack-lib/project'
 import {
   loadBrowserConfig,
   loadCommandConfig,
   loadCustomWebpackConfig
-} from '../../develop-lib/get-extension-config'
-import * as messages from './messages'
-import {PortManager} from './port-manager'
-import {setupAutoExit} from './auto-exit'
-import {scrubBrand} from '../branding'
-import * as devMsgs from './messages'
+} from '../webpack-lib/config-loader'
+import {isUsingJSFramework} from '../webpack-lib/integrations'
+import {scrubBrand} from '../webpack-lib/branding'
+import {DevOptions} from '../types/options'
 
 function closeAll(devServer: RspackDevServer, portManager: PortManager) {
   devServer
@@ -46,9 +45,7 @@ export async function devServer(
 ) {
   const {manifestPath, packageJsonPath} = projectStructure
   const manifestDir = path.dirname(manifestPath)
-  const packageJsonDir = packageJsonPath
-    ? path.dirname(packageJsonPath)
-    : manifestDir
+  const packageJsonDir = path.dirname(packageJsonPath!)
 
   // Get command defaults from extension.config.js
   const commandConfig = await loadCommandConfig(manifestDir, 'dev')
@@ -74,10 +71,11 @@ export async function devServer(
   }
 
   // Get the user defined args and merge with the Extension.js base webpack config
+  console.log('got2')
   const baseConfig = webpackConfig(projectStructure, {
-    ...devOptions,
-    ...commandConfig,
     ...browserConfig,
+    ...commandConfig,
+    ...devOptions,
     mode: 'development',
     instanceId: currentInstance.instanceId,
     port: portAllocation.port,
@@ -108,7 +106,7 @@ export async function devServer(
   })
 
   compiler.hooks.failed.tap('extension.js:failed', (error: unknown) => {
-    console.error(devMsgs.bundlerFatalError(error))
+    console.error(messages.bundlerFatalError(error))
   })
 
   compiler.hooks.done.tap('extension.js:done', (stats: any) => {
@@ -138,7 +136,7 @@ export async function devServer(
         if (!hasAssets && !hasEntrypoints) {
           reportedNoEntries = true
           const hookPort = portAllocation.port
-          console.warn(devMsgs.noEntrypointsDetected(hookPort))
+          console.warn(messages.noEntrypointsDetected(hookPort))
         }
       }
     } catch (error) {
@@ -174,15 +172,18 @@ export async function devServer(
       // Ensure no server-side stats spam leaks to users
       stats: false
     },
-    watchFiles: utils.isUsingJSFramework(manifestDir)
-      ? undefined
-      : {
-          paths: [path.join(manifestDir, '**/*.html')],
-          options: {
-            usePolling: true,
-            interval: 1000
-          }
-        },
+    watchFiles: {
+      paths: [
+        path.join(packageJsonDir, 'public', '**/*'),
+        ...(isUsingJSFramework(packageJsonDir)
+          ? []
+          : [path.join(packageJsonDir, '**/*.html')])
+      ],
+      options: {
+        usePolling: true,
+        interval: 1000
+      }
+    },
     client: {
       // Do not surface bundler/dev-server names to end users
       logging: 'none',

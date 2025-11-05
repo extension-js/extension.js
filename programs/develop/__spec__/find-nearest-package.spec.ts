@@ -5,7 +5,7 @@ import os from 'os'
 import {
   findNearestPackageJson,
   validatePackageJson
-} from '../develop-lib/find-nearest-package'
+} from '../webpack/webpack-lib/package-json'
 
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))

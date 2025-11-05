@@ -1,11 +1,6 @@
 import * as path from 'path'
-import axios from 'axios'
-import stream from 'stream'
 import AdmZip from 'adm-zip'
 import * as messages from './messages'
-import {promisify} from 'util'
-
-const pipeline = promisify(stream.pipeline)
 
 export async function downloadAndExtractZip(
   url: string,
@@ -15,16 +10,15 @@ export async function downloadAndExtractZip(
   try {
     console.log(messages.downloadingText(urlNoSearchParams))
 
-    // Step 1: Download the ZIP file and pipe it directly to the extraction process
-    const response = await axios.get(url, {
-      // Stream the response data
-      responseType: 'stream',
-      // Follow redirects by default
-      maxRedirects: 5
-    })
+    // Step 1: Download the ZIP file
+    const res = await fetch(url, {redirect: 'follow'})
+
+    if (!res.ok || !res.body) {
+      throw new Error(`HTTP ${res.status} ${res.statusText}`)
+    }
 
     // Basic validation: ensure the URL or content-type looks like a ZIP
-    const contentType = String(response.headers?.['content-type'] || '')
+    const contentType = String(res.headers.get('content-type') || '')
     const isZipExt = path.extname(urlNoSearchParams).toLowerCase() === '.zip'
     const isZipType = /zip|octet-stream/i.test(contentType)
 
@@ -40,20 +34,9 @@ export async function downloadAndExtractZip(
 
     console.log(messages.unpackagingExtension(destinationPath))
 
-    const zipChunks: Uint8Array[] = []
-
-    // Accumulate chunks to form the ZIP buffer
-    await pipeline(
-      response.data,
-      new stream.Writable({
-        write(chunk, _encoding, callback) {
-          zipChunks.push(chunk)
-          callback()
-        }
-      })
-    )
-
-    const zipBuffer = Buffer.concat(zipChunks)
+    // Accumulate into a buffer
+    const arrayBuffer = await res.arrayBuffer()
+    const zipBuffer = Buffer.from(arrayBuffer)
 
     // Step 2: Extract the ZIP file from the buffer
     const zip = new AdmZip(zipBuffer)

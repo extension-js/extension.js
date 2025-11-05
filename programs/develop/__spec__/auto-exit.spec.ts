@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import {setupAutoExit} from '../auto-exit'
+import {setupAutoExit} from '../webpack/dev-server/auto-exit'
 
 describe('auto-exit', () => {
   const originalLog = console.log

@@ -1,10 +1,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import * as os from 'os'
 import {pathToFileURL} from 'url'
 import {createRequire} from 'module'
-import * as os from 'os'
 import dotenv from 'dotenv'
 import {Configuration} from '@rspack/core'
+import {merge} from 'webpack-merge'
 import {BrowserConfig, FileConfig, DevOptions} from '../types/options'
 import * as messages from './messages'
 
@@ -151,6 +152,15 @@ export async function loadCustomWebpackConfig(projectPath: string) {
         const userConfig = await loadConfigFile(configPath)
         if (userConfig && typeof userConfig.config === 'function') {
           return userConfig.config
+        }
+        // Support plain object configuration by merging on top of base
+        if (
+          userConfig &&
+          userConfig.config &&
+          typeof userConfig.config === 'object'
+        ) {
+          const partial = userConfig.config as Configuration
+          return (config: Configuration) => merge(config, partial)
         }
       } catch (err: unknown) {
         const error = err as Error

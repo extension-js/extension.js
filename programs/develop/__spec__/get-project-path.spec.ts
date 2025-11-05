@@ -5,7 +5,7 @@ import os from 'os'
 import {
   getProjectPath,
   getProjectStructure
-} from '../develop-lib/get-project-path'
+} from '../webpack/webpack-lib/project'
 
 const created: string[] = []
 function makeTempDir(prefix: string) {

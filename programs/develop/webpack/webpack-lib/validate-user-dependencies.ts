@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as messages from './messages'
-import programPackageJson from '../package.json'
+import programPackageJson from '../../package.json'
 
 // Ensures the user's project does not declare packages that are
 // managed by Extension.js itself. Managed packages live in the

@@ -87,14 +87,14 @@ Options accepted by each command. Values shown are typical types or enumerations
 
 ### Common (browser/runtime)
 
-| Option         | Type / Values                                      | Description                                 |
-| -------------- | -------------------------------------------------- | ------------------------------------------- |
-| browser        | chrome, edge, firefox, chromium-based, gecko-based | Target browser/runtime                      |
-| profile        | string or false                                    | Profile path or disable profile persistence |
-| startingUrl    | string                                             | Initial URL to open                         |
-| open           | boolean                                            | Focus/open the browser window               |
-| chromiumBinary | string                                             | Custom Chromium-based executable path       |
-| geckoBinary    | string                                             | Custom Gecko-based executable path          |
+| Option         | Type / Values                                      | Description                                                     |
+| -------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| browser        | chrome, edge, firefox, chromium-based, gecko-based | Target browser/runtime                                          |
+| profile        | string or false                                    | Profile path or disable profile persistence                     |
+| startingUrl    | string                                             | Initial URL to open                                             |
+| open           | boolean                                            | Focus/open the browser window (CLI: use `--no-open` to disable) |
+| chromiumBinary | string                                             | Custom Chromium-based executable path                           |
+| geckoBinary    | string                                             | Custom Gecko-based executable path                              |
 
 ### dev
 
@@ -144,13 +144,22 @@ Options accepted by each command. Values shown are typical types or enumerations
   - Other HTTP(S) URLs: treated as zip archives and extracted locally.
 - Monorepos: The nearest `manifest.json` is resolved recursively; the nearest valid `package.json` is then located and validated.
 
+### Root semantics (manifest vs package.json)
+
+- `manifest.json` may live in any subdirectory of your project.
+- The project root for build/dev is the directory containing the nearest valid `package.json` (i.e., webpack `context`).
+- Special folders and root-relative paths are anchored at the package root:
+  - `public/`, `pages/`, `scripts/`, and URLs starting with `/` resolve relative to the package root (e.g., `/logo.png` → `<packageRoot>/public/logo.png`).
+- Web-only mode: if no `package.json` is found, the manifest directory is used as a fallback project root.
+
 ## User config
 
 - Provide `extension.config.js` or `extension.config.mjs` in your project root.
 - Supported sections:
-  - config(config: Configuration): mutate the assembled Rspack config.
-  - commands.dev | .build | .start | .preview: per-command options (browser, profile, binaries, flags, preferences, unified logger defaults, packaging).
-  - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: launch flags, excluded flags, preferences, binaries, and profile reuse.
+  - config(config: Configuration): mutate the assembled Rspack config. Supports a function or a plain object. When an object is provided, it is deep‑merged on top of the assembled config.
+  - commands.dev | .build | .start | .preview: per‑command options (browser, profile, binaries, flags, preferences, unified logger defaults, packaging). These defaults are applied for all respective commands.
+  - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: launch flags, excluded flags, preferences, binaries, and profile reuse (persistProfile).
+- Precedence when composing options: browser._ → commands._ → CLI flags. CLI flags always win over config defaults.
 - When detected, a one‑time notice is printed to indicate config is active.
 
 ### Environment variables in `extension.config.*`
@@ -189,7 +198,10 @@ export default {
       logTab: 123
     }
   },
+  // Either a function
   config: (config) => config
+  // Or a plain object to merge
+  // config: { resolve: { alias: { react: 'preact/compat' } } }
 }
 ```
 
