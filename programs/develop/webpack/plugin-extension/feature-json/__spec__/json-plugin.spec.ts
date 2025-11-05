@@ -4,6 +4,7 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn()
 }))
 import * as fs from 'fs'
+import * as path from 'path'
 import * as messages from '../messages'
 import {JsonPlugin} from '../index'
 
@@ -77,7 +78,7 @@ describe('JsonPlugin', () => {
     const mockedFs = fs as any
     mockedFs.existsSync.mockImplementation((p: any) => p === jsonPath)
     mockedFs.readFileSync.mockImplementation((p: any) =>
-      p === jsonPath ? Buffer.from('{"ok":true}') : Buffer.from('')
+      p === jsonPath ? Buffer.from('[]') : Buffer.from('')
     )
 
     const plugin = new JsonPlugin({
@@ -91,7 +92,7 @@ describe('JsonPlugin', () => {
     expect(Object.keys(assets)).toContain(
       'declarative_net_request.ruleset.json'
     )
-    expect(assets['declarative_net_request.ruleset.json']).toBe('{"ok":true}')
+    expect(assets['declarative_net_request.ruleset.json']).toBe('[]')
   })
 
   it('updates asset when multiple resources map to the same feature (array)', () => {
@@ -115,7 +116,7 @@ describe('JsonPlugin', () => {
     expect(assets['storage.managed_schema.json']).toBe('{"v":2}')
   })
 
-  it('pushes a warning when file is missing', () => {
+  it('errors when file is missing for critical JSON features', () => {
     const missing = '/abs/path/missing.json'
     const mockedFs = fs as any
     mockedFs.existsSync.mockReturnValue(false)
@@ -128,30 +129,133 @@ describe('JsonPlugin', () => {
     const {compilation, calls} = harness.applyAndRun(plugin)
 
     expect(calls.emit).toBe(0)
-    expect(compilation.warnings.length).toBe(1)
+    expect(compilation.errors.length).toBe(1)
     const expected = messages.entryNotFoundMessageOnly(
-      'declarative_net_request.ruleset'
+      'declarative_net_request.ruleset',
+      missing
     )
-    expect(compilation.warnings[0]?.message).toContain(expected)
+    expect(compilation.errors[0]?.message).toContain(expected)
+    expect((compilation.errors[0] as any)?.name).toBe('JSONMissingFile')
+    expect((compilation.errors[0] as any)?.file).toBe('manifest.json')
   })
 
-  it('respects excludeList via shouldExclude()', () => {
-    const p = '/abs/path/ignored.json'
+  it('errors when JSON is invalid for DNR ruleset', () => {
+    const p = '/abs/path/rules.json'
     const mockedFs = fs as any
-    mockedFs.existsSync.mockReturnValue(true)
-    mockedFs.readFileSync.mockReturnValue(Buffer.from('{}'))
+    mockedFs.existsSync.mockImplementation((x: any) => x === p)
+    mockedFs.readFileSync.mockImplementation(() => Buffer.from('{invalid'))
 
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {['storage.managed_schema']: p},
-      excludeList: {excluded: p}
+      includeList: {['declarative_net_request.ruleset']: p}
+    } as any)
+    const harness = createCompilerHarness()
+    const {compilation, calls} = harness.applyAndRun(plugin)
+
+    expect(calls.emit).toBe(0)
+    expect(compilation.errors.length).toBe(1)
+    expect((compilation.errors[0] as any)?.name).toBe('JSONInvalidSyntax')
+  })
+
+  it('errors when DNR ruleset is not an array', () => {
+    const p = '/abs/path/rules.json'
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockImplementation((x: any) => x === p)
+    mockedFs.readFileSync.mockImplementation(() => Buffer.from('{}'))
+
+    const plugin = new JsonPlugin({
+      manifestPath: 'manifest.json',
+      includeList: {['declarative_net_request.ruleset']: p}
+    } as any)
+    const harness = createCompilerHarness()
+    const {compilation, calls} = harness.applyAndRun(plugin)
+
+    expect(calls.emit).toBe(0)
+    expect(compilation.errors.length).toBe(1)
+    expect((compilation.errors[0] as any)?.name).toBe('DNRInvalidRuleset')
+  })
+
+  it('errors when managed schema is not an object', () => {
+    const p = '/abs/path/schema.json'
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockImplementation((x: any) => x === p)
+    mockedFs.readFileSync.mockImplementation(() => Buffer.from('[]'))
+
+    const plugin = new JsonPlugin({
+      manifestPath: 'manifest.json',
+      includeList: {['storage.managed_schema']: p}
+    } as any)
+    const harness = createCompilerHarness()
+    const {compilation, calls} = harness.applyAndRun(plugin)
+
+    expect(calls.emit).toBe(0)
+    expect(compilation.errors.length).toBe(1)
+    expect((compilation.errors[0] as any)?.name).toBe('ManagedSchemaInvalid')
+  })
+
+  it('does not emit assets for public dir resources; watches and validates critical JSON', () => {
+    const projectRoot = '/abs/project'
+    const manifestPath = path.join(projectRoot, 'manifest.json')
+    const rel = 'public/rules.json'
+    const abs = path.join(projectRoot, rel)
+
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockImplementation((p: any) => p === abs)
+    // Valid DNR ruleset (array)
+    mockedFs.readFileSync.mockImplementation((p: any) =>
+      p === abs ? Buffer.from('[]') : Buffer.from('')
+    )
+
+    const plugin = new JsonPlugin({
+      manifestPath,
+      includeList: {['declarative_net_request.ruleset']: rel}
     } as any)
     const harness = createCompilerHarness()
     const {assets, compilation, calls} = harness.applyAndRun(plugin)
 
+    // No emit/update because file is under public/
     expect(calls.emit).toBe(0)
+    expect(calls.update).toBe(0)
     expect(Object.keys(assets)).toHaveLength(0)
-    expect(compilation.fileDependencies.size).toBe(0)
+
+    // File is watched
+    expect(compilation.fileDependencies.has(abs)).toBe(true)
+
+    // No validation errors for a valid ruleset
+    expect(compilation.errors.length).toBe(0)
+  })
+
+  it('emits an error for invalid JSON under public dir for DNR ruleset', () => {
+    const projectRoot = '/abs/project'
+    const manifestPath = path.join(projectRoot, 'manifest.json')
+    const rel = 'public/badrules.json'
+    const abs = path.join(projectRoot, rel)
+
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockImplementation((p: any) => p === abs)
+    // Invalid JSON
+    mockedFs.readFileSync.mockImplementation((p: any) =>
+      p === abs ? Buffer.from('{ invalid') : Buffer.from('')
+    )
+
+    const plugin = new JsonPlugin({
+      manifestPath,
+      includeList: {['declarative_net_request.ruleset']: rel}
+    } as any)
+    const harness = createCompilerHarness()
+    const {assets, compilation, calls} = harness.applyAndRun(plugin)
+
+    // No emit/update because file is under public/
+    expect(calls.emit).toBe(0)
+    expect(calls.update).toBe(0)
+    expect(Object.keys(assets)).toHaveLength(0)
+
+    // File is watched
+    expect(compilation.fileDependencies.has(abs)).toBe(true)
+
+    // Validation error should be present
+    expect(compilation.errors.length).toBe(1)
+    expect((compilation.errors[0] as any)?.name).toBe('JSONInvalidSyntax')
   })
 
   it('adds fileDependencies for existing resources', () => {

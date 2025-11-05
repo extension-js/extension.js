@@ -1,7 +1,7 @@
 import * as fs from 'fs'
+import * as path from 'path'
 import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../webpack-types'
-import * as utils from '../../../develop-lib/utils'
 import * as messages from './messages'
 
 /**
@@ -16,12 +16,65 @@ import * as messages from './messages'
 export class JsonPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
+  }
+
+  private isCriticalJsonFeature(feature: string) {
+    return (
+      feature.startsWith('declarative_net_request') ||
+      feature === 'storage.managed_schema'
+    )
+  }
+
+  private validateJsonAsset(
+    compilation: Compilation,
+    feature: string,
+    filePath: string,
+    buf: Buffer
+  ) {
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(buf.toString('utf-8'))
+    } catch (e: any) {
+      const err = new WebpackError(
+        messages.invalidJsonSyntax(feature, filePath, String(e?.message || e))
+      )
+      ;(err as any).file = filePath
+      err.name = 'JSONInvalidSyntax'
+      compilation.errors.push(err)
+      return false
+    }
+
+    if (feature.startsWith('declarative_net_request')) {
+      if (!Array.isArray(parsed)) {
+        const err = new WebpackError(
+          messages.invalidRulesetStructure(feature, filePath)
+        )
+        ;(err as any).file = filePath
+        err.name = 'DNRInvalidRuleset'
+        compilation.errors.push(err)
+        return false
+      }
+    } else if (feature === 'storage.managed_schema') {
+      if (
+        parsed === null ||
+        Array.isArray(parsed) ||
+        typeof parsed !== 'object'
+      ) {
+        const err = new WebpackError(
+          messages.invalidManagedSchemaStructure(feature, filePath)
+        )
+        ;(err as any).file = filePath
+        err.name = 'ManagedSchemaInvalid'
+        compilation.errors.push(err)
+        return false
+      }
+    }
+
+    return true
   }
 
   public apply(compiler: Compiler): void {
@@ -39,6 +92,9 @@ export class JsonPlugin {
           if (compilation.errors.length > 0) return
 
           const jsonFields = this.includeList || {}
+          const manifestDir = path.dirname(this.manifestPath)
+          const projectPath = compiler.options.context as string
+          const publicDir = path.join(projectPath, 'public' + path.sep)
 
           for (const field of Object.entries(jsonFields)) {
             const [feature, resource] = field
@@ -52,34 +108,67 @@ export class JsonPlugin {
             for (const thisResource of resourceArr) {
               // Resources from the manifest lib can come as undefined.
               if (thisResource) {
-                // Do not output if file doesn't exist.
-                // If the user updates the path, this script runs again
-                // and output the file accordingly.
-                if (!utils.shouldExclude(thisResource, this.excludeList)) {
-                  if (!fs.existsSync(thisResource)) {
-                    const warn = new WebpackError(
-                      messages.entryNotFoundMessageOnly(feature)
-                    )
-                    warn.name = 'JsonPluginMissingFile'
-                    // @ts-expect-error file is not typed
-                    warn.file = thisResource
-                    compilation.warnings.push(warn)
-                    continue
-                  }
+                const abs = path.isAbsolute(thisResource)
+                  ? thisResource
+                  : path.join(manifestDir, thisResource)
+                const isUnderPublic = String(abs).startsWith(publicDir)
 
-                  const source = fs.readFileSync(thisResource)
-                  const rawSource = new sources.RawSource(source)
-                  const assetName = feature + '.json'
-
-                  // If asset already exists (e.g., when handling arrays), update it instead of emitting again
-                  if (
-                    typeof (compilation as any).getAsset === 'function' &&
-                    (compilation as any).getAsset(assetName)
-                  ) {
-                    ;(compilation as any).updateAsset(assetName, rawSource)
+                // Missing file handling
+                if (!fs.existsSync(abs)) {
+                  const notFound = new WebpackError(
+                    messages.entryNotFoundMessageOnly(feature, abs)
+                  )
+                  notFound.name = 'JSONMissingFile'
+                  // Show manifest context in header
+                  // @ts-expect-error file is not typed
+                  notFound.file = 'manifest.json'
+                  if (this.isCriticalJsonFeature(feature)) {
+                    compilation.errors.push(notFound)
                   } else {
-                    compilation.emitAsset(assetName, rawSource)
+                    compilation.warnings.push(notFound)
                   }
+                  continue
+                }
+
+                // Under public: do not emit; track for watch and (for critical) validate JSON
+                if (isUnderPublic) {
+                  try {
+                    compilation.fileDependencies.add(abs)
+                  } catch {}
+                  if (this.isCriticalJsonFeature(feature)) {
+                    const ok = this.validateJsonAsset(
+                      compilation,
+                      feature,
+                      abs,
+                      fs.readFileSync(abs)
+                    )
+                    if (!ok) continue
+                  }
+                  continue
+                }
+
+                const source = fs.readFileSync(abs)
+
+                if (this.isCriticalJsonFeature(feature)) {
+                  const ok = this.validateJsonAsset(
+                    compilation,
+                    feature,
+                    abs,
+                    source
+                  )
+                  if (!ok) continue
+                }
+                const rawSource = new sources.RawSource(source)
+                const assetName = feature + '.json'
+
+                // If asset already exists (e.g., when handling arrays), update it instead of emitting again
+                if (
+                  typeof (compilation as any).getAsset === 'function' &&
+                  (compilation as any).getAsset(assetName)
+                ) {
+                  ;(compilation as any).updateAsset(assetName, rawSource)
+                } else {
+                  compilation.emitAsset(assetName, rawSource)
                 }
               }
             }
@@ -100,6 +189,7 @@ export class JsonPlugin {
           if (compilation.errors?.length) return
 
           const jsonFields = this.includeList || {}
+          const manifestDir = path.dirname(this.manifestPath)
 
           for (const field of Object.entries(jsonFields)) {
             const [, resource] = field
@@ -112,14 +202,14 @@ export class JsonPlugin {
 
             for (const thisResource of resourceArr) {
               if (thisResource) {
+                const abs = path.isAbsolute(thisResource)
+                  ? thisResource
+                  : path.join(manifestDir, thisResource)
                 const fileDependencies = new Set(compilation.fileDependencies)
-
-                if (!utils.shouldExclude(thisResource, this.excludeList)) {
-                  if (fs.existsSync(thisResource)) {
-                    if (!fileDependencies.has(thisResource)) {
-                      fileDependencies.add(thisResource)
-                      compilation.fileDependencies.add(thisResource)
-                    }
+                if (fs.existsSync(abs)) {
+                  if (!fileDependencies.has(abs)) {
+                    fileDependencies.add(abs)
+                    compilation.fileDependencies.add(abs)
                   }
                 }
               }

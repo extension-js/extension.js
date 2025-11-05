@@ -65,6 +65,27 @@ export class JsonPlugin {
 - Adds emitted files to compilation dependencies so updates trigger rebuilds
 - Respects `excludeList` to skip specific files
 
+### Compile-time validation (all modes)
+
+This plugin performs compile-time validations that mirror browser behavior. Issues that would cause the browser to reject or block your extension will fail the build in both development and production:
+
+- Missing files referenced by critical JSON features:
+  - `declarative_net_request.rule_resources`
+  - `storage.managed_schema`
+- Invalid JSON syntax for these files
+- Invalid top-level structure:
+  - DNR ruleset must be a JSON array
+  - Managed storage schema must be a JSON object
+
+Manifest field presence/shape in `manifest.json` itself is handled by other plugins; this feature only validates the referenced JSON files.
+
+#### Chrome docs
+
+- Declarative Net Request (manifest key): `https://developer.chrome.com/docs/extensions/reference/manifest/declarative_net_request`
+- Declarative Net Request API overview: `https://developer.chrome.com/docs/extensions/reference/api/declarativeNetRequest`
+- Storage manifest (managed_schema): `https://developer.chrome.com/docs/extensions/reference/manifest/storage`
+- Storage API (managed storage area): `https://developer.chrome.com/docs/extensions/reference/api/storage#property-StorageArea-managed`
+
 ### Output mapping
 
 | Manifest field                             | Example input path                       | Output path example                      |
