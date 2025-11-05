@@ -16,6 +16,12 @@ export class ChromiumWatchRunReloadPlugin {
   }
 
   apply(compiler: Compiler) {
+    // Guard for minimal/mock compiler objects in unit tests
+    // Skip when the hook isn't available
+    if (!compiler.hooks?.watchRun?.tapAsync) {
+      return
+    }
+
     compiler.hooks.watchRun.tapAsync(
       'run-browsers:watch',
       (compilation, done) => {
