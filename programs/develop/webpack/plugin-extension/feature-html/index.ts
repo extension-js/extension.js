@@ -8,7 +8,8 @@ import {UpdateHtmlFile} from './steps/update-html-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {HandleCommonErrors} from './steps/handle-common-errors'
-import {DevOptions} from '../../../module'
+import {ThrowIfManifestEntryChange} from './steps/throw-if-manifest-entry-change'
+import {DevOptions} from '../../types/options'
 
 /**
  * HtmlPlugin is responsible for handling the HTML file
@@ -114,14 +115,21 @@ export class HtmlPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // 8 - Handle common errors.
+    // 8 - Restart-required if manifest HTML entrypoints changed.
+    new ThrowIfManifestEntryChange({
+      manifestPath: this.manifestPath,
+      includeList: this.includeList,
+      browser: this.browser
+    }).apply(compiler)
+
+    // 9 - Handle common errors.
     new HandleCommonErrors({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
       browser: this.browser
     }).apply(compiler)
 
-    // 9 - Add centralized logger script.
+    // 10 - Add centralized logger script.
     // TODO: cezaraugusto enable this after v3
     // if ((compiler.options.mode || 'development') !== 'production') {
     //   compiler.options.module.rules.push({
