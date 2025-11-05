@@ -1,0 +1,163 @@
+name: Publish – Next
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Exact pre-release version (e.g., 2.2.0-next.1). Required."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: publish-next-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  NPM_CONFIG_PROVENANCE: "true"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: next
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: |
+          pnpm --filter extension-develop compile
+          pnpm --filter extension compile
+
+      - name: Run tests (CLI + Develop)
+        run: pnpm -w test
+
+      - name: Validate version input
+        id: validate
+        run: |
+          RAW='${{ inputs.version }}'
+          VERSION=$(echo "$RAW" | xargs)
+          if [ -z "$VERSION" ]; then
+            echo "Error: version is required" >&2; exit 1
+          fi
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$'; then
+            echo "Error: '$VERSION' must be a pre-release semver (e.g., 2.2.0-next.1)" >&2; exit 1
+          fi
+          if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION$"; then
+            echo "Error: tag v$VERSION already exists on origin" >&2; exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump versions (both packages)
+        run: |
+          VERSION='${{ steps.validate.outputs.version }}'
+          node -e "const fs=require('fs');for(const p of ['programs/cli/package.json','programs/develop/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=VERSION;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
+          git add programs/cli/package.json programs/develop/package.json
+          git commit -m "release(next): v$VERSION"
+          git tag "v$VERSION"
+
+      - name: Push tag
+        run: |
+          git push
+          git push --tags
+
+      - name: Prepare publish-only dependency rewrite (extension -> extension-develop)
+        run: |
+          VERSION='${{ steps.validate.outputs.version }}'
+          node -e "
+            const fs=require('fs');
+            const p='programs/cli/package.json';
+            const j=JSON.parse(fs.readFileSync(p,'utf8'));
+            if(j.dependencies && j.dependencies['extension-develop'] && /^workspace:/.test(j.dependencies['extension-develop'])){
+              j.dependencies['extension-develop'] = '^'+process.env.VERSION;
+              fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
+            }"
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+
+      - name: Publish extension-develop (first, tag=next)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pnpm -C programs/develop publish --access public --tag next --provenance --no-git-checks
+
+      - name: Publish extension (second, tag=next)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pnpm -C programs/cli publish --access public --tag next --provenance --no-git-checks
+
+      - name: Restore workspace dependency file (no repo mutation)
+        run: git checkout -- programs/cli/package.json
+
+      - name: Render release notes
+        id: changelog
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          node ./scripts/render-aggregated-changelog.cjs > aggregated.md || true
+          if [ ! -s aggregated.md ]; then
+            echo "Next v$VERSION – preview build of Extension.js CLI and Develop." > aggregated.md
+          fi
+
+      - name: Create GitHub Release (pre-release)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.validate.outputs.version }}
+          name: v${{ steps.validate.outputs.version }}
+          draft: false
+          prerelease: true
+          generate_release_notes: false
+          body_path: aggregated.md
+
+      - name: Notify Discord (Next)
+        if: ${{ success() }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL_RELEASES }}
+          VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          CONTENT=$(sed -e 's/"/\\"/g' -e 's/\r//g' aggregated.md | sed -e 's/extension-develop/Extension.js/g' | head -c 3900 || true)
+          if [ -z "$CONTENT" ]; then
+            CONTENT="Canary v$VERSION is live on npm — Extension.js."
+          fi
+          cat > payload.json << JSON
+          {
+            "username": "Extension.js Release",
+            "embeds": [{
+              "title": "v$VERSION – Canary",
+              "url": "https://github.com/${GITHUB_REPOSITORY}/releases/tag/v$VERSION",
+              "color": 5763719,
+              "description": "$CONTENT",
+              "fields": [
+                { "name": "npm", "value": "[extension@$VERSION](https://www.npmjs.com/package/extension/v/$VERSION)", "inline": true }
+              ],
+              "footer": { "text": "Published with npm provenance" }
+            }]
+          }
+          JSON
+          curl -s -X POST -H "Content-Type: application/json" -d @payload.json "$DISCORD_WEBHOOK_URL" >/dev/null 2>&1 || true
+
+
