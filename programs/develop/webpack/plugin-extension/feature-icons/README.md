@@ -10,7 +10,7 @@
 
 > Emit and watch browser extension icon files declared in `manifest.json`.
 
-Handles icon assets referenced in an extension manifest and emits them into the final build output. It also adds those files to the compilation file-dependency graph so changes are picked up in subsequent builds. This module is part of the [Extension.js](https://extension.js.org) project.
+Handles icon assets referenced in an extension manifest and emits them into the final build output. It also adds those files to the compilation file-dependency graph so changes are picked up in subsequent builds. If an icon is missing, we fail fast at compile time to prevent the browser from crashing or refusing to load the extension. This module is part of the [Extension.js](https://extension.js.org) project.
 
 Emits files referenced by icon-related manifest fields into the appropriate output folders. When used inside Extension.js, the orchestrator computes `includeList`/`excludeList` for you; when used standalone, you can pass them manually.
 
@@ -121,7 +121,10 @@ These rules align with the common bundler convention that `/` points to the pack
 
 ## Compile-time validation
 
-- Missing icon files referenced by supported manifest fields are reported as warnings during the build with a guided, multi‑line message. These typically do not block the browser from loading the extension, but will result in missing toolbar or menu icons if left unresolved.
+- Missing icon files referenced by supported manifest fields are surfaced during compilation with a focused message.
+  - Top‑level `icons` (i.e., `manifest.icons`) are treated as errors because missing entries can crash the browser UI or cause the extension to be rejected. We fail the build early so the browser never gets a broken manifest.
+  - Other icon families (e.g., `action.default_icon`, `browser_action.default_icon`, `page_action.default_icon`, `sidebar_action.default_icon`, and `browser_action.theme_icons`) are reported as warnings.
+  - The hint “Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.” appears only when the manifest entry uses an extension‑root absolute path (leading `/`), not for relative or OS‑absolute filesystem paths.
 - Manifest field presence/shape is validated by other features; this plugin focuses on file existence and emission.
 
 ## Compatibility

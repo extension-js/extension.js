@@ -53,15 +53,37 @@ export class EmitFile {
 
             if (resource === undefined) continue
 
-            const iconEntries: unknown[] = Array.isArray(resource)
-              ? typeof resource[0] === 'string'
-                ? resource
-                : resource.map(Object.values).flat()
-              : [resource]
+            const normalizeToStrings = (response: unknown): string[] => {
+              if (!response) return []
 
-            const stringEntries = iconEntries.filter(
-              (entry): entry is string => typeof entry === 'string'
-            )
+              if (typeof response === 'string') return [response]
+
+              if (Array.isArray(response)) {
+                const flat = response.flatMap((v) => {
+                  if (typeof v === 'string') return [v]
+
+                  if (v && typeof v === 'object') {
+                    return Object.values(
+                      v as Record<string, unknown>
+                    ) as string[]
+                  }
+
+                  return []
+                })
+
+                return flat.filter((s): s is string => typeof s === 'string')
+              }
+
+              if (typeof response === 'object') {
+                return Object.values(response).filter(
+                  (value): value is string => typeof value === 'string'
+                )
+              }
+
+              return []
+            }
+
+            const stringEntries = normalizeToStrings(resource)
 
             for (const entry of stringEntries) {
               // Resources from the manifest lib can come as undefined.
@@ -71,9 +93,11 @@ export class EmitFile {
                 // - Relative paths are resolved from manifest directory
                 // - Absolute OS paths are used as-is
                 const manifestDir = path.dirname(this.manifestPath)
+
                 // Prefer real absolute filesystem paths when they exist.
                 // Otherwise, treat leading "/" as extension root (package root / public root).
                 let resolved = entry
+
                 if (!fs.existsSync(resolved)) {
                   resolved = entry.startsWith('/')
                     ? path.join(projectPath, entry.slice(1))
@@ -89,22 +113,35 @@ export class EmitFile {
                       path.join(projectPath, 'public', entry.slice(1))
                     ))
 
-                // Missing file: warn and skip
+                // Missing file: error and skip
                 if (!fs.existsSync(resolved)) {
+                  // Treat leading '/' as extension output-root (public root)
                   const isPublicRoot = entry.startsWith('/')
                   const outputRoot = compilation.options?.output?.path || ''
-                  const displayPath = isPublicRoot
-                    ? outputRoot
-                      ? path.join(outputRoot, entry.slice(1))
-                      : entry
-                    : resolved
+
+                  // Build a display path consistent with HTML feature:
+                  // - For extension-root style (leading '/') NOT OS-absolute, show outputRoot + entry
+                  // - For OS-absolute paths, show as-is
+                  // - Otherwise, resolve relative to project root
+                  const displayPath =
+                    !path.isAbsolute(entry) && isPublicRoot
+                      ? outputRoot
+                        ? path.join(outputRoot, entry.slice(1))
+                        : entry
+                      : path.isAbsolute(entry)
+                        ? entry
+                        : path.join(projectPath, entry)
+                  const [group] = String(feature).split('/')
+                  const severity: 'error' | 'warning' =
+                    group === 'icons' ? 'error' : 'warning'
+
                   reportToCompilation(
                     compilation,
                     messages.iconsMissingFile(feature, displayPath, {
                       publicRootHint: isPublicRoot
                     }),
                     compiler,
-                    {type: 'warning', file: 'manifest.json'}
+                    {type: severity, file: 'manifest.json'}
                   )
                   continue
                 }
@@ -113,7 +150,10 @@ export class EmitFile {
                 if (isUnderPublic) {
                   try {
                     compilation.fileDependencies.add(resolved)
-                  } catch {}
+                  } catch {
+                    // ignore
+                  }
+
                   continue
                 }
 
@@ -121,6 +161,7 @@ export class EmitFile {
                 const rawSource = new sources.RawSource(source)
 
                 const basename = path.basename(resolved)
+
                 // Determine output directory from feature key. Supported keys:
                 // - icons
                 // - action/default_icon
@@ -147,6 +188,7 @@ export class EmitFile {
                 ) {
                   outputDir = 'browser_action'
                 }
+
                 const filename = `${outputDir}/${basename}`
 
                 compilation.emitAsset(filename, rawSource)

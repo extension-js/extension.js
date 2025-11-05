@@ -227,7 +227,13 @@ export function resolveAbsoluteFsPath(params: {
   outputRoot: string
 }): {absoluteFsPath: string; isUnderPublicRoot: boolean; isRootUrl: boolean} {
   const {asset, projectRoot, publicRootForResource, outputRoot} = params
-  const isRootUrl = asset.startsWith('/')
+  const isRootUrl =
+    asset.startsWith('/') &&
+    !(
+      asset.startsWith(projectRoot) ||
+      asset.startsWith(publicRootForResource) ||
+      asset.startsWith(outputRoot)
+    )
   const isDotPublic = asset.startsWith('./public/')
   const isPlainPublic = asset.startsWith('public/')
 

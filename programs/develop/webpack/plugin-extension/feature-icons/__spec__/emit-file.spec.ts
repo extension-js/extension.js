@@ -39,12 +39,14 @@ describe('EmitFile step', () => {
       hooks: {processAssets: {tap: (_: any, cb: Function) => cb()}},
       errors: [],
       warnings: [],
-      emitAsset: vi.fn()
+      emitAsset: vi.fn(),
+      options: {output: {path: '/abs/out/chrome'}}
     }
     const compiler: any = {
       hooks: {
         thisCompilation: {tap: (_: string, cb: Function) => cb(compilation)}
-      }
+      },
+      options: {context: '/abs/project'}
     }
     return {compiler, compilation}
   }
@@ -181,7 +183,7 @@ describe('EmitFile step', () => {
     expect((compilation.emitAsset as any).mock.calls.length).toBe(0)
   })
 
-  it('warns with a pretty message when an included file is missing', async () => {
+  it('errors with a pretty message when a top-level icon file is missing', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
@@ -195,10 +197,91 @@ describe('EmitFile step', () => {
 
     step.apply(compiler as any)
 
+    expect(compilation.errors.length).toBe(1)
+    const e = String(compilation.errors[0])
+    expect(e).toMatch(/Check the .* manifest\.json/i)
+    expect(e).toMatch(/NOT FOUND/i)
+    expect(e).toContain('/abs/assets/missing.png')
+  })
+
+  it('shows public-root hint only for extension-root absolute (leading \/) paths', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    // No file exists
+    FS.existsSync.mockReturnValue(false)
+
+    // Case 1: extension-root absolute path (leading '/')
+    let step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {icons: ['/missing.png']}
+    } as any)
+    step.apply(compiler as any)
+    const msg1 = String(compilation.errors[0] || compilation.warnings[0] || '')
+    expect(msg1).toMatch(/resolved from the extension output root/i)
+
+    // Reset buckets
+    compilation.errors = []
+    compilation.warnings = []
+
+    // Case 2: relative path (no hint)
+    step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {icons: ['icons/missing.png']}
+    } as any)
+    step.apply(compiler as any)
+    const msg2 = String(compilation.errors[0] || compilation.warnings[0] || '')
+    expect(msg2).not.toMatch(/resolved from the extension output root/i)
+  })
+
+  it('warns when a non-top-level icon file is missing', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    // No file exists
+    FS.existsSync.mockReturnValue(false)
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {'action/default_icon': ['/abs/assets/missing.png']}
+    } as any)
+
+    step.apply(compiler as any)
+
     expect(compilation.warnings.length).toBe(1)
     const w = String(compilation.warnings[0])
     expect(w).toMatch(/Check the .* manifest\.json/i)
     expect(w).toMatch(/NOT FOUND/i)
     expect(w).toContain('/abs/assets/missing.png')
+  })
+
+  it('handles object-shaped icons map: emits existing and errors missing (pre-browser)', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    // Only one of the icons exists
+    FS.existsSync.mockImplementation(
+      (p: string) => p === '/abs/assets/icon48.png'
+    )
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {
+        // Simulate manifest.icons as a size->path object
+        icons: {
+          16: '/abs/assets/icon16.png',
+          48: '/abs/assets/icon48.png'
+        } as any
+      }
+    } as any)
+
+    step.apply(compiler as any)
+
+    // Should error for missing 16 and emit only the 48 asset
+    expect(compilation.errors.length).toBe(1)
+    const calls = (compilation.emitAsset as any).mock.calls.map(
+      (c: any[]) => c[0]
+    )
+    expect(calls).toEqual(['icons/icon48.png'])
   })
 })
