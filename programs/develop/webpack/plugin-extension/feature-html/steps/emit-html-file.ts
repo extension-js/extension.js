@@ -2,7 +2,6 @@ import * as fs from 'fs'
 import {WebpackError, sources, type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../html-lib/messages'
-import * as utils from '../../../../develop-lib/utils'
 import {getFilePath} from '../html-lib/utils'
 import {reportToCompilation} from '../html-lib/utils'
 
@@ -15,7 +14,7 @@ export class EmitHtmlFile {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
+    this.excludeList = {}
     this.browser = options.browser
   }
 
@@ -56,7 +55,7 @@ export class EmitHtmlFile {
             }
             const rawHtml = fs.readFileSync(resolved, 'utf8')
 
-            if (!utils.shouldExclude(resolved, this.excludeList)) {
+            if (true) {
               const rawSource = new sources.RawSource(rawHtml)
               const filepath = getFilePath(featureName, '.html', false)
               compilation.emitAsset(filepath, rawSource)
