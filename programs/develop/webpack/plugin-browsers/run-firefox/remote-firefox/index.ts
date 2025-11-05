@@ -269,7 +269,32 @@ export class RemoteFirefox {
         /(^|\/)__?locales\/.+\.json$/i.test(n)
       )
 
-      const critical = isManifestChanged || isLocalesChanged
+      // Consider service worker changes as critical as well
+      let isServiceWorkerChanged = false
+      try {
+        const manifestAsset = compilation.getAsset?.('manifest.json')
+        const manifestDataSource = manifestAsset?.source?.source
+          ? String(manifestAsset.source.source())
+          : manifestAsset?.source
+            ? String(manifestAsset?.source?.toString())
+            : ''
+
+        if (manifestDataSource) {
+          const parsed = JSON.parse(manifestDataSource)
+          const sw: unknown = parsed?.background?.service_worker
+
+          if (typeof sw === 'string' && sw) {
+            const swUnix = (sw as string).replace(/\\/g, '/')
+            isServiceWorkerChanged = normalized.includes(swUnix)
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      const critical =
+        isManifestChanged || isLocalesChanged || isServiceWorkerChanged
+
       if (!critical) return
 
       await this.reloadAddonOrReinstall(client)

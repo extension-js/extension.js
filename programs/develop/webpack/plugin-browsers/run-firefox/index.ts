@@ -9,7 +9,7 @@ import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {logFirefoxDryRun} from './dry-run'
 import {FirefoxDoneReloadPlugin} from './done-reload'
 import {type PluginInterface} from '../browsers-types'
-import {BrowserConfig, DevOptions} from '../../../types/options'
+import {BrowserConfig, DevOptions} from '../../types/options'
 import {
   deriveDebugPortWithInstance,
   findAvailablePortNear
@@ -330,33 +330,35 @@ export class RunFirefoxPlugin {
     this.logger = logger
 
     // Detect manifest/locales changes as early as possible (source files)
-    compiler.hooks.watchRun.tapAsync(
-      'run-browsers:watch',
-      (compilation, done) => {
-        try {
-          const files = compilation?.modifiedFiles || new Set<string>()
-          const normalizedFilePaths = Array.from(files).map((filePath) =>
-            filePath.replace(/\\/g, '/')
-          )
+    if (compiler?.hooks?.watchRun?.tapAsync) {
+      compiler.hooks.watchRun.tapAsync(
+        'run-browsers:watch',
+        (compilation, done) => {
+          try {
+            const files = compilation?.modifiedFiles || new Set<string>()
+            const normalizedFilePaths = Array.from(files).map((filePath) =>
+              filePath.replace(/\\/g, '/')
+            )
 
-          const hitManifest = normalizedFilePaths.some((filePath) =>
-            /(^|\/)manifest\.json$/i.test(filePath)
-          )
-          const hitLocales = normalizedFilePaths.some((filePath) =>
-            /(^|\/)__?locales\/.+\.json$/i.test(filePath)
-          )
+            const hitManifest = normalizedFilePaths.some((filePath) =>
+              /(^|\/)manifest\.json$/i.test(filePath)
+            )
+            const hitLocales = normalizedFilePaths.some((filePath) =>
+              /(^|\/)__?locales\/.+\.json$/i.test(filePath)
+            )
 
-          if (hitManifest) this.pendingHardReloadReason = 'manifest'
-          else if (hitLocales) this.pendingHardReloadReason = 'locales'
-        } catch (error) {
-          this.logger?.warn?.(
-            '[reload] watchRun inspect failed:',
-            String(error)
-          )
+            if (hitManifest) this.pendingHardReloadReason = 'manifest'
+            else if (hitLocales) this.pendingHardReloadReason = 'locales'
+          } catch (error) {
+            this.logger?.warn?.(
+              '[reload] watchRun inspect failed:',
+              String(error)
+            )
+          }
+          done()
         }
-        done()
-      }
-    )
+      )
+    }
 
     compiler.hooks.done.tapAsync('run-firefox:module', async (stats, done) => {
       const hasErrors =

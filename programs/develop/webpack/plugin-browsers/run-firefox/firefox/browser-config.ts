@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {Compilation} from '@rspack/core'
-import {type DevOptions, type BrowserConfig} from '../../../../types/options'
+import {type DevOptions, type BrowserConfig} from '../../../types/options'
 import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
 import * as messages from '../../browsers-lib/messages'
 import {getPreferences} from './master-preferences'
