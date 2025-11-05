@@ -15,6 +15,34 @@ export function entryNotFoundMessageOnly(
   return lines.join('\n')
 }
 
+export function jsonMissingFile(
+  manifestField: string,
+  filePath: string,
+  opts?: {publicRootHint?: boolean}
+) {
+  const lines: string[] = []
+
+  lines.push(
+    `Check the ${colors.yellow(manifestField)} field in your ${colors.yellow('manifest.json')} file.`
+  )
+  lines.push(
+    `The JSON path must point to an existing file that will be packaged with the extension.`
+  )
+  lines.push(
+    `Browsers can reject or crash the extension when required JSON files (like rulesets or managed schemas) are missing. We fail the build early to protect you.`
+  )
+
+  if (opts?.publicRootHint) {
+    lines.push(
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+    )
+  }
+  lines.push('')
+  lines.push(`${colors.red('NOT FOUND')} ${colors.underline(filePath)}`)
+
+  return lines.join('\n')
+}
+
 export function invalidJsonSyntax(
   manifestField: string,
   file: string,
