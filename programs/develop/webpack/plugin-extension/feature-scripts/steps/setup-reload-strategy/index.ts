@@ -1,12 +1,12 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import WebExtension from 'webpack-target-webextension'
-import * as utils from '../../../../../develop-lib/utils'
+import {filterKeysForThisBrowser} from '../../../../webpack-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import {AddContentScriptWrapper} from './add-content-script-wrapper'
 import {type Manifest, type PluginInterface} from '../../../../webpack-types'
-import {type DevOptions} from '../../../../../types/options'
+import {type DevOptions} from '../../../../types/options'
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string
@@ -57,10 +57,7 @@ export class SetupReloadStrategy {
     const manifest: Manifest = JSON.parse(
       fs.readFileSync(this.manifestPath, 'utf-8')
     )
-    const patchedManifest = utils.filterKeysForThisBrowser(
-      manifest,
-      this.browser
-    )
+    const patchedManifest = filterKeysForThisBrowser(manifest, this.browser)
 
     // 1 - Apply the manifest defaults needed
     // for webpack-target-webextension to work correctly

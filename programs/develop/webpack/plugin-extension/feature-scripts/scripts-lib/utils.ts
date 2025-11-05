@@ -27,13 +27,8 @@ export function reportToCompilation(
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {FilepathList} from '../../../webpack-types'
-import * as utils from '../../../../develop-lib/utils'
 
-export function getScriptEntries(
-  scriptPath: string | string[] | undefined,
-  excludeList: FilepathList
-) {
+export function getScriptEntries(scriptPath: string | string[] | undefined) {
   const scriptEntries = Array.isArray(scriptPath)
     ? scriptPath || []
     : scriptPath
@@ -41,9 +36,7 @@ export function getScriptEntries(
       : []
 
   const fileAssets = scriptEntries.filter((scriptAsset) => {
-    const validFile =
-      fs.existsSync(scriptAsset) &&
-      !utils.shouldExclude(scriptAsset, excludeList)
+    const validFile = fs.existsSync(scriptAsset)
 
     const assetExtension = path.extname(scriptAsset)
 
@@ -60,10 +53,7 @@ export function getScriptEntries(
   return fileAssets
 }
 
-export function getCssEntries(
-  scriptPath: string | string[] | undefined,
-  excludeList: FilepathList
-) {
+export function getCssEntries(scriptPath: string | string[] | undefined) {
   const scriptEntries = Array.isArray(scriptPath)
     ? scriptPath || []
     : scriptPath
@@ -71,9 +61,7 @@ export function getCssEntries(
       : []
 
   const fileAssets = scriptEntries.filter((scriptAsset) => {
-    const validFile =
-      fs.existsSync(scriptAsset) &&
-      !utils.shouldExclude(scriptAsset, excludeList)
+    const validFile = fs.existsSync(scriptAsset)
 
     return (
       validFile &&

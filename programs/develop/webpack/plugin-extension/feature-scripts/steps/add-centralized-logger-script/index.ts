@@ -4,18 +4,16 @@ import {
   type FilepathList,
   type PluginInterface
 } from '../../../../webpack-types'
-import {type DevOptions} from '../../../../../types/options'
+import {type DevOptions} from '../../../../types/options'
 
 export class AddCentralizedLoggerScript {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
   public readonly browser?: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
     this.browser = options.browser || 'chrome'
   }
 

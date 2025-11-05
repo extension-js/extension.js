@@ -3,8 +3,8 @@ import * as path from 'path'
 import {Compiler} from '@rspack/core'
 import * as messages from '../../scripts-lib/messages'
 import {reportToCompilation} from '../../scripts-lib/utils'
-import * as utils from '../../../../../develop-lib/utils'
-import {DevOptions} from '../../../../../types/options'
+import {filterKeysForThisBrowser} from '../../../../webpack-lib/manifest'
+import {DevOptions} from '../../../../types/options'
 
 export class SetupBackgroundEntry {
   private manifestPath: string
@@ -21,7 +21,7 @@ export class SetupBackgroundEntry {
   private getMissingBackgroundError(bgFile: string) {
     if (!fs.existsSync(bgFile) && this.manifestPath) {
       const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
-      const patched = utils.filterKeysForThisBrowser(manifest, this.browser)
+      const patched = filterKeysForThisBrowser(manifest, this.browser)
       const fieldKey =
         patched.manifest_version === 3
           ? 'background/service_worker'
@@ -53,7 +53,7 @@ export class SetupBackgroundEntry {
         : 'minimum-chromium-file'
     )
     const dirname = path.dirname(this.manifestPath)
-    let manifestBg = utils.filterKeysForThisBrowser(manifest, browser)
+    let manifestBg = filterKeysForThisBrowser(manifest, browser)
     manifestBg = manifestBg?.background ?? manifest.background
 
     function hookError(maybeError: string) {
@@ -79,7 +79,7 @@ export class SetupBackgroundEntry {
     }
 
     // chromium / manifest v3 or v2
-    if (manifestBg && manifest.manifest_version === 3) {
+    if (manifest.manifest_version === 3) {
       const serviceWorker = manifestBg?.service_worker
       if (serviceWorker) {
         const swPath = path.join(dirname, serviceWorker)

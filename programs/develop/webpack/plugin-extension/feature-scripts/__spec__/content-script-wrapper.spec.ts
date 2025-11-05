@@ -8,7 +8,7 @@ function run(resourcePath: string, manifestPath: string, source: string) {
   const ctx: any = {
     resourcePath,
     getOptions() {
-      return {manifestPath, browser: 'chrome', mode: 'development'}
+      return {manifestPath, browser: 'chrome', mode: 'production'}
     }
   }
   return wrapperLoader.call(ctx, source)
