@@ -9,14 +9,16 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {rspack, Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
-import webpackConfig from './webpack/webpack-config'
-import {getProjectStructure} from './develop-lib/get-project-path'
-import * as messages from './develop-lib/messages'
-import {loadCustomWebpackConfig} from './develop-lib/get-extension-config'
+import {getProjectStructure} from './webpack-lib/project'
+import * as messages from './webpack-lib/messages'
+import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
+import {loadCommandConfig} from './webpack-lib/config-loader'
+import {installDependencies} from './webpack-lib/install-dependencies'
+import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
+import {scrubBrand} from './webpack-lib/branding'
+import webpackConfig from './webpack-config'
+
 import {BuildOptions} from './types/options'
-import {installDependencies} from './develop-lib/install-dependencies'
-import {assertNoManagedDependencyConflicts} from './develop-lib/validate-user-dependencies'
-import {scrubBrand} from './webpack/branding'
 
 export type BuildSummary = {
   browser: string
@@ -27,6 +29,22 @@ export type BuildSummary = {
   errors_count: number
 }
 
+// Split out the aggregation of assets and summary to its own function
+function getBuildSummary(browser: string, info: any): BuildSummary {
+  const assets = info?.assets || []
+  return {
+    browser,
+    total_assets: assets.length,
+    total_bytes: assets.reduce((n: number, a: any) => n + (a.size || 0), 0),
+    largest_asset_bytes: assets.reduce(
+      (m: number, a: any) => Math.max(m, a.size || 0),
+      0
+    ),
+    warnings_count: (info?.warnings || []).length,
+    errors_count: (info?.errors || []).length
+  }
+}
+
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
   buildOptions?: BuildOptions
@@ -35,14 +53,6 @@ export async function extensionBuild(
   const isVitest = process.env.VITEST === 'true'
   const shouldExitOnError = (buildOptions?.exitOnError ?? true) && !isVitest
   const browser = buildOptions?.browser || 'chrome'
-  const summary: BuildSummary = {
-    browser,
-    total_assets: 0,
-    total_bytes: 0,
-    largest_asset_bytes: 0,
-    warnings_count: 0,
-    errors_count: 0
-  }
 
   try {
     const manifestDir = path.dirname(projectStructure.manifestPath)
@@ -58,7 +68,10 @@ export async function extensionBuild(
       )
     }
 
+    const commandConfig = await loadCommandConfig(manifestDir, 'build')
+
     const baseConfig: Configuration = webpackConfig(projectStructure, {
+      ...commandConfig,
       ...buildOptions,
       browser,
       mode: 'production',
@@ -99,6 +112,15 @@ export async function extensionBuild(
       }
     }
 
+    let summary: BuildSummary = {
+      browser,
+      total_assets: 0,
+      total_bytes: 0,
+      largest_asset_bytes: 0,
+      warnings_count: 0,
+      errors_count: 0
+    }
+
     await new Promise<void>((resolve, reject) => {
       compiler.run(async (err, stats) => {
         if (err) {
@@ -110,25 +132,15 @@ export async function extensionBuild(
           console.log(messages.buildWebpack(manifestDir, stats, browser))
         }
 
-        // Packaging handled by ZipPlugin when enabled in the config
-
         if (!stats?.hasErrors()) {
-          // anonymized aggregates (no filenames or paths)
+          // Anonymized aggregates (no filenames or paths)
           const info = stats?.toJson({
             assets: true,
             warnings: true,
             errors: true
           })
 
-          const assets = info?.assets || []
-          summary.total_assets = assets.length
-          summary.total_bytes = assets.reduce((n, a) => n + (a.size || 0), 0)
-          summary.largest_asset_bytes = assets.reduce(
-            (m, a) => Math.max(m, a.size || 0),
-            0
-          )
-          summary.warnings_count = (info?.warnings || []).length
-          summary.errors_count = (info?.errors || []).length
+          summary = getBuildSummary(browser, info)
 
           console.log(messages.buildSuccess())
           resolve()

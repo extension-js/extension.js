@@ -1,10 +1,17 @@
+// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
+// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
+// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
+// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
+// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+
 import * as fs from 'fs'
 import * as path from 'path'
 import {StatsAsset} from '@rspack/core'
 import colors from 'pintor'
-import {Manifest} from '../webpack/webpack-types'
+import {Manifest} from '../webpack-types'
 import {type DevOptions} from '../types/options'
-import packageJson from '../package.json'
+import packageJson from '../../package.json'
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
@@ -396,4 +403,36 @@ export function autoExitForceKill(forceKillMs: number) {
 
 export function isUsingCustomLoader(loaderPath: string) {
   return `${getLoggingPrefix('info')} Using custom loader: ${colors.yellow(loaderPath)}.`
+}
+
+export function integrationNotInstalled(
+  integration: string,
+  packageManager: string
+) {
+  return (
+    `${colors.gray('►►►')} Using ${colors.brightBlue(integration)}. ` +
+    `Installing required dependencies via ${colors.brightBlue(packageManager)}...`
+  )
+}
+
+export function installingRootDependencies(integration: string) {
+  return (
+    `${colors.gray('►►►')} ${integration} dependencies are being installed. ` +
+    `This only happens for core contributors...`
+  )
+}
+
+export function integrationInstalledSuccessfully(integration: string) {
+  return `${colors.green('►►►')} ${integration} dependencies installed successfully.`
+}
+
+export function failedToInstallIntegration(
+  integration: string,
+  error: unknown
+) {
+  return (
+    `${colors.red('ERROR')} ${colors.brightBlue(integration)} Installation Error\n` +
+    `${colors.red('Failed to detect package manager or install dependencies.')}\n` +
+    `${colors.red(String(error ?? ''))}`
+  )
 }
