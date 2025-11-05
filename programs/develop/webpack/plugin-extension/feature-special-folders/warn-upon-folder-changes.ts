@@ -4,12 +4,6 @@ import {type Compiler, type Compilation, WebpackError} from '@rspack/core'
 import * as messages from './messages'
 
 export class WarnUponFolderChanges {
-  private readonly manifestPath: string
-
-  constructor(manifestPath: string) {
-    this.manifestPath = manifestPath
-  }
-
   private throwCompilationError(
     compilation: Compilation,
     folder: string,
@@ -57,7 +51,7 @@ export class WarnUponFolderChanges {
     compiler.hooks.thisCompilation.tap(
       'special-folders:warn-upon-folder-changes',
       (compilation) => {
-        const projectPath: string = path.dirname(this.manifestPath)
+        const projectPath: string = compiler.options.context as string
         const pagesPath: string = path.join(projectPath, 'pages')
         const scriptsPath: string = path.join(projectPath, 'scripts')
 
