@@ -22,24 +22,20 @@ import {
 export class IconsPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList | {[x: string]: ThemeIcon}
-  public readonly excludeList?: FilepathList | {[x: string]: ThemeIcon}
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
   }
   public apply(compiler: Compiler): void {
     new EmitFile({
       manifestPath: this.manifestPath,
-      includeList: this.includeList as FilepathList,
-      excludeList: this.excludeList as FilepathList
+      includeList: this.includeList as FilepathList
     }).apply(compiler)
 
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
-      includeList: this.includeList as FilepathList,
-      excludeList: this.excludeList as FilepathList
+      includeList: this.includeList as FilepathList
     }).apply(compiler)
   }
 }
