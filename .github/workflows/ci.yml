@@ -1,29 +1,43 @@
-name: ci
+name: 🛠️
+
 on:
   push:
-    branches: [main]
   pull_request:
 
 jobs:
-  test:
+  tests:
+    name: Run test suite (${{ matrix.suite }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite:
+          - ci:test:develop
+          - ci:test:cli
+          - ci:test:plugin-extension
+          - ci:test:plugin-browsers
+          - ci:test:plugin-compilation
+          - ci:test:plugin-css
+          - ci:test:plugin-js-frameworks
+          - ci:test:plugin-compatibility
+          - ci:test:plugin-static-assets
+          - ci:test:core
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup repo toolchain
-        uses: ./.github/actions/setup
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install (frozen)
+          cache: 'pnpm'
+
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
-      - name: Compile
-        run: pnpm -w compile
-      - name: Lint
-        run: pnpm -w lint
-      - name: Format check
-        run: pnpm exec prettier --check "**/*.{ts,tsx,md,js,json}"
-      - name: Tests (CLI + Develop only)
-        env:
-          CI: true
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-        run: pnpm -w test
+
+      - name: Run ${{ matrix.suite }}
+        run: pnpm run ${{ matrix.suite }}
