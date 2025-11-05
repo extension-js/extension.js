@@ -11,8 +11,8 @@ import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
   isUsingJSFramework
-} from '../../../develop-lib/utils'
-import {type DevOptions} from '../../../types/options'
+} from '../../webpack-lib/integrations'
+import {type DevOptions} from '../../types/options'
 
 let hasShownUserMessage = false
 

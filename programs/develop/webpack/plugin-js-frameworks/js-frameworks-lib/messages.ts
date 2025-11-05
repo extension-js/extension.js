@@ -1,15 +1,5 @@
 import colors from 'pintor'
 
-export function integrationNotInstalled(
-  integration: string,
-  packageManager: string
-) {
-  return (
-    `${colors.gray('►►►')} Using ${colors.brightBlue(integration)}. ` +
-    `Installing required dependencies via ${colors.brightBlue(packageManager)}...`
-  )
-}
-
 export function installingRootDependencies(integration: string) {
   return (
     `${colors.gray('►►►')} ${integration} dependencies are being installed. ` +

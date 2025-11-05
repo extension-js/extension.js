@@ -5,18 +5,30 @@ import {pathToFileURL} from 'url'
 
 let userMessageDelivered = false
 
+export function resolveLoaderConfigPath(
+  projectPath: string,
+  framework: 'vue' | 'svelte'
+) {
+  const candidates = [
+    path.join(projectPath, `${framework}.loader.ts`),
+    path.join(projectPath, `${framework}.loader.mts`),
+    path.join(projectPath, `${framework}.loader.js`),
+    path.join(projectPath, `${framework}.loader.mjs`)
+  ]
+
+  return candidates.find((p) => fs.existsSync(p)) || null
+}
+
 export async function loadLoaderOptions(
   projectPath: string,
   framework: 'vue' | 'svelte'
 ): Promise<any> {
-  const loaderPath = path.join(projectPath, `${framework}.loader.js`)
-  const moduleLoaderPath = path.join(projectPath, `${framework}.loader.mjs`)
+  const configPath = resolveLoaderConfigPath(projectPath, framework)
 
-  if (fs.existsSync(loaderPath) || fs.existsSync(moduleLoaderPath)) {
-    const configPath = fs.existsSync(loaderPath) ? loaderPath : moduleLoaderPath
-
-    if (!userMessageDelivered) {
-      console.log(messages.isUsingCustomLoader(`${framework}.loader.js`))
+  if (configPath) {
+    if (!userMessageDelivered && process.env.EXTENSION_ENV === 'development') {
+      const display = path.basename(configPath)
+      console.log(messages.isUsingCustomLoader(display))
       userMessageDelivered = true
     }
 
