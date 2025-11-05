@@ -123,11 +123,22 @@ export interface FileConfig {
       | 'geckoBinary'
       | 'open'
       | 'polyfill'
-    > & {
-      browserFlags?: string[]
-      excludeBrowserFlags?: string[]
-      preferences?: Record<string, unknown>
-    }
+    > &
+      Pick<
+        DevOptions,
+        | 'logLevel'
+        | 'logContexts'
+        | 'logFormat'
+        | 'logTimestamps'
+        | 'logColor'
+        | 'logUrl'
+        | 'logTab'
+      > & {
+        browserFlags?: string[]
+        excludeBrowserFlags?: string[]
+        preferences?: Record<string, unknown>
+        persistProfile?: boolean
+      }
 
     start?: Pick<
       StartOptions,
@@ -136,6 +147,7 @@ export interface FileConfig {
       browserFlags?: string[]
       excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
+      persistProfile?: boolean
     }
 
     preview?: Pick<
@@ -145,6 +157,7 @@ export interface FileConfig {
       browserFlags?: string[]
       excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
+      persistProfile?: boolean
     }
 
     build?: Pick<

@@ -2,7 +2,7 @@ import {describe, it, expect, vi} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
-import {assertNoManagedDependencyConflicts} from '../develop-lib/validate-user-dependencies'
+import {assertNoManagedDependencyConflicts} from '../webpack/webpack-lib/validate-user-dependencies'
 
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
