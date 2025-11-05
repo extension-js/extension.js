@@ -1,15 +1,12 @@
 import {type Compiler, type RuleSetRule} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
-import {type DevOptions} from '../../types/options'
+import {type DevOptions} from '../types/options'
 
 export class StaticAssetsPlugin {
   public static readonly name: string = 'plugin-static-assets'
-
-  public readonly manifestPath: string
   public readonly mode: DevOptions['mode']
 
   constructor(options: PluginInterface & {mode: DevOptions['mode']}) {
-    this.manifestPath = options.manifestPath
     this.mode = options.mode
   }
 
