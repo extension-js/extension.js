@@ -130,7 +130,7 @@ describe('JsonPlugin', () => {
 
     expect(calls.emit).toBe(0)
     expect(compilation.errors.length).toBe(1)
-    const expected = messages.entryNotFoundMessageOnly(
+    const expected = messages.jsonMissingFile(
       'declarative_net_request.ruleset',
       missing
     )
