@@ -12,3 +12,12 @@ export function serverRestartRequiredFromSpecialFolderMessageOnly(
     )} requires a server restart.`
   )
 }
+
+export function publicContainsManifestError(absPath: string) {
+  return (
+    `${colors.red('ERROR')} Conflicting manifest.json in public/\n` +
+    `Files under ${colors.yellow('public/')} are copied verbatim to the output and may overwrite generated assets.\n` +
+    `Remove ${colors.yellow('public/manifest.json')} to avoid corrupting the packaged extension.\n\n` +
+    `${colors.red('NOT ALLOWED')} ${colors.underline(absPath)}`
+  )
+}
