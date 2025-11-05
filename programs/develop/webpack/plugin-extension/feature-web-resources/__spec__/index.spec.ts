@@ -33,7 +33,6 @@ describe('generateManifestPatches', () => {
     partialManifest: Manifest = {},
     options?: {
       mode?: 'development' | 'production'
-      excludeList?: Record<string, string | string[]>
     }
   ) {
     const manifest = {
@@ -52,8 +51,7 @@ describe('generateManifestPatches', () => {
     const emitAssetMock = vi.fn()
 
     const plugin = new WebResourcesPlugin({
-      manifestPath,
-      ...(options?.excludeList ? {excludeList: options.excludeList} : {})
+      manifestPath
     })
 
     plugin['generateManifestPatches'](
@@ -147,7 +145,7 @@ describe('generateManifestPatches', () => {
     expect(res.endsWith('.md')).toBe(true)
   })
 
-  it('respects excludeList and preserves user-declared resource without rewrite', () => {
+  it('rewrites user-declared resource to emitted asset path', () => {
     const rel = 'images/icon.png'
     const abs = path.join(tmpRoot, rel)
     fs.mkdirSync(path.dirname(abs), {recursive: true})
@@ -157,11 +155,10 @@ describe('generateManifestPatches', () => {
       {
         manifest_version: 3,
         web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
-      },
-      {excludeList: {'images/icon.png': rel}}
+      }
     )
     const res = updated.web_accessible_resources[0].resources[0]
-    expect(res).toBe('images/icon.png')
+    expect(res).toBe('assets/icon.png')
   })
 
   it('should not generate web_accessible_resources if content scripts have no imports', () => {

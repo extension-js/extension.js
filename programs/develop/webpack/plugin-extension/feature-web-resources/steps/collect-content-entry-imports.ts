@@ -4,11 +4,9 @@ import type {FilepathList} from '../../../webpack-types'
 import {getSharedFor} from '../web-resources-lib/shared'
 
 export class CollectContentEntryImports {
-  public readonly manifestPath: string
   public readonly includeList?: FilepathList
 
   constructor(options: {manifestPath: string; includeList?: FilepathList}) {
-    this.manifestPath = options.manifestPath
     this.includeList = options.includeList
   }
 
