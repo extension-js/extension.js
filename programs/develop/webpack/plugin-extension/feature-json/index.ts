@@ -1,8 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from './messages'
+import {ThrowIfManifestJsonChange} from './steps/throw-if-manifest-json-change'
+import {type FilepathList, type PluginInterface} from '../../webpack-types'
+import {DevOptions} from '../../types/options'
 
 /**
  * JsonPlugin is responsible for handling the JSON files defined
@@ -16,10 +18,12 @@ import * as messages from './messages'
 export class JsonPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
+  public readonly browser?: DevOptions['browser'] | 'chrome'
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
+    this.browser = options.browser
   }
 
   private isCriticalJsonFeature(feature: string) {
@@ -78,6 +82,13 @@ export class JsonPlugin {
   }
 
   public apply(compiler: Compiler): void {
+    // Restart-required if critical manifest JSON entries changed.
+    new ThrowIfManifestJsonChange({
+      manifestPath: this.manifestPath,
+      includeList: this.includeList,
+      browser: this.browser || 'chrome'
+    }).apply(compiler)
+
     // Add the JSON to the compilation. This is important so other
     // plugins can get it via the compilation.assets object,
     // allowing them to modify it.
@@ -115,8 +126,19 @@ export class JsonPlugin {
 
                 // Missing file handling
                 if (!fs.existsSync(abs)) {
+                  // Determine if the original authoring used an extension-root path ('/').
+                  // includeList values may be absolute or relative; prefer the raw provided value.
+                  const rawRef = String(thisResource)
+                  const isPublicRoot =
+                    rawRef.startsWith('/') && !path.isAbsolute(rawRef)
+                  const outputRoot = compilation?.options?.output?.path || ''
+                  const displayPath = isPublicRoot
+                    ? path.join(outputRoot, rawRef.slice(1))
+                    : abs
                   const notFound = new WebpackError(
-                    messages.entryNotFoundMessageOnly(feature, abs)
+                    messages.jsonMissingFile(feature, displayPath, {
+                      publicRootHint: isPublicRoot
+                    })
                   )
                   notFound.name = 'JSONMissingFile'
                   // Show manifest context in header
