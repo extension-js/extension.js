@@ -22,7 +22,7 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 
 // Types
 import {PluginInterface, FilepathList} from '../webpack-types'
-import {DevOptions} from '../../types/options'
+import {DevOptions} from '../types/options'
 
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
@@ -57,8 +57,7 @@ export class ExtensionPlugin {
         ...(manifestFieldsData.icons as FilepathList),
         ...manifestFieldsData.json,
         ...manifestFieldsData.scripts
-      },
-      excludeList: specialFoldersData.public
+      }
     }).apply(compiler)
 
     // Get every field in manifest that allows an .html file
@@ -68,10 +67,6 @@ export class ExtensionPlugin {
       includeList: {
         ...manifestFieldsData.html,
         ...specialFoldersData.pages
-      },
-      excludeList: {
-        ...specialFoldersData.public,
-        ...specialFoldersData.scripts
       }
     }).apply(compiler)
 
@@ -82,10 +77,6 @@ export class ExtensionPlugin {
       includeList: {
         ...manifestFieldsData.scripts,
         ...specialFoldersData.scripts
-      },
-      excludeList: {
-        ...specialFoldersData.public,
-        ...specialFoldersData.pages
       }
     }).apply(compiler)
 
@@ -97,15 +88,13 @@ export class ExtensionPlugin {
     // Grab all JSON assets from manifest except _locales
     new JsonPlugin({
       manifestPath,
-      includeList: manifestFieldsData.json,
-      excludeList: specialFoldersData.public
+      includeList: manifestFieldsData.json
     }).apply(compiler)
 
     // Grab all icon assets from manifest including popup icons
     new IconsPlugin({
       manifestPath,
-      includeList: manifestFieldsData.icons as FilepathList,
-      excludeList: specialFoldersData.public
+      includeList: manifestFieldsData.icons as FilepathList
     }).apply(compiler)
 
     // Grab all resources from script files
