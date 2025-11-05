@@ -4,7 +4,7 @@ import {
   type Compiler,
   type RuleSetRule
 } from '@rspack/core'
-import {DevOptions} from '../../types/options'
+import {DevOptions} from '../types/options'
 import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
@@ -15,7 +15,6 @@ import {isContentScriptEntry} from './css-lib/is-content-script'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
-
   public readonly manifestPath: string
 
   constructor(options: PluginInterface) {
@@ -25,7 +24,7 @@ export class CssPlugin {
   private async configureOptions(compiler: Compiler) {
     const mode: DevOptions['mode'] =
       (compiler.options.mode as DevOptions['mode']) || 'development'
-    const projectPath = path.dirname(this.manifestPath)
+    const projectPath = compiler.options.context as string
 
     const plugins: RspackPluginInstance[] = []
     const maybeInstallStylelint = await maybeUseStylelint(projectPath)
@@ -56,7 +55,7 @@ export class CssPlugin {
           exclude: /\.module\.(sass|scss)$/,
           type: 'asset/resource',
           issuer: (issuer: string) =>
-            isContentScriptEntry(issuer, projectPath + '/manifest.json')
+            isContentScriptEntry(issuer, this.manifestPath)
         }
       )
     }
@@ -69,7 +68,7 @@ export class CssPlugin {
           exclude: /\.module\.less$/,
           type: 'asset/resource',
           issuer: (issuer: string) =>
-            isContentScriptEntry(issuer, projectPath + '/manifest.json')
+            isContentScriptEntry(issuer, this.manifestPath)
         }
       )
     }

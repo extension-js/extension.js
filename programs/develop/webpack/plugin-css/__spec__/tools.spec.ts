@@ -10,16 +10,10 @@ vi.mock('fs', async () => {
   }
 })
 
-vi.mock('../../../develop-lib/utils', async () => {
-  const actual = await vi.importActual<
-    typeof import('../../../develop-lib/utils')
-  >('../../../develop-lib/utils')
-  return {
-    ...actual,
-    hasDependency: vi.fn(() => false),
-    installOptionalDependencies: vi.fn(async () => undefined)
-  }
-})
+vi.mock('../../webpack-lib/integrations', () => ({
+  hasDependency: vi.fn(() => false),
+  installOptionalDependencies: vi.fn(async () => undefined)
+}))
 
 vi.mock('../../webpack-lib/messages', () => ({
   isUsingIntegration: (name: string) => `[using ${name}]`,
@@ -115,10 +109,10 @@ describe('css tools additional coverage', () => {
 
   it('isUsingTailwind logs only once across multiple calls', async () => {
     // Work with the mocked module (declared above) so the implementation used by code under test is affected.
-    const mockedUtils = (await import(
-      '../../../develop-lib/utils'
+    const mockedIntegrations = (await import(
+      '../../webpack-lib/integrations'
     )) as unknown as {hasDependency: any}
-    mockedUtils.hasDependency.mockImplementation(
+    mockedIntegrations.hasDependency.mockImplementation(
       (_: any, dep: string) => dep === 'tailwindcss'
     )
 

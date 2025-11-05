@@ -11,8 +11,10 @@ import * as messages from '../css-lib/messages'
 import {isUsingTailwind} from './tailwind'
 import {isUsingSass} from './sass'
 import {isUsingLess} from './less'
-import {installOptionalDependencies} from '../../../develop-lib/utils'
-import {hasDependency} from '../../../develop-lib/utils'
+import {
+  installOptionalDependencies,
+  hasDependency
+} from '../../webpack-lib/integrations'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 
 let userMessageDelivered = false

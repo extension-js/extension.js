@@ -8,7 +8,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from '../css-lib/messages'
-import {hasDependency} from '../../../develop-lib/utils'
+import {hasDependency} from '../../webpack-lib/integrations'
 
 let userMessageDelivered = false
 
