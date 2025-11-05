@@ -11,8 +11,10 @@ import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
 import ReactRefreshPlugin from '@rspack/plugin-react-refresh'
 import * as messages from '../js-frameworks-lib/messages'
-import {installOptionalDependencies} from '../../../develop-lib/utils'
-import {hasDependency} from '../../../develop-lib/utils'
+import {
+  installOptionalDependencies,
+  hasDependency
+} from '../../webpack-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 
 let userMessageDelivered = false
