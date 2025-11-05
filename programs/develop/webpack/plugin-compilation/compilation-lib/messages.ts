@@ -2,8 +2,19 @@ import colors from 'pintor'
 import type {Stats} from '@rspack/core'
 
 export function boring(manifestName: string, durationMs: number, stats: Stats) {
-  const arrow = stats.hasErrors() ? colors.red('✖✖✖') : colors.gray('►►►')
-  return `${arrow} ${manifestName} compiled ${stats.hasErrors() ? colors.red('with errors') : colors.green('successfully')} in ${durationMs} ms.`
+  const hasErrors = stats.hasErrors()
+  const hasWarnings = stats.hasWarnings()
+  const arrow = hasErrors
+    ? colors.red('✖✖✖')
+    : hasWarnings
+      ? colors.brightYellow('►►►')
+      : colors.gray('►►►')
+  const label = hasErrors
+    ? colors.red('with errors')
+    : hasWarnings
+      ? colors.yellow('with warnings')
+      : colors.green('successfully')
+  return `${arrow} ${manifestName} compiled ${label} in ${durationMs} ms.`
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
