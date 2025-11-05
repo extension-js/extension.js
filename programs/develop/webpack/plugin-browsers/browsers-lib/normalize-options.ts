@@ -1,4 +1,4 @@
-import {DevOptions} from '../../../types/options'
+import {DevOptions} from '../../types/options'
 import {PluginInterface} from '../browsers-types'
 
 export type NormalizedBrowser = DevOptions['browser']
