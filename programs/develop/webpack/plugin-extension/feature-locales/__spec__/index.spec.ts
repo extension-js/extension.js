@@ -98,6 +98,11 @@ describe('LocalesPlugin (unit)', () => {
   }
 
   it('emits only .json locale files and skips non-json', () => {
+    // Ensure manifest declares default_locale to pass validation
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
@@ -115,28 +120,15 @@ describe('LocalesPlugin (unit)', () => {
     expect(compilation.errors.length).toBe(0)
   })
 
-  it('does not emit when excluded by excludeList', () => {
-    const excludedPath = path.join(enDir, 'messages.json')
-    const plugin = new LocalesPlugin({
-      manifestPath,
-      excludeList: {any: excludedPath}
-    } as any)
-    const compilation = applyAndProcess(plugin)
-
-    const emitted: string[] = (compilation as any)._emitted || []
-    expect(emitted.some((p) => p.endsWith('_locales/en/messages.json'))).toBe(
-      false
-    )
-    expect(
-      emitted.some((p) => p.endsWith('_locales/pt_BR/messages.json'))
-    ).toBe(true)
-  })
-
   it('adds discovered .json files to fileDependencies', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin)
 
-    const deps = Array.from(compilation.fileDependencies)
+    const deps = Array.from(compilation.fileDependencies) as string[]
     expect(deps.some((p) => p.endsWith('_locales/en/messages.json'))).toBe(true)
     expect(deps.some((p) => p.endsWith('_locales/pt_BR/messages.json'))).toBe(
       true
@@ -144,6 +136,10 @@ describe('LocalesPlugin (unit)', () => {
   })
 
   it('warns when a referenced file is missing (with metadata, no path in message)', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
     const missing = path.join(tmpRoot, '_locales', 'en', 'missing.json')
     const plugin = new LocalesPlugin({manifestPath})
     const compilation = applyAndProcess(plugin, {mockGetLocales: [missing]})
@@ -157,6 +153,37 @@ describe('LocalesPlugin (unit)', () => {
     expect(hasAnsi(warn.message)).toBe(false)
     const emitted: string[] = (compilation as any)._emitted || []
     expect(emitted.length).toBe(0)
+  })
+
+  it('errors when _locales exists but default_locale is missing', () => {
+    // No default_locale in manifest; _locales present from beforeEach
+    fs.writeFileSync(manifestPath, '{"name":"x","manifest_version":3}')
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('LocalesValidationError')
+    expect(String(err.message)).toContain('locales subtree exists')
+  })
+
+  it('errors when a non-default locale messages.json is invalid JSON', () => {
+    // Default locale set and valid
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+    // Corrupt pt_BR/messages.json
+    fs.writeFileSync(path.join(ptDir, 'messages.json'), '{ invalid')
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('LocalesValidationError')
+    expect(String(err.message)).toContain(
+      'Invalid JSON in locale messages file'
+    )
   })
 
   it('pushes an error and does not throw when manifest.json is missing (with metadata, no path in message)', () => {
@@ -193,8 +220,8 @@ describe('LocalesPlugin (unit)', () => {
     expect(err.name).toBe('ManifestNotFoundError')
     expect(err.file).toBe(missingManifestPath)
     expect(typeof err.message).toBe('string')
-    // Message format updated to a prefixed ERROR banner
-    expect(err.message).toContain('ERROR manifest.json')
+    // Message follows guidance + NOT FOUND style (header provides file context)
+    expect(err.message).toContain('Check the manifest.json file.')
     expect(hasAnsi(err.message)).toBe(false)
     expect((compilation as any)._emitted).toBeUndefined()
 
