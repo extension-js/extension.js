@@ -11,7 +11,7 @@ import {
   getUserTypeScriptConfigFile
 } from './js-tools/typescript'
 import {maybeUseSvelte} from './js-tools/svelte'
-import {type DevOptions} from '../../types/options'
+import {type DevOptions} from '../types/options'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
 
@@ -27,8 +27,7 @@ export class JsFrameworksPlugin {
 
   private async configureOptions(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
-    const projectPath = path.dirname(this.manifestPath)
-    const packageRoot = path.resolve(projectPath, '..')
+    const projectPath = compiler.options.context as string
 
     const maybeInstallBabel = await maybeUseBabel(compiler, projectPath)
     const maybeInstallReact = await maybeUseReact(projectPath)
@@ -45,6 +44,7 @@ export class JsFrameworksPlugin {
 
     try {
       const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
+
       if (manifest?.minimum_chrome_version) {
         targets = [`chrome >= ${manifest.minimum_chrome_version}`]
       }
