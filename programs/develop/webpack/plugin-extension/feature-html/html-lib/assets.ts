@@ -5,7 +5,7 @@ import {WebpackError} from '@rspack/core'
 import * as messages from './messages'
 import {getFilePath, getHtmlPageDeclaredAssetPath} from './utils'
 import {type FilepathList} from '../../../webpack-types'
-import * as utils from '../../../../develop-lib/utils'
+import {shouldExclude, isFromFilepathList} from '../../../webpack-lib/paths'
 
 export function handleStaticAsset(
   compilation: any,
@@ -22,14 +22,11 @@ export function handleStaticAsset(
   extname: string,
   childNode: any
 ) {
-  const isExcludedPath = utils.shouldExclude(
+  const isExcludedPath = shouldExclude(
     path.resolve(htmlDir, cleanPath),
     excludeList
   )
-  const isFilepathListEntry = utils.isFromFilepathList(
-    absolutePath,
-    includeList
-  )
+  const isFilepathListEntry = isFromFilepathList(absolutePath, includeList)
   const excludedFilePath =
     path.posix.join('/', cleanPath) + (search || '') + (hash || '')
 
@@ -58,17 +55,9 @@ export function handleStaticAsset(
   }
 
   if (cleanPath.startsWith('/')) {
-    const publicCandidate = path.posix.join('public', cleanPath.slice(1))
+    const projectDir = path.dirname(path.dirname(htmlEntry))
+    const publicCandidate = path.join(projectDir, 'public', cleanPath.slice(1))
 
-    if (!fs.existsSync(publicCandidate)) {
-      const warn = new WebpackError(
-        messages.htmlFileNotFoundMessageOnly('static')
-      )
-      warn.name = 'HtmlStaticAssetMissing'
-      // @ts-expect-error - file is not a property of WebpackError
-      warn.file = htmlEntry
-      compilation.warnings.push(warn)
-    }
     node = parse5utilities.setAttribute(
       node,
       assetType === 'staticSrc' ? 'src' : 'href',

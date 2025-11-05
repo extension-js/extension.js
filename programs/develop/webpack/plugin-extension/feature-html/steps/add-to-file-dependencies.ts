@@ -13,7 +13,7 @@ export class AddToFileDependencies {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
+    this.excludeList = {}
     this.browser = options.browser
   }
 
