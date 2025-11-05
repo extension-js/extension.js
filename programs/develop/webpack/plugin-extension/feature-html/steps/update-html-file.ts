@@ -1,10 +1,9 @@
-import fs from 'fs'
-import {type Compiler} from '@rspack/core'
-import {sources, Compilation} from '@rspack/core'
-import {patchHtml} from '../html-lib/patch-html'
-import {getFilePath} from '../html-lib/utils'
-import * as utils from '../../../../develop-lib/utils'
+import * as path from 'path'
+import * as fs from 'fs'
+import {type Compiler, Compilation, sources} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import {getFilePath} from '../html-lib/utils'
+import {patchHtml} from '../html-lib/patch-html'
 
 export class UpdateHtmlFile {
   public readonly manifestPath: string
@@ -15,53 +14,62 @@ export class UpdateHtmlFile {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
+    this.excludeList = {}
     this.browser = options.browser
   }
 
-  public apply(compiler: Compiler): void {
+  public apply(compiler: Compiler) {
     compiler.hooks.thisCompilation.tap(
       'html:update-html-file',
       (compilation) => {
-        compilation.hooks.processAssets.tap(
-          {
-            name: 'html:update-html-file',
-            stage: Compilation.PROCESS_ASSETS_STAGE_DERIVED
-          },
-          () => {
-            if (compilation.errors.length > 0) return
+        const run = () => {
+          const htmlEntries = this.includeList || {}
+          const projectDir = path.dirname(this.manifestPath)
 
-            const htmlEntries = this.includeList || {}
+          for (const [feature, resource] of Object.entries(htmlEntries)) {
+            if (!resource || typeof resource !== 'string') continue
 
-            for (const field of Object.entries(htmlEntries)) {
-              const [feature, resource] = field
+            const resolved = path.isAbsolute(resource)
+              ? resource
+              : resource.startsWith('/')
+                ? path.join(projectDir, resource.slice(1))
+                : path.join(projectDir, resource)
 
-              if (resource) {
-                if (
-                  !utils.shouldExclude(resource as string, this.excludeList)
-                ) {
-                  if (fs.existsSync(resource as string)) {
-                    const updatedHtml = patchHtml(
-                      compilation,
-                      feature,
-                      resource as string,
-                      htmlEntries,
-                      this.excludeList || {}
-                    )
+            if (!fs.existsSync(resolved)) continue
 
-                    if (updatedHtml) {
-                      const rawSource = new sources.RawSource(
-                        updatedHtml.toString()
-                      )
-                      const filepath = getFilePath(feature, '.html', false)
-                      compilation.updateAsset(filepath, rawSource)
-                    }
-                  }
-                }
-              }
+            const assetFilename = getFilePath(feature, '.html', false)
+            const existing = compilation.getAsset(assetFilename)
+            if (!existing) continue
+
+            const updated = patchHtml(
+              compilation as unknown as Compilation,
+              feature,
+              resolved,
+              (this.includeList || {}) as FilepathList,
+              (this.excludeList || {}) as FilepathList
+            )
+
+            if (updated && typeof updated === 'string') {
+              compilation.updateAsset(
+                assetFilename,
+                new (sources as any).RawSource(updated)
+              )
             }
           }
-        )
+        }
+
+        const hasProcessAssets = Boolean(compilation?.hooks?.processAssets?.tap)
+        if (hasProcessAssets) {
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'html:update-html-file',
+              stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+            },
+            () => run()
+          )
+        } else {
+          run()
+        }
       }
     )
   }

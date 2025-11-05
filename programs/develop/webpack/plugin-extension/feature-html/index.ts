@@ -40,13 +40,11 @@ import {DevOptions} from '../../../module'
 export class HtmlPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
   private readonly browser: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
     this.browser = options.browser || 'chrome'
   }
 
@@ -55,7 +53,6 @@ export class HtmlPlugin {
     new EmitHtmlFile({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -64,7 +61,6 @@ export class HtmlPlugin {
     new AddAssetsToCompilation({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -73,15 +69,13 @@ export class HtmlPlugin {
     new AddScriptsAndStylesToCompilation({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
       browser: this.browser
-    }).apply(compiler as any)
+    }).apply(compiler)
 
     // 4 - Updates the HTML file with the new assets and entrypoints.
     new UpdateHtmlFile({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -96,8 +90,7 @@ export class HtmlPlugin {
             loader: path.resolve(__dirname, 'ensure-hmr-for-scripts'),
             options: {
               manifestPath: this.manifestPath,
-              includeList: this.includeList,
-              excludeList: this.excludeList
+              includeList: this.includeList
             }
           }
         ]
@@ -108,7 +101,6 @@ export class HtmlPlugin {
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -119,7 +111,6 @@ export class HtmlPlugin {
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -127,28 +118,27 @@ export class HtmlPlugin {
     new HandleCommonErrors({
       manifestPath: this.manifestPath,
       includeList: this.includeList,
-      excludeList: this.excludeList,
       browser: this.browser
     }).apply(compiler)
 
     // 9 - Add centralized logger script.
-    if ((compiler.options.mode || 'development') !== 'production') {
-      compiler.options.module.rules.push({
-        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: [path.dirname(this.manifestPath)],
-        exclude: [/([\\/])node_modules\1/],
-        use: [
-          {
-            loader: path.resolve(__dirname, 'add-centralized-logger-script'),
-            options: {
-              manifestPath: this.manifestPath,
-              includeList: this.includeList,
-              excludeList: this.excludeList,
-              browser: this.browser
-            }
-          }
-        ]
-      })
-    }
+    // TODO: cezaraugusto enable this after v3
+    // if ((compiler.options.mode || 'development') !== 'production') {
+    //   compiler.options.module.rules.push({
+    //     test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+    //     include: [path.dirname(this.manifestPath)],
+    //     exclude: [/([\\/])node_modules\1/],
+    //     use: [
+    //       {
+    //         loader: path.resolve(__dirname, 'add-centralized-logger-script'),
+    //         options: {
+    //           manifestPath: this.manifestPath,
+    //           includeList: this.includeList,
+    //           browser: this.browser
+    //         }
+    //       }
+    //     ]
+    //   })
+    // }
   }
 }

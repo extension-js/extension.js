@@ -8,7 +8,7 @@ import {type FilepathList} from '../../../webpack-types'
 import {handleStaticAsset} from './assets'
 import {injectCssLink, injectJsScript} from './inject'
 import * as messages from './messages'
-import * as utils from '../../../../develop-lib/utils'
+import {shouldExclude} from '../../../webpack-lib/paths'
 
 interface DocumentFragment {
   toString(): string
@@ -48,7 +48,7 @@ export function patchHtml(
           const absolutePath = path.resolve(htmlDir, cleanPath)
           const extname = getExtname(absolutePath)
           // public/ and script/ paths are excluded from the compilation.
-          const isExcludedPath = utils.shouldExclude(
+          const isExcludedPath = shouldExclude(
             path.resolve(htmlDir, filePath),
             excludeList
           )
@@ -199,7 +199,7 @@ export function patchHtmlNested(
           const htmlDir = path.dirname(htmlEntry)
           const {cleanPath, hash, search} = cleanAssetUrl(filePath)
           const absolutePath = path.resolve(htmlDir, cleanPath)
-          const isExcludedPath = utils.shouldExclude(
+          const isExcludedPath = shouldExclude(
             path.resolve(htmlDir, filePath),
             excludeList
           )
@@ -209,7 +209,9 @@ export function patchHtmlNested(
           switch (assetType) {
             case 'script': {
               if (cleanPath.startsWith('/')) {
-                const publicCandidate = path.posix.join(
+                const projectDir = path.dirname(path.dirname(htmlEntry))
+                const publicCandidate = path.join(
+                  projectDir,
                   'public',
                   cleanPath.slice(1)
                 )
@@ -259,7 +261,9 @@ export function patchHtmlNested(
 
             case 'css': {
               if (cleanPath.startsWith('/')) {
-                const publicCandidate = path.posix.join(
+                const projectDir = path.dirname(path.dirname(htmlEntry))
+                const publicCandidate = path.join(
+                  projectDir,
                   'public',
                   cleanPath.slice(1)
                 )
@@ -314,7 +318,9 @@ export function patchHtmlNested(
                   excludedFilePath
                 )
               } else if (cleanPath.startsWith('/')) {
-                const publicCandidate = path.posix.join(
+                const projectDir = path.dirname(path.dirname(htmlEntry))
+                const publicCandidate = path.join(
+                  projectDir,
                   'public',
                   cleanPath.slice(1)
                 )

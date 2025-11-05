@@ -2,7 +2,6 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import * as utils from '../../../../develop-lib/utils'
 import * as htmlUtils from '../html-lib/utils'
 
 export class AddScriptsAndStylesToCompilation {
@@ -14,7 +13,7 @@ export class AddScriptsAndStylesToCompilation {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
+    this.excludeList = {}
     this.browser = options.browser
   }
 
@@ -29,25 +28,20 @@ export class AddScriptsAndStylesToCompilation {
         if (!fs.existsSync(resource as string)) continue
 
         const htmlAssets = htmlUtils.getAssetsFromHtml(resource as string)
-        // Treat absolute URL paths that point to files under public/ as public-root assets;
-        // do not add them as entries. Absolute filesystem paths should still be bundled.
-        const projectPath = path.dirname(this.manifestPath)
-        const isPublicRootUrl = (assetPath: string) => {
-          if (!assetPath.startsWith('/')) return false
-          // Map "/foo/bar" → <project>/public/foo/bar (lowercase only)
-          const candidate = path.join(projectPath, 'public', assetPath.slice(1))
-          return fs.existsSync(candidate)
-        }
-
+        // Parity with special-folders and @feature-scripts:
+        // Exclude only public-root URL references (leading '/') that do NOT
+        // exist on disk. Absolute filesystem paths must still be bundled.
+        // Remote URLs are excluded as well.
+        const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
+        const looksLikePublicRootUrl = (p: string) =>
+          p.startsWith('/') && !fs.existsSync(p)
         const jsAssets = (htmlAssets?.js || []).filter(
-          (asset) => !isPublicRootUrl(asset)
+          (asset) => !looksLikePublicRootUrl(asset) && !isRemoteUrl(asset)
         )
         const cssAssets = (htmlAssets?.css || []).filter(
-          (asset) => !isPublicRootUrl(asset)
+          (asset) => !looksLikePublicRootUrl(asset) && !isRemoteUrl(asset)
         )
-        const fileAssets = [...jsAssets, ...cssAssets].filter(
-          (asset) => !utils.shouldExclude(asset, this.excludeList)
-        )
+        const fileAssets = [...jsAssets, ...cssAssets]
 
         if (compiler.options.mode === 'development') {
           // you can't HMR without a .js file, so we add a minimum script file.
@@ -56,13 +50,11 @@ export class AddScriptsAndStylesToCompilation {
         }
 
         if (fs.existsSync(resource as string)) {
-          if (!utils.shouldExclude(resource as string, this.excludeList)) {
-            compiler.options.entry = {
-              ...compiler.options.entry,
-              // https://webpack.js.org/configuration/entry-context/#entry-descriptor
-              [feature]: {
-                import: fileAssets
-              }
+          compiler.options.entry = {
+            ...compiler.options.entry,
+            // https://webpack.js.org/configuration/entry-context/#entry-descriptor
+            [feature]: {
+              import: fileAssets
             }
           }
         }

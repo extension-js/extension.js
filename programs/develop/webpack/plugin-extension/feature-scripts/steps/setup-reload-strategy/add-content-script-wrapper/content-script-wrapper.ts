@@ -52,9 +52,6 @@ export default function (this: LoaderContext, source: string) {
     return source
   }
 
-  const resourceQuery = String((this as any).resourceQuery || '')
-  const isInnerWrapperRequest = /\b__extjs_inner=1\b/.test(resourceQuery)
-
   // Skip entirely when there is no default export
   // This ensures no proxy or runtime code is injected for such modules
   const hasDefaultExport = /\bexport\s+default\b/.test(source)
@@ -73,26 +70,6 @@ export default function (this: LoaderContext, source: string) {
       ;(this as any).emitWarning?.(new Error(message))
     } catch {}
     return source
-  }
-
-  if (!isInnerWrapperRequest) {
-    const innerSpecifier = JSON.stringify(
-      this.resourcePath.replace(/\\/g, '/') + '?__extjs_inner=1'
-    )
-    const proxyCode = [
-      '/* extension.js content script proxy */',
-      'async function loadInnerWrappedModule(){',
-      `  try { await import(${innerSpecifier}) } catch (e) { console.warn('[extension.js] content script failed to load. waiting for next successful compile', e) }`,
-      '}',
-      'loadInnerWrappedModule()',
-      'if (import.meta && (import.meta).webpackHot) {',
-      '  const hot = (import.meta).webpackHot',
-      '  if (typeof hot.accept === "function") hot.accept(() => { loadInnerWrappedModule() })',
-      '  if (typeof hot.addStatusHandler === "function") hot.addStatusHandler((s) => { if (s === "apply" || s === "idle") loadInnerWrappedModule() })',
-      '}',
-      'export {}\n'
-    ].join('\n')
-    return proxyCode
   }
 
   // Avoid double injection

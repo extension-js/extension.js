@@ -71,7 +71,6 @@ export async function devServer(
   }
 
   // Get the user defined args and merge with the Extension.js base webpack config
-  console.log('got2')
   const baseConfig = webpackConfig(projectStructure, {
     ...browserConfig,
     ...commandConfig,
@@ -116,9 +115,18 @@ export async function devServer(
           colors: true,
           all: false,
           errors: true,
-          warnings: !!verbose
+          warnings: true
         })
         if (str) console.error(scrubBrand(str))
+      } else if (stats?.hasWarnings?.()) {
+        const str = stats?.toString?.({
+          colors: true,
+          all: false,
+          errors: false,
+          warnings: true
+        })
+
+        if (str) console.warn(scrubBrand(str))
       }
 
       // Warn when nothing is being built on the first pass
@@ -144,7 +152,7 @@ export async function devServer(
         colors: true,
         all: false,
         errors: true,
-        warnings: !!verbose
+        warnings: true
       })
       if (str) console.error(scrubBrand(str))
     }

@@ -1,7 +1,7 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
-import {AddAssetsToCompilation} from './add-assets-to-compilation'
+import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 import {Compiler, Compilation} from '@rspack/core'
 
 // Mock fs module
@@ -47,36 +47,6 @@ describe('AddAssetsToCompilation', () => {
         }
       }
     } as any
-  })
-
-  describe('normalizePublicPath', () => {
-    it('should keep lowercase public path (standardized)', () => {
-      const result = (addAssetsToCompilation as any).normalizePublicPath(
-        'public/image.png'
-      )
-      expect(result).toBe('public/image.png')
-    })
-
-    it('should keep lowercase public path on Windows', () => {
-      const result = (addAssetsToCompilation as any).normalizePublicPath(
-        'public/image.png'
-      )
-      expect(result).toBe('public/image.png')
-    })
-
-    it('should handle non-public paths unchanged', () => {
-      const result = (addAssetsToCompilation as any).normalizePublicPath(
-        'assets/image.png'
-      )
-      expect(result).toBe('assets/image.png')
-    })
-
-    it('should fallback to lowercase public if folder does not exist', () => {
-      const result = (addAssetsToCompilation as any).normalizePublicPath(
-        'public/image.png'
-      )
-      expect(result).toBe('public/image.png')
-    })
   })
 
   describe('apply', () => {
@@ -152,7 +122,7 @@ describe('AddAssetsToCompilation', () => {
   })
 
   describe('absolute path handling', () => {
-    it('should preserve absolute paths inside public by emitting under public/ prefix', () => {
+    it('should not emit assets that are under public; rely on copy mechanism', () => {
       const mockAsset = {
         source: {
           source: () => '<html><img src="/absolute/path/image.png"></html>'
@@ -174,13 +144,39 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation.apply(mockCompiler)
 
-      // Emit happens only when existsSync returns true and read succeeds; with our mocks, it should
-      expect(
-        (mockCompilation.emitAsset as any).mock.calls.length
-      ).toBeGreaterThan(0)
-      expect((mockCompilation.emitAsset as any).mock.calls[0][0]).toBe(
-        'absolute/path/image.png'
-      )
+      // With public/ delegation, HTML plugin should not emit assets under public
+      expect((mockCompilation as any).emitAsset.mock.calls.length).toBe(0)
     })
+  })
+
+  it('emits warnings for remote <script>/<link> references without failing build', () => {
+    // HTML referencing remote resources
+    const mockAsset = {
+      source: {
+        source: () =>
+          '<html><head><link rel="stylesheet" href="https://cdn.example.com/x.css"></head><body><script src="//cdn.example.com/y.js"></script></body></html>'
+      }
+    }
+
+    addAssetsToCompilation = new AddAssetsToCompilation({
+      manifestPath: '/test/project/manifest.json',
+      includeList: {feature: '/test/project/resource.html'} as any
+    })
+
+    vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
+      return name === 'resource.html' ? (mockAsset as any) : undefined
+    })
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readFileSync as any).mockReturnValue(Buffer.from(''))
+
+    addAssetsToCompilation.apply(mockCompiler)
+
+    expect(mockCompilation.warnings.length).toBeGreaterThan(0)
+    const text = mockCompilation.warnings.map(String).join('\n')
+    expect(text).toMatch(/Remote Resource Referenced/i)
+    expect(text).toMatch(/cdn\.example\.com\/.+\.css/i)
+    expect(text).toMatch(/cdn\.example\.com\/.+\.js/i)
+    // Should not produce errors
+    expect(mockCompilation.errors.length).toBe(0)
   })
 })
