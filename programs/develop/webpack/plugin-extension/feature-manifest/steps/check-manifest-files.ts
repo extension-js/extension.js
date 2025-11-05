@@ -88,7 +88,13 @@ export class CheckManifestFiles {
               continue
             }
 
-            const isPublicRoot = (item as string).startsWith('/')
+            // Only treat as public-root when the original manifest reference
+            // used a leading '/' AND it was not already normalized to an
+            // absolute OS path. Absolute filesystem paths are not public-root.
+            const isPublicRoot = ((): boolean => {
+              const ref = item as string
+              return ref.startsWith('/') && !path.isAbsolute(ref)
+            })()
             const outputRoot = compilation.options?.output?.path || ''
             const overrideNotFoundPath = isPublicRoot
               ? path.join(outputRoot, (item as string).slice(1))

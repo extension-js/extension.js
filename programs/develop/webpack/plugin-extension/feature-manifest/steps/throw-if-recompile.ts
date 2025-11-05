@@ -1,5 +1,4 @@
 import * as fs from 'fs'
-import * as path from 'path'
 import {Compiler, Compilation, WebpackError} from '@rspack/core'
 import * as messages from '../messages'
 import {DevOptions} from '../../../types/options'
@@ -11,120 +10,125 @@ export class ThrowIfRecompileIsNeeded {
   public readonly browser: DevOptions['browser']
   public readonly includeList?: FilepathList
 
+  private prevHtml: string[] | null = null
+  private prevScripts: string[] | null = null
+  private pendingChange: {
+    hasChange: boolean
+    fileAdded?: string
+    fileRemoved?: string
+  } | null = null
+
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.includeList = options.includeList
   }
 
-  private flattenAndSort(arr: any[]): any[] {
-    return arr.flat(Infinity).sort()
+  private flattenAndSort(arr: any[]): string[] {
+    return arr.flat(Infinity).filter(Boolean).map(String).sort()
+  }
+
+  private readUserEntrypointsFromDisk(): {html: string[]; scripts: string[]} {
+    const fields = getManifestFieldsData({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    })
+    return {
+      html: this.flattenAndSort(Object.values(fields.html)),
+      scripts: this.flattenAndSort(Object.values(fields.scripts))
+    }
   }
 
   public apply(compiler: Compiler): void {
+    // Initialize snapshot once on plugin apply (captures state at server start)
+    if (this.prevHtml === null || this.prevScripts === null) {
+      try {
+        const {html, scripts} = this.readUserEntrypointsFromDisk()
+        this.prevHtml = html
+        this.prevScripts = scripts
+      } catch {
+        // best-effort; will be set on first watchRun otherwise
+      }
+    }
+
     compiler.hooks.watchRun.tapAsync(
       'manifest:throw-if-recompile-is-needed',
       (compiler, done) => {
         const files = compiler.modifiedFiles || new Set<string>()
-        if (files.has(this.manifestPath)) {
-          const context = compiler.options.context || ''
-          const packageJsonPath = `${context}/package.json`
-
-          if (!fs.existsSync(packageJsonPath)) {
-            done()
-            return
-          }
-
-          const initialFields = getManifestFieldsData({
-            manifestPath: this.manifestPath,
-            browser: this.browser
-          })
-          const initialHtml = this.flattenAndSort(
-            Object.values(initialFields.html)
-          )
-          const initialScripts = this.flattenAndSort(
-            Object.values(initialFields.scripts)
-          )
-
-          compiler.hooks.thisCompilation.tap(
-            'manifest:throw-if-recompile-is-needed',
-            (compilation) => {
-              compilation.hooks.processAssets.tap(
-                {
-                  name: 'manifest:check-manifest-files',
-                  stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COMPATIBILITY
-                },
-                () => {
-                  const manifestAsset = compilation.getAsset('manifest.json')
-                  const manifestStr = manifestAsset?.source.source().toString()
-                  const updatedManifest = JSON.parse(manifestStr || '{}')
-                  let updatedHtml: string[] = []
-                  let updatedScripts: string[] = []
-
-                  try {
-                    const tempManifestPath = path.join(
-                      context || process.cwd(),
-                      '.extension-manifest.tmp.json'
-                    )
-                    fs.writeFileSync(
-                      tempManifestPath,
-                      JSON.stringify(updatedManifest, null, 2),
-                      'utf-8'
-                    )
-                    const updatedFields = getManifestFieldsData({
-                      manifestPath: tempManifestPath,
-                      browser: this.browser
-                    })
-                    updatedHtml = this.flattenAndSort(
-                      Object.values(updatedFields.html)
-                    )
-                    updatedScripts = this.flattenAndSort(
-                      Object.values(updatedFields.scripts)
-                    )
-                    fs.unlinkSync(tempManifestPath)
-                  } catch (e) {
-                    // If temp write fails, fallback to initial to avoid crash
-                    updatedHtml = initialHtml
-                    updatedScripts = initialScripts
-                  }
-
-                  if (
-                    initialScripts.toString() !== updatedScripts.toString() ||
-                    initialHtml.toString() !== updatedHtml.toString()
-                  ) {
-                    const fileRemoved = initialHtml.filter(
-                      (file) => !updatedHtml.includes(file)
-                    )[0]
-                    const fileAdded = updatedHtml.filter(
-                      (file) => !initialHtml.includes(file)
-                    )[0]
-                    const warnMessage =
-                      messages.serverRestartRequiredFromManifestError(
-                        fileAdded,
-                        fileRemoved
-                      )
-                    const restartNoticeWarning = new WebpackError(
-                      messages.manifestEntrypointChangeRestarting(
-                        fileAdded || fileRemoved || 'manifest.json'
-                      )
-                    )
-                    // @ts-expect-error file is not typed
-                    restartNoticeWarning.file = 'manifest.json'
-                    compilation.warnings.push(restartNoticeWarning)
-
-                    const manifestEntrypointChangeWarning = new WebpackError(
-                      warnMessage
-                    )
-                    // @ts-expect-error file is not typed
-                    manifestEntrypointChangeWarning.file = 'manifest.json'
-                    compilation.warnings.push(manifestEntrypointChangeWarning)
-                  }
-                }
-              )
-            }
-          )
+        if (!files.has(this.manifestPath)) {
+          done()
+          return
         }
+
+        const context = compiler.options.context || ''
+        const packageJsonPath = `${context}/package.json`
+        if (!fs.existsSync(packageJsonPath)) {
+          done()
+          return
+        }
+
+        const {html: nextHtml, scripts: nextScripts} =
+          this.readUserEntrypointsFromDisk()
+
+        if (this.prevHtml === null || this.prevScripts === null) {
+          // First run: initialize snapshot, never warn
+          this.prevHtml = nextHtml
+          this.prevScripts = nextScripts
+          this.pendingChange = null
+          done()
+          return
+        }
+
+        const htmlChanged = this.prevHtml.toString() !== nextHtml.toString()
+        const scriptsChanged =
+          this.prevScripts.toString() !== nextScripts.toString()
+
+        if (htmlChanged || scriptsChanged) {
+          const fileRemoved =
+            this.prevHtml.filter((p) => !nextHtml.includes(p))[0] || undefined
+          const fileAdded =
+            nextHtml.filter((p) => !this.prevHtml!.includes(p))[0] || undefined
+          this.pendingChange = {hasChange: true, fileAdded, fileRemoved}
+        } else {
+          this.pendingChange = null
+        }
+
+        // Update snapshot for next run
+        this.prevHtml = nextHtml
+        this.prevScripts = nextScripts
+
         done()
+      }
+    )
+
+    compiler.hooks.thisCompilation.tap(
+      'manifest:throw-if-recompile-is-needed',
+      (compilation) => {
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'manifest:throw-if-recompile-is-needed',
+            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_COMPATIBILITY
+          },
+          () => {
+            if (!this.pendingChange?.hasChange) return
+
+            const fileAdded = this.pendingChange.fileAdded
+            const fileRemoved = this.pendingChange.fileRemoved
+
+            const manifestEntrypointChangeWarning = new WebpackError(
+              messages.serverRestartRequiredFromManifestError(
+                fileAdded || '',
+                fileRemoved || ''
+              )
+            )
+            // @ts-expect-error file is not typed
+            manifestEntrypointChangeWarning.file = 'manifest.json'
+            // Treat as an error to align with MESSAGE_STYLE.md "Restart required"
+            compilation.errors.push(manifestEntrypointChangeWarning)
+
+            this.pendingChange = null
+          }
+        )
       }
     )
   }
