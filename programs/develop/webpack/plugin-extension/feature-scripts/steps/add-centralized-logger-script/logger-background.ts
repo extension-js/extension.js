@@ -3,7 +3,7 @@ import path from 'path'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {type LoaderContext} from '../../../../webpack-types'
-import * as utils from '../../../../../develop-lib/utils'
+import {filterKeysForThisBrowser} from '../../../../webpack-lib/manifest'
 
 const schema: Schema = {
   type: 'object',
@@ -29,7 +29,7 @@ export default function (this: LoaderContext, source: string) {
   const projectPath = path.dirname(manifestPath)
   const rawManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
   const browser = options.browser || 'chrome'
-  const manifest = utils.filterKeysForThisBrowser(rawManifest as any, browser)
+  const manifest = filterKeysForThisBrowser(rawManifest as any, browser)
 
   validate(schema, options, {
     name: 'scripts:add-centralized-logger-script-background',
