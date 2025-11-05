@@ -53,8 +53,16 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    // Treat provided includeList paths as existing
-    FS.existsSync.mockImplementation((p: string) => p.includes('/abs/'))
+    // Treat only the provided includeList paths as existing
+    const existing = new Set([
+      '/abs/assets/icon16.png',
+      '/abs/assets/icon48.png',
+      '/abs/assets/action16.png',
+      '/abs/assets/ba16.png',
+      '/abs/assets/pa16.png',
+      '/abs/assets/sa16.png'
+    ])
+    FS.existsSync.mockImplementation((p: string) => existing.has(p))
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
@@ -64,8 +72,7 @@ describe('EmitFile step', () => {
         'browser_action/default_icon': ['/abs/assets/ba16.png'],
         'page_action/default_icon': ['/abs/assets/pa16.png'],
         'sidebar_action/default_icon': ['/abs/assets/sa16.png']
-      },
-      excludeList: {}
+      }
     } as any)
 
     step.apply(compiler as any)
@@ -82,7 +89,7 @@ describe('EmitFile step', () => {
     expect(calls).toContain('icons/sa16.png')
   })
 
-  it('skips missing files and respects excludeList', async () => {
+  it('skips missing files and emits only existing ones', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
@@ -91,13 +98,11 @@ describe('EmitFile step', () => {
       (p: string) => p === '/abs/assets/keep.png'
     )
 
-    // Exclude list should prevent emission of excluded file
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {
         icons: ['/abs/assets/skip.png', '/abs/assets/keep.png']
-      },
-      excludeList: {icons: ['/abs/assets/skip.png']}
+      }
     } as any)
 
     step.apply(compiler as any)
@@ -112,14 +117,15 @@ describe('EmitFile step', () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    FS.existsSync.mockReturnValue(true)
+    FS.existsSync.mockImplementation(
+      (p: string) => p === '/abs/assets/a.png' || p === '/abs/assets/b.png'
+    )
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {
         'browser_action/theme_icons': ['/abs/assets/a.png', '/abs/assets/b.png']
-      },
-      excludeList: {}
+      }
     } as any)
 
     step.apply(compiler as any)
@@ -130,7 +136,7 @@ describe('EmitFile step', () => {
     expect(calls).toEqual(['browser_action/a.png', 'browser_action/b.png'])
   })
 
-  it('resolves leading "/" and relative paths from manifest directory', async () => {
+  it('resolves leading "/" and relative paths from manifest directory (skips public-root)', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
@@ -145,8 +151,7 @@ describe('EmitFile step', () => {
       manifestPath: '/abs/project/manifest.json',
       includeList: {
         'action/default_icon': ['/public/icon.png', 'icons/rel.png']
-      },
-      excludeList: {}
+      }
     } as any)
 
     step.apply(compiler as any)
@@ -154,21 +159,21 @@ describe('EmitFile step', () => {
     const calls = (compilation.emitAsset as any).mock.calls.map(
       (c: any[]) => c[0]
     )
-    expect(calls).toEqual(['icons/icon.png', 'icons/rel.png'])
+    expect(calls).toEqual(['icons/rel.png'])
   })
 
-  it('supports directory-based exclusions (subpath containment)', async () => {
+  it('skips assets under public/', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
-    FS.existsSync.mockReturnValue(true)
+    // Simulate an icon under public/
+    FS.existsSync.mockImplementation((p: string) => p.includes('/public/'))
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {
-        icons: ['/abs/assets/sub/icon.png']
-      },
-      excludeList: {icons: ['/abs/assets']}
+        icons: ['/abs/project/public/sub/icon.png']
+      }
     } as any)
 
     step.apply(compiler as any)
@@ -176,7 +181,7 @@ describe('EmitFile step', () => {
     expect((compilation.emitAsset as any).mock.calls.length).toBe(0)
   })
 
-  it('warns when an included file is missing and not excluded', async () => {
+  it('warns with a pretty message when an included file is missing', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
@@ -185,16 +190,15 @@ describe('EmitFile step', () => {
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
-      includeList: {icons: ['/abs/assets/missing.png']},
-      excludeList: {}
+      includeList: {icons: ['/abs/assets/missing.png']}
     } as any)
 
     step.apply(compiler as any)
 
     expect(compilation.warnings.length).toBe(1)
     const w = String(compilation.warnings[0])
-    expect(w).toContain('File Not Found in icons list')
-    // Ensure message does not duplicate file path; file metadata carries it
-    expect(w).not.toContain('/abs/assets/missing.png')
+    expect(w).toMatch(/Check the .* manifest\.json/i)
+    expect(w).toMatch(/NOT FOUND/i)
+    expect(w).toContain('/abs/assets/missing.png')
   })
 })
