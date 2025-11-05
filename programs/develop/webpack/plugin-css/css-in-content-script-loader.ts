@@ -1,6 +1,6 @@
 import * as path from 'path'
 import {commonStyleLoaders} from './common-style-loaders'
-import {DevOptions} from '../../types/options'
+import {DevOptions} from '../types/options'
 import {isContentScriptEntry} from './css-lib/is-content-script'
 
 export async function cssInContentScriptLoader(
