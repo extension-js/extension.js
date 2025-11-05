@@ -20,12 +20,11 @@ export class EmitManifest {
             stage: Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS
           },
           () => {
-            const manifestPath = this.manifestPath
             let jsonContent: Record<string, any>
 
             try {
               // Read and parse the manifest file
-              const content = fs.readFileSync(manifestPath, 'utf-8')
+              const content = fs.readFileSync(this.manifestPath, 'utf-8')
               jsonContent = JSON.parse(content)
 
               // Remove the $schema field if it exists

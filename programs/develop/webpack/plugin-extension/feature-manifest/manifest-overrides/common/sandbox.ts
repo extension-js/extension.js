@@ -1,5 +1,5 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
-import {getFilename} from '../../../../../develop-lib/utils'
+import {getFilename} from '../../../../webpack-lib/paths'
 
 // Defines an collection of app or extension pages that are to be served
 // in a sandboxed unique origin, and optionally a Content Security Policy

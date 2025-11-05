@@ -1,19 +1,17 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import rspack, {Compilation, Compiler} from '@rspack/core'
-import * as utils from '../../../../develop-lib/utils'
+import {filterKeysForThisBrowser} from '../../../webpack-lib/manifest'
 import * as messages from '../messages'
 import {PluginInterface, FilepathList} from '../../../webpack-types'
 
 export class CheckManifestFiles {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
   }
 
   extractPaths(
@@ -55,7 +53,7 @@ export class CheckManifestFiles {
 
     // Parse manifest once and filter per target browser
     const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
-    const patchedManifest = utils.filterKeysForThisBrowser(manifest, 'chrome')
+    const patchedManifest = filterKeysForThisBrowser(manifest, 'chrome')
     const manifestName = patchedManifest.name || 'Extension.js'
 
     const entries = Object.entries(this.includeList || {})
@@ -65,17 +63,6 @@ export class CheckManifestFiles {
 
         for (const item of valueArr) {
           const ext = path.extname(item as string)
-          // Skip excluded items
-          if (
-            this.excludeList &&
-            Object.values(this.excludeList).some((excluded) =>
-              typeof excluded === 'string'
-                ? excluded === item
-                : Array.isArray(excluded) && excluded.includes(item as string)
-            )
-          ) {
-            continue
-          }
 
           if (!fs.existsSync(item as string)) {
             // Normalize manifest-referenced paths before deciding:
@@ -101,10 +88,19 @@ export class CheckManifestFiles {
               continue
             }
 
+            const isPublicRoot = (item as string).startsWith('/')
+            const outputRoot = compilation.options?.output?.path || ''
+            const overrideNotFoundPath = isPublicRoot
+              ? path.join(outputRoot, (item as string).slice(1))
+              : undefined
             const fieldError = messages.manifestFieldError(
               manifestName,
               field,
-              item as string
+              resolved,
+              {
+                publicRootHint: isPublicRoot,
+                overrideNotFoundPath
+              }
             )
             const err = new WebpackError(fieldError) as Error & {file: string}
             // Hint Rspack to display "ERROR in manifest.json × ..."
