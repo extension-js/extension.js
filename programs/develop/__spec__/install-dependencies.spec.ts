@@ -5,7 +5,7 @@ import os from 'os'
 import {
   getInstallCommand,
   installDependencies
-} from '../develop-lib/install-dependencies'
+} from '../webpack/webpack-lib/install-dependencies'
 
 const created: string[] = []
 function makeTempDir(prefix: string) {
@@ -67,7 +67,7 @@ describe('install-dependencies', () => {
         } as any
       }
     }))
-    const mod = await import('../develop-lib/install-dependencies')
+    const mod = await import('../webpack/webpack-lib/install-dependencies')
     await mod.installDependencies(tmp)
     expect(fs.existsSync(path.join(tmp, 'node_modules'))).toBe(true)
   })

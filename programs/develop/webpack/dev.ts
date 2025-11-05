@@ -7,14 +7,16 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {devServer} from './webpack/dev-server'
-import {generateExtensionTypes} from './develop-lib/generate-extension-types'
-import {isUsingTypeScript} from './webpack/plugin-js-frameworks/js-tools/typescript'
-import {getProjectStructure} from './develop-lib/get-project-path'
-import * as messages from './develop-lib/messages'
-import {installDependencies} from './develop-lib/install-dependencies'
-import {assertNoManagedDependencyConflicts} from './develop-lib/validate-user-dependencies'
+import {devServer} from './dev-server'
+import {generateExtensionTypes} from './webpack-lib/generate-extension-types'
+import {getProjectStructure} from './webpack-lib/project'
+import * as messages from './webpack-lib/messages'
+import {installDependencies} from './webpack-lib/install-dependencies'
+import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {DevOptions} from './types/options'
+
+// TODO cezaraugusto: move this out
+import {isUsingTypeScript} from './plugin-js-frameworks/js-tools/typescript'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
@@ -24,15 +26,12 @@ export async function extensionDev(
 
   try {
     const manifestDir = path.dirname(projectStructure.manifestPath)
-    const packageJsonDir = projectStructure.packageJsonPath
-      ? path.dirname(projectStructure.packageJsonPath)
-      : manifestDir
+    const packageJsonDir = path.dirname(projectStructure.packageJsonPath!)
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)
     }
 
-    // Guard: only error if user references managed deps in extension.config.js
     if (projectStructure.packageJsonPath) {
       assertNoManagedDependencyConflicts(
         projectStructure.packageJsonPath,

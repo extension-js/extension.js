@@ -5,17 +5,17 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import {extensionBuild} from './build'
-import {extensionDev} from './dev'
-import {extensionPreview} from './preview'
-import {extensionStart} from './start'
+import {extensionBuild} from './webpack/build'
+import {extensionDev} from './webpack/dev'
+import {extensionPreview} from './webpack/preview'
+import {extensionStart} from './webpack/start'
 import {
   type FileConfig,
   type BuildOptions,
   type DevOptions,
   type PreviewOptions,
   type StartOptions
-} from './types/options'
+} from './webpack/types/options'
 import {type Manifest} from './webpack/webpack-types'
 
 export {

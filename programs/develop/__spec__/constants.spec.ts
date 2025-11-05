@@ -5,7 +5,7 @@ import {
   CHROMIUM_BASED_BROWSERS,
   GECKO_BASED_BROWSERS,
   SUPPORTED_BROWSERS
-} from '../constants'
+} from '../webpack/webpack-lib/constants'
 
 describe('constants', () => {
   it('exports certificate path under node_modules/extension-develop/dist/certs', () => {

@@ -8,9 +8,9 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
-import {DevOptions} from '../types/options'
-import {type ProjectStructure} from '../develop-lib/get-project-path'
-import {makeSanitizedConsole} from './branding'
+import {type ProjectStructure} from './webpack-lib/project'
+import {DevOptions} from './types/options'
+import {makeSanitizedConsole} from './webpack-lib/branding'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -20,7 +20,7 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
-import * as utils from '../develop-lib/utils'
+import {filterKeysForThisBrowser} from './webpack-lib/manifest'
 
 export default function webpackConfig(
   projectStructure: ProjectStructure,
@@ -49,7 +49,7 @@ export default function webpackConfig(
       ? 'gecko-based'
       : devOptions.browser
 
-  const manifest = utils.filterKeysForThisBrowser(
+  const manifest = filterKeysForThisBrowser(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
     browser
   )
@@ -153,15 +153,15 @@ export default function webpackConfig(
         zipFilename: devOptions.zipFilename
       }),
       new StaticAssetsPlugin({
-        mode: devOptions.mode,
-        manifestPath
+        manifestPath,
+        mode: devOptions.mode
       }),
       new CssPlugin({
         manifestPath
       }),
       new JsFrameworksPlugin({
-        mode: devOptions.mode,
-        manifestPath
+        manifestPath,
+        mode: devOptions.mode
       }),
       new CompatibilityPlugin({
         manifestPath,
@@ -178,6 +178,7 @@ export default function webpackConfig(
         open: devOptions.open,
         startingUrl: devOptions.startingUrl,
         profile: devOptions.profile,
+        persistProfile: (devOptions as any).persistProfile,
         preferences: devOptions.preferences,
         browserFlags: devOptions.browserFlags,
         chromiumBinary: devOptions.chromiumBinary,

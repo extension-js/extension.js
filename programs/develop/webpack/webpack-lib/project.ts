@@ -1,11 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import * as os from 'os'
 import * as messages from './messages'
-import {
-  findNearestPackageJson,
-  validatePackageJson
-} from './find-nearest-package'
+import {findNearestPackageJson, validatePackageJson} from './package-json'
 
 export interface ProjectStructure {
   manifestPath: string
@@ -175,7 +171,7 @@ async function importUrlSourceFromGithub(
 async function importUrlSourceFromZip(pathOrRemoteUrl: string) {
   // Extract directly into the current working directory so users can edit it
   const cwd = process.cwd()
-  const {downloadAndExtractZip} = await import('./extract-from-zip')
+  const {downloadAndExtractZip} = await import('./zip')
   const extractedPath = await downloadAndExtractZip(pathOrRemoteUrl, cwd)
   return extractedPath
 }
