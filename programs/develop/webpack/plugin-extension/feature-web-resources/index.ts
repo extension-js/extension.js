@@ -16,13 +16,11 @@ import {generateManifestPatches as generateManifestPatchesUtil} from './web-reso
 export class WebResourcesPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
   public readonly browser?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = options.excludeList
     this.browser = options.browser || 'chrome'
   }
 
@@ -34,9 +32,7 @@ export class WebResourcesPlugin {
     generateManifestPatchesUtil(
       compilation,
       this.manifestPath,
-      this.excludeList as unknown as
-        | Record<string, string | string[]>
-        | undefined,
+      undefined,
       entryImports,
       this.browser
     )
@@ -56,7 +52,6 @@ export class WebResourcesPlugin {
     // to add the web_accessible_resources paths.
     new PatchManifestWebResources({
       manifestPath: this.manifestPath,
-      excludeList: this.excludeList,
       browser: this.browser
     }).apply(compiler)
   }
