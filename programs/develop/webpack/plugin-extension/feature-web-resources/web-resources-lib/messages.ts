@@ -14,7 +14,7 @@ export function warFieldError(
   )
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (copied from ${colors.yellow('public/')}), not your source directory.`
+      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
     )
   }
   lines.push('')
