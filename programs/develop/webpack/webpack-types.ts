@@ -2,7 +2,7 @@ import {
   type RspackPluginInstance,
   type LoaderContext as RspackLoaderContext
 } from '@rspack/core'
-import {type DevOptions} from '../types/options'
+import {type DevOptions} from './types/options'
 
 export type ChromeManifest = Partial<chrome.runtime.ManifestV2> &
   Partial<chrome.runtime.ManifestV3> & {
@@ -23,13 +23,11 @@ export type PluginInterface = {
   manifestPath: string
   browser?: DevOptions['browser']
   includeList?: FilepathList
-  excludeList?: FilepathList
 }
 
 export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
   manifestPath: string
   includeList?: FilepathList
-  excludeList?: FilepathList
 }
 
 export type FilepathList = Record<string, string | string[] | undefined>
@@ -63,7 +61,6 @@ export interface LoaderContext {
     manifestPath: string
     browser?: DevOptions['browser']
     includeList?: FilepathList
-    excludeList?: FilepathList
     mode: string
   }
 }
