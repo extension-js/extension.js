@@ -31,8 +31,7 @@ describe('IconsPlugin (index.ts)', () => {
 
     const options = {
       manifestPath: '/project/manifest.json',
-      includeList: {icons: ['/icons/a.png']},
-      excludeList: {icons: ['/icons/skip.png']}
+      includeList: {icons: ['/icons/a.png']}
     } as any
 
     const plugin = new IconsPlugin(options)
