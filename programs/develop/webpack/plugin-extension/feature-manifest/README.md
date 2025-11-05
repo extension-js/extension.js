@@ -105,7 +105,7 @@ new ManifestPlugin({
     'options_ui/page': path.resolve(__dirname, 'options.html')
   },
   excludeList: {
-    // keep this icon path untouched (e.g., copied from public/)
+    // keep this icon path untouched (e.g., served from public/)
     'icons/icon16.png': path.resolve(__dirname, 'public/icon16.png')
   }
 })

@@ -25,6 +25,7 @@ describe('CheckManifestFiles', () => {
 
     const compilation: any = {
       errors: [],
+      options: {output: {path: '/abs/out/chrome'}},
       hooks: {processAssets: {tap: (_: any, cb: any) => cb()}}
     }
 
@@ -43,5 +44,35 @@ describe('CheckManifestFiles', () => {
     ;(plugin as any).handleErrors(compilation, WebpackError as any)
 
     expect(compilation.errors.length).toBeGreaterThan(0)
+  })
+
+  it("prints NOT FOUND with output-root path when manifest value starts with '/'", () => {
+    const plugin = new CheckManifestFiles({
+      manifestPath: '/abs/manifest.json',
+      includeList: {
+        icons: ['/missing.png']
+      },
+      excludeList: {}
+    } as any)
+
+    const compilation: any = {
+      errors: [],
+      options: {output: {path: '/abs/out/chrome'}},
+      hooks: {processAssets: {tap: (_: any, cb: any) => cb()}}
+    }
+
+    const compiler: any = {
+      hooks: {
+        compilation: {
+          tap: (_: string, fn: any) => fn(compilation)
+        }
+      }
+    }
+
+    ;(plugin as any).apply({hooks: compiler.hooks, options: {}} as any)
+    ;(plugin as any).handleErrors(compilation, WebpackError as any)
+
+    const msg = String(compilation.errors[0] || '')
+    expect(msg).toMatch(/NOT FOUND \/abs\/out\/chrome\/missing\.png/i)
   })
 })
