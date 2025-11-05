@@ -1,5 +1,5 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
-import {getFilename} from '../../../../../develop-lib/utils'
+import {getFilename} from '../../../../webpack-lib/paths'
 
 export function optionsUi(manifest: Manifest, excludeList: FilepathList) {
   return (

@@ -1,15 +1,14 @@
 import {Compiler, Compilation, sources} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
-import {getFilename, getManifestContent} from '../../../../develop-lib/utils'
+import {getFilename} from '../../../webpack-lib/paths'
+import {getManifestContent} from '../../../webpack-lib/manifest'
 import {FilepathList, PluginInterface, Manifest} from '../../../webpack-types'
 
 export class UpdateManifest {
   public readonly manifestPath: string
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.excludeList = options.excludeList
   }
 
   private applyDevOverrides(overrides: Record<string, any>) {
@@ -45,7 +44,7 @@ export class UpdateManifest {
             const overrides = getManifestOverrides(
               this.manifestPath,
               manifest,
-              this.excludeList || {}
+              {}
             )
 
             const patchedManifest: Manifest = {
@@ -89,7 +88,7 @@ export class UpdateManifest {
               const overrides = getManifestOverrides(
                 this.manifestPath,
                 manifest,
-                this.excludeList || {}
+                {}
               )
 
               const patchedManifest: Manifest = {
