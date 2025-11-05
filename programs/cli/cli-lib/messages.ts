@@ -100,7 +100,7 @@ ${'Source Inspection'}
 
 ${'Browser-Specific Options'}
 - ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
-- ${code('--gecko-binary')} ${arg('<path>')}           Custom Firefox/Gecko binary path
+- ${code('--gecko-binary')}/${code('--firefox-binary')} ${arg('<path>')}           Custom Firefox/Gecko binary path
 
 ${'Build Options'}
 - ${code('--zip')} ${arg('[boolean]')}                 Create ZIP archive of built extension

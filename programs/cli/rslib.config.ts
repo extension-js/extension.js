@@ -61,7 +61,7 @@ function transformReadme(content: string): string {
 export default defineConfig({
   source: {
     entry: {
-      cli: path.resolve(__dirname, './cli.ts')
+      cli: path.resolve(__dirname, './index.ts')
     }
   },
   lib: [
