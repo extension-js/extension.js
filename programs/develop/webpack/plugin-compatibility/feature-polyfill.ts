@@ -1,18 +1,17 @@
 import rspack, {Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import * as messages from './compatibility-lib/messages'
+import {DevOptions} from '../types/options'
 
 /**
  * PolyfillPlugin is responsible for providing the `browser`
  * global variable to the extension's codebase.
  */
 export class PolyfillPlugin {
-  public readonly manifestPath: string
-  public readonly browser?: string
+  public readonly browser: DevOptions['browser']
 
   constructor(options: PluginInterface) {
-    this.manifestPath = options.manifestPath
-    this.browser = options.browser
+    this.browser = options.browser || 'chrome'
   }
 
   apply(compiler: Compiler) {

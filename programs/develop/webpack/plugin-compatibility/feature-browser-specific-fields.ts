@@ -1,8 +1,10 @@
 import {type Compiler, Compilation, sources} from '@rspack/core'
 import {type PluginInterface, type Manifest} from '../webpack-types'
-import {type DevOptions} from '../../types/options'
-import {getManifestContent} from '../../develop-lib/utils'
-import * as utils from '../../develop-lib/utils'
+import {type DevOptions} from '../types/options'
+import {
+  getManifestContent,
+  filterKeysForThisBrowser
+} from '../webpack-lib/manifest'
 
 export class BrowserSpecificFieldsPlugin {
   private readonly browser: DevOptions['browser']
@@ -14,10 +16,7 @@ export class BrowserSpecificFieldsPlugin {
   }
 
   patchManifest(manifest: Manifest) {
-    const patchedManifest = utils.filterKeysForThisBrowser(
-      manifest,
-      this.browser
-    )
+    const patchedManifest = filterKeysForThisBrowser(manifest, this.browser)
 
     return JSON.stringify(patchedManifest, null, 2)
   }

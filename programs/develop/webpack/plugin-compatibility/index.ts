@@ -9,7 +9,7 @@ import {type Compiler} from '@rspack/core'
 import {PluginInterface} from '../webpack-types'
 import {PolyfillPlugin} from './feature-polyfill'
 import {BrowserSpecificFieldsPlugin} from './feature-browser-specific-fields'
-import {type DevOptions} from '../../types/options'
+import {type DevOptions} from '../types/options'
 
 export class CompatibilityPlugin {
   public static readonly name: string = 'plugin-compatibility'
