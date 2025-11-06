@@ -7,13 +7,17 @@ import {DevOptions} from '../types/options'
 
 export class EnvPlugin {
   public readonly browser: DevOptions['browser']
+  public readonly manifestPath?: string
 
   constructor(options: Partial<PluginInterface>) {
     this.browser = options.browser || 'chrome'
+    this.manifestPath = options.manifestPath
   }
 
   apply(compiler: Compiler) {
-    const projectPath = (compiler.options.context as string) || ''
+    const projectPath =
+      (compiler.options.context as string) ||
+      (this.manifestPath ? path.dirname(this.manifestPath) : '')
     const mode = compiler.options.mode || 'development'
 
     // Collect .env files based on browser and mode

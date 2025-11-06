@@ -65,6 +65,7 @@ export default function (this: LoaderContext, source: string) {
     '  ;["time","timeLog","timeEnd","count","countReset","table"].forEach(function(k){ try { var oo = console[k] && console[k].bind ? console[k].bind(console) : console[k]; if (!oo) return; console[k] = function(){ var args = [].slice.call(arguments); try { post({ __reactLogger: true, type: "log", level: "log", messageParts: args, url: String(location && location.href || ""), meta: { kind: k } }) } catch (_) {} try { return oo.apply(console, args) } catch (_) {} } } catch (_) {} })',
     '})()'
   ].join('\n')
+
   this.emitFile(pageScriptName, pageScriptContent)
 
   // Build UI logger bridge for content context

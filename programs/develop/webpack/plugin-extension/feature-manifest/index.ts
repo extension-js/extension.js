@@ -41,15 +41,8 @@ export class ManifestPlugin {
       manifestPath: this.manifestPath
     }).apply(compiler)
 
-    // 2 - Ensure the files defined in the manifest have valid paths,
-    // throwing errors if they don't.
-    new CheckManifestFiles({
-      manifestPath: this.manifestPath,
-      includeList: this.includeList
-    }).apply(compiler)
-
-    // 3 - This is the end result of the manifest plugin, it updates the
-    // manifest with the output path of relevant files.
+    // 2 - This is the end result of the manifest plugin, it updates the
+    // 3- Manifest with the output path of relevant files.
     new UpdateManifest({
       manifestPath: this.manifestPath
     }).apply(compiler)

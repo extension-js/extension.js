@@ -12,6 +12,16 @@
 
 The Locales plugin scans your extension project for `_locales` folders and emits their `messages.json` files into the final bundle. This ensures Chrome/Firefox localization files are correctly included and watched during development. This module is part of the Extension.js project.
 
+### Early‑fail validation (break before the browser)
+
+To prevent browser crashes or confusing runtime alerts, this plugin validates locale wiring at compile time and fails fast with clear messages:
+
+- `default_locale` set in `manifest.json` requires `_locales/<default>/messages.json` to exist and contain valid JSON.
+- If `_locales/` exists but `default_locale` is missing in `manifest.json`, the build errors (browsers will reject the extension otherwise).
+- All discovered `_locales/**/messages.json` are checked for valid JSON.
+
+When any of the above is misconfigured, the build emits a compilation error so you can fix it before launching the browser.
+
 ## What it does
 
 - Scans `_<locales>/<locale>/*` under the directory of your `manifest.json`.
