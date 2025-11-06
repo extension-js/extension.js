@@ -65,6 +65,7 @@ export class CompilationPlugin {
     new CaseSensitivePathsPlugin().apply(compiler as any)
 
     new EnvPlugin({
+      manifestPath: this.manifestPath,
       browser: this.browser || 'chrome'
     }).apply(compiler)
 

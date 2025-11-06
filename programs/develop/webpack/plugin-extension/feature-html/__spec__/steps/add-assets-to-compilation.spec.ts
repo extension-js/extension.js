@@ -31,6 +31,7 @@ describe('AddAssetsToCompilation', () => {
       getAsset: vi.fn(),
       emitAsset: vi.fn(),
       warnings: [],
+      options: {output: {path: '/test/out/chrome'}},
       hooks: {
         processAssets: {
           tap: (_opts: any, fn: any) => fn()
@@ -45,7 +46,8 @@ describe('AddAssetsToCompilation', () => {
             callback(mockCompilation)
           })
         }
-      }
+      },
+      options: {context: '/test/project'}
     } as any
   })
 
@@ -149,6 +151,42 @@ describe('AddAssetsToCompilation', () => {
     })
   })
 
+  it('shows public-root hint only for extension-root absolute (leading /) paths', () => {
+    // HTML references a missing root asset and a missing relative asset
+    const mockAsset = {
+      source: {
+        source: () =>
+          '<html><img src="/missing.png"><img src="img/miss.png"></html>'
+      }
+    }
+
+    addAssetsToCompilation = new AddAssetsToCompilation({
+      manifestPath: '/test/project/manifest.json',
+      includeList: {feature: '/test/project/resource.html'} as any
+    })
+
+    vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
+      return name === 'resource.html' ? (mockAsset as any) : undefined
+    })
+
+    // Simulate not found in both public and output roots
+    vi.mocked(fs.existsSync).mockImplementation((p: any) => false)
+    vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from(''))
+
+    addAssetsToCompilation.apply(mockCompiler)
+
+    const warnings = String(mockCompilation.warnings.map(String).join('\n'))
+    // Hint appears for root-absolute
+    expect(warnings).toMatch(/resolved from the extension output root/i)
+    // Hint omitted for relative path
+    const relativeWarning = mockCompilation.warnings
+      .map(String)
+      .find((w: string) => w.includes('img/miss.png'))
+    expect(relativeWarning || '').not.toMatch(
+      /resolved from the extension output root/i
+    )
+  })
+
   it('emits warnings for remote <script>/<link> references without failing build', () => {
     // HTML referencing remote resources
     const mockAsset = {
@@ -173,7 +211,7 @@ describe('AddAssetsToCompilation', () => {
 
     expect(mockCompilation.warnings.length).toBeGreaterThan(0)
     const text = mockCompilation.warnings.map(String).join('\n')
-    expect(text).toMatch(/Remote Resource Referenced/i)
+    expect(text).toMatch(/Remote <(script|style)>/i)
     expect(text).toMatch(/cdn\.example\.com\/.+\.css/i)
     expect(text).toMatch(/cdn\.example\.com\/.+\.js/i)
     // Should not produce errors

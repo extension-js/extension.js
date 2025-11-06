@@ -36,8 +36,9 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
   - `./public/foo` → `<project>/public/foo`
   - `public/foo` → `<project>/public/foo`
     Output preserves the `public/` structure via the special‑folders plugin; this plugin only emits non‑public assets (under `assets/`).
-- Missing HTML entrypoints referenced by the manifest fail the compilation via the manifest feature checks and are printed to stderr before any browser launch.
+- Missing HTML entrypoints referenced by the manifest fail the compilation via the manifest feature checks and are printed to stderr before any browser launch. This prevents browsers from crashing on load or rejecting the extension when a page is missing.
 - Missing static assets referenced from within HTML (that are not produced by other plugins) generate warnings during compilation so you can iterate without a hard stop.
+- The hint “Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.” is shown only when the original HTML attribute used an extension‑root absolute path (leading '/'). Relative paths and absolute filesystem paths do not show this hint.
 
 ### Output mapping
 

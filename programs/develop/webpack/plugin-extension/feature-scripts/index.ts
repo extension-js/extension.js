@@ -4,9 +4,10 @@ import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
-import {AddCentralizedLoggerScript} from './steps/add-centralized-logger-script'
+// import {AddCentralizedLoggerScript} from './steps/add-centralized-logger-script'
 import {type DevOptions} from '../../types/options'
 import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
+import {ThrowIfManifestScriptsChange} from './steps/throw-if-manifest-scripts-change'
 
 /**
  * ScriptsPlugin handles JavaScript and CSS entries declared in manifest.json.
@@ -75,7 +76,14 @@ export class ScriptsPlugin {
         browser: this.browser
       }).apply(compiler)
 
-      // 5 - Inject centralized logger (development only)
+      // 5 - Restart-required if manifest script entrypoints changed
+      new ThrowIfManifestScriptsChange({
+        manifestPath: this.manifestPath,
+        includeList: this.includeList || {},
+        browser: this.browser
+      }).apply(compiler)
+
+      // 6 - Inject centralized logger (development only)
       // TODO: cezaraugusto enable this after v3
       // new AddCentralizedLoggerScript({
       //   manifestPath: this.manifestPath,

@@ -7,9 +7,11 @@
 
 import path from 'path'
 import {Compiler} from '@rspack/core'
-import {getManifestFieldsData} from 'browser-extension-manifest-fields'
-import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
-
+import {
+  getManifestFieldsData,
+  getSpecialFoldersData
+} from 'browser-extension-manifest-fields'
+import {} from 'browser-extension-manifest-fields'
 // Plugins
 import {ManifestPlugin} from './feature-manifest'
 import {HtmlPlugin} from './feature-html'
@@ -37,6 +39,7 @@ export class ExtensionPlugin {
 
   public apply(compiler: Compiler): void {
     const manifestPath = this.manifestPath
+
     const manifestFieldsData = getManifestFieldsData({
       manifestPath,
       browser: this.browser
@@ -88,13 +91,15 @@ export class ExtensionPlugin {
     // Grab all JSON assets from manifest except _locales
     new JsonPlugin({
       manifestPath,
-      includeList: manifestFieldsData.json
+      includeList: manifestFieldsData.json,
+      browser: this.browser
     }).apply(compiler)
 
     // Grab all icon assets from manifest including popup icons
     new IconsPlugin({
       manifestPath,
-      includeList: manifestFieldsData.icons as FilepathList
+      includeList: manifestFieldsData.icons as FilepathList,
+      browser: this.browser
     }).apply(compiler)
 
     // Grab all resources from script files

@@ -52,7 +52,6 @@ describe('AddAssetsToCompilation - remote resources warnings', () => {
 
     expect(compilation.warnings.length).toBe(2)
     const messages = compilation.warnings.map((w: any) => String(w.message))
-    expect(messages[0]).toContain('Remote Resource Referenced')
-    expect(messages.join('\n')).toContain('REMOTE')
+    expect(messages.join('\n')).toMatch(/Remote <(script|style)>/i)
   })
 })

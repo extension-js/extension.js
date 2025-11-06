@@ -79,6 +79,12 @@ export function getAssetsFromHtml(
       filePathWithParts: string
     ) => {
       const {cleanPath} = cleanAssetUrl(filePathWithParts)
+
+      // Preserve full URL references (http/https) as-is
+      if (isUrl(cleanPath)) {
+        return cleanPath
+      }
+
       if (cleanPath.startsWith('/')) {
         // For public paths, preserve them as-is
         return cleanPath

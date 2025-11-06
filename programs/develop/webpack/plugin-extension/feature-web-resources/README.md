@@ -87,10 +87,14 @@ export class WebResourcesPlugin {
 - Manifest v2: resources are appended to a flat array, de-duplicated and sorted.
 - Source maps (`.map`) and JavaScript outputs (`.js`) are excluded.
 
+## Early‑fail validation (break before the browser)
+
+This feature performs path validation at compile time and surfaces clear messages if a referenced standalone file is missing. When a path begins with `/`, the hint explains that it resolves from the extension output root (served from `public/`), not your source directory. The goal is to fail fast in development so the browser never shows confusing runtime alerts.
+
 ## User-declared WAR behavior
 
 - Relative files are validated and emitted as assets (development: `assets/[name][ext]`, production: `assets/[name].[contenthash:8][ext]`).
-- Public-root-like paths (`/foo.png`, `public/foo.png`, `./public/foo.png`) are preserved as `foo.png`. If the referenced file is missing under the extension `public/` folder, a warning is emitted with guidance.
+- Public-root-like paths (`/foo.png`, `public/foo.png`, `./public/foo.png`) are preserved as `foo.png`. If the referenced file is missing under the extension `public/` folder, a warning is emitted with guidance that paths starting with `/` resolve from the extension output root (served from `public/`).
 - Glob patterns (e.g., `assets/*.svg`, `/*.json`) are preserved as-is.
 - When a resource is both user-declared and auto-discovered from a content script, it is de-duplicated.
 

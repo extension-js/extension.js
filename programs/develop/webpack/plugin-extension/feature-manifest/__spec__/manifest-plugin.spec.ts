@@ -57,7 +57,7 @@ describe('ManifestPlugin', () => {
 
     // Ensure each step had apply called
     expect(applySpy).toHaveBeenCalled()
-    // Called for each of the 6 steps
-    expect(applySpy.mock.calls.length).toBe(6)
+    // Called for each of the current 5 steps (central checks removed)
+    expect(applySpy.mock.calls.length).toBe(5)
   })
 })

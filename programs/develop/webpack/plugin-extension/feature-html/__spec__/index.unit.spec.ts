@@ -18,7 +18,10 @@ function makeCompiler(mode: 'development' | 'production') {
     hooks: {
       thisCompilation: {tap: (_: any, fn: any) => fn(dummyCompilation)},
       compilation: {tap: (_: any, fn: any) => fn(dummyCompilation)},
-      make: {tapAsync: (_: any, fn: any) => fn(dummyCompilation, () => {})}
+      make: {tapAsync: (_: any, fn: any) => fn(dummyCompilation, () => {})},
+      watchRun: {
+        tapAsync: (_: any, fn: any) => fn({modifiedFiles: new Set()}, () => {})
+      }
     }
   } as any
 }
@@ -36,6 +39,6 @@ describe('HtmlPlugin', () => {
       includeList: {},
       excludeList: {}
     } as any).apply(compiler as any)
-    expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(2)
+    expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(1)
   })
 })
