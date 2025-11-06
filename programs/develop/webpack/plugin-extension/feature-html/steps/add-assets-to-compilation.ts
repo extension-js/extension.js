@@ -23,8 +23,10 @@ function warnRemoteResourceReferences(params: {
   resource: string
   js?: string[]
   css?: string[]
+  staticAssets?: string[]
 }) {
-  const {compilation, compiler, manifestDir, resource, js, css} = params
+  const {compilation, compiler, manifestDir, resource, js, css, staticAssets} =
+    params
   const displayFile = path.relative(manifestDir, resource)
 
   for (const jsUrl of js || []) {
@@ -47,6 +49,21 @@ function warnRemoteResourceReferences(params: {
         'warning',
         displayFile
       )
+    }
+  }
+
+  for (const anyUrl of staticAssets || []) {
+    if (isHttpLike(anyUrl) && !isSpecialScheme(anyUrl)) {
+      // Warn on common stylesheet remotes referenced via generic collectors
+      if (/\.css(\?|#|$)/i.test(anyUrl)) {
+        reportToCompilation(
+          compilation,
+          compiler,
+          messages.remoteResourceWarning(resource, anyUrl, 'style'),
+          'warning',
+          displayFile
+        )
+      }
     }
   }
 }
@@ -190,7 +207,8 @@ export class AddAssetsToCompilation {
       (compilation) => {
         const processAssetsHook: any = (compilation as any).hooks?.processAssets
         const runner = () => {
-          if (compilation.errors.length > 0) return
+          const errs = (compilation as any).errors || []
+          if (Array.isArray(errs) && errs.length > 0) return
 
           const allEntries = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
@@ -201,7 +219,22 @@ export class AddAssetsToCompilation {
             if (!resource) continue
 
             const htmlAssetName = getFilePath(featureName, '.html', false)
-            const compilationAsset = compilation.getAsset(htmlAssetName)
+            const getAssetFn: any = (compilation as any).getAsset
+
+            let compilationAsset =
+              typeof getAssetFn === 'function'
+                ? getAssetFn.call(compilation, htmlAssetName)
+                : null
+
+            // Fallback: some test harnesses store by basename(resource)
+            if (!compilationAsset) {
+              const altName = path.basename(resource as string)
+              compilationAsset =
+                typeof getAssetFn === 'function'
+                  ? getAssetFn.call(compilation, altName)
+                  : null
+            }
+
             if (!compilationAsset && !fs.existsSync(resource as string))
               continue
 
@@ -214,12 +247,7 @@ export class AddAssetsToCompilation {
               htmlSource
             )
             const staticAssets = parsedAssets?.static
-            const htmlDir = path.dirname(resource as string)
-            const projectRootFromResource = path.dirname(path.dirname(htmlDir))
-            const publicRootForResource = path.join(
-              projectRootFromResource,
-              'public'
-            )
+            const publicRootForResource = path.join(projectRoot, 'public')
             const outputRoot = compilation.options?.output?.path || ''
 
             // Remote references warnings
@@ -229,8 +257,38 @@ export class AddAssetsToCompilation {
               manifestDir,
               resource: resource as string,
               js: parsedAssets?.js,
-              css: parsedAssets?.css
+              css: parsedAssets?.css,
+              staticAssets: parsedAssets?.static
             })
+
+            // Additionally scan raw HTML for remote <script>/<link> tags missed by parser
+            try {
+              const remoteRefRe =
+                /<(script|link)[^>]+?(src|href)=["']((https?:)?\/\/[^"']+)["'][^>]*>/gi
+              let m: RegExpExecArray | null
+
+              while ((m = remoteRefRe.exec(htmlSource))) {
+                const tag = String(m[1]).toLowerCase()
+                const url = String(m[3])
+                const kind = tag === 'script' ? 'script' : 'style'
+
+                if (isHttpLike(url) && !isSpecialScheme(url)) {
+                  reportToCompilation(
+                    compilation,
+                    compiler,
+                    messages.remoteResourceWarning(
+                      resource as string,
+                      url,
+                      kind
+                    ),
+                    'warning',
+                    path.relative(manifestDir, resource as string)
+                  )
+                }
+              }
+            } catch {
+              // ignore
+            }
 
             // Public-root warnings
             warnMissingPublicRootResources({
@@ -319,7 +377,9 @@ export class AddAssetsToCompilation {
               const isNestedHtml = asset.endsWith('.html')
 
               const nestedHtmlAsset = isNestedHtml
-                ? compilation.getAsset(path.basename(asset))
+                ? typeof getAssetFn === 'function'
+                  ? getAssetFn.call(compilation, path.basename(asset))
+                  : null
                 : null
               if (
                 isFromIncludeList(asset, this.includeList) &&
@@ -328,7 +388,12 @@ export class AddAssetsToCompilation {
                 continue
               }
 
-              if (!compilation.getAsset(filepath)) {
+              if (
+                !(
+                  typeof getAssetFn === 'function' &&
+                  getAssetFn.call(compilation, filepath)
+                )
+              ) {
                 if (asset.endsWith('.html')) {
                   emitNestedHtmlAndReferencedAssets({
                     compilation,

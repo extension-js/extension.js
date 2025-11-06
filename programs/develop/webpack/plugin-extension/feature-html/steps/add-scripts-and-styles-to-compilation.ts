@@ -19,6 +19,9 @@ export class AddScriptsAndStylesToCompilation {
 
   public apply(compiler: Compiler) {
     const htmlEntries = this.includeList || {}
+    const projectRoot = path.dirname(this.manifestPath)
+    const publicDir = path.join(projectRoot, 'public')
+    const hasPublicDir = fs.existsSync(publicDir)
 
     for (const field of Object.entries(htmlEntries)) {
       const [feature, resource] = field
@@ -34,7 +37,8 @@ export class AddScriptsAndStylesToCompilation {
         // Remote URLs are excluded as well.
         const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
         const looksLikePublicRootUrl = (p: string) =>
-          p.startsWith('/') && !fs.existsSync(p)
+          p.startsWith('/public/') ||
+          (p.startsWith('/') && !p.startsWith(projectRoot) && hasPublicDir)
         const jsAssets = (htmlAssets?.js || []).filter(
           (asset) => !looksLikePublicRootUrl(asset) && !isRemoteUrl(asset)
         )

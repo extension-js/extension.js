@@ -77,6 +77,12 @@ export default config
   - Wraps content scripts so no user HMR code is required.
 - For non‑module `background.service_worker`, configures `chunkLoading: 'import-scripts'` for correct runtime behavior (module workers are left as‑is).
 
+### Compile‑time validation and restart guard
+
+- Missing script files referenced by supported manifest fields (or extras via `includeList`) are surfaced during compilation with a focused message, before the browser launches.
+  - Leading `/` paths show a hint explaining they resolve from the extension output root (served from `public/`), not the source directory. The hint appears only when the original manifest entry used a leading `/`.
+- Changing manifest script entrypoints during development requires a restart. The plugin detects changes and emits a compile‑time error with PATH BEFORE/AFTER guidance.
+
 ### Content scripts wrapper contract
 
 - The wrapper applies automatically to any file referenced in `manifest.content_scripts`.

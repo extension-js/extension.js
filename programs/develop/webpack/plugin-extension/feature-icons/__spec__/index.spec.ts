@@ -35,7 +35,12 @@ describe('IconsPlugin (index.ts)', () => {
     } as any
 
     const plugin = new IconsPlugin(options)
-    const fakeCompiler: any = {hooks: {}} // not used by this test beyond type
+    const fakeCompiler: any = {
+      hooks: {
+        watchRun: {tapAsync: vi.fn()},
+        thisCompilation: {tap: vi.fn()}
+      }
+    }
 
     plugin.apply(fakeCompiler)
 

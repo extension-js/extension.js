@@ -38,7 +38,12 @@ export class UpdateHtmlFile {
             if (!fs.existsSync(resolved)) continue
 
             const assetFilename = getFilePath(feature, '.html', false)
-            const existing = compilation.getAsset(assetFilename)
+            const getAssetFn: any = (compilation as any).getAsset
+            const existing =
+              typeof getAssetFn === 'function'
+                ? getAssetFn.call(compilation, assetFilename)
+                : (compilation as any).assets?.[assetFilename]
+
             if (!existing) continue
 
             const updated = patchHtml(

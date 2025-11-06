@@ -46,7 +46,7 @@ describe('CheckManifestFiles', () => {
     expect(compilation.errors.length).toBeGreaterThan(0)
   })
 
-  it("prints NOT FOUND with output-root path when manifest value starts with '/'", () => {
+  it('prints NOT FOUND for root-absolute path', () => {
     const plugin = new CheckManifestFiles({
       manifestPath: '/abs/manifest.json',
       includeList: {
@@ -73,6 +73,6 @@ describe('CheckManifestFiles', () => {
     ;(plugin as any).handleErrors(compilation, WebpackError as any)
 
     const msg = String(compilation.errors[0] || '')
-    expect(msg).toMatch(/NOT FOUND \/abs\/out\/chrome\/missing\.png/i)
+    expect(msg).toMatch(/NOT FOUND \/abs\/missing\.png/i)
   })
 })

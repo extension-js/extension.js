@@ -104,7 +104,9 @@ export class JsonPlugin {
 
           const jsonFields = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
-          const projectPath = compiler.options.context as string
+          const projectPath =
+            (compiler.options?.context as string) ||
+            path.dirname(this.manifestPath)
           const publicDir = path.join(projectPath, 'public' + path.sep)
 
           for (const field of Object.entries(jsonFields)) {

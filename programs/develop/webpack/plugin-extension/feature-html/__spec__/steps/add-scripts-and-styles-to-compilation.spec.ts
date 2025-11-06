@@ -6,9 +6,9 @@ vi.mock('fs', () => ({
 }))
 
 vi.mock('../../html-lib/utils', async (orig) => {
-  const mod = await orig()
+  const mod = (await orig()) as any
   return {
-    ...mod,
+    ...(mod as Record<string, any>),
     getAssetsFromHtml: vi.fn(() => ({
       js: [
         'https://cdn.example.com/lib.js',
