@@ -51,7 +51,8 @@ export class WarnUponFolderChanges {
     compiler.hooks.thisCompilation.tap(
       'special-folders:warn-upon-folder-changes',
       (compilation) => {
-        const projectPath: string = compiler.options.context as string
+        const projectPath: string =
+          (compiler.options.context as string) || process.cwd()
         const pagesPath: string = path.join(projectPath, 'pages')
         const scriptsPath: string = path.join(projectPath, 'scripts')
 

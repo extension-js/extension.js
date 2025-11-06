@@ -16,9 +16,85 @@ export class AddScripts {
   public apply(compiler: Compiler): void {
     const scriptFields = this.includeList || {}
 
+    // Validate includeList (manifest-derived and extras)
+    // early and fail before browser launch
+    if (compiler?.hooks?.thisCompilation?.tap) {
+      compiler.hooks.thisCompilation.tap(
+        'scripts:validate-include-list',
+        (compilation) => {
+          try {
+            const manifestDir = path.dirname(this.manifestPath)
+            const outputRoot = compilation.options?.output?.path || ''
+            const ErrorCtor = compiler.rspack?.WebpackError || Error
+
+            for (const [feature, raw] of Object.entries(scriptFields)) {
+              const rawEntries: string[] = Array.isArray(raw)
+                ? (raw as string[]).filter(Boolean)
+                : raw
+                  ? [raw as string]
+                  : []
+
+              for (const entry of rawEntries) {
+                if (!entry || typeof entry !== 'string') continue
+
+                // Resolve authoring convention:
+                // - Leading '/' = extension root (public root), not OS root
+                // - Relative = from manifest dir
+                // - Absolute OS = as-is
+                let resolved = entry
+                if (!fs.existsSync(resolved)) {
+                  resolved = entry.startsWith('/')
+                    ? path.join(manifestDir, entry.slice(1))
+                    : path.isAbsolute(entry)
+                      ? entry
+                      : path.join(manifestDir, entry)
+                }
+
+                if (fs.existsSync(resolved)) continue
+
+                const isPublicRoot =
+                  entry.startsWith('/') && !path.isAbsolute(entry)
+                const displayPath = isPublicRoot
+                  ? outputRoot
+                    ? path.join(outputRoot, entry.slice(1))
+                    : entry
+                  : resolved
+
+                const lines: string[] = []
+                lines.push(
+                  `Check the ${feature.replace('/', '.')} field in your manifest.json file.`
+                )
+                lines.push(
+                  `The script path must point to an existing file that will be bundled.`
+                )
+                if (isPublicRoot) {
+                  lines.push(
+                    `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
+                  )
+                }
+                lines.push('')
+                lines.push(`NOT FOUND ${displayPath}`)
+
+                const err = new ErrorCtor(lines.join('\n')) as Error & {
+                  file?: string
+                  name?: string
+                }
+                err.file = 'manifest.json'
+                err.name = 'ScriptsMissingFile'
+                ;(compilation.errors ||= []).push(err)
+              }
+            }
+          } catch {
+            // ignore guard errors
+          }
+        }
+      )
+    }
+
     const newEntries: Record<string, EntryObject> = {}
 
-    const projectPath = compiler.options.context as string
+    const fallbackContext = path.dirname(this.manifestPath)
+    const projectPath = (compiler.options.context as string) || fallbackContext
     const publicDir = path.join(projectPath, 'public' + path.sep)
 
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {

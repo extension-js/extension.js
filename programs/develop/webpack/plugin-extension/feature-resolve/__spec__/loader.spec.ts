@@ -60,7 +60,8 @@ describe('resolve-paths-loader', () => {
     const code = `chrome.runtime.getURL('/public/img/logo.png')`
     const {code: out} = await runLoader(code)
     if (hasSwc) {
-      expect(out).toContain("chrome.runtime.getURL('img/logo.png')")
+      // Accept either single or double quotes from SWC transform
+      expect(out).toMatch(/chrome\.runtime\.getURL\((['"])img\/logo\.png\1\)/)
     } else {
       expect(out).toContain("chrome.runtime.getURL('/public/img/logo.png')")
     }

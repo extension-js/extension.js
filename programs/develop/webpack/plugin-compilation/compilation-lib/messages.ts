@@ -4,6 +4,7 @@ import type {Stats} from '@rspack/core'
 export function boring(manifestName: string, durationMs: number, stats: Stats) {
   const hasErrors = stats.hasErrors()
   const hasWarnings = stats.hasWarnings()
+
   const arrow = hasErrors
     ? colors.red('✖✖✖')
     : hasWarnings
