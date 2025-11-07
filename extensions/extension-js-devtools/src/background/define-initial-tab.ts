@@ -40,8 +40,12 @@ export function createExtensionsPageTab(
   url: string
 ) {
   // @ts-ignore
-  const isFirefox = import.meta.env.EXTENSION_BROWSER === 'firefox'
-  const extensionsPage = isFirefox ? 'about:addons' : 'chrome://extensions/'
+  const browser = import.meta.env.EXTENSION_BROWSER
+  const isFirefox = browser === 'firefox'
+  const isEdge = browser === 'edge'
+  const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
+  const extensionsPage = isFirefox ? 'about:addons' : `${scheme}://extensions/`
+
   // Check if url tab is open
   chrome.tabs.query({url: extensionsPage}, (tabs) => {
     const extensionsTabExist = tabs.length > 0
@@ -69,18 +73,22 @@ export function createExtensionsPageTab(
 // Function to handle first run logic
 export async function handleFirstRun() {
   // @ts-ignore
-  const isFirefox = import.meta.env.EXTENSION_BROWSER === 'firefox'
-  const extensionsPage = isFirefox ? 'about:addons' : 'chrome://extensions/'
+  const browser = import.meta.env.EXTENSION_BROWSER
+  const isFirefox = browser === 'firefox'
+  const isEdge = browser === 'edge'
+  const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
+  const extensionsPage = isFirefox ? 'about:addons' : `${scheme}://extensions/`
+
   chrome.tabs.update({url: extensionsPage})
 
-  const devExtension = await getDevExtension()
+  let devExtension: chrome.management.ExtensionInfo | undefined
+  devExtension = await getDevExtension()
 
-  if (!devExtension) {
-    return
-  }
+  // Use project-specific key when available; otherwise fall back to a global key
+  const storageKey = devExtension?.id || '__global_first_run__'
 
-  chrome.storage.local.get(devExtension.id, (result) => {
-    if (result[devExtension.id] && result[devExtension.id].didRun) {
+  chrome.storage.local.get(storageKey, (result) => {
+    if (result?.[storageKey]?.didRun) {
       return
     }
 
@@ -92,11 +100,50 @@ export async function handleFirstRun() {
           // Already open. Do not create another
           return
         }
-        chrome.tabs.create({url: 'pages/welcome.html'})
+
+        try {
+          const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
+          // @ts-ignore
+          const browserStr = String(
+            import.meta.env.EXTENSION_BROWSER || 'chromium'
+          ).toLowerCase()
+          const isEdgeBrowser = browserStr === 'edge'
+
+          // Debug aid: show a one-time alert tab with the exact URL we
+          // intend to open. This helps diagnose why Edge may not open
+          // our extension page at startup.
+          try {
+            const debugHtml =
+              '<!doctype html><meta charset="utf-8">' +
+              `<script>alert(${JSON.stringify(
+                `Opening welcome URL: ${welcomeUrl}`
+              )});window.close();</script>`
+
+            const debugUrl =
+              'data:text/html;charset=utf-8,' + encodeURIComponent(debugHtml)
+
+            // Prefer to show on Edge; safe on others if it runs
+            if (isEdgeBrowser) {
+              chrome.tabs.create({url: debugUrl, active: true})
+            }
+          } catch {
+            // Ignore
+          }
+
+          // Attempt to open the actual welcome tab (active to surface it)
+          chrome.tabs.create({url: welcomeUrl, active: true})
+        } catch {
+          // Fallback to relative URL if runtime URL resolution fails
+          try {
+            chrome.tabs.create({url: 'pages/welcome.html', active: true})
+          } catch {
+            // Ignore
+          }
+        }
       }
     )
 
     // Ensure the welcome page shows only once per extension installation
-    chrome.storage.local.set({[devExtension.id]: {didRun: true}})
+    chrome.storage.local.set({[storageKey]: {didRun: true}})
   })
 }

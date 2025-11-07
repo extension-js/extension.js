@@ -38,6 +38,7 @@
     "sidePanel",
     "webNavigation"
   ],
+  "firefox:permissions": ["management", "tabs", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "chromium:service_worker": "background/index.ts",

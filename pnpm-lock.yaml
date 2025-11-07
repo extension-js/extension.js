@@ -251,8 +251,8 @@ importers:
         specifier: ^0.5.16
         version: 0.5.16
       browser-extension-manifest-fields:
-        specifier: ^2.2.0
-        version: 2.2.0
+        specifier: ^2.2.1
+        version: 2.2.1
       case-sensitive-paths-webpack-plugin:
         specifier: ^2.4.0
         version: 2.4.0
@@ -260,8 +260,8 @@ importers:
         specifier: ^4.0.1
         version: 4.0.3
       chrome-location2:
-        specifier: 4.0.1
-        version: 4.0.1
+        specifier: 4.0.3
+        version: 4.0.3
       content-security-policy-parser:
         specifier: ^0.6.0
         version: 0.6.0
@@ -272,8 +272,11 @@ importers:
         specifier: ^16.4.7
         version: 16.6.1
       edge-location:
-        specifier: ^1.1.1
-        version: 1.1.1
+        specifier: ^2.0.3
+        version: 2.0.3
+      firefox-location2:
+        specifier: 2.0.1
+        version: 2.0.1
       go-git-it:
         specifier: ^5.0.0
         version: 5.0.0
@@ -2837,8 +2840,8 @@ packages:
     resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
     engines: {node: '>=8'}
 
-  browser-extension-manifest-fields@2.2.0:
-    resolution: {integrity: sha512-+mYgUuCLuyM1DFD1lCMPNchT0WbBQ26cRyCG+Y9+contVecThfBH7isRUuH323sVt51e99sxtSy5rJdvyC8ODQ==}
+  browser-extension-manifest-fields@2.2.1:
+    resolution: {integrity: sha512-0GQSaTwJ7Nbp7U+dggzB4uuibw0hS+UdDdiXVXYYOrKsPmNAQx0CAHOFsfUdB8deySVZIrVQwbNM02ckAHaWKg==}
     engines: {node: '>=18'}
 
   browserslist@4.25.1:
@@ -2917,8 +2920,8 @@ packages:
     resolution: {integrity: sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==}
     engines: {node: '>=18'}
 
-  chrome-location2@4.0.1:
-    resolution: {integrity: sha512-M6zNlzlLms5I3ICumqozIzxj5eJbRuEC9jHIrpeVQmdTxjTb/WCVcKjbgkAMcrx955AgogqEIQPIx3axPDTpzw==}
+  chrome-location2@4.0.3:
+    resolution: {integrity: sha512-ecmHuSsq0i4YC2KMTS4emUYIzamNaVxCWr7RS90PDRDEw5ecwtVNARd/DlI8aRc0Hc1MMSAbfgGvu+luOXYDyQ==}
     engines: {node: '>=18 <23'}
     hasBin: true
 
@@ -3195,8 +3198,9 @@ packages:
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
 
-  edge-location@1.1.1:
-    resolution: {integrity: sha512-wxQJjudQO0bwED1lwn6kDJf0tnuGFnvKk80I6FxiUSUr1yTp/9PrPfowrVMl+Eeb+4uazKoloDaDRuBQ65qo1g==}
+  edge-location@2.0.3:
+    resolution: {integrity: sha512-9ZpKxCa5O8fUD8Vek7qzNfMuqsJWZSaK0Q+UHPXxmJ/lovx+QMpQiJ7Mh8EWFOG0AfLmllyqGPyonW6iGZdoFQ==}
+    hasBin: true
 
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
@@ -3457,6 +3461,10 @@ packages:
   find-up@6.3.0:
     resolution: {integrity: sha512-v2ZsoEuVHYy8ZIlYqwPe/39Cy+cFDzp4dXPaxNvkEuouymu+2Jbz0PxpKarJHYJTmv2HWT3O382qY8l4jMWthw==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
+  firefox-location2@2.0.1:
+    resolution: {integrity: sha512-GrjSfAhq0S8kh82AkBpYa2UocRviSttmyQyr4P3g8/qcVJzP38h2KI8KU1wyLwota09NPBCgF5LfdPpn3QXePA==}
+    hasBin: true
 
   fix-dts-default-cjs-exports@1.0.1:
     resolution: {integrity: sha512-pVIECanWFC61Hzl2+oOCtoJ3F17kglZC/6N94eRWycFgBH35hHx0Li604ZIzhseh97mf2p0cv7vVrOZGoqhlEg==}
@@ -8177,7 +8185,7 @@ snapshots:
     dependencies:
       fill-range: 7.1.1
 
-  browser-extension-manifest-fields@2.2.0: {}
+  browser-extension-manifest-fields@2.2.1: {}
 
   browserslist@4.25.1:
     dependencies:
@@ -8254,7 +8262,7 @@ snapshots:
 
   chownr@3.0.0: {}
 
-  chrome-location2@4.0.1:
+  chrome-location2@4.0.3:
     dependencies:
       pintor: 0.3.0
       userhome: 1.0.1
@@ -8494,7 +8502,7 @@ snapshots:
 
   eastasianwidth@0.2.0: {}
 
-  edge-location@1.1.1:
+  edge-location@2.0.3:
     dependencies:
       userhome: 1.0.1
       which: 2.0.2
@@ -8825,6 +8833,11 @@ snapshots:
       locate-path: 7.2.0
       path-exists: 5.0.0
     optional: true
+
+  firefox-location2@2.0.1:
+    dependencies:
+      userhome: 1.0.1
+      which: 2.0.2
 
   fix-dts-default-cjs-exports@1.0.1:
     dependencies:

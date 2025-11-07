@@ -12,7 +12,8 @@
   "type": "module",
   "scripts": {
     "build:chrome": "pnpm -s exec extension build ./src --browser=chrome",
-    "build:firefox": "pnpm -s exec extension build ./src --browser=firefox"
+    "build:firefox": "pnpm -s exec extension build ./src --browser=firefox",
+    "build:edge": "pnpm -s exec extension build ./src --browser=edge"
   },
   "dependencies": {
     "@radix-ui/react-avatar": "1.1.10",
