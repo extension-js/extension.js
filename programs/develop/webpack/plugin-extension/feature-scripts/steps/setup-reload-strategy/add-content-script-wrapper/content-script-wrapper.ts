@@ -66,7 +66,7 @@ export default function (this: LoaderContext, source: string) {
       `  try { await import(${innerSpecifier}) } catch (e) { console.warn('[extension.js] content script failed to load. waiting for next successful compile', e) }`,
       '}',
       'loadInnerWrappedModule()',
-      'if (import.meta && (import.meta).webpackHot) {',
+      'if (import.meta.webpackHot) {',
       '  const hot = (import.meta).webpackHot',
       '  if (typeof hot.accept === "function") hot.accept(() => { loadInnerWrappedModule() })',
       '  if (typeof hot.addStatusHandler === "function") hot.addStatusHandler((s) => { if (s === "apply" || s === "idle") loadInnerWrappedModule() })',
@@ -110,7 +110,7 @@ export default function (this: LoaderContext, source: string) {
     "      document.addEventListener('readystatechange', onReady);\n" +
     '    }\n' +
     '  } else { apply() }\n' +
-    '  if (import.meta && import.meta.webpackHot) {\n' +
+    '  if (import.meta.webpackHot) {\n' +
     '    if (typeof import.meta.webpackHot.accept === "function") import.meta.webpackHot.accept();\n' +
     '    if (typeof import.meta.webpackHot.dispose === "function") import.meta.webpackHot.dispose(unmount);\n' +
     '    if (typeof import.meta.webpackHot.addStatusHandler === "function") {\n' +
@@ -179,7 +179,7 @@ export default function (this: LoaderContext, source: string) {
   }
 
   const cssAccepts = cssSpecifiers.length
-    ? `\ntry {\n  if (import.meta && import.meta.webpackHot) {\n    ${cssSpecifiers
+    ? `\ntry {\n  if (import.meta.webpackHot) {\n    ${cssSpecifiers
         .map(
           (s) =>
             `import.meta.webpackHot.accept(${JSON.stringify(
