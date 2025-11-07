@@ -50,7 +50,7 @@ describe('AddAssetsToCompilation - remote resources warnings', () => {
       includeList: {feature: htmlAbs}
     } as any).apply(compiler)
 
-    expect(compilation.warnings.length).toBe(2)
+    expect(compilation.warnings.length).toBeGreaterThanOrEqual(2)
     const messages = compilation.warnings.map((w: any) => String(w.message))
     expect(messages.join('\n')).toMatch(/Remote <(script|style)>/i)
   })

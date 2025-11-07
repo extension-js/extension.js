@@ -18,6 +18,16 @@
     "test:build": "dotenv -- turbo run test --filter=./programs/develop",
     "test:dev": "dotenv -- turbo run test --filter=./programs/develop",
     "test:e2e": "pnpm exec playwright test",
+    "ci:test:core": "pnpm run test:dev",
+    "ci:test:develop": "pnpm run test:dev",
+    "ci:test:cli": "pnpm run test:cli",
+    "ci:test:plugin-browsers": "pnpm run test:dev",
+    "ci:test:plugin-css": "pnpm run test:dev",
+    "ci:test:plugin-compatibility": "pnpm run test:dev",
+    "ci:test:plugin-static-assets": "pnpm run test:dev",
+    "ci:test:plugin-extension": "pnpm run test:dev",
+    "ci:test:plugin-js-frameworks": "pnpm run test:dev",
+    "ci:test:plugin-compilation": "pnpm run test:dev",
     "postcompile": "node scripts/build-extensions.cjs"
   },
   "devDependencies": {

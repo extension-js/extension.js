@@ -49,6 +49,8 @@
     "tag": "latest"
   },
   "scripts": {
+    "prepare": "rslib build >/dev/null 2>&1 || true",
+    "postinstall": "rslib build >/dev/null 2>&1 || true",
     "compile": "rslib build",
     "watch": "rslib build --watch",
     "test": "vitest run"

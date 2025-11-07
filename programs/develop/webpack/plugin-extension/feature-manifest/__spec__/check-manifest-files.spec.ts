@@ -5,7 +5,7 @@ vi.mock('fs', () => ({
   existsSync: (p: string) => p.includes('exists')
 }))
 
-vi.mock('../../webpack-lib/utils', () => ({
+vi.mock('../manifest-lib/manifest', () => ({
   filterKeysForThisBrowser: (m: any) => m
 }))
 

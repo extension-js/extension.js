@@ -22,19 +22,6 @@ async function loadSwc() {
     console.error('Failed to load @swc/core')
   }
 
-  try {
-    // TODO: cezaraugusto enable this
-    // const mod: any = await import('@swc/wasm')
-    // const candidateModule =
-    //   mod?.default && mod.default.parse ? mod.default : mod
-    // if (candidateModule?.parse && candidateModule?.print) {
-    //   swcRuntimeModule = candidateModule
-    //   return swcRuntimeModule
-    // }
-  } catch {
-    console.error('Failed to load @swc/wasm')
-  }
-
   return null
 }
 
