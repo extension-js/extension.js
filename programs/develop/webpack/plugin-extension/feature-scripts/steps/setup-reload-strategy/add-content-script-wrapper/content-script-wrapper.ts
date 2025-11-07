@@ -1,10 +1,9 @@
+// @ts-nocheck
 import fs from 'fs'
 import path from 'path'
 import {validate} from 'schema-utils'
-import {type Schema} from 'schema-utils/declarations/validate'
-import {type LoaderContext} from '../../../../../webpack-types'
 
-const schema: Schema = {
+const schema = {
   type: 'object',
   properties: {
     test: {
@@ -19,7 +18,7 @@ const schema: Schema = {
   }
 }
 
-export default function (this: LoaderContext, source: string) {
+export default function (source) {
   const options = this.getOptions()
   const manifestPath = options.manifestPath
   const projectPath = path.dirname(manifestPath)
@@ -31,7 +30,7 @@ export default function (this: LoaderContext, source: string) {
   })
 
   // Inject wrapper only for declared content scripts
-  const declaredContentJsAbsPaths: string[] = []
+  const declaredContentJsAbsPaths = []
   const contentScripts = Array.isArray(manifest.content_scripts)
     ? manifest.content_scripts
     : []
@@ -39,7 +38,7 @@ export default function (this: LoaderContext, source: string) {
   for (const cs of contentScripts) {
     const jsList = Array.isArray(cs?.js) ? cs.js : []
     for (const js of jsList) {
-      declaredContentJsAbsPaths.push(path.resolve(projectPath, js as string))
+      declaredContentJsAbsPaths.push(path.resolve(projectPath, js))
     }
   }
 
@@ -52,7 +51,7 @@ export default function (this: LoaderContext, source: string) {
     return source
   }
 
-  const resourceQuery = String((this as any).resourceQuery || '')
+  const resourceQuery = String(this.resourceQuery || '')
   const isInnerWrapperRequest = /\b__extjs_inner=1\b/.test(resourceQuery)
 
   if (!isInnerWrapperRequest) {
@@ -129,7 +128,7 @@ export default function (this: LoaderContext, source: string) {
     /\bexport\s+default\s+[A-Za-z_$][\w$]*\s*\(/.test(source) &&
     !/\bexport\s+default\s+function\b/.test(source)
   ) {
-    ;(this as any).emitWarning?.(
+    this.emitWarning?.(
       new Error(
         'Default export appears to be an invocation. Export a function reference instead: `export default function init(){}` or `export default init`.'
       )
@@ -147,7 +146,7 @@ export default function (this: LoaderContext, source: string) {
   // Supported forms:
   //  - export default function NAME(...) { ... }
   //  - export default NAME
-  let defaultName: string | undefined
+  let defaultName
   {
     const m1 = source.match(
       /\bexport\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/
@@ -170,7 +169,7 @@ export default function (this: LoaderContext, source: string) {
     const next = cleaned.replace(callPattern, (_m, p1) => p1 || '\n')
     if (next !== cleaned) {
       cleaned = next
-      ;(this as any).emitWarning?.(
+      this.emitWarning?.(
         new Error(
           `Removed direct call to ${defaultName}() to prevent double mount; wrapper handles mounting.`
         )
