@@ -1,13 +1,20 @@
+import * as fs from 'fs'
+import * as path from 'path'
 import {spawn, ChildProcess} from 'child_process'
 import {type Compilation, type Compiler} from '@rspack/core'
+import firefoxLocation from 'firefox-location2'
 import {browserConfig} from './firefox/browser-config'
+import {
+  computeBinariesBaseDir,
+  resolveFromBinaries
+} from '../browsers-lib/output-binaries-resolver'
 import {FirefoxBinaryDetector} from './firefox/binary-detector'
-import * as messages from '../browsers-lib/messages'
-import {setInstancePorts} from '../browsers-lib/instance-registry'
 import {setupFirefoxProcessHandlers} from './process-handlers'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {logFirefoxDryRun} from './dry-run'
 import {FirefoxDoneReloadPlugin} from './done-reload'
+import * as messages from '../browsers-lib/messages'
+import {setInstancePorts} from '../browsers-lib/instance-registry'
 import {type PluginInterface} from '../browsers-types'
 import {BrowserConfig, DevOptions} from '../../types/options'
 import {
@@ -115,16 +122,55 @@ export class RunFirefoxPlugin {
       return
     }
 
-    // Detect Firefox binary with enhanced detection
-    let browserBinaryLocation: string
+    // Early detection from output binaries (mirrors Chromium path)
+    let browserBinaryLocation: string | null =
+      resolveFromBinaries(compilation, 'firefox') || null
+    const skipDetection = Boolean(browserBinaryLocation)
+    // Detect Firefox binary via firefox-location2 (parity with Chromium behavior)
     try {
-      browserBinaryLocation = await FirefoxBinaryDetector.detectFirefoxBinary(
-        this.geckoBinary
-      )
-      await FirefoxBinaryDetector.validateFirefoxBinary(browserBinaryLocation)
+      if (this.geckoBinary && typeof this.geckoBinary === 'string') {
+        browserBinaryLocation = this.geckoBinary
+      } else if (!skipDetection) {
+        const locate = (firefoxLocation as any).default || firefoxLocation
+        browserBinaryLocation =
+          typeof locate === 'function' ? locate(true) : null
+      }
     } catch (error) {
-      this.logger?.error(messages.firefoxDetectionFailed(error))
-      process.exit(1)
+      // Enhance any Puppeteer install hint with a --path to our cache, then exit
+      try {
+        this.printEnhancedPuppeteerInstallHint(compilation, String(error))
+      } catch {
+        // Fallback to raw error output if enhancement fails
+        console.error(String(error))
+      }
+      if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+        throw new Error('Firefox not installed or binary path not found')
+      } else {
+        process.exit(1)
+      }
+    }
+
+    if (
+      !browserBinaryLocation ||
+      !browserBinaryLocation.trim() ||
+      !fs.existsSync(browserBinaryLocation)
+    ) {
+      // Second-chance: attempt resolution from output binaries again
+      const fallback = resolveFromBinaries(compilation, 'firefox')
+
+      if (fallback && fs.existsSync(fallback)) {
+        browserBinaryLocation = fallback
+      } else {
+        // Streamlined: exit via helper
+        this.handleMissingBinary(browserBinaryLocation)
+      }
+    }
+
+    // Optional: validate binary to obtain version (kept for diagnostics)
+    try {
+      await FirefoxBinaryDetector.validateFirefoxBinary(browserBinaryLocation)
+    } catch (_) {
+      // Ignore validation failures here. Binary existence is already ensured
     }
 
     // Prepare user extension(s) to forward into the RemoteFirefox setup
@@ -313,21 +359,58 @@ export class RunFirefoxPlugin {
     }
   }
 
+  private printEnhancedPuppeteerInstallHint(
+    compilation: Compilation,
+    raw: string
+  ): void {
+    try {
+      const displayCacheDir = computeBinariesBaseDir(compilation)
+
+      const lines = raw.split('\n')
+      const idx = lines.findIndex((l) =>
+        l.includes('npx @puppeteer/browsers install ')
+      )
+      if (idx !== -1 && !lines[idx].includes('--path')) {
+        lines[idx] = `${lines[idx]} --path "${displayCacheDir}"`
+      }
+      console.error(lines.join('\n'))
+    } catch {
+      console.error(raw)
+    }
+  }
+
+  private createFallbackLogger(): ReturnType<
+    Compiler['getInfrastructureLogger']
+  > {
+    return {
+      info: (...a: unknown[]) => console.log(...a),
+      warn: (...a: unknown[]) => console.warn(...a),
+      error: (...a: unknown[]) => console.error(...a),
+      debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+    } as ReturnType<Compiler['getInfrastructureLogger']>
+  }
+
+  private handleMissingBinary(binaryPath: string | null): never {
+    // Firefox location dependency doesn't print puppeteer/playwright hints;
+    // provide a concise, shared error and exit.
+    this.logger?.error(
+      messages.browserNotInstalledError(this.browser as any, binaryPath || '')
+    )
+    if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+      throw new Error('Firefox not installed or binary path not found')
+    } else {
+      process.exit(1)
+    }
+  }
+
   apply(compiler: Compiler) {
     let firefoxDidLaunch = false
     this.remoteFirefox = this.remoteFirefox || null
 
-    const logger =
-      typeof (compiler as any)?.getInfrastructureLogger === 'function'
-        ? (compiler as any).getInfrastructureLogger(RunFirefoxPlugin.name)
-        : ({
-            info: (...a: unknown[]) => console.log(...a),
-            warn: (...a: unknown[]) => console.warn(...a),
-            error: (...a: unknown[]) => console.error(...a),
-            debug: (...a: unknown[]) => console.debug?.(...a)
-          } as ReturnType<Compiler['getInfrastructureLogger']>)
-
-    this.logger = logger
+    this.logger =
+      typeof compiler.getInfrastructureLogger === 'function'
+        ? compiler.getInfrastructureLogger(RunFirefoxPlugin.name)
+        : this.createFallbackLogger()
 
     // Detect manifest/locales changes as early as possible (source files)
     if (compiler?.hooks?.watchRun?.tapAsync) {

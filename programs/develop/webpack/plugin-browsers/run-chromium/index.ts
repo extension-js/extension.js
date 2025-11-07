@@ -1,11 +1,15 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compilation, type Compiler} from '@rspack/core'
-import {spawn, type ChildProcess} from 'child_process'
+import {spawn, execFileSync} from 'child_process'
 import * as chromeLocation from 'chrome-location2'
 import edgeLocation from 'edge-location'
 import {browserConfig} from './browser-config'
 import * as messages from '../browsers-lib/messages'
+import {
+  computeBinariesBaseDir,
+  resolveFromBinaries
+} from '../browsers-lib/output-binaries-resolver'
 import {PluginInterface, type PluginRuntime} from '../browsers-types'
 import {DevOptions} from '../../types/options'
 import {CDPExtensionController} from './setup-chrome-inspection/cdp-extension-controller'
@@ -19,6 +23,23 @@ import {
 import {setupProcessSignalHandlers} from './process-handlers'
 import {ChromiumWatchRunReloadPlugin} from './watch-run-reload'
 import {ChromiumDoneReloadPlugin} from './done-reload'
+
+function getChromeVersionLine(bin: string): string {
+  try {
+    return execFileSync(bin, ['--version'], {encoding: 'utf8'}).trim()
+  } catch {
+    return ''
+  }
+}
+
+function looksOfficialChrome(line: string): boolean {
+  return /^Google Chrome\s/i.test(line)
+}
+
+function parseMajor(line: string): number | undefined {
+  const m = line.match(/(\d+)\./)
+  return m ? parseInt(m[1], 10) : undefined
+}
 
 export class RunChromiumPlugin {
   public readonly extension: string | string[]
@@ -110,12 +131,60 @@ export class RunChromiumPlugin {
       return
     }
 
-    let browserBinaryLocation: string
+    let browserBinaryLocation: string | null = null
+    let printedGuidance = false
+
+    // Early detection: if user installed via our suggested --path under the output dir,
+    // resolve the executable directly to avoid printing guidance again.
+    try {
+      const resolved = resolveFromBinaries(compilation, 'chrome')
+      if (resolved && fs.existsSync(resolved)) {
+        browserBinaryLocation = resolved
+      }
+    } catch {
+      // ignore
+    }
+
+    const skipDetection = Boolean(browserBinaryLocation)
 
     switch (browser) {
-      case 'chrome':
-        browserBinaryLocation = chromeLocation.default()
+      case 'chrome': {
+        if (skipDetection) {
+          // Already resolved from output binaries
+          break
+        }
+
+        try {
+          const locate = chromeLocation.locateChromeOrExplain
+
+          if (typeof locate === 'function') {
+            // Prefer library guard; allow fallback to cover Chrome for Testing / Chromium.
+            browserBinaryLocation = locate({allowFallback: true})
+          } else {
+            // Older versions: try fallback and apply a local version guard.
+            let candidate: string | null = chromeLocation.default(true) || null
+
+            if (candidate) {
+              const versionLine = getChromeVersionLine(candidate)
+              const major = parseMajor(versionLine)
+
+              if (
+                looksOfficialChrome(versionLine) &&
+                typeof major === 'number' &&
+                major >= 137
+              ) {
+                candidate = null
+              }
+            }
+            browserBinaryLocation = candidate
+          }
+        } catch (e) {
+          this.printEnhancedPuppeteerInstallHint(compilation, String(e))
+          printedGuidance = true
+          browserBinaryLocation = null
+        }
         break
+      }
 
       case 'edge':
         try {
@@ -133,27 +202,57 @@ export class RunChromiumPlugin {
         break
 
       case 'chromium-based':
-        browserBinaryLocation = path.normalize(this.chromiumBinary!)
+        browserBinaryLocation = this.chromiumBinary!
         break
 
-      default:
-        browserBinaryLocation = chromeLocation.default()
+      default: {
+        try {
+          const locate = chromeLocation.locateChromeOrExplain
+
+          if (typeof locate === 'function') {
+            browserBinaryLocation = locate({allowFallback: true})
+          } else {
+            let candidate: string | null = chromeLocation.default(true) || null
+
+            if (candidate) {
+              const versionLine = getChromeVersionLine(candidate)
+              const major = parseMajor(versionLine)
+
+              if (
+                looksOfficialChrome(versionLine) &&
+                typeof major === 'number' &&
+                major >= 137
+              ) {
+                candidate = null
+              }
+            }
+            browserBinaryLocation = candidate
+          }
+        } catch (e) {
+          this.printEnhancedPuppeteerInstallHint(compilation, String(e))
+          printedGuidance = true
+          browserBinaryLocation = null
+        }
         break
+      }
     }
 
     if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
-      this.logger.error(
-        messages.browserNotInstalledError(browser, browserBinaryLocation)
-      )
-      // Avoid killing the test runner during unit tests
-      if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-        throw new Error('Browser not installed or binary path not found')
-      } else {
-        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-          throw new Error('Chromium process crashed')
-        } else {
-          process.exit(1)
+      // Second-chance resolution from output binaries
+      try {
+        const resolved = resolveFromBinaries(compilation, 'chrome')
+        if (resolved && fs.existsSync(resolved)) {
+          browserBinaryLocation = resolved
         }
+      } catch {}
+
+      if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
+        // If still not found, proceed with user-facing hints / exit
+        this.handleMissingBinary(
+          printedGuidance,
+          browserBinaryLocation,
+          browser
+        )
       }
     }
 
@@ -258,6 +357,55 @@ export class RunChromiumPlugin {
     }
   }
 
+  private handleMissingBinary(
+    printedGuidance: boolean,
+    browserBinaryLocation: string | null,
+    browser: DevOptions['browser']
+  ): never {
+    // If the location library already printed guidance, don't add more noise.
+    if (!printedGuidance) {
+      this.logger.error(
+        messages.browserNotInstalledError(browser, browserBinaryLocation || '')
+      )
+    }
+    if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+      throw new Error('Browser not installed or binary path not found')
+    } else {
+      process.exit(1)
+    }
+  }
+
+  private printEnhancedPuppeteerInstallHint(
+    compilation: Compilation,
+    raw: string
+  ): void {
+    try {
+      const displayCacheDir = computeBinariesBaseDir(compilation)
+
+      const lines = raw.split('\n')
+      const idx = lines.findIndex((l) =>
+        l.includes('npx @puppeteer/browsers install ')
+      )
+      if (idx !== -1 && !lines[idx].includes('--path')) {
+        lines[idx] = `${lines[idx]} --path "${displayCacheDir}"`
+      }
+      console.error(lines.join('\n'))
+    } catch {
+      console.error(raw)
+    }
+  }
+
+  private createFallbackLogger(): ReturnType<
+    Compiler['getInfrastructureLogger']
+  > {
+    return {
+      info: (...a: unknown[]) => console.log(...a),
+      warn: (...a: unknown[]) => console.warn(...a),
+      error: (...a: unknown[]) => console.error(...a),
+      debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+    } as ReturnType<Compiler['getInfrastructureLogger']>
+  }
+
   private async launchWithDirectSpawn(
     browserBinaryLocation: string,
     chromeFlags: string[]
@@ -310,16 +458,10 @@ export class RunChromiumPlugin {
   apply(compiler: Compiler) {
     let chromiumDidLaunch = false
 
-    const fallbackLogger = () => ({
-      info: (...a: unknown[]) => console.log(...a),
-      warn: (...a: unknown[]) => console.warn(...a),
-      error: (...a: unknown[]) => console.error(...a),
-      debug: (...a: unknown[]) => console.debug?.(...a)
-    })
     this.logger =
       typeof compiler?.getInfrastructureLogger === 'function'
         ? compiler.getInfrastructureLogger(RunChromiumPlugin.name)
-        : (fallbackLogger() as ReturnType<Compiler['getInfrastructureLogger']>)
+        : this.createFallbackLogger()
 
     // Attach sub-plugins for hook-specific responsibilities
     new ChromiumWatchRunReloadPlugin({
