@@ -5,10 +5,11 @@ import {isContentScriptEntry} from './css-lib/is-content-script'
 
 export async function cssInContentScriptLoader(
   projectPath: string,
+  manifestPath: string,
   mode: DevOptions['mode']
 ) {
   const isContentScript = (issuer: string) =>
-    isContentScriptEntry(issuer, projectPath + '/manifest.json')
+    isContentScriptEntry(issuer, manifestPath)
 
   // Define file type configurations
   const fileTypes = [
