@@ -139,6 +139,22 @@ export function unsupportedBrowserFlag(value: string, supported: string[]) {
   return `${getLoggingPrefix('error')} Unsupported --browser value: ${value}. Supported: ${supported.join(', ')}.`
 }
 
+export function invalidLogsOptionPipe(value: string) {
+  return (
+    `${getLoggingPrefix('error')} Invalid value for ${code('--logs')}: ${colors.red(String(value))}\n` +
+    `The '|' character is a shell pipe, not a separator for values.\n` +
+    `Use a single level, e.g. ${code('--logs warn')} or ${code('--logs=warn')}.\n` +
+    `Allowed values: ${arg('off, error, warn, info, debug, trace, all')}`
+  )
+}
+
+export function invalidLogsOptionValue(value: string, allowed: string[]) {
+  return (
+    `${getLoggingPrefix('error')} Invalid value for ${code('--logs')}: ${colors.red(String(value))}\n` +
+    `Allowed values: ${arg(allowed.join(', '))}. Example: ${code('--logs=warn')}`
+  )
+}
+
 export function programAIHelp() {
   return `\n${getLoggingPrefix('info')} ${colors.gray('Development tips for extension developers and AI assistants')}
 
