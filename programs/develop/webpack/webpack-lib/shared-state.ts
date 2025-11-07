@@ -5,6 +5,7 @@ export const sharedState = {
 
 export function markBannerPrinted() {
   sharedState.bannerPrinted = true
+
   if (sharedState.pendingCompilationLine) {
     console.log(sharedState.pendingCompilationLine)
     sharedState.pendingCompilationLine = ''

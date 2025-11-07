@@ -5,10 +5,10 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import {extensionBuild} from './webpack/build'
-import {extensionDev} from './webpack/dev'
-import {extensionPreview} from './webpack/preview'
-import {extensionStart} from './webpack/start'
+import {extensionBuild} from './webpack/command-build'
+import {extensionDev} from './webpack/command-dev'
+import {extensionPreview} from './webpack/command-preview'
+import {extensionStart} from './webpack/command-start'
 import {
   type FileConfig,
   type BuildOptions,

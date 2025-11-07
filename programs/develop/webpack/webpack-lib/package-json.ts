@@ -10,10 +10,14 @@ async function findUpLocal(
 
   while (true) {
     const candidate = path.join(currentDir, filename)
+
     try {
       const stat = await fs.promises.stat(candidate)
+
       if (stat.isFile()) return candidate
-    } catch {}
+    } catch {
+      // Ignore error
+    }
 
     if (currentDir === root) return undefined
     currentDir = path.dirname(currentDir)
