@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compilation, sources, WebpackError} from '@rspack/core'
-import {unixify} from '../../../webpack-lib/paths'
+import {unixify} from '../../feature-html/html-lib/paths'
 import * as warMessages from './messages'
 
 function isPublicRootLike(possiblePath: string) {

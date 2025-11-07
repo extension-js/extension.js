@@ -1,6 +1,6 @@
 import type {Compilation} from '@rspack/core'
 import type {FilepathList} from '../../webpack-types'
-import {unixify} from '../../webpack-lib/paths'
+import {unixify} from '../feature-html/html-lib/paths'
 
 export function collectContentScriptEntryImports(
   compilation: Compilation,

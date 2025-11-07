@@ -48,8 +48,7 @@ export class UpdateHtmlFile {
               compilation as unknown as Compilation,
               feature,
               resolved,
-              (this.includeList || {}) as FilepathList,
-              {}
+              (this.includeList || {}) as FilepathList
             )
 
             if (updated && typeof updated === 'string') {

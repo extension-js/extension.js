@@ -1,7 +1,7 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 
-vi.mock('../../../webpack-lib/integrations', () => ({
+vi.mock('../../frameworks-lib/integrations', () => ({
   isUsingJSFramework: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => undefined)
 }))

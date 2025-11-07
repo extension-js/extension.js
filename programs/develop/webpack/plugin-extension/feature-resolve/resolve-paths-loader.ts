@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import type {Program} from '@swc/core'
-import {unixify} from '../../webpack-lib/paths'
+import {unixify} from './resolve-lib/paths'
 import {resolveLiteralToOutput} from './resolve-lib'
 import {evalStaticString} from './resolve-lib/ast'
 
