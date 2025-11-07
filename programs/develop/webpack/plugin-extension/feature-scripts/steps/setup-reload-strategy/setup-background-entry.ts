@@ -3,7 +3,7 @@ import * as path from 'path'
 import {Compiler} from '@rspack/core'
 import * as messages from '../../scripts-lib/messages'
 import {reportToCompilation} from '../../scripts-lib/utils'
-import {filterKeysForThisBrowser} from '../../../../webpack-lib/manifest'
+import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {type DevOptions} from '../../../../types/options'
 
 export class SetupBackgroundEntry {

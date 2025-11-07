@@ -10,7 +10,7 @@ import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
 import {type ProjectStructure} from './webpack-lib/project'
 import {DevOptions} from './types/options'
-import {makeSanitizedConsole} from './webpack-lib/branding'
+import {makeSanitizedConsole} from './branding'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -20,7 +20,7 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
-import {filterKeysForThisBrowser} from './webpack-lib/manifest'
+import {filterKeysForThisBrowser} from './manifest-utils'
 
 export default function webpackConfig(
   projectStructure: ProjectStructure,

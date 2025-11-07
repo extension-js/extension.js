@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import rspack, {Compilation, Compiler} from '@rspack/core'
-import {filterKeysForThisBrowser} from '../../../webpack-lib/manifest'
+import {filterKeysForThisBrowser} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 import {PluginInterface, FilepathList} from '../../../webpack-types'
 

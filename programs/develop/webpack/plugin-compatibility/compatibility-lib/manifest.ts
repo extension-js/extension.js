@@ -1,8 +1,7 @@
 import * as fs from 'fs'
 import {type Compilation} from '@rspack/core'
-import {CHROMIUM_BASED_BROWSERS, GECKO_BASED_BROWSERS} from './constants'
-import {type Manifest} from '../webpack-types'
-import {DevOptions} from '../types/options'
+import {type Manifest} from '../../webpack-types'
+import {DevOptions} from '../../types/options'
 
 export function getManifestContent(
   compilation: Compilation,
@@ -18,12 +17,10 @@ export function getManifestContent(
     return JSON.parse(manifest || '{}')
   }
 
-  // Prefer direct fs read to support ESM and test environments reliably
   try {
     const text = fs.readFileSync(manifestPath, 'utf8')
     return JSON.parse(text)
   } catch {
-    // Fallback to require when available
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require(manifestPath)
   }
@@ -33,6 +30,9 @@ export function filterKeysForThisBrowser(
   manifest: Manifest,
   browser: DevOptions['browser']
 ) {
+  const CHROMIUM_BASED_BROWSERS = ['chrome', 'edge']
+  const GECKO_BASED_BROWSERS = ['firefox']
+
   const isChromiumTarget =
     CHROMIUM_BASED_BROWSERS.includes(browser as any) ||
     String(browser).includes('chromium')
@@ -48,27 +48,16 @@ export function filterKeysForThisBrowser(
     JSON.stringify(manifest),
     function reviver(this: any, key: string, value: any) {
       const indexOfColon = key.indexOf(':')
+      if (indexOfColon === -1) return value
 
-      // Retain plain keys.
-      if (indexOfColon === -1) {
-        return value
-      }
-
-      // Replace browser:key keys.
       const prefix = key.substring(0, indexOfColon)
-
       if (
-        // exact browser match (e.g., 'firefox')
         prefix === browser ||
-        // chromium family
         (isChromiumTarget && chromiumPrefixes.has(prefix)) ||
-        // gecko/firefox family
         (isGeckoTarget && geckoPrefixes.has(prefix))
       ) {
         this[key.substring(indexOfColon + 1)] = value
       }
-
-      // Implicitly delete the key otherwise.
     }
   )
 

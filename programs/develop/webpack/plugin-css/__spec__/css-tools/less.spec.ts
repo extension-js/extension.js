@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
-vi.mock('../../../webpack-lib/integrations', () => ({
+vi.mock('../../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => undefined)
 }))
@@ -13,9 +13,7 @@ describe('less tools', () => {
   })
 
   it('isUsingLess returns true when dependency is present and logs once', async () => {
-    const integrations = (await import(
-      '../../../webpack-lib/integrations'
-    )) as any
+    const integrations = (await import('../../css-lib/integrations')) as any
     integrations.hasDependency.mockImplementation(
       (_p: string, dep: string) => dep === 'less'
     )

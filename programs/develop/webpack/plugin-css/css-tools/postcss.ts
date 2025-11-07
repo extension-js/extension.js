@@ -14,7 +14,7 @@ import {isUsingLess} from './less'
 import {
   installOptionalDependencies,
   hasDependency
-} from '../../webpack-lib/integrations'
+} from '../css-lib/integrations'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 
 let userMessageDelivered = false

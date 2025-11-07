@@ -1,5 +1,9 @@
 import {describe, it, expect} from 'vitest'
-import {unixify, shouldExclude, getFilename} from '../webpack/webpack-lib/paths'
+import {
+  unixify,
+  shouldExclude,
+  getFilename
+} from '../webpack/plugin-extension/extension-lib/paths'
 
 describe('paths helpers', () => {
   it('unixify converts backslashes', () => {

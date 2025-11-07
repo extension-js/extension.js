@@ -4,7 +4,7 @@ import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
   hasDependency
-} from '../../webpack-lib/integrations'
+} from '../css-lib/integrations'
 import {isContentScriptEntry} from '../css-lib/is-content-script'
 
 let userMessageDelivered = false

@@ -4,7 +4,7 @@ import {type DevOptions} from '../types/options'
 import {
   getManifestContent,
   filterKeysForThisBrowser
-} from '../webpack-lib/manifest'
+} from './compatibility-lib/manifest'
 
 export class BrowserSpecificFieldsPlugin {
   private readonly browser: DevOptions['browser']

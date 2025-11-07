@@ -1,5 +1,5 @@
 import * as path from 'path'
-import {unixify, getFilename} from '../../../webpack-lib/paths'
+import {unixify, getFilename} from './paths'
 
 export function memberChainFromCallee(callee: any): string[] {
   const memberParts: string[] = []

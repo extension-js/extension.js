@@ -3,7 +3,7 @@ import path from 'path'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import {type LoaderContext} from '../../../../webpack-types'
-import {filterKeysForThisBrowser} from '../../../../webpack-lib/manifest'
+import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 
 const schema: Schema = {
   type: 'object',

@@ -8,7 +8,7 @@ import {type FilepathList} from '../../../webpack-types'
 import {handleStaticAsset} from './assets'
 import {injectCssLink, injectJsScript} from './inject'
 import * as messages from './messages'
-import {shouldExclude} from '../../../webpack-lib/paths'
+import {shouldExclude} from './paths'
 
 interface DocumentFragment {
   toString(): string

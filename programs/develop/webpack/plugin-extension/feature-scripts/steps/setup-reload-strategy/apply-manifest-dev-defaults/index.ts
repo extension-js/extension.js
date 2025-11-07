@@ -4,8 +4,8 @@ import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'
 import patchBackground from './patch-background'
 import patchExternallyConnectable from './patch-externally-connectable'
 import {type PluginInterface} from '../../../../../webpack-types'
-import {getManifestContent} from '../../../../../webpack-lib/manifest'
-import {filterKeysForThisBrowser} from '../../../../../webpack-lib/manifest'
+import {getManifestContent} from '../../../scripts-lib/manifest'
+import {filterKeysForThisBrowser} from '../../../scripts-lib/manifest'
 import {type DevOptions} from '../../../../../types/options'
 
 export class ApplyManifestDevDefaults {

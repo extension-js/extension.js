@@ -3,7 +3,7 @@ import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
   hasDependency
-} from '../../webpack-lib/integrations'
+} from '../css-lib/integrations'
 
 let userMessageDelivered = false
 

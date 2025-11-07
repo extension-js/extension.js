@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as messages from './messages'
-import {markBannerPrinted} from '../../webpack-lib/shared-state'
+import {markBannerPrinted} from './shared-state'
 import {DevOptions} from '../../types/options'
 
 type Info = {extensionId: string; name?: string; version?: string} | null

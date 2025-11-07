@@ -3,7 +3,7 @@ import {describe, it, expect, vi, beforeEach} from 'vitest'
 vi.mock('fs', () => ({
   readFileSync: vi.fn()
 }))
-vi.mock('../../../../webpack-lib/manifest', () => ({
+vi.mock('../../../scripts-lib/manifest', () => ({
   filterKeysForThisBrowser: (m: any) => m
 }))
 const applyManifestSpy = vi.fn()

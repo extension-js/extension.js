@@ -1,5 +1,5 @@
 import {describe, it, expect} from 'vitest'
-import {filterKeysForThisBrowser} from '../webpack/webpack-lib/manifest'
+import {filterKeysForThisBrowser} from '../webpack/manifest-utils'
 
 describe('filterKeysForThisBrowser', () => {
   it('keeps plain keys and applies chromium-prefixed overrides', () => {

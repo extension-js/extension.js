@@ -1,6 +1,6 @@
 import * as path from 'path'
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
-import {getFilename} from '../../../../webpack-lib/paths'
+import {getFilename} from '../../manifest-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
 export function icons(manifest: Manifest) {
