@@ -1,9 +1,9 @@
 import {describe, it, expect, vi, afterEach} from 'vitest'
 import {BrowserSpecificFieldsPlugin} from '../feature-browser-specific-fields'
 
-// Mock only the helper used inside apply()
-vi.mock('../compatibility-lib/manifest', () => ({
-  getManifestContent: vi.fn(() => ({name: 'ext'}))
+// Avoid filesystem access by mocking fs read for manifest helper
+vi.mock('fs', () => ({
+  readFileSync: vi.fn(() => '{}')
 }))
 
 describe('BrowserSpecificFieldsPlugin.apply integration', () => {

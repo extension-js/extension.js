@@ -1,4 +1,5 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
+import * as fs from 'fs'
 
 vi.mock('fs', () => ({
   readFileSync: vi.fn()
@@ -21,18 +22,17 @@ vi.mock('../setup-background-entry', () => ({
 }))
 
 const webExtSpy = vi.fn()
-vi.mock('webpack-target-webextension', () => {
-  return vi.fn().mockImplementation(function (opts: any) {
+vi.mock('webpack-target-webextension', () => ({
+  default: vi.fn().mockImplementation(function (opts: any) {
     webExtSpy(opts)
     this.apply = vi.fn()
   })
-})
+}))
 
 import {SetupReloadStrategy} from '..'
 
 const setManifest = (obj: any) => {
-  const fs = require('fs')
-  fs.readFileSync.mockReturnValueOnce(JSON.stringify(obj))
+  ;(fs.readFileSync as unknown as any).mockReturnValueOnce(JSON.stringify(obj))
 }
 
 const makeCompiler = () => ({options: {mode: 'development'}}) as any
