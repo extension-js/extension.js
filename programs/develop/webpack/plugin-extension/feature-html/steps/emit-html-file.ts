@@ -8,13 +8,11 @@ import {reportToCompilation} from '../html-lib/utils'
 export class EmitHtmlFile {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
   public readonly browser?: PluginInterface['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = {}
     this.browser = options.browser
   }
 

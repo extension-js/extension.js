@@ -5,12 +5,10 @@ import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 export class AddToFileDependencies {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = {}
   }
 
   public apply(compiler: Compiler): void {

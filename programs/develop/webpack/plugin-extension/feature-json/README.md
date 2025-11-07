@@ -28,10 +28,6 @@ const config: Configuration = {
       includeList: {
         // Keys become output paths (without .json), values are absolute file paths
         // 'declarative_net_request/ruleset_1': '/abs/path/to/ruleset_1.json'
-      },
-      excludeList: {
-        // Exclude specific files from being emitted/watched
-        // 'public/public_ruleset': '/abs/path/to/public_ruleset.json'
       }
     })
   ]
@@ -50,7 +46,6 @@ export type FilepathList = Record<string, string | string[] | undefined>
 export interface PluginInterface {
   manifestPath: string
   includeList?: FilepathList
-  excludeList?: FilepathList
 }
 
 export class JsonPlugin {
@@ -63,7 +58,6 @@ export class JsonPlugin {
   - **declarative_net_request.rule_resources** → emitted as `declarative_net_request/<id>.json`
   - **storage.managed_schema** → emitted as `storage/managed_schema.json`
 - Adds emitted files to compilation dependencies so updates trigger rebuilds
-- Respects `excludeList` to skip specific files
 
 ### Compile-time validation (all modes)
 
@@ -96,9 +90,9 @@ Manifest field presence/shape in `manifest.json` itself is handled by other plug
 Notes:
 
 - Keys in `includeList` map directly to output paths (without the `.json` suffix in the key; the plugin appends `.json`).
-- Files under `public/` are typically excluded by `excludeList` and will not be emitted.
+- Files under `public/` are not emitted by this plugin; they are watched and, for critical JSON features, validated.
 
-### includeList / excludeList semantics
+### includeList semantics
 
 ```ts
 new JsonPlugin({
@@ -106,18 +100,14 @@ new JsonPlugin({
   includeList: {
     'features/ruleset': '/abs/path/ruleset.json',
     'features/multiple': ['/abs/a.json', '/abs/b.json']
-  },
-  excludeList: {
-    'public/ruleset': '/abs/project/public/ruleset.json'
   }
 })
 ```
 
 - `includeList` accepts a string or an array of strings as values. The key becomes the output path (plugin appends `.json`).
-- `excludeList` prevents matching absolute file paths from being emitted or added to dependencies.
 - When `includeList` value is an array, the plugin emits a single output named after the key and the content from the last file in the array wins (subsequent entries overwrite previous ones for the same output).
 - Missing files referenced in `includeList` are skipped and reported as warnings; the build continues without emitting that asset.
-- JSON files under `public/` (or otherwise listed in `excludeList`) are not emitted or watched.
+- JSON files under `public/` are not emitted by this plugin; they are watched and validated if critical.
 
 ### Supported fields (context)
 

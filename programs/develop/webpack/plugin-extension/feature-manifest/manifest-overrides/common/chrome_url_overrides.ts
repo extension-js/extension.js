@@ -1,11 +1,8 @@
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function chromeUrlOverrides(
-  manifest: Manifest,
-  _excludeList: FilepathList
-) {
+export function chromeUrlOverrides(manifest: Manifest) {
   return (
     manifest.chrome_url_overrides && {
       chrome_url_overrides: {
@@ -16,7 +13,7 @@ export function chromeUrlOverrides(
             const target = isPublic
               ? normalizeManifestOutputPath(raw)
               : 'chrome_url_overrides/bookmarks.html'
-            return getFilename(target, raw, {})
+            return getFilename(target, raw)
           })()
         }),
         ...(manifest.chrome_url_overrides.history && {
@@ -26,7 +23,7 @@ export function chromeUrlOverrides(
             const target = isPublic
               ? normalizeManifestOutputPath(raw)
               : 'chrome_url_overrides/history.html'
-            return getFilename(target, raw, {})
+            return getFilename(target, raw)
           })()
         }),
         ...(manifest.chrome_url_overrides.newtab && {
@@ -36,7 +33,7 @@ export function chromeUrlOverrides(
             const target = isPublic
               ? normalizeManifestOutputPath(raw)
               : 'chrome_url_overrides/newtab.html'
-            return getFilename(target, raw, {})
+            return getFilename(target, raw)
           })()
         })
       }

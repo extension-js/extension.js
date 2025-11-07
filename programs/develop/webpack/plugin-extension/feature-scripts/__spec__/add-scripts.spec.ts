@@ -7,6 +7,7 @@ vi.mock('fs', () => ({
 }))
 
 import {AddScripts} from '../steps/add-scripts'
+import * as path from 'path'
 
 describe('AddScripts', () => {
   beforeEach(() => {
@@ -77,5 +78,44 @@ describe('AddScripts', () => {
     expect(
       compilerClassic.options.entry['background/service_worker'].chunkLoading
     ).toBe('import-scripts')
+  })
+
+  it('excludes imports under public/ from entry import list but tracks them for watch', () => {
+    const publicJs = '/proj/public/foo.js'
+    const publicCss = '/proj/public/style.css'
+
+    const addedFiles: string[] = []
+    const compiler: any = {
+      options: {
+        context: '/proj',
+        entry: {},
+        output: {path: '/out'}
+      },
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, cb: any) => {
+            cb({
+              options: {output: {path: '/out'}},
+              fileDependencies: {add: (f: string) => addedFiles.push(f)}
+            })
+          }
+        }
+      }
+    }
+
+    const plugin = new AddScripts({
+      manifestPath: '/proj/manifest.json',
+      includeList: {
+        'background/scripts': [publicJs, publicCss]
+      }
+    } as any)
+
+    plugin.apply(compiler)
+
+    const entry = compiler.options.entry['background/scripts']
+    expect(Array.isArray(entry?.import)).toBe(true)
+    expect(entry.import.length).toBe(0)
+    expect(addedFiles).toContain(publicJs)
+    expect(addedFiles).toContain(publicCss)
   })
 })

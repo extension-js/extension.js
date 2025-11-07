@@ -3,7 +3,7 @@ import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function icons(manifest: Manifest, _excludeList: FilepathList) {
+export function icons(manifest: Manifest) {
   return (
     manifest.icons && {
       icons: Object.fromEntries(
@@ -13,7 +13,7 @@ export function icons(manifest: Manifest, _excludeList: FilepathList) {
           const target = isPublic
             ? normalizeManifestOutputPath(raw)
             : `icons/${path.basename(raw)}`
-          return [size, getFilename(target, raw, {})]
+          return [size, getFilename(target, raw)]
         })
       )
     }

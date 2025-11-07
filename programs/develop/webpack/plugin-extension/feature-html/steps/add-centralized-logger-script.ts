@@ -17,9 +17,6 @@ const schema: Schema = {
     includeList: {
       type: 'object'
     },
-    excludeList: {
-      type: 'object'
-    },
     browser: {
       type: 'string'
     }

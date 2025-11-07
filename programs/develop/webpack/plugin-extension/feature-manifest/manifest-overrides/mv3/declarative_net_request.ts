@@ -1,10 +1,7 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 
-export function declarativeNetRequest(
-  manifest: Manifest,
-  excludeList: FilepathList
-) {
+export function declarativeNetRequest(manifest: Manifest) {
   return (
     manifest.declarative_net_request && {
       declarative_net_request: {
@@ -17,8 +14,7 @@ export function declarativeNetRequest(
                 resourceObj.path &&
                 getFilename(
                   `declarative_net_request/${resourceObj.id}.json`,
-                  resourceObj.path,
-                  excludeList
+                  resourceObj.path
                 )
             }
           }

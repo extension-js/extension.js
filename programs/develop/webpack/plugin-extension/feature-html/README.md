@@ -104,30 +104,20 @@ const includeList: FilepathList = {
   'pages/main': path.resolve(__dirname, 'pages/main.html')
 }
 
-const excludeList: FilepathList = {
-  // exclude public-root html/css/js/img paths from rewriting/emission
-  html: [path.resolve(__dirname, 'html/file.html')],
-  css: [path.resolve(__dirname, 'css/file.css')],
-  js: [path.resolve(__dirname, 'js/file.js')],
-  img: [path.resolve(__dirname, 'img/icon.png')]
-}
-
 export default {
   plugins: [
     new HtmlPlugin({
       manifestPath: path.resolve(__dirname, 'manifest.json'),
       includeList,
-      excludeList,
       browser: 'chrome'
     })
   ]
 }
 ```
 
-## Include/Exclude semantics
+## Include semantics
 
 - `includeList`: map of feature names to absolute HTML file paths. Each entry becomes a page. The feature name dictates output paths: `feature.html`, `/feature.js`, `/feature.css`.
-- `excludeList`: map of paths or subpaths to skip. If a resource (HTML/CSS/JS/static) matches a value in `excludeList`, the plugin preserves it (for public-root) or avoids re-emitting it.
 
 ## Compatibility
 

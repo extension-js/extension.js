@@ -1,8 +1,8 @@
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function background(manifest: Manifest, _excludeList: FilepathList) {
+export function background(manifest: Manifest) {
   return (
     manifest.background &&
     manifest.background.scripts && {
@@ -17,7 +17,7 @@ export function background(manifest: Manifest, _excludeList: FilepathList) {
                 const target = isPublic
                   ? normalizeManifestOutputPath(raw)
                   : 'background/scripts.js'
-                return getFilename(target, raw, {})
+                return getFilename(target, raw)
               })()
             )
           ]
