@@ -1,14 +1,18 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
+import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function optionsPage(manifest: Manifest, excludeList: FilepathList) {
+export function optionsPage(manifest: Manifest, _excludeList: FilepathList) {
   return (
     manifest.options_page && {
-      options_page: getFilename(
-        'options/index.html',
-        manifest.options_page,
-        excludeList
-      )
+      options_page: (() => {
+        const raw = String(manifest.options_page)
+        const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+        const target = isPublic
+          ? normalizeManifestOutputPath(raw)
+          : 'options/index.html'
+        return getFilename(target, raw, {})
+      })()
     }
   )
 }
