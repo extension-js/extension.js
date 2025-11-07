@@ -16,13 +16,10 @@ describe('paths helpers', () => {
     expect(shouldExclude('scripts/main.ts', ignore)).toBe(false)
   })
 
-  it('getFilename rewrites extensions and honors public mapping', () => {
-    const exclude = {
-      'public/': 'public/logo.png'
-    } as any
-    const out = getFilename('feature', 'public/logo.png', exclude)
-    expect(out).toBe('logo.png')
-    const out2 = getFilename('feature', 'scripts/app.ts', {})
+  it('getFilename rewrites extensions based on input file', () => {
+    const out1 = getFilename('icons/logo.png', 'public/logo.png')
+    expect(out1).toBe('icons/logo.png')
+    const out2 = getFilename('feature', 'scripts/app.ts')
     expect(out2).toBe('feature.js')
   })
 })

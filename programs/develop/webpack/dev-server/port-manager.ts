@@ -1,8 +1,7 @@
-import {DevOptions} from '../types/options'
 import * as crypto from 'crypto'
 import * as net from 'net'
 import {findAvailablePortNear} from '../plugin-browsers/browsers-lib/shared-utils'
-import * as messages from '../plugin-browsers/browsers-lib/messages'
+import {DevOptions} from '../types/options'
 
 export interface PortAllocation {
   port: number
