@@ -1,9 +1,9 @@
 import * as path from 'path'
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
+import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-const getBasename = (filepath: string) => path.basename(filepath)
-export function browserAction(manifest: Manifest, excludeList: FilepathList) {
+export function browserAction(manifest: Manifest, _excludeList: FilepathList) {
   return (
     manifest.browser_action && {
       browser_action: {
@@ -12,31 +12,30 @@ export function browserAction(manifest: Manifest, excludeList: FilepathList) {
           default_popup: getFilename(
             'action/index.html',
             manifest.browser_action.default_popup as string,
-            excludeList
+            {}
           )
         }),
         ...(manifest.browser_action.default_icon && {
           default_icon:
             typeof manifest.browser_action.default_icon === 'string'
-              ? getFilename(
-                  `icons/${getBasename(
-                    manifest.browser_action.default_icon as string
-                  )}`,
-                  manifest.browser_action.default_icon as string,
-                  excludeList
-                )
+              ? (() => {
+                  const raw = String(manifest.browser_action.default_icon)
+                  const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                  const target = isPublic
+                    ? normalizeManifestOutputPath(raw)
+                    : `icons/${path.basename(raw)}`
+                  return getFilename(target, raw, {})
+                })()
               : Object.fromEntries(
                   Object.entries(
                     manifest.browser_action.default_icon as string
                   ).map(([size, icon]) => {
-                    return [
-                      size,
-                      getFilename(
-                        `icons/${getBasename(icon)}`,
-                        icon,
-                        excludeList
-                      )
-                    ]
+                    const raw = String(icon)
+                    const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                    const target = isPublic
+                      ? normalizeManifestOutputPath(raw)
+                      : `icons/${path.basename(raw)}`
+                    return [size, getFilename(target, raw, {})]
                   })
                 )
         }),
@@ -46,18 +45,24 @@ export function browserAction(manifest: Manifest, excludeList: FilepathList) {
               return {
                 ...themeIcon,
                 ...(themeIcon.light && {
-                  light: getFilename(
-                    `browser_action/${getBasename(themeIcon.light)}`,
-                    themeIcon.light,
-                    excludeList
-                  )
+                  light: (() => {
+                    const raw = String(themeIcon.light)
+                    const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                    const target = isPublic
+                      ? normalizeManifestOutputPath(raw)
+                      : `browser_action/${path.basename(raw)}`
+                    return getFilename(target, raw, {})
+                  })()
                 }),
                 ...(themeIcon.dark && {
-                  dark: getFilename(
-                    `browser_action/${getBasename(themeIcon.dark)}`,
-                    themeIcon.dark,
-                    excludeList
-                  )
+                  dark: (() => {
+                    const raw = String(themeIcon.dark)
+                    const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                    const target = isPublic
+                      ? normalizeManifestOutputPath(raw)
+                      : `browser_action/${path.basename(raw)}`
+                    return getFilename(target, raw, {})
+                  })()
                 })
               }
             }
