@@ -1,0 +1,112 @@
+import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import * as fs from 'fs'
+
+vi.mock('../../../webpack-lib/integrations', () => ({
+  isUsingJSFramework: vi.fn(() => false),
+  installOptionalDependencies: vi.fn(async () => undefined)
+}))
+
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs')
+  return {
+    ...actual,
+    existsSync: vi.fn(() => false),
+    readFileSync: vi.fn(() => ''),
+    readdirSync: vi.fn(() => []),
+    writeFileSync: vi.fn(() => undefined)
+  }
+})
+
+describe('typescript tools', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    ;(process as any).env.EXTENSION_ENV = 'development'
+  })
+  afterEach(() => {
+    ;(process as any).env.EXTENSION_ENV = 'test'
+  })
+
+  it('getUserTypeScriptConfigFile finds local or root tsconfig.json', async () => {
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) =>
+        String(p).endsWith('/project/tsconfig.json') ||
+        String(p).endsWith('/repo/tsconfig.json')
+    )
+    const {getUserTypeScriptConfigFile} = await import(
+      '../../js-tools/typescript'
+    )
+
+    // Prefers local
+    expect(getUserTypeScriptConfigFile('/project')).toBe(
+      '/project/tsconfig.json'
+    )
+  })
+
+  it('isUsingTypeScript logs and writes default tsconfig when TS files present but no tsconfig nearby', async () => {
+    // Package.json in /project (stop search early)
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      String(p).endsWith('/project/package.json') ? true : false
+    )
+    ;(fs.readFileSync as any).mockImplementation((p: string) => {
+      if (String(p).endsWith('package.json')) {
+        return JSON.stringify({dependencies: {}})
+      }
+      return ''
+    })
+    ;(fs.readdirSync as any).mockImplementation((_p: string, _o: any) => [
+      {isFile: () => true, isDirectory: () => false, name: 'file.ts'}
+    ])
+
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const {isUsingTypeScript} = await import('../../js-tools/typescript')
+
+    // No tsconfig present, but TS files exist -> writes tsconfig
+    expect(isUsingTypeScript('/project')).toBe(false)
+    expect(fs.writeFileSync).toHaveBeenCalled()
+    expect(log).toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('maybeUseTypeScript returns true when tsconfig exists and typescript resolves', async () => {
+    // Make tsconfig exist
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) =>
+        String(p).endsWith('/project/tsconfig.json') ||
+        String(p).endsWith('/project/package.json')
+    )
+    ;(fs.readFileSync as any).mockImplementation((p: string) => {
+      if (String(p).endsWith('package.json')) {
+        return JSON.stringify({devDependencies: {typescript: '^5'}})
+      }
+      return ''
+    })
+
+    // Make require.resolve('typescript') succeed
+    const originalResolve = (require as any).resolve
+    ;(require as any).resolve = vi.fn((id: string) =>
+      id === 'typescript' ? '/mock/typescript' : originalResolve(id)
+    )
+
+    const {maybeUseTypeScript} = await import('../../js-tools/typescript')
+    const result = await maybeUseTypeScript('/project')
+    expect(result).toBe(true)
+    ;(require as any).resolve = originalResolve
+  })
+
+  it('getTypeScriptConfigOverrides toggles sourceMap by mode', async () => {
+    const {getTypeScriptConfigOverrides} = await import(
+      '../../js-tools/typescript'
+    )
+    expect(
+      getTypeScriptConfigOverrides({mode: 'development'}).compilerOptions
+        .sourceMap
+    ).toBe(true)
+    expect(
+      getTypeScriptConfigOverrides({mode: 'production'}).compilerOptions
+        .sourceMap
+    ).toBe(false)
+  })
+})
