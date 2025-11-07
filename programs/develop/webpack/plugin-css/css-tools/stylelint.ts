@@ -40,10 +40,7 @@ let userMessageDelivered = false
 
 export function isUsingStylelint(projectPath: string) {
   const packageJsonPath = path.join(projectPath, 'package.json')
-
-  if (!fs.existsSync(packageJsonPath)) {
-    return false
-  }
+  if (!fs.existsSync(packageJsonPath)) return false
 
   const configFile = getStylelintConfigFile(projectPath)
   const isUsingStylelint = !!configFile
