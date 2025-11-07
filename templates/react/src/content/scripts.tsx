@@ -5,7 +5,6 @@ import './styles.css'
 console.log('Hello from content script')
 
 export default function initial() {
-  // Create a new div element and append it to the document's body
   const rootDiv = document.createElement('div')
   rootDiv.setAttribute('data-extension-root', 'true')
   document.body.appendChild(rootDiv)
@@ -20,10 +19,7 @@ export default function initial() {
   fetchCSS().then((response) => (styleElement.textContent = response))
 
   // Create a container for React to render into
-  const container = document.createElement('div')
-  shadowRoot.appendChild(container)
-
-  const mountingPoint = ReactDOM.createRoot(container)
+  const mountingPoint = ReactDOM.createRoot(shadowRoot)
   mountingPoint.render(
     <div className="content_script">
       <ContentApp />

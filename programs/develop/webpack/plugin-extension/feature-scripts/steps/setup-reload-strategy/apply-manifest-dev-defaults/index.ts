@@ -3,10 +3,10 @@ import {patchV2CSP, patchV3CSP} from './patch-csp'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'
 import patchBackground from './patch-background'
 import patchExternallyConnectable from './patch-externally-connectable'
+import {type PluginInterface} from '../../../../../webpack-types'
 import {getManifestContent} from '../../../../../webpack-lib/manifest'
 import {filterKeysForThisBrowser} from '../../../../../webpack-lib/manifest'
-import {type PluginInterface} from '../../../../../webpack-types'
-import {DevOptions} from '../../../../../../module'
+import {type DevOptions} from '../../../../../types/options'
 
 export class ApplyManifestDevDefaults {
   private readonly manifestPath?: string
