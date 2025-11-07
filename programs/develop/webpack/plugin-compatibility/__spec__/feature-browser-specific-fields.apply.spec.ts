@@ -2,7 +2,7 @@ import {describe, it, expect, vi, afterEach} from 'vitest'
 import {BrowserSpecificFieldsPlugin} from '../feature-browser-specific-fields'
 
 // Mock only the helper used inside apply()
-vi.mock('../../webpack-lib/manifest', () => ({
+vi.mock('../compatibility-lib/manifest', () => ({
   getManifestContent: vi.fn(() => ({name: 'ext'}))
 }))
 

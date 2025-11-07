@@ -1,8 +1,8 @@
 import {Compiler, Compilation, sources} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
-import {getFilename} from '../../../webpack-lib/paths'
-import {getManifestContent} from '../../../webpack-lib/manifest'
-import {FilepathList, PluginInterface, Manifest} from '../../../webpack-types'
+import {getFilename} from '../manifest-lib/paths'
+import {getManifestContent} from '../manifest-lib/manifest'
+import {PluginInterface, Manifest} from '../../../webpack-types'
 
 export class UpdateManifest {
   public readonly manifestPath: string
@@ -39,11 +39,7 @@ export class UpdateManifest {
 
             const manifest = getManifestContent(compilation, this.manifestPath)
 
-            const overrides = getManifestOverrides(
-              this.manifestPath,
-              manifest,
-              {}
-            )
+            const overrides = getManifestOverrides(this.manifestPath, manifest)
 
             const patchedManifest: Manifest = {
               // Preserve all uncatched user entries
@@ -85,8 +81,7 @@ export class UpdateManifest {
 
               const overrides = getManifestOverrides(
                 this.manifestPath,
-                manifest,
-                {}
+                manifest
               )
 
               const patchedManifest: Manifest = {

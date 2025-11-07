@@ -5,7 +5,7 @@ import {WebpackError} from '@rspack/core'
 import * as messages from './messages'
 import {getFilePath, getHtmlPageDeclaredAssetPath} from './utils'
 import {type FilepathList} from '../../../webpack-types'
-import {isFromFilepathList} from '../../../webpack-lib/paths'
+import {isFromFilepathList} from '../html-lib/paths'
 
 export function handleStaticAsset(
   compilation: any,
