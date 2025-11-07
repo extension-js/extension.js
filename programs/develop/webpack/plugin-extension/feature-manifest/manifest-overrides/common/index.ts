@@ -14,25 +14,25 @@ import {userScripts} from './user_scripts'
 import {webAccessibleResources} from './web_accessible_resources'
 import {contentSecurityPolicy} from './content_security_policy'
 import {omnibox} from './omnibox'
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 
-export function manifestCommon(manifest: Manifest, excludeList: FilepathList) {
+export function manifestCommon(manifest: Manifest) {
   return {
-    ...backgroundPage(manifest, excludeList),
-    ...chromeUrlOverrides(manifest, excludeList),
-    ...contentScripts(manifest, excludeList),
-    ...devtoolsPage(manifest, excludeList),
-    ...icons(manifest, excludeList),
+    ...backgroundPage(manifest),
+    ...chromeUrlOverrides(manifest),
+    ...contentScripts(manifest),
+    ...devtoolsPage(manifest),
+    ...icons(manifest),
     ...commands(manifest),
     ...permissions(manifest),
-    ...optionsPage(manifest, excludeList),
-    ...optionsUi(manifest, excludeList),
-    ...sandbox(manifest, excludeList),
-    ...storage(manifest, excludeList),
-    ...theme(manifest, excludeList),
-    ...userScripts(manifest, excludeList),
-    ...webAccessibleResources(manifest, excludeList),
+    ...optionsPage(manifest),
+    ...optionsUi(manifest),
+    ...sandbox(manifest),
+    ...storage(manifest),
+    ...theme(manifest),
+    ...userScripts(manifest),
+    ...webAccessibleResources(manifest),
     ...contentSecurityPolicy(manifest),
-    ...omnibox(manifest, excludeList)
+    ...omnibox(manifest)
   }
 }

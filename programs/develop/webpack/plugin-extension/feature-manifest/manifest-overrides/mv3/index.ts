@@ -3,14 +3,14 @@ import {backgroundServiceWorker} from './background'
 import {declarativeNetRequest} from './declarative_net_request'
 import {hostPermissions} from './host_permissions'
 import {sidePanel} from './side_panel'
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 
-export function manifestV3(manifest: Manifest, excludeList: FilepathList) {
+export function manifestV3(manifest: Manifest) {
   return {
-    ...action(manifest, excludeList),
-    ...backgroundServiceWorker(manifest, excludeList),
-    ...declarativeNetRequest(manifest, excludeList),
+    ...action(manifest),
+    ...backgroundServiceWorker(manifest),
+    ...declarativeNetRequest(manifest),
     ...hostPermissions(manifest),
-    ...sidePanel(manifest, excludeList)
+    ...sidePanel(manifest)
   }
 }

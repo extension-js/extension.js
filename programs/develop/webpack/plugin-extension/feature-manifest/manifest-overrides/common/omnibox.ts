@@ -1,10 +1,10 @@
 import * as path from 'path'
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 
-export function omnibox(manifest: Manifest, excludeList: FilepathList) {
+export function omnibox(manifest: Manifest) {
   return (
     (manifest as any).omnibox && {
       omnibox: {
@@ -16,8 +16,7 @@ export function omnibox(manifest: Manifest, excludeList: FilepathList) {
                   `icons/${getBasename(
                     ((manifest as any).omnibox as any).default_icon as string
                   )}`,
-                  ((manifest as any).omnibox as any).default_icon as string,
-                  excludeList
+                  ((manifest as any).omnibox as any).default_icon as string
                 )
               : Object.fromEntries(
                   Object.entries(
@@ -28,11 +27,7 @@ export function omnibox(manifest: Manifest, excludeList: FilepathList) {
                   ).map(([size, icon]) => {
                     return [
                       size,
-                      getFilename(
-                        `icons/${getBasename(icon)}`,
-                        icon,
-                        excludeList
-                      )
+                      getFilename(`icons/${getBasename(icon)}`, icon)
                     ]
                   })
                 )

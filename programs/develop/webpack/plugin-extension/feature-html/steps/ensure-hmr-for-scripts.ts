@@ -13,9 +13,6 @@ const schema: Schema = {
     },
     includeList: {
       type: 'object'
-    },
-    excludeList: {
-      type: 'object'
     }
   },
   additionalProperties: false

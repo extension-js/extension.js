@@ -164,7 +164,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
 }) {
   const {compilation, filepath, absoluteFsPath} = params
   const source = fs.readFileSync(absoluteFsPath)
-  const updatedHtml = patchHtmlNested(compilation, absoluteFsPath, {})
+  const updatedHtml = patchHtmlNested(compilation, absoluteFsPath)
   const htmlAssets = getAssetsFromHtml(absoluteFsPath)
   const assetsFromHtml = [
     ...(htmlAssets?.js || []),

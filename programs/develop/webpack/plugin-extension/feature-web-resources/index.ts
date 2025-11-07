@@ -32,7 +32,6 @@ export class WebResourcesPlugin {
     generateManifestPatchesUtil(
       compilation,
       this.manifestPath,
-      undefined,
       entryImports,
       this.browser
     )

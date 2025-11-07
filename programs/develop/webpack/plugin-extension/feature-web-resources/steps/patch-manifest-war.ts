@@ -5,16 +5,10 @@ import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 
 export class PatchManifestWebResources {
   public readonly manifestPath: string
-  public readonly excludeList?: FilepathList
   public readonly browser?: string
 
-  constructor(options: {
-    manifestPath: string
-    excludeList?: FilepathList
-    browser?: string
-  }) {
+  constructor(options: {manifestPath: string; browser?: string}) {
     this.manifestPath = options.manifestPath
-    this.excludeList = options.excludeList
     this.browser = options.browser
   }
 
@@ -32,7 +26,6 @@ export class PatchManifestWebResources {
             generateManifestPatches(
               compilation,
               this.manifestPath,
-              this.excludeList as Record<string, string | string[]> | undefined,
               shared.entryImports || {},
               this.browser
             )

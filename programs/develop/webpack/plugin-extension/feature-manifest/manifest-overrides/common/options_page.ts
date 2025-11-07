@@ -1,8 +1,8 @@
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function optionsPage(manifest: Manifest, _excludeList: FilepathList) {
+export function optionsPage(manifest: Manifest) {
   return (
     manifest.options_page && {
       options_page: (() => {
@@ -11,7 +11,7 @@ export function optionsPage(manifest: Manifest, _excludeList: FilepathList) {
         const target = isPublic
           ? normalizeManifestOutputPath(raw)
           : 'options/index.html'
-        return getFilename(target, raw, {})
+        return getFilename(target, raw)
       })()
     }
   )

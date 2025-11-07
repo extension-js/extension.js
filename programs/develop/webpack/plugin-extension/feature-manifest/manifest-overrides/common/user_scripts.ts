@@ -1,7 +1,7 @@
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 
-export function userScripts(manifest: Manifest, excludeList: FilepathList) {
+export function userScripts(manifest: Manifest) {
   return (
     manifest.user_scripts && {
       user_scripts: {
@@ -10,8 +10,7 @@ export function userScripts(manifest: Manifest, excludeList: FilepathList) {
         ...(manifest.user_scripts.api_script && {
           api_script: getFilename(
             'user_scripts/api_script.js',
-            manifest.user_scripts.api_script as string,
-            excludeList
+            manifest.user_scripts.api_script as string
           )
         })
       }

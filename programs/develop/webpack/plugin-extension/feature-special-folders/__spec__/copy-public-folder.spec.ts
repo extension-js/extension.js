@@ -1,16 +1,16 @@
 import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
+
 const FS = vi.hoisted(() => ({
   existsSync: vi.fn(),
   statSync: vi.fn(),
   readdirSync: vi.fn()
 }))
-vi.mock('fs', () => ({
-  ...FS
-}))
+vi.mock('fs', () => ({...FS}))
 
 // Mock rspack CopyRspackPlugin
 const copyApply = vi.fn()
+let lastCopyOptions: any = null
 vi.mock('@rspack/core', async () => {
   const actual = await vi.importActual<any>('@rspack/core')
   return {
@@ -19,8 +19,9 @@ vi.mock('@rspack/core', async () => {
       ...actual.rspack,
       CopyRspackPlugin: vi.fn().mockImplementation(function (
         this: any,
-        _opts: any
+        options: any
       ) {
+        lastCopyOptions = options
         this.apply = copyApply
       })
     }
@@ -30,10 +31,7 @@ vi.mock('@rspack/core', async () => {
 // Mock WarnUponFolderChanges to assert wiring in development
 const warnApply = vi.fn()
 vi.mock('../warn-upon-folder-changes', () => ({
-  WarnUponFolderChanges: vi.fn().mockImplementation(function (
-    this: any,
-    _opts: any
-  ) {
+  WarnUponFolderChanges: vi.fn().mockImplementation(function (this: any) {
     this.apply = warnApply
   })
 }))
@@ -45,8 +43,8 @@ const createFakeCompiler = (
 ) => {
   const hooks: any = {
     thisCompilation: {
-      tap: (_name: string, cb: (c: any) => void) => {
-        const comp: any = {
+      tap: (_name: string, callback: (c: any) => void) => {
+        const compilation: any = {
           errors: [],
           hooks: {
             processAssets: {
@@ -57,7 +55,7 @@ const createFakeCompiler = (
             webpack: {WebpackError: class WebpackError extends Error {}}
           }
         }
-        cb(comp)
+        callback(compilation)
       }
     }
   }
@@ -76,6 +74,7 @@ const createFakeCompiler = (
 describe('SpecialFoldersPlugin (public copying and guards)', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    lastCopyOptions = null
   })
 
   afterEach(() => {
@@ -84,10 +83,10 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
 
   it('applies CopyRspackPlugin when public exists (excludes manifest.json)', async () => {
     ;(FS.existsSync as any).mockImplementation(
-      (p: string) => p === '/project/public'
+      (absPath: string) => absPath === '/project/public'
     )
-    ;(FS.statSync as any).mockImplementation((p: string) => ({
-      isDirectory: () => p === '/project/public'
+    ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
+      isDirectory: () => true
     }))
 
     const compiler = createFakeCompiler('production')
@@ -96,15 +95,19 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     )
 
     expect(copyApply).toHaveBeenCalledTimes(1)
+    expect(lastCopyOptions?.patterns?.[0]?.globOptions?.ignore).toContain(
+      '**/manifest.json'
+    )
   })
 
   it('emits an error when public/ contains manifest.json', async () => {
     ;(FS.existsSync as any).mockImplementation(
-      (p: string) =>
-        p === '/project/public' || p === '/project/public/manifest.json'
+      (absPath: string) =>
+        absPath === '/project/public' ||
+        absPath === '/project/public/manifest.json'
     )
-    ;(FS.statSync as any).mockImplementation((p: string) => ({
-      isDirectory: () => p === '/project/public'
+    ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
+      isDirectory: () => true
     }))
 
     const compiler = createFakeCompiler('production')
@@ -112,11 +115,11 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     const originalTap = (compiler as any).hooks.thisCompilation.tap
     ;(compiler as any).hooks.thisCompilation.tap = (
       name: string,
-      cb: (c: any) => void
+      callback: (c: any) => void
     ) => {
       originalTap(name, (c: any) => {
         capturedErrors = c.errors
-        cb(c)
+        callback(c)
       })
     }
 

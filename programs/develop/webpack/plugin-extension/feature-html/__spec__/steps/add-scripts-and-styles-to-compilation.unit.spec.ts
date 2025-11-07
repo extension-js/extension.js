@@ -23,8 +23,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
     const compiler: any = {options: {mode: 'production', entry: {}}}
     new AddScriptsAndStylesToCompilation({
       manifestPath,
-      includeList: {'feature/index': htmlPath},
-      excludeList: {}
+      includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>
@@ -53,8 +52,7 @@ describe('AddScriptsAndStylesToCompilation', () => {
     const compiler: any = {options: {mode: 'development', entry: {}}}
     new AddScriptsAndStylesToCompilation({
       manifestPath,
-      includeList: {'feature/index': htmlPath},
-      excludeList: {}
+      includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
     expect(
       compiler.options.entry['feature/index'].import.some((p: string) =>

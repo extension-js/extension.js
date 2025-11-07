@@ -293,4 +293,42 @@ describe('JsonPlugin', () => {
     expect(Object.keys(assets)).toHaveLength(0)
     expect(harness.compilation.fileDependencies.size).toBe(0)
   })
+
+  it('warns (not errors) when a non-critical JSON file is missing', () => {
+    const missingPath = '/abs/path/missing.json'
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockReturnValue(false)
+
+    const plugin = new JsonPlugin({
+      manifestPath: 'manifest.json',
+      includeList: {['custom.feature']: missingPath}
+    } as any)
+    const harness = createCompilerHarness()
+    const {compilation, calls, assets} = harness.applyAndRun(plugin)
+
+    expect(calls.emit).toBe(0)
+    expect(Object.keys(assets)).toHaveLength(0)
+    expect(compilation.errors.length).toBe(0)
+    expect(compilation.warnings.length).toBe(1)
+    const warn: any = compilation.warnings[0]
+    expect(warn.name).toBe('JSONMissingFile')
+  })
+
+  it('errors when managed schema JSON has invalid syntax', () => {
+    const schemaPath = '/abs/path/managed_schema.json'
+    const mockedFs = fs as any
+    mockedFs.existsSync.mockImplementation((p: any) => p === schemaPath)
+    mockedFs.readFileSync.mockImplementation(() => Buffer.from('{ invalid'))
+
+    const plugin = new JsonPlugin({
+      manifestPath: 'manifest.json',
+      includeList: {['storage.managed_schema']: schemaPath}
+    } as any)
+    const harness = createCompilerHarness()
+    const {compilation, calls} = harness.applyAndRun(plugin)
+
+    expect(calls.emit).toBe(0)
+    expect(compilation.errors.length).toBe(1)
+    expect((compilation.errors[0] as any)?.name).toBe('JSONInvalidSyntax')
+  })
 })

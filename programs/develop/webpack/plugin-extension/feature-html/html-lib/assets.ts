@@ -5,7 +5,7 @@ import {WebpackError} from '@rspack/core'
 import * as messages from './messages'
 import {getFilePath, getHtmlPageDeclaredAssetPath} from './utils'
 import {type FilepathList} from '../../../webpack-types'
-import {shouldExclude, isFromFilepathList} from '../../../webpack-lib/paths'
+import {isFromFilepathList} from '../../../webpack-lib/paths'
 
 export function handleStaticAsset(
   compilation: any,
@@ -18,27 +18,14 @@ export function handleStaticAsset(
   hash: string | undefined,
   baseHref: string | undefined,
   includeList: FilepathList,
-  excludeList: FilepathList,
   extname: string,
   childNode: any
 ) {
-  const isExcludedPath = shouldExclude(
-    path.resolve(htmlDir, cleanPath),
-    excludeList
-  )
   const isFilepathListEntry = isFromFilepathList(absolutePath, includeList)
   const excludedFilePath =
     path.posix.join('/', cleanPath) + (search || '') + (hash || '')
 
   let node = childNode
-  if (isExcludedPath) {
-    node = parse5utilities.setAttribute(
-      node,
-      assetType === 'staticSrc' ? 'src' : 'href',
-      excludedFilePath
-    )
-    return node
-  }
 
   if (isFilepathListEntry) {
     const filepath = getHtmlPageDeclaredAssetPath(

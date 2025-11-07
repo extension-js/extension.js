@@ -1,11 +1,8 @@
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function backgroundServiceWorker(
-  manifest: Manifest,
-  _excludeList: FilepathList
-) {
+export function backgroundServiceWorker(manifest: Manifest) {
   return (
     manifest.background &&
     manifest.background.service_worker && {
@@ -18,7 +15,7 @@ export function backgroundServiceWorker(
             const target = isPublic
               ? normalizeManifestOutputPath(raw)
               : 'background/service_worker.js'
-            return getFilename(target, raw, {})
+            return getFilename(target, raw)
           })()
         })
       }
