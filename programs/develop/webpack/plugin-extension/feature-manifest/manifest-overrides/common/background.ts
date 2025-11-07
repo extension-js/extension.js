@@ -1,18 +1,22 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
+import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function backgroundPage(manifest: Manifest, excludeList: FilepathList) {
+export function backgroundPage(manifest: Manifest, _excludeList: FilepathList) {
   return (
     manifest.background &&
     manifest.background.page && {
       background: {
         ...manifest.background,
         ...(manifest.background.page && {
-          page: getFilename(
-            'background/index.html',
-            manifest.background.page as string,
-            excludeList
-          )
+          page: (() => {
+            const raw = String(manifest.background.page)
+            const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+            const target = isPublic
+              ? normalizeManifestOutputPath(raw)
+              : 'background/index.html'
+            return getFilename(target, raw, {})
+          })()
         })
       }
     }

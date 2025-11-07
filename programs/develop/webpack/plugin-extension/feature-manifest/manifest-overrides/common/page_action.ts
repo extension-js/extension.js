@@ -1,9 +1,9 @@
 import * as path from 'path'
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
+import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-const getBasename = (filepath: string) => path.basename(filepath)
-export function pageAction(manifest: Manifest, excludeList: FilepathList) {
+export function pageAction(manifest: Manifest, _excludeList: FilepathList) {
   return (
     manifest.page_action && {
       page_action: {
@@ -12,31 +12,30 @@ export function pageAction(manifest: Manifest, excludeList: FilepathList) {
           default_popup: getFilename(
             'action/index.html',
             manifest.page_action.default_popup as string,
-            excludeList
+            {}
           )
         }),
         ...(manifest.page_action.default_icon && {
           default_icon:
             typeof manifest.page_action.default_icon === 'string'
-              ? getFilename(
-                  `icons/${getBasename(
-                    manifest.page_action.default_icon as string
-                  )}`,
-                  manifest.page_action.default_icon as string,
-                  excludeList
-                )
+              ? (() => {
+                  const raw = String(manifest.page_action.default_icon)
+                  const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                  const target = isPublic
+                    ? normalizeManifestOutputPath(raw)
+                    : `icons/${path.basename(raw)}`
+                  return getFilename(target, raw, {})
+                })()
               : Object.fromEntries(
                   Object.entries(
                     manifest.page_action.default_icon as Record<string, string>
                   ).map(([size, icon]) => {
-                    return [
-                      size,
-                      getFilename(
-                        `icons/${getBasename(icon)}`,
-                        icon,
-                        excludeList
-                      )
-                    ]
+                    const raw = String(icon)
+                    const isPublic = /^(?:\/.+|(?:\.\/)?public\/)/i.test(raw)
+                    const target = isPublic
+                      ? normalizeManifestOutputPath(raw)
+                      : `icons/${path.basename(raw)}`
+                    return [size, getFilename(target, raw, {})]
                   })
                 )
         })

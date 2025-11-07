@@ -1,6 +1,26 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 
+function normalizeOutputPath(originalPath: string) {
+  if (!originalPath) return originalPath
+
+  const unix = originalPath.replace(/\\/g, '/')
+
+  if (/^\/public\//i.test(unix)) {
+    return unix.replace(/^\/public\//i, '')
+  }
+
+  if (/^(?:\.\/)?public\//i.test(unix)) {
+    return unix.replace(/^(?:\.\/)?public\//i, '')
+  }
+
+  if (/^\//.test(unix)) {
+    return unix.replace(/^\//, '')
+  }
+
+  return unix
+}
+
 export function webAccessibleResources(
   manifest: Manifest,
   excludeList: FilepathList
@@ -14,9 +34,7 @@ export function webAccessibleResources(
         typeof manifest.web_accessible_resources[0] === 'string'
           ? (manifest.web_accessible_resources as string[]).map(
               (resource: string) =>
-                // Preserve the intended output path; do not force a
-                // web_accessible_resources/ prefix
-                getFilename(resource, resource, excludeList)
+                getFilename(normalizeOutputPath(resource), resource, {})
             )
           : (
               manifest.web_accessible_resources as Array<{
@@ -28,9 +46,7 @@ export function webAccessibleResources(
             ).map((entry) => ({
               ...entry,
               resources: entry.resources.map((res) =>
-                // Preserve the intended output path; do not force a
-                // web_accessible_resources/ prefix
-                getFilename(res, res, excludeList)
+                getFilename(normalizeOutputPath(res), res, {})
               )
             }))
     }
