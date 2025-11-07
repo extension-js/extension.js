@@ -14,13 +14,13 @@ import {PortManager} from './port-manager'
 import {setupAutoExit} from './auto-exit'
 import webpackConfig from '../webpack-config'
 import {type ProjectStructure} from '../webpack-lib/project'
+import {isUsingJSFramework} from '../webpack-lib/integrations'
+import {scrubBrand} from '../webpack-lib/branding'
 import {
   loadBrowserConfig,
   loadCommandConfig,
   loadCustomWebpackConfig
 } from '../webpack-lib/config-loader'
-import {isUsingJSFramework} from '../webpack-lib/integrations'
-import {scrubBrand} from '../webpack-lib/branding'
 import {DevOptions} from '../types/options'
 
 function closeAll(devServer: RspackDevServer, portManager: PortManager) {
