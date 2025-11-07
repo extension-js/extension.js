@@ -110,8 +110,15 @@ export function browserNotInstalledError(
   return (
     `${getLoggingPrefix('error')} ${isUnreachable}` +
     `Either install the missing browser or choose a different one via ` +
-    `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.\n` +
+    `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.\n\n` +
     `${colors.red('NOT FOUND')} ${colors.underline(browserBinaryLocation || capitalizedBrowserName(browser) + 'BROWSER')}`
+  )
+}
+
+export function installDifferentBrowserHint() {
+  return (
+    `Either install the missing browser or choose a different one via ` +
+    `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.`
   )
 }
 
