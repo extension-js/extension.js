@@ -1,5 +1,5 @@
 import {type Manifest} from '../../../../webpack-types'
-import {getFilename} from '../../../../webpack-lib/paths'
+import {getFilename} from '../../manifest-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
 // A DevTools extension adds functionality to the Chrome DevTools.

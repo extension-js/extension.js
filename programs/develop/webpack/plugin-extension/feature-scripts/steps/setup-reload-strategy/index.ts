@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import WebExtension from 'webpack-target-webextension'
-import {filterKeysForThisBrowser} from '../../../../webpack-lib/manifest'
+import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import {AddContentScriptWrapper} from './add-content-script-wrapper'

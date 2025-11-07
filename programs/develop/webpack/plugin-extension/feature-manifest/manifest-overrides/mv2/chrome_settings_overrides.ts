@@ -1,5 +1,5 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
-import {getFilename} from '../../../../webpack-lib/paths'
+import {getFilename} from '../../manifest-lib/paths'
 
 export function chromeSettingsOverrides(manifest: Manifest) {
   return (

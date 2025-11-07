@@ -1,5 +1,5 @@
 import * as path from 'path'
-import {type FilepathList} from '../webpack-types'
+import {type FilepathList} from '../../../webpack-types'
 
 export function isFromFilepathList(
   filePath: string,
