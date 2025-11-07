@@ -12,13 +12,17 @@ export function mountWithHMR(mount: MountFn) {
   const apply = () => {
     try {
       cleanup = mount()
-    } catch {}
+    } catch (error) {
+      console.error('[extension.js] Error applying mount', error)
+    }
   }
 
   const unmount = () => {
     try {
       typeof cleanup === 'function' && cleanup()
-    } catch {}
+    } catch (error) {
+      console.error('[extension.js] Error unmounting', error)
+    }
   }
 
   const remount = () => {
@@ -39,11 +43,16 @@ export function mountWithHMR(mount: MountFn) {
   }
 
   // JS HMR lifecycle
-  if (import.meta && (import.meta as any).webpackHot) {
+  // @ts-expect-error - webpackHot is not typed
+  if (import.meta.webpackHot) {
     try {
-      ;(import.meta as any).webpackHot.accept()
-      ;(import.meta as any).webpackHot.dispose(unmount)
-    } catch {}
+      // @ts-expect-error - webpackHot is not typed
+      import.meta.webpackHot.accept()
+      // @ts-expect-error - webpackHot is not typed
+      import.meta.webpackHot.dispose(unmount)
+    } catch (error) {
+      console.error('[extension.js] Error accepting HMR', error)
+    }
   }
 
   // CSS HMR signal (injected by loader when CSS imports exist)
