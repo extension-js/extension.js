@@ -1,9 +1,9 @@
 import * as path from 'path'
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function sidebarAction(manifest: Manifest, _excludeList: FilepathList) {
+export function sidebarAction(manifest: Manifest) {
   return (
     manifest.sidebar_action && {
       sidebar_action: {
@@ -11,8 +11,7 @@ export function sidebarAction(manifest: Manifest, _excludeList: FilepathList) {
         ...(manifest.sidebar_action.default_panel && {
           default_panel: getFilename(
             `sidebar/index.html`,
-            manifest.sidebar_action.default_panel as string,
-            {}
+            manifest.sidebar_action.default_panel as string
           )
         }),
 
@@ -25,7 +24,7 @@ export function sidebarAction(manifest: Manifest, _excludeList: FilepathList) {
                   const target = isPublic
                     ? normalizeManifestOutputPath(raw)
                     : `icons/${path.basename(raw)}`
-                  return getFilename(target, raw, {})
+                  return getFilename(target, raw)
                 })()
               : Object.fromEntries(
                   Object.entries(
@@ -39,7 +38,7 @@ export function sidebarAction(manifest: Manifest, _excludeList: FilepathList) {
                     const target = isPublic
                       ? normalizeManifestOutputPath(raw)
                       : `icons/${path.basename(raw)}`
-                    return [size, getFilename(target, raw, {})]
+                    return [size, getFilename(target, raw)]
                   })
                 )
         })

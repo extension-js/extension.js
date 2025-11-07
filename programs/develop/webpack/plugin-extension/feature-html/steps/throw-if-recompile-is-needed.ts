@@ -7,7 +7,6 @@ import * as messages from '../html-lib/messages'
 export class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
   public readonly browser?: string
 
   private initialHtmlAssets: Record<string, {js: string[]; css: string[]}> = {}
@@ -15,7 +14,6 @@ export class ThrowIfRecompileIsNeeded {
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = {}
     this.browser = options.browser
   }
 

@@ -38,7 +38,6 @@ export default {
   plugins: [
     new LocalesPlugin({
       manifestPath: require('path').resolve(__dirname, 'manifest.json')
-      // includeList, excludeList optional
     })
   ]
 }
@@ -50,19 +49,14 @@ export default {
 export class LocalesPlugin {
   readonly manifestPath: string
   readonly includeList?: string[]
-  readonly excludeList?: string[]
 
-  constructor(options: {
-    manifestPath: string
-    includeList?: string[]
-    excludeList?: string[]
-  })
+  constructor(options: {manifestPath: string; includeList?: string[]})
   apply(compiler: unknown): void
 }
 ```
 
 - **manifestPath**: Absolute path to your `manifest.json`.
-- **includeList/excludeList**: Optional file path lists to include/exclude. Non-`.json` files are skipped automatically.
+- **includeList**: Optional file path list to include. Non-`.json` files are skipped automatically.
 
 ## License
 

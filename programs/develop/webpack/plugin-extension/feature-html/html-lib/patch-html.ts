@@ -18,8 +18,7 @@ export function patchHtml(
   compilation: Compilation,
   feature: string,
   htmlEntry: string,
-  includeList: FilepathList,
-  excludeList: FilepathList
+  includeList: FilepathList
 ): string {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
@@ -47,11 +46,7 @@ export function patchHtml(
           const {cleanPath, hash, search} = cleanAssetUrl(filePath)
           const absolutePath = path.resolve(htmlDir, cleanPath)
           const extname = getExtname(absolutePath)
-          // public/ and script/ paths are excluded from the compilation.
-          const isExcludedPath = shouldExclude(
-            path.resolve(htmlDir, filePath),
-            excludeList
-          )
+          // public-root absolute paths are preserved; others become bundled entries
 
           const excludedFilePath =
             path.posix.join('/', cleanPath) + (search || '') + (hash || '')
@@ -66,13 +61,7 @@ export function patchHtml(
             // from the HTML file and set the JS bundle index since we compile
             // all JS files into a single bundle.
             case 'script': {
-              if (isExcludedPath) {
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  'src',
-                  excludedFilePath
-                )
-              } else if (cleanPath.startsWith('/')) {
+              if (cleanPath.startsWith('/')) {
                 // Public-root absolute scripts are preserved as-is
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
@@ -91,13 +80,7 @@ export function patchHtml(
               break
             } // For CSS types, we have the same cases of script types.
             case 'css': {
-              if (isExcludedPath) {
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  'href',
-                  excludedFilePath
-                )
-              } else if (cleanPath.startsWith('/')) {
+              if (cleanPath.startsWith('/')) {
                 // Public-root absolute styles are preserved as-is
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
@@ -137,7 +120,6 @@ export function patchHtml(
                 hash,
                 baseHref,
                 includeList,
-                excludeList,
                 extname,
                 thisChildNode
               )
@@ -181,8 +163,7 @@ export function patchHtml(
  */
 export function patchHtmlNested(
   compilation: Compilation,
-  htmlEntry: string,
-  excludeList: FilepathList
+  htmlEntry: string
 ): string {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
@@ -199,10 +180,7 @@ export function patchHtmlNested(
           const htmlDir = path.dirname(htmlEntry)
           const {cleanPath, hash, search} = cleanAssetUrl(filePath)
           const absolutePath = path.resolve(htmlDir, cleanPath)
-          const isExcludedPath = shouldExclude(
-            path.resolve(htmlDir, filePath),
-            excludeList
-          )
+          // public-root absolute paths are preserved; others are emitted or linked
 
           let thisChildNode: any = childNode
 
@@ -242,18 +220,6 @@ export function patchHtmlNested(
                   'src',
                   cleanPath + (search || '') + (hash || '')
                 )
-              } else if (isExcludedPath) {
-                // Resolve to an absolute path for excluded paths
-                const excludedFilePath =
-                  path.posix.join('/', cleanPath) +
-                  (search || '') +
-                  (hash || '')
-
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  'src',
-                  excludedFilePath
-                )
               }
 
               break
@@ -292,32 +258,12 @@ export function patchHtmlNested(
                   'href',
                   cleanPath + (search || '') + (hash || '')
                 )
-              } else if (isExcludedPath) {
-                const excludedFilePath =
-                  path.posix.join('/', cleanPath) +
-                  (search || '') +
-                  (hash || '')
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  'href',
-                  excludedFilePath
-                )
               }
               break
             }
             case 'staticHref':
             case 'staticSrc': {
-              if (isExcludedPath) {
-                const excludedFilePath =
-                  path.posix.join('/', cleanPath) +
-                  (search || '') +
-                  (hash || '')
-                thisChildNode = parse5utilities.setAttribute(
-                  thisChildNode,
-                  assetType === 'staticSrc' ? 'src' : 'href',
-                  excludedFilePath
-                )
-              } else if (cleanPath.startsWith('/')) {
+              if (cleanPath.startsWith('/')) {
                 const projectDir = path.dirname(path.dirname(htmlEntry))
                 const publicCandidate = path.join(
                   projectDir,

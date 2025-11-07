@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compilation, sources, WebpackError} from '@rspack/core'
-import {unixify, shouldExclude} from '../../../webpack-lib/paths'
+import {unixify} from '../../../webpack-lib/paths'
 import * as warMessages from './messages'
 
 function isPublicRootLike(possiblePath: string) {
@@ -106,7 +106,6 @@ export function resolveUserDeclaredWAR(
   compilation: Compilation,
   manifestPath: string,
   manifest: unknown,
-  excludeList?: Record<string, string | string[]>,
   browser?: string
 ) {
   const v2 = new Set<string>()
@@ -155,14 +154,6 @@ export function resolveUserDeclaredWAR(
           manifestDir,
           isPublicRootLike(res) ? toPublicOutput(res) : res
         )
-
-    if (
-      shouldExclude(absForExclude, excludeList) ||
-      shouldExclude(res, excludeList)
-    ) {
-      pushResource(matches, res)
-      return
-    }
 
     if (/[*?\[\]{}]/.test(res)) {
       pushResource(matches, res)

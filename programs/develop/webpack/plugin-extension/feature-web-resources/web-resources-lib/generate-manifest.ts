@@ -7,7 +7,6 @@ import type {Manifest} from '../../../webpack-types'
 export function generateManifestPatches(
   compilation: Compilation,
   manifestPath: string,
-  excludeList: Record<string, string | string[]> | undefined,
   entryImports: Record<string, string[]>,
   browser?: string
 ) {
@@ -17,7 +16,6 @@ export function generateManifestPatches(
     compilation,
     manifestPath,
     manifest,
-    excludeList,
     browser
   )
 

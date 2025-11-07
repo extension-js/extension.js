@@ -1,8 +1,8 @@
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function optionsUi(manifest: Manifest, _excludeList: FilepathList) {
+export function optionsUi(manifest: Manifest) {
   return (
     manifest.options_ui && {
       options_ui: {
@@ -14,7 +14,7 @@ export function optionsUi(manifest: Manifest, _excludeList: FilepathList) {
             const target = isPublic
               ? normalizeManifestOutputPath(raw)
               : 'options/index.html'
-            return getFilename(target, raw, {})
+            return getFilename(target, raw)
           })()
         })
       }

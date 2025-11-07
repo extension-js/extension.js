@@ -1,37 +1,33 @@
-import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
+import {describe, it, beforeEach, expect, vi} from 'vitest'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
+import * as messages from '../messages'
 
-// Mock messages to avoid depending on exact string formatting
-vi.mock('../../webpack-lib/messages', () => {
-  return {
-    serverRestartRequiredFromSpecialFolderError: vi.fn(
-      (
-        addingOrRemoving: string,
-        folder: string,
-        typeOfAsset: string,
-        pathRelative: string
-      ) => `[${addingOrRemoving}] ${folder} ${typeOfAsset} ${pathRelative}`
-    )
-  }
-})
+// Mock messages to avoid relying on terminal color formatting
+vi.mock('../messages', () => ({
+  serverRestartRequiredFromSpecialFolderMessageOnly: vi.fn(
+    (addingOrRemoving: string, folder: string, typeOfAsset: string) =>
+      `[${addingOrRemoving}] ${folder} ${typeOfAsset}`
+  )
+}))
 
-type Handler = (path: string) => void
+type WatchEvent = 'add' | 'unlink' | 'change'
+type WatchHandler = (filePath: string) => void
 
 class FakeWatcher {
-  private readonly handlers: Record<string, Handler[]> = {}
+  private readonly handlers: Record<WatchEvent, WatchHandler[]> = {
+    add: [],
+    unlink: [],
+    change: []
+  }
+  public readonly close = vi.fn(async () => Promise.resolve())
 
-  on(event: 'add' | 'unlink' | 'change', cb: Handler) {
-    if (!this.handlers[event]) this.handlers[event] = []
-    this.handlers[event].push(cb)
+  on(event: WatchEvent, callback: WatchHandler) {
+    this.handlers[event]?.push(callback)
     return this
   }
 
-  emit(event: 'add' | 'unlink' | 'change', filePath: string) {
-    for (const cb of this.handlers[event] || []) cb(filePath)
-  }
-
-  async close() {
-    return Promise.resolve()
+  emit(event: WatchEvent, filePath: string) {
+    for (const callback of this.handlers[event] || []) callback(filePath)
   }
 }
 
@@ -39,22 +35,26 @@ class FakeWatcher {
 const createdWatchers: FakeWatcher[] = []
 vi.mock('chokidar', () => {
   return {
-    watch: vi.fn((_p: string) => {
-      const w = new FakeWatcher()
-      createdWatchers.push(w)
-      return w
+    watch: vi.fn((_absPath: string) => {
+      const watcherInstance = new FakeWatcher()
+      createdWatchers.push(watcherInstance)
+      return watcherInstance
     })
   }
 })
 
 // Minimal Compiler hook surface
 const createFakeCompiler = () => {
+  const watchCloseCallbacks: Array<() => void> = []
   const hooks: any = {
     thisCompilation: {
-      tap: (_name: string, fn: (c: any) => void) => fn(compilation)
+      tap: (_name: string, callback: (c: any) => void) => callback(compilation)
     },
     watchClose: {
-      tap: (_name: string, fn: () => void) => fn()
+      tap: (_name: string, callback: () => void) => {
+        watchCloseCallbacks.push(callback)
+      },
+      __invokeAll: () => watchCloseCallbacks.forEach((cb) => cb())
     }
   }
 
@@ -62,63 +62,86 @@ const createFakeCompiler = () => {
     options: {
       mode: 'development',
       watchOptions: {},
-      resolve: {
-        extensions: ['.js', '.ts']
-      }
+      resolve: {extensions: ['.js', '.ts']}
     },
     hooks
   }
-
   return compiler
 }
 
 // Provide a shared compilation-like sink to capture warnings/errors
-let compilation: any
+let compilation: {warnings: any[]; errors: any[]}
+
+beforeEach(() => {
+  createdWatchers.length = 0
+  compilation = {warnings: [], errors: []}
+  vi.clearAllMocks()
+})
 
 describe('WarnUponFolderChanges', () => {
-  let warningsPush: ReturnType<typeof vi.fn>
-  let errorsPush: ReturnType<typeof vi.fn>
-
-  beforeEach(() => {
-    createdWatchers.length = 0
-    warningsPush = vi.fn()
-    errorsPush = vi.fn()
-    compilation = {warnings: {push: warningsPush}, errors: {push: errorsPush}}
-  })
-
-  afterEach(() => {
-    // no-op
-  })
-
-  it('warns when adding HTML under pages and errors/exits when removing it', async () => {
+  it('warns on adding pages/*.html and errors on removing', () => {
     const compiler = createFakeCompiler()
-    const plugin = new WarnUponFolderChanges('/tmp/project/manifest.json')
-    plugin.apply(compiler)
+    new WarnUponFolderChanges().apply(compiler as any)
 
     // Expect two watchers: pages and scripts
     expect(createdWatchers.length).toBe(2)
     const pagesWatcher = createdWatchers[0]
 
-    pagesWatcher.emit('add', '/tmp/project/pages/foo.html')
-    expect(warningsPush).toHaveBeenCalledTimes(1)
+    pagesWatcher.emit('add', '/project/pages/foo.html')
+    expect(compilation.warnings.length).toBe(1)
+    expect(
+      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
+    ).toHaveBeenCalledWith('Adding', 'pages', 'HTML pages')
 
-    pagesWatcher.emit('unlink', '/tmp/project/pages/foo.html')
-    expect(errorsPush).toHaveBeenCalledTimes(1)
+    pagesWatcher.emit('unlink', '/project/pages/foo.html')
+    expect(compilation.errors.length).toBe(1)
+    expect(
+      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
+    ).toHaveBeenCalledWith('Removing', 'pages', 'HTML pages')
   })
 
-  it('warns when adding supported script under scripts and errors/exits when removing it', async () => {
+  it('warns on adding supported scripts and errors on removing; ignores unsupported extensions', () => {
     const compiler = createFakeCompiler()
-    const plugin = new WarnUponFolderChanges('/tmp/project/manifest.json')
-    plugin.apply(compiler)
+    new WarnUponFolderChanges().apply(compiler as any)
 
-    // scripts watcher is the second created watcher
-    expect(createdWatchers.length).toBe(2)
     const scriptsWatcher = createdWatchers[1]
 
-    scriptsWatcher.emit('add', '/tmp/project/scripts/content.js')
-    expect(warningsPush).toHaveBeenCalled()
+    scriptsWatcher.emit('add', '/project/scripts/content.ts')
+    expect(compilation.warnings.length).toBe(1)
+    expect(
+      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
+    ).toHaveBeenCalledWith('Adding', 'scripts', 'script files')
 
-    scriptsWatcher.emit('unlink', '/tmp/project/scripts/content.js')
-    expect(errorsPush).toHaveBeenCalled()
+    // Unsupported extension should not trigger any new warning
+    scriptsWatcher.emit('add', '/project/scripts/note.md')
+    expect(compilation.warnings.length).toBe(1)
+
+    scriptsWatcher.emit('unlink', '/project/scripts/content.ts')
+    expect(compilation.errors.length).toBe(1)
+    expect(
+      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
+    ).toHaveBeenCalledWith('Removing', 'scripts', 'script files')
+  })
+
+  it('ignores non-HTML additions/removals in pages/', () => {
+    const compiler = createFakeCompiler()
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    const pagesWatcher = createdWatchers[0]
+    pagesWatcher.emit('add', '/project/pages/readme.txt')
+    pagesWatcher.emit('unlink', '/project/pages/readme.txt')
+
+    expect(compilation.warnings.length).toBe(0)
+    expect(compilation.errors.length).toBe(0)
+  })
+
+  it('closes watchers on watchClose', () => {
+    const compiler = createFakeCompiler()
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    expect(createdWatchers.length).toBe(2)
+    ;(compiler.hooks.watchClose as any).__invokeAll()
+    expect(createdWatchers[0].close).toHaveBeenCalled()
+    expect(createdWatchers[1].close).toHaveBeenCalled()
   })
 })

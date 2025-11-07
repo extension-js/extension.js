@@ -49,8 +49,7 @@ describe('ManifestPlugin', () => {
     const plugin = new ManifestPlugin({
       manifestPath: '/abs/path/manifest.json',
       browser: 'firefox',
-      includeList: {icons: 'icons/icon.png'},
-      excludeList: {public: '/public/' as any}
+      includeList: {icons: 'icons/icon.png'}
     } as any)
 
     plugin.apply(compiler as any)
