@@ -6,17 +6,37 @@ export function warFieldError(
 ) {
   const displayPath = opts?.overrideNotFoundPath || filePath
   const lines: string[] = []
+  // Context header
+  lines.push(`${colors.yellow('web_accessible_resources')}: file not found`)
+
+  // What WAR is for and what it is not
   lines.push(
-    `Check the ${colors.yellow('web_accessible_resources')} field in your ${colors.yellow('manifest.json')} file.`
+    `Only list assets your pages fetch with ${colors.yellow('chrome.runtime.getURL()')}. Imports from content scripts are bundled automatically and do not need to be listed here.`
   )
-  lines.push(
-    `List only files pages must fetch via ${colors.yellow('chrome.runtime.getURL()')}; content script imports are auto-added. For standalone files, point to an existing source file so the build can emit it. See ${colors.underline('https://extension.js.org/docs/development/web-accessible-resources')}`
-  )
+
+  // Authoring guidance based on path style
   if (opts?.publicRootHint) {
     lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from ${colors.yellow('public/')}), not your source directory.`
+      `To reference files in ${colors.yellow('public/')}, use a leading '/' (e.g. ${colors.yellow('/open-panel.gif')}). These resolve from the built extension root.`
+    )
+    lines.push(
+      `Fix: Add the file to ${colors.yellow('public/')} or update the path to the correct '/...' location.`
+    )
+  } else {
+    lines.push(
+      `Relative paths must point to a real source file so the build can emit it.`
+    )
+    lines.push(
+      `Fix: Create the missing file or update the path to an existing source file.`
     )
   }
+
+  // Learn more
+  lines.push(
+    `Learn more: ${colors.underline('https://extension.js.org/docs/development/web-accessible-resources')}`
+  )
+
+  // Final missing path
   lines.push('')
   lines.push(`${colors.red('NOT FOUND')} ${colors.underline(displayPath)}`)
   return lines.join('\n')
