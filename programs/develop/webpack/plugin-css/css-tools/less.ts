@@ -26,8 +26,12 @@ export function isUsingLess(projectPath: string): boolean {
 
 type Loader = Record<string, any>
 
-export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
-  const manifestPath = path.join(projectPath, 'manifest.json')
+export async function maybeUseLess(
+  projectPath: string,
+  manifestPath: string
+): Promise<Loader[]> {
+  const resolvedManifestPath =
+    manifestPath || path.join(projectPath, 'manifest.json')
 
   if (!isUsingLess(projectPath)) return []
 
@@ -74,7 +78,8 @@ export async function maybeUseLess(projectPath: string): Promise<Loader[]> {
       test: /\.less$/,
       exclude: /\.module\.less$/,
       type: 'asset/resource',
-      issuer: (issuer: string) => isContentScriptEntry(issuer, manifestPath)
+      issuer: (issuer: string) =>
+        isContentScriptEntry(issuer, resolvedManifestPath)
     }
   ]
 }
