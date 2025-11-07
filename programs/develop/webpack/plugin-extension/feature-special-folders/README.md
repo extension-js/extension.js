@@ -41,10 +41,10 @@ export default {
 }
 ```
 
-## Include/Exclude semantics
+## Include semantics
 
-- This plugin does not accept `includeList`/`excludeList`. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root.
-- For include/exclude of specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) which support `includeList`/`excludeList`.
+- This plugin does not accept include/exclude lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root.
+- For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
 
 ## Path resolution convention (consistent across @plugin-extension)
 

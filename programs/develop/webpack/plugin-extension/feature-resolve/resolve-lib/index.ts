@@ -98,11 +98,11 @@ export function resolveLiteralToOutput(
   const pathWithoutDotPrefix = canonicalUnixPath.replace(/^\.\//, '')
 
   if (/^pages\//i.test(pathWithoutDotPrefix)) {
-    return unixify(getFilename(pathWithoutDotPrefix, candidateAbsolutePath, {}))
+    return unixify(getFilename(pathWithoutDotPrefix, candidateAbsolutePath))
   }
 
   if (/^scripts\//i.test(pathWithoutDotPrefix)) {
-    return unixify(getFilename(pathWithoutDotPrefix, candidateAbsolutePath, {}))
+    return unixify(getFilename(pathWithoutDotPrefix, candidateAbsolutePath))
   }
 
   return undefined

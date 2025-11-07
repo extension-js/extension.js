@@ -43,8 +43,7 @@ describe('AddToFileDependencies step', () => {
       manifestPath: '/abs/project/manifest.json',
       includeList: {
         icons: ['/abs/assets/a.png', '/abs/assets/b.png']
-      },
-      excludeList: {}
+      }
     } as any)
 
     step.apply(compiler as any)
@@ -62,7 +61,7 @@ describe('AddToFileDependencies step', () => {
     ])
   })
 
-  it('skips excluded or non-existing files', async () => {
+  it('skips non-existing files', async () => {
     const {AddToFileDependencies} = await import(
       '../steps/add-to-file-dependencies'
     )
@@ -76,8 +75,7 @@ describe('AddToFileDependencies step', () => {
       manifestPath: '/abs/project/manifest.json',
       includeList: {
         icons: ['/abs/assets/skip.png', '/abs/assets/keep.png']
-      },
-      excludeList: {icons: ['/abs/assets/skip.png']}
+      }
     } as any)
 
     step.apply(compiler as any)

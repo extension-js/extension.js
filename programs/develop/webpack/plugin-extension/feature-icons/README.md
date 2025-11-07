@@ -12,7 +12,7 @@
 
 Handles icon assets referenced in an extension manifest and emits them into the final build output. It also adds those files to the compilation file-dependency graph so changes are picked up in subsequent builds. If an icon is missing, we fail fast at compile time to prevent the browser from crashing or refusing to load the extension. This module is part of the [Extension.js](https://extension.js.org) project.
 
-Emits files referenced by icon-related manifest fields into the appropriate output folders. When used inside Extension.js, the orchestrator computes `includeList`/`excludeList` for you; when used standalone, you can pass them manually.
+Emits files referenced by icon-related manifest fields into the appropriate output folders. When used inside Extension.js, the orchestrator computes `includeList` for you; when used standalone, you can pass it manually.
 
 Output mapping:
 
@@ -84,10 +84,6 @@ export default {
         'sidebar_action/default_icon': [
           path.resolve(__dirname, 'icons/extension_16.png')
         ]
-      },
-      // Prevent emitting specific files (exact path or subpath match)
-      excludeList: {
-        icons: [path.resolve(__dirname, 'icons/skip.png')]
       }
     })
   ]
@@ -105,11 +101,10 @@ export default {
 | `page_action.default_icon`    | Default icons for MV2 `page_action`.                  |
 | `sidebar_action.default_icon` | Default icons for MV2/Firefox `sidebar_action`.       |
 
-## Include/Exclude semantics
+## Include semantics
 
 - `includeList`: a map of feature keys to absolute file paths (string or string[]).
-- `excludeList`: a map of feature keys to absolute file paths you want to skip emitting. If a file path in `includeList` matches (or is contained within) a value in `excludeList`, it will not be emitted. This is commonly used to avoid duplicating assets already handled via special folders (e.g., `public/`).
-- Excluded files are not emitted or added to the compilation dependency graph. Static assets under `public/` are handled by the Special Folders feature, which copies and watches them independently.
+- Static assets under `public/` are handled by the Special Folders feature, which copies and watches them independently.
 
 ## Path resolution rules
 
@@ -141,7 +136,6 @@ export class IconsPlugin {
   constructor(options: {
     manifestPath: string
     includeList?: FilepathList | Record<string, unknown>
-    excludeList?: FilepathList | Record<string, unknown>
   })
 
   apply(compiler: import('@rspack/core').Compiler): void

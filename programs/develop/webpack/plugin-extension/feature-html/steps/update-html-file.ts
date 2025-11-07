@@ -8,13 +8,11 @@ import {patchHtml} from '../html-lib/patch-html'
 export class UpdateHtmlFile {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly excludeList?: FilepathList
   public readonly browser?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.excludeList = {}
     this.browser = options.browser
   }
 
@@ -51,7 +49,7 @@ export class UpdateHtmlFile {
               feature,
               resolved,
               (this.includeList || {}) as FilepathList,
-              (this.excludeList || {}) as FilepathList
+              {}
             )
 
             if (updated && typeof updated === 'string') {

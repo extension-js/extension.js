@@ -229,4 +229,73 @@ describe('LocalesPlugin (unit)', () => {
     if (fs.existsSync(cleanRoot))
       fs.rmSync(cleanRoot, {recursive: true, force: true})
   })
+
+  it('errors when default_locale is specified but _locales subtree is missing', () => {
+    if (fs.existsSync(localesRoot))
+      fs.rmSync(localesRoot, {recursive: true, force: true})
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('LocalesValidationError')
+    expect(String(err.message)).toContain(
+      'Default locale was specified, but _locales subtree is missing.'
+    )
+  })
+
+  it('errors when default locale folder is missing', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"fr"}'
+    )
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('LocalesValidationError')
+    expect(String(err.message)).toContain(
+      'Default locale folder is missing: _locales/fr'
+    )
+  })
+
+  it('errors when default locale messages.json is missing', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+    const defaultMessages = path.join(enDir, 'messages.json')
+    if (fs.existsSync(defaultMessages)) fs.rmSync(defaultMessages)
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('LocalesValidationError')
+    expect(String(err.message)).toContain(
+      'Default locale messages.json is missing: _locales/en/messages.json'
+    )
+  })
+
+  it('errors when default locale messages.json has invalid JSON', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+    fs.writeFileSync(path.join(enDir, 'messages.json'), '{ invalid')
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('LocalesValidationError')
+    expect(String(err.message)).toContain(
+      'Invalid JSON in locale messages file'
+    )
+  })
 })

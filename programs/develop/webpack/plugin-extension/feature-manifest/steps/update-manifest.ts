@@ -17,9 +17,7 @@ export class UpdateManifest {
     return overrides.content_scripts.map(
       (contentObj: {js: string[]; css: string[]}, index: number) => {
         if (contentObj.css.length && !contentObj.js.length) {
-          contentObj.js = [
-            getFilename(`content_scripts-${index}`, 'dev.js', {})
-          ]
+          contentObj.js = [getFilename(`content_scripts-${index}`, 'dev.js')]
         }
 
         return contentObj

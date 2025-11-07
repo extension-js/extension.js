@@ -19,8 +19,7 @@ describe('CheckManifestFiles', () => {
       manifestPath: '/abs/manifest.json',
       includeList: {
         icons: ['exists.png', 'missing.png']
-      },
-      excludeList: {}
+      }
     } as any)
 
     const compilation: any = {
@@ -51,8 +50,7 @@ describe('CheckManifestFiles', () => {
       manifestPath: '/abs/manifest.json',
       includeList: {
         icons: ['/missing.png']
-      },
-      excludeList: {}
+      }
     } as any)
 
     const compilation: any = {

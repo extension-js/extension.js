@@ -21,10 +21,7 @@ function normalizeOutputPath(originalPath: string) {
   return unix
 }
 
-export function webAccessibleResources(
-  manifest: Manifest,
-  excludeList: FilepathList
-) {
+export function webAccessibleResources(manifest: Manifest) {
   return (
     manifest.web_accessible_resources &&
     manifest.web_accessible_resources.length && {
@@ -34,7 +31,7 @@ export function webAccessibleResources(
         typeof manifest.web_accessible_resources[0] === 'string'
           ? (manifest.web_accessible_resources as string[]).map(
               (resource: string) =>
-                getFilename(normalizeOutputPath(resource), resource, {})
+                getFilename(normalizeOutputPath(resource), resource)
             )
           : (
               manifest.web_accessible_resources as Array<{
@@ -46,7 +43,7 @@ export function webAccessibleResources(
             ).map((entry) => ({
               ...entry,
               resources: entry.resources.map((res) =>
-                getFilename(normalizeOutputPath(res), res, {})
+                getFilename(normalizeOutputPath(res), res)
               )
             }))
     }

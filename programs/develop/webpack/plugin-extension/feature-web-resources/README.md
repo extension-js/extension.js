@@ -54,10 +54,9 @@ export default {
 }
 ```
 
-## Include/Exclude semantics
+## Include semantics
 
 - **includeList**: a map of feature keys to absolute file paths (string or string[]). For this plugin, keys typically reference content script entries (e.g., `content_scripts:content/scripts`). It determines which entries are scanned for imported assets.
-- **excludeList**: respected when the user declares `web_accessible_resources` directly in `manifest.json`. When a declared resource matches the exclude list, it is preserved as-is (no validation, no path rewrite, no emission), allowing intentional bypass.
 
 ## Output path mapping (summary)
 

@@ -274,6 +274,33 @@ describe('generateManifestPatches', () => {
   })
 
   describe('user-declared web_accessible_resources resolution', () => {
+    it('errors for invalid mv3 matches pattern (chrome only)', () => {
+      const plugin = new WebResourcesPlugin({manifestPath})
+      const manifest = {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['https://example.com/path'], resources: ['/*.json']}
+        ]
+      }
+
+      const manifestSource = {source: () => JSON.stringify(manifest)}
+      const compilation: any = {
+        getAsset: () => ({name: 'manifest.json', source: manifestSource}),
+        assets: {'manifest.json': manifestSource},
+        updateAsset: vi.fn(),
+        emitAsset: vi.fn(),
+        fileDependencies: new Set(),
+        options: {mode: 'development'},
+        errors: [] as any[]
+      }
+
+      plugin['generateManifestPatches'](compilation as Compilation, {})
+
+      expect(compilation.errors.length).toBe(1)
+      const err: any = compilation.errors[0]
+      expect(err.name).toBe('WARInvalidMatchPattern')
+      expect(err.file).toBe('manifest.json')
+    })
     it('resolves relative file to emitted asset (mv3)', () => {
       const rel = 'images/logo.png'
       const abs = path.join(tmpRoot, rel)
@@ -504,6 +531,32 @@ describe('generateManifestPatches', () => {
         resources: string[]
       }[]
       expect(war[0].resources).toEqual([rel])
+    })
+
+    it('adds emitted relative files to fileDependencies', () => {
+      const pluginLocal = new WebResourcesPlugin({manifestPath})
+      const rel = 'images/logo.png'
+      const abs = path.join(tmpRoot, rel)
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, 'x')
+
+      const manifest = {
+        manifest_version: 3,
+        web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
+      }
+      const manifestSource = {source: () => JSON.stringify(manifest)}
+      const compilation: any = {
+        getAsset: () => ({name: 'manifest.json', source: manifestSource}),
+        assets: {'manifest.json': manifestSource},
+        updateAsset: vi.fn(),
+        emitAsset: vi.fn(),
+        fileDependencies: new Set<string>(),
+        options: {mode: 'development'}
+      }
+
+      pluginLocal['generateManifestPatches'](compilation as Compilation, {})
+
+      expect(Array.from(compilation.fileDependencies)).toContain(abs)
     })
   })
 

@@ -1,14 +1,12 @@
 import {describe, it, expect, vi} from 'vitest'
 
 let mockScripts: Record<string, string | string[]> = {}
-vi.mock('node:module', () => ({
-  createRequire: () => (_: any) => ({
-    getManifestFieldsData: (_opts: any) => ({
-      scripts: mockScripts,
-      html: {},
-      icons: {},
-      json: {}
-    })
+vi.mock('browser-extension-manifest-fields', () => ({
+  getManifestFieldsData: (_opts: any) => ({
+    scripts: mockScripts,
+    html: {},
+    icons: {},
+    json: {}
   })
 }))
 
@@ -65,5 +63,22 @@ describe('ThrowIfManifestScriptsChange', () => {
     expect(String(errors[0].message || errors[0])).toContain(
       'Entrypoint references changed'
     )
+  })
+
+  it('does not emit error when entries do not change', async () => {
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    mockScripts = {'background/scripts': ['/same.js']}
+    const plugin = new ThrowIfManifestScriptsChange({
+      manifestPath: '/root/manifest.json',
+      browser: 'chrome'
+    } as any)
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+    // same list again
+    mockScripts = {'background/scripts': ['/same.js']}
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+    expect(errors.length).toBe(0)
   })
 })

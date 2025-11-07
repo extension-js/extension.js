@@ -36,8 +36,7 @@ describe('HtmlPlugin', () => {
     const compiler = makeCompiler('development')
     new HtmlPlugin({
       manifestPath,
-      includeList: {},
-      excludeList: {}
+      includeList: {}
     } as any).apply(compiler as any)
     expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(1)
   })

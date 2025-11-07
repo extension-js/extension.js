@@ -1,10 +1,7 @@
 import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 
-export function chromeSettingsOverrides(
-  manifest: Manifest,
-  excludeList: FilepathList
-) {
+export function chromeSettingsOverrides(manifest: Manifest) {
   return (
     manifest.chrome_settings_overrides && {
       chrome_settings_overrides: {
@@ -24,8 +21,7 @@ export function chromeSettingsOverrides(
                   ? fav
                   : getFilename(
                       `chrome_settings_overrides/${fav.split('/').pop()}`,
-                      fav,
-                      excludeList
+                      fav
                     )
               })()
             })
@@ -36,8 +32,7 @@ export function chromeSettingsOverrides(
             (page: string, index: number) =>
               getFilename(
                 `chrome_settings_overrides/startup-${index}.html`,
-                page,
-                excludeList
+                page
               )
           )
         })

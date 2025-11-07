@@ -1,11 +1,11 @@
 import * as path from 'path'
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 
 const getBasename = (filepath: string) => path.basename(filepath)
 
 // Firefox-only: https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/theme_experiment
-export function themeExperiment(manifest: Manifest, excludeList: FilepathList) {
+export function themeExperiment(manifest: Manifest) {
   const te: any = (manifest as any).theme_experiment
   return (
     te && {
@@ -14,13 +14,12 @@ export function themeExperiment(manifest: Manifest, excludeList: FilepathList) {
         ...(te.stylesheet && {
           stylesheet: getFilename(
             `theme_experiment/${getBasename(te.stylesheet as string)}`,
-            te.stylesheet as string,
-            excludeList
+            te.stylesheet as string
           )
         }),
         ...(Array.isArray(te.stylesheets) && {
           stylesheets: te.stylesheets.map((s: string, i: number) =>
-            getFilename(`theme_experiment/stylesheet-${i}.css`, s, excludeList)
+            getFilename(`theme_experiment/stylesheet-${i}.css`, s)
           )
         })
       }

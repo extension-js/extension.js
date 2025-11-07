@@ -1,8 +1,8 @@
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function sidePanel(manifest: Manifest, _excludeList: FilepathList) {
+export function sidePanel(manifest: Manifest) {
   return (
     manifest.side_panel && {
       side_panel: {
@@ -14,7 +14,7 @@ export function sidePanel(manifest: Manifest, _excludeList: FilepathList) {
             const target = isPublic
               ? normalizeManifestOutputPath(raw)
               : 'sidebar/index.html'
-            return getFilename(target, raw, {})
+            return getFilename(target, raw)
           })()
         })
       }

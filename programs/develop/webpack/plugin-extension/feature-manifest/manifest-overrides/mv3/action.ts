@@ -1,9 +1,9 @@
 import * as path from 'path'
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../../../webpack-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
 
-export function action(manifest: Manifest, _excludeList: FilepathList) {
+export function action(manifest: Manifest) {
   return (
     manifest.action && {
       action: {
@@ -11,8 +11,7 @@ export function action(manifest: Manifest, _excludeList: FilepathList) {
         ...(manifest.action.default_popup && {
           default_popup: getFilename(
             `action/index.html`,
-            manifest.action.default_popup as string,
-            {}
+            manifest.action.default_popup as string
           )
         }),
 
@@ -25,7 +24,7 @@ export function action(manifest: Manifest, _excludeList: FilepathList) {
                   const target = isPublic
                     ? normalizeManifestOutputPath(raw)
                     : `icons/${path.basename(raw)}`
-                  return getFilename(target, raw, {})
+                  return getFilename(target, raw)
                 })()
               : Object.fromEntries(
                   Object.entries(
@@ -36,7 +35,7 @@ export function action(manifest: Manifest, _excludeList: FilepathList) {
                     const target = isPublic
                       ? normalizeManifestOutputPath(raw)
                       : `icons/${path.basename(raw)}`
-                    return [size, getFilename(target, raw, {})]
+                    return [size, getFilename(target, raw)]
                   })
                 )
         })

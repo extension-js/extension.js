@@ -2,13 +2,9 @@ import * as fs from 'fs'
 import {manifestV2} from './mv2'
 import {manifestV3} from './mv3'
 import {manifestCommon} from './common'
-import {type Manifest, type FilepathList} from '../../../webpack-types'
+import {type Manifest} from '../../../webpack-types'
 
-export function getManifestOverrides(
-  manifestPath: string,
-  manifest: Manifest,
-  excludeList: FilepathList
-) {
+export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
   // Load the manifest content from the manifestPath if not provided.
   const manifestContent: Manifest =
     manifest || JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
@@ -20,9 +16,9 @@ export function getManifestOverrides(
     return rest
   }
 
-  const common = manifestCommon(manifestContent, excludeList)
-  const mv2 = manifestV2(manifestContent, excludeList)
-  const mv3 = manifestV3(manifestContent, excludeList)
+  const common = manifestCommon(manifestContent)
+  const mv2 = manifestV2(manifestContent)
+  const mv3 = manifestV3(manifestContent)
 
   // Deep-merge background so MV2 (scripts), MV3 (service_worker), and common (page)
   // contributions accumulate rather than overwrite each other.

@@ -22,7 +22,7 @@ Emits and validates your `manifest.json`, normalizes paths, and rewrites outputs
 
 ## Usage
 
-Standalone (manual include/exclude lists):
+Standalone:
 
 ```ts
 import * as path from 'path'
@@ -37,10 +37,6 @@ export default {
       includeList: {
         // Map of feature keys to absolute file paths (string or string[])
         // e.g. 'content_scripts/content-0': ['/abs/project/content/script.ts']
-      },
-      excludeList: {
-        // Prevent specific files from being rewritten or validated
-        // e.g. 'icons/icon16.png': '/abs/project/public/icon16.png'
       }
     })
   ]
@@ -55,7 +51,6 @@ export type FilepathList = Record<string, string | string[] | undefined>
 export interface PluginInterface {
   manifestPath: string
   includeList?: FilepathList
-  excludeList?: FilepathList
   browser?: 'chrome' | 'firefox' | 'edge' | 'chromium' | string
 }
 
@@ -71,17 +66,17 @@ export class ManifestPlugin {
 - MV2 fields: `background.scripts`, `browser_action`, `page_action`, `sidebar_action`, `chrome_settings_overrides`, `theme_experiment`.
 - MV3 fields: `action`, `background.service_worker`, `declarative_net_request`, `host_permissions`, `side_panel`.
 
-Paths are normalized and rewritten to match the final output structure. Files in `excludeList` are left untouched.
+Paths are normalized and rewritten to match the final output structure.
 
 ### Development behavior
 
 - If a `content_scripts` entry contains only CSS in development mode, a small JS stub is added to enable HMR of styles.
 - When entrypoints (HTML or script lists) change at runtime, the plugin warns and asks the dev server to restart to avoid inconsistent incremental rebuilds.
-- Public folder convention: files referenced from `public/` (or `/...` which maps to the extension root) are copied to the output root by the special-folders plugin. Manifest paths declared as `public/foo.png` are rewritten to `foo.png` in the emitted manifest so browsers can load them from the root. To preserve a path exactly, pass it via `excludeList`.
+- Public folder convention: files referenced from `public/` (or `/...` which maps to the extension root) are copied to the output root by the special-folders plugin. Manifest paths declared as `public/foo.png` are rewritten to `foo.png` in the emitted manifest so browsers can load them from the root.
 - Leading `/` in manifest paths is treated as extension root (relative to the directory containing `manifest.json`), not the OS filesystem root. This matches industry expectations where `/` denotes public root in web bundles.
 - Early failure: manifest-referenced files (icons, JSON, scripts, HTML) are validated during compilation. Missing files cause compilation errors and are logged to stderr before any browser launch.
 
-## Include/Exclude semantics
+## Include semantics
 
 - includeList: map of feature keys to absolute file paths (string or string[]). Keys follow the output structure, for example:
   - `action/default_popup`
@@ -89,7 +84,6 @@ Paths are normalized and rewritten to match the final output structure. Files in
   - `options_ui/page`
   - `background/service_worker`
     Values are absolute file paths. When provided, the plugin uses these lists to validate and, when applicable, rewrite paths.
-- excludeList: prevents matching absolute file paths from being rewritten/validated. When a path is in excludeList, it is preserved as-is in the final manifest.
 
 Example:
 
@@ -103,10 +97,6 @@ new ManifestPlugin({
     // map output keys to absolute source files
     'content_scripts/content-0': path.resolve(__dirname, 'content/scripts.ts'),
     'options_ui/page': path.resolve(__dirname, 'options.html')
-  },
-  excludeList: {
-    // keep this icon path untouched (e.g., served from public/)
-    'icons/icon16.png': path.resolve(__dirname, 'public/icon16.png')
   }
 })
 ```
@@ -135,7 +125,6 @@ new ManifestPlugin({
 
 Notes:
 
-- Files in excludeList are not rewritten.
 - JavaScript and CSS extensions are normalized to .js/.css in output.
 
 ### Folder conventions
