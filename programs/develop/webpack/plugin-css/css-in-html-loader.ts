@@ -1,14 +1,14 @@
-import * as path from 'path'
 import {commonStyleLoaders} from './common-style-loaders'
 import {DevOptions} from '../types/options'
 import {isContentScriptEntry} from './css-lib/is-content-script'
 
 export async function cssInHtmlLoader(
   projectPath: string,
-  mode: DevOptions['mode']
+  mode: DevOptions['mode'],
+  manifestPath: string
 ) {
   const isNotContentScript = (issuer: string) =>
-    !isContentScriptEntry(issuer, projectPath + '/manifest.json')
+    !isContentScriptEntry(issuer, manifestPath)
 
   // Define file type configurations
   const fileTypes = [

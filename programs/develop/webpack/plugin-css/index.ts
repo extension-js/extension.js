@@ -1,4 +1,3 @@
-import * as path from 'path'
 import {
   type RspackPluginInstance,
   type Compiler,
@@ -15,6 +14,7 @@ import {isContentScriptEntry} from './css-lib/is-content-script'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
+
   public readonly manifestPath: string
 
   constructor(options: PluginInterface) {
@@ -27,6 +27,7 @@ export class CssPlugin {
     const projectPath = compiler.options.context as string
 
     const plugins: RspackPluginInstance[] = []
+    const manifestPath = this.manifestPath
     const maybeInstallStylelint = await maybeUseStylelint(projectPath)
     plugins.push(...maybeInstallStylelint)
 
@@ -38,13 +39,13 @@ export class CssPlugin {
     // For HTML we need to use the css loader because it's a HTML file
     // and we need to load it as a CSS file.
     const loaders: RuleSetRule[] = [
-      ...(await cssInContentScriptLoader(projectPath, mode)),
-      ...(await cssInHtmlLoader(projectPath, mode))
+      ...(await cssInContentScriptLoader(projectPath, manifestPath, mode)),
+      ...(await cssInHtmlLoader(projectPath, mode, manifestPath))
     ]
 
     // Add Sass/Less support if needed
     const maybeInstallSass = await maybeUseSass(projectPath)
-    const maybeInstallLess = await maybeUseLess(projectPath)
+    const maybeInstallLess = await maybeUseLess(projectPath, manifestPath)
 
     // Add SASS/LESS loaders for content scripts
     if (maybeInstallSass.length) {
@@ -54,8 +55,7 @@ export class CssPlugin {
           test: /\.(sass|scss)$/,
           exclude: /\.module\.(sass|scss)$/,
           type: 'asset/resource',
-          issuer: (issuer: string) =>
-            isContentScriptEntry(issuer, this.manifestPath)
+          issuer: (issuer: string) => isContentScriptEntry(issuer, manifestPath)
         }
       )
     }
@@ -67,8 +67,7 @@ export class CssPlugin {
           test: /\.less$/,
           exclude: /\.module\.less$/,
           type: 'asset/resource',
-          issuer: (issuer: string) =>
-            isContentScriptEntry(issuer, this.manifestPath)
+          issuer: (issuer: string) => isContentScriptEntry(issuer, manifestPath)
         }
       )
     }
