@@ -35,7 +35,7 @@ vi.mock('../clean-dist', () => {
   return {CleanDistFolderPlugin: CleanDistFolderPluginMock}
 })
 
-vi.mock('../webpack-lib/messages', () => ({
+vi.mock('../compilation-lib/messages', () => ({
   boring: (name: string, duration: number) => `build(${name}, ${duration}ms)`
 }))
 
@@ -188,5 +188,49 @@ describe('CompilationPlugin', () => {
 
     // Success messages are not printed to console.log anymore
     expect(consoleLogSpy).not.toHaveBeenCalled()
+  })
+
+  vi.mock('../plugin-zip', () => {
+    const apply = vi.fn()
+    class ZipPluginMock {
+      public static lastOptions: any
+      constructor(options: any) {
+        ;(ZipPluginMock as any).lastOptions = options
+      }
+      apply = apply
+    }
+    return {ZipPlugin: ZipPluginMock}
+  })
+
+  it('registers ZipPlugin only in production when zip/zipSource are set', async () => {
+    const {compiler: devCompiler} = createCompiler('development')
+    const {compiler: prodCompiler} = createCompiler('production')
+
+    const dev = new CompilationPlugin({
+      manifestPath: '/p/manifest.json',
+      browser: 'chrome',
+      clean: true,
+      zip: true
+    })
+    dev.apply(devCompiler as any)
+
+    const prod = new CompilationPlugin({
+      manifestPath: '/p/manifest.json',
+      browser: 'chrome',
+      clean: true,
+      zip: true
+    })
+    prod.apply(prodCompiler as any)
+
+    const {ZipPlugin} = await import('../plugin-zip')
+
+    // Last options should come from the production apply (development should not register ZipPlugin)
+    expect((ZipPlugin as any).lastOptions).toEqual(
+      expect.objectContaining({
+        manifestPath: '/p/manifest.json',
+        browser: 'chrome',
+        zipData: expect.objectContaining({zip: true})
+      })
+    )
   })
 })
