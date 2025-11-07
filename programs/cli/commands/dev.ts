@@ -7,6 +7,7 @@ type Browser = 'chrome' | 'edge' | 'firefox'
 type DevOptions = {
   browser?: Browser | 'all'
   profile?: string | boolean
+  persistProfile?: boolean
   chromiumBinary?: string
   geckoBinary?: string
   polyfill?: boolean | string
@@ -63,6 +64,10 @@ export function registerDevCommand(program: Command, telemetry: any) {
     .option(
       '--log-context <list>',
       'comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
+    )
+    .option(
+      '--logs <off|error|warn|info|debug|trace|all>',
+      'minimum centralized logger level to display in terminal (default: off)'
     )
     .option(
       '--log-format <pretty|json>',
