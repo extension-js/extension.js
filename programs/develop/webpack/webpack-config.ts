@@ -67,9 +67,7 @@ export default function webpackConfig(
       __dirname,
       '../dist/extension-js-devtools'
     )
-    const vendor =
-      browser === 'firefox' || browser === 'gecko-based' ? 'firefox' : 'chrome'
-    const devtoolsForBrowser = path.join(devtoolsRoot, vendor)
+    const devtoolsForBrowser = path.join(devtoolsRoot, browser)
 
     if (fs.existsSync(devtoolsForBrowser)) {
       extensionsToLoad.push(devtoolsForBrowser)
