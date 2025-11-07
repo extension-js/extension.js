@@ -63,26 +63,26 @@ export function registerDevCommand(program: Command, telemetry: any) {
     )
     .option(
       '--log-context <list>',
-      'comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
+      '[experimental] comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
     )
     .option(
       '--logs <off|error|warn|info|debug|trace|all>',
-      'minimum centralized logger level to display in terminal (default: off)'
+      '[experimental] minimum centralized logger level to display in terminal (default: off)'
     )
     .option(
       '--log-format <pretty|json>',
-      'output format for logger events. Defaults to `pretty`'
+      '[experimental] output format for logger events. Defaults to `pretty`'
     )
     .option('--no-log-timestamps', 'disable ISO timestamps in pretty output')
     .option('--no-log-color', 'disable color in pretty output')
     .option(
       '--log-url <pattern>',
-      'only show logs where event.url matches this substring or regex (/re/i)'
+      '[experimental] only show logs where event.url matches this substring or regex (/re/i)'
     )
     .option('--log-tab <id>', 'only show logs for a specific tabId (number)')
     .option(
       '--source [url]',
-      'opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
+      '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
     )
     .action(async function (
       pathOrRemoteUrl: string,

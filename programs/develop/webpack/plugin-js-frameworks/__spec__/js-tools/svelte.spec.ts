@@ -1,6 +1,6 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
-vi.mock('../../../webpack-lib/integrations', () => ({
+vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => undefined)
 }))
@@ -27,7 +27,7 @@ describe('svelte tools', () => {
 
   it('isUsingSvelte logs once; maybeUseSvelte returns loaders and resolver plugin', async () => {
     const integrations = (await import(
-      '../../../webpack-lib/integrations'
+      '../../frameworks-lib/integrations'
     )) as any
     integrations.hasDependency.mockImplementation(
       (_p: string, dep: string) => dep === 'svelte'

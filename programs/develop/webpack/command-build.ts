@@ -15,7 +15,7 @@ import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
 import {loadCommandConfig} from './webpack-lib/config-loader'
 import {installDependencies} from './webpack-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
-import {scrubBrand} from './webpack-lib/branding'
+import {scrubBrand} from './branding'
 import webpackConfig from './webpack-config'
 
 import {BuildOptions} from './types/options'

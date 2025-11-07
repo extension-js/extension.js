@@ -17,7 +17,7 @@ import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {BrowsersPlugin} from './plugin-browsers'
 import {PreviewOptions} from './types/options'
-import {scrubBrand} from './webpack-lib/branding'
+import {scrubBrand} from './branding'
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,

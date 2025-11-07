@@ -11,7 +11,7 @@ import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
   hasDependency
-} from '../../webpack-lib/integrations'
+} from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 import {type DevOptions} from '../../types/options'

@@ -1,5 +1,5 @@
 import {Compilation, sources} from '@rspack/core'
-import {getManifestContent} from '../../../webpack-lib/manifest'
+import {getManifestContent} from '../../feature-manifest/manifest-lib/manifest'
 import {resolveUserDeclaredWAR} from './resolve-war'
 import {cleanMatches} from './clean-matches'
 import type {Manifest} from '../../../webpack-types'

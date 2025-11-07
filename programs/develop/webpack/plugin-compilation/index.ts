@@ -17,7 +17,7 @@ import {
   isBannerPrinted,
   setPendingCompilationLine,
   sharedState
-} from '../webpack-lib/shared-state'
+} from './compilation-lib/shared-state'
 import {CleanDistFolderPlugin} from './clean-dist'
 import {ZipPlugin} from './plugin-zip'
 // no shared banner gating; boring plugin will overwrite initial placeholder from banner

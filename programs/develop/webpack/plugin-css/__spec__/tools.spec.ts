@@ -10,7 +10,7 @@ vi.mock('fs', async () => {
   }
 })
 
-vi.mock('../../webpack-lib/integrations', () => ({
+vi.mock('../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => undefined)
 }))
@@ -110,7 +110,7 @@ describe('css tools additional coverage', () => {
   it('isUsingTailwind logs only once across multiple calls', async () => {
     // Work with the mocked module (declared above) so the implementation used by code under test is affected.
     const mockedIntegrations = (await import(
-      '../../webpack-lib/integrations'
+      '../css-lib/integrations'
     )) as unknown as {hasDependency: any}
     mockedIntegrations.hasDependency.mockImplementation(
       (_: any, dep: string) => dep === 'tailwindcss'
