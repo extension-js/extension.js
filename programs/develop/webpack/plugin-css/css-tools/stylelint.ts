@@ -11,8 +11,8 @@ import {type RspackPluginInstance} from '@rspack/core'
 import * as messages from '../css-lib/messages'
 
 export function getStylelintConfigFile(projectPath: string) {
-  const stylelintConfigJs = path.join(projectPath, 'stylelint.config.json')
-  const stylelintConfigDotJs = path.join(projectPath, '.stylelintrc.js file')
+  const stylelintConfigJs = path.join(projectPath, 'stylelint.config.js')
+  const stylelintConfigDotJs = path.join(projectPath, '.stylelintrc.js')
   const stylelintConfigMjs = path.join(projectPath, 'stylelint.config.mjs')
   const stylelintConfigDotMjs = path.join(projectPath, '.stylelintrc.mjs')
   const stylelintConfigCjs = path.join(projectPath, 'stylelint.config.cjs')

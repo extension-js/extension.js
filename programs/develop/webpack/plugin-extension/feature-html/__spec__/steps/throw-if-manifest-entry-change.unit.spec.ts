@@ -1,12 +1,9 @@
 import {describe, it, expect, vi} from 'vitest'
-
 let mockHtml: string[] = []
-vi.mock('node:module', () => ({
-  createRequire: () => (_: any) => ({
-    getManifestFieldsData: (_opts: any) => ({
-      html: mockHtml.reduce((acc, v, idx) => ({...acc, [String(idx)]: v}), {}),
-      scripts: {}
-    })
+vi.mock('browser-extension-manifest-fields', () => ({
+  getManifestFieldsData: (_opts: any) => ({
+    html: mockHtml.reduce((acc, v, idx) => ({...acc, [String(idx)]: v}), {}),
+    scripts: {}
   })
 }))
 

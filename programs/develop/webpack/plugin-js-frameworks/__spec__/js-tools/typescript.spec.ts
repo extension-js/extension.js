@@ -43,7 +43,7 @@ describe('typescript tools', () => {
     )
   })
 
-  it('isUsingTypeScript logs and writes default tsconfig when TS files present but no tsconfig nearby', async () => {
+  it('isUsingTypeScript warns when TS files present but no tsconfig nearby (no write)', async () => {
     // Package.json in /project (stop search early)
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('/project/package.json') ? true : false
@@ -63,11 +63,11 @@ describe('typescript tools', () => {
 
     const {isUsingTypeScript} = await import('../../js-tools/typescript')
 
-    // No tsconfig present, but TS files exist -> writes tsconfig
+    // No tsconfig present, but TS files exist -> warn and do not write
     expect(isUsingTypeScript('/project')).toBe(false)
-    expect(fs.writeFileSync).toHaveBeenCalled()
-    expect(log).toHaveBeenCalled()
-    expect(warn).not.toHaveBeenCalled()
+    expect(fs.writeFileSync).not.toHaveBeenCalled()
+    expect(log).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalled()
   })
 
   it('maybeUseTypeScript returns true when tsconfig exists and typescript resolves', async () => {
