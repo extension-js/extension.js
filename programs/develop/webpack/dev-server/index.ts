@@ -13,7 +13,7 @@ import * as messages from './messages'
 import {PortManager} from './port-manager'
 import {setupAutoExit} from './auto-exit'
 import {isUsingJSFramework} from './frameworks'
-import {scrubBrand} from '../branding'
+import {scrubBrand} from '../webpack-lib/branding'
 import {type ProjectStructure} from '../webpack-lib/project'
 import {
   loadBrowserConfig,
