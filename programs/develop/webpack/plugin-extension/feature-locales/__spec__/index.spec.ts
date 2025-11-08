@@ -186,6 +186,41 @@ describe('LocalesPlugin (unit)', () => {
     )
   })
 
+  it('errors when manifest references __MSG_*__ not defined in default locale', () => {
+    // Set manifest with placeholders but do not provide keys in messages.json
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        name: 'x',
+        manifest_version: 3,
+        default_locale: 'en',
+        description: '__MSG_extDesc__',
+        action: {default_title: '__MSG_actionTitle__'}
+      })
+    )
+    // Default locale exists with messages.json, but missing keys
+    fs.writeFileSync(
+      path.join(enDir, 'messages.json'),
+      JSON.stringify({
+        // intentionally no extDesc or actionTitle
+        title: {message: 'ok'}
+      })
+    )
+    const plugin = new LocalesPlugin({manifestPath})
+    const compilation = applyAndProcess(plugin)
+
+    expect(compilation.errors.length).toBe(1)
+    const err: any = compilation.errors[0]
+    expect(err.name).toBe('LocalesValidationError')
+    expect(String(err.message)).toContain(
+      'Check the i18n placeholders in your manifest.json file.'
+    )
+    expect(String(err.message)).toContain(
+      'MISSING KEY extDesc in _locales/en/messages.json'
+    )
+    expect(err.file).toBe('manifest.json')
+  })
+
   it('pushes an error and does not throw when manifest.json is missing (with metadata, no path in message)', () => {
     // create a clean temp root without a manifest.json
     const cleanRoot = path.resolve(__dirname, '__tmp_locales_plugin_missing__')
@@ -297,5 +332,53 @@ describe('LocalesPlugin (unit)', () => {
     expect(String(err.message)).toContain(
       'Invalid JSON in locale messages file'
     )
+  })
+
+  it('emits _locales at bundle root when manifest is under src/', () => {
+    // Prepare structure: tmpRoot/src/manifest.json and tmpRoot/src/_locales/...
+    const srcRoot = path.join(tmpRoot, 'src')
+    const srcLocales = path.join(srcRoot, '_locales')
+    const srcEn = path.join(srcLocales, 'en')
+    fs.mkdirSync(srcEn, {recursive: true})
+    const srcManifestPath = path.join(srcRoot, 'manifest.json')
+    fs.writeFileSync(
+      srcManifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+    fs.writeFileSync(
+      path.join(srcEn, 'messages.json'),
+      '{"hello":{"message":"hi"}}'
+    )
+
+    const plugin = new LocalesPlugin({manifestPath: srcManifestPath})
+    const compilation = (() => {
+      const processAssetsHook = createHook()
+      const thisCompilationHook = {
+        tap: (_name: string, cb: (compilation: any) => void) => cb(compilation)
+      }
+      const compilation: any = {
+        assets: {},
+        errors: [],
+        warnings: [],
+        fileDependencies: new Set<string>(),
+        hooks: {processAssets: processAssetsHook},
+        emitAsset: (filename: string) => {
+          ;(compilation as any)._emitted = (compilation as any)._emitted || []
+          ;(compilation as any)._emitted.push(filename)
+        }
+      }
+      const compiler: any = {
+        options: {context: tmpRoot},
+        hooks: {thisCompilation: thisCompilationHook}
+      }
+      plugin.apply(compiler)
+      ;(processAssetsHook as any)._runAll()
+      return compilation
+    })()
+
+    const emitted: string[] = (compilation as any)._emitted || []
+    // Should NOT include 'src/' prefix
+    expect(emitted.some((p) => p === '_locales/en/messages.json')).toBe(true)
+    expect(emitted.some((p) => p.startsWith('src/_locales/'))).toBe(false)
   })
 })

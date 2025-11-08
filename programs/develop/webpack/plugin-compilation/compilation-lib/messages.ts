@@ -2,6 +2,12 @@ import colors from 'pintor'
 import type {Stats} from '@rspack/core'
 
 export function boring(manifestName: string, durationMs: number, stats: Stats) {
+  const now = new Date()
+  const hh = String(now.getHours()).padStart(2, '0')
+  const mm = String(now.getMinutes()).padStart(2, '0')
+  const ss = String(now.getSeconds()).padStart(2, '0')
+  const timestamp = colors.gray(`[${hh}:${mm}:${ss}]`)
+
   const hasErrors = stats.hasErrors()
   const hasWarnings = stats.hasWarnings()
 
@@ -15,7 +21,9 @@ export function boring(manifestName: string, durationMs: number, stats: Stats) {
     : hasWarnings
       ? colors.yellow('with warnings')
       : colors.green('successfully')
-  return `${arrow} ${manifestName} compiled ${label} in ${durationMs} ms.`
+  const app = manifestName
+  const time = `${durationMs} ms`
+  return `${arrow} ${timestamp} ${app} compiled ${label} in ${time}.`
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
