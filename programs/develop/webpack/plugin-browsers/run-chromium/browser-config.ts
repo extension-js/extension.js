@@ -208,7 +208,7 @@ export function browserConfig(
   // Ref: https://github.com/GoogleChrome/chrome-launcher/blob/main/docs/chrome-flags-for-tools.md
   const baseFlags = [
     `--load-extension=${extensionsToLoad.join()}`,
-    ...(userProfilePath ? [`--user-data-dir="${userProfilePath}"`] : []),
+    ...(userProfilePath ? [`--user-data-dir=${userProfilePath}`] : []),
     ...aiOptimizedFlags,
     ...(sourceEnabled || devWantsCDP
       ? [
