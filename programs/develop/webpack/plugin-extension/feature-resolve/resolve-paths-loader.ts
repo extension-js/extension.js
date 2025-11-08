@@ -76,11 +76,13 @@ export default async function resolvePathsLoader(this: any, source: string) {
     const isTS = /\.[cm]?tsx?$/.test(this.resourcePath)
     const isJSX = /\.[cm]?[jt]sx$/.test(this.resourcePath)
 
+    // Parse as a module to allow modern syntax like import.meta
     programAst = await swcModule.parse(source, {
       syntax: isTS ? 'typescript' : 'ecmascript',
       tsx: isTS && isJSX,
       jsx: !isTS && isJSX,
-      target: 'es2022'
+      target: 'es2022',
+      isModule: true
     })
   } catch {
     return callback(null, source)
