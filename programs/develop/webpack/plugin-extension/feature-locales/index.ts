@@ -130,6 +130,55 @@ export class LocalesPlugin {
                 )
                 return
               }
+
+              // Ensure all __MSG_*__ placeholders referenced in manifest exist in default locale
+              try {
+                const content = fs.readFileSync(messagesJsonPath, 'utf8')
+                const dict = JSON.parse(content)
+
+                const collectMsgKeys = (value: unknown, acc: Set<string>) => {
+                  if (typeof value === 'string') {
+                    // Allow placeholders anywhere a string is used
+                    const regex = /__MSG_([a-zA-Z0-9_]+)__/g
+                    let matches: RegExpExecArray | null
+
+                    while ((matches = regex.exec(value)) !== null) {
+                      const key = matches[1]
+                      if (key) acc.add(key)
+                    }
+                  } else if (Array.isArray(value)) {
+                    for (const item of value) {
+                      collectMsgKeys(item, acc)
+                    }
+                  } else if (value && typeof value === 'object') {
+                    for (const v of Object.values(
+                      value as Record<string, any>
+                    )) {
+                      collectMsgKeys(v, acc)
+                    }
+                  }
+                }
+
+                const referenced = new Set<string>()
+                collectMsgKeys(manifest, referenced)
+
+                for (const key of referenced) {
+                  const entry = dict?.[key]
+
+                  if (!entry || typeof entry.message !== 'string') {
+                    pushCompilationError(
+                      compiler,
+                      compilation,
+                      'LocalesValidationError',
+                      messages.missingManifestMessageKey(key, defaultLocale),
+                      'manifest.json'
+                    )
+                    return
+                  }
+                }
+              } catch {
+                // If scanning fails, do not crash; other validators handle JSON structure
+              }
             } else if (hasLocalesRoot) {
               // _locales present but no default_locale in manifest: browsers reject the extension
               pushCompilationError(
@@ -213,10 +262,16 @@ export class LocalesPlugin {
 
               const source = fs.readFileSync(thisResource)
               const rawSource = new sources.RawSource(source)
-              const context =
-                compiler.options.context || path.dirname(this.manifestPath)
+              // Always emit locales at the bundle root: `_locales/...`
+              // regardless of where the manifest lives (e.g., src/manifest.json)
+              const manifestDir = path.dirname(this.manifestPath)
+              const localesRoot = path.join(manifestDir, '_locales')
+              const relativeToLocales = path.relative(localesRoot, thisResource)
 
-              const filename = path.relative(context, thisResource)
+              // Normalize to POSIX-style for asset keys
+              const normalizedRel = relativeToLocales.split(path.sep).join('/')
+              const filename = `_locales/${normalizedRel}`
+
               compilation.emitAsset(filename, rawSource)
             }
           }

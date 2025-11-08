@@ -47,14 +47,19 @@ export default defineConfig({
       'minimum-firefox-file': path.resolve(
         __dirname,
         './webpack/plugin-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-firefox.ts'
+      ),
+      // Resolve Plugin Loaders
+      'resolve-paths-loader': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-resolve/resolve-paths-loader.ts'
       )
     }
   },
   lib: [
     {
       format: 'cjs',
-      syntax: 'es2021',
-      dts: true
+      syntax: 'es2021'
+      // dts: true
     }
   ],
   plugins: []
