@@ -47,10 +47,13 @@ export async function devServer(
   const manifestDir = path.dirname(manifestPath)
   const packageJsonDir = path.dirname(packageJsonPath!)
 
-  // Get command defaults from extension.config.js
-  const commandConfig = await loadCommandConfig(manifestDir, 'dev')
-  // Get browser defaults from extension.config.js
-  const browserConfig = await loadBrowserConfig(manifestDir, devOptions.browser)
+  // Get command defaults from extension.config.js (located at project root)
+  const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
+  // Get browser defaults from extension.config.js (located at project root)
+  const browserConfig = await loadBrowserConfig(
+    packageJsonDir,
+    devOptions.browser
+  )
 
   // Initialize port manager and allocate ports for this instance
   const portManager = new PortManager(devOptions.browser, packageJsonDir, 8080)
@@ -71,10 +74,21 @@ export async function devServer(
   }
 
   // Get the user defined args and merge with the Extension.js base webpack config
+  // Avoid overriding file-config values with undefined from CLI args
+  const sanitize = <T extends Record<string, any>>(obj: T): Partial<T> =>
+    Object.fromEntries(
+      Object.entries(obj || {}).filter(([, v]) => typeof v !== 'undefined')
+    ) as Partial<T>
+
+  const safeBrowserConfig = sanitize(browserConfig)
+  const safeCommandConfig = sanitize(commandConfig as any)
+  const safeDevOptions = sanitize(devOptions as any)
+
   const baseConfig = webpackConfig(projectStructure, {
-    ...browserConfig,
-    ...commandConfig,
-    ...devOptions,
+    ...safeBrowserConfig,
+    ...safeCommandConfig,
+    ...safeDevOptions,
+    browser: devOptions.browser,
     mode: 'development',
     instanceId: currentInstance.instanceId,
     port: portAllocation.port,
