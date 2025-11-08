@@ -9,8 +9,8 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Configuration} from '@rspack/core'
 import {type ProjectStructure} from './webpack-lib/project'
-import {DevOptions} from './types/options'
-import {makeSanitizedConsole} from './branding'
+import {makeSanitizedConsole} from './webpack-lib/branding'
+import {filterKeysForThisBrowser} from './webpack-lib/manifest-utils'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -20,7 +20,9 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
-import {filterKeysForThisBrowser} from './manifest-utils'
+
+// Types
+import {DevOptions} from './types/options'
 
 export default function webpackConfig(
   projectStructure: ProjectStructure,
