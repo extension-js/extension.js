@@ -21,6 +21,7 @@ import {JsonPlugin} from './feature-json'
 import {IconsPlugin} from './feature-icons'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {SpecialFoldersPlugin} from './feature-special-folders'
+import {ResolvePlugin} from './feature-resolve'
 
 // Types
 import {PluginInterface, FilepathList} from '../webpack-types'
@@ -116,6 +117,11 @@ export class ExtensionPlugin {
     // Plugin to add special folders (public, pages, scripts) to the extension
     new SpecialFoldersPlugin({
       manifestPath
+    }).apply(compiler)
+
+    new ResolvePlugin({
+      manifestPath,
+      browser: this.browser
     }).apply(compiler)
   }
 }
