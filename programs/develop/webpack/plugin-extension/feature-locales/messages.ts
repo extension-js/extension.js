@@ -31,3 +31,14 @@ export function localesPresentButNoDefaultLocale() {
 export function invalidMessagesJson(absPath: string) {
   return `Invalid JSON in locale messages file: ${absPath}`
 }
+
+export function missingManifestMessageKey(key: string, defaultLocale?: string) {
+  const header = 'Check the i18n placeholders in your manifest.json file.'
+  const localePath = defaultLocale
+    ? `_locales/${defaultLocale}/messages.json`
+    : '_locales/<default>/messages.json'
+  const guidance = `The key "${key}" referenced via __MSG_${key}__ must be defined in ${localePath}.`
+  const final = `MISSING KEY ${key} in ${localePath}`
+
+  return `${header}\n${guidance}\n\n${final}`
+}
