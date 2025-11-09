@@ -72,9 +72,10 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Bump versions (both packages)
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
         run: |
-          VERSION='${{ steps.validate.outputs.version }}'
-          node -e "const fs=require('fs');for(const p of ['programs/cli/package.json','programs/develop/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=VERSION;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
+          node -e "const fs=require('fs');const VERSION=process.env.VERSION;for(const p of ['programs/cli/package.json','programs/develop/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=VERSION;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
           git add programs/cli/package.json programs/develop/package.json
           git commit -m "release: v$VERSION"
           git tag "v$VERSION"
@@ -86,7 +87,6 @@ jobs:
 
       - name: Prepare publish-only dependency rewrite (extension -> extension-develop)
         run: |
-          VERSION='${{ steps.validate.outputs.version }}'
           node -e "
             const fs=require('fs');
             const p='programs/cli/package.json';
