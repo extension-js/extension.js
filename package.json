@@ -33,7 +33,7 @@
   "devDependencies": {
     "@changesets/cli": "^2.29.6",
     "@eslint/js": "^9.16.0",
-    "@playwright/test": "^1.49.0",
+    "@playwright/test": "^1.55.1",
     "@types/chrome": "^0.0.287",
     "@types/node": "^22.10.1",
     "@types/webextension-polyfill": "0.12.3",
