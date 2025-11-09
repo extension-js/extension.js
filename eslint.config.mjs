@@ -27,9 +27,6 @@ export default [
       // Ignore fixture/example sources not intended for linting
       '**/extensions/**',
       'templates-artifacts/**',
-      // Ignore helper scripts that intentionally use underscore placeholders
-      'scripts/aggregate-changelog.cjs',
-      'scripts/render-aggregated-changelog.cjs'
     ]
   }
 ]
