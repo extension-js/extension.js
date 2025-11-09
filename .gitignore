@@ -97,3 +97,5 @@ node_modules/
 # tasks/ 
 .taskmaster/
 .cursor/
+
+_future/
