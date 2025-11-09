@@ -29,7 +29,7 @@ vi.mock('../webpack-config', async () => {
   const nonBrowserPlugin = {}
   return {
     default: vi.fn(() => ({
-      plugins: [new BrowsersPlugin(), nonBrowserPlugin],
+      plugins: [new BrowsersPlugin({} as any), nonBrowserPlugin],
       output: {}
     }))
   }
@@ -52,14 +52,17 @@ vi.mock('@rspack/core', () => {
 })
 
 // Avoid reading manifest in messages.runningInProduction
-vi.mock('../webpack-lib/messages', async (orig) => {
-  const actual = await orig()
-  return {
-    ...actual,
-    runningInProduction: vi.fn(() => 'RUNNING'),
-    previewing: vi.fn(() => 'PREVIEW')
+vi.mock(
+  '../webpack-lib/messages',
+  async (importOriginal: () => Promise<Record<string, any>>) => {
+    const actual = await importOriginal()
+    return {
+      ...actual,
+      runningInProduction: vi.fn(() => 'RUNNING'),
+      previewing: vi.fn(() => 'PREVIEW')
+    }
   }
-})
+)
 
 // Logs and fs
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
