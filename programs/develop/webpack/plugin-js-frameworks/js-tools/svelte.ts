@@ -18,6 +18,14 @@ import {type DevOptions} from '../../types/options'
 
 let userMessageDelivered = false
 
+function resolveFromProject(id: string, projectPath: string) {
+  try {
+    return require.resolve(id, {paths: [projectPath, process.cwd()]})
+  } catch {
+    return undefined
+  }
+}
+
 export function isUsingSvelte(projectPath: string) {
   const using = hasDependency(projectPath, 'svelte')
   if (using && !userMessageDelivered) {
@@ -36,7 +44,8 @@ export async function maybeUseSvelte(
   if (!isUsingSvelte(projectPath)) return undefined
 
   try {
-    require.resolve('svelte-loader')
+    resolveFromProject('svelte-loader', projectPath) ||
+      require.resolve('svelte-loader')
   } catch (e) {
     const typeScriptDependencies = ['typescript']
 
@@ -52,7 +61,7 @@ export async function maybeUseSvelte(
 
   // Ensure TypeScript is available for Svelte toolchain expectations (even without preprocess)
   try {
-    require.resolve('typescript')
+    require.resolve('typescript', {paths: [projectPath, process.cwd()]})
   } catch (e) {
     const typeScriptDependencies = ['typescript']
     await installOptionalDependencies('TypeScript', typeScriptDependencies)
@@ -63,17 +72,22 @@ export async function maybeUseSvelte(
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'svelte')
 
+  // Resolve toolchain/runtime from the project when available
+  const svelteLoaderPath =
+    resolveFromProject('svelte-loader', projectPath) ||
+    require.resolve('svelte-loader')
+
   const defaultLoaders: JsFramework['loaders'] = [
     {
       test: /\.svelte\.ts$/,
-      use: [require.resolve('svelte-loader')],
+      use: [svelteLoaderPath],
       include: projectPath,
       exclude: /node_modules/
     },
     {
       test: /\.(svelte|svelte\.js)$/,
       use: {
-        loader: require.resolve('svelte-loader'),
+        loader: svelteLoaderPath,
         options: {
           emitCss: true,
           compilerOptions: {
@@ -96,7 +110,7 @@ export async function maybeUseSvelte(
     }
   ]
 
-  // Do not alias 'svelte'; rely on export maps for subpath resolution
+  // Do not alias 'svelte'; prioritize project node_modules instead
   const alias: Record<string, string> | undefined = undefined
 
   // Small plugin to update resolver fields to align with Svelte ecosystem
@@ -111,6 +125,10 @@ export async function maybeUseSvelte(
         []
       const existingExtensions =
         (compiler.options.resolve && compiler.options.resolve.extensions) || []
+      const existingAlias =
+        (compiler.options.resolve && compiler.options.resolve.alias) || {}
+      const existingModules =
+        (compiler.options.resolve && compiler.options.resolve.modules) || []
 
       const nextMainFields = [
         'svelte',
@@ -126,7 +144,12 @@ export async function maybeUseSvelte(
         ...compiler.options.resolve,
         mainFields: dedupe(nextMainFields),
         conditionNames: dedupe(['svelte', ...existingConditionNames]),
-        extensions: dedupe(['.svelte', ...existingExtensions])
+        extensions: dedupe(['.svelte', ...existingExtensions]),
+        alias: existingAlias,
+        modules: dedupe([
+          path.join(projectPath, 'node_modules'),
+          ...existingModules
+        ])
       }
     }
   }
