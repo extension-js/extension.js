@@ -19,7 +19,7 @@ export class PatchManifestWebResources {
         compilation.hooks.processAssets.tap(
           {
             name: 'plugin-extension:feature-web-resources:patch-manifest',
-            stage: Compilation.PROCESS_ASSETS_STAGE_ANALYSE
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           () => {
             const shared = getSharedFor(compilation)
