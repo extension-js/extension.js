@@ -40,7 +40,7 @@ vi.mock('fs', async () => {
 })
 
 import AdmZip from 'adm-zip'
-import {ZipPlugin} from '../plugin-zip'
+import {ZipPlugin} from '../zip'
 
 function makeCompiler(ctx: string, outPath: string) {
   let doneCb: any
