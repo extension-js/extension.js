@@ -2,12 +2,24 @@ import colors from 'pintor'
 
 export function warFieldError(
   filePath: string,
-  opts?: {overrideNotFoundPath?: string; publicRootHint?: boolean}
+  opts?: {
+    overrideNotFoundPath?: string
+    publicRootHint?: boolean
+    relativeRef?: string
+  }
 ) {
   const displayPath = opts?.overrideNotFoundPath || filePath
   const lines: string[] = []
   // Context header
-  lines.push(`${colors.yellow('web_accessible_resources')}: file not found`)
+  if (opts?.relativeRef) {
+    lines.push(
+      `The file ${colors.yellow(opts.relativeRef)} defined in ${colors.yellow(
+        'web_accessible_resources'
+      )} was not found`
+    )
+  } else {
+    lines.push(`${colors.yellow('web_accessible_resources')}: file not found`)
+  }
 
   // What WAR is for and what it is not
   lines.push(
@@ -19,6 +31,7 @@ export function warFieldError(
     lines.push(
       `To reference files in ${colors.yellow('public/')}, use a leading '/' (e.g. ${colors.yellow('/open-panel.gif')}). These resolve from the built extension root.`
     )
+    lines.push('')
     lines.push(
       `Fix: Add the file to ${colors.yellow('public/')} or update the path to the correct '/...' location.`
     )
@@ -26,6 +39,7 @@ export function warFieldError(
     lines.push(
       `Relative paths must point to a real source file so the build can emit it.`
     )
+    lines.push('')
     lines.push(
       `Fix: Create the missing file or update the path to an existing source file.`
     )

@@ -4,6 +4,77 @@ import {resolveUserDeclaredWAR} from './resolve-war'
 import {cleanMatches} from './clean-matches'
 import type {Manifest} from '../../../webpack-types'
 
+type AssetSource =
+  | string
+  | {source: () => string}
+  | {source: string | {source: () => string}}
+
+function getAssetSource(compilation: Compilation, filename: string) {
+  const byGet =
+    typeof compilation.getAsset === 'function'
+      ? compilation.getAsset(filename)
+      : undefined
+  const byAssets =
+    !byGet && compilation.assets ? compilation.assets[filename] : undefined
+  const asset = byGet || byAssets
+
+  if (!asset) return ''
+
+  const source = asset.source as AssetSource
+
+  if (!source) return ''
+
+  if (typeof source === 'string') return source
+
+  if (typeof source.source === 'function') {
+    const out = source.source()
+    return typeof out === 'string' ? out : ''
+  }
+
+  const nestedSource = source.source
+
+  if (typeof nestedSource === 'string') return nestedSource
+
+  if (nestedSource && typeof nestedSource.source === 'function') {
+    const out = nestedSource.source()
+    return typeof out === 'string' ? out : ''
+  }
+  return ''
+}
+
+function hasWildcardPattern(pattern: string) {
+  return /[*?\[\]]/.test(pattern)
+}
+
+function escapeRegex(s: string) {
+  return s.replace(/[.+^${}()|\\]/g, '\\$&')
+}
+
+function globToRegex(pattern: string) {
+  const escaped = pattern
+    .split('*')
+    .map((seg) => escapeRegex(seg))
+    .join('.*')
+  return new RegExp('^' + escaped + '$')
+}
+
+function isCoveredByExistingGlobs(
+  existingPatterns: string[],
+  candidate: string
+) {
+  for (const existingPattern of existingPatterns) {
+    if (hasWildcardPattern(existingPattern)) {
+      try {
+        const re = globToRegex(existingPattern)
+        if (re.test(candidate)) return true
+      } catch {
+        // ignore invalid glob
+      }
+    }
+  }
+  return false
+}
+
 export function generateManifestPatches(
   compilation: Compilation,
   manifestPath: string,
@@ -29,6 +100,58 @@ export function generateManifestPatches(
   const webAccessibleResourcesV2: string[] =
     manifest.manifest_version === 2 ? Array.from(resolved.v2) : []
 
+  // Fallback scan: inspect emitted JS for content_scripts to discover referenced assets (e.g., assets/*.png)
+  if (
+    manifest.manifest_version === 3 &&
+    Array.isArray(manifest.content_scripts)
+  ) {
+    for (const contentScript of manifest.content_scripts) {
+      const matches = contentScript.matches || []
+      const normalizedMatches = cleanMatches(matches)
+      const jsFiles: string[] = Array.isArray(contentScript.js)
+        ? contentScript.js
+        : []
+
+      for (const jsFile of jsFiles) {
+        const source = getAssetSource(compilation, jsFile)
+
+        if (!source) continue
+
+        const re = /assets\/[A-Za-z0-9._-]+/g
+        const found = source.match(re) || []
+        const filtered = Array.from(
+          new Set(
+            found.filter((r) => !r.endsWith('.js') && !r.endsWith('.map'))
+          )
+        ).sort()
+
+        if (filtered.length === 0) continue
+
+        const existingResource = webAccessibleResourcesV3.find((entry) => {
+          const a = [...entry.matches].sort()
+          const b = [...normalizedMatches].sort()
+          return a.length === b.length && a.every((v, i) => v === b[i])
+        })
+
+        if (existingResource) {
+          const candidates = filtered.filter(
+            (resource) =>
+              !existingResource.resources.includes(resource) &&
+              !isCoveredByExistingGlobs(existingResource.resources, resource)
+          )
+          existingResource.resources = Array.from(
+            new Set([...(existingResource.resources || []), ...candidates])
+          ).sort()
+        } else {
+          webAccessibleResourcesV3.push({
+            resources: filtered,
+            matches: [...normalizedMatches].sort()
+          })
+        }
+      }
+    }
+  }
+
   for (const [entryName, resources] of Object.entries(entryImports)) {
     const contentScript = manifest.content_scripts?.find((script: any) =>
       script.js?.some((jsFile: string) => jsFile.includes(entryName))
@@ -52,8 +175,13 @@ export function generateManifestPatches(
         )
 
         if (existingResource) {
+          const candidates = filteredResources.filter(
+            (resource) =>
+              !existingResource.resources.includes(resource) &&
+              !isCoveredByExistingGlobs(existingResource.resources, resource)
+          )
           const merged = Array.from(
-            new Set([...existingResource.resources, ...filteredResources])
+            new Set([...existingResource.resources, ...candidates])
           ).sort()
           existingResource.resources = merged
           existingResource.matches = [...existingResource.matches].sort()
@@ -68,6 +196,49 @@ export function generateManifestPatches(
           if (!webAccessibleResourcesV2.includes(resource)) {
             webAccessibleResourcesV2.push(resource)
           }
+        })
+      }
+    }
+  }
+
+  // Last-resort fallback: expose emitted static assets under assets/ to the union of content_scripts matches
+  if (manifest.manifest_version === 3) {
+    const assetKeys: string[] = Object.keys(compilation.assets || {})
+    const staticAssets = assetKeys
+      .filter((k) => k.startsWith('assets/'))
+      .filter((k) => !k.endsWith('.js') && !k.endsWith('.map'))
+      .sort()
+
+    if (staticAssets.length > 0) {
+      const allMatches: string[] = Array.from(
+        new Set(
+          ((manifest as any).content_scripts || []).flatMap(
+            (cs: {matches?: string[]}) => cs.matches || []
+          )
+        )
+      )
+      const normalizedMatches = cleanMatches(allMatches)
+      const existing = webAccessibleResourcesV3.find(
+        (entry: {resources: string[]; matches: string[]}) => {
+          const a: string[] = [...entry.matches].sort()
+          const b: string[] = [...normalizedMatches].sort()
+          return a.length === b.length && a.every((v, i) => v === b[i])
+        }
+      )
+
+      if (existing) {
+        const candidates = staticAssets.filter(
+          (r) =>
+            !existing.resources.includes(r) &&
+            !isCoveredByExistingGlobs(existing.resources, r)
+        )
+        existing.resources = Array.from(
+          new Set([...(existing.resources || []), ...candidates])
+        ).sort()
+      } else if (normalizedMatches.length > 0) {
+        webAccessibleResourcesV3.push({
+          resources: staticAssets,
+          matches: [...normalizedMatches].sort()
         })
       }
     }
