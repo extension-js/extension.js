@@ -173,7 +173,8 @@ export function resolveUserDeclaredWAR(
         const overrideNotFoundPath = path.join(outputRoot || '', output)
         const msg = warMessages.warFieldError(publicAbs, {
           overrideNotFoundPath,
-          publicRootHint: true
+          publicRootHint: true,
+          relativeRef: res
         })
         const err = new (WebpackError as unknown as {
           new (message: string): Error & {file?: string}
@@ -190,7 +191,7 @@ export function resolveUserDeclaredWAR(
     const abs = path.isAbsolute(res) ? res : path.join(manifestDir, res)
     if (!fs.existsSync(abs)) {
       // Warn about missing relative path using standardized message
-      const msg = warMessages.warFieldError(abs)
+      const msg = warMessages.warFieldError(abs, {relativeRef: res})
       const warn = new WebpackError(msg) as Error & {
         file?: string
         name?: string

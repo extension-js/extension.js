@@ -17,7 +17,7 @@ export class CollectContentEntryImports {
         compilation.hooks.processAssets.tap(
           {
             name: 'plugin-extension:feature-web-resources:collect-entry-imports',
-            stage: Compilation.PROCESS_ASSETS_STAGE_ANALYSE
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           () => {
             const entryImports = collectContentScriptEntryImports(
