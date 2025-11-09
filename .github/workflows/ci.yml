@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+  actions: write
+
 jobs:
   tests:
     name: Run test suite (${{ matrix.suite }})
