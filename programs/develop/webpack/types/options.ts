@@ -89,6 +89,27 @@ export interface PreviewOptions extends BrowserOptionsBase {
   outputPath?: string
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
+  // Port forwarding to browser runner (e.g., debugging/logging server)
+  port?: string | number
+  // Source inspection options (parity with DevOptions)
+  source?: string
+  watchSource?: boolean
+  // Unified logger CLI output options (parity with DevOptions)
+  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
+  logContexts?: (
+    | 'background'
+    | 'content'
+    | 'page'
+    | 'sidebar'
+    | 'popup'
+    | 'options'
+    | 'devtools'
+  )[]
+  logFormat?: 'pretty' | 'json'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: number | string
 }
 
 export interface StartOptions extends BrowserOptionsBase {
@@ -152,7 +173,20 @@ export interface FileConfig {
 
     preview?: Pick<
       PreviewOptions,
-      'browser' | 'profile' | 'chromiumBinary' | 'geckoBinary'
+      | 'browser'
+      | 'profile'
+      | 'chromiumBinary'
+      | 'geckoBinary'
+      | 'port'
+      | 'source'
+      | 'watchSource'
+      | 'logLevel'
+      | 'logContexts'
+      | 'logFormat'
+      | 'logTimestamps'
+      | 'logColor'
+      | 'logUrl'
+      | 'logTab'
     > & {
       browserFlags?: string[]
       excludeBrowserFlags?: string[]
