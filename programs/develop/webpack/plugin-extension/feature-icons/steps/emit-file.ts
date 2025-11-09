@@ -118,6 +118,9 @@ export class EmitFile {
                   // Treat leading '/' as extension output-root (public root)
                   const isPublicRoot = entry.startsWith('/')
                   const outputRoot = compilation.options?.output?.path || ''
+                  const parts = String(feature).split('/')
+                  const group = parts[0]
+                  const sub = parts[1] || ''
 
                   // Build a display path consistent with HTML feature:
                   // - For extension-root style (leading '/') NOT OS-absolute, show outputRoot + entry
@@ -131,9 +134,16 @@ export class EmitFile {
                       : path.isAbsolute(entry)
                         ? entry
                         : path.join(projectPath, entry)
-                  const [group] = String(feature).split('/')
+                  const isDefaultIconFamily =
+                    (group === 'action' ||
+                      group === 'browser_action' ||
+                      group === 'page_action' ||
+                      group === 'sidebar_action') &&
+                    sub === 'default_icon'
                   const severity: 'error' | 'warning' =
-                    group === 'icons' ? 'error' : 'warning'
+                    group === 'icons' || isDefaultIconFamily
+                      ? 'error'
+                      : 'warning'
 
                   reportToCompilation(
                     compilation,
