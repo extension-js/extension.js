@@ -31,9 +31,17 @@ export class BoringPlugin {
         fs.readFileSync(this.manifestPath, 'utf-8')
       ).name
       const line = messages.boring(manifestName, duration, stats)
-      // Always print a fresh line per compilation; do not rewrite or buffer.
-      // eslint-disable-next-line no-console
-      console.log(line)
+      // Success lines are no longer printed to console/stdout.
+      // Only emit via infrastructure logger when there are errors.
+      const logger =
+        typeof compiler.getInfrastructureLogger === 'function'
+          ? compiler.getInfrastructureLogger('develop:brand')
+          : console
+
+      if (typeof stats.hasErrors === 'function' && stats.hasErrors()) {
+        logger.error(line)
+      }
+
       done()
     })
   }

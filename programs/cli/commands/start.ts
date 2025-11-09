@@ -12,6 +12,16 @@ type StartOptions = {
   startingUrl?: string
   port?: string | number
   polyfill?: boolean | string
+  // Source inspection (parity with dev/preview)
+  source?: boolean | string
+  watchSource?: boolean
+  // Unified logger options (parity with dev/preview)
+  logLevel?: string
+  logFormat?: 'pretty' | 'json'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: string | number
 }
 
 export function registerStartCommand(program: Command, telemetry: any) {
@@ -48,6 +58,29 @@ export function registerStartCommand(program: Command, telemetry: any) {
       '--port <port>',
       'specify the port to use for the development server. Defaults to `8080`'
     )
+    .option(
+      '--log-context <list>',
+      '[experimental] comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
+    )
+    .option(
+      '--logs <off|error|warn|info|debug|trace|all>',
+      '[experimental] minimum centralized logger level to display in terminal (default: off)'
+    )
+    .option(
+      '--log-format <pretty|json>',
+      '[experimental] output format for logger events. Defaults to `pretty`'
+    )
+    .option('--no-log-timestamps', 'disable ISO timestamps in pretty output')
+    .option('--no-log-color', 'disable color in pretty output')
+    .option(
+      '--log-url <pattern>',
+      '[experimental] only show logs where event.url matches this substring or regex (/re/i)'
+    )
+    .option('--log-tab <id>', 'only show logs for a specific tabId (number)')
+    .option(
+      '--source [url]',
+      '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
+    )
     .action(async function (
       pathOrRemoteUrl: string,
       {browser = 'chrome', ...startOptions}: StartOptions
@@ -71,13 +104,56 @@ export function registerStartCommand(program: Command, telemetry: any) {
         const vendorStart = Date.now()
         telemetry.track('cli_vendor_start', {command: 'start', vendor})
 
+        const logsOption = (startOptions as unknown as {logs?: string}).logs
+        const logContextOption = (
+          startOptions as unknown as {logContext?: string}
+        ).logContext
+
+        const logContexts = (() => {
+          const raw = (logContextOption ||
+            (startOptions as any).logContexts) as string | undefined
+          if (!raw || String(raw).trim().length === 0) return undefined
+          if (String(raw).trim().toLowerCase() === 'all') return undefined
+          const allowed = [
+            'background',
+            'content',
+            'page',
+            'sidebar',
+            'popup',
+            'options',
+            'devtools'
+          ] as const
+          type Context = (typeof allowed)[number]
+          const values = String(raw)
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
+            .filter((c: string): c is Context =>
+              (allowed as readonly string[]).includes(c)
+            )
+          return values.length ? values : undefined
+        })()
+
         await extensionStart(pathOrRemoteUrl, {
           mode: 'production',
           profile: startOptions.profile,
           browser: vendor as StartOptions['browser'],
           chromiumBinary: (startOptions as any).chromiumBinary,
           geckoBinary: (startOptions as any).geckoBinary,
-          startingUrl: startOptions.startingUrl
+          startingUrl: startOptions.startingUrl,
+          port: startOptions.port,
+          source:
+            typeof startOptions.source === 'string'
+              ? startOptions.source
+              : (startOptions.source as any),
+          watchSource: startOptions.watchSource,
+          logLevel: (logsOption || startOptions.logLevel || 'off') as any,
+          logContexts,
+          logFormat: startOptions.logFormat || 'pretty',
+          logTimestamps: startOptions.logTimestamps !== false,
+          logColor: startOptions.logColor !== false,
+          logUrl: startOptions.logUrl,
+          logTab: startOptions.logTab
         })
 
         telemetry.track('cli_vendor_finish', {

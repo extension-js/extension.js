@@ -11,6 +11,16 @@ type PreviewOptions = {
   geckoBinary?: string
   startingUrl?: string
   port?: string | number
+  // Source inspection (parity with dev)
+  source?: boolean | string
+  watchSource?: boolean
+  // Unified logger options (parity with dev)
+  logLevel?: string
+  logFormat?: 'pretty' | 'json'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: string | number
 }
 
 export function registerPreviewCommand(program: Command, telemetry: any) {
@@ -43,6 +53,29 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       '--port <port>',
       'specify the port to use for the development server. Defaults to `8080`'
     )
+    .option(
+      '--log-context <list>',
+      '[experimental] comma-separated contexts to include (background,content,page,sidebar,popup,options,devtools). Use `all` to include all contexts (default)'
+    )
+    .option(
+      '--logs <off|error|warn|info|debug|trace|all>',
+      '[experimental] minimum centralized logger level to display in terminal (default: off)'
+    )
+    .option(
+      '--log-format <pretty|json>',
+      '[experimental] output format for logger events. Defaults to `pretty`'
+    )
+    .option('--no-log-timestamps', 'disable ISO timestamps in pretty output')
+    .option('--no-log-color', 'disable color in pretty output')
+    .option(
+      '--log-url <pattern>',
+      '[experimental] only show logs where event.url matches this substring or regex (/re/i)'
+    )
+    .option('--log-tab <id>', 'only show logs for a specific tabId (number)')
+    .option(
+      '--source [url]',
+      '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
+    )
     .action(async function (
       pathOrRemoteUrl: string,
       {browser = 'chrome', ...previewOptions}: PreviewOptions
@@ -71,13 +104,56 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         const vendorStart = Date.now()
         telemetry.track('cli_vendor_start', {command: 'preview', vendor})
 
+        const logsOption = (previewOptions as unknown as {logs?: string}).logs
+        const logContextOption = (
+          previewOptions as unknown as {logContext?: string}
+        ).logContext
+
+        const logContexts = (() => {
+          const raw = (logContextOption ||
+            (previewOptions as any).logContexts) as string | undefined
+          if (!raw || String(raw).trim().length === 0) return undefined
+          if (String(raw).trim().toLowerCase() === 'all') return undefined
+          const allowed = [
+            'background',
+            'content',
+            'page',
+            'sidebar',
+            'popup',
+            'options',
+            'devtools'
+          ] as const
+          type Context = (typeof allowed)[number]
+          const values = String(raw)
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0)
+            .filter((c: string): c is Context =>
+              (allowed as readonly string[]).includes(c)
+            )
+          return values.length ? values : undefined
+        })()
+
         await extensionPreview(pathOrRemoteUrl, {
           mode: 'production',
           profile: previewOptions.profile,
           browser: vendor as PreviewOptions['browser'],
           chromiumBinary: (previewOptions as any).chromiumBinary,
           geckoBinary: (previewOptions as any).geckoBinary,
-          startingUrl: previewOptions.startingUrl
+          startingUrl: previewOptions.startingUrl,
+          port: previewOptions.port,
+          source:
+            typeof previewOptions.source === 'string'
+              ? previewOptions.source
+              : (previewOptions.source as any),
+          watchSource: previewOptions.watchSource,
+          logLevel: (logsOption || previewOptions.logLevel || 'off') as any,
+          logContexts,
+          logFormat: previewOptions.logFormat || 'pretty',
+          logTimestamps: previewOptions.logTimestamps !== false,
+          logColor: previewOptions.logColor !== false,
+          logUrl: previewOptions.logUrl,
+          logTab: previewOptions.logTab
         })
         telemetry.track('cli_vendor_finish', {
           command: 'preview',
