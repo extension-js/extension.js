@@ -72,6 +72,16 @@ export async function extensionPreview(
       chromiumBinary: previewOptions.chromiumBinary,
       geckoBinary: previewOptions.geckoBinary,
       startingUrl: previewOptions.startingUrl,
+      port: previewOptions.port,
+      source: previewOptions.source,
+      watchSource: previewOptions.watchSource,
+      logLevel: previewOptions.logLevel,
+      logContexts: previewOptions.logContexts,
+      logFormat: previewOptions.logFormat,
+      logTimestamps: previewOptions.logTimestamps,
+      logColor: previewOptions.logColor,
+      logUrl: previewOptions.logUrl,
+      logTab: previewOptions.logTab,
       // For preview, we only want to run the browser with the outputPath.
       output: {
         clean: false,
