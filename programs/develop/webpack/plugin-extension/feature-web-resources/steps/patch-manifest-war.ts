@@ -19,7 +19,8 @@ export class PatchManifestWebResources {
         compilation.hooks.processAssets.tap(
           {
             name: 'plugin-extension:feature-web-resources:patch-manifest',
-            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+            // Use a late stage to ensure chunk files (from dynamic imports) are finalized
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
           },
           () => {
             const shared = getSharedFor(compilation)
