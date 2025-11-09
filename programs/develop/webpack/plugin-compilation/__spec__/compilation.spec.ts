@@ -190,7 +190,7 @@ describe('CompilationPlugin', () => {
     expect(consoleLogSpy).not.toHaveBeenCalled()
   })
 
-  vi.mock('../plugin-zip', () => {
+  vi.mock('../zip', () => {
     const apply = vi.fn()
     class ZipPluginMock {
       public static lastOptions: any
@@ -222,7 +222,7 @@ describe('CompilationPlugin', () => {
     })
     prod.apply(prodCompiler as any)
 
-    const {ZipPlugin} = await import('../plugin-zip')
+    const {ZipPlugin} = await import('../zip')
 
     // Last options should come from the production apply (development should not register ZipPlugin)
     expect((ZipPlugin as any).lastOptions).toEqual(
