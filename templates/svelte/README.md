@@ -5,10 +5,9 @@
 
 # Svelte Template
 
-> Svelte-based extension with sidebar panel
+> Svelte-based extension with a reactive UI.
 
-Lean, reactive extension UI with Svelte. Hot reloading, tight DX, and zero-runtime
-overhead where it counts. Build and preview exactly how it will run in the browser.
+Lean, reactive UI with Svelte. Hot reloading, tight DX, and zero-runtime overhead where it counts.
 
 ## Installation
 
@@ -25,7 +24,7 @@ npm install
 Run the extension in development mode.
 
 ```bash
-npx extension@latest dev
+npm run dev
 ```
 
 ### build
@@ -33,7 +32,7 @@ npx extension@latest dev
 Build the extension for production.
 
 ```bash
-npx extension@latest build
+npm run build
 ```
 
 ### Preview
@@ -41,9 +40,9 @@ npx extension@latest build
 Preview the extension in the browser.
 
 ```bash
-npx extension@latest preview
+npm run preview
 ```
 
 ## Learn more
 
-Learn more about this and other templates at https://extension.js.org/
+Learn more about creating cross-browser extensions at https://extension.js.org

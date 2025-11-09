@@ -5,10 +5,9 @@
 
 # JavaScript Template
 
-> JavaScript-based extension template
+> JavaScript-based extension template.
 
-Lightweight JavaScript starter for extensions. Instant dev server, production builds,
-and previews that match the browser environment. Start simple, scale when needed.
+Lightweight starter for browser extensions. Instant dev server, production builds, and previews that match the browser environment. Start simple, scale when needed.
 
 ## Installation
 
@@ -25,7 +24,7 @@ npm install
 Run the extension in development mode.
 
 ```bash
-npx extension@latest dev
+npm run dev
 ```
 
 ### build
@@ -33,7 +32,7 @@ npx extension@latest dev
 Build the extension for production.
 
 ```bash
-npx extension@latest build
+npm run build
 ```
 
 ### Preview
@@ -41,9 +40,9 @@ npx extension@latest build
 Preview the extension in the browser.
 
 ```bash
-npx extension@latest preview
+npm run preview
 ```
 
 ## Learn more
 
-Learn more about this and other templates at https://extension.js.org/
+Learn more about creating cross-browser extensions at https://extension.js.org
