@@ -1,6 +1,6 @@
 /* eslint-disable jest/no-identical-title, playwright/no-identical-title */
 import path from 'path'
-import {execSync} from 'child_process'
+import {execFileSync} from 'child_process'
 import {test, expect} from '@playwright/test'
 import {extensionFixtures} from './extension-fixtures'
 import {
@@ -33,8 +33,9 @@ export function registerTemplateTests({
 
   t.describe(displayName, () => {
     t.beforeAll(async () => {
-      execSync(`pnpm extension build ${exampleDir}`, {
-        cwd: path.join(dir, '..')
+      execFileSync('pnpm', ['extension', 'build', exampleDir], {
+        cwd: path.join(dir, '..'),
+        stdio: 'inherit'
       })
       const fs = await import('fs')
       if (!fs.existsSync(pathToExtension)) {

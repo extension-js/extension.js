@@ -101,14 +101,16 @@ jobs:
       - name: Publish extension-develop (first, tag=next)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        working-directory: programs/develop
         run: |
-          pnpm -C programs/develop publish --access public --tag next --provenance --no-git-checks
+          npm publish --access public --tag next --provenance --no-git-checks
 
       - name: Publish extension (second, tag=next)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        working-directory: programs/cli
         run: |
-          pnpm -C programs/cli publish --access public --tag next --provenance --no-git-checks
+          npm publish --access public --tag next --provenance --no-git-checks
 
       - name: Restore workspace dependency file (no repo mutation)
         run: git checkout -- programs/cli/package.json

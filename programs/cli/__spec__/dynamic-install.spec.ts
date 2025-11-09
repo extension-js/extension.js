@@ -1,4 +1,4 @@
-import {execSync, spawnSync} from 'node:child_process'
+import {execFileSync, spawnSync} from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -42,7 +42,7 @@ function writeFixture(root: string) {
 
 function canReachRegistry(): boolean {
   try {
-    execSync('npm view extension-develop@2 version --json', {
+    execFileSync('npm', ['view', 'extension-develop@2', 'version', '--json'], {
       timeout: 8000,
       stdio: 'ignore'
     })
@@ -70,10 +70,14 @@ describe('dynamic install', () => {
     )
 
     const cliPath = pathToCLI()
-    execSync(`npm i --no-fund --no-audit --omit=dev ${cliPath}`, {
+    execFileSync(
+      'npm',
+      ['i', '--no-fund', '--no-audit', '--omit=dev', cliPath],
+      {
       cwd: work,
       stdio: 'inherit'
-    })
+      }
+    )
 
     expect(
       fs.existsSync(path.join(work, 'node_modules', 'extension-develop'))

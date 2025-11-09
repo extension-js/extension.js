@@ -1,10 +1,10 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {promisify} from 'util'
-import {exec as execCb} from 'child_process'
+import {execFile as execFileCb} from 'child_process'
 import * as messages from '../../browsers-lib/messages'
 
-const exec = promisify(execCb)
+const execFile = promisify(execFileCb)
 
 // Firefox Binary Detector
 // Supports multiple Firefox distribution methods including Flatpak
@@ -52,14 +52,16 @@ export class FirefoxBinaryDetector {
   private static async detectFlatpakFirefox(): Promise<string | null> {
     try {
       // Check if flatpak is available
-      await exec('which flatpak')
+      await execFile('which', ['flatpak'])
 
       // Check if Firefox is installed via flatpak
-      const {stdout} = await exec(
-        'flatpak list --app --columns=application | grep -i firefox'
-      )
+      const {stdout} = await execFile('flatpak', [
+        'list',
+        '--app',
+        '--columns=application'
+      ])
 
-      if (stdout.trim()) {
+      if (stdout.toLowerCase().includes('firefox')) {
         console.log(messages.firefoxDetectedFlatpak())
         return 'flatpak'
       }
@@ -73,12 +75,12 @@ export class FirefoxBinaryDetector {
   private static async detectSnapFirefox(): Promise<string | null> {
     try {
       // Check if snap is available
-      await exec('which snap')
+      await execFile('which', ['snap'])
 
       // Check if Firefox is installed via snap
-      const {stdout} = await exec('snap list | grep -i firefox')
+      const {stdout} = await execFile('snap', ['list'])
 
-      if (stdout.trim()) {
+      if (stdout.toLowerCase().includes('firefox')) {
         console.log(messages.firefoxDetectedSnap())
         return '/snap/bin/firefox'
       }
@@ -195,7 +197,7 @@ export class FirefoxBinaryDetector {
         args = ['--version']
       }
 
-      const {stdout} = await exec(`${command} ${args.join(' ')}`)
+      const {stdout} = await execFile(command, args)
       const version = stdout.trim()
 
       if (process.env.EXTENSION_ENV === 'development') {
