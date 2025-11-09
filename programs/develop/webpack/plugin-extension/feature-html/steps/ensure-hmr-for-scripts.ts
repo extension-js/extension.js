@@ -34,11 +34,35 @@ export default function ensureHMRForScripts(
   }
 
   const reloadCode = `
-if (import.meta.webpackHot) { import.meta.webpackHot.accept() }
+if (import.meta.webpackHot) {
+  try {
+    // Accept updates for HTML-attached scripts and clear common containers
+    import.meta.webpackHot.accept();
+    import.meta.webpackHot.dispose(function() {
+      try {
+        var clear = function(el) {
+          if (!el) return;
+          while (el.firstChild) el.removeChild(el.firstChild);
+        };
+
+        // Clear default template container
+        clear(document.getElementById('app'));
+
+        // Also clear any extension-root wrappers if present
+        var roots = document.querySelectorAll('[data-extension-root]');
+        roots.forEach(function(node) {
+          clear(node);
+        });
+      } catch (err) {
+        // 'err' is local in this catch, keep for error clarity
+        console.error('Error clearing HTML containers', err);
+      }
+    });
+  } catch (error) {
+    console.error('Error accepting HMR', error);
+  }
+}
 `
-
-  // Always inject minimal HMR accept to behave like minimal Vite for plain scripts
-
   // Minimal behavior: inject HMR accept wrapper for any handled script
   return `${reloadCode}${source}`
 }
