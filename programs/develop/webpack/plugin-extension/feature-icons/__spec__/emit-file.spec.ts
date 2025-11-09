@@ -34,6 +34,26 @@ describe('EmitFile step', () => {
     vi.clearAllMocks()
   })
 
+  it('warns when browser_action/theme_icons is missing', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler()
+
+    // No file exists
+    FS.existsSync.mockReturnValue(false)
+
+    const step = new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {'browser_action/theme_icons': ['/abs/assets/missing.png']}
+    } as any)
+
+    step.apply(compiler as any)
+
+    expect(compilation.errors.length).toBe(0)
+    expect(compilation.warnings.length).toBe(1)
+    const w = String(compilation.warnings[0])
+    expect(w).toMatch(/NOT FOUND/i)
+  })
+
   const makeCompiler = () => {
     const compilation: any = {
       hooks: {processAssets: {tap: (_: any, cb: Function) => cb()}},
@@ -234,7 +254,7 @@ describe('EmitFile step', () => {
     expect(msg2).not.toMatch(/resolved from the extension output root/i)
   })
 
-  it('warns when a non-top-level icon file is missing', async () => {
+  it('errors when a default_icon family is missing', async () => {
     const {EmitFile} = await import('../steps/emit-file')
     const {compiler, compilation} = makeCompiler()
 
@@ -248,11 +268,11 @@ describe('EmitFile step', () => {
 
     step.apply(compiler as any)
 
-    expect(compilation.warnings.length).toBe(1)
-    const w = String(compilation.warnings[0])
-    expect(w).toMatch(/Check the .* manifest\.json/i)
-    expect(w).toMatch(/NOT FOUND/i)
-    expect(w).toContain('/abs/assets/missing.png')
+    expect(compilation.errors.length).toBe(1)
+    const e = String(compilation.errors[0])
+    expect(e).toMatch(/Check the .* manifest\.json/i)
+    expect(e).toMatch(/NOT FOUND/i)
+    expect(e).toContain('/abs/assets/missing.png')
   })
 
   it('handles object-shaped icons map: emits existing and errors missing (pre-browser)', async () => {
