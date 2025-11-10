@@ -22,6 +22,9 @@ export class ResolvePlugin {
           options: {
             manifestPath: this.manifestPath,
             packageJsonDir: compiler.options.context,
+            // Provide the final output directory so the loader can display
+            // NOT FOUND paths according to ERROR_POLICY (outputRoot + strippedPath)
+            outputPath: compiler.options.output?.path,
             browser: this.browser,
             mode: compiler.options.mode || 'development'
           }
