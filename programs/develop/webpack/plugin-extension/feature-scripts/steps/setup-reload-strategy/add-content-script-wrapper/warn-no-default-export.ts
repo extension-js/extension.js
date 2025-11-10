@@ -24,6 +24,17 @@ export default function (this: LoaderContext, source: string) {
   const manifestPath = options.manifestPath
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
 
+  // Skip the synthetic "inner" request to avoid double-processing.
+  // The wrapper triggers a second pass with ?__extjs_inner=1.
+  const resourceQuery = (this as any).resourceQuery as string | undefined
+
+  if (
+    typeof resourceQuery === 'string' &&
+    resourceQuery.includes('__extjs_inner=1')
+  ) {
+    return source
+  }
+
   validate(schema, options, {
     name: 'scripts:warn-no-default-export',
     baseDataPath: 'options'
@@ -33,16 +44,31 @@ export default function (this: LoaderContext, source: string) {
   try {
     const resourceAbsPath = path.normalize(this.resourcePath)
     const projectPath = path.dirname(manifestPath)
+    const compilation: any = (this as any)._compilation
+
+    // Deduplicate warnings per compilation per file
+    const dedupeKey = `no-default:${resourceAbsPath}`
+    if (compilation) {
+      compilation.__extjsWarnedDefaultExport ??= new Set<string>()
+      if (compilation.__extjsWarnedDefaultExport.has(dedupeKey)) {
+        return source
+      }
+    }
 
     const declaredContentJsAbsPaths: string[] = []
     const contentScripts = Array.isArray(manifest.content_scripts)
       ? manifest.content_scripts
       : []
 
-    for (const cs of contentScripts) {
-      const jsList = Array.isArray(cs?.js) ? cs.js : []
-      for (const js of jsList) {
-        declaredContentJsAbsPaths.push(path.resolve(projectPath, js as string))
+    for (const contentScript of contentScripts) {
+      const contentScriptJsList = Array.isArray(contentScript?.js)
+        ? contentScript.js
+        : []
+
+      for (const contentScriptJs of contentScriptJsList) {
+        declaredContentJsAbsPaths.push(
+          path.resolve(projectPath, contentScriptJs as string)
+        )
       }
     }
 
@@ -57,19 +83,35 @@ export default function (this: LoaderContext, source: string) {
       if (!hasDefault) {
         const relativeFile = path.relative(projectPath, resourceAbsPath)
         const message = [
-          'Content script missing default export.',
+          'Content script requires a default export.',
           `File: ${relativeFile}`,
-          '',
-          'Why: The hot-reload (HMR) wrapper for content scripts expects a default export to attach to.',
-          'Fix:',
-          '  - Export a default function from your content script, for example:',
-          '      export default function main() {\n        // setup code...\n      }\n'
+          ``,
+          `Why:`,
+          `  - During development, Extension.js uses your default export to start and stop your content script safely.`,
+          `  - Without it, automatic reloads and cleanup might not work reliably.`,
+          ``,
+          `Required:`,
+          `  - Export a default function (it can optionally return a cleanup callback).`,
+          ``,
+          `Example:`,
+          `  export default function main() {`,
+          `    // setup...`,
+          `    return () => { /* cleanup */ }`,
+          `  }`,
+          ``,
+          `Side effects if omitted:`,
+          `  - Duplicate UI mounts, memory leaks, and inconsistent state during development.`
         ].join('\n')
 
-        ;(this as any).emitWarning?.(new Error(message))
+        // Prefer a compilation-level warning to avoid the noisy "Module Warning (from loader)" prefix.
+        // Push as a string so the header becomes: "WARNING in Content script requires a default export."
+        compilation?.warnings.push(message)
+        compilation?.__extjsWarnedDefaultExport?.add(dedupeKey)
       }
     }
-  } catch {}
+  } catch {
+    //Ignore errors
+  }
 
   return source
 }
