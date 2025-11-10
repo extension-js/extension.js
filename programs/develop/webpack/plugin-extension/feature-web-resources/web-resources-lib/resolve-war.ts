@@ -164,13 +164,20 @@ export function resolveUserDeclaredWAR(
       const output = toPublicOutput(res)
       const publicAbs = path.join(projectPath, 'public', output)
 
-      if (!fs.existsSync(publicAbs)) {
-        const outputRoot =
-          compilation.options?.output?.path ||
-          compilation.outputOptions?.path ||
-          path.join(path.dirname(manifestPath), 'dist')
+      // Compute output root and see if the asset is already present in the build,
+      // since leading '/' refers to the extension output root after build.
+      const outputRoot =
+        compilation.options?.output?.path ||
+        compilation.outputOptions?.path ||
+        path.join(path.dirname(manifestPath), 'dist')
+      const builtAbs = path.join(outputRoot || '', output)
 
-        const overrideNotFoundPath = path.join(outputRoot || '', output)
+      const assetEmitted =
+        Boolean(compilation.getAsset && compilation.getAsset(output)) ||
+        fs.existsSync(builtAbs)
+
+      if (!fs.existsSync(publicAbs) && !assetEmitted) {
+        const overrideNotFoundPath = builtAbs
         const msg = warMessages.warFieldError(publicAbs, {
           overrideNotFoundPath,
           publicRootHint: true,
