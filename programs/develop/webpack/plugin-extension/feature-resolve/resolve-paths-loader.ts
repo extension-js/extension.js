@@ -4,6 +4,7 @@ import type {Program} from '@swc/core'
 import {unixify} from './resolve-lib/paths'
 import {resolveLiteralToOutput} from './resolve-lib'
 import {evalStaticString} from './resolve-lib/ast'
+import {handleCallExpression, type RewriteFn} from './resolve-lib/handlers'
 
 let swcRuntimeModule: any
 
@@ -32,6 +33,7 @@ export default async function resolvePathsLoader(this: any, source: string) {
   const packageJsonDir: string | undefined = options.packageJsonDir as
     | string
     | undefined
+  const outputPath: string = String(options.outputPath || '')
 
   // const debug: boolean = Boolean(options.debug)
   // sourceMaps: 'auto' | true | false (defaults to 'auto')
@@ -58,10 +60,8 @@ export default async function resolvePathsLoader(this: any, source: string) {
     const containsEligiblePatterns =
       sourceString.includes('chrome.') ||
       sourceString.includes('browser.') ||
-      sourceString.includes('getURL(') ||
-      sourceString.includes('/public/') ||
-      sourceString.includes('pages/') ||
-      sourceString.includes('scripts/')
+      sourceString.includes('runtime.getURL(') ||
+      sourceString.includes('extension.getURL(')
     if (!containsEligiblePatterns) return callback(null, source)
   } catch {
     console.error('Failed to check for eligible patterns')
@@ -87,24 +87,6 @@ export default async function resolvePathsLoader(this: any, source: string) {
   } catch {
     return callback(null, source)
   }
-
-  const ALLOWED_KEYS = new Set([
-    'url',
-    'file',
-    'files',
-    'path',
-    'js',
-    'css',
-    'icons',
-    'popup',
-    'panel',
-    'page',
-    'iconUrl',
-    'imageUrl',
-    'default_icon',
-    'default_popup',
-    'default_panel'
-  ])
 
   const perFileResolveCache = new Map<string, string | undefined>()
 
@@ -140,21 +122,36 @@ export default async function resolvePathsLoader(this: any, source: string) {
   ) => {
     try {
       const canonical = unixify(original || '')
-      const looksLikePublicRoot =
-        /^\//.test(canonical) ||
-        /^\/public\//i.test(canonical) ||
-        /^(?:\.\/)?public\//i.test(canonical)
+      const authorUsedRoot = /^\//.test(canonical)
 
-      if (looksLikePublicRoot && computed) {
+
+      if (computed) {
         const root = packageJsonDir || path.dirname(manifestPath)
-        const publicAbs = path.join(root, 'public', computed)
-        if (!fs.existsSync(publicAbs)) {
-          emitStandardWarning(String(this.resourcePath), [
+        // Check existence in source public/ because that's what gets emitted
+        const sourcePublicAbs = path.join(root, 'public', computed)
+        if (!fs.existsSync(sourcePublicAbs)) {
+          // Compute display path per ERROR_POLICY
+          const displayPath =
+            authorUsedRoot && outputPath
+              ? path.join(outputPath, computed)
+              : sourcePublicAbs
+
+          const lines: string[] = [
             'Check the path used in your extension API call.',
-            "Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.",
-            '',
-            `NOT FOUND ${publicAbs}`
-          ])
+            'The path must point to an existing file that will be packaged with the extension.',
+            `Found value: ${original ?? ''}`,
+            `Resolved path: ${authorUsedRoot && outputPath ? path.join(outputPath, computed) : sourcePublicAbs}`
+          ]
+          // Optional public-root hint strictly for original leading '/'
+          if (authorUsedRoot) {
+            lines.push(
+              "Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory."
+            )
+          }
+
+          lines.push('', `NOT FOUND ${displayPath}`)
+
+          emitStandardWarning(String(this.resourcePath), lines)
         }
       }
     } catch {
@@ -168,185 +165,45 @@ export default async function resolvePathsLoader(this: any, source: string) {
     span: span || {start: 0, end: 0}
   })
 
-  const self = this
-  const rewriteExpression = (
-    exprNode: any,
-    allowObjectValueDeep = false
-  ): any | null => {
-    if (!exprNode) return null
-
-    if (exprNode.type === 'StringLiteral') {
-      const resolved = maybeResolve(exprNode.value)
-      if (resolved) {
-        warnIfMissingPublic(exprNode.value, resolved)
-        return createStringLiteral(resolved, exprNode.span)
-      }
-
-      try {
-        const canonical = unixify(exprNode.value || '')
-        if (/^src\/(pages|scripts)\//i.test(canonical)) {
-          const root = packageJsonDir || path.dirname(manifestPath)
-          const abs = path.join(root, canonical)
-          emitStandardWarning(String(self.resourcePath), [
-            'Check the path used in your extension API call.',
-            '',
-            `NOT FOUND ${abs}`
-          ])
-        }
-      } catch {
-        // best-effort only
-      }
-
-      return null
-    }
-
-    if (
-      exprNode.type === 'TemplateLiteral' &&
-      Array.isArray(exprNode.expressions) &&
-      exprNode.expressions.length === 0
-    ) {
-      const raw = (exprNode.quasis || [])
-        .map((quasi: any) => String(quasi.raw || ''))
-        .join('')
-      const resolved = maybeResolve(raw)
-
-      if (!resolved) return null
-      warnIfMissingPublic(raw, resolved)
-      return createStringLiteral(resolved, exprNode.span)
-    }
-
-    const staticallyEvaluated = evalStaticString(exprNode)
-
-    if (typeof staticallyEvaluated === 'string') {
-      const resolved = maybeResolve(staticallyEvaluated)
-
-      if (resolved) {
-        warnIfMissingPublic(staticallyEvaluated, resolved)
-        return createStringLiteral(resolved, exprNode.span)
-      }
-    }
-
-    if (exprNode.type === 'ArrayExpression') {
-      let changed = false
-
-      const elements = (exprNode.elements || []).map((elementNode: any) => {
-        if (!elementNode) return elementNode
-
-        const elementExpr = elementNode.expression ?? elementNode
-        if (!elementExpr || elementNode.type === 'SpreadElement')
-          return elementNode
-
-        const rewritten = rewriteExpression(elementExpr, allowObjectValueDeep)
-        if (rewritten) {
-          changed = true
-          return {type: 'Expression', expression: rewritten}
-        }
-
-        return elementNode
-      })
-
-      return changed ? {...exprNode, elements} : null
-    }
-
-    if (exprNode.type === 'ObjectExpression') {
-      let changed = false
-
-      const properties = (exprNode.properties || []).map(
-        (propertyNode: any) => {
-          if (propertyNode.type !== 'KeyValueProperty') return propertyNode
-          const propertyKey =
-            propertyNode.key?.type === 'Identifier'
-              ? propertyNode.key.value
-              : propertyNode.key?.type === 'StringLiteral'
-                ? propertyNode.key.value
-                : undefined
-
-          if (!allowObjectValueDeep && !propertyKey) return null
-          const isAllowedTopLevel = propertyKey
-            ? ALLOWED_KEYS.has(propertyKey)
-            : false
-
-          if (!isAllowedTopLevel && !allowObjectValueDeep) return propertyNode
-          // if (debug) {
-          //   try {
-          //     console.log(
-          //       '[resolve-paths-loader] found object key',
-          //       propertyKey,
-          //       'valueType',
-          //       propertyNode.value?.type
-          //     )
-          //   } catch {}
-          // }
-          const rewritten = rewriteExpression(
-            propertyNode.value,
-            isAllowedTopLevel || allowObjectValueDeep
-          )
-
-          if (rewritten) {
-            changed = true
-            return {...propertyNode, value: rewritten}
-          }
-
-          return propertyNode
-        }
-      )
-      return changed ? {...exprNode, properties} : null
-    }
-
-    return null
+  // Rewriter called only by handler-detected API contexts
+  const rewriteValue: RewriteFn = (node, computed, rawInput) => {
+    if (!computed) return
+    // Emit policy-compliant warning, gated by original authoring
+    warnIfMissingPublic(rawInput, computed)
+    // Mutate node to a StringLiteral with computed value
+    ;(node as any).type = 'StringLiteral'
+    ;(node as any).value = computed
+    if ((node as any).quasis) (node as any).quasis = []
+    if ((node as any).expressions) (node as any).expressions = []
   }
 
-  const visit = (currentNode: any) => {
+  // Walk AST and delegate to feature handlers for CallExpression nodes
+  const walk = (currentNode: any) => {
     if (!currentNode || typeof currentNode !== 'object') return
 
     if (currentNode.type === 'CallExpression') {
-      currentNode.arguments = (currentNode.arguments || []).map(
-        (argument: any) => {
-          if (!argument) return argument
-          const argumentExpression = argument.expression ?? argument
-          const rewritten = rewriteExpression(argumentExpression)
-          if (!rewritten) return argument
-          return argument && 'expression' in argument
-            ? {...argument, expression: rewritten}
-            : rewritten
-        }
-      )
-    }
-
-    if (currentNode.type === 'NewExpression') {
-      currentNode.arguments = (currentNode.arguments || []).map(
-        (argument: any) => {
-          if (!argument) return argument
-          const argumentExpression = argument.expression ?? argument
-          const rewritten = rewriteExpression(argumentExpression)
-          if (!rewritten) return argument
-          return argument && 'expression' in argument
-            ? {...argument, expression: rewritten}
-            : rewritten
-        }
-      )
-    }
-
-    if (currentNode.type === 'VariableDeclarator' && currentNode.init) {
-      const rewritten = rewriteExpression(currentNode.init)
-      if (rewritten) currentNode.init = rewritten
-    }
-
-    if (currentNode.type === 'AssignmentExpression' && currentNode.right) {
-      const rewritten = rewriteExpression(currentNode.right)
-      if (rewritten) currentNode.right = rewritten
+      try {
+        handleCallExpression(
+          currentNode,
+          String(source),
+          rewriteValue,
+          manifestPath
+        )
+      } catch {
+        // best-effort only
+      }
     }
 
     for (const key in currentNode) {
       if (!Object.prototype.hasOwnProperty.call(currentNode, key)) continue
       const childNode = (currentNode as any)[key]
       if (!childNode) continue
-      if (Array.isArray(childNode)) childNode.forEach(visit)
-      else if (childNode && typeof childNode.type === 'string') visit(childNode)
+      if (Array.isArray(childNode)) childNode.forEach(walk)
+      else if (childNode && typeof childNode.type === 'string') walk(childNode)
     }
   }
 
-  visit(programAst)
+  walk(programAst)
 
   try {
     const enableMaps =
