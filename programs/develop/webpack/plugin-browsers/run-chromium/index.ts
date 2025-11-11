@@ -45,6 +45,33 @@ function getChromeVersionLine(bin: string): string {
     } catch {
       // ignore
     }
+    // Final Windows fallback: read PE file version via PowerShell (no GUI launch)
+    try {
+      const psPath = bin.replace(/'/g, "''")
+      const pv = execFileSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-Command',
+          `(Get-Item -LiteralPath '${psPath}').VersionInfo.ProductVersion`
+        ],
+        {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}
+      ).trim()
+
+      const pn = execFileSync(
+        'powershell.exe',
+        [
+          '-NoProfile',
+          '-Command',
+          `(Get-Item -LiteralPath '${psPath}').VersionInfo.ProductName`
+        ],
+        {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}
+      ).trim()
+
+      if (pv) return pn ? `${pn} ${pv}` : pv
+    } catch {
+      // ignore
+    }
   }
   return ''
 }
