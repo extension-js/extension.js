@@ -36,35 +36,3 @@ export function getFilename(feature: string, filePath: string) {
 export function unixify(filePath: string) {
   return filePath.replace(/\\/g, '/')
 }
-
-export function shouldExclude(
-  filePath: string,
-  ignorePatterns: FilepathList = {}
-): boolean {
-  if (!ignorePatterns) {
-    return false
-  }
-
-  const unixifiedFilePath = path.normalize(unixify(filePath))
-  const isFilePathInExcludedList = Object.values(ignorePatterns).some(
-    (pattern) => {
-      const matchOne = (candidate: string) => {
-        if (!candidate || typeof candidate !== 'string') return false
-        const normalizedCandidate = path.normalize(unixify(candidate))
-        // Consider a match if the file path is exactly the same or contained under the candidate path
-        return (
-          unixifiedFilePath === normalizedCandidate ||
-          unixifiedFilePath.startsWith(normalizedCandidate)
-        )
-      }
-
-      if (Array.isArray(pattern)) {
-        return pattern.some((p) => matchOne(p as any))
-      }
-
-      return matchOne(pattern as any)
-    }
-  )
-
-  return isFilePathInExcludedList
-}
