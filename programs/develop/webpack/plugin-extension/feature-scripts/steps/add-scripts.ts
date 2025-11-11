@@ -95,15 +95,19 @@ export class AddScripts {
 
     const fallbackContext = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || fallbackContext
-    const publicDir = path.join(projectPath, 'public' + path.sep)
+    const publicDir = path.join(projectPath, 'public')
 
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       const scriptImports = getScriptEntries(scriptPath)
       const cssImports = getCssEntries(scriptPath)
       const allImports = [...scriptImports, ...cssImports]
-      const entryImports = allImports.filter(
-        (p) => !String(p).startsWith(publicDir)
-      )
+      const entryImports = allImports.filter((filePath) => {
+        const rel = path.relative(publicDir, filePath)
+        const isUnderPublic =
+          rel && !rel.startsWith('..') && !path.isAbsolute(rel)
+
+        return !isUnderPublic
+      })
 
       if (cssImports.length || scriptImports.length) {
         // Apply entry-specific configuration for service workers
@@ -152,7 +156,10 @@ export class AddScripts {
             )
 
             const publicFilesOnly: string[] = allScriptFieldImports.filter(
-              (importPath) => String(importPath).startsWith(publicDir)
+              (importPath) => {
+                const rel = path.relative(publicDir, String(importPath))
+                return rel && !rel.startsWith('..') && !path.isAbsolute(rel)
+              }
             )
 
             for (const publicFilePath of publicFilesOnly) {

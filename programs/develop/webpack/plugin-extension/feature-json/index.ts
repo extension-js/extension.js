@@ -107,7 +107,7 @@ export class JsonPlugin {
           const projectPath =
             (compiler.options?.context as string) ||
             path.dirname(this.manifestPath)
-          const publicDir = path.join(projectPath, 'public' + path.sep)
+          const publicDir = path.join(projectPath, 'public')
 
           for (const field of Object.entries(jsonFields)) {
             const [feature, resource] = field
@@ -124,7 +124,11 @@ export class JsonPlugin {
                 const abs = path.isAbsolute(thisResource)
                   ? thisResource
                   : path.join(manifestDir, thisResource)
-                const isUnderPublic = String(abs).startsWith(publicDir)
+                const relToPublic = path.relative(publicDir, abs)
+                const isUnderPublic =
+                  relToPublic &&
+                  !relToPublic.startsWith('..') &&
+                  !path.isAbsolute(relToPublic)
 
                 // Missing file handling
                 if (!fs.existsSync(abs)) {

@@ -221,9 +221,19 @@ export function cleanLeading(s: string): string {
 }
 
 export function computePosixRelative(fromPath: string, toPath: string): string {
-  const rel = (path as any).relative?.(path.dirname(fromPath), toPath) || toPath
-  const sep = (path as any).sep || '/'
-  return rel.split(sep).join('/')
+  const fromRoot = path.parse(fromPath).root
+  const toRoot = path.parse(toPath).root
+  if (
+    fromRoot &&
+    toRoot &&
+    String(fromRoot).toLowerCase() !== String(toRoot).toLowerCase()
+  ) {
+    // Cross-drive on Windows: fall back to basename to avoid absolute-in-assets
+    const base = path.basename(toPath)
+    return base.split(path.sep).join('/')
+  }
+  const rel = path.relative(path.dirname(fromPath), toPath) || toPath
+  return rel.split(path.sep).join('/')
 }
 
 export function resolveAbsoluteFsPath(params: {
@@ -260,9 +270,12 @@ export function resolveAbsoluteFsPath(params: {
           ? asset
           : path.join(projectRoot, asset)
 
-  const isUnderPublicRoot = String(absoluteFsPath).startsWith(
-    publicRootForResource
-  )
+  // Robust containment check using path.relative to handle Windows cases
+  const relToPublic = path.relative(publicRootForResource, absoluteFsPath)
+  const isUnderPublicRoot =
+    relToPublic &&
+    !relToPublic.startsWith('..') &&
+    !path.isAbsolute(relToPublic)
 
   return {absoluteFsPath, isUnderPublicRoot, isRootUrl}
 }

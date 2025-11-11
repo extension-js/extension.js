@@ -124,7 +124,6 @@ export default async function resolvePathsLoader(this: any, source: string) {
       const canonical = unixify(original || '')
       const authorUsedRoot = /^\//.test(canonical)
 
-
       if (computed) {
         const root = packageJsonDir || path.dirname(manifestPath)
         // Check existence in source public/ because that's what gets emitted
