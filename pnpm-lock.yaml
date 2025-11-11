@@ -262,6 +262,9 @@ importers:
       chrome-location2:
         specifier: 4.0.3
         version: 4.0.3
+      chromium-location:
+        specifier: 1.2.2
+        version: 1.2.2
       content-security-policy-parser:
         specifier: ^0.6.0
         version: 0.6.0
@@ -1197,6 +1200,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.29':
     resolution: {integrity: sha512-uw6guiW/gcAGPDhLmd77/6lW8QLeiV5RUTsAX46Db6oLhGaVj4lhnPwb184s1bkc8kdVg/+h988dro8GRDpmYQ==}
+
+  '@jridgewell/trace-mapping@0.3.31':
+    resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
   '@jsonjoy.com/base64@1.1.2':
     resolution: {integrity: sha512-q6XAnWQDIMA3+FTiOYajoYqySkO+JSat0ytXGSuRdq9uXE7o92gzuQwQM14xaCRlBLGq3v5miDGC4vkVTn54xA==}
@@ -2922,6 +2928,11 @@ packages:
   chrome-trace-event@1.0.4:
     resolution: {integrity: sha512-rNjApaLzuwaOTjCiT8lSDdGN1APCiqkChLMJxJPWLunPAt5fy8xgU9/jNOchV84wfIxrA0lRQB7oCT8jrn/wrQ==}
     engines: {node: '>=6.0'}
+
+  chromium-location@1.2.2:
+    resolution: {integrity: sha512-VHaLMnSP4BG6ZOLe5LSmpsOH7IOi0OLBiHtEC1SN5sxUTqZZYYKYi95trwRk6jEi6+MdWjnKs2rlNeiShBruPg==}
+    engines: {node: '>=18 <23'}
+    hasBin: true
 
   ci-info@3.9.0:
     resolution: {integrity: sha512-NIxF55hv4nSqQswkAeiOi1r83xy8JldOFDTWiug55KBu9Jnblncd2U6ViHmYgHf01TPZS77NJBhBMKdWj9HQMQ==}
@@ -5729,7 +5740,7 @@ snapshots:
       '@babel/parser': 7.28.0
       '@babel/types': 7.28.2
       '@jridgewell/gen-mapping': 0.3.12
-      '@jridgewell/trace-mapping': 0.3.29
+      '@jridgewell/trace-mapping': 0.3.31
       jsesc: 3.1.0
     optional: true
 
@@ -6458,11 +6469,16 @@ snapshots:
   '@jridgewell/source-map@0.3.10':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.12
-      '@jridgewell/trace-mapping': 0.3.29
+      '@jridgewell/trace-mapping': 0.3.31
 
   '@jridgewell/sourcemap-codec@1.5.4': {}
 
   '@jridgewell/trace-mapping@0.3.29':
+    dependencies:
+      '@jridgewell/resolve-uri': 3.1.2
+      '@jridgewell/sourcemap-codec': 1.5.4
+
+  '@jridgewell/trace-mapping@0.3.31':
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.4
@@ -8260,6 +8276,11 @@ snapshots:
       which: 2.0.2
 
   chrome-trace-event@1.0.4: {}
+
+  chromium-location@1.2.2:
+    dependencies:
+      userhome: 1.0.1
+      which: 2.0.2
 
   ci-info@3.9.0: {}
 
@@ -10530,7 +10551,7 @@ snapshots:
 
   terser-webpack-plugin@5.3.14(@swc/core@1.13.2(@swc/helpers@0.5.17))(esbuild@0.25.8)(webpack@5.100.2(@swc/core@1.13.2(@swc/helpers@0.5.17))(esbuild@0.25.8)):
     dependencies:
-      '@jridgewell/trace-mapping': 0.3.29
+      '@jridgewell/trace-mapping': 0.3.31
       jest-worker: 27.5.1
       schema-utils: 4.3.2
       serialize-javascript: 6.0.2
