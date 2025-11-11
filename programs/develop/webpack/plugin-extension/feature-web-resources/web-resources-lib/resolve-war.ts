@@ -197,6 +197,23 @@ export function resolveUserDeclaredWAR(
 
     const abs = path.isAbsolute(res) ? res : path.join(manifestDir, res)
     if (!fs.existsSync(abs)) {
+      // Also consider presence under public/ or already-emitted/built output root
+      const outputRoot =
+        compilation.options?.output?.path ||
+        compilation.outputOptions?.path ||
+        path.join(path.dirname(manifestPath), 'dist')
+      const builtAbs = path.join(outputRoot || '', res)
+      const publicAbsMaybe = path.join(projectPath, 'public', res)
+      const assetEmitted =
+        Boolean(typeof compilation.getAsset === 'function' && compilation.getAsset(res)) ||
+        fs.existsSync(builtAbs)
+
+      if (fs.existsSync(publicAbsMaybe) || assetEmitted) {
+        // Accept resource as present; keep reference as-is (no warn, no emit)
+        pushResource(matches, res)
+        return
+      }
+
       // Warn about missing relative path using standardized message
       const msg = warMessages.warFieldError(abs, {relativeRef: res})
       const warn = new WebpackError(msg) as Error & {
