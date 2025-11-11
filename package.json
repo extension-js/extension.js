@@ -10,6 +10,7 @@
   ],
   "scripts": {
     "compile": "dotenv -- turbo run compile",
+    "extension": "node programs/cli/dist/cli.js",
     "watch": "pnpm compile && dotenv -- turbo run watch --filter=./programs/* --concurrency=5",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
     "lint": "eslint .",
