@@ -24,6 +24,14 @@ function sanitize(input: string): string {
     .replace(/\s+/g, '-')
 }
 
+function readJsonFileSafe(filePath: string): any {
+  const raw = fs.readFileSync(filePath, 'utf8')
+  const text = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
+  return JSON.parse(text)
+}
+
+const toPosix = (p: string): string => p.replace(/\\/g, '/')
+
 async function getFilesToZip(projectDir: string): Promise<string[]> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const ig = ignore()
@@ -69,7 +77,7 @@ export class ZipPlugin {
               'manifest.json'
             )
 
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+        const manifest = readJsonFileSafe(manifestPath)
 
         const base = sanitize(manifest.name || path.basename(packageJsonDir))
         const name = `${base}-${manifest.version || '0.0.0'}`
@@ -78,9 +86,10 @@ export class ZipPlugin {
           const sourceZip = new AdmZip()
           const files = await getFilesToZip(packageJsonDir)
           files.forEach((file) => {
+            const root = path.dirname(file)
             sourceZip.addLocalFile(
               path.join(packageJsonDir, file),
-              path.dirname(file)
+              root === '.' ? '' : toPosix(root)
             )
           })
 

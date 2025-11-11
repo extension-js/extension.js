@@ -93,8 +93,11 @@ function warnMissingPublicRootResources(params: {
 
   const check = (publicRootUrl: string) => {
     if (!publicRootUrl || isSpecialScheme(publicRootUrl)) return
-    if (path.isAbsolute(publicRootUrl) && publicRootUrl.startsWith(projectRoot))
-      return
+    if (path.isAbsolute(publicRootUrl)) {
+      const rel = path.relative(projectRoot, publicRootUrl)
+      if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) return
+    }
+
     if (!publicRootUrl.startsWith('/')) return
 
     const trimmed = publicRootUrl.replace(/^\//, '')
@@ -137,7 +140,7 @@ function checkMissingLocalEntries(params: {
     if (!url || isHttpLike(url) || isSpecialScheme(url)) return
 
     // Treat root URLs as public-root references (handled elsewhere).
-    if (url.startsWith('/') && !url.startsWith(projectRoot)) return
+    if (url.startsWith('/') && !path.isAbsolute(url)) return
 
     if (!fs.existsSync(url)) {
       const displayFile = path.relative(manifestDir, resource)

@@ -46,7 +46,7 @@ export class EmitFile {
           const iconFields = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
           const projectPath = compiler.options.context as string
-          const publicDir = path.join(projectPath, 'public' + path.sep)
+          const publicDir = path.join(projectPath, 'public')
 
           for (const field of Object.entries(iconFields)) {
             const [feature, resource] = field
@@ -106,8 +106,13 @@ export class EmitFile {
                       : path.join(manifestDir, entry)
                 }
 
+                // Robust containment check using path.relative to handle Windows cases
+                const relToPublic = path.relative(publicDir, resolved)
+
                 const isUnderPublic =
-                  String(resolved).startsWith(publicDir) ||
+                  (relToPublic &&
+                    !relToPublic.startsWith('..') &&
+                    !path.isAbsolute(relToPublic)) ||
                   (entry.startsWith('/') &&
                     fs.existsSync(
                       path.join(projectPath, 'public', entry.slice(1))

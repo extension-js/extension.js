@@ -57,7 +57,14 @@ export function handleStaticAsset(
     baseHref && !/^\w+:\/\//.test(baseHref)
       ? path.resolve(htmlDir, baseHref)
       : htmlDir
-  const relativeFromHtml = path.relative(baseJoin, absolutePath)
+  const fromRoot = path.parse(baseJoin).root
+  const toRoot = path.parse(absolutePath).root
+  const relativeFromHtml =
+    fromRoot &&
+    toRoot &&
+    String(fromRoot).toLowerCase() !== String(toRoot).toLowerCase()
+      ? path.basename(absolutePath)
+      : path.relative(baseJoin, absolutePath)
   const posixRelative = relativeFromHtml.split(path.sep).join('/')
   const filepath = path.posix.join('assets', posixRelative)
   if (fs.existsSync(absolutePath)) {

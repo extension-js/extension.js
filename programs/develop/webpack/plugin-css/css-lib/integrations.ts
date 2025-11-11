@@ -3,6 +3,11 @@ import * as fs from 'fs'
 import {execSync} from 'child_process'
 import {detect} from 'package-manager-detector'
 
+function parseJsonSafe(text: string) {
+  const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  return JSON.parse(s || '{}')
+}
+
 function isFromPnpx() {
   if (process.env.npm_config_user_agent?.includes('pnpm')) return 'pnpm'
   return false
@@ -21,22 +26,24 @@ export async function installOptionalDependencies(
     const pm = await detect()
 
     let installCommand = ''
+    const quotedDir = JSON.stringify(__dirname)
     if (pm?.name === 'yarn') {
       installCommand = `yarn --silent add ${dependencies.join(
         ' '
-      )} --cwd ${__dirname} --optional`
+      )} --cwd ${quotedDir} --optional`
     } else if (pm?.name === 'npm' || isFromNpx()) {
-      installCommand = `npm  --silent install ${dependencies.join(
+      installCommand = `npm --silent install ${dependencies.join(
         ' '
-      )} --prefix ${__dirname} --save-optional`
+      )} --prefix ${quotedDir} --save-optional`
     } else if (isFromPnpx()) {
       installCommand = `pnpm --silent add ${dependencies.join(
         ' '
-      )} --prefix ${__dirname} --save-optional`
+      )} --prefix ${quotedDir} --save-optional`
     } else {
-      installCommand = `${pm} --silent install ${dependencies.join(
+      const pmName = typeof pm === 'string' ? pm : pm?.name || 'npm'
+      installCommand = `${pmName} --silent install ${dependencies.join(
         ' '
-      )} --cwd ${__dirname} --optional`
+      )} --cwd ${quotedDir} --optional`
     }
 
     console.log(`[${integration}] Installing optional dependencies...`)
@@ -45,14 +52,15 @@ export async function installOptionalDependencies(
 
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(`[${integration}] Installing root dependencies for dev...`)
-      if (pm?.name === 'yarn')
-        execSync(`yarn install --silent > /dev/null 2>&1`, {stdio: 'inherit'})
-      else if (pm?.name === 'npm' || isFromNpx())
-        execSync(`npm install --silent > /dev/null 2>&1`, {stdio: 'inherit'})
-      else if (isFromPnpx())
-        execSync(`pnpm install --silent > /dev/null 2>&1`, {stdio: 'inherit'})
-      else
-        execSync(`${pm} install --silent > /dev/null 2>&1`, {stdio: 'inherit'})
+      const devInstall =
+        pm?.name === 'yarn'
+          ? `yarn install --silent`
+          : pm?.name === 'npm' || isFromNpx()
+            ? `npm install --silent`
+            : isFromPnpx()
+              ? `pnpm install --silent`
+              : `${typeof pm === 'string' ? pm : pm?.name || 'npm'} install --silent`
+      execSync(devInstall, {stdio: 'ignore'})
     }
 
     console.log(`[${integration}] Dependencies installed successfully.`)
@@ -83,7 +91,7 @@ export function hasDependency(projectPath: string, dependency: string) {
   const packageJsonPath = path.join(packageJsonDirectory, 'package.json')
   if (!fs.existsSync(packageJsonPath)) return false
 
-  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+  const packageJson = parseJsonSafe(fs.readFileSync(packageJsonPath, 'utf8'))
   const dependencies = packageJson.dependencies || {}
   const devDependencies = packageJson.devDependencies || {}
 

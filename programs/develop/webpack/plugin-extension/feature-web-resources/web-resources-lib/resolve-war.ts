@@ -205,8 +205,10 @@ export function resolveUserDeclaredWAR(
       const builtAbs = path.join(outputRoot || '', res)
       const publicAbsMaybe = path.join(projectPath, 'public', res)
       const assetEmitted =
-        Boolean(typeof compilation.getAsset === 'function' && compilation.getAsset(res)) ||
-        fs.existsSync(builtAbs)
+        Boolean(
+          typeof compilation.getAsset === 'function' &&
+            compilation.getAsset(res)
+        ) || fs.existsSync(builtAbs)
 
       if (fs.existsSync(publicAbsMaybe) || assetEmitted) {
         // Accept resource as present; keep reference as-is (no warn, no emit)
