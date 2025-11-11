@@ -26,14 +26,32 @@ import {ChromiumDoneReloadPlugin} from './done-reload'
 
 function getChromeVersionLine(bin: string): string {
   try {
-    return execFileSync(bin, ['--version'], {encoding: 'utf8'}).trim()
+    const versionLine = execFileSync(bin, ['--version'], {
+      encoding: 'utf8'
+    }).trim()
+    if (versionLine) return versionLine
   } catch {
-    return ''
+    // ignore
   }
+
+  // On Windows, some installations respond only to --product-version
+  if (process.platform === 'win32') {
+    try {
+      const v = execFileSync(bin, ['--product-version'], {
+        encoding: 'utf8'
+      }).trim()
+
+      if (v) return v
+    } catch {
+      // ignore
+    }
+  }
+  return ''
 }
 
 function looksOfficialChrome(line: string): boolean {
-  return /^Google Chrome\s/i.test(line)
+  // Treat Chrome for Testing as non-official so it won't be rejected
+  return /^Google Chrome\s(?!for Testing)/i.test(line)
 }
 
 function parseMajor(line: string): number | undefined {
@@ -158,8 +176,34 @@ export class RunChromiumPlugin {
           const locate = chromeLocation.locateChromeOrExplain
 
           if (typeof locate === 'function') {
-            // Prefer library guard; allow fallback to cover Chrome for Testing / Chromium.
-            browserBinaryLocation = locate({allowFallback: true})
+            // Prefer library guard. If it rejects, fall back to legacy resolver and apply local guard.
+            try {
+              // Prefer library guard; allow fallback to cover Chrome for Testing / Chromium.
+              browserBinaryLocation = locate({allowFallback: true})
+            } catch (err) {
+              let candidate: string | null =
+                // @ts-ignore older versions expose default
+                chromeLocation.default?.(true) || null
+
+              if (candidate) {
+                const versionLine = getChromeVersionLine(candidate)
+                const major = parseMajor(versionLine)
+
+                if (
+                  looksOfficialChrome(versionLine) &&
+                  typeof major === 'number' &&
+                  major >= 137
+                ) {
+                  candidate = null
+                }
+              }
+
+              browserBinaryLocation = candidate
+
+              if (!browserBinaryLocation) {
+                throw err
+              }
+            }
           } else {
             // Older versions: try fallback and apply a local version guard.
             let candidate: string | null = chromeLocation.default(true) || null
@@ -210,7 +254,31 @@ export class RunChromiumPlugin {
           const locate = chromeLocation.locateChromeOrExplain
 
           if (typeof locate === 'function') {
-            browserBinaryLocation = locate({allowFallback: true})
+            try {
+              browserBinaryLocation = locate({allowFallback: true})
+            } catch (err) {
+              let candidate: string | null =
+                // @ts-ignore older versions expose default
+                chromeLocation.default?.(true) || null
+
+              if (candidate) {
+                const versionLine = getChromeVersionLine(candidate)
+                const major = parseMajor(versionLine)
+
+                if (
+                  looksOfficialChrome(versionLine) &&
+                  typeof major === 'number' &&
+                  major >= 137
+                ) {
+                  candidate = null
+                }
+              }
+              browserBinaryLocation = candidate
+
+              if (!browserBinaryLocation) {
+                throw err
+              }
+            }
           } else {
             let candidate: string | null = chromeLocation.default(true) || null
 
