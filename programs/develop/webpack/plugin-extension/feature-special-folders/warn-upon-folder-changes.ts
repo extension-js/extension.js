@@ -63,28 +63,42 @@ export class WarnUponFolderChanges {
         const extensionsSupported = compiler.options.resolve?.extensions
 
         pagesWatcher.on('add', (filePath: string) => {
-          const isHtml = filePath.endsWith('.html')
+          const ext = path.extname(filePath).toLowerCase()
+          const isHtml = ext === '.html'
+
           if (isHtml) {
             this.throwCompilationError(compilation, 'pages', filePath, true)
           }
         })
 
         pagesWatcher.on('unlink', (filePath: string) => {
-          const isHtml = filePath.endsWith('.html')
+          const ext = path.extname(filePath).toLowerCase()
+          const isHtml = ext === '.html'
+
           if (isHtml) {
             this.throwCompilationError(compilation, 'pages', filePath)
           }
         })
 
         scriptsWatcher.on('add', (filePath: string) => {
-          const isScript = extensionsSupported?.includes(path.extname(filePath))
+          const ext = path.extname(filePath).toLowerCase()
+          const supported = new Set(
+            (extensionsSupported || []).map((e: string) => e.toLowerCase())
+          )
+          const isScript = supported.has(ext)
+
           if (isScript) {
             this.throwCompilationError(compilation, 'scripts', filePath, true)
           }
         })
 
         scriptsWatcher.on('unlink', (filePath: string) => {
-          const isScript = extensionsSupported?.includes(path.extname(filePath))
+          const ext = path.extname(filePath).toLowerCase()
+          const supported = new Set(
+            (extensionsSupported || []).map((e: string) => e.toLowerCase())
+          )
+          const isScript = supported.has(ext)
+
           if (isScript) {
             this.throwCompilationError(compilation, 'scripts', filePath)
           }

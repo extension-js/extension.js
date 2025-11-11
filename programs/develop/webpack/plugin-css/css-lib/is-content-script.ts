@@ -2,6 +2,11 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {Manifest} from '../../../types'
 
+function parseJsonSafe(text: string) {
+  const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  return JSON.parse(s || '{}')
+}
+
 export function isContentScriptEntry(
   absolutePath: string,
   manifestPath: string
@@ -11,7 +16,9 @@ export function isContentScriptEntry(
   }
   if (!fs.existsSync(manifestPath)) return false
 
-  const manifest: Manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
+  const manifest: Manifest = parseJsonSafe(
+    fs.readFileSync(manifestPath, 'utf8')
+  )
 
   for (const content of manifest.content_scripts || []) {
     if (content.js?.length) {

@@ -3,6 +3,11 @@ import {type Compilation} from '@rspack/core'
 import {type Manifest} from '../../webpack-types'
 import {DevOptions} from '../../types/options'
 
+function parseJsonSafe(text: string) {
+  const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  return JSON.parse(s || '{}')
+}
+
 export function getManifestContent(
   compilation: Compilation,
   manifestPath: string
@@ -14,12 +19,12 @@ export function getManifestContent(
     const source = (compilation as any).assets['manifest.json']?.source?.()
     const manifest =
       typeof source === 'function' ? source().toString() : String(source || '')
-    return JSON.parse(manifest || '{}')
+    return parseJsonSafe(manifest)
   }
 
   try {
     const text = fs.readFileSync(manifestPath, 'utf8')
-    return JSON.parse(text)
+    return parseJsonSafe(text)
   } catch {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require(manifestPath)

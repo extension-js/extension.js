@@ -103,7 +103,7 @@ export async function maybeUseSvelte(
     },
     {
       // Required to prevent errors from Svelte on Webpack/Rspack 5+
-      test: /node_modules\/svelte\/.*\.mjs$/,
+      test: /[\\/]node_modules[\\/]svelte[\\/].*\.mjs$/,
       resolve: {
         fullySpecified: false
       }

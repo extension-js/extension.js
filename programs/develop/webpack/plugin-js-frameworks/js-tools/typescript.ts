@@ -52,12 +52,17 @@ function hasTypeScriptSourceFiles(projectPath: string): boolean {
   }
 }
 
+function parseJsonSafe(text: string) {
+  const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  return JSON.parse(s || '{}')
+}
+
 export function isUsingTypeScript(projectPath: string): boolean {
   const packageJsonDirectory = findNearestPackageJsonDirectory(projectPath)
   const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
 
   const packageJson = packageJsonDirectory
-    ? JSON.parse(
+    ? parseJsonSafe(
         fs.readFileSync(path.join(packageJsonDirectory, 'package.json'), 'utf8')
       )
     : undefined

@@ -40,8 +40,15 @@ export class JsFrameworksPlugin {
     // Derive transpile targets from extension manifest for leaner output
     let targets: string[] = ['chrome >= 100']
 
+    const parseJsonSafe = (text: string) => {
+      const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+      return JSON.parse(s || '{}')
+    }
+
     try {
-      const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
+      const manifest = parseJsonSafe(
+        fs.readFileSync(this.manifestPath, 'utf-8')
+      )
 
       if (manifest?.minimum_chrome_version) {
         targets = [`chrome >= ${manifest.minimum_chrome_version}`]
