@@ -55,6 +55,7 @@ export class CssPlugin {
           test: /\.(sass|scss)$/,
           exclude: /\.module\.(sass|scss)$/,
           type: 'asset/resource',
+          generator: {filename: 'content_scripts/[name].[contenthash:8].css'},
           issuer: (issuer: string) => isContentScriptEntry(issuer, manifestPath)
         }
       )
@@ -67,6 +68,7 @@ export class CssPlugin {
           test: /\.less$/,
           exclude: /\.module\.less$/,
           type: 'asset/resource',
+          generator: {filename: 'content_scripts/[name].[contenthash:8].css'},
           issuer: (issuer: string) => isContentScriptEntry(issuer, manifestPath)
         }
       )
