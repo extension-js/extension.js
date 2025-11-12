@@ -367,6 +367,52 @@ export function generateManifestPatches(
     }
   }
 
+  // Also expose emitted CSS under content_scripts/ to the union of content_scripts matches.
+  // This covers CSS imported by content scripts that end up emitted as files (e.g. styles.<hash>.css).
+  if (manifest.manifest_version === 3) {
+    const assetKeys: string[] = Object.keys(compilation.assets || {})
+    const cssUnderContentScripts = assetKeys
+      .filter((k) => k.startsWith('content_scripts/'))
+      .filter((k) => k.endsWith('.css'))
+      .sort()
+
+    if (cssUnderContentScripts.length > 0) {
+      const allMatches: string[] = Array.from(
+        new Set(
+          (manifest.content_scripts || []).flatMap(
+            (cs: {matches?: string[]}) => cs.matches || []
+          )
+        )
+      )
+
+      const normalizedMatches = cleanMatches(allMatches)
+
+      if (normalizedMatches.length > 0) {
+        const existing = webAccessibleResourcesV3.find((entry) => {
+          const a = [...entry.matches].sort()
+          const b = [...normalizedMatches].sort()
+          return a.length === b.length && a.every((v, i) => v === b[i])
+        })
+
+        if (existing) {
+          const candidates = cssUnderContentScripts.filter(
+            (r) =>
+              !existing.resources.includes(r) &&
+              !isCoveredByExistingGlobs(existing.resources, r)
+          )
+          existing.resources = Array.from(
+            new Set([...(existing.resources || []), ...candidates])
+          ).sort()
+        } else {
+          webAccessibleResourcesV3.push({
+            resources: cssUnderContentScripts,
+            matches: [...normalizedMatches].sort()
+          })
+        }
+      }
+    }
+  }
+
   if (manifest.manifest_version === 3) {
     if (webAccessibleResourcesV3.length > 0) {
       manifest.web_accessible_resources = webAccessibleResourcesV3

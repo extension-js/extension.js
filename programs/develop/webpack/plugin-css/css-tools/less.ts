@@ -78,6 +78,7 @@ export async function maybeUseLess(
       test: /\.less$/,
       exclude: /\.module\.less$/,
       type: 'asset/resource',
+      generator: {filename: 'content_scripts/[name].[contenthash:8].css'},
       issuer: (issuer: string) =>
         isContentScriptEntry(issuer, resolvedManifestPath)
     }
