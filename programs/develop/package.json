@@ -72,7 +72,7 @@
     "browser-extension-manifest-fields": "^2.2.1",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
     "chokidar": "^4.0.1",
-    "chrome-location2": "4.0.3",
+    "chrome-location2": "3.1.0",
     "content-security-policy-parser": "^0.6.0",
     "cross-spawn": "^7.0.6",
     "dotenv": "^16.4.7",
