@@ -377,7 +377,8 @@ export function prettyPuppeteerInstallGuidance(
   try {
     const looksMinimal = cleaned.split(/\r?\n/).filter(Boolean).length < 2
     if (looksMinimal) {
-      if (browser === 'chromium' || browser === 'chromium-based') {
+      const b = String(browser || '').toLowerCase()
+      if (b === 'chromium' || b === 'chromium-based') {
         try {
           // eslint-disable-next-line @typescript-eslint/no-var-requires
           const loc = require('chromium-location')
@@ -389,10 +390,34 @@ export function prettyPuppeteerInstallGuidance(
         } catch {
           // fall through; keep minimal text
         }
-      } else {
+      } else if (b === 'chrome') {
         try {
           // eslint-disable-next-line @typescript-eslint/no-var-requires
           const loc = require('chrome-location2')
+          const txt =
+            typeof loc?.getInstallGuidance === 'function'
+              ? loc.getInstallGuidance()
+              : ''
+          if (txt && typeof txt === 'string') cleaned = String(txt).trim()
+        } catch {
+          // fall through; keep minimal text
+        }
+      } else if (b === 'firefox' || b === 'gecko-based') {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const loc = require('firefox-location2')
+          const txt =
+            typeof loc?.getInstallGuidance === 'function'
+              ? loc.getInstallGuidance()
+              : ''
+          if (txt && typeof txt === 'string') cleaned = String(txt).trim()
+        } catch {
+          // fall through; keep minimal text
+        }
+      } else if (b === 'edge') {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const loc = require('edge-location')
           const txt =
             typeof loc?.getInstallGuidance === 'function'
               ? loc.getInstallGuidance()
@@ -407,9 +432,25 @@ export function prettyPuppeteerInstallGuidance(
     // ignore expansion errors
   }
 
+  // Inject --path "<cacheDir>" into Puppeteer install commands if not present
+  try {
+    if (cacheDir && cacheDir.trim().length > 0) {
+      const lines = cleaned.split(/\r?\n/)
+      const idx = lines.findIndex((l) =>
+        /npx\s+@puppeteer\/browsers\s+install\s+/i.test(l)
+      )
+      if (idx !== -1 && !/--path\s+/i.test(lines[idx])) {
+        lines[idx] = `${lines[idx].trim()} --path "${cacheDir}"`
+        cleaned = lines.join('\n')
+      }
+    }
+  } catch {
+    // noop
+  }
+
   body.push(cleaned)
   if (cacheDir) {
-    body.push(`${dim('Install path:')} ${colors.underline(cacheDir)}`)
+    body.push(`${dim('INSTALL PATH')} ${colors.underline(cacheDir)}`)
   }
   return body.join('\n') + '\n'
 }

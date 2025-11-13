@@ -17,7 +17,7 @@ export function computeBinariesBaseDir(compilation: Compilation) {
 
   if (outputDir) {
     const last = path.basename(outputDir)
-    const browserDirs = new Set(['chrome', 'firefox', 'edge'])
+    const browserDirs = new Set(['chrome', 'chromium', 'firefox', 'edge'])
     const distRoot = browserDirs.has(last) ? path.dirname(outputDir) : outputDir
     return path.resolve(distRoot, 'extension-js', 'binaries')
   }
@@ -27,7 +27,7 @@ export function computeBinariesBaseDir(compilation: Compilation) {
 
 export function resolveFromBinaries(
   compilation: Compilation,
-  browser: 'chrome' | 'firefox'
+  browser: 'chrome' | 'chromium' | 'firefox'
 ) {
   const base = computeBinariesBaseDir(compilation)
   const browserBase = path.join(base, browser)
@@ -40,6 +40,11 @@ export function resolveFromBinaries(
   const nested = path.join(browserBase, browser)
 
   if (fs.existsSync(nested)) scanRoots.push(nested)
+  // Puppeteer often nests Chromium under "chrome-*" directories; scan that too.
+  if (browser === 'chromium') {
+    const chromeNested = path.join(browserBase, 'chrome')
+    if (fs.existsSync(chromeNested)) scanRoots.push(chromeNested)
+  }
 
   const versionDirPattern = /^(mac|mac_arm|win32|win64|linux)/i
   const candidateFiles: string[] = []
@@ -61,26 +66,33 @@ export function resolveFromBinaries(
     }
   }
 
-  // As a last resort, do a shallow recursive search up to depth 6 for well-known executable names
-  if (candidateFiles.length === 0) {
+  let matched = false
+  for (const candidate of candidateFiles) {
+    try {
+      if (candidate && fs.existsSync(candidate)) {
+        matched = true
+        return candidate
+      }
+    } catch {
+      // Ignore
+    }
+  }
+
+  // If no candidate paths matched, do a shallow recursive search up to depth 6
+  if (!matched) {
     const names = executableNamesFor(browser)
     for (const root of scanRoots) {
       const found = findExecutableUnder(root, names, 6)
       if (found) return found
     }
   }
-
-  for (const candidate of candidateFiles) {
-    try {
-      if (candidate && fs.existsSync(candidate)) return candidate
-    } catch {
-      // Ignore
-    }
-  }
   return null
 }
 
-function buildCandidates(dir: string, browser: 'chrome' | 'firefox') {
+function buildCandidates(
+  dir: string,
+  browser: 'chrome' | 'chromium' | 'firefox'
+) {
   const out: string[] = []
   if (browser === 'chrome') {
     if (process.platform === 'darwin') {
@@ -115,6 +127,35 @@ function buildCandidates(dir: string, browser: 'chrome' | 'firefox') {
         path.join(dir, 'chrome')
       )
     }
+  } else if (browser === 'chromium') {
+    if (process.platform === 'darwin') {
+      out.push(
+        path.join(dir, 'mac', 'Chromium.app', 'Contents', 'MacOS', 'Chromium'),
+        path.join(
+          dir,
+          'mac_arm',
+          'Chromium.app',
+          'Contents',
+          'MacOS',
+          'Chromium'
+        )
+      )
+    } else if (process.platform === 'win32') {
+      out.push(
+        path.join(dir, 'win64', 'chrome.exe'),
+        path.join(dir, 'win32', 'chrome.exe'),
+        path.join(dir, 'chromium.exe'),
+        path.join(dir, 'chrome.exe')
+      )
+    } else {
+      out.push(
+        path.join(dir, 'linux', 'chrome'),
+        path.join(dir, 'linux64', 'chrome'),
+        path.join(dir, 'linux', 'chromium'),
+        path.join(dir, 'chromium'),
+        path.join(dir, 'chrome')
+      )
+    }
   } else {
     // firefox
     if (process.platform === 'darwin') {
@@ -138,11 +179,17 @@ function buildCandidates(dir: string, browser: 'chrome' | 'firefox') {
   return out
 }
 
-function executableNamesFor(browser: 'chrome' | 'firefox'): string[] {
+function executableNamesFor(
+  browser: 'chrome' | 'chromium' | 'firefox'
+): string[] {
   if (browser === 'chrome') {
     return process.platform === 'win32'
       ? ['chrome.exe']
       : ['Google Chrome for Testing', 'chrome']
+  } else if (browser === 'chromium') {
+    return process.platform === 'win32'
+      ? ['chromium.exe', 'chrome.exe']
+      : ['Chromium', 'chromium', 'chrome']
   }
   // firefox
   return process.platform === 'win32' ? ['firefox.exe'] : ['firefox']
