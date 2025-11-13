@@ -99,7 +99,9 @@ export class ChromiumLaunchPlugin {
         compilation,
         browser === 'chromium' || browser === 'chromium-based'
           ? 'chromium'
-          : 'chrome'
+          : browser === 'edge'
+            ? 'edge'
+            : 'chrome'
       )
       if (resolved && fs.existsSync(resolved)) {
         browserBinaryLocation = resolved
@@ -272,7 +274,48 @@ export class ChromiumLaunchPlugin {
         console.log(messages.locatingBrowser(browser))
 
         try {
-          browserBinaryLocation = edgeLocation()
+          // Honor explicit env override first
+          const override = String(process.env.EDGE_BINARY || '').trim()
+          if (override) {
+            if (fs.existsSync(override)) {
+              browserBinaryLocation = override
+            } else {
+              throw new Error('EDGE_BINARY points to a non-existent path')
+            }
+          } else {
+            browserBinaryLocation = edgeLocation()
+            // Validate detected path. If not found, show install guidance just like the catch block.
+            if (
+              !browserBinaryLocation ||
+              !fs.existsSync(String(browserBinaryLocation))
+            ) {
+              const guidance = (() => {
+                try {
+                  const f = (edgeLocation as any)?.getInstallGuidance
+                  const txt = typeof f === 'function' ? f() : ''
+                  return txt && typeof txt === 'string'
+                    ? txt
+                    : 'npx playwright install msedge'
+                } catch {
+                  return 'npx playwright install msedge'
+                }
+              })()
+
+              this.printEnhancedPuppeteerInstallHint(
+                compilation,
+                guidance,
+                'edge'
+              )
+              printedGuidance = true
+              browserBinaryLocation = null
+
+              if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+                throw new Error('Chromium launch failed')
+              } else {
+                process.exit(1)
+              }
+            }
+          }
         } catch {
           const guidance = (() => {
             try {
@@ -400,7 +443,9 @@ export class ChromiumLaunchPlugin {
           compilation,
           browser === 'chromium' || browser === 'chromium-based'
             ? 'chromium'
-            : 'chrome'
+            : browser === 'edge'
+              ? 'edge'
+              : 'chrome'
         )
 
         if (resolved && fs.existsSync(resolved)) {

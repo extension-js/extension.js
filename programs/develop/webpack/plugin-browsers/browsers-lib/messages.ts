@@ -1,4 +1,5 @@
 import colors from 'pintor'
+import * as path from 'path'
 import type {DevOptions} from '../../types/options'
 
 type Browser = NonNullable<DevOptions['browser']>
@@ -436,12 +437,53 @@ export function prettyPuppeteerInstallGuidance(
   try {
     if (cacheDir && cacheDir.trim().length > 0) {
       const lines = cleaned.split(/\r?\n/)
+      // Puppeteer path injection
       const idx = lines.findIndex((l) =>
         /npx\s+@puppeteer\/browsers\s+install\s+/i.test(l)
       )
       if (idx !== -1 && !/--path\s+/i.test(lines[idx])) {
         lines[idx] = `${lines[idx].trim()} --path "${cacheDir}"`
         cleaned = lines.join('\n')
+      }
+      // Playwright custom install dir via PLAYWRIGHT_BROWSERS_PATH
+      try {
+        const pwIdx = lines.findIndex((l) =>
+          /npx\s+playwright\s+install(\s+.+)?/i.test(l)
+        )
+
+        if (pwIdx !== -1) {
+          // Normalize browser subdir for our binaries layout
+          const browserNorm = (() => {
+            const b = String(browser || '').toLowerCase()
+            if (b === 'chromium-based') return 'chromium'
+            if (b === 'gecko-based') return 'firefox'
+            if (
+              b === 'chrome' ||
+              b === 'chromium' ||
+              b === 'firefox' ||
+              b === 'edge'
+            )
+              return b
+            // default to chrome for unknown
+            return 'chrome'
+          })()
+          const finalPath =
+            browserNorm && cacheDir
+              ? path.join(cacheDir, browserNorm)
+              : cacheDir
+
+          if (finalPath && finalPath.trim().length > 0) {
+            const cmd = lines[pwIdx].trim()
+            const withEnv =
+              process.platform === 'win32'
+                ? `set PLAYWRIGHT_BROWSERS_PATH="${finalPath}" && ${cmd}`
+                : `PLAYWRIGHT_BROWSERS_PATH="${finalPath}" ${cmd}`
+            lines[pwIdx] = withEnv
+            cleaned = lines.join('\n')
+          }
+        }
+      } catch {
+        // noop
       }
     }
   } catch {
