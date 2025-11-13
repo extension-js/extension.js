@@ -27,7 +27,7 @@ export function computeBinariesBaseDir(compilation: Compilation) {
 
 export function resolveFromBinaries(
   compilation: Compilation,
-  browser: 'chrome' | 'chromium' | 'firefox'
+  browser: 'chrome' | 'chromium' | 'firefox' | 'edge'
 ) {
   const base = computeBinariesBaseDir(compilation)
   const browserBase = path.join(base, browser)
@@ -91,7 +91,7 @@ export function resolveFromBinaries(
 
 function buildCandidates(
   dir: string,
-  browser: 'chrome' | 'chromium' | 'firefox'
+  browser: 'chrome' | 'chromium' | 'firefox' | 'edge'
 ) {
   const out: string[] = []
   if (browser === 'chrome') {
@@ -156,6 +156,40 @@ function buildCandidates(
         path.join(dir, 'chrome')
       )
     }
+  } else if (browser === 'edge') {
+    if (process.platform === 'darwin') {
+      out.push(
+        path.join(
+          dir,
+          'msedge-mac',
+          'Microsoft Edge.app',
+          'Contents',
+          'MacOS',
+          'Microsoft Edge'
+        ),
+        path.join(
+          dir,
+          'msedge-mac-arm64',
+          'Microsoft Edge.app',
+          'Contents',
+          'MacOS',
+          'Microsoft Edge'
+        )
+      )
+    } else if (process.platform === 'win32') {
+      out.push(
+        path.join(dir, 'msedge-win64', 'msedge.exe'),
+        path.join(dir, 'msedge-win32', 'msedge.exe'),
+        path.join(dir, 'msedge.exe')
+      )
+    } else {
+      out.push(
+        path.join(dir, 'msedge-linux64', 'msedge'),
+        path.join(dir, 'msedge-linux', 'msedge'),
+        path.join(dir, 'microsoft-edge'),
+        path.join(dir, 'msedge')
+      )
+    }
   } else {
     // firefox
     if (process.platform === 'darwin') {
@@ -180,7 +214,7 @@ function buildCandidates(
 }
 
 function executableNamesFor(
-  browser: 'chrome' | 'chromium' | 'firefox'
+  browser: 'chrome' | 'chromium' | 'firefox' | 'edge'
 ): string[] {
   if (browser === 'chrome') {
     return process.platform === 'win32'
@@ -190,6 +224,10 @@ function executableNamesFor(
     return process.platform === 'win32'
       ? ['chromium.exe', 'chrome.exe']
       : ['Chromium', 'chromium', 'chrome']
+  } else if (browser === 'edge') {
+    return process.platform === 'win32'
+      ? ['msedge.exe']
+      : ['msedge', 'microsoft-edge']
   }
   // firefox
   return process.platform === 'win32' ? ['firefox.exe'] : ['firefox']
