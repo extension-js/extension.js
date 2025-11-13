@@ -1,6 +1,6 @@
 import net from 'net'
 import EventEmitter from 'events'
-import {buildRdpFrame, parseRdpFrame} from '../../browsers-lib/rdp-wire'
+import {buildRdpFrame, parseRdpFrame} from '../browsers-lib/rdp-wire'
 import * as messages from '../../browsers-lib/messages'
 
 type Deferred = {resolve: (v?: unknown) => void; reject: (r?: unknown) => void}
