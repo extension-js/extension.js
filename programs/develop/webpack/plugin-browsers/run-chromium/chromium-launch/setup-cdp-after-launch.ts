@@ -115,6 +115,5 @@ export async function setupCdpAfterLaunch(
     }
   }
 
-
   plugin.cdpController = cdpExtensionController
 }

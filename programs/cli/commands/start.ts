@@ -3,7 +3,7 @@ import packageJson from '../package.json'
 import * as messages from '../cli-lib/messages'
 import {requireOrDlx, vendors, validateVendorsOrExit} from '../utils'
 
-type Browser = 'chrome' | 'edge' | 'firefox'
+type Browser = 'chrome' | 'edge' | 'firefox' | 'chromium'
 type StartOptions = {
   browser?: Browser | 'all'
   profile?: string | boolean
@@ -35,8 +35,8 @@ export function registerStartCommand(program: Command, telemetry: any) {
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
     )
     .option(
-      '--browser <chrome | edge | firefox>',
-      'specify a browser to preview your extension in production mode. Defaults to `chrome`'
+      '--browser <chrome | chromium | edge | firefox>',
+      'specify a browser to preview your extension in production mode. Defaults to `chromium`'
     )
     .option(
       '--polyfill [boolean]',
@@ -83,7 +83,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
     )
     .action(async function (
       pathOrRemoteUrl: string,
-      {browser = 'chrome', ...startOptions}: StartOptions
+      {browser = 'chromium', ...startOptions}: StartOptions
     ) {
       const cmdStart = Date.now()
       telemetry.track('cli_command_start', {

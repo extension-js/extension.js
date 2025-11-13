@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process'
 import {pathToFileURL} from 'node:url'
 import fs from 'node:fs'
 
-export type Browser = 'chrome' | 'edge' | 'firefox'
+export type Browser = 'chrome' | 'edge' | 'firefox' | 'chromium'
 
 export function parseOptionalBoolean(value?: string): boolean {
   if (typeof value === 'undefined') return true
@@ -104,7 +104,7 @@ export async function requireOrDlx(
 }
 
 export const vendors = (browser?: Browser | 'all') => {
-  const value = (browser ?? 'chrome') as string
+  const value = (browser ?? 'chromium') as string
   return value === 'all'
     ? ['chrome', 'edge', 'firefox']
     : String(value).split(',')
@@ -114,7 +114,7 @@ export function validateVendorsOrExit(
   vendorsList: string[],
   onInvalid: (invalid: string, supported: string[]) => void
 ) {
-  const supported = ['chrome', 'edge', 'firefox']
+  const supported = ['chrome', 'edge', 'firefox', 'chromium']
   for (const v of vendorsList) {
     if (!supported.includes(v)) {
       onInvalid(v, supported)

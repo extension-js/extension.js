@@ -22,7 +22,7 @@ export function normalizePluginOptions(
   } else if (options.geckoBinary) {
     browser = 'firefox'
   } else {
-    browser = (options.browser as NormalizedBrowser) || 'chrome'
+    browser = (options.browser as NormalizedBrowser) || 'chromium'
   }
 
   let profile: string | false | undefined
