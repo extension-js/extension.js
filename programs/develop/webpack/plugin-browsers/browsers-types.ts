@@ -223,3 +223,23 @@ export interface PluginRuntime extends PluginInterface {
   /** Controller instance set after CDP connects (Chromium flow). */
   cdpController?: unknown
 }
+
+export type LogLevel =
+  | 'off'
+  | 'error'
+  | 'warn'
+  | 'info'
+  | 'debug'
+  | 'trace'
+  | 'all'
+
+export type LogContext =
+  | 'background'
+  | 'content'
+  | 'page'
+  | 'sidebar'
+  | 'popup'
+  | 'options'
+  | 'devtools'
+
+export type LogFormat = 'pretty' | 'json' | 'ndjson'
