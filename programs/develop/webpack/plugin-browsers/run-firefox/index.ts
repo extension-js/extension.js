@@ -170,8 +170,25 @@ export class RunFirefoxPlugin {
       if (fallback && fs.existsSync(fallback)) {
         browserBinaryLocation = fallback
       } else {
-        // Streamlined: exit via helper
-        this.handleMissingBinary(browserBinaryLocation)
+        // Streamlined: show guidance and exit
+        const guidance = (() => {
+          try {
+            const f = (firefoxLocation as any)?.getInstallGuidance
+            const txt = typeof f === 'function' ? f() : ''
+            return txt && typeof txt === 'string'
+              ? txt
+              : 'npx @puppeteer/browsers install firefox'
+          } catch {
+            return 'npx @puppeteer/browsers install firefox'
+          }
+        })()
+
+        this.printEnhancedPuppeteerInstallHint(compilation, guidance)
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error('Firefox not installed or binary path not found')
+        } else {
+          process.exit(1)
+        }
       }
     }
 
@@ -374,15 +391,12 @@ export class RunFirefoxPlugin {
   ): void {
     try {
       const displayCacheDir = computeBinariesBaseDir(compilation)
-
-      const lines = raw.split('\n')
-      const idx = lines.findIndex((l) =>
-        l.includes('npx @puppeteer/browsers install ')
+      const pretty = messages.prettyPuppeteerInstallGuidance(
+        (this.browser as any) || 'firefox',
+        raw,
+        displayCacheDir
       )
-      if (idx !== -1 && !lines[idx].includes('--path')) {
-        lines[idx] = `${lines[idx]} --path "${displayCacheDir}"`
-      }
-      console.error(lines.join('\n'))
+      console.error(pretty)
     } catch {
       console.error(raw)
     }
@@ -400,11 +414,32 @@ export class RunFirefoxPlugin {
   }
 
   private handleMissingBinary(binaryPath: string | null): never {
-    // Firefox location dependency doesn't print puppeteer/playwright hints;
-    // provide a concise, shared error and exit.
-    this.logger?.error(
-      messages.browserNotInstalledError(this.browser as any, binaryPath || '')
-    )
+    // Present a pretty guidance box when Firefox is missing.
+    const guidance = (() => {
+      try {
+        const f = (firefoxLocation as any)?.getInstallGuidance
+        const txt = typeof f === 'function' ? f() : ''
+        return txt && typeof txt === 'string'
+          ? txt
+          : 'npx @puppeteer/browsers install firefox'
+      } catch {
+        return 'npx @puppeteer/browsers install firefox'
+      }
+    })()
+
+    try {
+      // No compilation context available here; use empty cache dir
+      console.error(
+        messages.prettyPuppeteerInstallGuidance(
+          (this.browser as any) || 'firefox',
+          guidance,
+          ''
+        )
+      )
+    } catch {
+      console.error(guidance)
+    }
+
     if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
       throw new Error('Firefox not installed or binary path not found')
     } else {
