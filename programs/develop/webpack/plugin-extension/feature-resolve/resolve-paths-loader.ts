@@ -224,17 +224,9 @@ export default async function resolvePathsLoader(this: any, source: string) {
   const swcModule = await loadSwc()
 
   if (!swcModule) {
-    // Best-effort textual fallback for environments where SWC can't load
-    try {
-      const out = textFallbackTransform(String(source), {
-        manifestPath,
-        packageJsonDir,
-        authorFilePath: String(this.resourcePath || '')
-      })
-      return callback(null, out)
-    } catch {
-      return callback(null, source)
-    }
+    // If SWC isn't available, skip transforming to avoid corrupting source.
+    // Returning the original source is safer than applying textual heuristics.
+    return callback(null, source)
   }
 
   let programAst: Program

@@ -1,6 +1,6 @@
+import * as messages from '../../../browsers-lib/messages'
 import {CDPClient} from '../cdp-client'
 import {checkChromeRemoteDebugging} from '../discovery'
-import * as messages from '../../../browsers-lib/messages'
 
 export async function connectToChromeCdp(cdpPort: number): Promise<CDPClient> {
   // Wait until Chrome opens the debugging port
@@ -11,7 +11,9 @@ export async function connectToChromeCdp(cdpPort: number): Promise<CDPClient> {
   while (retries < maxRetries) {
     const ready = await checkChromeRemoteDebugging(cdpPort)
     if (ready) break
+
     retries++
+
     await new Promise((r) => setTimeout(r, backoffMs))
   }
 

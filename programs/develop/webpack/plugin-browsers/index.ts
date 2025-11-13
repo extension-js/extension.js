@@ -40,7 +40,7 @@ export class BrowsersPlugin {
 
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
-  public readonly open?: boolean
+  public readonly noOpen?: boolean
   public readonly browserFlags?: string[]
   public readonly excludeBrowserFlags?: string[]
   public readonly profile?: string | false
@@ -65,31 +65,37 @@ export class BrowsersPlugin {
   constructor(options: PluginInterface) {
     const normalized = normalizePluginOptions(options)
 
+    // Path(s) to the extension(s) to load.
+    // In our case, it's always 'dist/<browser>'
     this.extension = normalized.extension
 
-    // this.browser.<>
+    // Browser binary-related kung fu
     this.browser = normalized.browser
-    this.open = normalized.open
-    this.browserFlags =
-      normalized.browserFlags?.filter(
-        (flag) => !flag.startsWith('--load-extension=')
-      ) || []
-    this.excludeBrowserFlags = normalized.excludeBrowserFlags
-    this.profile = normalized.profile
-    this.preferences = normalized.preferences
     this.startingUrl = normalized.startingUrl
+    this.preferences = normalized.preferences
+    this.profile = normalized.profile
+    this.browserFlags = normalized.browserFlags
+    this.excludeBrowserFlags = normalized.excludeBrowserFlags
+    this.noOpen = normalized.noOpen
+
+    // Supplementary browser binary paths. Will
+    // override the browser setting if provided.
     this.chromiumBinary = normalized.chromiumBinary
     this.geckoBinary = normalized.geckoBinary
 
-    // this.instance.<>
+    // Instance/port coordination for remote debugging and multi-instance runs
     this.instanceId = normalized.instanceId
     this.port = normalized.port
 
-    // this.inspection.<>
+    // Source inspection (development mode):
+    // For Chromium/Firefox: open a page and extract full HTML
+    // (incl. content-script Shadow DOM)
+    // Optional watch mode to re-print HTML on file changes
     this.source = normalized.source
     this.watchSource = normalized.watchSource
 
-    // this.logging.<>
+    // Unified logging for Chromium via CDP
+    // (levels, contexts, formatting, timestamps, color)
     this.logLevel = normalized.logLevel
     this.logContexts = normalized.logContexts
     this.logFormat = normalized.logFormat
@@ -98,7 +104,7 @@ export class BrowsersPlugin {
     this.logUrl = normalized.logUrl
     this.logTab = normalized.logTab
 
-    // this.dryRun.<>
+    // Dry run mode (no browser launch) for CI and diagnostics
     this.dryRun = normalized.dryRun
 
     if (this.profile === false && process.env.EXTENSION_ENV === 'development') {

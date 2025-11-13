@@ -1,13 +1,16 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {type Compilation} from '@rspack/core'
-import {type PluginInterface, type DefaultBrowserFlags} from '../browsers-types'
+import {
+  type PluginInterface,
+  type DefaultBrowserFlags
+} from '../../browsers-types'
 import {
   filterBrowserFlags,
   deriveDebugPortWithInstance
-} from '../browsers-lib/shared-utils'
-import {cleanupOldTempProfiles} from '../browsers-lib/shared-utils'
-import * as messages from '../browsers-lib/messages'
+} from '../../browsers-lib/shared-utils'
+import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
+import * as messages from '../../browsers-lib/messages'
 import {
   uniqueNamesGenerator,
   adjectives,

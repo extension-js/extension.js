@@ -1,0 +1,465 @@
+import * as fs from 'fs'
+import {spawn, execFileSync} from 'child_process'
+import type {Compilation, Compiler} from '@rspack/core'
+import * as chromeLocation from 'chrome-location2'
+import edgeLocation from 'edge-location'
+import * as messages from '../../browsers-lib/messages'
+import * as instanceRegistry from '../../browsers-lib/instance-registry'
+import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
+import * as utils from '../../browsers-lib/shared-utils'
+import {browserConfig} from './browser-config'
+import {setupProcessSignalHandlers} from './process-handlers'
+import {logChromiumDryRun} from './dry-run'
+import {setupCdpAfterLaunch} from './setup-cdp-after-launch'
+import type {ChromiumContext} from '../chromium-context'
+
+/**
+ * ChromiumLaunchPlugin
+ *
+ * Intended responsibilities (will be wired incrementally without changing inner logic):
+ * - Resolve binary; compose flags (profiles, excludes, overrides)
+ * - Allocate CDP port; spawn process; setup signals; dry-run
+ * - Connect CDP; ensure extension loaded; print dev banner
+ * - Publish controller + port via ChromiumContext
+ */
+export class ChromiumLaunchPlugin {
+  private didLaunch = false
+  private logger!: ReturnType<Compiler['getInfrastructureLogger']>
+
+  constructor(
+    private readonly options: any,
+    private readonly ctx: ChromiumContext
+  ) {}
+
+  apply(compiler: Compiler) {
+    this.logger =
+      typeof compiler?.getInfrastructureLogger === 'function'
+        ? compiler.getInfrastructureLogger('ChromiumLaunchPlugin')
+        : ({
+            info: (...a: unknown[]) => console.log(...a),
+            warn: (...a: unknown[]) => console.warn(...a),
+            error: (...a: unknown[]) => console.error(...a),
+            debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+          } as ReturnType<Compiler['getInfrastructureLogger']>)
+
+    compiler.hooks.done.tapAsync('chromium:launch', async (stats, done) => {
+      try {
+        const hasErrors =
+          typeof stats?.hasErrors === 'function'
+            ? stats.hasErrors()
+            : !!stats?.compilation?.errors?.length
+
+        if (hasErrors) {
+          this.logger.info(messages.skippingBrowserLaunchDueToCompileErrors())
+          done()
+          return
+        }
+
+        if (this.didLaunch) {
+          done()
+          return
+        }
+
+        await this.launchChromium(stats.compilation)
+        this.didLaunch = true
+        this.logger.info(
+          messages.stdoutData(
+            this.options.browser,
+            stats.compilation.options.mode as 'development' | 'production'
+          )
+        )
+      } catch {
+        // fall through
+      } finally {
+        done()
+      }
+    })
+  }
+
+  private async launchChromium(compilation: Compilation) {
+    // Dry-run short-circuit
+    if (
+      this.options?.dryRun ||
+      process.env.VITEST ||
+      process.env.VITEST_WORKER_ID
+    ) {
+      logChromiumDryRun('chromium-mock-binary', [])
+      return
+    }
+
+    const browser: string = this.options?.browser
+
+    // Resolve binary (prefer output-resolved, then location helpers)
+    let browserBinaryLocation: string | null = null
+    let printedGuidance = false
+
+    try {
+      const resolved = binariesResolver.resolveFromBinaries(
+        compilation,
+        'chrome'
+      )
+      if (resolved && fs.existsSync(resolved)) {
+        browserBinaryLocation = resolved
+      }
+    } catch {
+      // ignore
+    }
+
+    const skipDetection = Boolean(browserBinaryLocation)
+
+    const getChromeVersionLine = (bin: string): string => {
+      try {
+        const versionLine = execFileSync(bin, ['--version'], {
+          encoding: 'utf8'
+        }).trim()
+
+        if (versionLine) return versionLine
+      } catch {
+        // ignore
+      }
+
+      if (process.platform === 'win32') {
+        try {
+          const psPath = bin.replace(/'/g, "''")
+          const pv = execFileSync(
+            'powershell.exe',
+            [
+              '-NoProfile',
+              '-Command',
+              `(Get-Item -LiteralPath '${psPath}').VersionInfo.ProductVersion`
+            ],
+            {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}
+          ).trim()
+          const pn = execFileSync(
+            'powershell.exe',
+            [
+              '-NoProfile',
+              '-Command',
+              `(Get-Item -LiteralPath '${psPath}').VersionInfo.ProductName`
+            ],
+            {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}
+          ).trim()
+
+          if (pv) return pn ? `${pn} ${pv}` : pv
+        } catch {
+          // ignore
+        }
+      }
+      return ''
+    }
+    const looksOfficialChrome = (line: string): boolean =>
+      /^Google Chrome\s(?!for Testing)/i.test(line)
+    const parseMajor = (line: string): number | undefined => {
+      const m = line.match(/(\d+)\./)
+      return m ? parseInt(m[1], 10) : undefined
+    }
+
+    switch (browser) {
+      case 'chrome': {
+        if (!skipDetection) {
+          try {
+            const locate = (chromeLocation as any).locateChromeOrExplain
+            if (typeof locate === 'function') {
+              try {
+                browserBinaryLocation = locate({allowFallback: true})
+              } catch (err) {
+                let candidate: string | null =
+                  (chromeLocation as any).default?.(true) || null
+
+                if (candidate) {
+                  const versionLine = getChromeVersionLine(candidate)
+                  const major = parseMajor(versionLine)
+
+                  if (
+                    looksOfficialChrome(versionLine) &&
+                    typeof major === 'number' &&
+                    major >= 137
+                  ) {
+                    candidate = null
+                  }
+                }
+
+                browserBinaryLocation = candidate
+                if (!browserBinaryLocation) {
+                  throw err
+                }
+              }
+            } else {
+              let candidate: string | null =
+                (chromeLocation as any).default(true) || null
+
+              if (candidate) {
+                const versionLine = getChromeVersionLine(candidate)
+                const major = parseMajor(versionLine)
+                if (
+                  looksOfficialChrome(versionLine) &&
+                  typeof major === 'number' &&
+                  major >= 137
+                ) {
+                  candidate = null
+                }
+              }
+
+              browserBinaryLocation = candidate
+            }
+          } catch (e) {
+            this.printEnhancedPuppeteerInstallHint(compilation, String(e))
+            printedGuidance = true
+            browserBinaryLocation = null
+          }
+        }
+        break
+      }
+
+      case 'edge': {
+        try {
+          browserBinaryLocation = edgeLocation()
+        } catch {
+          this.logger.error(
+            messages.browserNotInstalledError(
+              'edge' as any,
+              'edge binary not found'
+            )
+          )
+          if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+            throw new Error('Chromium launch failed')
+          } else {
+            process.exit(1)
+          }
+        }
+        break
+      }
+
+      case 'chromium-based': {
+        browserBinaryLocation = this.options?.chromiumBinary
+        break
+      }
+
+      default: {
+        try {
+          const locate = (chromeLocation as any).locateChromeOrExplain
+
+          if (typeof locate === 'function') {
+            try {
+              browserBinaryLocation = locate({allowFallback: true})
+            } catch (err) {
+              let candidate: string | null =
+                (chromeLocation as any).default?.(true) || null
+
+              if (candidate) {
+                const versionLine = getChromeVersionLine(candidate)
+                const major = parseMajor(versionLine)
+
+                if (
+                  looksOfficialChrome(versionLine) &&
+                  typeof major === 'number' &&
+                  major >= 137
+                ) {
+                  candidate = null
+                }
+              }
+
+              browserBinaryLocation = candidate
+
+              if (!browserBinaryLocation) throw err
+            }
+          } else {
+            let candidate: string | null =
+              (chromeLocation as any).default(true) || null
+
+            if (candidate) {
+              const versionLine = getChromeVersionLine(candidate)
+              const major = parseMajor(versionLine)
+
+              if (
+                looksOfficialChrome(versionLine) &&
+                typeof major === 'number' &&
+                major >= 137
+              ) {
+                candidate = null
+              }
+            }
+
+            browserBinaryLocation = candidate
+          }
+        } catch (e) {
+          this.printEnhancedPuppeteerInstallHint(compilation, String(e))
+          printedGuidance = true
+          browserBinaryLocation = null
+        }
+        break
+      }
+    }
+
+    if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
+      try {
+        const resolved = binariesResolver.resolveFromBinaries(
+          compilation,
+          'chrome'
+        )
+        if (resolved && fs.existsSync(resolved)) {
+          browserBinaryLocation = resolved
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
+        if (!printedGuidance) {
+          this.logger.error(
+            messages.browserNotInstalledError(
+              browser as any,
+              browserBinaryLocation || ''
+            )
+          )
+        }
+
+        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+          throw new Error('Browser not installed or binary path not found')
+        } else {
+          process.exit(1)
+        }
+      }
+    }
+
+    const extensionsToLoad = Array.isArray(this.options.extension)
+      ? [...this.options.extension]
+      : [this.options.extension]
+
+    // Publish extension root once (first path wins)
+    try {
+      const first = extensionsToLoad.find((e) => typeof e === 'string')
+      if (first) this.ctx.setExtensionRoot(String(first))
+    } catch {
+      // ignore
+    }
+
+    let chromiumConfig: string[] = browserConfig(compilation, {
+      ...this.options,
+      profile: this.options.profile,
+      instanceId: this.options.instanceId,
+      extension: extensionsToLoad,
+      logLevel: this.options.logLevel
+    })
+
+    const desiredPort = utils.deriveDebugPortWithInstance(
+      this.options.port,
+      this.options.instanceId
+    )
+    const freePort = await utils.findAvailablePortNear(desiredPort)
+
+    const selectedPort = freePort
+
+    if (freePort !== desiredPort) {
+      chromiumConfig = chromiumConfig.map((flag) =>
+        flag.startsWith('--remote-debugging-port=')
+          ? `--remote-debugging-port=${selectedPort}`
+          : flag
+      )
+    }
+    if (process.env.EXTENSION_ENV === 'development') {
+      this.logger.info(messages.devChromiumDebugPort(selectedPort, desiredPort))
+    }
+    instanceRegistry.setInstancePorts(this.options.instanceId, {
+      cdpPort: selectedPort
+    })
+
+    if (this.options.dryRun) {
+      logChromiumDryRun(browserBinaryLocation, chromiumConfig)
+      return
+    }
+
+    await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
+
+    try {
+      const cdpConfig: any = {
+        extension: Array.isArray(this.options.extension)
+          ? this.options.extension
+          : [this.options.extension],
+        browser: this.options.browser,
+        port: this.options.port,
+        instanceId: this.options.instanceId,
+        bannerPrintedOnce: false,
+        logLevel: this.options.logLevel,
+        logContexts: this.options.logContexts,
+        logUrl: this.options.logUrl,
+        logTab: this.options.logTab,
+        logFormat: this.options.logFormat,
+        logTimestamps: this.options.logTimestamps,
+        logColor: this.options.logColor,
+        cdpController: undefined
+      }
+
+      await setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
+
+      if (cdpConfig.cdpController) {
+        this.ctx.setController(cdpConfig.cdpController, selectedPort)
+      }
+    } catch (error) {
+      if (process.env.EXTENSION_ENV === 'development') {
+        console.warn(
+          '[plugin-browsers] CDP post-launch setup failed:',
+          String(error)
+        )
+      }
+    }
+  }
+
+  private async launchWithDirectSpawn(binary: string, chromeFlags: string[]) {
+    this.logger.info(messages.chromeInitializingEnhancedReload())
+    const launchArgs = this.options?.startingUrl
+      ? [...chromeFlags, this.options.startingUrl]
+      : [...chromeFlags]
+    const stdio = 'ignore'
+
+    try {
+      const child = spawn(`${binary}`, launchArgs, {
+        stdio,
+        detached: false,
+        ...(process.platform !== 'win32' && {group: process.getgid?.()})
+      })
+
+      this.logger.debug?.(
+        '[plugin-browsers] Final Chrome flags:',
+        launchArgs.join(' ')
+      )
+
+      child.on('close', (code: number | null) => {
+        if (process.env.EXTENSION_ENV === 'development') {
+          this.logger.info(messages.chromeProcessExited(code || 0))
+        }
+      })
+
+      child.on('error', (error) => {
+        this.logger.error(messages.chromeProcessError(error))
+      })
+
+      setupProcessSignalHandlers(this.options?.browser, child, () => {})
+    } catch (error) {
+      this.logger.error(messages.chromeFailedToSpawn(error))
+      throw error
+    }
+  }
+
+  private printEnhancedPuppeteerInstallHint(
+    compilation: Compilation,
+    raw: string
+  ) {
+    try {
+      const displayCacheDir =
+        binariesResolver.computeBinariesBaseDir(compilation)
+      const lines = raw.split('\n')
+      const idx = lines.findIndex((l) =>
+        l.includes('npx @puppeteer/browsers install ')
+      )
+
+      if (idx !== -1 && !lines[idx].includes('--path')) {
+        lines[idx] = `${lines[idx]} --path "${displayCacheDir}"`
+      }
+
+      console.error(lines.join('\n'))
+    } catch {
+      console.error(raw)
+    }
+  }
+}

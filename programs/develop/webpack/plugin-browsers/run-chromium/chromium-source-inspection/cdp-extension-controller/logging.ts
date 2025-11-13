@@ -1,4 +1,4 @@
-import {Controller} from '../../unified-logging'
+import type {Controller} from '../../chromium-types'
 import {CDPClient} from '../cdp-client'
 import * as messages from '../../../browsers-lib/messages'
 

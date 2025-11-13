@@ -15,7 +15,12 @@ import {logFirefoxDryRun} from './dry-run'
 import {FirefoxDoneReloadPlugin} from './done-reload'
 import * as messages from '../browsers-lib/messages'
 import {setInstancePorts} from '../browsers-lib/instance-registry'
-import {type PluginInterface} from '../browsers-types'
+import {
+  LogContext,
+  LogFormat,
+  LogLevel,
+  type PluginInterface
+} from '../browsers-types'
 import {BrowserConfig, DevOptions} from '../../types/options'
 import {
   deriveDebugPortWithInstance,
@@ -28,7 +33,9 @@ let child: ChildProcess | null = null
 export class RunFirefoxPlugin {
   public readonly extension: string | string[]
   public readonly browser: DevOptions['browser']
+  public readonly noOpen?: boolean
   public readonly browserFlags?: string[]
+  public readonly excludeBrowserFlags?: string[]
   public readonly profile?: string | false
   public readonly preferences?: Record<string, unknown>
   public readonly startingUrl?: string
@@ -43,24 +50,9 @@ export class RunFirefoxPlugin {
   public readonly watchSource?: boolean
   public readonly dryRun?: boolean
   // Unified logging flags (parity with Chromium path)
-  private logLevel?:
-    | 'off'
-    | 'error'
-    | 'warn'
-    | 'info'
-    | 'debug'
-    | 'trace'
-    | 'all'
-  private logContexts?: Array<
-    | 'background'
-    | 'content'
-    | 'page'
-    | 'sidebar'
-    | 'popup'
-    | 'options'
-    | 'devtools'
-  >
-  private logFormat?: 'pretty' | 'json' | 'ndjson'
+  private logLevel?: LogLevel
+  private logContexts?: Array<LogContext>
+  private logFormat?: LogFormat
   private logTimestamps?: boolean
   private logColor?: boolean
   private logUrl?: string
@@ -68,27 +60,40 @@ export class RunFirefoxPlugin {
 
   private remoteFirefox?: unknown | null
   private logger?: ReturnType<Compiler['getInfrastructureLogger']>
-  private pendingHardReloadReason?: 'manifest' | 'locales' // removed 'sw'
-  // removed lastServiceWorkerRelPath
+  private pendingHardReloadReason?: 'manifest' | 'locales'
 
   constructor(options: PluginInterface) {
+    // Path(s) to the extension(s) to load.
+    // In our case, it's always 'dist/<browser>'
     this.extension = options.extension
-    this.browser = options.browser || 'firefox'
-    this.browserFlags = options.browserFlags || []
-    this.profile = options.profile
-    this.preferences = options.preferences
+
+    // Browser binary-related kung fu
+    this.browser = options.browser
     this.startingUrl = options.startingUrl
+    this.preferences = options.preferences
+    this.profile = options.profile
+    this.browserFlags = options.browserFlags
+    this.excludeBrowserFlags = options.excludeBrowserFlags
+    this.noOpen = options.noOpen
+
+    // Supplementary browser binary path. Will
+    // override the browser setting if provided.
     this.geckoBinary = options.geckoBinary
-    this.port = parseInt(options.port as string, 10)
+
+    // Instance/port coordination for remote
+    // debugging and multi-instance runs
     this.instanceId = options.instanceId
-    this.keepProfileChanges = (options as any)?.keepProfileChanges
-    this.copyFromProfile = (options as any)?.copyFromProfile
+    this.port = options.port
+
+    // Source inspection (development mode):
+    // For Chromium/Firefox: open a page and extract
+    // full HTML (incl. content-script Shadow DOM)
+    // Optional watch mode to re-print HTML on file changes
     this.source = options.source
     this.watchSource = options.watchSource
-    ;(this.dryRun as boolean | undefined) = options.dryRun
 
-    // Quiet constructor: avoid noisy logs in normal runs
-    // Capture unified logging flags if provided
+    // Unified logging for Chromium via CDP
+    // (levels, contexts, formatting, timestamps, color)
     this.logLevel = options.logLevel
     this.logContexts = options.logContexts
     this.logFormat = options.logFormat
@@ -96,6 +101,9 @@ export class RunFirefoxPlugin {
     this.logColor = options.logColor
     this.logUrl = options.logUrl
     this.logTab = options.logTab
+
+    // Dry run mode (no browser launch) for CI and diagnostics
+    this.dryRun = options.dryRun
   }
 
   private async launchFirefox(

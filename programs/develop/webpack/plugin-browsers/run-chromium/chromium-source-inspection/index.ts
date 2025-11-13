@@ -1,14 +1,21 @@
 import {type Compiler} from '@rspack/core'
 import {WebSocketServer} from 'ws'
+import * as messages from '../../browsers-lib/messages'
+import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import {CDPClient} from './cdp-client'
 import {waitForChromeRemoteDebugging} from './readiness'
 import {ensureTargetAndSession} from './targets'
 import {extractPageHtml} from './extract'
 import {type DevOptions} from '../../../types/options'
-import * as messages from '../../browsers-lib/messages'
-import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 
-export class SetupChromeInspectionStep {
+/**
+ * ChromiumSourceInspectionPlugin
+ *
+ * Intended responsibilities:
+ * - Dev-only page/extension inspection; attach to target and extract HTML
+ * - Optional watch mode to re-print HTML on file changes
+ */
+export class ChromiumSourceInspectionPlugin {
   private devOptions: DevOptions & {startingUrl?: string; instanceId?: string}
   private cdpClient: CDPClient | null = null
   private currentTargetId: string | null = null
@@ -18,7 +25,8 @@ export class SetupChromeInspectionStep {
   private debounceTimer: NodeJS.Timeout | null = null
 
   constructor(
-    devOptions: DevOptions & {startingUrl?: string; instanceId?: string}
+    devOptions: DevOptions & {startingUrl?: string; instanceId?: string},
+    _ctx?: unknown
   ) {
     this.devOptions = devOptions
   }
@@ -64,6 +72,7 @@ export class SetupChromeInspectionStep {
         console.log(messages.sourceInspectorOpeningUrl(url))
         console.log(messages.sourceInspectorFindingExistingTarget())
       }
+
       const {targetId, sessionId} = await ensureTargetAndSession(
         this.cdpClient,
         url
@@ -101,6 +110,7 @@ export class SetupChromeInspectionStep {
 
       // This is the real inspection data step for the user:
       const html = await extractPageHtml(this.cdpClient, this.currentSessionId)
+
       return html
     } catch (error) {
       if (process.env.EXTENSION_ENV === 'development') {
@@ -121,8 +131,10 @@ export class SetupChromeInspectionStep {
       console.log(messages.sourceInspectorWatchModeActive())
       return
     }
+
     this.isWatching = true
     console.log(messages.sourceInspectorStartingWatchMode())
+
     this.setupWebSocketHandler(websocketServer)
     console.log(messages.sourceInspectorCDPConnectionMaintained())
   }
@@ -167,6 +179,7 @@ export class SetupChromeInspectionStep {
 
   stopWatching() {
     if (process.env.EXTENSION_ENV !== 'development') return
+
     this.isWatching = false
     console.log(messages.sourceInspectorWatchModeStopped())
   }
@@ -200,7 +213,8 @@ export class SetupChromeInspectionStep {
         try {
           html = await this.cdpClient!.getPageHTML(this.currentSessionId!)
         } catch (e) {
-          // Fallback: small delay then try one more time to ensure a print even if timing is tight
+          // Fallback: small delay then try one more time
+          // to ensure a print even if timing is tight
           await new Promise((r) => setTimeout(r, 250))
           try {
             html = await this.cdpClient!.getPageHTML(this.currentSessionId!)
@@ -224,6 +238,7 @@ export class SetupChromeInspectionStep {
         console.error(
           messages.sourceInspectorHTMLUpdateFailed((error as Error).message)
         )
+
         if (
           (error as Error).message.includes('session') ||
           (error as Error).message.includes('target')
@@ -243,6 +258,7 @@ export class SetupChromeInspectionStep {
         console.warn(messages.sourceInspectorCannotReconnect())
         return
       }
+
       console.log(messages.sourceInspectorReconnectingToTarget())
       this.currentSessionId =
         (await this.cdpClient.attachToTarget(this.currentTargetId)) || null
@@ -266,6 +282,7 @@ export class SetupChromeInspectionStep {
   // Only for development: print updated HTML after file change
   printUpdatedHTML(html: string) {
     if (process.env.EXTENSION_ENV !== 'development') return
+
     console.log(messages.sourceInspectorHTMLOutputHeader())
     console.log(
       messages.sourceInspectorHTMLOutputTitle(
@@ -282,12 +299,15 @@ export class SetupChromeInspectionStep {
       if (process.env.EXTENSION_ENV === 'development') {
         this.stopWatching()
       }
+
       if (this.cdpClient && this.currentTargetId) {
         await this.cdpClient.closeTarget(this.currentTargetId)
       }
+
       if (this.cdpClient) {
         this.cdpClient.disconnect()
       }
+
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.sourceInspectorCleanupComplete())
       }
@@ -314,7 +334,8 @@ export class SetupChromeInspectionStep {
             await this.initialize()
           }
 
-          // User: to see the real inspection data, provide --source <url> or --starting-url <url>
+          // User: to see the real inspection data,
+          // provide --source <url> or --starting-url <url>
           let urlToInspect: string
 
           if (
@@ -335,6 +356,7 @@ export class SetupChromeInspectionStep {
 
           // Watch mode is only for development
           const webSocketServer = (compiler.options as any).webSocketServer
+
           if (
             this.devOptions.watchSource &&
             process.env.EXTENSION_ENV === 'development'

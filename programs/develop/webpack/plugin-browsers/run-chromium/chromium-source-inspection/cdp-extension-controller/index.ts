@@ -1,12 +1,11 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import * as messages from '../../browsers-lib/messages'
-import {CDPClient} from './cdp-client'
-import {deriveExtensionIdFromTargetsHelper} from './helpers/derive-id'
-import {connectToChromeCdp} from './helpers/connect'
-import {loadUnpackedIfNeeded, readManifestInfo} from './helpers/ensure'
-import {registerAutoEnableLogging} from './helpers/logging'
-import {type UnifiedLoggingOptions} from '../unified-logging'
+import * as messages from '../../../browsers-lib/messages'
+import {CDPClient} from '../cdp-client'
+import {deriveExtensionIdFromTargetsHelper} from './derive-id'
+import {connectToChromeCdp} from './connect'
+import {loadUnpackedIfNeeded, readManifestInfo} from './ensure'
+import {registerAutoEnableLogging} from './logging'
 
 interface ExtensionInfoResult {
   extensionId: string
@@ -172,6 +171,7 @@ export class CDPExtensionController {
 
   async hardReload(): Promise<boolean> {
     if (!this.cdp || !this.extensionId) return false
+
     try {
       return await this.cdp.forceReloadExtension(this.extensionId)
     } catch {
@@ -185,6 +185,7 @@ export class CDPExtensionController {
     ) => void
   ) {
     if (!this.cdp) throw new Error('CDP not connected')
+
     this.cdp.onProtocolEvent((raw: Record<string, unknown>) => {
       const evt = raw as {method: string; params?: unknown} & Record<
         string,
@@ -200,7 +201,7 @@ export class CDPExtensionController {
   }
 
   // Stream logs when requested: attach to page + extension targets and forward
-  async enableUnifiedLogging(_opts?: UnifiedLoggingOptions) {
+  async enableUnifiedLogging() {
     if (!this.cdp) return
 
     try {

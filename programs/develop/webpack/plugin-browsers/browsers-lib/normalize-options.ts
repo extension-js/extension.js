@@ -5,6 +5,7 @@ export type NormalizedBrowser = DevOptions['browser']
 
 export interface NormalizedOptions extends Omit<PluginInterface, 'browser'> {
   browser: NormalizedBrowser
+  noOpen?: boolean
   profile?: string | false
   startingUrl?: string
   source?: string
@@ -14,7 +15,7 @@ export interface NormalizedOptions extends Omit<PluginInterface, 'browser'> {
 export function normalizePluginOptions(
   options: PluginInterface
 ): NormalizedOptions {
-  let browser: NormalizedBrowser
+  let browser: NormalizedBrowser | 'chromium' | 'firefox'
 
   if (options.chromiumBinary) {
     browser = 'chromium'
@@ -44,6 +45,16 @@ export function normalizePluginOptions(
   const source = options.source
   const dryRun = options.dryRun
 
+  const browserFlags =
+    options.browserFlags?.filter(
+      (flag) => !flag.startsWith('--load-extension=')
+    ) || []
+
+  const excludeBrowserFlags =
+    options.excludeBrowserFlags?.filter(
+      (flag) => !flag.startsWith('--load-extension=')
+    ) || []
+
   return {
     ...options,
     browser,
@@ -51,6 +62,8 @@ export function normalizePluginOptions(
     startingUrl,
     source,
     dryRun,
+    browserFlags,
+    excludeBrowserFlags,
     // Ensure runtime consumers receive these values (used to derive CDP/RDP ports)
     port: options.port,
     instanceId: options.instanceId
