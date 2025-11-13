@@ -125,8 +125,7 @@ export class BrowsersPlugin {
       this.browser === 'chromium-based'
     ) {
       new RunChromiumPlugin(this).apply(compiler)
-    }
-    if (this.browser === 'firefox' || this.browser === 'gecko-based') {
+    } else if (this.browser === 'firefox' || this.browser === 'gecko-based') {
       new RunFirefoxPlugin(this).apply(compiler)
     } else {
       throw new Error(messages.unsupportedBrowser(String(this.browser)))
