@@ -1,58 +1,16 @@
 import colors from 'pintor'
-
-type LogLevel = 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-
-export interface UnifiedLoggingOptions {
-  level?: LogLevel
-  contexts?: string[]
-  urlFilter?: string
-  tabFilter?: number | string
-  format?: 'pretty' | 'json' | 'ndjson'
-  timestamps?: boolean
-  color?: boolean
-}
-
-export interface Controller {
-  enableUnifiedLogging: (opts: UnifiedLoggingOptions) => Promise<void>
-  onProtocolEvent: (cb: (evt: CdpEvent) => void) => void
-}
-
-interface ConsoleAPICalledEvent {
-  method: 'Runtime.consoleAPICalled'
-  params?: {
-    type?: string
-    args?: Array<{value?: unknown; description?: string}>
-    stackTrace?: {
-      callFrames?: Array<{
-        url?: string
-        lineNumber?: number
-        columnNumber?: number
-      }>
-    }
-  }
-}
-
-interface LogEntryAddedEvent {
-  method: 'Log.entryAdded'
-  params?: {
-    entry?: {
-      level?: string
-      text?: string
-      url?: string
-      lineNumber?: number
-      columnNumber?: number
-    }
-  }
-}
-
-type CdpEvent =
-  | ConsoleAPICalledEvent
-  | LogEntryAddedEvent
-  | {method: string; params?: unknown}
+import type {
+  Controller,
+  ChromiumLogger,
+  CdpEvent,
+  ConsoleAPICalledEvent,
+  LogEntryAddedEvent,
+  LogLevel
+} from '../chromium-types'
 
 export async function setupUnifiedLogging(
   controller: Controller,
-  opts: UnifiedLoggingOptions
+  opts: ChromiumLogger
 ) {
   const level = String(opts.level || '').toLowerCase()
   if (!level || level === 'off') return
@@ -86,6 +44,7 @@ export async function setupUnifiedLogging(
           (first && ((first as any).value || (first as any).description)) || ''
         )
         const loc = p.stackTrace?.callFrames?.[0]
+
         if (loc) {
           url = String(loc.url || '')
           line = Number(loc.lineNumber || 0)
@@ -116,6 +75,7 @@ export async function setupUnifiedLogging(
           if (/\b(sidebar|side_panel)\//i.test(u)) return 'sidebar'
           return 'background'
         }
+
         // Heuristic for content scripts when URL points to page but content artefacts mentioned
         if (/\bcontent(_scripts)?\b/i.test(u) || /\bcontent[-_/]/i.test(text)) {
           return 'content'
@@ -145,12 +105,6 @@ export async function setupUnifiedLogging(
             return colors.gray ? colors.gray(up) : up
         }
       }
-
-      const ts = showTs
-        ? colors.gray
-          ? colors.gray(new Date().toISOString() + ' ')
-          : new Date().toISOString() + ' '
-        : ''
 
       const where = url ? `${url}:${line}:${col}` : ''
       const msg = text && text.trim().length ? text.trim() : '(none)'

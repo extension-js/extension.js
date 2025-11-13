@@ -69,6 +69,7 @@ export async function getPageHTML(
       // ignore
     }
   }
+
   return mainHTML
 }
 
@@ -97,6 +98,7 @@ export async function waitForLoadEvent(
         // ignore
       }
     }
+
     const clientWithHandle = cdp as unknown as {
       handleMessage: (data: string) => void
     }
@@ -113,6 +115,7 @@ export async function waitForLoadEvent(
         console.log(messages.cdpClientLoadEventTimeout())
         resolve()
       }
+
       clientWithHandle.handleMessage = original
     }, 2000)
   })
@@ -137,6 +140,7 @@ export async function waitForContentScriptInjection(
           return false;
         } catch { return false } })()`
       )
+
       if (Boolean(injected)) return
     } catch {
       // ignore

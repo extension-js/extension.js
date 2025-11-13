@@ -175,7 +175,7 @@ export default function webpackConfig(
       new BrowsersPlugin({
         extension: extensionsToLoad,
         browser,
-        open: devOptions.open,
+        noOpen: devOptions.noOpen,
         startingUrl: devOptions.startingUrl,
         profile: devOptions.profile,
         persistProfile: (devOptions as any).persistProfile,
