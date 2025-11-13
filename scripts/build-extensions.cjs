@@ -83,7 +83,7 @@ function main() {
     const extensionDistDir = path.join(extRoot, 'dist')
     if (!fs.existsSync(extensionDistDir)) continue
 
-    const targets = ['chrome', 'firefox']
+    const targets = [ 'chromium','chrome', 'edge', 'firefox']
 
     for (const browser of targets) {
       const src = path.join(extensionDistDir, browser)
