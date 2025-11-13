@@ -97,7 +97,9 @@ export class ChromiumLaunchPlugin {
     try {
       const resolved = binariesResolver.resolveFromBinaries(
         compilation,
-        'chrome'
+        browser === 'chromium' || browser === 'chromium-based'
+          ? 'chromium'
+          : 'chrome'
       )
       if (resolved && fs.existsSync(resolved)) {
         browserBinaryLocation = resolved
@@ -369,7 +371,8 @@ export class ChromiumLaunchPlugin {
               if (looksOfficialChrome(versionLine)) {
                 this.printEnhancedPuppeteerInstallHint(
                   compilation,
-                  getInstallGuidanceText()
+                  getInstallGuidanceText(),
+                  browser
                 )
                 printedGuidance = true
                 candidate = null
@@ -395,8 +398,11 @@ export class ChromiumLaunchPlugin {
       try {
         const resolved = binariesResolver.resolveFromBinaries(
           compilation,
-          'chrome'
+          browser === 'chromium' || browser === 'chromium-based'
+            ? 'chromium'
+            : 'chrome'
         )
+
         if (resolved && fs.existsSync(resolved)) {
           browserBinaryLocation = resolved
         }
