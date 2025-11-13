@@ -338,6 +338,10 @@ export function chromeInitializingEnhancedReload() {
 }
 
 // Dev/utility formatting helpers
+export function locatingBrowser(browser: Browser) {
+  return `${getLoggingPrefix('info')} Locating ${capitalizedBrowserName(browser)} browser binary...`
+}
+
 export function devChromeProfilePath(path: string) {
   return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Chrome profile: ${colors.underline(path)}`
 }
@@ -352,6 +356,62 @@ export function chromiumDryRunBinary(path: string) {
 
 export function chromiumDryRunFlags(flags: string) {
   return `${getLoggingPrefix('info')} [plugin-browsers] Flags: ${colors.gray(flags)}`
+}
+
+export function prettyPuppeteerInstallGuidance(
+  browser: Browser,
+  rawGuidance: string,
+  cacheDir: string
+): string {
+  // Preserve the exact guidance text from the location package,
+  // append the installation path (colored) as the only difference.
+  const dim = colors.gray
+  const body: string[] = []
+  // Some callers pass String(Error) which prefixes with "Error: ".
+  let cleaned = String(rawGuidance || '')
+    .replace(/^Error:\s*/i, '')
+    .trim()
+
+  // If we only received a minimal one-liner (e.g. just the install command),
+  // expand it using the location package's own getInstallGuidance to match npx output.
+  try {
+    const looksMinimal = cleaned.split(/\r?\n/).filter(Boolean).length < 2
+    if (looksMinimal) {
+      if (browser === 'chromium' || browser === 'chromium-based') {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const loc = require('chromium-location')
+          const txt =
+            typeof loc?.getInstallGuidance === 'function'
+              ? loc.getInstallGuidance()
+              : ''
+          if (txt && typeof txt === 'string') cleaned = String(txt).trim()
+        } catch {
+          // fall through; keep minimal text
+        }
+      } else {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const loc = require('chrome-location2')
+          const txt =
+            typeof loc?.getInstallGuidance === 'function'
+              ? loc.getInstallGuidance()
+              : ''
+          if (txt && typeof txt === 'string') cleaned = String(txt).trim()
+        } catch {
+          // fall through; keep minimal text
+        }
+      }
+    }
+  } catch {
+    // ignore expansion errors
+  }
+
+  body.push(cleaned)
+  if (cacheDir) {
+    body.push(`${dim('Install path:')} ${colors.underline(cacheDir)}`)
+  }
+  return body.join('\n') + '\n'
 }
 
 // Firefox specific messages
