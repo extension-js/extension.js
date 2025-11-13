@@ -1,9 +1,9 @@
-import {checkChromeRemoteDebugging} from './discovery'
 import {
   getInstancePorts,
   getLastCDPPort
 } from '../../browsers-lib/instance-registry'
 import * as messages from '../../browsers-lib/messages'
+import {checkChromeRemoteDebugging} from './discovery'
 
 export async function waitForChromeRemoteDebugging(
   port: number,
