@@ -480,11 +480,11 @@ importers:
         specifier: ^4.0.1
         version: 4.0.3
       chrome-location2:
-        specifier: 3.2.0
-        version: 3.2.0
+        specifier: 3.2.1
+        version: 3.2.1
       chromium-location:
-        specifier: 1.2.1
-        version: 1.2.1
+        specifier: 1.2.3
+        version: 1.2.3
       content-security-policy-parser:
         specifier: ^0.6.0
         version: 0.6.0
@@ -495,11 +495,11 @@ importers:
         specifier: ^16.4.7
         version: 16.6.1
       edge-location:
-        specifier: ^2.1.0
-        version: 2.1.0
+        specifier: ^2.1.1
+        version: 2.1.1
       firefox-location2:
-        specifier: 2.1.0
-        version: 2.1.0
+        specifier: 2.1.1
+        version: 2.1.1
       go-git-it:
         specifier: ^5.0.0
         version: 5.0.0
@@ -3648,18 +3648,18 @@ packages:
   chrome-location2@2.0.0:
     resolution: {integrity: sha512-sV8Cwl9chk0xNTKsN1IwOEaRZ4HKx+fQRUH4sUT/blnyo2yJ38iwbmjH1ixl+3xlo52r45I7sA1sVjh5vi4jVg==}
 
-  chrome-location2@3.2.0:
-    resolution: {integrity: sha512-GZjIA2o54pSNyUTLwZA+fvbUpTKwagrBN3ongEyLdADXy0SYK5vUz1bsdEfi2OSmYFZUW6uzxA+bnquVcQ0ieA==}
-    engines: {node: '>=18 <23'}
+  chrome-location2@3.2.1:
+    resolution: {integrity: sha512-349wMOc9Uk7LWDz866bvJpnX18Oe5YV8GGaP9GqgrvTclPOF2Gz6RUz27Y4MQC/vxqM9PnLcuy1msiFVL7XO7w==}
+    engines: {node: '>=16'}
     hasBin: true
 
   chrome-trace-event@1.0.4:
     resolution: {integrity: sha512-rNjApaLzuwaOTjCiT8lSDdGN1APCiqkChLMJxJPWLunPAt5fy8xgU9/jNOchV84wfIxrA0lRQB7oCT8jrn/wrQ==}
     engines: {node: '>=6.0'}
 
-  chromium-location@1.2.1:
-    resolution: {integrity: sha512-chjAr0y1XHObsM2oUahVe56djI1grPKjVxLLwOBaRzh7TsHW0HYJ8dUdjmo3Z4xRxtJpj3Rn6n1slqKLgcGXVg==}
-    engines: {node: '>=18 <23'}
+  chromium-location@1.2.3:
+    resolution: {integrity: sha512-F6OrL9IJKWKV1tLMvA9QYGttTffp41CwyaQkY5jLyXsPPFNH48l4O3Y78Bz7BYOXCC5ZUhYgB2NPdgVFcCiP9Q==}
+    engines: {node: '>=16'}
     hasBin: true
 
   ci-info@3.9.0:
@@ -3994,9 +3994,9 @@ packages:
   edge-location@1.1.1:
     resolution: {integrity: sha512-wxQJjudQO0bwED1lwn6kDJf0tnuGFnvKk80I6FxiUSUr1yTp/9PrPfowrVMl+Eeb+4uazKoloDaDRuBQ65qo1g==}
 
-  edge-location@2.1.0:
-    resolution: {integrity: sha512-pRKKz7yC2iBdehLBxQLrJBlYU/0Mcv90447eiPnI+pRaJpMuf1zkL+py79YrK5l7QZ3MmJFBQ0kETx2lHEQ1mw==}
-    engines: {node: '>=18 <23'}
+  edge-location@2.1.1:
+    resolution: {integrity: sha512-kcwPxF/fQUExyMXBIPsm8WYAluOuYo/VDglVaGIqcAEEcUwR9WpSmPrKwFijyGdooh3NY3HkxkXodlTQ8uZUKQ==}
+    engines: {node: '>=16'}
     hasBin: true
 
   ee-first@1.1.1:
@@ -4320,9 +4320,9 @@ packages:
   firefox-location2@1.0.0:
     resolution: {integrity: sha512-kADmu5wYzE2pcZMH6X/C+v9iFss2G9VHSsOkC7SKFe4/eFQTwXYNZq2/THgi/qtabDXG5kp02EqzlPk8s/4QTg==}
 
-  firefox-location2@2.1.0:
-    resolution: {integrity: sha512-mma0DzuWddEK/brVP6I4jAJiT8LLEyUuKfACDodNPK5O2OY/J1UdOM+m2Af2BQx1dlqekB7qVTLc//00gnasHg==}
-    engines: {node: '>=18 <23'}
+  firefox-location2@2.1.1:
+    resolution: {integrity: sha512-5oN5YDTvgXfNmLiCQ4yrqvFoviNZ450ZUHLElJ3JIkAUY3T2nakymJVR+VeyURt8EP/mozHFouS2GxasCgMaSA==}
+    engines: {node: '>=16'}
     hasBin: true
 
   firefox-profile@4.7.0:
@@ -9915,7 +9915,7 @@ snapshots:
       sirv: 3.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 2.0.0
-      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@22.16.5)(@vitest/ui@3.2.4)(jiti@2.6.1)(jsdom@26.1.0)(less@4.4.0)(lightningcss@1.30.2)(sass@1.89.2)(terser@5.43.1)(yaml@2.8.0)
+      vitest: 3.2.4(@types/debug@4.1.12)(@types/node@20.19.25)(@vitest/ui@3.2.4)(jiti@1.21.7)(jsdom@26.1.0)(less@4.4.0)(lightningcss@1.30.2)(sass@1.89.2)(terser@5.43.1)(yaml@2.8.0)
     optional: true
 
   '@vitest/utils@3.2.4':
@@ -10341,7 +10341,7 @@ snapshots:
       userhome: 1.0.1
       which: 2.0.2
 
-  chrome-location2@3.2.0:
+  chrome-location2@3.2.1:
     dependencies:
       pintor: 0.3.0
       userhome: 1.0.1
@@ -10349,7 +10349,7 @@ snapshots:
 
   chrome-trace-event@1.0.4: {}
 
-  chromium-location@1.2.1:
+  chromium-location@1.2.3:
     dependencies:
       userhome: 1.0.1
       which: 2.0.2
@@ -10650,7 +10650,7 @@ snapshots:
       userhome: 1.0.1
       which: 2.0.2
 
-  edge-location@2.1.0:
+  edge-location@2.1.1:
     dependencies:
       userhome: 1.0.1
       which: 2.0.2
@@ -11185,7 +11185,7 @@ snapshots:
       userhome: 1.0.1
       which: 2.0.2
 
-  firefox-location2@2.1.0:
+  firefox-location2@2.1.1:
     dependencies:
       userhome: 1.0.1
       which: 2.0.2
