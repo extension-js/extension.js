@@ -890,6 +890,21 @@ export function browserPluginFailedToLoad(browser: string, error: unknown) {
   return `ERROR Browser Plugin Failed: ${colors.brightBlue(browser)}\n${colors.red(String(error))}`
 }
 
+export function unsupportedBrowser(browser: string) {
+  const supported = ['chrome', 'edge', 'firefox'].join(', ')
+  const hintFlag = `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}`
+  const docsUrl = colors.underline(
+    'https://github.com/extension-js/extension.js'
+  )
+  return (
+    `${getLoggingPrefix('error')} Unsupported browser ${colors.yellow(`"${browser}"`)}\n\n` +
+    `We currently support: ${colors.green(supported)}.\n` +
+    `Try selecting a supported browser with ${hintFlag}.\n\n` +
+    `Need another engine? Open a discussion or PR:\n` +
+    `${docsUrl}`
+  )
+}
+
 export function firefoxDetectedFlatpak() {
   return `${colors.gray('►►►')} Firefox detected via Flatpak`
 }

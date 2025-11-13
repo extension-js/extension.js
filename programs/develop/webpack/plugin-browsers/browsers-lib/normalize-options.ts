@@ -17,9 +17,9 @@ export function normalizePluginOptions(
   let browser: NormalizedBrowser
 
   if (options.chromiumBinary) {
-    browser = 'chromium-based'
+    browser = 'chromium'
   } else if (options.geckoBinary) {
-    browser = 'gecko-based'
+    browser = 'firefox'
   } else {
     browser = (options.browser as NormalizedBrowser) || 'chrome'
   }

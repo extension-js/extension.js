@@ -23,6 +23,7 @@ import {
 import {setupProcessSignalHandlers} from './process-handlers'
 import {ChromiumWatchRunReloadPlugin} from './watch-run-reload'
 import {ChromiumDoneReloadPlugin} from './done-reload'
+import {SetupChromeInspectionStep} from './setup-chrome-inspection/index'
 
 function getChromeVersionLine(bin: string): string {
   try {
@@ -655,5 +656,21 @@ export class RunChromiumPlugin {
       chromiumDidLaunch = true
       done()
     })
+
+    // When running in dryRun mode, avoid setting up
+    // inspection steps that depend on a running browser.
+    if (this.dryRun) {
+      return
+    }
+
+    new SetupChromeInspectionStep({
+      browser: this.browser,
+      mode: compiler.options.mode || 'development',
+      source: this.source,
+      watchSource: this.watchSource,
+      startingUrl: this.startingUrl,
+      port: this.port,
+      instanceId: this.instanceId
+    }).apply(compiler)
   }
 }
