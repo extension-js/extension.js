@@ -159,6 +159,11 @@ export class BrowsersPlugin {
       throw error
     }
 
+    // When running in dryRun mode, avoid setting up inspection steps that depend on a running browser.
+    if (this.dryRun) {
+      return
+    }
+
     // 3 - Sets up source inspection for real-time HTML monitoring
     // This allows developers to see the full HTML output including
     // Shadow DOM content from content scripts

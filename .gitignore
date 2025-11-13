@@ -99,3 +99,4 @@ node_modules/
 .cursor/
 
 _future/
+extensions/browser-extension/

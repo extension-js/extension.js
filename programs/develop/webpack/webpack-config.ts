@@ -187,6 +187,8 @@ export default function webpackConfig(
         port: devOptions.port,
         source: devOptions.source,
         watchSource: devOptions.watchSource,
+        // Prevent actual browser launch during monorepo watch
+        dryRun: process.env.EXTENSION_DEV_NO_BROWSER === '1',
         // Forward unified logger options to BrowsersPlugin (CDP logger)
         logLevel: devOptions.logLevel,
         logContexts: devOptions.logContexts,
