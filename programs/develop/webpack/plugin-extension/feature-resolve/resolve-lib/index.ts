@@ -65,9 +65,10 @@ export function resolveLiteralToOutput(
   opts: {
     manifestPath: string
     packageJsonDir?: string
+    authorFilePath?: string
   }
 ): string | undefined {
-  const {manifestPath, packageJsonDir} = opts
+  const {manifestPath, packageJsonDir, authorFilePath} = opts
   const root = packageJsonDir || path.dirname(manifestPath)
   const canonicalUnixPath = unixify(literal || '')
 
@@ -86,13 +87,24 @@ export function resolveLiteralToOutput(
   }
 
   if (/^\//.test(canonicalUnixPath)) {
-    const out = canonicalUnixPath.replace(/^\//, '')
-    return out
+    const trimmed = canonicalUnixPath.replace(/^\//, '')
+
+    if (/^(?:pages|scripts)\//i.test(trimmed)) {
+      const abs = path.join(root, trimmed)
+      return unixify(getFilename(trimmed, abs))
+    }
+    return trimmed
   }
 
+  // Resolve relative segments against the authoring file when available,
+  // otherwise fall back to the root (package.json dir or manifest dir).
+  const baseDir =
+    /^(\.\/|\.\.\/)/.test(canonicalUnixPath) && authorFilePath
+      ? path.dirname(authorFilePath)
+      : root
   const candidateAbsolutePath = path.isAbsolute(literal)
     ? literal
-    : path.join(root, literal)
+    : path.resolve(baseDir, literal)
 
   // Treat ./pages and ./scripts the same as pages and scripts
   const pathWithoutDotPrefix = canonicalUnixPath.replace(/^\.\//, '')
@@ -103,6 +115,28 @@ export function resolveLiteralToOutput(
 
   if (/^scripts\//i.test(pathWithoutDotPrefix)) {
     return unixify(getFilename(pathWithoutDotPrefix, candidateAbsolutePath))
+  }
+
+  // Normalize any parent/relative segments and re-check against root-level
+  // special folders (pages/ and scripts/) from the manifest/package root.
+  // This allows authoring like '../scripts/foo.js' from files under src/.
+  try {
+    const normalizedRel = unixify(path.relative(root, candidateAbsolutePath))
+    const relNoDotPrefix = normalizedRel.replace(/^\.\//, '')
+
+    if (/^public\//i.test(relNoDotPrefix)) {
+      return relNoDotPrefix.replace(/^public\//i, '')
+    }
+
+    if (/^pages\//i.test(relNoDotPrefix)) {
+      return unixify(getFilename(relNoDotPrefix, candidateAbsolutePath))
+    }
+
+    if (/^scripts\//i.test(relNoDotPrefix)) {
+      return unixify(getFilename(relNoDotPrefix, candidateAbsolutePath))
+    }
+  } catch {
+    // best-effort only; fall through to undefined
   }
 
   return undefined
