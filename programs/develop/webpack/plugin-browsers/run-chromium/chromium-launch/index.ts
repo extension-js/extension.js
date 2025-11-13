@@ -151,32 +151,6 @@ export class ChromiumLaunchPlugin {
     const looksOfficialChrome = (line: string): boolean =>
       /^Google Chrome\s(?!for Testing)/i.test(line)
 
-    const parseMajor = (line: string): number | undefined => {
-      const m = line.match(/(\d+)\./)
-      return m ? parseInt(m[1], 10) : undefined
-    }
-
-    const getChromeMajorViaAPI = (bin: string): number | undefined => {
-      try {
-        const getChromeVersion =
-          (chromeLocation as any)?.getChromeVersion || undefined
-        if (typeof getChromeVersion === 'function') {
-          let v: string | null = getChromeVersion(bin)
-          if (!v && process.platform === 'linux') {
-            v = getChromeVersion(bin, {allowExec: true})
-          }
-          if (typeof v === 'string' && v) {
-            const m = v.match(/^(\d+)\./)
-            return m ? parseInt(m[1], 10) : undefined
-          }
-        }
-      } catch {
-        // ignore, fallback below
-      }
-      const versionLine = getChromeVersionLine(bin)
-      return parseMajor(versionLine)
-    }
-
     const getInstallGuidanceText = (): string => {
       try {
         const f = (chromeLocation as any)?.getInstallGuidance
@@ -191,23 +165,23 @@ export class ChromiumLaunchPlugin {
 
     switch (browser) {
       case 'chrome': {
+        console.log(messages.locatingBrowser(browser))
+
         if (!skipDetection) {
           try {
             const locate = (chromeLocation as any).locateChromeOrExplain
             if (typeof locate === 'function') {
               try {
                 const located: string = locate({allowFallback: true})
+
                 if (located && fs.existsSync(located)) {
                   const versionLine = getChromeVersionLine(located)
-                  const major = getChromeMajorViaAPI(located)
-                  if (
-                    looksOfficialChrome(versionLine) &&
-                    typeof major === 'number' &&
-                    major >= 137
-                  ) {
+
+                  if (looksOfficialChrome(versionLine)) {
                     this.printEnhancedPuppeteerInstallHint(
                       compilation,
-                      getInstallGuidanceText()
+                      getInstallGuidanceText(),
+                      browser
                     )
                     printedGuidance = true
                     browserBinaryLocation = null
@@ -223,16 +197,12 @@ export class ChromiumLaunchPlugin {
 
                 if (candidate) {
                   const versionLine = getChromeVersionLine(candidate)
-                  const major = getChromeMajorViaAPI(candidate)
 
-                  if (
-                    looksOfficialChrome(versionLine) &&
-                    typeof major === 'number' &&
-                    major >= 137
-                  ) {
+                  if (looksOfficialChrome(versionLine)) {
                     this.printEnhancedPuppeteerInstallHint(
                       compilation,
-                      getInstallGuidanceText()
+                      getInstallGuidanceText(),
+                      browser
                     )
                     printedGuidance = true
                     candidate = null
@@ -250,15 +220,11 @@ export class ChromiumLaunchPlugin {
 
               if (candidate) {
                 const versionLine = getChromeVersionLine(candidate)
-                const major = getChromeMajorViaAPI(candidate)
-                if (
-                  looksOfficialChrome(versionLine) &&
-                  typeof major === 'number' &&
-                  major >= 137
-                ) {
+                if (looksOfficialChrome(versionLine)) {
                   this.printEnhancedPuppeteerInstallHint(
                     compilation,
-                    getInstallGuidanceText()
+                    getInstallGuidanceText(),
+                    browser
                   )
                   printedGuidance = true
                   candidate = null
@@ -268,7 +234,11 @@ export class ChromiumLaunchPlugin {
               browserBinaryLocation = candidate
             }
           } catch (e) {
-            this.printEnhancedPuppeteerInstallHint(compilation, String(e))
+            this.printEnhancedPuppeteerInstallHint(
+              compilation,
+              String(e),
+              browser
+            )
             printedGuidance = true
             browserBinaryLocation = null
           }
@@ -277,8 +247,11 @@ export class ChromiumLaunchPlugin {
       }
 
       case 'chromium': {
+        console.log(messages.locatingBrowser(browser))
+
         // Prefer explicit binary when provided
         browserBinaryLocation = this.options?.chromiumBinary || null
+
         if (!browserBinaryLocation && !skipDetection) {
           try {
             const loc = (chromiumLocation as any)?.default || chromiumLocation
@@ -294,15 +267,27 @@ export class ChromiumLaunchPlugin {
       }
 
       case 'edge': {
+        console.log(messages.locatingBrowser(browser))
+
         try {
           browserBinaryLocation = edgeLocation()
         } catch {
-          this.logger.error(
-            messages.browserNotInstalledError(
-              'edge' as any,
-              'edge binary not found'
-            )
-          )
+          const guidance = (() => {
+            try {
+              const f = (edgeLocation as any)?.getInstallGuidance
+              const txt = typeof f === 'function' ? f() : ''
+              return txt && typeof txt === 'string'
+                ? txt
+                : 'npx playwright install msedge'
+            } catch {
+              return 'npx playwright install msedge'
+            }
+          })()
+
+          this.printEnhancedPuppeteerInstallHint(compilation, guidance, 'edge')
+          printedGuidance = true
+          browserBinaryLocation = null
+
           if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
             throw new Error('Chromium launch failed')
           } else {
@@ -338,15 +323,11 @@ export class ChromiumLaunchPlugin {
               const located: string = locate({allowFallback: true})
               if (located && fs.existsSync(located)) {
                 const versionLine = getChromeVersionLine(located)
-                const major = getChromeMajorViaAPI(located)
-                if (
-                  looksOfficialChrome(versionLine) &&
-                  typeof major === 'number' &&
-                  major >= 137
-                ) {
+                if (looksOfficialChrome(versionLine)) {
                   this.printEnhancedPuppeteerInstallHint(
                     compilation,
-                    getInstallGuidanceText()
+                    getInstallGuidanceText(),
+                    browser
                   )
                   printedGuidance = true
                   browserBinaryLocation = null
@@ -362,16 +343,12 @@ export class ChromiumLaunchPlugin {
 
               if (candidate) {
                 const versionLine = getChromeVersionLine(candidate)
-                const major = getChromeMajorViaAPI(candidate)
 
-                if (
-                  looksOfficialChrome(versionLine) &&
-                  typeof major === 'number' &&
-                  major >= 137
-                ) {
+                if (looksOfficialChrome(versionLine)) {
                   this.printEnhancedPuppeteerInstallHint(
                     compilation,
-                    getInstallGuidanceText()
+                    getInstallGuidanceText(),
+                    browser
                   )
                   printedGuidance = true
                   candidate = null
@@ -388,13 +365,8 @@ export class ChromiumLaunchPlugin {
 
             if (candidate) {
               const versionLine = getChromeVersionLine(candidate)
-              const major = getChromeMajorViaAPI(candidate)
 
-              if (
-                looksOfficialChrome(versionLine) &&
-                typeof major === 'number' &&
-                major >= 137
-              ) {
+              if (looksOfficialChrome(versionLine)) {
                 this.printEnhancedPuppeteerInstallHint(
                   compilation,
                   getInstallGuidanceText()
@@ -407,7 +379,11 @@ export class ChromiumLaunchPlugin {
             browserBinaryLocation = candidate
           }
         } catch (e) {
-          this.printEnhancedPuppeteerInstallHint(compilation, String(e))
+          this.printEnhancedPuppeteerInstallHint(
+            compilation,
+            String(e),
+            browser
+          )
           printedGuidance = true
           browserBinaryLocation = null
         }
@@ -429,7 +405,32 @@ export class ChromiumLaunchPlugin {
       }
 
       if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
-        if (!printedGuidance) {
+        // Always print pretty guidance for Chromium flavors
+        if (browser === 'chromium' || browser === 'chromium-based') {
+          const chromiumGuidance = (() => {
+            try {
+              const f = (chromiumLocation as any)?.getInstallGuidance
+              const txt = typeof f === 'function' ? f() : ''
+              return txt && typeof txt === 'string'
+                ? txt
+                : 'npx @puppeteer/browsers install chromium'
+            } catch {
+              return 'npx @puppeteer/browsers install chromium'
+            }
+          })()
+          this.printEnhancedPuppeteerInstallHint(
+            compilation,
+            chromiumGuidance,
+            'chromium'
+          )
+          printedGuidance = true
+        }
+
+        if (
+          !printedGuidance &&
+          browser !== 'chromium' &&
+          browser !== 'chromium-based'
+        ) {
           this.logger.error(
             messages.browserNotInstalledError(
               browser as any,
@@ -567,23 +568,29 @@ export class ChromiumLaunchPlugin {
 
   private printEnhancedPuppeteerInstallHint(
     compilation: Compilation,
-    raw: string
+    raw: string,
+    browserName?: string
   ) {
     try {
       const displayCacheDir =
         binariesResolver.computeBinariesBaseDir(compilation)
-      const lines = raw.split('\n')
-      const idx = lines.findIndex((l) =>
-        l.includes('npx @puppeteer/browsers install ')
+      const pretty = messages.prettyPuppeteerInstallGuidance(
+        (browserName as any) || (this.options?.browser as any),
+        raw,
+        displayCacheDir
       )
-
-      if (idx !== -1 && !lines[idx].includes('--path')) {
-        lines[idx] = `${lines[idx]} --path "${displayCacheDir}"`
-      }
-
-      console.error(lines.join('\n'))
+      console.error(pretty)
     } catch {
-      console.error(raw)
+      try {
+        const pretty = messages.prettyPuppeteerInstallGuidance(
+          (browserName as any) || (this.options?.browser as any),
+          raw,
+          ''
+        )
+        console.error(pretty)
+      } catch {
+        console.error(raw)
+      }
     }
   }
 }

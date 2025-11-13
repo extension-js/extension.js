@@ -11,6 +11,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "build:chromium": "pnpm -s exec extension build ./src --browser=chromium",
     "build:chrome": "pnpm -s exec extension build ./src --browser=chrome",
     "build:firefox": "pnpm -s exec extension build ./src --browser=firefox",
     "build:edge": "pnpm -s exec extension build ./src --browser=edge"
