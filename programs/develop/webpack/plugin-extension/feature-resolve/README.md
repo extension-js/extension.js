@@ -83,7 +83,7 @@ Additionally, a conservative generic handler runs for any `chrome.*`/`browser.*`
 
 - Static string literals, static template literals, and simple `+` concatenations of static strings are rewritten.
 - HTTP/Data/Chrome/moz-extension URLs and glob patterns are ignored.
-- Transform is printer-driven and produces sourcemaps.
+- Transform uses SWC for AST discovery and `magic-string` for literal-only edits, preserving JSX/TSX shape, and produces sourcemaps when edits occur.
 
 ### Diagnostics (examples)
 
@@ -109,6 +109,14 @@ NOT FOUND /abs/project/.../public/icon.png
 - Fast pre-scan: skips parsing when no eligible patterns (`chrome.`, `browser.`, `getURL(`, `/public/`, `pages/`, `scripts/`).
 - Per-file memoization to avoid repeated literal resolution during a single transform.
 - Files under `public/` are skipped early.
+
+### Operational toggle
+
+Disable the resolve feature to isolate issues:
+
+```bash
+EXTENSION_DISABLE_RESOLVE=1 pnpm extension dev ./extensions/browser-extension --browser edge
+```
 
 ### Limitations
 

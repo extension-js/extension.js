@@ -1,4 +1,61 @@
 import {describe, it, expect} from 'vitest'
+import path from 'path'
+import loader from '../resolve-paths-loader'
+
+function runLoader(source: string, resourcePath: string) {
+  return new Promise<{code: string; map?: any}>((resolve, reject) => {
+    const ctx: any = {
+      async() {
+        return (err: any, code?: string, map?: any) => {
+          if (err) return reject(err)
+          resolve({code: String(code ?? ''), map})
+        }
+      },
+      cacheable() {},
+      emitWarning() {},
+      getOptions() {
+        return {
+          manifestPath: path.join(
+            process.cwd(),
+            'extensions/browser-extension/manifest.json'
+          ),
+          packageJsonDir: path.join(
+            process.cwd(),
+            'extensions/browser-extension'
+          ),
+          outputPath: path.join(
+            process.cwd(),
+            'extensions/browser-extension/dist'
+          )
+        }
+      },
+      resourcePath,
+      sourceMap: false
+    }
+    // @ts-expect-error loader context typing
+    loader.call(ctx, source)
+  })
+}
+
+describe('feature-resolve: performance (early return)', () => {
+  it('fast path for large TSX without patterns', async () => {
+    const big = new Array(2000)
+      .fill('<div className="x"><span /></div>')
+      .join('\n')
+    const src = `
+      import React from 'react'
+      export default function Big(){ return (<div>${big}</div>) }
+    `
+    const t0 = Date.now()
+    const {code} = await runLoader(src, path.join(process.cwd(), 'src/Big.tsx'))
+    const dt = Date.now() - t0
+    expect(code).toEqual(src)
+    // Budget: ensure we returned quickly (pre-scan only), < 50ms typical
+    expect(dt).toBeLessThan(200)
+  })
+})
+
+import {describe, it, expect} from 'vitest'
 
 async function runLoader(
   source: string,
