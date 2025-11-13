@@ -119,9 +119,10 @@ export class ExtensionPlugin {
       manifestPath
     }).apply(compiler)
 
-    new ResolvePlugin({
-      manifestPath,
-      browser: this.browser
-    }).apply(compiler)
+    // TODO: cezaraugusto enable this after v3
+    // new ResolvePlugin({
+    //   manifestPath,
+    //   browser: this.browser
+    // }).apply(compiler)
   }
 }
