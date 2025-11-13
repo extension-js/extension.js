@@ -30,6 +30,7 @@ export async function deriveExtensionIdFromTargetsHelper(
         for (const t of targets || []) {
           const url: string = String((t as any)?.url || '')
           const type: string = String((t as any)?.type || '')
+
           if (
             !(
               type === 'service_worker' && url.startsWith('chrome-extension://')
@@ -46,6 +47,7 @@ export async function deriveExtensionIdFromTargetsHelper(
             if (!sessionId) continue
 
             await cdp.sendCommand('Runtime.enable', {}, sessionId)
+
             const gotName = String(
               await cdp.evaluate(
                 sessionId,
@@ -81,6 +83,7 @@ export async function deriveExtensionIdFromTargetsHelper(
         const typeOk = ['service_worker', 'background_page', 'worker'].includes(
           type
         )
+
         if (!typeOk) continue
 
         const match = url.match(/^chrome-extension:\/\/([^\/]+)/)

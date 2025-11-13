@@ -9,7 +9,7 @@ export type BrowserType =
   | 'gecko-based'
 
 export interface BrowserOptionsBase {
-  open?: boolean
+  noOpen?: boolean
   profile?: string | false
   /**
    * Opt-in persistent managed profile for development.
@@ -164,7 +164,7 @@ export interface FileConfig {
       | 'profile'
       | 'chromiumBinary'
       | 'geckoBinary'
-      | 'open'
+      | 'noOpen'
       | 'polyfill'
     > &
       Pick<

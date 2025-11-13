@@ -1,13 +1,10 @@
 import * as path from 'path'
 import {Compilation} from '@rspack/core'
-import * as messages from '../browsers-lib/messages'
-import {deriveDebugPortWithInstance} from '../browsers-lib/shared-utils'
-import {printDevBannerOnce} from '../browsers-lib/banner'
-import {setupUnifiedLogging} from './unified-logging'
-import {CDPExtensionController} from './setup-chrome-inspection/cdp-extension-controller'
-import {type PluginRuntime} from '../browsers-types'
-
-type LogLevel = 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
+import * as messages from '../../browsers-lib/messages'
+import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
+import {printDevBannerOnce} from '../../browsers-lib/banner'
+import {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
+import {type PluginRuntime} from '../../../plugin-browsers/browsers-types'
 
 export async function setupCdpAfterLaunch(
   compilation: Compilation | undefined,
@@ -82,6 +79,7 @@ export async function setupCdpAfterLaunch(
         await new Promise((resolve) => setTimeout(resolve, backoffMs))
       }
     }
+
     throw lastError
   }
 
@@ -117,15 +115,6 @@ export async function setupCdpAfterLaunch(
     }
   }
 
-  await setupUnifiedLogging(cdpExtensionController, {
-    level: plugin.logLevel as LogLevel,
-    contexts: plugin.logContexts,
-    urlFilter: plugin.logUrl,
-    tabFilter: plugin.logTab,
-    format: plugin.logFormat,
-    timestamps: plugin.logTimestamps !== false,
-    color: plugin.logColor !== false
-  })
 
   plugin.cdpController = cdpExtensionController
 }

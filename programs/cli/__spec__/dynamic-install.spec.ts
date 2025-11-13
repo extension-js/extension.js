@@ -2,7 +2,6 @@ import {execFileSync, spawnSync} from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import crypto from 'node:crypto'
 
 function cliRoot(): string {
   return path.resolve(__dirname, '..')
@@ -74,8 +73,8 @@ describe('dynamic install', () => {
       'npm',
       ['i', '--no-fund', '--no-audit', '--omit=dev', cliPath],
       {
-      cwd: work,
-      stdio: 'inherit'
+        cwd: work,
+        stdio: 'inherit'
       }
     )
 

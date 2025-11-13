@@ -37,10 +37,10 @@ export type DefaultBrowserFlags =
  */
 export interface PluginOptions {
   /**
-   * Open the browser automatically after launch.
+   * Do not open the browser automatically after launch.
    * @default false
    */
-  open?: boolean
+  noOpen?: boolean
 
   /**
    * Additional browser flags to pass to the browser process.
@@ -185,7 +185,7 @@ export interface PluginInterface extends PluginOptions {
 
   /**
    * Include timestamps in logs.
-   * @default false
+   * @default true
    */
   logTimestamps?: boolean
 
