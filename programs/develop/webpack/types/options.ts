@@ -4,6 +4,7 @@ export type BrowserType =
   | 'chrome'
   | 'edge'
   | 'firefox'
+  | 'chromium'
   | 'chromium-based'
   | 'gecko-based'
 

@@ -21,6 +21,7 @@ import {
   deriveDebugPortWithInstance,
   findAvailablePortNear
 } from '../browsers-lib/shared-utils'
+import {SetupFirefoxInspectionStep} from './remote-firefox/setup-firefox-inspection'
 
 let child: ChildProcess | null = null
 
@@ -516,6 +517,24 @@ export class RunFirefoxPlugin {
 
       done()
     })
+
+    // When running in dryRun mode, avoid setting up
+    // inspection steps that depend on a running browser.
+    if (this.dryRun) {
+      return
+    }
+
+    if (compiler.options.mode === 'development') {
+      new SetupFirefoxInspectionStep({
+        browser: this.browser,
+        mode: compiler.options.mode || 'development',
+        source: this.source as string,
+        watchSource: this.watchSource,
+        startingUrl: this.startingUrl,
+        port: this.port,
+        instanceId: this.instanceId
+      }).apply(compiler)
+    }
   }
 
   private async cleanupInstance(): Promise<void> {
