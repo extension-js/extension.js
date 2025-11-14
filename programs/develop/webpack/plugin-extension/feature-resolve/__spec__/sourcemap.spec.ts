@@ -1,60 +1,4 @@
 import {describe, it, expect} from 'vitest'
-import path from 'path'
-import loader from '../resolve-paths-loader'
-
-function runLoader(
-  source: string,
-  resourcePath: string
-): Promise<{code: string; map?: any}> {
-  return new Promise((resolve, reject) => {
-    const ctx: any = {
-      async() {
-        return (err: any, code?: string, map?: any) => {
-          if (err) return reject(err)
-          resolve({code: String(code ?? ''), map})
-        }
-      },
-      cacheable() {},
-      emitWarning() {},
-      getOptions() {
-        return {
-          manifestPath: path.join(
-            process.cwd(),
-            'extensions/browser-extension/manifest.json'
-          ),
-          packageJsonDir: path.join(
-            process.cwd(),
-            'extensions/browser-extension'
-          ),
-          outputPath: path.join(
-            process.cwd(),
-            'extensions/browser-extension/dist'
-          )
-        }
-      },
-      resourcePath,
-      sourceMap: true
-    }
-    // @ts-expect-error loader context typing
-    loader.call(ctx, source)
-  })
-}
-
-describe('feature-resolve: sourcemaps for edited files', () => {
-  it('emits a map when a literal is rewritten', async () => {
-    const src = `
-      export function x(){
-        return chrome.runtime.getURL('icons/icon-128.png')
-      }
-    `
-    const {map} = await runLoader(src, path.join(process.cwd(), 'src/x.ts'))
-    expect(map).toBeTruthy()
-    expect(typeof map.version).toBe('number')
-    expect(map.sources?.length).toBeGreaterThan(0)
-  })
-})
-
-import {describe, it, expect} from 'vitest'
 
 async function runLoader(
   source: string,
@@ -93,6 +37,22 @@ async function runLoader(
 }
 
 describe('resolve-paths sourcemaps', () => {
+  it('emits a map when a literal is rewritten', async () => {
+    const src = `
+      export function x(){
+        return chrome.runtime.getURL('icons/icon-128.png')
+      }
+    `
+    const {map} = await runLoader(src, {
+      resourcePath: '/abs/project/src/x.ts',
+      sourceMaps: true
+    })
+    expect(map).toBeTruthy()
+    if (typeof map !== 'string') {
+      expect(typeof map.version).toBe('number')
+      expect(map.sources?.length).toBeGreaterThan(0)
+    }
+  })
   it('emits a sourcemap and preserves line count for simple rewrites', async () => {
     const code = [
       "const a = 'x'",

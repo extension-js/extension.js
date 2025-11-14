@@ -41,14 +41,13 @@ describe('ZipPlugin', () => {
 
     const compiler = rspack({
       mode: 'production',
+      context: root,
       entry: {},
       output: {path: dist}
     })
     new ZipPlugin({
-      projectDir: root,
       browser: 'chrome',
-      zip: true,
-      zipSource: true
+      zipData: {zip: true, zipSource: true}
     }).apply(compiler as any)
 
     await new Promise<void>((resolve, reject) =>

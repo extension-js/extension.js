@@ -31,7 +31,7 @@ vi.mock('../../run-chromium/chromium-source-inspection/extract', () => ({
   extractPageHtml: vi.fn(async () => '<html>ok</html>')
 }))
 
-import {SetupChromeInspectionStep} from '../../run-chromium/chromium-source-inspection'
+import {ChromiumSourceInspectionPlugin as SetupChromeInspectionStep} from '../../run-chromium/chromium-source-inspection'
 
 describe('SetupChromeInspectionStep (unit)', () => {
   beforeEach(() => {

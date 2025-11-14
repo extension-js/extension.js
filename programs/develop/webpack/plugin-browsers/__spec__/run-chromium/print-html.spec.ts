@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
-import {SetupChromeInspectionStep as Step} from '../../run-chromium/setup-chrome-inspection'
+import {ChromiumSourceInspectionPlugin as Step} from '../../run-chromium/chromium-source-inspection'
 
 describe('SetupChromeInspectionStep print behavior', () => {
   let logSpy: any

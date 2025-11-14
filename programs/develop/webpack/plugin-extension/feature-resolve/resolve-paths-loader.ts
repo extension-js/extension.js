@@ -9,6 +9,377 @@ import {createRequire} from 'module'
 
 let swcRuntimeModule: any
 
+type TextTransformContext = {
+  manifestPath: string
+  packageJsonDir?: string
+  authorFilePath?: string
+  onResolvedLiteral?: (
+    original: string,
+    computed: string | undefined,
+    atIndex?: number
+  ) => void
+}
+
+function isJsxLikePath(filePath: string | undefined): boolean {
+  return typeof filePath === 'string' && /\.[cm]?[jt]sx$/.test(String(filePath))
+}
+
+function stripNestedQuotes(value: string): string {
+  const match = /^(['"])(.*)\1$/.exec(value)
+  return match ? match[2] : value
+}
+
+function isProtocolUrl(value: string): boolean {
+  return (
+    /^(?:[a-zA-Z][a-zA-Z0-9+.-]*:)?\/\//.test(value) || /^data:/.test(value)
+  )
+}
+
+function normalizeLiteralPayload(value: string): string {
+  // Work only on the inner payload; do not collapse protocol separators.
+  const unquoted = stripNestedQuotes(value)
+  const withForwardSlashes = unquoted.replace(/\\/g, '/')
+  if (isProtocolUrl(withForwardSlashes)) {
+    // Preserve '://', 'chrome://', 'moz-extension://', and 'data:' schemes as-is.
+    return withForwardSlashes
+  }
+  // Collapse accidental doubles within non-protocol paths only.
+  return withForwardSlashes.replace(/\/{2,}/g, '/')
+}
+
+function wrapWithQuote(q: string, s: string): string {
+  // Escape occurrences of the outer quote inside the string
+  const escaped = q === "'" ? s.replace(/'/g, "\\'") : s.replace(/"/g, '\\"')
+  return `${q}${escaped}${q}`
+}
+
+function isLikelyApiContextAt(
+  source: string,
+  atIndex: number | undefined
+): boolean {
+  if (typeof atIndex !== 'number') return false
+  const start = Math.max(0, atIndex - 200)
+  const neighborhood = source.slice(start, atIndex)
+  return /(chrome|browser)\s*\.(?:tabs|windows|scripting|action|sidePanel|sidebarAction|devtools|runtime|extension)\b/.test(
+    neighborhood
+  )
+}
+
+function resolveAndNormalizeLiteral(
+  literal: string,
+  ctx: Pick<
+    TextTransformContext,
+    'manifestPath' | 'packageJsonDir' | 'authorFilePath'
+  >
+): string | undefined {
+  const normalizedInput = normalizeLiteralPayload(literal)
+  const resolved = resolveLiteralToOutput(normalizedInput, {
+    manifestPath: ctx.manifestPath,
+    packageJsonDir: ctx.packageJsonDir,
+    authorFilePath: ctx.authorFilePath
+  })
+  return normalizeLiteralPayload(resolved ?? normalizedInput)
+}
+
+function replaceRuntimeGetURL(
+  source: string,
+  input: string,
+  ctx: TextTransformContext
+): string {
+  const rx = /(\.(?:runtime|extension)\.getURL\()\s*(['"])(.*?)\2(\))/g
+  function onMatch(
+    full: string,
+    pre: string,
+    q: string,
+    p: string,
+    post: string,
+    offset: number
+  ) {
+    try {
+      const resolved = resolveLiteralToOutput(normalizeLiteralPayload(p), {
+        manifestPath: ctx.manifestPath,
+        packageJsonDir: ctx.packageJsonDir,
+        authorFilePath: ctx.authorFilePath
+      })
+      const computed = normalizeLiteralPayload(resolved ?? p)
+      try {
+        ctx.onResolvedLiteral?.(p, resolved ?? undefined, offset)
+      } catch {}
+      return `${pre}${wrapWithQuote(q, computed)}${post}`
+    } catch {
+      return full
+    }
+  }
+  return input.replace(rx, onMatch as any)
+}
+
+function replaceObjectKeyLiterals(
+  source: string,
+  input: string,
+  keys: string[],
+  ctx: TextTransformContext
+): string {
+  for (const key of keys) {
+    const rx = new RegExp(`(${key}\\s*:\\s*)(['"])(.*?)\\2`, 'g')
+    function onMatch(
+      full: string,
+      pre: string,
+      q: string,
+      p: string,
+      offset: number
+    ) {
+      try {
+        const resolved = resolveLiteralToOutput(normalizeLiteralPayload(p), {
+          manifestPath: ctx.manifestPath,
+          packageJsonDir: ctx.packageJsonDir,
+          authorFilePath: ctx.authorFilePath
+        })
+        const computed = normalizeLiteralPayload(resolved ?? p)
+        try {
+          if (isLikelyApiContextAt(source, offset)) {
+            ctx.onResolvedLiteral?.(p, resolved ?? undefined, offset)
+          }
+        } catch {}
+        return `${pre}${wrapWithQuote(q, computed)}`
+      } catch {
+        return full
+      }
+    }
+    input = input.replace(rx, onMatch as any)
+  }
+  return input
+}
+
+function replaceStaticTemplateForKeys(
+  source: string,
+  input: string,
+  keys: string[],
+  ctx: TextTransformContext
+): string {
+  const rx = new RegExp(`((?:${keys.join('|')})\\s*:\\s*)\`([^\\\`$]*)\``, 'g')
+  function onMatch(full: string, pre: string, inner: string, offset: number) {
+    try {
+      const resolved = resolveLiteralToOutput(normalizeLiteralPayload(inner), {
+        manifestPath: ctx.manifestPath,
+        packageJsonDir: ctx.packageJsonDir,
+        authorFilePath: ctx.authorFilePath
+      })
+      const computed = normalizeLiteralPayload(resolved ?? inner)
+      try {
+        if (isLikelyApiContextAt(source, offset)) {
+          ctx.onResolvedLiteral?.(inner, resolved ?? undefined, offset)
+        }
+      } catch {}
+      return `${pre}${wrapWithQuote("'", computed)}`
+    } catch {
+      return full
+    }
+  }
+  return input.replace(rx, onMatch as any)
+}
+
+function replaceConcatForKeys(
+  source: string,
+  input: string,
+  keys: string[],
+  ctx: TextTransformContext
+): string {
+  const rx = new RegExp(
+    `((?:${keys.join('|')})\\s*:\\s*)((?:['"][^'"]*['"]\\s*\\+\\s*)+['"][^'"]*['"])`,
+    'g'
+  )
+  function onMatch(full: string, pre: string, expr: string, offset: number) {
+    try {
+      const partRe = /(['"])([^'"]*?)\1/g
+      let m: RegExpExecArray | null
+      let concatenated = ''
+      while ((m = partRe.exec(expr))) concatenated += m[2]
+      const resolved = resolveLiteralToOutput(
+        normalizeLiteralPayload(concatenated),
+        {
+          manifestPath: ctx.manifestPath,
+          packageJsonDir: ctx.packageJsonDir,
+          authorFilePath: ctx.authorFilePath
+        }
+      )
+      const computed = normalizeLiteralPayload(resolved ?? concatenated)
+      try {
+        if (isLikelyApiContextAt(source, offset)) {
+          ctx.onResolvedLiteral?.(concatenated, resolved ?? undefined, offset)
+        }
+      } catch {}
+      return `${pre}${wrapWithQuote("'", computed)}`
+    } catch {
+      return full
+    }
+  }
+  return input.replace(rx, onMatch as any)
+}
+
+function replaceFilesArray(
+  source: string,
+  input: string,
+  ctx: TextTransformContext
+): string {
+  const rx = /(files\s*:\s*\[)([^\]]*)(\])/g
+  function onMatch(
+    full: string,
+    pre: string,
+    inner: string,
+    post: string,
+    offset: number
+  ) {
+    try {
+      const replacedInner = inner.replace(
+        /(['"])(.*?)(\1)/g,
+        function onLiteral(_m: string, q: string, p: string) {
+          try {
+            const computed = resolveAndNormalizeLiteral(p, ctx)
+            return wrapWithQuote(q, computed ?? p)
+          } catch {
+            return wrapWithQuote(q, p)
+          }
+        }
+      )
+      try {
+        if (isLikelyApiContextAt(source, offset)) {
+          const re = /(['"])(.*?)(\1)/g
+          let match: RegExpExecArray | null
+          while ((match = re.exec(inner))) {
+            const raw = match[2]
+            const resolved = resolveLiteralToOutput(
+              normalizeLiteralPayload(raw),
+              {
+                manifestPath: ctx.manifestPath,
+                packageJsonDir: ctx.packageJsonDir,
+                authorFilePath: ctx.authorFilePath
+              }
+            )
+            ctx.onResolvedLiteral?.(
+              raw,
+              resolved ?? undefined,
+              offset + match.index
+            )
+          }
+        }
+      } catch {}
+      return `${pre}${replacedInner}${post}`
+    } catch {
+      return full
+    }
+  }
+  return input.replace(rx, onMatch as any)
+}
+
+function replaceJsCssArrays(
+  source: string,
+  input: string,
+  ctx: TextTransformContext
+): string {
+  for (const key of ['js', 'css']) {
+    const rxArr = new RegExp(`(${key}\\s*:\\s*\\[)([^\\]]*)(\\])`, 'g')
+    function onMatch(
+      full: string,
+      pre: string,
+      inner: string,
+      post: string,
+      offset: number
+    ) {
+      try {
+        const replacedInner = String(inner).replace(
+          /(['"])(.*?)(\1)/g,
+          function onLiteral(_m: string, q: string, p: string) {
+            try {
+              const computed = resolveAndNormalizeLiteral(p, ctx)
+              return wrapWithQuote(q, computed ?? p)
+            } catch {
+              return wrapWithQuote(q, p)
+            }
+          }
+        )
+        try {
+          if (isLikelyApiContextAt(source, offset)) {
+            const re = /(['"])(.*?)(\1)/g
+            let match: RegExpExecArray | null
+            while ((match = re.exec(inner))) {
+              const raw = match[2]
+              const resolved = resolveLiteralToOutput(
+                normalizeLiteralPayload(raw),
+                {
+                  manifestPath: ctx.manifestPath,
+                  packageJsonDir: ctx.packageJsonDir,
+                  authorFilePath: ctx.authorFilePath
+                }
+              )
+              ctx.onResolvedLiteral?.(
+                raw,
+                resolved ?? undefined,
+                offset + match.index
+              )
+            }
+          }
+        } catch {}
+        return `${pre}${replacedInner}${post}`
+      } catch {
+        return full
+      }
+    }
+    input = input.replace(rxArr, onMatch as any)
+  }
+  return input
+}
+
+function cleanupPublicRootLiterals(input: string): string {
+  input = input.replace(
+    /(['"])\/public\/([^'"]+?)\1/g,
+    function onMatch(_m: string, q: string, p: string) {
+      return `${q}${normalizeLiteralPayload(p)}${q}`
+    }
+  )
+  input = input.replace(
+    /(['"])public\/(.*?)\1/g,
+    function onMatch(_m: string, q: string, p: string) {
+      return `${q}${normalizeLiteralPayload(p)}${q}`
+    }
+  )
+  return input
+}
+
+function normalizeSpecialFolderExtensions(input: string): string {
+  input = input.replace(
+    /(['"])((?:pages|scripts)\/[^'"]+?)\.(ts|tsx)\1/g,
+    function onMatch(_m: string, q: string, p: string) {
+      return `${q}${p}.js${q}`
+    }
+  )
+  input = input.replace(
+    /(['"])((?:pages|scripts)\/[^'"]+?)\.(njk|nunjucks)\1/g,
+    function onMatch(_m: string, q: string, p: string) {
+      return `${q}${p}.html${q}`
+    }
+  )
+  input = input.replace(
+    /(['"])((?:pages|scripts)\/[^'"]+?)\.(scss|sass|less)\1/g,
+    function onMatch(_m: string, q: string, p: string) {
+      return `${q}${p}.css${q}`
+    }
+  )
+  return input
+}
+
+function collapseAccidentalDoubleQuotes(input: string, keys: string[]): string {
+  const keyUnion = `(?:${keys.join('|')})`
+  input = input.replace(new RegExp(`(${keyUnion}\\s*:\\s*)''`, 'g'), `$1'`)
+  input = input.replace(new RegExp(`(${keyUnion}\\s*:\\s*)""`, 'g'), `$1"`)
+  input = input.replace(/:\s*''/g, ": '")
+  input = input.replace(/:\s*""/g, ': "')
+  input = input.replace(/:\s*''([^']+)'/g, ": '$1'")
+  input = input.replace(/:\s*\"\"([^\"]+)\"/g, ': "$1"')
+  input = input.replace(/''([^']*?)''/g, "'$1'")
+  input = input.replace(/""([^"]*?)""/g, '"$1"')
+  return input
+}
+
 async function loadSwc() {
   if (swcRuntimeModule) return swcRuntimeModule
 
@@ -51,124 +422,62 @@ async function loadSwc() {
 
 function textFallbackTransform(
   source: string,
-  opts: {manifestPath: string; packageJsonDir?: string; authorFilePath?: string}
+  opts: TextTransformContext
 ): string {
-  const {manifestPath, packageJsonDir, authorFilePath} = opts
-  let out = String(source)
-
-  const replaceLiteral = (_match: string, q: string, p: string): string => {
-    try {
-      const resolved = resolveLiteralToOutput(p, {
-        manifestPath,
-        packageJsonDir,
-        authorFilePath
-      })
-      return resolved ? `${q}${resolved}${q}` : `${q}${p}${q}`
-    } catch {
-      return `${q}${p}${q}`
-    }
+  let output = String(source)
+  const ctx: TextTransformContext = {
+    manifestPath: opts.manifestPath,
+    packageJsonDir: opts.packageJsonDir,
+    authorFilePath: opts.authorFilePath,
+    onResolvedLiteral: opts.onResolvedLiteral
   }
 
   // runtime/extension.getURL('...')
-  out = out.replace(
-    /(\.(?:runtime|extension)\.getURL\()\s*(['"])(.*?)\2(\))/g,
-    (full, pre, q, p, post) => {
-      try {
-        const resolved = resolveLiteralToOutput(p, {
-          manifestPath,
-          packageJsonDir,
-          authorFilePath
-        })
-        return `${pre}${q}${resolved ?? p}${q}${post}`
-      } catch {
-        return full
-      }
-    }
-  )
+  output = replaceRuntimeGetURL(source, output, ctx)
 
-  // Object keys we support
-  const keys = [
+  // Object keys we support (popup/panel/page handled by AST handlers)
+  const supportedKeys = [
     'url',
     'file',
     'path',
-    'popup',
-    'panel',
-    'page',
     'iconUrl',
     'imageUrl',
     'default_icon',
+    // Additional keys that appear in tests and handler coverage
+    'popup',
+    'panel',
+    'page',
     'default_popup',
     'default_panel'
   ]
+  output = replaceObjectKeyLiterals(source, output, supportedKeys, ctx)
 
-  for (const key of keys) {
-    const rx = new RegExp(`(${key}\\s*:\\s*)(['"])(.*?)\\2`, 'g')
-    out = out.replace(rx, (full, pre, q, p) => {
-      try {
-        const resolved = resolveLiteralToOutput(p, {
-          manifestPath,
-          packageJsonDir,
-          authorFilePath
-        })
-        return `${pre}${q}${resolved ?? p}${q}`
-      } catch {
-        return full
-      }
-    })
+  // Template and concatenation handling for supported keys
+  output = replaceStaticTemplateForKeys(source, output, supportedKeys, ctx)
+  output = replaceConcatForKeys(source, output, supportedKeys, ctx)
+
+  // files/js/css arrays
+  output = replaceFilesArray(source, output, ctx)
+  output = replaceJsCssArrays(source, output, ctx)
+
+  // Safe cleanup for '/public' and 'public' literals (skip generic leading '/')
+  if (!isJsxLikePath(opts.authorFilePath)) {
+    output = cleanupPublicRootLiterals(output)
   }
 
-  // files: ['a.js', '../scripts/x.ts']
-  out = out.replace(
-    /(files\s*:\s*\[)([^\]]*)(\])/g,
-    (full: string, pre: string, inner: string, post: string) => {
-      try {
-        const replacedInner = inner.replace(
-          /(['"])(.*?)(\1)/g,
-          (m: string, q: string, p: string) => replaceLiteral(m, q, p)
-        )
-        return `${pre}${replacedInner}${post}`
-      } catch {
-        return full
-      }
-    }
-  )
+  // Normalize extensions under special folders
+  output = normalizeSpecialFolderExtensions(output)
 
-  // js/css arrays in registerContentScripts
-  for (const key of ['js', 'css']) {
-    const rxArr = new RegExp(`(${key}\\s*:\\s*\\[)([^\\]]*)(\\])`, 'g')
-    out = out.replace(rxArr, (full, pre, inner, post) => {
-      try {
-        const replacedInner = String(inner).replace(
-          /(['"])(.*?)(\1)/g,
-          (m: string, q: string, p: string) => replaceLiteral(m, q, p)
-        )
-        return `${pre}${replacedInner}${post}`
-      } catch {
-        return full
-      }
-    })
-  }
+  // Post-fix: collapse accidental double-quoting on known keys
+  output = collapseAccidentalDoubleQuotes(output, supportedKeys)
 
-  // Global safe literal cleanup for '/public/...', 'public/...', and leading '/...'
-  out = out.replace(/(['"])\/public\/(.*?)\1/g, (_m, q, p) => `${q}${p}${q}`)
-  out = out.replace(/(['"])public\/(.*?)\1/g, (_m, q, p) => `${q}${p}${q}`)
-  out = out.replace(/(['"])\/(?!\/)([^'"]*?)\1/g, (_m, q, p) => `${q}${p}${q}`)
+  return output
+}
 
-  // Extension normalization for pages/ and scripts/ literals
-  out = out.replace(
-    /(['"])((?:pages|scripts)\/[^'"]+?)\.(ts|tsx)\1/g,
-    (_m, q, p) => `${q}${p}.js${q}`
-  )
-  out = out.replace(
-    /(['"])((?:pages|scripts)\/[^'"]+?)\.(njk|nunjucks)\1/g,
-    (_m, q, p) => `${q}${p}.html${q}`
-  )
-  out = out.replace(
-    /(['"])((?:pages|scripts)\/[^'"]+?)\.(scss|sass|less)\1/g,
-    (_m, q, p) => `${q}${p}.css${q}`
-  )
-
-  return out
+export type ResolvePathsOptions = {
+  manifestPath: string
+  sourceMaps?: 'auto' | boolean
+  debug?: boolean
 }
 
 export default async function resolvePathsLoader(this: any, source: string) {
@@ -188,6 +497,79 @@ export default async function resolvePathsLoader(this: any, source: string) {
       : 'auto'
 
   this.cacheable && this.cacheable()
+
+  // Shared warning de-dupe and reporter (used by both textual and AST paths)
+  const emittedBodies = new Set<string>()
+  const emitStandardWarning = (headerFilePath: string, bodyLines: string[]) => {
+    const bodyMessage = bodyLines.join('\n')
+    if (emittedBodies.has(bodyMessage)) return
+    emittedBodies.add(bodyMessage)
+    const warning = new Error(bodyMessage)
+    // @ts-expect-error file is not std prop
+    warning.file = headerFilePath
+    this.emitWarning?.(warning)
+  }
+
+  const warnIfMissingPublic = (
+    original: string | undefined,
+    computed: string | undefined
+  ) => {
+    try {
+      const canonical = unixify(original || '')
+      const authorUsedRoot = /^\//.test(canonical)
+
+      if (computed) {
+        if (/^(?:pages|scripts)\//i.test(computed)) return
+
+        const root = packageJsonDir || path.dirname(manifestPath)
+        const sourcePublicAbs = path.join(root, 'public', computed)
+
+        if (!fs.existsSync(sourcePublicAbs)) {
+          const displayPath =
+            authorUsedRoot && outputPath
+              ? path.join(outputPath, computed)
+              : sourcePublicAbs
+          const lines: string[] = [
+            'Check the path used in your extension API call.',
+            'The path must point to an existing file that will be packaged with the extension.',
+            `Found value: ${original ?? ''}`,
+            `Resolved path: ${
+              authorUsedRoot && outputPath
+                ? path.join(outputPath, computed)
+                : sourcePublicAbs
+            }`
+          ]
+
+          if (authorUsedRoot) {
+            lines.push(
+              "Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory."
+            )
+          }
+
+          lines.push('', `NOT FOUND ${displayPath}`)
+          emitStandardWarning(String(this.resourcePath), lines)
+        }
+      } else if (original) {
+        // Unresolved nested src/pages|scripts path: emit NOT FOUND against absolute path
+        const looksNested =
+          /(^|\/)src\/pages\//i.test(canonical) ||
+          /(^|\/)src\/scripts\//i.test(canonical)
+        if (looksNested) {
+          const root = packageJsonDir || path.dirname(manifestPath)
+          const abs = path.join(root, canonical)
+          const lines: string[] = [
+            'Check the path used in your extension API call.',
+            'The path must point to an existing file that will be packaged with the extension.',
+            `Found value: ${original}`
+          ]
+          lines.push('', `NOT FOUND ${abs}`)
+          emitStandardWarning(String(this.resourcePath), lines)
+        }
+      }
+    } catch {
+      // best-effort only
+    }
+  }
 
   // Skip any file under public/
   try {
@@ -221,11 +603,58 @@ export default async function resolvePathsLoader(this: any, source: string) {
     console.error('Failed to check for eligible patterns')
   }
 
+  // First, attempt a robust textual transform that covers common patterns.
+  let postTextSource: string | undefined
+  try {
+    const out = textFallbackTransform(String(source), {
+      manifestPath,
+      packageJsonDir,
+      authorFilePath: String(this.resourcePath || ''),
+      onResolvedLiteral: (original, computed) =>
+        warnIfMissingPublic(original, computed)
+    })
+
+    postTextSource = out
+
+    // Determine if a static-eval pass is still warranted
+    const hasStaticTemplates = /`[^$`]*`/.test(out)
+    const hasBinaryConcats =
+      /(['"`][^'"`]*['"`]\s*\+\s*['"`][^'"`]*['"`])/.test(out)
+    const hasApiRoots = /(?:^|[^A-Za-z0-9_$])(chrome|browser)\s*\./.test(out)
+    const needsStaticEval =
+      (hasStaticTemplates || hasBinaryConcats) && hasApiRoots
+
+    const enableMaps =
+      sourceMapsOpt === 'auto'
+        ? Boolean(this.sourceMap)
+        : Boolean(sourceMapsOpt)
+
+    if (!needsStaticEval) {
+      if (
+        out !== String(source) ||
+        (enableMaps && /\.[cm]?tsx?$/.test(String(this.resourcePath || '')))
+      ) {
+        // Preserve source maps for edited output
+        const msAll = new MagicString(String(source))
+        msAll.overwrite(0, String(source).length, out)
+        const map = enableMaps
+          ? msAll.generateMap({
+              hires: true,
+              source: String(this.resourcePath),
+              includeContent: true
+            })
+          : undefined
+        return callback(null, out, map as any)
+      }
+    }
+  } catch {
+    // best-effort; continue to AST transform if available
+  }
+
   const swcModule = await loadSwc()
 
   if (!swcModule) {
-    // If SWC isn't available, skip transforming to avoid corrupting source.
-    // Returning the original source is safer than applying textual heuristics.
+    // If SWC isn't available and no textual edits were applied, return original.
     return callback(null, source)
   }
 
@@ -236,7 +665,9 @@ export default async function resolvePathsLoader(this: any, source: string) {
     const isJSX = /\.[cm]?[jt]sx$/.test(this.resourcePath)
 
     // Parse as a module to allow modern syntax like import.meta
-    programAst = await swcModule.parse(source, {
+    const parseSource =
+      typeof postTextSource === 'string' ? postTextSource : source
+    programAst = await swcModule.parse(parseSource, {
       syntax: isTS ? 'typescript' : 'ecmascript',
       tsx: isTS && isJSX,
       jsx: !isTS && isJSX,
@@ -247,90 +678,10 @@ export default async function resolvePathsLoader(this: any, source: string) {
     return callback(null, source)
   }
 
-  const ms = new MagicString(String(source))
+  const inputSource =
+    typeof postTextSource === 'string' ? postTextSource : String(source)
+  const ms = new MagicString(inputSource)
   let edited = false
-
-  const perFileResolveCache = new Map<string, string | undefined>()
-
-  const maybeResolve = (rawLiteral: string | undefined) => {
-    if (!rawLiteral) return undefined
-    if (perFileResolveCache.has(rawLiteral))
-      return perFileResolveCache.get(rawLiteral)
-    const resolvedLiteral = resolveLiteralToOutput(rawLiteral, {
-      manifestPath,
-      packageJsonDir
-    })
-    perFileResolveCache.set(rawLiteral, resolvedLiteral)
-    return resolvedLiteral
-  }
-
-  const emittedBodies = new Set<string>()
-
-  const emitStandardWarning = (headerFilePath: string, bodyLines: string[]) => {
-    const bodyMessage = bodyLines.join('\n')
-
-    if (emittedBodies.has(bodyMessage)) return
-
-    emittedBodies.add(bodyMessage)
-    const warning = new Error(bodyMessage)
-    // @ts-expect-error file is not std prop
-    warning.file = headerFilePath
-    this.emitWarning?.(warning)
-  }
-
-  const warnIfMissingPublic = (
-    original: string | undefined,
-    computed: string | undefined
-  ) => {
-    try {
-      const canonical = unixify(original || '')
-      const authorUsedRoot = /^\//.test(canonical)
-
-      if (computed) {
-        // Skip public-asset existence checks for special folders that are
-        // emitted by the bundler (pages/ and scripts/). These are not expected
-        // to exist under source public/ and should not warn.
-        if (/^(?:pages|scripts)\//i.test(computed)) {
-          return
-        }
-        const root = packageJsonDir || path.dirname(manifestPath)
-        // Check existence in source public/ because that's what gets emitted
-        const sourcePublicAbs = path.join(root, 'public', computed)
-        if (!fs.existsSync(sourcePublicAbs)) {
-          // Compute display path per ERROR_POLICY
-          const displayPath =
-            authorUsedRoot && outputPath
-              ? path.join(outputPath, computed)
-              : sourcePublicAbs
-
-          const lines: string[] = [
-            'Check the path used in your extension API call.',
-            'The path must point to an existing file that will be packaged with the extension.',
-            `Found value: ${original ?? ''}`,
-            `Resolved path: ${authorUsedRoot && outputPath ? path.join(outputPath, computed) : sourcePublicAbs}`
-          ]
-          // Optional public-root hint strictly for original leading '/'
-          if (authorUsedRoot) {
-            lines.push(
-              "Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory."
-            )
-          }
-
-          lines.push('', `NOT FOUND ${displayPath}`)
-
-          emitStandardWarning(String(this.resourcePath), lines)
-        }
-      }
-    } catch {
-      // best-effort only
-    }
-  }
-
-  const createStringLiteral = (value: string, span?: any) => ({
-    type: 'StringLiteral',
-    value,
-    span: span || {start: 0, end: 0}
-  })
 
   // Rewriter called only by handler-detected API contexts
   const rewriteValue: RewriteFn = (node, computed, rawInput) => {
@@ -361,6 +712,7 @@ export default async function resolvePathsLoader(this: any, source: string) {
         typeof span.start === 'number' &&
         typeof span.end === 'number'
       ) {
+        // Always write a proper JSON string literal over the node span
         ms.overwrite(span.start, span.end, JSON.stringify(computed))
         edited = true
       }
@@ -377,7 +729,7 @@ export default async function resolvePathsLoader(this: any, source: string) {
       try {
         handleCallExpression(
           currentNode,
-          String(source),
+          String(inputSource),
           rewriteValue,
           manifestPath
         )
@@ -399,8 +751,29 @@ export default async function resolvePathsLoader(this: any, source: string) {
 
   try {
     if (!edited) {
+      // If a textual edit occurred earlier, prefer returning it; else original
+      if (
+        typeof postTextSource === 'string' &&
+        postTextSource !== String(source)
+      ) {
+        const enableMaps =
+          sourceMapsOpt === 'auto'
+            ? Boolean(this.sourceMap)
+            : Boolean(sourceMapsOpt)
+        const msAll = new MagicString(String(source))
+        msAll.overwrite(0, String(source).length, postTextSource)
+        const map = enableMaps
+          ? msAll.generateMap({
+              hires: true,
+              source: String(this.resourcePath),
+              includeContent: true
+            })
+          : undefined
+        return callback(null, postTextSource, map as any)
+      }
       return callback(null, source)
     }
+
     const enableMaps =
       sourceMapsOpt === 'auto'
         ? Boolean(this.sourceMap)
@@ -413,14 +786,9 @@ export default async function resolvePathsLoader(this: any, source: string) {
           includeContent: true
         })
       : undefined
+
     return callback(null, code, map as any)
   } catch {
     return callback(null, source)
   }
-}
-
-export type ResolvePathsOptions = {
-  manifestPath: string
-  sourceMaps?: 'auto' | boolean
-  debug?: boolean
 }
