@@ -18,6 +18,10 @@ export class ChromiumHardReloadPlugin {
   ) {}
 
   apply(compiler: Compiler) {
+    if (this.options?.autoReload === false) {
+      return
+    }
+
     this.logger =
       typeof compiler?.getInfrastructureLogger === 'function'
         ? compiler.getInfrastructureLogger('RunChromiumPlugin')

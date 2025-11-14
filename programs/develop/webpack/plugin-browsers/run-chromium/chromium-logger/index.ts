@@ -18,6 +18,10 @@ export class ChromiumUnifiedLoggerPlugin {
   }
 
   apply(_compiler: Compiler) {
+    const lvl = String(this.options?.logLevel || '').toLowerCase()
+
+    if (!lvl || lvl === 'off') return
+
     this.ctx.onControllerReady(async (controller) => {
       try {
         await setupUnifiedLogging(controller, {
