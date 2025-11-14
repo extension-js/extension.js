@@ -1,7 +1,6 @@
 import rspack, {Compiler} from '@rspack/core'
-import {PluginInterface} from '../webpack-types'
 import * as messages from './compatibility-lib/messages'
-import {DevOptions} from '../types/options'
+import type {PluginInterface, DevOptions} from '../webpack-types'
 
 /**
  * PolyfillPlugin is responsible for providing the `browser`

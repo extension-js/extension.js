@@ -1,7 +1,9 @@
-import {type Compiler} from '@rspack/core'
-import {type PluginInterface} from '../../../../../webpack-types'
-import {type DevOptions} from '../../../../../types/options'
 import * as path from 'path'
+import {type Compiler} from '@rspack/core'
+import type {
+  PluginInterface,
+  DevOptions
+} from '../../../../../webpack-types'
 
 export class AddContentScriptWrapper {
   private readonly manifestPath: string
@@ -9,7 +11,7 @@ export class AddContentScriptWrapper {
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
-    this.browser = options.browser || 'chrome'
+    this.browser = (options.browser as DevOptions['browser']) || 'chrome'
   }
 
   public apply(compiler: Compiler) {

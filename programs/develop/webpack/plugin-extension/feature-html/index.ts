@@ -1,6 +1,5 @@
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {EmitHtmlFile} from './steps/emit-html-file'
 import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'
 import {AddScriptsAndStylesToCompilation} from './steps/add-scripts-and-styles-to-compilation'
@@ -9,7 +8,11 @@ import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {HandleCommonErrors} from './steps/handle-common-errors'
 import {ThrowIfManifestEntryChange} from './steps/throw-if-manifest-entry-change'
-import {DevOptions} from '../../types/options'
+import type {
+  FilepathList,
+  PluginInterface,
+  DevOptions
+} from '../../webpack-types'
 
 /**
  * HtmlPlugin is responsible for handling the HTML file

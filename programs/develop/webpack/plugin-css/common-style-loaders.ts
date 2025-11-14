@@ -1,9 +1,9 @@
 import {type RuleSetRule} from '@rspack/core'
-import {type DevOptions} from '../types/options'
 import {isUsingTailwind} from './css-tools/tailwind'
 import {isUsingSass} from './css-tools/sass'
 import {isUsingLess} from './css-tools/less'
 import {maybeUsePostCss} from './css-tools/postcss'
+import {type DevOptions} from '../webpack-types'
 
 export interface StyleLoaderOptions {
   mode: DevOptions['mode']

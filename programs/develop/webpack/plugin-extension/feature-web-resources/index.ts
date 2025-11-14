@@ -1,5 +1,8 @@
 import {Compiler} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../webpack-types'
+import {
+  type FilepathList,
+  type PluginInterface
+} from '../../webpack-types'
 import {CollectContentEntryImports} from './steps/collect-content-entry-imports'
 import {PatchManifestWebResources} from './steps/patch-manifest-war'
 import {generateManifestPatches as generateManifestPatchesUtil} from './web-resources-lib/generate-manifest'

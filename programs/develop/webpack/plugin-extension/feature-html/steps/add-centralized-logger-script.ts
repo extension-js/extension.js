@@ -2,8 +2,8 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {LoaderInterface} from '../../../webpack-types'
 import {getAssetsFromHtml} from '../html-lib/utils'
+import type {LoaderInterface} from '../../../webpack-types'
 
 const schema: Schema = {
   type: 'object',

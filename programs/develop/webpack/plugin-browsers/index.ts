@@ -9,7 +9,7 @@ import {
   type LogContext,
   type LogFormat
 } from './browsers-types'
-import {DevOptions} from '../types/options'
+import type {DevOptions} from '../webpack-types'
 
 /**
  * BrowsersPlugin responsibilities and supported capabilities:

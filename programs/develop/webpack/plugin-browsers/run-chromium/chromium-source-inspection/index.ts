@@ -6,7 +6,7 @@ import {CDPClient} from './cdp-client'
 import {waitForChromeRemoteDebugging} from './readiness'
 import {ensureTargetAndSession} from './targets'
 import {extractPageHtml} from './extract'
-import {type DevOptions} from '../../../types/options'
+import {type DevOptions} from '../../../webpack-types'
 
 /**
  * ChromiumSourceInspectionPlugin

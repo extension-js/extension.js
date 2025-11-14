@@ -1,9 +1,12 @@
 import * as fs from 'fs'
 import {Compiler, Compilation, WebpackError} from '@rspack/core'
 import * as messages from '../messages'
-import {DevOptions} from '../../../types/options'
-import {PluginInterface, FilepathList} from '../../../webpack-types'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
+import type {
+  DevOptions,
+  PluginInterface,
+  FilepathList
+} from '../../../webpack-types'
 
 export class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string

@@ -1,16 +1,16 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {Compilation} from '@rspack/core'
-import {type DevOptions, type BrowserConfig} from '../../../types/options'
-import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
-import * as messages from '../../browsers-lib/messages'
-import {getPreferences} from './master-preferences'
 import {
   uniqueNamesGenerator,
   adjectives,
   colors as ucColors,
   animals
 } from 'unique-names-generator'
+import * as messages from '../../browsers-lib/messages'
+import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
+import {getPreferences} from './master-preferences'
+import {type DevOptions, type BrowserConfig} from '../../../webpack-types'
 
 export async function browserConfig(
   compilation: Compilation,

@@ -1,7 +1,6 @@
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
-import {type PluginInterface} from '../../../webpack-types'
-import {DevOptions} from '../../../types/options'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
+import type {PluginInterface, DevOptions} from '../../../webpack-types'
 
 export class ThrowIfManifestScriptsChange {
   public readonly manifestPath: string

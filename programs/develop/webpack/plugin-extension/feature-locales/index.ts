@@ -1,9 +1,12 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {Compiler, sources, Compilation} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import * as messages from './messages'
 import {getLocales} from './get-locales'
+import {
+  type FilepathList,
+  type PluginInterface
+} from '../../webpack-types'
 
 function pushCompilationError(
   compiler: Compiler,

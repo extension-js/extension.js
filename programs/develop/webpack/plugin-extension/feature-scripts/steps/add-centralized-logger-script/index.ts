@@ -1,10 +1,10 @@
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import {
-  type FilepathList,
-  type PluginInterface
+import type {
+  FilepathList,
+  PluginInterface,
+  DevOptions
 } from '../../../../webpack-types'
-import {type DevOptions} from '../../../../types/options'
 
 export class AddCentralizedLoggerScript {
   public readonly manifestPath: string

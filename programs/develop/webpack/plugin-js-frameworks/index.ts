@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
-import {PluginInterface} from '../webpack-types'
+import type {PluginInterface, DevOptions} from '../webpack-types'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
@@ -10,7 +10,6 @@ import {
   getUserTypeScriptConfigFile
 } from './js-tools/typescript'
 import {maybeUseSvelte} from './js-tools/svelte'
-import {type DevOptions} from '../types/options'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
 

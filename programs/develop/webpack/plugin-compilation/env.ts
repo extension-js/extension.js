@@ -2,8 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler, Compilation, DefinePlugin, sources} from '@rspack/core'
 import * as dotenv from 'dotenv'
-import {PluginInterface} from '../webpack-types'
-import {DevOptions} from '../types/options'
+import type {PluginInterface, DevOptions} from '../webpack-types'
 
 export class EnvPlugin {
   public readonly browser: DevOptions['browser']

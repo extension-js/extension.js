@@ -1,5 +1,5 @@
-import {type Manifest, type FilepathList} from '../../../../webpack-types'
 import {getFilename} from '../../manifest-lib/paths'
+import {type Manifest, type FilepathList} from '../../../../webpack-types'
 
 function normalizeOutputPath(originalPath: string) {
   if (!originalPath) return originalPath

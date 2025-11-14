@@ -1,4 +1,9 @@
+import * as fs from 'fs'
+import * as path from 'path'
 import type {Compilation, Compiler} from '@rspack/core'
+import * as parse5utilities from 'parse5-utilities'
+import {parseHtml} from './parse-html'
+import {type FilepathList} from '../../../webpack-types'
 
 export type IssueType = 'error' | 'warning'
 
@@ -34,12 +39,6 @@ export function reportToCompilation(
   if (already) return
   compilation[bucket].push(issue)
 }
-
-import * as fs from 'fs'
-import * as path from 'path'
-import * as parse5utilities from 'parse5-utilities'
-import {parseHtml} from './parse-html'
-import {type FilepathList} from '../../../webpack-types'
 
 export interface ParsedHtmlAsset {
   css?: string[]
@@ -277,7 +276,11 @@ export function resolveAbsoluteFsPath(params: {
     !relToPublic.startsWith('..') &&
     !path.isAbsolute(relToPublic)
 
-  return {absoluteFsPath, isUnderPublicRoot, isRootUrl}
+  return {
+    absoluteFsPath,
+    isUnderPublicRoot: Boolean(isUnderPublicRoot),
+    isRootUrl
+  }
 }
 
 export function getBaseHref(htmlDocument: any): string | undefined {

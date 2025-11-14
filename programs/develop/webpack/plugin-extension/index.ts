@@ -11,7 +11,7 @@ import {
   getManifestFieldsData,
   getSpecialFoldersData
 } from 'browser-extension-manifest-fields'
-import {} from 'browser-extension-manifest-fields'
+
 // Plugins
 import {ManifestPlugin} from './feature-manifest'
 import {HtmlPlugin} from './feature-html'
@@ -24,8 +24,11 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 import {ResolvePlugin} from './feature-resolve'
 
 // Types
-import {PluginInterface, FilepathList} from '../webpack-types'
-import {DevOptions} from '../types/options'
+import type {
+  PluginInterface,
+  FilepathList,
+  DevOptions
+} from '../webpack-types'
 
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'

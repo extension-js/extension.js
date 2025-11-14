@@ -1,6 +1,6 @@
 import colors from 'pintor'
 import * as path from 'path'
-import type {DevOptions} from '../../types/options'
+import type {DevOptions} from '../../webpack-types'
 
 type Browser = NonNullable<DevOptions['browser']>
 type Mode = DevOptions['mode']

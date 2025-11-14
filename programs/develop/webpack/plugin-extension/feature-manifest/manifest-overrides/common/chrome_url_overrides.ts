@@ -1,6 +1,6 @@
-import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../manifest-lib/paths'
 import {normalizeManifestOutputPath} from '../../normalize-manifest-path'
+import {type Manifest} from '../../../../webpack-types'
 
 export function chromeUrlOverrides(manifest: Manifest) {
   return (

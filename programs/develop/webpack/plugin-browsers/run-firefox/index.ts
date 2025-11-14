@@ -1,5 +1,4 @@
 import * as fs from 'fs'
-import * as path from 'path'
 import {spawn, ChildProcess} from 'child_process'
 import {type Compilation, type Compiler} from '@rspack/core'
 import firefoxLocation from 'firefox-location2'
@@ -21,7 +20,7 @@ import {
   LogLevel,
   type PluginInterface
 } from '../browsers-types'
-import {BrowserConfig, DevOptions} from '../../types/options'
+import type {BrowserConfig, DevOptions} from '../../webpack-types'
 import {
   deriveDebugPortWithInstance,
   findAvailablePortNear

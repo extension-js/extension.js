@@ -14,9 +14,9 @@ import {
   type BuildOptions,
   type DevOptions,
   type PreviewOptions,
-  type StartOptions
-} from './webpack/types/options'
-import {type Manifest} from './webpack/webpack-types'
+  type StartOptions,
+  type Manifest
+} from './webpack/webpack-types'
 
 export {
   extensionBuild,
