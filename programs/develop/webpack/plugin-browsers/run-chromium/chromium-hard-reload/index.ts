@@ -2,6 +2,7 @@ import * as path from 'path'
 import type {Compilation, Compiler} from '@rspack/core'
 import type {ChromiumContext} from '../chromium-context'
 import * as messages from '../../browsers-lib/messages'
+import type {DevOptions} from '../../../webpack-types'
 
 /**
  * ChromiumHardReloadPlugin
@@ -17,6 +18,7 @@ export class ChromiumHardReloadPlugin {
   constructor(
     private readonly options: {
       autoReload?: boolean
+      browser?: DevOptions['browser']
     },
     private readonly ctx: ChromiumContext
   ) {}
@@ -132,7 +134,9 @@ export class ChromiumHardReloadPlugin {
 
       if (!ok && !this.warnedDevMode) {
         this.warnedDevMode = true
-        this.logger?.warn?.(messages.chromiumDeveloperModeGuidance())
+        this.logger?.warn?.(
+          messages.chromiumDeveloperModeGuidance(this.options?.browser)
+        )
       }
     })
   }

@@ -92,12 +92,9 @@ describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
     const ctx = makeCtx(true)
     const plugin = new ChromiumHardReloadPlugin({}, ctx as any)
     plugin.apply(compiler as any)
-
     ;(ctx as any).setPendingReloadReason('manifest')
     expect(doneCb).toBeTypeOf('function')
     await (doneCb as any)(makeStats())
     expect(warnMock).not.toHaveBeenCalled()
   })
 })
-
-
