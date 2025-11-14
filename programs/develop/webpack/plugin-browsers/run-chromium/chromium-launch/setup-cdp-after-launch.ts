@@ -4,11 +4,11 @@ import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import {printDevBannerOnce} from '../../browsers-lib/banner'
 import {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
-import {type PluginRuntime} from '../../../plugin-browsers/browsers-types'
+import {type ChromiumPluginRuntime} from '../chromium-types'
 
 export async function setupCdpAfterLaunch(
   compilation: Compilation | undefined,
-  plugin: PluginRuntime,
+  plugin: ChromiumPluginRuntime,
   chromiumArgs: string[]
 ): Promise<void> {
   // Try to find the --load-extension flag for getting the user extension's output path

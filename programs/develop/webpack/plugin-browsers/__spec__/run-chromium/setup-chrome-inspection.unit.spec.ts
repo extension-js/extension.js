@@ -1,11 +1,11 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
 // Mocks for dependencies used by SetupChromeInspectionStep
-vi.mock('../setup-chrome-inspection/readiness', () => ({
+vi.mock('../../run-chromium/chromium-source-inspection/readiness', () => ({
   waitForChromeRemoteDebugging: vi.fn(async () => undefined)
 }))
 
-vi.mock('../setup-chrome-inspection/cdp-client', () => {
+vi.mock('../../run-chromium/chromium-source-inspection/cdp-client', () => {
   class MockCDPClient {
     constructor(_port: number) {}
     async connect() {}
@@ -23,15 +23,15 @@ vi.mock('../setup-chrome-inspection/cdp-client', () => {
   return {CDPClient: MockCDPClient}
 })
 
-vi.mock('../setup-chrome-inspection/targets', () => ({
+vi.mock('../../run-chromium/chromium-source-inspection/targets', () => ({
   ensureTargetAndSession: vi.fn(async () => ({targetId: 't', sessionId: 's'}))
 }))
 
-vi.mock('../setup-chrome-inspection/extract', () => ({
+vi.mock('../../run-chromium/chromium-source-inspection/extract', () => ({
   extractPageHtml: vi.fn(async () => '<html>ok</html>')
 }))
 
-import {SetupChromeInspectionStep} from '../setup-chrome-inspection'
+import {SetupChromeInspectionStep} from '../../run-chromium/chromium-source-inspection'
 
 describe('SetupChromeInspectionStep (unit)', () => {
   beforeEach(() => {
