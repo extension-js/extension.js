@@ -20,6 +20,7 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
+import * as browserMessages from './plugin-browsers/browsers-lib/messages'
 
 // Types
 import {DevOptions} from './types/options'
@@ -45,9 +46,12 @@ export default function webpackConfig(
     ? path.dirname(packageJsonPath)
     : manifestDir
 
+  // Accept alias flags: --gecko-binary/--firefox-binary
+  const geckoBinaryAlias =
+    (devOptions as any).geckoBinary || (devOptions as any).firefoxBinary
   const browser = devOptions.chromiumBinary
     ? 'chromium-based'
-    : devOptions.geckoBinary
+    : geckoBinaryAlias
       ? 'gecko-based'
       : devOptions.browser
 
@@ -69,7 +73,31 @@ export default function webpackConfig(
       __dirname,
       '../dist/extension-js-devtools'
     )
-    const devtoolsForBrowser = path.join(devtoolsRoot, browser)
+    // Map requested browser to the corresponding devtools manager distribution
+    // - chrome -> chrome manager
+    // - edge -> edge manager
+    // - chromium/chromium-based -> chromium manager
+    // - firefox/gecko-based/firefox-based -> firefox manager
+    const devtoolsEngine = (() => {
+      const b = String(browser || '')
+      switch (b) {
+        case 'chrome':
+          return 'chrome'
+        case 'edge':
+          return 'edge'
+        case 'chromium':
+        case 'chromium-based':
+          return 'chromium'
+        case 'firefox':
+        case 'gecko-based':
+        case 'firefox-based':
+          return 'firefox'
+        default:
+          return b
+      }
+    })()
+
+    const devtoolsForBrowser = path.join(devtoolsRoot, devtoolsEngine)
 
     if (fs.existsSync(devtoolsForBrowser)) {
       extensionsToLoad.push(devtoolsForBrowser)
@@ -182,7 +210,7 @@ export default function webpackConfig(
         preferences: devOptions.preferences,
         browserFlags: devOptions.browserFlags,
         chromiumBinary: devOptions.chromiumBinary,
-        geckoBinary: devOptions.geckoBinary,
+        geckoBinary: geckoBinaryAlias,
         instanceId: devOptions.instanceId,
         port: devOptions.port,
         source: devOptions.source,
@@ -198,8 +226,7 @@ export default function webpackConfig(
         logUrl: devOptions.logUrl,
         logTab: devOptions.logTab
       })
-      // Production packaging handled inside CompilationPlugin
-    ].filter(Boolean),
+    ],
     // Be quiet about build internals; keep output user-focused.
     // We intentionally do not expose underlying bundler names.
     stats: {

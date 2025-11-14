@@ -86,7 +86,7 @@ ${'Available Commands'}
   Cleans up orphaned instances and frees unused ports
 
 ${'Common Options'}
-- ${code('--browser')} ${arg('<chrome|edge|firefox>')} Target browser (default: chrome)
+- ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chrome)
 - ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
 - ${code('--polyfill')} ${arg('[boolean]')}            Enable/disable cross-browser polyfill
 - ${code('--no-telemetry')}                            Disable anonymous telemetry for this run

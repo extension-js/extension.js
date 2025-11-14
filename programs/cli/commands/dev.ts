@@ -1,9 +1,13 @@
 import type {Command} from 'commander'
 import packageJson from '../package.json'
 import * as messages from '../cli-lib/messages'
-import {requireOrDlx, vendors, validateVendorsOrExit} from '../utils'
+import {
+  requireOrDlx,
+  vendors,
+  validateVendorsOrExit,
+  type Browser
+} from '../utils'
 
-type Browser = 'chrome' | 'edge' | 'firefox' | 'chromium'
 type DevOptions = {
   browser?: Browser | 'all'
   profile?: string | boolean
@@ -34,8 +38,8 @@ export function registerDevCommand(program: Command, telemetry: any) {
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
     )
     .option(
-      '--browser <chrome | chromium | edge | firefox>',
-      'specify a browser to preview your extension in production mode. Defaults to `chromium`'
+      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
+      'specify a browser/engine to run. Defaults to `chromium`'
     )
     .option(
       '--chromium-binary <path-to-binary>',

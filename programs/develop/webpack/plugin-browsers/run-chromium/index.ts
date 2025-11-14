@@ -105,18 +105,7 @@ export class RunChromiumPlugin {
     // Stream logs to the console in real-time
     // (unified logging for Chromium via CDP)
     if (!this.dryRun) {
-      new ChromiumSourceInspectionPlugin(
-        {
-          browser: this.browser,
-          mode: compiler.options.mode || 'development',
-          source: this.source,
-          watchSource: this.watchSource,
-          startingUrl: this.startingUrl,
-          port: this.port,
-          instanceId: this.instanceId
-        },
-        ctx
-      ).apply(compiler)
+      new ChromiumSourceInspectionPlugin(this, ctx).apply(compiler)
     }
   }
 }

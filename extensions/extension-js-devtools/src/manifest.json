@@ -1,9 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
-  "version": "1.0.0",
-  "name": "centralized-logger",
-  "description": "Centralized logger for all extension contexts with React UI",
+  "version": "3.0.0",
+  "name": "Extension.js",
+  "description": "Extension.js built-in developer tools",
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
   "author": "Cezar Augusto",
@@ -14,30 +14,16 @@
     "default_icon": {
       "48": "images/logo.png"
     },
-    "default_title": "Open Side Panel"
+    "default_title": "Open Extension.js"
   },
   "firefox:browser_action": {
     "default_icon": {
       "48": "images/logo.png"
     },
-    "default_title": "Open Side Panel"
+    "default_title": "Open Extension.js"
   },
   "devtools_page": "devtools/index.html",
-  "chromium:side_panel": {
-    "default_path": "devtools/index.html",
-    "default_title": "Side Panel Content"
-  },
-  "firefox:sidebar_action": {
-    "default_panel": "devtools/index.html",
-    "default_title": "Side Panel Content"
-  },
-  "chromium:permissions": [
-    "management",
-    "tabs",
-    "storage",
-    "sidePanel",
-    "webNavigation"
-  ],
+  "chromium:permissions": ["management", "tabs", "storage", "webNavigation"],
   "firefox:permissions": ["management", "tabs", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": {

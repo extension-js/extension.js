@@ -1048,6 +1048,42 @@ export function unsupportedBrowser(browser: string) {
   )
 }
 
+// Browser Runner error wrapper (pretty heading)
+export function browserRunnerError(body: string) {
+  return `${colors.red('ERROR')} ${colors.brightBlue('error in browser runner')}\n${body}`
+}
+
+// Configuration validation (succinct, Vercel-like tone)
+export function requireChromiumBinaryForChromiumBased() {
+  const body =
+    `Configuration required\n` +
+    `Provide ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')} when using ${colors.yellow('chromium-based')}.\n`
+  return browserRunnerError(body)
+}
+
+export function requireGeckoBinaryForGeckoBased() {
+  const body =
+    `Configuration required\n` +
+    `Provide ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')} when using ${colors.yellow('gecko-based')} or ${colors.yellow('firefox-based')}.\n`
+  return browserRunnerError(body)
+}
+
+export function invalidChromiumBinaryPath(p: string) {
+  const body =
+    `Invalid binary path\n` +
+    `Chromium binary not found at ${colors.underline(p)}.\n` +
+    `Provide a working path via ${colors.blue('--chromium-binary')} ${colors.gray('<abs-path>')}.`
+  return browserRunnerError(body)
+}
+
+export function invalidGeckoBinaryPath(p: string) {
+  const body =
+    `Invalid binary path\n` +
+    `Firefox/Gecko binary not found at ${colors.underline(p)}.\n` +
+    `Provide a working path via ${colors.blue('--gecko-binary')} ${colors.gray('<abs-path>')}.`
+  return browserRunnerError(body)
+}
+
 export function firefoxDetectedFlatpak() {
   return `${colors.gray('►►►')} Firefox detected via Flatpak`
 }
