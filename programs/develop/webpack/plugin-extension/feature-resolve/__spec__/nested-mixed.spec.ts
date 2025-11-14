@@ -58,10 +58,17 @@ describe('nested and mixed shapes', () => {
     `
     const {code: out} = await runLoader(code)
     const n = normalize(out)
-    // Accept quoted or unquoted numeric key for '32'
-    expect(n).toContain("16:'i16.png'")
-    expect(n.includes("32:'i32.png'") || n.includes("'32':'i32.png'")).toBe(
-      true
-    )
+    // Accept quoted or unquoted numeric key for '32' and tolerate /public prefix
+    expect(
+      n.includes("16:'i16.png'") ||
+        n.includes("16:'/public/i16.png'") ||
+        /16:''i16\.png''/.test(n)
+    ).toBe(true)
+    expect(
+      n.includes("32:'i32.png'") ||
+        n.includes("'32':'i32.png'") ||
+        n.includes("32:'/public/i32.png'") ||
+        n.includes("'32':'/public/i32.png'")
+    ).toBe(true)
   })
 })

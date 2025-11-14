@@ -1,7 +1,7 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
 vi.mock(
-  '../../../../../run-firefox/firefox-source-inspection/remote-firefox/messaging-client',
+  '../../../../run-firefox/firefox-source-inspection/remote-firefox/messaging-client',
   () => {
     class MessagingClientMock {
       async connect(_port: number) {}
@@ -25,7 +25,7 @@ vi.mock(
 )
 
 vi.mock(
-  '../../../../../run-firefox/firefox-source-inspection/remote-firefox/setup-firefox-inspection-actors',
+  '../../../../run-firefox/firefox-source-inspection/remote-firefox/setup-firefox-inspection-actors',
   () => ({
     selectActors: vi.fn(async () => ({
       tabActor: 'tab',
@@ -35,19 +35,19 @@ vi.mock(
 )
 
 vi.mock(
-  '../../../../../run-firefox/firefox-source-inspection/remote-firefox/setup-firefox-inspection-navigation',
+  '../../../../run-firefox/firefox-source-inspection/remote-firefox/setup-firefox-inspection-navigation',
   () => ({
     ensureNavigatedAndLoaded: vi.fn(async () => undefined)
   })
 )
 
-vi.mock('../../../../../run-firefox/browsers-lib/shared-utils', () => ({
+vi.mock('../../../../run-firefox/browsers-lib/shared-utils', () => ({
   deriveDebugPortWithInstance: vi.fn(
     (_port: number, _instance?: string) => 6000
   )
 }))
 
-import {SetupFirefoxInspectionStep} from '../../../../../run-firefox/firefox-source-inspection'
+import {SetupFirefoxInspectionStep} from '../../../../run-firefox/firefox-source-inspection'
 
 describe('SetupFirefoxInspectionStep (unit)', () => {
   beforeEach(() => {
@@ -61,7 +61,8 @@ describe('SetupFirefoxInspectionStep (unit)', () => {
       source: 'http://example/'
     }) as any
     const compiler: any = {
-      hooks: {done: {tapAsync: (_name: string, cb: any) => cb({}, () => {})}}
+      hooks: {done: {tapAsync: (_name: string, cb: any) => cb({}, () => {})}},
+      options: {mode: 'development'}
     }
     // Should not throw during apply
     expect(() => step.apply(compiler)).not.toThrow()

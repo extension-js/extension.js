@@ -712,8 +712,22 @@ export default async function resolvePathsLoader(this: any, source: string) {
         typeof span.start === 'number' &&
         typeof span.end === 'number'
       ) {
-        // Always write a proper JSON string literal over the node span
-        ms.overwrite(span.start, span.end, JSON.stringify(computed))
+        // Expand to include surrounding quotes when present and balanced; preserve original quote style.
+        const src = String(inputSource)
+        const before = src[span.start - 1]
+        const after = src[span.end]
+        const isQuote = (c: string | undefined) => c === "'" || c === '"'
+        if (isQuote(before) && before === after) {
+          const q = before
+          const start = span.start - 1
+          const end = span.end + 1
+          const escaped =
+            q === "'" ? String(computed).replace(/'/g, "\\'") : String(computed).replace(/"/g, '\\"')
+          ms.overwrite(start, end, `${q}${escaped}${q}`)
+        } else {
+          // Fallback to JSON string if we cannot safely detect surrounding quotes
+          ms.overwrite(span.start, span.end, JSON.stringify(computed))
+        }
         edited = true
       }
     } catch {

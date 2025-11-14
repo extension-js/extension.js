@@ -25,7 +25,6 @@ export class FirefoxSourceInspectionPlugin {
   private readonly host: any
   private readonly _ctx?: FirefoxContext
 
-  // Variables moved from SetupFirefoxInspectionStep
   private devOptions?: DevOptions & {
     startingUrl?: string
     instanceId?: string
