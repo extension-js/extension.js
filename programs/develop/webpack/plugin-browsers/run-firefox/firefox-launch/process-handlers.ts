@@ -44,22 +44,16 @@ export function setupFirefoxProcessHandlers(
   }
 
   const onExit = () => {
-    const child = childRef()
-
-    if (child && !child.killed) {
-      try {
-        child.kill('SIGTERM')
-      } catch {
-        // Ignore
-      }
-    }
+    // Ensure full cleanup (SIGTERM -> optional SIGKILL -> instance cleanup)
+    // Note: cannot await in 'exit' handler; fire-and-forget
+    attemptCleanup()
   }
 
   process.on('exit', onExit)
 
-  const onSignal = async () => {
-    await attemptCleanup()
-    process.exit(0)
+  const onSignal = () => {
+    // Perform cleanup and allow Node’s default exit behavior to proceed
+    attemptCleanup()
   }
 
   process.on('SIGINT', onSignal)
