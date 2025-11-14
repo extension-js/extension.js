@@ -2,10 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler, type EntryObject} from '@rspack/core'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
-import {
-  type FilepathList,
-  type PluginInterface
-} from '../../../webpack-types'
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 
 export class AddScripts {
   public readonly manifestPath: string

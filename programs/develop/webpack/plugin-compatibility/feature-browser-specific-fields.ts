@@ -3,11 +3,7 @@ import {
   getManifestContent,
   filterKeysForThisBrowser
 } from './compatibility-lib/manifest'
-import type {
-  PluginInterface,
-  Manifest,
-  DevOptions
-} from '../webpack-types'
+import type {PluginInterface, Manifest, DevOptions} from '../webpack-types'
 
 export class BrowserSpecificFieldsPlugin {
   private readonly browser: DevOptions['browser']
