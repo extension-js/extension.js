@@ -211,8 +211,22 @@ export function resolveUserDeclaredWAR(
         ) || fs.existsSync(builtAbs)
 
       if (fs.existsSync(publicAbsMaybe) || assetEmitted) {
-        // Accept resource as present; keep reference as-is (no warn, no emit)
-        pushResource(matches, res)
+        // Enforce authoring convention: resources under public/ should use a leading '/'
+        const msg = warMessages.warFieldError(publicAbsMaybe, {
+          publicRootHint: true,
+          relativeRef: res
+        })
+        const warn = new WebpackError(msg) as Error & {
+          file?: string
+          name?: string
+        }
+        warn.file = 'manifest.json'
+        warn.name = 'WARPublicRootPathMissingSlash'
+        compilation.warnings!.push(warn)
+
+        // Normalize to public output reference (WAR stores without leading slash)
+        const output = toPublicOutput('/' + res)
+        pushResource(matches, output)
         return
       }
 
