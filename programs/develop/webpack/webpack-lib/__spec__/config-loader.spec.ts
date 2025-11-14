@@ -1,7 +1,7 @@
 import {describe, it, expect} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
-import {loadBrowserConfig} from '../webpack/webpack-lib/config-loader'
+import {loadBrowserConfig} from '../config-loader'
 
 describe('config-loader', () => {
   it('loadBrowserConfig returns defaults when no config present', async () => {

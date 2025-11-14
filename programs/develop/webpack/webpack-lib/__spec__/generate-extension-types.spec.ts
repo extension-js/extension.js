@@ -2,7 +2,7 @@ import {describe, it, expect, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
-import {generateExtensionTypes} from '../webpack/webpack-lib/generate-extension-types'
+import {generateExtensionTypes} from '../generate-extension-types'
 
 const created: string[] = []
 function makeTempDir(prefix: string) {

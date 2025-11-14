@@ -2,10 +2,7 @@ import {describe, it, expect, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
-import {
-  findNearestPackageJson,
-  validatePackageJson
-} from '../webpack/webpack-lib/package-json'
+import {findNearestPackageJson, validatePackageJson} from '../package-json'
 
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))

@@ -2,7 +2,7 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import {extensionBuild} from '../webpack/build'
+import {extensionBuild} from '../../../command-build'
 
 function withTempDir(fn: (dir: string) => Promise<void> | void) {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-json-e2e-'))
