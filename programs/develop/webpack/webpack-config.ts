@@ -64,7 +64,8 @@ export default function webpackConfig(
     : path.resolve(packageJsonDir, devOptions.output.path)
 
   // Build list of extensions to load in the browser.
-  // Always load the user extension; in development, also load the devtools manager for this browser when present.
+  // Always load the user extension; in development,
+  // also load the devtools manager for this browser when present.
   const extensionsToLoad = [userExtensionOutputPath]
 
   if (devOptions.mode !== 'production') {
@@ -103,6 +104,9 @@ export default function webpackConfig(
       extensionsToLoad.push(devtoolsForBrowser)
     }
   }
+
+  // Always load the user extension last to give it precedence on conflicts
+  extensionsToLoad.push(userExtensionOutputPath)
 
   return {
     mode: devOptions.mode || 'development',
