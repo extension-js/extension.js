@@ -13,7 +13,9 @@ export class ChromiumHardReloadPlugin {
   private logger?: ReturnType<Compiler['getInfrastructureLogger']>
 
   constructor(
-    private readonly options: any,
+    private readonly options: {
+      autoReload?: boolean
+    },
     private readonly ctx: ChromiumContext
   ) {}
 
@@ -140,7 +142,9 @@ export class ChromiumHardReloadPlugin {
         ? String(assets['manifest.json'].source())
         : ''
       if (!manifestStr) return
-      const parsed = JSON.parse(manifestStr) as any
+      const parsed = JSON.parse(manifestStr) as {
+        background?: {service_worker?: unknown}
+      }
       const sw = parsed?.background?.service_worker as unknown
       if (typeof sw === 'string' && sw) {
         const extRoot = this.ctx.getExtensionRoot() || ''

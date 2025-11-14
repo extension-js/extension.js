@@ -19,7 +19,7 @@ export class RunChromiumPlugin {
   readonly browserFlags?: string[]
   readonly excludeBrowserFlags?: string[]
   readonly profile?: string | false
-  readonly preferences?: Record<string, any>
+  readonly preferences?: Record<string, unknown>
   readonly startingUrl?: string
   readonly autoReload?: boolean
   readonly stats?: boolean

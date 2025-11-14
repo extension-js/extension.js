@@ -1,31 +1,34 @@
 import {describe, it, expect, vi, afterEach} from 'vitest'
 import Module from 'module'
-import {RunChromiumPlugin} from '../index'
+import {RunChromiumPlugin} from '../../run-chromium'
 
 const originalLoad = (Module as any)._load
 
 // Mock CDP controller
-vi.mock('../setup-chrome-inspection/cdp-extension-controller', () => {
-  class CDPExtensionController {
-    public connect = vi.fn(async () => {})
-    public ensureLoaded = vi.fn(async () => ({
-      extensionId: 'id',
-      name: 'n',
-      version: 'v'
-    }))
-    public getInfoBestEffort = vi.fn(async () => ({
-      extensionId: 'id',
-      name: 'n',
-      version: 'v'
-    }))
-    public clearProtocolEventHandler = vi.fn()
-    public onProtocolEvent = vi.fn()
-    public enableUnifiedLogging = vi.fn()
-    public hardReload = vi.fn(async () => {})
-    constructor(_: any) {}
+vi.mock(
+  '../../run-chromium/chromium-source-inspection/cdp-extension-controller',
+  () => {
+    class CDPExtensionController {
+      public connect = vi.fn(async () => {})
+      public ensureLoaded = vi.fn(async () => ({
+        extensionId: 'id',
+        name: 'n',
+        version: 'v'
+      }))
+      public getInfoBestEffort = vi.fn(async () => ({
+        extensionId: 'id',
+        name: 'n',
+        version: 'v'
+      }))
+      public clearProtocolEventHandler = vi.fn()
+      public onProtocolEvent = vi.fn()
+      public enableUnifiedLogging = vi.fn()
+      public hardReload = vi.fn(async () => {})
+      constructor(_: any) {}
+    }
+    return {CDPExtensionController}
   }
-  return {CDPExtensionController}
-})
+)
 
 describe('Chromium protocol reload path', () => {
   afterEach(() => {

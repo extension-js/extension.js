@@ -11,7 +11,15 @@ import {setupUnifiedLogging} from './unified-logging'
  */
 export class ChromiumUnifiedLoggerPlugin {
   constructor(
-    private readonly options: any,
+    private readonly options: {
+      logLevel?: string
+      logContexts?: string[]
+      logUrl?: string
+      logTab?: number | string
+      logFormat?: 'pretty' | 'json' | 'ndjson'
+      logTimestamps?: boolean
+      logColor?: boolean
+    },
     private readonly ctx: ChromiumContext
   ) {
     // Wiring will be introduced in a follow-up edit.

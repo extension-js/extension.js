@@ -218,10 +218,8 @@ export interface PluginInterface extends PluginOptions {
  * Extends the main PluginInterface with transient fields used during runtime.
  */
 export interface PluginRuntime extends PluginInterface {
-  /** One-time banner printed flag (Chromium flow). */
-  bannerPrintedOnce?: boolean
-  /** Controller instance set after CDP connects (Chromium flow). */
-  cdpController?: unknown
+  // Intentionally empty for shared runtime; per-run runtime fields live in
+  // run-chromium/chromium-types.ts and run-firefox/firefox-types.ts
 }
 
 export type LogLevel =

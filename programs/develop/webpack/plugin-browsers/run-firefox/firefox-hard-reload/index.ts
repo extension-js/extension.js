@@ -1,11 +1,12 @@
 import type {Compiler} from '@rspack/core'
 import type {FirefoxContext} from '../firefox-context'
+import type {FirefoxPluginRuntime} from '../firefox-types'
 
 export class FirefoxHardReloadPlugin {
-  private readonly host: any
+  private readonly host: FirefoxPluginRuntime
   private readonly ctx: FirefoxContext
 
-  constructor(host: any, ctx: FirefoxContext) {
+  constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
     this.host = host
     this.ctx = ctx
   }

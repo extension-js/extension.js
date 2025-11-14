@@ -10,10 +10,21 @@ import type {FirefoxContext} from '../firefox-context'
  * - Respect level/contexts/filters/format/timestamps/color
  */
 export class FirefoxUnifiedLoggerPlugin {
-  private readonly options: any
+  private readonly options: {
+    logLevel?: string
+    logContexts?: string[]
+    logUrl?: string
+    logTab?: number | string
+    logFormat?: 'pretty' | 'json' | 'ndjson'
+    logTimestamps?: boolean
+    logColor?: boolean
+  }
   private readonly ctx: FirefoxContext
 
-  constructor(options: any, ctx: FirefoxContext) {
+  constructor(
+    options: FirefoxUnifiedLoggerPlugin['options'],
+    ctx: FirefoxContext
+  ) {
     this.options = options
     this.ctx = ctx
   }
