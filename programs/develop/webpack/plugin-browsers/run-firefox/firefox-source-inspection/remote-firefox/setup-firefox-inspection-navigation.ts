@@ -1,4 +1,4 @@
-import * as messages from '../../browsers-lib/messages'
+import * as messages from '../../../browsers-lib/messages'
 import {MessagingClient} from './messaging-client'
 
 const PAGE_READY_TIMEOUT_MS = 8000
