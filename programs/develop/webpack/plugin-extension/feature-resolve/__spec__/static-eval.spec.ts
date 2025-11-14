@@ -51,4 +51,10 @@ describe('static evaluation', () => {
     // Implementation may not fold nested parentheses today; assert not broken
     expect(out).toContain("('/public/' + ('a' + '.js'))")
   })
+
+  it('rewrites getURL when arg is a single literal', async () => {
+    const code = `chrome.runtime.getURL('/public/a.js')`
+    const {code: out} = await runLoader(code)
+    expect(normalize(out)).toContain("getURL('a.js')")
+  })
 })

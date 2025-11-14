@@ -27,6 +27,36 @@ export function handlePanels(
   ) {
     const firstArgument = node.arguments?.[0]?.expression
 
+    // sidebarAction.setPanel(stringLiteral)
+    if (method.endsWith('sidebarAction.setPanel')) {
+      const arg = firstArgument
+      if (isStringLiteral(arg)) {
+        const resolved = resolveLiteralToOutput(arg.value, {
+          manifestPath
+        })
+        rewriteValue(arg, resolved, arg.value)
+        return true
+      } else if (isStaticTemplate(arg)) {
+        const raw = source.slice(arg.span.start + 1, arg.span.end - 1)
+        const resolved = resolveLiteralToOutput(raw, {
+          manifestPath
+        })
+        rewriteValue(arg, resolved, raw)
+        return true
+      } else {
+        const raw = evalStaticString(arg)
+        if (typeof raw === 'string') {
+          const resolved = resolveLiteralToOutput(raw, {
+            manifestPath
+          })
+          const originalExpr = source.slice(arg.span.start, arg.span.end)
+          rewriteValue(arg as any, resolved, originalExpr)
+          return true
+        }
+      }
+    }
+
+    // sidePanel.setOptions({ page/panel/path: ... })
     if (firstArgument?.type === 'ObjectExpression') {
       for (const propertyNode of firstArgument.properties || []) {
         if (propertyNode.type !== 'KeyValueProperty') continue
