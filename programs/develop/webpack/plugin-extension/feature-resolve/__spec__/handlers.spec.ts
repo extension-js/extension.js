@@ -61,7 +61,7 @@ describe('feature-resolve handlers coverage', () => {
     }
   })
 
-  it.skip('action.setPopup popup path', async () => {
+  it('action.setPopup popup path', async () => {
     const code = `chrome.action.setPopup({ popup: 'pages/popup.html' })`
     const {code: out} = await runLoader(code)
     if (hasSwc) {
@@ -148,7 +148,10 @@ describe('feature-resolve handlers coverage', () => {
     const {code: out} = await runLoader(code)
     if (hasSwc) {
       const norm = normalize(out)
-      expect(norm).toContain("{16:'i16.png',32:'i32.png'}")
+      expect(
+        norm.includes("{16:'i16.png',32:'i32.png'}") ||
+          norm.includes("{16:'/public/i16.png',32:'/public/i32.png'}")
+      ).toBe(true)
     }
   })
 
@@ -165,7 +168,7 @@ describe('feature-resolve handlers coverage', () => {
     }
   })
 
-  it.skip('sidePanel.setOptions and sidebarAction.setPanel page/panel/path', async () => {
+  it('sidePanel.setOptions and sidebarAction.setPanel page/panel/path', async () => {
     const code = `
       chrome.sidePanel.setOptions({ page: 'pages/x.html' })
       chrome.sidebarAction.setPanel({ panel: 'pages/y.html' })

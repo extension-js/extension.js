@@ -45,7 +45,7 @@ describe('static evaluation', () => {
     expect(normalize(out)).toContain("{url:'pages/welcome.html'}")
   })
 
-  it.skip('mixed nested static expressions (currently unchanged)', async () => {
+  it('mixed nested static expressions (currently unchanged)', async () => {
     const code = `chrome.runtime.getURL('/public/' + ('a' + '.js'))`
     const {code: out} = await runLoader(code)
     // Implementation may not fold nested parentheses today; assert not broken
