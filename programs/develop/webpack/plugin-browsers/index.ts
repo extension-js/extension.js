@@ -109,14 +109,16 @@ export class BrowsersPlugin {
 
     // Validate required binaries for engine-based selections
     if (this.browser === 'chromium-based' && !this.chromiumBinary) {
-      throw new Error(messages.requireChromiumBinaryForChromiumBased())
+      console.error(messages.requireChromiumBinaryForChromiumBased())
+      process.exit(1)
     }
 
     if (
       (this.browser === 'gecko-based' || this.browser === 'firefox-based') &&
       !this.geckoBinary
     ) {
-      throw new Error(messages.requireGeckoBinaryForGeckoBased())
+      console.error(messages.requireGeckoBinaryForGeckoBased())
+      process.exit(1)
     }
 
     if (this.profile === false && process.env.EXTENSION_ENV === 'development') {
