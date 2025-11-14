@@ -157,7 +157,9 @@ export default function webpackConfig(
       aliasFields: ['browser']
     },
     watchOptions: {
-      ignored: /node_modules|dist|extension-js\/profiles/
+      ignored: /node_modules|dist|extension-js\/profiles/,
+      poll: 1000,
+      aggregateTimeout: 200
     },
     module: {
       rules: [],
