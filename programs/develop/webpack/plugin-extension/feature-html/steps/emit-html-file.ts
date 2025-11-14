@@ -3,10 +3,7 @@ import {WebpackError, sources, type Compiler, Compilation} from '@rspack/core'
 import * as messages from '../html-lib/messages'
 import {getFilePath} from '../html-lib/utils'
 import {reportToCompilation} from '../html-lib/utils'
-import {
-  type FilepathList,
-  type PluginInterface
-} from '../../../webpack-types'
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 
 export class EmitHtmlFile {
   public readonly manifestPath: string
