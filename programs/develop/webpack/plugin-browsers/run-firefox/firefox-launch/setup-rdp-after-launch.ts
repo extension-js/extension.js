@@ -1,6 +1,6 @@
 import {Compilation} from '@rspack/core'
-import {FirefoxRDPController} from './rdp-extension-controller'
-import * as messages from '../browsers-lib/messages'
+import {FirefoxRDPController} from '../firefox-source-inspection/rdp-extension-controller'
+import {printRunningInDevelopmentSummary} from '../firefox-source-inspection/remote-firefox/firefox-utils'
 
 type PluginLike = {
   extension: string | string[]
@@ -75,23 +75,22 @@ export async function setupRdpAfterLaunch(
     )
   }
 
-  const level = String(plugin.logLevel || '').toLowerCase()
-  if (level && level !== 'off') {
-    try {
-      await controller.enableUnifiedLogging({
-        level,
-        contexts: plugin.logContexts,
-        urlFilter: plugin.logUrl,
-        tabFilter: plugin.logTab,
-        format: plugin.logFormat || 'pretty',
-        timestamps: plugin.logTimestamps !== false,
-        color: plugin.logColor !== false
-      })
-    } catch (error) {
-      if (process.env.EXTENSION_ENV === 'development') {
-        console.warn(messages.firefoxUnifiedLoggingFailed(String(error)))
-      }
+  // Dev banner parity: print once after ensureLoaded
+  try {
+    const list: string[] = Array.isArray(plugin.extensionsToLoad)
+      ? (plugin.extensionsToLoad as string[])
+      : Array.isArray(plugin.extension)
+        ? (plugin.extension as string[])
+        : typeof plugin.extension === 'string'
+          ? [plugin.extension]
+          : []
+    if (list.length) {
+      await printRunningInDevelopmentSummary(list, 'firefox')
     }
+  } catch {
+    // ignore banner errors
   }
+
+  // Unified logging is now enabled by FirefoxUnifiedLoggerPlugin
   return controller
 }

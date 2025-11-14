@@ -1,5 +1,5 @@
 import {ChildProcess} from 'child_process'
-import * as messages from '../browsers-lib/messages'
+import * as messages from '../../browsers-lib/messages'
 
 export function setupFirefoxProcessHandlers(
   browser: 'firefox' | 'chrome' | 'edge' | 'chromium-based',

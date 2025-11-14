@@ -1,5 +1,5 @@
 import colors from 'pintor'
-import {printLogEventJson, printLogEventPretty} from '../firefox-utils'
+import {printLogEventJson, printLogEventPretty} from './firefox-utils'
 import {MessagingClient} from './messaging-client'
 
 export async function attachConsoleListeners(client: MessagingClient) {

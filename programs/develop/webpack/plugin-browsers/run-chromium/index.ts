@@ -1,7 +1,7 @@
 import {type Compiler} from '@rspack/core'
 import {createChromiumContext} from './chromium-context'
 import {ChromiumLaunchPlugin} from './chromium-launch'
-import {ChromiumUnifiedLoggerPlugin} from './chromium-logger'
+import {ChromiumUnifiedLoggerPlugin} from './chromium-unified-logger'
 import {ChromiumHardReloadPlugin} from './chromium-hard-reload'
 import {ChromiumSourceInspectionPlugin} from './chromium-source-inspection'
 import {

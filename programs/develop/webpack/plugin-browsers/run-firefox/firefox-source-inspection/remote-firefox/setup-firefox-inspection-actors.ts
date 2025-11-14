@@ -1,4 +1,4 @@
-import * as messages from '../../browsers-lib/messages'
+import * as messages from '../../../browsers-lib/messages'
 import {MessagingClient} from './messaging-client'
 
 const TARGET_SCAN_INTERVAL_MS = 250

@@ -1,33 +1,32 @@
-import {type Compiler} from '@rspack/core'
+import type {Compiler} from '@rspack/core'
+import type {FirefoxContext} from '../firefox-context'
 import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
-import {MessagingClient} from './messaging-client'
-import {selectActors} from './setup-firefox-inspection-actors'
-import {ensureNavigatedAndLoaded} from './setup-firefox-inspection-navigation'
+import {MessagingClient} from './remote-firefox/messaging-client'
+import {selectActors} from './remote-firefox/setup-firefox-inspection-actors'
+import {ensureNavigatedAndLoaded} from './remote-firefox/setup-firefox-inspection-navigation'
 import {
   resolveConsoleActorMethod,
   waitForContentScriptInjectionMethod,
   getPageHTML
-} from './source-inspect'
+} from './remote-firefox/source-inspect'
 import type {DevOptions} from '../../../webpack-types'
 
 const MAX_CONNECT_RETRIES = 60
 const CONNECT_RETRY_INTERVAL_MS = 500
 const PAGE_READY_TIMEOUT_MS = 8000
-const TARGET_SCAN_INTERVAL_MS = 250
 const CHANGE_DEBOUNCE_MS = 300
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-interface SetupFirefoxInspectionStepOptions extends DevOptions {
-  startingUrl?: string
-  instanceId?: string
-}
+export class FirefoxSourceInspectionPlugin {
+  private readonly host: any
+  private readonly _ctx?: FirefoxContext
 
-export class SetupFirefoxInspectionStep {
-  private readonly devOptions: DevOptions & {
+  // Variables moved from SetupFirefoxInspectionStep
+  private devOptions?: DevOptions & {
     startingUrl?: string
     instanceId?: string
   }
@@ -39,13 +38,28 @@ export class SetupFirefoxInspectionStep {
   private initialized = false
   private lastUrlToInspect: string | null = null
 
-  constructor(devOptions: SetupFirefoxInspectionStepOptions) {
-    this.devOptions = devOptions
+  constructor(host: any, ctx?: FirefoxContext) {
+    this.host = host
+    this._ctx = ctx
+  }
+
+  private setDevOptions() {
+    if (!this.devOptions) {
+      this.devOptions = {
+        browser: this.host.browser,
+        mode: this.host.mode || 'development',
+        source: this.host.source as string,
+        watchSource: this.host.watchSource,
+        startingUrl: this.host.startingUrl,
+        port: this.host.port,
+        instanceId: this.host.instanceId
+      }
+    }
   }
 
   private async getRdpPort() {
-    const instanceId = this.devOptions.instanceId
-    return deriveDebugPortWithInstance(this.devOptions.port, instanceId)
+    const instanceId = this.devOptions?.instanceId
+    return deriveDebugPortWithInstance(this.devOptions?.port, instanceId)
   }
 
   private async initialize() {
@@ -92,14 +106,14 @@ export class SetupFirefoxInspectionStep {
 
   private resolveUrlToInspect() {
     if (
-      this.devOptions.source &&
+      this.devOptions?.source &&
       typeof this.devOptions.source === 'string' &&
       this.devOptions.source !== 'true'
     ) {
       return this.devOptions.source
     }
 
-    if (this.devOptions.startingUrl) return this.devOptions.startingUrl
+    if (this.devOptions?.startingUrl) return this.devOptions.startingUrl
 
     throw new Error(messages.sourceInspectorUrlRequired())
   }
@@ -287,7 +301,12 @@ export class SetupFirefoxInspectionStep {
   }
 
   apply(compiler: Compiler) {
-    if (!this.devOptions.source && !this.devOptions.watchSource) {
+    if (this.host.dryRun) return
+    if (compiler.options.mode !== 'development') return
+
+    this.setDevOptions()
+
+    if (!this.devOptions?.source && !this.devOptions?.watchSource) {
       return
     }
 
@@ -322,7 +341,7 @@ export class SetupFirefoxInspectionStep {
             await this.printHTML(this.currentConsoleActor)
           }
 
-          if (this.devOptions.watchSource) {
+          if (this.devOptions?.watchSource) {
             // On each rebuild, re-print current HTML immediately (debounced by handleFileChange)
             this.isWatching = true
             await this.handleFileChange()

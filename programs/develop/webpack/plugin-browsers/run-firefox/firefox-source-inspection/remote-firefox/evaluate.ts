@@ -1,4 +1,4 @@
-import * as sourceMessages from '../../browsers-lib/messages'
+import * as sourceMessages from '../../../browsers-lib/messages'
 
 interface RdpClientLike {
   request: (payload: unknown) => Promise<unknown>

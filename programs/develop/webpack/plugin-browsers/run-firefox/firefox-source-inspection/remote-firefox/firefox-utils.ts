@@ -1,7 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import * as messages from '../browsers-lib/messages'
-import {printDevBannerOnce} from '../browsers-lib/banner'
+import * as messages from '../../../browsers-lib/messages'
+import {printDevBannerOnce} from '../../../browsers-lib/banner'
 
 export async function printRunningInDevelopmentSummary(
   candidateAddonPaths: string[],
