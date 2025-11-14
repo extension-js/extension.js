@@ -1,6 +1,6 @@
 import {commonStyleLoaders} from './common-style-loaders'
-import {DevOptions} from '../types/options'
 import {isContentScriptEntry} from './css-lib/is-content-script'
+import type {DevOptions} from '../webpack-types'
 
 export async function cssInHtmlLoader(
   projectPath: string,

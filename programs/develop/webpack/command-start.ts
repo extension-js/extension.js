@@ -9,7 +9,7 @@ import * as path from 'path'
 import {getProjectStructure} from './webpack-lib/project'
 import {extensionBuild} from './command-build'
 import {extensionPreview} from './command-preview'
-import {StartOptions} from './types/options'
+import type {StartOptions} from './webpack-types'
 import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
 
 export async function extensionStart(

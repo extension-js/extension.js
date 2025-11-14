@@ -1,15 +1,15 @@
 import {type Compiler} from '@rspack/core'
-import {DevOptions} from '../../../types/options'
 import * as messages from '../../browsers-lib/messages'
+import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import {MessagingClient} from './messaging-client'
 import {selectActors} from './setup-firefox-inspection-actors'
 import {ensureNavigatedAndLoaded} from './setup-firefox-inspection-navigation'
-import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import {
   resolveConsoleActorMethod,
   waitForContentScriptInjectionMethod,
   getPageHTML
 } from './source-inspect'
+import type {DevOptions} from '../../../webpack-types'
 
 const MAX_CONNECT_RETRIES = 60
 const CONNECT_RETRY_INTERVAL_MS = 500

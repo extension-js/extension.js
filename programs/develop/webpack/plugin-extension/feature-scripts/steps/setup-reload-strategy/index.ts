@@ -4,8 +4,11 @@ import WebExtension from 'webpack-target-webextension'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
-import {type Manifest, type PluginInterface} from '../../../../webpack-types'
-import {type DevOptions} from '../../../../types/options'
+import type {
+  Manifest,
+  PluginInterface,
+  DevOptions
+} from '../../../../webpack-types'
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string

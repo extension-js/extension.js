@@ -2,12 +2,12 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {WebpackError, type Compilation} from '@rspack/core'
 import * as parse5utilities from 'parse5-utilities'
+import * as messages from './messages'
 import {parseHtml} from './parse-html'
 import {getExtname, getFilePath, cleanAssetUrl, getBaseHref} from './utils'
-import {type FilepathList} from '../../../webpack-types'
 import {handleStaticAsset} from './assets'
 import {injectCssLink, injectJsScript} from './inject'
-import * as messages from './messages'
+import {type FilepathList} from '../../../webpack-types'
 
 export function patchHtml(
   compilation: Compilation,
