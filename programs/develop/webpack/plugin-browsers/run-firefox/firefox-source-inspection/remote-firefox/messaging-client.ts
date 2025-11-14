@@ -1,6 +1,6 @@
 import EventEmitter from 'events'
-import * as messages from '../../browsers-lib/messages'
-import * as sourceMessages from '../../browsers-lib/messages'
+import * as messages from '../../../browsers-lib/messages'
+import * as sourceMessages from '../../../browsers-lib/messages'
 import {RdpTransport} from './transport'
 import * as api from './rdp-api'
 import {
@@ -12,12 +12,6 @@ import {
   extractShadowContent as extractShadow,
   mergeShadowIntoMain
 } from './evaluate'
-
-interface Message {
-  from?: string
-  type?: string
-  error?: unknown
-}
 
 export class MessagingClient extends EventEmitter {
   private transport = new RdpTransport()

@@ -243,3 +243,19 @@ export type LogContext =
   | 'devtools'
 
 export type LogFormat = 'pretty' | 'json' | 'ndjson'
+
+/**
+ * Unified controller interface used by post-launch logging flows.
+ * Implemented by both CDP and RDP controllers.
+ */
+export interface Controller {
+  enableUnifiedLogging: (opts: {
+    level?: string
+    contexts?: string[] | undefined
+    urlFilter?: string | undefined
+    tabFilter?: number | string | undefined
+    format?: 'pretty' | 'json' | 'ndjson'
+    timestamps?: boolean
+    color?: boolean
+  }) => Promise<void>
+}
