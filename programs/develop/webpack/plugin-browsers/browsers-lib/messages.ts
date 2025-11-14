@@ -1113,9 +1113,20 @@ export function rdpInvalidRequestPayload() {
 }
 
 // Chromium developer mode guidance (succinct, Vercel-like tone)
-export function chromiumDeveloperModeGuidance() {
-  const exts =
-    `${colors.underline('chrome://extensions')} (or ${colors.underline('edge://extensions')})`
+export function chromiumDeveloperModeGuidance(browser?: DevOptions['browser']) {
+  let exts = ''
+  if (browser === 'edge') {
+    exts = colors.underline('edge://extensions')
+  } else if (
+    browser === 'chrome' ||
+    browser === 'chromium' ||
+    browser === 'chromium-based'
+  ) {
+    exts = colors.underline('chrome://extensions')
+  } else {
+    exts = colors.underline('chrome://extensions')
+  }
+
   return (
     `${getLoggingPrefix('warn')} Configuration required\n` +
     `Enable ${colors.yellow('Developer mode')} in ${exts} for reliable reloads.\n` +
