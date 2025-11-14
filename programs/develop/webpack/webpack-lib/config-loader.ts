@@ -7,11 +7,7 @@ import dotenv from 'dotenv'
 import {Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import * as messages from './messages'
-import type {
-  BrowserConfig,
-  FileConfig,
-  DevOptions
-} from '../webpack-types'
+import type {BrowserConfig, FileConfig, DevOptions} from '../webpack-types'
 
 function preloadEnvFiles(projectDir: string) {
   try {

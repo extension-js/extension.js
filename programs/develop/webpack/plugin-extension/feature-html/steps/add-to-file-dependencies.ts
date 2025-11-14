@@ -2,10 +2,7 @@ import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {Compilation} from '@rspack/core'
 import {getAssetsFromHtml} from '../html-lib/utils'
-import {
-  type FilepathList,
-  type PluginInterface
-} from '../../../webpack-types'
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 
 export class AddToFileDependencies {
   public readonly manifestPath: string

@@ -14,10 +14,7 @@ import {
   resolveAbsoluteFsPath,
   reportToCompilation
 } from '../html-lib/utils'
-import {
-  type FilepathList,
-  type PluginInterface
-} from '../../../webpack-types'
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 
 function warnRemoteResourceReferences(params: {
   compilation: Compilation

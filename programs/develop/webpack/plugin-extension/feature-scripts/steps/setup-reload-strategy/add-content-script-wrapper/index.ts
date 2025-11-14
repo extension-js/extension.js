@@ -1,9 +1,6 @@
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import type {
-  PluginInterface,
-  DevOptions
-} from '../../../../../webpack-types'
+import type {PluginInterface, DevOptions} from '../../../../../webpack-types'
 
 export class AddContentScriptWrapper {
   private readonly manifestPath: string

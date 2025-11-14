@@ -24,11 +24,7 @@ import {SpecialFoldersPlugin} from './feature-special-folders'
 import {ResolvePlugin} from './feature-resolve'
 
 // Types
-import type {
-  PluginInterface,
-  FilepathList,
-  DevOptions
-} from '../webpack-types'
+import type {PluginInterface, FilepathList, DevOptions} from '../webpack-types'
 
 export class ExtensionPlugin {
   public static readonly name: string = 'plugin-extension'

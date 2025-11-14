@@ -5,10 +5,7 @@ import patchBackground from './patch-background'
 import patchExternallyConnectable from './patch-externally-connectable'
 import {getManifestContent} from '../../../scripts-lib/manifest'
 import {filterKeysForThisBrowser} from '../../../scripts-lib/manifest'
-import type {
-  PluginInterface,
-  DevOptions
-} from '../../../../../webpack-types'
+import type {PluginInterface, DevOptions} from '../../../../../webpack-types'
 
 export class ApplyManifestDevDefaults {
   private readonly manifestPath?: string
