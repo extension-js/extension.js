@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
-import {SetupFirefoxInspectionStep as Step} from '../../../../../run-firefox/firefox-source-inspection'
+import {FirefoxSourceInspectionPlugin as Step} from '../../../../run-firefox/firefox-source-inspection'
 
 describe('SetupFirefoxInspectionStep printHTML', () => {
   let logSpy: any
@@ -9,6 +9,13 @@ describe('SetupFirefoxInspectionStep printHTML', () => {
 
   it('calls printHTML safely', async () => {
     const step: any = new Step({browser: 'firefox', port: 6000})
+    ;(step as any).client = {
+      async evaluate() {
+        return 'ok'
+      },
+      async navigateViaScript() {},
+      async waitForPageReady() {}
+    }
     expect(() => step['printHTML']('ok')).not.toThrow()
     logSpy.mockRestore()
   })

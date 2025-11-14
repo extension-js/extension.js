@@ -225,7 +225,23 @@ export default async function resolvePathsLoader(this: any, source: string) {
         typeof span.start === 'number' &&
         typeof span.end === 'number'
       ) {
-        ms.overwrite(span.start, span.end, JSON.stringify(computed))
+        const src = String(inputSource)
+        const before = src[span.start - 1]
+        const after = src[span.end]
+        const isQuote = (c: string | undefined) => c === "'" || c === '"'
+
+        if (isQuote(before) && before === after) {
+          let start = span.start - 1
+          let end = span.end + 1
+          const q = before
+          const escaped =
+            q === "'"
+              ? String(computed).replace(/'/g, "\\'")
+              : String(computed).replace(/"/g, '\\"')
+          ms.overwrite(start, end, `${q}${escaped}${q}`)
+        } else {
+          ms.overwrite(span.start, span.end, JSON.stringify(computed))
+        }
         edited = true
       }
     } catch {
