@@ -177,8 +177,7 @@ export function resolveUserDeclaredWAR(
           ? compilation.getAsset(output)
           : undefined
       const assetEmitted =
-        Boolean(asset && asset.name === output) ||
-        fs.existsSync(builtAbs)
+        Boolean(asset && asset.name === output) || fs.existsSync(builtAbs)
 
       if (!fs.existsSync(publicAbs) && !assetEmitted) {
         const overrideNotFoundPath = builtAbs
