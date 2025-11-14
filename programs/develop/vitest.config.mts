@@ -6,7 +6,13 @@ export default defineConfig({
     environment: 'node',
     testTimeout: 30000,
     hookTimeout: 45000,
-    include: ['__spec__/unit/**/*.spec.ts', 'webpack/**/__spec__/**/*.spec.ts'],
+    include: [
+      '__spec__/unit/**/*.spec.ts',
+      'webpack/**/__spec__/**/*.spec.ts',
+      'webpack/**/__spec__/**/*.spec.tsx',
+      'webpack/**/__spec__/**/*.spec.js',
+      'webpack/**/__spec__/**/*.spec.jsx'
+    ],
     setupFiles: ['webpack/__spec__/setup/cleanup.ts'],
     // coverage disabled
     exclude: [
