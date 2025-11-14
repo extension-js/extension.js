@@ -7,7 +7,7 @@ import {
   loadCommandConfig,
   loadBrowserConfig,
   isUsingExperimentalConfig
-} from '../webpack/webpack-lib/config-loader'
+} from '../config-loader'
 
 const created: string[] = []
 function makeTempDir(prefix: string) {
