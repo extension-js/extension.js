@@ -172,8 +172,12 @@ export function resolveUserDeclaredWAR(
         path.join(path.dirname(manifestPath), 'dist')
       const builtAbs = path.join(outputRoot || '', output)
 
+      const asset =
+        typeof compilation.getAsset === 'function'
+          ? compilation.getAsset(output)
+          : undefined
       const assetEmitted =
-        Boolean(compilation.getAsset && compilation.getAsset(output)) ||
+        Boolean(asset && asset.name === output) ||
         fs.existsSync(builtAbs)
 
       if (!fs.existsSync(publicAbs) && !assetEmitted) {
@@ -204,11 +208,13 @@ export function resolveUserDeclaredWAR(
         path.join(path.dirname(manifestPath), 'dist')
       const builtAbs = path.join(outputRoot || '', res)
       const publicAbsMaybe = path.join(projectPath, 'public', res)
+      const asset2 =
+        typeof (compilation as any).getAsset === 'function'
+          ? (compilation as any).getAsset(res)
+          : undefined
       const assetEmitted =
-        Boolean(
-          typeof compilation.getAsset === 'function' &&
-            compilation.getAsset(res)
-        ) || fs.existsSync(builtAbs)
+        Boolean(asset2 && (asset2 as any).name === res) ||
+        fs.existsSync(builtAbs)
 
       if (fs.existsSync(publicAbsMaybe) || assetEmitted) {
         // Enforce authoring convention: resources under public/ should use a leading '/'
