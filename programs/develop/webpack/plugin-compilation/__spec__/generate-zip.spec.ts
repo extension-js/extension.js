@@ -2,7 +2,7 @@ import {describe, it, expect, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
-import {ZipPlugin} from '../webpack/plugin-compilation/plugin-zip'
+import {ZipPlugin} from '../zip'
 import {rspack} from '@rspack/core'
 
 const created: string[] = []

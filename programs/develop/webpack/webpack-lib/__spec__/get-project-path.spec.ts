@@ -2,10 +2,7 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
-import {
-  getProjectPath,
-  getProjectStructure
-} from '../webpack/webpack-lib/project'
+import {getProjectPath, getProjectStructure} from '../project'
 
 const created: string[] = []
 function makeTempDir(prefix: string) {
