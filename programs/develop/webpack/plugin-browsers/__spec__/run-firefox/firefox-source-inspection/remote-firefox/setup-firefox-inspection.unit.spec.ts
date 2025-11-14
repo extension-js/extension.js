@@ -47,15 +47,15 @@ vi.mock('../../../../run-firefox/browsers-lib/shared-utils', () => ({
   )
 }))
 
-import {SetupFirefoxInspectionStep} from '../../../../run-firefox/firefox-source-inspection'
+import {FirefoxSourceInspectionPlugin} from '../../../../run-firefox/firefox-source-inspection'
 
-describe('SetupFirefoxInspectionStep (unit)', () => {
+describe('FirefoxSourceInspectionPlugin (unit)', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
   })
 
   it('initializes and sets up actors and prints HTML without errors', async () => {
-    const step = new SetupFirefoxInspectionStep({
+    const step = new FirefoxSourceInspectionPlugin({
       browser: 'firefox',
       port: 6000,
       source: 'http://example/'
