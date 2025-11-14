@@ -1,25 +1,10 @@
 import type {Compiler} from '@rspack/core'
-
-export type LogLevel =
-  | 'off'
-  | 'error'
-  | 'warn'
-  | 'info'
-  | 'debug'
-  | 'trace'
-  | 'all'
-
-export type LogFormat = 'pretty' | 'json' | 'ndjson'
-
-export interface ChromiumLogger {
-  level?: LogLevel
-  contexts?: string[]
-  urlFilter?: string
-  tabFilter?: number | string
-  format?: LogFormat
-  timestamps?: boolean
-  color?: boolean
-}
+import type {
+  LogFormat,
+  LogLevel,
+  PluginInterface,
+  Controller
+} from '../browsers-types'
 
 export interface ConsoleAPICalledEvent {
   method: 'Runtime.consoleAPICalled'
@@ -54,11 +39,45 @@ export type CdpEvent =
   | LogEntryAddedEvent
   | {method: string; params?: unknown}
 
-export interface Controller {
-  enableUnifiedLogging: (opts: ChromiumLogger) => Promise<void>
-  onProtocolEvent: (cb: (evt: CdpEvent) => void) => void
-}
-
 export type PendingReason = 'manifest' | 'locales' | 'sw'
 
 export type Logger = ReturnType<Compiler['getInfrastructureLogger']>
+
+/**
+ * Options consumed by Chromium plugins (launch/logger/reload/inspection).
+ * Narrowed from PluginInterface and specialized for Chromium path.
+ */
+export interface ChromiumLaunchOptions
+  extends Pick<
+    PluginInterface,
+    | 'extension'
+    | 'browser'
+    | 'noOpen'
+    | 'browserFlags'
+    | 'excludeBrowserFlags'
+    | 'profile'
+    | 'preferences'
+    | 'startingUrl'
+    | 'chromiumBinary'
+    | 'instanceId'
+    | 'port'
+    | 'source'
+    | 'watchSource'
+    | 'dryRun'
+    | 'logLevel'
+    | 'logContexts'
+    | 'logFormat'
+    | 'logTimestamps'
+    | 'logColor'
+    | 'logUrl'
+    | 'logTab'
+  > {}
+
+/**
+ * Runtime state in Chromium flow.
+ * Kept Chromium-specific to avoid polluting shared browser types.
+ */
+export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
+  bannerPrintedOnce?: boolean
+  cdpController?: Controller | unknown
+}

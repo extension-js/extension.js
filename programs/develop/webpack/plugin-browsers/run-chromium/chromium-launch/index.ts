@@ -13,6 +13,11 @@ import {setupProcessSignalHandlers} from './process-handlers'
 import {logChromiumDryRun} from './dry-run'
 import {setupCdpAfterLaunch} from './setup-cdp-after-launch'
 import type {ChromiumContext} from '../chromium-context'
+import type {
+  ChromiumLaunchOptions,
+  ChromiumPluginRuntime
+} from '../chromium-types'
+import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
 
 /**
  * ChromiumLaunchPlugin
@@ -28,7 +33,7 @@ export class ChromiumLaunchPlugin {
   private logger!: ReturnType<Compiler['getInfrastructureLogger']>
 
   constructor(
-    private readonly options: any,
+    private readonly options: ChromiumLaunchOptions,
     private readonly ctx: ChromiumContext
   ) {}
 
@@ -572,7 +577,7 @@ export class ChromiumLaunchPlugin {
     await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
 
     try {
-      const cdpConfig: any = {
+      const cdpConfig: ChromiumPluginRuntime = {
         extension: Array.isArray(this.options.extension)
           ? this.options.extension
           : [this.options.extension],
@@ -587,13 +592,26 @@ export class ChromiumLaunchPlugin {
         logFormat: this.options.logFormat,
         logTimestamps: this.options.logTimestamps,
         logColor: this.options.logColor,
-        cdpController: undefined
+        cdpController: undefined,
+        noOpen: this.options.noOpen,
+        browserFlags: this.options.browserFlags,
+        excludeBrowserFlags: this.options.excludeBrowserFlags,
+        profile: this.options.profile,
+        preferences: this.options.preferences,
+        startingUrl: this.options.startingUrl,
+        chromiumBinary: this.options.chromiumBinary,
+        source: this.options.source,
+        watchSource: this.options.watchSource,
+        dryRun: this.options.dryRun
       }
 
       await setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
 
       if (cdpConfig.cdpController) {
-        this.ctx.setController(cdpConfig.cdpController, selectedPort)
+        this.ctx.setController(
+          cdpConfig.cdpController as CDPExtensionController,
+          selectedPort
+        )
       }
     } catch (error) {
       if (process.env.EXTENSION_ENV === 'development') {
