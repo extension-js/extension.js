@@ -2,10 +2,7 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
-import {
-  getInstallCommand,
-  installDependencies
-} from '../webpack/webpack-lib/install-dependencies'
+import {getInstallCommand, installDependencies} from '../install-dependencies'
 
 const created: string[] = []
 function makeTempDir(prefix: string) {
@@ -67,7 +64,7 @@ describe('install-dependencies', () => {
         } as any
       }
     }))
-    const mod = await import('../webpack/webpack-lib/install-dependencies')
+    const mod = await import('../install-dependencies')
     await mod.installDependencies(tmp)
     expect(fs.existsSync(path.join(tmp, 'node_modules'))).toBe(true)
   })

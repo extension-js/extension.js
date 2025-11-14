@@ -6,7 +6,7 @@ import {
   loadCustomWebpackConfig,
   loadCommandConfig,
   loadBrowserConfig
-} from '../webpack/webpack-lib/config-loader'
+} from '../webpack-lib/config-loader'
 
 const created: string[] = []
 function tmpDir(prefix: string) {
