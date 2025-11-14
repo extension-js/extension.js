@@ -4,7 +4,14 @@ import {spawnSync} from 'node:child_process'
 import {pathToFileURL} from 'node:url'
 import fs from 'node:fs'
 
-export type Browser = 'chrome' | 'edge' | 'firefox' | 'chromium'
+export type Browser =
+  | 'chrome'
+  | 'edge'
+  | 'firefox'
+  | 'chromium'
+  | 'chromium-based'
+  | 'gecko-based'
+  | 'firefox-based'
 
 export function parseOptionalBoolean(value?: string): boolean {
   if (typeof value === 'undefined') return true
@@ -114,7 +121,15 @@ export function validateVendorsOrExit(
   vendorsList: string[],
   onInvalid: (invalid: string, supported: string[]) => void
 ) {
-  const supported = ['chrome', 'edge', 'firefox', 'chromium']
+  const supported = [
+    'chrome',
+    'edge',
+    'firefox',
+    'chromium',
+    'chromium-based',
+    'gecko-based',
+    'firefox-based'
+  ]
   for (const v of vendorsList) {
     if (!supported.includes(v)) {
       onInvalid(v, supported)
