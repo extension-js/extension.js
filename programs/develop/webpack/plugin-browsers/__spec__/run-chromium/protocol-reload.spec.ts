@@ -1,5 +1,7 @@
 import {describe, it, expect, vi, afterEach} from 'vitest'
 import Module from 'module'
+vi.mock('chrome-location2', () => ({default: () => '/Applications/Chrome.app'}))
+vi.mock('chromium-location', () => ({default: () => '/Applications/Chromium.app'}))
 import {RunChromiumPlugin} from '../../run-chromium'
 
 const originalLoad = (Module as any)._load
@@ -47,7 +49,11 @@ describe('Chromium protocol reload path', () => {
     const hooks: any = {
       done: {
         tapAsync: (name: string, cb: any) =>
-          cb({compilation: {options: {mode: 'development'}}}, () => {})
+          cb({compilation: {options: {mode: 'development'}}}, () => {}),
+        tapPromise: (name: string, fn: any) =>
+          Promise.resolve(
+            fn({compilation: {options: {mode: 'development'}}})
+          )
       }
     }
     const compiler: any = {hooks}
@@ -100,6 +106,25 @@ describe('Chromium protocol reload path', () => {
               }
             },
             () => {}
+          ),
+        tapPromise: (_: string, fn: any) =>
+          Promise.resolve(
+            fn({
+              hasErrors: () => false,
+              compilation: {
+                options: {mode: 'development'},
+                assets: {
+                  'manifest.json': {
+                    source: () =>
+                      JSON.stringify({
+                        background: {
+                          service_worker: 'background/service_worker.mjs'
+                        }
+                      })
+                  }
+                }
+              }
+            })
           )
       }
     }

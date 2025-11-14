@@ -9,10 +9,11 @@ vi.mock('fs', async (orig) => {
   }
 })
 vi.mock('chrome-location2', () => ({default: () => '/Applications/Chrome.app'}))
+vi.mock('chromium-location', () => ({default: () => '/Applications/Chromium.app'}))
 vi.mock('edge-location', () => ({default: () => '/Applications/Edge.app'}))
 
 const browserConfigMock = vi.fn(() => ['--flagA'])
-vi.mock('../../run-chromium/browser-config', () => ({
+vi.mock('../../run-chromium/chromium-launch/browser-config', () => ({
   browserConfig: (...args: any[]) => browserConfigMock(...args)
 }))
 
@@ -26,6 +27,10 @@ function mkCompiler() {
           cb(
             {compilation: {options: {output: {path: '/tmp/out/chrome'}}}},
             () => {}
+          ),
+        tapPromise: (_: any, fn: any) =>
+          Promise.resolve(
+            fn({compilation: {options: {output: {path: '/tmp/out/chrome'}}}})
           )
       }
     },
