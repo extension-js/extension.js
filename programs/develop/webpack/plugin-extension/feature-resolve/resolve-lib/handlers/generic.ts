@@ -86,7 +86,18 @@ function walkCandidate(containerNode: any, onCandidateValue: (v: any) => void) {
         propertyNode.value?.type === 'ArrayExpression' ||
         propertyNode.value?.type === 'ObjectExpression'
       ) {
-        walkCandidate(propertyNode.value, onCandidateValue)
+        // Special case: nested size maps for icon paths, e.g., default_icon or path objects
+        if (
+          (key === 'default_icon' || key === 'path') &&
+          propertyNode.value?.type === 'ObjectExpression'
+        ) {
+          for (const sizeProp of propertyNode.value.properties || []) {
+            if (sizeProp.type !== 'KeyValueProperty') continue
+            onCandidateValue(sizeProp.value)
+          }
+        } else {
+          walkCandidate(propertyNode.value, onCandidateValue)
+        }
       }
     }
   }
