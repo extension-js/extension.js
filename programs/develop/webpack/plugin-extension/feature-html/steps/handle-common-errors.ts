@@ -8,10 +8,7 @@ import {
 } from '@rspack/core'
 import {getAssetsFromHtml} from '../html-lib/utils'
 import * as messages from '../html-lib/messages'
-import {
-  type FilepathList,
-  type PluginInterface
-} from '../../../webpack-types'
+import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 
 function handleCantResolveError(
   includesList: FilepathList,
