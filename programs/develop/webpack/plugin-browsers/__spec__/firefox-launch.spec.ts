@@ -1,7 +1,7 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
-import {browserConfig} from '../run-firefox/firefox/browser-config'
+import {browserConfig} from '../run-firefox/firefox-launch/browser-config'
 
 function makeCompilation(out = '/tmp/project/dist/firefox') {
   return {options: {output: {path: out}}} as any
