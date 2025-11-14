@@ -1,6 +1,5 @@
 import {type Compiler, type RuleSetRule} from '@rspack/core'
-import {PluginInterface} from '../webpack-types'
-import {type DevOptions} from '../types/options'
+import type {PluginInterface, DevOptions} from '../webpack-types'
 
 export class StaticAssetsPlugin {
   public static readonly name: string = 'plugin-static-assets'

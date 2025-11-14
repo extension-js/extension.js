@@ -13,7 +13,7 @@ import {getProjectStructure} from './webpack-lib/project'
 import * as messages from './webpack-lib/messages'
 import {installDependencies} from './webpack-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
-import {DevOptions} from './types/options'
+import type {DevOptions} from './webpack-types'
 
 // TODO cezaraugusto: move this out
 import {isUsingTypeScript} from './plugin-js-frameworks/js-tools/typescript'

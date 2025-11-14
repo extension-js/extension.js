@@ -1,6 +1,6 @@
 import * as os from 'os'
 import * as path from 'path'
-import {DevOptions} from '../../types/options'
+import type {DevOptions} from '../../webpack-types'
 import {PluginInterface} from '../browsers-types'
 
 export type NormalizedBrowser = DevOptions['browser']

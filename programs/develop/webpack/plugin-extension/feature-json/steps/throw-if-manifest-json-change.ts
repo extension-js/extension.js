@@ -1,7 +1,6 @@
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
-import {type PluginInterface} from '../../../webpack-types'
-import {DevOptions} from '../../../types/options'
 import {createRequire} from 'node:module'
+import type {PluginInterface, DevOptions} from '../../../webpack-types'
 
 function isCriticalJsonFeatureKey(key: string): boolean {
   return (

@@ -1,5 +1,5 @@
-import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../manifest-lib/paths'
+import {type Manifest} from '../../../../webpack-types'
 
 // Defines an collection of app or extension pages that are to be served
 // in a sandboxed unique origin, and optionally a Content Security Policy

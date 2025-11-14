@@ -1,9 +1,12 @@
 import * as fs from 'fs'
 import {WebpackError, sources, type Compiler, Compilation} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../html-lib/messages'
 import {getFilePath} from '../html-lib/utils'
 import {reportToCompilation} from '../html-lib/utils'
+import {
+  type FilepathList,
+  type PluginInterface
+} from '../../../webpack-types'
 
 export class EmitHtmlFile {
   public readonly manifestPath: string

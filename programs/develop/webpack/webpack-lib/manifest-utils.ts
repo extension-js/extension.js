@@ -1,5 +1,4 @@
-import {type Manifest} from '../webpack-types'
-import {DevOptions} from '../types/options'
+import type {Manifest, DevOptions} from '../webpack-types'
 
 export function filterKeysForThisBrowser(
   manifest: Manifest,

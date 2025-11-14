@@ -1,7 +1,6 @@
 import * as fs from 'fs'
 import {type Compilation} from '@rspack/core'
-import {type Manifest} from '../../../webpack-types'
-import {DevOptions} from '../../../types/options'
+import type {Manifest, DevOptions} from '../../../webpack-types'
 
 export function getManifestContent(
   compilation: Compilation,

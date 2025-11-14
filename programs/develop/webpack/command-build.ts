@@ -18,7 +18,7 @@ import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-de
 import {scrubBrand} from './webpack-lib/branding'
 import webpackConfig from './webpack-config'
 
-import {BuildOptions} from './types/options'
+import type {BuildOptions} from './webpack-types'
 
 export type BuildSummary = {
   browser: string

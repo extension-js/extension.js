@@ -1,8 +1,7 @@
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
-import {PluginInterface} from '../../../webpack-types'
-import {DevOptions} from '../../../../module'
-import {manifestHtmlEntrypointChange} from '../html-lib/messages'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
+import {manifestHtmlEntrypointChange} from '../html-lib/messages'
+import type {DevOptions, PluginInterface} from '../../../webpack-types'
 
 export class ThrowIfManifestEntryChange {
   public readonly manifestPath: string

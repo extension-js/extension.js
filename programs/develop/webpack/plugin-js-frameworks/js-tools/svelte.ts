@@ -12,9 +12,9 @@ import {
   installOptionalDependencies,
   hasDependency
 } from '../frameworks-lib/integrations'
-import {JsFramework} from '../../webpack-types'
+import type {JsFramework} from '../../webpack-types'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
-import {type DevOptions} from '../../types/options'
+import type {DevOptions} from '../../webpack-types'
 
 let userMessageDelivered = false
 
