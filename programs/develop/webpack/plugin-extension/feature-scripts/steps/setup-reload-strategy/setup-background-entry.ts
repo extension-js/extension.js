@@ -4,7 +4,7 @@ import {Compiler} from '@rspack/core'
 import * as messages from '../../scripts-lib/messages'
 import {reportToCompilation} from '../../scripts-lib/utils'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
-import {type DevOptions} from '../../../../types/options'
+import {type DevOptions} from '../../../../webpack-types'
 
 export class SetupBackgroundEntry {
   private manifestPath: string

@@ -16,7 +16,7 @@ import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
 import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {BrowsersPlugin} from './plugin-browsers'
-import {PreviewOptions} from './types/options'
+import type {PreviewOptions} from './webpack-types'
 import {scrubBrand} from './webpack-lib/branding'
 
 export async function extensionPreview(

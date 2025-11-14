@@ -3,14 +3,13 @@ import {
   type Compiler,
   type RuleSetRule
 } from '@rspack/core'
-import {DevOptions} from '../types/options'
-import {PluginInterface} from '../webpack-types'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import {isContentScriptEntry} from './css-lib/is-content-script'
+import type {DevOptions, PluginInterface} from '../webpack-types'
 
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
