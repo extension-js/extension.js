@@ -1,6 +1,7 @@
 import * as path from 'path'
 import type {Compilation, Compiler} from '@rspack/core'
 import type {ChromiumContext} from '../chromium-context'
+import * as messages from '../../browsers-lib/messages'
 
 /**
  * ChromiumHardReloadPlugin
@@ -11,6 +12,7 @@ import type {ChromiumContext} from '../chromium-context'
  */
 export class ChromiumHardReloadPlugin {
   private logger?: ReturnType<Compiler['getInfrastructureLogger']>
+  private warnedDevMode?: boolean
 
   constructor(
     private readonly options: {
@@ -126,7 +128,12 @@ export class ChromiumHardReloadPlugin {
       }
 
       this.logger?.info?.(`[reload] reloading extension (reason:${reason})`)
-      await ctrl.hardReload()
+      const ok = await ctrl.hardReload()
+
+      if (!ok && !this.warnedDevMode) {
+        this.warnedDevMode = true
+        this.logger?.warn?.(messages.chromiumDeveloperModeGuidance())
+      }
     })
   }
 

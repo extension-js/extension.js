@@ -2,7 +2,7 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
-import {browserConfig} from '../run-chromium/browser-config'
+import {browserConfig} from '../run-chromium/chromium-launch/browser-config'
 
 function makeCompilation(
   out = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
