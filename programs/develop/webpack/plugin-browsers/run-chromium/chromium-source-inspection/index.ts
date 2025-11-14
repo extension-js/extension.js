@@ -92,6 +92,18 @@ export class ChromiumSourceInspectionPlugin {
 
       await this.cdpClient.waitForLoadEvent(this.currentSessionId)
 
+      // Fast initial extract for reliability under short auto-exit windows
+      // Print immediately for --source users to see something quickly
+      try {
+        const initialHtml = await extractPageHtml(
+          this.cdpClient,
+          this.currentSessionId
+        )
+        this.printHTML(String(initialHtml || ''))
+      } catch {
+        // best-effort initial print
+      }
+
       if (process.env.EXTENSION_ENV === 'development') {
         console.log(messages.sourceInspectorWaitingForContentScripts())
       }
@@ -100,12 +112,22 @@ export class ChromiumSourceInspectionPlugin {
 
       // Extra reliable poll: wait until #extension-root with shadowRoot exists (up to ~12s)
       try {
-        const deadline = Date.now() + 12000
+        const deadline = Date.now() + 20000
 
         while (Date.now() < deadline) {
           const hasRoot = await this.cdpClient.evaluate(
             this.currentSessionId,
-            `(() => { try { const h = document.querySelector('#extension-root,[data-extension-root="true"]'); return !!(h && h.shadowRoot) } catch { return false } })()`
+            `(() => { try {
+              const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root="true"]'));
+              if (!hosts.length) return false;
+              for (const h of hosts) {
+                try {
+                  const sr = h && h.shadowRoot;
+                  if (sr && (String(sr.innerHTML||'').length > 0)) return true;
+                } catch { /* ignore */ }
+              }
+              return false;
+            } catch { return false } })()`
           )
           if (hasRoot) break
           await new Promise((r) => setTimeout(r, 300))
@@ -114,7 +136,7 @@ export class ChromiumSourceInspectionPlugin {
         // ignore
       }
 
-      // This is the real inspection data step for the user:
+      // This is the real inspection data step for the user (post-injection):
       const html = await extractPageHtml(this.cdpClient, this.currentSessionId)
 
       return html
