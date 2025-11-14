@@ -135,28 +135,34 @@ export class RunFirefoxPlugin {
     let browserBinaryLocation: string | null =
       resolveFromBinaries(compilation, 'firefox') || null
     const skipDetection = Boolean(browserBinaryLocation)
+    const engineBased =
+      this.browser === 'gecko-based' || this.browser === 'firefox-based'
     // Detect Firefox binary via firefox-location2 (parity with Chromium behavior)
     try {
       if (this.geckoBinary && typeof this.geckoBinary === 'string') {
-        browserBinaryLocation = this.geckoBinary
+        if (fs.existsSync(this.geckoBinary)) {
+          browserBinaryLocation = this.geckoBinary
+        } else {
+          console.error(messages.invalidGeckoBinaryPath(this.geckoBinary))
+          process.exit(1)
+        }
       } else if (!skipDetection) {
-        const locate = (firefoxLocation as any).default || firefoxLocation
-        browserBinaryLocation =
-          typeof locate === 'function' ? locate(true) : null
+        if (engineBased) {
+          console.error(messages.requireGeckoBinaryForGeckoBased())
+          process.exit(1)
+        } else {
+          const locate = (firefoxLocation as any).default || firefoxLocation
+          browserBinaryLocation =
+            typeof locate === 'function' ? locate(true) : null
+        }
       }
     } catch (error) {
-      // Enhance any Puppeteer install hint with a --path to our cache, then exit
-      try {
-        this.printEnhancedPuppeteerInstallHint(compilation, String(error))
-      } catch {
-        // Fallback to raw error output if enhancement fails
-        console.error(String(error))
-      }
-      if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-        throw new Error('Firefox not installed or binary path not found')
-      } else {
-        process.exit(1)
-      }
+      console.error(
+        this.geckoBinary
+          ? messages.invalidGeckoBinaryPath(this.geckoBinary)
+          : messages.requireGeckoBinaryForGeckoBased()
+      )
+      process.exit(1)
     }
 
     if (
@@ -170,24 +176,33 @@ export class RunFirefoxPlugin {
       if (fallback && fs.existsSync(fallback)) {
         browserBinaryLocation = fallback
       } else {
-        // Streamlined: show guidance and exit
-        const guidance = (() => {
-          try {
-            const f = (firefoxLocation as any)?.getInstallGuidance
-            const txt = typeof f === 'function' ? f() : ''
-            return txt && typeof txt === 'string'
-              ? txt
-              : 'npx @puppeteer/browsers install firefox'
-          } catch {
-            return 'npx @puppeteer/browsers install firefox'
-          }
-        })()
-
-        this.printEnhancedPuppeteerInstallHint(compilation, guidance)
-        if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-          throw new Error('Firefox not installed or binary path not found')
-        } else {
+        if (engineBased || this.geckoBinary) {
+          console.error(
+            this.geckoBinary
+              ? messages.invalidGeckoBinaryPath(this.geckoBinary)
+              : messages.requireGeckoBinaryForGeckoBased()
+          )
           process.exit(1)
+        } else {
+          // Streamlined: show guidance and exit
+          const guidance = (() => {
+            try {
+              const f = (firefoxLocation as any)?.getInstallGuidance
+              const txt = typeof f === 'function' ? f() : ''
+              return txt && typeof txt === 'string'
+                ? txt
+                : 'npx @puppeteer/browsers install firefox'
+            } catch {
+              return 'npx @puppeteer/browsers install firefox'
+            }
+          })()
+
+          this.printEnhancedPuppeteerInstallHint(compilation, guidance)
+          if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+            throw new Error('Firefox not installed or binary path not found')
+          } else {
+            process.exit(1)
+          }
         }
       }
     }

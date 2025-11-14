@@ -16,7 +16,10 @@ import {type DevOptions} from '../../../types/options'
  * - Optional watch mode to re-print HTML on file changes
  */
 export class ChromiumSourceInspectionPlugin {
-  private devOptions: DevOptions & {startingUrl?: string; instanceId?: string}
+  private devOptions: Pick<DevOptions, 'port' | 'source' | 'watchSource'> & {
+    startingUrl?: string
+    instanceId?: string
+  }
   private cdpClient: CDPClient | null = null
   private currentTargetId: string | null = null
   private currentSessionId: string | null = null
@@ -25,7 +28,10 @@ export class ChromiumSourceInspectionPlugin {
   private debounceTimer: NodeJS.Timeout | null = null
 
   constructor(
-    devOptions: DevOptions & {startingUrl?: string; instanceId?: string},
+    devOptions: Pick<DevOptions, 'port' | 'source' | 'watchSource'> & {
+      startingUrl?: string
+      instanceId?: string
+    },
     _ctx?: unknown
   ) {
     this.devOptions = devOptions
