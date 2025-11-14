@@ -101,6 +101,7 @@ function appendEventAndBroadcast(event: LogEvent) {
     if (buf.length > MAX_EVENTS_PER_TAB) buf.shift()
     perTabBuffers.set(event.tabId, buf)
   }
+
   // Do not mirror into background console to avoid self-noise
   // Broadcast to subscribers (e.g., sidebar)
   for (const port of subscribers) {
@@ -164,8 +165,6 @@ chrome.runtime.onConnect.addListener((port) => {
     } catch {}
   })
 })
-
-// External logging acceptance removed
 
 chrome.action.onClicked.addListener(async () => {
   try {

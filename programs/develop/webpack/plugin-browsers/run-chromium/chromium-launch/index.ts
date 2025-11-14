@@ -255,6 +255,17 @@ export class ChromiumLaunchPlugin {
 
         // Prefer explicit binary when provided
         browserBinaryLocation = this.options?.chromiumBinary || null
+        // If user provided a binary, require it to exist
+        if (this.options?.chromiumBinary) {
+          if (!fs.existsSync(String(this.options.chromiumBinary))) {
+            console.error(
+              messages.invalidChromiumBinaryPath(
+                String(this.options.chromiumBinary)
+              )
+            )
+            process.exit(1)
+          }
+        }
 
         if (!browserBinaryLocation && !skipDetection) {
           try {
@@ -345,6 +356,20 @@ export class ChromiumLaunchPlugin {
       case 'chromium-based': {
         // Prefer explicit binary; otherwise try chromium-location
         browserBinaryLocation = this.options?.chromiumBinary || null
+        // Engine-based requires explicit working binary path
+        if (this.options?.chromiumBinary) {
+          if (!fs.existsSync(String(this.options.chromiumBinary))) {
+            console.error(
+              messages.invalidChromiumBinaryPath(
+                String(this.options.chromiumBinary)
+              )
+            )
+            process.exit(1)
+          }
+        } else {
+          console.error(messages.requireChromiumBinaryForChromiumBased())
+          process.exit(1)
+        }
         if (!browserBinaryLocation && !skipDetection) {
           try {
             const loc = (chromiumLocation as any)?.default || chromiumLocation

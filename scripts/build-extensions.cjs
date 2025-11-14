@@ -57,26 +57,31 @@ function main() {
       // Ignore
     }
 
-    // Build chrome and firefox if scripts exist. Otherwise, try a generic build
-    let built = false
-    try {
-      execSync('pnpm run -s build:chrome', {cwd: extRoot, stdio: 'inherit'})
-      built = true
-    } catch {
-      // Ignore
-    }
-    try {
-      execSync('pnpm run -s build:firefox', {cwd: extRoot, stdio: 'inherit'})
-      built = true
-    } catch {
-      // Ignore
-    }
-    if (!built) {
+    // Build *all* possible targets. Do not stop after the first successful build.
+    // Try all: build:chrome, build:firefox, build:edge, build:chromium, then generic build.
+    const buildTargets = [
+      'build:chromium',
+      'build:chrome',
+      'build:firefox',
+      'build:edge',
+    ];
+    let anyBuildSucceeded = false;
+
+    for (const script of buildTargets) {
       try {
-        execSync('pnpm run -s build', {cwd: extRoot, stdio: 'inherit'})
+        execSync(`pnpm run -s ${script}`, {cwd: extRoot, stdio: 'inherit'})
+        anyBuildSucceeded = true;
       } catch {
-        // Ignore
+        // Ignore individual script failures, keep going
       }
+    }
+
+    try {
+      // Always attempt the generic build script last.
+      execSync('pnpm run -s build', {cwd: extRoot, stdio: 'inherit'})
+      anyBuildSucceeded = true;
+    } catch {
+      // Ignore
     }
 
     // Prefer src/dist first, then dist

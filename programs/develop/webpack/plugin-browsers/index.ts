@@ -107,6 +107,18 @@ export class BrowsersPlugin {
     // Dry run mode (no browser launch) for CI and diagnostics
     this.dryRun = normalized.dryRun
 
+    // Validate required binaries for engine-based selections
+    if (this.browser === 'chromium-based' && !this.chromiumBinary) {
+      throw new Error(messages.requireChromiumBinaryForChromiumBased())
+    }
+
+    if (
+      (this.browser === 'gecko-based' || this.browser === 'firefox-based') &&
+      !this.geckoBinary
+    ) {
+      throw new Error(messages.requireGeckoBinaryForGeckoBased())
+    }
+
     if (this.profile === false && process.env.EXTENSION_ENV === 'development') {
       console.warn(
         messages.profileFallbackWarning(
@@ -125,7 +137,11 @@ export class BrowsersPlugin {
       this.browser === 'chromium-based'
     ) {
       new RunChromiumPlugin(this).apply(compiler)
-    } else if (this.browser === 'firefox' || this.browser === 'gecko-based') {
+    } else if (
+      this.browser === 'firefox' ||
+      this.browser === 'gecko-based' ||
+      this.browser === 'firefox-based'
+    ) {
       new RunFirefoxPlugin(this).apply(compiler)
     } else {
       throw new Error(messages.unsupportedBrowser(String(this.browser)))

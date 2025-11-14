@@ -1,9 +1,13 @@
 import type {Command} from 'commander'
 import packageJson from '../package.json'
 import * as messages from '../cli-lib/messages'
-import {requireOrDlx, vendors, validateVendorsOrExit} from '../utils'
+import {
+  requireOrDlx,
+  vendors,
+  validateVendorsOrExit,
+  type Browser
+} from '../utils'
 
-type Browser = 'chrome' | 'edge' | 'firefox' | 'chromium'
 type BuildOptions = {
   browser?: Browser | 'all'
   polyfill?: boolean
@@ -20,8 +24,8 @@ export function registerBuildCommand(program: Command, telemetry: any) {
     .usage('build [path-to-remote-extension] [options]')
     .description('Builds the extension for production')
     .option(
-      '--browser <chrome | chromium | edge | firefox>',
-      'specify a browser to preview your extension in production mode. Defaults to `chromium`'
+      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
+      'specify a browser/engine to run. Defaults to `chromium`'
     )
     .option(
       '--polyfill [boolean]',

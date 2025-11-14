@@ -7,6 +7,7 @@ export type BrowserType =
   | 'chromium'
   | 'chromium-based'
   | 'gecko-based'
+  | 'firefox-based'
 
 export interface BrowserOptionsBase {
   noOpen?: boolean
@@ -151,11 +152,9 @@ export interface BrowserConfig extends BrowserOptionsBase {
 
 export interface FileConfig {
   browser?: {
-    chrome?: BrowserConfig
-    firefox?: BrowserConfig
-    edge?: BrowserConfig
-    'chromium-based'?: BrowserConfig
-    'gecko-based'?: BrowserConfig
+    // Allow configuration by any supported browser key
+    // (kept wide to align with BrowserType and runtime mapping)
+    [K in BrowserType]?: BrowserConfig
   }
   commands?: {
     dev?: Pick<
