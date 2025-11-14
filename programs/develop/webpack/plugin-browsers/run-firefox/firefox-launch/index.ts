@@ -19,13 +19,14 @@ import {browserConfig} from './browser-config'
 import {FirefoxBinaryDetector} from './binary-detector'
 import type {FirefoxContext} from '../firefox-context'
 import type {BrowserConfig, DevOptions} from '../../../webpack-types'
+import type {FirefoxPluginRuntime} from '../firefox-types'
 
 export class FirefoxLaunchPlugin {
-  private readonly host: any
+  private readonly host: FirefoxPluginRuntime
   private readonly ctx: FirefoxContext
   private child: ChildProcess | null = null
 
-  constructor(host: any, ctx: FirefoxContext) {
+  constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
     this.host = host
     this.ctx = ctx
   }
@@ -273,8 +274,8 @@ export class FirefoxLaunchPlugin {
         compilation,
         debugPort
       )
-      ;(this.host as any).rdpController = ctrl
-      this.ctx.setController(ctrl as any, debugPort)
+      this.host.rdpController = ctrl as unknown
+      this.ctx.setController(ctrl, debugPort)
 
       try {
         if (

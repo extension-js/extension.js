@@ -1,7 +1,7 @@
 import {describe, it, expect, vi} from 'vitest'
-import {RunFirefoxPlugin} from '../index'
+import {RunFirefoxPlugin} from '../../run-firefox'
 
-vi.mock('../remote-firefox/index', () => {
+vi.mock('../../run-firefox/remote-firefox', () => {
   class RemoteFirefox {
     public installAddons = vi.fn(async () => {})
     constructor(_: any) {}

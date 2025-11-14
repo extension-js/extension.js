@@ -1,47 +1,10 @@
 import {Compilation} from '@rspack/core'
 import {FirefoxRDPController} from '../firefox-source-inspection/rdp-extension-controller'
 import {printRunningInDevelopmentSummary} from '../firefox-source-inspection/remote-firefox/firefox-utils'
-
-type PluginLike = {
-  extension: string | string[]
-  extensionsToLoad?: string[]
-  browser: 'firefox'
-  browserFlags?: string[]
-  profile?: string | false
-  preferences?: Record<string, unknown>
-  startingUrl?: string
-  geckoBinary?: string
-  instanceId?: string
-  source?: string | boolean
-  watchSource?: boolean
-  // logging flags
-  logLevel?:
-    | 'off'
-    | 'error'
-    | 'warn'
-    | 'info'
-    | 'debug'
-    | 'trace'
-    | 'all'
-    | string
-  logContexts?: Array<
-    | 'background'
-    | 'content'
-    | 'page'
-    | 'sidebar'
-    | 'popup'
-    | 'options'
-    | 'devtools'
-  >
-  logFormat?: 'pretty' | 'json' | 'ndjson'
-  logTimestamps?: boolean
-  logColor?: boolean
-  logUrl?: string
-  logTab?: number | string
-}
+import type {FirefoxPluginLike, FirefoxPluginRuntime} from '../firefox-types'
 
 export async function setupRdpAfterLaunch(
-  plugin: PluginLike & {[k: string]: unknown},
+  plugin: FirefoxPluginRuntime & {[k: string]: unknown},
   compilation: Compilation,
   debugPort: number
 ): Promise<FirefoxRDPController> {

@@ -42,7 +42,7 @@ export default {
   plugins: [
     new BrowsersPlugin({
       extension: ['/abs/path/to/dist/chrome'],
-      browser: 'chrome', // 'edge' | 'firefox' also supported; or provide binaries
+      browser: 'chrome', // also supports 'edge' | 'firefox' | 'chromium-based' | 'gecko-based' | 'firefox-based'
       // Profile options (see Profile behavior):
       // profile: '/custom/profile/path' | false
       persistProfile: false,
@@ -81,8 +81,14 @@ export class BrowsersPlugin {
   static readonly name: 'plugin-browsers'
   constructor(options: {
     extension: string | string[]
-    browser: 'chrome' | 'edge' | 'firefox' | 'chromium-based' | 'gecko-based'
-    open?: boolean
+    browser:
+      | 'chrome'
+      | 'edge'
+      | 'firefox'
+      | 'chromium-based'
+      | 'gecko-based'
+      | 'firefox-based'
+    noOpen?: boolean
     browserFlags?: string[]
     excludeBrowserFlags?: string[]
     profile?: string | false

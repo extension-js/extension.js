@@ -12,11 +12,11 @@ vi.mock('chrome-location2', () => ({default: () => '/Applications/Chrome.app'}))
 vi.mock('edge-location', () => ({default: () => '/Applications/Edge.app'}))
 
 const browserConfigMock = vi.fn(() => ['--flagA'])
-vi.mock('../browser-config', () => ({
+vi.mock('../../run-chromium/browser-config', () => ({
   browserConfig: (...args: any[]) => browserConfigMock(...args)
 }))
 
-import {RunChromiumPlugin} from '../index'
+import {RunChromiumPlugin} from '../../run-chromium'
 
 function mkCompiler() {
   return {

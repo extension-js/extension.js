@@ -1,5 +1,5 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
-import {RemoteFirefox} from '../index'
+import {RemoteFirefox} from '../../../../../run-firefox/firefox-source-inspection/remote-firefox'
 
 function makeCompilationWithManifest(manifest: unknown) {
   return {
