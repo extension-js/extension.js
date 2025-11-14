@@ -113,6 +113,7 @@ export class ChromiumSourceInspectionPlugin {
       // Extra reliable poll: wait until #extension-root with shadowRoot exists (up to ~12s)
       try {
         const deadline = Date.now() + 20000
+        const started = Date.now()
 
         while (Date.now() < deadline) {
           const hasRoot = await this.cdpClient.evaluate(
@@ -130,7 +131,9 @@ export class ChromiumSourceInspectionPlugin {
             } catch { return false } })()`
           )
           if (hasRoot) break
-          await new Promise((r) => setTimeout(r, 300))
+          const elapsed = Date.now() - started
+          const delay = elapsed < 2000 ? 150 : 500
+          await new Promise((r) => setTimeout(r, delay))
         }
       } catch {
         // ignore
@@ -302,14 +305,93 @@ export class ChromiumSourceInspectionPlugin {
 
   // For the user: print the HTML inspection result
   printHTML(html: string) {
+    const raw = String(process.env.EXTENSION_SOURCE_RAW || '').trim()
+    const maxBytesStr = String(
+      process.env.EXTENSION_SOURCE_MAX_BYTES || ''
+    ).trim()
+
+    const maxBytes = /^\d+$/.test(maxBytesStr)
+      ? Math.max(0, parseInt(maxBytesStr, 10))
+      : 262144
+
+    const shouldPrintRaw =
+      raw === '1' || raw.toLowerCase() === 'true' || maxBytes === 0
+
+    const out = (() => {
+      if (shouldPrintRaw) return html
+
+      try {
+        const bytes = Buffer.byteLength(html || '', 'utf8')
+        if (bytes <= maxBytes) return html
+
+        // Slice by bytes to avoid cutting multi-byte characters incorrectly
+        let acc = 0
+        let endIndex = 0
+        for (let i = 0; i < html.length; i++) {
+          const b = Buffer.byteLength(html[i], 'utf8')
+          if (acc + b > maxBytes) break
+          acc += b
+          endIndex = i + 1
+        }
+        return html.slice(0, endIndex)
+      } catch {
+        return html
+      }
+    })()
+
     console.log(messages.sourceInspectorHTMLOutputHeader())
-    console.log(html)
+    console.log(out)
+    if (
+      out.length < html.length &&
+      maxBytes > 0 &&
+      !(raw === '1' || raw.toLowerCase() === 'true')
+    ) {
+      console.log(
+        messages.sourceInspectorHTMLOutputTitle(
+          `TRUNCATED - showing first ${maxBytes} bytes (set EXTENSION_SOURCE_RAW=1 or EXTENSION_SOURCE_MAX_BYTES to adjust)`
+        )
+      )
+    }
     console.log(messages.sourceInspectorHTMLOutputFooter())
   }
 
   // Only for development: print updated HTML after file change
   printUpdatedHTML(html: string) {
     if (process.env.EXTENSION_ENV !== 'development') return
+
+    const raw = String(process.env.EXTENSION_SOURCE_RAW || '').trim()
+    const maxBytesStr = String(
+      process.env.EXTENSION_SOURCE_MAX_BYTES || ''
+    ).trim()
+    const maxBytes = /^\d+$/.test(maxBytesStr)
+      ? Math.max(0, parseInt(maxBytesStr, 10))
+      : 262144
+
+    const shouldPrintRaw =
+      raw === '1' || raw.toLowerCase() === 'true' || maxBytes === 0
+
+    const out = (() => {
+      if (shouldPrintRaw) return html
+
+      try {
+        const bytes = Buffer.byteLength(html || '', 'utf8')
+        if (bytes <= maxBytes) return html
+
+        let acc = 0
+        let endIndex = 0
+
+        for (let i = 0; i < html.length; i++) {
+          const b = Buffer.byteLength(html[i], 'utf8')
+
+          if (acc + b > maxBytes) break
+          acc += b
+          endIndex = i + 1
+        }
+        return html.slice(0, endIndex)
+      } catch {
+        return html
+      }
+    })()
 
     console.log(messages.sourceInspectorHTMLOutputHeader())
     console.log(
@@ -318,7 +400,19 @@ export class ChromiumSourceInspectionPlugin {
       )
     )
     console.log(messages.sourceInspectorHTMLOutputHeader())
-    console.log(html)
+    console.log(out)
+    if (
+      out.length < html.length &&
+      maxBytes > 0 &&
+      !(raw === '1' || raw.toLowerCase() === 'true')
+    ) {
+      console.log(
+        messages.sourceInspectorHTMLOutputTitle(
+          `TRUNCATED - showing first ${maxBytes} bytes (set EXTENSION_SOURCE_RAW=1 or EXTENSION_SOURCE_MAX_BYTES to adjust)`
+        )
+      )
+    }
+
     console.log(messages.sourceInspectorHTMLOutputFooter())
   }
 
