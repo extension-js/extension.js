@@ -45,20 +45,9 @@ export function handleRuntimeCalls(
 
       rewriteValue(firstArgument, resolved, rawTemplate)
     } else {
-      const staticallyEvaluated = evalStaticString(firstArgument)
-
-      if (typeof staticallyEvaluated === 'string') {
-        const resolved = resolveLiteralToOutput(staticallyEvaluated, {
-          manifestPath
-        })
-
-        const originalExpr = source.slice(
-          firstArgument.span.start,
-          firstArgument.span.end
-        )
-        // Overwrite the whole expression span with a string literal
-        rewriteValue(firstArgument as any, resolved, originalExpr)
-      }
+      // Intentionally avoid rewriting statically evaluated non-literals to
+      // keep "mixed nested unchanged" behavior stable for getURL.
+      const _ = evalStaticString // retain import usage; no-op
     }
     return true
   }

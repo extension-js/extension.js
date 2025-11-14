@@ -23,7 +23,8 @@ export function handleDeclarativeContent(
   // console.log('[resolve-paths] method', method)
 
   if (method.endsWith('declarativeContent.SetIcon')) {
-    const optionsArgument = node.arguments?.[0]?.expression
+    const arg0 = node.arguments?.[0]
+    const optionsArgument = (arg0 && (arg0 as any).expression) || arg0
 
     if (optionsArgument?.type === 'ObjectExpression') {
       for (const propertyNode of optionsArgument.properties || []) {
