@@ -10,17 +10,20 @@ async function rm(dir: string) {
 }
 
 afterAll(async () => {
+  // Point root to the webpack directory
   const root = path.join(__dirname, '..')
-  // Guard when webpack subtree does not exist in this package variant
+
+  // Remove any temporary folders created under any __spec__ subtree
   let tmpA: string[] = []
   try {
-    if (fs.existsSync(path.join(root, 'webpack'))) {
-      tmpA = await glob('webpack/**/__spec__/.tmp-*', {cwd: root, dot: true})
-    }
+    tmpA = await glob('**/__spec__/.tmp-*', {cwd: root, dot: true})
   } catch {}
+
+  // Also clean direct .tmp-* folders at the webpack root, if any
   let tmpB: string[] = []
   try {
     tmpB = await glob('.tmp-*', {cwd: root, dot: true})
   } catch {}
+
   for (const d of [...tmpA, ...tmpB]) await rm(path.join(root, d))
 })
