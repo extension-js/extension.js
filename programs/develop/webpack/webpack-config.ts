@@ -64,9 +64,9 @@ export default function webpackConfig(
     : path.resolve(packageJsonDir, devOptions.output.path)
 
   // Build list of extensions to load in the browser.
-  // Always load the user extension; in development,
-  // also load the devtools manager for this browser when present.
-  const extensionsToLoad = [userExtensionOutputPath]
+  // Load devtools first (fallback NTP); push the user extension LAST so
+  // user overrides (like New Tab) take precedence.
+  const extensionsToLoad: string[] = []
 
   if (devOptions.mode !== 'production') {
     // Look for devtools dist mirrored by programs/develop build pipeline
