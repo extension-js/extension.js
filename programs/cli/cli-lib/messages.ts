@@ -95,8 +95,9 @@ ${'Common Options'}
 - ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
 
 ${'Source Inspection'}
-- ${code('--source')} ${arg('<url>')}                  Open URL and print HTML after content scripts inject
-- ${code('--watch-source')}                  Monitor rebuild events and print HTML on reloads
+- ${code('--source')} ${arg('<url|boolean>')}         Open URL and print HTML after content scripts inject
+  - When provided without a URL, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
+  - Watch mode is enabled by default when ${code('--source')} is present
 
 ${'Browser-Specific Options'}
 - ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
@@ -257,12 +258,13 @@ ${'Hot Module Replacement (HMR)'}
 - Service workers, _locales and manifest changes reload the extension
 
 ${'Source Inspection & Real-Time Monitoring'}
-- Use ${code('--source')} ${arg('<url>')} to inspect page HTML after content script injection
-- Use ${code('--watch-source')} to monitor real-time changes in stdout
+- Use ${code('--source')} ${arg('<url|boolean>')} to inspect page HTML after content script injection
+  - When no URL is provided, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
+  - Watch mode is enabled by default when ${code('--source')} is present
 - Automatically enables Chrome remote debugging (port 9222) when source inspection is active
-- Extracts Shadow DOM content from ${code('#extension-root')} elements
+- Extracts Shadow DOM content from ${code('#extension-root')} or ${code('[data-extension-root=\"true\"]')} elements
 - Perfect for debugging content script behavior and style injection
-- Example: ${code('extension dev --source=' + arg('https://example.com') + ' --watch-source')}
+- Example: ${code('extension dev --source=' + arg('https://example.com'))}
 
 ${'Non-Destructive Testing in CI'}
 - Prefer ${code('EXTENSION_ENV=development')} to copy local templates and avoid network.

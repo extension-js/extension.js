@@ -67,6 +67,12 @@ export async function setupUnifiedLogging(
       const context = (() => {
         const u = String(url || '')
         if (u.startsWith('chrome-extension://')) {
+          // Recognize emitted content script artefacts under extension URLs
+          if (
+            /\bcontent_scripts\/content-\d+\.js\b/i.test(u) ||
+            /\b\/content\/script/i.test(u)
+          )
+            return 'content'
           if (/\bbackground\//i.test(u) || /\bservice_worker\.js$/i.test(u))
             return 'background'
           if (/\bdevtools\//i.test(u)) return 'devtools'
@@ -123,7 +129,6 @@ export async function setupUnifiedLogging(
           if (t < cutoff) {
             recentKeys.delete(k)
           }
-          return
         }
       }
 
@@ -150,6 +155,7 @@ export async function setupUnifiedLogging(
           column: col,
           tabId: opts.tabFilter ?? undefined
         }
+
         try {
           // For both json and ndjson we print one object per line
           console.log(JSON.stringify(event))

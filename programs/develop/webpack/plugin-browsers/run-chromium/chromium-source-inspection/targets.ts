@@ -40,6 +40,13 @@ export async function ensureTargetAndSession(
     // Attach then navigate via session
     const tempSession = await cdpClient.attachToTarget(targetId)
     if (tempSession) {
+      // Enable Runtime/Log early to avoid missing initial console logs
+      try {
+        await cdpClient.enableRuntimeAndLog(String(tempSession))
+      } catch {
+        // ignore
+      }
+
       await cdpClient.navigate(String(tempSession), url)
     }
   }
@@ -56,6 +63,13 @@ export async function ensureTargetAndSession(
   }
 
   await cdpClient.sendCommand('Page.enable', {}, sessionId)
+
+  // Ensure Runtime/Log are enabled on the final session as well
+  try {
+    await cdpClient.enableRuntimeAndLog(sessionId)
+  } catch {
+    // ignore
+  }
 
   return {targetId: String(targetId), sessionId: String(sessionId)}
 }

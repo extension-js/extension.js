@@ -39,6 +39,48 @@ export async function getPageHTML(
   const mainHTML =
     typeof mainHTMLRaw === 'string' ? mainHTMLRaw : String(mainHTMLRaw || '')
 
+  // Attempt full page-context serialization with shadow content injected into a cloned document.
+  // This avoids relying on sr.innerHTML visibility nuances.
+  try {
+    const mergedHtmlRaw = await cdp.evaluate(
+      sessionId,
+      `(() => { try { 
+        var cloned = document.documentElement.cloneNode(true); 
+        var host = cloned.querySelector('#extension-root,[data-extension-root="true"]'); 
+        if (!host) { 
+          var body = cloned.querySelector('body') || cloned; 
+          var newRoot = document.createElement('div'); 
+          newRoot.id='extension-root'; 
+          body.appendChild(newRoot); 
+          host = newRoot; 
+        } 
+        var s = new XMLSerializer(); 
+        var shadow = ''; 
+        try { 
+          var liveHost = document.querySelector('[data-extension-root=\"true\"]') || document.getElementById('extension-root'); 
+          if (liveHost && liveHost.shadowRoot) { 
+            shadow = Array.from(liveHost.shadowRoot.childNodes).map(function(n){ 
+              try { return s.serializeToString(n) } catch(e){ return '' } 
+            }).join(''); 
+          } 
+        } catch(e) {} 
+        try { host.innerHTML = shadow; } catch(e) {} 
+        var doctype = document.doctype; 
+        var dt = doctype ? '<!DOCTYPE ' + doctype.name + (doctype.publicId ? ' PUBLIC \"' + doctype.publicId + '\"' : '') + (doctype.systemId ? ' \"' + doctype.systemId + '\"' : '') + '>' : ''; 
+        return String(dt + '\\n' + (cloned.outerHTML || document.documentElement.outerHTML)); 
+      } catch(e) { try { return String(document.documentElement.outerHTML); } catch(_) { return '' } } })()`
+    )
+    const mergedHtml =
+      typeof mergedHtmlRaw === 'string'
+        ? mergedHtmlRaw
+        : String(mergedHtmlRaw || '')
+    if (mergedHtml && /<html[\s>]/i.test(mergedHtml)) {
+      return mergedHtml
+    }
+  } catch {
+    // ignore best-effort page-side merge
+  }
+
   let shadowContent: unknown = ''
 
   try {
@@ -46,11 +88,32 @@ export async function getPageHTML(
       sessionId,
       `(() => {
           try {
-            const host = document.querySelector('[data-extension-root="true"]')
-            if (!host) return ''
-            const sr = host.shadowRoot
-            if (!sr) return ''
-            return sr.innerHTML
+            const hosts = Array.from(document.querySelectorAll('[data-extension-root="true"]'));
+            if (!hosts.length) return '';
+            const preferMarkers = ['iskilar_box','content_script','content_title','js-probe'];
+            let firstNonEmpty = '';
+            for (const host of hosts) {
+              try {
+                const sr = host && host.shadowRoot;
+                if (!sr) continue;
+                const html = String(sr.innerHTML || '');
+                if (html && html.length) {
+                  if (preferMarkers.some((m) => html.includes(m))) return html;
+                  if (!firstNonEmpty) firstNonEmpty = html;
+                  continue;
+                }
+                try {
+                  const parts = Array.from(sr.children)
+                    .map((n) => (n && n.outerHTML) ? String(n.outerHTML) : '')
+                    .join('');
+                  if (parts && parts.length) {
+                    if (preferMarkers.some((m) => parts.includes(m))) return parts;
+                    if (!firstNonEmpty) firstNonEmpty = parts;
+                  }
+                } catch { /* ignore */ }
+              } catch { /* ignore */ }
+            }
+            return firstNonEmpty || '';
           } catch { return '' }
         })()`
     )
@@ -125,18 +188,30 @@ export async function waitForContentScriptInjection(
   cdp: CDPClient,
   sessionId: string
 ): Promise<void> {
-  const deadline = Date.now() + 12000
+  const deadline = Date.now() + 30000
 
   while (Date.now() < deadline) {
     try {
       const injected = await cdp.evaluate(
         sessionId,
         `(() => { try {
-          const host = document.querySelector('[data-extension-root="true"]');
-          if (!host) return false;
-          const sr = host.shadowRoot; const html = sr ? String(sr.innerHTML||'') : '';
-          if (html.length > 0) return true;
-          if (html.includes('content_script')||html.includes('content_title')||html.includes('js-probe')) return true;
+          const hosts = Array.from(document.querySelectorAll('[data-extension-root="true"]'));
+          if (!hosts.length) return false;
+          const markers = ['iskilar_box','content_script','content_title','js-probe'];
+          for (const h of hosts) {
+            try {
+              const sr = h && h.shadowRoot;
+              if (!sr) continue;
+              const html = String(sr.innerHTML||'');
+              if (html.length > 0) return true;
+              if (markers.some((m) => html.includes(m))) return true;
+              try {
+                const parts = Array.from(sr.children).map((n) => (n && n.outerHTML) ? String(n.outerHTML) : '').join('');
+                if (parts && parts.length) return true;
+                if (markers.some((m) => parts.includes(m))) return true;
+              } catch { /* ignore */ }
+            } catch { /* ignore */ }
+          }
           return false;
         } catch { return false } })()`
       )
@@ -146,6 +221,6 @@ export async function waitForContentScriptInjection(
       // ignore
     }
 
-    await new Promise((r) => setTimeout(r, 250))
+    await new Promise((r) => setTimeout(r, 300))
   }
 }
