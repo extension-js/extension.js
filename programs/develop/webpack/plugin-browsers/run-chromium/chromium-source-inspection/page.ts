@@ -189,6 +189,7 @@ export async function waitForContentScriptInjection(
   sessionId: string
 ): Promise<void> {
   const deadline = Date.now() + 30000
+  const started = Date.now()
 
   while (Date.now() < deadline) {
     try {
@@ -221,6 +222,9 @@ export async function waitForContentScriptInjection(
       // ignore
     }
 
-    await new Promise((r) => setTimeout(r, 300))
+    const elapsed = Date.now() - started
+    const delay = elapsed < 2000 ? 150 : 500
+
+    await new Promise((r) => setTimeout(r, delay))
   }
 }
