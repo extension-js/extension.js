@@ -21,6 +21,16 @@ export function mergeShadowIntoDocument(
       )
     }
 
+    // Fallback: if a data-extension-root host exists, inject the merged content
+    // right after its opening tag to approximate the shadow content in the output.
+    const hostOpen = /(<[^>]*data-extension-root=(["'])true\2[^>]*>)/i
+    if (hostOpen.test(mainHTML)) {
+      return mainHTML.replace(
+        hostOpen,
+        `$1<div id="extension-root">${shadowContent}</div>`
+      )
+    }
+
     if (/<\/body>/i.test(mainHTML)) {
       return mainHTML.replace(
         /<\/body>/i,
