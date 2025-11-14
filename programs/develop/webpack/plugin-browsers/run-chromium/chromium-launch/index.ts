@@ -43,7 +43,7 @@ export class ChromiumLaunchPlugin {
             debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
           } as ReturnType<Compiler['getInfrastructureLogger']>)
 
-    compiler.hooks.done.tapAsync('chromium:launch', async (stats, done) => {
+    compiler.hooks.done.tapPromise('chromium:launch', async (stats) => {
       try {
         const hasErrors =
           typeof stats?.hasErrors === 'function'
@@ -52,12 +52,10 @@ export class ChromiumLaunchPlugin {
 
         if (hasErrors) {
           this.logger.info(messages.skippingBrowserLaunchDueToCompileErrors())
-          done()
           return
         }
 
         if (this.didLaunch) {
-          done()
           return
         }
 
@@ -71,8 +69,6 @@ export class ChromiumLaunchPlugin {
         )
       } catch {
         // fall through
-      } finally {
-        done()
       }
     })
   }

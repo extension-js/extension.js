@@ -332,66 +332,60 @@ export class ChromiumSourceInspectionPlugin {
       return
     }
 
-    compiler.hooks.done.tapAsync(
-      'setup-chrome-inspection',
-      async (stats, done) => {
-        try {
-          if (!this.isInitialized) {
-            await this.initialize()
-          }
+    compiler.hooks.done.tapPromise('setup-chrome-inspection', async (stats) => {
+      try {
+        if (!this.isInitialized) {
+          await this.initialize()
+        }
 
-          // User: to see the real inspection data,
-          // provide --source <url> or --starting-url <url>
-          let urlToInspect: string
+        // User: to see the real inspection data,
+        // provide --source <url> or --starting-url <url>
+        let urlToInspect: string
 
-          if (
-            this.devOptions.source &&
-            typeof this.devOptions.source === 'string' &&
-            this.devOptions.source !== 'true'
-          ) {
-            urlToInspect = this.devOptions.source
-          } else if (this.devOptions.startingUrl) {
-            urlToInspect = this.devOptions.startingUrl
+        if (
+          this.devOptions.source &&
+          typeof this.devOptions.source === 'string' &&
+          this.devOptions.source !== 'true'
+        ) {
+          urlToInspect = this.devOptions.source
+        } else if (this.devOptions.startingUrl) {
+          urlToInspect = this.devOptions.startingUrl
+        } else {
+          throw new Error(messages.sourceInspectorUrlRequired())
+        }
+
+        // This is the main output for the user:
+        const html = await this.inspectSource(urlToInspect)
+        this.printHTML(html)
+
+        // Watch mode is only for development
+        const webSocketServer = (compiler.options as any).webSocketServer
+
+        if (
+          this.devOptions.watchSource &&
+          process.env.EXTENSION_ENV === 'development'
+        ) {
+          if (webSocketServer) {
+            await this.startWatching(webSocketServer)
           } else {
-            throw new Error(messages.sourceInspectorUrlRequired())
-          }
-
-          // This is the main output for the user:
-          const html = await this.inspectSource(urlToInspect)
-          this.printHTML(html)
-
-          // Watch mode is only for development
-          const webSocketServer = (compiler.options as any).webSocketServer
-
-          if (
-            this.devOptions.watchSource &&
-            process.env.EXTENSION_ENV === 'development'
-          ) {
-            if (webSocketServer) {
-              this.startWatching(webSocketServer)
-            } else {
-              // Fallback: trigger re-extraction on each rebuild
-              try {
-                const updated = await this.cdpClient!.getPageHTML(
-                  this.currentSessionId!
-                )
-                this.printUpdatedHTML(updated || '')
-              } catch {
-                // ignore best-effort fallback
-              }
+            // Fallback: trigger re-extraction on each rebuild
+            try {
+              const updated = await this.cdpClient!.getPageHTML(
+                this.currentSessionId!
+              )
+              this.printUpdatedHTML(updated || '')
+            } catch {
+              // ignore best-effort fallback
             }
           }
-
-          done()
-        } catch (error) {
-          if (process.env.EXTENSION_ENV === 'development') {
-            console.error(
-              messages.sourceInspectorSetupFailed((error as Error).message)
-            )
-          }
-          done()
+        }
+      } catch (error) {
+        if (process.env.EXTENSION_ENV === 'development') {
+          console.error(
+            messages.sourceInspectorSetupFailed((error as Error).message)
+          )
         }
       }
-    )
+    })
   }
 }

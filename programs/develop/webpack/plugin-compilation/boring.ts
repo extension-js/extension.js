@@ -29,7 +29,7 @@ export class BoringPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    compiler.hooks.done.tapAsync('develop:brand', (stats, done) => {
+    compiler.hooks.done.tap('develop:brand', (stats) => {
       stats.compilation.name = undefined
       const duration = stats.compilation.endTime! - stats.compilation.startTime!
       const manifestName = readJsonFileSafe(this.manifestPath).name
@@ -37,8 +37,6 @@ export class BoringPlugin {
       // Success lines are no longer printed to console/stdout.
       // Only emit via infrastructure logger when there are errors.
       console.log(line)
-
-      done()
     })
   }
 }
