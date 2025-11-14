@@ -25,6 +25,8 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   '--no-first-run',
   // Disables client-side phishing detection
   '--disable-client-side-phishing-detection',
+  // Disable sync to keep UI minimal and avoid account prompts
+  '--disable-sync',
   // Disable some built-in extensions that aren't affected by '--disable-extensions'
   '--disable-component-extensions-with-background-pages',
   // Disable installation of default apps

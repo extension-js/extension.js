@@ -23,7 +23,7 @@ const masterPreferences = {
   // "noinstall" to disable them.  This property is usually set in the
   // master_preferences and copied into the profile preferences on first run.
   // Defaults apps are installed only when creating a new profile.
-  default_apps: 'install',
+  default_apps: 'noinstall',
   distribution: {
     // Boolean. Use alternate text for the shortcut. Cmd line override present.
     alternate_shortcut_text: false,
@@ -144,7 +144,7 @@ const masterPreferences = {
     // 3: unused, previously indicated the user wants to restore a saved session.
     // 4: restore the URLs defined in kURLsToRestoreOnStartup.
     // 5: open the New Tab Page on startup.
-    restore_on_startup: 1
+    restore_on_startup: 5
   },
   sync: {
     suppress_start: true

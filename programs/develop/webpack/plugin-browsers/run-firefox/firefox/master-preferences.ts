@@ -40,6 +40,15 @@ const masterPreferences = {
   'browser.urlbar.suggest.engines': false,
   'browser.urlbar.suggest.calculator': false,
   'browser.urlbar.suggest.recentsearches': false,
+  // New Tab: make it blank and remove feeds/search/snippets
+  'browser.newtabpage.enabled': false,
+  'browser.newtabpage.activity-stream.showSearch': false,
+  'browser.newtabpage.activity-stream.showSponsored': false,
+  'browser.newtabpage.activity-stream.feeds.topsites': false,
+  'browser.newtabpage.activity-stream.feeds.section.topstories': false,
+  'browser.newtabpage.activity-stream.feeds.snippets': false,
+  // Keep focus in the address bar on new tab
+  'browser.newtabpage.activity-stream.improvesearch.handoffToAwesomebar': true,
   'datareporting.policy.dataSubmissionEnabled': false,
   // Set the policy firstURL to an empty string to prevent the privacy
   // info page to be opened on every run. See https://github.com/mozilla/web-ext/issues/1114

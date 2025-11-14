@@ -398,6 +398,8 @@ importers:
         specifier: 5.3.3
         version: 5.3.3
 
+  extensions/extension-js-theme: {}
+
   programs/cli:
     dependencies:
       commander:

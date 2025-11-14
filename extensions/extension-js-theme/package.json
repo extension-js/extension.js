@@ -1,0 +1,12 @@
+{
+  "name": "@extension-js/theme",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Chrome theme inspired by GitHub Dark, adapted to Apple HIG dark palette with accent #1E76E6.",
+  "license": "MIT",
+  "keywords": [
+    "chrome",
+    "theme",
+    "dark"
+  ]
+}

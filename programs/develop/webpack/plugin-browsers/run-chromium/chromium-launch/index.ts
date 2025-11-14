@@ -523,10 +523,13 @@ export class ChromiumLaunchPlugin {
       ? [...this.options.extension]
       : [this.options.extension]
 
-    // Publish extension root once (first path wins)
+    // Publish extension root once (prefer the USER extension path).
+    // Since we now load devtools first and user last, pick the last string entry.
     try {
-      const first = extensionsToLoad.find((e) => typeof e === 'string')
-      if (first) this.ctx.setExtensionRoot(String(first))
+      const last = [...extensionsToLoad]
+        .reverse()
+        .find((e) => typeof e === 'string')
+      if (last) this.ctx.setExtensionRoot(String(last))
     } catch {
       // ignore
     }
