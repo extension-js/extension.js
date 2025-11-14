@@ -10,7 +10,7 @@ import {
   LogLevel,
   PluginInterface
 } from '../browsers-types'
-import {DevOptions} from '../../types/options'
+import type {DevOptions} from '../../webpack-types'
 
 export class RunChromiumPlugin {
   readonly extension: string | string[]

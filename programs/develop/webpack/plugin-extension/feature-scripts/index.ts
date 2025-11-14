@@ -1,13 +1,16 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../webpack-types'
 import {AddScripts} from './steps/add-scripts'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 // import {AddCentralizedLoggerScript} from './steps/add-centralized-logger-script'
-import {type DevOptions} from '../../types/options'
 import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
 import {ThrowIfManifestScriptsChange} from './steps/throw-if-manifest-scripts-change'
+import type {
+  FilepathList,
+  PluginInterface,
+  DevOptions
+} from '../../webpack-types'
 
 /**
  * ScriptsPlugin handles JavaScript and CSS entries declared in manifest.json.

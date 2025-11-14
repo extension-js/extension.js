@@ -1,9 +1,12 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler, Compilation, sources} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import {getFilePath} from '../html-lib/utils'
 import {patchHtml} from '../html-lib/patch-html'
+import {
+  type FilepathList,
+  type PluginInterface
+} from '../../../webpack-types'
 
 export class UpdateHtmlFile {
   public readonly manifestPath: string

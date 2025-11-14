@@ -1,6 +1,6 @@
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {LoaderInterface} from '../../../webpack-types'
+import type {LoaderInterface} from '../../../webpack-types'
 
 const schema: Schema = {
   type: 'object',

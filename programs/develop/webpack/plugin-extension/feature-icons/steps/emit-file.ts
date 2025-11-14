@@ -2,7 +2,10 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler, sources, Compilation} from '@rspack/core'
 import * as messages from '../messages'
-import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import {
+  type FilepathList,
+  type PluginInterface
+} from '../../../webpack-types'
 
 // Shared utility for reporting errors or warnings to the compilation
 function reportToCompilation(

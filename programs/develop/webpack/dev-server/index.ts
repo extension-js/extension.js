@@ -21,7 +21,7 @@ import {
   loadCustomWebpackConfig
 } from '../webpack-lib/config-loader'
 import webpackConfig from '../webpack-config'
-import {DevOptions} from '../types/options'
+import type {DevOptions} from '../webpack-types'
 
 function closeAll(devServer: RspackDevServer, portManager: PortManager) {
   devServer

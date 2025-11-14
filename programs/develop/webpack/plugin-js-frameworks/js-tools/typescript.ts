@@ -12,7 +12,7 @@ import {
   installOptionalDependencies,
   isUsingJSFramework
 } from '../frameworks-lib/integrations'
-import {type DevOptions} from '../../types/options'
+import {type DevOptions} from '../../webpack-types'
 
 let hasShownUserMessage = false
 

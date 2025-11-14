@@ -1,8 +1,11 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as htmlUtils from '../html-lib/utils'
+import {
+  type FilepathList,
+  type PluginInterface
+} from '../../../webpack-types'
 
 export class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string

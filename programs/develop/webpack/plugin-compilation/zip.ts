@@ -4,7 +4,7 @@ import AdmZip from 'adm-zip'
 import glob from 'tiny-glob'
 import ignore from 'ignore'
 import type {Compiler} from '@rspack/core'
-import {DevOptions} from '../types/options'
+import type {DevOptions} from '../webpack-types'
 
 export interface ZipPluginOptions {
   manifestPath?: string

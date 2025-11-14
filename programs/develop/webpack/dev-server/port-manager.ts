@@ -1,7 +1,7 @@
 import * as crypto from 'crypto'
 import * as net from 'net'
 import {findAvailablePortNear} from '../plugin-browsers/browsers-lib/shared-utils'
-import {DevOptions} from '../types/options'
+import type {DevOptions} from '../webpack-types'
 
 export interface PortAllocation {
   port: number

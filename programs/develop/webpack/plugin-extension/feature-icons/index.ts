@@ -2,10 +2,10 @@ import {type Compiler} from '@rspack/core'
 import {EmitFile} from './steps/emit-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfManifestIconsChange} from './steps/throw-if-manifest-icons-change'
-import {
+import type {
   ThemeIcon,
-  type FilepathList,
-  type PluginInterface
+  FilepathList,
+  PluginInterface
 } from '../../webpack-types'
 
 /**

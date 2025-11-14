@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as messages from './messages'
 import {markBannerPrinted} from './shared-state'
-import {DevOptions} from '../../types/options'
+import type {DevOptions} from '../../webpack-types'
 
 type Info = {extensionId: string; name?: string; version?: string} | null
 type HostPort = {host?: string; port?: number | string}

@@ -3,8 +3,11 @@ import * as path from 'path'
 import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'
 import * as messages from './messages'
 import {ThrowIfManifestJsonChange} from './steps/throw-if-manifest-json-change'
-import {type FilepathList, type PluginInterface} from '../../webpack-types'
-import {DevOptions} from '../../types/options'
+import type {
+  FilepathList,
+  PluginInterface,
+  DevOptions
+} from '../../webpack-types'
 
 /**
  * JsonPlugin is responsible for handling the JSON files defined

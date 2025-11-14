@@ -1,8 +1,7 @@
-import {Compilation, Compiler, WebpackError} from '@rspack/core'
-import {type PluginInterface} from '../../../webpack-types'
-import {DevOptions} from '../../../types/options'
 import {createRequire} from 'node:module'
+import {Compilation, Compiler, WebpackError} from '@rspack/core'
 import {manifestIconsEntrypointChange} from '../messages'
+import type {PluginInterface, DevOptions} from '../../../webpack-types'
 
 export class ThrowIfManifestIconsChange {
   public readonly manifestPath: string

@@ -2,8 +2,8 @@ import fs from 'fs'
 import path from 'path'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
-import {type LoaderContext} from '../../../../webpack-types'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
+import {type LoaderContext} from '../../../../webpack-types'
 
 const schema: Schema = {
   type: 'object',

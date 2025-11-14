@@ -23,7 +23,7 @@ import {BrowsersPlugin} from './plugin-browsers'
 import * as browserMessages from './plugin-browsers/browsers-lib/messages'
 
 // Types
-import {DevOptions} from './types/options'
+import type {DevOptions} from './webpack-types'
 
 export default function webpackConfig(
   projectStructure: ProjectStructure,

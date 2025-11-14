@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler, sources, Compilation} from '@rspack/core'
-import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
 import {
   getAssetsFromHtml,
@@ -14,7 +14,10 @@ import {
   resolveAbsoluteFsPath,
   reportToCompilation
 } from '../html-lib/utils'
-import * as messages from '../html-lib/messages'
+import {
+  type FilepathList,
+  type PluginInterface
+} from '../../../webpack-types'
 
 function warnRemoteResourceReferences(params: {
   compilation: Compilation

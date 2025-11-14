@@ -1,5 +1,5 @@
-import {type Manifest} from '../../../../webpack-types'
 import {getFilename} from '../../manifest-lib/paths'
+import {type Manifest} from '../../../../webpack-types'
 
 interface ContentObj {
   js?: string[] | undefined
