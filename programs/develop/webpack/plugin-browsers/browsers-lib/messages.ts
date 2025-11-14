@@ -1111,3 +1111,14 @@ export function firefoxVersion(version: string) {
 export function rdpInvalidRequestPayload() {
   return `${getLoggingPrefix('error')} Invalid RDP request payload`
 }
+
+// Chromium developer mode guidance (succinct, Vercel-like tone)
+export function chromiumDeveloperModeGuidance() {
+  const exts =
+    `${colors.underline('chrome://extensions')} (or ${colors.underline('edge://extensions')})`
+  return (
+    `${getLoggingPrefix('warn')} Configuration required\n` +
+    `Enable ${colors.yellow('Developer mode')} in ${exts} for reliable reloads.\n` +
+    `Without it, hard reloads may disable your unpacked extension.`
+  )
+}

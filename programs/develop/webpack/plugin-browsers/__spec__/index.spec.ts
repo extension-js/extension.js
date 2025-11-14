@@ -37,8 +37,8 @@ beforeEach(() => {
   lastFirefoxInspector = null
 })
 
-vi.mock('../run-firefox/remote-firefox/setup-firefox-inspection', () => {
-  class SetupFirefoxInspectionStep {
+vi.mock('../run-firefox/firefox-source-inspection', () => {
+  class FirefoxSourceInspectionPlugin {
     public opts: any
     public apply = vi.fn()
     constructor(opts: any) {
@@ -46,7 +46,7 @@ vi.mock('../run-firefox/remote-firefox/setup-firefox-inspection', () => {
       lastFirefoxInspector = this
     }
   }
-  return {SetupFirefoxInspectionStep}
+  return {FirefoxSourceInspectionPlugin}
 })
 
 // Module under test
