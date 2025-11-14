@@ -51,7 +51,7 @@ export default defineConfig({
       // Resolve Plugin Loaders
       'resolve-paths-loader': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-resolve/resolve-paths-loader.ts'
+        './webpack/plugin-extension/feature-resolve/loader/index.ts'
       )
     }
   },

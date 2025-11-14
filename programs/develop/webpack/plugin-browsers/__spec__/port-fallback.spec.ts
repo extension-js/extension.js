@@ -2,7 +2,6 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import {BrowsersPlugin} from '../index'
 
 let lastChromiumRunner: any = null
-let lastChromeInspector: any = null
 
 vi.mock('../run-chromium', () => {
   class RunChromiumPlugin {
@@ -14,18 +13,6 @@ vi.mock('../run-chromium', () => {
     }
   }
   return {RunChromiumPlugin}
-})
-
-vi.mock('../run-chromium/setup-chrome-inspection', () => {
-  class SetupChromeInspectionStep {
-    public opts: any
-    public apply = vi.fn()
-    constructor(opts: any) {
-      this.opts = opts
-      lastChromeInspector = this
-    }
-  }
-  return {SetupChromeInspectionStep}
 })
 
 afterEach(() => {

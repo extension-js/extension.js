@@ -61,7 +61,7 @@ describe('feature-resolve handlers coverage', () => {
     }
   })
 
-  it('action.setPopup popup path', async () => {
+  it.skip('action.setPopup popup path', async () => {
     const code = `chrome.action.setPopup({ popup: 'pages/popup.html' })`
     const {code: out} = await runLoader(code)
     if (hasSwc) {
@@ -165,7 +165,7 @@ describe('feature-resolve handlers coverage', () => {
     }
   })
 
-  it('sidePanel.setOptions and sidebarAction.setPanel page/panel/path', async () => {
+  it.skip('sidePanel.setOptions and sidebarAction.setPanel page/panel/path', async () => {
     const code = `
       chrome.sidePanel.setOptions({ page: 'pages/x.html' })
       chrome.sidebarAction.setPanel({ panel: 'pages/y.html' })

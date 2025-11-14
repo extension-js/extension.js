@@ -39,9 +39,12 @@ export function normalizePluginOptions(
   const geckoBinary = normalizePath(options.geckoBinary)
 
   if (chromiumBinary) {
-    browser = 'chromium'
+    // When a Chromium binary hint is provided, treat selection as engine-based
+    // to enable engine-specific behavior downstream.
+    browser = 'chromium-based'
   } else if (geckoBinary) {
-    browser = 'firefox'
+    // Same for Gecko engine-based selections.
+    browser = 'gecko-based'
   } else {
     browser = (options.browser as NormalizedBrowser) || 'chromium'
   }

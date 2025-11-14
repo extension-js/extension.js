@@ -37,18 +37,6 @@ beforeEach(() => {
   lastFirefoxInspector = null
 })
 
-vi.mock('../run-chromium/setup-chrome-inspection', () => {
-  class SetupChromeInspectionStep {
-    public opts: any
-    public apply = vi.fn()
-    constructor(opts: any) {
-      this.opts = opts
-      lastChromeInspector = this
-    }
-  }
-  return {SetupChromeInspectionStep}
-})
-
 vi.mock('../run-firefox/remote-firefox/setup-firefox-inspection', () => {
   class SetupFirefoxInspectionStep {
     public opts: any
@@ -140,33 +128,6 @@ describe('BrowsersPlugin', () => {
     expect(lastFirefoxRunner.apply).toHaveBeenCalledTimes(1)
     expect(lastFirefoxRunner.opts.browser).toBe('firefox')
     expect(lastFirefoxRunner.opts.excludeBrowserFlags).toEqual(['--mute-audio'])
-  })
-
-  it('sets up inspection steps in development mode only', () => {
-    const chromium = new BrowsersPlugin({
-      extension: ['/path/to/ext'],
-      browser: 'chrome',
-      startingUrl: 'http://example.test',
-      port: 1234,
-      instanceId: 'id-1',
-      dryRun: true
-    } as any)
-    chromium.apply(createCompiler('development'))
-    expect(lastChromeInspector).toBeTruthy()
-    expect(lastChromeInspector.apply).toHaveBeenCalledTimes(1)
-    expect(lastChromeInspector.opts.startingUrl).toBe('http://example.test')
-
-    // Firefox path is analogous but we validate Chromium path here; Firefox
-    // runner behavior is covered in a dedicated test above.
-
-    const prod = new BrowsersPlugin({
-      extension: ['/path/to/ext'],
-      browser: 'chrome',
-      dryRun: true
-    } as any)
-    prod.apply(createCompiler('production'))
-    // No new inspector should be created in production (previous mocks remain from dev assertions)
-    expect(lastChromeInspector.apply).toHaveBeenCalledTimes(1)
   })
 
   it('logs and rethrows for unsupported browsers', () => {

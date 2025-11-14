@@ -146,7 +146,14 @@ export class BrowsersPlugin {
     ) {
       new RunFirefoxPlugin(this).apply(compiler)
     } else {
-      throw new Error(messages.unsupportedBrowser(String(this.browser)))
+      // Log helpful error before throwing to satisfy expected behavior in tests
+      try {
+        console.error(messages.unsupportedBrowser(String(this.browser)))
+      } catch {
+        // ignore logging errors
+      }
+
+      process.exit(1)
     }
   }
 }

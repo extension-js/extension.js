@@ -9,7 +9,7 @@ import type {DevOptions} from '../webpack-types'
 export interface ZipPluginOptions {
   manifestPath?: string
   browser: DevOptions['browser']
-  zipData: {
+  zipData?: {
     zip?: boolean
     zipSource?: boolean
     zipFilename?: string
@@ -57,7 +57,7 @@ export class ZipPlugin {
 
   constructor(private readonly options: ZipPluginOptions) {
     this.browser = this.options.browser || 'chrome'
-    this.zipData = this.options.zipData
+    this.zipData = this.options.zipData ?? {}
   }
 
   apply(compiler: Compiler) {

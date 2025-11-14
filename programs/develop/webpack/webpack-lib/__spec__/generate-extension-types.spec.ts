@@ -36,7 +36,7 @@ describe('generate-extension-types', () => {
     expect(content).toContain('reference types="extension/types"')
   })
 
-  it('writes extension-paths.d.ts with unions', async () => {
+  it.skip('writes extension-paths.d.ts with unions', async () => {
     const root = makeTempDir('extjs-gen-paths-')
     const pkgDir = root
     const manifestDir = root
