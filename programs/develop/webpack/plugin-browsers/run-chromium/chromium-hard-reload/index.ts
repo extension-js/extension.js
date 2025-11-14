@@ -99,14 +99,13 @@ export class ChromiumHardReloadPlugin {
     }
 
     // done: apply hard reload post successful compilation
-    compiler.hooks.done.tapAsync('run-browsers:module', (stats, done) => {
+    compiler.hooks.done.tapPromise('run-browsers:module', async (stats) => {
       const hasErrors =
         typeof stats?.hasErrors === 'function'
           ? stats.hasErrors()
           : !!stats?.compilation?.errors?.length
 
       if (hasErrors) {
-        done()
         return
       }
 
@@ -114,7 +113,6 @@ export class ChromiumHardReloadPlugin {
 
       const reason = this.ctx.getPendingReloadReason()
       if (!reason) {
-        done()
         return
       }
 
@@ -122,12 +120,11 @@ export class ChromiumHardReloadPlugin {
 
       const ctrl = this.ctx.getController()
       if (!ctrl) {
-        done()
         return
       }
 
       this.logger?.info?.(`[reload] reloading extension (reason:${reason})`)
-      ctrl.hardReload().finally(done)
+      await ctrl.hardReload()
     })
   }
 
