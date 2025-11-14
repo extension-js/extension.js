@@ -111,7 +111,10 @@ export function registerDevCommand(program: Command, telemetry: any) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
-      if (devOptions.source || devOptions.watchSource) {
+      // Normalize source/watch behavior:
+      // - If --source present without URL, fall back to startingUrl or https://example.com
+      // - When --source is provided, enable watch mode by default
+      if (devOptions.source) {
         const hasExplicitSourceString =
           typeof devOptions.source === 'string' &&
           String(devOptions.source).trim().toLowerCase() !== 'true'
@@ -120,9 +123,12 @@ export function registerDevCommand(program: Command, telemetry: any) {
           typeof devOptions.startingUrl === 'string' &&
           String(devOptions.startingUrl).trim().length > 0
 
-        if (!hasExplicitSourceString && !hasStartingUrl) {
-          process.exit(1)
+        if (!hasExplicitSourceString) {
+          devOptions.source = hasStartingUrl
+            ? String(devOptions.startingUrl)
+            : 'https://example.com'
         }
+        devOptions.watchSource = true
       }
 
       const major = String(packageJson.version).split('.')[0] || '2'
