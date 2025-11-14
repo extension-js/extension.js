@@ -1,21 +1,21 @@
 import {Compilation} from '@rspack/core'
 import {MessagingClient} from './messaging-client'
 import {isErrorWithCode, requestErrorToMessage} from './message-utils'
-import {type PluginInterface} from '../../browsers-types'
-import * as messages from '../../browsers-lib/messages'
+import * as messages from '../../../browsers-lib/messages'
 import {
   printRunningInDevelopmentSummary,
   printSourceInspection
-} from '../firefox-utils'
+} from './firefox-utils'
 import {
   getAddonsActorWithRetry,
   computeCandidateAddonPaths,
   waitForManagerWelcome,
   installTemporaryAddon
 } from './addons-install'
-import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
 import {deriveMozExtensionId} from './moz-id'
+import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
 import {ensureTabForUrl, navigateTo, getPageHTML} from './source-inspect'
+import {type PluginInterface} from '../../../browsers-types'
 
 const MAX_RETRIES = 150
 const RETRY_INTERVAL = 1000

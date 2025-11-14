@@ -1,4 +1,4 @@
-import * as messages from '../browsers-lib/messages'
+import * as messages from '../../browsers-lib/messages'
 
 export function logFirefoxDryRun(
   browserBinaryLocation: string,

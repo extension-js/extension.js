@@ -1,5 +1,5 @@
 import {Compilation} from '@rspack/core'
-import {RemoteFirefox} from './remote-firefox'
+import {RemoteFirefox} from '../remote-firefox'
 
 type PluginLike = {
   extension: string | string[]
@@ -79,3 +79,6 @@ export class FirefoxRDPController {
     await this.remote.enableUnifiedLogging(opts)
   }
 }
+
+// Optional alias to match Chromium naming symmetry in types/imports
+export {FirefoxRDPController as RDPExtensionController}
