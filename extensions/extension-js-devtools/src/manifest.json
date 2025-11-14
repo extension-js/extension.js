@@ -30,6 +30,9 @@
     "chromium:service_worker": "background/index.ts",
     "firefox:scripts": ["background/index.ts"]
   },
+  "chromium:chrome_url_overrides": {
+    "newtab": "pages/newtab.html"
+  },
   "chromium:web_accessible_resources": [
     {
       "resources": ["assets/*", "scripts/*", "pages/*"],
