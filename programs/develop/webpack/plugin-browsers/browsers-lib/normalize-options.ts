@@ -1,3 +1,5 @@
+import * as os from 'os'
+import * as path from 'path'
 import {DevOptions} from '../../types/options'
 import {PluginInterface} from '../browsers-types'
 
@@ -17,9 +19,28 @@ export function normalizePluginOptions(
 ): NormalizedOptions {
   let browser: NormalizedBrowser | 'chromium' | 'firefox'
 
-  if (options.chromiumBinary) {
+  // Normalize user-provided binary paths: expand ~ and strip surrounding quotes
+  const normalizePath = (filePath?: string) => {
+    if (!filePath) return filePath
+    let normalizedPath = String(filePath).trim()
+    if (
+      (filePath.startsWith('"') && filePath.endsWith('"')) ||
+      (filePath.startsWith("'") && filePath.endsWith("'"))
+    ) {
+      filePath = filePath.slice(1, -1)
+    }
+    if (normalizedPath.startsWith('~')) {
+      normalizedPath = path.join(os.homedir(), normalizedPath.slice(1))
+    }
+    return normalizedPath
+  }
+
+  const chromiumBinary = normalizePath(options.chromiumBinary)
+  const geckoBinary = normalizePath(options.geckoBinary)
+
+  if (chromiumBinary) {
     browser = 'chromium'
-  } else if (options.geckoBinary) {
+  } else if (geckoBinary) {
     browser = 'firefox'
   } else {
     browser = (options.browser as NormalizedBrowser) || 'chromium'
@@ -58,6 +79,8 @@ export function normalizePluginOptions(
   return {
     ...options,
     browser,
+    chromiumBinary,
+    geckoBinary,
     profile,
     startingUrl,
     source,
