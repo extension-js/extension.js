@@ -2,7 +2,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cezaraugusto/extension.git",
+    "url": "https://github.com/extension-js/extension.js",
     "directory": "programs/develop"
   },
   "engines": {
