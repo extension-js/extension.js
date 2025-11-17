@@ -62,9 +62,14 @@ function normalizeLiteralPayload(value: string): string {
 }
 
 function wrapWithQuote(q: string, s: string): string {
-  // Escape occurrences of the outer quote inside the string
-  const escaped = q === "'" ? s.replace(/'/g, "\\'") : s.replace(/"/g, '\\"')
-  return `${q}${escaped}${q}`
+  // Produce a JS string literal safely using JSON.stringify, preserving the requested quote.
+  const json = JSON.stringify(String(s))
+  const wantsSingle = q === "'"
+
+  if (!wantsSingle) return json
+
+  const inner = json.slice(1, -1).replace(/'/g, "\\'")
+  return `'${inner}'`
 }
 
 function isLikelyApiContextAt(
@@ -811,11 +816,14 @@ export default async function resolvePathsLoader(this: any, source: string) {
           const q = (isQuote(before) ? before : after) as "'" | '"'
           const start = isQuote(before) ? span.start - 1 : span.start
           const end = isQuote(after) ? span.end + 1 : span.end
-          const escaped =
-            q === "'"
-              ? String(computed).replace(/'/g, "\\'")
-              : String(computed).replace(/"/g, '\\"')
-          ms.overwrite(start, end, `${q}${escaped}${q}`)
+          // Use JSON-based quoting to ensure correct escaping of control chars and slashes
+          const json = JSON.stringify(String(computed))
+          if (q === '"') {
+            ms.overwrite(start, end, json)
+          } else {
+            const inner = json.slice(1, -1).replace(/'/g, "\\'")
+            ms.overwrite(start, end, `'${inner}'`)
+          }
         } else {
           // Fallback to JSON string if we cannot safely detect surrounding quotes
           ms.overwrite(span.start, span.end, JSON.stringify(computed))
