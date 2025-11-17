@@ -1,4 +1,4 @@
-import {ChildProcess} from 'child_process'
+import {ChildProcess, spawn} from 'child_process'
 import * as messages from '../../browsers-lib/messages'
 import type {DevOptions} from '../../../webpack-types'
 
@@ -14,6 +14,20 @@ export function setupProcessSignalHandlers(
       }
 
       if (child && !child.killed) {
+        // On Windows, ensure the entire process tree is terminated.
+        // Chromium spawns multiple processes; taskkill /T /F is most reliable.
+        if (process.platform === 'win32') {
+          try {
+            spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
+              stdio: 'ignore',
+              windowsHide: true
+            }).on('error', () => {
+              // Ignore errors from taskkill
+            })
+          } catch {
+            // Ignore
+          }
+        }
         if (process.env.EXTENSION_ENV === 'development') {
           console.log(messages.enhancedProcessManagementTerminating(browser))
         }
