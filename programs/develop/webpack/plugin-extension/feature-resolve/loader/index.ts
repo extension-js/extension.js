@@ -234,11 +234,14 @@ export default async function resolvePathsLoader(this: any, source: string) {
           let start = span.start - 1
           let end = span.end + 1
           const q = before
-          const escaped =
-            q === "'"
-              ? String(computed).replace(/'/g, "\\'")
-              : String(computed).replace(/"/g, '\\"')
-          ms.overwrite(start, end, `${q}${escaped}${q}`)
+          const json = JSON.stringify(String(computed))
+
+          if (q === '"') {
+            ms.overwrite(start, end, json)
+          } else {
+            const inner = json.slice(1, -1).replace(/'/g, "\\'")
+            ms.overwrite(start, end, `'${inner}'`)
+          }
         } else {
           ms.overwrite(span.start, span.end, JSON.stringify(computed))
         }
