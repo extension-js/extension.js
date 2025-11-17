@@ -29,13 +29,15 @@ function closeAll(devServer: RspackDevServer, portManager: PortManager) {
     .then(async () => {
       // Terminate the current instance
       await portManager.terminateCurrentInstance()
-      process.exit()
+      // Allow browser plugin signal handlers to complete cleanup
+      setTimeout(() => process.exit(), 500)
     })
     .catch(async (error) => {
       console.log(messages.extensionJsRunnerError(error))
       // Still try to terminate the instance
       await portManager.terminateCurrentInstance()
-      process.exit(1)
+      // Allow browser plugin signal handlers to complete cleanup
+      setTimeout(() => process.exit(1), 500)
     })
 }
 
@@ -291,10 +293,8 @@ export async function devServer(
     await cleanup()
   }
 
-  process.removeAllListeners?.('SIGINT')
-  process.removeAllListeners?.('SIGTERM')
-  process.removeAllListeners?.('SIGHUP')
-  process.removeAllListeners?.('ERROR')
+  // Do not remove other listeners; let browser plugins receive signals too.
+  // Register our cleanup alongside theirs so Ctrl+C terminates the browser.
   process.on('ERROR', cancelAndCleanup)
   process.on('SIGINT', cancelAndCleanup)
   process.on('SIGTERM', cancelAndCleanup)
