@@ -87,7 +87,7 @@ describe('webpack/command-preview', () => {
     vi.restoreAllMocks()
   })
 
-  it('creates default output directory and runs only browser runner plugins', async () => {
+  it('falls back to manifest directory when dist/<browser> lacks manifest.json and does not create dist', async () => {
     const compiler = {
       run: (cb: any) => cb(null, {hasErrors: () => false}),
       close: (cb: any) => cb?.()
@@ -96,13 +96,34 @@ describe('webpack/command-preview', () => {
 
     await extensionPreview('/proj', {browser: 'chrome'} as any)
 
-    // Ensured output path is created under dist/<browser>
+    // With no dist manifest.json, preview should NOT create dist/<browser>
+    expect(fs.mkdirSync).not.toHaveBeenCalled()
+
+    // rspack received merged config (indirect), but the filtered plugins were passed to user config
+    expect((rspackMod as any).rspack).toHaveBeenCalledTimes(1)
+  })
+
+  it('uses dist/<browser> when dist manifest exists and creates dist directory if missing', async () => {
+    const compiler = {
+      run: (cb: any) => cb(null, {hasErrors: () => false}),
+      close: (cb: any) => cb?.()
+    }
+    ;(rspackMod as any).rspack.mockReturnValue(compiler)
+
+    // preferDist => true when dist/chrome/manifest.json exists
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      if (p === path.join('/proj', 'dist', 'chrome')) return false
+      return false
+    })
+
+    await extensionPreview('/proj', {browser: 'chrome'} as any)
+
     expect(fs.mkdirSync).toHaveBeenCalledWith(
       path.join('/proj', 'dist', 'chrome'),
       {recursive: true}
     )
-
-    // rspack received merged config (indirect), but the filtered plugins were passed to user config
     expect((rspackMod as any).rspack).toHaveBeenCalledTimes(1)
   })
 
