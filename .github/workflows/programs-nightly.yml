@@ -1,4 +1,4 @@
-name: Templates (Nightly)
+name: CI – Templates Nightly
 
 on:
   schedule:

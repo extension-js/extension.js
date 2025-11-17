@@ -1,4 +1,4 @@
-name: Publish – Next
+name: Release – Next
 
 on:
   workflow_dispatch:
@@ -188,13 +188,13 @@ jobs:
         run: |
           CONTENT=$(sed -e 's/"/\\"/g' -e 's/\r//g' aggregated.md | sed -e 's/extension-develop/Extension.js/g' | head -c 3900 || true)
           if [ -z "$CONTENT" ]; then
-            CONTENT="Canary v$VERSION is live on npm — Extension.js."
+            CONTENT="Next v$VERSION is live on npm — Extension.js."
           fi
           cat > payload.json << JSON
           {
             "username": "Extension.js Release",
             "embeds": [{
-              "title": "v$VERSION – Canary",
+              "title": "v$VERSION – Next",
               "url": "https://github.com/${GITHUB_REPOSITORY}/releases/tag/v$VERSION",
               "color": 5763719,
               "description": "$CONTENT",
