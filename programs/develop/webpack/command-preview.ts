@@ -38,17 +38,30 @@ export async function extensionPreview(
     : manifestDir
   const distPath = path.join(packageJsonDir, 'dist', previewOptions.browser)
 
-  // Output path defaults to extensionPreview config.
-  // The start command will use the build directory.
-  // The preview command will use the build directory if it exists,
-  // otherwise it will use the project path.
-  // This is useful for remote packages that don't have a build directory.
-  // but are ready for manual browser testing.
-  // Enforce parity: always preview from dist/<browser> and create it if missing
-  const outputPath = previewOptions.outputPath || distPath
+  // Output path resolution:
+  // - If user provided an explicit outputPath, honor it.
+  // - Else, if dist/<browser>/manifest.json exists, load from there.
+  // - Else, load directly from the manifest directory (useful for remote ZIPs
+  //   that are already built artifacts without a node project or dist folder).
+  const preferDist = (() => {
+    try {
+      return fs.existsSync(path.join(distPath, 'manifest.json'))
+    } catch {
+      return false
+    }
+  })()
 
+  const outputPath =
+    previewOptions.outputPath ||
+    (projectStructure.packageJsonPath
+      ? preferDist
+        ? distPath
+        : manifestDir
+      : manifestDir)
+
+  // Only create the directory if we are targeting dist; avoid creating empty folders
   try {
-    if (!fs.existsSync(outputPath)) {
+    if (outputPath === distPath && !fs.existsSync(outputPath)) {
       fs.mkdirSync(outputPath, {recursive: true})
     }
   } catch {
