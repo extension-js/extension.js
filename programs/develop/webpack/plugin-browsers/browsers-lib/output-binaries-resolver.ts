@@ -2,6 +2,58 @@ import * as fs from 'fs'
 import * as path from 'path'
 import type {Compilation} from '@rspack/core'
 
+function computeSharedCacheRoot(): string {
+  // Highest priority: explicit override
+  const explicit = String(process.env.EXT_BROWSERS_CACHE_DIR || '').trim()
+  if (explicit) return path.resolve(explicit)
+
+  // Respect XDG cache on Linux
+  const isWin = process.platform === 'win32'
+  const isMac = process.platform === 'darwin'
+
+  if (isWin) {
+    const local = String(process.env.LOCALAPPDATA || '').trim()
+    if (local) return path.join(local, 'extension.js', 'browsers')
+
+    const userProfile = String(process.env.USERPROFILE || '').trim()
+
+    if (userProfile) {
+      return path.join(
+        userProfile,
+        'AppData',
+        'Local',
+        'extension.js',
+        'browsers'
+      )
+    }
+    // Fallback to cwd if envs are missing (rare)
+    return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+  }
+
+  if (isMac) {
+    const home = String(process.env.HOME || '').trim()
+
+    if (home) {
+      return path.join(home, 'Library', 'Caches', 'extension.js', 'browsers')
+    }
+
+    return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+  }
+
+  // Linux / others
+  const xdg = String(process.env.XDG_CACHE_HOME || '').trim()
+
+  if (xdg) return path.join(xdg, 'extension.js', 'browsers')
+
+  const home = String(process.env.HOME || '').trim()
+
+  if (home) {
+    return path.join(home, '.cache', 'extension.js', 'browsers')
+  }
+
+  return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+}
+
 export function getCompilationOutputPath(compilation: Compilation): string {
   try {
     return (
@@ -13,6 +65,12 @@ export function getCompilationOutputPath(compilation: Compilation): string {
 }
 
 export function computeBinariesBaseDir(compilation: Compilation) {
+  // New default: per-user shared cache
+  if (process.env.EXTENSIONJS_BINARIES_IN_DIST !== '1') {
+    return computeSharedCacheRoot()
+  }
+
+  // Legacy fallback: project dist
   const outputDir = getCompilationOutputPath(compilation)
 
   if (outputDir) {

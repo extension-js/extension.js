@@ -433,16 +433,35 @@ export function prettyPuppeteerInstallGuidance(
     // ignore expansion errors
   }
 
-  // Inject --path "<cacheDir>" into Puppeteer install commands if not present
+  // Normalize browser subdir for our binaries layout (shared across installers)
+  let browserNorm = ''
+
+  if (browser === 'chromium-based') browserNorm = 'chromium'
+  if (browser === 'gecko-based') browserNorm = 'firefox'
+  if (
+    browser === 'chrome' ||
+    browser === 'chromium' ||
+    browser === 'firefox' ||
+    browser === 'edge'
+  ) {
+    browserNorm = browser
+  }
+  // default to chrome for unknown
+  browserNorm = 'chromium'
+
+  const finalCachePath =
+    browserNorm && cacheDir ? path.join(cacheDir, browserNorm) : cacheDir
+
+  // Inject install destinations for Puppeteer/Playwright to land in our cache
   try {
-    if (cacheDir && cacheDir.trim().length > 0) {
+    if (finalCachePath && finalCachePath.trim().length > 0) {
       const lines = cleaned.split(/\r?\n/)
       // Puppeteer path injection
       const idx = lines.findIndex((l) =>
         /npx\s+@puppeteer\/browsers\s+install\s+/i.test(l)
       )
       if (idx !== -1 && !/--path\s+/i.test(lines[idx])) {
-        lines[idx] = `${lines[idx].trim()} --path "${cacheDir}"`
+        lines[idx] = `${lines[idx].trim()} --path "${finalCachePath}"`
         cleaned = lines.join('\n')
       }
       // Playwright custom install dir via PLAYWRIGHT_BROWSERS_PATH
@@ -452,32 +471,12 @@ export function prettyPuppeteerInstallGuidance(
         )
 
         if (pwIdx !== -1) {
-          // Normalize browser subdir for our binaries layout
-          const browserNorm = (() => {
-            const b = String(browser || '').toLowerCase()
-            if (b === 'chromium-based') return 'chromium'
-            if (b === 'gecko-based') return 'firefox'
-            if (
-              b === 'chrome' ||
-              b === 'chromium' ||
-              b === 'firefox' ||
-              b === 'edge'
-            )
-              return b
-            // default to chrome for unknown
-            return 'chrome'
-          })()
-          const finalPath =
-            browserNorm && cacheDir
-              ? path.join(cacheDir, browserNorm)
-              : cacheDir
-
-          if (finalPath && finalPath.trim().length > 0) {
+          if (finalCachePath && finalCachePath.trim().length > 0) {
             const cmd = lines[pwIdx].trim()
             const withEnv =
               process.platform === 'win32'
-                ? `set PLAYWRIGHT_BROWSERS_PATH="${finalPath}" && ${cmd}`
-                : `PLAYWRIGHT_BROWSERS_PATH="${finalPath}" ${cmd}`
+                ? `set PLAYWRIGHT_BROWSERS_PATH="${finalCachePath}" && ${cmd}`
+                : `PLAYWRIGHT_BROWSERS_PATH="${finalCachePath}" ${cmd}`
             lines[pwIdx] = withEnv
             cleaned = lines.join('\n')
           }
@@ -491,8 +490,8 @@ export function prettyPuppeteerInstallGuidance(
   }
 
   body.push(cleaned)
-  if (cacheDir) {
-    body.push(`${dim('INSTALL PATH')} ${colors.underline(cacheDir)}`)
+  if (finalCachePath) {
+    body.push(`${dim('INSTALL PATH')} ${colors.underline(finalCachePath)}`)
   }
   return body.join('\n') + '\n'
 }
