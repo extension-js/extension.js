@@ -2,103 +2,85 @@ const fs = require('fs')
 const path = require('path')
 const {execSync} = require('child_process')
 
-function copyDir(src, dest) {
-  if (!fs.existsSync(src)) return
-  if (!fs.existsSync(dest)) fs.mkdirSync(dest, {recursive: true})
-
-  const entries = fs.readdirSync(src, {withFileTypes: true})
-
-  for (const entry of entries) {
-    const srcPath = path.join(src, entry.name)
-    const destPath = path.join(dest, entry.name)
-
-    if (entry.isDirectory()) {
-      copyDir(srcPath, destPath)
-    } else if (entry.isSymbolicLink()) {
-      try {
-        const real = fs.realpathSync(srcPath)
-        const data = fs.readFileSync(real)
-        fs.writeFileSync(destPath, data)
-      } catch {
-        // Ignore
-      }
-    } else {
-      fs.copyFileSync(srcPath, destPath)
-    }
-  }
-}
-
 function main() {
   const root = path.resolve(__dirname, '..')
-  const extensionsDir = path.join(root, 'extensions')
-  const developDistRoot = path.join(root, 'programs', 'develop', 'dist')
+  const src = path.join(
+    root,
+    'extensions',
+    'extension-js-devtools',
+    'dist'
+  )
+  const dest = path.join(
+    root,
+    'programs',
+    'develop',
+    'dist',
+    'extension-js-devtools'
+  )
 
-  if (!fs.existsSync(extensionsDir)) return
-  const entries = fs.readdirSync(extensionsDir, {withFileTypes: true})
+  const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue
-    const extName = entry.name
-    const extRoot = path.join(extensionsDir, extName)
-
-    // Skip folders without package.json
-    const pkgJson = path.join(extRoot, 'package.json')
-    if (!fs.existsSync(pkgJson)) continue
-
+  // Build devtools if dist is missing, then try to copy again
+  if (!fs.existsSync(src)) {
     try {
-      const nodeModules = path.join(extRoot, 'node_modules')
-      const needsInstall =
-        !fs.existsSync(nodeModules) ||
-        (fs.existsSync(nodeModules) && fs.readdirSync(nodeModules).length === 0)
-      if (needsInstall) {
-        execSync('pnpm install --silent', {cwd: extRoot, stdio: 'inherit'})
+      const devtoolsRoot = path.join(
+        root,
+        'extensions',
+        'extension-js-devtools'
+      )
+      if (fs.existsSync(devtoolsRoot)) {
+        if (verbose) {
+          console.log(
+            '[Extension.js] Devtools dist missing. Attempting to build devtools…'
+          )
+        }
+        // Ensure dependencies
+        const nodeModules = path.join(devtoolsRoot, 'node_modules')
+        const needsInstall =
+          !fs.existsSync(nodeModules) ||
+          (fs.existsSync(nodeModules) &&
+            fs.readdirSync(nodeModules).length === 0)
+        if (needsInstall) {
+          execSync('pnpm install --silent', {
+            cwd: devtoolsRoot,
+            stdio: verbose ? 'inherit' : 'ignore'
+          })
+        }
+        // Build all targets we know about; ignore failures for any individual one
+        const targets = ['build:chromium', 'build:chrome', 'build:firefox', 'build:edge']
+        for (const script of targets) {
+          try {
+            execSync(`pnpm run -s ${script}`, {
+              cwd: devtoolsRoot,
+              stdio: verbose ? 'inherit' : 'ignore'
+            })
+          } catch {
+            // ignore
+          }
+        }
       }
     } catch {
-      // Ignore
-    }
-
-    // Build *all* possible targets. Do not stop after the first successful build.
-    // Try all: build:chrome, build:firefox, build:edge, build:chromium, then generic build.
-    const buildTargets = [
-      'build:chromium',
-      'build:chrome',
-      'build:firefox',
-      'build:edge',
-    ];
-    let anyBuildSucceeded = false;
-
-    for (const script of buildTargets) {
-      try {
-        execSync(`pnpm run -s ${script}`, {cwd: extRoot, stdio: 'inherit'})
-        anyBuildSucceeded = true;
-      } catch {
-        // Ignore individual script failures, keep going
-      }
-    }
-
-    try {
-      // Always attempt the generic build script last.
-      execSync('pnpm run -s build', {cwd: extRoot, stdio: 'inherit'})
-      anyBuildSucceeded = true;
-    } catch {
-      // Ignore
-    }
-
-    // Prefer src/dist first, then dist
-    const extensionDistDir = path.join(extRoot, 'dist')
-    if (!fs.existsSync(extensionDistDir)) continue
-
-    const targets = [ 'chromium','chrome', 'edge', 'firefox']
-
-    for (const browser of targets) {
-      const src = path.join(extensionDistDir, browser)
-
-      if (!fs.existsSync(src)) continue
-
-      const dest = path.join(developDistRoot, extName, browser)
-      copyDir(src, dest)
+      // ignore build issues; copy will be skipped if still missing
     }
   }
+
+  if (!fs.existsSync(src)) {
+    if (verbose) {
+      console.warn(
+        '[Extension.js] Devtools dist still missing after postcompile. Skipping mirror.'
+      )
+    }
+    return
+  }
+
+  try {
+    // Reset destination
+    fs.rmSync(dest, {recursive: true, force: true})
+  } catch {}
+
+  fs.mkdirSync(dest, {recursive: true})
+  // Node 18+: fast recursive copy
+  fs.cpSync(src, dest, {recursive: true, force: true})
 }
 
 main()

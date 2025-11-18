@@ -9,7 +9,7 @@
     "programs/*"
   ],
   "scripts": {
-    "compile": "dotenv -- turbo run compile",
+    "compile": "dotenv -- turbo run compile || pnpm -r --filter ./programs/* run compile",
     "extension": "dotenv -- node programs/cli/dist/cli.js",
     "watch": "cross-env EXTENSION_DEV_NO_BROWSER=1 pnpm compile && cross-env EXTENSION_DEV_NO_BROWSER=1 dotenv -- turbo run watch --filter=./programs/* --concurrency=5",
     "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
