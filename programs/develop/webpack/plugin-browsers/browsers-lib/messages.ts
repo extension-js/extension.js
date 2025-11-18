@@ -434,11 +434,12 @@ export function prettyPuppeteerInstallGuidance(
   }
 
   // Normalize browser subdir for our binaries layout (shared across installers)
-  let browserNorm = ''
-
-  if (browser === 'chromium-based') browserNorm = 'chromium'
-  if (browser === 'gecko-based') browserNorm = 'firefox'
-  if (
+  let browserNorm = 'chromium'
+  if (browser === 'chromium-based') {
+    browserNorm = 'chromium'
+  } else if (browser === 'gecko-based') {
+    browserNorm = 'firefox'
+  } else if (
     browser === 'chrome' ||
     browser === 'chromium' ||
     browser === 'firefox' ||
@@ -446,8 +447,6 @@ export function prettyPuppeteerInstallGuidance(
   ) {
     browserNorm = browser
   }
-  // default to chrome for unknown
-  browserNorm = 'chromium'
 
   const finalCachePath =
     browserNorm && cacheDir ? path.join(cacheDir, browserNorm) : cacheDir
