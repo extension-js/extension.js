@@ -95,11 +95,16 @@ export async function handleFirstRun() {
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
   const extensionsPage = isFirefox ? 'about:addons' : `${scheme}://extensions/`
 
-  // For Chromium/Edge, send user to the extensions page immediately.
-  // On Firefox, we'll prefer opening our welcome page first and add
-  // the addons manager in the background below.
-  if (!isFirefox) {
-    chrome.tabs.update({url: extensionsPage})
+  // Capture the current active tab id so we can repurpose it (Chromium/Edge)
+  // after opening the welcome tab in front.
+  let originalActiveTabId: number | undefined
+  try {
+    chrome.tabs.query({active: true, currentWindow: true}, (tabs) => {
+      const tab = Array.isArray(tabs) ? tabs[0] : undefined
+      if (tab && typeof tab.id === 'number') originalActiveTabId = tab.id
+    })
+  } catch {
+    console.error('Error querying active tab')
   }
 
   let devExtension: chrome.management.ExtensionInfo | undefined
@@ -153,6 +158,22 @@ export async function handleFirstRun() {
           } else {
             // Chromium/Edge: open welcome page as the active tab
             chrome.tabs.create({url: welcomeUrl, active: true})
+
+            // Then update the original active tab to the extensions page
+            // in the background (avoid stealing focus on Edge).
+            try {
+              if (typeof originalActiveTabId === 'number') {
+                try {
+                  chrome.tabs.update(originalActiveTabId, {
+                    url: extensionsPage
+                  })
+                } catch {
+                  console.error('Error updating original active tab')
+                }
+              }
+            } catch {
+              console.error('Error updating original active tab')
+            }
           }
         } catch {
           // Fallback to relative URL if runtime URL resolution fails
