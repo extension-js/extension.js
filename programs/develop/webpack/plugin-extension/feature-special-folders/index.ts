@@ -2,6 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler, type Compilation, rspack} from '@rspack/core'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
+import * as messages from './messages'
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
@@ -74,6 +75,15 @@ export class SpecialFoldersPlugin {
           }
         ]
       }).apply(compiler)
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(
+          messages.specialFoldersSetupSummary(
+            true,
+            true,
+            ['**/manifest.json'].length
+          )
+        )
+      }
     }
 
     if (compiler.options.mode === 'development') {

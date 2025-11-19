@@ -3,6 +3,7 @@ import * as path from 'path'
 import {Compiler, Compilation, DefinePlugin, sources} from '@rspack/core'
 import * as dotenv from 'dotenv'
 import type {PluginInterface, DevOptions} from '../webpack-types'
+import * as messages from './compilation-lib/messages'
 
 export class EnvPlugin {
   public readonly browser: DevOptions['browser']
@@ -37,6 +38,10 @@ export class EnvPlugin {
         envPath = filePath
         break
       }
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.envSelectedFile(envPath))
     }
 
     // Load the .env file manually and filter variables prefixed with 'EXTENSION_PUBLIC_'
@@ -96,6 +101,14 @@ export class EnvPlugin {
     filteredEnvVars['import.meta.env.BROWSER'] = JSON.stringify(this.browser)
     filteredEnvVars['process.env.MODE'] = JSON.stringify(mode)
     filteredEnvVars['import.meta.env.MODE'] = JSON.stringify(mode)
+
+    const injectedCount = Object.keys(filteredEnvVars).filter((k) =>
+      k.startsWith('process.env.EXTENSION_PUBLIC_')
+    ).length
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.envInjectedPublicVars(injectedCount))
+    }
 
     // Apply DefinePlugin to expose filtered variables
     new DefinePlugin(filteredEnvVars).apply(compiler)

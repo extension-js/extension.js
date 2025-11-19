@@ -4,6 +4,7 @@ import AdmZip from 'adm-zip'
 import glob from 'tiny-glob'
 import ignore from 'ignore'
 import type {Compiler} from '@rspack/core'
+import * as messages from '../webpack-lib/messages'
 import type {DevOptions} from '../webpack-types'
 
 export interface ZipPluginOptions {
@@ -65,6 +66,7 @@ export class ZipPlugin {
       if (!(this.zipData.zip || this.zipData.zipSource)) return
 
       try {
+        const created: Array<{kind: 'source' | 'dist'; path: string}> = []
         // Try to read manifest name/version from output (dist)
         // Use output.path for outDir instead of assuming dist/browser
         const outPath = compiler.options.output?.path as string
@@ -100,7 +102,12 @@ export class ZipPlugin {
             path.dirname(outPath),
             `${name}-source.zip`
           )
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            console.log(messages.packagingSourceFiles(sourcePath))
+          }
+
           sourceZip.writeZip(sourcePath)
+          created.push({kind: 'source', path: sourcePath})
         }
 
         if (this.zipData.zip) {
@@ -111,7 +118,45 @@ export class ZipPlugin {
             : name
           const distPath = path.join(outPath, `${filename}.zip`)
 
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            console.log(messages.packagingDistributionFiles(distPath))
+          }
           distZip.writeZip(distPath)
+          created.push({kind: 'dist', path: distPath})
+        }
+        // After writing zips, emit a single summary (author mode)
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          const sourceItem = created.find((c) => c.kind === 'source')
+          const distItem = created.find((c) => c.kind === 'dist')
+
+          if (sourceItem && distItem) {
+            console.log(
+              messages.treeWithSourceAndDistFiles(
+                this.browser,
+                name,
+                sourceItem.path,
+                distItem.path
+              )
+            )
+          } else if (sourceItem) {
+            console.log(
+              messages.treeWithSourceFiles(
+                name,
+                'zip',
+                this.browser,
+                sourceItem.path
+              )
+            )
+          } else if (distItem) {
+            console.log(
+              messages.treeWithDistFilesbrowser(
+                name,
+                'zip',
+                this.browser,
+                distItem.path
+              )
+            )
+          }
         }
       } catch (error) {
         // Surface error in build output but do not crash dev builds

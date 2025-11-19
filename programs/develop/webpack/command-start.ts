@@ -20,7 +20,7 @@ export async function extensionStart(
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
-    const debug = process.env.EXTENSION_ENV === 'development'
+    const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const browser = normalizeBrowser(
       startOptions.browser || 'chrome',
       startOptions.chromiumBinary,
@@ -61,7 +61,7 @@ export async function extensionStart(
       outputPath: distPath
     })
   } catch (error) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.error(error)
     }
     process.exit(1)

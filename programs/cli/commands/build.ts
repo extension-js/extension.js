@@ -47,10 +47,19 @@ export function registerBuildCommand(program: Command, telemetry: any) {
       '--silent [boolean]',
       'whether or not to open the browser automatically. Defaults to `false`'
     )
+    .option(
+      '--author, --author-mode',
+      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+    )
     .action(async function (
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...buildOptions}: BuildOptions
     ) {
+      if ((buildOptions as any).author || (buildOptions as any)['authorMode']) {
+        process.env.EXTENSION_AUTHOR_MODE = 'true'
+        if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
+      }
+
       const cmdStart = Date.now()
       telemetry.track('cli_command_start', {
         command: 'build',

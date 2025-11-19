@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
+import * as messages from '../messages'
 
 export class AddDependencies {
   private readonly dependencyList: string[]
@@ -33,6 +34,15 @@ export class AddDependencies {
               }
             }
           })
+        }
+
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          const added = Array.isArray(this.dependencyList)
+            ? this.dependencyList.length
+            : 0
+          // Lazy import path from steps/ -> parent dir
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          console.log(messages.manifestDepsTracked(added))
         }
       }
     )

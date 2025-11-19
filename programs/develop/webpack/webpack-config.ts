@@ -51,7 +51,7 @@ export default function webpackConfig(
     devOptions.browser,
     userExtensionOutputPath
   )
-  const debug = process.env.EXTENSION_ENV === 'development'
+  const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   if (debug) {
     console.log(

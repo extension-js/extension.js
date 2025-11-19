@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import {type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import * as messages from '../messages'
 
 export class AddToFileDependencies {
   public readonly manifestPath: string
@@ -24,6 +25,7 @@ export class AddToFileDependencies {
             if (compilation.errors?.length) return
 
             const iconFields = this.includeList || {}
+            let added = 0
 
             for (const field of Object.entries(iconFields)) {
               const [, resource] = field
@@ -66,10 +68,15 @@ export class AddToFileDependencies {
                     if (!fileDependencies.has(entry)) {
                       fileDependencies.add(entry)
                       compilation.fileDependencies.add(entry)
+                      added++
                     }
                   }
                 }
               }
+            }
+
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(messages.iconsDepsTracked(added))
             }
           }
         )

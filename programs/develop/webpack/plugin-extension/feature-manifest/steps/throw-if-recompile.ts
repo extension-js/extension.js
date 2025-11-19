@@ -119,6 +119,12 @@ export class ThrowIfRecompileIsNeeded {
             const fileAdded = this.pendingChange.fileAdded
             const fileRemoved = this.pendingChange.fileRemoved
 
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.manifestRecompileDetected(fileAdded, fileRemoved)
+              )
+            }
+
             const manifestEntrypointChangeWarning = new WebpackError(
               messages.serverRestartRequiredFromManifestError(
                 fileAdded || '',

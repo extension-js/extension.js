@@ -254,7 +254,7 @@ export async function isUsingExperimentalConfig(projectPath: string) {
 
   if (configPath) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingExperimentalConfig('extension.config.js'))
       }
       userMessageDelivered = true

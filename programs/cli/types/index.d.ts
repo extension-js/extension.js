@@ -22,6 +22,8 @@ interface ExtensionEnv {
   EXTENSION_PUBLIC_DESCRIPTION_TEXT: string
   EXTENSION_PUBLIC_OPENAI_API_KEY: string
   EXTENSION_ENV: ExtensionMode
+  EXTENSION_AUTHOR_MODE: string
+  EXTENSION_PUBLIC_AUTHOR_MODE: string
 }
 
 // Global augmentations

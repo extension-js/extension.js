@@ -24,7 +24,7 @@ export async function extensionDev(
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
-    const debug = process.env.EXTENSION_ENV === 'development'
+    const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     if (isUsingTypeScript(manifestDir)) {

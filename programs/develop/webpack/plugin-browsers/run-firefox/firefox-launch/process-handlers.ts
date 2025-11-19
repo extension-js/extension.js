@@ -13,7 +13,7 @@ export function setupFirefoxProcessHandlers(
     isCleaningUp = true
 
     try {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.enhancedProcessManagementCleanup(browser))
       }
 
@@ -35,14 +35,14 @@ export function setupFirefoxProcessHandlers(
           }
         }
 
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(messages.enhancedProcessManagementTerminating(browser))
         }
         child.kill('SIGTERM')
 
         setTimeout(() => {
           if (child && !child.killed) {
-            if (process.env.EXTENSION_ENV === 'development') {
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
               console.log(messages.enhancedProcessManagementForceKill(browser))
             }
             child.kill('SIGKILL')

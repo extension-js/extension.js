@@ -88,10 +88,19 @@ export function registerDevCommand(program: Command, telemetry: any) {
       '--source [url]',
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
     )
+    .option(
+      '--author, --author-mode',
+      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+    )
     .action(async function (
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...devOptions}: DevOptions
     ) {
+      if ((devOptions as any).author || (devOptions as any)['authorMode']) {
+        process.env.EXTENSION_AUTHOR_MODE = 'true'
+        if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
+      }
+
       const cmdStart = Date.now()
       telemetry.track('cli_command_start', {
         command: 'dev',
@@ -131,8 +140,14 @@ export function registerDevCommand(program: Command, telemetry: any) {
         devOptions.watchSource = true
       }
 
-      const major = String(packageJson.version).split('.')[0] || '2'
-      const {extensionDev} = await requireOrDlx('extension-develop', major)
+      // Ensure we load the exact matching develop package version to avoid
+      // runtime mismatches between the CLI and the develop module when used
+      // from different working directories (e.g., examples workspaces).
+      const versionSpec = String(packageJson.version)
+      const {extensionDev} = await requireOrDlx(
+        'extension-develop',
+        versionSpec
+      )
       for (const vendor of list) {
         const vendorStart = Date.now()
         telemetry.track('cli_vendor_start', {command: 'dev', vendor})

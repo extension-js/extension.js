@@ -58,7 +58,7 @@ export function assertNoManagedDependencyConflicts(
   } catch (error) {
     // Be conservative: do not block if we cannot read user's package.json
     // but surface a minimal warning for visibility in development.
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       // eslint-disable-next-line no-console
       console.warn(error)
     }

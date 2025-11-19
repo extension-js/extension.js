@@ -562,7 +562,7 @@ export class ChromiumLaunchPlugin {
           : flag
       )
     }
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       this.logger.info(messages.devChromiumDebugPort(selectedPort, desiredPort))
     }
     instanceRegistry.setInstancePorts(this.options.instanceId, {
@@ -614,7 +614,7 @@ export class ChromiumLaunchPlugin {
         )
       }
     } catch (error) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.warn(
           '[plugin-browsers] CDP post-launch setup failed:',
           String(error)
@@ -643,7 +643,7 @@ export class ChromiumLaunchPlugin {
       )
 
       child.on('close', (code: number | null) => {
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
       })

@@ -55,7 +55,7 @@ export function registerAutoEnableLogging(
         }
       }
     } catch (error: unknown) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.warn(
           messages.cdpProtocolEventHandlerError(
             String((error as Error)?.message || error)

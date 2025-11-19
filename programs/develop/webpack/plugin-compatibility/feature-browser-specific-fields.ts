@@ -1,9 +1,26 @@
 import {type Compiler, Compilation, sources} from '@rspack/core'
+import * as messages from './compatibility-lib/messages'
 import {
   getManifestContent,
   filterKeysForThisBrowser
 } from './compatibility-lib/manifest'
 import type {PluginInterface, Manifest, DevOptions} from '../webpack-types'
+
+function countBrowserPrefixedKeys(obj: any): number {
+  if (!obj || typeof obj !== 'object') return 0
+  if (Array.isArray(obj)) {
+    return obj.reduce((sum, v) => sum + countBrowserPrefixedKeys(v), 0)
+  }
+
+  let total = 0
+
+  for (const key of Object.keys(obj)) {
+    if (key.includes(':')) total++
+    total += countBrowserPrefixedKeys((obj as any)[key])
+  }
+
+  return total
+}
 
 export class BrowserSpecificFieldsPlugin {
   private readonly browser: DevOptions['browser']
@@ -33,10 +50,20 @@ export class BrowserSpecificFieldsPlugin {
           },
           () => {
             const manifest = getManifestContent(compilation, this.manifestPath)
+            const filteredCount = countBrowserPrefixedKeys(manifest)
             const patchedSource = this.patchManifest(manifest)
             const rawSource = new sources.RawSource(patchedSource)
 
             compilation.updateAsset('manifest.json', rawSource)
+
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.compatibilityManifestFilteredKeys(
+                  this.browser,
+                  filteredCount
+                )
+              )
+            }
           }
         )
       }

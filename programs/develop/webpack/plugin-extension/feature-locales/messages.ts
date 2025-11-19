@@ -42,3 +42,30 @@ export function missingManifestMessageKey(key: string, defaultLocale?: string) {
 
   return `${header}\n${guidance}\n\n${final}`
 }
+
+export function localesIncludeSummary(
+  hasManifest: boolean,
+  hasLocalesRoot: boolean,
+  defaultLocale?: string
+) {
+  const dl = defaultLocale
+    ? `default_locale=${defaultLocale}`
+    : 'default_locale=<none>'
+  return `Locales include summary — manifest=${String(hasManifest)}, localesRoot=${String(hasLocalesRoot)}, ${dl}`
+}
+
+export function localesEmitSummary(
+  emitted: number,
+  missing: number,
+  discovered: number
+) {
+  return `Locales emitted=${String(emitted)}, missing=${String(missing)}, discovered=${String(discovered)}`
+}
+
+export function localesDepsTracked(addedCount: number) {
+  return `Locales file dependencies tracked: ${String(addedCount)}`
+}
+
+export function localesValidationDetected(issue: string) {
+  return `Locales validation detected: ${issue}`
+}

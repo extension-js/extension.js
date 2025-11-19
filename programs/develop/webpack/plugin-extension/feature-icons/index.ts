@@ -1,4 +1,5 @@
 import {type Compiler} from '@rspack/core'
+import * as messages from './messages'
 import {EmitFile} from './steps/emit-file'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfManifestIconsChange} from './steps/throw-if-manifest-icons-change'
@@ -52,6 +53,19 @@ export class IconsPlugin {
     const normalizedIncludeList = normalizeIconIncludeKeys(
       this.includeList as Record<string, unknown> | undefined
     )
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      const beforeKeys = Object.keys(
+        (this.includeList as Record<string, unknown>) || {}
+      )
+      const afterKeys = Object.keys(normalizedIncludeList || {})
+      const changedCount = afterKeys.filter(
+        (k) => k.includes('/default_icon') || k.includes('/theme_icons')
+      ).length
+      console.log(
+        messages.iconsNormalizationSummary(beforeKeys, afterKeys, changedCount)
+      )
+    }
 
     new EmitFile({
       manifestPath: this.manifestPath,

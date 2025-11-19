@@ -1,5 +1,6 @@
 import rspack, {Compiler} from '@rspack/core'
-import * as messages from './compatibility-lib/messages'
+import * as compatMessages from './compatibility-lib/messages'
+import * as compatDevMessages from './compatibility-lib/messages'
 import type {PluginInterface, DevOptions} from '../webpack-types'
 
 /**
@@ -40,8 +41,17 @@ export class PolyfillPlugin {
       new rspack.ProvidePlugin({
         browser: 'webextension-polyfill'
       }).apply(compiler)
+
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(
+          compatDevMessages.compatibilityPolyfillEnabled(
+            this.browser,
+            polyfillPath
+          )
+        )
+      }
     } catch (error) {
-      console.warn(messages.webextensionPolyfillNotFound())
+      console.warn(compatMessages.webextensionPolyfillNotFound())
     }
   }
 }

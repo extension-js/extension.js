@@ -9,7 +9,7 @@ export function setupProcessSignalHandlers(
 ) {
   const cleanup = () => {
     try {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.enhancedProcessManagementCleanup(browser))
       }
 
@@ -28,7 +28,7 @@ export function setupProcessSignalHandlers(
             // Ignore
           }
         }
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(messages.enhancedProcessManagementTerminating(browser))
         }
 
@@ -36,7 +36,7 @@ export function setupProcessSignalHandlers(
 
         setTimeout(() => {
           if (child && !child.killed) {
-            if (process.env.EXTENSION_ENV === 'development') {
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
               console.log(messages.enhancedProcessManagementForceKill(browser))
             }
             child.kill('SIGKILL')

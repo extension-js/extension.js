@@ -85,10 +85,19 @@ export function registerStartCommand(program: Command, telemetry: any) {
       '--source [url]',
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
     )
+    .option(
+      '--author, --author-mode',
+      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+    )
     .action(async function (
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...startOptions}: StartOptions
     ) {
+      if ((startOptions as any).author || (startOptions as any)['authorMode']) {
+        process.env.EXTENSION_AUTHOR_MODE = 'true'
+        if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
+      }
+
       const cmdStart = Date.now()
       telemetry.track('cli_command_start', {
         command: 'start',

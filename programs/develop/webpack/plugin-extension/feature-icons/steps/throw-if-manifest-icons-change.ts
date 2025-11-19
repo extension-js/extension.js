@@ -1,6 +1,9 @@
 import {createRequire} from 'node:module'
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
-import {manifestIconsEntrypointChange} from '../messages'
+import {
+  manifestIconsEntrypointChange,
+  iconsManifestChangeDetected
+} from '../messages'
 import type {PluginInterface, DevOptions} from '../../../webpack-types'
 
 export class ThrowIfManifestIconsChange {
@@ -119,6 +122,16 @@ export class ThrowIfManifestIconsChange {
           },
           () => {
             if (!this.pending?.hasChange) return
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                iconsManifestChangeDetected(
+                  String(this.pending.manifestField || 'icons'),
+                  this.pending.pathBefore,
+                  this.pending.pathAfter
+                )
+              )
+            }
+
             const body = manifestIconsEntrypointChange(
               this.pending.manifestField,
               this.pending.pathAfter,

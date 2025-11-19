@@ -9,9 +9,13 @@ import colors from 'pintor'
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    return colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')
+  }
+
   if (type === 'error') return colors.red('ERROR')
   if (type === 'warn') return colors.brightYellow('►►►')
-  if (type === 'info') return '►►►'
+  if (type === 'info') return colors.gray('►►►')
   return colors.green('►►►')
 }
 
@@ -19,6 +23,30 @@ function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
 const code = (text: string) => colors.blue(text)
 // Helper to ensure arguments are gray
 const arg = (text: string) => colors.gray(text)
+
+// Pretty-format helpers for human-readable, Vercel-like tone
+export const fmt = {
+  heading: (title: string) => colors.underline(colors.blue(title)),
+  label: (k: string) => colors.gray(k.toUpperCase()),
+  val: (v: string) => colors.underline(v),
+  code: (v: string) => colors.blue(v),
+  bullet: (s: string) => `- ${s}`,
+  block(title: string, rows: Array<[string, string]>): string {
+    const head = fmt.heading(title)
+    const body = rows.map(([k, v]) => `${fmt.label(k)} ${v}`).join('\n')
+    return `${head}\n${body}`
+  },
+  truncate(input: unknown, max = 800): string {
+    const s = (() => {
+      try {
+        return typeof input === 'string' ? input : JSON.stringify(input)
+      } catch {
+        return String(input)
+      }
+    })()
+    return s.length > max ? s.slice(0, max) + '…' : s
+  }
+}
 
 export function updateFailed(err: any) {
   return `${getLoggingPrefix('error')} Failed to check for updates.\n${colors.red(String(err?.message || err))}`

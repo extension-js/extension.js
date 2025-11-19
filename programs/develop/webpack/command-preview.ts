@@ -30,7 +30,7 @@ export async function extensionPreview(
   previewOptions: PreviewOptions
 ) {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
-  const debug = process.env.EXTENSION_ENV === 'development'
+  const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   // Guard: only error if user references managed deps in extension.config.js
   if (projectStructure.packageJsonPath) {
@@ -178,7 +178,7 @@ export async function extensionPreview(
       }
     })
   } catch (error) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.error(error)
     }
     process.exit(1)

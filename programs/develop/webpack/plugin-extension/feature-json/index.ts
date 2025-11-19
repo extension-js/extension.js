@@ -112,8 +112,24 @@ export class JsonPlugin {
             path.dirname(this.manifestPath)
           const publicDir = path.join(projectPath, 'public')
 
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            const featureKeys = Object.keys(jsonFields || {})
+            const criticalCount = featureKeys.filter((k) =>
+              this.isCriticalJsonFeature(k)
+            ).length
+
+            console.log(
+              messages.jsonIncludeSummary(featureKeys.length, criticalCount)
+            )
+          }
+
           for (const field of Object.entries(jsonFields)) {
             const [feature, resource] = field
+            let emittedCount = 0
+            let underPublicCount = 0
+            let missingCount = 0
+            let validatedOk = 0
+            let invalid = 0
 
             const resourceArr: Array<string | undefined> = Array.isArray(
               resource
@@ -158,6 +174,7 @@ export class JsonPlugin {
                   } else {
                     compilation.warnings.push(notFound)
                   }
+                  missingCount++
                   continue
                 }
 
@@ -173,8 +190,11 @@ export class JsonPlugin {
                       abs,
                       fs.readFileSync(abs)
                     )
+                    if (ok) validatedOk++
+                    else invalid++
                     if (!ok) continue
                   }
+                  underPublicCount++
                   continue
                 }
 
@@ -187,6 +207,8 @@ export class JsonPlugin {
                     abs,
                     source
                   )
+                  if (ok) validatedOk++
+                  else invalid++
                   if (!ok) continue
                 }
                 const rawSource = new sources.RawSource(source)
@@ -201,7 +223,26 @@ export class JsonPlugin {
                 } else {
                   compilation.emitAsset(assetName, rawSource)
                 }
+                emittedCount++
               }
+            }
+
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              const entries = Array.isArray(resource)
+                ? resource.length
+                : resource
+                  ? 1
+                  : 0
+              console.log(
+                messages.jsonEmitSummary(feature, {
+                  entries,
+                  underPublic: underPublicCount,
+                  emitted: emittedCount,
+                  missing: missingCount,
+                  validatedOk,
+                  invalid
+                })
+              )
             }
           }
         }
@@ -221,6 +262,7 @@ export class JsonPlugin {
 
           const jsonFields = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
+          let added = 0
 
           for (const field of Object.entries(jsonFields)) {
             const [, resource] = field
@@ -241,10 +283,14 @@ export class JsonPlugin {
                   if (!fileDependencies.has(abs)) {
                     fileDependencies.add(abs)
                     compilation.fileDependencies.add(abs)
+                    added++
                   }
                 }
               }
             }
+          }
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            console.log(messages.jsonDepsTracked(added))
           }
         }
       )

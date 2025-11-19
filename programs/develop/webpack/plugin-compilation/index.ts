@@ -7,6 +7,7 @@
 
 import {Compiler, DefinePlugin} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
+import * as messages from './compilation-lib/messages'
 import {EnvPlugin} from './env'
 import {CleanDistFolderPlugin} from './clean-dist'
 import {ZipPlugin} from './zip'
@@ -78,6 +79,14 @@ export class CompilationPlugin {
           zipFilename: this.zipFilename
         }
       }).apply(compiler)
+    } else {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        const reason =
+          compiler.options.mode !== 'production'
+            ? 'not production mode'
+            : 'zip disabled'
+        console.log(messages.zipPackagingSkipped(reason))
+      }
     }
 
     new BoringPlugin({

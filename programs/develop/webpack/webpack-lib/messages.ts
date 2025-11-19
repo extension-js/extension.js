@@ -12,11 +12,43 @@ import colors from 'pintor'
 import type {Manifest, DevOptions} from '../webpack-types'
 import packageJson from '../../package.json'
 
+// Pretty-format helpers for human-readable, Vercel-like tone
+export const fmt = {
+  heading: (title: string) => colors.underline(colors.blue(title)),
+  label: (key: string) => colors.gray(key.toUpperCase()),
+  val: (value: string) => colors.underline(value),
+  code: (value: string) => colors.blue(value),
+  bullet: (value: string) => `- ${value}`,
+  block(title: string, rows: Array<[string, string]>): string {
+    const head = fmt.heading(title)
+    const body = rows
+      .map(([key, value]) => `${fmt.label(key)} ${value}`)
+      .join('\n')
+    return `${head}\n${body}`
+  },
+  truncate(input: unknown, max = 800): string {
+    const s = (() => {
+      try {
+        return typeof input === 'string' ? input : JSON.stringify(input)
+      } catch {
+        return String(input)
+      }
+    })()
+    return s.length > max ? s.slice(0, max) + '…' : s
+  }
+}
+
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
+  // Streamlined author mode: use magenta for all prefixes
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    return colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')
+  }
+
   if (type === 'error') return colors.red('ERROR')
   if (type === 'warn') return colors.brightYellow('►►►')
   if (type === 'info') return colors.gray('►►►')
+
   return colors.green('►►►')
 }
 
@@ -126,10 +158,9 @@ export function buildSuccess() {
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
-  return (
-    `${getLoggingPrefix('info')} Fetching data...\n` +
-    `${colors.gray('URL')} ${colors.underline(`https://github.com/${owner}/${project}`)}`
-  )
+  return fmt.block('Fetching project', [
+    ['URL', fmt.val(`https://github.com/${owner}/${project}`)]
+  ])
 }
 
 export function downloadingProjectPath(projectName: string) {
@@ -241,10 +272,7 @@ export function writingTypeDefinitionsError(error: any) {
 }
 
 export function downloadingText(url: string) {
-  return (
-    `${getLoggingPrefix('info')} Downloading browser extension...\n` +
-    `${colors.gray('URL')} ${colors.underline(url)}`
-  )
+  return fmt.block('Downloading extension', [['URL', fmt.val(url)]])
 }
 
 export function unpackagingExtension(zipFilePath: string) {
@@ -407,12 +435,12 @@ export function cantInstallDependencies(error: any) {
   return `${getLoggingPrefix('error')} Can't install project dependencies.\n${colors.red(String(error?.message || error))}`
 }
 
-export function portInUse(requestedPort: number, newPort: number) {
-  return `${getLoggingPrefix('warn')} Port ${colors.gray(requestedPort.toString())} is in use. Using port ${colors.gray(newPort.toString())} instead.`
-}
-
 export function configLoadingError(configPath: string, error: unknown) {
-  return `${getLoggingPrefix('error')} Failed to load ${colors.underline(configPath)} config.\n${colors.red(String(error))}`
+  return (
+    `${colors.red('ERROR')} ${colors.brightBlue('config load failed')}\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
+    colors.red(fmt.truncate(error, 1200))
+  )
 }
 
 export function managedDependencyConflict(
@@ -431,51 +459,3 @@ export function managedDependencyConflict(
   )
 }
 
-// Auto-exit helpers used by dev server for non-interactive runs
-export function autoExitModeEnabled(autoExitMs: number) {
-  return `${getLoggingPrefix('info')} Auto-exit enabled. Exiting after ${colors.gray(`${autoExitMs}ms`)}.`
-}
-
-export function autoExitTriggered(autoExitMs: number) {
-  return `${getLoggingPrefix('info')} Auto-exit timer elapsed (${colors.gray(`${autoExitMs}ms`)}) – cleaning up...`
-}
-
-export function autoExitForceKill(forceKillMs: number) {
-  return `${getLoggingPrefix('warn')} Force-killing process after fallback (${colors.gray(`${forceKillMs}ms`)})`
-}
-
-export function isUsingCustomLoader(loaderPath: string) {
-  return `${getLoggingPrefix('info')} Using custom loader: ${colors.yellow(loaderPath)}.`
-}
-
-export function integrationNotInstalled(
-  integration: string,
-  packageManager: string
-) {
-  return (
-    `${colors.gray('►►►')} Using ${colors.brightBlue(integration)}. ` +
-    `Installing required dependencies via ${colors.brightBlue(packageManager)}...`
-  )
-}
-
-export function installingRootDependencies(integration: string) {
-  return (
-    `${colors.gray('►►►')} ${integration} dependencies are being installed. ` +
-    `This only happens for core contributors...`
-  )
-}
-
-export function integrationInstalledSuccessfully(integration: string) {
-  return `${colors.green('►►►')} ${integration} dependencies installed successfully.`
-}
-
-export function failedToInstallIntegration(
-  integration: string,
-  error: unknown
-) {
-  return (
-    `${colors.red('ERROR')} ${colors.brightBlue(integration)} Installation Error\n` +
-    `${colors.red('Failed to detect package manager or install dependencies.')}\n` +
-    `${colors.red(String(error ?? ''))}`
-  )
-}

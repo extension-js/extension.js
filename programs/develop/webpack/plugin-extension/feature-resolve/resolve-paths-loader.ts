@@ -6,6 +6,11 @@ import {unixify} from './resolve-lib/paths'
 import {resolveLiteralToOutput} from './resolve-lib'
 import {handleCallExpression, type RewriteFn} from './resolve-lib/handlers'
 import {createRequire} from 'module'
+import {
+  resolveFileSkip,
+  resolveFileTransformSummary,
+  resolveSwcLoad
+} from './messages'
 
 let swcRuntimeModule: any
 
@@ -593,6 +598,9 @@ export default async function resolvePathsLoader(this: any, source: string) {
   try {
     const resourcePathUnix = unixify(String(this.resourcePath || ''))
     if (resourcePathUnix.split('/').includes('public')) {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(resolveFileSkip('public', String(this.resourcePath || '')))
+      }
       return callback(null, source)
     }
   } catch {
@@ -616,7 +624,15 @@ export default async function resolvePathsLoader(this: any, source: string) {
       /(?:^|[^A-Za-z0-9_$])pages\//.test(sourceString) ||
       /(?:^|[^A-Za-z0-9_$])\/scripts\//.test(sourceString) ||
       /(?:^|[^A-Za-z0-9_$])scripts\//.test(sourceString)
-    if (!containsEligiblePatterns) return callback(null, source)
+
+    if (!containsEligiblePatterns) {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(
+          resolveFileSkip('no-patterns', String(this.resourcePath || ''))
+        )
+      }
+      return callback(null, source)
+    }
   } catch {
     console.error('Failed to check for eligible patterns')
   }
@@ -632,6 +648,7 @@ export default async function resolvePathsLoader(this: any, source: string) {
     warning.file = headerFilePath
     this.emitWarning?.(warning)
   }
+  const getWarningsCount = () => emittedBodies.size
 
   const warnIfMissingPublic = (
     original: string | undefined,
@@ -698,12 +715,14 @@ export default async function resolvePathsLoader(this: any, source: string) {
   let postTextSource: string | undefined
   try {
     let touchedApiLiteral = false
+    let apiLiteralCount = 0
     const out = textFallbackTransform(String(source), {
       manifestPath,
       packageJsonDir,
       authorFilePath: String(this.resourcePath || ''),
       onResolvedLiteral: (original, computed) => {
         touchedApiLiteral = true
+        apiLiteralCount++
         warnIfMissingPublic(original, computed)
       }
     })
@@ -739,6 +758,18 @@ export default async function resolvePathsLoader(this: any, source: string) {
               includeContent: true
             })
           : undefined
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.log(
+            resolveFileTransformSummary({
+              file: String(this.resourcePath || ''),
+              textEdited: out !== String(source),
+              astEdited: false,
+              apiLiterals: apiLiteralCount,
+              warningsEmitted: getWarningsCount(),
+              sourceMap: Boolean(map)
+            })
+          )
+        }
         return callback(null, out, map as any)
       }
     }
@@ -747,6 +778,10 @@ export default async function resolvePathsLoader(this: any, source: string) {
   }
 
   const swcModule = await loadSwc()
+
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    console.log(resolveSwcLoad(swcModule ? 'esm' : 'unavailable'))
+  }
 
   if (!swcModule) {
     // If SWC isn't available and no textual edits were applied, return original.
@@ -777,6 +812,7 @@ export default async function resolvePathsLoader(this: any, source: string) {
     typeof postTextSource === 'string' ? postTextSource : String(source)
   const ms = new MagicString(inputSource)
   let edited = false
+  let apiLiteralCountAst = 0
 
   // Rewriter called only by handler-detected API contexts
   const rewriteValue: RewriteFn = (node, computed, rawInput) => {
@@ -798,6 +834,7 @@ export default async function resolvePathsLoader(this: any, source: string) {
     }
     if (!computed) return
     // Emit policy-compliant warning, gated by original authoring
+    apiLiteralCountAst++
     warnIfMissingPublic(rawInput, computed)
     // Overwrite the original literal span with a JSON-encoded string
     try {
@@ -886,7 +923,35 @@ export default async function resolvePathsLoader(this: any, source: string) {
               includeContent: true
             })
           : undefined
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          try {
+            console.log(
+              resolveFileTransformSummary({
+                file: String(this.resourcePath || ''),
+                textEdited: true,
+                astEdited: false,
+                apiLiterals: apiLiteralCountAst, // from textual pass
+                warningsEmitted: getWarningsCount(),
+                sourceMap: Boolean(map)
+              })
+            )
+          } catch {}
+        }
         return callback(null, postTextSource, map as any)
+      }
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        try {
+          console.log(
+            resolveFileTransformSummary({
+              file: String(this.resourcePath || ''),
+              textEdited: false,
+              astEdited: false,
+              apiLiterals: apiLiteralCountAst, // none from AST
+              warningsEmitted: getWarningsCount(),
+              sourceMap: false
+            })
+          )
+        } catch {}
       }
       return callback(null, source)
     }
@@ -935,6 +1000,20 @@ export default async function resolvePathsLoader(this: any, source: string) {
         })
       : undefined
 
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        resolveFileTransformSummary({
+          file: String(this.resourcePath || ''),
+          textEdited:
+            typeof postTextSource === 'string' &&
+            postTextSource !== String(source),
+          astEdited: true,
+          apiLiterals: apiLiteralCountAst,
+          warningsEmitted: getWarningsCount(),
+          sourceMap: Boolean(map)
+        })
+      )
+    }
     return callback(null, restoredStaticEval, map as any)
   } catch {
     return callback(null, source)

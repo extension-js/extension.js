@@ -47,7 +47,7 @@ export async function installDependencies(projectPath: string) {
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
     const stdio =
-      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+      process.env.EXTENSION_AUTHOR_MODE === 'true' ? 'inherit' : 'ignore'
     const child = spawn(command, dependenciesArgs, {stdio})
 
     await new Promise<void>((resolve, reject) => {

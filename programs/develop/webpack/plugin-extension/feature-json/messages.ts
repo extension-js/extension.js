@@ -79,3 +79,52 @@ export function invalidManagedSchemaStructure(
     `${colors.red('INVALID SHAPE')} ${colors.underline(file)}`
   ].join('\n')
 }
+
+export function jsonEmitSummary(
+  feature: string,
+  stats: {
+    entries: number
+    underPublic: number
+    emitted: number
+    missing: number
+    validatedOk: number
+    invalid: number
+  }
+) {
+  return (
+    `JSON ${colors.yellow(feature)} — ` +
+    `entries ${colors.gray(String(stats.entries))}, ` +
+    `public ${colors.gray(String(stats.underPublic))}, ` +
+    `emitted ${colors.gray(String(stats.emitted))}, ` +
+    `missing ${colors.gray(String(stats.missing))}, ` +
+    `valid ${colors.gray(String(stats.validatedOk))}, ` +
+    `invalid ${colors.gray(String(stats.invalid))}`
+  )
+}
+
+export function jsonDepsTracked(addedCount: number) {
+  return `JSON file dependencies tracked: ${colors.gray(String(addedCount))}`
+}
+
+export function jsonIncludeSummary(
+  totalFeatures: number,
+  criticalCount: number
+) {
+  return (
+    `JSON include summary — features ${colors.gray(String(totalFeatures))}, ` +
+    `critical ${colors.gray(String(criticalCount))}`
+  )
+}
+
+export function jsonManifestChangeDetected(
+  field: string,
+  before?: string,
+  after?: string
+) {
+  const parts = [
+    `Manifest JSON change detected in ${colors.yellow(field)}`,
+    before ? `${colors.gray('before')} ${colors.underline(before)}` : '',
+    after ? `${colors.gray('after')} ${colors.underline(after)}` : ''
+  ].filter(Boolean)
+  return parts.join(' — ')
+}
