@@ -20,7 +20,7 @@ import {defineConfig, devices} from '@playwright/test'
 export default defineConfig({
   // Increase global timeout for CI environments
   timeout: process.env.CI ? 90_000 : 60_000,
-  testDir: '.',
+  testDir: 'templates',
   testMatch: ['templates/**/*.spec.ts'],
   testIgnore: ['dist/**', '**/dist/**', 'extensions/**', 'e2e/**'],
 
