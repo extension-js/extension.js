@@ -6,6 +6,34 @@ import {printDevBannerOnce} from '../../browsers-lib/banner'
 import {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
 import {type ChromiumPluginRuntime} from '../chromium-types'
 
+function getExtensionOutputPath(
+  compilation: Compilation | undefined,
+  loadExtensionFlag: string | undefined
+) {
+  if (!loadExtensionFlag) {
+    return (
+      (compilation?.options?.output?.path as string) ||
+      path.join(process.cwd(), 'dist')
+    )
+  }
+
+  const entries = loadExtensionFlag
+    .replace('--load-extension=', '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
+  // Prefer the user extension by excluding built-in devtools/theme folders,
+  // then pick the last remaining entry (user extension is appended last).
+  const userCandidates = entries.filter(
+    (p) =>
+      !/[\\\/]extension-js-devtools[\\\/]/.test(p) &&
+      !/[\\\/]extension-js-theme[\\\/]/.test(p)
+  )
+
+  return (userCandidates.length ? userCandidates : entries).slice(-1)[0]
+}
+
 export async function setupCdpAfterLaunch(
   compilation: Compilation | undefined,
   plugin: ChromiumPluginRuntime,
@@ -15,10 +43,10 @@ export async function setupCdpAfterLaunch(
   const loadExtensionFlag = chromiumArgs.find((flag: string) =>
     flag.startsWith('--load-extension=')
   )
-  const extensionOutputPath = loadExtensionFlag
-    ? loadExtensionFlag.replace('--load-extension=', '').split(',')[0]
-    : (compilation?.options?.output?.path as string) ||
-      path.join(process.cwd(), 'dist')
+  const extensionOutputPath = getExtensionOutputPath(
+    compilation,
+    loadExtensionFlag
+  )
 
   // Try to find the --remote-debugging-port flag (for CDP port)
   const remoteDebugPortFlag = chromiumArgs.find((flag: string) =>

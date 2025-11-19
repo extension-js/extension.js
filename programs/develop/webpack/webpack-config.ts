@@ -11,8 +11,9 @@ import {type Configuration} from '@rspack/core'
 import {type ProjectStructure} from './webpack-lib/project'
 import {makeSanitizedConsole} from './webpack-lib/branding'
 import {filterKeysForThisBrowser} from './webpack-lib/manifest-utils'
-import {asAbsolute, getDirs, devtoolsEngineFor} from './webpack-lib/paths'
+import {asAbsolute, getDirs} from './webpack-lib/paths'
 import * as messages from './webpack-lib/messages'
+import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -43,29 +44,13 @@ export default function webpackConfig(
       : path.resolve(packageJsonDir, devOptions.output.path)
   )
 
-  // Build list of extensions to load in the browser.
-  // Load devtools first (fallback NTP); push the user extension LAST so
-  // user overrides (like New Tab) take precedence.
-  const extensionsToLoad: string[] = []
+  const extensionsToLoad = computeExtensionsToLoad(
+    __dirname,
+    devOptions.mode,
+    devOptions.browser,
+    userExtensionOutputPath
+  )
   const debug = process.env.EXTENSION_ENV === 'development'
-
-  if (devOptions.mode !== 'production') {
-    // Look for devtools dist mirrored by programs/develop build pipeline
-    const devtoolsRoot = path.resolve(
-      __dirname,
-      '../dist/extension-js-devtools'
-    )
-    // Map requested browser to the corresponding devtools manager distribution
-    const devtoolsEngine = devtoolsEngineFor(devOptions.browser)
-    const devtoolsForBrowser = path.join(devtoolsRoot, devtoolsEngine)
-
-    if (fs.existsSync(devtoolsForBrowser)) {
-      extensionsToLoad.push(devtoolsForBrowser)
-    }
-  }
-
-  // Always load the user extension last to give it precedence on conflicts
-  extensionsToLoad.push(userExtensionOutputPath)
 
   if (debug) {
     console.log(
