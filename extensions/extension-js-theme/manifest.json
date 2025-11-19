@@ -1,0 +1,35 @@
+{
+  "name": "Extension.js Theme",
+  "version": "0.1.0",
+  "description": "Browser theme for Extension.js",
+  "chromium:manifest_version": 3,
+  "firefox:manifest_version": 2,
+  "chromium:theme": {
+    "colors": {
+      "frame": [26, 28, 32],
+      "toolbar": [30, 32, 36],
+      "tab_text": [237, 238, 240],
+      "bookmark_text": [237, 238, 240],
+      "ntp_background": [26, 28, 32],
+      "ntp_text": [237, 238, 240]
+    },
+    "properties": {
+      "ntp_background_alignment": "center",
+      "ntp_background_repeat": "no-repeat"
+    }
+  },
+  "firefox:theme": {
+    "colors": {
+      "frame": "#1A1C20",
+      "toolbar": "#1E2024",
+      "tab_text": "#EDEEF0",
+      "bookmark_text": "#EDEEF0",
+      "toolbar_field": "#2A2C31",
+      "toolbar_field_text": "#EDEEF0"
+    },
+    "properties": {
+      "ntp_background_alignment": "center",
+      "ntp_background_repeat": "no-repeat"
+    }
+  }
+}
