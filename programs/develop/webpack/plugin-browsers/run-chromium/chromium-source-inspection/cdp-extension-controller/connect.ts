@@ -28,7 +28,7 @@ export async function connectToChromeCdp(cdpPort: number): Promise<CDPClient> {
       flatten: true
     })
   } catch (error: unknown) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.warn(
         messages.cdpAutoAttachSetupFailed(
           String((error as Error)?.message || error)

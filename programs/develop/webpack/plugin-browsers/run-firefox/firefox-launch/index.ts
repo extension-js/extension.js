@@ -96,7 +96,7 @@ export class FirefoxLaunchPlugin {
       return
     }
 
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       this.ctx.logger?.info?.(messages.firefoxLaunchCalled())
     }
 
@@ -241,13 +241,13 @@ export class FirefoxLaunchPlugin {
     const binaryArgsMatch = firefoxCfg.match(/--binary-args="([^"]*)"/)
     if (binaryArgsMatch) {
       firefoxArgs.push(...binaryArgsMatch[1].split(' '))
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.ctx.logger?.info?.(
           messages.firefoxBinaryArgsExtracted(binaryArgsMatch[1])
         )
       }
     } else {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.ctx.logger?.info?.(messages.firefoxNoBinaryArgsFound())
       }
     }
@@ -282,7 +282,7 @@ export class FirefoxLaunchPlugin {
 
       try {
         if (
-          process.env.EXTENSION_ENV === 'development' &&
+          process.env.EXTENSION_AUTHOR_MODE === 'true' &&
           this.host.instanceId &&
           profileMatch
         ) {
@@ -336,7 +336,7 @@ export class FirefoxLaunchPlugin {
     })
 
     child.on('close', (_code) => {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.ctx.logger?.info?.(
           messages.browserInstanceExited(this.host.browser)
         )
@@ -346,7 +346,7 @@ export class FirefoxLaunchPlugin {
       })
     })
 
-    if (process.env.EXTENSION_ENV === 'development' && child) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true' && child) {
       child.stdout?.pipe(process.stdout)
       child.stderr?.pipe(process.stderr)
     }

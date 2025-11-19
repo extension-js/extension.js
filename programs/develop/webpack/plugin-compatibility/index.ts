@@ -9,6 +9,7 @@ import {type Compiler} from '@rspack/core'
 import {PolyfillPlugin} from './feature-polyfill'
 import {BrowserSpecificFieldsPlugin} from './feature-browser-specific-fields'
 import type {PluginInterface, DevOptions} from '../webpack-types'
+import * as messages from './compatibility-lib/messages'
 
 export class CompatibilityPlugin {
   public static readonly name: string = 'plugin-compatibility'
@@ -27,10 +28,32 @@ export class CompatibilityPlugin {
     // Allow browser polyfill as needed
     if (this.polyfill) {
       if (this.browser !== 'firefox') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.log(
+            messages.compatibilityPolyfillEnabled(
+              this.browser,
+              'webextension-polyfill'
+            )
+          )
+        }
+
         new PolyfillPlugin({
           manifestPath: this.manifestPath,
           browser: this.browser || 'chrome'
         }).apply(compiler)
+      } else {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.log(
+            messages.compatibilityPolyfillSkipped(
+              'Firefox bundles browser.* APIs',
+              this.browser
+            )
+          )
+        }
+      }
+    } else {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(messages.compatibilityPolyfillDisabled(this.browser))
       }
     }
 

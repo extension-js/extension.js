@@ -44,7 +44,7 @@ export async function selectActors(
         await new Promise((resolve) => setTimeout(resolve, 300))
         continue
       } catch (error) {
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           const msg =
             (error as {message?: string} | undefined)?.message || String(error)
           console.warn(messages.rdpAddTabFailed(msg))

@@ -49,6 +49,10 @@ export class EmitManifest {
               outputFilename,
               new sources.RawSource(jsonString)
             )
+
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(messages.manifestEmitSuccess())
+            }
           }
         )
       }

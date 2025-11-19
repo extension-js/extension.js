@@ -33,7 +33,7 @@ export class CDPClient {
   }
 
   private isDev() {
-    return process.env.EXTENSION_ENV === 'development'
+    return process.env.EXTENSION_AUTHOR_MODE === 'true'
   }
 
   async connect(): Promise<void> {
