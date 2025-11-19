@@ -1,5 +1,6 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
+import WebExtensionFork from './webpack-target-webextension-fork'
 import WebExtension from 'webpack-target-webextension'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
@@ -76,9 +77,16 @@ export class SetupReloadStrategy {
 
     // 4 - Now that we know the background exists, add the web extension target
     // using it. This is our core upstream plugin.
-    new WebExtension({
-      background: this.getEntryName(patchedManifest),
-      weakRuntimeCheck: true
-    }).apply(compiler as any)
+    if (process.env.EXTENSION_EXPERIMENTAL_HMR === 'true') {
+      new WebExtensionFork({
+        background: this.getEntryName(patchedManifest),
+        weakRuntimeCheck: true
+      }).apply(compiler as any)
+    } else {
+      new WebExtension({
+        background: this.getEntryName(patchedManifest),
+        weakRuntimeCheck: true
+      }).apply(compiler as any)
+    }
   }
 }
