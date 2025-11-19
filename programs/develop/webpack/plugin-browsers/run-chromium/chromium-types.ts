@@ -6,6 +6,13 @@ import type {
   Controller
 } from '../browsers-types'
 
+export type {
+  Controller,
+  LogFormat,
+  LogLevel,
+  PluginInterface
+} from '../browsers-types'
+
 export interface ConsoleAPICalledEvent {
   method: 'Runtime.consoleAPICalled'
   params?: {
@@ -79,5 +86,19 @@ export interface ChromiumLaunchOptions
  */
 export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   bannerPrintedOnce?: boolean
-  cdpController?: Controller | unknown
+  cdpController?: Controller
+}
+
+/**
+ * Configuration for the unified logger in Chromium flows.
+ * Mirrors CLI flags and shared logging options.
+ */
+export interface ChromiumLogger {
+  level?: LogLevel | 'off' | string
+  contexts?: string[]
+  urlFilter?: string
+  tabFilter?: number | string
+  format?: 'pretty' | 'json' | 'ndjson' | string
+  timestamps?: boolean
+  color?: boolean
 }

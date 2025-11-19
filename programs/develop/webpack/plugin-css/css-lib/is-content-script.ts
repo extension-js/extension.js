@@ -1,6 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import {Manifest} from '../../../types'
+import {Manifest} from '../../webpack-types'
 
 function parseJsonSafe(text: string) {
   const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text

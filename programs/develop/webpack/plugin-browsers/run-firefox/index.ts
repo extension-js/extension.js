@@ -11,8 +11,10 @@ import {FirefoxLaunchPlugin} from './firefox-launch'
 import {FirefoxUnifiedLoggerPlugin} from './firefox-unified-logger'
 import {FirefoxHardReloadPlugin} from './firefox-hard-reload'
 import {FirefoxSourceInspectionPlugin} from './firefox-source-inspection'
+import type {FirefoxRDPController} from './firefox-source-inspection/rdp-extension-controller'
+import type {FirefoxPluginRuntime} from './firefox-types'
 
-export class RunFirefoxPlugin {
+export class RunFirefoxPlugin implements FirefoxPluginRuntime {
   readonly extension: string | string[]
   readonly browser: DevOptions['browser']
   readonly noOpen?: boolean
@@ -42,6 +44,7 @@ export class RunFirefoxPlugin {
   readonly logTab?: number | string
   logger!: ReturnType<Compiler['getInfrastructureLogger']>
   firefoxCtx?: ReturnType<typeof createFirefoxContext>
+  rdpController?: FirefoxRDPController
 
   constructor(options: PluginInterface) {
     // Path(s) to the extension(s) to load.

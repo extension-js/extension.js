@@ -14,9 +14,11 @@ export async function ensureTargetAndSession(
     (t) => String(t?.url || '') === url && String(t?.type || '') === 'page'
   )
 
-  let targetId: string
+  let targetId: string = ''
 
   if (existingTarget && existingTarget.targetId) {
+    targetId = String(existingTarget.targetId)
+
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(
         messages.sourceInspectorUsingExistingTarget(existingTarget.targetId)

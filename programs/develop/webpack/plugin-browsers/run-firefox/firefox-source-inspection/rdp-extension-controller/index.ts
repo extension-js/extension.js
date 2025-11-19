@@ -1,10 +1,11 @@
 import {Compilation} from '@rspack/core'
 import {RemoteFirefox} from '../remote-firefox'
+import type {DevOptions} from '../../../../webpack-types'
 
 type PluginLike = {
   extension: string | string[]
   extensionsToLoad?: string[]
-  browser: 'firefox'
+  browser: DevOptions['browser']
   browserFlags?: string[]
   profile?: string | false
   preferences?: Record<string, unknown>
