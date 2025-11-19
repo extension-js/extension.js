@@ -5,7 +5,6 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import * as fs from 'fs'
 import * as path from 'path'
 import {rspack, type Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
@@ -15,15 +14,24 @@ import * as messages from './webpack-lib/messages'
 import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
 import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
-import {BrowsersPlugin} from './plugin-browsers'
-import type {PreviewOptions} from './webpack-types'
 import {scrubBrand} from './webpack-lib/branding'
+import {
+  getDirs,
+  computePreviewOutputPath,
+  ensureDirSync,
+  normalizeBrowser,
+  getDistPath
+} from './webpack-lib/paths'
+import type {PreviewOptions} from './webpack-types'
+import {BrowsersPlugin} from './plugin-browsers'
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
   previewOptions: PreviewOptions
 ) {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+  const debug = process.env.EXTENSION_ENV === 'development'
+
   // Guard: only error if user references managed deps in extension.config.js
   if (projectStructure.packageJsonPath) {
     assertNoManagedDependencyConflicts(
@@ -32,45 +40,41 @@ export async function extensionPreview(
     )
   }
 
-  const manifestDir = path.dirname(projectStructure.manifestPath)
-  const packageJsonDir = projectStructure.packageJsonPath
-    ? path.dirname(projectStructure.packageJsonPath)
-    : manifestDir
-  const distPath = path.join(packageJsonDir, 'dist', previewOptions.browser)
+  const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+  const browser = normalizeBrowser(
+    previewOptions.browser || 'chrome',
+    previewOptions.chromiumBinary,
+    previewOptions.geckoBinary || previewOptions.firefoxBinary
+  )
+  const outputPath = computePreviewOutputPath(
+    projectStructure,
+    browser,
+    previewOptions.outputPath
+  )
+  const distPath = getDistPath(packageJsonDir, browser)
 
-  // Output path resolution:
-  // - If user provided an explicit outputPath, honor it.
-  // - Else, if dist/<browser>/manifest.json exists, load from there.
-  // - Else, load directly from the manifest directory (useful for remote ZIPs
-  //   that are already built artifacts without a node project or dist folder).
-  const preferDist = (() => {
-    try {
-      return fs.existsSync(path.join(distPath, 'manifest.json'))
-    } catch {
-      return false
-    }
-  })()
-
-  const outputPath =
-    previewOptions.outputPath ||
-    (projectStructure.packageJsonPath
-      ? preferDist
-        ? distPath
-        : manifestDir
-      : manifestDir)
+  if (debug) {
+    console.log(messages.debugDirs(manifestDir, packageJsonDir))
+    console.log(
+      messages.debugBrowser(
+        browser,
+        previewOptions.chromiumBinary,
+        previewOptions.geckoBinary || previewOptions.firefoxBinary
+      )
+    )
+    console.log(messages.debugPreviewOutput(outputPath, distPath))
+  }
 
   // Only create the directory if we are targeting dist; avoid creating empty folders
   try {
-    if (outputPath === distPath && !fs.existsSync(outputPath)) {
-      fs.mkdirSync(outputPath, {recursive: true})
+    if (outputPath === distPath) {
+      ensureDirSync(outputPath)
     }
   } catch {
     // Ignore
   }
 
   try {
-    const browser = previewOptions.browser || 'chrome'
-
     const commandConfig = await loadCommandConfig(manifestDir, 'preview')
     const browserConfig = await loadBrowserConfig(manifestDir, browser)
 
@@ -83,7 +87,7 @@ export async function extensionPreview(
       profile: previewOptions.profile,
       browser,
       chromiumBinary: previewOptions.chromiumBinary,
-      geckoBinary: previewOptions.geckoBinary,
+      geckoBinary: previewOptions.geckoBinary || previewOptions.firefoxBinary,
       startingUrl: previewOptions.startingUrl,
       port: previewOptions.port,
       source: previewOptions.source,

@@ -5,8 +5,6 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import * as fs from 'fs'
-import * as path from 'path'
 import {rspack, Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import {getProjectStructure} from './webpack-lib/project'
@@ -16,6 +14,12 @@ import {loadCommandConfig} from './webpack-lib/config-loader'
 import {installDependencies} from './webpack-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {scrubBrand} from './webpack-lib/branding'
+import {
+  getDirs,
+  getDistPath,
+  needsInstall,
+  normalizeBrowser
+} from './webpack-lib/paths'
 import webpackConfig from './webpack-config'
 
 import type {BuildOptions} from './webpack-types'
@@ -52,23 +56,38 @@ export async function extensionBuild(
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const isVitest = process.env.VITEST === 'true'
   const shouldExitOnError = (buildOptions?.exitOnError ?? true) && !isVitest
-  const browser = buildOptions?.browser || 'chrome'
+  const browser = normalizeBrowser(
+    buildOptions?.browser || 'chrome',
+    buildOptions?.chromiumBinary,
+    buildOptions?.geckoBinary || buildOptions?.firefoxBinary
+  )
 
   try {
-    const manifestDir = path.dirname(projectStructure.manifestPath)
-    const packageJsonDir = projectStructure.packageJsonPath
-      ? path.dirname(projectStructure.packageJsonPath)
-      : manifestDir
+    const debug = process.env.EXTENSION_ENV === 'development'
+    const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     // Guard: only error if user references managed deps in extension.config.js
     if (projectStructure.packageJsonPath) {
       assertNoManagedDependencyConflicts(
         projectStructure.packageJsonPath,
-        path.dirname(projectStructure.manifestPath)
+        manifestDir
       )
     }
 
     const commandConfig = await loadCommandConfig(manifestDir, 'build')
+
+    const distPath = getDistPath(packageJsonDir, browser)
+    if (debug) {
+      console.log(messages.debugDirs(manifestDir, packageJsonDir))
+      console.log(
+        messages.debugBrowser(
+          browser,
+          buildOptions?.chromiumBinary,
+          buildOptions?.geckoBinary || buildOptions?.firefoxBinary
+        )
+      )
+      console.log(messages.debugOutputPath(distPath))
+    }
 
     const baseConfig: Configuration = webpackConfig(projectStructure, {
       ...commandConfig,
@@ -77,7 +96,7 @@ export async function extensionBuild(
       mode: 'production',
       output: {
         clean: true,
-        path: path.join(packageJsonDir, 'dist', browser)
+        path: distPath
       }
     })
 
@@ -96,13 +115,7 @@ export async function extensionBuild(
 
     // Install dependencies if they are not installed (skip in web-only mode).
     if (projectStructure.packageJsonPath) {
-      const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
-      const needsInstall =
-        !fs.existsSync(nodeModulesPath) ||
-        (fs.existsSync(nodeModulesPath) &&
-          fs.readdirSync(nodeModulesPath).length === 0)
-
-      if (needsInstall) {
+      if (needsInstall(packageJsonDir)) {
         console.log(messages.installingDependencies())
 
         // Prevents `process.chdir() is not supported in workers` error

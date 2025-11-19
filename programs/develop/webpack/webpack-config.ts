@@ -11,6 +11,8 @@ import {type Configuration} from '@rspack/core'
 import {type ProjectStructure} from './webpack-lib/project'
 import {makeSanitizedConsole} from './webpack-lib/branding'
 import {filterKeysForThisBrowser} from './webpack-lib/manifest-utils'
+import {asAbsolute, getDirs, devtoolsEngineFor} from './webpack-lib/paths'
+import * as messages from './webpack-lib/messages'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -20,53 +22,32 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
-import * as browserMessages from './plugin-browsers/browsers-lib/messages'
 
 // Types
-import type {DevOptions} from './webpack-types'
+import type {WebpackConfigOptions} from './webpack-types'
 
 export default function webpackConfig(
   projectStructure: ProjectStructure,
-  devOptions: DevOptions & {
-    preferences?: Record<string, unknown>
-    browserFlags?: string[]
-  } & {
-    output: {
-      clean: boolean
-      path: string
-    }
-  } & {
-    // Internal auto-generated instance ID, not user-configurable
-    instanceId?: string
-  }
+  devOptions: WebpackConfigOptions
 ): Configuration {
-  const {manifestPath, packageJsonPath} = projectStructure
-  const manifestDir = path.dirname(manifestPath)
-  const packageJsonDir = packageJsonPath
-    ? path.dirname(packageJsonPath)
-    : manifestDir
-
-  // Accept alias flags: --gecko-binary/--firefox-binary
-  const geckoBinaryAlias =
-    (devOptions as any).geckoBinary || (devOptions as any).firefoxBinary
-  const browser = devOptions.chromiumBinary
-    ? 'chromium-based'
-    : geckoBinaryAlias
-      ? 'gecko-based'
-      : devOptions.browser
+  const {manifestPath} = projectStructure
+  const {packageJsonDir} = getDirs(projectStructure)
 
   const manifest = filterKeysForThisBrowser(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
-    browser
+    devOptions.browser
   )
-  const userExtensionOutputPath = path.isAbsolute(devOptions.output.path)
-    ? devOptions.output.path
-    : path.resolve(packageJsonDir, devOptions.output.path)
+  const userExtensionOutputPath = asAbsolute(
+    path.isAbsolute(devOptions.output.path)
+      ? devOptions.output.path
+      : path.resolve(packageJsonDir, devOptions.output.path)
+  )
 
   // Build list of extensions to load in the browser.
   // Load devtools first (fallback NTP); push the user extension LAST so
   // user overrides (like New Tab) take precedence.
   const extensionsToLoad: string[] = []
+  const debug = process.env.EXTENSION_ENV === 'development'
 
   if (devOptions.mode !== 'production') {
     // Look for devtools dist mirrored by programs/develop build pipeline
@@ -75,29 +56,7 @@ export default function webpackConfig(
       '../dist/extension-js-devtools'
     )
     // Map requested browser to the corresponding devtools manager distribution
-    // - chrome -> chrome manager
-    // - edge -> edge manager
-    // - chromium/chromium-based -> chromium manager
-    // - firefox/gecko-based/firefox-based -> firefox manager
-    const devtoolsEngine = (() => {
-      const b = String(browser || '')
-      switch (b) {
-        case 'chrome':
-          return 'chrome'
-        case 'edge':
-          return 'edge'
-        case 'chromium':
-        case 'chromium-based':
-          return 'chromium'
-        case 'firefox':
-        case 'gecko-based':
-        case 'firefox-based':
-          return 'firefox'
-        default:
-          return b
-      }
-    })()
-
+    const devtoolsEngine = devtoolsEngineFor(devOptions.browser)
     const devtoolsForBrowser = path.join(devtoolsRoot, devtoolsEngine)
 
     if (fs.existsSync(devtoolsForBrowser)) {
@@ -108,11 +67,25 @@ export default function webpackConfig(
   // Always load the user extension last to give it precedence on conflicts
   extensionsToLoad.push(userExtensionOutputPath)
 
+  if (debug) {
+    console.log(
+      messages.debugBrowser(
+        devOptions.browser,
+        devOptions.chromiumBinary,
+        devOptions.geckoBinary
+      )
+    )
+    console.log(messages.debugContextPath(packageJsonDir))
+    console.log(messages.debugOutputPath(userExtensionOutputPath))
+    console.log(messages.debugExtensionsToLoad(extensionsToLoad))
+  }
+
   return {
     mode: devOptions.mode || 'development',
     entry: {},
     target: 'web',
     context: packageJsonDir,
+    cache: false,
     devtool:
       (devOptions.mode || 'development') === 'production'
         ? false
@@ -120,7 +93,7 @@ export default function webpackConfig(
           ? 'cheap-source-map'
           : 'eval-cheap-source-map',
     output: {
-      clean: devOptions.output?.clean,
+      clean: devOptions.output.clean,
       path: userExtensionOutputPath,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
@@ -131,8 +104,17 @@ export default function webpackConfig(
         dynamicImport: true
       }
     },
+    watchOptions: {
+      ignored: /node_modules|dist|extension-js\/profiles/,
+      poll: 1000,
+      aggregateTimeout: 200
+    },
     resolve: {
-      modules: packageJsonPath
+      // Prefer browser fields and conditions; avoid Node-targeted builds
+      mainFields: ['browser', 'module', 'main'],
+      conditionNames: ['browser', 'import', 'module', 'default'],
+      aliasFields: ['browser'],
+      modules: projectStructure.packageJsonPath
         ? [
             'node_modules',
             path.join(packageJsonDir, 'node_modules'),
@@ -154,16 +136,7 @@ export default function webpackConfig(
         '.json',
         '.wasm',
         '.svelte'
-      ],
-      // Prefer browser fields and conditions; avoid Node-targeted builds
-      mainFields: ['browser', 'module', 'main'],
-      conditionNames: ['browser', 'import', 'module', 'default'],
-      aliasFields: ['browser']
-    },
-    watchOptions: {
-      ignored: /node_modules|dist|extension-js\/profiles/,
-      poll: 1000,
-      aggregateTimeout: 200
+      ]
     },
     module: {
       rules: [],
@@ -176,12 +149,11 @@ export default function webpackConfig(
         }
       }
     },
-    cache: false,
     plugins: [
       new CompilationPlugin({
         manifestPath,
-        browser,
-        clean: devOptions.output?.clean,
+        browser: devOptions.browser,
+        clean: devOptions.output.clean,
         zip: devOptions.zip === true,
         zipSource: devOptions.zipSource === true,
         zipFilename: devOptions.zipFilename
@@ -199,16 +171,16 @@ export default function webpackConfig(
       }),
       new CompatibilityPlugin({
         manifestPath,
-        browser,
+        browser: devOptions.browser,
         polyfill: devOptions.polyfill
       }),
       new ExtensionPlugin({
         manifestPath,
-        browser
+        browser: devOptions.browser
       }),
       new BrowsersPlugin({
         extension: extensionsToLoad,
-        browser,
+        browser: devOptions.browser,
         noOpen: devOptions.noOpen,
         startingUrl: devOptions.startingUrl,
         profile: devOptions.profile,
@@ -216,7 +188,7 @@ export default function webpackConfig(
         preferences: devOptions.preferences,
         browserFlags: devOptions.browserFlags,
         chromiumBinary: devOptions.chromiumBinary,
-        geckoBinary: geckoBinaryAlias,
+        geckoBinary: devOptions.geckoBinary,
         instanceId: devOptions.instanceId,
         port: devOptions.port,
         source: devOptions.source,
@@ -248,7 +220,7 @@ export default function webpackConfig(
       // Keep third-party/bundler/dev-server logs hidden by default
       // Only surface when explicitly requested for debugging
       level:
-        devOptions.mode === 'development' &&
+        String(devOptions.mode) === 'development' &&
         String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
           ? 'info'
           : 'error',
