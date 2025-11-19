@@ -1,5 +1,15 @@
 import colors from 'pintor'
 
+function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    return colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')
+  }
+  if (type === 'error') return colors.red('ERROR')
+  if (type === 'warn') return colors.brightYellow('►►►')
+  if (type === 'info') return colors.gray('►►►')
+  return colors.green('►►►')
+}
+
 export function ready(mode: 'development' | 'production', browser: string) {
   const extensionOutput =
     browser === 'firefox' || browser === 'gecko-based' || browser === 'edge'
@@ -20,7 +30,7 @@ export function extensionJsRunnerError(error: unknown) {
 }
 
 export function autoExitModeEnabled(ms: number) {
-  return `Auto-exit mode enabled. Will exit after ${colors.brightBlue(ms.toString())} ms if idle.`
+  return `Auto-exit enabled. Will exit after ${colors.brightBlue(ms.toString())} ms if idle.`
 }
 
 export function autoExitTriggered(ms: number) {
@@ -84,4 +94,27 @@ export function noEntrypointsDetected(port: number) {
     `  • All sources are ignored or excluded.`,
     `Try enabling verbose logs with ${colors.brightBlue('EXTENSION_VERBOSE=1')} or review your extension config.`
   ].join('\n')
+}
+
+export function devServerConfig(
+  host: string,
+  port: number,
+  hmrEnabled: boolean,
+  wsHost: string,
+  wsPort: number,
+  pollingIntervalMs: number
+) {
+  const heading = 'Dev server'
+  return [
+    heading,
+    `${colors.gray('HOST')} ${colors.underline(host)}`,
+    `${colors.gray('PORT')} ${colors.underline(String(port))}`,
+    `${colors.gray('HMR')} ${hmrEnabled ? colors.green('enabled') : colors.gray('disabled')}`,
+    `${colors.gray('WS')} ${colors.underline(`${wsHost}:${wsPort}`)}`,
+    `${colors.gray('POLLING')} ${colors.underline(String(pollingIntervalMs))}${colors.gray('ms')}`
+  ].join('\n')
+}
+
+export function devServerWsSummary(connections: number) {
+  return `${colors.gray('►►►')} DevServer: WS connections ${colors.underline(String(connections))}`
 }

@@ -44,7 +44,7 @@ export class CDPExtensionController {
         flatten: true
       })
     } catch (error: unknown) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.warn(
           messages.cdpAutoAttachSetupFailed(
             String((error as Error)?.message || error)
@@ -137,7 +137,7 @@ export class CDPExtensionController {
           name = String(manifest?.name || '') || undefined
           version = String(manifest?.version || '') || undefined
         } catch (e2: unknown) {
-          if (process.env.EXTENSION_ENV === 'development') {
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
             console.warn(
               '[CDP] Fallback manifest read failed:',
               String((e2 as Error)?.message || e2)
@@ -288,7 +288,7 @@ export class CDPExtensionController {
         }
       })
     } catch (e) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.warn('[CDP] enableLogging failed:', String(e))
       }
     }

@@ -61,7 +61,7 @@ export async function setupCdpAfterLaunch(
       )
 
   // Log the Chrome user data directory and debug port if in development
-  if (process.env.EXTENSION_ENV === 'development') {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     const userDataDirFlag = chromiumArgs.find((flag: string) =>
       flag.startsWith('--user-data-dir=')
     )
@@ -112,7 +112,7 @@ export async function setupCdpAfterLaunch(
   }
 
   await retryAsync(() => cdpExtensionController.connect())
-  if (process.env.EXTENSION_ENV === 'development') {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     console.log(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
   }
 
@@ -137,7 +137,7 @@ export async function setupCdpAfterLaunch(
         })
       }
     } catch (bannerErr) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.warn(messages.bestEffortBannerPrintFailed(String(bannerErr)))
       }
     }

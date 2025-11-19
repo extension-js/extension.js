@@ -15,6 +15,17 @@ export async function setupUnifiedLogging(
   const level = String(opts.level || '').toLowerCase()
   if (!level || level === 'off') return
 
+  const colorOn = opts?.color !== false
+  const c = {
+    gray: (s: string) => (colorOn && colors.gray ? colors.gray(s) : s),
+    red: (s: string) => (colorOn && colors.red ? colors.red(s) : s),
+    yellow: (s: string) =>
+      colorOn && colors.brightYellow ? colors.brightYellow(s) : s,
+    cyan: (s: string) => (colorOn && colors.cyan ? colors.cyan(s) : s),
+    magenta: (s: string) => (colorOn && colors.magenta ? colors.magenta(s) : s),
+    white: (s: string) => (colorOn && colors.white ? colors.white(s) : s)
+  }
+
   await controller.enableUnifiedLogging({
     level: level as LogLevel,
     contexts: opts.contexts,
@@ -94,21 +105,20 @@ export async function setupUnifiedLogging(
 
       function fmtLevel(lvl: string) {
         const up = String(lvl || 'log').toUpperCase()
-
         switch (String(lvl || '').toLowerCase()) {
           case 'error':
-            return colors.red ? colors.red(up) : up
+            return c.red(up)
           case 'warn':
-            return colors.brightYellow ? colors.brightYellow(up) : up
+            return c.yellow(up)
           case 'info':
-            return colors.cyan ? colors.cyan(up) : up
+            return c.cyan(up)
           case 'debug':
-            return colors.magenta ? colors.magenta(up) : up
+            return c.magenta(up)
           case 'trace':
-            return colors.white ? colors.white(up) : up
+            return c.white(up)
           case 'log':
           default:
-            return colors.gray ? colors.gray(up) : up
+            return c.gray(up)
         }
       }
 
@@ -133,15 +143,7 @@ export async function setupUnifiedLogging(
       }
 
       const nowDate = new Date()
-      const tsShort = showTs
-        ? (() => {
-            const hh = String(nowDate.getHours()).padStart(2, '0')
-            const mm = String(nowDate.getMinutes()).padStart(2, '0')
-            const ss = String(nowDate.getSeconds()).padStart(2, '0')
-            const ms = String(nowDate.getMilliseconds()).padStart(3, '0')
-            return `${hh}:${mm}:${ss}.${ms}`
-          })()
-        : ''
+      const tsIso = showTs ? `${nowDate.toISOString()} ` : ''
 
       // JSON/NDJSON aligned output for machine parsing
       if (String(opts.format || '').toLowerCase() !== 'pretty') {
@@ -168,13 +170,12 @@ export async function setupUnifiedLogging(
         return
       }
 
-      // Pretty human output mirroring DevTools
-      const head = `${prefix} ${fmtLevel(level)} ${context}`
-      const tailSrc = where ? ` (${where})` : ''
-      const tailTs = tsShort
-        ? ` ${colors.gray ? colors.gray(tsShort) : tsShort}`
-        : ''
-      console.log(`${head} - ${msg}${tailSrc}${tailTs}`)
+      // Pretty human output mirroring DevTools, Vercel tone
+      const ctx = c.gray(`[${context}]`)
+      const lvl = fmtLevel(level)
+      const whereStr = where ? ` ${c.gray(where)}` : ''
+      const message = msg && msg.trim().length ? msg.trim() : '(none)'
+      console.log(`${tsIso}${prefix} ${ctx} ${lvl}${whereStr} - ${message}`)
     } catch {
       // Ignore
     }

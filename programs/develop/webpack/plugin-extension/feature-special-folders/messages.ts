@@ -21,3 +21,19 @@ export function publicContainsManifestError(absPath: string) {
     `${colors.red('NOT ALLOWED')} ${colors.underline(absPath)}`
   )
 }
+
+export function specialFoldersSetupSummary(
+  hasPublic: boolean,
+  copyEnabled: boolean,
+  ignoredCount: number
+) {
+  return `Special folders setup — public=${String(hasPublic)}, copy=${String(copyEnabled)}, ignored=${String(ignoredCount)}`
+}
+
+export function specialFolderChangeDetected(
+  action: 'add' | 'remove',
+  folder: 'pages' | 'scripts',
+  relativePath: string
+) {
+  return `Special folders change — ${action} in ${folder}/: ${relativePath}`
+}

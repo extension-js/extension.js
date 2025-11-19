@@ -1,6 +1,7 @@
 import * as path from 'path'
 import type {Compiler} from '@rspack/core'
 import type {PluginInterface} from '../../webpack-types'
+import * as messages from './messages'
 
 export class ResolvePlugin {
   public readonly manifestPath: string
@@ -31,5 +32,14 @@ export class ResolvePlugin {
         }
       ]
     })
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        messages.resolveAttachSummary(
+          String(this.browser || 'chrome'),
+          path.dirname(this.manifestPath),
+          String(compiler.options.mode || 'development')
+        )
+      )
+    }
   }
 }
