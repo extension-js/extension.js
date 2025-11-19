@@ -5,12 +5,13 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import * as path from 'path'
 import {getProjectStructure} from './webpack-lib/project'
 import {extensionBuild} from './command-build'
 import {extensionPreview} from './command-preview'
-import type {StartOptions} from './webpack-types'
+import {getDirs, getDistPath, normalizeBrowser} from './webpack-lib/paths'
+import * as messages from './webpack-lib/messages'
 import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
+import type {StartOptions} from './webpack-types'
 
 export async function extensionStart(
   pathOrRemoteUrl: string | undefined,
@@ -19,10 +20,28 @@ export async function extensionStart(
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
-    const browser = startOptions.browser || 'chrome'
-    const manifestDir = path.dirname(projectStructure.manifestPath)
+    const debug = process.env.EXTENSION_ENV === 'development'
+    const browser = normalizeBrowser(
+      startOptions.browser || 'chrome',
+      startOptions.chromiumBinary,
+      startOptions.geckoBinary || startOptions.firefoxBinary
+    )
+    const {manifestDir, packageJsonDir} = getDirs(projectStructure)
     const commandConfig = await loadCommandConfig(manifestDir, 'start')
     const browserConfig = await loadBrowserConfig(manifestDir, browser)
+
+    const distPath = getDistPath(packageJsonDir, browser)
+    if (debug) {
+      console.log(messages.debugDirs(manifestDir, packageJsonDir))
+      console.log(
+        messages.debugBrowser(
+          browser,
+          startOptions.chromiumBinary,
+          startOptions.geckoBinary || startOptions.firefoxBinary
+        )
+      )
+      console.log(messages.debugOutputPath(distPath))
+    }
 
     await extensionBuild(pathOrRemoteUrl, {
       ...browserConfig,
@@ -32,17 +51,14 @@ export async function extensionStart(
       silent: true
     })
 
-    const packageJsonDir = projectStructure.packageJsonPath
-      ? path.dirname(projectStructure.packageJsonPath)
-      : manifestDir
-
     await extensionPreview(pathOrRemoteUrl, {
       ...browserConfig,
       ...commandConfig,
       ...startOptions,
       browser,
+      geckoBinary: startOptions.geckoBinary || startOptions.firefoxBinary,
       // Starts preview the extension from the build directory
-      outputPath: path.join(packageJsonDir, 'dist', browser)
+      outputPath: distPath
     })
   } catch (error) {
     if (process.env.EXTENSION_ENV === 'development') {

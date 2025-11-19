@@ -119,6 +119,7 @@ export interface DevOptions extends BrowserOptionsBase {
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
+  firefoxBinary?: GeckoOptions['geckoBinary']
   // Packaging options (used when mode === 'production')
   zip?: boolean
   zipSource?: boolean
@@ -146,6 +147,9 @@ export interface DevOptions extends BrowserOptionsBase {
 
 export interface BuildOptions {
   browser: BrowserOptionsBase['browser']
+  chromiumBinary?: ChromiumOptions['chromiumBinary']
+  geckoBinary?: GeckoOptions['geckoBinary']
+  firefoxBinary?: GeckoOptions['geckoBinary']
   zipFilename?: string
   zip?: boolean
   zipSource?: boolean
@@ -163,6 +167,7 @@ export interface PreviewOptions extends BrowserOptionsBase {
   outputPath?: string
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
+  firefoxBinary?: GeckoOptions['geckoBinary']
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
   // Source inspection options (parity with DevOptions)
@@ -191,6 +196,7 @@ export interface StartOptions extends BrowserOptionsBase {
   polyfill?: boolean
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
+  firefoxBinary?: GeckoOptions['geckoBinary']
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
   // Source inspection options (parity with DevOptions)
@@ -221,6 +227,34 @@ export interface BrowserConfig extends BrowserOptionsBase {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
 }
+
+// Shared output shape consumed by webpack-config
+export type OutputConfig = {
+  clean: boolean
+  path: string
+}
+
+// Minimal common options webpack-config depends on, shared across commands
+export interface CommonWebpackOptions {
+  output: OutputConfig
+  preferences?: Record<string, unknown>
+  browserFlags?: string[]
+  /**
+   * Internal auto-generated instance ID, not user-configurable
+   */
+  instanceId?: string
+}
+
+/**
+ * Canonical options type for webpack-config consumers.
+ * Accepts any of the command option fields (dev/preview/start/build),
+ * while requiring browser and mode, and the common output settings.
+ */
+export type WebpackConfigOptions = CommonWebpackOptions &
+  Partial<DevOptions & PreviewOptions & StartOptions & BuildOptions> & {
+    browser: BrowserType
+    mode: 'development' | 'production' | 'none'
+  }
 
 export interface FileConfig {
   browser?: {
