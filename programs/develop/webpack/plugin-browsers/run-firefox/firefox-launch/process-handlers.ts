@@ -74,6 +74,10 @@ export function setupFirefoxProcessHandlers(
   process.on('SIGINT', onSignal)
   process.on('SIGTERM', onSignal)
   process.on('SIGHUP', onSignal)
+  // Windows-specific (Ctrl+Break / some console close scenarios)
+  process.on('SIGBREAK', onSignal)
+  // Opportunistic fallback before exit
+  process.on('beforeExit', onSignal)
 
   process.on('uncaughtException', async (error) => {
     console.error(
