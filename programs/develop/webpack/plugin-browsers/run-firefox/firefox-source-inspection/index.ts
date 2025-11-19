@@ -67,7 +67,7 @@ export class FirefoxSourceInspectionPlugin {
     const client = new MessagingClient()
     const port = await this.getRdpPort()
 
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(messages.sourceInspectorWaitingForFirefox())
     }
 
@@ -78,7 +78,7 @@ export class FirefoxSourceInspectionPlugin {
         await client.connect(port)
         this.client = client
         this.initialized = true
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(messages.firefoxRemoteDebuggingReady())
           console.log(messages.sourceInspectorInitialized())
         }
@@ -87,7 +87,7 @@ export class FirefoxSourceInspectionPlugin {
         retries++
 
         if (retries % 10 === 0) {
-          if (process.env.EXTENSION_ENV === 'development') {
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
             console.log(
               messages.sourceInspectorFirefoxNotReadyYet(
                 retries,
@@ -151,7 +151,7 @@ export class FirefoxSourceInspectionPlugin {
         await this.client.navigateViaScript(consoleActor, urlToInspect)
       }
     } catch (error) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         const err = error as Error
         console.warn(
           '[RDP] ensureUrlAndReady evaluate/navigateViaScript failed:',
@@ -320,7 +320,7 @@ export class FirefoxSourceInspectionPlugin {
           const urlToInspect = this.resolveUrlToInspect()
           this.lastUrlToInspect = urlToInspect
 
-          if (process.env.EXTENSION_ENV === 'development') {
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
             console.log(messages.sourceInspectorWillInspect(urlToInspect))
           }
 
@@ -346,7 +346,7 @@ export class FirefoxSourceInspectionPlugin {
             await this.handleFileChange()
           }
         } catch (error) {
-          if (process.env.EXTENSION_ENV === 'development') {
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
             console.error(
               messages.sourceInspectorSetupFailed((error as Error).message)
             )

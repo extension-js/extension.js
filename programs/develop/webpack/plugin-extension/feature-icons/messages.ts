@@ -46,3 +46,49 @@ export function manifestIconsEntrypointChange(
   }
   return lines.join('\n')
 }
+
+export function iconsEmitSummary(
+  feature: string,
+  stats: {
+    entries: number
+    underPublic: number
+    emitted: number
+    missing: number
+  }
+) {
+  return (
+    `Icons ${colors.yellow(feature)} — ` +
+    `entries ${colors.gray(String(stats.entries))}, ` +
+    `public ${colors.gray(String(stats.underPublic))}, ` +
+    `emitted ${colors.gray(String(stats.emitted))}, ` +
+    `missing ${colors.gray(String(stats.missing))}`
+  )
+}
+
+export function iconsDepsTracked(addedCount: number) {
+  return `Icons file dependencies tracked: ${colors.gray(String(addedCount))}`
+}
+
+export function iconsNormalizationSummary(
+  beforeKeys: string[],
+  afterKeys: string[],
+  changedCount: number
+) {
+  return (
+    `Icons include normalization — keys ${colors.gray(String(beforeKeys.length))} → ${colors.gray(String(afterKeys.length))}, ` +
+    `normalized ${colors.gray(String(changedCount))}`
+  )
+}
+
+export function iconsManifestChangeDetected(
+  field: string,
+  before?: string,
+  after?: string
+) {
+  const parts = [
+    `Manifest icons change detected in ${colors.yellow(field)}`,
+    before ? `${colors.gray('before')} ${colors.underline(before)}` : '',
+    after ? `${colors.gray('after')} ${colors.underline(after)}` : ''
+  ].filter(Boolean)
+  return parts.join(' — ')
+}

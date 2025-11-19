@@ -21,7 +21,7 @@ export async function ensureNavigatedAndLoaded(
     if (detail.consoleActor) consoleActor = detail.consoleActor
     if (detail.targetActor) frameActor = detail.targetActor
   } catch (error) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const err = error as Error
       console.warn(
         '[RDP] getTargetFromDescriptor failed:',
@@ -33,7 +33,7 @@ export async function ensureNavigatedAndLoaded(
   try {
     await client.attach(frameActor)
   } catch (error) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const err = error as Error
       console.warn(
         '[RDP] attach(frameActor) failed:',
@@ -51,7 +51,7 @@ export async function ensureNavigatedAndLoaded(
     )
     return
   } catch (error) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const err = error as Error
       console.warn(
         '[RDP] navigateViaScript/waitForPageReady failed:',
@@ -68,7 +68,7 @@ export async function ensureNavigatedAndLoaded(
     try {
       await client.attach(targetActor)
     } catch (error) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         const err = error as Error
         console.warn(
           '[RDP] attach(targetActor) failed:',
@@ -80,7 +80,7 @@ export async function ensureNavigatedAndLoaded(
     await client.navigate(targetActor, urlToInspect)
     await client.waitForLoadEvent(targetActor)
   } catch (error) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const err = error as Error
       console.warn(
         '[RDP] fallback navigate/waitForLoadEvent failed:',

@@ -4,9 +4,16 @@ function getLoggingPrefix(
   feature: string,
   type: 'warn' | 'info' | 'error' | 'success'
 ) {
+  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+
+  if (isAuthor) {
+    return `${colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')} ${feature}`
+  }
+
   if (type === 'error') return `${colors.red('ERROR')} ${feature}`
   if (type === 'warn') return `${colors.brightYellow('►►►')} ${feature}`
   const arrow = type === 'info' ? colors.gray('►►►') : colors.green('►►►')
+
   return `${arrow} ${feature}`
 }
 
@@ -82,4 +89,48 @@ export function manifestInvalidError(error: NodeJS.ErrnoException) {
   lines.push('')
   lines.push(`${colors.red('ERROR')} ${colors.red(String(error))}`)
   return lines.join('\n')
+}
+
+export function manifestIncludeSummary(browser: string, manifestPath: string) {
+  return `Manifest include summary — browser=${colors.yellow(browser)}, path=${colors.underline(manifestPath)}`
+}
+
+export function manifestEmitSuccess() {
+  return `Manifest emitted to assets (schema stripped).`
+}
+
+export function manifestOverridesSummary(
+  overrideKeys: number,
+  devCssStubsAdded: number
+) {
+  return `Manifest overrides — keys=${colors.gray(String(overrideKeys))}, devCssStubsAdded=${colors.gray(String(devCssStubsAdded))}`
+}
+
+export function manifestDepsTracked(addedCount: number) {
+  return `Manifest file dependencies tracked: ${colors.gray(String(addedCount))}`
+}
+
+export function manifestValidationScanSummary(
+  fieldsChecked: number,
+  errorsFound: number
+) {
+  return `Manifest validation — fieldsChecked=${colors.gray(String(fieldsChecked))}, errors=${colors.gray(String(errorsFound))}`
+}
+
+export function manifestLegacyWarningsSummary(count: number) {
+  return `Manifest legacy warnings — count=${colors.gray(String(count))}`
+}
+
+export function manifestRecompileDetected(
+  fileAdded?: string,
+  fileRemoved?: string
+) {
+  const parts = [
+    `Manifest entrypoints changed`,
+    fileRemoved
+      ? `${colors.gray('before')} ${colors.underline(fileRemoved)}`
+      : '',
+    fileAdded ? `${colors.gray('after')} ${colors.underline(fileAdded)}` : ''
+  ].filter(Boolean)
+  return parts.join(' — ')
 }

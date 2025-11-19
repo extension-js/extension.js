@@ -52,13 +52,13 @@ export class ChromiumSourceInspectionPlugin {
       this.cdpClient = new CDPClient(port)
       await this.cdpClient.connect()
 
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.sourceInspectorInitialized())
       }
 
       this.isInitialized = true
     } catch (error) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.error(
           messages.sourceInspectorInitializationFailed((error as Error).message)
         )
@@ -74,7 +74,7 @@ export class ChromiumSourceInspectionPlugin {
     }
 
     try {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.sourceInspectorOpeningUrl(url))
         console.log(messages.sourceInspectorFindingExistingTarget())
       }
@@ -86,7 +86,7 @@ export class ChromiumSourceInspectionPlugin {
       this.currentTargetId = targetId
       this.currentSessionId = sessionId
 
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.sourceInspectorWaitingForPageLoad())
       }
 
@@ -104,7 +104,7 @@ export class ChromiumSourceInspectionPlugin {
         // best-effort initial print
       }
 
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.sourceInspectorWaitingForContentScripts())
       }
 
@@ -144,7 +144,7 @@ export class ChromiumSourceInspectionPlugin {
 
       return html
     } catch (error) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.error(
           messages.sourceInspectorInspectionFailed((error as Error).message)
         )
@@ -156,7 +156,7 @@ export class ChromiumSourceInspectionPlugin {
 
   // Only relevant for development: watch mode and file change handling
   async startWatching(websocketServer: WebSocketServer): Promise<void> {
-    if (process.env.EXTENSION_ENV !== 'development') return
+    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
 
     if (this.isWatching) {
       console.log(messages.sourceInspectorWatchModeActive())
@@ -171,7 +171,7 @@ export class ChromiumSourceInspectionPlugin {
   }
 
   private setupWebSocketHandler(websocketServer: WebSocketServer) {
-    if (process.env.EXTENSION_ENV !== 'development') return
+    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
 
     if (!websocketServer || !websocketServer.clients) {
       console.warn(messages.sourceInspectorInvalidWebSocketServer())
@@ -194,7 +194,7 @@ export class ChromiumSourceInspectionPlugin {
   private setupConnectionHandler(ws: {
     on: (event: 'message', cb: (data: string) => void) => void
   }) {
-    if (process.env.EXTENSION_ENV !== 'development') return
+    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
 
     ws.on('message', async (data: string) => {
       try {
@@ -209,14 +209,14 @@ export class ChromiumSourceInspectionPlugin {
   }
 
   stopWatching() {
-    if (process.env.EXTENSION_ENV !== 'development') return
+    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
 
     this.isWatching = false
     console.log(messages.sourceInspectorWatchModeStopped())
   }
 
   private async handleFileChange(): Promise<void> {
-    if (process.env.EXTENSION_ENV !== 'development') return
+    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
 
     if (!this.cdpClient || !this.currentSessionId) {
       console.warn(messages.sourceInspectorNoActiveSession())
@@ -282,7 +282,7 @@ export class ChromiumSourceInspectionPlugin {
   }
 
   private async reconnectToTarget(): Promise<void> {
-    if (process.env.EXTENSION_ENV !== 'development') return
+    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
 
     try {
       if (!this.cdpClient || !this.currentTargetId) {
@@ -357,7 +357,7 @@ export class ChromiumSourceInspectionPlugin {
 
   // Only for development: print updated HTML after file change
   printUpdatedHTML(html: string) {
-    if (process.env.EXTENSION_ENV !== 'development') return
+    if (process.env.EXTENSION_AUTHOR_MODE !== 'true') return
 
     const raw = String(process.env.EXTENSION_SOURCE_RAW || '').trim()
     const maxBytesStr = String(
@@ -418,7 +418,7 @@ export class ChromiumSourceInspectionPlugin {
 
   async cleanup(): Promise<void> {
     try {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.stopWatching()
       }
 
@@ -430,11 +430,11 @@ export class ChromiumSourceInspectionPlugin {
         this.cdpClient.disconnect()
       }
 
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.sourceInspectorCleanupComplete())
       }
     } catch (error) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.error(
           messages.sourceInspectorCleanupError((error as Error).message)
         )
@@ -479,7 +479,7 @@ export class ChromiumSourceInspectionPlugin {
 
         if (
           this.devOptions.watchSource &&
-          process.env.EXTENSION_ENV === 'development'
+          process.env.EXTENSION_AUTHOR_MODE === 'true'
         ) {
           if (webSocketServer) {
             await this.startWatching(webSocketServer)
@@ -496,7 +496,7 @@ export class ChromiumSourceInspectionPlugin {
           }
         }
       } catch (error) {
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.error(
             messages.sourceInspectorSetupFailed((error as Error).message)
           )

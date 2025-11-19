@@ -37,3 +37,37 @@ export function failedToInstallIntegration(
 export function isUsingCustomLoader(loaderPath: string) {
   return `${colors.gray('►►►')} Using custom loader: ${colors.yellow(loaderPath)}.`
 }
+
+export function jsFrameworksIntegrationsEnabled(integrations: string[]) {
+  const list =
+    integrations.length > 0
+      ? integrations.map((n) => colors.yellow(n)).join(', ')
+      : colors.gray('none')
+  return `${colors.gray('►►►')} JS: Integrations enabled (${colors.gray(String(integrations.length))}) ${list}`
+}
+
+export function jsFrameworksConfigsDetected(
+  tsConfigPath?: string,
+  tsRoot?: string,
+  targets?: string[]
+) {
+  const fmt = (v?: string) => (v ? colors.underline(v) : colors.gray('none'))
+  const tgt =
+    targets && targets.length
+      ? targets.map((t) => colors.gray(t)).join(', ')
+      : colors.gray('default')
+  return (
+    `${colors.gray('►►►')} JS: Configs\n` +
+    `${colors.gray('TSCONFIG')} ${fmt(tsConfigPath)}\n` +
+    `${colors.gray('TSROOT')} ${fmt(tsRoot)}\n` +
+    `${colors.gray('SWC_TARGETS')} ${tgt}`
+  )
+}
+
+export function jsFrameworksHmrSummary(enabled: boolean, frameworks: string[]) {
+  const list =
+    frameworks.length > 0
+      ? frameworks.map((n) => colors.yellow(n)).join(', ')
+      : colors.gray('none')
+  return `${colors.gray('►►►')} JS: HMR ${enabled ? colors.green('enabled') : colors.gray('disabled')} for ${list}`
+}

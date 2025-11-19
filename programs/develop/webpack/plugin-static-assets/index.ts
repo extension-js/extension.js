@@ -1,5 +1,6 @@
 import {type Compiler, type RuleSetRule} from '@rspack/core'
 import type {PluginInterface, DevOptions} from '../webpack-types'
+import * as messages from './static-assets-lib/messages'
 
 export class StaticAssetsPlugin {
   public static readonly name: string = 'plugin-static-assets'
@@ -83,5 +84,54 @@ export class StaticAssetsPlugin {
       ...compiler.options.module.rules,
       ...loaders
     ].filter((rule): rule is RuleSetRule => Boolean(rule))
+
+    // Author mode: summarize assets rules/configs and emitted outputs
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      const rulesEnabled: string[] = []
+      rulesEnabled.push(hasCustomSvgRule ? 'SVG(custom)' : 'SVG(default)')
+      rulesEnabled.push('Images')
+      rulesEnabled.push('Fonts')
+      rulesEnabled.push('Files')
+
+      console.log(messages.assetsRulesEnabled(rulesEnabled))
+
+      const inlineKB = 2
+      console.log(
+        messages.assetsConfigsDetected(
+          filenamePattern,
+          hasCustomSvgRule ? 'custom' : 'default',
+          hasCustomSvgRule ? undefined : inlineKB,
+          inlineKB,
+          inlineKB
+        )
+      )
+
+      compiler.hooks.afterEmit.tap(
+        StaticAssetsPlugin.name,
+        (compilation: any) => {
+          try {
+            const assets = (compilation?.getAssets?.() || []) as Array<{
+              name: string
+            }>
+            const emitted = assets.filter(
+              (a) => a.name && a.name.startsWith('assets/')
+            )
+            const counts = {svg: 0, images: 0, fonts: 0, files: 0}
+
+            for (const a of emitted) {
+              const n = a.name.toLowerCase()
+              if (n.endsWith('.svg')) counts.svg++
+              else if (/\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i.test(n))
+                counts.images++
+              else if (/\.(woff|woff2|eot|ttf|otf)$/i.test(n)) counts.fonts++
+              else counts.files++
+            }
+            console.log(messages.assetsEmittedSummary(emitted.length, counts))
+          } catch {
+            // silent
+          }
+        }
+      )
+    }
   }
 }

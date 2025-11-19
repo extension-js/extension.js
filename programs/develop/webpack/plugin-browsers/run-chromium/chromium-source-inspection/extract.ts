@@ -4,7 +4,7 @@ import {CDPClient} from './cdp-client'
 export async function extractPageHtml(
   cdpClient: CDPClient,
   sessionId: string,
-  logSamples = process.env.EXTENSION_ENV === 'development'
+  logSamples = process.env.EXTENSION_AUTHOR_MODE === 'true'
 ): Promise<string> {
   let html = await cdpClient.getPageHTML(sessionId)
 

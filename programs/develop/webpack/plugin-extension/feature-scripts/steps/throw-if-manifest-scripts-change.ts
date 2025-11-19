@@ -1,6 +1,7 @@
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 import type {PluginInterface, DevOptions} from '../../../webpack-types'
+import {scriptsManifestChangeDetected} from '../messages'
 
 export class ThrowIfManifestScriptsChange {
   public readonly manifestPath: string
@@ -119,6 +120,15 @@ export class ThrowIfManifestScriptsChange {
           },
           () => {
             if (!this.pending?.hasChange) return
+
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                scriptsManifestChangeDetected(
+                  this.pending.pathBefore,
+                  this.pending.pathAfter
+                )
+              )
+            }
             const lines: string[] = []
             lines.push(
               'Entrypoint references changed in scripts. ' +

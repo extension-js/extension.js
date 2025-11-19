@@ -7,6 +7,11 @@ type Mode = DevOptions['mode']
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
+  // Streamlined author mode: always magenta prefix
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    return colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')
+  }
+
   if (type === 'error') return colors.red('ERROR')
   if (type === 'warn') return colors.brightYellow('►►►')
   if (type === 'info') return colors.gray('►►►')
@@ -345,6 +350,14 @@ export function locatingBrowser(browser: Browser) {
 
 export function devChromeProfilePath(path: string) {
   return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Chrome profile: ${colors.underline(path)}`
+}
+
+export function usingChromiumRunner(browser: Browser) {
+  return `${getLoggingPrefix('info')} Using Chromium runner for ${capitalizedBrowserName(browser)}`
+}
+
+export function usingFirefoxRunner(browser: Browser) {
+  return `${getLoggingPrefix('info')} Using Firefox runner for ${capitalizedBrowserName(browser)}`
 }
 
 export function chromiumDryRunNotLaunching() {

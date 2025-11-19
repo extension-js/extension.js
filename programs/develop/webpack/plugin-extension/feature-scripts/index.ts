@@ -6,6 +6,7 @@ import {SetupReloadStrategy} from './steps/setup-reload-strategy'
 // import {AddCentralizedLoggerScript} from './steps/add-centralized-logger-script'
 import {AddContentScriptWrapper} from './steps/setup-reload-strategy/add-content-script-wrapper'
 import {ThrowIfManifestScriptsChange} from './steps/throw-if-manifest-scripts-change'
+import * as messages from './messages'
 import type {
   FilepathList,
   PluginInterface,
@@ -48,6 +49,17 @@ export class ScriptsPlugin {
 
     if (!hasValidManifest) {
       return
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      const featuresCount = Object.keys(this.includeList || {}).length
+      console.log(
+        messages.scriptsIncludeSummary(
+          featuresCount,
+          compiler.options.mode !== 'production',
+          String(this.browser || 'chrome')
+        )
+      )
     }
 
     // 1 - Adds the scripts entries from the manifest file

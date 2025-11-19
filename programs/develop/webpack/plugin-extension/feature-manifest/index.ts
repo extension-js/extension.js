@@ -1,4 +1,5 @@
 import {Compiler} from '@rspack/core'
+import * as messages from './messages'
 
 // Manifest plugins
 import {EmitManifest} from './steps/emit-manifest'
@@ -36,6 +37,15 @@ export class ManifestPlugin {
   }
 
   public apply(compiler: Compiler) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        messages.manifestIncludeSummary(
+          String(this.browser || 'chrome'),
+          this.manifestPath
+        )
+      )
+    }
+
     // 1 - Emit the manifest to the assets bundle.
     // It doesn't change the manifest, it just ensures
     // it's emitted to the assets bundle so other plugins

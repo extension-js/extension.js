@@ -12,6 +12,7 @@ import {
 import {maybeUseSvelte} from './js-tools/svelte'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
+import * as messages from './js-frameworks-lib/messages'
 
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'
@@ -140,6 +141,32 @@ export class JsFrameworksPlugin {
       compiler.options.resolve.tsConfig = {
         configFile: tsConfigPath as string
       }
+    }
+
+    // Author mode: summarize JS frameworks and configs
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      const integrations: string[] = []
+
+      if (maybeInstallReact) integrations.push('React')
+      if (maybeInstallPreact) integrations.push('Preact')
+      if (maybeInstallVue) integrations.push('Vue')
+      if (maybeInstallSvelte) integrations.push('Svelte')
+      if (preferTypeScript) integrations.push('TypeScript')
+
+      console.log(messages.jsFrameworksIntegrationsEnabled(integrations))
+
+      console.log(
+        messages.jsFrameworksConfigsDetected(tsConfigPath, tsRoot, targets)
+      )
+
+      const hmrFrameworks: string[] = []
+      if (maybeInstallReact) hmrFrameworks.push('React')
+      if (maybeInstallPreact) hmrFrameworks.push('Preact')
+      if (maybeInstallSvelte) hmrFrameworks.push('Svelte')
+
+      console.log(
+        messages.jsFrameworksHmrSummary(mode === 'development', hmrFrameworks)
+      )
     }
   }
 

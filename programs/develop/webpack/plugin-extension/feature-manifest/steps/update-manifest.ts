@@ -3,6 +3,7 @@ import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename} from '../manifest-lib/paths'
 import {getManifestContent} from '../manifest-lib/manifest'
 import {PluginInterface, Manifest} from '../../../webpack-types'
+import * as messages from '../messages'
 
 export class UpdateManifest {
   public readonly manifestPath: string
@@ -57,6 +58,43 @@ export class UpdateManifest {
               }
             }
 
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              try {
+                const overrideObj = JSON.parse(overrides || '{}')
+                const overrideKeys = Object.keys(overrideObj || {}).length
+                let devCssStubsAdded = 0
+
+                if (
+                  compiler.options.mode === 'development' &&
+                  Array.isArray(patchedManifest.content_scripts)
+                ) {
+                  for (const cs of patchedManifest.content_scripts) {
+                    try {
+                      const hasCss =
+                        Array.isArray((cs as any).css) &&
+                        (cs as any).css.length > 0
+                      const hasJs =
+                        Array.isArray((cs as any).js) &&
+                        (cs as any).js.length > 0
+                      if (hasCss && hasJs && (cs as any).js.length === 1) {
+                        devCssStubsAdded++
+                      }
+                    } catch {
+                      // Ignore guard errors
+                    }
+                  }
+                }
+                console.log(
+                  messages.manifestOverridesSummary(
+                    overrideKeys,
+                    devCssStubsAdded
+                  )
+                )
+              } catch {
+                // Ignore guard errors
+              }
+            }
+
             const source = JSON.stringify(patchedManifest, null, 2)
             const rawSource = new sources.RawSource(source)
 
@@ -88,6 +126,18 @@ export class UpdateManifest {
                 // Preserve all uncatched user entries
                 ...manifest,
                 ...JSON.parse(overrides)
+              }
+
+              if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                try {
+                  const overrideObj = JSON.parse(overrides || '{}')
+                  const overrideKeys = Object.keys(overrideObj || {}).length
+                  console.log(
+                    messages.manifestOverridesSummary(overrideKeys, 0)
+                  )
+                } catch {
+                  // Ignore guard errors
+                }
               }
 
               const source = JSON.stringify(patchedManifest, null, 2)

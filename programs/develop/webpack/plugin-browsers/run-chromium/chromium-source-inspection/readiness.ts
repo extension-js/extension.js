@@ -21,7 +21,7 @@ export async function waitForChromeRemoteDebugging(
     // Ignore
   }
 
-  if (process.env.EXTENSION_ENV === 'development') {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     console.log(messages.sourceInspectorWaitingForChrome())
   }
 
@@ -46,7 +46,7 @@ export async function waitForChromeRemoteDebugging(
     const isDebuggingEnabled = await checkChromeRemoteDebugging(port)
 
     if (isDebuggingEnabled) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.chromeRemoteDebuggingReady())
       }
       return
@@ -54,7 +54,7 @@ export async function waitForChromeRemoteDebugging(
 
     retries++
 
-    if (retries % 10 === 0 && process.env.EXTENSION_ENV === 'development') {
+    if (retries % 10 === 0 && process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(
         messages.sourceInspectorChromeNotReadyYet(retries, maxRetries)
       )

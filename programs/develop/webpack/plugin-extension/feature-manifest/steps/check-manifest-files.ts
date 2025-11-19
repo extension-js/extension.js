@@ -133,7 +133,33 @@ export class CheckManifestFiles {
             const WebpackError = rspack.WebpackError
 
             // Handle all errors.
+            let fieldsChecked = 0
+
+            try {
+              const entries = Object.entries(this.includeList || {})
+
+              for (const [, value] of entries) {
+                if (value) {
+                  const arr = this.extractPaths(value)
+
+                  fieldsChecked += Array.isArray(arr) ? arr.length : 0
+                }
+              }
+            } catch {
+              // ignore counting
+            }
+            const beforeErrors = (compilation.errors || []).length
             this.handleErrors(compilation, WebpackError)
+            const afterErrors = (compilation.errors || []).length
+
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.manifestValidationScanSummary(
+                  fieldsChecked,
+                  Math.max(0, afterErrors - beforeErrors)
+                )
+              )
+            }
           }
         )
       }

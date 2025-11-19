@@ -51,10 +51,14 @@ export class UpdateHtmlFile {
               (this.includeList || {}) as FilepathList
             )
 
-            if (updated && typeof updated === 'string') {
+            if (
+              updated &&
+              typeof updated === 'object' &&
+              typeof updated.html === 'string'
+            ) {
               compilation.updateAsset(
                 assetFilename,
-                new (sources as any).RawSource(updated)
+                new (sources as any).RawSource(updated.html)
               )
             }
           }

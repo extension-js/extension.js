@@ -77,8 +77,25 @@ export class LocalesPlugin {
             const localesRoot = path.join(manifestDir, '_locales')
             const hasLocalesRoot = fs.existsSync(localesRoot)
 
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.localesIncludeSummary(
+                  true,
+                  hasLocalesRoot,
+                  typeof defaultLocale === 'string' ? defaultLocale : undefined
+                )
+              )
+            }
+
             if (typeof defaultLocale === 'string' && defaultLocale.trim()) {
               if (!hasLocalesRoot) {
+                if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                  console.log(
+                    messages.localesValidationDetected(
+                      'default_locale set but _locales missing'
+                    )
+                  )
+                }
                 pushCompilationError(
                   compiler,
                   compilation,
@@ -91,6 +108,14 @@ export class LocalesPlugin {
 
               const defaultLocaleDir = path.join(localesRoot, defaultLocale)
               if (!fs.existsSync(defaultLocaleDir)) {
+                if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                  console.log(
+                    messages.localesValidationDetected(
+                      `missing _locales/${defaultLocale}`
+                    )
+                  )
+                }
+
                 pushCompilationError(
                   compiler,
                   compilation,
@@ -105,7 +130,16 @@ export class LocalesPlugin {
                 defaultLocaleDir,
                 'messages.json'
               )
+
               if (!fs.existsSync(messagesJsonPath)) {
+                if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                  console.log(
+                    messages.localesValidationDetected(
+                      `missing _locales/${defaultLocale}/messages.json`
+                    )
+                  )
+                }
+
                 pushCompilationError(
                   compiler,
                   compilation,
@@ -121,6 +155,14 @@ export class LocalesPlugin {
                 const content = fs.readFileSync(messagesJsonPath, 'utf8')
                 JSON.parse(content)
               } catch (e) {
+                if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                  console.log(
+                    messages.localesValidationDetected(
+                      `invalid JSON in _locales/${defaultLocale}/messages.json`
+                    )
+                  )
+                }
+
                 pushCompilationError(
                   compiler,
                   compilation,
@@ -166,6 +208,14 @@ export class LocalesPlugin {
                   const entry = dict?.[key]
 
                   if (!entry || typeof entry.message !== 'string') {
+                    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                      console.log(
+                        messages.localesValidationDetected(
+                          `missing key "${key}" in default locale`
+                        )
+                      )
+                    }
+
                     pushCompilationError(
                       compiler,
                       compilation,
@@ -181,6 +231,14 @@ export class LocalesPlugin {
               }
             } else if (hasLocalesRoot) {
               // _locales present but no default_locale in manifest: browsers reject the extension
+              if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                console.log(
+                  messages.localesValidationDetected(
+                    '_locales present but no default_locale'
+                  )
+                )
+              }
+
               pushCompilationError(
                 compiler,
                 compilation,
@@ -213,6 +271,14 @@ export class LocalesPlugin {
                     const s = fs.readFileSync(msgPath, 'utf8')
                     JSON.parse(s)
                   } catch {
+                    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+                      console.log(
+                        messages.localesValidationDetected(
+                          `invalid JSON in ${msgPath}`
+                        )
+                      )
+                    }
+
                     pushCompilationError(
                       compiler,
                       compilation,
@@ -230,6 +296,9 @@ export class LocalesPlugin {
           }
 
           const localesFields = getLocales(this.manifestPath)
+          const discoveredList = getLocales(this.manifestPath) || []
+          let emittedCount = 0
+          let missingCount = 0
 
           for (const field of Object.entries(localesFields || [])) {
             const [feature, resource] = field
@@ -257,6 +326,7 @@ export class LocalesPlugin {
                 }
 
                 compilation.warnings.push(warning)
+                missingCount++
                 continue
               }
 
@@ -273,7 +343,18 @@ export class LocalesPlugin {
               const filename = `_locales/${normalizedRel}`
 
               compilation.emitAsset(filename, rawSource)
+              emittedCount++
             }
+          }
+
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            console.log(
+              messages.localesEmitSummary(
+                emittedCount,
+                missingCount,
+                discoveredList.length
+              )
+            )
           }
         }
       )
@@ -291,6 +372,7 @@ export class LocalesPlugin {
           if (compilation.errors?.length) return
 
           const localesFields = getLocales(this.manifestPath)
+          let added = 0
 
           for (const field of Object.entries(localesFields || [])) {
             const [, resource] = field
@@ -309,10 +391,14 @@ export class LocalesPlugin {
                   if (!fileDependencies.has(thisResource)) {
                     fileDependencies.add(thisResource)
                     compilation.fileDependencies.add(thisResource)
+                    added++
                   }
                 }
               }
             }
+          }
+          if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+            console.log(messages.localesDepsTracked(added))
           }
         }
       )

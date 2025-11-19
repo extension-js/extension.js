@@ -23,19 +23,23 @@ export class ManifestLegacyWarnings {
         const asset = compilation.getAsset('manifest.json')
         if (!asset) return
 
-        try {
-          const text = asset.source.source().toString()
-          legacy.forEach((needle) => {
-            if (text.includes(needle)) {
-              const warn = new WebpackError(
-                messages.legacyManifestPathWarning(needle)
-              ) as Error & {file?: string; name?: string}
-              warn.name = 'ManifestLegacyWarning'
-              warn.file = 'manifest.json'
-              compilation.warnings.push(warn)
-            }
-          })
-        } catch {}
+        const text = asset.source.source().toString()
+        let count = 0
+
+        legacy.forEach((needle) => {
+          if (text.includes(needle)) {
+            const warn = new WebpackError(
+              messages.legacyManifestPathWarning(needle)
+            ) as Error & {file?: string; name?: string}
+            warn.name = 'ManifestLegacyWarning'
+            warn.file = 'manifest.json'
+            compilation.warnings.push(warn)
+            count++
+          }
+        })
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.log(messages.manifestLegacyWarningsSummary(count))
+        }
       }
     )
   }

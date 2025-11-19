@@ -84,6 +84,10 @@ export class EmitFile {
             }
 
             const stringEntries = normalizeToStrings(resource)
+            let emittedCount = 0
+            let underPublicCount = 0
+            let missingCount = 0
+            const entriesTotal = stringEntries.length
 
             for (const entry of stringEntries) {
               // Resources from the manifest lib can come as undefined.
@@ -158,6 +162,7 @@ export class EmitFile {
                     compiler,
                     {type: severity, file: 'manifest.json'}
                   )
+                  missingCount++
                   continue
                 }
 
@@ -169,6 +174,7 @@ export class EmitFile {
                     // ignore
                   }
 
+                  underPublicCount++
                   continue
                 }
 
@@ -207,7 +213,19 @@ export class EmitFile {
                 const filename = `${outputDir}/${basename}`
 
                 compilation.emitAsset(filename, rawSource)
+                emittedCount++
               }
+            }
+
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.iconsEmitSummary(feature, {
+                  entries: entriesTotal,
+                  underPublic: underPublicCount,
+                  emitted: emittedCount,
+                  missing: missingCount
+                })
+              )
             }
           }
         }

@@ -70,3 +70,18 @@ export function warInvalidMatchPattern(pattern: string) {
   )
   return lines.join('\n')
 }
+
+export function entryImportsSummary(
+  entryCount: number,
+  totalResources: number
+) {
+  return `Web resources: content entry imports — entries=${String(entryCount)}, resources=${String(totalResources)}`
+}
+
+export function warPatchedSummary(
+  v3Groups: number,
+  v3ResourcesTotal: number,
+  v2Resources: number
+) {
+  return `Web resources: WAR patched — v3Groups=${String(v3Groups)}, v3Resources=${String(v3ResourcesTotal)}, v2Resources=${String(v2Resources)}`
+}

@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
+import * as messages from './compilation-lib/messages'
 
 export class CleanDistFolderPlugin {
   constructor(private options: {browser: string}) {}
@@ -13,6 +14,12 @@ export class CleanDistFolderPlugin {
     )
 
     if (fs.existsSync(distPath)) {
+      const removedCount = countFilesRecursively(distPath)
+
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(messages.cleanDistStarting(distPath))
+      }
+
       try {
         if (fs.rmSync) {
           fs.rmSync(distPath, {recursive: true, force: true})
@@ -20,6 +27,10 @@ export class CleanDistFolderPlugin {
           // Node <14 fallback
           fs.rmdirSync(distPath, {recursive: true})
         }
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          console.log(messages.cleanDistRemovedSummary(removedCount, distPath))
+        }
+
         if (process.env.EXTENSION_ENV === 'development') {
           logger.info(
             '[CleanDistFolderPlugin] Removed old hot-update files before compilation.'
@@ -48,6 +59,27 @@ export class CleanDistFolderPlugin {
           `[CleanDistFolderPlugin] Failed to remove hot-update files: ${error.message}`
         )
       }
+    } else {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(messages.cleanDistSkippedNotFound(distPath))
+      }
     }
+  }
+}
+
+function countFilesRecursively(dir: string): number {
+  try {
+    const entries = fs.readdirSync(dir, {withFileTypes: true})
+    let total = 0
+
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) total += countFilesRecursively(full)
+      else total += 1
+    }
+
+    return total
+  } catch {
+    return 0
   }
 }

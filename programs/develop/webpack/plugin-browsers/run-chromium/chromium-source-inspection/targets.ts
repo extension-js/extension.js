@@ -17,22 +17,20 @@ export async function ensureTargetAndSession(
   let targetId: string
 
   if (existingTarget && existingTarget.targetId) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(
         messages.sourceInspectorUsingExistingTarget(existingTarget.targetId)
       )
     }
-
-    targetId = String(existingTarget.targetId)
   } else {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(messages.sourceInspectorCreatingTarget())
     }
 
     const created = await cdpClient.createTarget(url)
     targetId = String(created)
 
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(messages.sourceInspectorTargetCreated(targetId))
       console.log(messages.sourceInspectorEnsuringNavigation())
     }
@@ -51,13 +49,13 @@ export async function ensureTargetAndSession(
     }
   }
 
-  if (process.env.EXTENSION_ENV === 'development') {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     console.log(messages.sourceInspectorAttachingToTarget())
   }
 
   const sessionId = String((await cdpClient.attachToTarget(targetId)) || '')
 
-  if (process.env.EXTENSION_ENV === 'development') {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     console.log(messages.sourceInspectorAttachedToTarget(sessionId))
     console.log(messages.sourceInspectorEnablingPageDomain())
   }
