@@ -57,7 +57,6 @@ export function createExtensionsPageTab(
   initialTab: chrome.tabs.Tab,
   url: string
 ) {
-  // @ts-ignore
   const browser = (import.meta as any).env?.EXTENSION_BROWSER
   const isFirefox = browser === 'firefox'
   const isEdge = browser === 'edge'
@@ -90,20 +89,28 @@ export function createExtensionsPageTab(
 
 // Function to handle first run logic
 export async function handleFirstRun() {
-  // @ts-ignore
   const browser = (import.meta as any).env?.EXTENSION_BROWSER
   const isFirefox = browser === 'firefox'
   const isEdge = browser === 'edge'
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
   const extensionsPage = isFirefox ? 'about:addons' : `${scheme}://extensions/`
 
-  chrome.tabs.update({url: extensionsPage})
+  // For Chromium/Edge, send user to the extensions page immediately.
+  // On Firefox, we'll prefer opening our welcome page first and add
+  // the addons manager in the background below.
+  if (!isFirefox) {
+    chrome.tabs.update({url: extensionsPage})
+  }
 
   let devExtension: chrome.management.ExtensionInfo | undefined
   devExtension = await getDevExtension()
 
   // Use project-specific key when available; otherwise fall back to a global key
-  const storageKey = devExtension?.id || '__global_first_run__'
+  const browserStr = String(
+    // @ts-ignore
+    import.meta.env?.EXTENSION_BROWSER || 'chromium'
+  ).toLowerCase()
+  const storageKey = devExtension?.id || `__first_run__:${browserStr}`
 
   chrome.storage.local.get(storageKey, (result) => {
     if (result?.[storageKey]?.didRun) {
@@ -121,15 +128,38 @@ export async function handleFirstRun() {
 
         try {
           const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
+          if (isFirefox) {
+            // Always open a new welcome tab and focus it
+            try {
+              chrome.tabs.create({url: welcomeUrl, active: true})
+            } catch {
+              console.error('Error opening welcome tab')
+            }
 
-          // Attempt to open the actual welcome tab (active to surface it)
-          chrome.tabs.create({url: welcomeUrl, active: true})
+            // Ensure the addons manager exists in the background for convenience
+            try {
+              chrome.tabs.query({url: 'about:addons'}, (xtabs) => {
+                if (!Array.isArray(xtabs) || xtabs.length === 0) {
+                  try {
+                    chrome.tabs.create({url: 'about:addons', active: false})
+                  } catch {
+                    console.error('Error creating addons tab')
+                  }
+                }
+              })
+            } catch {
+              console.error('Error querying addons tab')
+            }
+          } else {
+            // Chromium/Edge: open welcome page as the active tab
+            chrome.tabs.create({url: welcomeUrl, active: true})
+          }
         } catch {
           // Fallback to relative URL if runtime URL resolution fails
           try {
             chrome.tabs.create({url: 'pages/welcome.html', active: true})
           } catch {
-            // Ignore
+            console.error('Error creating welcome tab')
           }
         }
       }

@@ -6,6 +6,20 @@
 
 // Prefs specific to Firefox for Desktop.
 const masterPreferences = {
+  // Suppress first-run and default-browser prompts to avoid stealing focus
+  'browser.aboutwelcome.enabled': false,
+  'browser.startup.homepage_override.mstone': 'ignore',
+  'browser.shell.didSkipDefaultBrowserCheckOnFirstRun': true,
+  // Bypass the first-run data submission/consent notification modal
+  'datareporting.policy.dataSubmissionPolicyBypassNotification': true,
+  // Ensure any upgrade/welcome dialog is disabled
+  'browser.startup.upgradeDialog.enabled': false,
+  // Reduce “what’s new”/CFR prompts that can surface on fresh profiles
+  'browser.messaging-system.whatsNewPanel.enabled': false,
+  'browser.newtabpage.activity-stream.asrouter.userprefs.cfr.addons': false,
+  'browser.newtabpage.activity-stream.asrouter.userprefs.cfr.features': false,
+  // Extra belt-and-suspenders to avoid override pages
+  'browser.startup.homepage_override_url': '',
   // Disable app update.
   'app.update.enabled': false,
   // Allow debug output via dump to be printed to the system console

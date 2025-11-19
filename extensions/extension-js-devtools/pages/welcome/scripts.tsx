@@ -80,14 +80,31 @@ const Welcome: React.FC = () => {
     chrome.tabs.create({url: 'https://extension.js.org/'})
   }
 
+  // Pick the largest available management icon (if any)
+  const userIconUrl =
+    extension?.icons && extension.icons.length
+      ? [...extension.icons].sort((a, b) => (b.size || 0) - (a.size || 0))[0]
+          ?.url
+      : undefined
+
   return (
     <div
       className={cn(
         'flex flex-col items-center justify-center h-screen dark:bg-muted'
       )}
     >
-      <header className="mb-4 flex gap-2">
+      <header className="mb-4 flex items-center gap-2">
         <img className="size-16" alt="Extension.js logo" src={logo} />
+        {userIconUrl ? (
+          <img
+            className="size-16 rounded"
+            alt={`${extension?.name || 'User extension'} icon`}
+            src={userIconUrl}
+            onError={(e) => {
+              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+            }}
+          />
+        ) : null}
       </header>
       <h1 className="mx-auto text-center text-4xl lg:text-5xl xl:text-6xl font-semibold tracking-tight">
         <span>{extension?.name || 'My Extension'}</span>
