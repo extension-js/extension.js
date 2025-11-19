@@ -9,17 +9,16 @@ Extension.js is a PNPM workspace. Public programs are published to npm; others a
 | Program            | Package name        | Description                                             |
 | ------------------ | ------------------- | ------------------------------------------------------- |
 | `programs/cli`     | `extension`         | The CLI that runs `extension <command>`                 |
-| `programs/create`  | `extension-create`  | Scaffolds new extensions (`extension create`)           |
 | `programs/develop` | `extension-develop` | `dev`/`build`/`preview` engines and webpack integration |
 
 Related workspaces:
 
-- `examples/*` — runnable example extensions used in tests and docs
+- `extensions/*` — built-in extensions loaded by Extension.js
 - `templates/*` — templates used by `extension create`
 
 ## Prerequisites
 
-- Node.js 20.x (what CI runs). Node 18 is generally OK, but 20 is recommended.
+- Node.js 18+ (Node 20 is recommended; CI typically runs on 20).
 - PNPM 9.x (workspace uses `packageManager: pnpm@9.9.0`).
 - macOS, Linux, or Windows.
 - Optional for E2E: browsers used by Playwright (Chrome/Chromium is enough for most).
@@ -64,8 +63,8 @@ pnpm extension <command> [args] [flags]
 Examples:
 
 ```sh
-# Run dev against a local example
-pnpm extension dev ./examples/new-react
+# Run dev against a built-in example
+pnpm extension dev ./extensions/browser-extension
 
 # Create a brand-new extension from templates
 pnpm extension create my-extension
@@ -76,13 +75,12 @@ cd my-extension && pnpm dev
 
 - `pnpm compile` — Build all workspaces (produces `dist/` used by the local CLI)
 - `pnpm watch` — Build once then watch all programs for changes
+- `pnpm extension` — Run the local CLI at `programs/cli/dist/cli.js`
 - `pnpm test` — Run all tests across packages via Turbo
 - `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build` — Focused test groups
 - `pnpm test:e2e` — Playwright end-to-end tests
 - `pnpm lint` — ESLint (config in `eslint.config.mjs`)
 - `pnpm format` — Prettier write
-- `pnpm types` — Typecheck with TypeScript
-- `pnpm clean` — Clear caches, `dist/`, and `node_modules/` across the repo
 
 Tip: run a single package’s script with Turbo filters, e.g.:
 
@@ -104,30 +102,13 @@ pnpm exec playwright install
 - Handle errors meaningfully; avoid silent catches.
 - Security: minimize browser permissions; sanitize inputs; validate cross-process messages.
 
-## Submitting changes
-
-1. Create a feature branch from `main`.
-2. Make your changes and add tests.
-3. Run `pnpm test` and ensure lint/types pass.
-4. Add a changeset (required for every PR):
-
-```sh
-pnpm changeset
-```
-
-Select affected packages and the bump type. Commit the generated file.
-
-5. Push and open a PR. CI will run tests and verify the changeset is present.
-
-Release workflow details are in `RELEASING.md` (Next channel on every merge to `main`; Stable via Changesets).
-
 ## Debugging & troubleshooting
 
 - Extra logs: ensure `.env` contains `EXTENSION_ENV=development`.
 - Force-clean the repo:
 
 ```sh
-pnpm clean && pnpm install && pnpm compile
+git clean -xfd && pnpm install && pnpm compile
 ```
 
 - Chrome/Edge/Firefox management logs print only in dev env.
