@@ -261,6 +261,6 @@ export interface Controller {
    * Present in Chromium CDP flows; Firefox may omit it.
    */
   onProtocolEvent?: (
-    cb: (evt: { method?: string; params?: unknown }) => void
+    cb: (evt: {method?: string; params?: unknown}) => void
   ) => void
 }
