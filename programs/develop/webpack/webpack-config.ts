@@ -12,6 +12,7 @@ import {type ProjectStructure} from './webpack-lib/project'
 import {makeSanitizedConsole} from './webpack-lib/branding'
 import {filterKeysForThisBrowser} from './webpack-lib/manifest-utils'
 import {asAbsolute, getDirs} from './webpack-lib/paths'
+import {withDarkMode} from './webpack-lib/dark-mode'
 import * as messages from './webpack-lib/messages'
 import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
 
@@ -64,6 +65,13 @@ export default function webpackConfig(
     console.log(messages.debugOutputPath(userExtensionOutputPath))
     console.log(messages.debugExtensionsToLoad(extensionsToLoad))
   }
+
+  // Apply cross-browser dark mode defaults without overriding explicit user choices
+  const darkDefaults = withDarkMode({
+    browser: devOptions.browser,
+    browserFlags: devOptions.browserFlags,
+    preferences: devOptions.preferences
+  })
 
   return {
     mode: devOptions.mode || 'development',
@@ -170,8 +178,8 @@ export default function webpackConfig(
         startingUrl: devOptions.startingUrl,
         profile: devOptions.profile,
         persistProfile: (devOptions as any).persistProfile,
-        preferences: devOptions.preferences,
-        browserFlags: devOptions.browserFlags,
+        preferences: darkDefaults.preferences,
+        browserFlags: darkDefaults.browserFlags,
         chromiumBinary: devOptions.chromiumBinary,
         geckoBinary: devOptions.geckoBinary,
         instanceId: devOptions.instanceId,
