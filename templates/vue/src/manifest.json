@@ -4,22 +4,17 @@
   "version": "1.0.0",
   "name": "Vue Template",
   "description": "Vue.js-based extension with sidebar panel",
-  "chromium:manifest_version": 3,
-  "firefox:manifest_version": 2,
-  "author": "Your Name",
   "icons": {
-    "48": "images/vue.png"
+    "16": "images/vue.png",
+    "48": "images/vue.png",
+    "128": "images/vue.png"
   },
   "chromium:action": {
-    "default_icon": {
-      "48": "images/vue.png"
-    },
+    "default_icon": { "48": "images/vue.png" },
     "default_title": "Open Side Panel"
   },
   "firefox:browser_action": {
-    "default_icon": {
-      "48": "images/vue.png"
-    },
+    "default_icon": { "48": "images/vue.png" },
     "default_title": "Open Side Panel"
   },
   "chromium:side_panel": {

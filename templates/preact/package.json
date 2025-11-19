@@ -3,13 +3,13 @@
   "name": "@extension-js/preact",
   "description": "Preact-based extension with sidebar panel",
   "version": "3.0.0",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "license": "MIT",
-  "type": "module",
   "dependencies": {
     "preact": "^10.19.6"
   },

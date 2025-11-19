@@ -115,7 +115,6 @@ const Welcome: React.FC = () => {
       <h1 className="mx-auto text-center text-4xl lg:text-5xl xl:text-6xl font-semibold tracking-tight">
         <span>{extension?.name || 'My Extension'}</span>
         <br />
-        <span>is </span>
         <a href="#">
           <span
             id="extensionName"
