@@ -256,4 +256,11 @@ export interface Controller {
     timestamps?: boolean
     color?: boolean
   }) => Promise<void>
+  /**
+   * Optional event subscription hook for protocol events (CDP/RDP).
+   * Present in Chromium CDP flows; Firefox may omit it.
+   */
+  onProtocolEvent?: (
+    cb: (evt: { method?: string; params?: unknown }) => void
+  ) => void
 }

@@ -36,8 +36,13 @@ export async function setupUnifiedLogging(
   const recentKeys = new Map<string, number>()
   const DEDUPE_MS = 1000
 
-  controller.onProtocolEvent((evt: CdpEvent) => {
+  const subscribe = controller.onProtocolEvent
+
+  if (!subscribe) return
+
+  subscribe((rawEvt) => {
     try {
+      const evt = rawEvt as CdpEvent
       const showTs = opts.timestamps !== false
       const method = evt?.method
       let level = 'info'
