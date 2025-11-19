@@ -146,7 +146,10 @@ export function registerDevCommand(program: Command, telemetry: any) {
 
       let extensionDev: any
       try {
-        ;({extensionDev} = await requireOrDlx('extension-develop', versionExact))
+        ;({extensionDev} = await requireOrDlx(
+          'extension-develop',
+          versionExact
+        ))
       } catch {
         ;({extensionDev} = await requireOrDlx('extension-develop', major))
       }
