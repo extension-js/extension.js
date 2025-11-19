@@ -1,4 +1,5 @@
 import type {PluginInterface} from '../browsers-types'
+import type {FirefoxRDPController} from './firefox-source-inspection/rdp-extension-controller'
 
 /**
  * Narrowed plugin options used through the Firefox flow.
@@ -6,15 +7,14 @@ import type {PluginInterface} from '../browsers-types'
 export type FirefoxPluginLike = Pick<
   PluginInterface,
   | 'extension'
-  | 'browser'
   | 'browserFlags'
   | 'profile'
   | 'preferences'
   | 'startingUrl'
   | 'geckoBinary'
   | 'instanceId'
-  | 'source'
   | 'watchSource'
+  | 'port'
   | 'logLevel'
   | 'logContexts'
   | 'logFormat'
@@ -22,7 +22,10 @@ export type FirefoxPluginLike = Pick<
   | 'logColor'
   | 'logUrl'
   | 'logTab'
+  | 'dryRun'
 > & {
+  browser: PluginInterface['browser']
+  source?: string | boolean
   extensionsToLoad?: string[]
 }
 
@@ -30,5 +33,5 @@ export type FirefoxPluginLike = Pick<
  * Runtime state in Firefox flow.
  */
 export interface FirefoxPluginRuntime extends FirefoxPluginLike {
-  rdpController?: unknown
+  rdpController?: FirefoxRDPController
 }

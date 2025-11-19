@@ -277,7 +277,7 @@ export class FirefoxLaunchPlugin {
         compilation,
         debugPort
       )
-      this.host.rdpController = ctrl as unknown
+      this.host.rdpController = ctrl
       this.ctx.setController(ctrl, debugPort)
 
       try {
