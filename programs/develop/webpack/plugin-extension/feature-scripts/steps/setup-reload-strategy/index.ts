@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
-import WebExtensionFork from './webpack-target-webextension-fork'
 import WebExtension from 'webpack-target-webextension'
+import {createRequire} from 'node:module'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
@@ -10,6 +10,21 @@ import type {
   PluginInterface,
   DevOptions
 } from '../../../../webpack-types'
+
+const requireForEsm = createRequire(import.meta.url)
+
+function tryLoadWebExtensionFork():
+  | (new (args: any) => {apply: (compiler: any) => void})
+  | null {
+  try {
+    // prefer local fork when present (not shipped in CI)
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = requireForEsm('./webpack-target-webextension-fork')
+    return (mod && (mod.default || mod)) as any
+  } catch {
+    return null
+  }
+}
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string
@@ -77,16 +92,21 @@ export class SetupReloadStrategy {
 
     // 4 - Now that we know the background exists, add the web extension target
     // using it. This is our core upstream plugin.
-    if (process.env.EXTENSION_EXPERIMENTAL_HMR === 'true') {
-      new WebExtensionFork({
+    const wantFork = process.env.EXTENSION_EXPERIMENTAL_HMR === 'true'
+
+    if (wantFork) {
+      const Fork = tryLoadWebExtensionFork()
+      const PluginCtor = Fork || (WebExtension as any)
+      new PluginCtor({
         background: this.getEntryName(patchedManifest),
         weakRuntimeCheck: true
       }).apply(compiler as any)
-    } else {
-      new WebExtension({
-        background: this.getEntryName(patchedManifest),
-        weakRuntimeCheck: true
-      }).apply(compiler as any)
+      return
     }
+
+    new WebExtension({
+      background: this.getEntryName(patchedManifest),
+      weakRuntimeCheck: true
+    }).apply(compiler as any)
   }
 }
