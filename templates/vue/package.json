@@ -3,13 +3,13 @@
   "name": "@extension-js/vue",
   "description": "Vue.js-based extension with sidebar panel",
   "version": "3.0.0",
+  "license": "MIT",
+  "type": "module",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
-  "license": "MIT",
-  "type": "module",
   "dependencies": {
     "vue": "^3.4.27"
   },
