@@ -1,5 +1,6 @@
 /* eslint-disable jest/no-identical-title, playwright/no-identical-title */
 import path from 'path'
+import * as fs from 'fs'
 import {execFileSync} from 'child_process'
 import {test, expect} from '@playwright/test'
 import {extensionFixtures} from './extension-fixtures'
@@ -21,7 +22,10 @@ export function registerTemplateTests({
   dir,
   hostSelectors
 }: Params) {
-  const pathToExtension = path.join(dir, 'dist/chrome')
+  // Chromium-only e2e: dist/chromium
+  const chromiumOut = path.join(dir, 'dist/chromium')
+  const expectedOutDir = chromiumOut
+  const pathToExtension = expectedOutDir
   const t = extensionFixtures(pathToExtension, false)
   const displayName = path.basename(exampleDir)
 
@@ -33,14 +37,23 @@ export function registerTemplateTests({
 
   t.describe(displayName, () => {
     t.beforeAll(async () => {
-      execFileSync('pnpm', ['extension', 'build', exampleDir], {
+      // Ensure deterministic output: clean chromium output
+      try {
+        if (fs.existsSync(chromiumOut))
+          fs.rmSync(chromiumOut, {recursive: true, force: true})
+      } catch {
+        // ignore
+      }
+
+      const args = ['extension', 'build', exampleDir]
+      execFileSync('pnpm', args, {
         cwd: path.join(dir, '..'),
         stdio: 'inherit'
       })
-      const fs = await import('fs')
-      if (!fs.existsSync(pathToExtension)) {
+      const fsMod = await import('fs')
+      if (!fsMod.existsSync(expectedOutDir)) {
         throw new Error(
-          `Build output missing at ${pathToExtension}. Ensure the template builds to dist/chrome.`
+          `Build output missing at ${expectedOutDir}. Ensure the template builds to dist/chromium.`
         )
       }
     })
