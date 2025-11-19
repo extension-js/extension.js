@@ -140,14 +140,17 @@ export function registerDevCommand(program: Command, telemetry: any) {
         devOptions.watchSource = true
       }
 
-      // Ensure we load the exact matching develop package version to avoid
-      // runtime mismatches between the CLI and the develop module when used
-      // from different working directories (e.g., examples workspaces).
-      const versionSpec = String(packageJson.version)
-      const {extensionDev} = await requireOrDlx(
-        'extension-develop',
-        versionSpec
-      )
+      // Prefer exact prerelease when available; fall back to compatible major
+      const versionExact = String(packageJson.version)
+      const major = String(packageJson.version).split('.')[0] || '2'
+
+      let extensionDev: any
+      try {
+        ;({extensionDev} = await requireOrDlx('extension-develop', versionExact))
+      } catch {
+        ;({extensionDev} = await requireOrDlx('extension-develop', major))
+      }
+
       for (const vendor of list) {
         const vendorStart = Date.now()
         telemetry.track('cli_vendor_start', {command: 'dev', vendor})

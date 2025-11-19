@@ -23,6 +23,8 @@ extensionJs
   .option('--no-telemetry', 'disable anonymous telemetry for this run')
   .option('--ai-help', 'show AI-assistant oriented help and tips')
   .addHelpText('after', messages.programUserHelp())
+  .showHelpAfterError(true)
+  .showSuggestionAfterError(true)
 
 registerCreateCommand(extensionJs, telemetry)
 registerDevCommand(extensionJs, telemetry)
@@ -35,5 +37,11 @@ extensionJs.on('option:ai-help', function () {
   console.log(messages.programAIHelp())
   process.exit(0)
 })
+
+// Show help when invoked with no args (e.g., `npx extension`)
+if (process.argv.length <= 2) {
+  extensionJs.outputHelp()
+  process.exit(0)
+}
 
 extensionJs.parse()
