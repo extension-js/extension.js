@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  nightly-chrome:
+  nightly-chromium:
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     env:
@@ -21,7 +21,7 @@ jobs:
           path: |
             ~/.pnpm-store
             ~/.cache/ms-playwright
-          key: nightly-chrome-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: nightly-chromium-${{ runner.os }}-20-${{ hashFiles('**/pnpm-lock.yaml') }}
       - uses: ./.github/actions/setup
         with:
           node-version: '20'
@@ -31,12 +31,12 @@ jobs:
         run: npx playwright install --with-deps
       - name: Run CLI Tests
         run: pnpm test:cli
-      - name: Build examples (chrome)
+      - name: Build examples (chromium)
         run: |
-          pnpm extension build examples/content-typescript --browser chrome --silent true
-          pnpm extension build examples/content-react --browser chrome --silent true
-          pnpm extension build examples/content-svelte --browser chrome --silent true
-          pnpm extension build examples/content-vue --browser chrome --silent true
+          pnpm extension build examples/content-typescript --browser chromium --silent true
+          pnpm extension build examples/content-react --browser chromium --silent true
+          pnpm extension build examples/content-svelte --browser chromium --silent true
+          pnpm extension build examples/content-vue --browser chromium --silent true
       - name: Run Dev Tests
         run: pnpm test:dev
 
