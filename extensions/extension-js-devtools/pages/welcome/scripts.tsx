@@ -93,18 +93,24 @@ const Welcome: React.FC = () => {
         'flex flex-col items-center justify-center h-screen dark:bg-muted'
       )}
     >
-      <header className="mb-4 flex items-center gap-2">
-        <img className="size-16" alt="Extension.js logo" src={logo} />
-        {userIconUrl ? (
+      <header className="mb-4 flex items-center">
+        <div className="flex items-center">
           <img
-            className="size-16 rounded"
-            alt={`${extension?.name || 'User extension'} icon`}
-            src={userIconUrl}
-            onError={(e) => {
-              ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-            }}
+            className="size-16 select-none"
+            alt="Extension.js logo"
+            src={logo}
           />
-        ) : null}
+          {userIconUrl ? (
+            <img
+              className="size-16 -ml-3 select-none"
+              alt={`${extension?.name || 'User extension'} icon`}
+              src={userIconUrl}
+              onError={(e) => {
+                ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+              }}
+            />
+          ) : null}
+        </div>
       </header>
       <h1 className="mx-auto text-center text-4xl lg:text-5xl xl:text-6xl font-semibold tracking-tight">
         <span>{extension?.name || 'My Extension'}</span>
@@ -120,15 +126,16 @@ const Welcome: React.FC = () => {
 • Version: ${extension.version}`
                 : ''
             }
+            style={{color: 'var(--brand-success, #19f5a7)'}}
           >
-            ready for development
+            running successfully
           </span>
         </a>
       </h1>
       <p className="text-lg mt-3 text-muted-foreground max-w-xl mx-auto text-center">
-        Extension.js is a development toolkit for building
-        <br />
-        cross-browser extensions with modern web technologies.
+        Extension.js makes cross‑browser extension development simple.
+        Developers’ choice for fast builds, a streamlined browser interface, and
+        zero‑config setup.
       </p>
       <div className="mt-6 flex items-center gap-2">
         <Button onClick={handleLearnMore}>
