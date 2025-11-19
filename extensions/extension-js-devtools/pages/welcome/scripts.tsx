@@ -30,17 +30,24 @@ async function onStartup(
     }
   })) as chrome.management.ExtensionInfo[]
 
-  const devExt = (all || []).find(
-    (e) =>
-      e &&
-      e.installType === 'development' &&
-      e.id !== chrome.runtime.id &&
-      e.enabled
-  )
+  const candidates = (all || []).filter((extension) => {
+    return (
+      extension &&
+      extension.installType === 'development' &&
+      extension.id !== chrome.runtime.id &&
+      extension.enabled &&
+      extension.type !== 'theme'
+    )
+  })
 
-  if (devExt) {
-    setExtension(devExt)
-    setDescription(devExt.description)
+  // Prefer last candidate to align with how we append the user extension last
+  const userExtension = candidates.length
+    ? candidates[candidates.length - 1]
+    : undefined
+
+  if (userExtension) {
+    setExtension(userExtension)
+    setDescription(userExtension.description)
     return
   }
 

@@ -6,6 +6,16 @@ export async function getDevExtensions() {
       chrome.management.getAll(resolve)
     })) as chrome.management.ExtensionInfo[]
 
+    const isBuiltIn = (extension: chrome.management.ExtensionInfo) => {
+      const name = String(extension.name || '').toLowerCase()
+
+      return (
+        // Built-in devtools
+        name.includes('extension.js built-in developer tools') ||
+        name.includes('extension.js theme')
+      )
+    }
+
     const devExtensions = (allExtensions || []).filter((extension) => {
       return (
         // Do not include itself
@@ -13,7 +23,14 @@ export async function getDevExtensions() {
         // Reload extension
         extension.id !== 'igcijhgmihmjbbahdabahfbpffalcfnn' &&
         // Show only unpackaged extensions
-        extension.installType === 'development'
+        extension.installType === 'development' &&
+        // Exclude themes so we pick the actual user extension
+        // (Chrome reports themes via management API)
+        extension.type !== 'theme' &&
+        // Must be enabled to be useful
+        extension.enabled === true &&
+        // Also exclude our built-ins by name/description
+        !isBuiltIn(extension)
       )
     })
 
@@ -25,7 +42,8 @@ export async function getDevExtensions() {
 
 export async function getDevExtension() {
   const devExtensions = await getDevExtensions()
-  return devExtensions[0]
+  // Prefer the last registered dev extension (user extension appended last)
+  return devExtensions[devExtensions.length - 1]
 }
 
 // Ideas here are adapted from
@@ -40,7 +58,7 @@ export function createExtensionsPageTab(
   url: string
 ) {
   // @ts-ignore
-  const browser = import.meta.env.EXTENSION_BROWSER
+  const browser = (import.meta as any).env?.EXTENSION_BROWSER
   const isFirefox = browser === 'firefox'
   const isEdge = browser === 'edge'
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
@@ -73,7 +91,7 @@ export function createExtensionsPageTab(
 // Function to handle first run logic
 export async function handleFirstRun() {
   // @ts-ignore
-  const browser = import.meta.env.EXTENSION_BROWSER
+  const browser = (import.meta as any).env?.EXTENSION_BROWSER
   const isFirefox = browser === 'firefox'
   const isEdge = browser === 'edge'
   const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
@@ -103,9 +121,8 @@ export async function handleFirstRun() {
 
         try {
           const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
-          // @ts-ignore
           const browserStr = String(
-            import.meta.env.EXTENSION_BROWSER || 'chromium'
+            (import.meta as any).env?.EXTENSION_BROWSER || 'chromium'
           ).toLowerCase()
           const isEdgeBrowser = browserStr === 'edge'
 

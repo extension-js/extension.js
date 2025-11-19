@@ -84,17 +84,17 @@ export async function maybeUsePostCss(
 ): Promise<Record<string, any>> {
   if (!isUsingPostCss(projectPath)) return {}
 
+  const userPostCssConfig = findPostCssConfig(projectPath)
+
   try {
     require.resolve('postcss-loader')
   } catch (e) {
     // SASS and LESS will install PostCSS as a dependency
     // so we don't need to check for it here.
     if (!isUsingSass(projectPath) && !isUsingLess(projectPath)) {
-      const postCssDependencies = [
-        'postcss',
-        'postcss-loader',
-        'postcss-preset-env'
-      ]
+      const postCssDependencies = userPostCssConfig
+        ? ['postcss', 'postcss-loader']
+        : ['postcss', 'postcss-loader', 'postcss-preset-env']
 
       await installOptionalDependencies('PostCSS', postCssDependencies)
     }
@@ -110,18 +110,22 @@ export async function maybeUsePostCss(
     options: {
       postcssOptions: {
         ident: 'postcss',
-        config: findPostCssConfig(projectPath),
-        plugins: [
-          [
-            'postcss-preset-env',
-            {
-              autoprefixer: {
-                flexbox: 'no-2009'
-              },
-              stage: 3
-            }
-          ]
-        ].filter(Boolean)
+        config: userPostCssConfig,
+        // If the user has their own PostCSS config, defer entirely to it.
+        // Otherwise, apply a sensible default with postcss-preset-env.
+        plugins: userPostCssConfig
+          ? []
+          : [
+              [
+                'postcss-preset-env',
+                {
+                  autoprefixer: {
+                    flexbox: 'no-2009'
+                  },
+                  stage: 3
+                }
+              ]
+            ].filter(Boolean)
       },
       sourceMap: opts.mode === 'development'
     }
