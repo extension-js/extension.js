@@ -81,7 +81,7 @@ function main() {
   }
  
   // Discover top-level extension packages (directories) under extensions/,
-  // excluding the folder named 'browser-extension'.
+  // excluding the folder named 'browser-extension' and 'extension-js-theme'
   function listExtensionPackages() {  
     const extensionsRoot = path.join(root, 'extensions')
     try {
@@ -89,13 +89,13 @@ function main() {
       return entries
         .filter(d => d.isDirectory())
         .map(d => d.name)
-        .filter(name => name !== 'browser-extension')
+        .filter(name => name !== 'browser-extension' && name !== 'extension-js-theme')
     } catch {
       return []
     }
   }
  
-  // Build and mirror all discovered extension packages except 'browser-extension'
+  // Build and mirror all discovered extension packages except 'browser-extension' and 'extension-js-theme' 
   for (const packageName of listExtensionPackages()) {
     buildAndMirror(packageName)
   }
