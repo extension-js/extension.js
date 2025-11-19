@@ -14,19 +14,7 @@ export function patchHtml(
   feature: string,
   htmlEntry: string,
   includeList: FilepathList
-): {
-  html: string
-  counter: {
-    scriptsRemoved: number
-    linksRemoved: number
-    staticSrcRewrites: number
-    staticHrefRewrites: number
-    bundleScriptInjected: number
-    bundleLinkInjected: number
-    publicRootPreservedScripts: number
-    publicRootPreservedStyles: number
-  }
-} {
+): string {
   const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
   const htmlDocument = parse5utilities.parse(htmlFile)
   const baseHref = getBaseHref(htmlDocument)
@@ -37,16 +25,6 @@ export function patchHtml(
   let hasJsEntry = false
   let firstScriptAttrs: Array<{name: string; value: string}> | undefined
   let firstLinkAttrs: Array<{name: string; value: string}> | undefined
-  const counter = {
-    scriptsRemoved: 0,
-    linksRemoved: 0,
-    staticSrcRewrites: 0,
-    staticHrefRewrites: 0,
-    bundleScriptInjected: 0,
-    bundleLinkInjected: 0,
-    publicRootPreservedScripts: 0,
-    publicRootPreservedStyles: 0
-  }
 
   for (let node of htmlDocument.childNodes) {
     if (node.nodeName !== 'html') continue
@@ -80,7 +58,6 @@ export function patchHtml(
             case 'script': {
               if (cleanPath.startsWith('/')) {
                 // Public-root absolute scripts are preserved as-is
-                counter.publicRootPreservedScripts++
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
                   'src',
@@ -94,14 +71,12 @@ export function patchHtml(
                 }
                 thisChildNode = parse5utilities.remove(thisChildNode)
                 hasJsEntry = true
-                counter.scriptsRemoved++
               }
               break
             } // For CSS types, we have the same cases of script types.
             case 'css': {
               if (cleanPath.startsWith('/')) {
                 // Public-root absolute styles are preserved as-is
-                counter.publicRootPreservedStyles++
                 thisChildNode = parse5utilities.setAttribute(
                   thisChildNode,
                   'href',
@@ -115,7 +90,6 @@ export function patchHtml(
                 }
                 thisChildNode = parse5utilities.remove(thisChildNode)
                 hasCssEntry = true
-                counter.linksRemoved++
               }
               break
             }
@@ -144,8 +118,6 @@ export function patchHtml(
                 extname,
                 thisChildNode
               )
-              if (assetType === 'staticSrc') counter.staticSrcRewrites++
-              if (assetType === 'staticHref') counter.staticHrefRewrites++
               break
             }
             default:
@@ -161,7 +133,6 @@ export function patchHtml(
         // and it inlines the styles into the page.
         if (hasCssEntry) {
           injectCssLink(htmlChildNode, feature, firstLinkAttrs)
-          counter.bundleLinkInjected++
         }
       }
 
@@ -172,16 +143,15 @@ export function patchHtml(
         // user has not already added one.
         if (hasJsEntry || compilation.options.mode !== 'production') {
           injectJsScript(htmlChildNode, feature, firstScriptAttrs)
-          counter.bundleScriptInjected++
         }
       }
     }
 
-    return {html: parse5utilities.stringify(htmlDocument), counter}
+    return parse5utilities.stringify(htmlDocument)
   }
 
   // If we get here, we didn't find an html node
-  return {html: '', counter}
+  return ''
 }
 
 /**
