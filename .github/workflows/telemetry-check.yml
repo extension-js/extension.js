@@ -28,7 +28,7 @@ jobs:
       - name: Emit telemetry via CLI (dev/build/preview)
         working-directory: tmp-ext
         run: |
-          npx -y extension@latest dev --browser=chrome --open=false || true
-          npx -y extension@latest build --browser=chrome || true
-          npx -y extension@latest preview --browser=chrome --open=false || true
+          npx -y extension@latest dev --browser=chromium --open=false || true
+          npx -y extension@latest build --browser=chromium || true
+          npx -y extension@latest preview --browser=chromium --open=false || true
 
