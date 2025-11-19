@@ -347,6 +347,50 @@ export function installingDependencies() {
   return `${getLoggingPrefix('info')} Installing project dependencies...`
 }
 
+// Development-only debug helpers
+export function debugDirs(manifestDir: string, packageJsonDir: string) {
+  return (
+    `${getLoggingPrefix('info')} Directories\n` +
+    `${colors.gray('MANIFEST_DIR')} ${colors.underline(manifestDir)}\n` +
+    `${colors.gray('PACKAGE_JSON_DIR')} ${colors.underline(packageJsonDir)}`
+  )
+}
+
+export function debugBrowser(
+  browser: DevOptions['browser'],
+  chromiumBinary?: string,
+  geckoBinary?: string
+) {
+  return (
+    `${getLoggingPrefix('info')} Browser Target\n` +
+    `${colors.gray('BROWSER')} ${colors.yellow(String(browser))}\n` +
+    `${colors.gray('CHROMIUM_BINARY')} ${colors.underline(String(chromiumBinary || 'auto'))}\n` +
+    `${colors.gray('GECKO_BINARY')} ${colors.underline(String(geckoBinary || 'auto'))}`
+  )
+}
+
+export function debugOutputPath(pathValue: string) {
+  return `${getLoggingPrefix('info')} Output Path\n${colors.gray('PATH')} ${colors.underline(pathValue)}`
+}
+
+export function debugPreviewOutput(outputPath: string, distPath: string) {
+  return (
+    `${getLoggingPrefix('info')} Preview Output\n` +
+    `${colors.gray('OUTPUT')} ${colors.underline(outputPath)}\n` +
+    `${colors.gray('DIST')} ${colors.underline(distPath)}`
+  )
+}
+
+export function debugContextPath(packageJsonDir: string) {
+  return `${getLoggingPrefix('info')} Context\n${colors.gray('CONTEXT')} ${colors.underline(packageJsonDir)}`
+}
+
+export function debugExtensionsToLoad(extensions: string[]) {
+  const header = `${getLoggingPrefix('info')} Extensions To Load (${extensions.length})`
+  const list = extensions.map((e) => `- ${colors.underline(e)}`).join('\n')
+  return `${header}\n${list}`
+}
+
 export function installingDependenciesFailed(
   gitCommand: string,
   gitArgs: string[],
