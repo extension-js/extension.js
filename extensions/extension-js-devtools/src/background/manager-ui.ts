@@ -9,10 +9,15 @@ export async function initManagerUI() {
     chrome.tabs.query({active: true, currentWindow: true}, async (tabs) => {
       const initialTab = Array.isArray(tabs) ? tabs[0] : undefined
       // @ts-ignore
-      const isFirefox = import.meta.env.EXTENSION_BROWSER === 'firefox'
-      const newTabUrl = isFirefox ? 'about:home' : 'chrome://newtab/'
-      const welcomeUrl = isFirefox ? 'about:welcome' : 'chrome://welcome/'
-      const extensionsPage = isFirefox ? 'about:addons' : 'chrome://extensions/'
+      const browser = (import.meta as any).env?.EXTENSION_BROWSER
+      const isFirefox = browser === 'firefox'
+      const isEdge = browser === 'edge'
+      const scheme = isFirefox ? 'about' : isEdge ? 'edge' : 'chrome'
+      const newTabUrl = isFirefox ? 'about:home' : `${scheme}://newtab/`
+      const welcomeUrl = isFirefox ? 'about:welcome' : `${scheme}://welcome/`
+      const extensionsPage = isFirefox
+        ? 'about:addons'
+        : `${scheme}://extensions/`
 
       console.log(
         `%c
@@ -55,7 +60,12 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors
         return
       }
 
-      if (initialTab.url === newTabUrl || initialTab.url === welcomeUrl) {
+      const url = String(initialTab.url || '')
+      const isInitialPage = isFirefox
+        ? url === 'about:home' || url === 'about:welcome'
+        : url.startsWith(`${scheme}://newtab`) ||
+          url.startsWith(`${scheme}://welcome`)
+      if (isInitialPage) {
         await handleFirstRun()
       } else {
         createExtensionsPageTab(initialTab, extensionsPage)
