@@ -62,7 +62,10 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors
 
       const url = String(initialTab.url || '')
       const isInitialPage = isFirefox
-        ? url === 'about:home' || url === 'about:welcome'
+        ? url.startsWith('about:home') ||
+          url.startsWith('about:welcome') ||
+          url.startsWith('about:newtab') ||
+          url === 'about:blank'
         : url.startsWith(`${scheme}://newtab`) ||
           url.startsWith(`${scheme}://welcome`)
       if (isInitialPage) {
