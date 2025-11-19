@@ -35,7 +35,7 @@ Build the extension for production.
 npm run build
 ```
 
-### Preview
+### preview
 
 Preview the extension in the browser.
 
