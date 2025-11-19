@@ -262,9 +262,12 @@ export class FirefoxLaunchPlugin {
         debugPort,
         firefoxArgs
       )
+      const isWin = process.platform === 'win32'
+      const stdio: any = isWin ? 'ignore' : ['pipe', 'pipe', 'pipe']
       this.child = spawn(binary, args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        detached: false
+        stdio,
+        detached: false,
+        ...(isWin ? {windowsHide: true} : {})
       })
       this.wireChildLifecycle(compilation, debugPort, desiredDebugPort)
 
@@ -302,9 +305,12 @@ export class FirefoxLaunchPlugin {
         ...firefoxArgs
       ]
 
+      const isWin = process.platform === 'win32'
+      const stdio: any = isWin ? 'ignore' : ['pipe', 'pipe', 'pipe']
       this.child = spawn(binaryPath, args, {
-        stdio: ['pipe', 'pipe', 'pipe'],
-        detached: false
+        stdio,
+        detached: false,
+        ...(isWin ? {windowsHide: true} : {})
       })
       this.wireChildLifecycle(compilation, debugPort, desiredDebugPort)
     }
