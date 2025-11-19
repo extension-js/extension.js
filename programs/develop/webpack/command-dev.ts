@@ -5,14 +5,13 @@
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
-import * as fs from 'fs'
-import * as path from 'path'
 import {devServer} from './dev-server'
 import {generateExtensionTypes} from './webpack-lib/generate-extension-types'
 import {getProjectStructure} from './webpack-lib/project'
-import * as messages from './webpack-lib/messages'
 import {installDependencies} from './webpack-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
+import {getDirs, needsInstall, normalizeBrowser} from './webpack-lib/paths'
+import * as messages from './webpack-lib/messages'
 import type {DevOptions} from './webpack-types'
 
 // TODO cezaraugusto: move this out
@@ -25,8 +24,8 @@ export async function extensionDev(
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
-    const manifestDir = path.dirname(projectStructure.manifestPath)
-    const packageJsonDir = path.dirname(projectStructure.packageJsonPath!)
+    const debug = process.env.EXTENSION_ENV === 'development'
+    const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)
@@ -35,29 +34,37 @@ export async function extensionDev(
     if (projectStructure.packageJsonPath) {
       assertNoManagedDependencyConflicts(
         projectStructure.packageJsonPath,
-        path.dirname(projectStructure.manifestPath)
+        manifestDir
       )
     }
 
     // Install dependencies if they are not installed (skip in web-only mode).
     if (projectStructure.packageJsonPath) {
-      // Install if node_modules is missing or empty
-      const nodeModulesPath = path.join(packageJsonDir, 'node_modules')
-      const needsInstall =
-        !fs.existsSync(nodeModulesPath) ||
-        (fs.existsSync(nodeModulesPath) &&
-          fs.readdirSync(nodeModulesPath).length === 0)
-
-      if (needsInstall) {
+      if (needsInstall(packageJsonDir)) {
         console.log(messages.installingDependencies())
         await installDependencies(packageJsonDir)
       }
     }
 
+    const browser = normalizeBrowser(
+      devOptions.browser || 'chrome',
+      devOptions.chromiumBinary,
+      devOptions.geckoBinary || devOptions.firefoxBinary
+    )
+    const geckoBinary = devOptions.geckoBinary || devOptions.firefoxBinary
+
+    if (debug) {
+      console.log(messages.debugDirs(manifestDir, packageJsonDir))
+      console.log(
+        messages.debugBrowser(browser, devOptions.chromiumBinary, geckoBinary)
+      )
+    }
+
     await devServer(projectStructure, {
       ...devOptions,
       mode: 'development',
-      browser: devOptions.browser || 'chrome'
+      browser,
+      geckoBinary
     })
   } catch (error) {
     // Always surface a minimal error so users aren't left with a silent exit
