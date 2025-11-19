@@ -121,31 +121,6 @@ export async function handleFirstRun() {
 
         try {
           const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
-          const browserStr = String(
-            (import.meta as any).env?.EXTENSION_BROWSER || 'chromium'
-          ).toLowerCase()
-          const isEdgeBrowser = browserStr === 'edge'
-
-          // Debug aid: show a one-time alert tab with the exact URL we
-          // intend to open. This helps diagnose why Edge may not open
-          // our extension page at startup.
-          try {
-            const debugHtml =
-              '<!doctype html><meta charset="utf-8">' +
-              `<script>alert(${JSON.stringify(
-                `Opening welcome URL: ${welcomeUrl}`
-              )});window.close();</script>`
-
-            const debugUrl =
-              'data:text/html;charset=utf-8,' + encodeURIComponent(debugHtml)
-
-            // Prefer to show on Edge; safe on others if it runs
-            if (isEdgeBrowser) {
-              chrome.tabs.create({url: debugUrl, active: true})
-            }
-          } catch {
-            // Ignore
-          }
 
           // Attempt to open the actual welcome tab (active to surface it)
           chrome.tabs.create({url: welcomeUrl, active: true})
