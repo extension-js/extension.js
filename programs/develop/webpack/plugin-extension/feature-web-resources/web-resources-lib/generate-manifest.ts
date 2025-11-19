@@ -3,6 +3,7 @@ import {getManifestContent} from '../../feature-manifest/manifest-lib/manifest'
 import {resolveUserDeclaredWAR} from './resolve-war'
 import {cleanMatches} from './clean-matches'
 import type {Manifest} from '../../../webpack-types'
+import {warPatchedSummary} from './messages'
 
 type AssetSource =
   | string
@@ -434,6 +435,25 @@ export function generateManifestPatches(
 
   const source = JSON.stringify(manifest, null, 2)
   const rawSource = new sources.RawSource(source)
+
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    try {
+      const v3Groups =
+        manifest.manifest_version === 3 ? webAccessibleResourcesV3.length : 0
+      const v3ResourcesTotal =
+        manifest.manifest_version === 3
+          ? webAccessibleResourcesV3.reduce(
+              (sum, g) => sum + (g.resources?.length || 0),
+              0
+            )
+          : 0
+      const v2Resources =
+        manifest.manifest_version === 2 ? webAccessibleResourcesV2.length : 0
+      console.log(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
+    } catch {
+      // ignore
+    }
+  }
 
   if (compilation.getAsset('manifest.json')) {
     compilation.updateAsset('manifest.json', rawSource)

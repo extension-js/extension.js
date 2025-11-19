@@ -3,6 +3,7 @@ import * as path from 'path'
 import {type Compiler, type EntryObject} from '@rspack/core'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
+import * as messages from '../messages'
 
 export class AddScripts {
   public readonly manifestPath: string
@@ -96,6 +97,8 @@ export class AddScripts {
     const fallbackContext = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || fallbackContext
     const publicDir = path.join(projectPath, 'public')
+    let entriesAdded = 0
+    let publicTracked = 0
 
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       const scriptImports = getScriptEntries(scriptPath)
@@ -127,6 +130,7 @@ export class AddScripts {
         } else {
           newEntries[feature] = {import: entryImports}
         }
+        entriesAdded++
       }
     }
 
@@ -134,6 +138,9 @@ export class AddScripts {
     compiler.options.entry = {
       ...compiler.options.entry,
       ...newEntries
+    }
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.scriptsEntriesSummary(entriesAdded, publicTracked))
     }
 
     // Track public files for watch; emission handled by SpecialFolders
@@ -165,6 +172,7 @@ export class AddScripts {
             for (const publicFilePath of publicFilesOnly) {
               if (fs.existsSync(publicFilePath)) {
                 compilation.fileDependencies.add(publicFilePath)
+                publicTracked++
               }
             }
           } catch {

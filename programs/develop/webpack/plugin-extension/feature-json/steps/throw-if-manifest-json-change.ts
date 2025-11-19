@@ -1,6 +1,7 @@
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
 import {createRequire} from 'node:module'
 import type {PluginInterface, DevOptions} from '../../../webpack-types'
+import {jsonManifestChangeDetected} from '../messages'
 
 function isCriticalJsonFeatureKey(key: string): boolean {
   return (
@@ -137,6 +138,15 @@ export class ThrowIfManifestJsonChange {
           },
           () => {
             if (!this.pending?.hasChange) return
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                jsonManifestChangeDetected(
+                  String(this.pending.manifestField || 'json'),
+                  this.pending.pathBefore,
+                  this.pending.pathAfter
+                )
+              )
+            }
             const issue = new WebpackError(
               buildRestartMessage(
                 this.pending.manifestField,

@@ -63,7 +63,7 @@ export async function extensionBuild(
   )
 
   try {
-    const debug = process.env.EXTENSION_ENV === 'development'
+    const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     // Guard: only error if user references managed deps in extension.config.js

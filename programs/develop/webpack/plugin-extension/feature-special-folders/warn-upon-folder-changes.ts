@@ -67,6 +67,15 @@ export class WarnUponFolderChanges {
           const isHtml = ext === '.html'
 
           if (isHtml) {
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.specialFolderChangeDetected(
+                  'add',
+                  'pages',
+                  path.relative(projectPath, filePath)
+                )
+              )
+            }
             this.throwCompilationError(compilation, 'pages', filePath, true)
           }
         })
@@ -76,6 +85,15 @@ export class WarnUponFolderChanges {
           const isHtml = ext === '.html'
 
           if (isHtml) {
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.specialFolderChangeDetected(
+                  'remove',
+                  'pages',
+                  path.relative(projectPath, filePath)
+                )
+              )
+            }
             this.throwCompilationError(compilation, 'pages', filePath)
           }
         })
@@ -88,6 +106,15 @@ export class WarnUponFolderChanges {
           const isScript = supported.has(ext)
 
           if (isScript) {
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.specialFolderChangeDetected(
+                  'add',
+                  'scripts',
+                  path.relative(projectPath, filePath)
+                )
+              )
+            }
             this.throwCompilationError(compilation, 'scripts', filePath, true)
           }
         })
@@ -100,6 +127,15 @@ export class WarnUponFolderChanges {
           const isScript = supported.has(ext)
 
           if (isScript) {
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(
+                messages.specialFolderChangeDetected(
+                  'remove',
+                  'scripts',
+                  path.relative(projectPath, filePath)
+                )
+              )
+            }
             this.throwCompilationError(compilation, 'scripts', filePath)
           }
         })

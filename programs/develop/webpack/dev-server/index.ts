@@ -22,6 +22,7 @@ import {
 } from '../webpack-lib/config-loader'
 import webpackConfig from '../webpack-config'
 import type {DevOptions} from '../webpack-types'
+import * as devMessages from './messages'
 
 function closeAll(devServer: RspackDevServer, portManager: PortManager) {
   devServer
@@ -83,15 +84,15 @@ export async function devServer(
     ) as Partial<T>
 
   const safeBrowserConfig = sanitize(browserConfig)
-  const safeCommandConfig = sanitize(commandConfig as any)
-  const safeDevOptions = sanitize(devOptions as any)
+  const safeCommandConfig = sanitize(commandConfig)
+  const safeDevOptions = sanitize(devOptions)
 
   const baseConfig = webpackConfig(projectStructure, {
     ...safeBrowserConfig,
     ...safeCommandConfig,
     ...safeDevOptions,
     browser: devOptions.browser,
-    mode: 'development',
+    mode: 'development' as any,
     instanceId: currentInstance.instanceId,
     port: portAllocation.port,
     output: {

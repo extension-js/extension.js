@@ -121,7 +121,10 @@ export class BrowsersPlugin {
       process.exit(1)
     }
 
-    if (this.profile === false && process.env.EXTENSION_ENV === 'development') {
+    if (
+      this.profile === false &&
+      process.env.EXTENSION_AUTHOR_MODE === 'true'
+    ) {
       console.warn(
         messages.profileFallbackWarning(
           this.browser,
@@ -138,12 +141,20 @@ export class BrowsersPlugin {
       this.browser === 'chromium' ||
       this.browser === 'chromium-based'
     ) {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(messages.usingChromiumRunner(this.browser as any))
+      }
+
       new RunChromiumPlugin(this).apply(compiler)
     } else if (
       this.browser === 'firefox' ||
       this.browser === 'gecko-based' ||
       this.browser === 'firefox-based'
     ) {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.log(messages.usingFirefoxRunner(this.browser as any))
+      }
+
       new RunFirefoxPlugin(this).apply(compiler)
     } else {
       // Log helpful error before throwing to satisfy expected behavior in tests

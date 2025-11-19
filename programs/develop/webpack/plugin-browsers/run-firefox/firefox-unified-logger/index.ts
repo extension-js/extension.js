@@ -45,7 +45,7 @@ export class FirefoxUnifiedLoggerPlugin {
           color: this.options?.logColor !== false
         })
       } catch (error) {
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           this.ctx.logger?.warn?.(
             messages.firefoxUnifiedLoggingFailed(String(error))
           )
