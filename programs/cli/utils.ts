@@ -31,13 +31,23 @@ export async function requireOrDlx(
   const cacheDir = path.join(os.tmpdir(), 'extensionjs-cache', spec)
   const modulePath = path.join(cacheDir, 'node_modules', moduleName)
 
-  const prefer = String(process.env.EXTJS_DLX || '')
+  let prefer = String(process.env.EXTENSION_DLX || '')
     .trim()
     .toLowerCase()
   const isWin = process.platform === 'win32'
   const npmCmd = isWin ? 'npm.cmd' : 'npm'
   const pnpmCmd = isWin ? 'pnpm.cmd' : 'pnpm'
   const bunCmd = isWin ? 'bun.exe' : 'bun'
+
+  // If no preference explicitly set, auto-prefer pnpm when available for faster installs
+  if (!prefer) {
+    try {
+      const pnpmCheck = spawnSync(pnpmCmd, ['--version'], {stdio: 'ignore'})
+      if ((pnpmCheck.status || 0) === 0) {
+        prefer = 'pnpm'
+      }
+    } catch {}
+  }
 
   try {
     fs.mkdirSync(cacheDir, {recursive: true})
@@ -82,6 +92,7 @@ export async function requireOrDlx(
       '--no-audit',
       '--prefer-online',
       '--omit=dev',
+      '--omit=optional',
       '--no-package-lock'
     ]
     status =

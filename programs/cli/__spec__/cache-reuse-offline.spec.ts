@@ -91,7 +91,7 @@ describe('cache reuse offline', () => {
         '--browser=chrome',
         '--silent=true'
       ],
-      {cwd: work, env: {...process.env, EXTJS_DLX: 'npm'}, stdio: 'inherit'}
+      {cwd: work, env: {...process.env, EXTENSION_DLX: 'npm'}, stdio: 'inherit'}
     )
     expect(r.status).toBe(0)
 
@@ -106,7 +106,7 @@ describe('cache reuse offline', () => {
       ],
       {
         cwd: work,
-        env: {...process.env, EXTJS_DLX: 'npm', NPM_CONFIG_OFFLINE: 'true'},
+        env: {...process.env, EXTENSION_DLX: 'npm', NPM_CONFIG_OFFLINE: 'true'},
         stdio: 'inherit'
       }
     )
