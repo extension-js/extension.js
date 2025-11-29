@@ -47,7 +47,7 @@ export function isUsingStylelint(projectPath: string) {
 
   if (isUsingStylelint) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingIntegration('Stylelint'))
       }
       userMessageDelivered = true

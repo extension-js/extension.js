@@ -22,7 +22,7 @@ describe('preact tools', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_ENV = 'development'
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
   })
 
   it('isUsingPreact logs once when dependency present; maybeUsePreact returns aliases and plugin', async () => {

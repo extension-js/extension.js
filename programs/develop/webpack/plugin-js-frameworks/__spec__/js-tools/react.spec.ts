@@ -20,7 +20,7 @@ describe('react tools', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_ENV = 'development'
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
   })
 
   it('isUsingReact logs once when dependency present; maybeUseReact returns aliases and plugin', async () => {
