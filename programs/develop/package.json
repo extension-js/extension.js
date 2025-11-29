@@ -110,7 +110,7 @@
     "typescript": "5.7.2",
     "vitest": "^3.2.4"
   },
-  "optionalDependencies": {
+  "peerDependencies": {
     "@prefresh/core": "^1.5.2",
     "@prefresh/utils": "^1.2.0",
     "@prefresh/webpack": "^4.0.1",

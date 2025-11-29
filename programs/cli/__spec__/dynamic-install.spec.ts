@@ -91,7 +91,7 @@ describe('dynamic install', () => {
         '--browser=chrome',
         '--silent=true'
       ],
-      {cwd: work, env: {...process.env, EXTJS_DLX: 'npm'}, stdio: 'inherit'}
+      {cwd: work, env: {...process.env, EXTENSION_DLX: 'npm'}, stdio: 'inherit'}
     )
     expect(r.status).toBe(0)
 
