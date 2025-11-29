@@ -13,7 +13,7 @@ export default async function checkUpdates(packageJson: Record<string, any>) {
   try {
     update = await checkForUpdate(packageJson)
   } catch (err) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.error(messages.updateFailed(err))
     }
   }

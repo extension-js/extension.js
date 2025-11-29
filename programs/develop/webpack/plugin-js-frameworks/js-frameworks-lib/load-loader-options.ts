@@ -26,7 +26,7 @@ export async function loadLoaderOptions(
   const configPath = resolveLoaderConfigPath(projectPath, framework)
 
   if (configPath) {
-    if (!userMessageDelivered && process.env.EXTENSION_ENV === 'development') {
+    if (!userMessageDelivered && process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const display = path.basename(configPath)
       console.log(messages.isUsingCustomLoader(display))
       userMessageDelivered = true

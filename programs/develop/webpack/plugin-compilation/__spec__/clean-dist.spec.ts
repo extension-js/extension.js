@@ -70,11 +70,11 @@ describe('CleanDistFolderPlugin', () => {
     )
     const info = vi.fn()
     const plugin = new CleanDistFolderPlugin({browser: 'edge'})
-    process.env.EXTENSION_ENV = 'development'
+    process.env.EXTENSION_AUTHOR_MODE = 'true'
     plugin.apply(
       compilerWithContext('/p', {info, warn: vi.fn(), error: vi.fn()})
     )
-    delete process.env.EXTENSION_ENV
+    delete process.env.EXTENSION_AUTHOR_MODE
     expect(info).toHaveBeenCalled()
   })
 

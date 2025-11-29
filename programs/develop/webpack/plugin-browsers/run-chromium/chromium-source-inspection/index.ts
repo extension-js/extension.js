@@ -43,7 +43,7 @@ export class ChromiumSourceInspectionPlugin {
         .trim()
         .toLowerCase() === 'true'
     const isDevEnv =
-      String(process.env.EXTENSION_ENV || '')
+      String(process.env.EXTENSION_AUTHOR_MODE || '')
         .trim()
         .toLowerCase() === 'development'
     return authorMode || isDevEnv

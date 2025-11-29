@@ -74,7 +74,7 @@ export function isUsingTypeScript(projectPath: string): boolean {
   if (!hasShownUserMessage) {
     if (TypeScriptAsDevDep || TypeScriptAsDep || hasTsFiles) {
       if (tsConfigFilePath) {
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(messages.isUsingIntegration('TypeScript'))
         }
       } else {

@@ -9,7 +9,7 @@ import {
 import * as messages from '../messages'
 
 describe('load-loader-options', () => {
-  const originalEnv = process.env.EXTENSION_ENV
+  const originalEnv = process.env.EXTENSION_AUTHOR_MODE
   let tmpDir: string
 
   beforeEach(() => {
@@ -18,7 +18,7 @@ describe('load-loader-options', () => {
   })
 
   afterEach(() => {
-    process.env.EXTENSION_ENV = originalEnv
+    process.env.EXTENSION_AUTHOR_MODE = originalEnv
     try {
       fs.rmSync(tmpDir, {recursive: true, force: true})
     } catch {}
@@ -45,7 +45,7 @@ describe('load-loader-options', () => {
   })
 
   it('logs dev-only message once and loads module when config exists', async () => {
-    process.env.EXTENSION_ENV = 'development'
+    process.env.EXTENSION_AUTHOR_MODE = 'development'
 
     // Create a real importable module (.mjs) to avoid ts transpilation complexity
     const mjsPath = path.join(tmpDir, 'svelte.loader.mjs')
@@ -70,7 +70,7 @@ describe('load-loader-options', () => {
   })
 
   it("doesn't log outside development", async () => {
-    process.env.EXTENSION_ENV = 'test'
+    process.env.EXTENSION_AUTHOR_MODE = 'test'
 
     const mjsPath = path.join(tmpDir, 'vue.loader.mjs')
     fs.writeFileSync(mjsPath, 'export default { ok: true }\n')

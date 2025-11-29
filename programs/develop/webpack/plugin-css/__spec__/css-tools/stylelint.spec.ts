@@ -10,10 +10,10 @@ describe('stylelint tools', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_ENV = 'development'
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
   })
   afterEach(() => {
-    ;(process as any).env.EXTENSION_ENV = 'test'
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'false'
   })
 
   it('detects stylelint config and reports true in isUsingStylelint with log-once', async () => {

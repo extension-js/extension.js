@@ -21,7 +21,7 @@ let userMessageDelivered = false
 export function isUsingVue(projectPath: string) {
   const using = hasDependency(projectPath, 'vue')
   if (using && !userMessageDelivered) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(messages.isUsingIntegration('Vue'))
     }
     userMessageDelivered = true

@@ -43,7 +43,7 @@ function findPostCssConfig(projectPath: string): string | undefined {
 export function isUsingPostCss(projectPath: string): boolean {
   if (hasDependency(projectPath, 'postcss')) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingIntegration('PostCSS'))
       }
 
@@ -54,7 +54,7 @@ export function isUsingPostCss(projectPath: string): boolean {
 
   if (findPostCssConfig(projectPath)) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingIntegration('PostCSS'))
       }
 
@@ -66,7 +66,7 @@ export function isUsingPostCss(projectPath: string): boolean {
 
   if (isUsingTailwind(projectPath)) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingIntegration('PostCSS'))
       }
 

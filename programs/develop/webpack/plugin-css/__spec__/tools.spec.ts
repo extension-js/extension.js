@@ -34,7 +34,7 @@ describe('css tools detection', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_ENV = 'test'
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'false'
   })
 
   afterEach(() => {
@@ -100,11 +100,11 @@ describe('css tools additional coverage', () => {
     vi.clearAllMocks()
     ;(fs.existsSync as any).mockReset?.()
     ;(fs.readFileSync as any).mockReset?.()
-    ;(process as any).env.EXTENSION_ENV = 'development'
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
   })
 
   afterEach(() => {
-    ;(process as any).env.EXTENSION_ENV = 'test'
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'false'
   })
 
   it('isUsingTailwind logs only once across multiple calls', async () => {

@@ -31,7 +31,7 @@ export class CleanDistFolderPlugin {
           console.log(messages.cleanDistRemovedSummary(removedCount, distPath))
         }
 
-        if (process.env.EXTENSION_ENV === 'development') {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           logger.info(
             '[CleanDistFolderPlugin] Removed old hot-update files before compilation.'
           )

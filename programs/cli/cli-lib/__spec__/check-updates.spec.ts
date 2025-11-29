@@ -6,11 +6,11 @@ vi.mock('update-check', () => ({
 }))
 
 const updateCheck = (await import('update-check'))
-  .default as unknown as jest.Mock
+  .default as unknown as any
 
 describe('check-updates', () => {
   const pkg = {name: 'extension', version: '2.0.0'}
-  const originalEnv = process.env.EXTENSION_ENV
+  const originalEnv = process.env.EXTENSION_AUTHOR_MODE
   let logSpy: ReturnType<typeof vi.spyOn>
   let errorSpy: ReturnType<typeof vi.spyOn>
 
@@ -21,7 +21,7 @@ describe('check-updates', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
-    process.env.EXTENSION_ENV = originalEnv
+    process.env.EXTENSION_AUTHOR_MODE = originalEnv
   })
 
   it('prints update message for stable latest versions', async () => {
@@ -39,7 +39,7 @@ describe('check-updates', () => {
   })
 
   it('logs error in development when update check fails', async () => {
-    process.env.EXTENSION_ENV = 'development'
+    process.env.EXTENSION_AUTHOR_MODE = 'true'
     updateCheck.mockRejectedValueOnce(new Error('network error'))
     await checkUpdates(pkg)
     expect(errorSpy).toHaveBeenCalled()

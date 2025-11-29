@@ -17,7 +17,7 @@ export function isUsingTailwind(projectPath: string) {
 
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingIntegration('Tailwind'))
       }
       userMessageDelivered = true

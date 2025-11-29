@@ -21,7 +21,7 @@ let userMessageDelivered = false
 export function isUsingPreact(projectPath: string) {
   if (hasDependency(projectPath, 'preact')) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingIntegration('Preact'))
       }
 
