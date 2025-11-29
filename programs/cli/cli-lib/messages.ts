@@ -202,7 +202,7 @@ ${'Centralized Logger (for AI & CI)'}
   - ${code('--no-log-color')} ${arg(' ')}                             Disable ANSI colors (pretty)
   - ${code('--log-url')} ${arg('<substring|/regex/>')}                Filter by URL
   - ${code('--log-tab')} ${arg('<id>')}                               Filter by tabId
-- Good CI pattern: ${code('EXTENSION_ENV=development EXTENSION_AUTO_EXIT_MS=6000 extension dev ./ext --logs=info --log-format=json')}
+- Good CI pattern: ${code('EXTENSION_AUTHOR_MODE=development EXTENSION_AUTO_EXIT_MS=6000 extension dev ./ext --logs=info --log-format=json')}
 
 ${'Special Folders for Entrypoints'}
 - Use special folders to handle entrypoints and assets not declared in manifest.json:
@@ -295,7 +295,7 @@ ${'Source Inspection & Real-Time Monitoring'}
 - Example: ${code('extension dev --source=' + arg('https://example.com'))}
 
 ${'Non-Destructive Testing in CI'}
-- Prefer ${code('EXTENSION_ENV=development')} to copy local templates and avoid network.
+- Prefer ${code('EXTENSION_AUTHOR_MODE=development')} to copy local templates and avoid network.
 - Reuse Playwright's Chromium via ${code('--chromium-binary')} path when available.
 - Set ${code(arg('EXTENSION_AUTO_EXIT_MS'))} and ${code(arg('EXTENSION_FORCE_KILL_MS'))} for non-interactive dev sessions.
 

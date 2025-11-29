@@ -10,7 +10,7 @@ let userMessageDelivered = false
 export function isUsingSass(projectPath: string): boolean {
   if (hasDependency(projectPath, 'sass')) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingIntegration('SASS'))
       }
 

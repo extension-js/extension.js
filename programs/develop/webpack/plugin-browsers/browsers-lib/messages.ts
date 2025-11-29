@@ -970,7 +970,7 @@ export function runningInDevelopment(
   }
 
   if (!management) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       return `${getLoggingPrefix('error')} No management API info received from client for ${manifestName}. Investigate.`
     }
   }

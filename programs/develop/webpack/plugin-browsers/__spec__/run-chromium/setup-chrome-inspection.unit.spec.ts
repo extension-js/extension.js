@@ -49,7 +49,7 @@ describe('SetupChromeInspectionStep (unit)', () => {
   })
 
   it('starts watching using websocket server mock without errors (dev only)', async () => {
-    process.env.EXTENSION_ENV = 'development'
+    process.env.EXTENSION_AUTHOR_MODE = 'development'
     const step = new SetupChromeInspectionStep({
       browser: 'chrome',
       port: 9222,

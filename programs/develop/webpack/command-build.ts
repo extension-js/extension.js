@@ -196,7 +196,7 @@ export async function extensionBuild(
 
     return summary
   } catch (error) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.error(error)
     }
     if (!shouldExitOnError) {
