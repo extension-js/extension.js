@@ -74,7 +74,7 @@ function isValidChromeMatchPattern(pattern: string): boolean {
 
   try {
     const u = new URL(parseable)
-    return u.pathname === '/'
+    return u.pathname === '/*'
   } catch {
     return false
   }
