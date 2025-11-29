@@ -9,7 +9,7 @@ describe('postcss detection', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_ENV = 'development'
+    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
   })
 
   it('isUsingPostCss returns true when postcss is a dependency', async () => {

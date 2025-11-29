@@ -22,7 +22,7 @@ let userMessageDelivered = false
 export function isUsingReact(projectPath: string) {
   if (hasDependency(projectPath, 'react')) {
     if (!userMessageDelivered) {
-      if (process.env.EXTENSION_ENV === 'development') {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         console.log(messages.isUsingIntegration('React'))
       }
 
