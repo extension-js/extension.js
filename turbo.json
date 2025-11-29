@@ -1,7 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["**/.env.*local"],
-  "globalEnv": ["EXTENSION_ENV", "npm_config_user_agent"],
+  "globalEnv": ["EXTENSION_AUTHOR_MODE", "npm_config_user_agent"],
   "tasks": {
     "compile": {
       "outputs": ["dist/**"],

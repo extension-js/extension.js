@@ -29,7 +29,7 @@ function resolveFromProject(id: string, projectPath: string) {
 export function isUsingSvelte(projectPath: string) {
   const using = hasDependency(projectPath, 'svelte')
   if (using && !userMessageDelivered) {
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(messages.isUsingIntegration('Svelte'))
     }
     userMessageDelivered = true

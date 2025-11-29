@@ -50,7 +50,7 @@ export async function installOptionalDependencies(
     execSync(installCommand, {stdio: 'inherit'})
     await new Promise((r) => setTimeout(r, 500))
 
-    if (process.env.EXTENSION_ENV === 'development') {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(`[${integration}] Installing root dependencies for dev...`)
       const devInstall =
         pm?.name === 'yarn'
