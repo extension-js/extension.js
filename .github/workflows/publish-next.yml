@@ -38,7 +38,17 @@ jobs:
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
+          always-auth: true
           cache: 'pnpm'
+
+      - name: Configure npm auth
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > ~/.npmrc
+          npm whoami
+          npm config get registry
+          npm ping
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -98,6 +108,13 @@ jobs:
             }"
         env:
           VERSION: ${{ steps.validate.outputs.version }}
+
+      - name: Preflight npm access visibility
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm view extension-develop maintainers || echo "extension-develop not visible (may be masked)"
+          npm access ls-packages $(npm whoami) | jq -r 'keys[]' | grep -E '^extension-develop$' || echo "token may not list extension-develop"
 
       - name: Publish extension-develop (first, tag=next)
         env:
