@@ -19,6 +19,7 @@
     "test:build": "dotenv -- turbo run test --filter=./programs/develop",
     "test:dev": "dotenv -- turbo run test --filter=./programs/develop",
     "test:e2e": "pnpm exec playwright test",
+    "smoke:npx": "node scripts/smoke-npx.mjs",
     "ci:test:core": "pnpm run test:dev",
     "ci:test:develop": "pnpm run test:dev",
     "ci:test:cli": "pnpm run test:cli",

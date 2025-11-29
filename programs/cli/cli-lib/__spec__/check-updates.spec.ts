@@ -5,8 +5,7 @@ vi.mock('update-check', () => ({
   default: vi.fn()
 }))
 
-const updateCheck = (await import('update-check'))
-  .default as unknown as any
+const updateCheck = (await import('update-check')).default as unknown as any
 
 describe('check-updates', () => {
   const pkg = {name: 'extension', version: '2.0.0'}

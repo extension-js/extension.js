@@ -5,6 +5,13 @@ import {pathToFileURL} from 'url'
 
 let userMessageDelivered = false
 
+function isAuthorMode(): boolean {
+  const v = String(process.env.EXTENSION_AUTHOR_MODE || '')
+    .trim()
+    .toLowerCase()
+  return v === 'true' || v === '1' || v === 'development' || v === 'dev'
+}
+
 export function resolveLoaderConfigPath(
   projectPath: string,
   framework: 'vue' | 'svelte'
@@ -26,7 +33,7 @@ export async function loadLoaderOptions(
   const configPath = resolveLoaderConfigPath(projectPath, framework)
 
   if (configPath) {
-    if (!userMessageDelivered && process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    if (!userMessageDelivered && isAuthorMode()) {
       const display = path.basename(configPath)
       console.log(messages.isUsingCustomLoader(display))
       userMessageDelivered = true
