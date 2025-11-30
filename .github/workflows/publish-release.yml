@@ -177,3 +177,49 @@ jobs:
           fi
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
+      - name: Create GitHub Deployment (in_progress)
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const ref = `v${process.env.VERSION}`;
+            const channel = process.env.CHANNEL;
+            const transient = channel === 'next';
+            const production = channel === 'stable';
+            const res = await github.rest.repos.createDeployment({
+              owner,
+              repo,
+              ref,
+              environment: channel,
+              auto_merge: false,
+              required_contexts: [],
+              description: `Release v${process.env.VERSION} to ${channel}`,
+              transient_environment: transient,
+              production_environment: production
+            });
+            core.setOutput('id', res.data.id);
+
+      - name: Mark Deployment successful
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const logUrl = `https://github.com/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            await github.rest.repos.createDeploymentStatus({
+              owner,
+              repo,
+              deployment_id: Number(core.getInput('id') || core.getState('id') || process.env.DEPLOYMENT_ID || 0) || Number('${{ steps.create_deployment.outputs.id || 0 }}'),
+              state: 'success',
+              environment: '${{ inputs.channel }}',
+              log_url: logUrl,
+              environment_url: `https://www.npmjs.com/package/extension/v/${process.env.VERSION}`,
+              auto_inactive: true
+            });
+
