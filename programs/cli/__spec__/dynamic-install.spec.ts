@@ -39,12 +39,23 @@ function writeFixture(root: string) {
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")')
 }
 
+function cliMajor(): string {
+  const pkgJson = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '..', 'package.json'), 'utf8')
+  )
+  return String(pkgJson.version || '2.0.0').split('.')[0] || '2'
+}
+
 function canReachRegistry(): boolean {
   try {
-    execFileSync('npm', ['view', 'extension-develop@2', 'version', '--json'], {
-      timeout: 8000,
-      stdio: 'ignore'
-    })
+    execFileSync(
+      'npm',
+      ['view', `extension-develop@${cliMajor()}`, 'version', '--json'],
+      {
+        timeout: 8000,
+        stdio: 'ignore'
+      }
+    )
     return true
   } catch {
     return false

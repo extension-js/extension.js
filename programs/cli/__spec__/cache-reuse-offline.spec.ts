@@ -1,8 +1,10 @@
+import {describe, it, expect} from 'vitest'
 import {execSync, spawnSync} from 'node:child_process'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import {spawnSync as spawn} from 'node:child_process'
 
 function cliRoot(): string {
   return path.resolve(__dirname, '..')
@@ -48,9 +50,16 @@ function writeFixture(root: string) {
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log("bg")')
 }
 
+function cliMajor(): string {
+  const pkgJson = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '..', 'package.json'), 'utf8')
+  )
+  return String(pkgJson.version || '2.0.0').split('.')[0] || '2'
+}
+
 function canReachRegistry(): boolean {
   try {
-    execSync('npm view extension-develop@2 version --json', {
+    execSync(`npm view extension-develop@${cliMajor()} version --json`, {
       timeout: 8000,
       stdio: 'ignore'
     })
@@ -82,6 +91,11 @@ describe('cache reuse offline', () => {
       stdio: 'inherit'
     })
 
+    const prefer =
+      (spawn('pnpm', ['--version'], {stdio: 'ignore'}).status || 1) === 0
+        ? 'pnpm'
+        : 'npm'
+
     let r = spawnSync(
       process.execPath,
       [
@@ -91,7 +105,11 @@ describe('cache reuse offline', () => {
         '--browser=chrome',
         '--silent=true'
       ],
-      {cwd: work, env: {...process.env, EXTENSION_DLX: 'npm'}, stdio: 'inherit'}
+      {
+        cwd: work,
+        env: {...process.env, EXTENSION_DLX: prefer},
+        stdio: 'inherit'
+      }
     )
     expect(r.status).toBe(0)
 
