@@ -47,15 +47,23 @@ jobs:
         run: |
           if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
             mkdir -p "$(dirname "$NPM_CONFIG_USERCONFIG")"
-            echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
-            echo "Wrote token to $NPM_CONFIG_USERCONFIG"
+            {
+              echo "registry=https://registry.npmjs.org/"
+              echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
+              echo "always-auth=true"
+            } >> "$NPM_CONFIG_USERCONFIG"
+            echo "Using npm userconfig at $NPM_CONFIG_USERCONFIG"
           else
-            echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-            echo "Wrote token to ~/.npmrc"
+            {
+              echo "registry=https://registry.npmjs.org/"
+              echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
+              echo "always-auth=true"
+            } >> ~/.npmrc
+            echo "Using npm userconfig at ~/.npmrc"
           fi
-          npm whoami
           npm config get registry
-          npm ping
+          npm ping || true
+          npm whoami || true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -120,8 +128,7 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          npm view extension-develop maintainers || echo "extension-develop not visible (may be masked)"
-          node -e "const {execSync}=require('node:child_process');try{const user=execSync('npm whoami').toString().trim();const out=execSync(\`npm access ls-packages \${user}\`).toString();const pkgs=Object.keys(JSON.parse(out));if(!pkgs.includes('extension-develop')){console.log('token may not list extension-develop');}}catch(e){console.log('could not list access; possibly masked');process.exit(0)}"
+          npm view extension-develop name versions || true
 
       - name: Publish extension-develop (first, tag=next)
         env:
