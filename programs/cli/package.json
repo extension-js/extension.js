@@ -2,7 +2,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/extension-js/extension.js",
+    "url": "git+https://github.com/extension-js/extension.js.git",
     "directory": "programs/cli"
   },
   "engines": {
@@ -45,8 +45,7 @@
   },
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org",
-    "tag": "latest"
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "prepare": "rslib build >/dev/null 2>&1 || true",
