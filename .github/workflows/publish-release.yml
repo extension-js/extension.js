@@ -120,9 +120,14 @@ jobs:
       - name: Publish extension-develop [trusted]
         if: steps.check_develop.outputs.exists == 'false'
         working-directory: programs/develop
+        env:
+          NODE_AUTH_TOKEN: ""
+          NPM_TOKEN: ""
+          NPM_CONFIG_USERCONFIG: ""
         run: |
-          rm -f "${NPM_CONFIG_USERCONFIG:-}" || true
+          unset NODE_AUTH_TOKEN NPM_TOKEN NPM_CONFIG_USERCONFIG || true
           rm -f "$HOME/.npmrc" || true
+          npm config delete '//registry.npmjs.org/:_authToken' || true
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
       - name: Check if version exists (extension)
@@ -140,8 +145,13 @@ jobs:
       - name: Publish extension [trusted]
         if: steps.check_cli.outputs.exists == 'false'
         working-directory: programs/cli
+        env:
+          NODE_AUTH_TOKEN: ""
+          NPM_TOKEN: ""
+          NPM_CONFIG_USERCONFIG: ""
         run: |
-          rm -f "${NPM_CONFIG_USERCONFIG:-}" || true
+          unset NODE_AUTH_TOKEN NPM_TOKEN NPM_CONFIG_USERCONFIG || true
           rm -f "$HOME/.npmrc" || true
+          npm config delete '//registry.npmjs.org/:_authToken' || true
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
