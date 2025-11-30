@@ -1,0 +1,157 @@
+name: Release – Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Release channel: next or stable"
+        type: choice
+        required: true
+        options: [next, stable]
+      version:
+        description: "Exact version (e.g., 3.0.0-next.17 or 3.0.0)"
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  id-token: write
+  deployments: write
+
+concurrency:
+  group: publish-${{ inputs.channel }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+env:
+  NPM_CONFIG_PROVENANCE: "true"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.channel }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'pnpm'
+          always-auth: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build packages
+        run: |
+          pnpm --filter extension-develop compile
+          pnpm --filter extension compile
+
+      - name: Run tests (CLI + Develop)
+        run: pnpm -w test
+
+      - name: Validate inputs
+        id: validate
+        run: |
+          RAW='${{ inputs.version }}'
+          CHANNEL='${{ inputs.channel }}'
+          VERSION=$(echo "$RAW" | xargs)
+          if [ -z "$VERSION" ]; then echo "version required" >&2; exit 1; fi
+          if [ "$CHANNEL" = "next" ]; then
+            echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$' || { echo "version must be pre-release for next" >&2; exit 1; }
+          else
+            echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "version must be plain semver for stable" >&2; exit 1; }
+          fi
+          if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION$"; then echo "tag v$VERSION already exists on origin" >&2; exit 1; fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          if [ "$CHANNEL" = "next" ]; then echo "tag=next" >> $GITHUB_OUTPUT; else echo "tag=latest" >> $GITHUB_OUTPUT; fi
+
+      - name: Configure git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump versions (both packages) and tag
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/cli/package.json','programs/develop/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
+          git add programs/cli/package.json programs/develop/package.json
+          if ! git diff --cached --quiet; then git commit -m "release(${{ inputs.channel }}): v${{ steps.validate.outputs.version }}"; fi
+          git tag "v${{ steps.validate.outputs.version }}"
+          git push
+          git push --tags
+
+      - name: Prepare publish-only dependency rewrite (extension -> extension-develop)
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          node -e "
+            const fs=require('fs');
+            const p='programs/cli/package.json';
+            const j=JSON.parse(fs.readFileSync(p,'utf8'));
+            if(j.dependencies && j.dependencies['extension-develop'] && /^workspace:/.test(j.dependencies['extension-develop'])){
+              j.dependencies['extension-develop'] = '^'+process.env.VERSION;
+              fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
+            }"
+
+      - name: Verify npm registry
+        env:
+          NPM_CONFIG_WORKSPACES: "false"
+        run: npm config get registry
+
+      - name: Check if version exists (extension-develop)
+        id: check_develop
+        working-directory: programs/develop
+        env:
+          NPM_CONFIG_WORKSPACES: "false"
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish extension-develop [trusted]
+        if: steps.check_develop.outputs.exists == 'false'
+        working-directory: programs/develop
+        env:
+          NPM_CONFIG_WORKSPACES: "false"
+        run: |
+          rm -f "${NPM_CONFIG_USERCONFIG:-}" || true
+          rm -f "$HOME/.npmrc" || true
+          npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+
+      - name: Check if version exists (extension)
+        id: check_cli
+        working-directory: programs/cli
+        env:
+          NPM_CONFIG_WORKSPACES: "false"
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish extension [trusted]
+        if: steps.check_cli.outputs.exists == 'false'
+        working-directory: programs/cli
+        env:
+          NPM_CONFIG_WORKSPACES: "false"
+        run: |
+          rm -f "${NPM_CONFIG_USERCONFIG:-}" || true
+          rm -f "$HOME/.npmrc" || true
+          npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+
