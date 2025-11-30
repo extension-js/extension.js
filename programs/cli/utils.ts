@@ -31,6 +31,38 @@ export async function requireOrDlx(
   const cacheDir = path.join(os.tmpdir(), 'extensionjs-cache', spec)
   const modulePath = path.join(cacheDir, 'node_modules', moduleName)
 
+  // Monorepo development fallback: use local sibling package if present
+  try {
+    const localDist = path.resolve(
+      __dirname,
+      '..', // dist/
+      '..', // cli/ -> programs/
+      'develop',
+      'dist',
+      'module.js'
+    )
+    if (fs.existsSync(localDist)) {
+      return await import(pathToFileURL(localDist).href)
+    }
+  } catch {
+    // Ignore
+  }
+
+  try {
+    const cwdDist = path.resolve(
+      process.cwd(),
+      'programs',
+      'develop',
+      'dist',
+      'module.js'
+    )
+    if (fs.existsSync(cwdDist)) {
+      return await import(pathToFileURL(cwdDist).href)
+    }
+  } catch {
+    // Ignore
+  }
+
   let prefer = String(process.env.EXTENSION_DLX || '')
     .trim()
     .toLowerCase()
@@ -97,6 +129,30 @@ export async function requireOrDlx(
     ]
     status =
       spawnSync(npmCmd, args, {cwd: cacheDir, stdio: 'ignore'}).status || 0
+  }
+
+  // Fallback to alternate package managers if the preferred one failed
+  if (status !== 0) {
+    // Try pnpm fallback
+    try {
+      fs.writeFileSync(
+        path.join(cacheDir, 'package.json'),
+        JSON.stringify({name: 'extensionjs-cache', private: true}, null, 2)
+      )
+    } catch {
+      // Ignore
+    }
+
+    if (prefer !== 'pnpm') {
+      const args = ['add', spec, '--reporter', 'silent', '--no-frozen-lockfile']
+      status =
+        spawnSync(pnpmCmd, args, {cwd: cacheDir, stdio: 'ignore'}).status || 0
+    }
+  }
+  if (status !== 0 && prefer !== 'bun') {
+    const args = ['add', spec]
+    status =
+      spawnSync(bunCmd, args, {cwd: cacheDir, stdio: 'ignore'}).status || 0
   }
 
   if (status !== 0) {

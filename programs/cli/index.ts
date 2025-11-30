@@ -44,4 +44,7 @@ if (process.argv.length <= 2) {
   process.exit(0)
 }
 
-extensionJs.parse()
+extensionJs.parseAsync().catch((err: unknown) => {
+  console.error(err)
+  process.exit(1)
+})
