@@ -41,29 +41,10 @@ jobs:
           always-auth: true
           cache: 'pnpm'
 
-      - name: Configure npm auth
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # No token-based auth needed for trusted publishers
+      - name: Verify npm registry
         run: |
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
-            mkdir -p "$(dirname "$NPM_CONFIG_USERCONFIG")"
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
-              echo "always-auth=true"
-            } >> "$NPM_CONFIG_USERCONFIG"
-            echo "Using npm userconfig at $NPM_CONFIG_USERCONFIG"
-          else
-            {
-              echo "registry=https://registry.npmjs.org/"
-              echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}"
-              echo "always-auth=true"
-            } >> ~/.npmrc
-            echo "Using npm userconfig at ~/.npmrc"
-          fi
           npm config get registry
-          npm ping || true
-          npm whoami || true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -124,79 +105,51 @@ jobs:
         env:
           VERSION: ${{ steps.validate.outputs.version }}
 
-      - name: Preflight npm access visibility
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm view extension-develop name versions || true
-
-      - name: Publish extension-develop (first) [token]
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Check if version exists (extension-develop)
+        id: check_develop
         working-directory: programs/develop
-        continue-on-error: true
         run: |
-          npm publish --access public --tag latest --provenance --no-git-checks
-
-      - name: Publish extension-develop (fallback) [trusted publisher]
-        if: failure()
-        working-directory: programs/develop
-        env:
-          NPM_CONFIG_PROVENANCE: true
-        run: |
-          # Temporarily disable token-based auth to force OIDC trusted publish
-          RESTORE_PATH=""
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then
-            RESTORE_PATH="$NPM_CONFIG_USERCONFIG"
-            mv "$NPM_CONFIG_USERCONFIG" "$NPM_CONFIG_USERCONFIG.bak"
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "$PKG@$VER already exists on npm; will skip publish."
           else
-            if [ -f "$HOME/.npmrc" ]; then
-              RESTORE_PATH="$HOME/.npmrc"
-              mv "$HOME/.npmrc" "$HOME/.npmrc.bak"
-            fi
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Publish extension-develop (tag=latest) [trusted publisher]
+        if: steps.check_develop.outputs.exists == 'false'
+        working-directory: programs/develop
+        run: |
+          # Ensure token auth is not used; force trusted publish via OIDC
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then rm -f "$NPM_CONFIG_USERCONFIG"; fi
+          rm -f "$HOME/.npmrc" || true
           npm config get registry
           npm publish --access public --tag latest --provenance --no-git-checks
-          # Restore token-based auth for subsequent steps (CLI publish)
-          if [ -n "$RESTORE_PATH" ]; then
-            if [ -f "${RESTORE_PATH}.bak" ]; then
-              mv "${RESTORE_PATH}.bak" "$RESTORE_PATH"
-            fi
-          fi
 
-      - name: Publish extension (second) [token]
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Check if version exists (extension)
+        id: check_cli
         working-directory: programs/cli
-        continue-on-error: true
         run: |
-          npm publish --access public --tag latest --provenance --no-git-checks
-
-      - name: Publish extension (fallback) [trusted publisher]
-        if: failure()
-        working-directory: programs/cli
-        env:
-          NPM_CONFIG_PROVENANCE: true
-        run: |
-          # Temporarily disable token-based auth to force OIDC trusted publish
-          RESTORE_PATH=""
-          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then
-            RESTORE_PATH="$NPM_CONFIG_USERCONFIG"
-            mv "$NPM_CONFIG_USERCONFIG" "$NPM_CONFIG_USERCONFIG.bak"
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "$PKG@$VER already exists on npm; will skip publish."
           else
-            if [ -f "$HOME/.npmrc" ]; then
-              RESTORE_PATH="$HOME/.npmrc"
-              mv "$HOME/.npmrc" "$HOME/.npmrc.bak"
-            fi
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Publish extension (tag=latest) [trusted publisher]
+        if: steps.check_cli.outputs.exists == 'false'
+        working-directory: programs/cli
+        run: |
+          # Ensure token auth is not used; force trusted publish via OIDC
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then rm -f "$NPM_CONFIG_USERCONFIG"; fi
+          rm -f "$HOME/.npmrc" || true
           npm config get registry
           npm publish --access public --tag latest --provenance --no-git-checks
-          # Restore token-based auth if it existed
-          if [ -n "$RESTORE_PATH" ]; then
-            if [ -f "${RESTORE_PATH}.bak" ]; then
-              mv "${RESTORE_PATH}.bak" "$RESTORE_PATH"
-            fi
-          fi
 
       - name: Restore workspace dependency file (no repo mutation)
         run: git checkout -- programs/cli/package.json
