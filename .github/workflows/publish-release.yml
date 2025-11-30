@@ -127,7 +127,6 @@ jobs:
         run: |
           unset NODE_AUTH_TOKEN NPM_TOKEN NPM_CONFIG_USERCONFIG || true
           rm -f "$HOME/.npmrc" || true
-          npm config delete '//registry.npmjs.org/:_authToken' || true
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
       - name: Check if version exists (extension)
@@ -152,6 +151,5 @@ jobs:
         run: |
           unset NODE_AUTH_TOKEN NPM_TOKEN NPM_CONFIG_USERCONFIG || true
           rm -f "$HOME/.npmrc" || true
-          npm config delete '//registry.npmjs.org/:_authToken' || true
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
