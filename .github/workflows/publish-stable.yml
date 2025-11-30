@@ -43,6 +43,8 @@ jobs:
 
       # No token-based auth needed for trusted publishers
       - name: Verify npm registry
+        env:
+          NPM_CONFIG_WORKSPACES: "false"
         run: |
           npm config get registry
 
@@ -121,6 +123,8 @@ jobs:
       - name: Publish extension-develop (tag=latest) [trusted publisher]
         if: steps.check_develop.outputs.exists == 'false'
         working-directory: programs/develop
+        env:
+          NPM_CONFIG_WORKSPACES: "false"
         run: |
           # Ensure token auth is not used; force trusted publish via OIDC
           if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then rm -f "$NPM_CONFIG_USERCONFIG"; fi
@@ -144,6 +148,8 @@ jobs:
       - name: Publish extension (tag=latest) [trusted publisher]
         if: steps.check_cli.outputs.exists == 'false'
         working-directory: programs/cli
+        env:
+          NPM_CONFIG_WORKSPACES: "false"
         run: |
           # Ensure token auth is not used; force trusted publish via OIDC
           if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then rm -f "$NPM_CONFIG_USERCONFIG"; fi
