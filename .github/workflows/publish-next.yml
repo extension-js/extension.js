@@ -130,12 +130,39 @@ jobs:
         run: |
           npm view extension-develop name versions || true
 
-      - name: Publish extension-develop (first, tag=next)
+      - name: Publish extension-develop (first, tag=next) [token]
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         working-directory: programs/develop
+        continue-on-error: true
         run: |
           npm publish --access public --tag next --provenance --no-git-checks
+
+      - name: Publish extension-develop (fallback, tag=next) [trusted publisher]
+        if: failure()
+        working-directory: programs/develop
+        env:
+          NPM_CONFIG_PROVENANCE: true
+        run: |
+          # Temporarily disable token-based auth to force OIDC trusted publish
+          RESTORE_PATH=""
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then
+            RESTORE_PATH="$NPM_CONFIG_USERCONFIG"
+            mv "$NPM_CONFIG_USERCONFIG" "$NPM_CONFIG_USERCONFIG.bak"
+          else
+            if [ -f "$HOME/.npmrc" ]; then
+              RESTORE_PATH="$HOME/.npmrc"
+              mv "$HOME/.npmrc" "$HOME/.npmrc.bak"
+            fi
+          fi
+          npm config get registry
+          npm publish --access public --tag next --provenance --no-git-checks
+          # Restore token-based auth for subsequent steps (CLI publish)
+          if [ -n "$RESTORE_PATH" ]; then
+            if [ -f "${RESTORE_PATH}.bak" ]; then
+              mv "${RESTORE_PATH}.bak" "$RESTORE_PATH"
+            fi
+          fi
 
       - name: Publish extension (second, tag=next)
         env:
