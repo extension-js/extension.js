@@ -25,6 +25,7 @@ const postCssConfigFiles = [
   '.postcssrc.json',
   '.postcssrc.yaml',
   '.postcssrc.yml',
+  'postcss.config.mjs',
   '.postcssrc.js',
   '.postcssrc.cjs',
   'postcss.config.js',
@@ -83,9 +84,40 @@ export async function maybeUsePostCss(
   projectPath: string,
   opts: StyleLoaderOptions
 ): Promise<Record<string, any>> {
-  if (!isUsingPostCss(projectPath)) return {}
-
   const userPostCssConfig = findPostCssConfig(projectPath)
+
+  function hasPostCssInPackageJson(p: string): boolean {
+    try {
+      const raw = fs.readFileSync(path.join(p, 'package.json'), 'utf8')
+      const pkg = JSON.parse(raw || '{}')
+      return !!pkg?.postcss
+    } catch {
+      return false
+    }
+  }
+
+  const pkgHasPostCss = hasPostCssInPackageJson(projectPath)
+  const tailwindPresent = isUsingTailwind(projectPath)
+
+  // Only add postcss-loader when there's a clear signal of usage
+  if (!userPostCssConfig && !pkgHasPostCss && !tailwindPresent) {
+    return {}
+  }
+
+  try {
+    require.resolve('postcss-loader')
+  } catch (e) {
+    // SASS and LESS will install PostCSS as a dependency
+    // so we don't need to check for it here.
+    if (!isUsingSass(projectPath) && !isUsingLess(projectPath)) {
+      const postCssDependencies = ['postcss', 'postcss-loader']
+
+      await installOptionalDependencies('PostCSS', postCssDependencies)
+    }
+
+    console.log(messages.youAreAllSet('PostCSS'))
+    process.exit(0)
+  }
 
   // Resolve the project's own PostCSS implementation to avoid resolving from the toolchain
   function getProjectPostcssImpl(): any {
@@ -103,23 +135,6 @@ export async function maybeUsePostCss(
     }
   }
 
-  try {
-    require.resolve('postcss-loader')
-  } catch (e) {
-    // SASS and LESS will install PostCSS as a dependency
-    // so we don't need to check for it here.
-    if (!isUsingSass(projectPath) && !isUsingLess(projectPath)) {
-      const postCssDependencies = userPostCssConfig
-        ? ['postcss', 'postcss-loader']
-        : ['postcss', 'postcss-loader', 'postcss-preset-env']
-
-      await installOptionalDependencies('PostCSS', postCssDependencies)
-    }
-
-    console.log(messages.youAreAllSet('PostCSS'))
-    process.exit(0)
-  }
-
   return {
     test: /\.css$/,
     type: 'css',
@@ -129,24 +144,10 @@ export async function maybeUsePostCss(
       implementation: getProjectPostcssImpl(),
       postcssOptions: {
         ident: 'postcss',
-        // When the user has a config, pass the string path (tests rely on this being a string)
-        // Otherwise, disable auto discovery to avoid resolving outside the project.
-        config: userPostCssConfig ? userPostCssConfig : false,
-        // If the user has their own PostCSS config, defer entirely to it.
-        // Otherwise, apply a sensible default with postcss-preset-env.
-        plugins: userPostCssConfig
-          ? []
-          : [
-              [
-                'postcss-preset-env',
-                {
-                  autoprefixer: {
-                    flexbox: 'no-2009'
-                  },
-                  stage: 3
-                }
-              ]
-            ].filter(Boolean)
+        // Ensure resolution and discovery happen from the project root
+        cwd: projectPath,
+        // Let postcss-load-config discover config/plugins from the package path
+        config: projectPath
       },
       sourceMap: opts.mode === 'development'
     }
