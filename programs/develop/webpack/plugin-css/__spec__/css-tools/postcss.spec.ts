@@ -29,6 +29,9 @@ describe('postcss detection', () => {
   })
 
   it('uses file-based postcss config discovered from project path', async () => {
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => false
+    }))
     // Simulate presence of postcss.config.js
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -51,6 +54,9 @@ describe('postcss detection', () => {
   })
 
   it('supports postcss.config.mjs discovered from project path', async () => {
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => false
+    }))
     // Simulate presence of postcss.config.mjs; still use createRequire path in tests
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -70,6 +76,9 @@ describe('postcss detection', () => {
   })
 
   it('uses project-root discovery when only package.json contains postcss config', async () => {
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => false
+    }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
       return {
