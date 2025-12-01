@@ -104,7 +104,8 @@ export async function maybeUsePostCss(
     return {}
   }
 
-  // If Tailwind is present, ensure Tailwind v4 plugin is resolvable from the project path
+  // If Tailwind is present and we might need to inline it later, 
+  // ake sure it can be resolved from the project
   if (tailwindPresent) {
     try {
       const req = createRequire(path.join(projectPath, 'package.json'))
@@ -149,6 +150,24 @@ export async function maybeUsePostCss(
     }
   }
 
+  // Use createRequire from project path for plugin resolution
+  const reqFromProject = createRequire(path.join(projectPath, 'package.json'))
+
+  // If there is no user config but Tailwind is present, inline the plugin to avoid
+  // relying on string-based resolution that could point to the tool's node_modules.
+  let inlinePlugins: any[] | undefined
+  if (!userPostCssConfig && !pkgHasPostCss && tailwindPresent) {
+    try {
+      inlinePlugins = [reqFromProject('@tailwindcss/postcss')]
+    } catch {
+      console.error(
+        `PostCSS plugin "@tailwindcss/postcss" not found in ${projectPath}.\n` +
+          `Install it in that package (e.g. "pnpm add -D @tailwindcss/postcss") and retry.`
+      )
+      process.exit(1)
+    }
+  }
+
   return {
     test: /\.css$/,
     type: 'css',
@@ -160,8 +179,11 @@ export async function maybeUsePostCss(
         ident: 'postcss',
         // Ensure resolution and discovery happen from the project root
         cwd: projectPath,
-        // Let postcss-load-config discover config/plugins from the package path
-        config: projectPath
+        // Only enable config discovery when the user has a config; otherwise disable
+        // discovery and rely on inline plugins (e.g., Tailwind) to avoid cross-CWD resolution.
+        config: userPostCssConfig || pkgHasPostCss ? projectPath : false,
+        // Inline Tailwind when we detected it but there is no user config.
+        plugins: inlinePlugins
       },
       sourceMap: opts.mode === 'development'
     }
