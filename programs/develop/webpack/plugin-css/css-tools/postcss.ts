@@ -104,6 +104,20 @@ export async function maybeUsePostCss(
     return {}
   }
 
+  // If Tailwind is present, ensure Tailwind v4 plugin is resolvable from the project path
+  if (tailwindPresent) {
+    try {
+      const req = createRequire(path.join(projectPath, 'package.json'))
+      req.resolve('@tailwindcss/postcss')
+    } catch {
+      console.error(
+        `PostCSS plugin "@tailwindcss/postcss" not found in ${projectPath}.\n` +
+          `Install it in that package (e.g. "pnpm add -D @tailwindcss/postcss") and retry.`
+      )
+      process.exit(1)
+    }
+  }
+
   try {
     require.resolve('postcss-loader')
   } catch (e) {
