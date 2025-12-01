@@ -104,4 +104,101 @@ describe('postcss detection', () => {
     // We don't pre-supply plugins
     expect(opts?.plugins).toBeUndefined()
   })
+
+  it('inlines Tailwind plugin when Tailwind is present and no user config', async () => {
+    // No file configs, no package.json postcss key
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => {
+          if (String(p).includes('postcss.config')) return false
+          return actual.existsSync(p)
+        },
+        readFileSync: (p: string, enc: string) => {
+          if (String(p).endsWith('package.json')) {
+            return JSON.stringify({}) // no postcss key
+          }
+          return (actual as any).readFileSync(p, enc)
+        }
+      }
+    })
+    // Ensure createRequire resolves the Tailwind plugin from the project path
+    vi.doMock('module', async () => {
+      const actual = await vi.importActual<any>('module')
+      const fakeReq: any = (id: string) => {
+        if (id === '@tailwindcss/postcss') {
+          return () => ({})
+        }
+        return actual.createRequire(process.cwd())(id)
+      }
+      fakeReq.resolve = (id: string) => {
+        if (id === '@tailwindcss/postcss')
+          return '/virtual/@tailwindcss/postcss.js'
+        return actual.createRequire(process.cwd()).resolve(id)
+      }
+      return {createRequire: () => fakeReq}
+    })
+    // Pretend Tailwind is present
+    vi.doMock('../../css-lib/integrations', () => ({
+      hasDependency: (p: string, dep: string) =>
+        dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
+      installOptionalDependencies: vi.fn(async () => undefined)
+    }))
+    // And ensure tailwind detection returns true
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => true
+    }))
+
+    const {maybeUsePostCss} = await import('../../css-tools/postcss')
+    const rule = await maybeUsePostCss('/p', {mode: 'development'})
+    const opts = rule.options?.postcssOptions
+    expect(opts?.config).toBe(false) // discovery disabled when inlining plugins
+    expect(Array.isArray(opts?.plugins)).toBe(true)
+    expect((opts?.plugins as any[]).length).toBe(1)
+  })
+
+  it('exits with error when Tailwind is present but plugin cannot be resolved', async () => {
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementationOnce((() => {
+      throw new Error('exit called')
+    }) as any)
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    // No user configs
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: () => false,
+        readFileSync: (p: string, enc: string) =>
+          (actual as any).readFileSync(p, enc)
+      }
+    })
+    // Force createRequire to fail resolving the Tailwind plugin
+    vi.doMock('module', async () => {
+      const fakeReq: any = (_id: string) => {
+        throw new Error('unresolvable')
+      }
+      fakeReq.resolve = (_id: string) => {
+        throw new Error('unresolvable')
+      }
+      return {createRequire: () => fakeReq}
+    })
+    // Tailwind detected but do not provide the module
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => true
+    }))
+    vi.doMock('../../css-lib/integrations', () => ({
+      hasDependency: (p: string, dep: string) =>
+        dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
+      installOptionalDependencies: vi.fn(async () => undefined)
+    }))
+
+    const {maybeUsePostCss} = await import('../../css-tools/postcss')
+    await expect(maybeUsePostCss('/p', {mode: 'development'})).rejects.toThrow(
+      'exit called'
+    )
+    expect(errSpy).toHaveBeenCalled()
+    expect(exitSpy).toHaveBeenCalledWith(1)
+  })
 })
