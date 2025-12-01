@@ -7,14 +7,15 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import * as messages from '../css-lib/messages'
-import {isUsingTailwind} from './tailwind'
-import {isUsingSass} from './sass'
-import {isUsingLess} from './less'
 import {
   installOptionalDependencies,
   hasDependency
 } from '../css-lib/integrations'
+import {isUsingTailwind} from './tailwind'
+import {isUsingSass} from './sass'
+import {isUsingLess} from './less'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 
 let userMessageDelivered = false
@@ -86,6 +87,22 @@ export async function maybeUsePostCss(
 
   const userPostCssConfig = findPostCssConfig(projectPath)
 
+  // Resolve the project's own PostCSS implementation to avoid resolving from the toolchain
+  function getProjectPostcssImpl(): any {
+    try {
+      const req = createRequire(path.join(projectPath, 'package.json'))
+      return req('postcss')
+    } catch {
+      try {
+        // Fallback to loader's postcss if not found in project
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        return require('postcss')
+      } catch {
+        return undefined
+      }
+    }
+  }
+
   try {
     require.resolve('postcss-loader')
   } catch (e) {
@@ -108,9 +125,13 @@ export async function maybeUsePostCss(
     type: 'css',
     loader: require.resolve('postcss-loader'),
     options: {
+      // Prefer the project's PostCSS implementation so plugins resolve from the project
+      implementation: getProjectPostcssImpl(),
       postcssOptions: {
         ident: 'postcss',
-        config: userPostCssConfig,
+        // When the user has a config, pass the string path (tests rely on this being a string)
+        // Otherwise, disable auto discovery to avoid resolving outside the project.
+        config: userPostCssConfig ? userPostCssConfig : false,
         // If the user has their own PostCSS config, defer entirely to it.
         // Otherwise, apply a sensible default with postcss-preset-env.
         plugins: userPostCssConfig
