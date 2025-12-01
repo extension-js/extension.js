@@ -114,8 +114,21 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
           /^https?:/i.test(pathOrRemoteUrl)
         if (isRemote) process.env.EXTJS_LIGHT = '1'
       }
-      const major = String(packageJson.version).split('.')[0] || '2'
-      const {extensionPreview} = await requireOrDlx('extension-develop', major)
+
+      // Prefer exact prerelease/stable version to keep CLI and develop in lockstep.
+      const versionExact = String(packageJson.version)
+      const major = versionExact.split('.')[0] || '2'
+      let extensionPreview: any
+
+      try {
+        ;({extensionPreview} = await requireOrDlx(
+          'extension-develop',
+          versionExact
+        ))
+      } catch {
+        ;({extensionPreview} = await requireOrDlx('extension-develop', major))
+      }
+
       for (const vendor of list) {
         const vendorStart = Date.now()
         telemetry.track('cli_vendor_start', {command: 'preview', vendor})
