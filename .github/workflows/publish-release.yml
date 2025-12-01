@@ -178,6 +178,7 @@ jobs:
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
       - name: Create GitHub Deployment (in_progress)
+        id: create_deployment
         uses: actions/github-script@v7
         env:
           VERSION: ${{ steps.validate.outputs.version }}
@@ -215,7 +216,7 @@ jobs:
             await github.rest.repos.createDeploymentStatus({
               owner,
               repo,
-              deployment_id: Number(core.getInput('id') || core.getState('id') || process.env.DEPLOYMENT_ID || 0) || Number('${{ steps.create_deployment.outputs.id || 0 }}'),
+              deployment_id: Number('${{ steps.create_deployment.outputs.id }}'),
               state: 'success',
               environment: '${{ inputs.channel }}',
               log_url: logUrl,
