@@ -33,6 +33,7 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
+    "prepare": "rslib build && node ../../scripts/build-extensions.cjs",
     "compile": "rslib build",
     "watch": "rslib build --watch",
     "test": "vitest run"
