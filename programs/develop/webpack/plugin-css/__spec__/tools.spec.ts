@@ -141,8 +141,9 @@ describe('css tools additional coverage', () => {
     const res = await maybeUsePostCss('/project', {mode: 'development'})
     expect(res.loader).toBeDefined()
     expect(String(res.loader)).toContain('postcss-loader')
-    expect(
-      res.options?.postcssOptions?.config?.endsWith('postcss.config.js')
-    ).toBe(true)
+    // Since the test doesn't provide a real config module to load,
+    // we fall back to discovery from the project root
+    expect(res.options?.postcssOptions?.config).toBe('/project')
+    expect(res.options?.postcssOptions?.plugins).toBeUndefined()
   })
 })
