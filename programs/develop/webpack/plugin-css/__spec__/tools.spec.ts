@@ -133,6 +133,7 @@ describe('css tools additional coverage', () => {
   })
 
   it('maybeUsePostCss returns loader config when a PostCSS config file exists', async () => {
+    vi.doMock('../css-tools/tailwind', () => ({isUsingTailwind: () => false}))
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('postcss.config.js')
     )
