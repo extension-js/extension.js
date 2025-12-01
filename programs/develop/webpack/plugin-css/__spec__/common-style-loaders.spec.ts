@@ -13,6 +13,7 @@ vi.mock('../css-tools/less', () => ({
 }))
 
 vi.mock('../css-tools/postcss', () => ({
+  isUsingPostCss: vi.fn(() => false),
   maybeUsePostCss: vi.fn(async () => ({}))
 }))
 

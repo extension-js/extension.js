@@ -13,7 +13,9 @@ import {hasDependency} from '../css-lib/integrations'
 let userMessageDelivered = false
 
 export function isUsingTailwind(projectPath: string) {
-  const isUsingTailwind = hasDependency(projectPath, 'tailwindcss')
+  const isUsingTailwind =
+    hasDependency(projectPath, 'tailwindcss') ||
+    hasDependency(projectPath, '@tailwindcss/postcss')
 
   if (isUsingTailwind) {
     if (!userMessageDelivered) {

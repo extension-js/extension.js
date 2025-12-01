@@ -2,7 +2,7 @@ import {type RuleSetRule} from '@rspack/core'
 import {isUsingTailwind} from './css-tools/tailwind'
 import {isUsingSass} from './css-tools/sass'
 import {isUsingLess} from './css-tools/less'
-import {maybeUsePostCss} from './css-tools/postcss'
+import {isUsingPostCss, maybeUsePostCss} from './css-tools/postcss'
 import {type DevOptions} from '../webpack-types'
 
 export interface StyleLoaderOptions {
@@ -19,6 +19,7 @@ export async function commonStyleLoaders(
 
   // Handle PostCSS for Tailwind, Sass, or Less
   if (
+    isUsingPostCss(projectPath) ||
     isUsingTailwind(projectPath) ||
     isUsingSass(projectPath) ||
     isUsingLess(projectPath)
