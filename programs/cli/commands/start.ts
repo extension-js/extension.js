@@ -111,8 +111,20 @@ export function registerStartCommand(program: Command, telemetry: any) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
-      const major = String(packageJson.version).split('.')[0] || '2'
-      const {extensionStart} = await requireOrDlx('extension-develop', major)
+      // Prefer exact prerelease/stable version to keep CLI and develop in lockstep.
+      const versionExact = String(packageJson.version)
+      const major = versionExact.split('.')[0] || '2'
+      let extensionStart: any
+
+      try {
+        ;({extensionStart} = await requireOrDlx(
+          'extension-develop',
+          versionExact
+        ))
+      } catch {
+        ;({extensionStart} = await requireOrDlx('extension-develop', major))
+      }
+
       for (const vendor of list) {
         const vendorStart = Date.now()
         telemetry.track('cli_vendor_start', {command: 'start', vendor})
