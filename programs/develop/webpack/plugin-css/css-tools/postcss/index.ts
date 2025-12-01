@@ -8,15 +8,16 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
-import * as messages from '../css-lib/messages'
+import * as messages from '../../css-lib/messages'
 import {
   installOptionalDependencies,
   hasDependency
-} from '../css-lib/integrations'
-import {isUsingTailwind} from './tailwind'
-import {isUsingSass} from './sass'
-import {isUsingLess} from './less'
-import type {StyleLoaderOptions} from '../common-style-loaders'
+} from '../../css-lib/integrations'
+import {isUsingTailwind} from '../tailwind'
+import {isUsingSass} from '../sass'
+import {isUsingLess} from '../less'
+import type {StyleLoaderOptions} from '../../common-style-loaders'
+import {loadPluginsFromUserConfig} from './load-plugins-from-user-config'
 
 let userMessageDelivered = false
 
@@ -25,6 +26,7 @@ const postCssConfigFiles = [
   '.postcssrc.json',
   '.postcssrc.yaml',
   '.postcssrc.yml',
+  'postcss.config.mjs',
   '.postcssrc.js',
   '.postcssrc.cjs',
   'postcss.config.js',
@@ -87,6 +89,16 @@ export async function maybeUsePostCss(
 
   const userPostCssConfig = findPostCssConfig(projectPath)
 
+  function hasPostCssInPackageJson(p: string): boolean {
+    try {
+      const raw = fs.readFileSync(path.join(p, 'package.json'), 'utf8')
+      const pkg = JSON.parse(raw || '{}')
+      return !!pkg?.postcss
+    } catch {
+      return false
+    }
+  }
+
   // Resolve the project's own PostCSS implementation to avoid resolving from the toolchain
   function getProjectPostcssImpl(): any {
     try {
@@ -120,6 +132,14 @@ export async function maybeUsePostCss(
     process.exit(0)
   }
 
+  const pkgHasPostCss = hasPostCssInPackageJson(projectPath)
+  const loadedPlugins = await loadPluginsFromUserConfig(
+    projectPath,
+    userPostCssConfig,
+    opts.mode
+  )
+  const useUserConfig = !!userPostCssConfig || pkgHasPostCss
+
   return {
     test: /\.css$/,
     type: 'css',
@@ -129,24 +149,31 @@ export async function maybeUsePostCss(
       implementation: getProjectPostcssImpl(),
       postcssOptions: {
         ident: 'postcss',
-        // When the user has a config, pass the string path (tests rely on this being a string)
-        // Otherwise, disable auto discovery to avoid resolving outside the project.
-        config: userPostCssConfig ? userPostCssConfig : false,
-        // If the user has their own PostCSS config, defer entirely to it.
-        // Otherwise, apply a sensible default with postcss-preset-env.
-        plugins: userPostCssConfig
-          ? []
-          : [
-              [
-                'postcss-preset-env',
-                {
-                  autoprefixer: {
-                    flexbox: 'no-2009'
-                  },
-                  stage: 3
-                }
-              ]
-            ].filter(Boolean)
+        // Ensure resolution happens from the project root, never the toolchain/cache
+        cwd: projectPath,
+        // If we successfully loaded a file config, disable rediscovery and pass plugins directly.
+        // Else if there's a package.json "postcss", allow discovery starting from the project path.
+        // Otherwise disable config discovery and fall back to defaults.
+        config: loadedPlugins ? false : useUserConfig ? projectPath : false,
+        // If the user has a config (file or package.json), let it drive plugins.
+        // When we loaded a file config ourselves, provide the normalized plugins explicitly.
+        // Otherwise, provide a default preset.
+        plugins:
+          loadedPlugins !== undefined
+            ? loadedPlugins
+            : useUserConfig
+              ? []
+              : [
+                  [
+                    'postcss-preset-env',
+                    {
+                      autoprefixer: {
+                        flexbox: 'no-2009'
+                      },
+                      stage: 3
+                    }
+                  ]
+                ].filter(Boolean)
       },
       sourceMap: opts.mode === 'development'
     }
