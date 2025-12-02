@@ -104,8 +104,7 @@ export async function maybeUsePostCss(
     return {}
   }
 
-  // If Tailwind is present and we might need to inline it later, 
-  // ake sure it can be resolved from the project
+  // If Tailwind is present, ensure Tailwind v4 plugin is resolvable from the project path
   if (tailwindPresent) {
     try {
       const req = createRequire(path.join(projectPath, 'package.json'))
@@ -150,81 +149,6 @@ export async function maybeUsePostCss(
     }
   }
 
-  // Use createRequire from project path for plugin resolution
-  const reqFromProject = createRequire(path.join(projectPath, 'package.json'))
-
-  // Try to load user's postcss config via postcss-load-config from the project path
-  async function loadUserPostcssPlugins(): Promise<
-    {plugins: any[]; loaded: boolean} | {plugins: undefined; loaded: false}
-  > {
-    try {
-      // Prefer the project's postcss-load-config if present; otherwise fallback to loader's
-      let plc: any
-      try {
-        plc = reqFromProject('postcss-load-config')
-      } catch {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          plc = require('postcss-load-config')
-        } catch {
-          return {plugins: undefined, loaded: false}
-        }
-      }
-
-      const loadConfig =
-        typeof plc === 'function' ? plc : plc?.default ? plc.default : plc
-
-      if (typeof loadConfig !== 'function') {
-        return {plugins: undefined, loaded: false}
-      }
-
-      const result = await loadConfig({}, projectPath)
-      const plugins = Array.isArray(result?.plugins)
-        ? result.plugins
-        : // postcss-load-config can return an object map; normalize to array
-          Object.entries(result?.plugins || {}).map(([plugin, options]) => {
-            try {
-              const mod =
-                typeof plugin === 'string'
-                  ? reqFromProject(plugin)
-                  : (plugin as any)
-              return typeof mod === 'function' ? mod(options) : mod
-            } catch {
-              return undefined
-            }
-          }).filter(Boolean)
-      return {plugins, loaded: true}
-    } catch {
-      return {plugins: undefined, loaded: false}
-    }
-  }
-
-  // If there is no user config but Tailwind is present, inline the plugin to avoid
-  // relying on string-based resolution that could point to the tool's node_modules.
-  let inlinePlugins: any[] | undefined
-  if (!userPostCssConfig && !pkgHasPostCss && tailwindPresent) {
-    try {
-      inlinePlugins = [reqFromProject('@tailwindcss/postcss')]
-    } catch {
-      console.error(
-        `PostCSS plugin "@tailwindcss/postcss" not found in ${projectPath}.\n` +
-          `Install it in that package (e.g. "pnpm add -D @tailwindcss/postcss") and retry.`
-      )
-      process.exit(1)
-    }
-  }
-
-  // If a user config exists (file or package.json), proactively resolve plugins from project
-  // and disable postcss-loader's built-in config discovery to avoid wrong base paths.
-  let resolvedPlugins: any[] | undefined = inlinePlugins
-
-  if ((userPostCssConfig || pkgHasPostCss) && !inlinePlugins) {
-    const loaded = await loadUserPostcssPlugins()
-    if (loaded.loaded && Array.isArray(loaded.plugins) && loaded.plugins.length) {
-      resolvedPlugins = loaded.plugins
-    }
-  }
-
   return {
     test: /\.css$/,
     type: 'css',
@@ -236,15 +160,8 @@ export async function maybeUsePostCss(
         ident: 'postcss',
         // Ensure resolution and discovery happen from the project root
         cwd: projectPath,
-        // Disable config discovery when we resolved plugins ourselves; otherwise allow discovery.
-        config:
-          resolvedPlugins && resolvedPlugins.length
-            ? false
-            : userPostCssConfig || pkgHasPostCss
-              ? projectPath
-              : false,
-        // Provide plugins when we resolved them (either inline Tailwind or from user config)
-        plugins: resolvedPlugins
+        // Always let postcss-load-config discover config/plugins from the project root.
+        config: projectPath
       },
       sourceMap: opts.mode === 'development'
     }
