@@ -147,17 +147,21 @@ export async function requireOrDlx(
     fs.mkdirSync(cacheDir, {recursive: true})
   } catch {}
 
+  let preInstallPkgJson: any
   try {
-    const pkgJson = JSON.parse(
+    preInstallPkgJson = JSON.parse(
       fs.readFileSync(path.join(modulePath, 'package.json'), 'utf8')
     )
-    const entry = resolveModuleEntry(modulePath, pkgJson)
+  } catch {
+    // Do nothing – package may not be installed yet
+  }
 
+  if (preInstallPkgJson) {
+    const entry = resolveModuleEntry(modulePath, preInstallPkgJson)
     if (entry) {
+      // Surface import-time errors so they are not mislabeled as resolution issues
       return await import(entry)
     }
-  } catch {
-    // Do nothing
   }
 
   if (prefer === 'pnpm') {
@@ -223,16 +227,21 @@ export async function requireOrDlx(
     throw new Error(`Failed to install ${spec}`)
   }
 
+  let postInstallPkgJson: any
   try {
-    const pkgJson = JSON.parse(
+    postInstallPkgJson = JSON.parse(
       fs.readFileSync(path.join(modulePath, 'package.json'), 'utf8')
     )
-    const entry = resolveModuleEntry(modulePath, pkgJson)
+  } catch {
+    // Do nothing – if package.json is unreadable, fall through to generic error
+  }
+
+  if (postInstallPkgJson) {
+    const entry = resolveModuleEntry(modulePath, postInstallPkgJson)
     if (entry) {
+      // Surface import-time errors so we see the real root cause (especially on Windows)
       return await import(entry)
     }
-  } catch {
-    // Do nothing
   }
 
   throw new Error(
