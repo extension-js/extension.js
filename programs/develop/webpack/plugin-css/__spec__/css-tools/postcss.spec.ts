@@ -42,12 +42,6 @@ describe('postcss detection', () => {
         readFileSync: actual.readFileSync
       }
     })
-    // Mock postcss-load-config to return one plugin
-    vi.doMock('postcss-load-config', () => ({
-      default: async () => ({plugins: [() => ({})], options: {}}),
-      __esModule: true
-    }))
-
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     // Ensure loader configured
@@ -77,12 +71,6 @@ describe('postcss detection', () => {
         readFileSync: actual.readFileSync
       }
     })
-    // Mock postcss-load-config to return one plugin
-    vi.doMock('postcss-load-config', () => ({
-      default: async () => ({plugins: [() => ({})], options: {}}),
-      __esModule: true
-    }))
-
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss('/p', {mode: 'production'})
     const opts = rule.options?.postcssOptions
@@ -116,12 +104,6 @@ describe('postcss detection', () => {
         }
       }
     })
-    // Mock postcss-load-config to return one plugin
-    vi.doMock('postcss-load-config', () => ({
-      default: async () => ({plugins: [() => ({})], options: {}}),
-      __esModule: true
-    }))
-
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     const opts = rule.options?.postcssOptions
@@ -138,10 +120,10 @@ describe('postcss detection', () => {
   // we let postcss-load-config discover plugins from the project root.
 
   it('exits with error when Tailwind is present but plugin cannot be resolved', async () => {
-    const exitSpy = vi.spyOn(process, 'exit').mockImplementationOnce((() => {
-      throw new Error('exit called')
-    }) as any)
-    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    // With the new behavior we no longer hard-exit when Tailwind cannot be
+    // resolved; we fall back to letting postcss-loader handle discovery.
+    // This test simply verifies that maybeUsePostCss still returns a loader
+    // config when Tailwind is detected but resolution fails.
 
     // No user configs
     vi.doMock('fs', async () => {
@@ -153,17 +135,7 @@ describe('postcss detection', () => {
           (actual as any).readFileSync(p, enc)
       }
     })
-    // Force createRequire to fail resolving the Tailwind plugin
-    vi.doMock('module', async () => {
-      const fakeReq: any = (_id: string) => {
-        throw new Error('unresolvable')
-      }
-      fakeReq.resolve = (_id: string) => {
-        throw new Error('unresolvable')
-      }
-      return {createRequire: () => fakeReq}
-    })
-    // Tailwind detected but do not provide the module
+    // Tailwind detected but plugin resolution will fail later when config is loaded
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
@@ -174,10 +146,7 @@ describe('postcss detection', () => {
     }))
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    await expect(maybeUsePostCss('/p', {mode: 'development'})).rejects.toThrow(
-      'exit called'
-    )
-    expect(errSpy).toHaveBeenCalled()
-    expect(exitSpy).toHaveBeenCalledWith(1)
+    const rule = await maybeUsePostCss('/p', {mode: 'development'})
+    expect(rule.loader).toContain('postcss-loader')
   })
 })
