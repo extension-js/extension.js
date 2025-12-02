@@ -31,3 +31,23 @@ export function isUsingIntegration(name: string) {
 export function youAreAllSet(name: string) {
   return `${colors.green('►►►')} ${name} installation completed. Run again to proceed.`
 }
+
+export function missingSassDependency() {
+  const prefix = colors.red('►►►')
+  return [
+    `${prefix} SASS support requires the ${colors.brightBlue(
+      '"sass"'
+    )} package to be installed in your project.`,
+    '',
+    `Add it to your devDependencies, for example:`,
+    `  ${colors.gray('npm install --save-dev sass')}`,
+    `  ${colors.gray('pnpm add -D sass')}`,
+    '',
+    'Sample package.json:',
+    '  {',
+    '    "devDependencies": {',
+    `      "sass": ${colors.yellow('"<version>"')}`,
+    '    }',
+    '  }'
+  ].join('\n')
+}
