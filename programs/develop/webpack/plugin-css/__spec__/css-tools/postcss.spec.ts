@@ -42,25 +42,13 @@ describe('postcss detection', () => {
         readFileSync: actual.readFileSync
       }
     })
-    // Mock postcss-load-config to return one plugin
-    vi.doMock('postcss-load-config', () => ({
-      default: async () => ({plugins: [() => ({})], options: {}}),
-      __esModule: true
-    }))
-
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     // Ensure loader configured
     expect(rule.loader).toBeDefined()
     const opts = rule.options?.postcssOptions
-    // In CI we proactively resolve plugins (config=false), but allow fallback to loader discovery in tests
-    if (opts?.config === false) {
-      expect(Array.isArray(opts?.plugins)).toBe(true)
-      expect((opts?.plugins as any[]).length).toBe(1)
-    } else {
-      expect(opts?.config).toBe('/p')
-      expect(opts?.plugins).toBeUndefined()
-    }
+    expect(opts?.config).toBe('/p')
+    expect(opts?.cwd).toBe('/p')
   })
 
   it('supports postcss.config.mjs discovered from project path', async () => {
@@ -77,22 +65,11 @@ describe('postcss detection', () => {
         readFileSync: actual.readFileSync
       }
     })
-    // Mock postcss-load-config to return one plugin
-    vi.doMock('postcss-load-config', () => ({
-      default: async () => ({plugins: [() => ({})], options: {}}),
-      __esModule: true
-    }))
-
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss('/p', {mode: 'production'})
     const opts = rule.options?.postcssOptions
-    if (opts?.config === false) {
-      expect(Array.isArray(opts?.plugins)).toBe(true)
-      expect((opts?.plugins as any[]).length).toBe(1)
-    } else {
-      expect(opts?.config).toBe('/p')
-      expect(opts?.plugins).toBeUndefined()
-    }
+    expect(opts?.config).toBe('/p')
+    expect(opts?.cwd).toBe('/p')
   })
 
   it('uses project-root discovery when only package.json contains postcss config', async () => {
@@ -116,76 +93,15 @@ describe('postcss detection', () => {
         }
       }
     })
-    // Mock postcss-load-config to return one plugin
-    vi.doMock('postcss-load-config', () => ({
-      default: async () => ({plugins: [() => ({})], options: {}}),
-      __esModule: true
-    }))
-
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     const opts = rule.options?.postcssOptions
-    if (opts?.config === false) {
-      expect(Array.isArray(opts?.plugins)).toBe(true)
-      expect((opts?.plugins as any[]).length).toBe(1)
-    } else {
-      expect(opts?.config).toBe('/p')
-      expect(opts?.plugins).toBeUndefined()
-    }
+    expect(opts?.config).toBe('/p')
+    expect(opts?.cwd).toBe('/p')
   })
 
-  it('inlines Tailwind plugin when Tailwind is present and no user config', async () => {
-    // No file configs, no package.json postcss key
-    vi.doMock('fs', async () => {
-      const actual = await vi.importActual<any>('fs')
-      return {
-        ...actual,
-        existsSync: (p: string) => {
-          if (String(p).includes('postcss.config')) return false
-          return actual.existsSync(p)
-        },
-        readFileSync: (p: string, enc: string) => {
-          if (String(p).endsWith('package.json')) {
-            return JSON.stringify({}) // no postcss key
-          }
-          return (actual as any).readFileSync(p, enc)
-        }
-      }
-    })
-    // Ensure createRequire resolves the Tailwind plugin from the project path
-    vi.doMock('module', async () => {
-      const actual = await vi.importActual<any>('module')
-      const fakeReq: any = (id: string) => {
-        if (id === '@tailwindcss/postcss') {
-          return () => ({})
-        }
-        return actual.createRequire(process.cwd())(id)
-      }
-      fakeReq.resolve = (id: string) => {
-        if (id === '@tailwindcss/postcss')
-          return '/virtual/@tailwindcss/postcss.js'
-        return actual.createRequire(process.cwd()).resolve(id)
-      }
-      return {createRequire: () => fakeReq}
-    })
-    // Pretend Tailwind is present
-    vi.doMock('../../css-lib/integrations', () => ({
-      hasDependency: (p: string, dep: string) =>
-        dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
-      installOptionalDependencies: vi.fn(async () => undefined)
-    }))
-    // And ensure tailwind detection returns true
-    vi.doMock('../../css-tools/tailwind', () => ({
-      isUsingTailwind: () => true
-    }))
-
-    const {maybeUsePostCss} = await import('../../css-tools/postcss')
-    const rule = await maybeUsePostCss('/p', {mode: 'development'})
-    const opts = rule.options?.postcssOptions
-    expect(opts?.config).toBe(false) // discovery disabled when inlining plugins
-    expect(Array.isArray(opts?.plugins)).toBe(true)
-    expect((opts?.plugins as any[]).length).toBe(1)
-  })
+  // Tailwind-specific behavior is now limited to ensuring the plugin can be resolved;
+  // we let postcss-load-config discover plugins from the project root.
 
   it('exits with error when Tailwind is present but plugin cannot be resolved', async () => {
     const exitSpy = vi.spyOn(process, 'exit').mockImplementationOnce((() => {
