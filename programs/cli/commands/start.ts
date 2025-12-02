@@ -113,17 +113,11 @@ export function registerStartCommand(program: Command, telemetry: any) {
 
       // Prefer exact prerelease/stable version to keep CLI and develop in lockstep.
       const versionExact = String(packageJson.version)
-      const major = versionExact.split('.')[0] || '2'
       let extensionStart: any
-
-      try {
-        ;({extensionStart} = await requireOrDlx(
-          'extension-develop',
-          versionExact
-        ))
-      } catch {
-        ;({extensionStart} = await requireOrDlx('extension-develop', major))
-      }
+      ;({extensionStart} = await requireOrDlx(
+        'extension-develop',
+        versionExact
+      ))
 
       for (const vendor of list) {
         const vendorStart = Date.now()
