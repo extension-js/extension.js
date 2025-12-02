@@ -4,6 +4,68 @@ import {spawnSync} from 'node:child_process'
 import {pathToFileURL} from 'node:url'
 import fs from 'node:fs'
 
+export function resolveModuleEntry(
+  modulePath: string,
+  pkgJson: any
+): string | undefined {
+  const exportsField = pkgJson.exports
+  let main: string | undefined = pkgJson.main
+
+  // Handle "exports" as a string (Like{ "exports": "./dist/module.js" })
+  if (!main && typeof exportsField === 'string') {
+    main = exportsField
+  }
+
+  // Handle "exports" as an object
+  if (!main && exportsField && typeof exportsField === 'object') {
+    const dotExport = (exportsField as any)['.']
+
+    if (typeof dotExport === 'string') {
+      // Like{ "exports": { ".": "./dist/module.js" } }
+      main = dotExport
+    } else if (dotExport && typeof dotExport === 'object') {
+      // Like{ "exports": { ".": { "import": "./dist/module.js", "require": "./dist/module.cjs" } } }
+      main =
+        (dotExport as any).import ||
+        (dotExport as any).require ||
+        (dotExport as any).default ||
+        (dotExport as any).node
+    }
+
+    // Some packages put fields at the top level of "exports"
+    if (!main) {
+      const maybe =
+        (exportsField as any).import ||
+        (exportsField as any).require ||
+        (exportsField as any).default ||
+        (exportsField as any).node
+
+      if (typeof maybe === 'string') {
+        main = maybe
+      }
+    }
+  }
+
+  if (main) {
+    return pathToFileURL(path.join(modulePath, main)).href
+  }
+
+  // Legacy/common filename fallbacks, in order of preference
+  const candidates = [
+    path.join(modulePath, 'dist', 'module.js'),
+    path.join(modulePath, 'dist', 'index.js'),
+    path.join(modulePath, 'index.js')
+  ]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return pathToFileURL(candidate).href
+    }
+  }
+
+  return undefined
+}
+
 export type Browser =
   | 'chrome'
   | 'edge'
@@ -45,7 +107,7 @@ export async function requireOrDlx(
       return await import(pathToFileURL(localDist).href)
     }
   } catch {
-    // Ignore
+    // Do nothing
   }
 
   try {
@@ -60,7 +122,7 @@ export async function requireOrDlx(
       return await import(pathToFileURL(cwdDist).href)
     }
   } catch {
-    // Ignore
+    // Do nothing
   }
 
   let prefer = String(process.env.EXTENSION_DLX || '')
@@ -89,14 +151,14 @@ export async function requireOrDlx(
     const pkgJson = JSON.parse(
       fs.readFileSync(path.join(modulePath, 'package.json'), 'utf8')
     )
-    const main = (pkgJson.main ||
-      pkgJson.exports?.['.']?.import ||
-      pkgJson.exports?.['.']?.require) as string | undefined
-    if (main) {
-      const resolved = pathToFileURL(path.join(modulePath, main)).href
-      return await import(resolved)
+    const entry = resolveModuleEntry(modulePath, pkgJson)
+
+    if (entry) {
+      return await import(entry)
     }
-  } catch {}
+  } catch {
+    // Do nothing
+  }
 
   if (prefer === 'pnpm') {
     try {
@@ -104,7 +166,9 @@ export async function requireOrDlx(
         path.join(cacheDir, 'package.json'),
         JSON.stringify({name: 'extensionjs-cache', private: true}, null, 2)
       )
-    } catch {}
+    } catch {
+      // Do nothing
+    }
   }
 
   let status = 0
@@ -140,7 +204,7 @@ export async function requireOrDlx(
         JSON.stringify({name: 'extensionjs-cache', private: true}, null, 2)
       )
     } catch {
-      // Ignore
+      // Do nothing
     }
 
     if (prefer !== 'pnpm') {
@@ -163,17 +227,17 @@ export async function requireOrDlx(
     const pkgJson = JSON.parse(
       fs.readFileSync(path.join(modulePath, 'package.json'), 'utf8')
     )
-    const main = (pkgJson.main ||
-      pkgJson.exports?.['.']?.import ||
-      pkgJson.exports?.['.']?.require) as string | undefined
-    if (main) {
-      const resolved = pathToFileURL(path.join(modulePath, main)).href
-      return await import(resolved)
+    const entry = resolveModuleEntry(modulePath, pkgJson)
+    if (entry) {
+      return await import(entry)
     }
-  } catch {}
+  } catch {
+    // Do nothing
+  }
 
-  return await import(
-    pathToFileURL(path.join(modulePath, 'dist', 'module.js')).href
+  throw new Error(
+    `Failed to resolve entry point for ${moduleName} (${spec}) at ${modulePath}.` +
+      ' This likely means the installed "extension-develop" version is incompatible with this CLI.'
   )
 }
 
