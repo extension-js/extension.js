@@ -165,11 +165,14 @@ export async function maybeUsePostCss(
     configPath: string
   ): Promise<any | undefined> {
     try {
-      if (configPath.endsWith('.mjs') || configPath.endsWith('.mts')) {
+      // Treat any non-.cjs config as importable ESM (works in "type": "module" projects)
+      if (!configPath.endsWith('.cjs')) {
         const url = pathToFileURL(configPath).href
         const mod = await import(url)
         return mod?.default ?? mod
       }
+
+      // Legacy CJS config
       const req = createRequire(configPath)
       return req(configPath)
     } catch {
