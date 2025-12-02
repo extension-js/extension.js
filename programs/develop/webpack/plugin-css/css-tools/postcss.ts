@@ -8,6 +8,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
+import {pathToFileURL} from 'url'
 import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
@@ -86,36 +87,26 @@ export async function maybeUsePostCss(
 ): Promise<Record<string, any>> {
   const userPostCssConfig = findPostCssConfig(projectPath)
 
-  function hasPostCssInPackageJson(p: string): boolean {
+  function getPackageJsonConfig(p: string): {
+    hasPostCss: boolean
+    config?: any
+  } {
     try {
       const raw = fs.readFileSync(path.join(p, 'package.json'), 'utf8')
       const pkg = JSON.parse(raw || '{}')
-      return !!pkg?.postcss
+      return {hasPostCss: !!pkg?.postcss, config: pkg?.postcss}
     } catch {
-      return false
+      return {hasPostCss: false}
     }
   }
 
-  const pkgHasPostCss = hasPostCssInPackageJson(projectPath)
+  const {hasPostCss: pkgHasPostCss, config: pkgPostCssConfig} =
+    getPackageJsonConfig(projectPath)
   const tailwindPresent = isUsingTailwind(projectPath)
 
   // Only add postcss-loader when there's a clear signal of usage
   if (!userPostCssConfig && !pkgHasPostCss && !tailwindPresent) {
     return {}
-  }
-
-  // If Tailwind is present, ensure Tailwind v4 plugin is resolvable from the project path
-  if (tailwindPresent) {
-    try {
-      const req = createRequire(path.join(projectPath, 'package.json'))
-      req.resolve('@tailwindcss/postcss')
-    } catch {
-      console.error(
-        `PostCSS plugin "@tailwindcss/postcss" not found in ${projectPath}.\n` +
-          `Install it in that package (e.g. "pnpm add -D @tailwindcss/postcss") and retry.`
-      )
-      process.exit(1)
-    }
   }
 
   try {
@@ -149,37 +140,77 @@ export async function maybeUsePostCss(
     }
   }
 
-  // Try to load user's PostCSS config + plugins via postcss-load-config from the project root
+  // Try to load user's PostCSS config (file or package.json postcss) and resolve plugins
   let plugins: any[] | undefined
-  try {
-    const req = createRequire(path.join(projectPath, 'package.json'))
-    // Prefer the project's postcss-load-config
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const plc = req('postcss-load-config')
-    const loadConfig =
-      typeof plc === 'function' ? plc : plc?.default ? plc.default : plc
+  const reqFromProject = createRequire(path.join(projectPath, 'package.json'))
 
-    if (typeof loadConfig === 'function') {
-      const result = await loadConfig({}, projectPath)
-      if (Array.isArray(result?.plugins)) {
-        plugins = result.plugins
-      } else if (result?.plugins && typeof result.plugins === 'object') {
-        // postcss-load-config may return a map; normalize to an array of plugin fns
-        plugins = Object.entries(result.plugins)
-          .map(([plugin, options]) => {
-            try {
-              const mod =
-                typeof plugin === 'string' ? req(plugin) : (plugin as any)
-              return typeof mod === 'function' ? mod(options) : mod
-            } catch {
-              return undefined
-            }
-          })
-          .filter(Boolean)
+  async function loadConfigFromFile(
+    configPath: string
+  ): Promise<any | undefined> {
+    try {
+      if (configPath.endsWith('.mjs') || configPath.endsWith('.mts')) {
+        const url = pathToFileURL(configPath).href
+        const mod = await import(url)
+        return mod?.default ?? mod
       }
+      const req = createRequire(configPath)
+      return req(configPath)
+    } catch {
+      return undefined
     }
-  } catch {
-    // If config loading fails we fall back to letting postcss-loader discover config.
+  }
+
+  let rawConfig: any | undefined
+
+  if (userPostCssConfig) {
+    rawConfig = await loadConfigFromFile(userPostCssConfig)
+  } else if (pkgHasPostCss && pkgPostCssConfig) {
+    rawConfig = pkgPostCssConfig
+  }
+
+  const configPlugins = rawConfig?.plugins
+
+  if (Array.isArray(configPlugins)) {
+    // Array form: [plugin, options] | plugin
+    plugins = configPlugins
+      .map((entry: any) => {
+        try {
+          if (typeof entry === 'function') return entry
+          if (Array.isArray(entry)) {
+            const [plugin, options] = entry
+            if (typeof plugin === 'function') return plugin(options)
+            if (typeof plugin === 'string') {
+              const mod = reqFromProject(plugin)
+              return typeof mod === 'function' ? mod(options) : mod
+            }
+          }
+          return undefined
+        } catch {
+          return undefined
+        }
+      })
+      .filter(Boolean)
+  } else if (configPlugins && typeof configPlugins === 'object') {
+    // Object form: { 'plugin-name': options | true | false }
+    plugins = Object.entries(configPlugins)
+      .map(([plugin, options]) => {
+        if (options === false) return undefined
+        try {
+          const mod =
+            typeof plugin === 'string'
+              ? reqFromProject(plugin)
+              : (plugin as any)
+          if (typeof mod === 'function') {
+            return options === true || typeof options === 'undefined'
+              ? mod()
+              : mod(options)
+          }
+          return mod
+        } catch {
+          return undefined
+        }
+      })
+      .filter(Boolean)
   }
 
   const postcssOptions: any = {
