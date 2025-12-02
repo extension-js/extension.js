@@ -1,6 +1,7 @@
 import * as path from 'path'
 import {commonStyleLoaders} from './common-style-loaders'
 import {isContentScriptEntry} from './css-lib/is-content-script'
+import {createSassLoaderOptions} from './css-tools/sass'
 import type {DevOptions} from '../webpack-types'
 
 export async function cssInContentScriptLoader(
@@ -49,7 +50,10 @@ export async function cssInContentScriptLoader(
       // Preprocessor CSS
       const loaderOptions =
         loader === 'sass-loader'
-          ? {sourceMap: true, sassOptions: {outputStyle: 'expanded'}}
+          ? createSassLoaderOptions(
+              projectPath,
+              mode as 'development' | 'production'
+            )
           : {sourceMap: true}
 
       return {
