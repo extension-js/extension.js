@@ -48,6 +48,7 @@
     "lint-staged": "16.1.0",
     "prettier": "^3.4.2",
     "turbo": "^2.3.3",
+    "tsx": "^4.19.2",
     "typescript": "5.7.2"
   },
   "pnpm": {
