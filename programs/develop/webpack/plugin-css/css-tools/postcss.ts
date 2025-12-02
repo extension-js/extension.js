@@ -149,6 +149,53 @@ export async function maybeUsePostCss(
     }
   }
 
+  // Try to load user's PostCSS config + plugins via postcss-load-config from the project root
+  let plugins: any[] | undefined
+  try {
+    const req = createRequire(path.join(projectPath, 'package.json'))
+    // Prefer the project's postcss-load-config
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const plc = req('postcss-load-config')
+    const loadConfig =
+      typeof plc === 'function' ? plc : plc?.default ? plc.default : plc
+
+    if (typeof loadConfig === 'function') {
+      const result = await loadConfig({}, projectPath)
+      if (Array.isArray(result?.plugins)) {
+        plugins = result.plugins
+      } else if (result?.plugins && typeof result.plugins === 'object') {
+        // postcss-load-config may return a map; normalize to an array of plugin fns
+        plugins = Object.entries(result.plugins)
+          .map(([plugin, options]) => {
+            try {
+              const mod =
+                typeof plugin === 'string' ? req(plugin) : (plugin as any)
+              return typeof mod === 'function' ? mod(options) : mod
+            } catch {
+              return undefined
+            }
+          })
+          .filter(Boolean)
+      }
+    }
+  } catch {
+    // If config loading fails we fall back to letting postcss-loader discover config.
+  }
+
+  const postcssOptions: any = {
+    ident: 'postcss',
+    cwd: projectPath
+  }
+
+  if (plugins && plugins.length) {
+    // We already have real plugin functions; don't let postcss-loader reload config or plugins.
+    postcssOptions.config = false
+    postcssOptions.plugins = plugins
+  } else {
+    // Let postcss-loader discover config/plugins from the project root as a fallback.
+    postcssOptions.config = projectPath
+  }
+
   return {
     test: /\.css$/,
     type: 'css',
@@ -156,13 +203,7 @@ export async function maybeUsePostCss(
     options: {
       // Prefer the project's PostCSS implementation so plugins resolve from the project
       implementation: getProjectPostcssImpl(),
-      postcssOptions: {
-        ident: 'postcss',
-        // Ensure resolution and discovery happen from the project root
-        cwd: projectPath,
-        // Always let postcss-load-config discover config/plugins from the project root.
-        config: projectPath
-      },
+      postcssOptions,
       sourceMap: opts.mode === 'development'
     }
   }
