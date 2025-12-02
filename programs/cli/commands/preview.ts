@@ -117,17 +117,11 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
 
       // Prefer exact prerelease/stable version to keep CLI and develop in lockstep.
       const versionExact = String(packageJson.version)
-      const major = versionExact.split('.')[0] || '2'
       let extensionPreview: any
-
-      try {
-        ;({extensionPreview} = await requireOrDlx(
-          'extension-develop',
-          versionExact
-        ))
-      } catch {
-        ;({extensionPreview} = await requireOrDlx('extension-develop', major))
-      }
+      ;({extensionPreview} = await requireOrDlx(
+        'extension-develop',
+        versionExact
+      ))
 
       for (const vendor of list) {
         const vendorStart = Date.now()
