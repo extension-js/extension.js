@@ -128,12 +128,25 @@ export async function maybeUsePostCss(
   function getProjectPostcssImpl(): any {
     try {
       const req = createRequire(path.join(projectPath, 'package.json'))
-      return req('postcss')
+      const mod = req('postcss')
+
+      // Unwrap ESM default export for PostCSS itself if present
+      if (mod && typeof mod === 'object' && 'default' in mod) {
+        return (mod as any).default
+      }
+
+      return mod
     } catch {
       try {
         // Fallback to loader's postcss if not found in project
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        return require('postcss')
+        const mod = require('postcss')
+
+        if (mod && typeof mod === 'object' && 'default' in mod) {
+          return (mod as any).default
+        }
+
+        return mod
       } catch {
         return undefined
       }
@@ -154,8 +167,17 @@ export async function maybeUsePostCss(
         const req = createRequire(path.join(base, 'package.json'))
         const mod = req(name)
 
-        // Unwrap ESM default export (common for PostCSS plugins like @tailwindcss/postcss)
-        if (mod && typeof mod === 'object' && 'default' in mod) {
+        // Conservatively unwrap ESM default export only when it looks like a PostCSS
+        // plugin factory or plugin object. This avoids breaking non-standard exports.
+        if (
+          mod &&
+          typeof mod === 'object' &&
+          'default' in mod &&
+          (typeof (mod as any).default === 'function' ||
+            (typeof (mod as any).default === 'object' &&
+              (mod as any).default !== null &&
+              'postcssPlugin' in (mod as any).default))
+        ) {
           return (mod as any).default
         }
 
