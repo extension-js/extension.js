@@ -124,156 +124,78 @@ export async function maybeUsePostCss(
     process.exit(0)
   }
 
-  // Resolve the project's own PostCSS implementation to avoid resolving from the toolchain
-  function getProjectPostcssImpl(): any {
+  // Optionally pre-resolve the Tailwind PostCSS plugin from the project/workspace
+  // so postcss-loader never has to require("@tailwindcss/postcss") from the
+  // extensionjs cache path when used via npm/npx.
+  let pluginsFromOptions: any[] | undefined
+
+  if (tailwindPresent) {
     try {
-      const req = createRequire(path.join(projectPath, 'package.json'))
-      const mod = req('postcss')
+      const bases = [projectPath, process.cwd()]
+      let tailwindMod: any | undefined
+      let lastError: unknown
 
-      // Unwrap ESM default export for PostCSS itself if present
-      if (mod && typeof mod === 'object' && 'default' in mod) {
-        return (mod as any).default
-      }
-
-      return mod
-    } catch {
-      try {
-        // Fallback to loader's postcss if not found in project
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const mod = require('postcss')
-
-        if (mod && typeof mod === 'object' && 'default' in mod) {
-          return (mod as any).default
+      for (const base of bases) {
+        try {
+          const req = createRequire(path.join(base, 'package.json'))
+          tailwindMod = req('@tailwindcss/postcss')
+          break
+        } catch (e) {
+          lastError = e
         }
-
-        return mod
-      } catch {
-        return undefined
       }
-    }
-  }
 
-  // Try to load user's PostCSS config (file or package.json postcss) and resolve plugins
-  let plugins: any[] | undefined
-  const reqFromProject = createRequire(path.join(projectPath, 'package.json'))
+      if (!tailwindMod && lastError) {
+        // If resolution fails completely, fall back to postcss-loader's default
+        // behavior so users still get the same error surface area.
+      }
 
-  // Resolve a plugin name from the project first, then from the workspace root (process.cwd()).
-  function resolvePluginFromProjectOrWorkspace(name: string): any {
-    const bases = [projectPath, process.cwd()]
-    let lastError: unknown
-
-    for (const base of bases) {
-      try {
-        const req = createRequire(path.join(base, 'package.json'))
-        const mod = req(name)
-
-        // Conservatively unwrap ESM default export only when it looks like a PostCSS
-        // plugin factory or plugin object. This avoids breaking non-standard exports.
+      if (tailwindMod) {
+        // Unwrap ESM default export if present
         if (
-          mod &&
-          typeof mod === 'object' &&
-          'default' in mod &&
-          (typeof (mod as any).default === 'function' ||
-            (typeof (mod as any).default === 'object' &&
-              (mod as any).default !== null &&
-              'postcssPlugin' in (mod as any).default))
+          tailwindMod &&
+          typeof tailwindMod === 'object' &&
+          'default' in tailwindMod
         ) {
-          return (mod as any).default
+          tailwindMod = (tailwindMod as any).default
         }
 
-        return mod
-      } catch (e) {
-        lastError = e
+        if (typeof tailwindMod === 'function') {
+          // Factory form: plugin(options?) -> plugin object
+          const instance = tailwindMod()
+          pluginsFromOptions = [
+            // Disable any string-configured "@tailwindcss/postcss" in user config,
+            // so loadPlugin() won't try to require it from the loader path.
+            {'@tailwindcss/postcss': false},
+            instance
+          ]
+        } else if (
+          tailwindMod &&
+          typeof tailwindMod === 'object' &&
+          'postcssPlugin' in tailwindMod
+        ) {
+          // Already a plugin object
+          pluginsFromOptions = [{'@tailwindcss/postcss': false}, tailwindMod]
+        }
       }
-    }
-
-    throw lastError ?? new Error(`Cannot resolve PostCSS plugin "${name}"`)
-  }
-
-  async function loadConfigFromFile(
-    configPath: string
-  ): Promise<any | undefined> {
-    try {
-      // Treat any non-.cjs config as importable ESM (works in "type": "module" projects)
-      if (!configPath.endsWith('.cjs')) {
-        const url = pathToFileURL(configPath).href
-        const mod = await import(url)
-        return mod?.default ?? mod
-      }
-
-      // Legacy CJS config
-      const req = createRequire(configPath)
-      return req(configPath)
     } catch {
-      return undefined
+      // Never break the build from here; let postcss-loader handle errors.
     }
   }
 
-  let rawConfig: any | undefined
-
-  if (userPostCssConfig) {
-    rawConfig = await loadConfigFromFile(userPostCssConfig)
-  } else if (pkgHasPostCss && pkgPostCssConfig) {
-    rawConfig = pkgPostCssConfig
-  }
-
-  const configPlugins = rawConfig?.plugins
-
-  if (Array.isArray(configPlugins)) {
-    // Array form: [plugin, options] | plugin
-    plugins = configPlugins
-      .map((entry: any) => {
-        try {
-          if (typeof entry === 'function') return entry
-          if (Array.isArray(entry)) {
-            const [plugin, options] = entry
-            if (typeof plugin === 'function') return plugin(options)
-            if (typeof plugin === 'string') {
-              const mod = resolvePluginFromProjectOrWorkspace(plugin)
-              return typeof mod === 'function' ? mod(options) : mod
-            }
-          }
-          return undefined
-        } catch {
-          return undefined
-        }
-      })
-      .filter(Boolean)
-  } else if (configPlugins && typeof configPlugins === 'object') {
-    // Object form: { 'plugin-name': options | true | false }
-    plugins = Object.entries(configPlugins)
-      .map(([plugin, options]) => {
-        if (options === false) return undefined
-        try {
-          const mod =
-            typeof plugin === 'string'
-              ? resolvePluginFromProjectOrWorkspace(plugin)
-              : (plugin as any)
-          if (typeof mod === 'function') {
-            return options === true || typeof options === 'undefined'
-              ? mod()
-              : mod(options)
-          }
-          return mod
-        } catch {
-          return undefined
-        }
-      })
-      .filter(Boolean)
-  }
-
+  // Let postcss-loader handle loading the user's config and remaining plugins.
+  // We only:
+  // - signal that PostCSS is in use (via the guards above),
+  // - point postcss-loader at the correct project root for config discovery, and
+  // - optionally inject a pre-resolved Tailwind plugin instance.
   const postcssOptions: any = {
     ident: 'postcss',
-    cwd: projectPath
+    cwd: projectPath,
+    config: projectPath
   }
 
-  if (plugins && plugins.length) {
-    // We already have real plugin functions; don't let postcss-loader reload config or plugins.
-    postcssOptions.config = false
-    postcssOptions.plugins = plugins
-  } else {
-    // Let postcss-loader discover config/plugins from the project root as a fallback.
-    postcssOptions.config = projectPath
+  if (pluginsFromOptions) {
+    postcssOptions.plugins = pluginsFromOptions
   }
 
   // Debug logging for published/npm scenarios (opt-in via EXTENSION_AUTHOR_MODE)
@@ -287,9 +209,12 @@ export async function maybeUsePostCss(
         pkgHasPostCss,
         tailwindPresent
       )
+      const resolvedPluginsCount = Array.isArray(postcssOptions.plugins)
+        ? postcssOptions.plugins.length
+        : 0
       console.log(
         '[extension.js:postcss] resolvedPlugins=%d config=%s cwd=%s',
-        Array.isArray(plugins) ? plugins.length : 0,
+        resolvedPluginsCount,
         String(postcssOptions.config),
         String(postcssOptions.cwd)
       )
@@ -303,8 +228,6 @@ export async function maybeUsePostCss(
     type: 'css',
     loader: require.resolve('postcss-loader'),
     options: {
-      // Prefer the project's PostCSS implementation so plugins resolve from the project
-      implementation: getProjectPostcssImpl(),
       postcssOptions,
       sourceMap: opts.mode === 'development'
     }
