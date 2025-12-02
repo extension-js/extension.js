@@ -152,7 +152,14 @@ export async function maybeUsePostCss(
     for (const base of bases) {
       try {
         const req = createRequire(path.join(base, 'package.json'))
-        return req(name)
+        const mod = req(name)
+
+        // Unwrap ESM default export (common for PostCSS plugins like @tailwindcss/postcss)
+        if (mod && typeof mod === 'object' && 'default' in mod) {
+          return (mod as any).default
+        }
+
+        return mod
       } catch (e) {
         lastError = e
       }
