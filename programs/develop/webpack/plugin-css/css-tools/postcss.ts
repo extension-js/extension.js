@@ -227,6 +227,28 @@ export async function maybeUsePostCss(
     postcssOptions.config = projectPath
   }
 
+  // Debug logging for published/npm scenarios (opt-in via EXTENSION_AUTHOR_MODE)
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    try {
+      // Keep logs concise but informative for real-world debugging
+      console.log(
+        '[extension.js:postcss] projectPath=%s userPostCssConfig=%s pkgHasPostCss=%s tailwindPresent=%s',
+        projectPath,
+        userPostCssConfig || 'none',
+        pkgHasPostCss,
+        tailwindPresent
+      )
+      console.log(
+        '[extension.js:postcss] resolvedPlugins=%d config=%s cwd=%s',
+        Array.isArray(plugins) ? plugins.length : 0,
+        String(postcssOptions.config),
+        String(postcssOptions.cwd)
+      )
+    } catch {
+      // Logging must never break the build
+    }
+  }
+
   return {
     test: /\.css$/,
     type: 'css',
