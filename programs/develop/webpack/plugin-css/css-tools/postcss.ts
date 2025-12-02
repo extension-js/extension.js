@@ -144,6 +144,23 @@ export async function maybeUsePostCss(
   let plugins: any[] | undefined
   const reqFromProject = createRequire(path.join(projectPath, 'package.json'))
 
+  // Resolve a plugin name from the project first, then from the workspace root (process.cwd()).
+  function resolvePluginFromProjectOrWorkspace(name: string): any {
+    const bases = [projectPath, process.cwd()]
+    let lastError: unknown
+
+    for (const base of bases) {
+      try {
+        const req = createRequire(path.join(base, 'package.json'))
+        return req(name)
+      } catch (e) {
+        lastError = e
+      }
+    }
+
+    throw lastError ?? new Error(`Cannot resolve PostCSS plugin "${name}"`)
+  }
+
   async function loadConfigFromFile(
     configPath: string
   ): Promise<any | undefined> {
@@ -180,7 +197,7 @@ export async function maybeUsePostCss(
             const [plugin, options] = entry
             if (typeof plugin === 'function') return plugin(options)
             if (typeof plugin === 'string') {
-              const mod = reqFromProject(plugin)
+              const mod = resolvePluginFromProjectOrWorkspace(plugin)
               return typeof mod === 'function' ? mod(options) : mod
             }
           }
@@ -198,7 +215,7 @@ export async function maybeUsePostCss(
         try {
           const mod =
             typeof plugin === 'string'
-              ? reqFromProject(plugin)
+              ? resolvePluginFromProjectOrWorkspace(plugin)
               : (plugin as any)
           if (typeof mod === 'function') {
             return options === true || typeof options === 'undefined'
