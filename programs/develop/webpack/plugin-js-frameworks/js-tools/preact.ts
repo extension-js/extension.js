@@ -7,7 +7,6 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import PreactRefreshPlugin from '@rspack/plugin-preact-refresh'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -16,7 +15,27 @@ import {
 import {JsFramework} from '../../webpack-types'
 import {RspackPluginInstance} from '@rspack/core'
 
+type PreactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
+
 let userMessageDelivered = false
+let cachedPreactRefreshPlugin: PreactRefreshPluginCtor | undefined
+
+function getPreactRefreshPlugin(): PreactRefreshPluginCtor | undefined {
+  if (cachedPreactRefreshPlugin) return cachedPreactRefreshPlugin
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('@rspack/plugin-preact-refresh')
+    const plugin = (mod && (mod as any).default) || (mod as any)
+    cachedPreactRefreshPlugin = plugin as PreactRefreshPluginCtor
+
+    return cachedPreactRefreshPlugin
+  } catch {
+    // If the plugin isn't installed or the export shape changed,
+    // we fall through and let maybeUsePreact handle error signalling.
+  }
+  return undefined
+}
 
 export function isUsingPreact(projectPath: string) {
   if (hasDependency(projectPath, 'preact')) {
@@ -56,6 +75,14 @@ export async function maybeUsePreact(
     // as it can't read the new dependencies without a restart.
     console.log(messages.youAreAllSet('Preact'))
     process.exit(0)
+  }
+
+  const PreactRefreshPlugin = getPreactRefreshPlugin()
+
+  if (!PreactRefreshPlugin) {
+    throw new Error(
+      '[Preact] @rspack/plugin-preact-refresh is installed but its plugin could not be resolved.'
+    )
   }
 
   const preactPlugins: RspackPluginInstance[] = [
