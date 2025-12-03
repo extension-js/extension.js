@@ -9,7 +9,6 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
-import ReactRefreshPlugin from '@rspack/plugin-react-refresh'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -17,7 +16,28 @@ import {
 } from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 
+type ReactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
+
 let userMessageDelivered = false
+let cachedReactRefreshPlugin: ReactRefreshPluginCtor | undefined
+
+function getReactRefreshPlugin(): ReactRefreshPluginCtor | undefined {
+  if (cachedReactRefreshPlugin) return cachedReactRefreshPlugin
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('@rspack/plugin-react-refresh')
+    const plugin = (mod && (mod as any).default) || (mod as any)
+    cachedReactRefreshPlugin = plugin as ReactRefreshPluginCtor
+
+    return cachedReactRefreshPlugin
+  } catch {
+    // If the plugin isn't installed or the export shape changed,
+    // we fall through and let maybeUseReact handle error signalling.
+  }
+
+  return undefined
+}
 
 export function isUsingReact(projectPath: string) {
   if (hasDependency(projectPath, 'react')) {
@@ -50,6 +70,14 @@ export async function maybeUseReact(
     // as it can't read the new dependencies without a restart.
     console.log(messages.youAreAllSet('React'))
     process.exit(0)
+  }
+
+  const ReactRefreshPlugin = getReactRefreshPlugin()
+
+  if (!ReactRefreshPlugin) {
+    throw new Error(
+      '[React] @rspack/plugin-react-refresh is installed but its plugin could not be resolved.'
+    )
   }
 
   const reactPlugins: RspackPluginInstance[] = [
