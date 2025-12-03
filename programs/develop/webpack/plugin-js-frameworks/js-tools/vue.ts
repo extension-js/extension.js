@@ -7,7 +7,6 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {VueLoaderPlugin} from 'vue-loader'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -16,7 +15,30 @@ import {
 import {JsFramework} from '../../webpack-types'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 
+type VueLoaderPluginCtor = new (...args: any[]) => {apply(compiler: any): void}
+
 let userMessageDelivered = false
+let cachedVueLoaderPlugin: VueLoaderPluginCtor | undefined
+
+function getVueLoaderPlugin(): VueLoaderPluginCtor | undefined {
+  if (cachedVueLoaderPlugin) return cachedVueLoaderPlugin
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('vue-loader')
+    const plugin =
+      (mod && (mod as any).VueLoaderPlugin) ||
+      (mod && (mod as any).default && (mod as any).default.VueLoaderPlugin)
+    if (plugin) {
+      cachedVueLoaderPlugin = plugin as VueLoaderPluginCtor
+      return cachedVueLoaderPlugin
+    }
+  } catch {
+    // If vue-loader isn't installed or the export shape changed,
+    // we fall through and let maybeUseVue handle error signalling.
+  }
+
+  return undefined
+}
 
 export function isUsingVue(projectPath: string) {
   const using = hasDependency(projectPath, 'vue')
@@ -43,6 +65,14 @@ export async function maybeUseVue(
 
     console.log(messages.youAreAllSet('Vue'))
     process.exit(0)
+  }
+
+  const VueLoaderPlugin = getVueLoaderPlugin()
+
+  if (!VueLoaderPlugin) {
+    throw new Error(
+      '[Vue] vue-loader is installed but VueLoaderPlugin could not be resolved.'
+    )
   }
 
   // Load custom loader configuration if it exists
