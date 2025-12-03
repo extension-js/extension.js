@@ -39,6 +39,11 @@ describe('react tools', () => {
     }))
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    // Mock @rspack/plugin-react-refresh so getReactRefreshPlugin() can resolve
+    vi.doMock('@rspack/plugin-react-refresh', () => ({
+      default: vi.fn(() => ({apply: vi.fn()}))
+    }))
+
     const {isUsingReact, maybeUseReact} = await import('../../js-tools/react')
 
     expect(isUsingReact('/p')).toBe(true)

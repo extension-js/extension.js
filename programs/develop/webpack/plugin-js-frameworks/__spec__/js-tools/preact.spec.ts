@@ -34,6 +34,11 @@ describe('preact tools', () => {
     )
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    // Mock @rspack/plugin-preact-refresh so getPreactRefreshPlugin() can resolve
+    vi.doMock('@rspack/plugin-preact-refresh', () => ({
+      default: vi.fn(() => ({apply: vi.fn()}))
+    }))
+
     const {isUsingPreact, maybeUsePreact} = await import(
       '../../js-tools/preact'
     )
