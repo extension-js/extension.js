@@ -4,6 +4,28 @@ import {spawnSync} from 'node:child_process'
 import {pathToFileURL} from 'node:url'
 import fs from 'node:fs'
 
+function copyIfExists(src: string, dest: string): void {
+  try {
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dest)
+    }
+  } catch {
+    // best-effort only – missing or unreadable config should not break CLI
+  }
+}
+
+function syncPackageManagerConfig(cacheDir: string): void {
+  const cwd = process.cwd()
+
+  // Mirror per-project config so dlx installs (run in a temp dir) still
+  // respect the user's registry/auth settings.
+  copyIfExists(path.join(cwd, '.npmrc'), path.join(cacheDir, '.npmrc'))
+  copyIfExists(
+    path.join(cwd, '.pnpmfile.cjs'),
+    path.join(cacheDir, '.pnpmfile.cjs')
+  )
+}
+
 export function resolveModuleEntry(
   modulePath: string,
   pkgJson: any
@@ -92,6 +114,7 @@ export async function requireOrDlx(
   const spec = versionHint ? `${moduleName}@${versionHint}` : moduleName
   const cacheDir = path.join(os.tmpdir(), 'extensionjs-cache', spec)
   const modulePath = path.join(cacheDir, 'node_modules', moduleName)
+  const pkgJsonPath = path.join(modulePath, 'package.json')
 
   // Monorepo development fallback: use local sibling package if present
   try {
@@ -147,11 +170,13 @@ export async function requireOrDlx(
     fs.mkdirSync(cacheDir, {recursive: true})
   } catch {}
 
+  // Ensure cache dir sees the same npm/pnpm config as the project so that
+  // corporate/custom registries work for dlx installs.
+  syncPackageManagerConfig(cacheDir)
+
   let preInstallPkgJson: any
   try {
-    preInstallPkgJson = JSON.parse(
-      fs.readFileSync(path.join(modulePath, 'package.json'), 'utf8')
-    )
+    preInstallPkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
   } catch {
     // Do nothing – package may not be installed yet
   }
@@ -228,10 +253,18 @@ export async function requireOrDlx(
   }
 
   let postInstallPkgJson: any
-  try {
-    postInstallPkgJson = JSON.parse(
-      fs.readFileSync(path.join(modulePath, 'package.json'), 'utf8')
+
+  // If install reported success but the package.json is still missing,
+  // surface a clear installation error instead of a misleading entry-point error.
+  if (!fs.existsSync(pkgJsonPath)) {
+    throw new Error(
+      `Failed to install ${spec}: package.json not found at ${pkgJsonPath}. ` +
+        'If you use a custom registry or auth, ensure your npm/pnpm config is visible to the Extension.js CLI.'
     )
+  }
+
+  try {
+    postInstallPkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'))
   } catch {
     // Do nothing – if package.json is unreadable, fall through to generic error
   }
