@@ -51,8 +51,11 @@ jobs:
 
       - name: Build packages
         run: |
+          # Build the develop/runtime layer and mirror built-in @extensions
+          # into programs/develop/dist via the root postcompile hook.
           pnpm --filter extension-develop compile
           pnpm --filter extension compile
+          node scripts/build-extensions.cjs
 
       - name: Run tests (CLI + Develop)
         run: pnpm -w test
