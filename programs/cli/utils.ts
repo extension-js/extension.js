@@ -202,7 +202,7 @@ export async function requireOrDlx(
 
   let status = 0
   if (prefer === 'pnpm') {
-    const args = ['add', spec, '--reporter', 'silent', '--no-frozen-lockfile']
+    const args = ['add', spec, '--reporter', 'silent']
     status =
       spawnSync(pnpmCmd, args, {cwd: cacheDir, stdio: 'ignore'}).status || 0
   } else if (prefer === 'bun') {
@@ -237,7 +237,7 @@ export async function requireOrDlx(
     }
 
     if (prefer !== 'pnpm') {
-      const args = ['add', spec, '--reporter', 'silent', '--no-frozen-lockfile']
+      const args = ['add', spec, '--reporter', 'silent']
       status =
         spawnSync(pnpmCmd, args, {cwd: cacheDir, stdio: 'ignore'}).status || 0
     }
@@ -246,10 +246,6 @@ export async function requireOrDlx(
     const args = ['add', spec]
     status =
       spawnSync(bunCmd, args, {cwd: cacheDir, stdio: 'ignore'}).status || 0
-  }
-
-  if (status !== 0) {
-    throw new Error(`Failed to install ${spec}`)
   }
 
   let postInstallPkgJson: any
