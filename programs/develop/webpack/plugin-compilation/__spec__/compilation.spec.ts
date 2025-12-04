@@ -135,10 +135,8 @@ describe('CompilationPlugin', () => {
 
     // Clean plugin path exercised without throwing (behavior verified via user-facing log)
 
-    // Success logs are now emitted via the infrastructure logger only when there are errors.
-    // We no longer print success lines to console.log.
-    expect(consoleLogSpy).not.toHaveBeenCalled()
-    expect(stdoutWriteSpy).not.toHaveBeenCalled()
+    // Success logs are printed via BoringPlugin using messages.boring.
+    expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtA, 10ms)')
   })
 
   it('does not apply CleanDistFolderPlugin when clean is false', async () => {
@@ -160,11 +158,12 @@ describe('CompilationPlugin', () => {
 
     const {CleanDistFolderPlugin} = await import('../clean-dist')
     expect((CleanDistFolderPlugin as any).instances.length).toBe(0)
-    // Success logs are suppressed on console.log
-    expect(consoleLogSpy).not.toHaveBeenCalled()
+
+    // Even when clean is false, success logs are still printed by BoringPlugin.
+    expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtB, 5ms)')
   })
 
-  it('collapses repeated messages with counter for same key', () => {
+  it('logs a boring success message on repeated compilations', () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'ExtC'})
     )
@@ -186,8 +185,8 @@ describe('CompilationPlugin', () => {
     emitDone(stats)
     emitDone(stats)
 
-    // Success messages are not printed to console.log anymore
-    expect(consoleLogSpy).not.toHaveBeenCalled()
+    // Each successful compilation prints a boring log line.
+    expect(consoleLogSpy).toHaveBeenCalledTimes(2)
   })
 
   vi.mock('../zip', () => {
