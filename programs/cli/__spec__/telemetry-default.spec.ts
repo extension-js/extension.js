@@ -9,6 +9,12 @@ function cliRoot(): string {
 }
 
 function packCLI(): string {
+  // Ensure the CLI is compiled so the packed tarball includes dist/
+  execSync('pnpm run compile', {
+    cwd: cliRoot(),
+    stdio: ['ignore', 'inherit', 'inherit']
+  })
+
   const out = execSync('npm pack --json', {
     cwd: cliRoot(),
     stdio: ['ignore', 'pipe', 'pipe']
