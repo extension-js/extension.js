@@ -255,12 +255,39 @@ export async function requireOrDlx(
   let postInstallPkgJson: any
 
   // If install reported success but the package.json is still missing,
-  // surface a clear installation error instead of a misleading entry-point error.
+  // attempt a last-resort npm install into the same cache directory before
+  // surfacing a clear installation error.
   if (!fs.existsSync(pkgJsonPath)) {
-    throw new Error(
-      `Failed to install ${spec}: package.json not found at ${pkgJsonPath}. ` +
-        'If you use a custom registry or auth, ensure your npm/pnpm config is visible to the Extension.js CLI.'
-    )
+    try {
+      const args = [
+        'i',
+        spec,
+        '--no-fund',
+        '--no-audit',
+        '--prefer-online',
+        '--omit=dev',
+        '--omit=optional',
+        '--no-package-lock'
+      ]
+      const npmStatus =
+        spawnSync(isWin ? 'npm.cmd' : 'npm', args, {
+          cwd: cacheDir,
+          stdio: 'ignore'
+        }).status || 0
+
+      if (npmStatus !== 0 || !fs.existsSync(pkgJsonPath)) {
+        throw new Error(
+          `Failed to install ${spec}: package.json not found at ${pkgJsonPath}. ` +
+            'If you use a custom registry or auth, ensure your npm/pnpm config is visible to the Extension.js CLI.'
+        )
+      }
+    } catch (err) {
+      if (err instanceof Error) throw err
+      throw new Error(
+        `Failed to install ${spec}: package.json not found at ${pkgJsonPath}. ` +
+          'If you use a custom registry or auth, ensure your npm/pnpm config is visible to the Extension.js CLI.'
+      )
+    }
   }
 
   try {
