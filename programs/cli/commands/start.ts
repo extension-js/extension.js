@@ -1,12 +1,6 @@
 import type {Command} from 'commander'
-import packageJson from '../package.json'
 import * as messages from '../cli-lib/messages'
-import {
-  requireOrDlx,
-  vendors,
-  validateVendorsOrExit,
-  type Browser
-} from '../utils'
+import {vendors, validateVendorsOrExit, type Browser} from '../utils'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -111,13 +105,10 @@ export function registerStartCommand(program: Command, telemetry: any) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
-      // Prefer exact prerelease/stable version to keep CLI and develop in lockstep.
-      const versionExact = String(packageJson.version)
-      let extensionStart: any
-      ;({extensionStart} = await requireOrDlx(
-        'extension-develop',
-        versionExact
-      ))
+      // Load the matching develop runtime from the regular dependency graph.
+      const {extensionStart}: {extensionStart: any} = await import(
+        'extension-develop'
+      )
 
       for (const vendor of list) {
         const vendorStart = Date.now()

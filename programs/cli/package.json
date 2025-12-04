@@ -85,6 +85,7 @@
     "cli"
   ],
   "dependencies": {
+    "extension-develop": "workspace:*",
     "commander": "^12.1.0",
     "extension-create": "^2.2.0",
     "pintor": "0.3.0",

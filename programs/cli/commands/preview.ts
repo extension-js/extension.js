@@ -1,12 +1,6 @@
 import type {Command} from 'commander'
-import packageJson from '../package.json'
 import * as messages from '../cli-lib/messages'
-import {
-  requireOrDlx,
-  vendors,
-  validateVendorsOrExit,
-  type Browser
-} from '../utils'
+import {vendors, validateVendorsOrExit, type Browser} from '../utils'
 
 type PreviewOptions = {
   browser?: Browser | 'all'
@@ -115,13 +109,10 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         if (isRemote) process.env.EXTJS_LIGHT = '1'
       }
 
-      // Prefer exact prerelease/stable version to keep CLI and develop in lockstep.
-      const versionExact = String(packageJson.version)
-      let extensionPreview: any
-      ;({extensionPreview} = await requireOrDlx(
-        'extension-develop',
-        versionExact
-      ))
+      // Load the matching develop runtime from the regular dependency graph.
+      const {extensionPreview}: {extensionPreview: any} = await import(
+        'extension-develop'
+      )
 
       for (const vendor of list) {
         const vendorStart = Date.now()
