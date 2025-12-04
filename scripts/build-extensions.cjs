@@ -80,6 +80,24 @@ function main() {
     fs.cpSync(src, dest, {recursive: true, force: true})
   }
  
+  // Hard guard: ensure extension-js-devtools dist exists for all engines
+  // before we cut a new extension-develop package. If this fails, we prefer
+  // to fail the publish rather than ship a broken devtools experience.
+  function verifyDevtoolsMirrored() {
+    const engines = ['chromium', 'chrome', 'edge', 'firefox']
+    const base = path.join(root, 'programs', 'develop', 'dist', 'extension-js-devtools')
+
+    for (const engine of engines) {
+      const manifestPath = path.join(base, engine, 'manifest.json')
+      if (!fs.existsSync(manifestPath)) {
+        const msg = `[Extension.js] extension-js-devtools for "${engine}" is missing at ${manifestPath}.`
+        // Always surface this; it's a hard failure for releases.
+        console.error(msg)
+        process.exitCode = 1
+      }
+    }
+  }
+ 
   // Discover top-level extension packages (directories) under extensions/,
   // excluding the folder named 'browser-extension' and 'extension-js-theme'
   function listExtensionPackages() {  
@@ -99,6 +117,9 @@ function main() {
   for (const packageName of listExtensionPackages()) {
     buildAndMirror(packageName)
   }
+
+  // After mirroring, verify that extension-js-devtools is present for all engines.
+  verifyDevtoolsMirrored()
 }
 
 main()

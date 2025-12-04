@@ -29,18 +29,14 @@ it('runs successfully even without PostHog keys (local audit allowed)', () => {
   // We care that the CLI does not crash when telemetry is effectively offline.
   // Local audit writing is covered by lower-level telemetry unit tests; here we
   // only verify that missing PostHog keys do not cause runtime failures.
-  const r = spawnSync(
-    process.execPath,
-    [cliBin(), '--version'],
-    {
-      cwd: work,
-      env: {
-        ...process.env,
-        EXTENSION_PUBLIC_POSTHOG_KEY: '',
-        EXTENSION_PUBLIC_POSTHOG_HOST: ''
-      },
-      stdio: 'ignore'
-    }
-  )
+  const r = spawnSync(process.execPath, [cliBin(), '--version'], {
+    cwd: work,
+    env: {
+      ...process.env,
+      EXTENSION_PUBLIC_POSTHOG_KEY: '',
+      EXTENSION_PUBLIC_POSTHOG_HOST: ''
+    },
+    stdio: 'ignore'
+  })
   expect(r.error).toBeUndefined()
 }, 120000)
