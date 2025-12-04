@@ -184,10 +184,6 @@ importers:
 
   extensions/extension-js-theme: {}
 
-  extensions/new-browser-flags: {}
-
-  extensions/new-env: {}
-
   programs/cli:
     dependencies:
       commander:
@@ -196,6 +192,9 @@ importers:
       extension-create:
         specifier: ^2.2.0
         version: 2.2.1
+      extension-develop:
+        specifier: workspace:*
+        version: link:../develop
       pintor:
         specifier: 0.3.0
         version: 0.3.0
