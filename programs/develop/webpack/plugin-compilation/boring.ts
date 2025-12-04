@@ -35,14 +35,10 @@ export class BoringPlugin {
       const manifestName = readJsonFileSafe(this.manifestPath).name
       const line = messages.boring(manifestName, duration, stats)
 
-      // Success lines are no longer printed to console/stdout.
-      // Only emit via infrastructure logger when there are errors.
       try {
-        if (typeof stats.hasErrors === 'function' && stats.hasErrors()) {
-          // Use infrastructure logger if available, otherwise fallback to console.error
-          compiler.getInfrastructureLogger('plugin-boring')?.info ||
-            console.error(line)
-        }
+        // Always print the boring line to stdout so users can see
+        // rebuilds and timing, even on success.
+        console.log(line)
       } catch {
         // best-effort: never throw from logging
       }
