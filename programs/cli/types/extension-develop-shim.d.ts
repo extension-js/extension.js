@@ -75,5 +75,3 @@ declare module 'extension-develop' {
     options: PreviewOptions
   ): Promise<any>
 }
-
-
