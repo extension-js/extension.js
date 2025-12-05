@@ -79,9 +79,9 @@ export function isUsingTypeScript(projectPath: string): boolean {
         }
       } else {
         if (hasTsFiles) {
-          console.warn(
-            '[Extension.js] TypeScript/TSX files detected but no tsconfig.json found near manifest. Consider adding src/tsconfig.json with { "extends": "../tsconfig.json" }.'
-          )
+          const errorMessage =
+            '[Extension.js] Missing tsconfig.json next to package.json. Create one to use TypeScript.'
+          throw new Error(errorMessage)
         } else {
           console.log(messages.creatingTSConfig())
           writeTsConfig(projectPath)
@@ -143,13 +143,10 @@ export function defaultTypeScriptConfig(projectPath: string, _opts?: any) {
 }
 
 export function getUserTypeScriptConfigFile(projectPath: string) {
-  const local = path.join(projectPath, 'tsconfig.json')
-  if (fs.existsSync(local)) return local
-
   const pkgDir = findNearestPackageJsonDirectory(projectPath)
   if (pkgDir) {
-    const rootTs = path.join(pkgDir, 'tsconfig.json')
-    if (fs.existsSync(rootTs)) return rootTs
+    const tsconfigPath = path.join(pkgDir, 'tsconfig.json')
+    if (fs.existsSync(tsconfigPath)) return tsconfigPath
   }
 
   return undefined
