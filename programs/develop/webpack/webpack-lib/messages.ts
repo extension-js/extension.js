@@ -82,7 +82,10 @@ export function building(browser: DevOptions['browser']): string {
   )
 }
 
-export function runningInProduction(outputPath: string): string {
+export function runningInProduction(
+  outputPath: string,
+  browserLabel?: string
+): string {
   const manifestPath = path.join(outputPath, 'manifest.json')
   const manifest: Record<string, any> = JSON.parse(
     fs.readFileSync(manifestPath, 'utf-8')
@@ -92,17 +95,24 @@ export function runningInProduction(outputPath: string): string {
 
   const hasHost = hostPermissions && hostPermissions.length
   const hasPermissions = permissions && permissions.length
+  const browserDisplay =
+    browserLabel && browserLabel.trim().length > 0
+      ? browserLabel.trim()
+      : 'Unknown'
 
-  return `${` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(`${packageJson.version}`)}`}
-${`    Extension Name        `} ${colors.gray(name)}
-${`    Extension Version     `} ${colors.gray(version)}
-${`    Host Permissions      `} ${colors.gray(
-    hasHost ? hostPermissions.join(', ') : 'Browser defaults'
-  )}
-${`    Permissions           `} ${colors.gray(
-    hasPermissions ? permissions.join(', ') : 'Browser defaults'
-  )}
-`
+  return (
+    ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(`${packageJson.version}`)}\n` +
+    `    Browser             ${colors.gray(browserDisplay)}\n` +
+    `    Extension           ${colors.gray(
+      version ? `${name} ${version}` : name
+    )}\n` +
+    `    Permissions         ${colors.gray(
+      hasPermissions ? permissions.join(', ') : 'Browser defaults'
+    )}\n` +
+    `    Host Permissions    ${colors.gray(
+      hasHost ? hostPermissions.join(', ') : 'Browser defaults'
+    )}`
+  )
 }
 
 export function previewing(browser: DevOptions['browser']) {
