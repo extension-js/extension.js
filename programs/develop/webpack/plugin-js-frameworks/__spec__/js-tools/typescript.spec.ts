@@ -27,23 +27,23 @@ describe('typescript tools', () => {
     ;(process as any).env.EXTENSION_AUTHOR_MODE = 'false'
   })
 
-  it('getUserTypeScriptConfigFile finds local or root tsconfig.json', async () => {
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) =>
-        String(p).endsWith('/project/tsconfig.json') ||
-        String(p).endsWith('/repo/tsconfig.json')
-    )
+  it('getUserTypeScriptConfigFile finds tsconfig.json next to package.json only', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      const s = String(p)
+      if (s.endsWith('/project/package.json')) return true
+      if (s.endsWith('/project/tsconfig.json')) return true
+      return false
+    })
     const {getUserTypeScriptConfigFile} = await import(
       '../../js-tools/typescript'
     )
 
-    // Prefers local
     expect(getUserTypeScriptConfigFile('/project')).toBe(
       '/project/tsconfig.json'
     )
   })
 
-  it('isUsingTypeScript warns when TS files present but no tsconfig nearby (no write)', async () => {
+  it('isUsingTypeScript throws when TS files present but no tsconfig next to package.json', async () => {
     // Package.json in /project (stop search early)
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('/project/package.json') ? true : false
@@ -58,16 +58,13 @@ describe('typescript tools', () => {
       {isFile: () => true, isDirectory: () => false, name: 'file.ts'}
     ])
 
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
     const {isUsingTypeScript} = await import('../../js-tools/typescript')
 
-    // No tsconfig present, but TS files exist -> warn and do not write
-    expect(isUsingTypeScript('/project')).toBe(false)
+    // No tsconfig present, but TS files exist -> hard error, no writes
+    expect(() => isUsingTypeScript('/project')).toThrowError(
+      /Missing tsconfig\.json next to package\.json/
+    )
     expect(fs.writeFileSync).not.toHaveBeenCalled()
-    expect(log).not.toHaveBeenCalled()
-    expect(warn).toHaveBeenCalled()
   })
 
   it('maybeUseTypeScript returns true when tsconfig exists and typescript resolves', async () => {
