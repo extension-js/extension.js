@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import * as path from 'path'
+import * as fs from 'fs'
 import {rspack, type Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import webpackConfig from './webpack-config'
@@ -24,6 +25,10 @@ import {
 } from './webpack-lib/paths'
 import type {PreviewOptions} from './webpack-types'
 import {BrowsersPlugin} from './plugin-browsers'
+import chromiumLocation from 'chromium-location'
+import * as chromeLocation from 'chrome-location2'
+import edgeLocation from 'edge-location'
+import firefoxLocation from 'firefox-location2'
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
@@ -146,10 +151,7 @@ export async function extensionPreview(
         shutdown(1)
       }
 
-      if (!stats?.hasErrors()) {
-        console.log('')
-        console.log(messages.runningInProduction(manifestDir))
-      } else {
+      if (stats?.hasErrors()) {
         try {
           const verbose =
             String(process.env.EXTENSION_VERBOSE || '').trim() === '1'

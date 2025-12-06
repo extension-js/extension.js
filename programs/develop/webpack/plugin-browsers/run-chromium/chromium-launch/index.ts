@@ -8,10 +8,11 @@ import * as messages from '../../browsers-lib/messages'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import * as utils from '../../browsers-lib/shared-utils'
+import {printProdBannerOnce} from '../../browsers-lib/banner'
 import {browserConfig} from './browser-config'
 import {setupProcessSignalHandlers} from './process-handlers'
 import {logChromiumDryRun} from './dry-run'
-import {setupCdpAfterLaunch} from './setup-cdp-after-launch'
+import {setupCdpAfterLaunch, getExtensionOutputPath} from './setup-cdp-after-launch'
 import type {ChromiumContext} from '../chromium-context'
 import type {
   ChromiumLaunchOptions,
@@ -534,7 +535,10 @@ export class ChromiumLaunchPlugin {
       const last = [...extensionsToLoad]
         .reverse()
         .find((e) => typeof e === 'string')
-      if (last) this.ctx.setExtensionRoot(String(last))
+      if (last) {
+        const root = String(last)
+        this.ctx.setExtensionRoot(root)
+      }
     } catch {
       // ignore
     }
@@ -577,6 +581,45 @@ export class ChromiumLaunchPlugin {
     await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
 
     try {
+      // Best-effort: derive a human-readable browser version line for dev/prod banners.
+      let browserVersionLine: string | undefined
+
+      try {
+        if (browserBinaryLocation && fs.existsSync(browserBinaryLocation)) {
+          const vLine = getChromeVersionLine(browserBinaryLocation)
+          if (vLine && vLine.trim().length > 0) {
+            browserVersionLine = vLine.trim()
+          }
+        }
+      } catch {
+        // ignore – banner will fall back to generic browser label
+      }
+
+      // Always print a manifest-based production summary once,
+      // even if CDP fails later. CDP will attempt to "upgrade" this when it succeeds.
+      try {
+        const mode = (compilation?.options?.mode || 'development') as string
+        if (mode === 'production') {
+          const loadExtensionFlag = chromiumConfig.find((flag: string) =>
+            flag.startsWith('--load-extension=')
+          )
+          const extensionOutputPath = getExtensionOutputPath(
+            compilation,
+            loadExtensionFlag
+          )
+
+          if (extensionOutputPath) {
+            await printProdBannerOnce({
+              browser: this.options.browser,
+              outPath: extensionOutputPath,
+              browserVersionLine
+            })
+          }
+        }
+      } catch {
+        // best-effort only; ignore banner errors
+      }
+
       const cdpConfig: ChromiumPluginRuntime = {
         extension: Array.isArray(this.options.extension)
           ? this.options.extension
@@ -602,7 +645,8 @@ export class ChromiumLaunchPlugin {
         chromiumBinary: this.options.chromiumBinary,
         source: this.options.source,
         watchSource: this.options.watchSource,
-        dryRun: this.options.dryRun
+        dryRun: this.options.dryRun,
+        browserVersionLine
       }
 
       await setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)

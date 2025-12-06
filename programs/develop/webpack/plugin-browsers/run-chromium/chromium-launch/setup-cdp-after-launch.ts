@@ -2,11 +2,11 @@ import * as path from 'path'
 import {Compilation} from '@rspack/core'
 import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
-import {printDevBannerOnce} from '../../browsers-lib/banner'
+import {printDevBannerOnce, printProdBannerOnce} from '../../browsers-lib/banner'
 import {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
 import {type ChromiumPluginRuntime} from '../chromium-types'
 
-function getExtensionOutputPath(
+export function getExtensionOutputPath(
   compilation: Compilation | undefined,
   loadExtensionFlag: string | undefined
 ) {
@@ -119,13 +119,16 @@ export async function setupCdpAfterLaunch(
   // Get extension and environment info after ensuring everything is loaded
   const extensionControllerInfo = await cdpExtensionController.ensureLoaded()
 
-  if (compilation?.options?.mode !== 'production') {
-    try {
+  try {
+    const mode = (compilation?.options?.mode || 'development') as string
+
+    if (mode === 'development') {
       const bannerPrinted = await printDevBannerOnce({
         outPath: extensionOutputPath,
         browser: plugin.browser,
         hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
-        getInfo: async () => extensionControllerInfo
+        getInfo: async () => extensionControllerInfo,
+        browserVersionLine: plugin.browserVersionLine
       })
 
       if (!bannerPrinted) {
@@ -133,13 +136,40 @@ export async function setupCdpAfterLaunch(
           outPath: extensionOutputPath,
           browser: plugin.browser,
           hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
-          getInfo: async () => cdpExtensionController.getInfoBestEffort()
+          getInfo: async () => cdpExtensionController.getInfoBestEffort(),
+          browserVersionLine: plugin.browserVersionLine
         })
       }
-    } catch (bannerErr) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.warn(messages.bestEffortBannerPrintFailed(String(bannerErr)))
+    } else if (mode === 'production') {
+      await printProdBannerOnce({
+        browser: plugin.browser,
+        outPath: extensionOutputPath,
+        browserVersionLine: plugin.browserVersionLine,
+        runtime: {
+          extensionId: extensionControllerInfo.extensionId,
+          name: extensionControllerInfo.name,
+          version: extensionControllerInfo.version
+        }
+      })
+    }
+  } catch (bannerErr) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.warn(messages.bestEffortBannerPrintFailed(String(bannerErr)))
+    }
+
+    // Fallback: even if CDP/rich info fails, try to print a manifest-based
+    // production summary so users still see a banner.
+    try {
+      const mode = (compilation?.options?.mode || 'development') as string
+      if (mode === 'production') {
+        await printProdBannerOnce({
+          browser: plugin.browser,
+          outPath: extensionOutputPath,
+          browserVersionLine: plugin.browserVersionLine
+        })
       }
+    } catch {
+      // best-effort only
     }
   }
 
