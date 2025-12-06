@@ -1,6 +1,5 @@
 import {Compilation} from '@rspack/core'
 import {FirefoxRDPController} from '../firefox-source-inspection/rdp-extension-controller'
-import {printRunningInDevelopmentSummary} from '../firefox-source-inspection/remote-firefox/firefox-utils'
 import type {FirefoxPluginLike, FirefoxPluginRuntime} from '../firefox-types'
 
 export async function setupRdpAfterLaunch(
@@ -39,21 +38,6 @@ export async function setupRdpAfterLaunch(
   }
 
   // Dev banner parity: print once after ensureLoaded
-  try {
-    const list: string[] = Array.isArray(plugin.extensionsToLoad)
-      ? (plugin.extensionsToLoad as string[])
-      : Array.isArray(plugin.extension)
-        ? (plugin.extension as string[])
-        : typeof plugin.extension === 'string'
-          ? [plugin.extension]
-          : []
-    if (list.length) {
-      await printRunningInDevelopmentSummary(list, 'firefox')
-    }
-  } catch {
-    // ignore banner errors
-  }
-
   // Unified logging is now enabled by FirefoxUnifiedLoggerPlugin
   return controller
 }

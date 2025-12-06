@@ -108,8 +108,26 @@ export async function printProdBannerOnce(opts: {
       )
       console.log(messages.emptyLine())
     } else {
+      // Fallback: manifest-only summary using the unified dev/preview layout.
+      const message = {
+        data: {
+          id: '',
+          management: {
+            name: manifest.name,
+            version: manifest.version
+          }
+        }
+      }
+
       console.log(messages.emptyLine())
-      console.log(coreMessages.runningInProduction(opts.outPath, browserLabel))
+      console.log(
+        messages.runningInDevelopment(
+          manifest,
+          opts.browser,
+          message,
+          browserLabel
+        )
+      )
       console.log(messages.emptyLine())
     }
   } catch {

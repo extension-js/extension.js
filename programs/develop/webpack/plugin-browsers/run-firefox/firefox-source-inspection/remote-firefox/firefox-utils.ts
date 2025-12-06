@@ -6,7 +6,8 @@ import {printDevBannerOnce} from '../../../browsers-lib/banner'
 export async function printRunningInDevelopmentSummary(
   candidateAddonPaths: string[],
   browser: 'firefox',
-  extensionId?: string
+  extensionId?: string,
+  browserVersionLine?: string
 ) {
   try {
     // Prefer a path whose manifest name is not the manager name
@@ -42,7 +43,8 @@ export async function printRunningInDevelopmentSummary(
             extensionId: extensionId || '(temporary)',
             name: manifest.name,
             version: manifest.version
-          })
+          }),
+          browserVersionLine
         })
       }
     }

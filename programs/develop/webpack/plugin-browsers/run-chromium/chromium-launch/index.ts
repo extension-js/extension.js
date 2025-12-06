@@ -12,7 +12,10 @@ import {printProdBannerOnce} from '../../browsers-lib/banner'
 import {browserConfig} from './browser-config'
 import {setupProcessSignalHandlers} from './process-handlers'
 import {logChromiumDryRun} from './dry-run'
-import {setupCdpAfterLaunch, getExtensionOutputPath} from './setup-cdp-after-launch'
+import {
+  setupCdpAfterLaunch,
+  getExtensionOutputPath
+} from './setup-cdp-after-launch'
 import type {ChromiumContext} from '../chromium-context'
 import type {
   ChromiumLaunchOptions,

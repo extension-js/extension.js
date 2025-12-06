@@ -1049,28 +1049,59 @@ export function runningInDevelopment(
       ? effectiveBrowserLine.trim()
       : capitalize(String(browser || 'unknown'))
 
+  const cleanId = String(id || '').trim()
+  const urlScheme =
+    browser === 'firefox' || browser === 'gecko-based'
+      ? 'moz-extension'
+      : 'chrome-extension'
   const extensionUrl =
-    id && String(id).trim().length > 0
-      ? `chrome-extension://${String(id).trim()}`
-      : '(temporary)'
+    cleanId.length > 0 ? `${urlScheme}://${cleanId}` : '(temporary)'
+
+  const managerUrl = (() => {
+    if (browser === 'firefox' || browser === 'gecko-based') {
+      return 'about:debugging#/runtime/this-firefox'
+    }
+
+    if (
+      browser === 'chrome' ||
+      browser === 'chromium' ||
+      browser === 'chromium-based' ||
+      browser === 'edge'
+    ) {
+      return cleanId.length > 0
+        ? `chrome://extensions/?id=${cleanId}`
+        : 'chrome://extensions'
+    }
+
+    return cleanId.length > 0 ? `${urlScheme}://${cleanId}` : '(temporary)'
+  })()
+
+  const showExtensionId =
+    (browser === 'firefox' || browser === 'gecko-based') &&
+    process.env.EXTENSION_AUTHOR_MODE === 'true' &&
+    cleanId.length > 0
 
   const hasHost = hostPermissions && hostPermissions.length
   const hasPermissions = permissions && permissions.length
 
-  return (
-    ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(`${extensionVersion}`)}\n` +
-    `    Browser             ${colors.gray(browserLabel)}\n` +
-    `    Extension           ${colors.gray(
-      version ? `${name} ${version}` : name
-    )}\n` +
-    `    Permissions         ${colors.gray(
-      hasPermissions ? permissions?.join(', ') : 'Browser defaults'
-    )}\n` +
-    `    Host Permissions    ${colors.gray(
-      hasHost ? hostPermissions?.join(', ') : 'Browser defaults'
-    )}\n` +
-    `    Extension URL       ${colors.gray(extensionUrl)}`
+  const lines: string[] = []
+
+  lines.push(
+    ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(
+      `${extensionVersion}`
+    )}`,
+    `  Browser Runner   ${colors.gray(browserLabel)}`,
+    `  Extension Name   ${colors.gray(
+      version ? `${name} ${version}` : name || manifestName
+    )}`,
+    `     Manager URL   ${colors.gray(managerUrl)}`
   )
+
+  if (showExtensionId) {
+    lines.push(`    Extension ID   ${colors.gray(cleanId)}`)
+  }
+
+  return lines.join('\n')
 }
 
 export function emptyLine() {
