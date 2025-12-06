@@ -1,5 +1,10 @@
 import colors from 'pintor'
 import * as path from 'path'
+import * as fs from 'fs'
+import chromiumLocation from 'chromium-location'
+import * as chromeLocation from 'chrome-location2'
+import edgeLocation from 'edge-location'
+import firefoxLocation from 'firefox-location2'
 import type {DevOptions} from '../../webpack-types'
 
 type Browser = NonNullable<DevOptions['browser']>
@@ -916,6 +921,8 @@ export function firefoxRdpClientFinalHTMLLength(length: number) {
 export interface DevManifestInfo {
   name?: string
   version?: string
+  hostPermissions?: string[]
+  permissions?: string[]
 }
 
 export interface DevClientManagementInfo {
@@ -930,10 +937,12 @@ export interface DevClientMessage {
 export function runningInDevelopment(
   manifest: DevManifestInfo,
   browser: DevOptions['browser'],
-  message: DevClientMessage
+  message: DevClientMessage,
+  browserVersionLine?: string
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
   const manifestName = manifest.name || 'Extension.js'
+  const {hostPermissions, permissions} = manifest
   let browserDevToolsUrl: string
 
   switch (browser) {
@@ -981,12 +990,87 @@ export function runningInDevelopment(
   }
   // Note: keep dynamic import here to avoid ESM JSON import issues at compile time in some bundlers
   const extensionVersion = require('../../../package.json').version
-  return `${
-    ` 🧩 ${colors.blue('Extension.js')} ${colors.gray(`${extensionVersion}`)}\n` +
-    `${`    Extension Name        `} ${colors.gray(name)}\n` +
-    `${`    Extension Version     `} ${colors.gray(version)}\n` +
-    `${`    Extension ID          `} ${colors.gray(id)}`
-  }`
+
+  // Derive a human-readable browser version line.
+  let effectiveBrowserLine =
+    browserVersionLine && browserVersionLine.trim().length > 0
+      ? browserVersionLine.trim()
+      : ''
+
+  if (!effectiveBrowserLine) {
+    try {
+      if (browser === 'chromium' || browser === 'chromium-based') {
+        const loc =
+          (chromiumLocation as any)?.default || (chromiumLocation as any)
+        const p = typeof loc === 'function' ? loc() : null
+        if (p && typeof p === 'string' && fs.existsSync(p)) {
+          const v = require('child_process')
+            .execFileSync(p, ['--version'], {encoding: 'utf8'})
+            .trim()
+          effectiveBrowserLine = v || 'Chromium'
+        }
+      } else if (browser === 'chrome') {
+        const locate = (chromeLocation as any)?.locateChromeOrExplain
+        if (typeof locate === 'function') {
+          const p: string = locate({allowFallback: true})
+          if (p && fs.existsSync(p)) {
+            const v = require('child_process')
+              .execFileSync(p, ['--version'], {encoding: 'utf8'})
+              .trim()
+            effectiveBrowserLine = v || 'Chrome'
+          }
+        }
+      } else if (browser === 'edge') {
+        const p = edgeLocation()
+        if (p && fs.existsSync(p)) {
+          const v = require('child_process')
+            .execFileSync(p, ['--version'], {encoding: 'utf8'})
+            .trim()
+          effectiveBrowserLine = v || 'Microsoft Edge'
+        }
+      } else if (browser === 'firefox') {
+        const loc =
+          (firefoxLocation as any)?.default || (firefoxLocation as any)
+        const p = typeof loc === 'function' ? loc(true) : null
+        if (p && typeof p === 'string' && fs.existsSync(p)) {
+          const v = require('child_process')
+            .execFileSync(p, ['--version'], {encoding: 'utf8'})
+            .trim()
+          effectiveBrowserLine = v || 'Firefox'
+        }
+      }
+    } catch {
+      // best-effort only; fall back to generic browser label below
+    }
+  }
+
+  const browserLabel =
+    effectiveBrowserLine && effectiveBrowserLine.trim().length > 0
+      ? effectiveBrowserLine.trim()
+      : capitalize(String(browser || 'unknown'))
+
+  const extensionUrl =
+    id && String(id).trim().length > 0
+      ? `chrome-extension://${String(id).trim()}`
+      : '(temporary)'
+
+  const hasHost = hostPermissions && hostPermissions.length
+  const hasPermissions = permissions && permissions.length
+
+  return (
+    ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(`${extensionVersion}`)}\n` +
+    `    Browser             ${colors.gray(browserLabel)}\n` +
+    `    Extension           ${colors.gray(
+      version ? `${name} ${version}` : name
+    )}\n` +
+    `    Permissions         ${colors.gray(
+      hasPermissions ? permissions?.join(', ') : 'Browser defaults'
+    )}\n` +
+    `    Host Permissions    ${colors.gray(
+      hasHost ? hostPermissions?.join(', ') : 'Browser defaults'
+    )}\n` +
+    `    Extension URL       ${colors.gray(extensionUrl)}`
+  )
 }
 
 export function emptyLine() {

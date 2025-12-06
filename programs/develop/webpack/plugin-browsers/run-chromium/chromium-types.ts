@@ -87,6 +87,7 @@ export interface ChromiumLaunchOptions
 export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   bannerPrintedOnce?: boolean
   cdpController?: Controller
+  browserVersionLine?: string
 }
 
 /**

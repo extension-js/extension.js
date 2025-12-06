@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as messages from './messages'
+import * as coreMessages from '../../webpack-lib/messages'
 import {markBannerPrinted} from './shared-state'
 import type {DevOptions} from '../../webpack-types'
 
@@ -26,6 +27,7 @@ export async function printDevBannerOnce(opts: {
   hostPort?: HostPort
   getInfo: () => Promise<Info>
   fallback?: {name?: string; version?: string; extensionId?: string}
+  browserVersionLine?: string
 }) {
   const k = keyFor(opts.browser, opts.outPath, opts.hostPort)
 
@@ -50,8 +52,73 @@ export async function printDevBannerOnce(opts: {
   }
 
   console.log(messages.emptyLine())
-  console.log(messages.runningInDevelopment(manifest, opts.browser, message))
+  console.log(
+    messages.runningInDevelopment(
+      manifest,
+      opts.browser,
+      message,
+      opts.browserVersionLine
+    )
+  )
   console.log(messages.emptyLine())
+  markBannerPrinted()
+
+  printedKeys.add(k)
+  return true
+}
+
+export async function printProdBannerOnce(opts: {
+  browser: DevOptions['browser']
+  outPath: string
+  browserVersionLine?: string
+  runtime?: {extensionId?: string; name?: string; version?: string}
+}) {
+  const k = keyFor(opts.browser, opts.outPath)
+
+  if (printedKeys.has(k)) return false
+
+  const browserLabel =
+    opts.browserVersionLine && opts.browserVersionLine.trim().length > 0
+      ? opts.browserVersionLine.trim()
+      : String(opts.browser || 'unknown')
+
+  try {
+    const manifestPath = path.join(opts.outPath, 'manifest.json')
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+
+    if (opts.runtime && opts.runtime.extensionId) {
+      const message = {
+        data: {
+          id: opts.runtime.extensionId,
+          management: {
+            name: opts.runtime.name || manifest.name,
+            version: opts.runtime.version || manifest.version
+          }
+        }
+      }
+
+      console.log(messages.emptyLine())
+      console.log(
+        messages.runningInDevelopment(
+          manifest,
+          opts.browser,
+          message,
+          browserLabel
+        )
+      )
+      console.log(messages.emptyLine())
+    } else {
+      console.log(messages.emptyLine())
+      console.log(coreMessages.runningInProduction(opts.outPath, browserLabel))
+      console.log(messages.emptyLine())
+    }
+  } catch {
+    // Fallback: if anything goes wrong, still try to print a minimal card
+    console.log(messages.emptyLine())
+    console.log(coreMessages.runningInProduction(opts.outPath, browserLabel))
+    console.log(messages.emptyLine())
+  }
+
   markBannerPrinted()
 
   printedKeys.add(k)
