@@ -21,7 +21,10 @@ const MAX_RETRIES = 150
 const RETRY_INTERVAL = 1000
 
 export class RemoteFirefox {
-  private readonly options: PluginInterface & {extensionsToLoad?: string[]}
+  private readonly options: PluginInterface & {
+    extensionsToLoad?: string[]
+    browserVersionLine?: string
+  }
   private needsReinstall = false
   private client: MessagingClient | null = null
   private loggingAttached = false
@@ -171,16 +174,15 @@ export class RemoteFirefox {
       }
     } catch {}
 
-    // Print banner with best-effort extensionId when available (development only)
+    // Print banner with best-effort extensionId when available
     this.lastInstalledAddonPath = candidateAddonPaths[0]
 
-    if (compilation?.options?.mode !== 'production') {
-      printRunningInDevelopmentSummary(
-        candidateAddonPaths,
-        'firefox',
-        this.derivedExtensionId
-      )
-    }
+    printRunningInDevelopmentSummary(
+      candidateAddonPaths,
+      'firefox',
+      this.derivedExtensionId,
+      this.options.browserVersionLine
+    )
   }
 
   public markNeedsReinstall() {

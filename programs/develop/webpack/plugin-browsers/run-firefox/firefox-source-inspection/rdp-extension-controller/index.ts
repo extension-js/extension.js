@@ -15,6 +15,7 @@ type PluginLike = {
   source?: string | boolean
   watchSource?: boolean
   port?: number | string
+  browserVersionLine?: string
 }
 
 export class FirefoxRDPController {
@@ -35,7 +36,8 @@ export class FirefoxRDPController {
       instanceId: plugin.instanceId,
       port: debugPort,
       source: typeof plugin.source === 'string' ? plugin.source : undefined,
-      watchSource: plugin.watchSource
+      watchSource: plugin.watchSource,
+      browserVersionLine: plugin.browserVersionLine
     })
     this.debugPort =
       typeof debugPort === 'string' ? parseInt(debugPort, 10) : debugPort

@@ -34,4 +34,5 @@ export type FirefoxPluginLike = Pick<
  */
 export interface FirefoxPluginRuntime extends FirefoxPluginLike {
   rdpController?: FirefoxRDPController
+  browserVersionLine?: string
 }

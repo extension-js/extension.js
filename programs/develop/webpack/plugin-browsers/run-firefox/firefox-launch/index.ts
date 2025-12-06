@@ -1,5 +1,5 @@
 import * as fs from 'fs'
-import {spawn, ChildProcess} from 'child_process'
+import {spawn, ChildProcess, execFileSync} from 'child_process'
 import type {Compilation, Compiler} from '@rspack/core'
 import firefoxLocation from 'firefox-location2'
 import * as messages from '../../browsers-lib/messages'
@@ -189,6 +189,24 @@ export class FirefoxLaunchPlugin {
 
     // At this point TS: ensure non-null string
     const binaryPath = browserBinaryLocation as string
+
+    // Best-effort: derive a human-readable browser version line once.
+    const getFirefoxVersionLine = (bin: string): string => {
+      try {
+        const versionLine = execFileSync(bin, ['--version'], {
+          encoding: 'utf8'
+        }).trim()
+        return versionLine || ''
+      } catch {
+        return ''
+      }
+    }
+
+    try {
+      this.host.browserVersionLine = getFirefoxVersionLine(binaryPath)
+    } catch {
+      // best-effort only; banner will fall back to generic browser label
+    }
 
     // Optional: validate binary to obtain version (diagnostics)
     try {
