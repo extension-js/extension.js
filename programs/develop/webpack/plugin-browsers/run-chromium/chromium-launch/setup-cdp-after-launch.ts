@@ -2,7 +2,10 @@ import * as path from 'path'
 import {Compilation} from '@rspack/core'
 import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
-import {printDevBannerOnce, printProdBannerOnce} from '../../browsers-lib/banner'
+import {
+  printDevBannerOnce,
+  printProdBannerOnce
+} from '../../browsers-lib/banner'
 import {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
 import {type ChromiumPluginRuntime} from '../chromium-types'
 
