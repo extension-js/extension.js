@@ -107,7 +107,9 @@ function main() {
       return entries
         .filter(d => d.isDirectory())
         .map(d => d.name)
-        .filter(name => name !== 'browser-extension' && name !== 'extension-js-theme')
+        .filter(name => name !== 'browser-extension'
+          // && name !== 'extension-js-theme'
+        )
     } catch {
       return []
     }
