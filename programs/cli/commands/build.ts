@@ -1,5 +1,6 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
+import {commandDescriptions} from '../cli-lib/messages'
 import {vendors, validateVendorsOrExit, type Browser} from '../utils'
 
 type BuildOptions = {
@@ -16,7 +17,7 @@ export function registerBuildCommand(program: Command, telemetry: any) {
     .command('build')
     .arguments('[project-name]')
     .usage('build [path-to-remote-extension] [options]')
-    .description('Builds the extension for production')
+    .description(commandDescriptions.build)
     .option(
       '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
       'specify a browser/engine to run. Defaults to `chromium`'

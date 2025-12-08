@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {execSync} from 'child_process'
+import colors from 'pintor'
 import {detect} from 'package-manager-detector'
 
 function parseJsonSafe(text: string) {
@@ -51,7 +52,9 @@ export async function installOptionalDependencies(
     await new Promise((r) => setTimeout(r, 500))
 
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(`[${integration}] Installing root dependencies for dev...`)
+      console.log(
+        `${colors.brightMagenta('►►► Author says')} [${integration}] Installing root dependencies for dev...`
+      )
       const devInstall =
         pm?.name === 'yarn'
           ? `yarn install --silent`
