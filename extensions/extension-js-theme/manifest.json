@@ -1,31 +1,39 @@
 {
   "name": "Extension.js Theme",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser theme for Extension.js",
   "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
   "chromium:theme": {
     "colors": {
-      "frame": [26, 28, 32],
-      "toolbar": [30, 32, 36],
-      "tab_text": [237, 238, 240],
-      "bookmark_text": [237, 238, 240],
-      "ntp_background": [26, 28, 32],
-      "ntp_text": [237, 238, 240]
-    },
-    "properties": {
-      "ntp_background_alignment": "center",
-      "ntp_background_repeat": "no-repeat"
+      "frame": [37, 37, 39],
+      "frame_inactive": [49, 49, 53],
+      "toolbar": [25, 25, 26],
+      "tab_background_text": [255, 255, 255],
+      "tab_text": [25, 25, 26],
+      "tab_background_text_inactive": [62, 62, 66],
+      "tab_text_inactive": [101, 101, 108],
+      "bookmark_text": [153, 153, 159],
+      "ntp_background": [179, 179, 183],
+      "ntp_text": [37, 37, 39],
+      "button_background": [28, 28, 30]
     }
   },
   "firefox:theme": {
     "colors": {
-      "frame": "#1A1C20",
-      "toolbar": "#1E2024",
-      "tab_text": "#EDEEF0",
-      "bookmark_text": "#EDEEF0",
-      "toolbar_field": "#2A2C31",
-      "toolbar_field_text": "#EDEEF0"
+      "frame": [37, 37, 39],
+      "frame_inactive": [49, 49, 53],
+      "toolbar": [25, 25, 26],
+      "tab_background_text": [255, 255, 255],
+      "tab_text": [25, 25, 26],
+      "tab_background_text_inactive": [62, 62, 66],
+      "tab_text_inactive": [101, 101, 108],
+      "bookmark_text": [153, 153, 159],
+      "ntp_background": [179, 179, 183],
+      "ntp_text": [37, 37, 39],
+      "button_background": [28, 28, 30],
+      "toolbar_field": [42, 44, 49],
+      "toolbar_field_text": [237, 238, 240]
     },
     "properties": {
       "ntp_background_alignment": "center",
