@@ -1090,16 +1090,12 @@ export function runningInDevelopment(
     ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(
       `${extensionVersion}`
     )}`,
-    `  Browser Runner   ${colors.gray(browserLabel)}`,
-    `  Extension Name   ${colors.gray(
+    `    Browser        ${colors.gray(browserLabel)}`,
+    `    Extension      ${colors.gray(
       version ? `${name} ${version}` : name || manifestName
     )}`,
-    `     Manager URL   ${colors.gray(managerUrl)}`
+    `    Extension ID   ${colors.gray(cleanId)}`
   )
-
-  if (showExtensionId) {
-    lines.push(`    Extension ID   ${colors.gray(cleanId)}`)
-  }
 
   return lines.join('\n')
 }
