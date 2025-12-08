@@ -1,5 +1,6 @@
 import * as path from 'path'
 import {createRequire} from 'module'
+import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
@@ -12,7 +13,9 @@ export function isUsingSass(projectPath: string): boolean {
   if (hasDependency(projectPath, 'sass')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('SASS'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('SASS')}`
+        )
       }
 
       userMessageDelivered = true

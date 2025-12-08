@@ -1,9 +1,14 @@
 import colors from 'pintor'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-    return colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')
+  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+
+  if (isAuthor) {
+    // Author mode: magenta, clearly branded, keeps three-element prefix shape
+    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    return colors.brightMagenta(base)
   }
+
   if (type === 'error') return colors.red('ERROR')
   if (type === 'warn') return colors.brightYellow('►►►')
   if (type === 'info') return colors.gray('►►►')
@@ -18,7 +23,7 @@ export function ready(mode: 'development' | 'production', browser: string) {
   const b = String(browser || '')
   const cap = b.charAt(0).toUpperCase() + b.slice(1)
   const pretty = colors.green('ready for ' + mode)
-  return `${colors.gray('►►►')} ${cap} ${extensionOutput} ${pretty}.`
+  return `${getLoggingPrefix('info')} ${cap} ${extensionOutput} ${pretty}.`
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
@@ -116,5 +121,5 @@ export function devServerConfig(
 }
 
 export function devServerWsSummary(connections: number) {
-  return `${colors.gray('►►►')} DevServer: WS connections ${colors.underline(String(connections))}`
+  return `${getLoggingPrefix('info')} DevServer: WS connections ${colors.underline(String(connections))}`
 }

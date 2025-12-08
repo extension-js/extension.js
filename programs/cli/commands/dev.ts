@@ -1,5 +1,6 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
+import {commandDescriptions} from '../cli-lib/messages'
 import {vendors, validateVendorsOrExit, type Browser} from '../utils'
 
 type DevOptions = {
@@ -26,7 +27,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
     .command('dev')
     .arguments('[project-path|remote-url]')
     .usage('dev [project-path|remote-url] [options]')
-    .description('Starts the development server (development mode)')
+    .description(commandDescriptions.dev)
     .option(
       '--profile <path-to-file | boolean>',
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'

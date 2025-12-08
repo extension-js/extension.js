@@ -7,6 +7,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -75,7 +76,9 @@ export function isUsingTypeScript(projectPath: string): boolean {
     if (TypeScriptAsDevDep || TypeScriptAsDep || hasTsFiles) {
       if (tsConfigFilePath) {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-          console.log(messages.isUsingIntegration('TypeScript'))
+          console.log(
+            `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('TypeScript')}`
+          )
         }
       } else {
         if (hasTsFiles) {
