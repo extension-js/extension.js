@@ -12,9 +12,12 @@ type Mode = DevOptions['mode']
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
-  // Streamlined author mode: always magenta prefix
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-    return colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')
+  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+
+  if (isAuthor) {
+    // Author mode: magenta, clearly branded, keeps three-element prefix shape
+    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    return colors.brightMagenta(base)
   }
 
   if (type === 'error') return colors.red('ERROR')
@@ -303,7 +306,7 @@ export function unexpectedMessageReceivedError(
 
 // Debug messages - only used in development mode
 export function isUsingStartingUrl(browser: Browser, value: unknown) {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} ${capitalizedBrowserName(browser)} using starting URL: ${String(value)}`
+  return `${getLoggingPrefix('info')} ${capitalizedBrowserName(browser)} using starting URL: ${String(value)}`
 }
 
 // removed: isUsingBrowserBinary (unused)
@@ -312,7 +315,7 @@ export function isUsingStartingUrl(browser: Browser, value: unknown) {
 
 export function profileFallbackWarning(browser: Browser, reason: string) {
   return (
-    `${colors.brightYellow('►►►')} ${colors.brightYellow('Dev')} ${capitalizedBrowserName(browser)} falling back to per-instance profile` +
+    `${getLoggingPrefix('warn')} ${capitalizedBrowserName(browser)} falling back to per-instance profile` +
     (reason ? `: ${colors.gray(reason)}` : '')
   )
 }
@@ -354,7 +357,7 @@ export function locatingBrowser(browser: Browser) {
 }
 
 export function devChromeProfilePath(path: string) {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Chrome profile: ${colors.underline(path)}`
+  return `${getLoggingPrefix('info')} Chrome profile: ${colors.underline(path)}`
 }
 
 export function usingChromiumRunner(browser: Browser) {
@@ -1109,15 +1112,15 @@ export function separatorLine() {
 }
 
 export function devChromiumDebugPort(finalPort: number, requestedPort: number) {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Chromium debug port: ${colors.gray(finalPort.toString())} (requested ${colors.gray(requestedPort.toString())})`
+  return `${getLoggingPrefix('info')} Chromium debug port: ${colors.gray(finalPort.toString())} (requested ${colors.gray(requestedPort.toString())})`
 }
 
 export function devFirefoxDebugPort(finalPort: number, requestedPort: number) {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Firefox debug port: ${colors.gray(finalPort.toString())} (requested ${colors.gray(requestedPort.toString())})`
+  return `${getLoggingPrefix('info')} Firefox debug port: ${colors.gray(finalPort.toString())} (requested ${colors.gray(requestedPort.toString())})`
 }
 
 export function devFirefoxProfilePath(profilePath: string) {
-  return `${colors.brightMagenta('►►►')} ${colors.brightMagenta('Dev')} Firefox profile: ${colors.underline(profilePath)}`
+  return `${getLoggingPrefix('info')} Firefox profile: ${colors.underline(profilePath)}`
 }
 
 export function unifiedLogLine(head: string, message: string) {

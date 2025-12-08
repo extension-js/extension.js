@@ -7,6 +7,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {hasDependency} from '../css-lib/integrations'
 
@@ -20,7 +21,9 @@ export function isUsingTailwind(projectPath: string) {
   if (isUsingTailwind) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('Tailwind'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('Tailwind')}`
+        )
       }
       userMessageDelivered = true
     }

@@ -9,6 +9,7 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
+import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -43,7 +44,9 @@ export function isUsingReact(projectPath: string) {
   if (hasDependency(projectPath, 'react')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('React'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('React')}`
+        )
       }
 
       userMessageDelivered = true

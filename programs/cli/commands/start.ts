@@ -1,5 +1,6 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
+import {commandDescriptions} from '../cli-lib/messages'
 import {vendors, validateVendorsOrExit, type Browser} from '../utils'
 
 type StartOptions = {
@@ -27,7 +28,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
     .command('start')
     .arguments('[project-path|remote-url]')
     .usage('start [project-path|remote-url] [options]')
-    .description('Starts the development server (production mode)')
+    .description(commandDescriptions.start)
     .option(
       '--profile <path-to-file | boolean>',
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'

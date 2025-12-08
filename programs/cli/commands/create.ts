@@ -1,5 +1,6 @@
 import type {Command} from 'commander'
 import {extensionCreate, type CreateOptions} from 'extension-create'
+import {commandDescriptions} from '../cli-lib/messages'
 import packageJson from '../package.json'
 import {parseOptionalBoolean} from '../utils'
 
@@ -8,7 +9,7 @@ export function registerCreateCommand(program: Command, telemetry: any) {
     .command('create')
     .arguments('<project-name|project-path>')
     .usage('create <project-name|project-path> [options]')
-    .description('Creates a new extension.')
+    .description(commandDescriptions.create)
     .option(
       '-t, --template <template-name>',
       'specify a template for the created project'

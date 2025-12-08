@@ -1,5 +1,6 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
+import {commandDescriptions} from '../cli-lib/messages'
 import {vendors, validateVendorsOrExit, type Browser} from '../utils'
 
 type PreviewOptions = {
@@ -26,7 +27,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
     .command('preview')
     .arguments('[project-name]')
     .usage('preview [path-to-remote-extension] [options]')
-    .description('Preview the extension in production mode')
+    .description(commandDescriptions.preview)
     .option(
       '--profile <path-to-file | boolean>',
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'

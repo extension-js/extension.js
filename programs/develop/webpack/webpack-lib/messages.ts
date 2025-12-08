@@ -40,9 +40,12 @@ export const fmt = {
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
-  // Streamlined author mode: use magenta for all prefixes
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-    return colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')
+  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+
+  if (isAuthor) {
+    // Author mode: magenta, clearly branded, keeps three-element prefix shape
+    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    return colors.brightMagenta(base)
   }
 
   if (type === 'error') return colors.red('ERROR')

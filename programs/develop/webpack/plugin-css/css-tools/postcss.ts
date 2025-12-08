@@ -9,6 +9,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
 import {pathToFileURL} from 'url'
+import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
@@ -47,7 +48,9 @@ export function isUsingPostCss(projectPath: string): boolean {
   if (hasDependency(projectPath, 'postcss')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('PostCSS'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('PostCSS')}`
+        )
       }
 
       userMessageDelivered = true
@@ -58,7 +61,9 @@ export function isUsingPostCss(projectPath: string): boolean {
   if (findPostCssConfig(projectPath)) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('PostCSS'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('PostCSS')}`
+        )
       }
 
       userMessageDelivered = true
@@ -70,7 +75,9 @@ export function isUsingPostCss(projectPath: string): boolean {
   if (isUsingTailwind(projectPath)) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('PostCSS'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('PostCSS')}`
+        )
       }
 
       userMessageDelivered = true
@@ -203,7 +210,7 @@ export async function maybeUsePostCss(
     try {
       // Keep logs concise but informative for real-world debugging
       console.log(
-        '[extension.js:postcss] projectPath=%s userPostCssConfig=%s pkgHasPostCss=%s tailwindPresent=%s',
+        `${colors.brightMagenta('►►► Author says')} [extension.js:postcss] projectPath=%s userPostCssConfig=%s pkgHasPostCss=%s tailwindPresent=%s`,
         projectPath,
         userPostCssConfig || 'none',
         pkgHasPostCss,
@@ -213,7 +220,7 @@ export async function maybeUsePostCss(
         ? postcssOptions.plugins.length
         : 0
       console.log(
-        '[extension.js:postcss] resolvedPlugins=%d config=%s cwd=%s',
+        `${colors.brightMagenta('►►► Author says')} [extension.js:postcss] resolvedPlugins=%d config=%s cwd=%s`,
         resolvedPluginsCount,
         String(postcssOptions.config),
         String(postcssOptions.cwd)

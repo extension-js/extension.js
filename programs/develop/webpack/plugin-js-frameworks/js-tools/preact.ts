@@ -7,6 +7,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -41,7 +42,9 @@ export function isUsingPreact(projectPath: string) {
   if (hasDependency(projectPath, 'preact')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('Preact'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('Preact')}`
+        )
       }
 
       userMessageDelivered = true

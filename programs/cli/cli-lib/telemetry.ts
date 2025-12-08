@@ -2,6 +2,7 @@ import os from 'node:os'
 import fs from 'node:fs'
 import path from 'node:path'
 import crypto from 'node:crypto'
+import colors from 'pintor'
 
 type TelemetryInit = {
   app: string
@@ -125,7 +126,7 @@ export class Telemetry {
         this.track('cli_telemetry_consent', {value: 'implicit_opt_in'})
 
         console.log(
-          '[extension] anonymous telemetry helps us improve. Pass --no-telemetry to opt out. Read more in TELEMETRY.md.'
+          `${colors.gray('►►► system')} [extension] anonymous telemetry helps us improve. Pass --no-telemetry to opt out. Read more in TELEMETRY.md.`
         )
       }
     }
