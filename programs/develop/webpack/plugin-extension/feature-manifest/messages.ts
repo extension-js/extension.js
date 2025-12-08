@@ -7,7 +7,8 @@ function getLoggingPrefix(
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   if (isAuthor) {
-    return `${colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')} ${feature}`
+    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    return `${colors.brightMagenta(base)} ${feature}`
   }
 
   if (type === 'error') return `${colors.red('ERROR')} ${feature}`

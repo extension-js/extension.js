@@ -45,6 +45,7 @@ if (process.argv.length <= 2) {
 }
 
 extensionJs.parseAsync().catch((err: unknown) => {
-  console.error(err)
+  // eslint-disable-next-line no-console
+  console.error(messages.unhandledError(err))
   process.exit(1)
 })

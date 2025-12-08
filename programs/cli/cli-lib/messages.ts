@@ -9,8 +9,12 @@ import colors from 'pintor'
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success'): string {
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-    return colors.brightMagenta(type === 'error' ? 'ERROR' : '►►►')
+  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+
+  if (isAuthor) {
+    // Author mode: magenta, clearly branded, keeps three-element prefix shape
+    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    return colors.brightMagenta(base)
   }
 
   if (type === 'error') return colors.red('ERROR')
@@ -46,6 +50,26 @@ export const fmt = {
     })()
     return s.length > max ? s.slice(0, max) + '…' : s
   }
+}
+
+export const commandDescriptions = {
+  create:
+    'Creates a new extension from a template (React, TypeScript, Vue, Svelte, etc.)',
+  dev: 'Starts the development server with hot reloading',
+  start: 'Builds and starts the extension in production mode',
+  preview: 'Previews the extension in production mode without building',
+  build: 'Builds the extension for packaging/distribution',
+  cleanup: 'Cleans up orphaned instances and frees unused ports'
+} as const
+
+export function unhandledError(err: unknown) {
+  const message =
+    err instanceof Error
+      ? err.stack || err.message
+      : typeof err === 'string'
+        ? err
+        : fmt.truncate(err)
+  return `${getLoggingPrefix('error')} ${colors.red(String(message || 'Unknown error'))}`
 }
 
 export function updateFailed(err: any) {
@@ -96,22 +120,22 @@ ${'Example'}
 
 ${'Available Commands'}
 - ${code('extension create ' + arg('<project-name|project-path>'))}
-  Creates a new extension from a template (React, TypeScript, Vue, Svelte, etc.)
+  ${commandDescriptions.create}
 
 - ${code('extension dev ' + arg('[project-path|remote-url]'))}
-  Starts a development server with hot reloading
+  ${commandDescriptions.dev}
 
 - ${code('extension start ' + arg('[project-path|remote-url]'))}
-  Builds and starts the extension in production mode
+  ${commandDescriptions.start}
 
 - ${code('extension preview ' + arg('[project-path|remote-url]'))}
-  Previews the extension in production mode without building
+  ${commandDescriptions.preview}
 
 - ${code('extension build ' + arg('[project-path|remote-url]'))}
-  Builds the extension for packaging/distribution
+  ${commandDescriptions.build}
 
 - ${code('extension cleanup')}
-  Cleans up orphaned instances and frees unused ports
+  ${commandDescriptions.cleanup}
 
 ${'Common Options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chrome)

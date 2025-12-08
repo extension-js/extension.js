@@ -8,6 +8,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
+import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 
 export function getStylelintConfigFile(projectPath: string) {
@@ -48,7 +49,9 @@ export function isUsingStylelint(projectPath: string) {
   if (isUsingStylelint) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('Stylelint'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('Stylelint')}`
+        )
       }
       userMessageDelivered = true
     }
