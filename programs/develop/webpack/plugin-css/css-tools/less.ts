@@ -1,5 +1,6 @@
 import * as path from 'path'
 import * as fs from 'fs'
+import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
@@ -13,7 +14,9 @@ export function isUsingLess(projectPath: string): boolean {
   if (hasDependency(projectPath, 'less')) {
     if (!userMessageDelivered) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.log(messages.isUsingIntegration('LESS'))
+        console.log(
+          `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('LESS')}`
+        )
       }
 
       userMessageDelivered = true

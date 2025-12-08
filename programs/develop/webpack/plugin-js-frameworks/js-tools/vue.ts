@@ -7,6 +7,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -44,7 +45,9 @@ export function isUsingVue(projectPath: string) {
   const using = hasDependency(projectPath, 'vue')
   if (using && !userMessageDelivered) {
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.isUsingIntegration('Vue'))
+      console.log(
+        `${colors.brightMagenta('►►► Author says')} ${messages.isUsingIntegration('Vue')}`
+      )
     }
     userMessageDelivered = true
   }
