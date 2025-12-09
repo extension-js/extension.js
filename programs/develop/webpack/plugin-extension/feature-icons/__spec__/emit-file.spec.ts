@@ -238,6 +238,7 @@ describe('EmitFile step', () => {
     } as any)
     step.apply(compiler as any)
     const msg1 = String(compilation.errors[0] || compilation.warnings[0] || '')
+    // Hint should appear for extension-root absolute style (leading '/')
     expect(msg1).toMatch(/resolved from the extension output root/i)
 
     // Reset buckets
@@ -251,6 +252,8 @@ describe('EmitFile step', () => {
     } as any)
     step.apply(compiler as any)
     const msg2 = String(compilation.errors[0] || compilation.warnings[0] || '')
+    // For relative paths that are not extension-root absolute, we should
+    // not show the public-root hint.
     expect(msg2).not.toMatch(/resolved from the extension output root/i)
   })
 
