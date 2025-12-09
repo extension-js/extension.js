@@ -93,21 +93,97 @@ export class EmitFile {
               // Resources from the manifest lib can come as undefined.
               if (entry) {
                 // Normalize manifest paths:
-                // - Leading "/" means extension root (public root), not OS root
+                // - Leading "/" means extension root (public root), backed by the project "public/" folder
                 // - Relative paths are resolved from manifest directory
                 // - Absolute OS paths are used as-is
                 const manifestDir = path.dirname(this.manifestPath)
 
-                // Prefer real absolute filesystem paths when they exist.
-                // Otherwise, treat leading "/" as extension root (package root / public root).
                 let resolved = entry
 
                 if (!fs.existsSync(resolved)) {
-                  resolved = entry.startsWith('/')
-                    ? path.join(projectPath, entry.slice(1))
-                    : path.isAbsolute(entry)
-                      ? entry
-                      : path.join(manifestDir, entry)
+                  if (path.isAbsolute(entry) && entry.startsWith(projectPath)) {
+                    // OS-absolute path under the project root. This can happen
+                    // when upstream helpers resolve manifest fields into
+                    // absolute filesystem paths. If the basename lives under
+                    // project public/, prefer that location; otherwise, keep
+                    // the absolute path.
+                    const basename = path.basename(entry)
+                    const publicCandidate = path.join(publicDir, basename)
+
+                    if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
+                      // eslint-disable-next-line no-console
+                      console.log(
+                        '[icons:emit-file] absolute entry',
+                        JSON.stringify({
+                          entry,
+                          projectPath,
+                          publicDir,
+                          basename,
+                          publicCandidate,
+                          exists: fs.existsSync(publicCandidate)
+                        })
+                      )
+                    }
+
+                    resolved = fs.existsSync(publicCandidate)
+                      ? publicCandidate
+                      : entry
+                  } else if (entry.startsWith('/')) {
+                    // First, look under public/ because "/foo.png" is authored
+                    // as an extension-root asset served from public/.
+                    const publicCandidate = path.join(
+                      projectPath,
+                      'public',
+                      entry.slice(1)
+                    )
+
+                    if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
+                      // eslint-disable-next-line no-console
+                      console.log(
+                        '[icons:emit-file] leading-slash entry',
+                        JSON.stringify({
+                          entry,
+                          projectPath,
+                          publicCandidate,
+                          exists: fs.existsSync(publicCandidate)
+                        })
+                      )
+                    }
+
+                    resolved = fs.existsSync(publicCandidate)
+                      ? publicCandidate
+                      : path.join(projectPath, entry.slice(1))
+                  } else {
+                    // For bare / relative icon paths coming from manifest fields, also
+                    // respect the public/ convention before falling back to the
+                    // manifest directory. This keeps behavior consistent with
+                    // web_accessible_resources and allows icons declared as
+                    // "icon.png" to live under public/icon.png.
+                    const publicCandidate = path.join(publicDir, entry)
+
+                    if (process.env.EXTENSION_DEV_DEBUG_ICONS === '1') {
+                      // eslint-disable-next-line no-console
+                      console.log(
+                        '[icons:emit-file] relative entry',
+                        JSON.stringify({
+                          entry,
+                          projectPath,
+                          publicDir,
+                          publicCandidate,
+                          exists: fs.existsSync(publicCandidate),
+                          manifestDir
+                        })
+                      )
+                    }
+
+                    if (fs.existsSync(publicCandidate)) {
+                      resolved = publicCandidate
+                    } else {
+                      resolved = path.isAbsolute(entry)
+                        ? entry
+                        : path.join(manifestDir, entry)
+                    }
+                  }
                 }
 
                 // Robust containment check using path.relative to handle Windows cases
@@ -124,22 +200,24 @@ export class EmitFile {
 
                 // Missing file: error and skip
                 if (!fs.existsSync(resolved)) {
-                  // Treat leading '/' as extension output-root (public root)
-                  const isPublicRoot = entry.startsWith('/')
-                  const outputRoot = compilation.options?.output?.path || ''
+                  // Treat leading '/' (extension-root style) as extension
+                  // output-root (public root). OS-absolute filesystem paths
+                  // under the project root are handled separately above and
+                  // do not get the public-root hint.
+                  const isPublicRoot =
+                    entry.startsWith('/') && !entry.startsWith(projectPath)
                   const parts = String(feature).split('/')
                   const group = parts[0]
                   const sub = parts[1] || ''
 
-                  // Build a display path consistent with HTML feature:
-                  // - For extension-root style (leading '/') NOT OS-absolute, show outputRoot + entry
+                  // Build a display path consistent with HTML and web-resources features:
+                  // - For extension-root style (leading '/') NOT OS-absolute, show <project>/public/<entry>
+                  //   since those paths are served from the extension public root.
                   // - For OS-absolute paths, show as-is
                   // - Otherwise, resolve relative to project root
                   const displayPath =
                     !path.isAbsolute(entry) && isPublicRoot
-                      ? outputRoot
-                        ? path.join(outputRoot, entry.slice(1))
-                        : entry
+                      ? path.join(projectPath, 'public', entry.slice(1))
                       : path.isAbsolute(entry)
                         ? entry
                         : path.join(projectPath, entry)
