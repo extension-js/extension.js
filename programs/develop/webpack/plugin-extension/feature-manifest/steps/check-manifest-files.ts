@@ -66,22 +66,34 @@ export class CheckManifestFiles {
 
           if (!fs.existsSync(item as string)) {
             // Normalize manifest-referenced paths before deciding:
-            // - Leading "/" means extension root (relative to manifest dir)
+            // - Leading "/" means extension root (served from public/), not OS root
             // - Relative paths resolved from manifest dir
             // - Absolute OS paths used as-is
             const manifestDir = path.dirname(this.manifestPath)
+            const projectPath =
+              (compilation.options?.context as string) || manifestDir
             const candidate = item as string
 
             // If the provided path exists as-is (absolute or relative from cwd), accept it.
-            // Otherwise, normalize leading "/" to extension root.
+            // Otherwise, normalize leading "/" to extension/public root first.
             let resolved = candidate
 
             if (!fs.existsSync(resolved)) {
-              resolved = candidate.startsWith('/')
-                ? path.join(manifestDir, candidate.slice(1))
-                : path.isAbsolute(candidate)
+              if (candidate.startsWith('/')) {
+                const publicCandidate = path.join(
+                  projectPath,
+                  'public',
+                  candidate.slice(1)
+                )
+
+                resolved = fs.existsSync(publicCandidate)
+                  ? publicCandidate
+                  : path.join(manifestDir, candidate.slice(1))
+              } else {
+                resolved = path.isAbsolute(candidate)
                   ? candidate
                   : path.join(manifestDir, candidate)
+              }
             }
 
             if (fs.existsSync(resolved)) {
@@ -95,9 +107,8 @@ export class CheckManifestFiles {
               const ref = item as string
               return ref.startsWith('/') && !path.isAbsolute(ref)
             })()
-            const outputRoot = compilation.options?.output?.path || ''
             const overrideNotFoundPath = isPublicRoot
-              ? path.join(outputRoot, (item as string).slice(1))
+              ? path.join(projectPath, 'public', (item as string).slice(1))
               : undefined
             const fieldError = messages.manifestFieldError(
               manifestName,

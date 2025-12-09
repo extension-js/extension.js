@@ -92,8 +92,8 @@ This feature performs path validation at compile time and surfaces clear message
 
 ## User-declared WAR behavior
 
-- Relative files are validated and emitted as assets (development: `assets/[name][ext]`, production: `assets/[name].[contenthash:8][ext]`).
-- Public-root-like paths (`/foo.png`, `public/foo.png`, `./public/foo.png`) are preserved as `foo.png`. If the referenced file is missing under the extension `public/` folder, a warning is emitted with guidance that paths starting with `/` resolve from the extension output root (served from `public/`).
+- Relative files are validated and emitted as assets (development: `assets/[name][ext]`, production: `assets/[name].[contenthash:8][ext]`). When a relative path refers to a file that already exists under the project `public/` folder or in the emitted output root, it is treated as valid and normalized, without a “file not found” warning.
+- Public-root-like paths (`/foo.png`, `public/foo.png`, `./public/foo.png`) are preserved as `foo.png`. If the referenced file is missing under the extension `public/` folder and has not been emitted to the output root, a warning is emitted with guidance that paths starting with `/` resolve from the extension output root (served from `public/`).
 - Glob patterns (e.g., `assets/*.svg`, `/*.json`) are preserved as-is.
 - When a resource is both user-declared and auto-discovered from a content script, it is de-duplicated.
 

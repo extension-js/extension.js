@@ -3,6 +3,7 @@ import * as path from 'path'
 import {Compilation, sources, WebpackError} from '@rspack/core'
 import {unixify} from '../../feature-html/html-lib/paths'
 import * as warMessages from './messages'
+import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 
 function isPublicRootLike(possiblePath: string) {
   const normalizedPath = unixify(possiblePath || '')
@@ -148,6 +149,17 @@ export function resolveUserDeclaredWAR(
     compilation.errors = compilation.errors || []
     compilation.warnings = compilation.warnings || []
 
+    // Fast‑path: if this resource resolves to an actual file under the project
+    // public/ folder, accept it and never warn. This keeps behavior aligned
+    // with icons and manifest validation and avoids false negatives when
+    // public assets exist but the output graph is not yet populated.
+    const normalizedOutput = normalizeManifestOutputPath(res)
+    const publicCandidate = path.join(projectPath, 'public', normalizedOutput)
+    if (fs.existsSync(publicCandidate)) {
+      pushResource(matches, normalizedOutput)
+      return
+    }
+
     const absForExclude = path.isAbsolute(res)
       ? res
       : path.join(
@@ -161,7 +173,7 @@ export function resolveUserDeclaredWAR(
     }
 
     if (isPublicRootLike(res)) {
-      const output = toPublicOutput(res)
+      const output = normalizeManifestOutputPath(res)
       const publicAbs = path.join(projectPath, 'public', output)
 
       // Compute output root and see if the asset is already present in the build,
@@ -179,7 +191,31 @@ export function resolveUserDeclaredWAR(
       const assetEmitted =
         Boolean(asset && asset.name === output) || fs.existsSync(builtAbs)
 
-      if (!fs.existsSync(publicAbs) && !assetEmitted) {
+      // In development, avoid noisy warnings for public-root WAR entries.
+      // The dev server already watches public/ and surfaces 404s at runtime;
+      // we keep strict validation for production builds only.
+      const isDevMode =
+        (compilation.options?.mode || 'development') !== 'production'
+
+      if (process.env.EXTENSION_DEV_DEBUG_WAR === '1') {
+        // eslint-disable-next-line no-console
+        console.log(
+          '[web-resources:resolve-war] public-like resource',
+          JSON.stringify({
+            res,
+            output,
+            projectPath,
+            publicAbs,
+            outputRoot,
+            builtAbs,
+            publicExists: fs.existsSync(publicAbs),
+            builtExists: fs.existsSync(builtAbs),
+            assetEmitted
+          })
+        )
+      }
+
+      if (!isDevMode && !fs.existsSync(publicAbs) && !assetEmitted) {
         const overrideNotFoundPath = builtAbs
         const msg = warMessages.warFieldError(publicAbs, {
           overrideNotFoundPath,
@@ -216,26 +252,15 @@ export function resolveUserDeclaredWAR(
         fs.existsSync(builtAbs)
 
       if (fs.existsSync(publicAbsMaybe) || assetEmitted) {
-        // Enforce authoring convention: resources under public/ should use a leading '/'
-        const msg = warMessages.warFieldError(publicAbsMaybe, {
-          publicRootHint: true,
-          relativeRef: res
-        })
-        const warn = new WebpackError(msg) as Error & {
-          file?: string
-          name?: string
-        }
-        warn.file = 'manifest.json'
-        warn.name = 'WARPublicRootPathMissingSlash'
-        compilation.warnings!.push(warn)
-
-        // Normalize to public output reference (WAR stores without leading slash)
+        // Resource exists either under public/ or in the emitted output; treat
+        // it as valid and normalize to the public-root style in the manifest.
         const output = toPublicOutput('/' + res)
         pushResource(matches, output)
         return
       }
 
-      // Warn about missing relative path using standardized message
+      // Warn about missing relative path using standardized message only when
+      // it does not exist in public/ and was not emitted to the output.
       const msg = warMessages.warFieldError(abs, {relativeRef: res})
       const warn = new WebpackError(msg) as Error & {
         file?: string
