@@ -50,6 +50,13 @@ describe('extension.config object-merge and command/browser defaults', () => {
           browserFlags: ['--headless=new'],
           preferences: { a: 1 },
           persistProfile: true
+        },
+        'chromium-based': {
+          browser: 'chromium-based',
+          browserFlags: ['--foo'],
+          preferences: { b: 2 },
+          persistProfile: true,
+          profile: './dist/chromium-profile'
         }
       }
     }`
@@ -70,6 +77,16 @@ describe('extension.config object-merge and command/browser defaults', () => {
       browserFlags: ['--headless=new'],
       preferences: {a: 1},
       persistProfile: true
+    })
+
+    // Normalized Chromium engine should pick up the chromium-based section
+    const chromiumCfg = await loadBrowserConfig(dir, 'chromium')
+    expect(chromiumCfg).toMatchObject({
+      browser: 'chromium-based',
+      browserFlags: ['--foo'],
+      preferences: {b: 2},
+      persistProfile: true,
+      profile: './dist/chromium-profile'
     })
   })
 })
