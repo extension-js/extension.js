@@ -160,6 +160,11 @@ Options accepted by each command. Values shown are typical types or enumerations
   - commands.dev | .build | .start | .preview: per‑command options (browser, profile, binaries, flags, preferences, unified logger defaults, packaging). These defaults are applied for all respective commands.
   - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: launch flags, excluded flags, preferences, binaries, and profile reuse (persistProfile).
 - Precedence when composing options: browser._ → commands._ → CLI flags. CLI flags always win over config defaults.
+- Browser key aliases when resolving `browser.*` from `extension.config.*`:
+  - When the runtime asks for `chromium`, `loadBrowserConfig` prefers `browser.chromium` and then falls back to `browser['chromium-based']`.
+  - When the runtime asks for `chromium-based`, it prefers `browser['chromium-based']` and then `browser.chromium`.
+  - When the runtime asks for `firefox`, it prefers `browser.firefox` and then `browser['gecko-based']`.
+  - When the runtime asks for `gecko-based`, it prefers `browser['gecko-based']` and then `browser.firefox`.
 - When detected, a one‑time notice is printed to indicate config is active.
 
 ### Environment variables in `extension.config.*`

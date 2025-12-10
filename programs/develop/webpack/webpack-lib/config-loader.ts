@@ -223,8 +223,29 @@ export async function loadBrowserConfig(
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
-        if (userConfig && userConfig.browser && userConfig.browser[browser]) {
-          return userConfig.browser[browser]
+        if (userConfig && userConfig.browser) {
+          // Support both engine-based and normalized browser keys in user config.
+          // Example mappings:
+          //  - runtime did ask for 'chromium'? Prefer 'chromium', then 'chromium-based'
+          //  - runtime did ask for 'chromium-based'? Prefer 'chromium-based', then 'chromium'
+          //  - runtime did ask for 'firefox'? Prefer 'firefox', then 'gecko-based'
+          //  - runtime did ask for 'gecko-based'? Prefer 'gecko-based', then 'firefox'
+          const candidates: DevOptions['browser'][] = [browser]
+
+          if (browser === 'chromium') {
+            candidates.push('chromium-based')
+          } else if (browser === 'chromium-based') {
+            candidates.push('chromium')
+          } else if (browser === 'firefox') {
+            candidates.push('gecko-based')
+          } else if (browser === 'gecko-based') {
+            candidates.push('firefox')
+          }
+
+          for (const key of candidates) {
+            const cfg = userConfig.browser[key]
+            if (cfg) return cfg
+          }
         }
       } catch (err: unknown) {
         const error = err as Error
