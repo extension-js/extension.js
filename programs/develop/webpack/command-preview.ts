@@ -79,31 +79,32 @@ export async function extensionPreview(
     // Ignore
   }
 
+  // Helper to avoid overriding file-config values with undefined from CLI/options
+  const sanitize = <T extends Record<string, any>>(obj: T): Partial<T> =>
+    Object.fromEntries(
+      Object.entries(obj || {}).filter(([, v]) => typeof v !== 'undefined')
+    ) as Partial<T>
+
   try {
-    const commandConfig = await loadCommandConfig(manifestDir, 'preview')
-    const browserConfig = await loadBrowserConfig(manifestDir, browser)
+    // Load command + browser defaults from the project root (package.json dir)
+    const commandConfig = await loadCommandConfig(packageJsonDir, 'preview')
+    const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
 
     console.log(messages.previewing(browser))
 
+    const safeBrowserConfig = sanitize(browserConfig)
+    const safeCommandConfig = sanitize(commandConfig)
+    const safePreviewOptions = sanitize(previewOptions as Record<string, any>)
+
     const baseConfig: Configuration = webpackConfig(projectStructure, {
-      ...browserConfig,
-      ...commandConfig,
+      ...safeBrowserConfig,
+      ...safeCommandConfig,
+      ...safePreviewOptions,
       mode: 'production',
-      profile: previewOptions.profile,
       browser,
-      chromiumBinary: previewOptions.chromiumBinary,
-      geckoBinary: previewOptions.geckoBinary || previewOptions.firefoxBinary,
-      startingUrl: previewOptions.startingUrl,
-      port: previewOptions.port,
-      source: previewOptions.source,
-      watchSource: previewOptions.watchSource,
-      logLevel: previewOptions.logLevel,
-      logContexts: previewOptions.logContexts,
-      logFormat: previewOptions.logFormat,
-      logTimestamps: previewOptions.logTimestamps,
-      logColor: previewOptions.logColor,
-      logUrl: previewOptions.logUrl,
-      logTab: previewOptions.logTab,
+      // Normalize Gecko binary hints for engine-based behavior
+      geckoBinary:
+        safePreviewOptions.geckoBinary || safePreviewOptions.firefoxBinary,
       // For preview, we only want to run the browser with the outputPath.
       output: {
         clean: false,
