@@ -11,8 +11,6 @@
     "./dist",
     "./**/__spec__/**",
     "./__spec__/**",
-    "./**/*.spec.ts",
-    "./webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/_webpack-target-webextension/**",
-    "./webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/webpack-target-webextension-fork/**"
+    "./**/*.spec.ts"
   ]
 }

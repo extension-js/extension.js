@@ -224,27 +224,26 @@ export async function loadBrowserConfig(
       try {
         const userConfig = await loadConfigFile(configPath)
         if (userConfig && userConfig.browser) {
-          // Support both engine-based and normalized browser keys in user config.
-          // Example mappings:
-          //  - runtime did ask for 'chromium'? Prefer 'chromium', then 'chromium-based'
-          //  - runtime did ask for 'chromium-based'? Prefer 'chromium-based', then 'chromium'
-          //  - runtime did ask for 'firefox'? Prefer 'firefox', then 'gecko-based'
-          //  - runtime did ask for 'gecko-based'? Prefer 'gecko-based', then 'firefox'
-          const candidates: DevOptions['browser'][] = [browser]
+          const browsers = userConfig.browser as Record<string, BrowserConfig>
 
-          if (browser === 'chromium') {
-            candidates.push('chromium-based')
-          } else if (browser === 'chromium-based') {
-            candidates.push('chromium')
-          } else if (browser === 'firefox') {
-            candidates.push('gecko-based')
+          // Semantics:
+          // - 'chromium' == managed Chromium (system or Puppeteer cache).
+          //   It should NOT automatically adopt engine-based configs that
+          //   expect an explicit binary path.
+          // - 'chromium-based' == engine-based; requires a working chromiumBinary.
+          //   It may fall back to 'chromium' for shared config when missing.
+          // - Similarly for 'firefox' vs 'gecko-based'.
+          if (browser === 'chromium-based') {
+            // Prefer explicit engine-based config, then fall back to generic Chromium.
+            if (browsers['chromium-based']) return browsers['chromium-based']
+            if (browsers.chromium) return browsers.chromium
           } else if (browser === 'gecko-based') {
-            candidates.push('firefox')
-          }
-
-          for (const key of candidates) {
-            const cfg = userConfig.browser[key]
-            if (cfg) return cfg
+            // Prefer explicit engine-based config, then fall back to Firefox.
+            if (browsers['gecko-based']) return browsers['gecko-based']
+            if (browsers.firefox) return browsers.firefox
+          } else {
+            const direct = browsers[browser]
+            if (direct) return direct
           }
         }
       } catch (err: unknown) {
