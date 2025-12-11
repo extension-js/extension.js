@@ -33,7 +33,7 @@ function errorDetail(error: unknown) {
 }
 
 export function capitalizedBrowserName(browser: Browser) {
-  return colors.yellow(`${browser.charAt(0).toUpperCase() + browser.slice(1)}`)
+  return `${browser.charAt(0).toUpperCase() + browser.slice(1)}`
 }
 
 export function creatingUserProfile(profilePath: string) {

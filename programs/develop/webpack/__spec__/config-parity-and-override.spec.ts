@@ -79,14 +79,18 @@ describe('extension.config object-merge and command/browser defaults', () => {
       persistProfile: true
     })
 
-    // Normalized Chromium engine should pick up the chromium-based section
-    const chromiumCfg = await loadBrowserConfig(dir, 'chromium')
-    expect(chromiumCfg).toMatchObject({
+    // Engine-based selection should use the chromium-based section,
+    // while managed Chromium ('chromium') remains independent.
+    const chromiumBasedCfg = await loadBrowserConfig(dir, 'chromium-based')
+    expect(chromiumBasedCfg).toMatchObject({
       browser: 'chromium-based',
       browserFlags: ['--foo'],
       preferences: {b: 2},
       persistProfile: true,
       profile: './dist/chromium-profile'
     })
+
+    const chromiumCfg = await loadBrowserConfig(dir, 'chromium')
+    expect(chromiumCfg).toMatchObject({browser: 'chromium'})
   })
 })
