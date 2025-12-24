@@ -46,7 +46,10 @@ export default function webpackConfig(
   )
 
   const extensionsToLoad = computeExtensionsToLoad(
-    __dirname,
+    // IMPORTANT: __dirname changes after publishing (compiled output lives in dist/).
+    // Always anchor relative paths at the @programs/develop package root to keep
+    // companion extensions (devtools/theme) stable across monorepo + published builds.
+    path.resolve(__dirname, '..'),
     devOptions.mode,
     devOptions.browser,
     userExtensionOutputPath

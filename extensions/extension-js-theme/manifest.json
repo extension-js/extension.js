@@ -10,34 +10,16 @@
       "frame_inactive": [49, 49, 53],
       "toolbar": [25, 25, 26],
       "tab_background_text": [255, 255, 255],
-      "tab_text": [25, 25, 26],
+      "tab_text": [255, 255, 255],
       "tab_background_text_inactive": [62, 62, 66],
-      "tab_text_inactive": [101, 101, 108],
+      "tab_text_inactive": [255, 255, 255],
       "bookmark_text": [153, 153, 159],
       "ntp_background": [179, 179, 183],
       "ntp_text": [37, 37, 39],
       "button_background": [28, 28, 30]
-    }
-  },
-  "firefox:theme": {
-    "colors": {
-      "frame": [37, 37, 39],
-      "frame_inactive": [49, 49, 53],
-      "toolbar": [25, 25, 26],
-      "tab_background_text": [255, 255, 255],
-      "tab_text": [25, 25, 26],
-      "tab_background_text_inactive": [62, 62, 66],
-      "tab_text_inactive": [101, 101, 108],
-      "bookmark_text": [153, 153, 159],
-      "ntp_background": [179, 179, 183],
-      "ntp_text": [37, 37, 39],
-      "button_background": [28, 28, 30],
-      "toolbar_field": [42, 44, 49],
-      "toolbar_field_text": [237, 238, 240]
     },
-    "properties": {
-      "ntp_background_alignment": "center",
-      "ntp_background_repeat": "no-repeat"
+    "images": {
+      "theme_ntp_attribution": "images/ntp_attribution.png"
     }
   }
 }
