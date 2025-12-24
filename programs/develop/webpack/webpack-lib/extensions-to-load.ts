@@ -10,10 +10,15 @@ export function computeExtensionsToLoad(
 ): string[] {
   const list: string[] = []
   try {
-    // Dist roots mirrored by programs/develop build pipeline
+    // baseDir is expected to be the @programs/develop package root.
+    // This must be stable across:
+    // - monorepo source execution (webpack/ lives under package root)
+    // - published execution (compiled JS lives under dist/)
+    // Dist roots are mirrored by programs/develop build pipeline.
     const engine = devtoolsEngineFor(browser as any)
-    const devtoolsRoot = path.resolve(baseDir, '../dist/extension-js-devtools')
-    const themeRoot = path.resolve(baseDir, '../dist/extension-js-theme')
+    const distRoot = path.resolve(baseDir, 'dist')
+    const devtoolsRoot = path.join(distRoot, 'extension-js-devtools')
+    const themeRoot = path.join(distRoot, 'extension-js-theme')
 
     const devtoolsForBrowser = path.join(devtoolsRoot, engine)
     const themeForBrowser = path.join(themeRoot, engine)
