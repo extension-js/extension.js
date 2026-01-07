@@ -476,7 +476,9 @@ describe('generateManifestPatches', () => {
         updateAsset: vi.fn(),
         emitAsset: vi.fn(),
         fileDependencies: new Set(),
-        options: {mode: 'development'},
+        // Public-root warnings are intentionally emitted in production only to
+        // avoid noise in dev mode (dev server will surface runtime 404s).
+        options: {mode: 'production'},
         warnings: []
       }
 

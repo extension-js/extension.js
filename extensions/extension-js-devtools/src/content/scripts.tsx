@@ -4,7 +4,7 @@
 // and prevents conflicts with the host page's styles.
 // See https://extension.js.org/docs/content-scripts#use-shadow-dom
 import ReactDOM from 'react-dom/client'
-import {setupLoggerClient} from '@/scripts/logger-client'
+import {setupLoggerClient} from '../../scripts/logger-client'
 import ContentApp from './ContentApp'
 
 import '../../styles.css'

@@ -14,11 +14,11 @@
 <img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="15.5%" />
 
 - [Create A New Extension](#create-a-new-extension) — How to create a new extension.
-- [Get Started Immediately](#get-started-immediately) — Get work done in no time.
+- [Get started](#get-started-immediately) — Start from a working baseline.
 - [Start From An Example](https://github.com/extension-js/extension.js/tree/main/examples) — Start with your favorite tool.
 - [I have An Extension](#i-have-an-extension) — Use only specific parts of Extension.js.
 
-Extension.js makes it very easy to develop cross-browser extensions.<br />Developers prefer it for its fast builds, unified interface, and zero configuration setup.
+Extension.js helps you build and run cross-browser extensions.<br />Developers prefer it for its quick builds, a unified workflow, and a minimal setup.
 
 ## Create A New Extension
 
@@ -46,7 +46,7 @@ https://github.com/cezaraugusto/extension/assets/4672033/7263d368-99c4-434f-a60a
 
 </div>
 
-## Get Started Immediately
+## Get started
 
 Start developing an extension using a sample from Chrome Extension Samples
 
@@ -133,7 +133,7 @@ npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacO
 <div align="center">
   <p>
     <span style="font-size:21px; color:black;">Browser testing via</span><br>
-    <a href="https://www.lambdatest.com/?utm_source=extensionjs&utm_medium=sponsor" target="_blank">
+    <a href="https://www.lambdatest.com/?utm_source=extensionjs&utm_medium=sponsor" target="_blank" rel="noopener noreferrer">
       <img src="https://www.lambdatest.com/blue-logo.png" width="250" height="45" alt="LambdaTest Logo" />
     </a>
   </p>
