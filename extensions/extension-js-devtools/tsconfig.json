@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
     "allowJs": true,
+    "allowArbitraryExtensions": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
     "lib": ["dom", "dom.iterable", "esnext"],
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "module": "esnext",
     "noEmit": true,
     "resolveJsonModule": true,

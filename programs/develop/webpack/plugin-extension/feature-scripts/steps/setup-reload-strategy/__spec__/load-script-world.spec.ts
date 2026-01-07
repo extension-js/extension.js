@@ -28,7 +28,10 @@ const makeWebpackStub = () => {
 
   class StubRuntimeModule {
     static STAGE_BASIC = 0
-    constructor(public name: string, public stage: number) {}
+    constructor(
+      public name: string,
+      public stage: number
+    ) {}
   }
 
   const webpack: any = {
@@ -77,7 +80,7 @@ describe('LoadScriptRuntimeModule world-aware loader selection', () => {
 
     // MAIN world: should not emit classic loader branch for non-worker content.
     expect(code).toContain('const scriptLoader')
-    expect(code).toContain('location.protocol.includes(\'-extension:\')')
+    expect(code).toContain("location.protocol.includes('-extension:')")
     expect(code).toContain(
       'else if (!isWorker) __webpack_require__.l = scriptLoader;'
     )
@@ -99,7 +102,7 @@ describe('LoadScriptRuntimeModule world-aware loader selection', () => {
     // Extension world: retain classic loader branch when runtime is available,
     // with DOM loader as fallback when no runtime is detected.
     expect(code).toContain(
-      'else if (!isWorker && hasExtensionRuntime) classicLoader'
+      'else if (!isWorker && hasExtensionRuntime) __webpack_require__.l = classicLoader;'
     )
     expect(code).toContain(
       'else if (!isWorker) __webpack_require__.l = scriptLoader;'
@@ -111,9 +114,7 @@ describe('LoadScriptRuntimeModule world-aware loader selection', () => {
 
     // Without explicit metadata, behavior should match extension world.
     expect(code).toContain(
-      'else if (!isWorker && hasExtensionRuntime) classicLoader'
+      'else if (!isWorker && hasExtensionRuntime) __webpack_require__.l = classicLoader;'
     )
   })
-}
-
-
+})
