@@ -7,7 +7,7 @@
 
 > JavaScript-based extension template.
 
-Lightweight starter for browser extensions. Instant dev server, production builds, and previews that match the browser environment. Start simple, scale when needed.
+Lightweight starter for browser extensions. Quick dev server, production builds, and browser previews that match the browser environment.
 
 ## Installation
 
@@ -45,4 +45,4 @@ npm run preview
 
 ## Learn more
 
-Learn more about creating cross-browser extensions at https://extension.js.org
+Learn more in the [Extension.js docs](https://extension.js.org).
