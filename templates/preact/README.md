@@ -7,7 +7,7 @@
 
 > Preact-based extension with minimal footprint.
 
-Ultra-light UI with Preact. Instant dev server, production-grade builds, and previews that mirror the browser. Minimal footprint, maximum speed.
+Lightweight UI with Preact. Quick dev server, production builds, and browser previews that mirror the browser environment.
 
 ## Installation
 
@@ -45,4 +45,4 @@ npm run preview
 
 ## Learn more
 
-Learn more about creating cross-browser extensions at https://extension.js.org
+Learn more in the [Extension.js docs](https://extension.js.org).
