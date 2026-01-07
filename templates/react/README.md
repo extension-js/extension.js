@@ -7,7 +7,7 @@
 
 > React-based extension with a content UI.
 
-Build a fast, modern extension UI with React. Live reload, optimized builds, and previews tuned for browser extensions.
+Build a React-based extension UI with live reload, production builds, and browser previews.
 
 ## Installation
 
@@ -45,4 +45,4 @@ npm run preview
 
 ## Learn more
 
-Learn more about creating cross-browser extensions at https://extension.js.org
+Learn more in the [Extension.js docs](https://extension.js.org).

@@ -45,4 +45,4 @@ npm run preview
 
 ## Learn more
 
-Learn more about creating cross-browser extensions at https://extension.js.org
+Learn more in the [Extension.js docs](https://extension.js.org).

@@ -7,7 +7,7 @@
 
 > Type-safe extension template with TypeScript.
 
-Type-first foundation for content and background logic. Fast builds and accurate previews—no boilerplate required.
+Type-first foundation for content and background logic. Fast builds and accurate previews, with minimal boilerplate.
 
 ## Installation
 
@@ -45,4 +45,4 @@ npm run preview
 
 ## Learn more
 
-Learn more about creating cross-browser extensions at https://extension.js.org
+Learn more in the [Extension.js docs](https://extension.js.org).
