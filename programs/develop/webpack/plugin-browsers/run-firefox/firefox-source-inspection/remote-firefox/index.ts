@@ -33,7 +33,12 @@ export class RemoteFirefox {
   private lastInstalledAddonPath: string | undefined
   private derivedExtensionId: string | undefined
 
-  constructor(configOptions: PluginInterface) {
+  constructor(
+    configOptions: PluginInterface & {
+      extensionsToLoad?: string[]
+      browserVersionLine?: string
+    }
+  ) {
     this.options = configOptions
   }
 
