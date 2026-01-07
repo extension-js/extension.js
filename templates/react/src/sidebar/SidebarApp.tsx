@@ -13,14 +13,14 @@ export default function SidebarApp() {
         />
         <h1 className="sidebar_title">Sidebar Panel</h1>
         <p className="sidebar_description">
-          Learn more about creating cross-browser extensions at{' '}
+          Learn more in the{' '}
           <a
             href="https://extension.js.org"
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200"
           >
-            https://extension.js.org
+            Extension.js docs
           </a>
           .
         </p>
