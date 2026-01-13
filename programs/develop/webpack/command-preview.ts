@@ -25,10 +25,15 @@ import {
 } from './webpack-lib/paths'
 import type {PreviewOptions} from './webpack-types'
 import {BrowsersPlugin} from './plugin-browsers'
-import chromiumLocation from 'chromium-location'
+import {createRequire} from 'module'
 import * as chromeLocation from 'chrome-location2'
 import edgeLocation from 'edge-location'
 import firefoxLocation from 'firefox-location2'
+
+// chromium-location's ESM entry currently triggers:
+// "Export 'getChromiumVersion' is not defined in module" under Node/Vitest.
+// Load it via its exported CJS entry instead (package "exports"."require").
+const chromiumLocation = createRequire(import.meta.url)('chromium-location') as any
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
