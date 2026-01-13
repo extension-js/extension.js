@@ -1,7 +1,6 @@
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
-import WebExtension from 'webpack-target-webextension'
-import {createRequire} from 'node:module'
+import WebExtension from './webpack-target-webextension-fork'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
 import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
@@ -10,21 +9,6 @@ import type {
   PluginInterface,
   DevOptions
 } from '../../../../webpack-types'
-
-const requireForEsm = createRequire(import.meta.url)
-
-function tryLoadWebExtensionFork():
-  | (new (args: any) => {apply: (compiler: any) => void})
-  | null {
-  try {
-    // prefer local fork when present (not shipped in CI)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = requireForEsm('./webpack-target-webextension-fork')
-    return (mod && (mod.default || mod)) as any
-  } catch {
-    return null
-  }
-}
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string
@@ -77,6 +61,49 @@ export class SetupReloadStrategy {
     )
     const patchedManifest = filterKeysForThisBrowser(manifest, this.browser)
 
+    // Build metadata for content scripts so the chunk loader runtime can be
+    // world-aware (MAIN vs isolated) and can route MAIN-world chunk loading
+    // through an isolated bridge.
+    const contentScriptsMeta: Record<string, any> = {}
+    try {
+      const csList: any[] = Array.isArray(patchedManifest.content_scripts)
+        ? (patchedManifest.content_scripts as any[])
+        : []
+      const originalCount = csList.length
+      let bridgeOrdinal = 0
+      for (let i = 0; i < csList.length; i++) {
+        const cs = csList[i]
+        const bundleId = `content_scripts/content-${i}.js`
+        const isMain = cs?.world === 'MAIN'
+        if (isMain) {
+          const bridgeIndex = originalCount + bridgeOrdinal++
+          contentScriptsMeta[bundleId] = {
+            index: i,
+            bundleId,
+            world: 'main',
+            bridgeBundleId: `content_scripts/content-${bridgeIndex}.js`
+          }
+          // also describe the bridge bundle
+          const bridgeBundleId = `content_scripts/content-${bridgeIndex}.js`
+          contentScriptsMeta[bridgeBundleId] = {
+            index: bridgeIndex,
+            bundleId: bridgeBundleId,
+            world: 'extension',
+            role: 'main_world_bridge',
+            mainBundleId: bundleId
+          }
+        } else {
+          contentScriptsMeta[bundleId] = {
+            index: i,
+            bundleId,
+            world: 'extension'
+          }
+        }
+      }
+    } catch {
+      // ignore – safe defaults in runtime
+    }
+
     // 1 - Apply the manifest defaults needed
     // for webpack-target-webextension to work correctly
     new ApplyManifestDevDefaults({
@@ -90,23 +117,11 @@ export class SetupReloadStrategy {
       browser: this.browser
     }).apply(compiler)
 
-    // 4 - Now that we know the background exists, add the web extension target
-    // using it. This is our core upstream plugin.
-    const wantFork = process.env.EXTENSION_EXPERIMENTAL_HMR === 'true'
-
-    if (wantFork) {
-      const Fork = tryLoadWebExtensionFork()
-      const PluginCtor = Fork || (WebExtension as any)
-      new PluginCtor({
-        background: this.getEntryName(patchedManifest),
-        weakRuntimeCheck: true
-      }).apply(compiler as any)
-      return
-    }
-
+    // 4 - Now that we know the background exists, add the web extension target.
     new WebExtension({
       background: this.getEntryName(patchedManifest),
-      weakRuntimeCheck: true
+      weakRuntimeCheck: true,
+      contentScriptsMeta
     }).apply(compiler as any)
   }
 }
