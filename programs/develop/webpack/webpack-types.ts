@@ -71,6 +71,7 @@ export interface JsFramework {
 }
 
 import {Configuration} from '@rspack/core'
+import type {CompanionExtensionsConfig} from './webpack-lib/companion-extensions'
 
 export type BrowserType =
   | 'chrome'
@@ -240,6 +241,12 @@ export interface CommonWebpackOptions {
   preferences?: Record<string, unknown>
   browserFlags?: string[]
   /**
+   * Companion extensions (load-only). Each entry must be an unpacked extension root
+   * containing a manifest.json. These are loaded alongside the user extension in
+   * dev/preview/start (and can also be applied to build for packaging scenarios).
+   */
+  extensions?: CompanionExtensionsConfig
+  /**
    * Internal auto-generated instance ID, not user-configurable
    */
   instanceId?: string
@@ -286,6 +293,7 @@ export interface FileConfig {
         excludeBrowserFlags?: string[]
         preferences?: Record<string, unknown>
         persistProfile?: boolean
+        extensions?: CompanionExtensionsConfig
       }
 
     start?: Pick<
@@ -310,6 +318,7 @@ export interface FileConfig {
       excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
       persistProfile?: boolean
+      extensions?: CompanionExtensionsConfig
     }
 
     preview?: Pick<
@@ -333,12 +342,20 @@ export interface FileConfig {
       excludeBrowserFlags?: string[]
       preferences?: Record<string, unknown>
       persistProfile?: boolean
+      extensions?: CompanionExtensionsConfig
     }
 
     build?: Pick<
       BuildOptions,
       'browser' | 'zipFilename' | 'zip' | 'zipSource' | 'polyfill'
-    >
+    > & {
+      extensions?: CompanionExtensionsConfig
+    }
   }
+  /**
+   * Companion extensions (load-only) applied to commands unless overridden per-command.
+   * This is merged into `commands.dev|start|preview|build` by the config loader.
+   */
+  extensions?: CompanionExtensionsConfig
   config?: (config: Configuration) => Configuration
 }

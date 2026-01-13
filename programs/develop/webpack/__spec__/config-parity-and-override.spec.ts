@@ -93,4 +93,35 @@ describe('extension.config object-merge and command/browser defaults', () => {
     const chromiumCfg = await loadBrowserConfig(dir, 'chromium')
     expect(chromiumCfg).toMatchObject({browser: 'chromium'})
   })
+
+  it('merges top-level extensions into command config and allows per-command overrides', async () => {
+    const dir = tmpDir('extjs-exts-')
+    const cfg = `export default {
+      extensions: { dir: './extensions' },
+      commands: {
+        dev: { extensions: ['./explicit-a', './explicit-b'] },
+        preview: { profile: 'user' }
+      }
+    }`
+    fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
+
+    // When command has its own extensions, it should override top-level extensions
+    const devCfg = await loadCommandConfig(dir, 'dev')
+    expect(devCfg).toMatchObject({
+      extensions: ['./explicit-a', './explicit-b']
+    })
+
+    // When command has no extensions, it should inherit top-level extensions
+    const startCfg = await loadCommandConfig(dir, 'start')
+    expect(startCfg).toMatchObject({
+      extensions: {dir: './extensions'}
+    })
+
+    // Ensure command keys still work alongside inherited extensions
+    const previewCfg = await loadCommandConfig(dir, 'preview')
+    expect(previewCfg).toMatchObject({
+      profile: 'user',
+      extensions: {dir: './extensions'}
+    })
+  })
 })
