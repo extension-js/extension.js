@@ -35,7 +35,7 @@ export default defineConfig({
       // MAIN world bridge helper (must exist on disk for manifest/script validation during builds)
       'main-world-bridge': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/main-world-bridge.ts'
+        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/main-world-bridge.js'
       ),
       'add-centralized-logger-script-background': path.resolve(
         __dirname,

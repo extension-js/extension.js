@@ -8,19 +8,17 @@
  *
  * Security notes:
  * - Only handles messages originating from the same window (event.source === window)
- * - Validates message shape and restricts to same-origin-ish relative paths (no protocols)
+ * - Validates message shape and restricts to extension URLs or relative paths
  */
 const EXTJS_MARK = '__extjs__'
 const REQ_TYPE = 'EXTJS_WTW_LOAD'
 const RES_TYPE = 'EXTJS_WTW_LOADED'
 
-// NOTE: This file is intentionally written as "plain JS" (no TypeScript-only syntax),
-// because it can be bundled as a regular script file by the extension build pipeline.
 function safeString(x) {
   return typeof x === 'string' && x.length > 0
 }
 
-function hasForbiddenProtocol(url: string) {
+function hasForbiddenProtocol(url) {
   // We only accept:
   // - extension URLs (chrome-extension://..., moz-extension://...)
   // - relative paths (no scheme)
@@ -34,17 +32,15 @@ function getRuntime() {
   // Prefer browser.* (Firefox), fallback to chrome.* (Chromium).
   // Do not throw if missing.
   try {
-    if (typeof (globalThis as any).browser === 'object')
-      return (globalThis as any).browser
+    if (typeof globalThis.browser === 'object') return globalThis.browser
   } catch {}
   try {
-    if (typeof (globalThis as any).chrome === 'object')
-      return (globalThis as any).chrome
+    if (typeof globalThis.chrome === 'object') return globalThis.chrome
   } catch {}
   return null
 }
 
-function resolveExtensionUrl(inputUrl: string): string | null {
+function resolveExtensionUrl(inputUrl) {
   if (!safeString(inputUrl)) return null
   if (hasForbiddenProtocol(inputUrl)) return null
 
@@ -56,22 +52,21 @@ function resolveExtensionUrl(inputUrl: string): string | null {
   if (typeof getURL !== 'function') return null
 
   // Normalize to extension-relative path
-  let path = inputUrl
+  let p = inputUrl
   try {
-    // If it's an absolute URL without forbidden scheme, keep as-is (handled above).
     // If it's something like "/file.js?x#y", keep only pathname.
-    if (path.startsWith('/')) {
-      path = new URL('https://example.invalid' + path).pathname
-    } else if (path.includes('?') || path.includes('#')) {
-      path = path.split('?')[0].split('#')[0]
+    if (p.startsWith('/')) {
+      p = new URL('https://example.invalid' + p).pathname
+    } else if (p.includes('?') || p.includes('#')) {
+      p = p.split('?')[0].split('#')[0]
     }
   } catch {
     // ignore parse errors, fall back to raw
   }
 
-  if (!path) return null
-  if (!path.startsWith('/')) path = '/' + path
-  return String(getURL(path))
+  if (!p) return null
+  if (!p.startsWith('/')) p = '/' + p
+  return String(getURL(p))
 }
 
 function injectScript(src) {
@@ -79,7 +74,7 @@ function injectScript(src) {
     const el = document.createElement('script')
     el.src = src
     // Preserve execution order as much as possible
-    ;(el as any).async = false
+    el.async = false
     el.onload = () => {
       try {
         el.remove()
@@ -143,3 +138,5 @@ window.addEventListener('message', (event) => {
       })
     })
 })
+
+
