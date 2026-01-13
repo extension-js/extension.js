@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import {spawn, execFileSync} from 'child_process'
 import type {Compilation, Compiler} from '@rspack/core'
 import * as chromeLocation from 'chrome-location2'
-import chromiumLocation from 'chromium-location'
+import {createRequire} from 'module'
 import edgeLocation from 'edge-location'
 import * as messages from '../../browsers-lib/messages'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
@@ -22,6 +22,9 @@ import type {
   ChromiumPluginRuntime
 } from '../chromium-types'
 import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
+
+// See note in `programs/develop/webpack/command-preview.ts` for why we load via CJS.
+const chromiumLocation = createRequire(import.meta.url)('chromium-location') as any
 
 /**
  * ChromiumLaunchPlugin
