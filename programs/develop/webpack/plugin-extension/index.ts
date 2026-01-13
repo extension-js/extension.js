@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 
 import path from 'path'
+import fs from 'fs'
 import {Compiler} from '@rspack/core'
 import {
   getManifestFieldsData,
@@ -45,6 +46,33 @@ export class ExtensionPlugin {
       browser: this.browser
     })
 
+    // MAIN world bridge: for each content script with `world: "MAIN"`, we append an
+    // isolated-world bridge content script entry so the MAIN world bundle can still
+    // load async chunks without extension globals.
+    //
+    // This must happen here (before ScriptsPlugin) because entries are derived from includeList.
+    let bridgeScripts: FilepathList = {}
+    try {
+      const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+      const contentScripts: any[] = Array.isArray(raw?.content_scripts)
+        ? raw.content_scripts
+        : []
+      const originalCount = contentScripts.length
+      const bridgeSource = path.resolve(
+        __dirname,
+        'feature-scripts/steps/setup-reload-strategy/main-world-bridge.ts'
+      )
+      let bridgeOrdinal = 0
+      for (let i = 0; i < contentScripts.length; i++) {
+        const cs = contentScripts[i]
+        if (cs?.world !== 'MAIN') continue
+        const bridgeIndex = originalCount + bridgeOrdinal++
+        bridgeScripts[`content_scripts/content-${bridgeIndex}`] = bridgeSource
+      }
+    } catch {
+      // ignore: bridge is best-effort and only needed for MAIN world users
+    }
+
     const specialFoldersData = getSpecialFoldersData({
       // Hack: Let's pretend the manifest is in the package.json file.
       // Under the hoot it will get the dirname and scan the files in the folder.
@@ -59,7 +87,8 @@ export class ExtensionPlugin {
         ...manifestFieldsData.html,
         ...(manifestFieldsData.icons as FilepathList),
         ...manifestFieldsData.json,
-        ...manifestFieldsData.scripts
+        ...manifestFieldsData.scripts,
+        ...bridgeScripts
       }
     }).apply(compiler)
 
@@ -79,6 +108,7 @@ export class ExtensionPlugin {
       browser: this.browser,
       includeList: {
         ...manifestFieldsData.scripts,
+        ...bridgeScripts,
         ...specialFoldersData.scripts
       }
     }).apply(compiler)

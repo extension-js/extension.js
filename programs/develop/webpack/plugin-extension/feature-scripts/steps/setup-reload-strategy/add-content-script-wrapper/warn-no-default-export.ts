@@ -76,7 +76,16 @@ export default function (this: LoaderContext, source: string) {
       (abs) => resourceAbsPath === path.normalize(abs)
     )
 
-    if (isDeclaredContentScript) {
+    const scriptsDir = path.resolve(projectPath, 'scripts')
+    const relToScripts = path.relative(scriptsDir, resourceAbsPath)
+    const isScriptsFolderScript =
+      relToScripts &&
+      !relToScripts.startsWith('..') &&
+      !path.isAbsolute(relToScripts)
+
+    const isContentScriptLike = isDeclaredContentScript || isScriptsFolderScript
+
+    if (isContentScriptLike) {
       // Heuristic: warn if module text does not include a default export
       // (We avoid parsing to keep loader lightweight)
       const hasDefault = /export\s+default\s+/m.test(source)

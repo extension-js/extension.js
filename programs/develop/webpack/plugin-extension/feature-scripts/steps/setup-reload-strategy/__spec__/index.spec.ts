@@ -22,7 +22,9 @@ vi.mock('../setup-background-entry', () => ({
 }))
 
 const webExtSpy = vi.fn()
-vi.mock('webpack-target-webextension', () => ({
+// SetupReloadStrategy imports a local fork (`../webpack-target-webextension-fork`),
+// so we mock that module to avoid needing a full Webpack/Rspack compiler stub here.
+vi.mock('../webpack-target-webextension-fork', () => ({
   default: vi.fn().mockImplementation(function (opts: any) {
     webExtSpy(opts)
     this.apply = vi.fn()

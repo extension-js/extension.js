@@ -31,7 +31,9 @@ export default function (source) {
     baseDataPath: 'options'
   })
 
-  // Inject wrapper only for declared content scripts
+  // Inject wrapper for:
+  // - declared manifest content scripts
+  // - special-folder scripts under /scripts (treated as content-script-like)
   const declaredContentJsAbsPaths = []
   const contentScripts = Array.isArray(manifest.content_scripts)
     ? manifest.content_scripts
@@ -49,7 +51,16 @@ export default function (source) {
     (abs) => resourceAbsPath === path.normalize(abs)
   )
 
-  if (!isDeclaredContentScript) {
+  const scriptsDir = path.resolve(projectPath, 'scripts')
+  const relToScripts = path.relative(scriptsDir, resourceAbsPath)
+  const isScriptsFolderScript =
+    relToScripts &&
+    !relToScripts.startsWith('..') &&
+    !path.isAbsolute(relToScripts)
+
+  const isContentScriptLike = isDeclaredContentScript || isScriptsFolderScript
+
+  if (!isContentScriptLike) {
     return source
   }
 
@@ -59,7 +70,7 @@ export default function (source) {
   if (!isInnerWrapperRequest) {
     if (isProd) {
       // Production: inline wrapper and call default export directly (no dynamic import/HMR)
-      if (!isDeclaredContentScript) {
+      if (!isContentScriptLike) {
         return source
       }
       if (!/\bexport\s+default\b/.test(source)) {
@@ -126,7 +137,7 @@ export default function (source) {
         `${runtimeProdInline}` +
         `${cleaned}\n` +
         `;/* __EXTENSIONJS_MOUNT_WRAPPED__ */\n` +
-        `try { __EXTENSIONJS_mount(__EXTENSIONJS_default__) } catch {}\n` +
+        `try { __EXTENSIONJS_mount(__EXTENSIONJS_default__) } catch (error) {}\n` +
         `export default __EXTENSIONJS_default__\n`
 
       return injected
@@ -138,16 +149,45 @@ export default function (source) {
 
     const proxyCode = [
       '/* extension.js content script proxy */',
+      // With devServer.hot=true, the dev-server client can fall back to liveReload
+      // when HMR can't apply updates (common right after syntax errors).
+      // In content script contexts (http/https pages) that becomes an infinite reload loop.
+      //
+      // NOTE: The infinite reload loop is triggered by the HMR runtime (`hot/dev-server`)
+      // calling `window.location.reload()` when updates can't be applied (common after syntax errors).
+      // In browsers, `location.reload` is generally non-writable, but the prototype method can be patched.
+      // This is dev-only and only for non-extension pages, to avoid breaking extension pages behavior.
+      'try {',
+      "  if (typeof location === 'object' && location && !String(location.protocol || '').includes('-extension:')) {",
+      "    var __extjsProto = (typeof Object === 'function' && Object.getPrototypeOf) ? Object.getPrototypeOf(location) : null;",
+      "    if (__extjsProto && typeof __extjsProto.reload === 'function' && !__extjsProto.__extjsReloadPatched) {",
+      '      __extjsProto.__extjsReloadPatched = true;',
+      '      __extjsProto.__extjsOrigReload = __extjsProto.reload;',
+      '      __extjsProto.reload = function(){',
+      "        try { console.warn('[extension.js] blocked HMR-triggered location.reload() in content script context to prevent infinite reload loop. Fix the syntax error and HMR will recover on next successful compile.'); } catch (error) {}",
+      '      };',
+      '    }',
+      '  }',
+      '} catch (error) {',
+      '  // Do nothing',
+      '}',
       'function loadInnerWrappedModule(){',
       `  try { import(/* webpackMode: "eager" */ ${innerSpecifier}).catch(function(e){ console.warn('[extension.js] content script failed to load. waiting for next successful compile', e) }) } catch (e) { console.warn('[extension.js] content script failed to load. waiting for next successful compile', e) }`,
       '}',
       'loadInnerWrappedModule()',
-      'if (import.meta.webpackHot) {',
-      '  const hot = (import.meta).webpackHot',
-      '  if (typeof hot.accept === "function") hot.accept(() => { loadInnerWrappedModule() })',
-      '  if (typeof hot.addStatusHandler === "function") hot.addStatusHandler((s) => { if (s === "apply" || s === "idle") loadInnerWrappedModule() })',
-      '}',
-      'export {}\n'
+      // NOTE: This proxy module may be parsed as classic script (non-ESM) depending on bundler settings.
+      // Avoid `import.meta` and `export {}` here; use `module.hot` to integrate with HMR in script mode.
+      'try {',
+      '  var hotModuleReplacement = (typeof module !== "undefined" && module && module.hot) ? module.hot : null;',
+      '  if (hotModuleReplacement) {',
+      '    var isExtensionJsDisposed = false;',
+      '    if (typeof hotModuleReplacement.dispose === "function") hotModuleReplacement.dispose(function(){ isExtensionJsDisposed = true });',
+      '    // Accept updates, but avoid triggering reload from inside accept callback',
+      '    // (it can run during disposal and cause "[HMR] unexpected require(...) from disposed module" warnings).',
+      '    if (typeof hotModuleReplacement.accept === "function") hotModuleReplacement.accept();',
+      '    if (typeof hotModuleReplacement.addStatusHandler === "function") hotModuleReplacement.addStatusHandler(function(status){ if (isExtensionJsDisposed) return; if (status === "idle") loadInnerWrappedModule(); });',
+      '  }',
+      '} catch (error) {}'
     ].join('\n')
     return proxyCode
   }
@@ -260,16 +300,16 @@ export default function (source) {
           (s) =>
             `import.meta.webpackHot.accept(${JSON.stringify(
               s
-            )}, () => { try { window.dispatchEvent(new CustomEvent('__EXTENSIONJS_CSS_UPDATE__')) } catch {} })`
+            )}, () => { try { window.dispatchEvent(new CustomEvent('__EXTENSIONJS_CSS_UPDATE__')) } catch (error) {} })`
         )
-        .join('\n    ')}\n  }\n} catch {}\n`
+        .join('\n    ')}\n  }\n} catch (error) {}\n`
     : ''
 
   const injected =
     `${runtimeInline}` +
     `${cleaned}\n` +
     `;/* __EXTENSIONJS_MOUNT_WRAPPED__ */\n` +
-    `try { __EXTENSIONJS_mountWithHMR(__EXTENSIONJS_default__) } catch {}\n` +
+    `try { __EXTENSIONJS_mountWithHMR(__EXTENSIONJS_default__) } catch (error) {}\n` +
     `${cssAccepts}` +
     `export default __EXTENSIONJS_default__\n`
 
