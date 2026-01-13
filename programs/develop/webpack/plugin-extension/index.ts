@@ -58,10 +58,24 @@ export class ExtensionPlugin {
         ? raw.content_scripts
         : []
       const originalCount = contentScripts.length
-      const bridgeSource = path.resolve(
-        __dirname,
-        'feature-scripts/steps/setup-reload-strategy/main-world-bridge.ts'
-      )
+      const bridgeSourceCandidates = [
+        // Source tree (vitest/dev in-repo)
+        path.resolve(
+          __dirname,
+          'feature-scripts/steps/setup-reload-strategy/main-world-bridge.ts'
+        ),
+        // Monorepo runtime fallback: when executing built `dist/module.js` without regenerating
+        // `dist/main-world-bridge.js`, the source file still exists one level up.
+        path.resolve(
+          __dirname,
+          '../webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/main-world-bridge.ts'
+        ),
+        // Built package (dist) – emitted by rslib as `dist/main-world-bridge.js`
+        path.resolve(__dirname, 'main-world-bridge.js')
+      ]
+      const bridgeSource =
+        bridgeSourceCandidates.find((p) => fs.existsSync(p)) ||
+        bridgeSourceCandidates[0]
       let bridgeOrdinal = 0
       for (let i = 0; i < contentScripts.length; i++) {
         const cs = contentScripts[i]
