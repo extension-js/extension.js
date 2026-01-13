@@ -62,7 +62,7 @@ export function contentScripts(manifest: Manifest) {
       js: [
         getFilename(
           `content_scripts/content-${bridgeIndex}.js`,
-          'main-world-bridge.ts'
+          'main-world-bridge.js'
         )
       ],
       css: []

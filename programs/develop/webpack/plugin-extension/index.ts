@@ -62,13 +62,13 @@ export class ExtensionPlugin {
         // Source tree (vitest/dev in-repo)
         path.resolve(
           __dirname,
-          'feature-scripts/steps/setup-reload-strategy/main-world-bridge.ts'
+          'feature-scripts/steps/setup-reload-strategy/main-world-bridge.js'
         ),
         // Monorepo runtime fallback: when executing built `dist/module.js` without regenerating
         // `dist/main-world-bridge.js`, the source file still exists one level up.
         path.resolve(
           __dirname,
-          '../webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/main-world-bridge.ts'
+          '../webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/main-world-bridge.js'
         ),
         // Built package (dist) – emitted by rslib as `dist/main-world-bridge.js`
         path.resolve(__dirname, 'main-world-bridge.js')
