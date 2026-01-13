@@ -10,7 +10,10 @@ vi.mock('fs', async (orig) => {
 })
 vi.mock('chrome-location2', () => ({default: () => '/Applications/Chrome.app'}))
 vi.mock('chromium-location', () => ({
-  default: () => '/Applications/Chromium.app'
+  default: () => '/Applications/Chromium.app',
+  getInstallGuidance: () => 'npx @puppeteer/browsers install chromium',
+  getChromiumVersion: () => 'Chromium 0',
+  locateChromiumOrExplain: () => '/Applications/Chromium.app'
 }))
 vi.mock('edge-location', () => ({default: () => '/Applications/Edge.app'}))
 
