@@ -38,6 +38,9 @@
   "version": "3.0.0-next.59",
   "description": "Create cross-browser extensions with no build configuration.",
   "homepage": "https://extension.js.org/",
+  "bugs": {
+    "url": "https://github.com/extension-js/extension.js/issues"
+  },
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
