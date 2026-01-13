@@ -28,6 +28,7 @@ export function registerTemplateTests({
   const pathToExtension = expectedOutDir
   const t = extensionFixtures(pathToExtension, false)
   const displayName = path.basename(exampleDir)
+  const hasSidebar = fs.existsSync(path.join(dir, 'src', 'sidebar'))
 
   // Chromium-only: extension loading uses Chromium persistent context
   t.skip(
@@ -74,20 +75,22 @@ export function registerTemplateTests({
       await assertBackgroundServiceWorkerActive(context)
     })
 
-    t(
-      'sidebar page renders with title and image',
-      async ({page, extensionId}) => {
-        await assertSidebarPageRenders(page, extensionId)
-      }
-    )
+    if (hasSidebar) {
+      t(
+        'sidebar page renders with title and image',
+        async ({page, extensionId}) => {
+          await assertSidebarPageRenders(page, extensionId)
+        }
+      )
 
-    t('sidebar assets built', async () => {
-      const fs = await import('fs')
-      const htmlPath = path.join(pathToExtension, 'sidebar', 'index.html')
-      expect(
-        fs.existsSync(htmlPath),
-        `sidebar not found at ${htmlPath}; built path: ${pathToExtension}`
-      ).toBeTruthy()
-    })
+      t('sidebar assets built', async () => {
+        const fs = await import('fs')
+        const htmlPath = path.join(pathToExtension, 'sidebar', 'index.html')
+        expect(
+          fs.existsSync(htmlPath),
+          `sidebar not found at ${htmlPath}; built path: ${pathToExtension}`
+        ).toBeTruthy()
+      })
+    }
   })
 }
