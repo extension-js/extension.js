@@ -1,7 +1,7 @@
 import colors from 'pintor'
 import * as path from 'path'
 import * as fs from 'fs'
-import chromiumLocation from 'chromium-location'
+import {createRequire} from 'module'
 import * as chromeLocation from 'chrome-location2'
 import edgeLocation from 'edge-location'
 import firefoxLocation from 'firefox-location2'
@@ -9,6 +9,10 @@ import type {DevOptions} from '../../webpack-types'
 
 type Browser = NonNullable<DevOptions['browser']>
 type Mode = DevOptions['mode']
+
+// See note in `programs/develop/webpack/command-preview.ts` for why we load via CJS.
+const require = createRequire(import.meta.url)
+const chromiumLocation = require('chromium-location') as any
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
@@ -402,7 +406,6 @@ export function prettyPuppeteerInstallGuidance(
       const b = String(browser || '').toLowerCase()
       if (b === 'chromium' || b === 'chromium-based') {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
           const loc = require('chromium-location')
           const txt =
             typeof loc?.getInstallGuidance === 'function'
