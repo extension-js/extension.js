@@ -6,7 +6,8 @@ export function computeExtensionsToLoad(
   baseDir: string,
   mode: 'development' | 'production' | 'none' | string | undefined,
   browser: string,
-  userExtensionOutputPath: string
+  userExtensionOutputPath: string,
+  extraExtensionDirs: string[] = []
 ): string[] {
   const list: string[] = []
   try {
@@ -35,6 +36,9 @@ export function computeExtensionsToLoad(
   } catch {
     // ignore
   }
+
+  // Add companion extensions (load-only) before the user extension.
+  for (const p of extraExtensionDirs) list.push(p)
 
   // Always load the user extension last to give it precedence on conflicts
   list.push(userExtensionOutputPath)

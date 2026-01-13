@@ -15,6 +15,7 @@ import {asAbsolute, getDirs} from './webpack-lib/paths'
 import {withDarkMode} from './webpack-lib/dark-mode'
 import * as messages from './webpack-lib/messages'
 import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
+import {resolveCompanionExtensionDirs} from './webpack-lib/companion-extensions'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -39,20 +40,28 @@ export default function webpackConfig(
     JSON.parse(fs.readFileSync(manifestPath, 'utf-8')),
     devOptions.browser
   )
-  const userExtensionOutputPath = asAbsolute(
+  // Absolute directory where the user's extension build will be written.
+  const primaryExtensionOutputDir = asAbsolute(
     path.isAbsolute(devOptions.output.path)
       ? devOptions.output.path
       : path.resolve(packageJsonDir, devOptions.output.path)
   )
 
-  const extensionsToLoad = computeExtensionsToLoad(
+  // Additional unpacked extension directories to load alongside the user's extension.
+  const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
+    projectRoot: packageJsonDir,
+    config: devOptions.extensions
+  })
+
+  const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
     // IMPORTANT: __dirname changes after publishing (compiled output lives in dist/).
     // Always anchor relative paths at the @programs/develop package root to keep
     // companion extensions (devtools/theme) stable across monorepo + published builds.
     path.resolve(__dirname, '..'),
     devOptions.mode,
     devOptions.browser,
-    userExtensionOutputPath
+    primaryExtensionOutputDir,
+    companionUnpackedExtensionDirs
   )
   const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
@@ -65,8 +74,14 @@ export default function webpackConfig(
       )
     )
     console.log(messages.debugContextPath(packageJsonDir))
-    console.log(messages.debugOutputPath(userExtensionOutputPath))
-    console.log(messages.debugExtensionsToLoad(extensionsToLoad))
+    console.log(messages.debugOutputPath(primaryExtensionOutputDir))
+    console.log(messages.debugExtensionsToLoad(unpackedExtensionDirsToLoad))
+    if (
+      typeof devOptions.extensions !== 'undefined' &&
+      companionUnpackedExtensionDirs.length === 0
+    ) {
+      console.warn(messages.noCompanionExtensionsResolved())
+    }
   }
 
   // Apply cross-browser dark mode defaults without overriding explicit user choices
@@ -90,7 +105,7 @@ export default function webpackConfig(
           : 'eval-cheap-source-map',
     output: {
       clean: devOptions.output.clean,
-      path: userExtensionOutputPath,
+      path: primaryExtensionOutputDir,
       // See https://webpack.js.org/configuration/output/#outputpublicpath
       publicPath: '/',
       hotUpdateChunkFilename: 'hot/[id].[fullhash].hot-update.js',
@@ -175,7 +190,7 @@ export default function webpackConfig(
         browser: devOptions.browser
       }),
       new BrowsersPlugin({
-        extension: extensionsToLoad,
+        extension: unpackedExtensionDirsToLoad,
         browser: devOptions.browser,
         noOpen: devOptions.noOpen,
         startingUrl: devOptions.startingUrl,
