@@ -22,11 +22,15 @@
   ],
   "name": "extension-develop",
   "version": "3.0.0-next.59",
-  "description": "The develop step of Extension.js",
+  "description": "Develop, build, preview, and package Extension.js projects.",
   "author": {
     "name": "Cezar Augusto",
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
+  },
+  "homepage": "https://github.com/extension-js/extension.js/tree/main/programs/develop#readme",
+  "bugs": {
+    "url": "https://github.com/extension-js/extension.js/issues"
   },
   "publishConfig": {
     "access": "public",

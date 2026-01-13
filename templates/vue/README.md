@@ -1,13 +1,13 @@
 [powered-image]: https://img.shields.io/badge/Powered%20by-Extension.js-0971fe
 [powered-url]: https://extension.js.org
 
-![Powered by Extension.js][powered-image]
+[![Powered by Extension.js][powered-image]][powered-url]
 
 # Vue Template
 
 > Vue.js-based extension with a content UI.
 
-Vue-first extension development. Fast feedback loop, production-ready output, and browser-accurate previews.
+Vue-based extension UI with live reload, production builds, and browser previews.
 
 ## Installation
 
