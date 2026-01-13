@@ -14,22 +14,9 @@ const EXTJS_MARK = '__extjs__'
 const REQ_TYPE = 'EXTJS_WTW_LOAD'
 const RES_TYPE = 'EXTJS_WTW_LOADED'
 
-type Req = {
-  [EXTJS_MARK]: true
-  type: typeof REQ_TYPE
-  requestId: string
-  url: string
-}
-
-type Res = {
-  [EXTJS_MARK]: true
-  type: typeof RES_TYPE
-  requestId: string
-  ok: boolean
-  error?: string
-}
-
-function safeString(x: unknown): x is string {
+// NOTE: This file is intentionally written as "plain JS" (no TypeScript-only syntax),
+// because it can be bundled as a regular script file by the extension build pipeline.
+function safeString(x) {
   return typeof x === 'string' && x.length > 0
 }
 
@@ -87,7 +74,7 @@ function resolveExtensionUrl(inputUrl: string): string | null {
   return String(getURL(path))
 }
 
-function injectScript(src: string): Promise<void> {
+function injectScript(src) {
   return new Promise((resolve, reject) => {
     const el = document.createElement('script')
     el.src = src
@@ -109,7 +96,7 @@ function injectScript(src: string): Promise<void> {
   })
 }
 
-function postResponse(res: Res) {
+function postResponse(res) {
   try {
     window.postMessage(res, '*')
   } catch {
@@ -117,9 +104,9 @@ function postResponse(res: Res) {
   }
 }
 
-window.addEventListener('message', (event: MessageEvent) => {
+window.addEventListener('message', (event) => {
   if (event.source !== window) return
-  const data = event.data as Partial<Req> | null
+  const data = event.data
   if (!data || data[EXTJS_MARK] !== true) return
   if (data.type !== REQ_TYPE) return
   if (!safeString(data.requestId) || !safeString(data.url)) return
