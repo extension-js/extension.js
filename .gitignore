@@ -72,6 +72,10 @@ specs/
 .tmp-*/
 **/.tmp-*/
 **/.tmp-*/**
+
+# vitest temp folders created by Extension.js specs (fs.mkdtempSync('tmp-extjs-...'))
+tmp-extjs-*
+**/tmp-extjs-*
 templates/wasm/
 programs/develop/webpack/plugin-extension/feature-html/html-lib/parse5-utilities
 
