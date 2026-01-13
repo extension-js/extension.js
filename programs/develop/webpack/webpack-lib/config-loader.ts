@@ -218,8 +218,19 @@ export async function loadCommandConfig(
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
         const userConfig = await loadConfigFile(configPath)
-        if (userConfig && userConfig.commands && userConfig.commands[command]) {
-          return userConfig.commands[command]
+        // Allow a top-level `extensions` key to apply to all commands, with
+        // per-command overrides via `commands.<cmd>.extensions`.
+        const baseExtensions =
+          userConfig && (userConfig as any).extensions
+            ? {extensions: (userConfig as any).extensions}
+            : {}
+        const perCommand =
+          userConfig && userConfig.commands && userConfig.commands[command]
+            ? userConfig.commands[command]
+            : {}
+        return {
+          ...baseExtensions,
+          ...perCommand
         }
       } catch (err: unknown) {
         const error = err as Error

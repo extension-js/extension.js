@@ -432,6 +432,15 @@ export function debugExtensionsToLoad(extensions: string[]) {
   return `${header}\n${list}`
 }
 
+export function noCompanionExtensionsResolved() {
+  return (
+    `${getLoggingPrefix('warn')} No companion extensions resolved from ${colors.underline('extensions')} config.\n` +
+    `${colors.gray(
+      'Ensure each companion extension is an unpacked extension directory containing a manifest.json (e.g., ./extensions/<name>/manifest.json).'
+    )}`
+  )
+}
+
 export function installingDependenciesFailed(
   gitCommand: string,
   gitArgs: string[],
