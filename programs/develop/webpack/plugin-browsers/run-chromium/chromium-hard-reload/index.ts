@@ -14,6 +14,14 @@ import type {DevOptions} from '../../../webpack-types'
 export class ChromiumHardReloadPlugin {
   private logger?: ReturnType<Compiler['getInfrastructureLogger']>
   private warnedDevMode?: boolean
+  /**
+   * Tracks the *author/source* file paths that are part of the service worker entrypoint
+   * (including transitive dependencies) from the last successful compilation.
+   *
+   * Why: `compiler.modifiedFiles` reports changed *source* paths, while the emitted
+   * `manifest.json` reports *output* (dist) paths. Comparing those directly will fail.
+   */
+  private serviceWorkerSourceDependencyPaths: Set<string> = new Set()
 
   constructor(
     private readonly options: {
@@ -42,48 +50,83 @@ export class ChromiumHardReloadPlugin {
     if (compiler.hooks?.watchRun?.tapAsync) {
       compiler.hooks.watchRun.tapAsync(
         'run-browsers:watch',
-        (compilation, done) => {
+        (compilerWithModifiedFiles, done) => {
           try {
-            const files = compilation?.modifiedFiles || new Set<string>()
-            const normalizedFilePaths = Array.from(files).map((filePath) =>
-              filePath.replace(/\\/g, '/')
+            const modifiedFiles: ReadonlySet<string> =
+              compilerWithModifiedFiles?.modifiedFiles || new Set<string>()
+            const normalizedModifiedFilePaths = Array.from(modifiedFiles).map(
+              (filePath) => String(filePath).replace(/\\/g, '/')
             )
 
-            const hitManifest = normalizedFilePaths.some((filePath) =>
+            const hitManifest = normalizedModifiedFilePaths.some((filePath) =>
               /(^|\/)manifest\.json$/i.test(filePath)
             )
-            const localeChanged = normalizedFilePaths.some((filePath) =>
+            const localeChanged = normalizedModifiedFilePaths.some((filePath) =>
               /(^|\/)__?locales\/.+\.json$/i.test(filePath)
             )
 
             let serviceWorkerChanged = false
 
-            const {
-              absolutePath: serviceWorkerAbsolutePath,
-              relativePath: serviceWorkerRelativePath
-            } = this.ctx.getServiceWorkerPaths() || {}
+            // Preferred: compare against *source* dependency paths captured from the last successful compilation.
+            // This correctly catches edits to the service worker entry *and* any imported module.
+            if (this.serviceWorkerSourceDependencyPaths.size > 0) {
+              serviceWorkerChanged = normalizedModifiedFilePaths.some(
+                (modifiedFilePath) => {
+                  if (
+                    this.serviceWorkerSourceDependencyPaths.has(
+                      modifiedFilePath
+                    )
+                  ) {
+                    return true
+                  }
 
-            if (serviceWorkerAbsolutePath) {
-              const normalizedServiceWorkerAbsolutePath =
-                serviceWorkerAbsolutePath.replace(/\\/g, '/')
-
-              serviceWorkerChanged = normalizedFilePaths.some((filePath) => {
-                const normalizedPath = filePath.replace(/\\/g, '/')
-
-                return (
-                  normalizedPath === normalizedServiceWorkerAbsolutePath ||
-                  normalizedPath.endsWith(
-                    normalizedServiceWorkerAbsolutePath
-                  ) ||
-                  (serviceWorkerRelativePath
-                    ? normalizedPath ===
-                        serviceWorkerRelativePath.replace(/\\/g, '/') ||
-                      normalizedPath.endsWith(
-                        '/' + serviceWorkerRelativePath.replace(/\\/g, '/')
+                  // Best-effort fallback for path normalization differences (symlinks, prefixes).
+                  for (const serviceWorkerSourceDependencyPath of this
+                    .serviceWorkerSourceDependencyPaths) {
+                    if (
+                      modifiedFilePath.endsWith(
+                        serviceWorkerSourceDependencyPath
                       )
-                    : false)
+                    ) {
+                      return true
+                    }
+                  }
+
+                  return false
+                }
+              )
+            } else {
+              // Fallback: old behavior based on output path from the emitted manifest.
+              // This is less reliable because it compares output paths vs source paths.
+              const {
+                absolutePath: serviceWorkerAbsolutePath,
+                relativePath: serviceWorkerRelativePath
+              } = this.ctx.getServiceWorkerPaths() || {}
+
+              if (serviceWorkerAbsolutePath) {
+                const normalizedServiceWorkerAbsolutePath =
+                  serviceWorkerAbsolutePath.replace(/\\/g, '/')
+
+                serviceWorkerChanged = normalizedModifiedFilePaths.some(
+                  (filePath) => {
+                    const normalizedPath = filePath.replace(/\\/g, '/')
+
+                    return (
+                      normalizedPath === normalizedServiceWorkerAbsolutePath ||
+                      normalizedPath.endsWith(
+                        normalizedServiceWorkerAbsolutePath
+                      ) ||
+                      (serviceWorkerRelativePath
+                        ? normalizedPath ===
+                            serviceWorkerRelativePath.replace(/\\/g, '/') ||
+                          normalizedPath.endsWith(
+                            '/' + serviceWorkerRelativePath.replace(/\\/g, '/')
+                          )
+                        : false)
+                    )
+                  }
                 )
-              })
+              }
             }
 
             if (hitManifest) {
@@ -115,7 +158,11 @@ export class ChromiumHardReloadPlugin {
         return
       }
 
+      // Refresh tracking data from the successful compilation:
+      // - output SW path (from emitted manifest asset)
+      // - source SW dependency paths (from module graph)
       this.refreshSWFromManifest(stats.compilation)
+      this.refreshServiceWorkerSourceDependencyPaths(stats.compilation)
 
       const reason = this.ctx.getPendingReloadReason()
       if (!reason) {
@@ -165,5 +212,64 @@ export class ChromiumHardReloadPlugin {
     } catch {
       // ignore
     }
+  }
+
+  private refreshServiceWorkerSourceDependencyPaths(compilation: Compilation) {
+    try {
+      const serviceWorkerEntrypointName = 'background/service_worker'
+      const discovered = this.collectEntrypointModuleResourcePaths(
+        compilation,
+        serviceWorkerEntrypointName
+      )
+      this.serviceWorkerSourceDependencyPaths = discovered
+    } catch {
+      // ignore best-effort
+    }
+  }
+
+  private collectEntrypointModuleResourcePaths(
+    compilation: Compilation,
+    entrypointName: string
+  ): Set<string> {
+    const collectedResourcePaths = new Set<string>()
+
+    const entrypoints: Map<string, any> | undefined = (compilation as any)
+      ?.entrypoints
+
+    const entrypoint = entrypoints?.get?.(entrypointName)
+    if (!entrypoint) {
+      return collectedResourcePaths
+    }
+
+    const chunkGraph: any = (compilation as any)?.chunkGraph
+    if (!chunkGraph) {
+      return collectedResourcePaths
+    }
+
+    const entrypointChunks: any[] = Array.from(
+      (entrypoint as any)?.chunks || []
+    )
+
+    for (const chunk of entrypointChunks) {
+      const modulesIterable: Iterable<any> | undefined =
+        chunkGraph.getChunkModulesIterable?.(chunk) ||
+        chunkGraph.getChunkModulesIterableBySourceType?.(chunk, 'javascript') ||
+        chunkGraph.getChunkModules?.(chunk)
+
+      if (!modulesIterable) continue
+
+      for (const module of modulesIterable as any) {
+        const resourcePath: unknown =
+          (module as any)?.resource ||
+          (module as any)?.rootModule?.resource ||
+          (module as any)?.originalSource?.()?.resource
+
+        if (typeof resourcePath === 'string' && resourcePath.length > 0) {
+          collectedResourcePaths.add(resourcePath.replace(/\\/g, '/'))
+        }
+      }
+    }
+
+    return collectedResourcePaths
   }
 }

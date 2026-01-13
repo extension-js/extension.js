@@ -224,7 +224,12 @@ export async function devServer(
       'Access-Control-Allow-Origin': '*'
     },
     port,
-    hot: true
+    // Use HMR "only" mode globally so the injected hot runtime does NOT hard-reload the page
+    // when HMR can't apply updates (important for content scripts to avoid infinite reload loops).
+    hot: 'only',
+    // Keep liveReload enabled so extension pages can still recover via full reload
+    // (we selectively disable hot for those pages via a dev-only runtime patch).
+    liveReload: true
   }
 
   const devServer = new RspackDevServer(serverConfig, compiler)

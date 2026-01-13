@@ -1,6 +1,6 @@
 import {describe, it, expect} from 'vitest'
 import type {RuntimeModule} from 'webpack'
-import LoadScriptRuntimeModule from '../webpack-target-webextension-fork/webpack5/RuntimeModules/LoadScript'
+import LoadScriptRuntimeModule from '../webpack-target-webextension-fork/lib/webpack5/RuntimeModules/LoadScript'
 
 const makeWebpackStub = () => {
   const captured: {generated?: string} = {}
@@ -78,16 +78,10 @@ describe('LoadScriptRuntimeModule world-aware loader selection', () => {
       }
     })
 
-    // MAIN world: should not emit classic loader branch for non-worker content.
+    // MAIN world: should not rely on extension runtime classic loader path.
     expect(code).toContain('const scriptLoader')
     expect(code).toContain("location.protocol.includes('-extension:')")
-    expect(code).toContain(
-      'else if (!isWorker) __webpack_require__.l = scriptLoader;'
-    )
-    // No explicit hasExtensionRuntime-based classic loader branch for MAIN world.
-    expect(code).not.toContain(
-      'else if (!isWorker && hasExtensionRuntime) classicLoader'
-    )
+    expect(code).toContain('EXTJS_WTW_LOAD')
   })
 
   it('keeps classic loader path for extension-world content scripts', () => {
