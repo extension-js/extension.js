@@ -1,13 +1,13 @@
 [powered-image]: https://img.shields.io/badge/Powered%20by-Extension.js-0971fe
 [powered-url]: https://extension.js.org
 
-![Powered by Extension.js][powered-image]
+[![Powered by Extension.js][powered-image]][powered-url]
 
 # Svelte Template
 
 > Svelte-based extension with a reactive UI.
 
-Lean, reactive UI with Svelte. Hot reloading, tight DX, and zero-runtime overhead where it counts.
+Svelte-based extension UI with live reload, production builds, and browser previews.
 
 ## Installation
 
