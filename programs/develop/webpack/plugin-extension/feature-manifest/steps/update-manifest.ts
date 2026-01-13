@@ -102,51 +102,10 @@ export class UpdateManifest {
           }
         )
 
-        // During development, content_scripts are injected in the page
-        // via <style> tag. In production, these styles are bundled
-        // in a content_scripts CSS file, so we need to reference it
-        // in the manifest.
-        if (compiler.options.mode === 'production') {
-          compilation.hooks.processAssets.tap(
-            'manifest:update-manifest',
-            () => {
-              if (compilation.errors.length > 0) return
-
-              const manifest = getManifestContent(
-                compilation,
-                this.manifestPath
-              )
-
-              const overrides = getManifestOverrides(
-                this.manifestPath,
-                manifest
-              )
-
-              const patchedManifest: Manifest = {
-                // Preserve all uncatched user entries
-                ...manifest,
-                ...JSON.parse(overrides)
-              }
-
-              if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-                try {
-                  const overrideObj = JSON.parse(overrides || '{}')
-                  const overrideKeys = Object.keys(overrideObj || {}).length
-                  console.log(
-                    messages.manifestOverridesSummary(overrideKeys, 0)
-                  )
-                } catch {
-                  // Ignore guard errors
-                }
-              }
-
-              const source = JSON.stringify(patchedManifest, null, 2)
-              const rawSource = new sources.RawSource(source)
-
-              compilation.updateAsset('manifest.json', rawSource)
-            }
-          )
-        }
+        // NOTE: Historically this plugin ran a second manifest override pass in production.
+        // That caused overrides (including MAIN world bridge appends) to be applied twice,
+        // producing manifest entries for bundles that do not exist (e.g. content-2.js).
+        // The single PROCESS_ASSETS_STAGE_SUMMARIZE pass above is sufficient for both modes.
       }
     )
   }
