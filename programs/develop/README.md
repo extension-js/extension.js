@@ -4,12 +4,12 @@
 [downloads-url]: https://npmjs.org/package/extension-develop
 [empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
 [empowering-url]: https://extension.js.org
+[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=2ecc40
+[action-url]: https://github.com/extension-js/extension.js/actions
 
-[![Empowering][empowering-image]][empowering-url] [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url]
+# extension-develop [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url] [![Empowering][empowering-image]][empowering-url]
 
-# extension-develop
-
-> Develop, build, preview, and package [Extension.js](https://extension.js.org) projects.
+Develop, build, preview, and package [Extension.js](https://extension.js.org) projects.
 
 This package powers Extension.js during local development and production builds. It provides the commands and build plugins that compile your extension, run it in browsers, and produce distributable artifacts.
 
@@ -159,6 +159,8 @@ Options accepted by each command. Values shown are typical types or enumerations
   - config(config: Configuration): mutate the assembled Rspack config. Supports a function or a plain object. When an object is provided, it is deep‑merged on top of the assembled config.
   - commands.dev | .build | .start | .preview: per‑command options (browser, profile, binaries, flags, preferences, unified logger defaults, packaging). These defaults are applied for all respective commands.
   - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: launch flags, excluded flags, preferences, binaries, and profile reuse (persistProfile).
+  - extensions: load-only companion extensions (unpacked dirs) loaded alongside your extension in dev/preview/start.
+    - Example: { dir: "./extensions" } loads every "./extensions/\*" folder that contains a manifest.json.
 - Precedence when composing options: browser._ → commands._ → CLI flags. CLI flags always win over config defaults.
 - Browser key aliases when resolving `browser.*` from `extension.config.*`:
   - When the runtime asks for `chromium`, `loadBrowserConfig` prefers `browser.chromium` and then falls back to `browser['chromium-based']`.
@@ -166,6 +168,37 @@ Options accepted by each command. Values shown are typical types or enumerations
   - When the runtime asks for `firefox`, it prefers `browser.firefox` and then `browser['gecko-based']`.
   - When the runtime asks for `gecko-based`, it prefers `browser['gecko-based']` and then `browser.firefox`.
 - When detected, a one‑time notice is printed to indicate config is active.
+
+### Companion extensions (load-only)
+
+Use this when you have other unpacked extensions you want loaded alongside your main extension during `dev`, `start`, and `preview`.
+
+- **What it loads**: directories that contain a `manifest.json` at their root (unpacked extension roots).
+- **How they’re loaded**: they’re appended into the browser runner’s `--load-extension` list (Chromium) / addon install list (Firefox) **before** your extension. Your extension is always loaded last for precedence.
+- **Discovery**:
+  - `extensions.dir`: scans one level deep (e.g. `./extensions/*/manifest.json`)
+  - `extensions.paths`: explicit directories (absolute or relative to the project root)
+- **Overrides**: top-level `extensions` applies to all commands, but `commands.<cmd>.extensions` overrides it for that command.
+- **Invalid entries**: ignored. In author mode (`EXTENSION_AUTHOR_MODE=true`) we print a warning if `extensions` is configured but nothing resolves.
+
+Example:
+
+```js
+// extension.config.mjs
+export default {
+  // Applies to dev/start/preview unless overridden per-command
+  extensions: {
+    dir: './extensions',
+    paths: ['./vendor/some-unpacked-extension']
+  },
+  commands: {
+    dev: {
+      // Override only for dev
+      extensions: ['./extensions/debug-helper']
+    }
+  }
+}
+```
 
 ### Environment variables in `extension.config.*`
 

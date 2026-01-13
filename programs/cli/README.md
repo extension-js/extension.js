@@ -1,10 +1,10 @@
 [npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0971fe
 [npm-version-url]: https://www.npmjs.com/package/extension
-[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=2ecc40
+[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0971fe
 [action-url]: https://github.com/extension-js/extension.js/actions
-[discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=2ecc40
+[discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
 [discord-url]: https://discord.gg/v9h2RgeTSN
-[snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg?color=2ecc40
+[snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg?color=0971fe
 [snyk-url]: https://snyk.io/test/github/extension-js/extension
 
 > The cross-browser extension framework
