@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import * as vm from 'vm'
 import {pathToFileURL} from 'url'
 import {createRequire} from 'module'
 import dotenv from 'dotenv'
@@ -8,6 +9,25 @@ import {Configuration} from '@rspack/core'
 import {merge} from 'webpack-merge'
 import * as messages from './messages'
 import type {BrowserConfig, FileConfig, DevOptions} from '../webpack-types'
+
+function loadCommonJsConfigWithStableDirname(absolutePath: string) {
+  const code = fs.readFileSync(absolutePath, 'utf-8')
+  const dirname = path.dirname(absolutePath)
+  const requireFn = createRequire(absolutePath)
+
+  // Emulate Node's CJS wrapper so __filename/__dirname match the *real* file.
+  // This avoids the old workaround of copying extension.config.js to a temp .cjs,
+  // which breaks configs that compute paths using __dirname (e.g., profile paths).
+  const module = {exports: {} as any}
+  const exports = module.exports
+
+  const wrapped = `(function (exports, require, module, __filename, __dirname) {\n${code}\n})`
+  const fn = new vm.Script(wrapped, {filename: absolutePath}).runInThisContext()
+
+  // Execute config with correct filename/dirname.
+  fn(exports, requireFn, module, absolutePath, dirname)
+  return module.exports?.default || module.exports
+}
 
 function preloadEnvFiles(projectDir: string) {
   try {
@@ -103,15 +123,22 @@ async function loadConfigFile(configPath: string): Promise<FileConfig> {
             message.includes('ERR_REQUIRE_ESM')
 
           if (looksLikeCommonJsInEsm) {
-            const tmpDir = fs.mkdtempSync(
-              path.join(os.tmpdir(), 'extension-config-')
-            )
-            const tmpCjsPath = path.join(
-              tmpDir,
-              path.basename(absolutePath, path.extname(absolutePath)) + '.cjs'
-            )
-            fs.copyFileSync(absolutePath, tmpCjsPath)
-            required = requireFn(tmpCjsPath)
+            try {
+              // Preferred: evaluate CommonJS config with stable __dirname/__filename.
+              required = loadCommonJsConfigWithStableDirname(absolutePath)
+            } catch {
+              // Fallback: legacy behavior (temp copy + require). This may break __dirname,
+              // but keeps compatibility for edge cases where vm evaluation fails.
+              const tmpDir = fs.mkdtempSync(
+                path.join(os.tmpdir(), 'extension-config-')
+              )
+              const tmpCjsPath = path.join(
+                tmpDir,
+                path.basename(absolutePath, path.extname(absolutePath)) + '.cjs'
+              )
+              fs.copyFileSync(absolutePath, tmpCjsPath)
+              required = requireFn(tmpCjsPath)
+            }
           } else {
             throw requireErr
           }
