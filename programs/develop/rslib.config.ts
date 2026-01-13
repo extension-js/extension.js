@@ -32,6 +32,11 @@ export default defineConfig({
         __dirname,
         './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/warn-no-default-export.ts'
       ),
+      // MAIN world bridge helper (must exist on disk for manifest/script validation during builds)
+      'main-world-bridge': path.resolve(
+        __dirname,
+        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/main-world-bridge.ts'
+      ),
       'add-centralized-logger-script-background': path.resolve(
         __dirname,
         './webpack/plugin-extension/feature-scripts/steps/add-centralized-logger-script/logger-background.ts'
