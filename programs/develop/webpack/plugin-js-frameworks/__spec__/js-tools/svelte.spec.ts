@@ -64,3 +64,4 @@ describe('svelte tools', () => {
     expect(compiler.options.resolve.conditionNames).toContain('svelte')
   })
 })
+

@@ -40,3 +40,4 @@ describe('ThrowIfRecompileIsNeeded', () => {
     expect((compiler as any)._errors.length >= 0).toBe(true)
   })
 })
+

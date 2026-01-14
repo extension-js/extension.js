@@ -1,3 +1,11 @@
+// ██╗ ██████╗ ██████╗ ███╗   ██╗███████╗
+// ██║██╔════╝██╔═══██╗████╗  ██║██╔════╝
+// ██║██║     ██║   ██║██╔██╗ ██║███████╗
+// ██║██║     ██║   ██║██║╚██╗██║╚════██║
+// ██║╚██████╗╚██████╔╝██║ ╚████║███████║
+// ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import {type Compiler} from '@rspack/core'
 import * as messages from './messages'
 import {EmitFile} from './steps/emit-file'

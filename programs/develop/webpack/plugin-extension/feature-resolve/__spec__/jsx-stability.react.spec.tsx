@@ -72,3 +72,4 @@ describe('feature-resolve: JSX stability (React)', () => {
     expect(code).toMatch(/chrome\.runtime\.getURL\s*\(/)
   })
 })
+

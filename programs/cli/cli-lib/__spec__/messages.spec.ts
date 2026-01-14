@@ -43,3 +43,4 @@ describe('messages helpers', () => {
     expect(help).toMatch(/Common Options/)
   })
 })
+

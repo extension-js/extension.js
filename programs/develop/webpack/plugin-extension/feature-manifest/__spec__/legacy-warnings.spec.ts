@@ -27,3 +27,4 @@ describe('ManifestLegacyWarnings', () => {
     expect(warnings.length).toBeGreaterThan(0)
   })
 })
+

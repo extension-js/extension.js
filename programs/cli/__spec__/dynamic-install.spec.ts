@@ -112,3 +112,4 @@ describe('dynamic install', () => {
     expect(hasCached).toBe(true)
   }, 180000)
 })
+

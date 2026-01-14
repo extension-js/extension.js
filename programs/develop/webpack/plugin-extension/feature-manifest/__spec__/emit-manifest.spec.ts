@@ -57,3 +57,4 @@ describe('EmitManifest', () => {
     expect(errors.length).toBeGreaterThan(0)
   })
 })
+

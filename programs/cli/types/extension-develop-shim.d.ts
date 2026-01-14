@@ -1,3 +1,11 @@
+//  ██████╗██╗     ██╗
+// ██╔════╝██║     ██║
+// ██║     ██║     ██║
+// ██║     ██║     ██║
+// ╚██████╗███████╗██║
+//  ╚═════╝╚══════╝╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 declare module 'extension-develop' {
   // These types mirror the public surface of programs/develop/module.ts,
   // but are intentionally loose on the CLI side. The real, precise types

@@ -332,3 +332,4 @@ describe('JsonPlugin', () => {
     expect((compilation.errors[0] as any)?.name).toBe('JSONInvalidSyntax')
   })
 })
+

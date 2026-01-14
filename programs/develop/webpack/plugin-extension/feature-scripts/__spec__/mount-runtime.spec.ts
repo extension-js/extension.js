@@ -51,3 +51,4 @@ describe('mountWithHMR', () => {
     expect(mount).toHaveBeenCalledTimes(2)
   })
 })
+

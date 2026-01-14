@@ -48,3 +48,4 @@ describe('BrowserSpecificFieldsPlugin.apply integration', () => {
     expect(assetSource.source().toString()).toBe(patched)
   })
 })
+

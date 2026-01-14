@@ -53,3 +53,4 @@ describe('UpdateManifest', () => {
     expect(out.icons).toBeDefined()
   })
 })
+

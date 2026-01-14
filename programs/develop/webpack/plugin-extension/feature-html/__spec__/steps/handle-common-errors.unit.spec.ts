@@ -29,3 +29,4 @@ describe('HandleCommonErrors', () => {
     expect((compiler as any)._compilation.errors[0]).toBeTruthy()
   })
 })
+

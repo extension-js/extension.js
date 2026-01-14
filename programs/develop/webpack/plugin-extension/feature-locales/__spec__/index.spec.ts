@@ -382,3 +382,4 @@ describe('LocalesPlugin (unit)', () => {
     expect(emitted.some((p) => p.startsWith('src/_locales/'))).toBe(false)
   })
 })
+

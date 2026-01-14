@@ -1,3 +1,11 @@
+// ██╗  ██╗████████╗███╗   ███╗██╗
+// ██║  ██║╚══██╔══╝████╗ ████║██║
+// ███████║   ██║   ██╔████╔██║██║
+// ██╔══██║   ██║   ██║╚██╔╝██║██║
+// ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗
+// ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
 import type {LoaderInterface} from '../../../webpack-types'

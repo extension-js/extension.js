@@ -119,3 +119,4 @@ describe('AddScripts', () => {
     expect(addedFiles).toContain(publicCss)
   })
 })
+

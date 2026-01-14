@@ -10,3 +10,4 @@ describe('Firefox temp state cleanup (smoke)', () => {
     expect(ctx.getPendingReloadReason()).toBeUndefined()
   })
 })
+

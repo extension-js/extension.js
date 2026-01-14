@@ -1,3 +1,11 @@
+//  ██████╗███████╗███████╗
+// ██╔════╝██╔════╝██╔════╝
+// ██║     ███████╗███████╗
+// ██║     ╚════██║╚════██║
+// ╚██████╗███████║███████║
+//  ╚═════╝╚══════╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 import {commonStyleLoaders} from './common-style-loaders'
 import {isContentScriptEntry} from './css-lib/is-content-script'
 import {createSassLoaderOptions} from './css-tools/sass'

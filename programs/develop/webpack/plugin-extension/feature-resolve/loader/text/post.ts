@@ -1,3 +1,11 @@
+// ██████╗ ███████╗███████╗ ██████╗ ██╗    ██╗   ██╗███████╗
+// ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║    ██║   ██║██╔════╝
+// ██████╔╝█████╗  ███████╗██║   ██║██║    ██║   ██║█████╗
+// ██╔══██╗██╔══╝  ╚════██║██║   ██║██║    ╚██╗ ██╔╝██╔══╝
+// ██║  ██║███████╗███████║╚██████╔╝███████╗╚████╔╝ ███████╗
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚══════╝ ╚═══╝  ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import {normalizeLiteralPayload} from './context'
 
 export function cleanupPublicRootLiterals(input: string): string {

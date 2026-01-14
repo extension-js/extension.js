@@ -61,3 +61,4 @@ describe('extended key coverage', () => {
     expect(n).toContain("{16:'i16.png',32:'i32.png'}")
   })
 })
+

@@ -47,3 +47,4 @@ describe('isContentScriptEntry', () => {
     expect(isContentScriptEntry('', '/x/manifest.json')).toBe(false)
   })
 })
+

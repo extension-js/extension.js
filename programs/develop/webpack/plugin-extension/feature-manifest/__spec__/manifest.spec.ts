@@ -29,3 +29,4 @@ describe('filterKeysForThisBrowser', () => {
     expect((patched as any)['chrome:action']).toBeUndefined()
   })
 })
+

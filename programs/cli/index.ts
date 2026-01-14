@@ -1,5 +1,13 @@
 #!/usr/bin/env node
 
+//  ██████╗██╗     ██╗
+// ██╔════╝██║     ██║
+// ██║     ██║     ██║
+// ██║     ██║     ██║
+// ╚██████╗███████╗██║
+//  ╚═════╝╚══════╝╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 import {program} from 'commander'
 import packageJson from './package.json'
 import checkUpdates from './check-updates'

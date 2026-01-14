@@ -22,3 +22,4 @@ describe('constants', () => {
     expect(SUPPORTED_BROWSERS).toEqual(['chrome', 'edge', 'firefox'])
   })
 })
+

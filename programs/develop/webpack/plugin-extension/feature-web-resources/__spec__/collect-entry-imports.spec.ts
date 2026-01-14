@@ -60,3 +60,4 @@ describe('collectContentScriptEntryImports', () => {
     expect(res['content_scripts/x']).toEqual(['a.css', 'b.css'])
   })
 })
+
