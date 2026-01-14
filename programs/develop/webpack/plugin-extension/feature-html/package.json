@@ -1,0 +1,19 @@
+{
+  "name": "@extension.js/webpack-browser-extension-html",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Internal placeholder for future extraction from extension.js (plugin-extension/feature-html).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/develop/webpack/plugin-extension/feature-html"
+  },
+  "x-internal-path": "programs/develop/webpack/plugin-extension/feature-html",
+  "x-legacy-npm": [
+    "webpack-browser-extension-html"
+  ]
+}
+
+
