@@ -16,6 +16,8 @@ function createCompilerHarness() {
   const calls = {emit: 0, update: 0}
 
   const compilation: any = {
+    // The implementation expects a Compilation-like object with a compiler
+    // and compiler options/context. Unit tests will wire these up in applyAndRun.
     hooks: {
       processAssets: {
         tap(_opts: any, cb: () => void) {
@@ -54,6 +56,12 @@ function createCompilerHarness() {
   }
 
   function applyAndRun(plugin: JsonPlugin) {
+    // Provide a minimal Compilation/Compiler relationship expected by the plugin code.
+    const context = path.dirname((plugin as any).manifestPath || 'manifest.json')
+    compiler.options = {context}
+    compilation.compiler = compiler
+    compilation.options = {context}
+
     plugin.apply(compiler)
     // simulate rspack/webpack lifecycle synchronously
     for (const cb of thisCompilationCallbacks) cb(compilation)
