@@ -1,3 +1,11 @@
+// ██╗ ██████╗ ██████╗ ███╗   ██╗███████╗
+// ██║██╔════╝██╔═══██╗████╗  ██║██╔════╝
+// ██║██║     ██║   ██║██╔██╗ ██║███████╗
+// ██║██║     ██║   ██║██║╚██╗██║╚════██║
+// ██║╚██████╗╚██████╔╝██║ ╚████║███████║
+// ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import * as fs from 'fs'
 import {type Compiler, Compilation} from '@rspack/core'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'

@@ -55,3 +55,4 @@ describe('HTML hint behavior', () => {
     expect(rel || '').not.toMatch(/resolved from the extension output root/i)
   })
 })
+

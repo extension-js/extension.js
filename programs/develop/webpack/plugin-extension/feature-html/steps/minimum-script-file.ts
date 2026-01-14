@@ -1,3 +1,11 @@
+// ██╗  ██╗████████╗███╗   ███╗██╗
+// ██║  ██║╚══██╔══╝████╗ ████║██║
+// ███████║   ██║   ██╔████╔██║██║
+// ██╔══██║   ██║   ██║╚██╔╝██║██║
+// ██║  ██║   ██║   ██║ ╚═╝ ██║███████╗
+// ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 /**
  * Dev-only helper included in all HTML-based extension pages during development.
  *

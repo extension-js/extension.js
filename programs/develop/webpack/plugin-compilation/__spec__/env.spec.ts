@@ -164,3 +164,4 @@ describe('EnvPlugin', () => {
     expect(updated['manifest.json']).toContain('envBar')
   })
 })
+

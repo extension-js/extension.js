@@ -150,3 +150,4 @@ describe('postcss detection', () => {
     expect(rule.loader).toContain('postcss-loader')
   })
 })
+

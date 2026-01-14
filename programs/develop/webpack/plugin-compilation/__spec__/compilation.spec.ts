@@ -233,3 +233,4 @@ describe('CompilationPlugin', () => {
     )
   })
 })
+

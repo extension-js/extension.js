@@ -45,3 +45,4 @@ describe('OS path and filename edge cases', () => {
     expect(normalize(out)).toContain("getURL('Imáge1.png')")
   })
 })
+
