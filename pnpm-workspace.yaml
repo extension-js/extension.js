@@ -1,6 +1,8 @@
 packages:
   - './programs/cli'
   - './programs/develop'
+  # Future extraction: chromium runner core package (placeholder only)
+  - './programs/develop/webpack/plugin-browsers/run-chromium'
   - './extensions/*'
   - './templates/*'
   # Ignore dist folders used for testing
