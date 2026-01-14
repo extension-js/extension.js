@@ -47,4 +47,3 @@ describe('ThrowIfRecompileIsNeeded', () => {
     expect(registered).toBe(true)
   })
 })
-

@@ -40,4 +40,3 @@ it('runs successfully even without PostHog keys (local audit allowed)', () => {
   })
   expect(r.error).toBeUndefined()
 }, 120000)
-

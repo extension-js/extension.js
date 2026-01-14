@@ -14,4 +14,3 @@ describe('isValidHttpUrl', () => {
     expect(isValidHttpUrl(undefined)).toBe(false)
   })
 })
-

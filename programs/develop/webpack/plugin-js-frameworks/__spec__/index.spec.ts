@@ -146,4 +146,3 @@ describe('JsFrameworksPlugin', () => {
     expect(swcRule?.use?.options?.minify).toBe(true)
   })
 })
-
