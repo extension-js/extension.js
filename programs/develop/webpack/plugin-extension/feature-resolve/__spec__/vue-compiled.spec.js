@@ -41,8 +41,8 @@ describe('feature-resolve: Vue compiled JS stability', () => {
     // Simulated Vue SFC-compiled render using chrome.runtime.getURL literal
     const src = `
       export function render(_ctx, _cache) {
-        return (_openBlock(), _createElementBlock(\"img\", {
-          alt: \"x\",
+        return (_openBlock(), _createElementBlock("img", {
+          alt: "x",
           src: chrome.runtime.getURL('icons/icon-32.png')
         }))
       }

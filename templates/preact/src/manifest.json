@@ -2,19 +2,23 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "1.0.0",
-  "name": "Preact Template",
-  "description": "Preact-based extension with sidebar panel",
+  "name": "Extension.js - Preact Sidebar Example",
+  "description": "Preact-based extension with a sidebar panel. Adds a sidebar with a simple page.",
   "icons": {
     "16": "images/preact.png",
     "48": "images/preact.png",
     "128": "images/preact.png"
   },
   "chromium:action": {
-    "default_icon": {"48": "images/preact.png"},
+    "default_icon": {
+      "48": "images/preact.png"
+    },
     "default_title": "Open Side Panel"
   },
   "firefox:browser_action": {
-    "default_icon": {"48": "images/preact.png"},
+    "default_icon": {
+      "48": "images/preact.png"
+    },
     "default_title": "Open Side Panel"
   },
   "chromium:side_panel": {

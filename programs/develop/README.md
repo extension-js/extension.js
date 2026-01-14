@@ -1,13 +1,15 @@
 [npm-version-image]: https://img.shields.io/npm/v/extension-develop.svg?color=0971fe
 [npm-version-url]: https://www.npmjs.com/package/extension-develop
-[downloads-image]: https://img.shields.io/npm/dm/extension-develop.svg?color=2ecc40
-[downloads-url]: https://npmjs.org/package/extension-develop
-[empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
-[empowering-url]: https://extension.js.org
-[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=2ecc40
+[npm-downloads-image]: https://img.shields.io/npm/dm/extension-develop.svg?color=0971fe
+[npm-downloads-url]: https://www.npmjs.com/package/extension-develop
+[powered-image]: https://img.shields.io/badge/Powered%20by-Extension.js-0971fe
+[powered-url]: https://extension.js.org
+[action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0971fe
 [action-url]: https://github.com/extension-js/extension.js/actions
 
-# extension-develop [![Version][npm-version-image]][npm-version-url] [![Downloads][downloads-image]][downloads-url] [![workflow][action-image]][action-url] [![Empowering][empowering-image]][empowering-url]
+[![Powered by Extension.js][powered-image]][powered-url]
+
+# extension-develop [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![workflow][action-image]][action-url]
 
 Develop, build, preview, and package [Extension.js](https://extension.js.org) projects.
 
@@ -68,18 +70,18 @@ run()
 - Zipping: distribution and/or source packages (respects `.gitignore`)
 - Auto-install of missing dependencies and package manager detection
 - Type generation for TS projects via `extension-env.d.ts`
-- User config via `extension.config.(js|mjs)` for commands, browser launch, unified logger defaults, and webpack config hooks
+- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and webpack config hooks
 - Managed dependency guard to avoid conflicts
 
 ## Commands
 
-| Name    | Summary                                                                                                                                                                                                                                           |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| dev     | - Starts a local development server with live reload/HMR<br/>- Auto-installs dependencies if missing<br/>- Generates TypeScript shim types (`extension-env.d.ts`) when applicable<br/>- Launches a target browser with an isolated/stable profile |
-| build   | - Production build using the webpack/Rspack plugin stack<br/>- Cleans `dist/<browser>` before emitting<br/>- Optional packaging: distribution zip and/or source zip<br/>- Merges user config; excludes browser runners during compilation         |
-| start   | - Runs a silent production build, then launches preview from `dist/<browser>`<br/>- Mirrors the runtime environment of shipped output                                                                                                             |
-| preview | - Launches the extension for manual testing without dev server<br/>- Uses `dist/<browser>` when present, otherwise uses the project directory<br/>- Preserves production settings; only browser runners are applied                               |
-| cleanup | - Removes orphaned browser instances and temporary profiles created during development                                                                                                                                                            |
+| Name    | Summary                                                                                                                                                                                                                                       |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| dev     | - Starts a local development server with live reload/HMR<br/>- Auto-installs dependencies if missing<br/>- Generates TypeScript shim types (`extension-env.d.ts`) when applicable<br/>- Runs a target browser with an isolated/stable profile |
+| build   | - Production build using the webpack/Rspack plugin stack<br/>- Cleans `dist/<browser>` before emitting<br/>- Optional packaging: distribution zip and/or source zip<br/>- Merges user config; excludes browser runners during compilation     |
+| start   | - Runs a silent production build, then runs preview from `dist/<browser>`<br/>- Mirrors the runtime environment of shipped output                                                                                                             |
+| preview | - Runs the extension for manual testing without dev server<br/>- Uses `dist/<browser>` when present, otherwise uses the project directory<br/>- Preserves production settings; only browser runners are applied                               |
+| cleanup | - Removes orphaned browser instances and temporary profiles created during development                                                                                                                                                        |
 
 ## Command options
 
@@ -158,7 +160,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 - Supported sections:
   - config(config: Configuration): mutate the assembled Rspack config. Supports a function or a plain object. When an object is provided, it is deep‑merged on top of the assembled config.
   - commands.dev | .build | .start | .preview: per‑command options (browser, profile, binaries, flags, preferences, unified logger defaults, packaging). These defaults are applied for all respective commands.
-  - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: launch flags, excluded flags, preferences, binaries, and profile reuse (persistProfile).
+  - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: start flags, excluded flags, preferences, binaries, and profile reuse (persistProfile).
   - extensions: load-only companion extensions (unpacked dirs) loaded alongside your extension in dev/preview/start.
     - Example: { dir: "./extensions" } loads every "./extensions/\*" folder that contains a manifest.json.
 - Precedence when composing options: browser._ → commands._ → CLI flags. CLI flags always win over config defaults.

@@ -1,10 +1,9 @@
-[empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
-[empowering-url]: https://extension.js.org
+[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
+[powered-url]: https://extension.js.org
 [pr-welcome-image]: https://img.shields.io/badge/pull--requests-welcome-2ecc40
 [pr-welcome-url]: https://github.com/extension-js/extension.js/pulls
-[extensionjs-image]: https://img.shields.io/badge/Extension.js-0971fe
 
-[![Empowering][empowering-image]][empowering-url] [![pull-requests][pr-welcome-image]][pr-welcome-url]
+[![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
 # @/webpack/plugin-extension/feature-manifest
 
@@ -74,7 +73,7 @@ Paths are normalized and rewritten to match the final output structure.
 - When entrypoints (HTML or script lists) change at runtime, the plugin warns and asks the dev server to restart to avoid inconsistent incremental rebuilds.
 - Public folder convention: files referenced from `public/` (or `/...` which maps to the extension root) are copied to the output root by the special-folders plugin. Manifest paths declared as `public/foo.png` are rewritten to `foo.png` in the emitted manifest so browsers can load them from the root.
 - Leading `/` in manifest paths is treated as extension root (relative to the directory containing `manifest.json`), not the OS filesystem root. This matches industry expectations where `/` denotes public root in web bundles.
-- Early failure: manifest-referenced files (icons, JSON, scripts, HTML) are validated during compilation. Missing files cause compilation errors and are logged to stderr before any browser launch.
+- Early failure: manifest-referenced files (icons, JSON, scripts, HTML) are validated during compilation. Missing files cause compilation errors and are logged to stderr before any browser start.
 
 ## Include semantics
 

@@ -16,11 +16,8 @@ function SidebarApp() {
         Learn more in the
         <a
           href="https://extension.js.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Extension.js docs
-        </a>
+          target="_blank" rel="noopener noreferrer"
+        >Extension.js docs</a>
         .
       </p>
     </div>

@@ -2,9 +2,8 @@ import ReactDOM from 'react-dom/client'
 import ContentApp from './ContentApp'
 import './styles.css'
 
-console.log('Hello from content script')
-
 export default function initial() {
+  console.log('Hello from content script')
   const rootDiv = document.createElement('div')
   rootDiv.setAttribute('data-extension-root', 'true')
   document.body.appendChild(rootDiv)

@@ -1,4 +1,4 @@
-import createContentApp from './ContentApp.js'
+import createContentApp from './ContentApp'
 import './styles.css'
 
 export default function initial() {

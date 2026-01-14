@@ -1,10 +1,9 @@
-[empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
-[empowering-url]: https://extension.js.org
+[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
+[powered-url]: https://extension.js.org
 [pr-welcome-image]: https://img.shields.io/badge/pull--requests-welcome-2ecc40
 [pr-welcome-url]: https://github.com/extension-js/extension.js/pulls
-[extensionjs-image]: https://img.shields.io/badge/Extension.js-0971fe
 
-[![Empowering][empowering-image]][empowering-url] [![pull-requests][pr-welcome-image]][pr-welcome-url]
+[![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
 # @/webpack/plugin-extension/feature-html
 
@@ -36,7 +35,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
   - `./public/foo` → `<project>/public/foo`
   - `public/foo` → `<project>/public/foo`
     Output preserves the `public/` structure via the special‑folders plugin; this plugin only emits non‑public assets (under `assets/`).
-- Missing HTML entrypoints referenced by the manifest fail the compilation via the manifest feature checks and are printed to stderr before any browser launch. This prevents browsers from crashing on load or rejecting the extension when a page is missing.
+- Missing HTML entrypoints referenced by the manifest fail the compilation via the manifest feature checks and are printed to stderr before any browser start. This prevents browsers from crashing on load or rejecting the extension when a page is missing.
 - Missing static assets referenced from within HTML (that are not produced by other plugins) generate warnings during compilation so you can iterate without a hard stop.
 - The hint “Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.” is shown only when the original HTML attribute used an extension‑root absolute path (leading '/'). Relative paths and absolute filesystem paths do not show this hint.
 

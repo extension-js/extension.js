@@ -5,39 +5,39 @@
   "name": "Extension.js - JavaScript Sidebar Example",
   "description": "JavaScript-based extension with a sidebar panel. Adds a sidebar with a simple page.",
   "icons": {
-    "16": "images/javascript.png",
-    "48": "images/javascript.png",
-    "128": "images/javascript.png"
+    "16": "src/images/javascript.png",
+    "48": "src/images/javascript.png",
+    "128": "src/images/javascript.png"
   },
   "chromium:action": {
     "default_icon": {
-      "48": "images/javascript.png"
+      "48": "src/images/javascript.png"
     },
     "default_title": "Open Side Panel"
   },
   "firefox:browser_action": {
     "default_icon": {
-      "48": "images/javascript.png"
+      "48": "src/images/javascript.png"
     },
     "default_title": "Open Side Panel"
   },
   "chromium:side_panel": {
-    "default_path": "sidebar/index.html",
+    "default_path": "src/sidebar/index.html",
     "default_title": "Side Panel Content"
   },
   "firefox:sidebar_action": {
-    "default_panel": "sidebar/index.html",
+    "default_panel": "src/sidebar/index.html",
     "default_title": "Side Panel Content"
   },
   "chromium:permissions": ["sidePanel"],
   "background": {
-    "chromium:service_worker": "background.js",
-    "firefox:scripts": ["background.js"]
+    "chromium:service_worker": "src/background.js",
+    "firefox:scripts": ["src/background.js"]
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/scripts.js"]
+      "js": ["src/content/scripts.js"]
     }
   ]
 }

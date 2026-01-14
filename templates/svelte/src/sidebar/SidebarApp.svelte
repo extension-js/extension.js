@@ -11,9 +11,7 @@
       href="https://extension.js.org"
       target="_blank"
       rel="noopener noreferrer"
-    >
-      Extension.js docs
-    </a>
+    >Extension.js docs</a>
     .
   </p>
 </div>

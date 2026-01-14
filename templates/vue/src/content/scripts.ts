@@ -2,9 +2,8 @@ import {createApp} from 'vue'
 import ContentApp from './ContentApp.vue'
 import './styles.css'
 
-console.log('Hello from content script')
-
 export default function initial() {
+  console.log('Hello from content script')
   const rootDiv = document.createElement('div')
   rootDiv.setAttribute('data-extension-root', 'true')
   document.body.appendChild(rootDiv)

@@ -1,13 +1,29 @@
-export function webextensionPolyfillNotFound() {
-  return (
-    `Warning: webextension-polyfill not found. ` +
-    `Browser API polyfill will not be available.\n` +
-    `To fix this, install webextension-polyfill: npm install webextension-polyfill`
-  )
-}
-
 import colors from 'pintor'
 import type {DevOptions} from '../../webpack-types'
+
+function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
+  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+
+  if (isAuthor) {
+    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    return colors.brightMagenta(base)
+  }
+
+  if (type === 'error') return colors.red('ERROR')
+  if (type === 'warn') return colors.brightYellow('►►►')
+  if (type === 'info') return colors.gray('►►►')
+  return colors.green('►►►')
+}
+
+const code = (text: string) => colors.blue(text)
+
+export function webextensionPolyfillNotFound() {
+  return (
+    `${getLoggingPrefix('warn')} webextension-polyfill not found.\n` +
+    `Install it to enable the browser API polyfill:\n` +
+    `${code('npm install webextension-polyfill')}`
+  )
+}
 
 function capitalizedBrowserName(browser: DevOptions['browser']) {
   const b = String(browser || '')

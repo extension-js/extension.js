@@ -2,19 +2,23 @@
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
   "manifest_version": 3,
   "version": "1.0.0",
-  "name": "TypeScript Template",
-  "description": "TypeScript-based extension template",
+  "name": "Extension.js - TypeScript Sidebar Example",
+  "description": "TypeScript-based extension with a sidebar panel. Adds a sidebar with a simple page.",
   "icons": {
     "16": "images/typescript.png",
     "48": "images/typescript.png",
     "128": "images/typescript.png"
   },
   "chromium:action": {
-    "default_icon": {"48": "images/typescript.png"},
+    "default_icon": {
+      "48": "images/typescript.png"
+    },
     "default_title": "Open Side Panel"
   },
   "firefox:browser_action": {
-    "default_icon": {"48": "images/typescript.png"},
+    "default_icon": {
+      "48": "images/typescript.png"
+    },
     "default_title": "Open Side Panel"
   },
   "chromium:side_panel": {
