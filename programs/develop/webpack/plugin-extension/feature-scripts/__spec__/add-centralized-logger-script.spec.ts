@@ -105,3 +105,4 @@ describe('add-centralized-logger-script loaders', () => {
     expect(outSw).toMatch('centralized background logger bootstrap')
   })
 })
+

@@ -27,3 +27,4 @@ afterAll(async () => {
 
   for (const d of [...tmpA, ...tmpB]) await rm(path.join(root, d))
 })
+

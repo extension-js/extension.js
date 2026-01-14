@@ -88,3 +88,4 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
     ).toContain('dist/browser-polyfill.js')
   })
 })
+

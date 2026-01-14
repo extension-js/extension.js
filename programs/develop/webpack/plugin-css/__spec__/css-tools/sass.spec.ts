@@ -32,3 +32,4 @@ describe('sass tools', () => {
     expect(Array.isArray(result)).toBe(true)
   })
 })
+

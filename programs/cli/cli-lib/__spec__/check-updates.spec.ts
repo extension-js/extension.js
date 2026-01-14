@@ -47,3 +47,4 @@ describe('check-updates', () => {
     )
   })
 })
+

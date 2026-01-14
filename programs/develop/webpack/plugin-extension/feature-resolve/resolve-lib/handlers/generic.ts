@@ -1,3 +1,11 @@
+// ██████╗ ███████╗███████╗ ██████╗ ██╗    ██╗   ██╗███████╗
+// ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║    ██║   ██║██╔════╝
+// ██████╔╝█████╗  ███████╗██║   ██║██║    ██║   ██║█████╗
+// ██╔══██╗██╔══╝  ╚════██║██║   ██║██║    ╚██╗ ██╔╝██╔══╝
+// ██║  ██║███████╗███████║╚██████╔╝███████╗╚████╔╝ ███████╗
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚══════╝ ╚═══╝  ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import {getPropName, memberChainFromCallee, resolveLiteralToOutput} from '..'
 import {evalStaticString, isStaticTemplate, isStringLiteral} from '../ast'
 import type {RewriteFn} from './types'

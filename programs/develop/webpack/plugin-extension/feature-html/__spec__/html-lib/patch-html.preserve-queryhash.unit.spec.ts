@@ -74,3 +74,4 @@ describe('patchHtml (preserve query/hash)', () => {
     }
   })
 })
+

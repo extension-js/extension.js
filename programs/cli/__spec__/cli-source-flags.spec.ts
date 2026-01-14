@@ -25,3 +25,4 @@ describe('cli source flags validation', () => {
     ).not.toThrow()
   })
 })
+

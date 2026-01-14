@@ -1,3 +1,11 @@
+// ██████╗ ███████╗███████╗ ██████╗ ██╗    ██╗   ██╗███████╗
+// ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║    ██║   ██║██╔════╝
+// ██████╔╝█████╗  ███████╗██║   ██║██║    ██║   ██║█████╗
+// ██╔══██╗██╔══╝  ╚════██║██║   ██║██║    ╚██╗ ██╔╝██╔══╝
+// ██║  ██║███████╗███████║╚██████╔╝███████╗╚████╔╝ ███████╗
+// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚══════╝ ╚═══╝  ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import type {RewriteFn} from './handlers/types'
 import {handleRuntimeCalls} from './handlers/runtime'
 import {handleActionAndPopup} from './handlers/action'

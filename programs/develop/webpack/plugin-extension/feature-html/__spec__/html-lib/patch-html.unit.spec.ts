@@ -63,3 +63,4 @@ describe('patchHtml', () => {
     expect(Array.isArray(compilation.warnings)).toBe(true)
   })
 })
+

@@ -47,3 +47,4 @@ describe('UpdateHtmlFile', () => {
     expect(assets['feature/index.html']).toBeTruthy()
   })
 })
+

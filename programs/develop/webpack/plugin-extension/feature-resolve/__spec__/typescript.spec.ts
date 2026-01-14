@@ -63,3 +63,4 @@ describe('feature-resolve: TypeScript literal rewrites + sourcemaps', () => {
     expect(map).toBeTruthy()
   })
 })
+

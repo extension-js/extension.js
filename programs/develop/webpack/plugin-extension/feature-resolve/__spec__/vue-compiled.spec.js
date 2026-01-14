@@ -56,3 +56,4 @@ describe('feature-resolve: Vue compiled JS stability', () => {
     expect(code).toMatch(/chrome\.runtime\.getURL\s*\(/)
   })
 })
+

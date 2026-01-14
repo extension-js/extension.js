@@ -1,10 +1,3 @@
-//  ██████╗██╗     ██╗
-// ██╔════╝██║     ██║
-// ██║     ██║     ██║
-// ██║     ██║     ██║
-// ╚██████╗███████╗██║
-//  ╚═════╝╚══════╝╚═╝
-
 import * as path from 'path'
 import * as fs from 'fs'
 import {execFile} from 'child_process'
@@ -110,3 +103,4 @@ describe('CLI Commands', () => {
     expect(fs.existsSync(manifest)).toBeTruthy()
   }, 60000)
 })
+

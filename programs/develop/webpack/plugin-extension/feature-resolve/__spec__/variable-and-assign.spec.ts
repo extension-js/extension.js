@@ -52,3 +52,4 @@ describe('variable and assignment flows', () => {
     expect(normalize(out)).toContain("{url:'a.html'}")
   })
 })
+

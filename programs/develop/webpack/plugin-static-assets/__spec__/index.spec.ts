@@ -116,3 +116,4 @@ describe('StaticAssetsPlugin', () => {
     expect(svgRules[0].type).toBeUndefined()
   })
 })
+

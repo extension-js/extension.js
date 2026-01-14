@@ -619,3 +619,4 @@ describe('generateManifestPatches', () => {
     expect(untouched.resources).toEqual(['x.svg'])
   })
 })
+

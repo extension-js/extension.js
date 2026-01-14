@@ -4,6 +4,7 @@
 // ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
 // ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {devServer} from './dev-server'
 import {generateExtensionTypes} from './webpack-lib/generate-extension-types'

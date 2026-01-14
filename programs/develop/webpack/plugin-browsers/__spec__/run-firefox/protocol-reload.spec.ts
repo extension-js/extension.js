@@ -116,3 +116,4 @@ describe('Firefox protocol reload path (unit)', () => {
     ).toBeGreaterThan(0)
   })
 })
+

@@ -55,3 +55,4 @@ describe('diagnostics (MESSAGE-GUIDE)', () => {
     expect(body).toContain('NOT FOUND')
   })
 })
+

@@ -60,3 +60,4 @@ describe('IconsPlugin (index.ts)', () => {
     expect(depsInstance.apply).toHaveBeenCalledWith(fakeCompiler)
   })
 })
+

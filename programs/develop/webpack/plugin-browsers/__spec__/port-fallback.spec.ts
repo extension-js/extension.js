@@ -39,3 +39,4 @@ describe('Port fallback', () => {
     expect(lastChromiumRunner.opts.source).toBe('https://example.com')
   })
 })
+

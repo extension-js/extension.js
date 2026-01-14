@@ -146,3 +146,4 @@ describe('web_accessible_resources: public-root presence checks', () => {
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 })
+

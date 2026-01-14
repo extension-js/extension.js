@@ -145,3 +145,4 @@ describe('WarnUponFolderChanges', () => {
     expect(createdWatchers[1].close).toHaveBeenCalled()
   })
 })
+

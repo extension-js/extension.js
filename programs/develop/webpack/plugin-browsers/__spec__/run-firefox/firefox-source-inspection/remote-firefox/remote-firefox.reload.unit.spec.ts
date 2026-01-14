@@ -92,3 +92,4 @@ describe('RemoteFirefox hardReloadIfNeeded', () => {
     })
   })
 })
+

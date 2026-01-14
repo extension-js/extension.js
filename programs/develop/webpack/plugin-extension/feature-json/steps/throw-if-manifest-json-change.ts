@@ -1,3 +1,11 @@
+//      ██╗███████╗ ██████╗ ███╗   ██╗
+//      ██║██╔════╝██╔═══██╗████╗  ██║
+//      ██║███████╗██║   ██║██╔██╗ ██║
+// ██   ██║╚════██║██║   ██║██║╚██╗██║
+// ╚█████╔╝███████║╚██████╔╝██║ ╚████║
+//  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
 import {createRequire} from 'node:module'
 import type {PluginInterface, DevOptions} from '../../../webpack-types'

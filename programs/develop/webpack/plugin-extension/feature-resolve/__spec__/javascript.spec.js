@@ -52,3 +52,4 @@ describe('feature-resolve: JavaScript literal rewrites + sourcemaps', () => {
     expect(map).toBeTruthy()
   })
 })
+

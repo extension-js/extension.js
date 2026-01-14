@@ -1,3 +1,11 @@
+// ███████╗ ██████╗██████╗ ██╗██████╗ ████████╗███████╗
+// ██╔════╝██╔════╝██╔══██╗██║██╔══██╗╚══██╔══╝██╔════╝
+// ███████╗██║     ██████╔╝██║██████╔╝   ██║   ███████╗
+// ╚════██║██║     ██╔══██╗██║██╔═══╝    ██║   ╚════██║
+// ███████║╚██████╗██║  ██║██║██║        ██║   ███████║
+// ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import {Compilation, Compiler, sources} from '@rspack/core'
 import {patchV2CSP, patchV3CSP} from './patch-csp'
 import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'

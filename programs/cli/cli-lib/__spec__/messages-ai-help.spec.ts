@@ -9,3 +9,4 @@ describe('programAIHelp', () => {
     expect(help).toMatch(/print an error and abort/i)
   })
 })
+

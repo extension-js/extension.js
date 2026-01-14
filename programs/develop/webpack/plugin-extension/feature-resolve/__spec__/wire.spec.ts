@@ -38,3 +38,4 @@ describe('ResolvePlugin wiring', () => {
     expect(rule.include?.[0]).toBe(path.dirname(manifestPath))
   })
 })
+

@@ -1,3 +1,11 @@
+// ██╗      ██████╗  ██████╗ █████╗ ██╗     ███████╗███████╗
+// ██║     ██╔═══██╗██╔════╝██╔══██╗██║     ██╔════╝██╔════╝
+// ██║     ██║   ██║██║     ███████║██║     █████╗  ███████╗
+// ██║     ██║   ██║██║     ██╔══██║██║     ██╔══╝  ╚════██║
+// ███████╗╚██████╔╝╚██████╗██║  ██║███████╗███████╗███████║
+// ╚══════╝ ╚═════╝  ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 export function manifestNotFoundMessageOnly(absPath: string) {
   return `Check the manifest.json file.\n\nNOT FOUND ${absPath}`
 }

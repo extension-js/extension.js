@@ -39,3 +39,4 @@ describe('SetupChromeInspectionStep print behavior', () => {
     expect(logSpy).toHaveBeenCalled()
   })
 })
+

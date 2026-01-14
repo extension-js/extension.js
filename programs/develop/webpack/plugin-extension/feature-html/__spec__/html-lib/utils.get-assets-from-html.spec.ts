@@ -35,3 +35,4 @@ describe('getAssetsFromHtml', () => {
     expect(res.static).toEqual(['/public/favicon.png', '/public/logo.png'])
   })
 })
+

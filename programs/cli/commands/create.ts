@@ -1,3 +1,11 @@
+//  ██████╗██╗     ██╗
+// ██╔════╝██║     ██║
+// ██║     ██║     ██║
+// ██║     ██║     ██║
+// ╚██████╗███████╗██║
+//  ╚═════╝╚══════╝╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 import type {Command} from 'commander'
 import {extensionCreate, type CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../cli-lib/messages'

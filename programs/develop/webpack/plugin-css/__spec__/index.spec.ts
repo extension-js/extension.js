@@ -112,3 +112,4 @@ describe('CssPlugin', () => {
     ).toBeGreaterThanOrEqual(2)
   })
 })
+

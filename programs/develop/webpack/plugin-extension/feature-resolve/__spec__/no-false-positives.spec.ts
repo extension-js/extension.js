@@ -88,3 +88,4 @@ describe('resolve-paths-loader: avoid false positives', () => {
     expect(warnings.length).toBe(1)
   })
 })
+

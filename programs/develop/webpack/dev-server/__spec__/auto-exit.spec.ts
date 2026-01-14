@@ -54,3 +54,4 @@ describe('auto-exit', () => {
     expect(process.exit).toHaveBeenCalledWith(0)
   })
 })
+

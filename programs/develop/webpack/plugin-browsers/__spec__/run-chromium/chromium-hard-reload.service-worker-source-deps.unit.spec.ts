@@ -101,3 +101,4 @@ describe('ChromiumHardReloadPlugin - service worker source dependency tracking',
     expect(pendingReloadReason).toBe('sw')
   })
 })
+

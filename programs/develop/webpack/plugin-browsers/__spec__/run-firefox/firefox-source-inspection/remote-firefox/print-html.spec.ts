@@ -20,3 +20,4 @@ describe('SetupFirefoxInspectionStep printHTML', () => {
     logSpy.mockRestore()
   })
 })
+

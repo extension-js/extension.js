@@ -69,3 +69,4 @@ describe('install-dependencies', () => {
     expect(fs.existsSync(path.join(tmp, 'node_modules'))).toBe(true)
   })
 })
+

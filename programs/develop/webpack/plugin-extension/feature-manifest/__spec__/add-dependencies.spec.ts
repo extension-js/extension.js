@@ -27,3 +27,4 @@ describe('AddDependencies', () => {
     expect(added).toEqual(['/a', '/b'])
   })
 })
+
