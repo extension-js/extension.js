@@ -1,9 +1,8 @@
 import createContentApp from './ContentApp'
 import './styles.css'
 
-console.log('hello from content_scripts')
-
 export default function initial() {
+  console.log('hello from content_scripts')
   const rootDiv = document.createElement('div')
   rootDiv.setAttribute('data-extension-root', 'true')
   document.body.appendChild(rootDiv)

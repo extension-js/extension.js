@@ -1,16 +1,15 @@
-[empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
-[empowering-url]: https://extension.js.org
+[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
+[powered-url]: https://extension.js.org
 [pr-welcome-image]: https://img.shields.io/badge/pull--requests-welcome-2ecc40
 [pr-welcome-url]: https://github.com/extension-js/extension.js/pulls
-[extensionjs-image]: https://img.shields.io/badge/Extension.js-0971fe
 
-[![Empowering][empowering-image]][empowering-url] [![pull-requests][pr-welcome-image]][pr-welcome-url]
+[![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
 # @/webpack/plugin-extension/feature-resolve
 
 > Make Extension API paths just work.
 
-Rewrites static, developer-authored paths passed to common Extension APIs so they point to emitted files, matching the same rules as `@feature-manifest/` and Special Folders. Part of the [Extension.js](https://extension.js.org) toolchain.
+Rewrites static, developer-authored paths passed to common Extension APIs so they point to emitted files, matching the same rules as `@feature-manifest/` and Special Folders. Part of the [Extension.js](https://extension.js.org) framework toolchain.
 
 ## Usage
 

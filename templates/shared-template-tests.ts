@@ -46,6 +46,12 @@ export function registerTemplateTests({
         // ignore
       }
 
+      // Templates are source-only. Ensure deps are installed before building.
+      execFileSync('pnpm', ['install', '--ignore-scripts'], {
+        cwd: dir,
+        stdio: 'inherit'
+      })
+
       const args = ['extension', 'build', exampleDir]
       execFileSync('pnpm', args, {
         cwd: path.join(dir, '..'),
