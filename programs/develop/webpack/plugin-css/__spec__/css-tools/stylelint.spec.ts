@@ -35,4 +35,3 @@ describe('stylelint tools', () => {
     expect(logSpy).toHaveBeenCalledTimes(1)
   })
 })
-

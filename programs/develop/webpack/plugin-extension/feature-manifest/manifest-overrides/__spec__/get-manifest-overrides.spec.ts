@@ -30,4 +30,3 @@ describe('getManifestOverrides', () => {
     expect(parsed.name).toBe('x')
   })
 })
-

@@ -55,4 +55,3 @@ describe('AddScriptsAndStylesToCompilation', () => {
     expect(e.feature.import.some((x: string) => /public\//.test(x))).toBe(false)
   })
 })
-

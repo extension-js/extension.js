@@ -106,4 +106,3 @@ describe('CleanDistFolderPlugin', () => {
     expect(rm).not.toHaveBeenCalled()
   })
 })
-

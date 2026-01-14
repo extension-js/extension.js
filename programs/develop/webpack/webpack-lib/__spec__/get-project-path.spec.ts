@@ -62,4 +62,3 @@ describe('get-project-path', () => {
     expect(s.packageJsonPath).toBeUndefined()
   })
 })
-

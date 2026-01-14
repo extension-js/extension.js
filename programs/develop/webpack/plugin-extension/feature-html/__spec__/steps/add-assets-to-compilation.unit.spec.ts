@@ -51,4 +51,3 @@ describe('AddAssetsToCompilation', () => {
     expect((c as any).assets['favicon.png']).toBeUndefined()
   })
 })
-

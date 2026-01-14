@@ -56,4 +56,3 @@ describe('warn-no-default-export loader', () => {
     )
   })
 })
-

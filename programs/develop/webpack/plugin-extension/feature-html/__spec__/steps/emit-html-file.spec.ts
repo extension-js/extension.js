@@ -64,4 +64,3 @@ describe('EmitHtmlFile', () => {
     expect((mockCompilation as any).warnings.length).toBe(1)
   })
 })
-
