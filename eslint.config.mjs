@@ -20,6 +20,7 @@ export default [
       '**/e2e-report/',
       '**/.turbo/**',
       '**/.pnpm-store/**',
+      '**/_FUTURE/**',
       '**/webpack.config.js',
       '**/postcss.config.js',
       '**/tailwind.config.js',

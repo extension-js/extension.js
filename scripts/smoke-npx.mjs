@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import {mkdtempSync, rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join, resolve} from 'node:path'
@@ -64,7 +63,14 @@ console.log(`DEV tgz: ${devTgz}`)
     }
     run(
       'npx',
-      ['extension', 'build', templatesReact, '--browser=chromium', '--silent', 'true'],
+      [
+        'extension',
+        'build',
+        templatesReact,
+        '--browser=chromium',
+        '--silent',
+        'true'
+      ],
       {cwd: tmp, env}
     )
     console.log('Scenario B ok: build runs with CLI + Develop tarballs')
@@ -74,5 +80,3 @@ console.log(`DEV tgz: ${devTgz}`)
 }
 
 console.log('Smoke tests passed.')
-
-

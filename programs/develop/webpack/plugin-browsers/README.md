@@ -1,14 +1,13 @@
-[empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
-[empowering-url]: https://extension.js.org
+[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
+[powered-url]: https://extension.js.org
 [pr-welcome-image]: https://img.shields.io/badge/pull--requests-welcome-2ecc40
 [pr-welcome-url]: https://github.com/extension-js/extension.js/pulls
-[extensionjs-image]: https://img.shields.io/badge/Extension.js-0971fe
 
-[![Empowering][empowering-image]][empowering-url] [![pull-requests][pr-welcome-image]][pr-welcome-url]
+[![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-## @/plugin-browsers
+# @/plugin-browsers
 
-Launches a target browser (Chrome, Edge, Firefox, or custom binaries) with your extension loaded, managing user profiles, flags, live inspection (CDP/RDP), and optional unified logging to the CLI.
+Runs a target browser (Chrome, Edge, Firefox, or custom binaries) with your extension loaded, managing user profiles, flags, live inspection (CDP/RDP), and optional unified logging to the CLI.
 
 ### Feature overview
 
@@ -19,10 +18,10 @@ Launches a target browser (Chrome, Edge, Firefox, or custom binaries) with your 
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **System profile (opt-in)**<br/>`EXTENSION_USE_SYSTEM_PROFILE=true` uses system profile. |
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Flags & prefs**<br/>Append/exclude flags; merge preferences.                           |
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Binary selection**<br/>System Chrome/Edge, custom Chromium/Gecko binaries.             |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Protocol inspection**<br/>CDP (Chromium) and RDP (Firefox) setup after launch.         |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Protocol inspection**<br/>CDP (Chromium) and RDP (Firefox) setup after start.          |
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Unified logging (Chromium)**<br/>Stream console/log events per-context to the CLI.     |
 | <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Port selection**<br/>Derives per-instance port and falls back to a free one.           |
-| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Dry-run**<br/>Print resolved binary/flags without launching the browser.               |
+| <img src="https://avatars.githubusercontent.com/u/172809806" width="56" /> | **Dry-run**<br/>Print resolved binary/flags without running the browser.                 |
 
 ### Profile behavior
 
@@ -132,7 +131,7 @@ export class BrowsersPlugin {
 
 ### Quality of life
 
-- **Dry-run mode**: Skip launching the browser and print the resolved binary and flags.
+- **Dry-run mode**: Skip running the browser and print the resolved binary and flags.
 - **Port fallback**: If the chosen CDP/RDP port is busy, the plugin falls back to a nearby free port.
 - **Safer defaults**: Suppresses `--load-extension` pollution in flags, supports `excludeBrowserFlags`, and warns when using `profile: false`.
 

@@ -1,2 +1,2 @@
-import './SidebarApp.js'
+import './SidebarApp'
 import './styles.css'

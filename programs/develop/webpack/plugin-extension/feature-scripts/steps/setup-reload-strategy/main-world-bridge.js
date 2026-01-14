@@ -33,10 +33,14 @@ function getRuntime() {
   // Do not throw if missing.
   try {
     if (typeof globalThis.browser === 'object') return globalThis.browser
-  } catch {}
+  } catch {
+    // Ignore
+  }
   try {
     if (typeof globalThis.chrome === 'object') return globalThis.chrome
-  } catch {}
+  } catch {
+    // Ignore
+  }
   return null
 }
 
@@ -78,13 +82,17 @@ function injectScript(src) {
     el.onload = () => {
       try {
         el.remove()
-      } catch {}
+      } catch {
+        // Ignore
+      }
       resolve()
     }
     el.onerror = () => {
       try {
         el.remove()
-      } catch {}
+      } catch {
+        // Ignore
+      }
       reject(new Error('Failed to load script: ' + src))
     }
     ;(document.head || document.documentElement).appendChild(el)
@@ -138,5 +146,3 @@ window.addEventListener('message', (event) => {
       })
     })
 })
-
-
