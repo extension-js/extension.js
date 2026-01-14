@@ -10,6 +10,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler, type EntryObject} from '@rspack/core'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
+import {AddContentScriptWrapper} from './setup-reload-strategy/add-content-script-wrapper'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../messages'
 
@@ -23,7 +24,15 @@ export class AddScripts {
   }
 
   public apply(compiler: Compiler): void {
-    const scriptFields = this.includeList || {}
+    // Merge bridge scripts into includeList internally
+    const bridgeScripts = AddContentScriptWrapper.getBridgeScripts(
+      this.manifestPath
+    )
+    const mergedIncludeList: FilepathList = {
+      ...this.includeList,
+      ...bridgeScripts
+    }
+    const scriptFields = mergedIncludeList
 
     // Validate includeList (manifest-derived and extras)
     // early and fail before browser launch

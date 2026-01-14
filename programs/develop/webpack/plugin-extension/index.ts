@@ -6,13 +6,8 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═══╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import path from 'path'
-import fs from 'fs'
 import {Compiler} from '@rspack/core'
-import {
-  getManifestFieldsData,
-  getSpecialFoldersData
-} from 'browser-extension-manifest-fields'
+import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 
 // Plugins
 import {ManifestPlugin} from './feature-manifest'
@@ -24,6 +19,9 @@ import {IconsPlugin} from './feature-icons'
 import {WebResourcesPlugin} from './feature-web-resources'
 import {SpecialFoldersPlugin} from './feature-special-folders'
 import {ResolvePlugin} from './feature-resolve'
+
+// Business logic modules
+import {getSpecialFoldersDataForCompiler} from './feature-special-folders/get-data'
 
 // Types
 import type {PluginInterface, FilepathList, DevOptions} from '../webpack-types'
@@ -47,52 +45,7 @@ export class ExtensionPlugin {
       browser: this.browser
     })
 
-    // MAIN world bridge: for each content script with `world: "MAIN"`, we append an
-    // isolated-world bridge content script entry so the MAIN world bundle can still
-    // load async chunks without extension globals.
-    //
-    // This must happen here (before ScriptsPlugin) because entries are derived from includeList.
-    let bridgeScripts: FilepathList = {}
-    try {
-      const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
-      const contentScripts: any[] = Array.isArray(raw?.content_scripts)
-        ? raw.content_scripts
-        : []
-      const originalCount = contentScripts.length
-      const bridgeSourceCandidates = [
-        // Source tree (vitest/dev in-repo)
-        path.resolve(
-          __dirname,
-          'feature-scripts/steps/setup-reload-strategy/main-world-bridge.js'
-        ),
-        // Monorepo runtime fallback: when executing built `dist/module.js` without regenerating
-        // `dist/main-world-bridge.js`, the source file still exists one level up.
-        path.resolve(
-          __dirname,
-          '../webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/main-world-bridge.js'
-        ),
-        // Built package (dist) – emitted by rslib as `dist/main-world-bridge.js`
-        path.resolve(__dirname, 'main-world-bridge.js')
-      ]
-      const bridgeSource =
-        bridgeSourceCandidates.find((p) => fs.existsSync(p)) ||
-        bridgeSourceCandidates[0]
-      let bridgeOrdinal = 0
-      for (let i = 0; i < contentScripts.length; i++) {
-        const cs = contentScripts[i]
-        if (cs?.world !== 'MAIN') continue
-        const bridgeIndex = originalCount + bridgeOrdinal++
-        bridgeScripts[`content_scripts/content-${bridgeIndex}`] = bridgeSource
-      }
-    } catch {
-      // ignore: bridge is best-effort and only needed for MAIN world users
-    }
-
-    const specialFoldersData = getSpecialFoldersData({
-      // Hack: Let's pretend the manifest is in the package.json file.
-      // Under the hoot it will get the dirname and scan the files in the folder.
-      manifestPath: path.join(compiler.options.context || '', 'package.json')
-    })
+    const specialFoldersData = getSpecialFoldersDataForCompiler(compiler)
 
     // Generate a manifest file with all the assets we need
     new ManifestPlugin({
@@ -102,8 +55,7 @@ export class ExtensionPlugin {
         ...manifestFieldsData.html,
         ...(manifestFieldsData.icons as FilepathList),
         ...manifestFieldsData.json,
-        ...manifestFieldsData.scripts,
-        ...bridgeScripts
+        ...manifestFieldsData.scripts
       }
     }).apply(compiler)
 
@@ -123,7 +75,6 @@ export class ExtensionPlugin {
       browser: this.browser,
       includeList: {
         ...manifestFieldsData.scripts,
-        ...bridgeScripts,
         ...specialFoldersData.scripts
       }
     }).apply(compiler)

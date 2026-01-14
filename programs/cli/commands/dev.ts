@@ -10,6 +10,10 @@ import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
 import {vendors, validateVendorsOrExit, type Browser} from '../utils'
+import {
+  normalizeSourceOption,
+  parseLogContexts
+} from '../utils/normalize-options'
 
 type DevOptions = {
   browser?: Browser | 'all'
@@ -126,20 +130,12 @@ export function registerDevCommand(program: Command, telemetry: any) {
       // Normalize source/watch behavior:
       // - If --source present without URL, fall back to startingUrl or https://example.com
       // - When --source is provided, enable watch mode by default
-      if (devOptions.source) {
-        const hasExplicitSourceString =
-          typeof devOptions.source === 'string' &&
-          String(devOptions.source).trim().toLowerCase() !== 'true'
-
-        const hasStartingUrl =
-          typeof devOptions.startingUrl === 'string' &&
-          String(devOptions.startingUrl).trim().length > 0
-
-        if (!hasExplicitSourceString) {
-          devOptions.source = hasStartingUrl
-            ? String(devOptions.startingUrl)
-            : 'https://example.com'
-        }
+      const normalizedSource = normalizeSourceOption(
+        devOptions.source,
+        devOptions.startingUrl
+      )
+      if (normalizedSource) {
+        devOptions.source = normalizedSource
         devOptions.watchSource = true
       }
 
@@ -169,30 +165,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
           source: devOptions.source,
           watchSource: devOptions.watchSource,
           logLevel: (logsOption || devOptions.logLevel || 'off') as any,
-          logContexts: (() => {
-            const raw = (logContextOption ||
-              (devOptions as any).logContexts) as string | undefined
-            if (!raw || String(raw).trim().length === 0) return undefined
-            if (String(raw).trim().toLowerCase() === 'all') return undefined
-            const allowed = [
-              'background',
-              'content',
-              'page',
-              'sidebar',
-              'popup',
-              'options',
-              'devtools'
-            ] as const
-            type Context = (typeof allowed)[number]
-            const values = String(raw)
-              .split(',')
-              .map((s: string) => s.trim())
-              .filter((s: string) => s.length > 0)
-              .filter((c: string): c is Context =>
-                (allowed as readonly string[]).includes(c)
-              )
-            return values.length ? values : undefined
-          })(),
+          logContexts: parseLogContexts(logContextOption),
           logFormat: devOptions.logFormat || 'pretty',
           logTimestamps: devOptions.logTimestamps !== false,
           logColor: devOptions.logColor !== false,

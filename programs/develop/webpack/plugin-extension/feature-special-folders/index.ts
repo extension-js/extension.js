@@ -10,6 +10,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {type Compiler, type Compilation, rspack} from '@rspack/core'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
+import {checkManifestInPublic} from './check-manifest-in-public'
 import * as messages from './messages'
 
 interface SpecialFoldersPluginOptions {
@@ -51,20 +52,7 @@ export class SpecialFoldersPlugin {
                 .PROCESS_ASSETS_STAGE_PRE_PROCESS
             },
             () => {
-              try {
-                const manifestInPublic = path.join(publicDir, 'manifest.json')
-                if (fs.existsSync(manifestInPublic)) {
-                  const ErrCtor = (compilation.compiler as any).webpack
-                    ?.WebpackError
-                  const err = new ErrCtor(
-                    `manifest.json must not be placed under public/: ${manifestInPublic}`
-                  ) as Error & {file?: string}
-                  err.file = 'manifest.json'
-                  compilation.errors.push(err)
-                }
-              } catch {
-                // ignore guard errors
-              }
+              checkManifestInPublic(compilation, publicDir)
             }
           )
         }
