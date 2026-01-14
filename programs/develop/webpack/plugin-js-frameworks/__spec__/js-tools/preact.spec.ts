@@ -53,3 +53,4 @@ describe('preact tools', () => {
     expect(result?.alias?.['react/jsx-runtime']).toBe('preact/jsx-runtime')
   })
 })
+

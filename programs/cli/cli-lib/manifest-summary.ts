@@ -1,3 +1,11 @@
+//  ██████╗██╗     ██╗
+// ██╔════╝██║     ██║
+// ██║     ██║     ██║
+// ██║     ██║     ██║
+// ╚██████╗███████╗██║
+//  ╚═════╝╚══════╝╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 export type ManifestSummary = {
   mv: 2 | 3
   permissions_count: number
