@@ -1,0 +1,20 @@
+{
+  "name": "rspack-run-chromium-extension",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Future core Chromium runner (Rspack-based). Placeholder package extracted from extension.js plugin-browsers/run-chromium.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/develop/webpack/plugin-browsers/run-chromium"
+  },
+  "x-internal-path": "programs/develop/webpack/plugin-browsers/run-chromium",
+  "x-exports": {
+    "class": "RunChromiumPlugin",
+    "entry": "./index.ts"
+  }
+}
+
+

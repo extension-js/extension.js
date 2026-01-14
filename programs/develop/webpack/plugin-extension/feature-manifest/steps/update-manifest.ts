@@ -101,11 +101,6 @@ export class UpdateManifest {
             compilation.updateAsset('manifest.json', rawSource)
           }
         )
-
-        // NOTE: Historically this plugin ran a second manifest override pass in production.
-        // That caused overrides (including MAIN world bridge appends) to be applied twice,
-        // producing manifest entries for bundles that do not exist (e.g. content-2.js).
-        // The single PROCESS_ASSETS_STAGE_SUMMARIZE pass above is sufficient for both modes.
       }
     )
   }

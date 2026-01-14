@@ -1,0 +1,19 @@
+{
+  "name": "@extension.js/webpack-browser-extension-resolve",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Internal placeholder for future extraction from extension.js (plugin-extension/feature-resolve).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/develop/webpack/plugin-extension/feature-resolve"
+  },
+  "x-internal-path": "programs/develop/webpack/plugin-extension/feature-resolve",
+  "x-legacy-npm": [
+    "webpack-browser-extension-resolve"
+  ]
+}
+
+
