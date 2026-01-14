@@ -2,17 +2,26 @@ import colors from 'pintor'
 import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
-import * as chromeLocation from 'chrome-location2'
-import edgeLocation from 'edge-location'
-import firefoxLocation from 'firefox-location2'
+import locateChrome, {
+  locateChromeOrExplain,
+  getInstallGuidance as getChromeInstallGuidance
+} from 'chrome-location2'
+import locateChromium, {
+  getInstallGuidance as getChromiumInstallGuidance
+} from 'chromium-location'
+import locateEdge, {
+  getInstallGuidance as getEdgeInstallGuidance
+} from 'edge-location'
+import locateFirefox, {
+  getInstallGuidance as getFirefoxInstallGuidance
+} from 'firefox-location2'
 import type {DevOptions} from '../../webpack-types'
 
 type Browser = NonNullable<DevOptions['browser']>
 type Mode = DevOptions['mode']
 
-// See note in `programs/develop/webpack/command-preview.ts` for why we load via CJS.
+// Keep CJS `require` for JSON / dynamic loads (avoid import-assertions in toolchains)
 const require = createRequire(import.meta.url)
-const chromiumLocation = require('chromium-location') as any
 
 // Prefix candidates (try swapping if desired): '►', '›', '→', '—'
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
@@ -406,47 +415,28 @@ export function prettyPuppeteerInstallGuidance(
       const b = String(browser || '').toLowerCase()
       if (b === 'chromium' || b === 'chromium-based') {
         try {
-          const loc = require('chromium-location')
-          const txt =
-            typeof loc?.getInstallGuidance === 'function'
-              ? loc.getInstallGuidance()
-              : ''
+          const txt = getChromiumInstallGuidance()
           if (txt && typeof txt === 'string') cleaned = String(txt).trim()
         } catch {
           // fall through; keep minimal text
         }
       } else if (b === 'chrome') {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const loc = require('chrome-location2')
-          const txt =
-            typeof loc?.getInstallGuidance === 'function'
-              ? loc.getInstallGuidance()
-              : ''
+          const txt = getChromeInstallGuidance()
           if (txt && typeof txt === 'string') cleaned = String(txt).trim()
         } catch {
           // fall through; keep minimal text
         }
       } else if (b === 'firefox' || b === 'gecko-based') {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const loc = require('firefox-location2')
-          const txt =
-            typeof loc?.getInstallGuidance === 'function'
-              ? loc.getInstallGuidance()
-              : ''
+          const txt = getFirefoxInstallGuidance()
           if (txt && typeof txt === 'string') cleaned = String(txt).trim()
         } catch {
           // fall through; keep minimal text
         }
       } else if (b === 'edge') {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const loc = require('edge-location')
-          const txt =
-            typeof loc?.getInstallGuidance === 'function'
-              ? loc.getInstallGuidance()
-              : ''
+          const txt = getEdgeInstallGuidance()
           if (txt && typeof txt === 'string') cleaned = String(txt).trim()
         } catch {
           // fall through; keep minimal text
@@ -1006,9 +996,7 @@ export function runningInDevelopment(
   if (!effectiveBrowserLine) {
     try {
       if (browser === 'chromium' || browser === 'chromium-based') {
-        const loc =
-          (chromiumLocation as any)?.default || (chromiumLocation as any)
-        const p = typeof loc === 'function' ? loc() : null
+        const p = locateChromium()
         if (p && typeof p === 'string' && fs.existsSync(p)) {
           const v = require('child_process')
             .execFileSync(p, ['--version'], {encoding: 'utf8'})
@@ -1016,18 +1004,15 @@ export function runningInDevelopment(
           effectiveBrowserLine = v || 'Chromium'
         }
       } else if (browser === 'chrome') {
-        const locate = (chromeLocation as any)?.locateChromeOrExplain
-        if (typeof locate === 'function') {
-          const p: string = locate({allowFallback: true})
-          if (p && fs.existsSync(p)) {
-            const v = require('child_process')
-              .execFileSync(p, ['--version'], {encoding: 'utf8'})
-              .trim()
-            effectiveBrowserLine = v || 'Chrome'
-          }
+        const p: string = locateChromeOrExplain({allowFallback: true})
+        if (p && fs.existsSync(p)) {
+          const v = require('child_process')
+            .execFileSync(p, ['--version'], {encoding: 'utf8'})
+            .trim()
+          effectiveBrowserLine = v || 'Chrome'
         }
       } else if (browser === 'edge') {
-        const p = edgeLocation()
+        const p = locateEdge()
         if (p && fs.existsSync(p)) {
           const v = require('child_process')
             .execFileSync(p, ['--version'], {encoding: 'utf8'})
@@ -1035,9 +1020,7 @@ export function runningInDevelopment(
           effectiveBrowserLine = v || 'Microsoft Edge'
         }
       } else if (browser === 'firefox') {
-        const loc =
-          (firefoxLocation as any)?.default || (firefoxLocation as any)
-        const p = typeof loc === 'function' ? loc(true) : null
+        const p = locateFirefox(true)
         if (p && typeof p === 'string' && fs.existsSync(p)) {
           const v = require('child_process')
             .execFileSync(p, ['--version'], {encoding: 'utf8'})

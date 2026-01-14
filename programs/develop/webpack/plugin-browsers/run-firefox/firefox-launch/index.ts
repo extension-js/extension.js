@@ -1,7 +1,10 @@
 import * as fs from 'fs'
-import {spawn, ChildProcess, execFileSync} from 'child_process'
+import {spawn, ChildProcess} from 'child_process'
 import type {Compilation, Compiler} from '@rspack/core'
-import firefoxLocation from 'firefox-location2'
+import locateFirefox, {
+  getInstallGuidance as getFirefoxInstallGuidance,
+  getFirefoxVersion
+} from 'firefox-location2'
 import * as messages from '../../browsers-lib/messages'
 import {
   computeBinariesBaseDir,
@@ -134,9 +137,7 @@ export class FirefoxLaunchPlugin {
           console.error(messages.requireGeckoBinaryForGeckoBased())
           process.exit(1)
         } else {
-          const locate = (firefoxLocation as any).default || firefoxLocation
-          browserBinaryLocation =
-            typeof locate === 'function' ? locate(true) : null
+          browserBinaryLocation = locateFirefox(true)
         }
       }
     } catch (_error) {
@@ -168,11 +169,7 @@ export class FirefoxLaunchPlugin {
         } else {
           const guidance = (() => {
             try {
-              const f = (firefoxLocation as any)?.getInstallGuidance
-              const txt = typeof f === 'function' ? f() : ''
-              return txt && typeof txt === 'string'
-                ? txt
-                : 'npx @puppeteer/browsers install firefox'
+              return getFirefoxInstallGuidance()
             } catch {
               return 'npx @puppeteer/browsers install firefox'
             }
@@ -190,20 +187,9 @@ export class FirefoxLaunchPlugin {
     // At this point TS: ensure non-null string
     const binaryPath = browserBinaryLocation as string
 
-    // Best-effort: derive a human-readable browser version line once.
-    const getFirefoxVersionLine = (bin: string): string => {
-      try {
-        const versionLine = execFileSync(bin, ['--version'], {
-          encoding: 'utf8'
-        }).trim()
-        return versionLine || ''
-      } catch {
-        return ''
-      }
-    }
-
     try {
-      this.host.browserVersionLine = getFirefoxVersionLine(binaryPath)
+      this.host.browserVersionLine =
+        getFirefoxVersion(binaryPath, {allowExec: true}) || ''
     } catch {
       // best-effort only; banner will fall back to generic browser label
     }
