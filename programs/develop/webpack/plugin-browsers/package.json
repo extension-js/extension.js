@@ -1,0 +1,21 @@
+{
+  "name": "@extension.js/plugin-browsers",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Internal placeholder for future extraction from extension.js. Launches browsers (Chromium/Firefox) with extensions loaded.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/develop/webpack/plugin-browsers"
+  },
+  "x-internal-path": "programs/develop/webpack/plugin-browsers",
+  "x-legacy-npm": [
+    "webpack-run-chrome-extension",
+    "webpack-run-edge-extension",
+    "webpack-run-firefox-addon"
+  ]
+}
+
+
