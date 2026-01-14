@@ -2,9 +2,8 @@ import {render} from 'preact'
 import ContentApp from './ContentApp'
 import './styles.css'
 
-console.log('Hello from content script')
-
 export default function initial() {
+  console.log('Hello from content script')
   // Create a new div element and append it to the document's body
   const rootDiv = document.createElement('div')
   rootDiv.setAttribute('data-extension-root', 'true')

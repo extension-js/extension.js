@@ -1,16 +1,15 @@
-[empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
-[empowering-url]: https://extension.js.org
+[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
+[powered-url]: https://extension.js.org
 [pr-welcome-image]: https://img.shields.io/badge/pull--requests-welcome-2ecc40
 [pr-welcome-url]: https://github.com/extension-js/extension.js/pulls
-[extensionjs-image]: https://img.shields.io/badge/Extension.js-0971fe
 
-[![Empowering][empowering-image]][empowering-url] [![pull-requests][pr-welcome-image]][pr-welcome-url]
+[![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
 # @/webpack/plugin-extension
 
 > The Rspack-based engine for the Extension.js development commands.
 
-Builds your extension into a clean, shippable bundle. Pages get one script and optional CSS. Content scripts are isolated. Manifest paths are correct. Icons, assets, locales, and JSON are included. Watch mode surfaces structure changes early so what you run locally matches what you ship. This is the real deal that empowers [Extension.js](https://extension.js.org). Powered by [Rspack](https://rspack.dev).
+Builds your extension into a shippable bundle. Pages get one script and optional CSS. Content scripts are isolated. Manifest paths are correct. Icons, assets, locales, and JSON are included. Watch mode surfaces structure changes early so what you run locally matches what you ship. Powered by [Rspack](https://rspack.dev).
 
 ### Feature overview
 

@@ -1,5 +1,7 @@
 [npm-version-image]: https://img.shields.io/npm/v/extension.svg?color=0971fe
 [npm-version-url]: https://www.npmjs.com/package/extension
+[npm-downloads-image]: https://img.shields.io/npm/dm/extension.svg?color=0971fe
+[npm-downloads-url]: https://www.npmjs.com/package/extension
 [action-image]: https://github.com/extension-js/extension.js/actions/workflows/ci.yml/badge.svg?branch=main&color=0971fe
 [action-url]: https://github.com/extension-js/extension.js/actions
 [discord-image]: https://img.shields.io/discord/1253608412890271755?label=Discord&logo=discord&style=flat&color=0971fe
@@ -7,20 +9,20 @@
 [snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg?color=0971fe
 [snyk-url]: https://snyk.io/test/github/extension-js/extension
 
-> The cross-browser extension framework
+# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
+> The cross-browser extension framework
 
 <img alt="Logo" align="right" src="https://avatars.githubusercontent.com/u/172809806" width="15.5%" />
 
-- [Create A New Extension](#create-a-new-extension) — How to create a new extension.
-- [Get started](#get-started-immediately) — Start from a working baseline.
-- [Start From An Example](https://github.com/extension-js/extension.js/tree/main/examples) — Start with your favorite tool.
-- [I have An Extension](#i-have-an-extension) — Use only specific parts of Extension.js.
+- [Create a new extension](#create-a-new-extension) — How to create a new extension.
+- [Watch demo](#watch-demo) — See how creating a new extension works.
+- [Start from an example](https://github.com/extension-js/extension.js/tree/main/examples) — Start from a working baseline.
+- [I have an extension](#i-have-an-extension) — Use only specific parts of Extension.js.
 
-Extension.js helps you build and run cross-browser extensions.<br />Developers prefer it for its quick builds, a unified workflow, and a minimal setup.
+Create cross-browser extensions with no build configuration.<br />Use Extension.js to develop, build, and preview across browsers with a unified workflow.
 
-## Create A New Extension
+## Create a new extension
 
 Use the `create` command to generate a new extension. Also works with pnpm, yarn, and bun.
 
@@ -30,11 +32,11 @@ cd my-extension
 npm run dev
 ```
 
-### Watch Demo
+### Watch demo
 
-https://github.com/cezaraugusto/extension/assets/4672033/7263d368-99c4-434f-a60a-72c489672586
+[Watch demo](https://github.com/cezaraugusto/extension/assets/4672033/7263d368-99c4-434f-a60a-72c489672586)
 
-## Web Standards and Framework Support
+## Web standards and framework support
 
 <!-- For a preview of extensions running these technologies, see the [templates](https://templates.extension.land) website. -->
 
@@ -52,9 +54,9 @@ Start developing an extension using a sample from Chrome Extension Samples
 
 See the example below where we request the sample [page-redder](https://github.com/GoogleChrome/chrome-extensions-samples/tree/main/functional-samples/sample.page-redder) from [Google Chrome Extension Samples](https://github.com/GoogleChrome/chrome-extensions-samples).
 
-### Watch Demo
+### Watch demo
 
-https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1
+[Watch demo](https://github.com/cezaraugusto/extension/assets/4672033/ee221a94-6ec7-4e04-8553-8812288927f1)
 
 ### Try Yourself
 
@@ -64,13 +66,13 @@ npx extension@latest dev https://github.com/GoogleChrome/chrome-extensions-sampl
 
 </details>
 
-## I have An Extension
+## I have an extension
 
 If you have an existing extension which is using a package manager, you can install the Extension.js package and manually create the scripts used to run your extension.
 
-### See How It Works
+### See how it works
 
-https://github.com/cezaraugusto/extension/assets/4672033/48694a23-b7f1-4098-9c5d-eff49983739c
+[See how it works](https://github.com/cezaraugusto/extension/assets/4672033/48694a23-b7f1-4098-9c5d-eff49983739c)
 
 **Step 1 - Install extension as a `devDependency`**
 

@@ -1,13 +1,13 @@
 [powered-image]: https://img.shields.io/badge/Powered%20by-Extension.js-0971fe
 [powered-url]: https://extension.js.org
 
-[![Powered by Extension.js][powered-image]][powered-url]
+![Powered by Extension.js][powered-image]
 
-# Svelte Template
+# Svelte Sidebar Example
 
-> Svelte-based extension with a reactive UI.
+> Svelte-based extension with a sidebar panel.
 
-Svelte-based extension UI with live reload, production builds, and browser previews.
+Svelte sidebar UI with dev, build, and preview scripts.
 
 ## Installation
 
@@ -41,6 +41,24 @@ Preview the extension in the browser.
 
 ```bash
 npm run preview
+```
+
+## Browser targets
+
+Chromium is the default. You can explicitly target Chrome, Edge, or Firefox:
+
+```bash
+# Chromium (default)
+npm run dev
+
+# Chrome
+npm run dev -- --browser=chrome
+
+# Edge
+npm run dev -- --browser=edge
+
+# Firefox
+npm run dev -- --browser=firefox
 ```
 
 ## Learn more

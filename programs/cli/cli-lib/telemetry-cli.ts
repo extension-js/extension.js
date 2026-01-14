@@ -12,6 +12,42 @@ function isTelemetryDisabledFromArgs(argv: string[]): boolean {
 
 const telemetryDisabled = isTelemetryDisabledFromArgs(process.argv)
 
+function findManifestJson(projectRoot: string): string | null {
+  // Best-effort: match project detection behavior (manifest may live under src/).
+  // Avoid expensive/unsafe traversals.
+  const stack: string[] = [projectRoot]
+
+  while (stack.length > 0) {
+    const dir = stack.pop()
+    if (!dir) continue
+
+    let entries: fs.Dirent[]
+
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      continue
+    }
+
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name === 'manifest.json') {
+        return path.join(dir, entry.name)
+      }
+
+      if (
+        entry.isDirectory() &&
+        !entry.name.startsWith('.') &&
+        entry.name !== 'node_modules' &&
+        entry.name !== 'dist'
+      ) {
+        stack.push(path.join(dir, entry.name))
+      }
+    }
+  }
+
+  return null
+}
+
 export const telemetry = new Telemetry({
   app: 'extension',
   version: packageJson.version,
@@ -43,10 +79,9 @@ if (!telemetryDisabled) {
   })
 
   // Attempt to emit a one-time, privacy-safe manifest summary when present
-  const cwd = process.cwd()
-  const manifestPath = path.join(cwd, 'manifest.json')
+  const manifestPath = findManifestJson(process.cwd())
 
-  if (fs.existsSync(manifestPath)) {
+  if (manifestPath) {
     const raw = fs.readFileSync(manifestPath, 'utf8')
     const json = JSON.parse(raw)
     const summary = summarizeManifest(json)

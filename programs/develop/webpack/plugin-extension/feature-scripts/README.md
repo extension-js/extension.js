@@ -1,10 +1,9 @@
-[empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
-[empowering-url]: https://extension.js.org
+[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
+[powered-url]: https://extension.js.org
 [pr-welcome-image]: https://img.shields.io/badge/pull--requests-welcome-2ecc40
 [pr-welcome-url]: https://github.com/extension-js/extension.js/pulls
-[extensionjs-image]: https://img.shields.io/badge/Extension.js-0971fe
 
-[![Empowering][empowering-image]][empowering-url] [![pull-requests][pr-welcome-image]][pr-welcome-url]
+[![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
 # @/webpack/plugin-extension/feature-scripts
 
@@ -79,7 +78,7 @@ export default config
 
 ### Compile‑time validation and restart guard
 
-- Missing script files referenced by supported manifest fields (or extras via `includeList`) are surfaced during compilation with a focused message, before the browser launches.
+- Missing script files referenced by supported manifest fields (or extras via `includeList`) are surfaced during compilation with a focused message, before the browser runs.
   - Leading `/` paths show a hint explaining they resolve from the extension output root (served from `public/`), not the source directory. The hint appears only when the original manifest entry used a leading `/`.
 - Changing manifest script entrypoints during development requires a restart. The plugin detects changes and emits a compile‑time error with PATH BEFORE/AFTER guidance.
 
