@@ -17,9 +17,6 @@
       "ntp_background": [179, 179, 183],
       "ntp_text": [37, 37, 39],
       "button_background": [28, 28, 30]
-    },
-    "images": {
-      "theme_ntp_attribution": "images/ntp_attribution.png"
     }
   }
 }
