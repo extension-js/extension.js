@@ -10,6 +10,7 @@ import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
 import {vendors, validateVendorsOrExit, type Browser} from '../utils'
+import {parseLogContexts} from '../utils/normalize-options'
 
 type PreviewOptions = {
   browser?: Browser | 'all'
@@ -132,30 +133,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
           previewOptions as unknown as {logContext?: string}
         ).logContext
 
-        const logContexts = (() => {
-          const raw = (logContextOption ||
-            (previewOptions as any).logContexts) as string | undefined
-          if (!raw || String(raw).trim().length === 0) return undefined
-          if (String(raw).trim().toLowerCase() === 'all') return undefined
-          const allowed = [
-            'background',
-            'content',
-            'page',
-            'sidebar',
-            'popup',
-            'options',
-            'devtools'
-          ] as const
-          type Context = (typeof allowed)[number]
-          const values = String(raw)
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0)
-            .filter((c: string): c is Context =>
-              (allowed as readonly string[]).includes(c)
-            )
-          return values.length ? values : undefined
-        })()
+        const logContexts = parseLogContexts(logContextOption)
 
         await extensionPreview(pathOrRemoteUrl, {
           mode: 'production',

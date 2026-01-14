@@ -14,41 +14,17 @@ import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
 import {loadCommandConfig} from './webpack-lib/config-loader'
 import {installDependencies} from './webpack-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
-import {scrubBrand} from './webpack-lib/branding'
 import {
   getDirs,
   getDistPath,
   needsInstall,
   normalizeBrowser
 } from './webpack-lib/paths'
+import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
+import {handleStatsErrors} from './webpack-lib/stats-handler'
 import webpackConfig from './webpack-config'
 
 import type {BuildOptions} from './webpack-types'
-
-export type BuildSummary = {
-  browser: string
-  total_assets: number
-  total_bytes: number
-  largest_asset_bytes: number
-  warnings_count: number
-  errors_count: number
-}
-
-// Split out the aggregation of assets and summary to its own function
-function getBuildSummary(browser: string, info: any): BuildSummary {
-  const assets = info?.assets || []
-  return {
-    browser,
-    total_assets: assets.length,
-    total_bytes: assets.reduce((n: number, a: any) => n + (a.size || 0), 0),
-    largest_asset_bytes: assets.reduce(
-      (m: number, a: any) => Math.max(m, a.size || 0),
-      0
-    ),
-    warnings_count: (info?.warnings || []).length,
-    errors_count: (info?.errors || []).length
-  }
-}
 
 export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
@@ -160,32 +136,7 @@ export async function extensionBuild(
           resolve()
         } else {
           // Print sanitized bundler output using stats.toString
-          try {
-            const verbose =
-              String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
-
-            const str = stats.toString({
-              colors: true,
-              all: false,
-              errors: true,
-              warnings: !!verbose
-            })
-
-            if (str) console.error(scrubBrand(str))
-          } catch {
-            try {
-              const str = stats.toString({
-                colors: true,
-                all: false,
-                errors: true,
-                warnings: true
-              })
-
-              if (str) console.error(str)
-            } catch {
-              // Ignore
-            }
-          }
+          handleStatsErrors(stats)
 
           if (!shouldExitOnError) {
             return reject(new Error('Build failed with errors'))

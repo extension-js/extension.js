@@ -16,7 +16,6 @@ import * as messages from './webpack-lib/messages'
 import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
 import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
-import {scrubBrand} from './webpack-lib/branding'
 import {
   getDirs,
   computePreviewOutputPath,
@@ -24,6 +23,9 @@ import {
   normalizeBrowser,
   getDistPath
 } from './webpack-lib/paths'
+import {sanitize} from './webpack-lib/sanitize'
+import {handleStatsErrors} from './webpack-lib/stats-handler'
+import {createShutdownHandler} from './webpack-lib/shutdown'
 import type {PreviewOptions} from './webpack-types'
 import {BrowsersPlugin} from './plugin-browsers'
 
@@ -76,12 +78,6 @@ export async function extensionPreview(
     // Ignore
   }
 
-  // Helper to avoid overriding file-config values with undefined from CLI/options
-  const sanitize = <T extends Record<string, any>>(obj: T): Partial<T> =>
-    Object.fromEntries(
-      Object.entries(obj || {}).filter(([, v]) => typeof v !== 'undefined')
-    ) as Partial<T>
-
   try {
     // Load command + browser defaults from the project root (package.json dir)
     const commandConfig = await loadCommandConfig(packageJsonDir, 'preview')
@@ -122,26 +118,7 @@ export async function extensionPreview(
     const compiler = rspack(compilerConfig)
 
     // Fast cancel on Ctrl+C / termination signals: close compiler and exit
-    let isShuttingDown = false
-    const shutdown = (code = 0) => {
-      if (isShuttingDown) return
-      isShuttingDown = true
-
-      try {
-        compiler.close(() => {
-          process.exit(code)
-        })
-
-        // Safety net in case close callback never fires
-        setTimeout(() => process.exit(code), 2000)
-      } catch {
-        process.exit(code)
-      }
-    }
-
-    process.on('SIGINT', () => shutdown(0))
-    process.on('SIGTERM', () => shutdown(0))
-    process.on('SIGHUP', () => shutdown(0))
+    const shutdown = createShutdownHandler(compiler)
 
     compiler.run((err, stats) => {
       if (err) {
@@ -150,30 +127,7 @@ export async function extensionPreview(
       }
 
       if (stats?.hasErrors()) {
-        try {
-          const verbose =
-            String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
-          const str = stats?.toString?.({
-            colors: true,
-            all: false,
-            errors: true,
-            warnings: !!verbose
-          })
-
-          if (str) console.error(scrubBrand(str))
-        } catch {
-          try {
-            const str = stats?.toString?.({
-              colors: true,
-              all: false,
-              errors: true,
-              warnings: true
-            })
-            if (str) console.error(str)
-          } catch {
-            // Ignore
-          }
-        }
+        handleStatsErrors(stats)
         shutdown(1)
       }
     })

@@ -12,36 +12,18 @@ import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import * as messages from './messages'
 import {PortManager} from './port-manager'
-import {setupAutoExit} from './auto-exit'
 import {isUsingJSFramework} from './frameworks'
-import {scrubBrand} from '../webpack-lib/branding'
 import {type ProjectStructure} from '../webpack-lib/project'
 import {
   loadBrowserConfig,
   loadCommandConfig,
   loadCustomWebpackConfig
 } from '../webpack-lib/config-loader'
+import {sanitize} from '../webpack-lib/sanitize'
+import {setupCompilerHooks} from './compiler-hooks'
+import {setupCleanupHandlers} from './cleanup'
 import webpackConfig from '../webpack-config'
 import type {DevOptions} from '../webpack-types'
-import * as devMessages from './messages'
-
-function closeAll(devServer: RspackDevServer, portManager: PortManager) {
-  devServer
-    .stop()
-    .then(async () => {
-      // Terminate the current instance
-      await portManager.terminateCurrentInstance()
-      // Allow browser plugin signal handlers to complete cleanup
-      setTimeout(() => process.exit(), 500)
-    })
-    .catch(async (error) => {
-      console.log(messages.extensionJsRunnerError(error))
-      // Still try to terminate the instance
-      await portManager.terminateCurrentInstance()
-      // Allow browser plugin signal handlers to complete cleanup
-      setTimeout(() => process.exit(1), 500)
-    })
-}
 
 export async function devServer(
   projectStructure: ProjectStructure,
@@ -79,11 +61,6 @@ export async function devServer(
 
   // Get the user defined args and merge with the Extension.js base webpack config
   // Avoid overriding file-config values with undefined from CLI args
-  const sanitize = <T extends Record<string, any>>(obj: T): Partial<T> =>
-    Object.fromEntries(
-      Object.entries(obj || {}).filter(([, v]) => typeof v !== 'undefined')
-    ) as Partial<T>
-
   const safeBrowserConfig = sanitize(browserConfig)
   const safeCommandConfig = sanitize(commandConfig)
   const safeDevOptions = sanitize(devOptions)
@@ -113,68 +90,7 @@ export async function devServer(
   const compiler = rspack(compilerConfig)
 
   // Surface bundler diagnostics during startup (even if start() hangs)
-  const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
-  let reportedNoEntries = false
-
-  compiler.hooks.invalid.tap('extension.js:invalid', () => {
-    if (verbose) {
-      console.log(messages.bundlerRecompiling())
-    }
-  })
-
-  compiler.hooks.failed.tap('extension.js:failed', (error: unknown) => {
-    console.error(messages.bundlerFatalError(error))
-  })
-
-  compiler.hooks.done.tap('extension.js:done', (stats: any) => {
-    try {
-      if (stats?.hasErrors?.()) {
-        const str = stats?.toString?.({
-          colors: true,
-          all: false,
-          errors: true,
-          warnings: true
-        })
-        if (str) console.error(scrubBrand(str))
-      } else if (stats?.hasWarnings?.()) {
-        const str = stats?.toString?.({
-          colors: true,
-          all: false,
-          errors: false,
-          warnings: true
-        })
-
-        if (str) console.warn(scrubBrand(str))
-      }
-
-      // Warn when nothing is being built on the first pass
-      if (!reportedNoEntries) {
-        const info = stats.toJson({
-          all: false,
-          assets: true,
-          entrypoints: true
-        })
-        const hasAssets = Array.isArray(info?.assets) && info.assets.length > 0
-        const entrypoints = info?.entrypoints || {}
-        const hasEntrypoints =
-          entrypoints && Object.keys(entrypoints).length > 0
-
-        if (!hasAssets && !hasEntrypoints) {
-          reportedNoEntries = true
-          const hookPort = portAllocation.port
-          console.warn(messages.noEntrypointsDetected(hookPort))
-        }
-      }
-    } catch (error) {
-      const str = stats?.toString({
-        colors: true,
-        all: false,
-        errors: true,
-        warnings: true
-      })
-      if (str) console.error(scrubBrand(str))
-    }
-  })
+  setupCompilerHooks(compiler, portAllocation.port)
 
   const port = portAllocation.port
 
@@ -259,51 +175,6 @@ export async function devServer(
     process.exit(1)
   }
 
-  // Handle process termination
-  const cleanup = async () => {
-    try {
-      await closeAll(devServer, portManager)
-    } catch (error) {
-      console.error('[Extension.js Runner] Error during cleanup.', error)
-      process.exit(1)
-    }
-  }
-
-  process.on('ERROR', cleanup)
-  process.on('SIGINT', cleanup)
-  process.on('SIGTERM', cleanup)
-  process.on('SIGHUP', cleanup)
-
-  // Handle uncaught exceptions
-  process.on('uncaughtException', async (error) => {
-    console.error('[Extension.js Runner] Uncaught exception.', error)
-    await cleanup()
-  })
-
-  process.on('unhandledRejection', async (reason, promise) => {
-    console.error('[Extension.js Runner] Unhandled rejection.', promise, reason)
-    await cleanup()
-  })
-
-  // Optional auto-exit support for non-interactive (AI/CI) runs
-  const cancelAutoExit = setupAutoExit(
-    process.env.EXTENSION_AUTO_EXIT_MS,
-    process.env.EXTENSION_FORCE_KILL_MS,
-    cleanup
-  )
-
-  // Ensure we clear timers before shutdown
-  const cancelAndCleanup = async () => {
-    try {
-      cancelAutoExit()
-    } catch {}
-    await cleanup()
-  }
-
-  // Do not remove other listeners; let browser plugins receive signals too.
-  // Register our cleanup alongside theirs so Ctrl+C terminates the browser.
-  process.on('ERROR', cancelAndCleanup)
-  process.on('SIGINT', cancelAndCleanup)
-  process.on('SIGTERM', cancelAndCleanup)
-  process.on('SIGHUP', cancelAndCleanup)
+  // Setup cleanup handlers for graceful shutdown
+  setupCleanupHandlers(devServer, portManager)
 }

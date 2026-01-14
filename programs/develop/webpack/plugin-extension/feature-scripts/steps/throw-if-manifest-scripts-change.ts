@@ -8,6 +8,7 @@
 
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
+import {AddContentScriptWrapper} from './setup-reload-strategy/add-content-script-wrapper'
 import type {PluginInterface, DevOptions} from '../../../webpack-types'
 import {scriptsManifestChangeDetected} from '../messages'
 
@@ -42,6 +43,17 @@ export class ThrowIfManifestScriptsChange {
     for (const [, val] of Object.entries(scriptsMap)) {
       if (Array.isArray(val)) paths.push(...(val.filter(Boolean) as string[]))
       else if (val) paths.push(val as string)
+    }
+
+    // Include bridge scripts for MAIN world content scripts
+    const bridgeScripts = AddContentScriptWrapper.getBridgeScripts(
+      this.manifestPath
+    )
+
+    for (const [, value] of Object.entries(bridgeScripts)) {
+      if (Array.isArray(value))
+        paths.push(...(value.filter(Boolean) as string[]))
+      else if (value) paths.push(value)
     }
 
     return paths

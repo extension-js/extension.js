@@ -10,6 +10,7 @@ import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
 import {vendors, validateVendorsOrExit, type Browser} from '../utils'
+import {parseLogContexts} from '../utils/normalize-options'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -96,7 +97,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...startOptions}: StartOptions
     ) {
-      if ((startOptions as any).author || (startOptions as any)['authorMode']) {
+      if (startOptions.author || startOptions['authorMode']) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
       }
@@ -128,37 +129,14 @@ export function registerStartCommand(program: Command, telemetry: any) {
           startOptions as unknown as {logContext?: string}
         ).logContext
 
-        const logContexts = (() => {
-          const raw = (logContextOption ||
-            (startOptions as any).logContexts) as string | undefined
-          if (!raw || String(raw).trim().length === 0) return undefined
-          if (String(raw).trim().toLowerCase() === 'all') return undefined
-          const allowed = [
-            'background',
-            'content',
-            'page',
-            'sidebar',
-            'popup',
-            'options',
-            'devtools'
-          ] as const
-          type Context = (typeof allowed)[number]
-          const values = String(raw)
-            .split(',')
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0)
-            .filter((c: string): c is Context =>
-              (allowed as readonly string[]).includes(c)
-            )
-          return values.length ? values : undefined
-        })()
+        const logContexts = parseLogContexts(logContextOption)
 
         await extensionStart(pathOrRemoteUrl, {
           mode: 'production',
           profile: startOptions.profile,
           browser: vendor as StartOptions['browser'],
-          chromiumBinary: (startOptions as any).chromiumBinary,
-          geckoBinary: (startOptions as any).geckoBinary,
+          chromiumBinary: startOptions.chromiumBinary,
+          geckoBinary: startOptions.geckoBinary,
           startingUrl: startOptions.startingUrl,
           port: startOptions.port,
           source:

@@ -8,9 +8,18 @@
 
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
-import type {PluginInterface, DevOptions} from '../../../../../webpack-types'
+import {getMainWorldBridgeScripts} from './get-bridge-scripts'
+import type {
+  PluginInterface,
+  DevOptions,
+  FilepathList
+} from '../../../../../webpack-types'
 
 export class AddContentScriptWrapper {
+  public static getBridgeScripts(manifestPath: string): FilepathList {
+    return getMainWorldBridgeScripts(manifestPath)
+  }
+
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
 
