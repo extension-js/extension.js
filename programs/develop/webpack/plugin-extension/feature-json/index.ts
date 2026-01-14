@@ -1,3 +1,11 @@
+//      ██╗███████╗ ██████╗ ███╗   ██╗
+//      ██║██╔════╝██╔═══██╗████╗  ██║
+//      ██║███████╗██║   ██║██╔██╗ ██║
+// ██   ██║╚════██║██║   ██║██║╚██╗██║
+// ╚█████╔╝███████║╚██████╔╝██║ ╚████║
+//  ╚════╝ ╚══════╝ ╚═════╝ ╚═╝  ╚═══╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler, sources, Compilation, WebpackError} from '@rspack/core'

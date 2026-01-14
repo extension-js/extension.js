@@ -1,3 +1,11 @@
+// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
+// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
+// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
+// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
+// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
 export function scrubBrand(txt: string, brand = 'Extension.js'): string {
   if (!txt) return txt
   return txt

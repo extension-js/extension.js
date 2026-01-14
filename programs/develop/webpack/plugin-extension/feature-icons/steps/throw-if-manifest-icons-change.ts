@@ -1,3 +1,11 @@
+// ██╗ ██████╗ ██████╗ ███╗   ██╗███████╗
+// ██║██╔════╝██╔═══██╗████╗  ██║██╔════╝
+// ██║██║     ██║   ██║██╔██╗ ██║███████╗
+// ██║██║     ██║   ██║██║╚██╗██║╚════██║
+// ██║╚██████╗╚██████╔╝██║ ╚████║███████║
+// ╚═╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
+
 import {createRequire} from 'node:module'
 import {Compilation, Compiler, WebpackError} from '@rspack/core'
 import {

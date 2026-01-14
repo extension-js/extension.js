@@ -60,3 +60,4 @@ describe('ManifestPlugin', () => {
     expect(applySpy.mock.calls.length).toBe(5)
   })
 })
+

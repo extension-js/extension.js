@@ -52,3 +52,4 @@ describe('feature-resolve: no-op on files without patterns', () => {
     expect(map).toBeUndefined()
   })
 })
+

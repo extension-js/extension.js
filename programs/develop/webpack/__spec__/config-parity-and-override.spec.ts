@@ -125,3 +125,4 @@ describe('extension.config object-merge and command/browser defaults', () => {
     })
   })
 })
+
