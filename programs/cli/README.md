@@ -48,6 +48,9 @@ npm run dev
 
 </div>
 
+<details>
+<summary>Get started from a sample</summary>
+
 ## Get started
 
 Start developing an extension using a sample from Chrome Extension Samples
