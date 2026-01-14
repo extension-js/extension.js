@@ -20,6 +20,9 @@ type StartOptions = {
   startingUrl?: string
   port?: string | number
   polyfill?: boolean | string
+  // Internal maintainer flags
+  author?: boolean
+  authorMode?: boolean
   // Source inspection (parity with dev/preview)
   source?: boolean | string
   watchSource?: boolean
@@ -97,7 +100,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...startOptions}: StartOptions
     ) {
-      if (startOptions.author || startOptions['authorMode']) {
+      if (startOptions.author || startOptions.authorMode) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
       }
