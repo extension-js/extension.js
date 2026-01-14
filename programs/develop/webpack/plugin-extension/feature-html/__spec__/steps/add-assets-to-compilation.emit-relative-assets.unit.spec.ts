@@ -64,4 +64,3 @@ describe('AddAssetsToCompilation (relative static assets emission)', () => {
     }
   })
 })
-

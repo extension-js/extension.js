@@ -105,4 +105,3 @@ describe('webpack/command-dev', () => {
     exitSpy.mockRestore()
   })
 })
-

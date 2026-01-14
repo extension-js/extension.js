@@ -49,4 +49,3 @@ describe('vue tools', () => {
     expect(result?.plugins?.length).toBeGreaterThan(0)
   })
 })
-

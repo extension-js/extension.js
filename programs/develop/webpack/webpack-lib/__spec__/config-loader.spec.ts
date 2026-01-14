@@ -40,4 +40,3 @@ module.exports = {
     expect(cfg.profile).toBe(path.join(dir, 'dist', 'stable-profile'))
   })
 })
-

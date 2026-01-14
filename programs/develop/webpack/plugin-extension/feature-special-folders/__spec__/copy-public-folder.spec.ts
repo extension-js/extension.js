@@ -141,4 +141,3 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
     expect(warnApply).toHaveBeenCalledTimes(1)
   })
 })
-

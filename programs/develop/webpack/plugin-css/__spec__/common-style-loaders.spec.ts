@@ -49,4 +49,3 @@ describe('commonStyleLoaders', () => {
     expect(res.some((l: any) => l.loader === 'postcss-loader')).toBe(true)
   })
 })
-

@@ -38,4 +38,3 @@ describe('idempotence', () => {
     expect(twice.code).toBe(once.code)
   })
 })
-

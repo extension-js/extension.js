@@ -82,4 +82,3 @@ describe('load-loader-options', () => {
     logSpy.mockRestore()
   })
 })
-

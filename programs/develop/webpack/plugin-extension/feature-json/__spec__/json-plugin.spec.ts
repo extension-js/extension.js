@@ -57,7 +57,9 @@ function createCompilerHarness() {
 
   function applyAndRun(plugin: JsonPlugin) {
     // Provide a minimal Compilation/Compiler relationship expected by the plugin code.
-    const context = path.dirname((plugin as any).manifestPath || 'manifest.json')
+    const context = path.dirname(
+      (plugin as any).manifestPath || 'manifest.json'
+    )
     compiler.options = {context}
     compilation.compiler = compiler
     compilation.options = {context}
@@ -340,4 +342,3 @@ describe('JsonPlugin', () => {
     expect((compilation.errors[0] as any)?.name).toBe('JSONInvalidSyntax')
   })
 })
-

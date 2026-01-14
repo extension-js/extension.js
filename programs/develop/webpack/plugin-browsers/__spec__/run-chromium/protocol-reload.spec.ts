@@ -138,4 +138,3 @@ describe('Chromium protocol reload path', () => {
     expect(true).toBe(true)
   })
 })
-

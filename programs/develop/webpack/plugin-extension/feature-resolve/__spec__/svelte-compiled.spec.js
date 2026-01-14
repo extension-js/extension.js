@@ -66,4 +66,3 @@ describe('feature-resolve: Svelte compiled JS stability', () => {
     expect(code).toMatch(/chrome\.runtime\.getURL\s*\(/)
   })
 })
-

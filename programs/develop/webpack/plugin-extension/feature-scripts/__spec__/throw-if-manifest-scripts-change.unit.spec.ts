@@ -82,4 +82,3 @@ describe('ThrowIfManifestScriptsChange', () => {
     expect(errors.length).toBe(0)
   })
 })
-

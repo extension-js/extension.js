@@ -41,4 +41,3 @@ describe('Firefox profile args', () => {
     expect(args).toMatch(/--profile=".*firefox-profile\/dev"/)
   })
 })
-

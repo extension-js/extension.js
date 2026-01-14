@@ -10,4 +10,3 @@ describe('Firefox banner id (smoke)', () => {
     expect(typeof (ctrl as any).ensureLoaded).toBe('function')
   })
 })
-

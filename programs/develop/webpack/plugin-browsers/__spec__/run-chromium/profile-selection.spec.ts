@@ -61,4 +61,3 @@ describe('profile selection under concurrency', () => {
     expect(call.profile).toBeUndefined()
   })
 })
-

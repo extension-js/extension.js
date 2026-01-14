@@ -73,4 +73,3 @@ describe('resolve-paths sourcemaps', () => {
     }
   })
 })
-

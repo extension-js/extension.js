@@ -85,4 +85,3 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     )
   })
 })
-

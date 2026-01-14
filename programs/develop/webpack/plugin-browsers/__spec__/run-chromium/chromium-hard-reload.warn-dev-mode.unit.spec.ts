@@ -98,4 +98,3 @@ describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
     expect(warnMock).not.toHaveBeenCalled()
   })
 })
-

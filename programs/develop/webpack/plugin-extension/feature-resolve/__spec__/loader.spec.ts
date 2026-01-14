@@ -67,4 +67,3 @@ describe('resolve-paths-loader', () => {
     }
   })
 })
-

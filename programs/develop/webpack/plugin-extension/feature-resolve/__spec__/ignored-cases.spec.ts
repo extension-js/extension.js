@@ -61,4 +61,3 @@ describe('ignored / non-resolvable cases', () => {
     expect(n).toContain("{url:'moz-extension://abcd/foo.html'}")
   })
 })
-

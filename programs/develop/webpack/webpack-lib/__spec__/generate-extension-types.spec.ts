@@ -61,4 +61,3 @@ describe('generate-extension-types', () => {
     expect(content).toContain("'scripts/a.ts'")
   })
 })
-

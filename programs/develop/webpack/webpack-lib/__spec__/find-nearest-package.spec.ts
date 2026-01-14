@@ -42,4 +42,3 @@ describe('find-nearest-package', () => {
     expect(validatePackageJson(invalid)).toBe(true)
   })
 })
-
