@@ -1,10 +1,9 @@
-[empowering-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
-[empowering-url]: https://extension.js.org
+[powered-image]: https://img.shields.io/badge/Empowering-Extension.js-0971fe
+[powered-url]: https://extension.js.org
 [pr-welcome-image]: https://img.shields.io/badge/pull--requests-welcome-2ecc40
 [pr-welcome-url]: https://github.com/extension-js/extension.js/pulls
-[extensionjs-image]: https://img.shields.io/badge/Extension.js-0971fe
 
-[![Empowering][empowering-image]][empowering-url] [![pull-requests][pr-welcome-image]][pr-welcome-url]
+[![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
 # @/webpack/plugin-extension/feature-locales
 
@@ -20,7 +19,7 @@ To prevent browser crashes or confusing runtime alerts, this plugin validates lo
 - If `_locales/` exists but `default_locale` is missing in `manifest.json`, the build errors (browsers will reject the extension otherwise).
 - All discovered `_locales/**/messages.json` are checked for valid JSON.
 
-When any of the above is misconfigured, the build emits a compilation error so you can fix it before launching the browser.
+When any of the above is misconfigured, the build emits a compilation error so you can fix it before the browser runs.
 
 ## What it does
 

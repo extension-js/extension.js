@@ -1,7 +1,7 @@
 {
   "private": true,
   "name": "@extension-js/javascript",
-  "description": "JavaScript-based extension template",
+  "description": "JavaScript-based extension with a sidebar panel. Adds a sidebar with a simple page.",
   "version": "3.0.0",
   "license": "MIT",
   "type": "module",
