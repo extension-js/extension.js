@@ -30,4 +30,3 @@ describe('webpack-lib/branding', () => {
     logSpy.mockRestore()
   })
 })
-

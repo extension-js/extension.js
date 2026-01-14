@@ -35,4 +35,3 @@ describe('AddToFileDependencies', () => {
     expect(c.hooks.thisCompilation as any).toBeTruthy()
   })
 })
-

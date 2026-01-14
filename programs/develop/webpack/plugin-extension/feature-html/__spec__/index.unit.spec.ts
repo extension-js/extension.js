@@ -41,4 +41,3 @@ describe('HtmlPlugin', () => {
     expect(compiler.options.module.rules.length).toBeGreaterThanOrEqual(1)
   })
 })
-

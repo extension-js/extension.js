@@ -64,4 +64,3 @@ describe('dlx / resolveModuleEntry', () => {
     expect(href).toContain('dist/module.js')
   })
 })
-

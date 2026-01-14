@@ -181,4 +181,3 @@ describe('webpack/command-build', () => {
     expect(installDepsMod.installDependencies).not.toHaveBeenCalled()
   })
 })
-

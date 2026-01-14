@@ -74,4 +74,3 @@ describe('CheckManifestFiles', () => {
     expect(msg).toMatch(/NOT FOUND \/abs\/missing\.png/i)
   })
 })
-

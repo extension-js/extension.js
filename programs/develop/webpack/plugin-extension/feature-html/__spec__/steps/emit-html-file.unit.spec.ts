@@ -54,4 +54,3 @@ describe('EmitHtmlFile', () => {
     expect(c.state.warnings.length).toBeGreaterThanOrEqual(1)
   })
 })
-

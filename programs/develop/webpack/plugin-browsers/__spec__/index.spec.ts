@@ -141,4 +141,3 @@ describe('BrowsersPlugin', () => {
     expect(console.error).toHaveBeenCalled()
   })
 })
-

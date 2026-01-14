@@ -13,4 +13,3 @@ describe('Firefox controller facade (smoke)', () => {
     expect(seen).toBe(true)
   })
 })
-

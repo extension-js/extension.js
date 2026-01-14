@@ -74,4 +74,3 @@ describe('CompatibilityPlugin', () => {
     expect(spyPolyfill).toHaveBeenCalledTimes(0)
   })
 })
-

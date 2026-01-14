@@ -103,4 +103,3 @@ describe('CLI Commands', () => {
     expect(fs.existsSync(manifest)).toBeTruthy()
   }, 60000)
 })
-

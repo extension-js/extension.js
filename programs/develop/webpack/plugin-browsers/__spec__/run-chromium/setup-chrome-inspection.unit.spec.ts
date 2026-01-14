@@ -61,4 +61,3 @@ describe('SetupChromeInspectionStep (unit)', () => {
     expect(ws.on).toHaveBeenCalled()
   })
 })
-

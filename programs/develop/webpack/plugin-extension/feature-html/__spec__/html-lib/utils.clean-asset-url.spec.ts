@@ -30,4 +30,3 @@ describe('html-lib utils', () => {
     expect(getBaseHref(doc2 as any)).toBeUndefined()
   })
 })
-

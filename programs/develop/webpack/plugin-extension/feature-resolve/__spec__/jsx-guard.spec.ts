@@ -42,4 +42,3 @@ describe('jsx/tsx guard', () => {
     expect(out).toContain('<img src="/public/a.png"')
   })
 })
-

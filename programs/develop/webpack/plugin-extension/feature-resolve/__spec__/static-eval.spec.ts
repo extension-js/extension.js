@@ -58,4 +58,3 @@ describe('static evaluation', () => {
     expect(normalize(out)).toContain("getURL('a.js')")
   })
 })
-

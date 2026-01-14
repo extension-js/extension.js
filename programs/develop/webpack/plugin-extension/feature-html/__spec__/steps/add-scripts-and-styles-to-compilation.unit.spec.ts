@@ -61,4 +61,3 @@ describe('AddScriptsAndStylesToCompilation', () => {
     ).toBe(true)
   })
 })
-

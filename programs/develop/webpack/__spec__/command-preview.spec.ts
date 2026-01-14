@@ -151,4 +151,3 @@ describe('webpack/command-preview', () => {
     exitSpy.mockRestore()
   })
 })
-

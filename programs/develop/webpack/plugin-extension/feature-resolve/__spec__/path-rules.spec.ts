@@ -127,4 +127,3 @@ describe('path rules matrix', () => {
     expect(n).toContain("{files:['scripts/a.js']}")
   })
 })
-

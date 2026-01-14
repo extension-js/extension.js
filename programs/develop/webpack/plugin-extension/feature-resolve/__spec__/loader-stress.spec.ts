@@ -172,4 +172,3 @@ describe('resolve-paths-loader stress', () => {
     }
   })
 })
-

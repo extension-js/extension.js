@@ -62,4 +62,3 @@ describe('resolveCompanionExtensionDirs', () => {
     expect(dirs).toEqual([a, b])
   })
 })
-

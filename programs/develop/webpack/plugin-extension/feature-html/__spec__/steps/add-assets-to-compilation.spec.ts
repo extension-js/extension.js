@@ -218,4 +218,3 @@ describe('AddAssetsToCompilation', () => {
     expect(mockCompilation.errors.length).toBe(0)
   })
 })
-

@@ -194,4 +194,3 @@ describe('content-script-wrapper loader', () => {
     expect(ctx.emitWarning).toHaveBeenCalled()
   })
 })
-

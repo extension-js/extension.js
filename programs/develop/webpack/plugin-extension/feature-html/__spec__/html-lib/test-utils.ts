@@ -85,4 +85,3 @@ export function createTextNode(text: string): HtmlNode {
     value: text
   }
 }
-

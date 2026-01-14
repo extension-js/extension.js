@@ -55,4 +55,3 @@ describe('AddAssetsToCompilation - remote resources warnings', () => {
     expect(messages.join('\n')).toMatch(/Remote <(script|style)>/i)
   })
 })
-

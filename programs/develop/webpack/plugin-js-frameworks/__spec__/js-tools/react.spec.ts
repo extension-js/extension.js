@@ -58,4 +58,3 @@ describe('react tools', () => {
     )
   })
 })
-

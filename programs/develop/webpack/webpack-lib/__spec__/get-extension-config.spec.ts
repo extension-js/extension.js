@@ -37,4 +37,3 @@ describe('get-extension-config defaults', () => {
     expect(await isUsingExperimentalConfig(tmp)).toBe(false)
   })
 })
-

@@ -308,4 +308,3 @@ describe('EmitFile step', () => {
     expect(calls).toEqual(['icons/icon48.png'])
   })
 })
-
