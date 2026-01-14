@@ -1,0 +1,27 @@
+{
+  "name": "@extension.js/plugin-extension",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Internal placeholder for future extraction from extension.js. Aggregates feature-* modules (HTML, scripts, manifest, icons, locales, JSON, resources, special folders, resolve).",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/develop/webpack/plugin-extension"
+  },
+  "x-internal-path": "programs/develop/webpack/plugin-extension",
+  "x-composes": [
+    "@extension.js/webpack-browser-extension-html",
+    "@extension.js/webpack-browser-extension-scripts",
+    "@extension.js/webpack-browser-extension-manifest",
+    "@extension.js/webpack-browser-extension-icons",
+    "@extension.js/webpack-browser-extension-locales",
+    "@extension.js/webpack-browser-extension-json",
+    "@extension.js/webpack-browser-extension-resources",
+    "@extension.js/webpack-browser-extension-special-folders",
+    "@extension.js/webpack-browser-extension-resolve"
+  ]
+}
+
+
