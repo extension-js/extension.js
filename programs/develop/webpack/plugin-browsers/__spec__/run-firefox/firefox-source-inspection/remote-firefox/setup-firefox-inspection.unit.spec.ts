@@ -68,4 +68,3 @@ describe('FirefoxSourceInspectionPlugin (unit)', () => {
     expect(() => step.apply(compiler)).not.toThrow()
   })
 })
-

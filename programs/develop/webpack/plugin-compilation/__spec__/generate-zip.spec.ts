@@ -63,4 +63,3 @@ describe('ZipPlugin', () => {
     expect(hasSourceZip).toBe(true)
   })
 })
-

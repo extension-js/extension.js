@@ -69,4 +69,3 @@ describe('performance behaviors', () => {
     expect(out).toBe(code)
   })
 })
-

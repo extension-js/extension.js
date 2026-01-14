@@ -62,4 +62,3 @@ describe('webpack/command-start', () => {
     )
   })
 })
-

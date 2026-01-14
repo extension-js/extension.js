@@ -49,4 +49,3 @@ describe('Chromium profile flags', () => {
     expect(userDir).toMatch(/extension-js\/profiles\/chrome-profile\/dev"?$/)
   })
 })
-

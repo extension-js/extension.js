@@ -90,4 +90,3 @@ describe('ScriptsPlugin wiring', () => {
     expect(AddPublicPathRuntimeModule).not.toHaveBeenCalled()
   })
 })
-

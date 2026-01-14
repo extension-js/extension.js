@@ -34,4 +34,3 @@ describe('Inspector port derivation', () => {
     expect(lastChromiumRunner.opts.port).toBe(9444)
   })
 })
-

@@ -47,4 +47,3 @@ describe('AddPublicPathRuntimeModule', () => {
     expect(addedModules.length).toBe(1)
   })
 })
-

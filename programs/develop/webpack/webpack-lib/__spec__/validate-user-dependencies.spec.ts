@@ -36,4 +36,3 @@ describe('assertNoManagedDependencyConflicts', () => {
     } catch {}
   })
 })
-

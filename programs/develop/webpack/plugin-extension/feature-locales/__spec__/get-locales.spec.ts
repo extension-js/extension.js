@@ -63,4 +63,3 @@ describe('getLocales (unit)', () => {
     expect(files.some((p) => p.endsWith('/_locales/en/logo.png'))).toBe(true)
   })
 })
-

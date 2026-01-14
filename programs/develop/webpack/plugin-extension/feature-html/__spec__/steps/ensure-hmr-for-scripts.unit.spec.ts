@@ -18,4 +18,3 @@ describe('ensureHMRForScripts loader', () => {
     expect(out).toContain(src)
   })
 })
-
