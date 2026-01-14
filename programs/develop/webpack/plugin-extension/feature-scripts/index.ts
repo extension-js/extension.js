@@ -59,20 +59,10 @@ export class ScriptsPlugin {
       return
     }
 
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      const featuresCount = Object.keys(this.includeList || {}).length
-      console.log(
-        messages.scriptsIncludeSummary(
-          featuresCount,
-          compiler.options.mode !== 'production',
-          String(this.browser || 'chrome')
-        )
-      )
-    }
-
     // 1 - Adds the scripts entries from the manifest file
     // and from the extra scripts defined in this.include
     // to the compilation.
+    // Bridge scripts are merged internally by AddScripts
     new AddScripts({
       manifestPath: this.manifestPath,
       includeList: this.includeList || {}
@@ -100,9 +90,9 @@ export class ScriptsPlugin {
       }).apply(compiler)
 
       // 5 - Restart-required if manifest script entrypoints changed
+      // Bridge scripts are computed internally by ThrowIfManifestScriptsChange
       new ThrowIfManifestScriptsChange({
         manifestPath: this.manifestPath,
-        includeList: this.includeList || {},
         browser: this.browser
       }).apply(compiler)
 
