@@ -10,6 +10,7 @@
 import fs from 'fs'
 import path from 'path'
 import {validate} from 'schema-utils'
+import {parseSync} from '@swc/core'
 
 const schema = {
   type: 'object',
@@ -26,8 +27,99 @@ const schema = {
   }
 }
 
+function getSourceSignature(source) {
+  const head = String(source || '').slice(0, 64)
+  const tail = String(source || '').slice(-64)
+  return `${String(source || '').length}:${head}:${tail}`
+}
+
+function hasDefaultExport(source, resourcePath, compilation) {
+  try {
+    const ext = path.extname(resourcePath).toLowerCase()
+    const isTS =
+      ext === '.ts' || ext === '.tsx' || ext === '.mts' || ext === '.mtsx'
+    const isJSX =
+      ext === '.jsx' || ext === '.tsx' || ext === '.mjsx' || ext === '.mtsx'
+
+    const abs = path.normalize(resourcePath)
+    const sig = getSourceSignature(source)
+    if (compilation) {
+      compilation.__extjsHasDefaultExportCache ??= new Map()
+      const cacheKey = `${abs}|${sig}`
+      const cached = compilation.__extjsHasDefaultExportCache.get(cacheKey)
+      if (typeof cached === 'boolean') return cached
+    }
+
+    const ast = parseSync(source, {
+      syntax: isTS ? 'typescript' : 'ecmascript',
+      tsx: isTS && isJSX,
+      jsx: !isTS && isJSX,
+      decorators: true,
+      dynamicImport: true,
+      importAssertions: true,
+      topLevelAwait: true
+    })
+
+    const body = Array.isArray(ast?.body) ? ast.body : []
+    for (const item of body) {
+      if (!item || typeof item !== 'object') continue
+      if (
+        item.type === 'ExportDefaultDeclaration' ||
+        item.type === 'ExportDefaultExpression'
+      ) {
+        if (compilation) {
+          compilation.__extjsHasDefaultExportCache?.set(`${abs}|${sig}`, true)
+        }
+        return true
+      }
+      if (
+        item.type === 'ExportNamedDeclaration' &&
+        Array.isArray(item.specifiers)
+      ) {
+        for (const s of item.specifiers) {
+          if (!s || typeof s !== 'object') continue
+          if (s.type === 'ExportDefaultSpecifier') return true
+          if (s.type === 'ExportSpecifier') {
+            const exported = s.exported
+            if (
+              exported &&
+              typeof exported === 'object' &&
+              ((exported.type === 'Identifier' &&
+                exported.value === 'default') ||
+                (exported.type === 'Ident' && exported.value === 'default') ||
+                (exported.type === 'Str' && exported.value === 'default'))
+            ) {
+              if (compilation) {
+                compilation.__extjsHasDefaultExportCache?.set(
+                  `${abs}|${sig}`,
+                  true
+                )
+              }
+              return true
+            }
+          }
+        }
+      }
+    }
+    if (compilation) {
+      compilation.__extjsHasDefaultExportCache?.set(`${abs}|${sig}`, false)
+    }
+    return false
+  } catch (e) {
+    const fallback = source.includes('export default')
+    try {
+      compilation?.__extjsHasDefaultExportCache?.set(
+        `${path.normalize(resourcePath)}|${getSourceSignature(source)}`,
+        fallback
+      )
+    } catch (error) {}
+    return fallback
+  }
+}
+
 export default function (source) {
   const options = this.getOptions()
+  const compilation = this._compilation
   const manifestPath = options.manifestPath
   const projectPath = path.dirname(manifestPath)
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
@@ -42,22 +134,34 @@ export default function (source) {
   // Inject wrapper for:
   // - declared manifest content scripts
   // - special-folder scripts under /scripts (treated as content-script-like)
-  const declaredContentJsAbsPaths = []
+  const declaredContentJsAbsEntries: Array<{abs: string; runAt: string}> = []
   const contentScripts = Array.isArray(manifest.content_scripts)
     ? manifest.content_scripts
     : []
 
   for (const cs of contentScripts) {
     const jsList = Array.isArray(cs?.js) ? cs.js : []
+    const runAtRaw =
+      typeof cs?.run_at === 'string' ? cs.run_at : 'document_idle'
+    const runAt =
+      runAtRaw === 'document_start' ||
+      runAtRaw === 'document_end' ||
+      runAtRaw === 'document_idle'
+        ? runAtRaw
+        : 'document_idle'
     for (const js of jsList) {
-      declaredContentJsAbsPaths.push(path.resolve(projectPath, js))
+      declaredContentJsAbsEntries.push({
+        abs: path.resolve(projectPath, js),
+        runAt
+      })
     }
   }
 
   const resourceAbsPath = path.normalize(this.resourcePath)
-  const isDeclaredContentScript = declaredContentJsAbsPaths.some(
-    (abs) => resourceAbsPath === path.normalize(abs)
+  const declaredEntry = declaredContentJsAbsEntries.find(
+    (entry) => resourceAbsPath === path.normalize(entry.abs)
   )
+  const isDeclaredContentScript = Boolean(declaredEntry)
 
   const scriptsDir = path.resolve(projectPath, 'scripts')
   const relToScripts = path.relative(scriptsDir, resourceAbsPath)
@@ -67,6 +171,10 @@ export default function (source) {
     !path.isAbsolute(relToScripts)
 
   const isContentScriptLike = isDeclaredContentScript || isScriptsFolderScript
+  // For declared manifest content scripts, respect run_at when scheduling mount.
+  // For scripts/ folder scripts (not declared), default to document_idle to preserve
+  // historical behavior (mount after full load) unless user code explicitly handles earlier timing.
+  const runAt = (declaredEntry?.runAt as string | undefined) || 'document_idle'
 
   if (!isContentScriptLike) {
     return source
@@ -81,7 +189,7 @@ export default function (source) {
       if (!isContentScriptLike) {
         return source
       }
-      if (!/\bexport\s+default\b/.test(source)) {
+      if (!hasDefaultExport(source, this.resourcePath, compilation)) {
         return source
       }
       if (source.includes('__EXTENSIONJS_MOUNT_WRAPPED__')) {
@@ -127,17 +235,34 @@ export default function (source) {
       }
 
       const runtimeProdInline =
-        'function __EXTENSIONJS_mount(mount){\n' +
-        '  var cleanup;\n' +
-        '  function apply(){ cleanup = mount() }\n' +
-        "  function unmount(){ if (typeof cleanup === 'function') cleanup() }\n" +
-        "  if (typeof document !== 'undefined') {\n" +
-        "    if (document.readyState === 'complete') { apply(); }\n" +
-        '    else {\n' +
-        "      var onReady = function(){ if (document.readyState === 'complete') { document.removeEventListener('readystatechange', onReady); apply(); } };\n" +
-        "      document.addEventListener('readystatechange', onReady);\n" +
+        'function __EXTENSIONJS_whenReady(runAt, cb){\n' +
+        '  try {\n' +
+        "    if (typeof document === 'undefined') { cb(); return function(){} }\n" +
+        "    if (runAt === 'document_start') { cb(); return function(){} }\n" +
+        '    var isDone = false;\n' +
+        '    function isReady(){\n' +
+        "      if (runAt === 'document_end') return document.readyState === 'interactive' || document.readyState === 'complete';\n" +
+        "      if (runAt === 'document_idle') return document.readyState !== 'loading';\n" +
+        "      return document.readyState === 'complete';\n" +
         '    }\n' +
-        '  } else { apply() }\n' +
+        '    if (isReady()) { cb(); return function(){} }\n' +
+        '    var onReady = function(){\n' +
+        '      try {\n' +
+        '        if (isDone) return;\n' +
+        "        if (isReady()) { isDone = true; document.removeEventListener('readystatechange', onReady); cb(); }\n" +
+        '      } catch (e) {}\n' +
+        '    };\n' +
+        "    document.addEventListener('readystatechange', onReady);\n" +
+        "    return function(){ try { if (!isDone) document.removeEventListener('readystatechange', onReady); } catch (e) {} };\n" +
+        '  } catch (e) { try { cb(); } catch (_) {} return function(){} }\n' +
+        '}\n' +
+        'function __EXTENSIONJS_mount(mount, runAt){\n' +
+        '  var cleanup;\n' +
+        '  var cancelReady = function(){};\n' +
+        '  if (typeof mount !== \"function\") { try { console.warn(\"[extension.js] content script default export must be a function; skipping mount\") } catch (_) {} return function(){} }\n' +
+        '  function apply(){ try { cleanup = mount() } catch (e) { try { console.warn(\"[extension.js] content script default export failed to run\", e) } catch (_) {} } }\n' +
+        "  function unmount(){ try { cancelReady && cancelReady(); } catch (e) {} try { if (typeof cleanup === 'function') cleanup() } catch (e2) {} }\n" +
+        '  cancelReady = __EXTENSIONJS_whenReady(runAt, apply);\n' +
         '  return unmount;\n' +
         '}\n'
 
@@ -145,7 +270,9 @@ export default function (source) {
         `${runtimeProdInline}` +
         `${cleaned}\n` +
         `;/* __EXTENSIONJS_MOUNT_WRAPPED__ */\n` +
-        `try { __EXTENSIONJS_mount(__EXTENSIONJS_default__) } catch (error) {}\n` +
+        `try { __EXTENSIONJS_mount(__EXTENSIONJS_default__, ${JSON.stringify(
+          runAt
+        )}) } catch (error) {}\n` +
         `export default __EXTENSIONJS_default__\n`
 
       return injected
@@ -201,7 +328,7 @@ export default function (source) {
   }
 
   // Only proceed if a default export exists; a sibling loader warns if missing
-  if (!/\bexport\s+default\b/.test(source)) {
+  if (!hasDefaultExport(source, this.resourcePath, compilation)) {
     return source
   }
 
@@ -222,18 +349,35 @@ export default function (source) {
 
   // Inline runtime helper to avoid cross-context import resolution
   const runtimeInline =
-    'function __EXTENSIONJS_mountWithHMR(mount){\n' +
-    '  var cleanup;\n' +
-    '  function apply(){ cleanup = mount() }\n' +
-    "  function unmount(){ if (typeof cleanup === 'function') cleanup() }\n" +
-    '  function remount(){ unmount(); apply(); }\n' +
-    "  if (typeof document !== 'undefined') {\n" +
-    "    if (document.readyState === 'complete') { apply(); }\n" +
-    '    else {\n' +
-    "      var onReady = function(){ if (document.readyState === 'complete') { document.removeEventListener('readystatechange', onReady); apply(); } };\n" +
-    "      document.addEventListener('readystatechange', onReady);\n" +
+    'function __EXTENSIONJS_whenReady(runAt, cb){\n' +
+    '  try {\n' +
+    "    if (typeof document === 'undefined') { cb(); return function(){} }\n" +
+    "    if (runAt === 'document_start') { cb(); return function(){} }\n" +
+    '    var isDone = false;\n' +
+    '    function isReady(){\n' +
+    "      if (runAt === 'document_end') return document.readyState === 'interactive' || document.readyState === 'complete';\n" +
+    "      if (runAt === 'document_idle') return document.readyState !== 'loading';\n" +
+    "      return document.readyState === 'complete';\n" +
     '    }\n' +
-    '  } else { apply() }\n' +
+    '    if (isReady()) { cb(); return function(){} }\n' +
+    '    var onReady = function(){\n' +
+    '      try {\n' +
+    '        if (isDone) return;\n' +
+    "        if (isReady()) { isDone = true; document.removeEventListener('readystatechange', onReady); cb(); }\n" +
+    '      } catch (e) {}\n' +
+    '    };\n' +
+    "    document.addEventListener('readystatechange', onReady);\n" +
+    "    return function(){ try { if (!isDone) document.removeEventListener('readystatechange', onReady); } catch (e) {} };\n" +
+    '  } catch (e) { try { cb(); } catch (_) {} return function(){} }\n' +
+    '}\n' +
+    'function __EXTENSIONJS_mountWithHMR(mount, runAt){\n' +
+    '  var cleanup;\n' +
+    '  var cancelReady = function(){};\n' +
+    '  if (typeof mount !== \"function\") { try { console.warn(\"[extension.js] content script default export must be a function; skipping mount\") } catch (_) {} return function(){} }\n' +
+    '  function apply(){ try { cleanup = mount() } catch (e) { try { console.warn(\"[extension.js] content script default export failed to run\", e) } catch (_) {} } }\n' +
+    "  function unmount(){ try { cancelReady && cancelReady(); } catch (e) {} try { if (typeof cleanup === 'function') cleanup() } catch (e2) {} }\n" +
+    '  function remount(){ unmount(); apply(); }\n' +
+    '  cancelReady = __EXTENSIONJS_whenReady(runAt, apply);\n' +
     '  if (import.meta.webpackHot) {\n' +
     '    if (typeof import.meta.webpackHot.accept === "function") import.meta.webpackHot.accept();\n' +
     '    if (typeof import.meta.webpackHot.dispose === "function") import.meta.webpackHot.dispose(unmount);\n' +
@@ -317,7 +461,9 @@ export default function (source) {
     `${runtimeInline}` +
     `${cleaned}\n` +
     `;/* __EXTENSIONJS_MOUNT_WRAPPED__ */\n` +
-    `try { __EXTENSIONJS_mountWithHMR(__EXTENSIONJS_default__) } catch (error) {}\n` +
+    `try { __EXTENSIONJS_mountWithHMR(__EXTENSIONJS_default__, ${JSON.stringify(
+      runAt
+    )}) } catch (error) {}\n` +
     `${cssAccepts}` +
     `export default __EXTENSIONJS_default__\n`
 
