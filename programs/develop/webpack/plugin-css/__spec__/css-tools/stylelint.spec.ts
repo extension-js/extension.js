@@ -23,9 +23,8 @@ describe('stylelint tools', () => {
     })
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const {getStylelintConfigFile, isUsingStylelint} = await import(
-      '../../css-tools/stylelint'
-    )
+    const {getStylelintConfigFile, isUsingStylelint} =
+      await import('../../css-tools/stylelint')
 
     const configPath = getStylelintConfigFile('/p')
     expect(configPath?.endsWith('stylelint.config.js')).toBe(true)

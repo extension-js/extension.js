@@ -24,9 +24,8 @@ describe('vue tools', () => {
   })
 
   it('isUsingVue logs once; maybeUseVue returns default loader and plugin; merges custom options', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
+    const integrations =
+      (await import('../../frameworks-lib/integrations')) as any
     integrations.hasDependency.mockImplementation(
       (_p: string, dep: string) => dep === 'vue'
     )
