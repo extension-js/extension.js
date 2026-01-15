@@ -71,7 +71,35 @@ export default defineConfig({
   lib: [
     {
       format: 'cjs',
-      syntax: 'es2021'
+      syntax: 'es2021',
+      // These integrations are installed on-demand (or provided by the user project),
+      // so they must remain runtime externals and never be bundled.
+      output: {
+        externals: [
+          // React / Preact
+          'react-refresh',
+          '@rspack/plugin-react-refresh',
+          '@rspack/plugin-preact-refresh',
+          '@prefresh/core',
+          '@prefresh/utils',
+          '@prefresh/webpack',
+
+          // Vue / Svelte
+          'vue-loader',
+          '@vue/compiler-sfc',
+          'vue-style-loader',
+          'svelte-loader',
+
+          // Style loaders
+          'sass-loader',
+          'less-loader',
+          'postcss-loader',
+          'postcss-preset-env',
+
+          // JS loader
+          'babel-loader'
+        ]
+      }
       // dts: true
     }
   ],
