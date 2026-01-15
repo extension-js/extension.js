@@ -14,8 +14,74 @@ declare const document: any
 declare const window: any
 export type MountFn = () => void | (() => void)
 
-export function mountWithHMR(mount: MountFn) {
+export type RunAt = 'document_start' | 'document_end' | 'document_idle'
+
+function whenReady(runAt: RunAt, cb: () => void): () => void {
+  try {
+    if (typeof document === 'undefined') {
+      cb()
+      return () => {}
+    }
+
+    if (runAt === 'document_start') {
+      cb()
+      return () => {}
+    }
+
+    const isReady = () => {
+      if (runAt === 'document_end') {
+        return (
+          document.readyState === 'interactive' ||
+          document.readyState === 'complete'
+        )
+      }
+      if (runAt === 'document_idle') {
+        // Chrome may inject between document_end and after window.onload; don't force waiting for 'complete'.
+        return document.readyState !== 'loading'
+      }
+      return document.readyState === 'complete'
+    }
+
+    if (isReady()) {
+      cb()
+      return () => {}
+    }
+
+    let isDone = false
+    const onReady = () => {
+      try {
+        if (isDone) return
+        if (isReady()) {
+          isDone = true
+          document.removeEventListener('readystatechange', onReady)
+          cb()
+        }
+      } catch {
+        // ignore
+      }
+    }
+    document.addEventListener('readystatechange', onReady)
+
+    return () => {
+      try {
+        if (!isDone) document.removeEventListener('readystatechange', onReady)
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    try {
+      cb()
+    } catch {
+      // ignore
+    }
+    return () => {}
+  }
+}
+
+export function mountWithHMR(mount: MountFn, runAt: RunAt = 'document_idle') {
   let cleanup: void | (() => void)
+  let cancelReady: (() => void) | undefined
 
   const apply = () => {
     try {
@@ -27,6 +93,7 @@ export function mountWithHMR(mount: MountFn) {
 
   const unmount = () => {
     try {
+      cancelReady?.()
       typeof cleanup === 'function' && cleanup()
     } catch (error) {
       console.error('[extension.js] Error unmounting', error)
@@ -38,17 +105,7 @@ export function mountWithHMR(mount: MountFn) {
     apply()
   }
 
-  if (document.readyState === 'complete') {
-    apply()
-  } else {
-    const onReady = () => {
-      if (document.readyState === 'complete') {
-        document.removeEventListener('readystatechange', onReady)
-        apply()
-      }
-    }
-    document.addEventListener('readystatechange', onReady)
-  }
+  cancelReady = whenReady(runAt, apply)
 
   // JS HMR lifecycle
   // @ts-expect-error - webpackHot is not typed
