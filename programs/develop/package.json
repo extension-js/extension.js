@@ -70,9 +70,9 @@
   ],
   "dependencies": {
     "@rspack/core": "^1.7.2",
-    "@rspack/dev-server": "^1.1.4",
-    "@swc/core": "^1.15.2",
-    "@swc/helpers": "^0.5.17",
+    "@rspack/dev-server": "^1.1.5",
+    "@swc/core": "^1.15.8",
+    "@swc/helpers": "^0.5.18",
     "adm-zip": "^0.5.16",
     "browser-extension-manifest-fields": "^2.2.1",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
@@ -89,7 +89,7 @@
     "loader-utils": "^3.3.1",
     "magic-string": "^0.30.21",
     "package-manager-detector": "^1.6.0",
-    "parse5": "^7.3.0",
+    "parse5": "^8.0.0",
     "parse5-utilities": "^1.0.0",
     "pintor": "0.3.0",
     "schema-utils": "^4.3.3",
@@ -101,7 +101,12 @@
     "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@prefresh/core": "1.5.9",
+    "@prefresh/utils": "1.2.1",
+    "@prefresh/webpack": "4.0.6",
     "@rslib/core": "^0.19.2",
+    "@rspack/plugin-preact-refresh": "1.1.4",
+    "@rspack/plugin-react-refresh": "1.6.0",
     "@types/adm-zip": "^0.5.7",
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/chrome": "^0.1.33",
@@ -111,8 +116,20 @@
     "@types/sass-loader": "8.0.10",
     "@types/webextension-polyfill": "0.12.4",
     "@types/ws": "^8.18.1",
+    "@vue/compiler-sfc": "3.5.26",
+    "less": "4.5.1",
+    "less-loader": "12.3.0",
+    "postcss": "^8.5.6",
+    "postcss-loader": "8.2.0",
+    "postcss-preset-env": "11.1.1",
+    "postcss-scss": "4.0.9",
+    "react-refresh": "0.18.0",
+    "sass-loader": "16.0.6",
+    "svelte-loader": "3.2.4",
     "tsup": "^8.5.1",
     "typescript": "5.9.3",
-    "vitest": "^4.0.17"
+    "vitest": "^4.0.17",
+    "vue-loader": "17.4.2",
+    "vue-style-loader": "4.1.3"
   }
 }
