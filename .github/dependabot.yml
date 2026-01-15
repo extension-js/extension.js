@@ -1,0 +1,22 @@
+version: 2
+updates:
+  # Main workspace (pnpm lockfile + workspace package.json files)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+
+  # Build-only deps for extension-develop (tracked separately for true lazy install)
+  - package-ecosystem: "npm"
+    directory: "/.github/build-deps"
+    schedule:
+      interval: "daily"
+    open-pull-requests-limit: 10
+    rebase-strategy: "auto"
+    labels:
+      - "dependencies"
+      - "security"

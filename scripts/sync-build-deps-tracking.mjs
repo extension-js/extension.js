@@ -1,0 +1,85 @@
+#!/usr/bin/env node
+// Sync between:
+// - programs/develop/webpack/webpack-lib/build-dependencies.json (runtime source of truth)
+// - .github/build-deps/package.json (Dependabot + GH dependency graph tracking)
+//
+// Usage:
+//   node scripts/sync-build-deps-tracking.mjs            # forward: build-dependencies.json -> tracking package.json
+//   node scripts/sync-build-deps-tracking.mjs --reverse  # reverse: tracking package.json -> build-dependencies.json
+
+import * as fs from 'fs'
+import * as path from 'path'
+import {fileURLToPath} from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+const repoRoot = path.resolve(__dirname, '..')
+const buildDepsPath = path.join(
+  repoRoot,
+  'programs/develop/webpack/webpack-lib/build-dependencies.json'
+)
+const trackingPkgPath = path.join(
+  repoRoot,
+  '.github/build-deps/package.json'
+)
+
+const isReverse = process.argv.includes('--reverse')
+
+function readJson(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+}
+
+function writeJson(filePath, obj) {
+  fs.mkdirSync(path.dirname(filePath), {recursive: true})
+  fs.writeFileSync(filePath, JSON.stringify(obj, null, 2) + '\n')
+}
+
+function sortObjectKeys(obj) {
+  return Object.keys(obj)
+    .sort()
+    .reduce((acc, k) => {
+      acc[k] = obj[k]
+      return acc
+    }, {})
+}
+
+if (!fs.existsSync(buildDepsPath)) {
+  console.error(`Missing build deps file: ${buildDepsPath}`)
+  process.exit(1)
+}
+
+if (!fs.existsSync(trackingPkgPath)) {
+  console.error(`Missing tracking package.json: ${trackingPkgPath}`)
+  process.exit(1)
+}
+
+if (!isReverse) {
+  const buildDeps = readJson(buildDepsPath)
+  const trackingPkg = readJson(trackingPkgPath)
+
+  trackingPkg.dependencies = sortObjectKeys(buildDeps)
+  trackingPkg.name = trackingPkg.name || 'extension-develop-build-deps'
+  trackingPkg.private = true
+  trackingPkg.version = trackingPkg.version || '0.0.0'
+
+  writeJson(trackingPkgPath, trackingPkg)
+  console.log(
+    `✓ Synced ${Object.keys(buildDeps).length} deps to .github/build-deps/package.json`
+  )
+} else {
+  const trackingPkg = readJson(trackingPkgPath)
+  const deps = trackingPkg?.dependencies || {}
+
+  if (typeof deps !== 'object' || deps === null || Array.isArray(deps)) {
+    console.error('Invalid tracking package.json: dependencies must be an object')
+    process.exit(1)
+  }
+
+  const sortedDeps = sortObjectKeys(deps)
+  writeJson(buildDepsPath, sortedDeps)
+  console.log(
+    `✓ Synced ${Object.keys(sortedDeps).length} deps to build-dependencies.json`
+  )
+}
+

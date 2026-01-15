@@ -37,7 +37,8 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
-    "prepublishOnly": "rslib build && node ../../scripts/build-extensions.cjs",
+    "prepublishOnly": "node scripts/sync-build-dependencies.mjs && rslib build && node ../../scripts/build-extensions.cjs",
+    "sync-build-deps": "node scripts/sync-build-dependencies.mjs",
     "compile": "rslib build",
     "watch": "rslib build --watch",
     "test": "vitest run"
@@ -84,7 +85,6 @@
     "edge-location": "2.2.0",
     "firefox-location2": "3.0.0",
     "go-git-it": "^5.0.0",
-    "ignore": "^6.0.2",
     "loader-utils": "^3.3.1",
     "magic-string": "^0.30.10",
     "package-manager-detector": "^0.2.7",

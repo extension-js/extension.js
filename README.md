@@ -19,6 +19,7 @@
 - [Watch demo](#watch-demo) — See how creating a new extension works.
 - [Start from an example](https://github.com/extension-js/extension.js/tree/main/examples) — Start from a working baseline.
 - [I have an extension](#i-have-an-extension) — Use only specific parts of Extension.js.
+- [Content scripts behavior](CONTENT_SCRIPTS.md) — Lifecycle, `run_at`, and HMR expectations.
 
 Create cross-browser extensions with no build configuration.<br />Use Extension.js to develop, build, and preview across browsers with a unified workflow.
 
@@ -107,7 +108,7 @@ Done. You are all set!
 
 ## Using a specific browser for development
 
-| <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chrome/chrome.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/edge/edge.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/safari/safari.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/chromium/chromium.svg" width="70"> | <img src="https://raw.githubusercontent.com/alrra/browser-logos/main/src/firefox/firefox.svg" width="70"> |
+| <img src="https://media.extension.land/logos/browsers/chrome.svg" width="70"> | <img src="https://media.extension.land/logos/browsers/edge.svg" width="70"> | <img src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> | <img src="https://media.extension.land/logos/browsers/safari.svg" width="70"> | <img src="https://media.extension.land/logos/browsers/chromium.svg" width="70"> | <img src="https://media.extension.land/logos/browsers/firefox.svg" width="70"> |
 | :-----------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------: |
 |                                          Chrome browser<br>✅                                           |                                         Edge browser<br>✅                                          |                                           Firefox browser<br>✅                                           |                                        Safari browser<br>(soon)                                         |                                            Chromium-based<br>✅                                             |                                             Gecko-based<br>✅                                             |
 
