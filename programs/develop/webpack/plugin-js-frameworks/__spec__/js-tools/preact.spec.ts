@@ -26,9 +26,8 @@ describe('preact tools', () => {
   })
 
   it('isUsingPreact logs once when dependency present; maybeUsePreact returns aliases and plugin', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
+    const integrations =
+      (await import('../../frameworks-lib/integrations')) as any
     integrations.hasDependency.mockImplementation(
       (_p: string, dep: string) => dep === 'preact'
     )
@@ -39,9 +38,8 @@ describe('preact tools', () => {
       default: vi.fn(() => ({apply: vi.fn()}))
     }))
 
-    const {isUsingPreact, maybeUsePreact} = await import(
-      '../../js-tools/preact'
-    )
+    const {isUsingPreact, maybeUsePreact} =
+      await import('../../js-tools/preact')
 
     expect(isUsingPreact('/p')).toBe(true)
     expect(isUsingPreact('/p')).toBe(true)

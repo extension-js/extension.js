@@ -34,11 +34,11 @@ function isCI(): boolean {
   const v = process.env
   return Boolean(
     v.CI ||
-      v.GITHUB_ACTIONS ||
-      v.GITLAB_CI ||
-      v.BUILDKITE ||
-      v.CIRCLECI ||
-      v.TRAVIS
+    v.GITHUB_ACTIONS ||
+    v.GITLAB_CI ||
+    v.BUILDKITE ||
+    v.CIRCLECI ||
+    v.TRAVIS
   )
 }
 

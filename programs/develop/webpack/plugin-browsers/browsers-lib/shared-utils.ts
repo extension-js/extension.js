@@ -17,7 +17,7 @@ export function shortInstanceId(instanceId?: string): string {
 
 export function instanceOffsetFromId(instanceId?: string): number {
   const short = shortInstanceId(instanceId)
-  return short ? parseInt(short, 16) % 1000 | 0 : 0
+  return short ? (parseInt(short, 16) % 1000) | 0 : 0
 }
 
 export function deriveDebugPortWithInstance(

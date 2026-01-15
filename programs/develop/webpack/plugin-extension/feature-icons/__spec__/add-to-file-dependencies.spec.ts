@@ -32,9 +32,8 @@ describe('AddToFileDependencies step', () => {
   }
 
   it('adds existing file paths to compilation.fileDependencies once', async () => {
-    const {AddToFileDependencies} = await import(
-      '../steps/add-to-file-dependencies'
-    )
+    const {AddToFileDependencies} =
+      await import('../steps/add-to-file-dependencies')
     const {compiler, compilation} = makeCompiler()
 
     FS.existsSync.mockReturnValue(true)
@@ -62,9 +61,8 @@ describe('AddToFileDependencies step', () => {
   })
 
   it('skips non-existing files', async () => {
-    const {AddToFileDependencies} = await import(
-      '../steps/add-to-file-dependencies'
-    )
+    const {AddToFileDependencies} =
+      await import('../steps/add-to-file-dependencies')
     const {compiler, compilation} = makeCompiler()
 
     FS.existsSync.mockImplementation(

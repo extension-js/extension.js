@@ -24,9 +24,8 @@ describe('react tools', () => {
   })
 
   it('isUsingReact logs once when dependency present; maybeUseReact returns aliases and plugin', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
+    const integrations =
+      (await import('../../frameworks-lib/integrations')) as any
     integrations.hasDependency.mockImplementation(
       (_p: string, dep: string) => dep === 'react'
     )
