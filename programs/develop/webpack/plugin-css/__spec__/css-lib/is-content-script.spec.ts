@@ -26,9 +26,8 @@ describe('isContentScriptEntry', () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('manifest.json')
     )
-    const {isContentScriptEntry} = (await import(
-      '../../css-lib/is-content-script'
-    )) as any
+    const {isContentScriptEntry} =
+      (await import('../../css-lib/is-content-script')) as any
     const path = require('path')
     const issuer = path.resolve('/project', 'content.js')
     const manifestPath = path.join('/project', 'manifest.json')
@@ -38,9 +37,8 @@ describe('isContentScriptEntry', () => {
   it('returns false for non-matching paths and early returns on missing args', async () => {
     const manifest = {content_scripts: [{js: ['a.js']}]} as any
     ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
-    const {isContentScriptEntry} = (await import(
-      '../../css-lib/is-content-script'
-    )) as any
+    const {isContentScriptEntry} =
+      (await import('../../css-lib/is-content-script')) as any
     expect(isContentScriptEntry('/x/b.js', '/x/manifest.json')).toBe(false)
     expect(isContentScriptEntry('', '')).toBe(false)
     expect(isContentScriptEntry('/x', '')).toBe(false)
