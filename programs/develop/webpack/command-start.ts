@@ -12,12 +12,25 @@ import {extensionPreview} from './command-preview'
 import {getDirs, getDistPath, normalizeBrowser} from './webpack-lib/paths'
 import * as messages from './webpack-lib/messages'
 import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
+import {
+  areBuildDependenciesInstalled,
+  getMissingBuildDependencies,
+  findExtensionDevelopRoot
+} from './webpack-lib/check-build-dependencies'
+import {installOwnDependencies} from './webpack-lib/install-own-dependencies'
 import type {StartOptions} from './webpack-types'
 
 export async function extensionStart(
   pathOrRemoteUrl: string | undefined,
   startOptions: StartOptions
 ) {
+  // Check and install build dependencies if needed
+  const packageRoot = findExtensionDevelopRoot()
+  if (packageRoot && !areBuildDependenciesInstalled(packageRoot)) {
+    const missing = getMissingBuildDependencies(packageRoot)
+    await installOwnDependencies(missing, packageRoot)
+  }
+
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {

@@ -2,9 +2,6 @@
   "ignorePatterns": [
     {
       "pattern": "https://img.shields.io"
-    },
-    {
-      "pattern": "https://raw.githubusercontent.com/alrra/browser-logos"
     }
   ],
   "replacementPatterns": [
