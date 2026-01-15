@@ -37,6 +37,11 @@ export function assertNoManagedDependencyConflicts(
       ...Object.keys((programPackageJson as any).optionalDependencies || {})
     ])
 
+    // Some internal toolchain dependencies (e.g. dev-server peers) can also be
+    // legitimately installed by user projects. Do not treat these as "managed"
+    // to avoid false-positive conflict errors.
+    managedDeps.delete('webpack')
+
     // Only enforce when the same package is referenced in user's extension.config.(js|mjs)
     const userConfigJs = path.join(projectPath, 'extension.config.js')
     const userConfigMjs = path.join(projectPath, 'extension.config.mjs')
