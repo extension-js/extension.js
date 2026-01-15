@@ -120,9 +120,8 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       }
 
       // Load the matching develop runtime from the regular dependency graph.
-      const {extensionPreview}: {extensionPreview: any} = await import(
-        'extension-develop'
-      )
+      const {extensionPreview}: {extensionPreview: any} =
+        await import('extension-develop')
 
       for (const vendor of list) {
         const vendorStart = Date.now()
