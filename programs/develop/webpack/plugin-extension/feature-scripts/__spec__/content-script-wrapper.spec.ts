@@ -67,9 +67,30 @@ describe('content-script-wrapper loader', () => {
     expect(out).toMatch('function __EXTENSIONJS_mountWithHMR(')
     expect(out).toMatch('/* __EXTENSIONJS_MOUNT_WRAPPED__ */')
     expect(out).toMatch(
-      /try \{ __EXTENSIONJS_mountWithHMR\(__EXTENSIONJS_default__\) \} catch \([^)]+\) \{\}/
+      /try \{ __EXTENSIONJS_mountWithHMR\(__EXTENSIONJS_default__,\s*["']document_(start|end|idle)["']\) \} catch \([^)]+\) \{\}/
     )
     expect(out).toMatch('export default __EXTENSIONJS_default__')
+  })
+
+  it('schedules mount using manifest run_at for declared content scripts (inner request)', () => {
+    const cs = path.join(tmp, 'cs.ts')
+    fs.writeFileSync(cs, '')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        content_scripts: [{js: ['cs.ts'], run_at: 'document_start'}],
+        background: {}
+      })
+    )
+    const out = run(
+      cs,
+      manifestPath,
+      'export default function initial(){ return ()=>{} }',
+      '?__extjs_inner=1'
+    ) as string
+    expect(out).toMatch(
+      /__EXTENSIONJS_mountWithHMR\(__EXTENSIONJS_default__,\s*["']document_start["']\)/
+    )
   })
 
   it('dev proxy blocks dev-server reload fallback (non-extension pages)', () => {
@@ -157,7 +178,9 @@ describe('content-script-wrapper loader', () => {
     const src = `\nfunction initial(){ return ()=>{} }\nexport default initial\ninitial()\n`
     const out = run(cs, manifestPath, src, '?__extjs_inner=1') as string
     expect(out).toMatch('export default __EXTENSIONJS_default__')
-    expect(out).toMatch('__EXTENSIONJS_mountWithHMR(__EXTENSIONJS_default__)')
+    expect(out).toMatch(
+      /__EXTENSIONJS_mountWithHMR\(__EXTENSIONJS_default__,\s*["']document_(start|end|idle)["']\)/
+    )
     expect(out).not.toMatch(/(^|\n|;)\s*initial\s*\(\s*\)\s*;?\s*(?=\n|$)/)
   })
 

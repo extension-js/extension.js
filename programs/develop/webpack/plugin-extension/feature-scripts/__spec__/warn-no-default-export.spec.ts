@@ -55,4 +55,60 @@ describe('warn-no-default-export loader', () => {
       'Content script requires a default export.'
     )
   })
+
+  it('warns when default export is a class (scripts/ folder)', () => {
+    const scriptsDir = path.join(tmp, 'scripts')
+    fs.mkdirSync(scriptsDir, {recursive: true})
+    const scriptFile = path.join(scriptsDir, 'hello.ts')
+    fs.writeFileSync(scriptFile, '')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
+    )
+
+    const compilation: any = {warnings: []}
+    const src = `export default class App { start(){} }`
+    run(scriptFile, manifestPath, src, compilation)
+    expect(compilation.warnings.length).toBe(1)
+    expect(String(compilation.warnings[0])).toContain(
+      'Content script default export must be a function.'
+    )
+    expect(String(compilation.warnings[0])).toContain('Found: class')
+  })
+
+  it('warns when default export resolves to a class identifier (scripts/ folder)', () => {
+    const scriptsDir = path.join(tmp, 'scripts')
+    fs.mkdirSync(scriptsDir, {recursive: true})
+    const scriptFile = path.join(scriptsDir, 'hello.ts')
+    fs.writeFileSync(scriptFile, '')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
+    )
+
+    const compilation: any = {warnings: []}
+    const src = `class App {}\nexport default App\n`
+    run(scriptFile, manifestPath, src, compilation)
+    expect(compilation.warnings.length).toBe(1)
+    expect(String(compilation.warnings[0])).toContain(
+      'Content script default export must be a function.'
+    )
+    expect(String(compilation.warnings[0])).toContain('Found: class')
+  })
+
+  it('does not warn when default export is a function identifier (scripts/ folder)', () => {
+    const scriptsDir = path.join(tmp, 'scripts')
+    fs.mkdirSync(scriptsDir, {recursive: true})
+    const scriptFile = path.join(scriptsDir, 'hello.ts')
+    fs.writeFileSync(scriptFile, '')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
+    )
+
+    const compilation: any = {warnings: []}
+    const src = `const init = () => {}\nexport default init\n`
+    run(scriptFile, manifestPath, src, compilation)
+    expect(compilation.warnings.length).toBe(0)
+  })
 })
