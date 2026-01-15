@@ -13,6 +13,12 @@ import {installDependencies} from './webpack-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {getDirs, needsInstall, normalizeBrowser} from './webpack-lib/paths'
 import * as messages from './webpack-lib/messages'
+import {
+  areBuildDependenciesInstalled,
+  getMissingBuildDependencies,
+  findExtensionDevelopRoot
+} from './webpack-lib/check-build-dependencies'
+import {installOwnDependencies} from './webpack-lib/install-own-dependencies'
 import type {DevOptions} from './webpack-types'
 
 // TODO cezaraugusto: move this out
@@ -22,6 +28,13 @@ export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   devOptions: DevOptions
 ) {
+  // Check and install build dependencies if needed
+  const packageRoot = findExtensionDevelopRoot()
+  if (packageRoot && !areBuildDependenciesInstalled(packageRoot)) {
+    const missing = getMissingBuildDependencies(packageRoot)
+    await installOwnDependencies(missing, packageRoot)
+  }
+
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
