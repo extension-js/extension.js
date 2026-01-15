@@ -30,6 +30,39 @@ function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
 }
 
+function assertNoForbiddenDeps(deps, label) {
+  // Guardrails: the tracking manifest is *only* for runtime "installOwnDependencies"
+  // deps. Never allow test/build tooling to leak in here.
+  const forbiddenExact = new Set([
+    // test runners / test utils
+    'vitest',
+    'jest',
+    'playwright',
+    // toolchains
+    'typescript',
+    'tsup',
+    '@rslib/core',
+    // linters/formatters
+    'eslint',
+    'prettier'
+  ])
+
+  const forbiddenPrefixes = ['@types/']
+
+  const bad = Object.keys(deps).filter((k) => {
+    if (forbiddenExact.has(k)) return true
+    return forbiddenPrefixes.some((p) => k.startsWith(p))
+  })
+
+  if (bad.length > 0) {
+    console.error(
+      `Forbidden dependencies found in ${label}: ${bad.join(', ')}\n` +
+        'These should not be tracked as build/runtime deps.'
+    )
+    process.exit(1)
+  }
+}
+
 function writeJson(filePath, obj) {
   fs.mkdirSync(path.dirname(filePath), {recursive: true})
   fs.writeFileSync(filePath, JSON.stringify(obj, null, 2) + '\n')
@@ -58,6 +91,7 @@ if (!isReverse) {
   const buildDeps = readJson(buildDepsPath)
   const trackingPkg = readJson(trackingPkgPath)
 
+  assertNoForbiddenDeps(buildDeps, 'build-dependencies.json')
   trackingPkg.dependencies = sortObjectKeys(buildDeps)
   trackingPkg.name = trackingPkg.name || 'extension-develop-build-deps'
   trackingPkg.private = true
@@ -76,6 +110,7 @@ if (!isReverse) {
     process.exit(1)
   }
 
+  assertNoForbiddenDeps(deps, '.github/build-deps/package.json')
   const sortedDeps = sortObjectKeys(deps)
   writeJson(buildDepsPath, sortedDeps)
   console.log(
