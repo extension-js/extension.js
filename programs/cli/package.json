@@ -89,25 +89,25 @@
   ],
   "dependencies": {
     "extension-develop": "workspace:*",
-    "commander": "^12.1.0",
+    "commander": "^14.0.2",
     "extension-create": "^2.2.0",
     "pintor": "0.3.0",
-    "semver": "^7.6.3",
+    "semver": "^7.7.3",
     "update-check": "^1.5.4"
   },
   "devDependencies": {
-    "@rslib/core": "^0.6.9",
-    "@types/chrome": "^0.0.287",
-    "@types/node": "^22.10.1",
-    "@types/react": "^19.0.1",
-    "@types/react-dom": "^19.0.1",
-    "@types/webextension-polyfill": "0.12.3",
+    "@rslib/core": "^0.19.2",
+    "@types/chrome": "^0.1.33",
+    "@types/node": "^25.0.9",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "@types/webextension-polyfill": "0.12.4",
     "@types/mock-fs": "^4.13.4",
-    "@types/semver": "^7.5.8",
-    "mock-fs": "^5.4.1",
+    "@types/semver": "^7.7.1",
+    "mock-fs": "^5.5.0",
     "webextension-polyfill": "^0.12.0",
     "tsconfig": "*",
-    "typescript": "5.7.2",
-    "vitest": "^3.2.4"
+    "typescript": "5.9.3",
+    "vitest": "^4.0.17"
   }
 }
