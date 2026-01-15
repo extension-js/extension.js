@@ -23,6 +23,12 @@ import {
 import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
 import {handleStatsErrors} from './webpack-lib/stats-handler'
 import webpackConfig from './webpack-config'
+import {
+  areBuildDependenciesInstalled,
+  getMissingBuildDependencies,
+  findExtensionDevelopRoot
+} from './webpack-lib/check-build-dependencies'
+import {installOwnDependencies} from './webpack-lib/install-own-dependencies'
 
 import type {BuildOptions} from './webpack-types'
 
@@ -30,6 +36,13 @@ export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
   buildOptions?: BuildOptions
 ): Promise<BuildSummary> {
+  // Check and install build dependencies if needed
+  const packageRoot = findExtensionDevelopRoot()
+  if (packageRoot && !areBuildDependenciesInstalled(packageRoot)) {
+    const missing = getMissingBuildDependencies(packageRoot)
+    await installOwnDependencies(missing, packageRoot)
+  }
+
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const isVitest = process.env.VITEST === 'true'
   const shouldExitOnError = (buildOptions?.exitOnError ?? true) && !isVitest
