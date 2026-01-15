@@ -62,31 +62,30 @@ export type Logger = ReturnType<Compiler['getInfrastructureLogger']>
  * Options consumed by Chromium plugins (launch/logger/reload/inspection).
  * Narrowed from PluginInterface and specialized for Chromium path.
  */
-export interface ChromiumLaunchOptions
-  extends Pick<
-    PluginInterface,
-    | 'extension'
-    | 'browser'
-    | 'noOpen'
-    | 'browserFlags'
-    | 'excludeBrowserFlags'
-    | 'profile'
-    | 'preferences'
-    | 'startingUrl'
-    | 'chromiumBinary'
-    | 'instanceId'
-    | 'port'
-    | 'source'
-    | 'watchSource'
-    | 'dryRun'
-    | 'logLevel'
-    | 'logContexts'
-    | 'logFormat'
-    | 'logTimestamps'
-    | 'logColor'
-    | 'logUrl'
-    | 'logTab'
-  > {}
+export interface ChromiumLaunchOptions extends Pick<
+  PluginInterface,
+  | 'extension'
+  | 'browser'
+  | 'noOpen'
+  | 'browserFlags'
+  | 'excludeBrowserFlags'
+  | 'profile'
+  | 'preferences'
+  | 'startingUrl'
+  | 'chromiumBinary'
+  | 'instanceId'
+  | 'port'
+  | 'source'
+  | 'watchSource'
+  | 'dryRun'
+  | 'logLevel'
+  | 'logContexts'
+  | 'logFormat'
+  | 'logTimestamps'
+  | 'logColor'
+  | 'logUrl'
+  | 'logTab'
+> {}
 
 /**
  * Runtime state in Chromium flow.
