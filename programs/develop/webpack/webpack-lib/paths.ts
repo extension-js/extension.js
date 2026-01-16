@@ -62,20 +62,43 @@ export function normalizeBrowser(
   chromiumBinary?: string,
   geckoBinary?: string
 ): NormalizedBrowser {
-  if (chromiumBinary) return 'chromium-based'
-  if (geckoBinary) return 'gecko-based'
-  switch (String(browser || '')) {
+  const requested = String(browser || '')
+
+  if (chromiumBinary) {
+    if (
+      !requested ||
+      requested === 'chromium' ||
+      requested === 'chromium-based'
+    )
+      return 'chromium-based'
+    if (requested === 'edge') return 'edge'
+    if (requested === 'chrome') return 'chrome'
+  }
+
+  if (geckoBinary) {
+    if (
+      !requested ||
+      requested === 'gecko-based' ||
+      requested === 'firefox-based'
+    )
+      return 'gecko-based'
+    if (requested === 'firefox') return 'firefox'
+  }
+
+  switch (requested) {
     case 'chrome':
       return 'chrome'
     case 'edge':
       return 'edge'
     case 'chromium':
-    case 'chromium-based':
       return 'chromium'
+    case 'chromium-based':
+      return 'chromium-based'
     case 'firefox':
-    case 'firefox-based':
-    case 'gecko-based':
       return 'firefox'
+    case 'gecko-based':
+    case 'firefox-based':
+      return 'gecko-based'
     default:
       return (browser as NormalizedBrowser) || 'chrome'
   }

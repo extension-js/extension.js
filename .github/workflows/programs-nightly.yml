@@ -33,10 +33,10 @@ jobs:
         run: pnpm test:cli
       - name: Build examples (chromium)
         run: |
-          pnpm extension build examples/content-typescript --browser chromium --silent true
-          pnpm extension build examples/content-react --browser chromium --silent true
-          pnpm extension build examples/content-svelte --browser chromium --silent true
-          pnpm extension build examples/content-vue --browser chromium --silent true
+          pnpm extension build templates/typescript --browser chromium --silent true
+          pnpm extension build templates/react --browser chromium --silent true
+          pnpm extension build templates/svelte --browser chromium --silent true
+          pnpm extension build templates/vue --browser chromium --silent true
       - name: Run Dev Tests
         run: pnpm test:dev
 
@@ -66,12 +66,12 @@ jobs:
         run: echo "CHROMIUM_BIN=$(node -e \"console.log(require('playwright-core').chromium.executablePath())\")" >> $GITHUB_ENV
       - name: Build examples (edge)
         run: |
-          pnpm extension build examples/content-typescript --browser edge --silent true
-          pnpm extension build examples/content-react --browser edge --silent true
-          pnpm extension build examples/content-svelte --browser edge --silent true
-          pnpm extension build examples/content-vue --browser edge --silent true
+          pnpm extension build templates/typescript --browser edge --silent true
+          pnpm extension build templates/react --browser edge --silent true
+          pnpm extension build templates/svelte --browser edge --silent true
+          pnpm extension build templates/vue --browser edge --silent true
       - name: Dev smoke – edge (Chromium)
-        run: pnpm extension dev examples/content --browser edge --chromium-binary "$CHROMIUM_BIN" --profile false --open false --port 0
+        run: pnpm extension dev templates/typescript --browser edge --chromium-binary "$CHROMIUM_BIN" --profile false --no-open --port 0
 
   nightly-firefox:
     runs-on: ubuntu-22.04
@@ -99,10 +99,10 @@ jobs:
         run: echo "FIREFOX_BIN=$(node -e \"console.log(require('playwright-core').firefox.executablePath())\")" >> $GITHUB_ENV
       - name: Build examples (firefox)
         run: |
-          pnpm extension build examples/content-typescript --browser firefox --silent true
-          pnpm extension build examples/content-react --browser firefox --silent true
-          pnpm extension build examples/content-svelte --browser firefox --silent true
-          pnpm extension build examples/content-vue --browser firefox --silent true
+          pnpm extension build templates/typescript --browser firefox --silent true
+          pnpm extension build templates/react --browser firefox --silent true
+          pnpm extension build templates/svelte --browser firefox --silent true
+          pnpm extension build templates/vue --browser firefox --silent true
       - name: Dev smoke – firefox (Gecko)
-        run: pnpm extension dev examples/content --browser firefox --gecko-binary "$FIREFOX_BIN" --profile false --open false --port 0
+        run: pnpm extension dev templates/typescript --browser firefox --gecko-binary "$FIREFOX_BIN" --profile false --no-open --port 0
 
