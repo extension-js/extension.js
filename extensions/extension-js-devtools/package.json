@@ -46,7 +46,7 @@
   },
   "devDependencies": {
     "@radix-ui/react-tooltip": "1.2.8",
-    "@tailwindcss/postcss": "^4.1.3",
+    "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.15",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
