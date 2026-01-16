@@ -42,6 +42,28 @@ export class FirefoxLaunchPlugin {
     this.ctx = ctx
   }
 
+  /**
+   * Run the Firefox launch flow without requiring a bundler compiler instance.
+   * Intended for run-only preview paths.
+   */
+  public async runOnce(
+    compilation: Compilation,
+    options: DevOptions & BrowserConfig
+  ): Promise<void> {
+    // Ensure a logger exists even when no compiler/plugins are involved.
+    if (!this.ctx.logger) {
+      this.ctx.logger = {
+        info: (...a: unknown[]) => console.log(...a),
+        warn: (...a: unknown[]) => console.warn(...a),
+        error: (...a: unknown[]) => console.error(...a),
+        debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+      } as any
+    }
+    await this.launch(compilation, options)
+    this.ctx.logger?.info?.(messages.stdoutData(this.host.browser, options.mode))
+    this.ctx.didLaunch = true
+  }
+
   apply(compiler: Compiler) {
     compiler.hooks.done.tapAsync('run-firefox:launch', async (stats, done) => {
       try {

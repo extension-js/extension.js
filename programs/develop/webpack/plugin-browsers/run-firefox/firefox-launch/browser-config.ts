@@ -8,7 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {Compilation} from '@rspack/core'
+import type {Compilation} from '@rspack/core'
 import {
   uniqueNamesGenerator,
   adjectives,
