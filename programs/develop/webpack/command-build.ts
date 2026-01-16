@@ -26,6 +26,7 @@ import {
   findExtensionDevelopRoot
 } from './webpack-lib/check-build-dependencies'
 import {installOwnDependencies} from './webpack-lib/install-own-dependencies'
+import {preflightOptionalDependencies} from './webpack-lib/preflight-optional-deps'
 
 import type {BuildOptions} from './webpack-types'
 
@@ -50,6 +51,8 @@ export async function extensionBuild(
   )
 
   try {
+    await preflightOptionalDependencies(projectStructure, 'production')
+
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =
       await Promise.all([
