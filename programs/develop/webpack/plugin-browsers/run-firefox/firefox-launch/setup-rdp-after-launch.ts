@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compilation} from '@rspack/core'
+import type {Compilation} from '@rspack/core'
 import {FirefoxRDPController} from '../firefox-source-inspection/rdp-extension-controller'
 import type {FirefoxPluginLike, FirefoxPluginRuntime} from '../firefox-types'
 

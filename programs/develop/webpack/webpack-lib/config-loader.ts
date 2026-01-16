@@ -13,8 +13,7 @@ import * as vm from 'vm'
 import {pathToFileURL} from 'url'
 import {createRequire} from 'module'
 import dotenv from 'dotenv'
-import {Configuration} from '@rspack/core'
-import {merge} from 'webpack-merge'
+import type {Configuration} from '@rspack/core'
 import * as messages from './messages'
 import type {BrowserConfig, FileConfig, DevOptions} from '../webpack-types'
 
@@ -195,7 +194,14 @@ export async function loadCustomWebpackConfig(projectPath: string) {
           typeof userConfig.config === 'object'
         ) {
           const partial = userConfig.config as Configuration
-          return (config: Configuration) => merge(config, partial)
+          return (config: Configuration) => {
+            // NOTE: Keep `webpack-merge` out of the module top-level imports so
+            // preview/run-only paths can load config logic without pulling it in.
+            const requireFn = createRequire(import.meta.url)
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            const {merge} = requireFn('webpack-merge') as typeof import('webpack-merge')
+            return merge(config, partial)
+          }
         }
       } catch (err: unknown) {
         const error = err as Error

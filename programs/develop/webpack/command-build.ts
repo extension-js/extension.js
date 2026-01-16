@@ -6,8 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {rspack, Configuration} from '@rspack/core'
-import {merge} from 'webpack-merge'
 import {getProjectStructure} from './webpack-lib/project'
 import * as messages from './webpack-lib/messages'
 import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
@@ -21,8 +19,7 @@ import {
   normalizeBrowser
 } from './webpack-lib/paths'
 import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
-import {handleStatsErrors} from './webpack-lib/stats-handler'
-import webpackConfig from './webpack-config'
+import type {Configuration} from '@rspack/core'
 import {
   areBuildDependenciesInstalled,
   getMissingBuildDependencies,
@@ -53,6 +50,15 @@ export async function extensionBuild(
   )
 
   try {
+    // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
+    const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =
+      await Promise.all([
+        import('@rspack/core'),
+        import('webpack-merge'),
+        import('./webpack-lib/stats-handler'),
+        import('./webpack-config')
+      ])
+
     const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 

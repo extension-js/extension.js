@@ -1,0 +1,28 @@
+name: Build deps sync check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build_deps_sync:
+    name: Verify build deps tracking sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Sync tracking manifest
+        run: node scripts/sync-build-deps-tracking.mjs
+
+      - name: Ensure tracking manifest is clean
+        run: git diff --exit-code -- .github/build-deps/package.json
