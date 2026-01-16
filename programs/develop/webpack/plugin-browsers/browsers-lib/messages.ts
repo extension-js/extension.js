@@ -519,7 +519,7 @@ export function prettyPuppeteerInstallGuidance(
 
 // Firefox specific messages
 export function firefoxLaunchCalled() {
-  return `${getLoggingPrefix('info')} launchFirefox called!`
+  return `${getLoggingPrefix('info')} Firefox launch requested.`
 }
 
 export function firefoxDetectionFailed(error: unknown) {
@@ -592,7 +592,7 @@ export function sourceInspectorWaitingForFirefox() {
 }
 
 export function firefoxRemoteDebuggingReady() {
-  return `${getLoggingPrefix('success')} Firefox is ready with remote debugging!`
+  return `${getLoggingPrefix('success')} Firefox is ready with remote debugging.`
 }
 
 export function sourceInspectorFirefoxNotReadyYet(
@@ -607,7 +607,7 @@ export function sourceInspectorWaitingForChrome() {
 }
 
 export function chromeRemoteDebuggingReady() {
-  return `${getLoggingPrefix('success')} Chrome is ready with remote debugging!`
+  return `${getLoggingPrefix('success')} Chrome is ready with remote debugging.`
 }
 
 export function sourceInspectorChromeNotReadyYet(
@@ -654,7 +654,7 @@ export function sourceInspectorExtractingHTML() {
 }
 
 export function sourceInspectorHTMLExtractionComplete() {
-  return `${getLoggingPrefix('success')} Chrome HTML extraction is complete`
+  return `${getLoggingPrefix('success')} Chrome HTML extraction is complete.`
 }
 
 export function sourceInspectorInspectionFailed(error: string) {
@@ -730,7 +730,7 @@ export function sourceInspectorHTMLUpdateFailed(error: string) {
 }
 
 export function sourceInspectorCleanupComplete() {
-  return `${getLoggingPrefix('success')} Chrome source inspector cleaned up`
+  return `${getLoggingPrefix('success')} Chrome source inspector cleaned up.`
 }
 
 export function sourceInspectorCleanupError(error: string) {
