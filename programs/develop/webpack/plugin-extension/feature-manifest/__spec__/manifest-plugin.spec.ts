@@ -4,35 +4,44 @@ import {describe, it, expect, vi, beforeEach} from 'vitest'
 const applySpy = vi.fn()
 
 vi.mock('../steps/emit-manifest', () => ({
-  EmitManifest: vi.fn().mockImplementation((opts) => ({opts, apply: applySpy}))
+  EmitManifest: class {
+    constructor(_opts: any) {}
+    apply = applySpy
+  }
 }))
 
 vi.mock('../steps/check-manifest-files', () => ({
-  CheckManifestFiles: vi
-    .fn()
-    .mockImplementation((opts) => ({opts, apply: applySpy}))
+  CheckManifestFiles: class {
+    constructor(_opts: any) {}
+    apply = applySpy
+  }
 }))
 
 vi.mock('../steps/update-manifest', () => ({
-  UpdateManifest: vi
-    .fn()
-    .mockImplementation((opts) => ({opts, apply: applySpy}))
+  UpdateManifest: class {
+    constructor(_opts: any) {}
+    apply = applySpy
+  }
 }))
 
 vi.mock('../steps/add-dependencies', () => ({
-  AddDependencies: vi
-    .fn()
-    .mockImplementation((deps) => ({deps, apply: applySpy}))
+  AddDependencies: class {
+    constructor(_deps: any) {}
+    apply = applySpy
+  }
 }))
 
 vi.mock('../steps/throw-if-recompile', () => ({
-  ThrowIfRecompileIsNeeded: vi
-    .fn()
-    .mockImplementation((opts) => ({opts, apply: applySpy}))
+  ThrowIfRecompileIsNeeded: class {
+    constructor(_opts: any) {}
+    apply = applySpy
+  }
 }))
 
 vi.mock('../steps/legacy-warnings', () => ({
-  ManifestLegacyWarnings: vi.fn().mockImplementation(() => ({apply: applySpy}))
+  ManifestLegacyWarnings: class {
+    apply = applySpy
+  }
 }))
 
 // Import under test after mocks
