@@ -127,6 +127,16 @@ export function previewWebpack() {
   return `${getLoggingPrefix('info')} Previewing the extension package...`
 }
 
+export function installingRequiredDependencies() {
+  return `${getLoggingPrefix('info')} Installing required dependencies...`
+}
+
+export function dependenciesInstalledRunAgain() {
+  return `${getLoggingPrefix(
+    'success'
+  )} Dependencies installed. Run the command again to proceed.`
+}
+
 export function buildWebpack(
   projectDir: string,
   stats: any,

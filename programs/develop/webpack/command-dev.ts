@@ -8,16 +8,11 @@
 
 import {generateExtensionTypes} from './webpack-lib/generate-extension-types'
 import {getProjectStructure} from './webpack-lib/project'
-import {installDependencies} from './webpack-lib/install-dependencies'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
-import {getDirs, needsInstall, normalizeBrowser} from './webpack-lib/paths'
+import {getDirs, normalizeBrowser} from './webpack-lib/paths'
 import * as messages from './webpack-lib/messages'
-import {
-  areBuildDependenciesInstalled,
-  getMissingBuildDependencies,
-  findExtensionDevelopRoot
-} from './webpack-lib/check-build-dependencies'
-import {installOwnDependencies} from './webpack-lib/install-own-dependencies'
+import {preflightOptionalDependencies} from './webpack-lib/preflight-optional-deps'
+import {ensureDependencies} from './webpack-lib/ensure-dependencies'
 import type {DevOptions} from './webpack-types'
 
 // TODO cezaraugusto: move this out
@@ -27,18 +22,19 @@ export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
   devOptions: DevOptions
 ) {
-  // Check and install build dependencies if needed
-  const packageRoot = findExtensionDevelopRoot()
-  if (packageRoot && !areBuildDependenciesInstalled(packageRoot)) {
-    const missing = getMissingBuildDependencies(packageRoot)
-    await installOwnDependencies(missing, packageRoot)
-  }
-
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
     const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+    const depsResult = await ensureDependencies(packageJsonDir, {
+      skipProjectInstall: !projectStructure.packageJsonPath,
+      exitOnInstall: true
+    })
+
+    if (depsResult.installed) return
+
+    await preflightOptionalDependencies(projectStructure, 'development')
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)
@@ -49,14 +45,6 @@ export async function extensionDev(
         projectStructure.packageJsonPath,
         manifestDir
       )
-    }
-
-    // Install dependencies if they are not installed (skip in web-only mode).
-    if (projectStructure.packageJsonPath) {
-      if (needsInstall(packageJsonDir)) {
-        console.log(messages.installingDependencies())
-        await installDependencies(packageJsonDir)
-      }
     }
 
     const browser = normalizeBrowser(

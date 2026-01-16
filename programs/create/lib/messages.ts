@@ -63,7 +63,8 @@ export function noUrlAllowed() {
 
 export async function successfullInstall(
   projectPath: string,
-  projectName: string
+  projectName: string,
+  depsInstalled: boolean
 ) {
   const relativePath = path.relative(process.cwd(), projectPath)
   const pm = await detect()
@@ -93,12 +94,17 @@ export async function successfullInstall(
     }
   }
 
+  const steps = depsInstalled
+    ? `  1. ${colors.blue('cd')} ${colors.underline(relativePath)}\n` +
+      `  2. ${colors.blue(command)} (runs a fresh browser profile with your extension loaded)\n`
+    : `  1. ${colors.blue('cd')} ${colors.underline(relativePath)}\n` +
+      `  2. ${colors.blue(installCmd)}\n` +
+      `  3. ${colors.blue(command)} (runs a fresh browser profile with your extension loaded)\n`
+
   return (
     `${colors.green('Created')} ${colors.blue(projectName)}\n\n` +
     `Next steps:\n\n` +
-    `  1. ${colors.blue('cd')} ${colors.underline(relativePath)}\n` +
-    `  2. ${colors.blue(installCmd)}\n` +
-    `  3. ${colors.blue(command)} (runs a fresh browser profile with your extension loaded)\n`
+    steps
   )
 }
 

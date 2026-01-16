@@ -41,8 +41,8 @@ export function registerCreateCommand(program: Command, telemetry: any) {
 
       try {
         // Load the matching create runtime from the regular dependency graph.
-        const {extensionCreate} = await import('extension-create')
-
+        const {extensionCreate}: {extensionCreate: any} =
+          await import('extension-create')
         await extensionCreate(pathOrRemoteUrl, {
           template,
           install,
