@@ -1,3 +1,5 @@
+import path from 'path'
+import fs from 'fs'
 import {
   test as base,
   chromium,
@@ -67,6 +69,18 @@ export const extensionFixtures = (
       await use(extensionId)
     }
   })
+}
+
+export function resolveBuiltExtensionPath(templateDir: string) {
+  const chromiumOut = path.join(templateDir, 'dist', 'chromium')
+  if (fs.existsSync(chromiumOut)) return chromiumOut
+  const distOut = path.join(templateDir, 'dist')
+  if (fs.existsSync(distOut)) return distOut
+  return chromiumOut
+}
+
+export function getSidebarPath(extensionId: string) {
+  return `chrome-extension://${extensionId}/sidebar/index.html`
 }
 
 // Screenshot function
