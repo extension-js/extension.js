@@ -9,7 +9,7 @@
 import fs from 'fs'
 import path from 'path'
 import {Telemetry} from './telemetry'
-import packageJson from '../package.json'
+import {getCliPackageJson} from '../cli-package-json'
 import {summarizeManifest} from './manifest-summary'
 
 // Initialize telemetry singleton for CLI
@@ -58,7 +58,7 @@ function findManifestJson(projectRoot: string): string | null {
 
 export const telemetry = new Telemetry({
   app: 'extension',
-  version: packageJson.version,
+  version: getCliPackageJson().version,
   disabled: telemetryDisabled
 })
 
