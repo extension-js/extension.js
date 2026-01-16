@@ -95,4 +95,9 @@ declare module 'extension-develop' {
     installedBuild: boolean
     installedUser: boolean
   }>
+
+  export function preflightOptionalDependenciesForProject(
+    pathOrRemoteUrl: string,
+    mode?: ExtensionMode
+  ): Promise<void>
 }

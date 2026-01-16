@@ -44,12 +44,8 @@ vi.mock('../webpack-lib/config-loader', () => {
   }
 })
 
-vi.mock('../webpack-lib/preflight-optional-deps', () => ({
-  preflightOptionalDependencies: vi.fn(async () => {})
-}))
-
-vi.mock('../webpack-lib/ensure-dependencies', () => ({
-  ensureDependencies: vi.fn(async () => ({
+vi.mock('../webpack-lib/dependency-manager', () => ({
+  ensureProjectReady: vi.fn(async () => ({
     installed: false,
     installedBuild: false,
     installedUser: false
@@ -83,7 +79,7 @@ const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
 import {extensionBuild} from '../command-build'
-import * as ensureDepsMod from '../webpack-lib/ensure-dependencies'
+import * as depsManagerMod from '../webpack-lib/dependency-manager'
 import * as configLoaderMod from '../webpack-lib/config-loader'
 import * as rspackMod from '@rspack/core'
 
@@ -93,7 +89,7 @@ describe('webpack/command-build', () => {
   beforeEach(() => {
     vi.resetModules()
     ;(configLoaderMod as any).userConfigSpy?.mockClear?.()
-    ;(ensureDepsMod.ensureDependencies as any)?.mockClear?.()
+    ;(depsManagerMod.ensureProjectReady as any)?.mockClear?.()
     ;(rspackMod as any).rspack?.mockClear?.()
     logSpy.mockClear()
     errorSpy.mockClear()
@@ -163,7 +159,7 @@ describe('webpack/command-build', () => {
     ;(rspackMod as any).rspack.mockReturnValue(makeCompiler(stats))
 
     await extensionBuild('/proj', {browser: 'chrome', silent: true})
-    expect(ensureDepsMod.ensureDependencies).toHaveBeenCalled()
+    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalled()
   })
 
   it('does not install dependencies in vitest mode and rejects instead of exiting when exitOnError=false', async () => {
@@ -185,6 +181,6 @@ describe('webpack/command-build', () => {
       })
     ).rejects.toThrow(/Build failed with errors/)
 
-    expect(ensureDepsMod.ensureDependencies).toHaveBeenCalled()
+    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalled()
   })
 })
