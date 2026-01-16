@@ -14,6 +14,8 @@ import {AddContentScriptWrapper} from './setup-reload-strategy/add-content-scrip
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
 import * as messages from '../messages'
 
+const isRemoteUrl = (entry: string) => /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
+
 export class AddScripts {
   public readonly manifestPath: string
   public readonly includeList: FilepathList
@@ -54,6 +56,7 @@ export class AddScripts {
 
               for (const entry of rawEntries) {
                 if (!entry || typeof entry !== 'string') continue
+                if (isRemoteUrl(entry)) continue
 
                 // Resolve authoring convention:
                 // - Leading '/' = extension root (public root), not OS root
@@ -117,6 +120,7 @@ export class AddScripts {
 
     const resolveEntryPath = (entry: string) => {
       if (!entry) return entry
+      if (isRemoteUrl(entry)) return entry
 
       if (entry.startsWith('/') && !path.isAbsolute(entry)) {
         // Leading "/" is the extension output root (public/)
@@ -199,6 +203,7 @@ export class AddScripts {
             )
 
             const publicFilesOnly: string[] = allScriptFieldImports
+              .filter((importPath) => !isRemoteUrl(String(importPath)))
               .map((importPath) => resolveEntryPath(String(importPath)))
               .filter((resolvedPath) => {
                 const rel = path.relative(publicDir, resolvedPath)

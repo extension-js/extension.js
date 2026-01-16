@@ -1,5 +1,6 @@
 packages:
   - './programs/cli'
+  - './programs/create'
   - './programs/develop'
   # Future extraction: chromium runner core package (placeholder only)
   - './programs/develop/webpack/plugin-browsers/run-chromium'

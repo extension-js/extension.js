@@ -6,4 +6,9 @@ describe('dynamic install', () => {
     expect(typeof mod.extensionStart).toBe('function')
     expect(typeof mod.extensionPreview).toBe('function')
   })
+
+  it('has access to extension-create in the workspace dependency graph', async () => {
+    const mod: any = await import('extension-create')
+    expect(typeof mod.extensionCreate).toBe('function')
+  })
 })
