@@ -9,7 +9,9 @@
 [snyk-image]: https://snyk.io/test/github/extension-js/extension/badge.svg?color=0971fe
 [snyk-url]: https://snyk.io/test/github/extension-js/extension
 
-# Extension.js [![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![workflow][action-image]][action-url] [![discord][discord-image]][discord-url]
+[![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url] [![Discord][discord-image]][discord-url]
+
+# Extension.js
 
 > The cross-browser extension framework
 
@@ -19,9 +21,8 @@
 - [Watch demo](#watch-demo) — See how creating a new extension works.
 - [Start from an example](https://github.com/extension-js/extension.js/tree/main/examples) — Start from a working baseline.
 - [I have an extension](#i-have-an-extension) — Use only specific parts of Extension.js.
-- [Content scripts behavior](CONTENT_SCRIPTS.md) — Lifecycle, `run_at`, and HMR expectations.
 
-Create cross-browser extensions with no build configuration.<br />Use Extension.js to develop, build, and preview across browsers with a unified workflow.
+Create cross-browser extensions without manual build configuration.<br />Use Extension.js to develop, build, and preview across browsers with a unified workflow.
 
 ## Create a new extension
 

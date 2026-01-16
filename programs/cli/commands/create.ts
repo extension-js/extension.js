@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
-import {extensionCreate, type CreateOptions} from 'extension-create'
+import type {CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../cli-lib/messages'
 import packageJson from '../package.json'
 import {parseOptionalBoolean} from '../utils'
@@ -40,6 +40,9 @@ export function registerCreateCommand(program: Command, telemetry: any) {
       })
 
       try {
+        // Load the matching create runtime from the regular dependency graph.
+        const {extensionCreate} = await import('extension-create')
+
         await extensionCreate(pathOrRemoteUrl, {
           template,
           install,

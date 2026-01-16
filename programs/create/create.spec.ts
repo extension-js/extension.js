@@ -83,6 +83,16 @@ function fileExists(templateName: string, filePath?: string): boolean {
   return fs.existsSync(path.join(templatePath, filePath || ''))
 }
 
+function manifestExists(templateName: string): boolean {
+  const candidates = [
+    'manifest.json',
+    path.join('src', 'manifest.json'),
+    path.join('extension', 'manifest.json'),
+    path.join('extension', 'src', 'manifest.json')
+  ]
+  return candidates.some((candidate) => fileExists(templateName, candidate))
+}
+
 async function removeDir(dirPath: string) {
   if (fs.existsSync(dirPath)) {
     await fs.promises.rm(dirPath, {recursive: true})
@@ -129,7 +139,7 @@ describe('extension create', () => {
     })
 
     expect(fileExists('init', 'package.json')).toBeTruthy()
-    expect(fileExists('init', 'src/manifest.json')).toBeTruthy()
+    expect(manifestExists('init')).toBeTruthy()
     expect(fileExists('init', 'README.md')).toBeTruthy()
   }, 30000)
 
@@ -307,8 +317,8 @@ describe('extension create', () => {
           ).toBeTruthy()
         }
 
-        // Expect manifest.json to exist (templates store it under src/)
-        expect(fileExists(template.name, 'src/manifest.json')).toBeTruthy()
+        // Expect manifest.json to exist (root, src, or nested template paths)
+        expect(manifestExists(template.name)).toBeTruthy()
 
         // Expect package.json to exist
         expect(fileExists(template.name, 'package.json')).toBeTruthy()
