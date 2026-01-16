@@ -8,26 +8,22 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {rspack, type Configuration} from '@rspack/core'
-import {merge} from 'webpack-merge'
-import webpackConfig from './webpack-config'
 import {getProjectStructure} from './webpack-lib/project'
 import * as messages from './webpack-lib/messages'
-import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
 import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {
   getDirs,
   computePreviewOutputPath,
-  ensureDirSync,
   normalizeBrowser,
   getDistPath
 } from './webpack-lib/paths'
 import {sanitize} from './webpack-lib/sanitize'
-import {handleStatsErrors} from './webpack-lib/stats-handler'
-import {createShutdownHandler} from './webpack-lib/shutdown'
 import type {PreviewOptions} from './webpack-types'
-import {BrowsersPlugin} from './plugin-browsers'
+import {resolveCompanionExtensionDirs} from './webpack-lib/companion-extensions'
+import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
+import {withDarkMode} from './webpack-lib/dark-mode'
+import {runOnlyPreviewBrowser} from './plugin-browsers/run-only'
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
@@ -69,72 +65,74 @@ export async function extensionPreview(
     console.log(messages.debugPreviewOutput(outputPath, distPath))
   }
 
-  // Only create the directory if we are targeting dist; avoid creating empty folders
-  try {
-    if (outputPath === distPath) {
-      ensureDirSync(outputPath)
-    }
-  } catch {
-    // Ignore
-  }
-
-  try {
-    // Load command + browser defaults from the project root (package.json dir)
-    const commandConfig = await loadCommandConfig(packageJsonDir, 'preview')
-    const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
-
-    console.log(messages.previewing(browser))
-
-    const safeBrowserConfig = sanitize(browserConfig)
-    const safeCommandConfig = sanitize(commandConfig)
-    const safePreviewOptions = sanitize(previewOptions as Record<string, any>)
-
-    const baseConfig: Configuration = webpackConfig(projectStructure, {
-      ...safeBrowserConfig,
-      ...safeCommandConfig,
-      ...safePreviewOptions,
-      mode: 'production',
-      browser,
-      // Normalize Gecko binary hints for engine-based behavior
-      geckoBinary:
-        safePreviewOptions.geckoBinary || safePreviewOptions.firefoxBinary,
-      // For preview, we only want to run the browser with the outputPath.
-      output: {
-        clean: false,
-        path: outputPath
-      }
-    })
-
-    const onlyBrowserRunners = baseConfig.plugins?.filter(
-      (plugin): plugin is BrowsersPlugin => plugin instanceof BrowsersPlugin
+  // Run-only preview requires an existing unpacked extension root at outputPath.
+  // If dist/<browser> doesn't exist, computePreviewOutputPath falls back to manifestDir.
+  const manifestAtOutput = path.join(outputPath, 'manifest.json')
+  if (!fs.existsSync(manifestAtOutput)) {
+    throw new Error(
+      `Preview is run-only and does not compile.\n` +
+        `Expected an unpacked extension at:\n` +
+        `  ${manifestAtOutput}\n\n` +
+        `Run \`extension build\` or \`extension dev\` first, or pass --output-path to an existing unpacked extension directory.`
     )
-
-    const userExtensionConfig = await loadCustomWebpackConfig(manifestDir)
-    const userConfig = userExtensionConfig({
-      ...baseConfig,
-      plugins: onlyBrowserRunners
-    })
-    const compilerConfig = merge(userConfig)
-    const compiler = rspack(compilerConfig)
-
-    // Fast cancel on Ctrl+C / termination signals: close compiler and exit
-    const shutdown = createShutdownHandler(compiler)
-
-    compiler.run((err, stats) => {
-      if (err) {
-        console.error(err.stack || err)
-        shutdown(1)
-      }
-
-      if (stats?.hasErrors()) {
-        handleStatsErrors(stats)
-        shutdown(1)
-      }
-    })
-  } catch (error) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.error(error)
-    }
-    process.exit(1)
   }
+
+  // Load command + browser defaults from the project root (package.json dir)
+  const commandConfig = await loadCommandConfig(packageJsonDir, 'preview')
+  const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
+
+  console.log(messages.previewing(browser))
+
+  const safeBrowserConfig = sanitize(browserConfig)
+  const safeCommandConfig = sanitize(commandConfig)
+  const safePreviewOptions = sanitize(previewOptions as Record<string, any>)
+
+  const merged = {
+    ...safeBrowserConfig,
+    ...safeCommandConfig,
+    ...safePreviewOptions,
+    // Normalize Gecko binary hints for engine-based behavior
+    geckoBinary: safePreviewOptions.geckoBinary || safePreviewOptions.firefoxBinary
+  } as any
+
+  const darkDefaults = withDarkMode({
+    browser,
+    browserFlags: merged.browserFlags,
+    preferences: merged.preferences
+  })
+
+  const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
+    projectRoot: packageJsonDir,
+    config: merged.extensions
+  })
+
+  const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
+    // IMPORTANT: __dirname changes after publishing (compiled output lives in dist/).
+    // Always anchor relative paths at the @programs/develop package root to keep
+    // companion extensions (devtools/theme) stable across monorepo + published builds.
+    path.resolve(__dirname, '..'),
+    'production',
+    browser,
+    outputPath,
+    companionUnpackedExtensionDirs
+  )
+
+  await runOnlyPreviewBrowser({
+    browser,
+    outPath: outputPath,
+    contextDir: packageJsonDir,
+    extensionsToLoad: unpackedExtensionDirsToLoad,
+    noOpen: merged.noOpen,
+    profile: merged.profile,
+    persistProfile: merged.persistProfile,
+    preferences: darkDefaults.preferences,
+    browserFlags: darkDefaults.browserFlags,
+    excludeBrowserFlags: merged.excludeBrowserFlags,
+    startingUrl: merged.startingUrl,
+    chromiumBinary: merged.chromiumBinary,
+    geckoBinary: merged.geckoBinary,
+    instanceId: merged.instanceId,
+    port: merged.port,
+    dryRun: merged.dryRun
+  })
 }

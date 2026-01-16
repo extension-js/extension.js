@@ -30,10 +30,7 @@ import {printProdBannerOnce} from '../../browsers-lib/banner'
 import {browserConfig} from './browser-config'
 import {setupProcessSignalHandlers} from './process-handlers'
 import {logChromiumDryRun} from './dry-run'
-import {
-  setupCdpAfterLaunch,
-  getExtensionOutputPath
-} from './setup-cdp-after-launch'
+import {getExtensionOutputPath} from './extension-output-path'
 import type {ChromiumContext} from '../chromium-context'
 import type {
   ChromiumLaunchOptions,
@@ -58,6 +55,26 @@ export class ChromiumLaunchPlugin {
     private readonly options: ChromiumLaunchOptions,
     private readonly ctx: ChromiumContext
   ) {}
+
+  /**
+   * Run the Chromium launch flow without requiring a bundler compiler instance.
+   * Intended for run-only preview paths.
+   */
+  public async runOnce(
+    compilation: Compilation,
+    opts?: {enableCdpPostLaunch?: boolean}
+  ): Promise<void> {
+    // Ensure we have a logger even without a compiler.
+    if (!this.logger) {
+      this.logger = {
+        info: (...a: unknown[]) => console.log(...a),
+        warn: (...a: unknown[]) => console.warn(...a),
+        error: (...a: unknown[]) => console.error(...a),
+        debug: (...a: unknown[]) => (console as any)?.debug?.(...a)
+      } as ReturnType<Compiler['getInfrastructureLogger']>
+    }
+    await this.launchChromium(compilation, opts)
+  }
 
   apply(compiler: Compiler) {
     this.logger =
@@ -100,7 +117,10 @@ export class ChromiumLaunchPlugin {
     })
   }
 
-  private async launchChromium(compilation: Compilation) {
+  private async launchChromium(
+    compilation: Compilation,
+    opts?: {enableCdpPostLaunch?: boolean}
+  ) {
     // Dry-run short-circuit
     if (
       this.options?.dryRun ||
@@ -568,13 +588,20 @@ export class ChromiumLaunchPlugin {
         browserVersionLine
       }
 
-      await setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
+      // Optional CDP wiring (dev + inspection). Run-only preview disables this
+      // to avoid pulling in WS/CDP dependencies.
+      const enableCdp =
+        opts?.enableCdpPostLaunch === false ? false : true
+      if (enableCdp) {
+        const mod = await import('./setup-cdp-after-launch')
+        await mod.setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
 
-      if (cdpConfig.cdpController) {
-        this.ctx.setController(
-          cdpConfig.cdpController as CDPExtensionController,
-          selectedPort
-        )
+        if (cdpConfig.cdpController) {
+          this.ctx.setController(
+            cdpConfig.cdpController as CDPExtensionController,
+            selectedPort
+          )
+        }
       }
     } catch (error) {
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
