@@ -12,11 +12,8 @@ import * as path from 'path'
 import {CleanDistFolderPlugin} from '../clean-dist'
 
 describe('CleanDistFolderPlugin', () => {
-  const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-  const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-
   beforeEach(() => {
-    vi.restoreAllMocks()
+    vi.clearAllMocks()
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })

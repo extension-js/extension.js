@@ -590,8 +590,7 @@ export class ChromiumLaunchPlugin {
 
       // Optional CDP wiring (dev + inspection). Run-only preview disables this
       // to avoid pulling in WS/CDP dependencies.
-      const enableCdp =
-        opts?.enableCdpPostLaunch === false ? false : true
+      const enableCdp = opts?.enableCdpPostLaunch === false ? false : true
       if (enableCdp) {
         const mod = await import('./setup-cdp-after-launch')
         await mod.setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
