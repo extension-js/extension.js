@@ -1,0 +1,32 @@
+name: Release – Stable (Tags)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup
+        with:
+          node-version: 20
+
+      - name: Build & Test
+        run: |
+          pnpm compile
+          pnpm test:create
+
+      - name: Publish public package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm publish --access public --no-git-checks
+
+

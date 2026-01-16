@@ -1,0 +1,89 @@
+name: "Extension Create"
+description: "Build and run extension-create to scaffold a project from a template (standalone repo)"
+inputs:
+  project-name:
+    description: "Project name or directory name for the scaffolded app"
+    required: true
+  template:
+    description: "Template name or remote URL (defaults to examples repo templates)"
+    required: false
+    default: "content"
+  install:
+    description: "Whether to run install step inside generated project (true/false)"
+    required: false
+    default: "false"
+  cli-version:
+    description: "CLI version pin to embed in generated scripts (optional)"
+    required: false
+    default: ""
+  working-directory:
+    description: "Absolute directory where project should be created"
+    required: false
+    default: "${{ runner.temp }}"
+outputs:
+  created-path:
+    description: "Absolute path where the scaffolded project was created"
+    value: ${{ steps.export.outputs.created-path }}
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 9
+
+    - name: Install deps
+      shell: bash
+      run: pnpm install --frozen-lockfile
+
+    - name: Build package
+      shell: bash
+      run: pnpm compile
+
+    - name: Run extension-create
+      shell: bash
+      env:
+        PROJECT_NAME: ${{ inputs["project-name"] }}
+        TEMPLATE: ${{ inputs.template }}
+        INSTALL_FLAG: ${{ inputs.install }}
+        CLI_VERSION: ${{ inputs["cli-version"] }}
+        WORKDIR: ${{ inputs["working-directory"] }}
+      run: |
+        node -e '
+          import path from "node:path";
+          import { pathToFileURL } from "node:url";
+          const projectName = process.env.PROJECT_NAME || "my-extension";
+          const template = process.env.TEMPLATE || "content";
+          const install = String(process.env.INSTALL_FLAG || "false").toLowerCase() === "true";
+          const cliVersion = process.env.CLI_VERSION || undefined;
+          const workdir = process.env.WORKDIR || process.cwd();
+          const absTarget = path.isAbsolute(projectName) ? projectName : path.join(workdir, projectName);
+          const modUrl = pathToFileURL(path.resolve("dist/module.js")).href;
+          const run = async () => {
+            const mod = await import(modUrl);
+            if (typeof mod.extensionCreate !== "function") {
+              throw new Error("extensionCreate export not found in dist/module.js");
+            }
+            await mod.extensionCreate(absTarget, { template, install, cliVersion });
+            console.log("Scaffolded project at:", absTarget);
+          };
+          run().catch((err) => { console.error(err); process.exit(1); });
+        '
+
+    - name: Output scaffold path
+      id: export
+      shell: bash
+      env:
+        PROJECT_NAME: ${{ inputs["project-name"] }}
+        WORKDIR: ${{ inputs["working-directory"] }}
+      run: |
+        target="$WORKDIR/$PROJECT_NAME"
+        echo "created-path=$target" >> "$GITHUB_OUTPUT"
+
+
