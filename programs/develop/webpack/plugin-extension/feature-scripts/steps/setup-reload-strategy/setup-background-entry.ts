@@ -96,7 +96,8 @@ export class SetupBackgroundEntry {
         if (maybeError) hookError(maybeError)
 
         const existingEntry =
-          compiler.options.entry && 'background/service_worker' in compiler.options.entry
+          compiler.options.entry &&
+          'background/service_worker' in compiler.options.entry
             ? compiler.options.entry['background/service_worker']
             : undefined
 
