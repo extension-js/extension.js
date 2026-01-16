@@ -36,4 +36,3 @@ export function getExtensionOutputPath(
 
   return (userCandidates.length ? userCandidates : entries).slice(-1)[0]
 }
-
