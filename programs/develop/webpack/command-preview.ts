@@ -92,7 +92,8 @@ export async function extensionPreview(
     ...safeCommandConfig,
     ...safePreviewOptions,
     // Normalize Gecko binary hints for engine-based behavior
-    geckoBinary: safePreviewOptions.geckoBinary || safePreviewOptions.firefoxBinary
+    geckoBinary:
+      safePreviewOptions.geckoBinary || safePreviewOptions.firefoxBinary
   } as any
 
   const darkDefaults = withDarkMode({

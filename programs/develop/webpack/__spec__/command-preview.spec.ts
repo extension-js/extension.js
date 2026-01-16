@@ -64,7 +64,8 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('falls back to manifest directory when dist/<browser> lacks manifest.json', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) return false
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return false
       if (p === path.join('/proj', 'manifest.json')) return true
       return false
     })
@@ -78,7 +79,8 @@ describe('webpack/command-preview (run-only)', () => {
 
   it('uses dist/<browser> when dist manifest exists', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) return true
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
       return false
     })
 

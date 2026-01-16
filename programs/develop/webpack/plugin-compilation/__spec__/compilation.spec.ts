@@ -22,15 +22,18 @@ vi.mock('../env', () => {
   return {EnvPlugin: EnvPluginMock}
 })
 
+const cleanDistMocks = vi.hoisted(() => ({
+  instances: [] as any[],
+  apply: vi.fn()
+}))
+
 vi.mock('../clean-dist', () => {
-  const apply = vi.fn()
   class CleanDistFolderPluginMock {
-    public static instances: any[] = []
-    public static apply = apply
+    public static instances: any[] = cleanDistMocks.instances
     constructor(public options: any) {
-      ;(CleanDistFolderPluginMock as any).instances.push(this)
+      cleanDistMocks.instances.push(this)
     }
-    apply = apply
+    apply = cleanDistMocks.apply
   }
   return {CleanDistFolderPlugin: CleanDistFolderPluginMock}
 })
@@ -68,13 +71,8 @@ describe('CompilationPlugin', () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'MyExt'})
     )
-    // Reset CleanDistFolderPlugin mock instances between tests
-    import('../clean-dist').then(({CleanDistFolderPlugin}) => {
-      ;(CleanDistFolderPlugin as any).instances = []
-      if ((CleanDistFolderPlugin as any).apply?.mockReset) {
-        ;(CleanDistFolderPlugin as any).apply.mockReset()
-      }
-    })
+    cleanDistMocks.instances.length = 0
+    cleanDistMocks.apply.mockClear()
   })
 
   afterEach(() => {
@@ -156,8 +154,7 @@ describe('CompilationPlugin', () => {
       compilation: {startTime: 0, endTime: 5}
     })
 
-    const {CleanDistFolderPlugin} = await import('../clean-dist')
-    expect((CleanDistFolderPlugin as any).instances.length).toBe(0)
+    expect(cleanDistMocks.instances.length).toBe(0)
 
     // Even when clean is false, success logs are still printed by BoringPlugin.
     expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtB, 5ms)')
