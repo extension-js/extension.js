@@ -1,8 +1,16 @@
-[ci-url]: https://github.com/extension-js/create/actions/workflows/ci.yml
+[npm-version-image]: https://img.shields.io/npm/v/extension-create.svg?color=0971fe
+[npm-version-url]: https://www.npmjs.com/package/extension-create
+[npm-downloads-image]: https://img.shields.io/npm/dm/extension-create.svg?color=0971fe
+[npm-downloads-url]: https://www.npmjs.com/package/extension-create
+[action-image]: https://github.com/extension-js/create/actions/workflows/ci.yml/badge.svg?branch=main
+[action-url]: https://github.com/extension-js/create/actions/workflows/ci.yml
 
-# extension-create [🛠️ CI][ci-url]
+[![Version][npm-version-image]][npm-version-url] [![Downloads][npm-downloads-image]][npm-downloads-url] [![CI][action-image]][action-url]
 
-The standalone extension creation engine for [Extension.js](https://github.com/extension-js/extension.js).
+# extension-create
+
+The standalone extension creation engine for Extension.js.
+Use it to scaffold a new extension project from a template.
 
 ## Install
 
@@ -29,7 +37,7 @@ await extensionCreate('my-react-extension', {
 })
 ```
 
-## API Reference
+## API reference
 
 ### `extensionCreate(projectName, options)`
 
@@ -45,7 +53,7 @@ Creates a new extension project with the specified configuration.
 
 ## Templates
 
-Templates are sourced from the public Examples repository. See the catalog at `https://github.com/extension-js/examples` and reference templates by name (for example, `content`, `content-react`, `content-vue`).
+Templates are sourced from the public examples repository. Browse the catalog in the [Extension.js examples](https://github.com/extension-js/examples) and reference templates by name (for example, `content`, `content-react`, `content-vue`).
 
 ## License
 
