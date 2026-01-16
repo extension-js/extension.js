@@ -44,10 +44,17 @@ vi.mock('../webpack-lib/config-loader', () => {
   }
 })
 
-vi.mock('../webpack-lib/install-dependencies', () => {
-  const installDependencies = vi.fn(async () => {})
-  return {installDependencies}
-})
+vi.mock('../webpack-lib/preflight-optional-deps', () => ({
+  preflightOptionalDependencies: vi.fn(async () => {})
+}))
+
+vi.mock('../webpack-lib/ensure-dependencies', () => ({
+  ensureDependencies: vi.fn(async () => ({
+    installed: false,
+    installedBuild: false,
+    installedUser: false
+  }))
+}))
 
 vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
@@ -76,7 +83,7 @@ const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
 import {extensionBuild} from '../command-build'
-import * as installDepsMod from '../webpack-lib/install-dependencies'
+import * as ensureDepsMod from '../webpack-lib/ensure-dependencies'
 import * as configLoaderMod from '../webpack-lib/config-loader'
 import * as rspackMod from '@rspack/core'
 
@@ -86,7 +93,7 @@ describe('webpack/command-build', () => {
   beforeEach(() => {
     vi.resetModules()
     ;(configLoaderMod as any).userConfigSpy?.mockClear?.()
-    ;(installDepsMod.installDependencies as any)?.mockClear?.()
+    ;(ensureDepsMod.ensureDependencies as any)?.mockClear?.()
     ;(rspackMod as any).rspack?.mockClear?.()
     logSpy.mockClear()
     errorSpy.mockClear()
@@ -144,7 +151,7 @@ describe('webpack/command-build', () => {
     expect((rspackMod as any).rspack).toHaveBeenCalledTimes(1)
   })
 
-  it('installs dependencies when node_modules is missing or empty', async () => {
+  it('ensures dependencies before running the build', async () => {
     const nodeModules = path.join('/proj', 'node_modules')
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       // path exists but is empty dir
@@ -156,7 +163,7 @@ describe('webpack/command-build', () => {
     ;(rspackMod as any).rspack.mockReturnValue(makeCompiler(stats))
 
     await extensionBuild('/proj', {browser: 'chrome', silent: true})
-    expect(installDepsMod.installDependencies).toHaveBeenCalled()
+    expect(ensureDepsMod.ensureDependencies).toHaveBeenCalled()
   })
 
   it('does not install dependencies in vitest mode and rejects instead of exiting when exitOnError=false', async () => {
@@ -178,6 +185,6 @@ describe('webpack/command-build', () => {
       })
     ).rejects.toThrow(/Build failed with errors/)
 
-    expect(installDepsMod.installDependencies).not.toHaveBeenCalled()
+    expect(ensureDepsMod.ensureDependencies).toHaveBeenCalled()
   })
 })
