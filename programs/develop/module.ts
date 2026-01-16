@@ -10,6 +10,7 @@ import {extensionBuild} from './webpack/command-build'
 import {extensionDev} from './webpack/command-dev'
 import {extensionPreview} from './webpack/command-preview'
 import {extensionStart} from './webpack/command-start'
+import {ensureDependencies} from './webpack/webpack-lib/ensure-dependencies'
 import {
   type FileConfig,
   type BuildOptions,
@@ -29,5 +30,6 @@ export {
   extensionPreview,
   PreviewOptions,
   FileConfig,
-  Manifest
+  Manifest,
+  ensureDependencies
 }

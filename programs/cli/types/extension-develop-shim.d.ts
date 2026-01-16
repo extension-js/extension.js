@@ -82,4 +82,17 @@ declare module 'extension-develop' {
     pathOrRemoteUrl: string,
     options: PreviewOptions
   ): Promise<any>
+
+  export function ensureDependencies(
+    projectPath?: string,
+    opts?: {
+      skipProjectInstall?: boolean
+      exitOnInstall?: boolean
+      showRunAgainMessage?: boolean
+    }
+  ): Promise<{
+    installed: boolean
+    installedBuild: boolean
+    installedUser: boolean
+  }>
 }

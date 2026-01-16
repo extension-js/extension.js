@@ -39,12 +39,21 @@ function hasTypeScriptSourceFiles(projectPath: string): boolean {
   try {
     const entries = fs.readdirSync(projectPath, {withFileTypes: true})
 
-    return entries.some((e) => {
-      if (e.isFile()) return /\.(ts|tsx|mts|mtsx)$/i.test(e.name)
-      if (e.isDirectory()) {
-        if (!['src', 'content', 'sidebar', 'background'].includes(e.name))
+    return entries.some((entry) => {
+      if (entry.isFile()) {
+        const name = entry.name
+
+        if (!/\.(ts|tsx|mts|mtsx)$/i.test(name)) return false
+        if (/\.(d\.ts|d\.mts|d\.mtsx)$/i.test(name)) return false
+        if (/\.(spec|test)\.(ts|tsx|mts|mtsx)$/i.test(name)) return false
+
+        return true
+      }
+
+      if (entry.isDirectory()) {
+        if (!['src', 'content', 'sidebar', 'background'].includes(entry.name))
           return false
-        const sub = path.join(projectPath, e.name)
+        const sub = path.join(projectPath, entry.name)
         return hasTypeScriptSourceFiles(sub)
       }
       return false
