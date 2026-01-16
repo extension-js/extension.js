@@ -119,4 +119,3 @@ export async function runOnlyPreviewBrowser(opts: {
 
   throw new Error(`Unsupported browser: ${String(opts.browser)}`)
 }
-
