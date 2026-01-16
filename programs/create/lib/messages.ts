@@ -29,9 +29,7 @@ export async function directoryHasConflicts(
 ) {
   const projectName = path.basename(projectPath)
 
-  let message = `Directory contains conflicting files: ${colors.blue(
-    projectName
-  )}\n\n`
+  let message = `Conflicting files found in ${colors.blue(projectName)}.\n\n`
 
   for (const file of conflictingFiles) {
     const stats = await fs.promises.lstat(path.join(projectPath, file))
@@ -42,7 +40,7 @@ export async function directoryHasConflicts(
 
   message +=
     `\n${colors.red(
-      'Next step: remove/rename the files above, or choose a different directory name.'
+      'Next step: remove or rename the files above, or choose a different directory name.'
     )}` + `\n\nPath: ${colors.underline(projectPath)}`
 
   return message
@@ -51,7 +49,7 @@ export async function directoryHasConflicts(
 export function noProjectName() {
   return (
     `${colors.red('Error')} Project name is required.\n` +
-    `Next step: provide a name (for example, ${colors.blue(
+    `Next step: provide a project name (for example, ${colors.blue(
       'my-extension'
     )}) or run ${colors.blue('--help')} for usage.`
   )
@@ -119,7 +117,9 @@ export function scanningPossiblyConflictingFiles() {
 export function createDirectoryError(projectName: string, error: any) {
   return `${colors.red('Error')} Couldn't create directory ${colors.blue(
     projectName
-  )}.\n${colors.red(String(error))}`
+  )}.\n${colors.red(String(error))}\n${colors.red(
+    'Next step: check the path and permissions, then try again.'
+  )}`
 }
 
 export function writingTypeDefinitions(projectName: string) {
@@ -129,7 +129,9 @@ export function writingTypeDefinitions(projectName: string) {
 export function writingTypeDefinitionsError(error: any) {
   return `${colors.red(
     'Error'
-  )} Couldn't write the extension type definitions.\n${colors.red(String(error))}`
+  )} Couldn't write the extension type definitions.\n${colors.red(
+    String(error)
+  )}\n${colors.red('Next step: check file permissions, then try again.')}`
 }
 
 export function installingFromTemplate(
@@ -152,7 +154,9 @@ export function installingFromTemplateError(
 ) {
   return `${colors.red('Error')} Couldn't find template ${colors.yellow(
     template
-  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}`
+  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}\n${colors.red(
+    'Next step: choose a valid template name or URL.'
+  )}`
 }
 
 export function initializingGitForRepository(projectName: string) {
@@ -168,7 +172,7 @@ export function initializingGitForRepositoryFailed(
     gitCommand
   )} ${colors.yellow(gitArgs.join(' '))} failed.\n${colors.red(
     `Exit code: ${colors.yellow(String(code))}`
-  )}`
+  )}\n${colors.red('Next step: run the command manually to inspect the error.')}`
 }
 
 export function initializingGitForRepositoryProcessError(
@@ -179,7 +183,9 @@ export function initializingGitForRepositoryProcessError(
     'Error'
   )} Child process failed while initializing ${colors.yellow('git')} for ${colors.blue(
     projectName
-  )}.\n${colors.red(String(error?.message || error))}`
+  )}.\n${colors.red(String(error?.message || error))}\n${colors.red(
+    'Next step: retry initialization or create the repository manually.'
+  )}`
 }
 
 export function initializingGitForRepositoryError(
@@ -190,6 +196,8 @@ export function initializingGitForRepositoryError(
     'git'
   )} for ${colors.blue(projectName)}.\n${colors.red(
     String(error?.message || error)
+  )}\n${colors.red(
+    'Next step: retry initialization or create the repository manually.'
   )}`
 }
 
@@ -206,7 +214,7 @@ export function installingDependenciesFailed(
     gitCommand
   )} ${colors.yellow(gitArgs.join(' '))} failed.\n${colors.red(
     `Exit code: ${colors.yellow(String(code))}`
-  )}`
+  )}\n${colors.red('Next step: run the command manually to inspect the error.')}`
 }
 
 export function installingDependenciesProcessError(
@@ -217,13 +225,17 @@ export function installingDependenciesProcessError(
     'Error'
   )} Child process failed while installing dependencies for ${colors.blue(
     projectName
-  )}.\n${colors.red(String(error))}`
+  )}.\n${colors.red(String(error))}\n${colors.red(
+    'Next step: run the install command manually to inspect the error.'
+  )}`
 }
 
 export function cantInstallDependencies(projectName: string, error: any) {
   return `${colors.red('Error')} Couldn't install dependencies for ${colors.blue(
     projectName
-  )}.\n${colors.red(String(error?.message || error))}`
+  )}.\n${colors.red(String(error?.message || error))}\n${colors.red(
+    'Next step: check your package manager settings, then try again.'
+  )}`
 }
 
 export function writingPackageJsonMetadata() {
@@ -236,7 +248,9 @@ export function writingPackageJsonMetadataError(
 ) {
   return `${colors.red('Error')} Couldn't write ${colors.yellow(
     'package.json'
-  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}`
+  )} for ${colors.blue(projectName)}.\n${colors.red(
+    String(error)
+  )}\n${colors.red('Next step: check file permissions, then try again.')}`
 }
 
 export function writingManifestJsonMetadata() {
@@ -249,7 +263,9 @@ export function writingManifestJsonMetadataError(
 ) {
   return `${colors.red('Error')} Couldn't write ${colors.yellow(
     'manifest.json'
-  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}`
+  )} for ${colors.blue(projectName)}.\n${colors.red(
+    String(error)
+  )}\n${colors.red('Next step: check file permissions, then try again.')}`
 }
 
 export function writingReadmeMetaData() {
@@ -263,7 +279,9 @@ export function writingGitIgnore() {
 export function writingReadmeMetaDataEError(projectName: string, error: any) {
   return `${colors.red('Error')} Couldn't write ${colors.yellow(
     'README.md'
-  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}`
+  )} for ${colors.blue(projectName)}.\n${colors.red(
+    String(error)
+  )}\n${colors.red('Next step: check file permissions, then try again.')}`
 }
 
 export function folderExists(projectName: string) {
@@ -273,7 +291,9 @@ export function folderExists(projectName: string) {
 export function writingDirectoryError(error: any) {
   return `${colors.red(
     'Error'
-  )} Couldn't check directory writability.\n${colors.red(String(error))}`
+  )} Couldn't check directory writability.\n${colors.red(
+    String(error)
+  )}\n${colors.red('Next step: check the path and permissions, then try again.')}`
 }
 
 export function cantSetupBuiltInTests(projectName: string, error: any) {
@@ -281,5 +301,5 @@ export function cantSetupBuiltInTests(projectName: string, error: any) {
     'Error'
   )} Couldn't set up built-in tests for ${colors.yellow(projectName)}.\n${colors.red(
     String(error)
-  )}`
+  )}\n${colors.red('Next step: run the setup step again or skip tests.')}`
 }
