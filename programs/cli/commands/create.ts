@@ -43,8 +43,7 @@ export function registerCreateCommand(program: Command, telemetry: any) {
       try {
         // Load the matching create runtime from the regular dependency graph.
         const {extensionCreate} = await import('extension-create')
-        const {ensureDependencies, preflightOptionalDependenciesForProject} =
-          await import('extension-develop')
+        const {ensureDependencies} = await import('extension-develop')
 
         const projectPath = path.isAbsolute(pathOrRemoteUrl)
           ? pathOrRemoteUrl
@@ -61,10 +60,6 @@ export function registerCreateCommand(program: Command, telemetry: any) {
             skipProjectInstall: true,
             showRunAgainMessage: false
           })
-          await preflightOptionalDependenciesForProject(
-            projectPath,
-            'development'
-          )
         }
 
         telemetry.track('cli_command_finish', {
