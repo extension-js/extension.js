@@ -11,31 +11,50 @@ import {isContentScriptEntry} from './css-lib/is-content-script'
 import {createSassLoaderOptions} from './css-tools/sass'
 import type {DevOptions} from '../webpack-types'
 
+interface PreprocessorUsage {
+  useSass?: boolean
+  useLess?: boolean
+}
+
 export async function cssInHtmlLoader(
   projectPath: string,
   mode: DevOptions['mode'],
-  manifestPath: string
+  manifestPath: string,
+  usage: PreprocessorUsage = {}
 ) {
+  const {useSass = true, useLess = true} = usage
   const isNotContentScript = (issuer: string) =>
     !isContentScriptEntry(issuer, manifestPath)
 
   // Define file type configurations
   const fileTypes = [
     {test: /\.css$/, type: 'css', loader: null},
-    {
-      test: /\.(sass|scss)$/,
-      exclude: /\.module\.(sass|scss)$/,
-      type: 'css',
-      loader: 'sass-loader'
-    },
-    {test: /\.module\.(sass|scss)$/, type: 'css/module', loader: 'sass-loader'},
-    {
-      test: /\.less$/,
-      exclude: /\.module\.less$/,
-      type: 'css',
-      loader: 'less-loader'
-    },
-    {test: /\.module\.less$/, type: 'css/module', loader: 'less-loader'}
+    ...(useSass
+      ? [
+          {
+            test: /\.(sass|scss)$/,
+            exclude: /\.module\.(sass|scss)$/,
+            type: 'css',
+            loader: 'sass-loader'
+          },
+          {
+            test: /\.module\.(sass|scss)$/,
+            type: 'css/module',
+            loader: 'sass-loader'
+          }
+        ]
+      : []),
+    ...(useLess
+      ? [
+          {
+            test: /\.less$/,
+            exclude: /\.module\.less$/,
+            type: 'css',
+            loader: 'less-loader'
+          },
+          {test: /\.module\.less$/, type: 'css/module', loader: 'less-loader'}
+        ]
+      : [])
   ]
 
   const rules = await Promise.all(

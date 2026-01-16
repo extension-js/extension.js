@@ -15,7 +15,11 @@ describe('cssInContentScriptLoader', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('returns rules with asset type and generator for content scripts', async () => {
-    const rules = await cssInContentScriptLoader('/project', 'development')
+    const rules = await cssInContentScriptLoader(
+      '/project',
+      '/project/manifest.json',
+      'development'
+    )
     expect(Array.isArray(rules)).toBe(true)
     for (const rule of rules) {
       expect(rule.type).toBe('asset')
@@ -30,7 +34,11 @@ describe('cssInHtmlLoader', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('returns rules with css types and not content script issuer', async () => {
-    const rules = await cssInHtmlLoader('/project', 'development')
+    const rules = await cssInHtmlLoader(
+      '/project',
+      'development',
+      '/project/manifest.json'
+    )
     expect(Array.isArray(rules)).toBe(true)
     expect(rules.some((r: any) => r.type === 'css')).toBe(true)
     expect(rules.some((r: any) => r.type === 'css/module')).toBe(true)

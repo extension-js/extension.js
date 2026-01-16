@@ -37,10 +37,12 @@ export class CssPlugin {
   private async configureOptions(compiler: Compiler) {
     const mode: DevOptions['mode'] =
       (compiler.options.mode as DevOptions['mode']) || 'development'
-    const projectPath = compiler.options.context as string
+    const projectPath = (compiler.options.context as string) || process.cwd()
 
     const plugins: RspackPluginInstance[] = []
     const manifestPath = this.manifestPath
+    const usingSass = hasDependency(projectPath, 'sass')
+    const usingLess = hasDependency(projectPath, 'less')
     const maybeInstallStylelint = await maybeUseStylelint(projectPath)
     plugins.push(...maybeInstallStylelint)
 
@@ -51,14 +53,20 @@ export class CssPlugin {
     // because it's a content script and we need to load it as an asset.
     // For HTML we need to use the css loader because it's a HTML file
     // and we need to load it as a CSS file.
-    const loaders: RuleSetRule[] = [
-      ...(await cssInContentScriptLoader(projectPath, manifestPath, mode)),
-      ...(await cssInHtmlLoader(projectPath, mode, manifestPath))
-    ]
-
-    // Add Sass/Less support if needed
+    // Add Sass/Less support if needed before resolving loaders
     const maybeInstallSass = await maybeUseSass(projectPath)
     const maybeInstallLess = await maybeUseLess(projectPath, manifestPath)
+
+    const loaders: RuleSetRule[] = [
+      ...(await cssInContentScriptLoader(projectPath, manifestPath, mode, {
+        useSass: usingSass,
+        useLess: usingLess
+      })),
+      ...(await cssInHtmlLoader(projectPath, mode, manifestPath, {
+        useSass: usingSass,
+        useLess: usingLess
+      }))
+    ]
 
     // Add SASS/LESS loaders for content scripts
     if (maybeInstallSass.length) {
@@ -99,8 +107,6 @@ export class CssPlugin {
     // Author mode: summarize CSS integrations and configs
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       const integrations: string[] = []
-      const usingSass = hasDependency(projectPath, 'sass')
-      const usingLess = hasDependency(projectPath, 'less')
       const usingTailwind = hasDependency(projectPath, 'tailwindcss')
       const usingPostcss =
         hasDependency(projectPath, 'postcss') ||
