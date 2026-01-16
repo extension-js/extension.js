@@ -1,16 +1,23 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
+const provideApply = vi.fn()
+
 // Mock rspack to intercept ProvidePlugin usage
 vi.mock('@rspack/core', async () => {
   const actual: any = await vi.importActual('@rspack/core')
-  const apply = vi.fn()
-  const ProvidePlugin = vi.fn(() => ({apply}))
+  class ProvidePluginMock {
+    public static lastOptions: any
+    constructor(options: any) {
+      ;(ProvidePluginMock as any).lastOptions = options
+    }
+    apply = provideApply
+  }
   return {
     ...actual,
-    ProvidePlugin,
+    ProvidePlugin: ProvidePluginMock,
     default: {
       ...actual,
-      ProvidePlugin
+      ProvidePlugin: ProvidePluginMock
     }
   }
 })
@@ -21,6 +28,7 @@ import * as rspack from '@rspack/core'
 describe('PolyfillPlugin resolver/alias and provider', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    provideApply.mockClear()
   })
   afterEach(() => {
     vi.restoreAllMocks()
@@ -55,14 +63,11 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
       String(compiler.options.resolve.alias['webextension-polyfill$'])
     ).toContain('dist/browser-polyfill.js')
 
-    const ProvidePlugin = (rspack as any).ProvidePlugin as ReturnType<
-      typeof vi.fn
-    >
-    expect(ProvidePlugin).toHaveBeenCalledWith({
+    const ProvidePlugin = (rspack as any).ProvidePlugin as any
+    expect(ProvidePlugin.lastOptions).toEqual({
       browser: 'webextension-polyfill'
     })
-    const instance = (ProvidePlugin as any).mock.results[0].value
-    expect(instance.apply).toHaveBeenCalledWith(compiler)
+    expect(provideApply).toHaveBeenCalledWith(compiler)
   })
 
   it('initializes resolve/alias object when absent', () => {

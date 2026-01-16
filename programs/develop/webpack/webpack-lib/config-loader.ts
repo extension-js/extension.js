@@ -199,7 +199,9 @@ export async function loadCustomWebpackConfig(projectPath: string) {
             // preview/run-only paths can load config logic without pulling it in.
             const requireFn = createRequire(import.meta.url)
             // eslint-disable-next-line @typescript-eslint/no-var-requires
-            const {merge} = requireFn('webpack-merge') as typeof import('webpack-merge')
+            const {merge} = requireFn(
+              'webpack-merge'
+            ) as typeof import('webpack-merge')
             return merge(config, partial)
           }
         }
