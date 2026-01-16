@@ -88,7 +88,7 @@ export function fileNotFound(
   opts?: {publicRootHint?: boolean; refLabel?: string}
 ) {
   if (!errorSourcePath) {
-    throw new Error('This operation is impossible. Please report a bug.')
+    throw new Error('This state should not occur. Please report a bug.')
   }
   switch (path.extname(missingFilePath)) {
     case '.js':
