@@ -9,10 +9,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {program} from 'commander'
-import packageJson from './package.json'
 import checkUpdates from './check-updates'
 import * as messages from './cli-lib/messages'
 import {telemetry} from './cli-lib/telemetry-cli'
+import {getCliPackageJson} from './cli-package-json'
 
 import {registerCreateCommand} from './commands/create'
 import {registerDevCommand} from './commands/dev'
@@ -20,14 +20,26 @@ import {registerStartCommand} from './commands/start'
 import {registerPreviewCommand} from './commands/preview'
 import {registerBuildCommand} from './commands/build'
 
-checkUpdates(packageJson)
+const cliPackageJson = getCliPackageJson()
+
+checkUpdates().then((updateMessage) => {
+  if (!updateMessage) return
+
+  if (process.env.EXTENSION_CLI_BANNER_PRINTED === 'true') {
+    // eslint-disable-next-line no-console
+    console.log(updateMessage)
+    return
+  }
+
+  process.env.EXTENSION_CLI_UPDATE_MESSAGE = updateMessage
+})
 
 const extensionJs = program
 
 extensionJs
-  .name(packageJson.name)
-  .description(packageJson.description)
-  .version(packageJson.version)
+  .name(cliPackageJson.name)
+  .description(cliPackageJson.description)
+  .version(cliPackageJson.version)
   .option('--no-telemetry', 'disable anonymous telemetry for this run')
   .option('--ai-help', 'show AI-assistant oriented help and tips')
   .addHelpText('after', messages.programUserHelp())
