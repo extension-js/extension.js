@@ -102,4 +102,76 @@ describe('extension create from remote', () => {
       fs.rmSync(tmp, {recursive: true, force: true})
     } catch {}
   })
+
+  itCli('creates from a remote zip with nested manifest.json', async () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-create-'))
+    const dest = path.join(tmp, 'my-remote-nested-ext')
+    const manifest = JSON.stringify({
+      name: 'Nested Created',
+      description: 'Nested manifest template',
+      version: '0.0.1',
+      manifest_version: 3
+    })
+    const zip = makeZip({'extension/manifest.json': manifest})
+
+    const port = await new Promise<number>((resolve) => {
+      const srv = createServer((req, res) => {
+        if (req.url?.startsWith('/template.zip')) {
+          res.statusCode = 200
+          res.setHeader('Content-Type', 'application/zip')
+          res.end(zip)
+          return
+        }
+        res.statusCode = 404
+        res.end('not found')
+      })
+      srv.listen(0, '127.0.0.1', () => {
+        server = srv
+        // @ts-ignore
+        resolve((srv.address() as any).port)
+      })
+    })
+    const url = `http://127.0.0.1:${port}/template.zip`
+
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        process.execPath,
+        [cli, 'create', dest, '--template', url, '--install', 'false'],
+        {
+          cwd: repoRoot,
+          // Ensure production-like behavior so remote template fetch path is used
+          env: {...process.env, EXTENSION_ENV: 'test'}
+        }
+      )
+      let err = ''
+      const timeout = setTimeout(() => {
+        try {
+          child.kill('SIGTERM')
+        } catch {}
+        reject(new Error('Timed out creating from remote zip'))
+      }, 60000)
+      child.stderr.on('data', (d) => (err += String(d)))
+      child.on('exit', (code) => {
+        clearTimeout(timeout)
+        if (code === 0) {
+          resolve()
+        } else {
+          reject(new Error(`create failed: code=${code}\n${err}`))
+        }
+      })
+      child.on('error', reject)
+    })
+
+    const nestedManifestPath = path.join(dest, 'extension', 'manifest.json')
+    expect(fs.existsSync(nestedManifestPath)).toBeTruthy()
+    const manifestJson = JSON.parse(
+      fs.readFileSync(nestedManifestPath, 'utf-8')
+    )
+    expect(manifestJson.name).toBe(path.basename(dest))
+
+    // Cleanup
+    try {
+      fs.rmSync(tmp, {recursive: true, force: true})
+    } catch {}
+  })
 })
