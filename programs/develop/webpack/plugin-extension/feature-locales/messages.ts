@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 export function manifestNotFoundMessageOnly(absPath: string) {
-  return `Check the manifest.json file.\n\nNOT FOUND ${absPath}`
+  return `Check for a valid manifest.json file.\n\nNOT FOUND ${absPath}`
 }
 
 export function entryNotFoundMessageOnly(
@@ -21,23 +21,23 @@ export function entryNotFoundMessageOnly(
 
 // The following messages intentionally avoid color/ANSI so unit tests and CLI output remain clean
 export function defaultLocaleSpecifiedButLocalesMissing() {
-  return 'Default locale was specified, but _locales subtree is missing.'
+  return 'default_locale is set, but the _locales folder is missing. Add _locales/<default>/messages.json.'
 }
 
 export function defaultLocaleFolderMissing(defaultLocale: string) {
-  return `Default locale folder is missing: _locales/${defaultLocale}`
+  return `Default locale folder is missing: _locales/${defaultLocale}. Create it and add messages.json.`
 }
 
 export function defaultLocaleMessagesMissing(defaultLocale: string) {
-  return `Default locale messages.json is missing: _locales/${defaultLocale}/messages.json`
+  return `Default locale messages.json is missing: _locales/${defaultLocale}/messages.json. Create the file with your strings.`
 }
 
 export function localesPresentButNoDefaultLocale() {
-  return 'The _locales subtree exists but manifest.json is missing default_locale.'
+  return 'The _locales folder exists, but manifest.json is missing default_locale. Add default_locale to manifest.json.'
 }
 
 export function invalidMessagesJson(absPath: string) {
-  return `Invalid JSON in locale messages file: ${absPath}`
+  return `Invalid JSON in locale messages file: ${absPath}. Fix the JSON syntax and try again.`
 }
 
 export function missingManifestMessageKey(key: string, defaultLocale?: string) {
@@ -45,7 +45,7 @@ export function missingManifestMessageKey(key: string, defaultLocale?: string) {
   const localePath = defaultLocale
     ? `_locales/${defaultLocale}/messages.json`
     : '_locales/<default>/messages.json'
-  const guidance = `The key "${key}" referenced via __MSG_${key}__ must be defined in ${localePath}.`
+  const guidance = `The key "${key}" referenced via __MSG_${key}__ must be defined in ${localePath}. Add the key to that file.`
   const final = `MISSING KEY ${key} in ${localePath}`
 
   return `${header}\n${guidance}\n\n${final}`

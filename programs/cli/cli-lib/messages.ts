@@ -99,7 +99,7 @@ export function unsupportedNodeVersion() {
 export function noURLWithoutStart(argument: string) {
   return (
     `The default ${colors.gray('create')} command does not accept URLs.\n` +
-    `Are you forgetting a ${colors.gray('start')} command? Try:\n` +
+    `If you meant to start from a URL, use ${colors.gray('start')}:\n` +
     `${code(`npx extension@latest start ${arg(argument)}`)}`
   )
 }
@@ -183,7 +183,7 @@ ${colors.underline('Path Resolution (important)')}
 
 
 ${'AI Assistants'}
-- For AI-oriented guidance and deep-dive tips, run ${code('extension --ai-help')}
+- For AI-oriented guidance and deeper tips, run ${code('extension --ai-help')}
 
  ${'Report issues'}
  - ${colors.underline('https://github.com/cezaraugusto/extension/issues/new')}`
@@ -316,7 +316,7 @@ ${'Source Inspection & Real-Time Monitoring'}
   - Watch mode is enabled by default when ${code('--source')} is present
 - Automatically enables Chrome remote debugging (port 9222) when source inspection is active
 - Extracts Shadow DOM content from ${code('#extension-root')} or ${code('[data-extension-root=\"true\"]')} elements
-- Perfect for debugging content script behavior and style injection
+- Useful for debugging content script behavior and style injection
 - Example: ${code('extension dev --source=' + arg('https://example.com'))}
 
 ${'Non-Destructive Testing in CI'}
