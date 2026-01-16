@@ -1,0 +1,285 @@
+//  ██████╗██████╗ ███████╗ █████╗ ████████╗███████╗
+// ██╔════╝██╔══██╗██╔════╝██╔══██╗╚══██╔══╝██╔════╝
+// ██║     ██████╔╝█████╗  ███████║   ██║   █████╗
+// ██║     ██╔══██╗██╔══╝  ██╔══██║   ██║   ██╔══╝
+// ╚██████╗██║  ██║███████╗██║  ██║   ██║   ███████╗
+//  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
+
+import * as path from 'path'
+import * as fs from 'fs'
+import colors from 'pintor'
+import {detect} from 'package-manager-detector'
+
+export function destinationNotWriteable(workingDir: string) {
+  const workingDirFolder = path.basename(workingDir)
+
+  return (
+    `${colors.red('Error')} Couldn't write to the destination directory.\n` +
+    `${colors.red(
+      'Next step: choose a writable path or update folder permissions.'
+    )}` +
+    `\n${colors.red('Path')} ${colors.underline(workingDirFolder)}`
+  )
+}
+
+export async function directoryHasConflicts(
+  projectPath: string,
+  conflictingFiles: string[]
+) {
+  const projectName = path.basename(projectPath)
+
+  let message = `Directory contains conflicting files: ${colors.blue(
+    projectName
+  )}\n\n`
+
+  for (const file of conflictingFiles) {
+    const stats = await fs.promises.lstat(path.join(projectPath, file))
+    message += stats.isDirectory()
+      ? `   ${colors.yellow('-')} ${colors.yellow(file)}\n`
+      : `   ${colors.yellow('-')} ${colors.yellow(file)}\n`
+  }
+
+  message +=
+    `\n${colors.red(
+      'Next step: remove/rename the files above, or choose a different directory name.'
+    )}` + `\n\nPath: ${colors.underline(projectPath)}`
+
+  return message
+}
+
+export function noProjectName() {
+  return (
+    `${colors.red('Error')} Project name is required.\n` +
+    `Next step: provide a name (for example, ${colors.blue(
+      'my-extension'
+    )}) or run ${colors.blue('--help')} for usage.`
+  )
+}
+
+export function noUrlAllowed() {
+  return `${colors.red(
+    'Error'
+  )} URLs are not allowed as a project path.\nNext step: provide a project name or a local directory path.`
+}
+
+export async function successfullInstall(
+  projectPath: string,
+  projectName: string
+) {
+  const relativePath = path.relative(process.cwd(), projectPath)
+  const pm = await detect()
+
+  let command = 'npm run'
+  let installCmd = 'npm install'
+
+  switch (pm?.name) {
+    case 'yarn':
+      command = 'yarn dev'
+      installCmd = 'yarn'
+      break
+    case 'pnpm':
+      command = 'pnpm dev'
+      installCmd = 'pnpm install'
+      break
+    default:
+      command = 'npm run dev'
+      installCmd = 'npm install'
+  }
+
+  // pnpx
+  if (process.env.npm_config_user_agent) {
+    if (process.env.npm_config_user_agent.includes('pnpm')) {
+      command = 'pnpm dev'
+      installCmd = 'pnpm install'
+    }
+  }
+
+  return (
+    `${colors.green('Created')} ${colors.blue(projectName)}\n\n` +
+    `Next steps:\n\n` +
+    `  1. ${colors.blue('cd')} ${colors.underline(relativePath)}\n` +
+    `  2. ${colors.blue(installCmd)}\n` +
+    `  3. ${colors.blue(command)} (runs a fresh browser profile with your extension loaded)\n`
+  )
+}
+
+export function startingNewExtension(projectName: string) {
+  return `Creating ${colors.blue(projectName)}...`
+}
+
+export function checkingIfPathIsWriteable() {
+  return 'Checking if the destination path is writable...'
+}
+
+export function scanningPossiblyConflictingFiles() {
+  return 'Scanning for conflicting files...'
+}
+
+export function createDirectoryError(projectName: string, error: any) {
+  return `${colors.red('Error')} Couldn't create directory ${colors.blue(
+    projectName
+  )}.\n${colors.red(String(error))}`
+}
+
+export function writingTypeDefinitions(projectName: string) {
+  return `Writing type definitions for ${colors.blue(projectName)}...`
+}
+
+export function writingTypeDefinitionsError(error: any) {
+  return `${colors.red(
+    'Error'
+  )} Couldn't write the extension type definitions.\n${colors.red(String(error))}`
+}
+
+export function installingFromTemplate(
+  projectName: string,
+  templateName: string
+) {
+  if (templateName === 'init') {
+    return `Installing ${colors.blue(projectName)}...`
+  }
+
+  return `Installing ${colors.blue(projectName)} from template ${colors.yellow(
+    templateName
+  )}...`
+}
+
+export function installingFromTemplateError(
+  projectName: string,
+  template: string,
+  error: any
+) {
+  return `${colors.red('Error')} Couldn't find template ${colors.yellow(
+    template
+  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}`
+}
+
+export function initializingGitForRepository(projectName: string) {
+  return `Initializing git repository for ${colors.blue(projectName)}...`
+}
+
+export function initializingGitForRepositoryFailed(
+  gitCommand: string,
+  gitArgs: string[],
+  code: number | null
+) {
+  return `${colors.red('Error')} Command ${colors.yellow(
+    gitCommand
+  )} ${colors.yellow(gitArgs.join(' '))} failed.\n${colors.red(
+    `Exit code: ${colors.yellow(String(code))}`
+  )}`
+}
+
+export function initializingGitForRepositoryProcessError(
+  projectName: string,
+  error: any
+) {
+  return `${colors.red(
+    'Error'
+  )} Child process failed while initializing ${colors.yellow('git')} for ${colors.blue(
+    projectName
+  )}.\n${colors.red(String(error?.message || error))}`
+}
+
+export function initializingGitForRepositoryError(
+  projectName: string,
+  error: any
+) {
+  return `${colors.red('Error')} Couldn't initialize ${colors.yellow(
+    'git'
+  )} for ${colors.blue(projectName)}.\n${colors.red(
+    String(error?.message || error)
+  )}`
+}
+
+export function installingDependencies() {
+  return 'Installing dependencies (this may take a moment)...'
+}
+
+export function installingDependenciesFailed(
+  gitCommand: string,
+  gitArgs: string[],
+  code: number | null
+) {
+  return `${colors.red('Error')} Command ${colors.yellow(
+    gitCommand
+  )} ${colors.yellow(gitArgs.join(' '))} failed.\n${colors.red(
+    `Exit code: ${colors.yellow(String(code))}`
+  )}`
+}
+
+export function installingDependenciesProcessError(
+  projectName: string,
+  error: any
+) {
+  return `${colors.red(
+    'Error'
+  )} Child process failed while installing dependencies for ${colors.blue(
+    projectName
+  )}.\n${colors.red(String(error))}`
+}
+
+export function cantInstallDependencies(projectName: string, error: any) {
+  return `${colors.red('Error')} Couldn't install dependencies for ${colors.blue(
+    projectName
+  )}.\n${colors.red(String(error?.message || error))}`
+}
+
+export function writingPackageJsonMetadata() {
+  return `Writing ${colors.yellow('package.json')}...`
+}
+
+export function writingPackageJsonMetadataError(
+  projectName: string,
+  error: any
+) {
+  return `${colors.red('Error')} Couldn't write ${colors.yellow(
+    'package.json'
+  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}`
+}
+
+export function writingManifestJsonMetadata() {
+  return `Writing ${colors.yellow('manifest.json')}...`
+}
+
+export function writingManifestJsonMetadataError(
+  projectName: string,
+  error: any
+) {
+  return `${colors.red('Error')} Couldn't write ${colors.yellow(
+    'manifest.json'
+  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}`
+}
+
+export function writingReadmeMetaData() {
+  return `Writing ${colors.yellow('README.md')}...`
+}
+
+export function writingGitIgnore() {
+  return `Writing ${colors.yellow('.gitignore')}...`
+}
+
+export function writingReadmeMetaDataEError(projectName: string, error: any) {
+  return `${colors.red('Error')} Couldn't write ${colors.yellow(
+    'README.md'
+  )} for ${colors.blue(projectName)}.\n${colors.red(String(error))}`
+}
+
+export function folderExists(projectName: string) {
+  return `Ensuring ${colors.blue(projectName)} exists...`
+}
+
+export function writingDirectoryError(error: any) {
+  return `${colors.red(
+    'Error'
+  )} Couldn't check directory writability.\n${colors.red(String(error))}`
+}
+
+export function cantSetupBuiltInTests(projectName: string, error: any) {
+  return `${colors.red(
+    'Error'
+  )} Couldn't set up built-in tests for ${colors.yellow(projectName)}.\n${colors.red(
+    String(error)
+  )}`
+}
