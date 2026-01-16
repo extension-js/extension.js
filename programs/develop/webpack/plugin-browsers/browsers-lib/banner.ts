@@ -18,6 +18,13 @@ type HostPort = {host?: string; port?: number | string}
 
 const printedKeys = new Set<string>()
 
+function readUpdateMessageOnce() {
+  const message = process.env.EXTENSION_CLI_UPDATE_MESSAGE
+  if (!message) return null
+  delete process.env.EXTENSION_CLI_UPDATE_MESSAGE
+  return message
+}
+
 function keyFor(
   browser: DevOptions['browser'],
   outPath: string,
@@ -68,8 +75,13 @@ export async function printDevBannerOnce(opts: {
       opts.browserVersionLine
     )
   )
+  const updateMessage = readUpdateMessageOnce()
+  if (updateMessage) {
+    console.log(updateMessage)
+  }
   console.log(messages.emptyLine())
   markBannerPrinted()
+  process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 
   printedKeys.add(k)
   return true
@@ -114,6 +126,10 @@ export async function printProdBannerOnce(opts: {
           browserLabel
         )
       )
+      const updateMessage = readUpdateMessageOnce()
+      if (updateMessage) {
+        console.log(updateMessage)
+      }
       console.log(messages.emptyLine())
     } else {
       // Fallback: manifest-only summary using the unified dev/preview layout.
@@ -136,16 +152,25 @@ export async function printProdBannerOnce(opts: {
           browserLabel
         )
       )
+      const updateMessage = readUpdateMessageOnce()
+      if (updateMessage) {
+        console.log(updateMessage)
+      }
       console.log(messages.emptyLine())
     }
   } catch {
     // Fallback: if anything goes wrong, still try to print a minimal card
     console.log(messages.emptyLine())
     console.log(coreMessages.runningInProduction(opts.outPath, browserLabel))
+    const updateMessage = readUpdateMessageOnce()
+    if (updateMessage) {
+      console.log(updateMessage)
+    }
     console.log(messages.emptyLine())
   }
 
   markBannerPrinted()
+  process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 
   printedKeys.add(k)
   return true

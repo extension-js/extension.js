@@ -9,13 +9,15 @@
 import checkForUpdate from 'update-check'
 import * as messages from './cli-lib/messages'
 import * as semver from 'semver'
+import {getCliPackageJson} from './cli-package-json'
 
 function isStableVersion(version: string) {
   const v = semver.parse(version)
   return Boolean(v && v.prerelease.length === 0)
 }
 
-export default async function checkUpdates(packageJson: Record<string, any>) {
+export default async function checkUpdates(): Promise<string | null> {
+  const packageJson = getCliPackageJson()
   let update = null
 
   try {
@@ -27,6 +29,8 @@ export default async function checkUpdates(packageJson: Record<string, any>) {
   }
 
   if (update && isStableVersion(update.latest)) {
-    console.log(messages.checkUpdates(packageJson, update))
+    return messages.checkUpdates(packageJson, update)
   }
+
+  return null
 }

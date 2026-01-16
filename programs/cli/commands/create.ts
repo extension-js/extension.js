@@ -10,7 +10,7 @@ import * as path from 'path'
 import type {Command} from 'commander'
 import type {CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../cli-lib/messages'
-import packageJson from '../package.json'
+import {getCliPackageJson} from '../cli-package-json'
 import {parseOptionalBoolean} from '../utils'
 
 export function registerCreateCommand(program: Command, telemetry: any) {
@@ -52,7 +52,7 @@ export function registerCreateCommand(program: Command, telemetry: any) {
         await extensionCreate(pathOrRemoteUrl, {
           template,
           install,
-          cliVersion: packageJson.version
+          cliVersion: getCliPackageJson().version
         })
 
         if (install) {
