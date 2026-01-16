@@ -1,0 +1,95 @@
+{
+  "license": "MIT",
+  "packageManager": "pnpm@10.28.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/extension-js/create.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.js",
+      "require": "./dist/module.js"
+    }
+  },
+  "main": "./dist/module.js",
+  "types": "./dist/module.d.ts",
+  "files": [
+    "dist"
+  ],
+  "name": "extension-create",
+  "version": "2.2.1",
+  "description": "The standalone extension creation engine for Extension.js",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org",
+    "tag": "latest"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "watch": "rslib build --watch",
+    "compile": "rslib build",
+    "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
+    "lint": "eslint .",
+    "pretest:create": "pnpm compile",
+    "test:create": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "webextension",
+    "browser-extension",
+    "manifest-v3",
+    "mv3",
+    "cross-browser",
+    "scaffold",
+    "generator",
+    "project-generator",
+    "create-extension",
+    "create-browser-extension",
+    "starter-template",
+    "template",
+    "templates",
+    "starter-kit",
+    "boilerplate",
+    "init",
+    "bootstrap",
+    "chrome-extension",
+    "firefox-extension",
+    "edge-extension"
+  ],
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "axios": "^1.13.2",
+    "cross-spawn": "^7.0.6",
+    "go-git-it": "^5.0.3",
+    "package-manager-detector": "^1.6.0",
+    "pintor": "0.3.0",
+    "tiny-glob": "^0.2.9"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.8",
+    "@eslint/js": "^9.39.2",
+    "@rslib/core": "^0.19.2",
+    "@types/adm-zip": "^0.5.7",
+    "@types/chrome": "^0.1.33",
+    "@types/cross-spawn": "^6.0.6",
+    "@types/node": "^25.0.9",
+    "@types/webextension-polyfill": "0.12.4",
+    "@vitest/coverage-v8": "^4.0.17",
+    "eslint": "^9.39.2",
+    "globals": "^17.0.0",
+    "prettier": "^3.8.0",
+    "tsconfig": "*",
+    "typescript": "5.9.3",
+    "vitest": "^4.0.17",
+    "webextension-polyfill": "^0.12.0"
+  }
+}
