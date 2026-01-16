@@ -18,6 +18,7 @@ import {
   findExtensionDevelopRoot
 } from './webpack-lib/check-build-dependencies'
 import {installOwnDependencies} from './webpack-lib/install-own-dependencies'
+import {preflightOptionalDependencies} from './webpack-lib/preflight-optional-deps'
 import type {DevOptions} from './webpack-types'
 
 // TODO cezaraugusto: move this out
@@ -39,6 +40,8 @@ export async function extensionDev(
   try {
     const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+
+    await preflightOptionalDependencies(projectStructure, 'development')
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)

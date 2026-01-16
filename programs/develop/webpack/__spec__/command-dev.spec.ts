@@ -37,6 +37,10 @@ vi.mock('../webpack-lib/install-dependencies', () => {
   return {installDependencies}
 })
 
+vi.mock('../webpack-lib/preflight-optional-deps', () => ({
+  preflightOptionalDependencies: vi.fn(async () => {})
+}))
+
 vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => true)
 }))
