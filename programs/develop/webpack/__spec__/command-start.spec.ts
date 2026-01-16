@@ -22,15 +22,25 @@ vi.mock('../webpack-lib/config-loader', () => ({
   loadBrowserConfig: vi.fn(async () => ({fromBrowser: true}))
 }))
 
+vi.mock('../webpack-lib/dependency-manager', () => ({
+  ensureProjectReady: vi.fn(async () => ({
+    installed: false,
+    installedBuild: false,
+    installedUser: false
+  }))
+}))
+
 import {extensionStart} from '../command-start'
 import * as buildMod from '../command-build'
 import * as previewMod from '../command-preview'
+import * as depsManagerMod from '../webpack-lib/dependency-manager'
 
 describe('webpack/command-start', () => {
   beforeEach(() => {
     vi.resetModules()
     ;(buildMod as any).extensionBuild?.mockClear?.()
     ;(previewMod as any).extensionPreview?.mockClear?.()
+    ;(depsManagerMod as any).ensureProjectReady?.mockClear?.()
   })
 
   afterEach(() => {

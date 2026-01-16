@@ -102,6 +102,8 @@ node_modules/
 .taskmaster/
 .cursor/
 
+# Extension.js caches
+**/.cache/extensionjs/
+
 _future/
 extensions/browser-extension/
-templates/content-main-world/
