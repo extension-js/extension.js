@@ -20,6 +20,7 @@ import {generateExtensionTypes} from './steps/generate-extension-types'
 import {writeGitignore} from './steps/write-gitignore'
 import {initializeGitRepository} from './steps/initialize-git-repository'
 import {setupBuiltInTests} from './steps/setup-built-in-tests'
+import {preflightOptionalDependenciesForCreate} from './steps/preflight-optional-deps'
 
 export interface CreateOptions {
   template: string
@@ -59,6 +60,7 @@ export async function extensionCreate(
 
     if (install) {
       await installDependencies(projectPath, projectName)
+      await preflightOptionalDependenciesForCreate(projectPath)
     }
 
     await writeReadmeFile(projectPath, projectName)
