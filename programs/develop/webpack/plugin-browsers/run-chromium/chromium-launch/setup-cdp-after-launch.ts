@@ -6,8 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as path from 'path'
-import {Compilation} from '@rspack/core'
+import type {Compilation} from '@rspack/core'
 import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
 import {
@@ -16,34 +15,7 @@ import {
 } from '../../browsers-lib/banner'
 import {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
 import {type ChromiumPluginRuntime} from '../chromium-types'
-
-export function getExtensionOutputPath(
-  compilation: Compilation | undefined,
-  loadExtensionFlag: string | undefined
-) {
-  if (!loadExtensionFlag) {
-    return (
-      (compilation?.options?.output?.path as string) ||
-      path.join(process.cwd(), 'dist')
-    )
-  }
-
-  const entries = loadExtensionFlag
-    .replace('--load-extension=', '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-
-  // Prefer the user extension by excluding built-in devtools/theme folders,
-  // then pick the last remaining entry (user extension is appended last).
-  const userCandidates = entries.filter(
-    (p) =>
-      !/[\\\/]extension-js-devtools[\\\/]/.test(p) &&
-      !/[\\\/]extension-js-theme[\\\/]/.test(p)
-  )
-
-  return (userCandidates.length ? userCandidates : entries).slice(-1)[0]
-}
+import {getExtensionOutputPath} from './extension-output-path'
 
 export async function setupCdpAfterLaunch(
   compilation: Compilation | undefined,
