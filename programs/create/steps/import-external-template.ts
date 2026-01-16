@@ -36,14 +36,32 @@ export async function importExternalTemplate(
     if (process.env.EXTENSION_ENV === 'development') {
       console.log(messages.installingFromTemplate(projectName, template))
 
-      const localTemplatesRoot = path.resolve(
-        __dirname,
-        '..',
-        '..',
-        '..',
-        '..',
-        'templates'
-      )
+      async function findTemplatesRoot(startDir: string) {
+        let current = startDir
+        const maxDepth = 6
+
+        for (let i = 0; i < maxDepth; i++) {
+          const candidate = path.join(current, 'templates')
+
+          try {
+            const stats = await fs.stat(candidate)
+            if (stats.isDirectory()) return candidate
+          } catch {
+            // Try parent
+          }
+
+          const parent = path.dirname(current)
+          if (parent === current) break
+          current = parent
+        }
+        return undefined
+      }
+
+      const localTemplatesRoot = await findTemplatesRoot(__dirname)
+      if (!localTemplatesRoot) {
+        throw new Error('Local templates directory not found')
+      }
+
       const localTemplateName =
         templateName === 'init' ? 'javascript' : templateName
       const localTemplatePath = path.join(localTemplatesRoot, localTemplateName)
