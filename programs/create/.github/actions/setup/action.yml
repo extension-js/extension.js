@@ -1,0 +1,39 @@
+name: 'Setup Environment'
+description: 'Setup Node.js, pnpm, and install dependencies (standalone)'
+
+inputs:
+  node-version:
+    description: 'Node.js version to use'
+    required: true
+    default: '20'
+  install-command:
+    description: 'Command to install dependencies'
+    required: false
+    default: 'pnpm install --no-frozen-lockfile'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+
+    - name: Use Node.js ${{ inputs.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: 'https://registry.npmjs.org'
+        always-auth: true
+
+    - name: Disable pnpm interactive prompts
+      shell: bash
+      run: |
+        pnpm config set confirmModulesPurge false --location global
+
+    - name: Install dependencies
+      shell: bash
+      run: ${{ inputs.install-command }}
+
+
