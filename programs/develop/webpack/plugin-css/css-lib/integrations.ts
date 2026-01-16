@@ -27,33 +27,47 @@ function isFromNpx() {
   return false
 }
 
+function getOptionalInstallCommand(
+  pm: Awaited<ReturnType<typeof detect>>,
+  dependencies: string[]
+): string {
+  const quotedDir = JSON.stringify(__dirname)
+  if (pm?.name === 'yarn') {
+    return `yarn --silent add ${dependencies.join(
+      ' '
+    )} --cwd ${quotedDir} --optional`
+  }
+  if (pm?.name === 'npm' || isFromNpx()) {
+    return `npm --silent install ${dependencies.join(
+      ' '
+    )} --prefix ${quotedDir} --save-optional`
+  }
+  if (isFromPnpx()) {
+    return `pnpm --silent add ${dependencies.join(
+      ' '
+    )} --prefix ${quotedDir} --save-optional`
+  }
+  const pmName = typeof pm === 'string' ? pm : pm?.name || 'npm'
+  return `${pmName} --silent install ${dependencies.join(
+    ' '
+  )} --cwd ${quotedDir} --optional`
+}
+
+function getRootInstallCommand(pm: Awaited<ReturnType<typeof detect>>): string {
+  if (pm?.name === 'yarn') return `yarn install --silent`
+  if (pm?.name === 'npm' || isFromNpx()) return `npm install --silent`
+  if (isFromPnpx()) return `pnpm install --silent`
+  return `${typeof pm === 'string' ? pm : pm?.name || 'npm'} install --silent`
+}
+
 export async function installOptionalDependencies(
   integration: string,
   dependencies: string[]
 ) {
+  if (!dependencies.length) return
   try {
     const pm = await detect()
-
-    let installCommand = ''
-    const quotedDir = JSON.stringify(__dirname)
-    if (pm?.name === 'yarn') {
-      installCommand = `yarn --silent add ${dependencies.join(
-        ' '
-      )} --cwd ${quotedDir} --optional`
-    } else if (pm?.name === 'npm' || isFromNpx()) {
-      installCommand = `npm --silent install ${dependencies.join(
-        ' '
-      )} --prefix ${quotedDir} --save-optional`
-    } else if (isFromPnpx()) {
-      installCommand = `pnpm --silent add ${dependencies.join(
-        ' '
-      )} --prefix ${quotedDir} --save-optional`
-    } else {
-      const pmName = typeof pm === 'string' ? pm : pm?.name || 'npm'
-      installCommand = `${pmName} --silent install ${dependencies.join(
-        ' '
-      )} --cwd ${quotedDir} --optional`
-    }
+    const installCommand = getOptionalInstallCommand(pm, dependencies)
 
     console.log(`[${integration}] Installing optional dependencies...`)
     execSync(installCommand, {stdio: 'inherit'})
@@ -63,15 +77,33 @@ export async function installOptionalDependencies(
       console.log(
         `${colors.brightMagenta('►►► Author says')} [${integration}] Installing root dependencies for dev...`
       )
-      const devInstall =
-        pm?.name === 'yarn'
-          ? `yarn install --silent`
-          : pm?.name === 'npm' || isFromNpx()
-            ? `npm install --silent`
-            : isFromPnpx()
-              ? `pnpm install --silent`
-              : `${typeof pm === 'string' ? pm : pm?.name || 'npm'} install --silent`
-      execSync(devInstall, {stdio: 'ignore'})
+      execSync(getRootInstallCommand(pm), {stdio: 'ignore'})
+    }
+
+    console.log(`[${integration}] Dependencies installed successfully.`)
+  } catch (error) {
+    console.error(`[${integration}] Failed to install dependencies.`, error)
+  }
+}
+
+export async function installOptionalDependenciesBatch(
+  integration: string,
+  dependencies: string[]
+) {
+  if (!dependencies.length) return
+  try {
+    const pm = await detect()
+    const installCommand = getOptionalInstallCommand(pm, dependencies)
+
+    console.log(`[${integration}] Installing optional dependencies...`)
+    execSync(installCommand, {stdio: 'inherit'})
+    await new Promise((r) => setTimeout(r, 500))
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        `${colors.brightMagenta('►►► Author says')} [${integration}] Installing root dependencies for dev...`
+      )
+      execSync(getRootInstallCommand(pm), {stdio: 'ignore'})
     }
 
     console.log(`[${integration}] Dependencies installed successfully.`)
