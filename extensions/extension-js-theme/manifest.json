@@ -1,21 +1,21 @@
 {
-  "name": "Extension.js Theme",
-  "version": "0.2.0",
-  "description": "Browser theme for Extension.js",
-  "chromium:manifest_version": 3,
-  "firefox:manifest_version": 2,
-  "chromium:theme": {
+  "manifest_version": 3,
+  "name": "Custom theme",
+  "version": "1.0",
+  "description": "A clean, minimal browser theme generated in the editor.",
+  "author": "Anonymous",
+  "theme": {
     "colors": {
       "frame": [37, 37, 39],
       "frame_inactive": [49, 49, 53],
       "toolbar": [25, 25, 26],
-      "tab_background_text": [255, 255, 255],
+      "tab_background_text": [28, 28, 30],
       "tab_text": [255, 255, 255],
       "tab_background_text_inactive": [62, 62, 66],
       "tab_text_inactive": [255, 255, 255],
       "bookmark_text": [153, 153, 159],
-      "ntp_background": [179, 179, 183],
-      "ntp_text": [37, 37, 39],
+      "ntp_background": [28, 28, 30],
+      "ntp_text": [255, 255, 255],
       "button_background": [28, 28, 30]
     }
   }
