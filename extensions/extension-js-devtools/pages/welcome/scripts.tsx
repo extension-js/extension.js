@@ -1,6 +1,5 @@
-import {useEffect, useState} from 'react'
+import {useEffect, useState, type HTMLAttributes} from 'react'
 import ReactDOM from 'react-dom/client'
-import {Button} from '@/components/ui/button'
 import {cn, applyTheme} from '@/lib/utils'
 import {getDevExtension} from '@/background/define-initial-tab'
 import logo from '@/images/logo.png'
@@ -8,6 +7,42 @@ import logo from '@/images/logo.png'
 import '@/styles.css'
 
 applyTheme()
+
+type AppFooterProps = HTMLAttributes<HTMLDivElement>
+
+function AppFooter({className, ...props}: AppFooterProps) {
+  return (
+    <div
+      className={cn('flex w-full items-center justify-center', className)}
+      {...props}
+    >
+      <div className="relative inline-flex items-center gap-3 rounded-2xl border px-4 py-2 shadow-sm backdrop-blur">
+        <a
+          href="https://extension.js.org/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2"
+          aria-label="Visit extension.js.org"
+        >
+          <img
+            className="size-4 select-none"
+            alt="Extension.js logo"
+            src={logo}
+          />
+          <span className="sr-only">extension.js</span>
+        </a>
+        <a
+          href="https://extension.js.org/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-muted-foreground text-sm underline underline-offset-4 hover:opacity-90"
+        >
+          Learn more about developing cross-browser extensions.
+        </a>
+      </div>
+    </div>
+  )
+}
 
 async function onStartup(
   setExtension: (extension: chrome.management.ExtensionInfo) => void,
@@ -76,10 +111,6 @@ const Welcome: React.FC = () => {
     onStartup(setExtension, setDescription)
   }, [])
 
-  const handleLearnMore = () => {
-    chrome.tabs.create({url: 'https://extension.js.org/'})
-  }
-
   // Pick the largest available management icon (if any)
   const userIconUrl =
     extension?.icons && extension.icons.length
@@ -88,11 +119,7 @@ const Welcome: React.FC = () => {
       : undefined
 
   return (
-    <div
-      className={cn(
-        'flex flex-col items-center justify-center h-screen dark:bg-muted'
-      )}
-    >
+    <div className="relative flex h-screen flex-col items-center justify-center bg-[#1C1C1E]">
       <style>{`
         @keyframes neonPulse {
           0%, 100% {
@@ -113,30 +140,27 @@ const Welcome: React.FC = () => {
         }
       `}</style>
       <header className="mb-4 flex items-center">
-        <div className="flex items-center gap-2">
-          <img
-            className="size-16 select-none"
-            alt="Extension.js logo"
-            src={logo}
-          />
+        <div className="flex items-center">
           {userIconUrl ? (
-            <>
-              <span aria-hidden="true" className="text-2xl select-none">
-                🤝
-              </span>
-              <img
-                className="size-16 select-none"
-                alt={`${extension?.name || 'User extension'} icon`}
-                src={userIconUrl}
-                onError={(e) => {
-                  ;(e.currentTarget as HTMLImageElement).style.display = 'none'
-                }}
-              />
-            </>
-          ) : null}
+            <img
+              className="size-16 select-none"
+              alt={`${extension?.name || 'User extension'} icon`}
+              src={userIconUrl}
+              onError={(e) => {
+                ;(e.currentTarget as HTMLImageElement).style.display = 'none'
+              }}
+            />
+          ) : (
+            <div
+              className="text-muted-foreground flex size-16 items-center justify-center rounded-2xl border text-lg font-medium"
+              aria-label="Extension icon placeholder"
+            >
+              ?
+            </div>
+          )}
         </div>
       </header>
-      <h1 className="mx-auto text-center text-4xl lg:text-5xl xl:text-6xl font-semibold tracking-tight">
+      <h1 className="text-foreground mx-auto text-center text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
         <span>{extension?.name || 'My Extension'}</span>
         <br />
         <span
@@ -154,14 +178,12 @@ const Welcome: React.FC = () => {
           loaded successfully
         </span>
       </h1>
-      <p className="text-lg mt-3 text-muted-foreground max-w-xl mx-auto text-center">
-        Extension.js makes cross‑browser extension development simple.
+      <p className="text-muted-foreground mx-auto mt-3 max-w-xl text-center text-base leading-relaxed sm:text-lg">
+        {description ||
+          extension?.description ||
+          'Extension.js makes cross‑browser extension development simple.'}
       </p>
-      <div className="mt-6 flex items-center gap-2">
-        <Button onClick={handleLearnMore}>
-          🧩 Learn more about developing cross-browser extensions
-        </Button>
-      </div>
+      <AppFooter className="mt-6" />
     </div>
   )
 }
