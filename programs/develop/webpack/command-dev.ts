@@ -6,7 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {devServer} from './dev-server'
 import {generateExtensionTypes} from './webpack-lib/generate-extension-types'
 import {getProjectStructure} from './webpack-lib/project'
 import {installDependencies} from './webpack-lib/install-dependencies'
@@ -73,6 +72,9 @@ export async function extensionDev(
         messages.debugBrowser(browser, devOptions.chromiumBinary, geckoBinary)
       )
     }
+
+    // Heavy deps are imported lazily so preview can stay minimal.
+    const {devServer} = await import('./dev-server')
 
     await devServer(projectStructure, {
       ...devOptions,
