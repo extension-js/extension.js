@@ -101,10 +101,15 @@ export async function successfullInstall(
       `  2. ${colors.blue(installCmd)}\n` +
       `  3. ${colors.blue(command)} (runs a fresh browser profile with your extension loaded)\n`
 
+  const depsNote = depsInstalled
+    ? `\n${colors.gray('Dependencies installed. You can start developing now.')}\n`
+    : '\n'
+
   return (
     `${colors.green('Created')} ${colors.blue(projectName)}\n\n` +
     `Next steps:\n\n` +
-    steps
+    steps +
+    depsNote
   )
 }
 

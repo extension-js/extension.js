@@ -6,13 +6,12 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import * as messages from './webpack-lib/messages'
 import {generateExtensionTypes} from './webpack-lib/generate-extension-types'
 import {getProjectStructure} from './webpack-lib/project'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {getDirs, normalizeBrowser} from './webpack-lib/paths'
-import * as messages from './webpack-lib/messages'
-import {preflightOptionalDependencies} from './webpack-lib/preflight-optional-deps'
-import {ensureDependencies} from './webpack-lib/ensure-dependencies'
+import {ensureProjectReady} from './webpack-lib/dependency-manager'
 import type {DevOptions} from './webpack-types'
 
 // TODO cezaraugusto: move this out
@@ -27,14 +26,16 @@ export async function extensionDev(
   try {
     const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
-    const depsResult = await ensureDependencies(packageJsonDir, {
-      skipProjectInstall: !projectStructure.packageJsonPath,
-      exitOnInstall: true
-    })
+    const depsResult = await ensureProjectReady(
+      projectStructure,
+      'development',
+      {
+        skipProjectInstall: !projectStructure.packageJsonPath,
+        exitOnInstall: true
+      }
+    )
 
     if (depsResult.installed) return
-
-    await preflightOptionalDependencies(projectStructure, 'development')
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)

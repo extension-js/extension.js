@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import * as path from 'path'
 import type {Command} from 'commander'
 import type {CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../cli-lib/messages'
@@ -24,9 +25,9 @@ export function registerCreateCommand(program: Command, telemetry: any) {
     )
     .option(
       '--install [boolean]',
-      'whether or not to install the dependencies after creating the project (disabled by default)',
+      'whether or not to install the dependencies after creating the project (enabled by default)',
       parseOptionalBoolean,
-      false
+      true
     )
     .action(async function (
       pathOrRemoteUrl: string,
@@ -41,13 +42,31 @@ export function registerCreateCommand(program: Command, telemetry: any) {
 
       try {
         // Load the matching create runtime from the regular dependency graph.
-        const {extensionCreate}: {extensionCreate: any} =
-          await import('extension-create')
+        const {extensionCreate} = await import('extension-create')
+        const {ensureDependencies, preflightOptionalDependenciesForProject} =
+          await import('extension-develop')
+
+        const projectPath = path.isAbsolute(pathOrRemoteUrl)
+          ? pathOrRemoteUrl
+          : path.join(process.cwd(), pathOrRemoteUrl)
+
         await extensionCreate(pathOrRemoteUrl, {
           template,
           install,
           cliVersion: packageJson.version
         })
+
+        if (install) {
+          await ensureDependencies(projectPath, {
+            skipProjectInstall: true,
+            showRunAgainMessage: false
+          })
+          await preflightOptionalDependenciesForProject(
+            projectPath,
+            'development'
+          )
+        }
+
         telemetry.track('cli_command_finish', {
           command: 'create',
           duration_ms: Date.now() - startedAt,
