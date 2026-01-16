@@ -94,6 +94,15 @@ export class SetupBackgroundEntry {
         const maybeError = this.getMissingBackgroundError(swPath)
 
         if (maybeError) hookError(maybeError)
+
+        const existingEntry =
+          compiler.options.entry && 'background/service_worker' in compiler.options.entry
+            ? compiler.options.entry['background/service_worker']
+            : undefined
+
+        if (!existingEntry && fs.existsSync(swPath)) {
+          this.addDefaultEntry(compiler, 'background/service_worker', swPath)
+        }
       } else {
         this.addDefaultEntry(
           compiler,
