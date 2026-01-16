@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {Compilation} from '@rspack/core'
+import type {Compilation} from '@rspack/core'
 import * as messages from '../../../browsers-lib/messages'
 import {resolveAddonDirectory} from './addons'
 import {MessagingClient} from './messaging-client'
