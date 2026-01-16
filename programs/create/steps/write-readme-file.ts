@@ -10,6 +10,7 @@ import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
+import {findManifestJsonPath} from '../lib/find-manifest-json'
 
 export async function writeReadmeFile(
   projectPath: string,
@@ -23,15 +24,13 @@ export async function writeReadmeFile(
   } catch {}
 
   const initTemplateReadme = `
-<a href="https://extension.js.org" target="_blank"><img src="https://img.shields.io/badge/Powered%20by%20%7C%20Extension.js-0971fe" alt="Powered by Extension.js" align="right" /></a>
+<a href="https://extension.js.org" target="_blank" rel="noopener noreferrer"><img src="https://img.shields.io/badge/Powered%20by%20%7C%20Extension.js-0971fe" alt="Powered by Extension.js" align="right" /></a>
 
 # [projectName]
 
 > [templateDescription]
 
-What this example does in the scope of a browser extension. The description should 
-describe for an audience of developers looking to use the example. Avoid jargon and 
-use simple language.
+This project was created with Extension.js. Use the commands below to run and build it.
 
 ## Installation
 
@@ -45,7 +44,7 @@ npm install
 
 ### dev
 
-Run the extension in development mode. You can target a specific browser using the 
+Run the extension in development mode. You can target a specific browser using the
 \`--browser <browser>\` flag. Supported values: \`chrome\`, \`firefox\`, \`edge\`.
 
 \`\`\`bash
@@ -77,21 +76,11 @@ Preview the extension in the browser.
 
 ## Learn more
 
-Learn more about this and other examples at @https://extension.js.org/
+Learn more in the [Extension.js docs](https://extension.js.org).
   `
 
   const installCommand = await utils.getInstallCommand()
-  // Templates may store the manifest at `src/manifest.json` instead of root.
-  // Prefer root if present, fallback to src.
-  const manifestJsonPath = await (async () => {
-    const root = path.join(projectPath, 'manifest.json')
-    const src = path.join(projectPath, 'src', 'manifest.json')
-    try {
-      await fs.access(root)
-      return root
-    } catch {}
-    return src
-  })()
+  const manifestJsonPath = await findManifestJsonPath(projectPath)
   const manifestJson = JSON.parse(await fs.readFile(manifestJsonPath, 'utf-8'))
 
   const readmeFileEdited = initTemplateReadme
