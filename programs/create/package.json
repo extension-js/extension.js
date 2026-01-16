@@ -10,6 +10,7 @@
   },
   "exports": {
     ".": {
+      "development": "./module.ts",
       "types": "./dist/module.d.ts",
       "import": "./dist/module.js",
       "require": "./dist/module.js"
@@ -21,7 +22,7 @@
     "dist"
   ],
   "name": "extension-create",
-  "version": "2.2.1",
+  "version": "3.0.0",
   "description": "The standalone extension creation engine for Extension.js",
   "author": {
     "name": "Cezar Augusto",

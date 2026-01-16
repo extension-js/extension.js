@@ -24,7 +24,6 @@ export async function importExternalTemplate(
   projectName: string,
   template: string
 ) {
-  const installationPath = path.dirname(projectPath)
   const templateName = path.basename(template)
   const examplesUrl =
     'https://github.com/extension-js/examples/tree/main/examples'
@@ -46,11 +45,7 @@ export async function importExternalTemplate(
         'templates'
       )
       const localTemplateName =
-        templateName === 'init'
-          ? 'javascript'
-          : templateName === 'content-typescript'
-            ? 'typescript'
-            : templateName
+        templateName === 'init' ? 'javascript' : templateName
       const localTemplatePath = path.join(localTemplatesRoot, localTemplateName)
 
       // Copy directly to project path to avoid nested directories

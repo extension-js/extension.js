@@ -54,6 +54,7 @@ jobs:
           # Build the develop/runtime layer and mirror built-in @extensions
           # into programs/develop/dist via the root postcompile hook.
           pnpm --filter extension-develop compile
+          pnpm --filter extension-create compile
           pnpm --filter extension compile
           node scripts/build-extensions.cjs
 
@@ -81,18 +82,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump versions (both packages) and tag
+      - name: Bump versions (all packages) and tag
         env:
           VERSION: ${{ steps.validate.outputs.version }}
         run: |
-          node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/cli/package.json','programs/develop/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
-          git add programs/cli/package.json programs/develop/package.json
+          node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/cli/package.json','programs/develop/package.json','programs/create/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
+          git add programs/cli/package.json programs/develop/package.json programs/create/package.json
           if ! git diff --cached --quiet; then git commit -m "release(${{ inputs.channel }}): v${{ steps.validate.outputs.version }}"; fi
           git tag "v${{ steps.validate.outputs.version }}"
           git push
           git push --tags
 
-      - name: Prepare publish-only dependency rewrite (extension -> extension-develop)
+      - name: Prepare publish-only dependency rewrite (extension -> packages)
         env:
           VERSION: ${{ steps.validate.outputs.version }}
         run: |
@@ -102,11 +103,51 @@ jobs:
             const j=JSON.parse(fs.readFileSync(p,'utf8'));
             if(j.dependencies && j.dependencies['extension-develop'] && /^workspace:/.test(j.dependencies['extension-develop'])){
               j.dependencies['extension-develop'] = '^'+process.env.VERSION;
-              fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
-            }"
+            }
+            if(j.dependencies && j.dependencies['extension-create'] && /^workspace:/.test(j.dependencies['extension-create'])){
+              j.dependencies['extension-create'] = '^'+process.env.VERSION;
+            }
+            fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
+          "
 
       - name: Verify npm registry
         run: npm config get registry
+
+      - name: Check if version exists (extension-create)
+        id: check_create
+        working-directory: programs/create
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish extension-create [token+provenance]
+        if: steps.check_create.outputs.exists == 'false'
+        working-directory: programs/create
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "NPM_TOKEN secret is missing." >&2
+            exit 1
+          fi
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
+            mkdir -p "$(dirname "$NPM_CONFIG_USERCONFIG")"
+            {
+              echo "registry=https://registry.npmjs.org/"
+              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
+              echo "always-auth=true"
+            } > "$NPM_CONFIG_USERCONFIG"
+          else
+            {
+              echo "registry=https://registry.npmjs.org/"
+              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
+              echo "always-auth=true"
+            } > "$HOME/.npmrc"
+          fi
+          npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
       - name: Check if version exists (extension-develop)
         id: check_develop
