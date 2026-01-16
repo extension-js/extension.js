@@ -32,12 +32,8 @@ vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
-vi.mock('../webpack-lib/preflight-optional-deps', () => ({
-  preflightOptionalDependencies: vi.fn(async () => {})
-}))
-
-vi.mock('../webpack-lib/ensure-dependencies', () => ({
-  ensureDependencies: vi.fn(async () => ({
+vi.mock('../webpack-lib/dependency-manager', () => ({
+  ensureProjectReady: vi.fn(async () => ({
     installed: false,
     installedBuild: false,
     installedUser: false
@@ -51,7 +47,7 @@ vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
 import {extensionDev} from '../command-dev'
 import * as devServerMod from '../dev-server'
 import * as genTypesMod from '../webpack-lib/generate-extension-types'
-import * as ensureDepsMod from '../webpack-lib/ensure-dependencies'
+import * as depsManagerMod from '../webpack-lib/dependency-manager'
 
 describe('webpack/command-dev', () => {
   // fs is mocked module - configure per-test behaviors via mockImplementation
@@ -62,7 +58,7 @@ describe('webpack/command-dev', () => {
     vi.resetModules()
     ;(devServerMod as any).devServer?.mockClear?.()
     ;(genTypesMod as any).generateExtensionTypes?.mockClear?.()
-    ;(ensureDepsMod as any).ensureDependencies?.mockClear?.()
+    ;(depsManagerMod as any).ensureProjectReady?.mockClear?.()
     ;(fs.existsSync as any)?.mockReset?.()
     ;(fs.readdirSync as any)?.mockReset?.()
     logSpy.mockClear()
@@ -87,7 +83,7 @@ describe('webpack/command-dev', () => {
       '/proj',
       '/proj'
     )
-    expect(ensureDepsMod.ensureDependencies).toHaveBeenCalled()
+    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalled()
     expect(devServerMod.devServer).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({mode: 'development', browser: 'chrome'})
