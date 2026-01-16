@@ -137,12 +137,13 @@ export async function preflightOptionalDependencies(
   }
 
   if (missingOptionalDeps.size > 0) {
+    const uniqueIntegrations = Array.from(new Set(usedIntegrations))
     await installOptionalDependenciesBatch(
       'Optional',
-      Array.from(missingOptionalDeps)
+      Array.from(missingOptionalDeps),
+      uniqueIntegrations
     )
     if (opts?.showRunAgainMessage !== false) {
-      const uniqueIntegrations = Array.from(new Set(usedIntegrations))
       console.log(messages.optionalDepsReady(uniqueIntegrations))
     }
     if (opts?.exitOnInstall !== false) {

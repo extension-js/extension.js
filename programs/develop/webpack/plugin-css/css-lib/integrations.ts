@@ -27,17 +27,36 @@ function isFromNpx() {
   return false
 }
 
+type DetectedPackageManager = Awaited<ReturnType<typeof detect>> | string
+
+function getPackageManagerFromEnv(): string | undefined {
+  const ua = process.env.npm_config_user_agent
+  if (!ua) return undefined
+  if (ua.includes('pnpm')) return 'pnpm'
+  if (ua.includes('yarn')) return 'yarn'
+  if (ua.includes('bun')) return 'bun'
+  if (ua.includes('npm')) return 'npm'
+  return undefined
+}
+
+async function resolvePackageManager(): Promise<DetectedPackageManager> {
+  const envPm = getPackageManagerFromEnv()
+  if (envPm) return envPm
+  return detect()
+}
+
 function getOptionalInstallCommand(
-  pm: Awaited<ReturnType<typeof detect>>,
+  pm: DetectedPackageManager,
   dependencies: string[]
 ): string {
   const quotedDir = JSON.stringify(__dirname)
-  if (pm?.name === 'yarn') {
+  const pmName = typeof pm === 'string' ? pm : pm?.name
+  if (pmName === 'yarn') {
     return `yarn --silent add ${dependencies.join(
       ' '
     )} --cwd ${quotedDir} --optional`
   }
-  if (pm?.name === 'npm' || isFromNpx()) {
+  if (pmName === 'npm' || isFromNpx()) {
     return `npm --silent install ${dependencies.join(
       ' '
     )} --prefix ${quotedDir} --save-optional`
@@ -47,17 +66,27 @@ function getOptionalInstallCommand(
       ' '
     )} --prefix ${quotedDir} --save-optional`
   }
-  const pmName = typeof pm === 'string' ? pm : pm?.name || 'npm'
-  return `${pmName} --silent install ${dependencies.join(
+  const fallback = pmName || 'npm'
+  return `${fallback} --silent install ${dependencies.join(
     ' '
   )} --cwd ${quotedDir} --optional`
 }
 
-function getRootInstallCommand(pm: Awaited<ReturnType<typeof detect>>): string {
-  if (pm?.name === 'yarn') return `yarn install --silent`
-  if (pm?.name === 'npm' || isFromNpx()) return `npm install --silent`
+function getRootInstallCommand(pm: DetectedPackageManager): string {
+  const pmName = typeof pm === 'string' ? pm : pm?.name
+  if (pmName === 'yarn') return `yarn install --silent`
+  if (pmName === 'npm' || isFromNpx()) return `npm install --silent`
   if (isFromPnpx()) return `pnpm install --silent`
-  return `${typeof pm === 'string' ? pm : pm?.name || 'npm'} install --silent`
+  return `${pmName || 'npm'} install --silent`
+}
+
+function formatToolingLabel(
+  integrations: string[] | undefined,
+  fallback: string
+) {
+  const list =
+    integrations && integrations.length > 0 ? integrations.join('/') : fallback
+  return `Setting up ${list} tooling...`
 }
 
 export async function installOptionalDependencies(
@@ -66,10 +95,10 @@ export async function installOptionalDependencies(
 ) {
   if (!dependencies.length) return
   try {
-    const pm = await detect()
+    const pm = await resolvePackageManager()
     const installCommand = getOptionalInstallCommand(pm, dependencies)
 
-    console.log(`[${integration}] Installing optional dependencies...`)
+    console.log(formatToolingLabel([integration], integration))
     execSync(installCommand, {stdio: 'inherit'})
     await new Promise((r) => setTimeout(r, 500))
 
@@ -78,9 +107,10 @@ export async function installOptionalDependencies(
         `${colors.brightMagenta('►►► Author says')} [${integration}] Installing root dependencies for dev...`
       )
       execSync(getRootInstallCommand(pm), {stdio: 'ignore'})
+      console.log(
+        `${colors.brightMagenta('►►► Author says')} ${integration} tooling ready.`
+      )
     }
-
-    console.log(`[${integration}] Dependencies installed successfully.`)
   } catch (error) {
     console.error(`[${integration}] Failed to install dependencies.`, error)
   }
@@ -88,14 +118,15 @@ export async function installOptionalDependencies(
 
 export async function installOptionalDependenciesBatch(
   integration: string,
-  dependencies: string[]
+  dependencies: string[],
+  integrations?: string[]
 ) {
   if (!dependencies.length) return
   try {
-    const pm = await detect()
+    const pm = await resolvePackageManager()
     const installCommand = getOptionalInstallCommand(pm, dependencies)
 
-    console.log(`[${integration}] Installing optional dependencies...`)
+    console.log(formatToolingLabel(integrations, integration))
     execSync(installCommand, {stdio: 'inherit'})
     await new Promise((r) => setTimeout(r, 500))
 
@@ -104,9 +135,10 @@ export async function installOptionalDependenciesBatch(
         `${colors.brightMagenta('►►► Author says')} [${integration}] Installing root dependencies for dev...`
       )
       execSync(getRootInstallCommand(pm), {stdio: 'ignore'})
+      console.log(
+        `${colors.brightMagenta('►►► Author says')} ${integration} tooling ready.`
+      )
     }
-
-    console.log(`[${integration}] Dependencies installed successfully.`)
   } catch (error) {
     console.error(`[${integration}] Failed to install dependencies.`, error)
   }
