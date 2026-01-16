@@ -19,7 +19,6 @@ export default defineConfig({
     pool: 'forks',
     // Ensure a single worker to reduce RPC pressure/timeouts in CI
     maxWorkers: 1,
-    minWorkers: 1,
     // Increase timeouts to accommodate slower CI environments and long-running integration tests
     testTimeout: 120_000,
     hookTimeout: 120_000,
