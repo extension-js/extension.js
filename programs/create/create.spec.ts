@@ -182,7 +182,15 @@ describe('extension create', () => {
 
       await execFileAsync(
         'pnpm',
-        ['extension', 'create', projectPath, '--template', 'init'],
+        [
+          'extension',
+          'create',
+          projectPath,
+          '--template',
+          'init',
+          '--install',
+          'false'
+        ],
         {cwd, env}
       )
       expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBeTruthy()

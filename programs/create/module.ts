@@ -74,7 +74,8 @@ export async function extensionCreate(
     // All good!
     const successfulInstall = await messages.successfullInstall(
       projectPath,
-      projectName
+      projectName,
+      Boolean(install)
     )
 
     console.log(successfulInstall)
