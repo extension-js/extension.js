@@ -9,9 +9,10 @@
 import {getProjectStructure} from './webpack-lib/project'
 import {extensionBuild} from './command-build'
 import {extensionPreview} from './command-preview'
-import {getDirs, getDistPath, normalizeBrowser} from './webpack-lib/paths'
 import * as messages from './webpack-lib/messages'
+import {getDirs, getDistPath, normalizeBrowser} from './webpack-lib/paths'
 import {loadCommandConfig, loadBrowserConfig} from './webpack-lib/config-loader'
+import {ensureProjectReady} from './webpack-lib/dependency-manager'
 import type {StartOptions} from './webpack-types'
 
 export async function extensionStart(
@@ -22,6 +23,17 @@ export async function extensionStart(
 
   try {
     const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const depsResult = await ensureProjectReady(
+      projectStructure,
+      'development',
+      {
+        skipProjectInstall: !projectStructure.packageJsonPath,
+        exitOnInstall: true
+      }
+    )
+
+    if (depsResult.installed) return
+
     const browser = normalizeBrowser(
       startOptions.browser || 'chrome',
       startOptions.chromiumBinary,

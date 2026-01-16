@@ -6,16 +6,15 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
+import type {Configuration} from '@rspack/core'
 import {getProjectStructure} from './webpack-lib/project'
 import * as messages from './webpack-lib/messages'
 import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
 import {loadCommandConfig} from './webpack-lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {getDirs, getDistPath, normalizeBrowser} from './webpack-lib/paths'
-import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
-import type {Configuration} from '@rspack/core'
-import {preflightOptionalDependencies} from './webpack-lib/preflight-optional-deps'
-import {ensureDependencies} from './webpack-lib/ensure-dependencies'
+import {ensureProjectReady} from './webpack-lib/dependency-manager'
 
 import type {BuildOptions} from './webpack-types'
 
@@ -35,10 +34,14 @@ export async function extensionBuild(
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
   try {
-    const depsResult = await ensureDependencies(packageJsonDir, {
-      skipProjectInstall: isVitest || !projectStructure.packageJsonPath,
-      exitOnInstall: true
-    })
+    const depsResult = await ensureProjectReady(
+      projectStructure,
+      'production',
+      {
+        skipProjectInstall: isVitest || !projectStructure.packageJsonPath,
+        exitOnInstall: true
+      }
+    )
 
     if (depsResult.installed)
       return {
@@ -49,8 +52,6 @@ export async function extensionBuild(
         warnings_count: 0,
         errors_count: 0
       }
-
-    await preflightOptionalDependencies(projectStructure, 'production')
 
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =

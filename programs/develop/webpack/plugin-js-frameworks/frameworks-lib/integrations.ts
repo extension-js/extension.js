@@ -8,6 +8,7 @@
 
 export {
   installOptionalDependencies,
+  installOptionalDependenciesBatch,
   hasDependency
 } from '../../plugin-css/css-lib/integrations'
 export function isUsingJSFramework(projectPath: string): boolean {
