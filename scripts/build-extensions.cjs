@@ -71,13 +71,28 @@ function main() {
     }
  
     // Reset destination and copy dist
+    // Use a temp folder + rename to avoid EEXIST errors from cpSync on macOS.
+    const tmpDest = `${dest}__tmp`
+    try {
+      fs.rmSync(tmpDest, {recursive: true, force: true})
+    } catch {
+      // ignore
+    }
     try {
       fs.rmSync(dest, {recursive: true, force: true})
     } catch {
       // ignore
     }
-    fs.mkdirSync(dest, {recursive: true})
-    fs.cpSync(src, dest, {recursive: true, force: true})
+
+    fs.cpSync(src, tmpDest, {recursive: true, force: true})
+
+    try {
+      fs.rmSync(dest, {recursive: true, force: true})
+    } catch {
+      // ignore
+    }
+
+    fs.renameSync(tmpDest, dest)
   }
  
   // Hard guard: ensure extension-js-devtools dist exists for all engines

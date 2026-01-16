@@ -111,15 +111,34 @@ export class AddScripts {
 
     const newEntries: Record<string, EntryObject> = {}
 
-    const fallbackContext = path.dirname(this.manifestPath)
-    const projectPath = (compiler.options.context as string) || fallbackContext
+    const manifestDir = path.dirname(this.manifestPath)
+    const projectPath = (compiler.options.context as string) || manifestDir
     const publicDir = path.join(projectPath, 'public')
+
+    const resolveEntryPath = (entry: string) => {
+      if (!entry) return entry
+
+      if (entry.startsWith('/') && !path.isAbsolute(entry)) {
+        // Leading "/" is the extension output root (public/)
+        return path.join(publicDir, entry.slice(1))
+      }
+
+      if (path.isAbsolute(entry)) return entry
+      return path.join(manifestDir, entry)
+    }
+
     let entriesAdded = 0
     let publicTracked = 0
 
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
-      const scriptImports = getScriptEntries(scriptPath)
-      const cssImports = getCssEntries(scriptPath)
+      const rawEntries: string[] = Array.isArray(scriptPath)
+        ? scriptPath || []
+        : scriptPath
+          ? [scriptPath]
+          : []
+      const resolvedEntries = rawEntries.map(resolveEntryPath)
+      const scriptImports = getScriptEntries(resolvedEntries)
+      const cssImports = getCssEntries(resolvedEntries)
       const allImports = [...scriptImports, ...cssImports]
       const entryImports = allImports.filter((filePath) => {
         const rel = path.relative(publicDir, filePath)
@@ -179,12 +198,12 @@ export class AddScripts {
               )
             )
 
-            const publicFilesOnly: string[] = allScriptFieldImports.filter(
-              (importPath) => {
-                const rel = path.relative(publicDir, String(importPath))
+            const publicFilesOnly: string[] = allScriptFieldImports
+              .map((importPath) => resolveEntryPath(String(importPath)))
+              .filter((resolvedPath) => {
+                const rel = path.relative(publicDir, resolvedPath)
                 return rel && !rel.startsWith('..') && !path.isAbsolute(rel)
-              }
-            )
+              })
 
             for (const publicFilePath of publicFilesOnly) {
               if (fs.existsSync(publicFilePath)) {
