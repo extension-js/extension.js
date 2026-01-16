@@ -11,6 +11,8 @@ import * as fs from 'fs'
 import colors from 'pintor'
 import {detect} from 'package-manager-detector'
 
+const statusPrefix = colors.brightBlue('►►►')
+
 export function destinationNotWriteable(workingDir: string) {
   const workingDirFolder = path.basename(workingDir)
 
@@ -106,7 +108,7 @@ export async function successfullInstall(
     : '\n'
 
   return (
-    `${colors.green('Created')} ${colors.blue(projectName)}\n\n` +
+    `${statusPrefix} ${colors.green('Created')} ${colors.blue(projectName)}\n\n` +
     `Next steps:\n\n` +
     steps +
     depsNote
@@ -114,15 +116,15 @@ export async function successfullInstall(
 }
 
 export function startingNewExtension(projectName: string) {
-  return `Creating ${colors.blue(projectName)}...`
+  return `${statusPrefix} Creating ${colors.blue(projectName)}...`
 }
 
 export function checkingIfPathIsWriteable() {
-  return 'Checking if the destination path is writable...'
+  return `${statusPrefix} Checking if the destination path is writable...`
 }
 
 export function scanningPossiblyConflictingFiles() {
-  return 'Scanning for conflicting files...'
+  return `${statusPrefix} Scanning for conflicting files...`
 }
 
 export function createDirectoryError(projectName: string, error: any) {
@@ -134,7 +136,9 @@ export function createDirectoryError(projectName: string, error: any) {
 }
 
 export function writingTypeDefinitions(projectName: string) {
-  return `Writing type definitions for ${colors.blue(projectName)}...`
+  return `${statusPrefix} Writing type definitions for ${colors.blue(
+    projectName
+  )}...`
 }
 
 export function writingTypeDefinitionsError(error: any) {
@@ -150,12 +154,12 @@ export function installingFromTemplate(
   templateName: string
 ) {
   if (templateName === 'init') {
-    return `Installing ${colors.blue(projectName)}...`
+    return `${statusPrefix} Installing ${colors.blue(projectName)}...`
   }
 
-  return `Installing ${colors.blue(projectName)} from template ${colors.yellow(
-    templateName
-  )}...`
+  return `${statusPrefix} Installing ${colors.blue(
+    projectName
+  )} from template ${colors.yellow(templateName)}...`
 }
 
 export function installingFromTemplateError(
@@ -171,7 +175,9 @@ export function installingFromTemplateError(
 }
 
 export function initializingGitForRepository(projectName: string) {
-  return `Initializing git repository for ${colors.blue(projectName)}...`
+  return `${statusPrefix} Initializing git repository for ${colors.blue(
+    projectName
+  )}...`
 }
 
 export function initializingGitForRepositoryFailed(
@@ -213,7 +219,7 @@ export function initializingGitForRepositoryError(
 }
 
 export function installingDependencies() {
-  return 'Installing dependencies (this may take a moment)...'
+  return `${statusPrefix} Installing dependencies (this may take a moment)...`
 }
 
 export function installingDependenciesFailed(
@@ -250,7 +256,7 @@ export function cantInstallDependencies(projectName: string, error: any) {
 }
 
 export function writingPackageJsonMetadata() {
-  return `Writing ${colors.yellow('package.json')}...`
+  return `${statusPrefix} Writing ${colors.yellow('package.json')}...`
 }
 
 export function writingPackageJsonMetadataError(
@@ -265,7 +271,7 @@ export function writingPackageJsonMetadataError(
 }
 
 export function writingManifestJsonMetadata() {
-  return `Writing ${colors.yellow('manifest.json')}...`
+  return `${statusPrefix} Writing ${colors.yellow('manifest.json')}...`
 }
 
 export function writingManifestJsonMetadataError(
@@ -280,11 +286,11 @@ export function writingManifestJsonMetadataError(
 }
 
 export function writingReadmeMetaData() {
-  return `Writing ${colors.yellow('README.md')}...`
+  return `${statusPrefix} Writing ${colors.yellow('README.md')}...`
 }
 
 export function writingGitIgnore() {
-  return `Writing ${colors.yellow('.gitignore')}...`
+  return `${statusPrefix} Writing ${colors.yellow('.gitignore')}...`
 }
 
 export function writingReadmeMetaDataEError(projectName: string, error: any) {
@@ -296,7 +302,7 @@ export function writingReadmeMetaDataEError(projectName: string, error: any) {
 }
 
 export function folderExists(projectName: string) {
-  return `Ensuring ${colors.blue(projectName)} exists...`
+  return `${statusPrefix} Ensuring ${colors.blue(projectName)} exists...`
 }
 
 export function writingDirectoryError(error: any) {
