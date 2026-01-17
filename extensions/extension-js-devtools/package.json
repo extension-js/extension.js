@@ -36,7 +36,7 @@
     "@tanstack/react-table": "^8.20.5",
     "cmdk": "1.1.1",
     "input-otp": "1.4.2",
-    "lucide-react": "^0.487.0",
+    "lucide-react": "^0.562.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "7.71.1",
