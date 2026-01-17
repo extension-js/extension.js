@@ -993,7 +993,15 @@ export function runningInDevelopment(
     version?: string
   }
   // Note: keep dynamic import here to avoid ESM JSON import issues at compile time in some bundlers
-  const extensionVersion = require('../../../package.json').version
+  const extensionVersion =
+    process.env.EXTENSION_CLI_VERSION ||
+    (() => {
+      try {
+        return require('../../../package.json').version
+      } catch {
+        return 'unknown'
+      }
+    })()
 
   // Derive a human-readable browser version line.
   let effectiveBrowserLine =
