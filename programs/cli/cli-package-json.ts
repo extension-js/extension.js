@@ -22,8 +22,9 @@ export function getCliPackageJson(): Record<string, any> {
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
       const content = fs.readFileSync(candidate, 'utf8')
-      cachedPackageJson = JSON.parse(content)
-      return cachedPackageJson
+      const parsed = JSON.parse(content) as Record<string, any>
+      cachedPackageJson = parsed
+      return parsed
     }
   }
 
