@@ -21,6 +21,7 @@ import {registerPreviewCommand} from './commands/preview'
 import {registerBuildCommand} from './commands/build'
 
 const cliPackageJson = getCliPackageJson()
+process.env.EXTENSION_CLI_VERSION = cliPackageJson.version
 
 checkUpdates().then((updateMessage) => {
   if (!updateMessage) return
