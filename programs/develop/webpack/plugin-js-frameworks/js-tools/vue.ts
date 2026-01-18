@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {DefinePlugin} from '@rspack/core'
 import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
@@ -56,7 +57,8 @@ export function isUsingVue(projectPath: string) {
 }
 
 export async function maybeUseVue(
-  projectPath: string
+  projectPath: string,
+  mode: 'development' | 'production' | string = 'development'
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
@@ -95,7 +97,15 @@ export async function maybeUseVue(
     }
   ]
 
-  const defaultPlugins: JsFramework['plugins'] = [new VueLoaderPlugin() as any]
+  const isProd = mode === 'production'
+  const defaultPlugins: JsFramework['plugins'] = [
+    new VueLoaderPlugin() as any,
+    new DefinePlugin({
+      __VUE_OPTIONS_API__: JSON.stringify(true),
+      __VUE_PROD_DEVTOOLS__: JSON.stringify(!isProd),
+      __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(!isProd)
+    })
+  ]
 
   return {
     plugins: defaultPlugins,
