@@ -30,6 +30,11 @@ export default function ensureHMRForScripts(
   this: LoaderInterface,
   source: string
 ) {
+  const resourceQuery = String(this.resourceQuery || '')
+  if (resourceQuery.includes('vue&type=')) {
+    return source
+  }
+
   const options = this.getOptions()
 
   try {

@@ -626,7 +626,6 @@ export class ChromiumLaunchPlugin {
         ...(process.platform !== 'win32' && {group: process.getgid?.()})
       })
 
-
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.logger.debug?.(
           '[plugin-browsers] Final Chrome flags:',
