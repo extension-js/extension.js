@@ -42,7 +42,7 @@ describe('vue tools', () => {
     expect(isUsingVue('/p')).toBe(true)
     expect(logSpy).toHaveBeenCalledTimes(1)
 
-    const result = await maybeUseVue('/p')
+    const result = await maybeUseVue('/p', 'development')
     expect(result?.loaders?.[0].test).toEqual(/\.vue$/)
     expect(result?.loaders?.[0].options?.foo).toBe(1)
     expect(result?.plugins?.length).toBeGreaterThan(0)
