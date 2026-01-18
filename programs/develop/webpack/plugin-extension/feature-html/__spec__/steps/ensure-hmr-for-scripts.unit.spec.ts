@@ -17,4 +17,16 @@ describe('ensureHMRForScripts loader', () => {
     expect(out).toContain('import.meta.webpackHot')
     expect(out).toContain(src)
   })
+
+  it('skips Vue SFC virtual modules', () => {
+    const src = 'console.log("x")'
+    const out = ensureHMRForScripts.call(
+      {
+        getOptions: () => ({manifestPath: '/m'}),
+        resourceQuery: '?vue&type=template&id=123'
+      },
+      src
+    )
+    expect(out).toBe(src)
+  })
 })
