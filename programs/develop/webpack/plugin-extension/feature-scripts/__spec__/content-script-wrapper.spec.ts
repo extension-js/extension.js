@@ -168,6 +168,18 @@ describe('content-script-wrapper loader', () => {
     expect(out).toMatch('webpackHot.accept("./b.scss"')
   })
 
+  it('injects Vue accepts for SFC imports (inner request)', () => {
+    const cs = path.join(tmp, 'cs.ts')
+    fs.writeFileSync(cs, '')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
+    )
+    const src = `\nimport ContentApp from './ContentApp.vue'\nexport default function m(){}`
+    const out = run(cs, manifestPath, src, '?__extjs_inner=1') as string
+    expect(out).toMatch('webpackHot.accept("./ContentApp.vue"')
+  })
+
   it('strips direct call to default-exported function to avoid double mount (inner request)', () => {
     const cs = path.join(tmp, 'cs.ts')
     fs.writeFileSync(cs, '')

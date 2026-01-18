@@ -347,6 +347,16 @@ export default function (source) {
     (m) => (m.groups?.bare || m.groups?.from) as string
   )
 
+  // Detect static Vue SFC imports to trigger remount on HMR updates
+  const vueImportMatches = Array.from(
+    source.matchAll(
+      /import\s+(?:['\"](?<bare>[^'\"]+\.vue)['\"]|(?:(?:.+?)\s+from\s+['\"](?<from>[^'\"]+\.vue)['\"]))/g
+    )
+  )
+  const vueSpecifiers = vueImportMatches.map(
+    (m) => (m.groups?.bare || m.groups?.from) as string
+  )
+
   // Inline runtime helper to avoid cross-context import resolution
   const runtimeInline =
     'function __EXTENSIONJS_whenReady(runAt, cb){\n' +
@@ -457,6 +467,17 @@ export default function (source) {
         .join('\n    ')}\n  }\n} catch (error) {}\n`
     : ''
 
+  const vueAccepts = vueSpecifiers.length
+    ? `\ntry {\n  if (import.meta.webpackHot) {\n    ${vueSpecifiers
+        .map(
+          (s) =>
+            `import.meta.webpackHot.accept(${JSON.stringify(
+              s
+            )}, () => { try { window.dispatchEvent(new CustomEvent('__EXTENSIONJS_CSS_UPDATE__')) } catch (error) {} })`
+        )
+        .join('\n    ')}\n  }\n} catch (error) {}\n`
+    : ''
+
   const injected =
     `${runtimeInline}` +
     `${cleaned}\n` +
@@ -465,6 +486,7 @@ export default function (source) {
       runAt
     )}) } catch (error) {}\n` +
     `${cssAccepts}` +
+    `${vueAccepts}` +
     `export default __EXTENSIONJS_default__\n`
 
   return injected
