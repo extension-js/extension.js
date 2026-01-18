@@ -46,6 +46,18 @@ export async function runOnlyPreviewBrowser(opts: {
   // In preview we intentionally do not support source inspection unless we decide to ship `ws`.
   // Guard here for clarity and to keep preview dependency footprint minimal.
   const sourceEnabled = false
+  let exitScheduled = false
+
+  const scheduleExitOnSignal = () => {
+    if (exitScheduled) return
+    exitScheduled = true
+    // Mirror `dev` behavior: exit promptly after cleanup kicks in.
+    setTimeout(() => process.exit(0), 10)
+  }
+
+  process.once('SIGINT', scheduleExitOnSignal)
+  process.once('SIGTERM', scheduleExitOnSignal)
+  process.once('SIGHUP', scheduleExitOnSignal)
 
   const compilationLike: any = {
     options: {
