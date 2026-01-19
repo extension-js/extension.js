@@ -8,30 +8,8 @@
 
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import {fileURLToPath} from 'url'
 import {detect} from 'package-manager-detector'
 import * as messages from './messages'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-
-export async function copyDirectory(source: string, destination: string) {
-  const directoryEntries = await fs.readdir(source, {withFileTypes: true})
-  await fs.mkdir(destination, {recursive: true})
-
-  return await Promise.all(
-    directoryEntries.map(async (entry) => {
-      const sourcePath = path.join(source, entry.name)
-      const destinationPath = path.join(destination, entry.name)
-
-      if (entry.isDirectory()) {
-        await copyDirectory(sourcePath, destinationPath)
-      } else {
-        await fs.copyFile(sourcePath, destinationPath)
-      }
-    })
-  )
-}
 
 export async function copyDirectoryWithSymlinks(
   source: string,
@@ -117,11 +95,6 @@ export async function getInstallCommand() {
   return command
 }
 
-export function getTemplatePath(workingDir: string) {
-  const templatesDir = path.resolve(__dirname, '..', 'template')
-  return path.resolve(workingDir, templatesDir)
-}
-
 export async function isDirectoryWriteable(
   directory: string,
   projectName: string
@@ -136,10 +109,6 @@ export async function isDirectoryWriteable(
     console.log(messages.writingDirectoryError(err))
     return false
   }
-}
-
-export function isExternalTemplate(_templateName: string) {
-  return true
 }
 
 export function isTypeScriptTemplate(templateName: string) {

@@ -8,7 +8,6 @@
 
 import * as path from 'path'
 import * as fs from 'fs/promises'
-import * as utils from '../lib/utils'
 import * as messages from '../lib/messages'
 
 const extensionJsPackageJsonScripts = {
@@ -43,13 +42,9 @@ interface OverridePackageJsonOptions {
 export async function overridePackageJson(
   projectPath: string,
   projectName: string,
-  {template, cliVersion}: OverridePackageJsonOptions
+  {template: _template, cliVersion}: OverridePackageJsonOptions
 ) {
-  const templatePath = utils.getTemplatePath(process.cwd())
-
-  const candidatePath = utils.isExternalTemplate(template)
-    ? path.join(projectPath, 'package.json')
-    : path.join(templatePath, 'package.json')
+  const candidatePath = path.join(projectPath, 'package.json')
 
   // Web-only remote templates may not include package.json; start from a minimal base
   let packageJson: Record<string, any> = {}
