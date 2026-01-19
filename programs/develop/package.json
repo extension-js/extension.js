@@ -117,7 +117,7 @@
     "@types/sass-loader": "8.0.10",
     "@types/webextension-polyfill": "0.12.4",
     "@types/ws": "^8.18.1",
-    "@vue/compiler-sfc": "3.5.26",
+    "@vue/compiler-sfc": "3.5.27",
     "less": "4.5.1",
     "less-loader": "12.3.0",
     "postcss": "^8.5.6",
