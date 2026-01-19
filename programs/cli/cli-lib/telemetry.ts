@@ -134,7 +134,7 @@ export class Telemetry {
         this.track('cli_telemetry_consent', {value: 'implicit_opt_in'})
 
         console.log(
-          `${colors.gray('►►► system')} [extension] anonymous telemetry helps us improve. Pass --no-telemetry to opt out. Read more in TELEMETRY.md.`
+          `${colors.gray('►►►')} Telemetry is enabled for Extension.js. To opt out, run with --no-telemetry. Learn more in TELEMETRY.md.`
         )
       }
     }
