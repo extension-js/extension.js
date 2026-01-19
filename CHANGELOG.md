@@ -2,17 +2,18 @@
 
 ## Unreleased
 
-- feat(cli): add `--source`, `--watch-source`, and `--source-raw` for full HTML capture; validate URLs with clearer errors.
-- feat(source-inspection): include Shadow DOM under `[data-extension-root="true"]`; warn when the host is missing.
-- feat(feature-scripts): mount-only wrapper for content scripts with HMR wiring; CSS updates trigger remount.
-- refactor(templates): switch content scripts to `export default function initial()`; keep static CSS imports for HMR tracking.
-- feat(browser runners): improve Chromium/Firefox/Edge binary resolution, profile handling, and Windows path support.
-- feat(config): support `extensions/` folder with config; stabilize config loading.
-- feat(devtools/logger): centralized logger and clearer CLI output; refreshed welcome page and theme.
-- fix(build): improve PostCSS/SASS/LESS resolution; fix web-accessible resources paths and manifest overrides.
-- fix(installer): preflight install script improvements and dependency auto-install for `create`.
-- perf/stability: improve start/preview process termination and reduce timeouts.
-- docs: update source inspection, telemetry, and release guidance.
-- test/ci: expand plugin test coverage, add e2e scaffolding, and refine workflows.
-- deps: update TypeScript and align React-related packages; security dependency updates.
+## 3.1.1 (January 19, 2026)
 
+- Added `--source`, `--watch-source`, and `--source-raw` for full HTML capture; URL validation now has clearer errors.
+- Included Shadow DOM under `[data-extension-root="true"]` and warn when the host is missing.
+- Added a mount-only wrapper for content scripts with HMR wiring; CSS updates trigger remount.
+- Switched content script templates to `export default function initial()` and kept static CSS imports for HMR tracking.
+- Improved Chromium/Firefox/Edge binary resolution, profile handling, and Windows path support.
+- Supported the `extensions/` folder in config and stabilized config loading.
+- Added a centralized logger with clearer CLI output; refreshed welcome page and theme.
+- Improved PostCSS/SASS/LESS resolution and fixed web-accessible resources paths and manifest overrides.
+- Improved preflight install and dependency auto-install for `create`.
+- Improved start/preview process termination and reduced timeouts.
+- Updated source inspection, telemetry, and release guidance docs.
+- Expanded plugin test coverage, added e2e scaffolding, and refined workflows.
+- Updated TypeScript and aligned React-related packages; applied security dependency updates.
