@@ -123,13 +123,17 @@ jobs:
           script: |
             const notes = (process.env.RELEASE_NOTES || '').trim();
             const version = process.env.VERSION;
-            const body = notes
-              ? `## Extension.js v${version}\n\n${notes}`
-              : `## Extension.js v${version}\n\n- No changes listed.`;
+            const date = new Intl.DateTimeFormat('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+              timeZone: 'UTC'
+            }).format(new Date());
+            const body = notes ? notes : 'No changes listed.';
             await github.rest.repos.createRelease({
               ...context.repo,
               tag_name: `v${version}`,
-              name: `Extension.js v${version}`,
+              name: `${version} (${date})`,
               body,
               draft: false,
               prerelease: process.env.CHANNEL === 'next'
