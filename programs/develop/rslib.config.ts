@@ -19,10 +19,6 @@ export default defineConfig({
         __dirname,
         './webpack/plugin-extension/feature-html/steps/ensure-hmr-for-scripts.ts'
       ),
-      'add-centralized-logger-script': path.resolve(
-        __dirname,
-        './webpack/plugin-extension/feature-html/steps/add-centralized-logger-script.ts'
-      ),
       'minimum-script-file': path.resolve(
         __dirname,
         './webpack/plugin-extension/feature-html/steps/minimum-script-file.ts'
@@ -44,14 +40,6 @@ export default defineConfig({
       'main-world-bridge': path.resolve(
         __dirname,
         './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge.js'
-      ),
-      'add-centralized-logger-script-background': path.resolve(
-        __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/add-centralized-logger-script/logger-background.ts'
-      ),
-      'add-centralized-logger-script-content': path.resolve(
-        __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/add-centralized-logger-script/logger-script.ts'
       ),
       'minimum-chromium-file': path.resolve(
         __dirname,
