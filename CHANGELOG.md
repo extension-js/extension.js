@@ -15,3 +15,4 @@
 - docs: update source inspection, telemetry, and release guidance.
 - test/ci: expand plugin test coverage, add e2e scaffolding, and refine workflows.
 - deps: update TypeScript and align React-related packages; security dependency updates.
+
