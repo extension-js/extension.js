@@ -4,6 +4,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to announce (defaults to latest)"
+        type: string
+        required: false
 
 permissions:
   contents: read
@@ -17,6 +22,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Send Release Notification
+        if: github.event_name == 'release'
         uses: SethCohen/github-releases-to-discord@v1.13.1
         with:
           webhook_url: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
@@ -27,3 +33,63 @@ jobs:
           footer_title: "Changelog"
           footer_icon_url: "https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
           footer_timestamp: true
+
+      - name: Resolve release (manual)
+        if: github.event_name == 'workflow_dispatch'
+        id: release
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const tag = core.getInput('tag');
+            const { owner, repo } = context.repo;
+            const release = tag
+              ? await github.rest.repos.getReleaseByTag({ owner, repo, tag })
+              : await github.rest.repos.getLatestRelease({ owner, repo });
+            core.setOutput('title', release.data.name || release.data.tag_name);
+            core.setOutput('url', release.data.html_url);
+            core.setOutput('body', release.data.body || '');
+
+      - name: Send Release Notification (manual)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
+          RELEASE_TITLE: ${{ steps.release.outputs.title }}
+          RELEASE_URL: ${{ steps.release.outputs.url }}
+          RELEASE_BODY: ${{ steps.release.outputs.body }}
+          AVATAR_URL: "https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
+        run: |
+          python - <<'PY'
+          import json, os, datetime, urllib.request, urllib.error
+          body = os.environ.get("RELEASE_BODY", "").strip()
+          payload = {
+            "content": "||@everyone||",
+            "username": "Extension.js",
+            "avatar_url": os.environ.get("AVATAR_URL"),
+            "embeds": [{
+              "title": os.environ.get("RELEASE_TITLE"),
+              "url": os.environ.get("RELEASE_URL"),
+              "description": body if body else "No release notes provided.",
+              "color": 2105893,
+              "footer": {"text": "Changelog"},
+              "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
+            }]
+          }
+          data = json.dumps(payload).encode("utf-8")
+          url = os.environ["WEBHOOK_URL"].strip()
+          req = urllib.request.Request(
+            url,
+            data=data,
+            headers={
+              "Content-Type": "application/json",
+              "User-Agent": "Extension.js Release Notifier"
+            }
+          )
+          try:
+            with urllib.request.urlopen(req) as resp:
+              resp.read()
+          except urllib.error.HTTPError as err:
+            detail = err.read().decode("utf-8", errors="ignore")
+            print(f"Discord webhook error {err.code}: {detail}")
+            raise
+          PY
