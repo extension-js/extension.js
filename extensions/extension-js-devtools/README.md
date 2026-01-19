@@ -7,12 +7,6 @@
 
 Built-in developer tools used by Extension.js during development.
 
-Includes:
-
-- Welcome page
-- Error overlay for content scripts (soon)
-- Centralized logger (soon)
-
 ## Build
 
 Run a browser-targeted build:
