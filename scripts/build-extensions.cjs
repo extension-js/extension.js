@@ -24,17 +24,54 @@ function main() {
  
   // Try to build all known targets for a given package folder.
   // Errors for individual targets are ignored to maximize overall success.
-  function buildAllTargets(pkgRoot) {
+  function buildAllTargets(pkgRoot, {strict = false} = {}) {
     const targets = ['build:chromium', 'build:chrome', 'build:firefox', 'build:edge']
     for (const script of targets) {
       try {
         execSync(`pnpm run -s ${script}`, {
           cwd: pkgRoot,
-          stdio: verbose ? 'inherit' : 'ignore'
+          stdio: verbose || strict ? 'inherit' : 'ignore'
         })
-      } catch {
+      } catch (error) {
+        if (strict) {
+          throw error
+        }
         // ignore failures of individual targets
       }
+    }
+  }
+
+  function ensureDevtoolsDist() {
+    const packageName = 'extension-js-devtools'
+    const pkgRoot = path.join(root, 'extensions', packageName)
+    const distRoot = path.join(pkgRoot, 'dist')
+    const engines = ['chromium', 'chrome', 'edge', 'firefox']
+    const missing = engines.filter(engine => {
+      const manifestPath = path.join(distRoot, engine, 'manifest.json')
+      return !fs.existsSync(manifestPath)
+    })
+
+    if (missing.length === 0) return
+
+    if (verbose) {
+      console.log(
+        `[Extension.js] ${packageName} missing dist for: ${missing.join(', ')}. Rebuilding…`
+      )
+    }
+
+    ensureDependencies(pkgRoot)
+    buildAllTargets(pkgRoot, {strict: true})
+
+    const stillMissing = engines.filter(engine => {
+      const manifestPath = path.join(distRoot, engine, 'manifest.json')
+      return !fs.existsSync(manifestPath)
+    })
+    if (stillMissing.length > 0) {
+      throw new Error(
+        `[Extension.js] ${packageName} build missing manifests for: ${stillMissing.join(
+          ', '
+        )}`
+      )
     }
   }
  
@@ -132,6 +169,10 @@ function main() {
  
   // Build and mirror all discovered extension packages except 'browser-extension' and 'extension-js-theme' 
   for (const packageName of listExtensionPackages()) {
+    if (packageName === 'extension-js-devtools') {
+      ensureDevtoolsDist()
+    }
+
     buildAndMirror(packageName)
   }
 
