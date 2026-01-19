@@ -1,4 +1,4 @@
-name: Discord Release Notification
+name: Extension.js – Discord Release Notification
 
 on:
   release:
@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   notify:
-    name: Notify Discord
+    name: Notify Extension.js Discord
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
