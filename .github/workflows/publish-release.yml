@@ -1,4 +1,4 @@
-name: Release – Publish
+name: Extension.js – Release Publish
 
 on:
   workflow_dispatch:
@@ -92,6 +92,87 @@ jobs:
           git tag "v${{ steps.validate.outputs.version }}"
           git push
           git push --tags
+
+      - name: Extract changelog notes
+        id: changelog
+        run: |
+          awk '
+            BEGIN {found=0}
+            /^## Unreleased$/ {found=1; next}
+            /^## / && found {exit}
+            found {print}
+          ' CHANGELOG.md > /tmp/changelog.txt
+          if [ ! -s /tmp/changelog.txt ]; then
+            echo "CHANGELOG.md has no entries under ## Unreleased" >&2
+            exit 1
+          fi
+          {
+            echo "notes<<'EOF'"
+            cat /tmp/changelog.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: actions/github-script@v7
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const notes = (process.env.RELEASE_NOTES || '').trim();
+            const version = process.env.VERSION;
+            const body = notes
+              ? `## Extension.js v${version}\n\n${notes}`
+              : `## Extension.js v${version}\n\n- No changes listed.`;
+            await github.rest.repos.createRelease({
+              ...context.repo,
+              tag_name: `v${version}`,
+              name: `Extension.js v${version}`,
+              body,
+              draft: false,
+              prerelease: process.env.CHANNEL === 'next'
+            });
+
+      - name: Update changelog for release
+        env:
+          VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const version = process.env.VERSION;
+            const path = 'CHANGELOG.md';
+            const text = fs.readFileSync(path, 'utf8');
+            const header = '## Unreleased';
+            const start = text.indexOf(header);
+            if (start === -1) { throw new Error('CHANGELOG.md missing ## Unreleased section'); }
+            const afterHeader = start + header.length;
+            let nextHeader = text.indexOf('\\n## ', afterHeader);
+            if (nextHeader === -1) nextHeader = text.length;
+            const notes = text.slice(afterHeader, nextHeader).trim();
+            if (!notes) { throw new Error('CHANGELOG.md has no entries under ## Unreleased'); }
+            const before = text.slice(0, start);
+            const after = text.slice(nextHeader).replace(/^\\s+/, '');
+            const date = new Intl.DateTimeFormat('en-US', {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+              timeZone: 'UTC'
+            }).format(new Date());
+            const updated = [
+              before,
+              '## Unreleased\\n\\n',
+              `## ${version} (${date})\\n\\n`,
+              notes,
+              '\\n\\n',
+              after
+            ].join('');
+            fs.writeFileSync(path, updated);
+          "
+          git add CHANGELOG.md
+          git commit -m "chore(release): move changelog to v${{ steps.validate.outputs.version }}"
+          git push
 
       - name: Prepare publish-only dependency rewrite (extension -> packages)
         env:
