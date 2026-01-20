@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "description": "Dependency graph tracking for extension-develop build/dev/start lazy deps.",
   "dependencies": {
-    "@rspack/core": "^1.7.2",
+    "@rspack/core": "^1.7.3",
     "@rspack/dev-server": "^1.1.5",
     "@swc/core": "^1.15.8",
     "@swc/helpers": "^0.5.18",
