@@ -97,7 +97,7 @@
   },
   "devDependencies": {
     "@rslib/core": "^0.19.2",
-    "@types/chrome": "^0.1.33",
+    "@types/chrome": "^0.1.35",
     "@types/node": "^25.0.9",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
