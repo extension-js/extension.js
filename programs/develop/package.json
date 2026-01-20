@@ -106,7 +106,7 @@
     "@prefresh/utils": "1.2.1",
     "@prefresh/webpack": "4.0.6",
     "@rslib/core": "^0.19.2",
-    "@rspack/plugin-preact-refresh": "1.1.4",
+    "@rspack/plugin-preact-refresh": "1.1.5",
     "@rspack/plugin-react-refresh": "1.6.0",
     "@types/adm-zip": "^0.5.7",
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
