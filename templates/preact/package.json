@@ -14,7 +14,7 @@
     "preact": "^10.28.2"
   },
   "devDependencies": {
-    "@types/react": "^19.2.8",
+    "@types/react": "^19.2.9",
     "typescript": "5.3.3"
   }
 }
