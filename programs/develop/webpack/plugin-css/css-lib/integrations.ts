@@ -10,7 +10,6 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {execSync} from 'child_process'
 import colors from 'pintor'
-import {detect} from 'package-manager-detector'
 
 function parseJsonSafe(text: string) {
   const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
@@ -27,22 +26,34 @@ function isFromNpx() {
   return false
 }
 
-type DetectedPackageManager = Awaited<ReturnType<typeof detect>> | string
+type DetectedPackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun'
 
-function getPackageManagerFromEnv(): string | undefined {
+function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
   const ua = process.env.npm_config_user_agent
-  if (!ua) return undefined
-  if (ua.includes('pnpm')) return 'pnpm'
-  if (ua.includes('yarn')) return 'yarn'
-  if (ua.includes('bun')) return 'bun'
-  if (ua.includes('npm')) return 'npm'
+
+  if (ua) {
+    if (ua.includes('pnpm')) return 'pnpm'
+    if (ua.includes('yarn')) return 'yarn'
+    if (ua.includes('bun')) return 'bun'
+    if (ua.includes('npm')) return 'npm'
+  }
+
+  const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH
+
+  if (execPath) {
+    if (execPath.includes('pnpm')) return 'pnpm'
+    if (execPath.includes('yarn')) return 'yarn'
+    if (execPath.includes('bun')) return 'bun'
+    if (execPath.includes('npm')) return 'npm'
+  }
+
   return undefined
 }
 
 async function resolvePackageManager(): Promise<DetectedPackageManager> {
   const envPm = getPackageManagerFromEnv()
   if (envPm) return envPm
-  return detect()
+  return 'npm'
 }
 
 function getOptionalInstallCommand(
@@ -50,7 +61,7 @@ function getOptionalInstallCommand(
   dependencies: string[]
 ): string {
   const quotedDir = JSON.stringify(__dirname)
-  const pmName = typeof pm === 'string' ? pm : pm?.name
+  const pmName = pm
   if (pmName === 'yarn') {
     return `yarn --silent add ${dependencies.join(
       ' '
@@ -73,7 +84,7 @@ function getOptionalInstallCommand(
 }
 
 function getRootInstallCommand(pm: DetectedPackageManager): string {
-  const pmName = typeof pm === 'string' ? pm : pm?.name
+  const pmName = pm
   if (pmName === 'yarn') return `yarn install --silent`
   if (pmName === 'npm' || isFromNpx()) return `npm install --silent`
   if (isFromPnpx()) return `pnpm install --silent`
