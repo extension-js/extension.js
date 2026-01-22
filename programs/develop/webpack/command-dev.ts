@@ -24,18 +24,17 @@ export async function extensionDev(
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
-    const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const debug = isAuthor
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
-    const depsResult = await ensureProjectReady(
-      projectStructure,
-      'development',
-      {
-        skipProjectInstall: !projectStructure.packageJsonPath,
-        exitOnInstall: true
-      }
-    )
+    const shouldInstallProjectDeps = !isAuthor || devOptions.install !== false
 
-    if (depsResult.installed) return
+    await ensureProjectReady(projectStructure, 'development', {
+      skipProjectInstall:
+        !projectStructure.packageJsonPath || !shouldInstallProjectDeps,
+      exitOnInstall: false,
+      showRunAgainMessage: false
+    })
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)

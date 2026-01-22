@@ -9,7 +9,12 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
-import {vendors, validateVendorsOrExit, type Browser} from '../utils'
+import {
+  vendors,
+  validateVendorsOrExit,
+  type Browser,
+  parseOptionalBoolean
+} from '../utils'
 import {parseLogContexts} from '../utils/normalize-options'
 
 type StartOptions = {
@@ -20,6 +25,7 @@ type StartOptions = {
   startingUrl?: string
   port?: string | number
   polyfill?: boolean | string
+  install?: boolean
   // Internal maintainer flags
   author?: boolean
   authorMode?: boolean
@@ -93,8 +99,13 @@ export function registerStartCommand(program: Command, telemetry: any) {
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
     )
     .option(
+      '--install [boolean]',
+      '[experimental] install project dependencies when missing',
+      parseOptionalBoolean
+    )
+    .option(
       '--author, --author-mode',
-      '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
+      '[experimental] enable maintainer diagnostics (does not affect user runtime logs)'
     )
     .action(async function (
       pathOrRemoteUrl: string,
@@ -141,6 +152,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
           geckoBinary: startOptions.geckoBinary,
           startingUrl: startOptions.startingUrl,
           port: startOptions.port,
+          install: startOptions.install,
           source:
             typeof startOptions.source === 'string'
               ? startOptions.source

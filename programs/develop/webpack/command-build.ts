@@ -32,26 +32,20 @@ export async function extensionBuild(
   )
 
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+  const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   try {
-    const depsResult = await ensureProjectReady(
-      projectStructure,
-      'production',
-      {
-        skipProjectInstall: isVitest || !projectStructure.packageJsonPath,
-        exitOnInstall: true
-      }
-    )
+    const shouldInstallProjectDeps =
+      !isAuthor || buildOptions?.install !== false
 
-    if (depsResult.installed)
-      return {
-        browser,
-        total_assets: 0,
-        total_bytes: 0,
-        largest_asset_bytes: 0,
-        warnings_count: 0,
-        errors_count: 0
-      }
+    await ensureProjectReady(projectStructure, 'production', {
+      skipProjectInstall:
+        isVitest ||
+        !projectStructure.packageJsonPath ||
+        !shouldInstallProjectDeps,
+      exitOnInstall: false,
+      showRunAgainMessage: false
+    })
 
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =
@@ -62,7 +56,7 @@ export async function extensionBuild(
         import('./webpack-config')
       ])
 
-    const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const debug = isAuthor
     // Guard: only error if user references managed deps in extension.config.js
     if (projectStructure.packageJsonPath) {
       assertNoManagedDependencyConflicts(
