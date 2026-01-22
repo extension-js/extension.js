@@ -24,7 +24,7 @@ export function isUsingIntegration(name: string) {
 }
 
 export function youAreAllSet(name: string) {
-  return `${colors.green('►►►')} ${name} installation completed. Run again to proceed.`
+  return `${colors.green('►►►')} ${name} installation completed.`
 }
 
 export function optionalDepsReady(integrations: string[]) {

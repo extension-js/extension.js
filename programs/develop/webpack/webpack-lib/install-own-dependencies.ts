@@ -6,10 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import {spawn} from 'cross-spawn'
-import * as fs from 'fs'
 import {loadBuildDependencies} from './check-build-dependencies'
+import * as messages from './messages'
 import {getInstallCommandForPath} from './package-manager'
 
 /**
@@ -81,7 +80,7 @@ export async function installOwnDependencies(
     const stdio =
       process.env.EXTENSION_AUTHOR_MODE === 'true' ? 'inherit' : 'ignore'
 
-    console.log(`Installing build dependencies: ${dependencies.join(', ')}`)
+    console.log(messages.installingBuildDependencies(dependencies))
 
     const child = spawn(command, installArgs, {stdio})
 
@@ -90,7 +89,11 @@ export async function installOwnDependencies(
         if (code !== 0) {
           reject(
             new Error(
-              `Failed to install build dependencies: ${command} ${installArgs.join(' ')} (exit code ${code})`
+              messages.buildDependenciesInstallFailed(
+                command,
+                installArgs,
+                code
+              )
             )
           )
         } else {
@@ -99,16 +102,13 @@ export async function installOwnDependencies(
       })
 
       child.on('error', (error) => {
-        reject(
-          new Error(`Failed to install build dependencies: ${error.message}`)
-        )
+        reject(error)
       })
     })
   } catch (error: any) {
-    console.error(`Error installing build dependencies: ${error.message}`)
+    console.error(messages.buildDependenciesInstallError(error))
     console.error(
-      'Please install the following dependencies manually:',
-      dependencies.map((dep) => `  ${dep}@${dependenciesMap[dep]}`).join('\n')
+      messages.buildDependenciesManualInstall(dependencies, dependenciesMap)
     )
     process.exit(1)
   } finally {
