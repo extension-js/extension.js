@@ -8,8 +8,8 @@
 
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import {detect} from 'package-manager-detector'
 import * as messages from './messages'
+import {detectPackageManagerFromEnv} from './package-manager'
 
 export async function copyDirectoryWithSymlinks(
   source: string,
@@ -71,28 +71,7 @@ export async function moveDirectoryContents(
 }
 
 export async function getInstallCommand() {
-  const pm = await detect()
-
-  let command = 'npm'
-
-  if (process.env.npm_config_user_agent) {
-    if (process.env.npm_config_user_agent.includes('pnpm')) {
-      return 'pnpm'
-    }
-  }
-
-  switch (pm?.name) {
-    case 'yarn':
-      command = 'yarn'
-      break
-    case 'pnpm':
-      command = 'pnpm'
-      break
-    default:
-      command = 'npm'
-  }
-
-  return command
+  return detectPackageManagerFromEnv()
 }
 
 export async function isDirectoryWriteable(

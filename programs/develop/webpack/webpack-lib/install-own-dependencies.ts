@@ -9,26 +9,14 @@
 import * as path from 'path'
 import {spawn} from 'cross-spawn'
 import * as fs from 'fs'
-import {detect} from 'package-manager-detector'
 import {loadBuildDependencies} from './check-build-dependencies'
+import {getInstallCommandForPath} from './package-manager'
 
 /**
  * Get the install command based on lockfiles and package manager detection
  */
 async function getInstallCommand(packageRoot: string): Promise<string> {
-  const hasPnpmLock = fs.existsSync(path.join(packageRoot, 'pnpm-lock.yaml'))
-  const hasYarnLock = fs.existsSync(path.join(packageRoot, 'yarn.lock'))
-  const hasNpmLock = fs.existsSync(path.join(packageRoot, 'package-lock.json'))
-
-  if (hasPnpmLock) return 'pnpm'
-  if (hasYarnLock) return 'yarn'
-  if (hasNpmLock) return 'npm'
-
-  // Fall back to detector
-  const pm = await detect({cwd: packageRoot})
-  if (pm?.name === 'yarn') return 'yarn'
-  if (pm?.name === 'pnpm') return 'pnpm'
-  return 'npm'
+  return getInstallCommandForPath(packageRoot)
 }
 
 /**

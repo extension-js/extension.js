@@ -9,7 +9,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import colors from 'pintor'
-import {detect} from 'package-manager-detector'
+import {detectPackageManagerFromEnv} from './package-manager'
 
 const statusPrefix = colors.brightBlue('►►►')
 
@@ -69,12 +69,12 @@ export async function successfullInstall(
   depsInstalled: boolean
 ) {
   const relativePath = path.relative(process.cwd(), projectPath)
-  const pm = await detect()
+  const pm = detectPackageManagerFromEnv()
 
   let command = 'npm run'
   let installCmd = 'npm install'
 
-  switch (pm?.name) {
+  switch (pm) {
     case 'yarn':
       command = 'yarn dev'
       installCmd = 'yarn'
@@ -86,14 +86,6 @@ export async function successfullInstall(
     default:
       command = 'npm run dev'
       installCmd = 'npm install'
-  }
-
-  // pnpx
-  if (process.env.npm_config_user_agent) {
-    if (process.env.npm_config_user_agent.includes('pnpm')) {
-      command = 'pnpm dev'
-      installCmd = 'pnpm install'
-    }
   }
 
   const steps = depsInstalled

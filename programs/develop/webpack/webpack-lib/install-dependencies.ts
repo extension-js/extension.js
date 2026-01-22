@@ -9,26 +9,13 @@
 import * as path from 'path'
 import {spawn} from 'cross-spawn'
 import * as fs from 'fs'
-import {detect} from 'package-manager-detector'
 import * as messages from './messages'
+import {getInstallCommandForPath} from './package-manager'
 
 export async function getInstallCommand() {
   // Prefer explicit lockfiles in the current working directory
   // (we chdir(projectPath) before calling this)
-  const cwd = process.cwd()
-  const hasPnpmLock = fs.existsSync(path.join(cwd, 'pnpm-lock.yaml'))
-  const hasYarnLock = fs.existsSync(path.join(cwd, 'yarn.lock'))
-  const hasNpmLock = fs.existsSync(path.join(cwd, 'package-lock.json'))
-
-  if (hasPnpmLock) return 'pnpm'
-  if (hasYarnLock) return 'yarn'
-  if (hasNpmLock) return 'npm'
-
-  // Fall back to detector (environment/global defaults)
-  const pm = await detect({cwd})
-  if (pm?.name === 'yarn') return 'yarn'
-  if (pm?.name === 'pnpm') return 'pnpm'
-  return 'npm'
+  return getInstallCommandForPath(process.cwd())
 }
 
 function getInstallArgs() {
