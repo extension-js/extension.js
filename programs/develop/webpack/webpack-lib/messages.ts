@@ -131,6 +131,42 @@ export function installingRequiredDependencies() {
   return `${getLoggingPrefix('info')} Installing required dependencies...`
 }
 
+export function installingBuildDependencies(dependencies: string[]) {
+  const list = dependencies.map((dep) => colors.gray(dep)).join(', ')
+  return `${getLoggingPrefix('info')} Installing build dependencies: ${list}`
+}
+
+export function buildDependenciesInstallFailed(
+  command: string,
+  args: string[],
+  code: number | null
+) {
+  return (
+    `${getLoggingPrefix('error')} Failed to install build dependencies.\n` +
+    `${colors.gray(command)} ${colors.gray(args.join(' '))}\n` +
+    `${colors.red(`exit code ${colors.gray(String(code))}`)}`
+  )
+}
+
+export function buildDependenciesInstallError(error: any) {
+  return `${getLoggingPrefix('error')} Error installing build dependencies.\n${colors.red(
+    String(error?.message || error)
+  )}`
+}
+
+export function buildDependenciesManualInstall(
+  dependencies: string[],
+  dependenciesMap: Record<string, string>
+) {
+  const list = dependencies
+    .map((dep) => `- ${colors.gray(`${dep}@${dependenciesMap[dep]}`)}`)
+    .join('\n')
+  return (
+    `${getLoggingPrefix('warn')} Please install the following build dependencies manually:\n` +
+    `${list}`
+  )
+}
+
 export function dependenciesInstalledRunAgain() {
   return `${getLoggingPrefix(
     'success'

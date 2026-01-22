@@ -50,6 +50,15 @@ function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
   return undefined
 }
 
+function getLogPrefix(type: 'info' | 'error') {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    const base = type === 'error' ? 'ERROR Author says' : '►►► Author says'
+    return colors.brightMagenta(base)
+  }
+
+  return type === 'error' ? colors.red('ERROR') : colors.gray('►►►')
+}
+
 async function resolvePackageManager(): Promise<DetectedPackageManager> {
   const envPm = getPackageManagerFromEnv()
   if (envPm) return envPm
@@ -97,7 +106,7 @@ function formatToolingLabel(
 ) {
   const list =
     integrations && integrations.length > 0 ? integrations.join('/') : fallback
-  return `Setting up ${list} tooling...`
+  return `${getLogPrefix('info')} Setting up ${list} tooling...`
 }
 
 export async function installOptionalDependencies(
@@ -123,7 +132,11 @@ export async function installOptionalDependencies(
       )
     }
   } catch (error) {
-    console.error(`[${integration}] Failed to install dependencies.`, error)
+    console.error(
+      `${getLogPrefix('error')} [${integration}] Failed to install dependencies.\n${colors.red(
+        String((error as Error)?.message || error)
+      )}`
+    )
   }
 }
 
@@ -151,7 +164,11 @@ export async function installOptionalDependenciesBatch(
       )
     }
   } catch (error) {
-    console.error(`[${integration}] Failed to install dependencies.`, error)
+    console.error(
+      `${getLogPrefix('error')} [${integration}] Failed to install dependencies.\n${colors.red(
+        String((error as Error)?.message || error)
+      )}`
+    )
   }
 }
 

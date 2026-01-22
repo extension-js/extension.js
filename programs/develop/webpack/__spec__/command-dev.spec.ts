@@ -83,7 +83,15 @@ describe('webpack/command-dev', () => {
       '/proj',
       '/proj'
     )
-    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalled()
+    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalledWith(
+      expect.any(Object),
+      'development',
+      expect.objectContaining({
+        skipProjectInstall: false,
+        exitOnInstall: false,
+        showRunAgainMessage: false
+      })
+    )
     expect(devServerMod.devServer).toHaveBeenCalledWith(
       expect.any(Object),
       expect.objectContaining({mode: 'development', browser: 'chrome'})

@@ -50,6 +50,16 @@ describe('webpack/command-start', () => {
   it('composes build (silent) then preview from dist/<browser> and merges options', async () => {
     await extensionStart('/proj/dir', {browser: 'chrome', some: 'x'} as any)
 
+    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalledWith(
+      expect.any(Object),
+      'development',
+      expect.objectContaining({
+        skipProjectInstall: false,
+        exitOnInstall: false,
+        showRunAgainMessage: false
+      })
+    )
+
     expect(buildMod.extensionBuild).toHaveBeenCalledWith(
       '/proj/dir',
       expect.objectContaining({

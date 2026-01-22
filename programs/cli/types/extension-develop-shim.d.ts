@@ -30,6 +30,7 @@ declare module 'extension-develop' {
     zipSource?: boolean
     zipFilename?: string
     silent?: boolean
+    install?: boolean
   }
 
   export interface DevOptions {
@@ -49,6 +50,7 @@ declare module 'extension-develop' {
     logColor?: boolean
     logUrl?: string
     logTab?: string | number
+    install?: boolean
   }
 
   export interface PreviewOptions extends DevOptions {}

@@ -125,6 +125,7 @@ export interface DevOptions extends BrowserOptionsBase {
   mode: 'development' | 'production' | 'none'
   polyfill?: boolean
   port?: string | number | undefined
+  install?: boolean
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
@@ -164,6 +165,10 @@ export interface BuildOptions {
   zipSource?: boolean
   polyfill?: boolean
   silent?: boolean
+  /**
+   * [internal] Auto-install project dependencies when missing.
+   */
+  install?: boolean
   // When true, treat warnings as build failures
   failOnWarning?: boolean
   // When false, extensionBuild rejects on error instead of exiting the process.
@@ -206,6 +211,10 @@ export interface StartOptions extends BrowserOptionsBase {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  /**
+   * [internal] Auto-install project dependencies when missing.
+   */
+  install?: boolean
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
   // Source inspection options (parity with DevOptions)

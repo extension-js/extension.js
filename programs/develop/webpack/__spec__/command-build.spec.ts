@@ -159,7 +159,15 @@ describe('webpack/command-build', () => {
     ;(rspackMod as any).rspack.mockReturnValue(makeCompiler(stats))
 
     await extensionBuild('/proj', {browser: 'chrome', silent: true})
-    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalled()
+    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalledWith(
+      expect.any(Object),
+      'production',
+      expect.objectContaining({
+        skipProjectInstall: false,
+        exitOnInstall: false,
+        showRunAgainMessage: false
+      })
+    )
   })
 
   it('does not install dependencies in vitest mode and rejects instead of exiting when exitOnError=false', async () => {
@@ -181,6 +189,14 @@ describe('webpack/command-build', () => {
       })
     ).rejects.toThrow(/Build failed with errors/)
 
-    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalled()
+    expect(depsManagerMod.ensureProjectReady).toHaveBeenCalledWith(
+      expect.any(Object),
+      'production',
+      expect.objectContaining({
+        skipProjectInstall: true,
+        exitOnInstall: false,
+        showRunAgainMessage: false
+      })
+    )
   })
 })

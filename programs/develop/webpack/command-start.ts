@@ -22,17 +22,16 @@ export async function extensionStart(
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
 
   try {
-    const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    const depsResult = await ensureProjectReady(
-      projectStructure,
-      'development',
-      {
-        skipProjectInstall: !projectStructure.packageJsonPath,
-        exitOnInstall: true
-      }
-    )
+    const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const debug = isAuthor
+    const shouldInstallProjectDeps = !isAuthor || startOptions.install !== false
 
-    if (depsResult.installed) return
+    await ensureProjectReady(projectStructure, 'development', {
+      skipProjectInstall:
+        !projectStructure.packageJsonPath || !shouldInstallProjectDeps,
+      exitOnInstall: false,
+      showRunAgainMessage: false
+    })
 
     const browser = normalizeBrowser(
       startOptions.browser || 'chrome',
