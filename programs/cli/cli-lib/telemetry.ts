@@ -30,6 +30,13 @@ type CommonProps = {
   schema_version: number
 }
 
+type TelemetryStorage = {
+  telemetryDir: string
+  auditFile: string
+  idFile: string
+  consentFile: string
+}
+
 function isCI(): boolean {
   const v = process.env
   return Boolean(
@@ -53,29 +60,88 @@ function configDir(): string {
   return path.join(os.homedir(), '.config', 'extensionjs')
 }
 
-function ensureDir(p: string) {
-  if (fs.existsSync(p)) return
+function cacheDir(): string | null {
+  const xdg = process.env.XDG_CACHE_HOME
+  if (xdg) return path.join(xdg, 'extensionjs')
 
-  fs.mkdirSync(p, {recursive: true})
+  if (process.platform === 'win32') {
+    const base = process.env.LOCALAPPDATA || process.env.APPDATA
+    if (base) return path.join(base, 'extensionjs', 'Cache')
+  }
+
+  if (process.platform === 'darwin') {
+    return path.join(os.homedir(), 'Library', 'Caches', 'extensionjs')
+  }
+
+  return null
+}
+
+function ensureDir(p: string): boolean {
+  try {
+    if (fs.existsSync(p)) return true
+    fs.mkdirSync(p, {recursive: true})
+    return true
+  } catch {
+    return false
+  }
+}
+
+function ensureWritableDir(p: string): boolean {
+  if (!ensureDir(p)) return false
+  try {
+    fs.accessSync(p, fs.constants.W_OK)
+    const probe = path.join(p, `.write-test-${process.pid}-${Date.now()}`)
+    fs.writeFileSync(probe, 'ok', 'utf8')
+    fs.unlinkSync(probe)
+    return true
+  } catch {
+    return false
+  }
 }
 
 function loadOrCreateId(file: string): string {
-  if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
+  try {
+    if (fs.existsSync(file)) return fs.readFileSync(file, 'utf8').trim()
+  } catch {
+    // ignore read errors and fall back to generating a new id
+  }
 
   const id = crypto.randomUUID()
 
-  ensureDir(path.dirname(file))
-  fs.writeFileSync(file, id, 'utf8')
+  if (ensureDir(path.dirname(file))) {
+    try {
+      fs.writeFileSync(file, id, 'utf8')
+    } catch {
+      // ignore write errors and return ephemeral id
+    }
+  }
 
   return id
 }
 
-function auditFilePath(): string {
-  const dir = path.join(configDir(), 'telemetry')
+function telemetryCandidates(): string[] {
+  const candidates = [
+    configDir(),
+    cacheDir(),
+    path.join(os.tmpdir(), 'extensionjs'),
+    path.join(process.cwd(), '.cache', 'extensionjs')
+  ].filter(Boolean) as string[]
 
-  ensureDir(dir)
+  return Array.from(new Set(candidates))
+}
 
-  return path.join(dir, 'events.jsonl')
+function resolveTelemetryStorage(): TelemetryStorage | null {
+  for (const base of telemetryCandidates()) {
+    const telemetryDir = path.join(base, 'telemetry')
+    if (!ensureWritableDir(telemetryDir)) continue
+    return {
+      telemetryDir,
+      auditFile: path.join(telemetryDir, 'events.jsonl'),
+      idFile: path.join(telemetryDir, 'anonymous-id'),
+      consentFile: path.join(telemetryDir, 'consent')
+    }
+  }
+  return null
 }
 
 const DEFAULT_FLUSH_AT = Number(process.env.EXTENSION_TELEMETRY_FLUSH_AT || 10)
@@ -93,6 +159,7 @@ export class Telemetry {
   private disabled: boolean
   private apiKey?: string
   private host?: string
+  private storage: TelemetryStorage | null = null
   private buffer: Array<{
     event: string
     properties: Record<string, unknown>
@@ -107,8 +174,12 @@ export class Telemetry {
     // When telemetry is disabled, avoid creating or reading any identifiers
     this.anonId = 'disabled'
     if (!this.disabled) {
-      const idFile = path.join(configDir(), 'telemetry', 'anonymous-id')
-      this.anonId = loadOrCreateId(idFile)
+      this.storage = resolveTelemetryStorage()
+      if (!this.storage) {
+        this.disabled = true
+      } else {
+        this.anonId = loadOrCreateId(this.storage.idFile)
+      }
     }
 
     this.common = {
@@ -126,22 +197,24 @@ export class Telemetry {
 
     // First-run consent marker (non-blocking, no prompt here; just record anonymous opt-in once)
     // Only record consent when telemetry is enabled.
-    if (!this.disabled) {
-      const consentPath = path.join(configDir(), 'telemetry', 'consent')
-
-      if (!fs.existsSync(consentPath)) {
-        fs.writeFileSync(consentPath, 'ok', 'utf8')
-        this.track('cli_telemetry_consent', {value: 'implicit_opt_in'})
-
-        console.log(
-          `${colors.gray('►►►')} Telemetry is enabled for Extension.js. To opt out, run with --no-telemetry. Learn more in TELEMETRY.md.`
-        )
+    if (!this.disabled && this.storage) {
+      const consentPath = this.storage.consentFile
+      try {
+        if (!fs.existsSync(consentPath)) {
+          fs.writeFileSync(consentPath, 'ok', 'utf8')
+          this.track('cli_telemetry_consent', {value: 'implicit_opt_in'})
+          console.log(
+            `${colors.gray('►►►')} Telemetry is enabled for Extension.js. To opt out, run with --no-telemetry. Learn more in TELEMETRY.md.`
+          )
+        }
+      } catch {
+        // swallow — best-effort consent marker
       }
     }
   }
 
   track(event: string, props: Record<string, unknown> = {}) {
-    if (this.disabled) return
+    if (this.disabled || !this.storage) return
 
     const payload = {
       event,
@@ -150,7 +223,13 @@ export class Telemetry {
       distinct_id: this.anonId
     }
 
-    fs.appendFileSync(auditFilePath(), JSON.stringify(payload) + '\n')
+    try {
+      fs.appendFileSync(this.storage.auditFile, JSON.stringify(payload) + '\n')
+    } catch {
+      // Stop telemetry if we can no longer write locally
+      this.disabled = true
+      return
+    }
 
     if (this.debug) {
       // eslint-disable-next-line no-console

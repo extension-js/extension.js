@@ -1,8 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {execSync, spawnSync} from 'node:child_process'
-import crypto from 'node:crypto'
+import {spawnSync} from 'node:child_process'
 
 function cliRoot(): string {
   return path.resolve(__dirname, '..')
@@ -13,14 +12,16 @@ function cliBin(): string {
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 
-function auditFile(): string {
-  const xdg = process.env.XDG_CONFIG_HOME
-  const base = xdg
-    ? path.join(xdg, 'extensionjs')
-    : process.platform === 'win32' && process.env.APPDATA
-      ? path.join(process.env.APPDATA!, 'extensionjs')
-      : path.join(os.homedir(), '.config', 'extensionjs')
-  return path.join(base, 'telemetry', 'events.jsonl')
+function canWrite(dir: string): boolean {
+  try {
+    fs.mkdirSync(dir, {recursive: true})
+    const probe = path.join(dir, `.write-test-${Date.now()}`)
+    fs.writeFileSync(probe, 'ok', 'utf8')
+    fs.unlinkSync(probe)
+    return true
+  } catch {
+    return false
+  }
 }
 
 it('runs successfully even without PostHog keys (local audit allowed)', () => {
@@ -39,4 +40,33 @@ it('runs successfully even without PostHog keys (local audit allowed)', () => {
     stdio: 'ignore'
   })
   expect(r.error).toBeUndefined()
+}, 120000)
+
+it('falls back to cache when config path is unwritable', () => {
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cli-'))
+  const configHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-config-'))
+  const cacheHome = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+
+  try {
+    fs.chmodSync(configHome, 0o500)
+  } catch {
+    // best-effort on platforms that ignore chmod (e.g. Windows)
+  }
+
+  const configWritable = canWrite(configHome)
+
+  const r = spawnSync(process.execPath, [cliBin(), '--version'], {
+    cwd: work,
+    env: {
+      ...process.env,
+      XDG_CONFIG_HOME: configHome,
+      XDG_CACHE_HOME: cacheHome,
+      EXTENSION_PUBLIC_POSTHOG_KEY: '',
+      EXTENSION_PUBLIC_POSTHOG_HOST: ''
+    },
+    stdio: 'ignore'
+  })
+
+  expect(r.error).toBeUndefined()
+  expect(r.status).toBe(0)
 }, 120000)
