@@ -93,24 +93,29 @@ jobs:
           git push
           git push --tags
 
-      - name: Extract changelog notes
+      - name: Generate release notes from git history
         id: changelog
         run: |
-          awk '
-            BEGIN {found=0}
-            /^## Unreleased$/ {found=1; next}
-            /^## / && found {exit}
-            found {print}
-          ' CHANGELOG.md > /tmp/changelog.txt
-          if [ ! -s /tmp/changelog.txt ]; then
-            echo "CHANGELOG.md has no entries under ## Unreleased" >&2
-            exit 1
+          set -euo pipefail
+          last_tag=$(git tag --list 'v*' --sort=-v:refname | grep -E 'v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
+
+          if [ -n "$last_tag" ]; then
+            range="$last_tag..HEAD"
+          else
+            range="HEAD"
           fi
+
+          notes=$(git log $range --no-merges --pretty=format:'- %s (%h)')
+          if [ -z "$notes" ]; then
+            notes="- No changes listed."
+          fi
+
           {
             echo "notes<<EOF"
-            cat /tmp/changelog.txt
+            echo "$notes"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
+          echo "from_tag=$last_tag" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: actions/github-script@v7
@@ -139,25 +144,27 @@ jobs:
               prerelease: process.env.CHANNEL === 'next'
             });
 
-      - name: Update changelog for release
+      - name: Update changelog for stable release
+        if: ${{ inputs.channel == 'stable' }}
         env:
           VERSION: ${{ steps.validate.outputs.version }}
+          RELEASE_NOTES: ${{ steps.changelog.outputs.notes }}
         run: |
           node -e "
             const fs = require('fs');
             const version = process.env.VERSION;
             const path = 'CHANGELOG.md';
+            const releaseNotes = (process.env.RELEASE_NOTES || '').trim() || '- No changes listed.';
             const text = fs.readFileSync(path, 'utf8');
             const header = '## Unreleased';
-            const start = text.indexOf(header);
+            const withHeader = text.includes(header) ? text : header + '\\n\\n' + text;
+            const start = withHeader.indexOf(header);
             if (start === -1) { throw new Error('CHANGELOG.md missing ## Unreleased section'); }
             const afterHeader = start + header.length;
-            let nextHeader = text.indexOf('\\n## ', afterHeader);
-            if (nextHeader === -1) nextHeader = text.length;
-            const notes = text.slice(afterHeader, nextHeader).trim();
-            if (!notes) { throw new Error('CHANGELOG.md has no entries under ## Unreleased'); }
-            const before = text.slice(0, start);
-            const after = text.slice(nextHeader).replace(/^\\s+/, '');
+            let nextHeader = withHeader.indexOf('\\n## ', afterHeader);
+            if (nextHeader === -1) nextHeader = withHeader.length;
+            const before = withHeader.slice(0, start);
+            const after = withHeader.slice(nextHeader).replace(/^\\s+/, '');
             const date = new Intl.DateTimeFormat('en-US', {
               month: 'long',
               day: 'numeric',
@@ -168,15 +175,19 @@ jobs:
               before,
               '## Unreleased\\n\\n',
               `## ${version} (${date})\\n\\n`,
-              notes,
+              releaseNotes,
               '\\n\\n',
               after
             ].join('');
             fs.writeFileSync(path, updated);
           "
           git add CHANGELOG.md
-          git commit -m "chore(release): move changelog to v${{ steps.validate.outputs.version }}"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): move changelog to v${{ steps.validate.outputs.version }}"
+            git push
+          else
+            echo "No changelog updates to commit."
+          fi
 
       - name: Prepare publish-only dependency rewrite (extension -> packages)
         env:
