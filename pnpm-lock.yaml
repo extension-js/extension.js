@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  tar: 7.5.6
   vite: ^7.3.1
   vitest: 4.0.17
   js-yaml@^3: 3.14.2
@@ -7117,8 +7118,8 @@ packages:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}
     engines: {node: '>=6'}
 
-  tar@7.5.3:
-    resolution: {integrity: sha512-ENg5JUHUm2rDD7IvKNFGzyElLXNjachNLp6RaGf4+JOgxXHkqA+gq81ZAMCUmtMtqBsoU62lcp6S27g1LCYGGQ==}
+  tar@7.5.6:
+    resolution: {integrity: sha512-xqUeu2JAIJpXyvskvU3uvQW8PAmHrtXp2KDuMJwQqW8Sqq0CaZBAQ+dKS3RBXVhU4wC5NjAdKrmh84241gO9cA==}
     engines: {node: '>=18'}
 
   term-size@2.2.1:
@@ -13942,7 +13943,7 @@ snapshots:
     dependencies:
       global-agent: 3.0.0
       onnxruntime-common: 1.21.0
-      tar: 7.5.3
+      tar: 7.5.6
 
   onnxruntime-web@1.22.0-dev.20250409-89f8206ba4:
     dependencies:
@@ -15406,7 +15407,7 @@ snapshots:
 
   tapable@2.3.0: {}
 
-  tar@7.5.3:
+  tar@7.5.6:
     dependencies:
       '@isaacs/fs-minipass': 4.0.1
       chownr: 3.0.0
