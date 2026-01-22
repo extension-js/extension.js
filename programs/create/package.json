@@ -71,7 +71,6 @@
     "axios": "^1.13.2",
     "cross-spawn": "^7.0.6",
     "go-git-it": "^5.0.3",
-    "package-manager-detector": "^1.6.0",
     "pintor": "0.3.0",
     "tiny-glob": "^0.2.9"
   },
