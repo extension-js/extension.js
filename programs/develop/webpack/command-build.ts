@@ -150,8 +150,11 @@ export async function extensionBuild(
 
     return summary
   } catch (error) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    if (isAuthor) {
       console.error(error)
+    } else {
+      console.error(messages.buildCommandFailed(error))
     }
     if (!shouldExitOnError) {
       throw error

@@ -199,4 +199,27 @@ describe('webpack/command-build', () => {
       })
     )
   })
+
+  it('prints a build error when setup fails in non-author mode', async () => {
+    const localErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    process.env.VITEST = 'true'
+    ;(depsManagerMod.ensureProjectReady as any).mockRejectedValueOnce(
+      new Error('boom')
+    )
+
+    await expect(
+      extensionBuild('/proj', {
+        browser: 'chrome',
+        silent: true,
+        exitOnError: false
+      })
+    ).rejects.toThrow(/boom/)
+
+    expect(localErrorSpy).toHaveBeenCalled()
+    const message = String(localErrorSpy.mock.calls[0]?.[0] || '')
+    expect(message).toContain('Build failed')
+    expect(message).toContain('boom')
+  })
 })
