@@ -65,58 +65,36 @@ Extension.js calls your default export and expects a cleanup function (or `void`
 - `export default async function main()` will be **called**, but it returns a `Promise`, so Extension.js cannot treat it as a cleanup callback.
 - Unhandled rejections from that `Promise` are not automatically captured by the wrapper.
 
-Recommended pattern: keep the default export synchronous, start async work inside it, and return a synchronous cleanup (e.g. using `AbortController`):
+Recommended pattern: keep the default export synchronous, start async work inside it, and return a synchronous cleanup:
 
-Copy/paste template (common async scenarios)
+Copy/paste template (simple async pattern)
 
 ```ts
 export default function main() {
-  // Names used below:
-  // - `main`: your synchronous entrypoint (default export)
-  // - `abortController`: used to cancel async work on cleanup
-  // - `cleanupCallbacks`: list of cleanup callbacks (sockets, observers, DOM, etc.)
-  // - `registerCleanup(callback)`: helper to register cleanup callbacks
-  // - `startAsyncWork()`: async function that runs your async work (invoked via `void startAsyncWork()`)
-  // - `runAsyncWork({signal, registerCleanup})`: YOUR async implementation (replace this)
-  const abortController = new AbortController()
-  const cleanupCallbacks: Array<() => void> = []
+  const controller = new AbortController()
+  const cleanups: Array<() => void> = []
 
-  const registerCleanup = (callback: () => void) => {
-    cleanupCallbacks.push(callback)
-    return callback
-  }
+  const addCleanup = (fn: () => void) => (cleanups.push(fn), fn)
 
-  const startAsyncWork = async () => {
-    try {
-      await runAsyncWork({signal: abortController.signal, registerCleanup})
-    } catch (error) {
-      if (!abortController.signal.aborted) {
-        console.warn('[content-script] async failed', error)
-      }
-    }
-  }
-
-  startAsyncWork()
+  void run({signal: controller.signal, addCleanup})
 
   return () => {
-    abortController.abort()
-    for (const cleanupCallback of cleanupCallbacks.splice(0)) {
-      cleanupCallback()
-    }
+    controller.abort()
+    cleanups.splice(0).forEach((fn) => fn())
   }
 }
 ```
 
-Best practice: inside `runAsyncWork`, actively honor cancellation:
+Best practice: inside `run`, honor cancellation:
 
 - Pass `signal` to async APIs that support it (e.g. `fetch`).
-- Between `await`s, consider `if (signal.aborted) return` to stop work early.
-- For APIs without `signal`, register cleanup and/or hook `signal.addEventListener('abort', ...)`.
+- Between `await`s, exit early when `signal.aborted` is true.
+- For APIs without `signal`, register cleanup or add an abort listener.
 
 If you want AI help, paste this prompt:
 
 ```txt
-Take this Extension.js content script template and replace `runAsyncWork` with my use-case. Keep the default export synchronous. Use `abortController.signal` for cancellation, use `registerCleanup` for side effects, and avoid unhandled promise rejections. My async behavior is: <describe it>.
+Replace `run` with my async logic. Keep the default export synchronous. Use the provided `signal` for cancellation and `addCleanup` for side effects. My async behavior is: <describe it>.
 ```
 
 Why: during development, Extension.js will **re-run** your module multiple times. Without cleanup, it’s easy to end up with duplicated UI, leaked event listeners, and inconsistent state.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Inlined package manager detection to avoid ESM/CJS interop failures during CLI builds.
+
 ## 3.1.1 (January 19, 2026)
 
 - Added `--source`, `--watch-source`, and `--source-raw` for full HTML capture; URL validation now has clearer errors.
