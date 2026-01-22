@@ -9,7 +9,12 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
-import {vendors, validateVendorsOrExit, type Browser} from '../utils'
+import {
+  vendors,
+  validateVendorsOrExit,
+  type Browser,
+  parseOptionalBoolean
+} from '../utils'
 import {
   normalizeSourceOption,
   parseLogContexts
@@ -32,6 +37,7 @@ type DevOptions = {
   logColor?: boolean
   logUrl?: string
   logTab?: string | number
+  install?: boolean
 }
 
 export function registerDevCommand(program: Command, telemetry: any) {
@@ -94,6 +100,11 @@ export function registerDevCommand(program: Command, telemetry: any) {
     .option(
       '--source [url]',
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
+    )
+    .option(
+      '--install [boolean]',
+      '[internal] install project dependencies when missing',
+      parseOptionalBoolean
     )
     .option(
       '--author, --author-mode',
@@ -163,6 +174,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
           startingUrl: devOptions.startingUrl,
           source: devOptions.source,
           watchSource: devOptions.watchSource,
+          install: devOptions.install,
           logLevel: (logsOption || devOptions.logLevel || 'off') as any,
           logContexts: parseLogContexts(logContextOption),
           logFormat: devOptions.logFormat || 'pretty',
