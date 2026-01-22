@@ -9,7 +9,12 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
-import {vendors, validateVendorsOrExit, type Browser} from '../utils'
+import {
+  vendors,
+  validateVendorsOrExit,
+  type Browser,
+  parseOptionalBoolean
+} from '../utils'
 
 type BuildOptions = {
   browser?: Browser | 'all'
@@ -18,6 +23,7 @@ type BuildOptions = {
   zipSource?: boolean
   zipFilename?: string
   silent?: boolean
+  install?: boolean
 }
 
 export function registerBuildCommand(program: Command, telemetry: any) {
@@ -49,6 +55,11 @@ export function registerBuildCommand(program: Command, telemetry: any) {
     .option(
       '--silent [boolean]',
       'whether or not to open the browser automatically. Defaults to `false`'
+    )
+    .option(
+      '--install [boolean]',
+      '[internal] install project dependencies when missing',
+      parseOptionalBoolean
     )
     .option(
       '--author, --author-mode',
@@ -92,7 +103,8 @@ export function registerBuildCommand(program: Command, telemetry: any) {
           zip: buildOptions.zip,
           zipSource: buildOptions.zipSource,
           zipFilename: buildOptions.zipFilename,
-          silent: buildOptions.silent
+          silent: buildOptions.silent,
+          install: buildOptions.install
         })
         telemetry.track('cli_build_summary', {
           ...buildSummary
