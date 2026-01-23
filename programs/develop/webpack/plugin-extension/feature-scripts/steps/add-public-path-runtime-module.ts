@@ -19,7 +19,15 @@ const basic = [
 
 const weakRuntimeCheck = [
   ...basic,
-  `var runtime = isBrowser ? browser : isChrome ? chrome : (typeof self === 'object' && self.addEventListener) ? { get runtime() { throw new Error("No chrome or browser runtime found") } } : { runtime: { getURL: x => x } }`
+  // IMPORTANT: In MAIN world content scripts (and other non-extension pages),
+  // extension APIs are not present. The runtime module must not throw during
+  // initialization, because other generated runtime code may probe it eagerly.
+  //
+  // We intentionally avoid the upstream "throwing getter" here. When no runtime
+  // is present we provide a minimal `{ runtime: { getURL } }` shim that returns
+  // the input path unchanged, and the publicPath assignment below already guards
+  // on `(isBrowser || isChrome)` before using `runtime.runtime.getURL(...)`.
+  `var runtime = isBrowser ? browser : isChrome ? chrome : { runtime: { getURL: x => x } }`
 ]
 
 export class AddPublicPathRuntimeModule {
