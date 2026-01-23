@@ -22,9 +22,14 @@ export default class DevServerConfigPlugin {
     setDefault(devServer.client, 'overlay', false)
     // Progress is annoying in console.
     setDefault(devServer.client, 'progress', false)
-    // In content script loaded in https:// pages, it will try to use wss:// because of protocol detect.
+    // In content scripts loaded in https:// pages, it will try to use wss:// because of protocol detect.
+    // Also: if host/port are not set, the client may fall back to the page's host/port, which can
+    // collide with user apps (e.g. localhost:8080) and produce "Upgrade Required" responses.
     setDefault(devServer.client, 'webSocketURL', {protocol: 'ws'})
     setDefault(devServer.client.webSocketURL, 'protocol', 'ws')
+    // Prefer explicit host/port when available on devServer.
+    if (devServer.host) setDefault(devServer.client.webSocketURL, 'hostname', devServer.host)
+    if (devServer.port) setDefault(devServer.client.webSocketURL, 'port', devServer.port)
 
     // HMR requires CORS requests in content scripts.
     setDefault(devServer, 'allowedHosts', 'all')
