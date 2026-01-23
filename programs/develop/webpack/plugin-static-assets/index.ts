@@ -51,6 +51,17 @@ export class StaticAssetsPlugin {
       )
     })
 
+    // Check if any existing rule handles font files.
+    // This allows users to opt into `asset/inline` for strict CSP pages
+    // (e.g. Firefox content scripts where moz-extension:// font loads can be blocked).
+    const hasCustomFontsRule = compiler.options.module.rules.some((rule) => {
+      const r: any = rule as any
+      if (!r || !(r.test instanceof RegExp)) return false
+      if (!r.test.test('.woff')) return false
+      // Consider both `type`-based rules and loader-based rules as custom.
+      return r.type !== undefined || r.use !== undefined
+    })
+
     const loaders: RuleSetRule[] = [
       // Only add the default SVG rule if there's no custom SVG rule
       ...(hasCustomSvgRule ? [] : [defaultSvgRule]),
@@ -66,13 +77,18 @@ export class StaticAssetsPlugin {
           }
         }
       },
-      {
-        test: /\.(woff|woff2|eot|ttf|otf)$/i,
-        type: 'asset',
-        generator: {
-          filename: filenamePattern
-        }
-      },
+      // Only add the default fonts rule if there's no custom fonts rule
+      ...(hasCustomFontsRule
+        ? []
+        : [
+            {
+              test: /\.(woff|woff2|eot|ttf|otf)$/i,
+              type: 'asset',
+              generator: {
+                filename: filenamePattern
+              }
+            }
+          ]),
       {
         test: /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i,
         type: 'asset',
