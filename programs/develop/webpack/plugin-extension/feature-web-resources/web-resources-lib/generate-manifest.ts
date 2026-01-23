@@ -376,6 +376,67 @@ export function generateManifestPatches(
     }
   }
 
+  // Last-resort fallback: expose emitted font files (e.g. `fonts/*.woff2` copied from public/)
+  // to the union of content_scripts matches. This covers common patterns like:
+  // - `public/fonts/MyFont.woff2` copied to output as `fonts/MyFont.woff2`
+  // - CSS referencing `url("/fonts/MyFont.woff2")` (which will NOT be bundled into `assets/`)
+  //
+  // We intentionally exclude files already emitted under `assets/` (bundled) or `content_scripts/`.
+  const fontExtRe = /\.(woff2?|eot|ttf|otf)$/i
+  if (manifest.manifest_version === 3) {
+    const assetKeys: string[] = Object.keys(compilation.assets || {})
+    const fontAssets = assetKeys
+      .filter((k) => fontExtRe.test(k))
+      .filter((k) => !k.startsWith('assets/'))
+      .filter((k) => !k.startsWith('content_scripts/'))
+      .sort()
+
+    if (fontAssets.length > 0) {
+      const allMatches: string[] = Array.from(
+        new Set(
+          (manifest.content_scripts || []).flatMap(
+            (cs: {matches?: string[]}) => cs.matches || []
+          )
+        )
+      )
+      const normalizedMatches = cleanMatches(allMatches)
+
+      if (normalizedMatches.length > 0) {
+        const existing = webAccessibleResourcesV3.find((entry) => {
+          const a = [...entry.matches].sort()
+          const b = [...normalizedMatches].sort()
+          return a.length === b.length && a.every((v, i) => v === b[i])
+        })
+
+        if (existing) {
+          const candidates = fontAssets.filter(
+            (r) =>
+              !existing.resources.includes(r) &&
+              !isCoveredByExistingGlobs(existing.resources, r)
+          )
+          existing.resources = Array.from(
+            new Set([...(existing.resources || []), ...candidates])
+          ).sort()
+        } else {
+          webAccessibleResourcesV3.push({
+            resources: fontAssets,
+            matches: [...normalizedMatches].sort()
+          })
+        }
+      }
+    }
+  } else if (manifest.manifest_version === 2) {
+    const assetKeys: string[] = Object.keys(compilation.assets || {})
+    const fontAssets = assetKeys.filter((k) => fontExtRe.test(k)).sort()
+    if (fontAssets.length > 0) {
+      for (const r of fontAssets) {
+        if (!webAccessibleResourcesV2.includes(r)) {
+          webAccessibleResourcesV2.push(r)
+        }
+      }
+    }
+  }
+
   // Also expose emitted CSS under content_scripts/ to the union of content_scripts matches.
   // This covers CSS imported by content scripts that end up emitted as files (e.g. styles.<hash>.css).
   if (manifest.manifest_version === 3) {

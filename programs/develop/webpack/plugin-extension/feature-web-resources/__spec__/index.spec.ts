@@ -33,6 +33,7 @@ describe('generateManifestPatches', () => {
     partialManifest: Manifest = {},
     options?: {
       mode?: 'development' | 'production'
+      extraAssets?: Record<string, string>
     }
   ) {
     const manifest = {
@@ -54,11 +55,18 @@ describe('generateManifestPatches', () => {
       manifestPath
     })
 
+    const extraAssets = options?.extraAssets || {}
     plugin['generateManifestPatches'](
       {
         getAsset: () => manifestAsset,
         assets: {
-          'manifest.json': manifestSource
+          'manifest.json': manifestSource,
+          ...Object.fromEntries(
+            Object.entries(extraAssets).map(([name, content]) => [
+              name,
+              {source: () => String(content)}
+            ])
+          )
         },
         updateAsset: updateAssetMock,
         emitAsset: emitAssetMock,
@@ -215,6 +223,34 @@ describe('generateManifestPatches', () => {
         }
       ]
     })
+  })
+
+  it('adds root-level fonts (e.g. fonts/*) to mv3 WAR when content scripts exist', () => {
+    const updated = runWith(
+      {},
+      {
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content_scripts/content-0.js']
+          }
+        ]
+      },
+      {
+        extraAssets: {
+          'fonts/DMMonoRegular.woff2': 'x'
+        }
+      }
+    )
+
+    const groups = (updated as any).web_accessible_resources as {
+      matches: string[]
+      resources: string[]
+    }[]
+    expect(groups).toBeTruthy()
+    expect(groups[0].matches).toEqual(['<all_urls>'])
+    expect(groups[0].resources).toContain('fonts/DMMonoRegular.woff2')
   })
 
   it('should correctly handle manifest v2 content scripts', () => {
