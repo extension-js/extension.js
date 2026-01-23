@@ -5,7 +5,7 @@
   "description": "Dependency graph tracking for extension-develop build/dev/start lazy deps.",
   "dependencies": {
     "@rspack/core": "^1.7.2",
-    "@rspack/dev-server": "^1.1.5",
+    "@rspack/dev-server": "^1.2.1",
     "@swc/core": "^1.15.8",
     "@swc/helpers": "^0.5.18",
     "adm-zip": "^0.5.16",
