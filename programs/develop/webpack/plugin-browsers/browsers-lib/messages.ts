@@ -942,7 +942,8 @@ export function runningInDevelopment(
   manifest: DevManifestInfo,
   browser: DevOptions['browser'],
   message: DevClientMessage,
-  browserVersionLine?: string
+  browserVersionLine?: string,
+  updateSuffix?: string
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
   const manifestName = manifest.name || 'Extension.js'
@@ -994,6 +995,7 @@ export function runningInDevelopment(
   }
   // Note: keep dynamic import here to avoid ESM JSON import issues at compile time in some bundlers
   const extensionVersion =
+    process.env.EXTENSION_DEVELOP_VERSION ||
     process.env.EXTENSION_CLI_VERSION ||
     (() => {
       try {
@@ -1091,10 +1093,12 @@ export function runningInDevelopment(
 
   const lines: string[] = []
 
+  const updateNotice = updateSuffix ? ` ${updateSuffix}` : ''
+
   lines.push(
     ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(
       `${extensionVersion}`
-    )}`,
+    )}${updateNotice}`,
     `    Browser        ${colors.gray(browserLabel)}`,
     `    Extension      ${colors.gray(
       version ? `${name} ${version}` : name || manifestName
