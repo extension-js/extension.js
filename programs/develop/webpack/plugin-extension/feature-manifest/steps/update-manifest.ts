@@ -9,15 +9,20 @@
 import {Compiler, Compilation, sources} from '@rspack/core'
 import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename} from '../manifest-lib/paths'
-import {getManifestContent} from '../manifest-lib/manifest'
-import {PluginInterface, Manifest} from '../../../webpack-types'
+import {
+  getManifestContent,
+  filterKeysForThisBrowser
+} from '../manifest-lib/manifest'
+import {PluginInterface, Manifest, DevOptions} from '../../../webpack-types'
 import * as messages from '../messages'
 
 export class UpdateManifest {
   public readonly manifestPath: string
+  public readonly browser: DevOptions['browser']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
+    this.browser = (options as any).browser || 'chrome'
   }
 
   private applyDevOverrides(overrides: Record<string, any>) {
@@ -48,11 +53,22 @@ export class UpdateManifest {
 
             const manifest = getManifestContent(compilation, this.manifestPath)
 
-            const overrides = getManifestOverrides(this.manifestPath, manifest)
+            // Apply browser-prefixed fields *before* generating overrides so that
+            // rewrite steps (e.g. background scripts / service worker paths)
+            // run against the browser-specific shape of the manifest.
+            const manifestForBrowser = filterKeysForThisBrowser(
+              manifest,
+              this.browser
+            ) as Manifest
+
+            const overrides = getManifestOverrides(
+              this.manifestPath,
+              manifestForBrowser
+            )
 
             const patchedManifest: Manifest = {
               // Preserve all uncatched user entries
-              ...manifest,
+              ...manifestForBrowser,
               ...JSON.parse(overrides)
             }
 
