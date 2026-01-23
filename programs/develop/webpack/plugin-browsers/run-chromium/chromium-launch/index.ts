@@ -111,8 +111,16 @@ export class ChromiumLaunchPlugin {
             stats.compilation.options.mode as 'development' | 'production'
           )
         )
-      } catch {
-        // fall through
+      } catch (error) {
+        // Do not swallow: otherwise users can get stuck at "compiled successfully"
+        // with no feedback when the browser fails to launch (common in WSL/CI).
+        try {
+          this.logger.error(
+            messages.browserLaunchError(this.options.browser as any, error)
+          )
+        } catch {
+          // ignore
+        }
       }
     })
   }
