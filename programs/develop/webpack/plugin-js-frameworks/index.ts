@@ -36,6 +36,13 @@ export class JsFrameworksPlugin {
     const mode = compiler.options.mode || 'development'
     const projectPath = compiler.options.context as string
 
+    // Enable SWC sourcemaps whenever the build is expected to emit sourcemaps.
+    // - In development we default to on (better DX), unless the user explicitly disables `devtool`.
+    // - In production we only enable when the user opts-in via `devtool` (e.g. "hidden-source-map").
+    const devtool = (compiler.options as any).devtool
+    const wantsSourceMaps =
+      devtool !== false && (mode === 'development' || devtool != null)
+
     const maybeInstallReact = await maybeUseReact(projectPath)
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const maybeInstallVue = await maybeUseVue(projectPath, mode)
@@ -99,7 +106,7 @@ export class JsFrameworksPlugin {
             },
             minify: mode === 'production',
             isModule: true,
-            sourceMap: this.mode === 'development',
+            sourceMap: wantsSourceMaps,
             env: {targets},
             jsc: {
               parser: {
