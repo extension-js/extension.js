@@ -54,13 +54,17 @@ export class StaticAssetsPlugin {
     // Check if any existing rule handles font files.
     // This allows users to opt into `asset/inline` for strict CSP pages
     // (e.g. Firefox content scripts where moz-extension:// font loads can be blocked).
-    const hasCustomFontsRule = compiler.options.module.rules.some((rule) => {
-      const r: any = rule as any
-      if (!r || !(r.test instanceof RegExp)) return false
-      if (!r.test.test('.woff')) return false
-      // Consider both `type`-based rules and loader-based rules as custom.
-      return r.type !== undefined || r.use !== undefined
-    })
+    const hasCustomFontsRule = compiler.options.module.rules.some(
+      (thisRule) => {
+        const rule = thisRule as RuleSetRule
+
+        if (!rule || !(rule.test instanceof RegExp)) return false
+        if (!rule.test.test('.woff')) return false
+
+        // Consider both `type`-based rules and loader-based rules as custom.
+        return rule.type !== undefined || rule.use !== undefined
+      }
+    )
 
     const loaders: RuleSetRule[] = [
       // Only add the default SVG rule if there's no custom SVG rule
