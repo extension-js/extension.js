@@ -27,7 +27,12 @@ export async function importExternalTemplate(
   const templateName = path.basename(template)
   const examplesUrl =
     'https://github.com/extension-js/examples/tree/main/examples'
-  const templateUrl = `${examplesUrl}/${template}`
+  // "init" is the canonical alias for the JavaScript starter template.
+  // Keep this mapping consistent for both local (dev) and remote (production) installs.
+  const resolvedTemplate = templateName === 'init' ? 'javascript' : template
+  const resolvedTemplateName =
+    templateName === 'init' ? 'javascript' : templateName
+  const templateUrl = `${examplesUrl}/${resolvedTemplate}`
 
   try {
     // Ensure the project path exists
@@ -62,9 +67,7 @@ export async function importExternalTemplate(
         throw new Error('Local templates directory not found')
       }
 
-      const localTemplateName =
-        templateName === 'init' ? 'javascript' : templateName
-      const localTemplatePath = path.join(localTemplatesRoot, localTemplateName)
+      const localTemplatePath = path.join(localTemplatesRoot, resolvedTemplateName)
 
       // Copy directly to project path to avoid nested directories
       await utils.copyDirectoryWithSymlinks(localTemplatePath, projectPath)
@@ -159,7 +162,7 @@ export async function importExternalTemplate(
             messages.installingFromTemplate(projectName, templateName)
           )
         )
-        const srcPath = path.join(tempPath, templateName)
+        const srcPath = path.join(tempPath, resolvedTemplateName)
         await utils.moveDirectoryContents(srcPath, projectPath)
       }
 
