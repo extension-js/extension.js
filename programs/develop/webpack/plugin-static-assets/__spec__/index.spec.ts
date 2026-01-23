@@ -115,4 +115,38 @@ describe('StaticAssetsPlugin', () => {
     // And that no default asset-type svg rule was added
     expect(svgRules[0].type).toBeUndefined()
   })
+
+  it('respects existing custom fonts rule (does not add default fonts asset rule)', async () => {
+    const compiler = createCompiler()
+    // Add a custom fonts rule (e.g. `asset/inline` for strict CSP pages)
+    compiler.options.module.rules.push({
+      test: /\.(woff|woff2|eot|ttf|otf)$/i,
+      type: 'asset/inline'
+    })
+
+    const plugin = new StaticAssetsPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+    await plugin.apply(compiler)
+
+    const rules = compiler.options.module.rules as any[]
+    const fontRules = rules.filter(
+      (r) =>
+        r?.test instanceof RegExp &&
+        String(r.test) === String(/\.(woff|woff2|eot|ttf|otf)$/i)
+    )
+
+    expect(fontRules.length).toBe(1)
+    expect(fontRules[0].type).toBe('asset/inline')
+
+    // Other default rules should still be present.
+    expect(findRuleByTest(rules, /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i)).toBeTruthy()
+    expect(
+      findRuleByTest(
+        rules,
+        /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i
+      )
+    ).toBeTruthy()
+  })
 })
