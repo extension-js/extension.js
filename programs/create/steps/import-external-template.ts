@@ -33,6 +33,8 @@ export async function importExternalTemplate(
   const resolvedTemplateName =
     templateName === 'init' ? 'javascript' : templateName
   const templateUrl = `${examplesUrl}/${resolvedTemplate}`
+  const examplesZipUrl =
+    'https://codeload.github.com/extension-js/examples/zip/refs/heads/main'
 
   try {
     // Ensure the project path exists
@@ -154,16 +156,53 @@ export async function importExternalTemplate(
         zip.extractAllTo(tempPath, true)
         await utils.moveDirectoryContents(tempPath, projectPath)
       } else {
-        // Default: built-in examples repo path
-        await withFilteredOutput(() =>
-          goGitIt(
-            templateUrl,
-            tempPath,
-            messages.installingFromTemplate(projectName, templateName)
+        // Default: built-in examples repo path.
+        // Prefer a ZIP download (no git required) to avoid flaky partial git clones on Windows.
+        const ok = await (async () => {
+          const zipExtractRoot = path.join(tempPath, 'zip-extract')
+          try {
+            const {data} = await axios.get(examplesZipUrl, {
+              responseType: 'arraybuffer',
+              maxRedirects: 5
+            })
+            const zip = new AdmZip(Buffer.from(data))
+            zip.extractAllTo(zipExtractRoot, true)
+
+            // The zip root folder name can change (e.g. "examples-main").
+            // Pick the first directory under the extraction root.
+            const entries = await fs.readdir(zipExtractRoot, {withFileTypes: true})
+            const rootDir = entries.find((e) => e.isDirectory())?.name
+            if (!rootDir) return false
+
+            const srcPath = path.join(
+              zipExtractRoot,
+              rootDir,
+              'examples',
+              resolvedTemplateName
+            )
+            await utils.moveDirectoryContents(srcPath, projectPath)
+            return true
+          } catch {
+            return false
+          } finally {
+            try {
+              await fs.rm(zipExtractRoot, {recursive: true, force: true})
+            } catch {
+              // ignore cleanup errors
+            }
+          }
+        })()
+        if (!ok) {
+          await withFilteredOutput(() =>
+            goGitIt(
+              templateUrl,
+              tempPath,
+              messages.installingFromTemplate(projectName, templateName)
+            )
           )
-        )
-        const srcPath = path.join(tempPath, resolvedTemplateName)
-        await utils.moveDirectoryContents(srcPath, projectPath)
+          const srcPath = path.join(tempPath, resolvedTemplateName)
+          await utils.moveDirectoryContents(srcPath, projectPath)
+        }
       }
 
       // Cleanup temp
