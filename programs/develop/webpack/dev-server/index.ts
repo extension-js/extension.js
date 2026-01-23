@@ -59,6 +59,14 @@ export async function devServer(
     throw new Error('Failed to create instance')
   }
 
+  const port = portAllocation.port
+  const devServerHost = '127.0.0.1'
+  const devServerWebSocketURL = {
+    protocol: 'ws',
+    hostname: devServerHost,
+    port
+  }
+
   // Get the user defined args and merge with the Extension.js base webpack config
   // Avoid overriding file-config values with undefined from CLI args
   const safeBrowserConfig = sanitize(browserConfig)
@@ -87,12 +95,26 @@ export async function devServer(
   // This way if the user define properties we don't have a default for,
   // they will be included in the final config.
   const compilerConfig = merge(finalConfig, {})
+
+  // CRITICAL: Ensure the HMR client embedded in extension scripts uses our dev-server
+  // host/port, not the current page's host/port (which can be e.g. localhost:8080).
+  ;(compilerConfig as any).devServer = {
+    ...((compilerConfig as any).devServer || {}),
+    host: devServerHost,
+    port,
+    client: {
+      ...(((compilerConfig as any).devServer || {}).client || {}),
+      webSocketURL: {
+        ...((((compilerConfig as any).devServer || {}).client || {})
+          .webSocketURL || {}),
+        ...devServerWebSocketURL
+      }
+    }
+  }
   const compiler = rspack(compilerConfig)
 
   // Surface bundler diagnostics during startup (even if start() hangs)
   setupCompilerHooks(compiler, portAllocation.port)
-
-  const port = portAllocation.port
 
   // Log port information only in verbose mode
   if (typeof devOptions.port !== 'undefined' && devOptions.port !== port) {
@@ -101,7 +123,7 @@ export async function devServer(
 
   // webpack-dev-server configuration
   const serverConfig: Configuration = {
-    host: '127.0.0.1',
+    host: devServerHost,
     allowedHosts: 'all',
     static: {
       watch: {
@@ -131,11 +153,7 @@ export async function devServer(
       logging: 'none',
       progress: false,
       overlay: false,
-      webSocketURL: {
-        protocol: 'ws',
-        hostname: '127.0.0.1',
-        port
-      }
+      webSocketURL: devServerWebSocketURL
     },
     headers: {
       'Access-Control-Allow-Origin': '*'
