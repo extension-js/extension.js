@@ -16,7 +16,10 @@ function isStableVersion(version: string) {
   return Boolean(v && v.prerelease.length === 0)
 }
 
-export default async function checkUpdates(): Promise<string | null> {
+export default async function checkUpdates(): Promise<{
+  suffix: string
+  message: string
+} | null> {
   const packageJson = getCliPackageJson()
   let update = null
 
@@ -29,7 +32,9 @@ export default async function checkUpdates(): Promise<string | null> {
   }
 
   if (update && isStableVersion(update.latest)) {
-    return messages.checkUpdates(packageJson, update)
+    if (isStableVersion(packageJson.version)) {
+      return messages.checkUpdates(packageJson, update)
+    }
   }
 
   return null

@@ -21,18 +21,28 @@ import {registerPreviewCommand} from './commands/preview'
 import {registerBuildCommand} from './commands/build'
 
 const cliPackageJson = getCliPackageJson()
-process.env.EXTENSION_CLI_VERSION = cliPackageJson.version
+
+function developVersion() {
+  try {
+    const pkg = require('extension-develop/package.json')
+    return pkg?.version || cliPackageJson.version
+  } catch {
+    return cliPackageJson.version
+  }
+}
+
+process.env.EXTENSION_DEVELOP_VERSION = developVersion()
 
 checkUpdates().then((updateMessage) => {
   if (!updateMessage) return
 
   if (process.env.EXTENSION_CLI_BANNER_PRINTED === 'true') {
     // eslint-disable-next-line no-console
-    console.log(updateMessage)
+    console.log(updateMessage.message)
     return
   }
 
-  process.env.EXTENSION_CLI_UPDATE_MESSAGE = updateMessage
+  process.env.EXTENSION_CLI_UPDATE_SUFFIX = updateMessage.suffix
 })
 
 const extensionJs = program
