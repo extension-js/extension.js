@@ -40,4 +40,23 @@ describe('Firefox profile args', () => {
     } as any)
     expect(args).toMatch(/--profile=".*firefox-profile\/dev"/)
   })
+
+  it('includes startingUrl in binary args when provided', async () => {
+    const args = await browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'firefox',
+      startingUrl: 'https://en.wikipedia.org/'
+    } as any)
+    expect(args).toContain('https://en.wikipedia.org/')
+  })
+
+  it('does not include startingUrl when noOpen is true', async () => {
+    const args = await browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'firefox',
+      startingUrl: 'https://en.wikipedia.org/',
+      noOpen: true
+    } as any)
+    expect(args).not.toContain('https://en.wikipedia.org/')
+  })
 })
