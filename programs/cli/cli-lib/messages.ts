@@ -81,12 +81,14 @@ export function checkUpdates(
   packageJson: Record<string, any>,
   update: {latest: string}
 ) {
-  return (
+  const suffix = colors.gray(`(version ${String(update.latest)} is available!)`)
+  const message =
     `${getLoggingPrefix('info')} 🧩 ${colors.blue('Extension.js')} update available.\n\n` +
     `You are currently using version ${colors.red(String(packageJson.version))}. ` +
     `Latest stable is ${colors.green(String(update.latest))}.\n` +
     `Update to the latest stable to get fixes and new features.`
-  )
+
+  return {suffix, message}
 }
 
 export function unsupportedNodeVersion() {

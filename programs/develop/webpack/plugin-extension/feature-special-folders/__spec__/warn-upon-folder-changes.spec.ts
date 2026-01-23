@@ -45,7 +45,11 @@ const createFakeCompiler = () => {
 
 const runCycle = (
   compiler: any,
-  compilation: {warnings: any[]; errors: any[]; contextDependencies: Set<string>}
+  compilation: {
+    warnings: any[]
+    errors: any[]
+    contextDependencies: Set<string>
+  }
 ) => {
   ;(compiler.hooks.watchRun as any).__invokeAll()
   ;(compiler.hooks.thisCompilation as any).__invokeAll(compilation)
