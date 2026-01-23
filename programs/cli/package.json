@@ -97,7 +97,7 @@
     "update-check": "^1.5.4"
   },
   "devDependencies": {
-    "@rslib/core": "^0.19.2",
+    "@rslib/core": "^0.19.3",
     "@types/chrome": "^0.1.33",
     "@types/node": "^25.0.9",
     "@types/react": "^19.2.8",
