@@ -10,9 +10,9 @@ import {
 describe('messages helpers', () => {
   it('formats update available message for stable versions', () => {
     const msg = formatUpdateMessage({version: '2.0.0'}, {latest: '2.1.0'})
-    expect(msg).toMatch(/Extension.js update available\./)
-    expect(msg).toMatch(/2.0.0/)
-    expect(msg).toMatch(/2.1.0/)
+    expect(msg.message).toMatch(/Extension.js update available\./)
+    expect(msg.message).toMatch(/2.0.0/)
+    expect(msg.message).toMatch(/2.1.0/)
   })
 
   it('suggests start when URL passed to create', () => {
