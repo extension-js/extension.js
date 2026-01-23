@@ -10,51 +10,22 @@ vi.mock('../messages', () => ({
   )
 }))
 
-type WatchEvent = 'add' | 'unlink' | 'change'
-type WatchHandler = (filePath: string) => void
-
-class FakeWatcher {
-  private readonly handlers: Record<WatchEvent, WatchHandler[]> = {
-    add: [],
-    unlink: [],
-    change: []
-  }
-  public readonly close = vi.fn(async () => Promise.resolve())
-
-  on(event: WatchEvent, callback: WatchHandler) {
-    this.handlers[event]?.push(callback)
-    return this
-  }
-
-  emit(event: WatchEvent, filePath: string) {
-    for (const callback of this.handlers[event] || []) callback(filePath)
-  }
-}
-
-// Provide distinct watcher instances for each chokidar.watch call
-const createdWatchers: FakeWatcher[] = []
-vi.mock('chokidar', () => {
-  return {
-    watch: vi.fn((_absPath: string) => {
-      const watcherInstance = new FakeWatcher()
-      createdWatchers.push(watcherInstance)
-      return watcherInstance
-    })
-  }
-})
-
-// Minimal Compiler hook surface
 const createFakeCompiler = () => {
-  const watchCloseCallbacks: Array<() => void> = []
+  const watchRunCallbacks: Array<() => void> = []
+  const thisCompilationCallbacks: Array<(c: any) => void> = []
   const hooks: any = {
-    thisCompilation: {
-      tap: (_name: string, callback: (c: any) => void) => callback(compilation)
-    },
-    watchClose: {
+    watchRun: {
       tap: (_name: string, callback: () => void) => {
-        watchCloseCallbacks.push(callback)
+        watchRunCallbacks.push(callback)
       },
-      __invokeAll: () => watchCloseCallbacks.forEach((cb) => cb())
+      __invokeAll: () => watchRunCallbacks.forEach((cb) => cb())
+    },
+    thisCompilation: {
+      tap: (_name: string, callback: (c: any) => void) => {
+        thisCompilationCallbacks.push(callback)
+      },
+      __invokeAll: (compilationInstance: any) =>
+        thisCompilationCallbacks.forEach((cb) => cb(compilationInstance))
     }
   }
 
@@ -62,19 +33,33 @@ const createFakeCompiler = () => {
     options: {
       mode: 'development',
       watchOptions: {},
-      resolve: {extensions: ['.js', '.ts']}
+      resolve: {extensions: ['.js', '.ts']},
+      context: '/project'
     },
-    hooks
+    hooks,
+    modifiedFiles: new Set<string>(),
+    removedFiles: new Set<string>()
   }
   return compiler
 }
 
+const runCycle = (
+  compiler: any,
+  compilation: {warnings: any[]; errors: any[]; contextDependencies: Set<string>}
+) => {
+  ;(compiler.hooks.watchRun as any).__invokeAll()
+  ;(compiler.hooks.thisCompilation as any).__invokeAll(compilation)
+}
+
 // Provide a shared compilation-like sink to capture warnings/errors
-let compilation: {warnings: any[]; errors: any[]}
+let compilation: {
+  warnings: any[]
+  errors: any[]
+  contextDependencies: Set<string>
+}
 
 beforeEach(() => {
-  createdWatchers.length = 0
-  compilation = {warnings: [], errors: []}
+  compilation = {warnings: [], errors: [], contextDependencies: new Set()}
   vi.clearAllMocks()
 })
 
@@ -83,17 +68,17 @@ describe('WarnUponFolderChanges', () => {
     const compiler = createFakeCompiler()
     new WarnUponFolderChanges().apply(compiler as any)
 
-    // Expect two watchers: pages and scripts
-    expect(createdWatchers.length).toBe(2)
-    const pagesWatcher = createdWatchers[0]
-
-    pagesWatcher.emit('add', '/project/pages/foo.html')
+    compiler.modifiedFiles = new Set(['/project/pages/foo.html'])
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
     expect(compilation.warnings.length).toBe(1)
     expect(
       (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
     ).toHaveBeenCalledWith('Adding', 'pages', 'HTML pages')
 
-    pagesWatcher.emit('unlink', '/project/pages/foo.html')
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set(['/project/pages/foo.html'])
+    runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
     expect(
       (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
@@ -104,19 +89,20 @@ describe('WarnUponFolderChanges', () => {
     const compiler = createFakeCompiler()
     new WarnUponFolderChanges().apply(compiler as any)
 
-    const scriptsWatcher = createdWatchers[1]
-
-    scriptsWatcher.emit('add', '/project/scripts/content.ts')
+    compiler.modifiedFiles = new Set([
+      '/project/scripts/content.ts',
+      '/project/scripts/note.md'
+    ])
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
     expect(compilation.warnings.length).toBe(1)
     expect(
       (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
     ).toHaveBeenCalledWith('Adding', 'scripts', 'script files')
 
-    // Unsupported extension should not trigger any new warning
-    scriptsWatcher.emit('add', '/project/scripts/note.md')
-    expect(compilation.warnings.length).toBe(1)
-
-    scriptsWatcher.emit('unlink', '/project/scripts/content.ts')
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set(['/project/scripts/content.ts'])
+    runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
     expect(
       (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
@@ -127,21 +113,20 @@ describe('WarnUponFolderChanges', () => {
     const compiler = createFakeCompiler()
     new WarnUponFolderChanges().apply(compiler as any)
 
-    const pagesWatcher = createdWatchers[0]
-    pagesWatcher.emit('add', '/project/pages/readme.txt')
-    pagesWatcher.emit('unlink', '/project/pages/readme.txt')
+    compiler.modifiedFiles = new Set(['/project/pages/readme.txt'])
+    compiler.removedFiles = new Set(['/project/pages/readme.txt'])
+    runCycle(compiler, compilation)
 
     expect(compilation.warnings.length).toBe(0)
     expect(compilation.errors.length).toBe(0)
   })
 
-  it('closes watchers on watchClose', () => {
+  it('registers pages/ and scripts/ as context dependencies', () => {
     const compiler = createFakeCompiler()
     new WarnUponFolderChanges().apply(compiler as any)
+    runCycle(compiler, compilation)
 
-    expect(createdWatchers.length).toBe(2)
-    ;(compiler.hooks.watchClose as any).__invokeAll()
-    expect(createdWatchers[0].close).toHaveBeenCalled()
-    expect(createdWatchers[1].close).toHaveBeenCalled()
+    expect(compilation.contextDependencies.has('/project/pages')).toBe(true)
+    expect(compilation.contextDependencies.has('/project/scripts')).toBe(true)
   })
 })
