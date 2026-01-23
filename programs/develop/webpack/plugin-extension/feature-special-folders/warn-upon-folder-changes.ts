@@ -7,14 +7,23 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as path from 'path'
-import * as chokidar from 'chokidar'
 import {type Compiler, type Compilation, WebpackError} from '@rspack/core'
 import * as messages from './messages'
 
+type SpecialFolder = 'pages' | 'scripts'
+type ChangeType = 'add' | 'remove'
+type PendingChange = {
+  type: ChangeType
+  folder: SpecialFolder
+  filePath: string
+}
+
 export class WarnUponFolderChanges {
+  private pendingChanges: PendingChange[] = []
+
   private throwCompilationError(
     compilation: Compilation,
-    folder: string,
+    folder: SpecialFolder,
     filePath: string,
     isAddition?: boolean
   ) {
@@ -55,7 +64,90 @@ export class WarnUponFolderChanges {
     compilation.errors?.push(err)
   }
 
+  private trackChange(
+    projectPath: string,
+    folder: SpecialFolder,
+    change: ChangeType,
+    filePath: string
+  ) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        messages.specialFolderChangeDetected(
+          change === 'add' ? 'add' : 'remove',
+          folder,
+          path.relative(projectPath, filePath)
+        )
+      )
+    }
+
+    this.pendingChanges.push({type: change, folder, filePath})
+  }
+
+  private collectChanges(compiler: Compiler) {
+    const projectPath: string =
+      (compiler.options.context as string) || process.cwd()
+    const pagesPath = path.join(projectPath, 'pages') + path.sep
+    const scriptsPath = path.join(projectPath, 'scripts') + path.sep
+    const extensionsSupported = compiler.options.resolve?.extensions as
+      | string[]
+      | undefined
+    const supportedScripts = new Set(
+      (extensionsSupported || []).map((e) => e.toLowerCase())
+    )
+
+    const modifiedFiles = compiler.modifiedFiles || new Set<string>()
+    const removedFiles = compiler.removedFiles || new Set<string>()
+
+    for (const filePath of modifiedFiles) {
+      if (filePath.startsWith(pagesPath) && filePath.endsWith('.html')) {
+        this.trackChange(projectPath, 'pages', 'add', filePath)
+      }
+
+      if (filePath.startsWith(scriptsPath)) {
+        const ext = path.extname(filePath).toLowerCase()
+
+        if (supportedScripts.has(ext)) {
+          this.trackChange(projectPath, 'scripts', 'add', filePath)
+        }
+      }
+    }
+
+    for (const filePath of removedFiles) {
+      if (filePath.startsWith(pagesPath) && filePath.endsWith('.html')) {
+        this.trackChange(projectPath, 'pages', 'remove', filePath)
+      }
+
+      if (filePath.startsWith(scriptsPath)) {
+        const ext = path.extname(filePath).toLowerCase()
+
+        if (supportedScripts.has(ext)) {
+          this.trackChange(projectPath, 'scripts', 'remove', filePath)
+        }
+      }
+    }
+  }
+
+  private applyPendingChanges(compilation: Compilation) {
+    for (const change of this.pendingChanges) {
+      this.throwCompilationError(
+        compilation,
+        change.folder,
+        change.filePath,
+        change.type === 'add'
+      )
+    }
+
+    this.pendingChanges = []
+  }
+
   public apply(compiler: Compiler): void {
+    compiler.hooks.watchRun.tap(
+      'special-folders:warn-upon-folder-changes',
+      () => {
+        this.collectChanges(compiler)
+      }
+    )
+
     compiler.hooks.thisCompilation.tap(
       'special-folders:warn-upon-folder-changes',
       (compilation) => {
@@ -64,94 +156,10 @@ export class WarnUponFolderChanges {
         const pagesPath: string = path.join(projectPath, 'pages')
         const scriptsPath: string = path.join(projectPath, 'scripts')
 
-        const pagesWatcher = chokidar.watch(pagesPath, {ignoreInitial: true})
-        const scriptsWatcher = chokidar.watch(scriptsPath, {
-          ignoreInitial: true
-        })
-        const extensionsSupported = compiler.options.resolve?.extensions
+        compilation.contextDependencies?.add(pagesPath)
+        compilation.contextDependencies?.add(scriptsPath)
 
-        pagesWatcher.on('add', (filePath: string) => {
-          const ext = path.extname(filePath).toLowerCase()
-          const isHtml = ext === '.html'
-
-          if (isHtml) {
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-              console.log(
-                messages.specialFolderChangeDetected(
-                  'add',
-                  'pages',
-                  path.relative(projectPath, filePath)
-                )
-              )
-            }
-            this.throwCompilationError(compilation, 'pages', filePath, true)
-          }
-        })
-
-        pagesWatcher.on('unlink', (filePath: string) => {
-          const ext = path.extname(filePath).toLowerCase()
-          const isHtml = ext === '.html'
-
-          if (isHtml) {
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-              console.log(
-                messages.specialFolderChangeDetected(
-                  'remove',
-                  'pages',
-                  path.relative(projectPath, filePath)
-                )
-              )
-            }
-            this.throwCompilationError(compilation, 'pages', filePath)
-          }
-        })
-
-        scriptsWatcher.on('add', (filePath: string) => {
-          const ext = path.extname(filePath).toLowerCase()
-          const supported = new Set(
-            (extensionsSupported || []).map((e: string) => e.toLowerCase())
-          )
-          const isScript = supported.has(ext)
-
-          if (isScript) {
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-              console.log(
-                messages.specialFolderChangeDetected(
-                  'add',
-                  'scripts',
-                  path.relative(projectPath, filePath)
-                )
-              )
-            }
-            this.throwCompilationError(compilation, 'scripts', filePath, true)
-          }
-        })
-
-        scriptsWatcher.on('unlink', (filePath: string) => {
-          const ext = path.extname(filePath).toLowerCase()
-          const supported = new Set(
-            (extensionsSupported || []).map((e: string) => e.toLowerCase())
-          )
-          const isScript = supported.has(ext)
-
-          if (isScript) {
-            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-              console.log(
-                messages.specialFolderChangeDetected(
-                  'remove',
-                  'scripts',
-                  path.relative(projectPath, filePath)
-                )
-              )
-            }
-            this.throwCompilationError(compilation, 'scripts', filePath)
-          }
-        })
-
-        compiler.hooks.watchClose.tap('WarnUponFolderChanges', () => {
-          pagesWatcher.close().catch(() => {})
-          scriptsWatcher.close().catch(() => {})
-        })
+        this.applyPendingChanges(compilation)
       }
     )
   }
