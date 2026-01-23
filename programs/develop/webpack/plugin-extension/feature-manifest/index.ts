@@ -65,7 +65,8 @@ export class ManifestPlugin {
     // 2 - This is the end result of the manifest plugin, it updates the
     // 3- Manifest with the output path of relevant files.
     new UpdateManifest({
-      manifestPath: this.manifestPath
+      manifestPath: this.manifestPath,
+      browser: this.browser
     }).apply(compiler)
 
     // 4 - Ensure this manifest is stored as file dependency
