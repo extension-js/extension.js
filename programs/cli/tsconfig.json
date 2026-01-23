@@ -16,6 +16,6 @@
     "rootDir": ".",
     "types": ["node", "webextension-polyfill", "chrome"]
   },
-  "include": ["**/*.ts", "types/**/*.d.ts"],
+  "include": ["**/*.ts"],
   "exclude": ["dist", "node_modules", "**/*.spec.ts"]
 }

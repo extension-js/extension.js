@@ -24,7 +24,6 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.test.ts',
         '**/*.spec.ts',
-        '**/types/**',
         '**/messages.ts',
         '**/rslib.config.*',
         '**/vitest.config.*',
