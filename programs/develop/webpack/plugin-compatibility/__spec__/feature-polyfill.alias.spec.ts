@@ -41,6 +41,7 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
 
     const compiler = {
       options: {
+        context: '/project',
         resolve: {
           alias: {
             keepMe: '/x/y/z'
