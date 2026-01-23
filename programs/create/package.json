@@ -89,7 +89,7 @@
     "prettier": "^3.8.0",
     "tsconfig": "*",
     "typescript": "5.9.3",
-    "vitest": "^4.0.17",
+    "vitest": "^4.0.18",
     "webextension-polyfill": "^0.12.0"
   }
 }

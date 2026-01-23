@@ -127,7 +127,7 @@
     "svelte-loader": "3.2.4",
     "tsup": "^8.5.1",
     "typescript": "5.9.3",
-    "vitest": "^4.0.17",
+    "vitest": "^4.0.18",
     "vue-loader": "17.4.2",
     "vue-style-loader": "4.1.3"
   }
