@@ -60,11 +60,22 @@ export class CompilationPlugin {
       }).apply(compiler)
     }
 
-    new DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify(
-        compiler.options.mode || 'development'
-      )
-    })
+    // Define NODE_ENV when running under a real Rspack compiler.
+    // (Unit tests often pass a lightweight compiler stub that doesn't expose
+    // Rspack internals required by builtin plugins.)
+    try {
+      const hasRspackInternals =
+        typeof (compiler as any).__internal__registerBuiltinPlugin === 'function'
+      if (hasRspackInternals) {
+        new DefinePlugin({
+          'process.env.NODE_ENV': JSON.stringify(
+            compiler.options.mode || 'development'
+          )
+        }).apply(compiler)
+      }
+    } catch {
+      // ignore
+    }
 
     // Register packaging only for production builds when requested
     if (

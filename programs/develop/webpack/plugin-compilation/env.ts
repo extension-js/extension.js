@@ -79,6 +79,18 @@ export class EnvPlugin {
         {} as Record<string, string>
       )
 
+    // Ensure `process` exists in browser contexts.
+    //
+    // Some ecosystems (notably Bun) do not provide a global `process` in the browser,
+    // and users often read `process.env.*` from React/Vue/etc. While DefinePlugin
+    // replaces known `process.env.X` occurrences, any direct `process` / `process.env`
+    // access would otherwise throw at runtime.
+    //
+    // We keep this intentionally minimal: a stub `process` with an `env` object.
+    filteredEnvVars['process.env'] = JSON.stringify({})
+    // Wrap in parentheses so property access stays valid after replacement.
+    filteredEnvVars['process'] = '({env: {}})'
+
     // Ensure default environment variables are always available:
     // - EXTENSION_PUBLIC_BROWSER (legacy)
     // - EXTENSION_PUBLIC_MODE (legacy)
