@@ -4,19 +4,22 @@ import * as os from 'os'
 import * as path from 'path'
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
-// The production code imports `go-git-it` as a default export.
-vi.mock('go-git-it', () => {
+// The built-in template download should not require git.
+vi.mock('go-git-it', () => ({default: vi.fn(async () => { throw new Error('git should not be used') })}))
+
+// Mock ZIP download of the examples repo.
+vi.mock('axios', async () => {
+  const AdmZip = (await import('adm-zip')).default
+  const zip = new AdmZip()
+  // Simulate a GitHub codeload zip: "<repo>-main/examples/javascript/..."
+  zip.addFile(
+    'examples-main/examples/javascript/manifest.json',
+    Buffer.from(JSON.stringify({name: 'x', version: '0.0.1', manifest_version: 3}))
+  )
   return {
-    default: vi.fn(async (_url: string, dest: string) => {
-      // Simulate the examples repo layout where "init" is an alias for "javascript".
-      // Intentionally do NOT create an "init/" folder to ensure the alias mapping is required.
-      const templateDir = path.join(dest, 'javascript')
-      await fsp.mkdir(templateDir, {recursive: true})
-      await fsp.writeFile(
-        path.join(templateDir, 'manifest.json'),
-        JSON.stringify({name: 'x', version: '0.0.1', manifest_version: 3})
-      )
-    })
+    default: {
+      get: vi.fn(async () => ({data: zip.toBuffer(), headers: {'content-type': 'application/zip'}}))
+    }
   }
 })
 
