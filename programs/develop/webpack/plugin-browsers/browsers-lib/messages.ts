@@ -6,6 +6,7 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+// @ts-expect-error - pintor is JS-only and doesn't ship .d.ts
 import colors from 'pintor'
 import * as path from 'path'
 import * as fs from 'fs'
@@ -51,6 +52,19 @@ function errorDetail(error: unknown) {
   if (process.env.EXTENSION_DEBUG === '1') return String(error)
   const maybe = (error as {message?: string} | undefined)?.message
   return String(maybe || error)
+}
+
+function isWsl(): boolean {
+  // Heuristic env-based detection (fast, testable). Avoid reading /proc.
+  const hasEnv = Boolean(
+    String(process.env.WSL_DISTRO_NAME || '').trim() ||
+      String(process.env.WSL_INTEROP || '').trim() ||
+      String(process.env.WSLENV || '').trim()
+  )
+  // If these env vars are present, treat as WSL even if the host platform
+  // running unit tests is not Linux.
+  if (hasEnv) return true
+  return false
 }
 
 export function capitalizedBrowserName(browser: Browser) {
@@ -142,11 +156,25 @@ export function browserNotInstalledError(
       ? `Browser ${capitalizedBrowserName(browser)} is not installed\n`
       : `Can't find the path for browser ${capitalizedBrowserName(browser)}\n`
 
+  const wslHint = (() => {
+    if (!isWsl()) return ''
+    // WSL commonly has no Linux browser installed, but can launch Windows .exe paths.
+    // Also note: shell aliases do not apply to child_process.spawn.
+    const example = '/mnt/c/Program Files/Google/Chrome/Application/chrome.exe'
+    return (
+      `\n\n${getLoggingPrefix('info')} WSL detected\n` +
+      `- Install a Linux browser in WSL, or\n` +
+      `- Provide a Windows binary path via ${colors.blue('--chromium-binary')} ${colors.gray(`\"${example}\"`)}\n` +
+      `  (Tip: a shell alias like ${colors.gray('google-chrome=...')} won't be used by Extension.js; use a real path or wrapper script.)`
+    )
+  })()
+
   return (
     `${getLoggingPrefix('error')} ${isUnreachable}` +
     `Either install the missing browser or choose a different one via ` +
     `${colors.blue('--browser')} ${colors.gray('<chrome|edge|firefox>')}.\n\n` +
-    `${colors.red('NOT FOUND')} ${colors.underline(browserBinaryLocation || capitalizedBrowserName(browser) + 'BROWSER')}`
+    `${colors.red('NOT FOUND')} ${colors.underline(browserBinaryLocation || capitalizedBrowserName(browser) + 'BROWSER')}` +
+    wslHint
   )
 }
 
