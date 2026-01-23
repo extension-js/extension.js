@@ -61,7 +61,8 @@ vi.mock('fs', async () => {
 import {JsFrameworksPlugin} from '../index'
 
 function createCompiler(
-  mode: 'development' | 'production' | 'none' = 'development'
+  mode: 'development' | 'production' | 'none' = 'development',
+  devtool?: any
 ) {
   const beforeRun: any = {
     tapPromise: vi.fn((_name: string, cb: () => Promise<void>) => {
@@ -72,6 +73,7 @@ function createCompiler(
   return {
     options: {
       mode,
+      devtool,
       context: '/project',
       plugins: [] as any[],
       resolve: {alias: {}, extensions: [] as string[]},
@@ -144,5 +146,32 @@ describe('JsFrameworksPlugin', () => {
     // Now the SWC rule should be present
     const swcRule = compiler.options.module.rules[0]
     expect(swcRule?.use?.options?.minify).toBe(true)
+  })
+
+  it('enables SWC sourcemaps in production when devtool is enabled', async () => {
+    const compiler = createCompiler('production', 'hidden-source-map')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'production'
+    })
+
+    await plugin.apply(compiler)
+    await (compiler.hooks.beforeRun as any)._cb()
+
+    const swcRule = compiler.options.module.rules[0]
+    expect(swcRule?.use?.options?.sourceMap).toBe(true)
+  })
+
+  it('disables SWC sourcemaps in development when devtool is explicitly false', async () => {
+    const compiler = createCompiler('development', false)
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const swcRule = compiler.options.module.rules[0]
+    expect(swcRule?.use?.options?.sourceMap).toBe(false)
   })
 })
