@@ -7,7 +7,7 @@ function makeCompiler() {
 
   const compiler: any = {
     webpack: {
-      RuntimeGlobals: {publicPath: Symbol('publicPath')},
+      RuntimeGlobals: {publicPath: '__webpack_require__.p'},
       Template: {},
       RuntimeModule: class {}
     },
@@ -45,5 +45,28 @@ describe('AddPublicPathRuntimeModule', () => {
     expect(runtimeTaps.length).toBe(1)
     runtimeTaps[0]({}) // simulate
     expect(addedModules.length).toBe(1)
+  })
+
+  it('does not emit a throwing runtime getter', () => {
+    const {compiler, runtimeTaps, addedModules} = makeCompiler()
+    // Minimal Template.asString stub to capture generated code
+    ;(compiler.webpack.Template as any).asString = (lines: string[]) =>
+      lines.filter(Boolean).join('\n')
+    ;(compiler.webpack.Template as any).indent = (l: any) => String(l)
+    ;(compiler.webpack.RuntimeModule as any) = class {
+      public compilation: any
+      constructor() {}
+    }
+
+    new AddPublicPathRuntimeModule().apply(compiler as any)
+    runtimeTaps[0]({}) // add module
+    const mod = addedModules[0].mod
+    mod.compilation = {
+      outputOptions: {publicPath: '/'},
+      getPath: (tpl: string) => tpl,
+      hash: 'XXXX'
+    }
+    const code = mod.generate()
+    expect(String(code)).not.toContain('throw new Error("No chrome or browser runtime found")')
   })
 })
