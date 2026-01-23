@@ -108,7 +108,7 @@
     "@rspack/plugin-react-refresh": "1.6.0",
     "@types/adm-zip": "^0.5.7",
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
-    "@types/chrome": "^0.1.33",
+    "@types/chrome": "^0.1.36",
     "@types/cross-spawn": "^6.0.6",
     "@types/loader-utils": "^3.0.0",
     "@types/node": "^25.0.9",
