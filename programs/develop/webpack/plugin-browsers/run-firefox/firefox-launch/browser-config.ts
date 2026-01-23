@@ -40,6 +40,15 @@ export async function browserConfig(
     binaryArgs.push(...filteredFlags)
   }
 
+  // Firefox supports being launched with an URL as the last argument.
+  // This keeps parity with Chromium, where we append `startingUrl` on spawn.
+  //
+  // Note: we intentionally do not quote here; the caller already wraps the
+  // entire binary args string in quotes. URLs should not contain spaces.
+  if (configOptions.startingUrl && !configOptions.noOpen) {
+    binaryArgs.push(String(configOptions.startingUrl))
+  }
+
   const outPath =
     compilation.options.output?.path ||
     path.resolve(process.cwd(), 'dist/firefox')
