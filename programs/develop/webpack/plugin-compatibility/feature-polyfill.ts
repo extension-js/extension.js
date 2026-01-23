@@ -24,11 +24,15 @@ export class PolyfillPlugin {
 
   apply(compiler: Compiler) {
     try {
-      // Resolve the polyfill relative to this plugin's own package/dist
-      // because `webextension-polyfill` is a dependency of this package
+      // Resolve the polyfill preferring the consumer project first.
+      //
+      // Why: some package managers hoist dependencies to the project root
+      // (or otherwise do not place them under extension-develop/node_modules).
+      // Resolving from `compiler.options.context` avoids hard-coding a nested path
+      // that the bundler may not be able to resolve in all layouts.
       const polyfillPath = require.resolve(
         'webextension-polyfill/dist/browser-polyfill.js',
-        {paths: [__dirname]}
+        {paths: [compiler.options.context as string, __dirname].filter(Boolean)}
       )
 
       // Ensure the module specifier resolves to our absolute polyfill path,
