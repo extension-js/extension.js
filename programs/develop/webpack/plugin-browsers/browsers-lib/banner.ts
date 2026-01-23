@@ -18,11 +18,14 @@ type HostPort = {host?: string; port?: number | string}
 
 const printedKeys = new Set<string>()
 
-function readUpdateMessageOnce() {
-  const message = process.env.EXTENSION_CLI_UPDATE_MESSAGE
-  if (!message) return null
-  delete process.env.EXTENSION_CLI_UPDATE_MESSAGE
-  return message
+function readUpdateSuffixOnce() {
+  const suffix = process.env.EXTENSION_CLI_UPDATE_SUFFIX
+
+  if (!suffix) return null
+
+  delete process.env.EXTENSION_CLI_UPDATE_SUFFIX
+
+  return suffix
 }
 
 function keyFor(
@@ -50,6 +53,7 @@ export async function printDevBannerOnce(opts: {
 
   const info = (await opts.getInfo()) || null
   const manifestPath = path.join(opts.outPath, 'manifest.json')
+  const updateSuffix = readUpdateSuffixOnce()
 
   if (!fs.existsSync(manifestPath)) return false
 
@@ -72,13 +76,10 @@ export async function printDevBannerOnce(opts: {
       manifest,
       opts.browser,
       message,
-      opts.browserVersionLine
+      opts.browserVersionLine,
+      updateSuffix || undefined
     )
   )
-  const updateMessage = readUpdateMessageOnce()
-  if (updateMessage) {
-    console.log(updateMessage)
-  }
   console.log(messages.emptyLine())
   markBannerPrinted()
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
@@ -101,6 +102,7 @@ export async function printProdBannerOnce(opts: {
     opts.browserVersionLine && opts.browserVersionLine.trim().length > 0
       ? opts.browserVersionLine.trim()
       : String(opts.browser || 'unknown')
+  const updateSuffix = readUpdateSuffixOnce()
 
   try {
     const manifestPath = path.join(opts.outPath, 'manifest.json')
@@ -123,13 +125,10 @@ export async function printProdBannerOnce(opts: {
           manifest,
           opts.browser,
           message,
-          browserLabel
+          browserLabel,
+          updateSuffix || undefined
         )
       )
-      const updateMessage = readUpdateMessageOnce()
-      if (updateMessage) {
-        console.log(updateMessage)
-      }
       console.log(messages.emptyLine())
     } else {
       // Fallback: manifest-only summary using the unified dev/preview layout.
@@ -149,23 +148,16 @@ export async function printProdBannerOnce(opts: {
           manifest,
           opts.browser,
           message,
-          browserLabel
+          browserLabel,
+          updateSuffix || undefined
         )
       )
-      const updateMessage = readUpdateMessageOnce()
-      if (updateMessage) {
-        console.log(updateMessage)
-      }
       console.log(messages.emptyLine())
     }
   } catch {
     // Fallback: if anything goes wrong, still try to print a minimal card
     console.log(messages.emptyLine())
     console.log(coreMessages.runningInProduction(opts.outPath, browserLabel))
-    const updateMessage = readUpdateMessageOnce()
-    if (updateMessage) {
-      console.log(updateMessage)
-    }
     console.log(messages.emptyLine())
   }
 
