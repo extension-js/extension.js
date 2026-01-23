@@ -2,11 +2,13 @@ import {describe, it, expect, beforeEach, afterEach, vi} from 'vitest'
 
 // Mocks
 const defineApply = vi.fn()
+let lastDefineArgs: any = null
 vi.mock('@rspack/core', () => {
   class DefinePluginMock {
     public args: any
     constructor(args: any) {
       this.args = args
+      lastDefineArgs = args
     }
     apply = defineApply
   }
@@ -133,6 +135,10 @@ describe('EnvPlugin', () => {
 
     // Ensure DefinePlugin applied at least once
     expect(defineApply).toHaveBeenCalled()
+    expect(lastDefineArgs).toBeTruthy()
+    // Bun/browser safety: process and process.env stubs
+    expect(lastDefineArgs['process']).toBeTruthy()
+    expect(lastDefineArgs['process.env']).toBeTruthy()
   })
 
   it('replaces $EXTENSION_* and $EXTENSION_PUBLIC_* in json/html assets', async () => {

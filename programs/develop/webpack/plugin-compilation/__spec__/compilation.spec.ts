@@ -82,7 +82,11 @@ describe('CompilationPlugin', () => {
   function createCompiler(mode: 'development' | 'production' = 'development') {
     let doneHandler: any
     const compiler: any = {
-      options: {mode},
+      options: {
+        mode,
+        // Minimal output config so @rspack/core DefinePlugin can apply in tests
+        output: {environment: {}}
+      },
       getInfrastructureLogger: () => ({
         info: console.log,
         warn: console.warn,
