@@ -13,7 +13,13 @@ const mockedPreact = {
 } as any
 const mockedVue = {
   alias: undefined,
-  loaders: [{test: /\.vue$/}],
+  loaders: [
+    {
+      test: /\.vue$/,
+      loader: '/mock/vue-loader',
+      options: {experimentalInlineMatchResource: true}
+    }
+  ],
   plugins: [{apply: vi.fn()}]
 } as any
 const mockedSvelte = {
@@ -173,5 +179,36 @@ describe('JsFrameworksPlugin', () => {
 
     const swcRule = compiler.options.module.rules[0]
     expect(swcRule?.use?.options?.sourceMap).toBe(false)
+  })
+
+  it('does not add a second vue-loader rule when the user already configured one', async () => {
+    const compiler = createCompiler('development')
+    const isCustomElement = vi.fn((tag: string) => tag.startsWith('ion-'))
+
+    // Simulate a user-provided vue-loader rule coming from extension.config.js
+    compiler.options.module.rules.push({
+      test: /\.vue$/,
+      loader: '/mock/vue-loader',
+      options: {
+        compilerOptions: {isCustomElement}
+      }
+    })
+
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const vueRules = compiler.options.module.rules.filter((r: any) =>
+      String(r?.test).includes('\\.vue')
+    )
+    expect(vueRules.length).toBe(1)
+    expect(vueRules[0].options.compilerOptions.isCustomElement).toBe(
+      isCustomElement
+    )
+    // Ensure our default options are present (merged into the user rule)
+    expect(vueRules[0].options.experimentalInlineMatchResource).toBe(true)
   })
 })

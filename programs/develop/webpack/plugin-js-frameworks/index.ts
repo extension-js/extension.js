@@ -32,6 +32,73 @@ export class JsFrameworksPlugin {
     this.mode = options.mode
   }
 
+  private findVueLoaderRuleIndices(rules: any[]): number[] {
+    const indices: number[] = []
+    for (let i = 0; i < rules.length; i++) {
+      const rule: any = rules[i]
+      const testStr = String(rule?.test?.toString?.() || rule?.test || '')
+      const isVueTest =
+        testStr.includes('\\.vue') || testStr.includes('/.vue') || testStr === '.vue'
+
+      if (!isVueTest) continue
+
+      const use = rule?.use
+      const loader =
+        rule?.loader ||
+        (Array.isArray(use) ? use?.[0]?.loader : typeof use === 'object' ? use?.loader : undefined)
+      const loaderStr = String(loader || '')
+
+      // Only dedupe rules that actually use vue-loader; do not touch custom .vue pipelines.
+      if (loaderStr.includes('vue-loader')) {
+        indices.push(i)
+      }
+    }
+    return indices
+  }
+
+  private mergeVueRule(
+    userRule: any,
+    defaultRule: any
+  ): any {
+    const merged = {...userRule}
+
+    // Normalize rule to either `loader` + `options` or `use`-based.
+    // Prefer keeping the user's structure (and loader order) intact.
+    if (merged.use) {
+      if (Array.isArray(merged.use) && merged.use.length > 0) {
+        const first = merged.use[0]
+        merged.use = [
+          {
+            ...first,
+            loader: first?.loader || defaultRule?.loader,
+            options: {
+              ...(defaultRule?.options || {}),
+              ...(first?.options || {})
+            }
+          },
+          ...merged.use.slice(1)
+        ]
+      } else if (typeof merged.use === 'object') {
+        merged.use = {
+          ...merged.use,
+          loader: merged.use?.loader || defaultRule?.loader,
+          options: {
+            ...(defaultRule?.options || {}),
+            ...(merged.use?.options || {})
+          }
+        }
+      }
+      return merged
+    }
+
+    merged.loader = merged.loader || defaultRule?.loader
+    merged.options = {
+      ...(defaultRule?.options || {}),
+      ...(merged.options || {})
+    }
+    return merged
+  }
+
   private async configureOptions(compiler: Compiler) {
     const mode = compiler.options.mode || 'development'
     const projectPath = compiler.options.context as string
@@ -92,6 +159,31 @@ export class JsFrameworksPlugin {
       ...compiler.options.resolve.alias
     }
 
+    // Preserve existing user rules (from extension.config.js) and avoid
+    // duplicate Vue processing when the user already configured vue-loader.
+    const existingRules = Array.isArray(compiler.options.module.rules)
+      ? [...compiler.options.module.rules]
+      : []
+
+    let vueLoadersToAdd = maybeInstallVue?.loaders || []
+    if (maybeInstallVue?.loaders?.length) {
+      const vueRuleIndices = this.findVueLoaderRuleIndices(existingRules)
+      if (vueRuleIndices.length > 0) {
+        // Merge our defaults (and any `vue.loader.*` customOptions) into the
+        // user's first vue-loader rule, and remove other vue-loader rules.
+        const primary = vueRuleIndices[0]
+        existingRules[primary] = this.mergeVueRule(
+          existingRules[primary],
+          maybeInstallVue.loaders[0]
+        )
+        for (const idx of vueRuleIndices.slice(1).reverse()) {
+          existingRules.splice(idx, 1)
+        }
+        // Do not add our own separate .vue rule; otherwise vue-loader runs twice.
+        vueLoadersToAdd = []
+      }
+    }
+
     compiler.options.module.rules = [
       {
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
@@ -142,9 +234,9 @@ export class JsFrameworksPlugin {
       },
       ...(maybeInstallReact?.loaders || []),
       ...(maybeInstallPreact?.loaders || []),
-      ...(maybeInstallVue?.loaders || []),
+      ...vueLoadersToAdd,
       ...(maybeInstallSvelte?.loaders || []),
-      ...compiler.options.module.rules
+      ...existingRules
     ].filter(Boolean)
 
     maybeInstallReact?.plugins?.forEach((plugin) => plugin.apply(compiler))
