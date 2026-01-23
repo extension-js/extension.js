@@ -11,6 +11,7 @@
     "adm-zip": "^0.5.16",
     "browser-extension-manifest-fields": "^2.2.1",
     "case-sensitive-paths-webpack-plugin": "^2.4.0",
+    "chokidar": "^5.0.0",
     "content-security-policy-parser": "^0.6.0",
     "dotenv": "^17.2.3",
     "go-git-it": "^5.0.3",
