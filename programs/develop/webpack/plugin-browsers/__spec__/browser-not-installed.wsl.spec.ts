@@ -28,4 +28,3 @@ describe('browserNotInstalledError (WSL)', () => {
     expect(msg).not.toMatch(/WSL detected/)
   })
 })
-
