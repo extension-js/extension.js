@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Inlined package manager detection to avoid ESM/CJS interop failures during CLI builds.
+- No changes listed.
 
 ## 3.1.1 (January 19, 2026)
 
