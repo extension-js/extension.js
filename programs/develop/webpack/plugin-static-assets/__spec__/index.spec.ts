@@ -141,7 +141,9 @@ describe('StaticAssetsPlugin', () => {
     expect(fontRules[0].type).toBe('asset/inline')
 
     // Other default rules should still be present.
-    expect(findRuleByTest(rules, /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i)).toBeTruthy()
+    expect(
+      findRuleByTest(rules, /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i)
+    ).toBeTruthy()
     expect(
       findRuleByTest(
         rules,
