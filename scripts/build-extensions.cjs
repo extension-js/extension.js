@@ -41,8 +41,7 @@ function main() {
     }
   }
 
-  function ensureDevtoolsDist() {
-    const packageName = 'extension-js-devtools'
+  function ensureExtensionDist(packageName) {
     const pkgRoot = path.join(root, 'extensions', packageName)
     const distRoot = path.join(pkgRoot, 'dist')
     const engines = ['chromium', 'chrome', 'edge', 'firefox']
@@ -74,7 +73,7 @@ function main() {
       )
     }
   }
- 
+
   // Ensure a given extension package has a dist folder and mirror it into programs/develop/dist.
   // If dist is missing, attempts to install and build before mirroring.
   function buildAndMirror(packageName) {
@@ -135,49 +134,51 @@ function main() {
   // Hard guard: ensure extension-js-devtools dist exists for all engines
   // before we cut a new extension-develop package. If this fails, we prefer
   // to fail the publish rather than ship a broken devtools experience.
-  function verifyDevtoolsMirrored() {
+  function verifyExtensionMirrored(packageName) {
     const engines = ['chromium', 'chrome', 'edge', 'firefox']
-    const base = path.join(root, 'programs', 'develop', 'dist', 'extension-js-devtools')
+    const base = path.join(root, 'programs', 'develop', 'dist', packageName)
 
     for (const engine of engines) {
       const manifestPath = path.join(base, engine, 'manifest.json')
       if (!fs.existsSync(manifestPath)) {
-        const msg = `[Extension.js] extension-js-devtools for "${engine}" is missing at ${manifestPath}.`
+        const msg = `[Extension.js] ${packageName} for "${engine}" is missing at ${manifestPath}.`
         // Always surface this; it's a hard failure for releases.
         console.error(msg)
         process.exitCode = 1
       }
     }
   }
- 
+
   // Discover top-level extension packages (directories) under extensions/,
-  // excluding the folder named 'browser-extension' and 'extension-js-theme'
-  function listExtensionPackages() {  
+  // excluding the folder named 'browser-extension'
+  function listExtensionPackages() {
     const extensionsRoot = path.join(root, 'extensions')
     try {
       const entries = fs.readdirSync(extensionsRoot, {withFileTypes: true})
       return entries
         .filter(d => d.isDirectory())
         .map(d => d.name)
-        .filter(name => name !== 'browser-extension'
-          // && name !== 'extension-js-theme'
-        )
+        .filter(name => name !== 'browser-extension')
     } catch {
       return []
     }
   }
  
-  // Build and mirror all discovered extension packages except 'browser-extension' and 'extension-js-theme' 
+  // Build and mirror all discovered extension packages except 'browser-extension'
   for (const packageName of listExtensionPackages()) {
     if (packageName === 'extension-js-devtools') {
-      ensureDevtoolsDist()
+      ensureExtensionDist(packageName)
+    }
+    if (packageName === 'extension-js-theme') {
+      ensureExtensionDist(packageName)
     }
 
     buildAndMirror(packageName)
   }
 
-  // After mirroring, verify that extension-js-devtools is present for all engines.
-  verifyDevtoolsMirrored()
+  // After mirroring, verify devtools/theme are present for all engines.
+  verifyExtensionMirrored('extension-js-devtools')
+  verifyExtensionMirrored('extension-js-theme')
 }
 
 main()
