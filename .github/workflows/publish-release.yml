@@ -245,6 +245,25 @@ jobs:
           fi
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
+      # Ensure npm has replicated the new version before proceeding.
+      - name: Verify publish (extension-create)
+        if: steps.check_create.outputs.exists == 'false'
+        working-directory: programs/create
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          echo "Verifying $PKG@$VER is visible on npm..."
+          for i in {1..12}; do
+            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+              echo "Found $PKG@$VER on npm."
+              exit 0
+            fi
+            echo "Waiting for npm replication... ($i/12)"
+            sleep 10
+          done
+          echo "Publish not visible on npm after waiting." >&2
+          exit 1
+
       - name: Check if version exists (extension-develop)
         id: check_develop
         working-directory: programs/develop
@@ -281,6 +300,25 @@ jobs:
           fi
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
 
+      # Ensure npm has replicated the new version before proceeding.
+      - name: Verify publish (extension-develop)
+        if: steps.check_develop.outputs.exists == 'false'
+        working-directory: programs/develop
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          echo "Verifying $PKG@$VER is visible on npm..."
+          for i in {1..12}; do
+            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+              echo "Found $PKG@$VER on npm."
+              exit 0
+            fi
+            echo "Waiting for npm replication... ($i/12)"
+            sleep 10
+          done
+          echo "Publish not visible on npm after waiting." >&2
+          exit 1
+
       - name: Check if version exists (extension)
         id: check_cli
         working-directory: programs/cli
@@ -316,6 +354,25 @@ jobs:
             } > "$HOME/.npmrc"
           fi
           npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+
+      # Ensure npm has replicated the new version before proceeding.
+      - name: Verify publish (extension)
+        if: steps.check_cli.outputs.exists == 'false'
+        working-directory: programs/cli
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          echo "Verifying $PKG@$VER is visible on npm..."
+          for i in {1..12}; do
+            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+              echo "Found $PKG@$VER on npm."
+              exit 0
+            fi
+            echo "Waiting for npm replication... ($i/12)"
+            sleep 10
+          done
+          echo "Publish not visible on npm after waiting." >&2
+          exit 1
 
       - name: Create GitHub Deployment (in_progress)
         id: create_deployment
