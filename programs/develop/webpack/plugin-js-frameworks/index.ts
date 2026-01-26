@@ -38,14 +38,20 @@ export class JsFrameworksPlugin {
       const rule: any = rules[i]
       const testStr = String(rule?.test?.toString?.() || rule?.test || '')
       const isVueTest =
-        testStr.includes('\\.vue') || testStr.includes('/.vue') || testStr === '.vue'
+        testStr.includes('\\.vue') ||
+        testStr.includes('/.vue') ||
+        testStr === '.vue'
 
       if (!isVueTest) continue
 
       const use = rule?.use
       const loader =
         rule?.loader ||
-        (Array.isArray(use) ? use?.[0]?.loader : typeof use === 'object' ? use?.loader : undefined)
+        (Array.isArray(use)
+          ? use?.[0]?.loader
+          : typeof use === 'object'
+            ? use?.loader
+            : undefined)
       const loaderStr = String(loader || '')
 
       // Only dedupe rules that actually use vue-loader; do not touch custom .vue pipelines.
@@ -56,10 +62,7 @@ export class JsFrameworksPlugin {
     return indices
   }
 
-  private mergeVueRule(
-    userRule: any,
-    defaultRule: any
-  ): any {
+  private mergeVueRule(userRule: any, defaultRule: any): any {
     const merged = {...userRule}
 
     // Normalize rule to either `loader` + `options` or `use`-based.

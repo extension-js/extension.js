@@ -13,7 +13,8 @@ function runUpdateManifest(opts: {
   const compilation: any = {
     errors: [],
     assets,
-    getAsset: (n: string) => (assets[n] ? {source: assets[n].source} : undefined),
+    getAsset: (n: string) =>
+      assets[n] ? {source: assets[n].source} : undefined,
     hooks: {
       processAssets: {tap: (_opts: any, fn: any) => fn()}
     },
@@ -72,4 +73,3 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
     expect(out.background?.scripts).toBeUndefined()
   })
 })
-

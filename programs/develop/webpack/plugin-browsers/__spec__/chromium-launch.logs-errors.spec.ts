@@ -52,4 +52,3 @@ describe('ChromiumLaunchPlugin', () => {
     expect(msg).toMatch(/boom/)
   })
 })
-

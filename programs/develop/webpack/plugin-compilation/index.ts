@@ -65,7 +65,8 @@ export class CompilationPlugin {
     // Rspack internals required by builtin plugins.)
     try {
       const hasRspackInternals =
-        typeof (compiler as any).__internal__registerBuiltinPlugin === 'function'
+        typeof (compiler as any).__internal__registerBuiltinPlugin ===
+        'function'
       if (hasRspackInternals) {
         new DefinePlugin({
           'process.env.NODE_ENV': JSON.stringify(
