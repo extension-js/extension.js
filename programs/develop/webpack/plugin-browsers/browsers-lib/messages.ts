@@ -58,8 +58,8 @@ function isWsl(): boolean {
   // Heuristic env-based detection (fast, testable). Avoid reading /proc.
   const hasEnv = Boolean(
     String(process.env.WSL_DISTRO_NAME || '').trim() ||
-      String(process.env.WSL_INTEROP || '').trim() ||
-      String(process.env.WSLENV || '').trim()
+    String(process.env.WSL_INTEROP || '').trim() ||
+    String(process.env.WSLENV || '').trim()
   )
   // If these env vars are present, treat as WSL even if the host platform
   // running unit tests is not Linux.

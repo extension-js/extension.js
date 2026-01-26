@@ -28,8 +28,10 @@ export default class DevServerConfigPlugin {
     setDefault(devServer.client, 'webSocketURL', {protocol: 'ws'})
     setDefault(devServer.client.webSocketURL, 'protocol', 'ws')
     // Prefer explicit host/port when available on devServer.
-    if (devServer.host) setDefault(devServer.client.webSocketURL, 'hostname', devServer.host)
-    if (devServer.port) setDefault(devServer.client.webSocketURL, 'port', devServer.port)
+    if (devServer.host)
+      setDefault(devServer.client.webSocketURL, 'hostname', devServer.host)
+    if (devServer.port)
+      setDefault(devServer.client.webSocketURL, 'port', devServer.port)
 
     // HMR requires CORS requests in content scripts.
     setDefault(devServer, 'allowedHosts', 'all')

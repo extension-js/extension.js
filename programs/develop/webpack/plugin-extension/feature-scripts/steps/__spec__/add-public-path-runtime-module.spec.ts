@@ -67,6 +67,8 @@ describe('AddPublicPathRuntimeModule', () => {
       hash: 'XXXX'
     }
     const code = mod.generate()
-    expect(String(code)).not.toContain('throw new Error("No chrome or browser runtime found")')
+    expect(String(code)).not.toContain(
+      'throw new Error("No chrome or browser runtime found")'
+    )
   })
 })

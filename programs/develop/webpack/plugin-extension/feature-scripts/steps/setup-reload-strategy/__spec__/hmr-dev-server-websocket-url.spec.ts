@@ -18,8 +18,9 @@ describe('HMRDevServer config (websocket URL)', () => {
     new DevServerConfigPlugin().apply(compiler)
 
     expect(compiler.options.devServer.client.webSocketURL.protocol).toBe('ws')
-    expect(compiler.options.devServer.client.webSocketURL.hostname).toBe('127.0.0.1')
+    expect(compiler.options.devServer.client.webSocketURL.hostname).toBe(
+      '127.0.0.1'
+    )
     expect(compiler.options.devServer.client.webSocketURL.port).toBe(18080)
   })
 })
-
