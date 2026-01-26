@@ -27,8 +27,10 @@ describe('check-updates', () => {
   it('prints update message for stable latest versions', async () => {
     updateCheck.mockResolvedValueOnce({latest: '2.1.0'})
     const result = await checkUpdates()
+    expect(result).not.toBeNull()
     expect(result?.message).toMatch(/update available/i)
     expect(result?.message).toMatch(/2.1.0/)
+    expect(result?.suffix).toMatch(/2.1.0/)
   })
 
   it('does not print for pre-release versions', async () => {

@@ -69,7 +69,10 @@ export async function importExternalTemplate(
         throw new Error('Local templates directory not found')
       }
 
-      const localTemplatePath = path.join(localTemplatesRoot, resolvedTemplateName)
+      const localTemplatePath = path.join(
+        localTemplatesRoot,
+        resolvedTemplateName
+      )
 
       // Copy directly to project path to avoid nested directories
       await utils.copyDirectoryWithSymlinks(localTemplatePath, projectPath)
@@ -170,7 +173,9 @@ export async function importExternalTemplate(
 
             // The zip root folder name can change (e.g. "examples-main").
             // Pick the first directory under the extraction root.
-            const entries = await fs.readdir(zipExtractRoot, {withFileTypes: true})
+            const entries = await fs.readdir(zipExtractRoot, {
+              withFileTypes: true
+            })
             const rootDir = entries.find((e) => e.isDirectory())?.name
             if (!rootDir) return false
 
