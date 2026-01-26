@@ -35,7 +35,9 @@ describe('generate-extension-types', () => {
     const content = fs.readFileSync(target, 'utf8')
     expect(content).toContain('reference types="webextension-polyfill"')
     expect(content).toContain('declare global')
-    expect(content).toContain("const browser: typeof import('webextension-polyfill')")
+    expect(content).toContain(
+      "const browser: typeof import('webextension-polyfill')"
+    )
   })
 
   it.skip('writes extension-paths.d.ts with unions', async () => {
