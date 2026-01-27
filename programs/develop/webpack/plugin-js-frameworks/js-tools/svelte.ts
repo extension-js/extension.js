@@ -50,11 +50,25 @@ export async function maybeUseSvelte(
   } catch (e) {
     const typeScriptDependencies = ['typescript']
 
-    await installOptionalDependencies('TypeScript', typeScriptDependencies)
+    const didInstallTs = await installOptionalDependencies(
+      'TypeScript',
+      typeScriptDependencies
+    )
+
+    if (!didInstallTs) {
+      throw new Error('[TypeScript] Optional dependencies failed to install.')
+    }
 
     const svelteDependencies = ['svelte-loader']
 
-    await installOptionalDependencies('Svelte', svelteDependencies)
+    const didInstallSvelte = await installOptionalDependencies(
+      'Svelte',
+      svelteDependencies
+    )
+
+    if (!didInstallSvelte) {
+      throw new Error('[Svelte] Optional dependencies failed to install.')
+    }
 
     console.log(messages.youAreAllSet('Svelte'))
     process.exit(0)
@@ -65,7 +79,13 @@ export async function maybeUseSvelte(
     require.resolve('typescript', {paths: [projectPath, process.cwd()]})
   } catch (e) {
     const typeScriptDependencies = ['typescript']
-    await installOptionalDependencies('TypeScript', typeScriptDependencies)
+    const didInstallTs = await installOptionalDependencies(
+      'TypeScript',
+      typeScriptDependencies
+    )
+    if (!didInstallTs) {
+      throw new Error('[TypeScript] Optional dependencies failed to install.')
+    }
     console.log(messages.youAreAllSet('TypeScript'))
     process.exit(0)
   }

@@ -68,7 +68,14 @@ export async function maybeUseReact(
   } catch (e) {
     const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
 
-    await installOptionalDependencies('React', reactDependencies)
+    const didInstall = await installOptionalDependencies(
+      'React',
+      reactDependencies
+    )
+
+    if (!didInstall) {
+      throw new Error('[React] Optional dependencies failed to install.')
+    }
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.

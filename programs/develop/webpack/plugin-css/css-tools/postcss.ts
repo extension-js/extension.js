@@ -125,7 +125,14 @@ export async function maybeUsePostCss(
     if (!isUsingSass(projectPath) && !isUsingLess(projectPath)) {
       const postCssDependencies = ['postcss', 'postcss-loader']
 
-      await installOptionalDependencies('PostCSS', postCssDependencies)
+      const didInstall = await installOptionalDependencies(
+        'PostCSS',
+        postCssDependencies
+      )
+
+      if (!didInstall) {
+        throw new Error('[PostCSS] Optional dependencies failed to install.')
+      }
     }
 
     console.log(messages.youAreAllSet('PostCSS'))

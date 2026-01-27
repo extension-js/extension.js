@@ -83,6 +83,15 @@ export function optionalInstallRootMissing(integration: string) {
   ].join('\n')
 }
 
+export function optionalInstallManagerMissing(integration: string) {
+  const prefix = colors.red('ERROR')
+  return [
+    `${prefix} [${integration}] No supported package manager found in PATH.`,
+    'Install pnpm, npm, or yarn and retry.',
+    'If you use pnpm, ensure it is available in your environment (e.g. corepack or PATH).'
+  ].join('\n')
+}
+
 export function missingSassDependency() {
   const prefix = colors.red('►►►')
   return [

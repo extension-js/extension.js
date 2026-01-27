@@ -3,7 +3,7 @@ import * as fs from 'fs'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   isUsingJSFramework: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => undefined)
+  installOptionalDependencies: vi.fn(async () => true)
 }))
 
 vi.mock('fs', async () => {

@@ -73,7 +73,14 @@ export async function maybeUsePreact(
       'preact'
     ]
 
-    await installOptionalDependencies('Preact', preactDependencies)
+    const didInstall = await installOptionalDependencies(
+      'Preact',
+      preactDependencies
+    )
+
+    if (!didInstall) {
+      throw new Error('[Preact] Optional dependencies failed to install.')
+    }
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
