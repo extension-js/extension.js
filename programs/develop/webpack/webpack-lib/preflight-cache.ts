@@ -9,7 +9,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {createHash} from 'crypto'
-import {findExtensionDevelopRoot} from './check-build-dependencies'
+import {resolveDevelopInstallRoot} from '../plugin-css/css-lib/integrations'
 import packageJson from '../../package.json'
 
 function getPreflightCacheDir(packageRoot: string): string {
@@ -87,7 +87,7 @@ function ensureCacheVersion(cacheDir: string): boolean {
 export function getPreflightMarkerPath(
   projectPath: string
 ): string | undefined {
-  const packageRoot = findExtensionDevelopRoot()
+  const packageRoot = resolveDevelopInstallRoot()
 
   if (!packageRoot) return undefined
 
