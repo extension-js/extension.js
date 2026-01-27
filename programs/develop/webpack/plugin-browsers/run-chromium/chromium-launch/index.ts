@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
-import {spawn} from 'child_process'
 import type {Compilation, Compiler} from '@rspack/core'
 import locateChrome, {
   getChromeVersion,
@@ -31,6 +30,12 @@ import {browserConfig} from './browser-config'
 import {setupProcessSignalHandlers} from './process-handlers'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
+import {
+  isWslEnv,
+  normalizeBinaryPathForWsl,
+  resolveWslWindowsBinary,
+  spawnChromiumProcess
+} from './wsl-support'
 import type {ChromiumContext} from '../chromium-context'
 import type {
   ChromiumLaunchOptions,
@@ -144,6 +149,11 @@ export class ChromiumLaunchPlugin {
     // Resolve binary (prefer output-resolved, then location helpers)
     let browserBinaryLocation: string | null = null
     let printedGuidance = false
+    const normalizePath = (p: string | null): string | null => {
+      if (!p) return null
+      const normalized = normalizeBinaryPathForWsl(p)
+      return normalized || null
+    }
 
     try {
       const resolved = binariesResolver.resolveFromBinaries(
@@ -154,14 +164,22 @@ export class ChromiumLaunchPlugin {
             ? 'edge'
             : 'chrome'
       )
-      if (resolved && fs.existsSync(resolved)) {
-        browserBinaryLocation = resolved
+      const normalized = normalizePath(resolved || null)
+      if (normalized && fs.existsSync(normalized)) {
+        browserBinaryLocation = normalized
       }
     } catch {
       // ignore
     }
 
-    const skipDetection = Boolean(browserBinaryLocation)
+    let skipDetection = Boolean(browserBinaryLocation)
+    if (!browserBinaryLocation && isWslEnv()) {
+      const wslFallback = resolveWslWindowsBinary(browser)
+      if (wslFallback) {
+        browserBinaryLocation = wslFallback
+        skipDetection = true
+      }
+    }
 
     const getBrowserVersionLine = (bin: string): string => {
       try {
@@ -195,9 +213,10 @@ export class ChromiumLaunchPlugin {
           try {
             try {
               const located = locateChromeOrExplain({allowFallback: true})
-              if (located && fs.existsSync(located)) {
-                const versionLine = getBrowserVersionLine(located)
-                if (looksOfficialChrome(versionLine)) {
+              const normalized = normalizePath(located || null)
+              if (normalized && fs.existsSync(normalized)) {
+                const versionLine = getBrowserVersionLine(normalized)
+                if (looksOfficialChrome(versionLine) && !isWslEnv()) {
                   this.printEnhancedPuppeteerInstallHint(
                     compilation,
                     getInstallGuidanceText(),
@@ -206,16 +225,17 @@ export class ChromiumLaunchPlugin {
                   printedGuidance = true
                   browserBinaryLocation = null
                 } else {
-                  browserBinaryLocation = located
+                  browserBinaryLocation = normalized
                 }
               } else {
                 browserBinaryLocation = null
               }
             } catch (err) {
               let candidate: string | null = locateChrome(true) || null
-              if (candidate) {
-                const versionLine = getBrowserVersionLine(candidate)
-                if (looksOfficialChrome(versionLine)) {
+              const normalized = normalizePath(candidate || null)
+              if (normalized) {
+                const versionLine = getBrowserVersionLine(normalized)
+                if (looksOfficialChrome(versionLine) && !isWslEnv()) {
                   this.printEnhancedPuppeteerInstallHint(
                     compilation,
                     getInstallGuidanceText(),
@@ -225,7 +245,10 @@ export class ChromiumLaunchPlugin {
                   candidate = null
                 }
               }
-              browserBinaryLocation = candidate
+              browserBinaryLocation = normalized
+              if (!browserBinaryLocation) {
+                browserBinaryLocation = resolveWslWindowsBinary(browser)
+              }
               if (!browserBinaryLocation) throw err
             }
           } catch (e) {
@@ -248,7 +271,8 @@ export class ChromiumLaunchPlugin {
         browserBinaryLocation = this.options?.chromiumBinary || null
         // If user provided a binary, require it to exist
         if (this.options?.chromiumBinary) {
-          if (!fs.existsSync(String(this.options.chromiumBinary))) {
+          const normalized = normalizePath(String(this.options.chromiumBinary))
+          if (!normalized || !fs.existsSync(normalized)) {
             console.error(
               messages.invalidChromiumBinaryPath(
                 String(this.options.chromiumBinary)
@@ -256,17 +280,22 @@ export class ChromiumLaunchPlugin {
             )
             process.exit(1)
           }
+          browserBinaryLocation = normalized
         }
 
         if (!browserBinaryLocation && !skipDetection) {
           try {
             const p = locateChromium()
-            if (p && typeof p === 'string' && fs.existsSync(p)) {
-              browserBinaryLocation = p
+            const normalized = normalizePath(p || null)
+            if (normalized && typeof normalized === 'string') {
+              if (fs.existsSync(normalized)) browserBinaryLocation = normalized
             }
           } catch {
             // ignore; not fatal here
           }
+        }
+        if (!browserBinaryLocation) {
+          browserBinaryLocation = resolveWslWindowsBinary(browser)
         }
         break
       }
@@ -278,18 +307,26 @@ export class ChromiumLaunchPlugin {
           // Honor explicit env override first
           const override = String(process.env.EDGE_BINARY || '').trim()
           if (override) {
-            if (fs.existsSync(override)) {
-              browserBinaryLocation = override
+            const normalized = normalizePath(override)
+            if (normalized && fs.existsSync(normalized)) {
+              browserBinaryLocation = normalized
             } else {
               throw new Error('EDGE_BINARY points to a non-existent path')
             }
           } else {
-            browserBinaryLocation = locateEdge()
+            const located = locateEdge()
+            const normalized = normalizePath(located || null)
+            browserBinaryLocation = normalized
             // Validate detected path. If not found, show install guidance just like the catch block.
             if (
               !browserBinaryLocation ||
               !fs.existsSync(String(browserBinaryLocation))
             ) {
+              const fallback = resolveWslWindowsBinary(browser)
+              if (fallback) {
+                browserBinaryLocation = fallback
+                break
+              }
               const guidance = (() => {
                 try {
                   return getEdgeInstallGuidance()
@@ -322,14 +359,25 @@ export class ChromiumLaunchPlugin {
             }
           })()
 
-          this.printEnhancedPuppeteerInstallHint(compilation, guidance, 'edge')
-          printedGuidance = true
-          browserBinaryLocation = null
-
-          if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-            throw new Error('Chromium launch failed')
+          const fallback = resolveWslWindowsBinary(browser)
+          if (fallback) {
+            browserBinaryLocation = fallback
           } else {
-            process.exit(1)
+            this.printEnhancedPuppeteerInstallHint(
+              compilation,
+              guidance,
+              'edge'
+            )
+            printedGuidance = true
+            browserBinaryLocation = null
+          }
+
+          if (!browserBinaryLocation) {
+            if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+              throw new Error('Chromium launch failed')
+            } else {
+              process.exit(1)
+            }
           }
         }
         break
@@ -340,7 +388,8 @@ export class ChromiumLaunchPlugin {
         browserBinaryLocation = this.options?.chromiumBinary || null
         // Engine-based requires explicit working binary path
         if (this.options?.chromiumBinary) {
-          if (!fs.existsSync(String(this.options.chromiumBinary))) {
+          const normalized = normalizePath(String(this.options.chromiumBinary))
+          if (!normalized || !fs.existsSync(normalized)) {
             console.error(
               messages.invalidChromiumBinaryPath(
                 String(this.options.chromiumBinary)
@@ -348,6 +397,7 @@ export class ChromiumLaunchPlugin {
             )
             process.exit(1)
           }
+          browserBinaryLocation = normalized
         } else {
           console.error(messages.requireChromiumBinaryForChromiumBased())
           process.exit(1)
@@ -355,12 +405,16 @@ export class ChromiumLaunchPlugin {
         if (!browserBinaryLocation && !skipDetection) {
           try {
             const p = locateChromium()
-            if (p && typeof p === 'string' && fs.existsSync(p)) {
-              browserBinaryLocation = p
+            const normalized = normalizePath(p || null)
+            if (normalized && typeof normalized === 'string') {
+              if (fs.existsSync(normalized)) browserBinaryLocation = normalized
             }
           } catch {
             // ignore
           }
+        }
+        if (!browserBinaryLocation) {
+          browserBinaryLocation = resolveWslWindowsBinary(browser)
         }
         break
       }
@@ -369,9 +423,10 @@ export class ChromiumLaunchPlugin {
         try {
           try {
             const located = locateChromeOrExplain({allowFallback: true})
-            if (located && fs.existsSync(located)) {
-              const versionLine = getBrowserVersionLine(located)
-              if (looksOfficialChrome(versionLine)) {
+            const normalized = normalizePath(located || null)
+            if (normalized && fs.existsSync(normalized)) {
+              const versionLine = getBrowserVersionLine(normalized)
+              if (looksOfficialChrome(versionLine) && !isWslEnv()) {
                 this.printEnhancedPuppeteerInstallHint(
                   compilation,
                   getInstallGuidanceText(),
@@ -380,16 +435,17 @@ export class ChromiumLaunchPlugin {
                 printedGuidance = true
                 browserBinaryLocation = null
               } else {
-                browserBinaryLocation = located
+                browserBinaryLocation = normalized
               }
             } else {
               browserBinaryLocation = null
             }
           } catch (err) {
             let candidate: string | null = locateChrome(true) || null
-            if (candidate) {
-              const versionLine = getBrowserVersionLine(candidate)
-              if (looksOfficialChrome(versionLine)) {
+            const normalized = normalizePath(candidate || null)
+            if (normalized) {
+              const versionLine = getBrowserVersionLine(normalized)
+              if (looksOfficialChrome(versionLine) && !isWslEnv()) {
                 this.printEnhancedPuppeteerInstallHint(
                   compilation,
                   getInstallGuidanceText(),
@@ -399,7 +455,10 @@ export class ChromiumLaunchPlugin {
                 candidate = null
               }
             }
-            browserBinaryLocation = candidate
+            browserBinaryLocation = normalized
+            if (!browserBinaryLocation) {
+              browserBinaryLocation = resolveWslWindowsBinary(browser)
+            }
             if (!browserBinaryLocation) throw err
           }
         } catch (e) {
@@ -426,11 +485,16 @@ export class ChromiumLaunchPlugin {
               : 'chrome'
         )
 
-        if (resolved && fs.existsSync(resolved)) {
-          browserBinaryLocation = resolved
+        const normalized = normalizePath(resolved || null)
+        if (normalized && fs.existsSync(normalized)) {
+          browserBinaryLocation = normalized
         }
       } catch {
         // ignore
+      }
+
+      if (!browserBinaryLocation) {
+        browserBinaryLocation = resolveWslWindowsBinary(browser)
       }
 
       if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
@@ -626,12 +690,15 @@ export class ChromiumLaunchPlugin {
       ? [...chromeFlags, this.options.startingUrl]
       : [...chromeFlags]
     const stdio = 'ignore'
+    const normalizedBinary = normalizeBinaryPathForWsl(binary)
 
     try {
-      const child = spawn(`${binary}`, launchArgs, {
+      const child = await spawnChromiumProcess({
+        binary: normalizedBinary,
+        launchArgs,
         stdio,
-        detached: false,
-        ...(process.platform !== 'win32' && {group: process.getgid?.()})
+        browser: this.options.browser,
+        logger: this.logger
       })
 
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
