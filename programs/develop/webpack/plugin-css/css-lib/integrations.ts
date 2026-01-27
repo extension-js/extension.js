@@ -17,6 +17,35 @@ function parseJsonSafe(text: string) {
   return JSON.parse(s || '{}')
 }
 
+function resolveDevelopRootFromDir(dir: string): string | undefined {
+  try {
+    const packageJsonPath = path.join(dir, 'package.json')
+    if (!fs.existsSync(packageJsonPath)) return undefined
+    const pkg = parseJsonSafe(fs.readFileSync(packageJsonPath, 'utf8'))
+    if (pkg?.name === 'extension-develop') return dir
+  } catch {
+    return undefined
+  }
+  return undefined
+}
+
+function findDevelopRootFrom(startDir: string): string | undefined {
+  let currentDir = startDir
+  const maxDepth = 6
+
+  for (let i = 0; i < maxDepth; i++) {
+    const root = resolveDevelopRootFromDir(currentDir)
+
+    if (root) return root
+
+    const parent = path.dirname(currentDir)
+    if (parent === currentDir) break
+
+    currentDir = parent
+  }
+
+  return undefined
+}
 function isFromPnpx() {
   if (process.env.npm_config_user_agent?.includes('pnpm')) return 'pnpm'
   return false
@@ -67,10 +96,17 @@ function resolveDevelopInstallRoot(): string | undefined {
   if (directRoot) return directRoot
 
   try {
+    const candidateRoot = findDevelopRootFrom(__dirname)
+    if (candidateRoot) return candidateRoot
+  } catch {
+    // ignore
+  }
+
+  try {
     const pkgPath = require.resolve('extension-develop/package.json', {
-      paths: [process.cwd()]
+      paths: [__dirname]
     })
-    return path.dirname(pkgPath)
+    return resolveDevelopRootFromDir(path.dirname(pkgPath))
   } catch {
     return undefined
   }
@@ -156,7 +192,10 @@ export async function installOptionalDependencies(
 
   try {
     const pm = await resolvePackageManager()
-    const installBaseDir = resolveDevelopInstallRoot() || process.cwd()
+    const installBaseDir = resolveDevelopInstallRoot()
+    if (!installBaseDir) {
+      throw new Error(messages.optionalInstallRootMissing(integration))
+    }
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
@@ -198,7 +237,10 @@ export async function installOptionalDependenciesBatch(
 
   try {
     const pm = await resolvePackageManager()
-    const installBaseDir = resolveDevelopInstallRoot() || process.cwd()
+    const installBaseDir = resolveDevelopInstallRoot()
+    if (!installBaseDir) {
+      throw new Error(messages.optionalInstallRootMissing(integration))
+    }
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
