@@ -6,6 +6,8 @@ describe('webpack-lib/branding', () => {
     const input = [
       'Rspack something',
       'Webpack something',
+      '@rspack/plugin-react-refresh',
+      '@webpack/cli',
       'ModuleBuildError: detail',
       'ModuleParseError: detail',
       'Error: Module build failed: blah',
@@ -15,6 +17,8 @@ describe('webpack-lib/branding', () => {
     ].join('\n')
     const out = scrubBrand(input, 'Extension.js')
     expect(out).toContain('Extension.js something')
+    expect(out).toContain('@rspack/plugin-react-refresh')
+    expect(out).toContain('@webpack/cli')
     expect(out).not.toContain('ModuleBuildError:')
     expect(out).not.toContain('ModuleParseError:')
     expect(out).not.toContain('Module build failed')
