@@ -28,7 +28,7 @@ export function handleStatsErrors(stats: any): void {
         errors: true,
         warnings: true
       })
-      if (str) console.error(str)
+      if (str) console.error(scrubBrand(str))
     } catch {
       // Ignore if stats.toString fails
     }

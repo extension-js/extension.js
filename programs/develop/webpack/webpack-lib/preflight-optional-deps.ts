@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {getDirs} from './paths'
+import {findExtensionDevelopRoot} from './check-build-dependencies'
 import colors from 'pintor'
 import {hasPreflightMarker, writePreflightMarker} from './preflight-cache'
 import type {ProjectStructure} from './project'
@@ -22,17 +23,28 @@ import {isUsingLess} from '../plugin-css/css-tools/less'
 import {isUsingPostCss} from '../plugin-css/css-tools/postcss'
 import * as messages from '../plugin-js-frameworks/js-frameworks-lib/messages'
 
+function getResolutionPaths(projectPath?: string) {
+  const extensionRoot = findExtensionDevelopRoot()
+  const paths = [
+    projectPath || undefined,
+    extensionRoot || undefined,
+    process.cwd()
+  ].filter(Boolean) as string[]
+
+  return Array.from(new Set(paths))
+}
+
 function canResolveFromProject(id: string, projectPath: string) {
   try {
-    return require.resolve(id, {paths: [projectPath, process.cwd()]})
+    return require.resolve(id, {paths: getResolutionPaths(projectPath)})
   } catch {
     return undefined
   }
 }
 
-function canResolve(id: string) {
+function canResolve(id: string, projectPath?: string) {
   try {
-    return require.resolve(id)
+    return require.resolve(id, {paths: getResolutionPaths(projectPath)})
   } catch {
     return undefined
   }
@@ -70,33 +82,44 @@ export async function preflightOptionalDependencies(
   const usesLess = isUsingLess(projectPath)
   const usesPostCss = isUsingPostCss(projectPath)
 
-  if (usesTypeScript && !canResolveFromProject('typescript', projectPath)) {
-    missingOptionalDeps.add('typescript')
-    usedIntegrations.push('TypeScript')
+  if (usesTypeScript) {
+    if (!canResolveFromProject('typescript', projectPath)) {
+      missingOptionalDeps.add('typescript')
+      usedIntegrations.push('TypeScript')
+    }
   }
 
   if (usesReact) {
-    if (!canResolve('react-refresh')) missingOptionalDeps.add('react-refresh')
-    if (!canResolve('@rspack/plugin-react-refresh')) {
+    if (!canResolve('react-refresh', projectPath)) {
+      missingOptionalDeps.add('react-refresh')
+    }
+    if (!canResolve('@rspack/plugin-react-refresh', projectPath)) {
       missingOptionalDeps.add('@rspack/plugin-react-refresh')
     }
     usedIntegrations.push('React')
   }
 
   if (usesPreact) {
-    if (!canResolve('@prefresh/core')) missingOptionalDeps.add('@prefresh/core')
-    if (!canResolve('@prefresh/utils'))
+    if (!canResolve('@prefresh/core', projectPath)) {
+      missingOptionalDeps.add('@prefresh/core')
+    }
+    if (!canResolve('@prefresh/utils', projectPath)) {
       missingOptionalDeps.add('@prefresh/utils')
-    if (!canResolve('@rspack/plugin-preact-refresh')) {
+    }
+    if (!canResolve('@rspack/plugin-preact-refresh', projectPath)) {
       missingOptionalDeps.add('@rspack/plugin-preact-refresh')
     }
-    if (!canResolve('preact')) missingOptionalDeps.add('preact')
+    if (!canResolve('preact', projectPath)) {
+      missingOptionalDeps.add('preact')
+    }
     usedIntegrations.push('Preact')
   }
 
   if (usesVue) {
-    if (!canResolve('vue-loader')) missingOptionalDeps.add('vue-loader')
-    if (!canResolve('@vue/compiler-sfc')) {
+    if (!canResolve('vue-loader', projectPath)) {
+      missingOptionalDeps.add('vue-loader')
+    }
+    if (!canResolve('@vue/compiler-sfc', projectPath)) {
       missingOptionalDeps.add('@vue/compiler-sfc')
     }
     usedIntegrations.push('Vue')
@@ -105,7 +128,7 @@ export async function preflightOptionalDependencies(
   if (usesSvelte) {
     if (
       !canResolveFromProject('svelte-loader', projectPath) &&
-      !canResolve('svelte-loader')
+      !canResolve('svelte-loader', projectPath)
     ) {
       missingOptionalDeps.add('svelte-loader')
     }
@@ -115,23 +138,42 @@ export async function preflightOptionalDependencies(
     usedIntegrations.push('Svelte')
   }
 
-  if (usesSass && !canResolve('sass-loader')) {
-    const postCssDeps = ['postcss-loader', 'postcss-scss', 'postcss-preset-env']
-    for (const dep of postCssDeps) {
-      if (!canResolve(dep)) missingOptionalDeps.add(dep)
+  if (usesSass) {
+    if (!canResolve('sass-loader', projectPath)) {
+      const postCssDeps = [
+        'postcss-loader',
+        'postcss-scss',
+        'postcss-preset-env'
+      ]
+      for (const dep of postCssDeps) {
+        if (!canResolve(dep, projectPath)) {
+          missingOptionalDeps.add(dep)
+        }
+      }
+      missingOptionalDeps.add('sass-loader')
+      usedIntegrations.push('Sass')
     }
-    missingOptionalDeps.add('sass-loader')
-    usedIntegrations.push('Sass')
   }
 
-  if (usesLess && !canResolve('less-loader')) {
-    if (!canResolve('less')) missingOptionalDeps.add('less')
-    missingOptionalDeps.add('less-loader')
-    usedIntegrations.push('Less')
+  if (usesLess) {
+    if (!canResolve('less-loader', projectPath)) {
+      if (!canResolve('less', projectPath)) {
+        missingOptionalDeps.add('less')
+      }
+      missingOptionalDeps.add('less-loader')
+      usedIntegrations.push('Less')
+    }
   }
 
-  if (usesPostCss && !canResolve('postcss-loader') && !usesSass && !usesLess) {
-    if (!canResolve('postcss')) missingOptionalDeps.add('postcss')
+  if (
+    usesPostCss &&
+    !canResolve('postcss-loader', projectPath) &&
+    !usesSass &&
+    !usesLess
+  ) {
+    if (!canResolve('postcss', projectPath)) {
+      missingOptionalDeps.add('postcss')
+    }
     missingOptionalDeps.add('postcss-loader')
     usedIntegrations.push('PostCSS')
   }
@@ -143,7 +185,10 @@ export async function preflightOptionalDependencies(
       Array.from(missingOptionalDeps),
       uniqueIntegrations
     )
-    if (opts?.showRunAgainMessage !== false) {
+    if (
+      opts?.showRunAgainMessage !== false &&
+      process.env.EXTENSION_AUTHOR_MODE === 'true'
+    ) {
       console.log(messages.optionalDepsReady(uniqueIntegrations))
     }
     if (opts?.exitOnInstall !== false) {
@@ -157,5 +202,10 @@ export async function preflightOptionalDependencies(
 export function shouldRunOptionalPreflight(projectStructure: ProjectStructure) {
   const {packageJsonDir} = getDirs(projectStructure)
   const projectPath = packageJsonDir as string
-  return !hasPreflightMarker(projectPath)
+
+  if (hasPreflightMarker(projectPath)) {
+    return false
+  } else {
+    return true
+  }
 }
