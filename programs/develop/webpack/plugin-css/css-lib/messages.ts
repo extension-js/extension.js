@@ -74,6 +74,15 @@ export function optionalInstallFailed(
   )}`
 }
 
+export function optionalInstallRootMissing(integration: string) {
+  const prefix = colors.red('ERROR')
+  return [
+    `${prefix} [${integration}] Failed to locate the extension-develop runtime.`,
+    'Optional tooling must install into the extension-develop package, not the user project.',
+    'Reinstall Extension.js or run the command from a valid Extension.js installation.'
+  ].join('\n')
+}
+
 export function missingSassDependency() {
   const prefix = colors.red('►►►')
   return [
