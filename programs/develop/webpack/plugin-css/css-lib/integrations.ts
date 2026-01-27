@@ -8,7 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {execSync} from 'child_process'
+import {execFileSync} from 'child_process'
 import * as messages from './messages'
 import {findExtensionDevelopRoot} from '../../webpack-lib/check-build-dependencies'
 
@@ -57,44 +57,81 @@ async function resolvePackageManager(): Promise<DetectedPackageManager> {
   return 'npm'
 }
 
+type InstallCommand = {
+  command: string
+  args: string[]
+}
+
 function getOptionalInstallCommand(
   pm: DetectedPackageManager,
   dependencies: string[],
   installBaseDir: string
-): string {
-  const quotedDir = JSON.stringify(installBaseDir)
+): InstallCommand {
   const pmName = pm
 
   if (pmName === 'yarn') {
-    return `yarn --silent add ${dependencies.join(
-      ' '
-    )} --cwd ${quotedDir} --optional`
+    return {
+      command: 'yarn',
+      args: [
+        '--silent',
+        'add',
+        ...dependencies,
+        '--cwd',
+        installBaseDir,
+        '--optional'
+      ]
+    }
   }
 
   if (pmName === 'npm' || isFromNpx()) {
-    return `npm --silent install ${dependencies.join(
-      ' '
-    )} --prefix ${quotedDir} --save-optional`
+    return {
+      command: 'npm',
+      args: [
+        '--silent',
+        'install',
+        ...dependencies,
+        '--prefix',
+        installBaseDir,
+        '--save-optional'
+      ]
+    }
   }
 
   if (isFromPnpx()) {
-    return `pnpm --silent add ${dependencies.join(
-      ' '
-    )} --prefix ${quotedDir} --save-optional`
+    return {
+      command: 'pnpm',
+      args: [
+        '--silent',
+        'add',
+        ...dependencies,
+        '--prefix',
+        installBaseDir,
+        '--save-optional'
+      ]
+    }
   }
 
   const fallback = pmName || 'npm'
-  return `${fallback} --silent install ${dependencies.join(
-    ' '
-  )} --cwd ${quotedDir} --optional`
+  return {
+    command: fallback,
+    args: [
+      '--silent',
+      'install',
+      ...dependencies,
+      '--cwd',
+      installBaseDir,
+      '--optional'
+    ]
+  }
 }
 
-function getRootInstallCommand(pm: DetectedPackageManager): string {
+function getRootInstallCommand(pm: DetectedPackageManager): InstallCommand {
   const pmName = pm
-  if (pmName === 'yarn') return `yarn install --silent`
-  if (pmName === 'npm' || isFromNpx()) return `npm install --silent`
-  if (isFromPnpx()) return `pnpm install --silent`
-  return `${pmName || 'npm'} install --silent`
+  if (pmName === 'yarn') return {command: 'yarn', args: ['install', '--silent']}
+  if (pmName === 'npm' || isFromNpx())
+    return {command: 'npm', args: ['install', '--silent']}
+  if (isFromPnpx()) return {command: 'pnpm', args: ['install', '--silent']}
+  return {command: pmName || 'npm', args: ['install', '--silent']}
 }
 
 export async function installOptionalDependencies(
@@ -117,12 +154,16 @@ export async function installOptionalDependencies(
       messages.optionalToolingSetup([integration], integration, isAuthor)
     )
 
-    execSync(installCommand, {stdio: 'inherit', cwd: installBaseDir})
+    execFileSync(installCommand.command, installCommand.args, {
+      stdio: 'inherit',
+      cwd: installBaseDir
+    })
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     if (isAuthor) {
       console.log(messages.optionalToolingRootInstall(integration))
-      execSync(getRootInstallCommand(pm), {
+      const rootInstall = getRootInstallCommand(pm)
+      execFileSync(rootInstall.command, rootInstall.args, {
         stdio: 'ignore',
         cwd: installBaseDir
       })
@@ -155,12 +196,16 @@ export async function installOptionalDependenciesBatch(
       messages.optionalToolingSetup(integrations, integration, isAuthor)
     )
 
-    execSync(installCommand, {stdio: 'inherit', cwd: installBaseDir})
+    execFileSync(installCommand.command, installCommand.args, {
+      stdio: 'inherit',
+      cwd: installBaseDir
+    })
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     if (isAuthor) {
       console.log(messages.optionalToolingRootInstall(integration))
-      execSync(getRootInstallCommand(pm), {
+      const rootInstall = getRootInstallCommand(pm)
+      execFileSync(rootInstall.command, rootInstall.args, {
         stdio: 'ignore',
         cwd: installBaseDir
       })
