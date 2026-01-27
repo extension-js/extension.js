@@ -8,7 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {execFileSync} from 'child_process'
+import {execFileSync, spawnSync} from 'child_process'
 import * as messages from './messages'
 import {findExtensionDevelopRoot} from '../../webpack-lib/check-build-dependencies'
 
@@ -82,13 +82,28 @@ function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
 
 async function resolvePackageManager(): Promise<DetectedPackageManager> {
   const envPm = getPackageManagerFromEnv()
-  if (envPm) return envPm
-  return 'npm'
+  if (envPm && commandExists(envPm)) return envPm
+
+  const candidates: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm']
+  for (const candidate of candidates) {
+    if (commandExists(candidate)) return candidate
+  }
+
+  throw new Error(messages.optionalInstallManagerMissing('Optional'))
 }
 
 type InstallCommand = {
   command: string
   args: string[]
+}
+
+function commandExists(command: string) {
+  try {
+    const result = spawnSync(command, ['-v'], {stdio: 'ignore'})
+    return result.status === 0
+  } catch {
+    return false
+  }
 }
 
 function resolveDevelopInstallRoot(): string | undefined {
@@ -222,9 +237,11 @@ export async function installOptionalDependencies(
       })
       console.log(messages.optionalToolingReady(integration))
     }
+    return true
   } catch (error) {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.error(messages.optionalInstallFailed(integration, error, isAuthor))
+    return false
   }
 }
 
@@ -267,9 +284,11 @@ export async function installOptionalDependenciesBatch(
       })
       console.log(messages.optionalToolingReady(integration))
     }
+    return true
   } catch (error) {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.error(messages.optionalInstallFailed(integration, error, isAuthor))
+    return false
   }
 }
 
