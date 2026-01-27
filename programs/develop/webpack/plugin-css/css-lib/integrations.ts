@@ -62,6 +62,20 @@ type InstallCommand = {
   args: string[]
 }
 
+function resolveDevelopInstallRoot(): string | undefined {
+  const directRoot = findExtensionDevelopRoot()
+  if (directRoot) return directRoot
+
+  try {
+    const pkgPath = require.resolve('extension-develop/package.json', {
+      paths: [process.cwd()]
+    })
+    return path.dirname(pkgPath)
+  } catch {
+    return undefined
+  }
+}
+
 function getOptionalInstallCommand(
   pm: DetectedPackageManager,
   dependencies: string[],
@@ -142,7 +156,7 @@ export async function installOptionalDependencies(
 
   try {
     const pm = await resolvePackageManager()
-    const installBaseDir = findExtensionDevelopRoot() || process.cwd()
+    const installBaseDir = resolveDevelopInstallRoot() || process.cwd()
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
@@ -184,7 +198,7 @@ export async function installOptionalDependenciesBatch(
 
   try {
     const pm = await resolvePackageManager()
-    const installBaseDir = findExtensionDevelopRoot() || process.cwd()
+    const installBaseDir = resolveDevelopInstallRoot() || process.cwd()
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
