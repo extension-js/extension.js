@@ -40,6 +40,40 @@ export function youAreAllSet(name: string) {
   return `${colors.green('►►►')} ${name} installation completed.`
 }
 
+export function optionalToolingSetup(
+  integrations: string[] | undefined,
+  fallback: string,
+  isAuthor: boolean
+) {
+  const list =
+    integrations && integrations.length > 0 ? integrations.join('/') : fallback
+  const prefix = isAuthor
+    ? colors.brightMagenta('►►► Author says')
+    : colors.gray('►►►')
+  return `${prefix} Setting up ${list} tooling... (this is a one time op)`
+}
+
+export function optionalToolingRootInstall(integration: string) {
+  return `${colors.brightMagenta('►►► Author says')} [${integration}] Installing root dependencies for dev...`
+}
+
+export function optionalToolingReady(integration: string) {
+  return `${colors.brightMagenta('►►► Author says')} ${integration} tooling ready.`
+}
+
+export function optionalInstallFailed(
+  integration: string,
+  error: unknown,
+  isAuthor: boolean
+) {
+  const prefix = isAuthor
+    ? colors.brightMagenta('ERROR Author says')
+    : colors.red('ERROR')
+  return `${prefix} [${integration}] Failed to install dependencies.\n${colors.red(
+    String((error as Error)?.message || error)
+  )}`
+}
+
 export function missingSassDependency() {
   const prefix = colors.red('►►►')
   return [

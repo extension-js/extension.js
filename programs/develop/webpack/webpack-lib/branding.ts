@@ -8,11 +8,12 @@
 
 export function scrubBrand(txt: string, brand = 'Extension.js'): string {
   if (!txt) return txt
+  const safeBrand = brand.replace(/\$/g, '$$$$')
   return txt
-    .replace(/\bRspack\b/gi, brand)
-    .replace(/\bWebpack\b/gi, brand)
-    .replace(/\bwebpack-dev-server\b/gi, `${brand} dev server`)
-    .replace(/\bRspackDevServer\b/gi, `${brand} dev server`)
+    .replace(/(?<!@)\bRspack\b/gi, safeBrand)
+    .replace(/(?<!@)\bWebpack\b/gi, safeBrand)
+    .replace(/(?<!@)\bwebpack-dev-server\b/gi, `${safeBrand} dev server`)
+    .replace(/(?<!@)\bRspackDevServer\b/gi, `${safeBrand} dev server`)
     .replace(/ModuleBuildError:\s*/g, '')
     .replace(/ModuleParseError:\s*/g, '')
     .replace(/Error:\s*Module\s+build\s+failed.*?\n/gi, '')
