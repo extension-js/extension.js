@@ -2,7 +2,7 @@ import {describe, it, expect, vi, beforeEach} from 'vitest'
 
 vi.mock('../../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => undefined)
+  installOptionalDependencies: vi.fn(async () => true)
 }))
 
 describe('postcss detection', () => {
@@ -142,7 +142,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (p: string, dep: string) =>
         dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
-      installOptionalDependencies: vi.fn(async () => undefined)
+      installOptionalDependencies: vi.fn(async () => true)
     }))
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')

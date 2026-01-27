@@ -2,7 +2,7 @@ import {describe, it, expect, vi, beforeEach} from 'vitest'
 
 vi.mock('../../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => undefined)
+  installOptionalDependencies: vi.fn(async () => true)
 }))
 
 describe('less tools', () => {

@@ -51,7 +51,14 @@ export async function maybeUseLess(
   } catch (e) {
     const lessDependencies = ['less', 'less-loader']
 
-    await installOptionalDependencies('LESS', lessDependencies)
+    const didInstall = await installOptionalDependencies(
+      'LESS',
+      lessDependencies
+    )
+
+    if (!didInstall) {
+      throw new Error('[LESS] Optional dependencies failed to install.')
+    }
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.

@@ -67,7 +67,11 @@ export async function maybeUseVue(
   } catch (e) {
     const vueDependencies = ['vue-loader', '@vue/compiler-sfc']
 
-    await installOptionalDependencies('Vue', vueDependencies)
+    const didInstall = await installOptionalDependencies('Vue', vueDependencies)
+
+    if (!didInstall) {
+      throw new Error('[Vue] Optional dependencies failed to install.')
+    }
 
     console.log(messages.youAreAllSet('Vue'))
     process.exit(0)
