@@ -106,7 +106,7 @@ function commandExists(command: string) {
   }
 }
 
-function resolveDevelopInstallRoot(): string | undefined {
+export function resolveDevelopInstallRoot(): string | undefined {
   const directRoot = findExtensionDevelopRoot()
   if (directRoot) return directRoot
 
