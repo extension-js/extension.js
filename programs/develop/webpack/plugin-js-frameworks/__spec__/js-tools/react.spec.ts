@@ -2,7 +2,7 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => undefined)
+  installOptionalDependencies: vi.fn(async () => true)
 }))
 
 // Ensure require.resolve('react-refresh') succeeds to avoid install+exit

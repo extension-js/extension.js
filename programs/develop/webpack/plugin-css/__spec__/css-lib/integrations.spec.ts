@@ -4,7 +4,8 @@ import * as path from 'path'
 const originalResolve = (require as any).resolve
 
 vi.mock('child_process', () => ({
-  execFileSync: vi.fn()
+  execFileSync: vi.fn(),
+  spawnSync: vi.fn(() => ({status: 0}))
 }))
 
 vi.mock('../../webpack-lib/check-build-dependencies', () => ({
