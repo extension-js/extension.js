@@ -9,16 +9,38 @@ function main() {
 
   // Ensure dependencies are installed in the given package folder.
   function ensureDependencies(pkgRoot) {
+    // Prefer a single workspace install to avoid per-package pnpm runs.
+    const rootNodeModules = path.join(root, 'node_modules')
+    const hasWorkspaceInstall =
+      fs.existsSync(rootNodeModules) && fs.readdirSync(rootNodeModules).length > 0
+    if (hasWorkspaceInstall) return
+
     const nodeModules = path.join(pkgRoot, 'node_modules')
     const needsInstall =
       !fs.existsSync(nodeModules) ||
       (fs.existsSync(nodeModules) && fs.readdirSync(nodeModules).length === 0)
 
     if (needsInstall) {
-      execSync('pnpm install --silent', {
-        cwd: pkgRoot,
-        stdio: verbose ? 'inherit' : 'ignore'
-      })
+      const installRoot = fs.existsSync(path.join(root, 'pnpm-workspace.yaml'))
+        ? root
+        : pkgRoot
+
+      try {
+        execSync('pnpm install --silent', {
+          cwd: installRoot,
+          stdio: verbose ? 'inherit' : 'pipe'
+        })
+      } catch (error) {
+        if (!verbose) {
+          const stdout = error?.stdout ? String(error.stdout) : ''
+          const stderr = error?.stderr ? String(error.stderr) : ''
+          const output = `${stdout}${stderr}`.trim()
+          if (output.length > 0) {
+            console.error(output)
+          }
+        }
+        throw error
+      }
     }
   }
  
