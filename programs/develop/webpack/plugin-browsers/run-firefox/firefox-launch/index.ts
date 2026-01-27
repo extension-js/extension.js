@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
-import {spawn, ChildProcess} from 'child_process'
+import {ChildProcess} from 'child_process'
 import type {Compilation, Compiler} from '@rspack/core'
 import locateFirefox, {
   getInstallGuidance as getFirefoxInstallGuidance,
@@ -28,6 +28,12 @@ import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {logFirefoxDryRun} from './dry-run'
 import {browserConfig} from './browser-config'
 import {FirefoxBinaryDetector} from './binary-detector'
+import {
+  isWslEnv,
+  normalizeBinaryPathForWsl,
+  resolveWslWindowsBinary,
+  spawnFirefoxProcess
+} from './wsl-support'
 import type {FirefoxContext} from '../firefox-context'
 import type {BrowserConfig, DevOptions} from '../../../webpack-types'
 import type {FirefoxPluginRuntime} from '../firefox-types'
@@ -150,16 +156,29 @@ export class FirefoxLaunchPlugin {
     // Early detection from output binaries (mirrors Chromium path)
     let browserBinaryLocation: string | null =
       resolveFromBinaries(compilation, 'firefox') || null
-    const skipDetection = Boolean(browserBinaryLocation)
+    if (browserBinaryLocation) {
+      const normalized = normalizeBinaryPathForWsl(browserBinaryLocation)
+      browserBinaryLocation =
+        normalized && fs.existsSync(normalized) ? normalized : null
+    }
+    let skipDetection = Boolean(browserBinaryLocation)
     const engineBased =
       this.host.browser === 'gecko-based' ||
       this.host.browser === 'firefox-based'
+    if (!browserBinaryLocation && !engineBased && isWslEnv()) {
+      const wslFallback = resolveWslWindowsBinary()
+      if (wslFallback) {
+        browserBinaryLocation = wslFallback
+        skipDetection = true
+      }
+    }
 
     // Detect Firefox binary via firefox-location2
     try {
       if (this.host.geckoBinary && typeof this.host.geckoBinary === 'string') {
-        if (fs.existsSync(this.host.geckoBinary)) {
-          browserBinaryLocation = this.host.geckoBinary
+        const normalized = normalizeBinaryPathForWsl(this.host.geckoBinary)
+        if (normalized && fs.existsSync(normalized)) {
+          browserBinaryLocation = normalized
         } else {
           console.error(messages.invalidGeckoBinaryPath(this.host.geckoBinary))
           process.exit(1)
@@ -169,7 +188,11 @@ export class FirefoxLaunchPlugin {
           console.error(messages.requireGeckoBinaryForGeckoBased())
           process.exit(1)
         } else {
-          browserBinaryLocation = locateFirefox(true)
+          const located = locateFirefox(true)
+          const normalized = located ? normalizeBinaryPathForWsl(located) : null
+          if (normalized && fs.existsSync(normalized)) {
+            browserBinaryLocation = normalized
+          }
         }
       }
     } catch (_error) {
@@ -188,8 +211,11 @@ export class FirefoxLaunchPlugin {
     ) {
       // Second-chance resolution from output binaries
       const fallback = resolveFromBinaries(compilation, 'firefox')
-      if (fallback && fs.existsSync(fallback)) {
-        browserBinaryLocation = fallback
+      const normalizedFallback = fallback
+        ? normalizeBinaryPathForWsl(fallback)
+        : null
+      if (normalizedFallback && fs.existsSync(normalizedFallback)) {
+        browserBinaryLocation = normalizedFallback
       } else {
         if (engineBased || this.host.geckoBinary) {
           console.error(
@@ -199,18 +225,23 @@ export class FirefoxLaunchPlugin {
           )
           process.exit(1)
         } else {
-          const guidance = (() => {
-            try {
-              return getFirefoxInstallGuidance()
-            } catch {
-              return 'npx @puppeteer/browsers install firefox'
-            }
-          })()
-          this.printInstallHint(compilation, guidance)
-          if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
-            throw new Error('Firefox not installed or binary path not found')
+          const wslFallback = resolveWslWindowsBinary()
+          if (wslFallback) {
+            browserBinaryLocation = wslFallback
           } else {
-            process.exit(1)
+            const guidance = (() => {
+              try {
+                return getFirefoxInstallGuidance()
+              } catch {
+                return 'npx @puppeteer/browsers install firefox'
+              }
+            })()
+            this.printInstallHint(compilation, guidance)
+            if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
+              throw new Error('Firefox not installed or binary path not found')
+            } else {
+              process.exit(1)
+            }
           }
         }
       }
@@ -218,6 +249,8 @@ export class FirefoxLaunchPlugin {
 
     // At this point TS: ensure non-null string
     const binaryPath = browserBinaryLocation as string
+    const wslFallbackBinary =
+      isWslEnv() && !engineBased ? resolveWslWindowsBinary() : null
 
     try {
       this.host.browserVersionLine =
@@ -300,10 +333,12 @@ export class FirefoxLaunchPlugin {
       )
       const isWin = process.platform === 'win32'
       const stdio: any = isWin ? 'ignore' : ['pipe', 'pipe', 'pipe']
-      this.child = spawn(binary, args, {
+      this.child = await spawnFirefoxProcess({
+        binary,
+        args,
         stdio,
-        detached: false,
-        ...(isWin ? {windowsHide: true} : {})
+        fallbackBinary: wslFallbackBinary,
+        logger: this.ctx.logger
       })
       this.wireChildLifecycle(compilation, debugPort, desiredDebugPort)
 
@@ -343,10 +378,12 @@ export class FirefoxLaunchPlugin {
 
       const isWin = process.platform === 'win32'
       const stdio: any = isWin ? 'ignore' : ['pipe', 'pipe', 'pipe']
-      this.child = spawn(binaryPath, args, {
+      this.child = await spawnFirefoxProcess({
+        binary: binaryPath,
+        args,
         stdio,
-        detached: false,
-        ...(isWin ? {windowsHide: true} : {})
+        fallbackBinary: wslFallbackBinary,
+        logger: this.ctx.logger
       })
       this.wireChildLifecycle(compilation, debugPort, desiredDebugPort)
     }
