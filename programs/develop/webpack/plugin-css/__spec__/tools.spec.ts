@@ -12,7 +12,7 @@ vi.mock('fs', async () => {
 
 vi.mock('../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => undefined)
+  installOptionalDependencies: vi.fn(async () => true)
 }))
 
 vi.mock('../../webpack-lib/messages', () => ({

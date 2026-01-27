@@ -182,11 +182,15 @@ export async function preflightOptionalDependencies(
 
   if (missingOptionalDeps.size > 0) {
     const uniqueIntegrations = Array.from(new Set(usedIntegrations))
-    await installOptionalDependenciesBatch(
+    const didInstall = await installOptionalDependenciesBatch(
       'Optional',
       Array.from(missingOptionalDeps),
       uniqueIntegrations
     )
+
+    if (!didInstall) {
+      throw new Error('[Optional] Optional dependencies failed to install.')
+    }
     if (
       opts?.showRunAgainMessage !== false &&
       process.env.EXTENSION_AUTHOR_MODE === 'true'

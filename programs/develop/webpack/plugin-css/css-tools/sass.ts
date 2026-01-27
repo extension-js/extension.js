@@ -120,14 +120,28 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
       'postcss-preset-env'
     ]
 
-    await installOptionalDependencies('PostCSS', postCssDependencies)
+    const didInstallPostCss = await installOptionalDependencies(
+      'PostCSS',
+      postCssDependencies
+    )
+
+    if (!didInstallPostCss) {
+      throw new Error('[PostCSS] Optional dependencies failed to install.')
+    }
 
     // We expect users to install "sass" in their project. Here we only
     // bootstrap the loader itself so that the npx / cache-based runtime
     // can function without users having to think about peer deps.
     const sassDependencies = ['sass-loader']
 
-    await installOptionalDependencies('SASS', sassDependencies)
+    const didInstallSass = await installOptionalDependencies(
+      'SASS',
+      sassDependencies
+    )
+
+    if (!didInstallSass) {
+      throw new Error('[SASS] Optional dependencies failed to install.')
+    }
 
     // The compiler will exit after installing the dependencies
     // as it can't read the new dependencies without a restart.
