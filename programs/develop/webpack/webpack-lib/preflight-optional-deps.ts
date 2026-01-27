@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import {getDirs} from './paths'
-import {findExtensionDevelopRoot} from './check-build-dependencies'
+import {resolveDevelopInstallRoot} from '../plugin-css/css-lib/integrations'
 import colors from 'pintor'
 import {hasPreflightMarker, writePreflightMarker} from './preflight-cache'
 import type {ProjectStructure} from './project'
@@ -24,7 +24,7 @@ import {isUsingPostCss} from '../plugin-css/css-tools/postcss'
 import * as messages from '../plugin-js-frameworks/js-frameworks-lib/messages'
 
 function getResolutionPaths(projectPath?: string) {
-  const extensionRoot = findExtensionDevelopRoot()
+  const extensionRoot = resolveDevelopInstallRoot()
   const paths = [
     projectPath || undefined,
     extensionRoot || undefined,
@@ -198,6 +198,7 @@ export async function preflightOptionalDependencies(
       console.log(messages.optionalDepsReady(uniqueIntegrations))
     }
     if (opts?.exitOnInstall !== false) {
+      writePreflightMarker(projectPath)
       process.exit(0)
     }
   }
