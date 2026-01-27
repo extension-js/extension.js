@@ -120,7 +120,7 @@
     "less-loader": "12.3.0",
     "postcss": "^8.5.6",
     "postcss-loader": "8.2.0",
-    "postcss-preset-env": "11.1.1",
+    "postcss-preset-env": "11.1.2",
     "postcss-scss": "4.0.9",
     "react-refresh": "0.18.0",
     "sass-loader": "16.0.6",
