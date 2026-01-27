@@ -176,6 +176,8 @@ export async function preflightOptionalDependencies(
     }
     missingOptionalDeps.add('postcss-loader')
     usedIntegrations.push('PostCSS')
+  } else if (usesPostCss) {
+    usedIntegrations.push('PostCSS')
   }
 
   if (missingOptionalDeps.size > 0) {
