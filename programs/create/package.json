@@ -22,7 +22,7 @@
     "dist"
   ],
   "name": "extension-create",
-  "version": "3.2.3",
+  "version": "3.3.1",
   "description": "The standalone extension creation engine for Extension.js",
   "author": {
     "name": "Cezar Augusto",
