@@ -140,6 +140,24 @@ describe('css-lib integrations', () => {
     expect(call?.[1]?.[0]).toBe('/tmp/npm-cli.js')
   })
 
+  it('uses corepack fallback when no manager is available', async () => {
+    await mockDevelopRoot()
+
+    const {execFileSync, spawnSync} = (await import('child_process')) as any
+    spawnSync.mockImplementation((cmd: string) =>
+      cmd === 'corepack' ? {status: 0} : {status: 1}
+    )
+
+    const {installOptionalDependencies} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    const call = execFileSync.mock.calls[0]
+    expect(call?.[0]).toBe('corepack')
+    expect(call?.[1]?.[0]).toBe('pnpm')
+  })
+
   it('uses npm install with --prefix and --save-optional', async () => {
     await mockDevelopRoot()
     process.env.npm_config_user_agent = 'npm'
