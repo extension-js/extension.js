@@ -60,6 +60,8 @@ type DetectedPackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun'
 type PackageManagerResolution = {
   name: DetectedPackageManager
   execPath?: string
+  runnerCommand?: string
+  runnerArgs?: string[]
 }
 
 function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
@@ -105,6 +107,15 @@ async function resolvePackageManager(): Promise<PackageManagerResolution> {
     return {name: inferred, execPath}
   }
 
+  if (commandExists('corepack')) {
+    const fallbackChain: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm']
+    return {
+      name: fallbackChain[0],
+      runnerCommand: 'corepack',
+      runnerArgs: [fallbackChain[0]]
+    }
+  }
+
   throw new Error(messages.optionalInstallManagerMissing('Optional'))
 }
 
@@ -146,8 +157,16 @@ export function resolveDevelopInstallRoot(): string | undefined {
 function maybeWrapExecPath(
   command: InstallCommand,
   pmName: DetectedPackageManager,
-  execPath?: string
+  execPath?: string,
+  runnerCommand?: string,
+  runnerArgs?: string[]
 ): InstallCommand {
+  if (runnerCommand) {
+    return {
+      command: runnerCommand,
+      args: [...(runnerArgs || []), ...command.args]
+    }
+  }
   if (!execPath) return command
   if (commandExists(pmName)) return command
 
@@ -178,7 +197,9 @@ function getOptionalInstallCommand(
         ]
       },
       pmName,
-      pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
     )
   }
 
@@ -196,7 +217,9 @@ function getOptionalInstallCommand(
         ]
       },
       pmName,
-      pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
     )
   }
 
@@ -214,7 +237,9 @@ function getOptionalInstallCommand(
         ]
       },
       pmName,
-      pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
     )
   }
 
@@ -231,7 +256,9 @@ function getOptionalInstallCommand(
         ]
       },
       pmName,
-      pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
     )
   }
 
@@ -249,7 +276,9 @@ function getOptionalInstallCommand(
       ]
     },
     pmName,
-    pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
   )
 }
 
@@ -259,7 +288,9 @@ function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
     return maybeWrapExecPath(
       {command: 'yarn', args: ['install', '--silent']},
       pmName,
-      pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
     )
   }
 
@@ -267,7 +298,9 @@ function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
     return maybeWrapExecPath(
       {command: 'npm', args: ['install', '--silent']},
       pmName,
-      pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
     )
   }
 
@@ -275,7 +308,9 @@ function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
     return maybeWrapExecPath(
       {command: 'pnpm', args: ['install', '--silent']},
       pmName,
-      pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
     )
   }
 
@@ -283,14 +318,18 @@ function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
     return maybeWrapExecPath(
       {command: 'bun', args: ['install']},
       pmName,
-      pm.execPath
+      pm.execPath,
+      pm.runnerCommand,
+      pm.runnerArgs
     )
   }
 
   return maybeWrapExecPath(
     {command: pmName || 'npm', args: ['install', '--silent']},
     pmName,
-    pm.execPath
+    pm.execPath,
+    pm.runnerCommand,
+    pm.runnerArgs
   )
 }
 
