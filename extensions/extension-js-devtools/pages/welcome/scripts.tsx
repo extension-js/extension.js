@@ -1,14 +1,26 @@
 import {useEffect, useState, type HTMLAttributes} from 'react'
 import ReactDOM from 'react-dom/client'
+import logo from '@/images/logo.png'
 import {cn, applyTheme} from '@/lib/utils'
 import {getDevExtension} from '@/background/define-initial-tab'
-import logo from '@/images/logo.png'
+import {ConfirmSetupDialog} from './confirm-setup'
 
 import '@/styles.css'
 
 applyTheme()
 
 type AppFooterProps = HTMLAttributes<HTMLDivElement>
+
+const browser = String(
+  // @ts-ignore
+  import.meta.env.EXTENSION_BROWSER || 'chromium'
+).toLowerCase()
+
+const isChromiumBased =
+  browser === 'chromium' ||
+  browser === 'chrome' ||
+  browser === 'edge' ||
+  browser === 'chromium-based'
 
 function AppFooter({className, ...props}: AppFooterProps) {
   return (
@@ -17,28 +29,35 @@ function AppFooter({className, ...props}: AppFooterProps) {
       {...props}
     >
       <div className="relative inline-flex items-center gap-3 rounded-2xl border px-4 py-2 shadow-sm backdrop-blur">
-        <a
-          href="https://extension.js.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2"
-          aria-label="Visit extension.js.org"
-        >
-          <img
-            className="size-4 select-none"
-            alt="Extension.js logo"
-            src={logo}
-          />
-          <span className="sr-only">extension.js</span>
-        </a>
-        <a
-          href="https://extension.js.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-muted-foreground text-sm underline underline-offset-4 hover:opacity-90"
-        >
-          Learn more about developing cross-browser extensions.
-        </a>
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href="https://extension.js.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2"
+            aria-label="Visit extension.js.org"
+          >
+            <img
+              className="size-4 select-none"
+              alt="Extension.js logo"
+              src={logo}
+            />
+            <span className="sr-only">extension.js</span>
+          </a>
+          <a
+            href="https://extension.js.org/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground text-sm underline underline-offset-4 hover:opacity-90"
+          >
+            Learn more about developing cross-browser extensions.
+          </a>
+        </div>
+        {isChromiumBased ? (
+          <div className="ml-auto">
+            <ConfirmSetupDialog />
+          </div>
+        ) : null}
       </div>
     </div>
   )
