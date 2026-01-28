@@ -13,7 +13,7 @@
     "resolveJsonModule": true,
     "strict": true,
     "target": "esnext",
-    "verbatimModuleSyntax": true,
+    "verbatimModuleSyntax": false,
     "useDefineForClassFields": true,
     "skipLibCheck": true
   },
