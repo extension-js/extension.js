@@ -1,4 +1,4 @@
-import iconUrl from "../images/icon.png"
+import iconUrl from '../images/icon.png'
 const logo = iconUrl
 
 export default function createContentApp(): HTMLDivElement {
