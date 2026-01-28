@@ -123,6 +123,23 @@ describe('css-lib integrations', () => {
     expect(call?.[0]).toBe('pnpm')
   })
 
+  it('wraps npm_execpath when no manager is in PATH', async () => {
+    await mockDevelopRoot()
+    process.env.npm_execpath = '/tmp/npm-cli.js'
+
+    const {execFileSync, spawnSync} = (await import('child_process')) as any
+    spawnSync.mockReturnValue({status: 1})
+
+    const {installOptionalDependencies} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    const call = execFileSync.mock.calls[0]
+    expect(call?.[0]).toBe(process.execPath)
+    expect(call?.[1]?.[0]).toBe('/tmp/npm-cli.js')
+  })
+
   it('uses npm install with --prefix and --save-optional', async () => {
     await mockDevelopRoot()
     process.env.npm_config_user_agent = 'npm'
@@ -152,6 +169,23 @@ describe('css-lib integrations', () => {
 
     const call = execFileSync.mock.calls[0]
     expect(call?.[0]).toBe('yarn')
+    expect(call?.[1]).toContain('add')
+    expect(call?.[1]).toContain('--cwd')
+    expect(call?.[1]).toContain('--optional')
+  })
+
+  it('uses bun add with --cwd and --optional', async () => {
+    await mockDevelopRoot()
+    process.env.npm_config_user_agent = 'bun'
+
+    const {execFileSync} = (await import('child_process')) as any
+    const {installOptionalDependencies} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    const call = execFileSync.mock.calls[0]
+    expect(call?.[0]).toBe('bun')
     expect(call?.[1]).toContain('add')
     expect(call?.[1]).toContain('--cwd')
     expect(call?.[1]).toContain('--optional')
