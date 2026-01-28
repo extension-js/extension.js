@@ -5,19 +5,29 @@
   "name": "Extension.js - JavaScript Sidebar Example",
   "description": "JavaScript-based extension with a sidebar panel. Adds a sidebar with a simple page.",
   "icons": {
-    "16": "images/javascript.png",
-    "48": "images/javascript.png",
-    "128": "images/javascript.png"
+    "16": "public/icon.png",
+    "32": "public/icon.png",
+    "48": "public/icon.png",
+    "64": "public/icon.png",
+    "128": "public/icon.png"
   },
   "chromium:action": {
     "default_icon": {
-      "48": "images/javascript.png"
+      "16": "public/icon.png",
+      "32": "public/icon.png",
+      "48": "public/icon.png",
+      "64": "public/icon.png",
+      "128": "public/icon.png"
     },
     "default_title": "Open Side Panel"
   },
   "firefox:browser_action": {
     "default_icon": {
-      "48": "images/javascript.png"
+      "16": "public/icon.png",
+      "32": "public/icon.png",
+      "48": "public/icon.png",
+      "64": "public/icon.png",
+      "128": "public/icon.png"
     },
     "default_title": "Open Side Panel"
   },
