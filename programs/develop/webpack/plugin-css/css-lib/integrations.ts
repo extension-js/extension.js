@@ -148,37 +148,74 @@ function resolveBundledNpmCliPath(): string | undefined {
 }
 
 async function resolvePackageManager(): Promise<PackageManagerResolution> {
+  console.log('[extension.js][optional-deps] resolvePackageManager start', {
+    platform: process.platform,
+    execPath: process.execPath,
+    npm_execpath: process.env.npm_execpath,
+    npm_config_user_agent: process.env.npm_config_user_agent,
+    npm_config_prefix: process.env.npm_config_prefix,
+    npm_config_cache: process.env.npm_config_cache,
+    npm_config_userconfig: process.env.npm_config_userconfig
+  })
+
   const override = getPackageManagerOverride()
-  if (override) return override
+  if (override) {
+    console.log('[extension.js][optional-deps] using override', override)
+    return override
+  }
 
   const envPm = getPackageManagerFromEnv()
   const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH
-  if (envPm) return {name: envPm, execPath}
+  if (envPm) {
+    console.log('[extension.js][optional-deps] using env package manager', {
+      envPm,
+      execPath
+    })
+    return {name: envPm, execPath}
+  }
 
   const candidates: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm', 'bun']
   for (const candidate of candidates) {
-    if (commandExists(candidate)) return {name: candidate}
+    if (commandExists(candidate)) {
+      console.log('[extension.js][optional-deps] found on PATH', candidate)
+      return {name: candidate}
+    }
     const windowsPath = resolveWindowsCommandPath(candidate)
-    if (windowsPath) return {name: candidate, execPath: windowsPath}
+    if (windowsPath) {
+      console.log('[extension.js][optional-deps] found via where', {
+        candidate,
+        windowsPath
+      })
+      return {name: candidate, execPath: windowsPath}
+    }
   }
 
   if (execPath) {
-    const inferred = execPath.includes('pnpm')
+    const inferred: DetectedPackageManager = execPath.includes('pnpm')
       ? 'pnpm'
       : execPath.includes('yarn')
         ? 'yarn'
         : execPath.includes('npm')
           ? 'npm'
           : 'npm'
-    return {name: inferred, execPath}
+    const resolution = {name: inferred, execPath}
+    console.log('[extension.js][optional-deps] inferred from execPath', {
+      execPath,
+      resolution
+    })
+    return resolution
   }
 
   const bundledNpmCli = resolveBundledNpmCliPath()
   if (bundledNpmCli) {
+    console.log('[extension.js][optional-deps] using bundled npm cli', {
+      bundledNpmCli
+    })
     return {name: 'npm', execPath: bundledNpmCli}
   }
 
   if (commandExists('corepack')) {
+    console.log('[extension.js][optional-deps] using corepack fallback')
     const fallbackChain: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm']
     return {
       name: fallbackChain[0],
@@ -187,6 +224,7 @@ async function resolvePackageManager(): Promise<PackageManagerResolution> {
     }
   }
 
+  console.log('[extension.js][optional-deps] falling back to npm')
   return {name: 'npm'}
 }
 
@@ -208,9 +246,32 @@ type ExecInstallOptions = {
 
 function commandExists(command: string) {
   try {
+    if (shouldUseCmdExe(command)) {
+      const cmdExe = resolveWindowsCmdExe()
+      const result = spawnSync(
+        cmdExe,
+        ['/d', '/s', '/c', formatCmdArgs(command, ['-v'])],
+        {stdio: 'ignore', windowsHide: true}
+      )
+      console.log('[extension.js][optional-deps] commandExists', {
+        command,
+        status: result.status,
+        mode: 'cmd'
+      })
+      return result.status === 0
+    }
     const result = spawnSync(command, ['-v'], {stdio: 'ignore'})
+    console.log('[extension.js][optional-deps] commandExists', {
+      command,
+      status: result.status,
+      mode: 'direct'
+    })
     return result.status === 0
-  } catch {
+  } catch (error) {
+    console.log('[extension.js][optional-deps] commandExists error', {
+      command,
+      error: (error as Error)?.message || error
+    })
     return false
   }
 }
@@ -219,18 +280,30 @@ function resolveWindowsCommandPath(command: string) {
   if (process.platform !== 'win32') return undefined
   try {
     const cmdExe = resolveWindowsCmdExe()
-    const output = execFileSync(cmdExe, ['/d', '/s', '/c', `where ${command}`], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      windowsHide: true
-    })
+    const output = execFileSync(
+      cmdExe,
+      ['/d', '/s', '/c', `where ${command}`],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        windowsHide: true
+      }
+    )
     const candidates = String(output)
       .split(/\r?\n/)
       .map((line) => line.trim())
       .filter(Boolean)
     const cmdMatch = candidates.find((line) => /\.cmd$/i.test(line))
+    console.log('[extension.js][optional-deps] where results', {
+      command,
+      candidates
+    })
     return cmdMatch || candidates[0]
-  } catch {
+  } catch (error) {
+    console.log('[extension.js][optional-deps] where error', {
+      command,
+      error: (error as Error)?.message || error
+    })
     return undefined
   }
 }
@@ -381,6 +454,10 @@ function execInstallCommand(
   options: ExecInstallOptions
 ) {
   try {
+    console.log('[extension.js][optional-deps] exec install', {
+      command,
+      cwd: options.cwd
+    })
     execFileSyncSafe(command.command, command.args, {
       stdio: 'inherit',
       cwd: options.cwd
@@ -388,6 +465,10 @@ function execInstallCommand(
     return
   } catch (error) {
     if (options.fallbackNpmCommand && isMissingManagerError(error)) {
+      console.log('[extension.js][optional-deps] exec fallback npm', {
+        fallback: options.fallbackNpmCommand,
+        cwd: options.cwd
+      })
       execFileSyncSafe(
         options.fallbackNpmCommand.command,
         options.fallbackNpmCommand.args,
