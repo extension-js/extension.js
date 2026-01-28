@@ -58,10 +58,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
     )
-    .option(
-      '--no-runner',
-      'do not launch the browser runner'
-    )
+    .option('--no-runner', 'do not launch the browser runner')
     .option(
       '--port <port>',
       'specify the port to use for the development server. Defaults to `8080`'
