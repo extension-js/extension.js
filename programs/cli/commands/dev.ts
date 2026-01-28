@@ -38,6 +38,7 @@ type DevOptions = {
   logUrl?: string
   logTab?: string | number
   install?: boolean
+  noRunner?: boolean
 }
 
 export function registerDevCommand(program: Command, telemetry: any) {
@@ -69,6 +70,10 @@ export function registerDevCommand(program: Command, telemetry: any) {
     .option(
       '--no-open',
       'do not open the browser automatically (default: open)'
+    )
+    .option(
+      '--no-runner',
+      'do not launch the browser runner (dev server still starts)'
     )
     .option(
       '--starting-url <url>',
@@ -175,6 +180,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
           source: devOptions.source,
           watchSource: devOptions.watchSource,
           install: devOptions.install,
+          noRunner: devOptions.noRunner,
           logLevel: (logsOption || devOptions.logLevel || 'off') as any,
           logContexts: parseLogContexts(logContextOption),
           logFormat: devOptions.logFormat || 'pretty',

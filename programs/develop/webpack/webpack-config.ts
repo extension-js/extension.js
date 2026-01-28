@@ -92,6 +92,68 @@ export default function webpackConfig(
     preferences: devOptions.preferences
   })
 
+  const plugins: NonNullable<Configuration['plugins']> = [
+    new CompilationPlugin({
+      manifestPath,
+      browser: devOptions.browser,
+      clean: devOptions.output.clean,
+      zip: devOptions.zip === true,
+      zipSource: devOptions.zipSource === true,
+      zipFilename: devOptions.zipFilename
+    }),
+    new StaticAssetsPlugin({
+      manifestPath,
+      mode: devOptions.mode
+    }),
+    new CssPlugin({
+      manifestPath
+    }),
+    new JsFrameworksPlugin({
+      manifestPath,
+      mode: devOptions.mode
+    }),
+    new CompatibilityPlugin({
+      manifestPath,
+      browser: devOptions.browser,
+      polyfill: devOptions.polyfill
+    }),
+    new ExtensionPlugin({
+      manifestPath,
+      browser: devOptions.browser
+    })
+  ]
+
+  if (!devOptions.noRunner) {
+    plugins.push(
+      new BrowsersPlugin({
+        extension: unpackedExtensionDirsToLoad,
+        browser: devOptions.browser,
+        noOpen: devOptions.noOpen,
+        startingUrl: devOptions.startingUrl,
+        profile: devOptions.profile,
+        persistProfile: (devOptions as any).persistProfile,
+        preferences: darkDefaults.preferences,
+        browserFlags: darkDefaults.browserFlags,
+        chromiumBinary: devOptions.chromiumBinary,
+        geckoBinary: devOptions.geckoBinary,
+        instanceId: devOptions.instanceId,
+        port: devOptions.port,
+        source: devOptions.source,
+        watchSource: devOptions.watchSource,
+        // Prevent actual browser launch during monorepo watch
+        dryRun: process.env.EXTENSION_DEV_NO_BROWSER === '1',
+        // Forward unified logger options to BrowsersPlugin (CDP logger)
+        logLevel: devOptions.logLevel,
+        logContexts: devOptions.logContexts,
+        logFormat: devOptions.logFormat,
+        logTimestamps: devOptions.logTimestamps,
+        logColor: devOptions.logColor,
+        logUrl: devOptions.logUrl,
+        logTab: devOptions.logTab
+      })
+    )
+  }
+
   return {
     mode: devOptions.mode || 'development',
     entry: {},
@@ -161,62 +223,7 @@ export default function webpackConfig(
         }
       }
     },
-    plugins: [
-      new CompilationPlugin({
-        manifestPath,
-        browser: devOptions.browser,
-        clean: devOptions.output.clean,
-        zip: devOptions.zip === true,
-        zipSource: devOptions.zipSource === true,
-        zipFilename: devOptions.zipFilename
-      }),
-      new StaticAssetsPlugin({
-        manifestPath,
-        mode: devOptions.mode
-      }),
-      new CssPlugin({
-        manifestPath
-      }),
-      new JsFrameworksPlugin({
-        manifestPath,
-        mode: devOptions.mode
-      }),
-      new CompatibilityPlugin({
-        manifestPath,
-        browser: devOptions.browser,
-        polyfill: devOptions.polyfill
-      }),
-      new ExtensionPlugin({
-        manifestPath,
-        browser: devOptions.browser
-      }),
-      new BrowsersPlugin({
-        extension: unpackedExtensionDirsToLoad,
-        browser: devOptions.browser,
-        noOpen: devOptions.noOpen,
-        startingUrl: devOptions.startingUrl,
-        profile: devOptions.profile,
-        persistProfile: (devOptions as any).persistProfile,
-        preferences: darkDefaults.preferences,
-        browserFlags: darkDefaults.browserFlags,
-        chromiumBinary: devOptions.chromiumBinary,
-        geckoBinary: devOptions.geckoBinary,
-        instanceId: devOptions.instanceId,
-        port: devOptions.port,
-        source: devOptions.source,
-        watchSource: devOptions.watchSource,
-        // Prevent actual browser launch during monorepo watch
-        dryRun: process.env.EXTENSION_DEV_NO_BROWSER === '1',
-        // Forward unified logger options to BrowsersPlugin (CDP logger)
-        logLevel: devOptions.logLevel,
-        logContexts: devOptions.logContexts,
-        logFormat: devOptions.logFormat,
-        logTimestamps: devOptions.logTimestamps,
-        logColor: devOptions.logColor,
-        logUrl: devOptions.logUrl,
-        logTab: devOptions.logTab
-      })
-    ],
+    plugins,
     // Be quiet about build internals; keep output user-focused.
     // We intentionally do not expose underlying bundler names.
     stats: {
