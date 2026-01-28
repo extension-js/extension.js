@@ -107,6 +107,22 @@ describe('css-lib integrations', () => {
     expect(call?.[1]).not.toContain('--cwd')
   })
 
+  it('prefers env package manager even when command check fails', async () => {
+    await mockDevelopRoot()
+    process.env.npm_config_user_agent = 'pnpm'
+
+    const {execFileSync, spawnSync} = (await import('child_process')) as any
+    spawnSync.mockReturnValueOnce({status: 1})
+
+    const {installOptionalDependencies} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    const call = execFileSync.mock.calls[0]
+    expect(call?.[0]).toBe('pnpm')
+  })
+
   it('uses npm install with --prefix and --save-optional', async () => {
     await mockDevelopRoot()
     process.env.npm_config_user_agent = 'npm'
