@@ -126,6 +126,10 @@ export interface DevOptions extends BrowserOptionsBase {
   polyfill?: boolean
   port?: string | number | undefined
   install?: boolean
+  /**
+   * Skip launching the browser runner (dev server still starts).
+   */
+  noRunner?: boolean
   // Narrow down the options based on `browser`
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
@@ -182,6 +186,10 @@ export interface PreviewOptions extends BrowserOptionsBase {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  /**
+   * Skip launching the browser runner (no preview window).
+   */
+  noRunner?: boolean
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
   // Source inspection options (parity with DevOptions)
@@ -215,6 +223,10 @@ export interface StartOptions extends BrowserOptionsBase {
    * [internal] Auto-install project dependencies when missing.
    */
   install?: boolean
+  /**
+   * Skip launching the browser runner (build still runs).
+   */
+  noRunner?: boolean
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
   // Source inspection options (parity with DevOptions)
@@ -294,6 +306,7 @@ export interface FileConfig {
       | 'chromiumBinary'
       | 'geckoBinary'
       | 'noOpen'
+      | 'noRunner'
       | 'polyfill'
     > &
       Pick<
@@ -320,6 +333,7 @@ export interface FileConfig {
       | 'chromiumBinary'
       | 'geckoBinary'
       | 'polyfill'
+      | 'noRunner'
       | 'port'
       | 'source'
       | 'watchSource'
@@ -344,6 +358,7 @@ export interface FileConfig {
       | 'profile'
       | 'chromiumBinary'
       | 'geckoBinary'
+      | 'noRunner'
       | 'port'
       | 'source'
       | 'watchSource'
