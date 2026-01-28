@@ -83,6 +83,11 @@ export async function extensionPreview(
 
   console.log(messages.previewing(browser))
 
+  if (previewOptions.noRunner) {
+    console.log(messages.previewSkippedNoRunner(browser))
+    return
+  }
+
   const safeBrowserConfig = sanitize(browserConfig)
   const safeCommandConfig = sanitize(commandConfig)
   const safePreviewOptions = sanitize(previewOptions as Record<string, any>)

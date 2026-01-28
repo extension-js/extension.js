@@ -19,6 +19,7 @@ type PreviewOptions = {
   geckoBinary?: string
   startingUrl?: string
   port?: string | number
+  noRunner?: boolean
   // Source inspection (parity with dev)
   source?: boolean | string
   watchSource?: boolean
@@ -56,6 +57,10 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
     .option(
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
+    )
+    .option(
+      '--no-runner',
+      'do not launch the browser runner'
     )
     .option(
       '--port <port>',
@@ -142,6 +147,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
           geckoBinary: (previewOptions as any).geckoBinary,
           startingUrl: previewOptions.startingUrl,
           port: previewOptions.port,
+          noRunner: previewOptions.noRunner,
           source:
             typeof previewOptions.source === 'string'
               ? previewOptions.source
