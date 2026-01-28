@@ -13,15 +13,16 @@ vi.mock('../../webpack-lib/check-build-dependencies', () => ({
 }))
 
 describe('css-lib integrations', () => {
-  const mockDevelopRoot = async () => {
+  const mockDevelopRoot = async (extraExistingPaths: string[] = []) => {
     const isDevelopPackageJson = (p: string) =>
       p.endsWith(`${path.sep}programs${path.sep}develop${path.sep}package.json`)
+    const extraPaths = new Set(extraExistingPaths)
 
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
       return {
         ...actual,
-        existsSync: (p: string) => isDevelopPackageJson(p),
+        existsSync: (p: string) => isDevelopPackageJson(p) || extraPaths.has(p),
         readFileSync: (p: string) => {
           if (isDevelopPackageJson(p)) {
             return JSON.stringify({name: 'extension-develop'})
@@ -123,6 +124,29 @@ describe('css-lib integrations', () => {
 
     const call = execFileSync.mock.calls[0]
     expect(call?.[0]).toBe('pnpm')
+  })
+
+  it('falls back to npm cli when env manager is missing', async () => {
+    await mockDevelopRoot(['/tmp/npm-cli.js'])
+    process.env.npm_config_user_agent = 'pnpm'
+    process.env.EXTENSION_JS_PM_EXEC_PATH = '/tmp/npm-cli.js'
+
+    const {execFileSync} = (await import('child_process')) as any
+    execFileSync.mockImplementationOnce(() => {
+      const err: NodeJS.ErrnoException = new Error('spawn pnpm ENOENT')
+      err.code = 'ENOENT'
+      throw err
+    })
+
+    const {installOptionalDependencies} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    expect(execFileSync).toHaveBeenCalledTimes(2)
+    const fallbackCall = execFileSync.mock.calls[1]
+    expect(fallbackCall?.[0]).toBe(process.execPath)
+    expect(fallbackCall?.[1]?.[0]).toBe('/tmp/npm-cli.js')
   })
 
   it('uses EXTENSION_JS_PACKAGE_MANAGER override when provided', async () => {
