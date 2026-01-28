@@ -259,6 +259,13 @@ function resolveNpmCmdFromNodeExec(): string | undefined {
     const execDir = path.dirname(process.execPath)
     const candidate = path.join(execDir, 'npm.cmd')
     if (fs.existsSync(candidate)) return candidate
+    const posixMatch = /^\/([a-z])\//i.exec(execDir)
+    if (posixMatch) {
+      const drive = posixMatch[1].toUpperCase()
+      const winDir = `${drive}:\\${execDir.slice(3).replace(/\//g, '\\')}`
+      const winCandidate = path.join(winDir, 'npm.cmd')
+      if (fs.existsSync(winCandidate)) return winCandidate
+    }
   } catch {
     return undefined
   }
@@ -304,6 +311,12 @@ function formatCmdArgs(command: string, args: string[]) {
   return `${quotedCommand} ${quotedArgs.join(' ')}`.trim()
 }
 
+function shouldUseCmdExe(command: string) {
+  if (process.platform !== 'win32') return false
+  if (isWindowsCmd(command)) return true
+  return ['npm', 'pnpm', 'yarn', 'corepack', 'bun'].includes(command)
+}
+
 function execFileSyncSafe(
   command: string,
   args: string[],
@@ -312,7 +325,7 @@ function execFileSyncSafe(
     cwd?: string
   }
 ) {
-  if (isWindowsCmd(command)) {
+  if (shouldUseCmdExe(command)) {
     const cmdExe = resolveWindowsCmdExe()
     execFileSync(cmdExe, ['/d', '/s', '/c', formatCmdArgs(command, args)], {
       ...options,
