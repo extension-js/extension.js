@@ -158,6 +158,8 @@ async function resolvePackageManager(): Promise<PackageManagerResolution> {
   const candidates: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm', 'bun']
   for (const candidate of candidates) {
     if (commandExists(candidate)) return {name: candidate}
+    const windowsPath = resolveWindowsCommandPath(candidate)
+    if (windowsPath) return {name: candidate, execPath: windowsPath}
   }
 
   if (execPath) {
@@ -210,6 +212,26 @@ function commandExists(command: string) {
     return result.status === 0
   } catch {
     return false
+  }
+}
+
+function resolveWindowsCommandPath(command: string) {
+  if (process.platform !== 'win32') return undefined
+  try {
+    const cmdExe = resolveWindowsCmdExe()
+    const output = execFileSync(cmdExe, ['/d', '/s', '/c', `where ${command}`], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
+    })
+    const candidates = String(output)
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+    const cmdMatch = candidates.find((line) => /\.cmd$/i.test(line))
+    return cmdMatch || candidates[0]
+  } catch {
+    return undefined
   }
 }
 
@@ -317,6 +339,11 @@ function shouldUseCmdExe(command: string) {
   return ['npm', 'pnpm', 'yarn', 'corepack', 'bun'].includes(command)
 }
 
+function isWindowsExecutablePath(value?: string) {
+  if (!value || process.platform !== 'win32') return false
+  return /\.(cmd|bat|exe)$/i.test(value)
+}
+
 function execFileSyncSafe(
   command: string,
   args: string[],
@@ -410,6 +437,9 @@ function maybeWrapExecPath(
     }
   }
   if (!execPath) return command
+  if (isWindowsExecutablePath(execPath)) {
+    return {command: execPath, args: command.args}
+  }
   if (commandExists(pmName)) return command
 
   return {
