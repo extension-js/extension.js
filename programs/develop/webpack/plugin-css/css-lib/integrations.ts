@@ -316,13 +316,7 @@ function getOptionalInstallCommand(
     return maybeWrapExecPath(
       {
         command: 'bun',
-        args: [
-          'add',
-          ...dependencies,
-          '--cwd',
-          installBaseDir,
-          '--optional'
-        ]
+        args: ['add', ...dependencies, '--cwd', installBaseDir, '--optional']
       },
       pmName,
       pm.execPath,
@@ -345,9 +339,9 @@ function getOptionalInstallCommand(
       ]
     },
     pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
+    pm.execPath,
+    pm.runnerCommand,
+    pm.runnerArgs
   )
 }
 
@@ -450,7 +444,18 @@ export async function installOptionalDependencies(
     return true
   } catch (error) {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    console.error(messages.optionalInstallFailed(integration, error, isAuthor))
+    const err = error as NodeJS.ErrnoException
+    const isMissingManager =
+      err?.code === 'ENOENT' ||
+      String(err?.message || '').includes('ENOENT') ||
+      String(err?.message || '').includes('not found')
+    if (isMissingManager) {
+      console.error(messages.optionalInstallManagerMissing(integration))
+    } else {
+      console.error(
+        messages.optionalInstallFailed(integration, error, isAuthor)
+      )
+    }
     return false
   }
 }
@@ -504,7 +509,18 @@ export async function installOptionalDependenciesBatch(
     return true
   } catch (error) {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    console.error(messages.optionalInstallFailed(integration, error, isAuthor))
+    const err = error as NodeJS.ErrnoException
+    const isMissingManager =
+      err?.code === 'ENOENT' ||
+      String(err?.message || '').includes('ENOENT') ||
+      String(err?.message || '').includes('not found')
+    if (isMissingManager) {
+      console.error(messages.optionalInstallManagerMissing(integration))
+    } else {
+      console.error(
+        messages.optionalInstallFailed(integration, error, isAuthor)
+      )
+    }
     return false
   }
 }
