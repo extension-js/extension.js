@@ -186,6 +186,10 @@ export async function devServer(
     if (startTimeout) clearTimeout(startTimeout)
 
     console.log(messages.ready('development', devOptions.browser))
+
+    if (devOptions.noRunner) {
+      console.log(messages.browserRunnerDisabled())
+    }
   } catch (error) {
     if (startTimeout) clearTimeout(startTimeout)
 

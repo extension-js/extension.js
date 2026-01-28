@@ -123,6 +123,10 @@ export function previewing(browser: DevOptions['browser']) {
   return `${getLoggingPrefix('info')} Previewing the extension on ${capitalizedBrowserName(browser)}...`
 }
 
+export function previewSkippedNoRunner(browser: DevOptions['browser']) {
+  return `${getLoggingPrefix('info')} Skipping browser runner for ${capitalizedBrowserName(browser)} (no-runner).`
+}
+
 export function previewWebpack() {
   return `${getLoggingPrefix('info')} Previewing the extension package...`
 }
