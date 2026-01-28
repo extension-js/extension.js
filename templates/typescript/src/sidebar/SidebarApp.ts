@@ -1,4 +1,4 @@
-import iconUrl from "../images/icon.png"
+import iconUrl from '../images/icon.png'
 const typescriptLogo = iconUrl
 
 function SidebarApp() {
