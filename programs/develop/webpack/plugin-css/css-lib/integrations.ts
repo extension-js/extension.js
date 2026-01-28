@@ -253,6 +253,22 @@ function wrapCommandForWsl(
   return {command: 'wsl.exe', args}
 }
 
+function resolveNpmCmdFromNodeExec(): string | undefined {
+  if (process.platform !== 'win32') return undefined
+  try {
+    const execDir = path.dirname(process.execPath)
+    const candidate = path.join(execDir, 'npm.cmd')
+    if (fs.existsSync(candidate)) return candidate
+  } catch {
+    return undefined
+  }
+  return undefined
+}
+
+function resolveNpmCommand(): string {
+  return resolveNpmCmdFromNodeExec() || 'npm'
+}
+
 function buildNpmCliFallback(args: string[]): InstallCommand | undefined {
   const npmCli = resolveBundledNpmCliPath()
   if (!npmCli) return undefined
@@ -367,7 +383,7 @@ function getOptionalInstallCommand(
   if (pmName === 'npm' || isFromNpx()) {
     return maybeWrapExecPath(
       {
-        command: 'npm',
+        command: resolveNpmCommand(),
         args: [
           '--silent',
           'install',
@@ -418,9 +434,10 @@ function getOptionalInstallCommand(
   }
 
   const fallback = pmName || 'npm'
+  const resolvedFallback = fallback === 'npm' ? resolveNpmCommand() : fallback
   return maybeWrapExecPath(
     {
-      command: fallback,
+      command: resolvedFallback,
       args: [
         '--silent',
         'install',
@@ -463,7 +480,7 @@ function getRootInstallCommand(
 
   if (pmName === 'npm' || isFromNpx()) {
     return maybeWrapExecPath(
-      {command: 'npm', args: ['install', '--silent', ...dirArgs]},
+      {command: resolveNpmCommand(), args: ['install', '--silent', ...dirArgs]},
       pmName,
       pm.execPath,
       pm.runnerCommand,
@@ -491,8 +508,10 @@ function getRootInstallCommand(
     )
   }
 
+  const resolvedFallback =
+    (pmName || 'npm') === 'npm' ? resolveNpmCommand() : pmName || 'npm'
   return maybeWrapExecPath(
-    {command: pmName || 'npm', args: ['install', '--silent', ...dirArgs]},
+    {command: resolvedFallback, args: ['install', '--silent', ...dirArgs]},
     pmName,
     pm.execPath,
     pm.runnerCommand,
