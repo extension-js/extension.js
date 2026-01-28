@@ -1,5 +1,7 @@
 import {h} from 'preact'
-import logo from '../images/preact.png'
+import iconUrl from "../images/icon.png"
+
+const logo = iconUrl
 
 export default function ContentApp() {
   const handleClick = () => {
