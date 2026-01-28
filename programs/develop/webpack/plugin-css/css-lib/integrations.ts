@@ -64,6 +64,38 @@ type PackageManagerResolution = {
   runnerArgs?: string[]
 }
 
+function normalizePackageManager(
+  value?: string
+): DetectedPackageManager | undefined {
+  if (!value) return undefined
+  const lower = value.toLowerCase().trim()
+  if (lower === 'pnpm') return 'pnpm'
+  if (lower === 'yarn') return 'yarn'
+  if (lower === 'bun') return 'bun'
+  if (lower === 'npm') return 'npm'
+  return undefined
+}
+
+function inferPackageManagerFromPath(
+  value?: string
+): DetectedPackageManager | undefined {
+  if (!value) return undefined
+  const lower = value.toLowerCase()
+  if (lower.includes('pnpm')) return 'pnpm'
+  if (lower.includes('yarn')) return 'yarn'
+  if (lower.includes('bun')) return 'bun'
+  if (lower.includes('npm')) return 'npm'
+  return undefined
+}
+
+function getPackageManagerOverride(): PackageManagerResolution | undefined {
+  const name = normalizePackageManager(process.env.EXTENSION_JS_PACKAGE_MANAGER)
+  const execPath = process.env.EXTENSION_JS_PM_EXEC_PATH
+  if (!name && !execPath) return undefined
+  const inferredName = name || inferPackageManagerFromPath(execPath) || 'npm'
+  return {name: inferredName, execPath}
+}
+
 function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
   const ua = process.env.npm_config_user_agent
 
@@ -86,12 +118,44 @@ function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
   return undefined
 }
 
+function resolveNpmCliFromNode(execPath: string): string | undefined {
+  const execDir = path.dirname(execPath)
+  const candidates = [
+    path.join(execDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(execDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(execDir, '..', 'node_modules', 'npm', 'bin', 'npm-cli.js')
+  ]
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return undefined
+}
+
+function resolveBundledNpmCliPath(): string | undefined {
+  if (process.env.EXTENSION_JS_PM_EXEC_PATH) {
+    const overridePath = process.env.EXTENSION_JS_PM_EXEC_PATH
+    if (overridePath && fs.existsSync(overridePath)) return overridePath
+  }
+  try {
+    const resolved = require.resolve('npm/bin/npm-cli.js', {
+      paths: [process.cwd(), __dirname]
+    })
+    if (resolved && fs.existsSync(resolved)) return resolved
+  } catch {
+    // ignore
+  }
+  return resolveNpmCliFromNode(process.execPath)
+}
+
 async function resolvePackageManager(): Promise<PackageManagerResolution> {
+  const override = getPackageManagerOverride()
+  if (override) return override
+
   const envPm = getPackageManagerFromEnv()
   const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH
   if (envPm) return {name: envPm, execPath}
 
-  const candidates: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm']
+  const candidates: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm', 'bun']
   for (const candidate of candidates) {
     if (commandExists(candidate)) return {name: candidate}
   }
@@ -105,6 +169,11 @@ async function resolvePackageManager(): Promise<PackageManagerResolution> {
           ? 'npm'
           : 'npm'
     return {name: inferred, execPath}
+  }
+
+  const bundledNpmCli = resolveBundledNpmCliPath()
+  if (bundledNpmCli) {
+    return {name: 'npm', execPath: bundledNpmCli}
   }
 
   if (commandExists('corepack')) {
@@ -350,6 +419,13 @@ export async function installOptionalDependencies(
       dependencies,
       installBaseDir
     )
+    if (
+      !pm.runnerCommand &&
+      installCommand.command !== process.execPath &&
+      !commandExists(installCommand.command)
+    ) {
+      throw new Error(messages.optionalInstallManagerMissing(integration))
+    }
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.log(
@@ -397,6 +473,13 @@ export async function installOptionalDependenciesBatch(
       dependencies,
       installBaseDir
     )
+    if (
+      !pm.runnerCommand &&
+      installCommand.command !== process.execPath &&
+      !commandExists(installCommand.command)
+    ) {
+      throw new Error(messages.optionalInstallManagerMissing(integration))
+    }
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.log(

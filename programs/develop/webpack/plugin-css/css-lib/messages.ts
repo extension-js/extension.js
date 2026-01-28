@@ -88,7 +88,11 @@ export function optionalInstallManagerMissing(integration: string) {
   return [
     `${prefix} [${integration}] No supported package manager found in PATH.`,
     'Install pnpm, npm, or yarn and retry.',
-    'If you use pnpm, ensure it is available in your environment (e.g. corepack or PATH).'
+    'If you use pnpm, ensure it is available in your environment (e.g. corepack or PATH).',
+    'Override detection with:',
+    `  ${colors.gray('EXTENSION_JS_PACKAGE_MANAGER=pnpm|npm|yarn|bun')}`,
+    `  ${colors.gray('EXTENSION_JS_PM_EXEC_PATH=/path/to/npm-cli.js')}`,
+    'If you are on WSL, run the CLI inside a WSL shell so PATH is consistent.'
   ].join('\n')
 }
 
