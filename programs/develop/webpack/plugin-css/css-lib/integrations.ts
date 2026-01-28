@@ -193,6 +193,12 @@ type InstallCommand = {
   args: string[]
 }
 
+type WslContext = {
+  useWsl: boolean
+  distro?: string
+  installDir?: string
+}
+
 function commandExists(command: string) {
   try {
     const result = spawnSync(command, ['-v'], {stdio: 'ignore'})
@@ -200,6 +206,46 @@ function commandExists(command: string) {
   } catch {
     return false
   }
+}
+
+function parseWslUncPath(value: string): {distro: string; path: string} | null {
+  const match = /^\\\\wsl(?:\.localhost)?\\([^\\]+)\\(.+)$/.exec(value)
+  if (!match) return null
+  const distro = match[1]
+  const rel = match[2].replace(/\\/g, '/').replace(/^\/+/, '')
+  const normalized = `/${rel}`
+
+  return {distro, path: normalized}
+}
+
+function isWslMountPath(value: string): boolean {
+  return /^\/mnt\/[a-z]\//i.test(value)
+}
+
+function resolveWslContext(installBaseDir: string): WslContext {
+  if (process.platform !== 'win32') return {useWsl: false}
+  const trimmed = String(installBaseDir || '').trim()
+  if (!trimmed) return {useWsl: false}
+  const unc = parseWslUncPath(trimmed)
+  if (unc) {
+    return {useWsl: true, distro: unc.distro, installDir: unc.path}
+  }
+  if (isWslMountPath(trimmed)) {
+    return {useWsl: true, installDir: trimmed}
+  }
+  return {useWsl: false}
+}
+
+function wrapCommandForWsl(
+  command: InstallCommand,
+  context: WslContext
+): InstallCommand {
+  if (!context.useWsl) return command
+
+  const args = [...(context.distro ? ['-d', context.distro] : []), '--']
+  args.push(command.command, ...command.args)
+
+  return {command: 'wsl.exe', args}
 }
 
 export function resolveDevelopInstallRoot(): string | undefined {
@@ -345,11 +391,23 @@ function getOptionalInstallCommand(
   )
 }
 
-function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
+function getRootInstallCommand(
+  pm: PackageManagerResolution,
+  installBaseDir?: string
+): InstallCommand {
   const pmName = pm.name
+  const dirArgs = installBaseDir
+    ? pmName === 'yarn'
+      ? ['--cwd', installBaseDir]
+      : pmName === 'pnpm'
+        ? ['--dir', installBaseDir]
+        : pmName === 'bun'
+          ? ['--cwd', installBaseDir]
+          : ['--prefix', installBaseDir]
+    : []
   if (pmName === 'yarn') {
     return maybeWrapExecPath(
-      {command: 'yarn', args: ['install', '--silent']},
+      {command: 'yarn', args: ['install', '--silent', ...dirArgs]},
       pmName,
       pm.execPath,
       pm.runnerCommand,
@@ -359,7 +417,7 @@ function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
 
   if (pmName === 'npm' || isFromNpx()) {
     return maybeWrapExecPath(
-      {command: 'npm', args: ['install', '--silent']},
+      {command: 'npm', args: ['install', '--silent', ...dirArgs]},
       pmName,
       pm.execPath,
       pm.runnerCommand,
@@ -369,7 +427,7 @@ function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
 
   if (pmName === 'pnpm' || isFromPnpx()) {
     return maybeWrapExecPath(
-      {command: 'pnpm', args: ['install', '--silent']},
+      {command: 'pnpm', args: ['install', '--silent', ...dirArgs]},
       pmName,
       pm.execPath,
       pm.runnerCommand,
@@ -379,7 +437,7 @@ function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
 
   if (pmName === 'bun') {
     return maybeWrapExecPath(
-      {command: 'bun', args: ['install']},
+      {command: 'bun', args: ['install', ...dirArgs]},
       pmName,
       pm.execPath,
       pm.runnerCommand,
@@ -388,7 +446,7 @@ function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
   }
 
   return maybeWrapExecPath(
-    {command: pmName || 'npm', args: ['install', '--silent']},
+    {command: pmName || 'npm', args: ['install', '--silent', ...dirArgs]},
     pmName,
     pm.execPath,
     pm.runnerCommand,
@@ -408,29 +466,35 @@ export async function installOptionalDependencies(
     if (!installBaseDir) {
       throw new Error(messages.optionalInstallRootMissing(integration))
     }
+    const wslContext = resolveWslContext(installBaseDir)
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
-      installBaseDir
+      wslContext.installDir || installBaseDir
     )
+    const execCommand = wrapCommandForWsl(installCommand, wslContext)
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.log(
       messages.optionalToolingSetup([integration], integration, isAuthor)
     )
 
-    execFileSync(installCommand.command, installCommand.args, {
+    execFileSync(execCommand.command, execCommand.args, {
       stdio: 'inherit',
-      cwd: installBaseDir
+      cwd: wslContext.useWsl ? undefined : installBaseDir
     })
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     if (isAuthor) {
       console.log(messages.optionalToolingRootInstall(integration))
-      const rootInstall = getRootInstallCommand(pm)
-      execFileSync(rootInstall.command, rootInstall.args, {
+      const rootInstall = getRootInstallCommand(
+        pm,
+        wslContext.useWsl ? wslContext.installDir : undefined
+      )
+      const rootCommand = wrapCommandForWsl(rootInstall, wslContext)
+      execFileSync(rootCommand.command, rootCommand.args, {
         stdio: 'ignore',
-        cwd: installBaseDir
+        cwd: wslContext.useWsl ? undefined : installBaseDir
       })
       console.log(messages.optionalToolingReady(integration))
     }
@@ -466,29 +530,36 @@ export async function installOptionalDependenciesBatch(
     if (!installBaseDir) {
       throw new Error(messages.optionalInstallRootMissing(integration))
     }
+    const wslContext = resolveWslContext(installBaseDir)
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
-      installBaseDir
+      wslContext.installDir || installBaseDir
     )
+    const execCommand = wrapCommandForWsl(installCommand, wslContext)
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.log(
       messages.optionalToolingSetup(integrations, integration, isAuthor)
     )
 
-    execFileSync(installCommand.command, installCommand.args, {
+    execFileSync(execCommand.command, execCommand.args, {
       stdio: 'inherit',
-      cwd: installBaseDir
+      cwd: wslContext.useWsl ? undefined : installBaseDir
     })
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     if (isAuthor) {
       console.log(messages.optionalToolingRootInstall(integration))
-      const rootInstall = getRootInstallCommand(pm)
-      execFileSync(rootInstall.command, rootInstall.args, {
+      const rootInstall = getRootInstallCommand(
+        pm,
+        wslContext.useWsl ? wslContext.installDir : undefined
+      )
+      const rootCommand = wrapCommandForWsl(rootInstall, wslContext)
+
+      execFileSync(rootCommand.command, rootCommand.args, {
         stdio: 'ignore',
-        cwd: installBaseDir
+        cwd: wslContext.useWsl ? undefined : installBaseDir
       })
       console.log(messages.optionalToolingReady(integration))
     }
