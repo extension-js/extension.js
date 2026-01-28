@@ -1,5 +1,5 @@
 import {h} from 'preact'
-import iconUrl from "../images/icon.png"
+import iconUrl from '../images/icon.png'
 
 const logo = iconUrl
 
