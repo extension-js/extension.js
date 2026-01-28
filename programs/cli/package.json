@@ -24,7 +24,7 @@
     "extension": "./dist/cli.js"
   },
   "name": "extension",
-  "version": "3.3.3-next.3",
+  "version": "3.3.3-next.4",
   "description": "Create cross-browser extensions with no build configuration.",
   "homepage": "https://extension.js.org/",
   "bugs": {
