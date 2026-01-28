@@ -199,6 +199,11 @@ type WslContext = {
   installDir?: string
 }
 
+type ExecInstallOptions = {
+  cwd?: string
+  fallbackNpmCommand?: InstallCommand
+}
+
 function commandExists(command: string) {
   try {
     const result = spawnSync(command, ['-v'], {stdio: 'ignore'})
@@ -246,6 +251,47 @@ function wrapCommandForWsl(
   args.push(command.command, ...command.args)
 
   return {command: 'wsl.exe', args}
+}
+
+function buildNpmCliFallback(args: string[]): InstallCommand | undefined {
+  const npmCli = resolveBundledNpmCliPath()
+  if (!npmCli) return undefined
+  return {command: process.execPath, args: [npmCli, ...args]}
+}
+
+function isMissingManagerError(error: unknown) {
+  const err = error as NodeJS.ErrnoException
+  return (
+    err?.code === 'ENOENT' ||
+    String(err?.message || '').includes('ENOENT') ||
+    String(err?.message || '').includes('not found')
+  )
+}
+
+function execInstallCommand(
+  command: InstallCommand,
+  options: ExecInstallOptions
+) {
+  try {
+    execFileSync(command.command, command.args, {
+      stdio: 'inherit',
+      cwd: options.cwd
+    })
+    return
+  } catch (error) {
+    if (options.fallbackNpmCommand && isMissingManagerError(error)) {
+      execFileSync(
+        options.fallbackNpmCommand.command,
+        options.fallbackNpmCommand.args,
+        {
+          stdio: 'inherit',
+          cwd: options.cwd
+        }
+      )
+      return
+    }
+    throw error
+  }
 }
 
 export function resolveDevelopInstallRoot(): string | undefined {
@@ -473,15 +519,25 @@ export async function installOptionalDependencies(
       wslContext.installDir || installBaseDir
     )
     const execCommand = wrapCommandForWsl(installCommand, wslContext)
+    const fallbackNpmCommand = wslContext.useWsl
+      ? undefined
+      : buildNpmCliFallback([
+          '--silent',
+          'install',
+          ...dependencies,
+          '--prefix',
+          installBaseDir,
+          '--save-optional'
+        ])
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.log(
       messages.optionalToolingSetup([integration], integration, isAuthor)
     )
 
-    execFileSync(execCommand.command, execCommand.args, {
-      stdio: 'inherit',
-      cwd: wslContext.useWsl ? undefined : installBaseDir
+    execInstallCommand(execCommand, {
+      cwd: wslContext.useWsl ? undefined : installBaseDir,
+      fallbackNpmCommand
     })
     await new Promise((resolve) => setTimeout(resolve, 500))
 
@@ -492,21 +548,24 @@ export async function installOptionalDependencies(
         wslContext.useWsl ? wslContext.installDir : undefined
       )
       const rootCommand = wrapCommandForWsl(rootInstall, wslContext)
-      execFileSync(rootCommand.command, rootCommand.args, {
-        stdio: 'ignore',
-        cwd: wslContext.useWsl ? undefined : installBaseDir
+      const rootFallbackCommand = wslContext.useWsl
+        ? undefined
+        : buildNpmCliFallback([
+            '--silent',
+            'install',
+            '--prefix',
+            installBaseDir
+          ])
+      execInstallCommand(rootCommand, {
+        cwd: wslContext.useWsl ? undefined : installBaseDir,
+        fallbackNpmCommand: rootFallbackCommand
       })
       console.log(messages.optionalToolingReady(integration))
     }
     return true
   } catch (error) {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    const err = error as NodeJS.ErrnoException
-    const isMissingManager =
-      err?.code === 'ENOENT' ||
-      String(err?.message || '').includes('ENOENT') ||
-      String(err?.message || '').includes('not found')
-    if (isMissingManager) {
+    if (isMissingManagerError(error)) {
       console.error(messages.optionalInstallManagerMissing(integration))
     } else {
       console.error(
@@ -537,15 +596,25 @@ export async function installOptionalDependenciesBatch(
       wslContext.installDir || installBaseDir
     )
     const execCommand = wrapCommandForWsl(installCommand, wslContext)
+    const fallbackNpmCommand = wslContext.useWsl
+      ? undefined
+      : buildNpmCliFallback([
+          '--silent',
+          'install',
+          ...dependencies,
+          '--prefix',
+          installBaseDir,
+          '--save-optional'
+        ])
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.log(
       messages.optionalToolingSetup(integrations, integration, isAuthor)
     )
 
-    execFileSync(execCommand.command, execCommand.args, {
-      stdio: 'inherit',
-      cwd: wslContext.useWsl ? undefined : installBaseDir
+    execInstallCommand(execCommand, {
+      cwd: wslContext.useWsl ? undefined : installBaseDir,
+      fallbackNpmCommand
     })
     await new Promise((resolve) => setTimeout(resolve, 500))
 
@@ -557,21 +626,24 @@ export async function installOptionalDependenciesBatch(
       )
       const rootCommand = wrapCommandForWsl(rootInstall, wslContext)
 
-      execFileSync(rootCommand.command, rootCommand.args, {
-        stdio: 'ignore',
-        cwd: wslContext.useWsl ? undefined : installBaseDir
+      const rootFallbackCommand = wslContext.useWsl
+        ? undefined
+        : buildNpmCliFallback([
+            '--silent',
+            'install',
+            '--prefix',
+            installBaseDir
+          ])
+      execInstallCommand(rootCommand, {
+        cwd: wslContext.useWsl ? undefined : installBaseDir,
+        fallbackNpmCommand: rootFallbackCommand
       })
       console.log(messages.optionalToolingReady(integration))
     }
     return true
   } catch (error) {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    const err = error as NodeJS.ErrnoException
-    const isMissingManager =
-      err?.code === 'ENOENT' ||
-      String(err?.message || '').includes('ENOENT') ||
-      String(err?.message || '').includes('not found')
-    if (isMissingManager) {
+    if (isMissingManagerError(error)) {
       console.error(messages.optionalInstallManagerMissing(integration))
     } else {
       console.error(
