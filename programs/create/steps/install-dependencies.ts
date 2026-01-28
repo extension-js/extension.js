@@ -16,6 +16,100 @@ function getInstallArgs() {
   return ['install', '--silent']
 }
 
+type InstallResult = {
+  code: number | null
+  stderr: string
+  stdout: string
+}
+
+function getTagFallback(version: string) {
+  if (version === '*' || version === 'latest' || version === 'next') {
+    return null
+  }
+
+  const cleaned = version.replace(/^[~^]/, '')
+  return cleaned.includes('-') ? 'next' : 'latest'
+}
+
+async function updateExtensionDependencyTag(
+  projectPath: string,
+  projectName: string
+) {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+
+  try {
+    const raw = await fs.promises.readFile(packageJsonPath, 'utf8')
+    const packageJson = JSON.parse(raw)
+    const currentVersion = packageJson?.devDependencies?.extension
+
+    if (typeof currentVersion !== 'string') {
+      return false
+    }
+
+    const tag = getTagFallback(currentVersion)
+    if (!tag || currentVersion === tag) {
+      return false
+    }
+
+    packageJson.devDependencies = {
+      ...(packageJson.devDependencies || {}),
+      extension: tag
+    }
+
+    await fs.promises.writeFile(
+      packageJsonPath,
+      JSON.stringify(packageJson, null, 2) + '\n'
+    )
+
+    return true
+  } catch (error) {
+    console.error(messages.cantInstallDependencies(projectName, error))
+    return false
+  }
+}
+
+function shouldRetryWithTagFallback(output: string) {
+  const text = output.toLowerCase()
+  return (
+    text.includes('no matching version found for extension@') ||
+    text.includes('notarget') ||
+    text.includes('etarget')
+  )
+}
+
+async function runInstall(
+  command: string,
+  args: string[],
+  cwd: string,
+  stdio: 'inherit' | 'ignore' | 'pipe'
+): Promise<InstallResult> {
+  const child = spawn(command, args, {stdio, cwd})
+  let stdout = ''
+  let stderr = ''
+
+  if (child.stdout) {
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString()
+    })
+  }
+
+  if (child.stderr) {
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString()
+    })
+  }
+
+  return new Promise<InstallResult>((resolve, reject) => {
+    child.on('close', (code) => {
+      resolve({code, stderr, stdout})
+    })
+
+    child.on('error', (error) => {
+      reject(error)
+    })
+  })
+}
+
 export async function installDependencies(
   projectPath: string,
   projectName: string
@@ -32,37 +126,44 @@ export async function installDependencies(
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
     const stdio =
-      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-    const child = spawn(command, dependenciesArgs, {
-      stdio,
-      cwd: projectPath
-    })
+      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
+    const firstRun = await runInstall(
+      command,
+      dependenciesArgs,
+      projectPath,
+      stdio
+    )
 
-    await new Promise<void>((resolve, reject) => {
-      child.on('close', (code) => {
-        if (code !== 0) {
-          reject(
-            new Error(
-              messages.installingDependenciesFailed(
-                command,
-                dependenciesArgs,
-                code
-              )
-            )
-          )
-        } else {
-          resolve()
-        }
-      })
+    if (firstRun.code !== 0) {
+      const output = `${firstRun.stdout}\n${firstRun.stderr}`
+      const shouldRetry = shouldRetryWithTagFallback(output)
+      const didUpdate = shouldRetry
+        ? await updateExtensionDependencyTag(projectPath, projectName)
+        : false
 
-      child.on('error', (error) => {
-        console.error(
-          messages.installingDependenciesProcessError(projectName, error)
+      if (didUpdate) {
+        const retryRun = await runInstall(
+          command,
+          dependenciesArgs,
+          projectPath,
+          stdio
         )
-        reject(error)
-      })
-    })
+
+        if (retryRun.code === 0) {
+          return
+        }
+      }
+
+      throw new Error(
+        messages.installingDependenciesFailed(
+          command,
+          dependenciesArgs,
+          firstRun.code
+        )
+      )
+    }
   } catch (error: any) {
+    console.error(messages.installingDependenciesProcessError(projectName, error))
     console.error(messages.cantInstallDependencies(projectName, error))
     throw error
   }
