@@ -1,5 +1,7 @@
 import './styles.css'
-import reactLogo from '../images/react.png'
+import iconUrl from "../images/icon.png"
+
+const reactLogo = iconUrl
 
 export default function SidebarApp() {
   return (

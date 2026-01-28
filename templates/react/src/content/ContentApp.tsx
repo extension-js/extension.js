@@ -1,4 +1,5 @@
-import logo from '../images/react.png'
+import iconUrl from "../images/icon.png"
+const logo = iconUrl
 
 export default function ContentApp() {
   const handleClick = () => {

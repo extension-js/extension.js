@@ -1,4 +1,5 @@
-import typescriptLogo from '../images/logo.svg'
+import iconUrl from "../images/icon.png"
+const typescriptLogo = iconUrl
 
 function SidebarApp() {
   const root = document.getElementById('root')
