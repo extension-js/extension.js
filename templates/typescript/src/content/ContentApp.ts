@@ -1,4 +1,5 @@
-import logo from '../images/logo.svg'
+import iconUrl from "../images/icon.png"
+const logo = iconUrl
 
 export default function createContentApp(): HTMLDivElement {
   const container = document.createElement('div')
