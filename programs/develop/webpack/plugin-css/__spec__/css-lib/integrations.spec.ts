@@ -42,6 +42,8 @@ describe('css-lib integrations', () => {
     delete process.env.npm_config_user_agent
     delete process.env.npm_execpath
     delete process.env.NPM_EXEC_PATH
+    delete process.env.EXTENSION_JS_PACKAGE_MANAGER
+    delete process.env.EXTENSION_JS_PM_EXEC_PATH
   })
 
   afterEach(() => {
@@ -121,6 +123,37 @@ describe('css-lib integrations', () => {
 
     const call = execFileSync.mock.calls[0]
     expect(call?.[0]).toBe('pnpm')
+  })
+
+  it('uses EXTENSION_JS_PACKAGE_MANAGER override when provided', async () => {
+    await mockDevelopRoot()
+    process.env.EXTENSION_JS_PACKAGE_MANAGER = 'yarn'
+
+    const {execFileSync} = (await import('child_process')) as any
+    const {installOptionalDependencies} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    const call = execFileSync.mock.calls[0]
+    expect(call?.[0]).toBe('yarn')
+  })
+
+  it('wraps EXTENSION_JS_PM_EXEC_PATH when no manager is in PATH', async () => {
+    await mockDevelopRoot()
+    process.env.EXTENSION_JS_PM_EXEC_PATH = '/tmp/npm-cli.js'
+
+    const {execFileSync, spawnSync} = (await import('child_process')) as any
+    spawnSync.mockReturnValue({status: 1})
+
+    const {installOptionalDependencies} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    const call = execFileSync.mock.calls[0]
+    expect(call?.[0]).toBe(process.execPath)
+    expect(call?.[1]?.[0]).toBe('/tmp/npm-cli.js')
   })
 
   it('wraps npm_execpath when no manager is in PATH', async () => {
