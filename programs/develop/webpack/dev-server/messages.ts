@@ -34,6 +34,10 @@ export function ready(mode: 'development' | 'production', browser: string) {
   return `${getLoggingPrefix('info')} ${cap} ${extensionOutput} ${pretty}.`
 }
 
+export function browserRunnerDisabled() {
+  return `${getLoggingPrefix('info')} Browser runner disabled (no-runner).`
+}
+
 export function portInUse(requestedPort: number, newPort: number) {
   return `Port: Requested port ${colors.brightBlue(requestedPort.toString())} is in use; using ${colors.brightBlue(newPort.toString())} instead.`
 }

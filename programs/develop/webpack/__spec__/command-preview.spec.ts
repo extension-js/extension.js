@@ -100,4 +100,19 @@ describe('webpack/command-preview (run-only)', () => {
 
     expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
   })
+
+  it('skips browser runner when noRunner is true', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview('/proj', {
+      browser: 'chrome',
+      noRunner: true
+    } as any)
+
+    expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
+  })
 })

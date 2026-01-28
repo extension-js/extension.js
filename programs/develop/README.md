@@ -95,6 +95,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 | profile        | string or false                                    | Profile path or disable profile persistence                     |
 | startingUrl    | string                                             | Initial URL to open                                             |
 | open           | boolean                                            | Focus/open the browser window (CLI: use `--no-open` to disable) |
+| noRunner       | boolean                                            | Skip launching the browser runner                               |
 | chromiumBinary | string                                             | Custom Chromium-based executable path                           |
 | geckoBinary    | string                                             | Custom Gecko-based executable path                              |
 

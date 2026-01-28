@@ -26,6 +26,7 @@ type StartOptions = {
   port?: string | number
   polyfill?: boolean | string
   install?: boolean
+  noRunner?: boolean
   // Internal maintainer flags
   author?: boolean
   authorMode?: boolean
@@ -70,6 +71,10 @@ export function registerStartCommand(program: Command, telemetry: any) {
     .option(
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
+    )
+    .option(
+      '--no-runner',
+      'do not launch the browser runner (build still runs)'
     )
     .option(
       '--port <port>',
@@ -153,6 +158,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
           startingUrl: startOptions.startingUrl,
           port: startOptions.port,
           install: startOptions.install,
+          noRunner: startOptions.noRunner,
           source:
             typeof startOptions.source === 'string'
               ? startOptions.source
