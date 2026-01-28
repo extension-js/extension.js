@@ -288,6 +288,22 @@ function isWindowsCmd(command: string) {
   return process.platform === 'win32' && /\.(cmd|bat)$/i.test(command)
 }
 
+function resolveWindowsCmdExe(): string {
+  if (process.platform !== 'win32') return 'cmd.exe'
+  const comspec = process.env.ComSpec
+  if (comspec && fs.existsSync(comspec)) return comspec
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows'
+  const fallback = path.join(systemRoot, 'System32', 'cmd.exe')
+  if (fs.existsSync(fallback)) return fallback
+  return 'cmd.exe'
+}
+
+function formatCmdArgs(command: string, args: string[]) {
+  const quotedCommand = command.includes(' ') ? `"${command}"` : command
+  const quotedArgs = args.map((arg) => (arg.includes(' ') ? `"${arg}"` : arg))
+  return `${quotedCommand} ${quotedArgs.join(' ')}`.trim()
+}
+
 function execFileSyncSafe(
   command: string,
   args: string[],
@@ -297,13 +313,27 @@ function execFileSyncSafe(
   }
 ) {
   if (isWindowsCmd(command)) {
-    execFileSync('cmd.exe', ['/d', '/s', '/c', `"${command}"`, ...args], {
+    const cmdExe = resolveWindowsCmdExe()
+    execFileSync(cmdExe, ['/d', '/s', '/c', formatCmdArgs(command, args)], {
       ...options,
       windowsHide: true
     })
     return
   }
-  execFileSync(command, args, options)
+  try {
+    execFileSync(command, args, options)
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException
+    if (process.platform === 'win32' && err?.code === 'EINVAL') {
+      const cmdExe = resolveWindowsCmdExe()
+      execFileSync(cmdExe, ['/d', '/s', '/c', formatCmdArgs(command, args)], {
+        ...options,
+        windowsHide: true
+      })
+      return
+    }
+    throw error
+  }
 }
 
 function execInstallCommand(
