@@ -283,7 +283,7 @@ function isMissingManagerError(error: unknown) {
     String(err?.message || '').includes('not found')
   )
 }
-
+ 
 function execInstallCommand(
   command: InstallCommand,
   options: ExecInstallOptions
