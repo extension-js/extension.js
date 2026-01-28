@@ -20,7 +20,8 @@
       "react/jsx-runtime": ["./node_modules/preact/jsx-runtime"],
       "react-dom": ["./node_modules/preact/compat/"],
       "react-dom/*": ["./node_modules/preact/compat/*"]
-    }
+    },
+    "verbatimModuleSyntax": false
   },
   "include": ["./", "extension-env.d.ts"],
   "exclude": ["node_modules", "dist"]
