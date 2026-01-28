@@ -283,20 +283,42 @@ function isMissingManagerError(error: unknown) {
     String(err?.message || '').includes('not found')
   )
 }
- 
+
+function isWindowsCmd(command: string) {
+  return process.platform === 'win32' && /\.(cmd|bat)$/i.test(command)
+}
+
+function execFileSyncSafe(
+  command: string,
+  args: string[],
+  options: {
+    stdio: 'inherit' | 'ignore'
+    cwd?: string
+  }
+) {
+  if (isWindowsCmd(command)) {
+    execFileSync('cmd.exe', ['/d', '/s', '/c', `"${command}"`, ...args], {
+      ...options,
+      windowsHide: true
+    })
+    return
+  }
+  execFileSync(command, args, options)
+}
+
 function execInstallCommand(
   command: InstallCommand,
   options: ExecInstallOptions
 ) {
   try {
-    execFileSync(command.command, command.args, {
+    execFileSyncSafe(command.command, command.args, {
       stdio: 'inherit',
       cwd: options.cwd
     })
     return
   } catch (error) {
     if (options.fallbackNpmCommand && isMissingManagerError(error)) {
-      execFileSync(
+      execFileSyncSafe(
         options.fallbackNpmCommand.command,
         options.fallbackNpmCommand.args,
         {
