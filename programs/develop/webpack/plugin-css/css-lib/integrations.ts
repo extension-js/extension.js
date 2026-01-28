@@ -413,13 +413,6 @@ export async function installOptionalDependencies(
       dependencies,
       installBaseDir
     )
-    if (
-      !pm.runnerCommand &&
-      installCommand.command !== process.execPath &&
-      !commandExists(installCommand.command)
-    ) {
-      throw new Error(messages.optionalInstallManagerMissing(integration))
-    }
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.log(
@@ -478,13 +471,6 @@ export async function installOptionalDependenciesBatch(
       dependencies,
       installBaseDir
     )
-    if (
-      !pm.runnerCommand &&
-      installCommand.command !== process.execPath &&
-      !commandExists(installCommand.command)
-    ) {
-      throw new Error(messages.optionalInstallManagerMissing(integration))
-    }
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     console.log(
