@@ -57,6 +57,10 @@ function isFromNpx() {
 }
 
 type DetectedPackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun'
+type PackageManagerResolution = {
+  name: DetectedPackageManager
+  execPath?: string
+}
 
 function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
   const ua = process.env.npm_config_user_agent
@@ -80,13 +84,25 @@ function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
   return undefined
 }
 
-async function resolvePackageManager(): Promise<DetectedPackageManager> {
+async function resolvePackageManager(): Promise<PackageManagerResolution> {
   const envPm = getPackageManagerFromEnv()
-  if (envPm) return envPm
+  const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH
+  if (envPm) return {name: envPm, execPath}
 
   const candidates: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm']
   for (const candidate of candidates) {
-    if (commandExists(candidate)) return candidate
+    if (commandExists(candidate)) return {name: candidate}
+  }
+
+  if (execPath) {
+    const inferred = execPath.includes('pnpm')
+      ? 'pnpm'
+      : execPath.includes('yarn')
+        ? 'yarn'
+        : execPath.includes('npm')
+          ? 'npm'
+          : 'npm'
+    return {name: inferred, execPath}
   }
 
   throw new Error(messages.optionalInstallManagerMissing('Optional'))
@@ -127,76 +143,155 @@ export function resolveDevelopInstallRoot(): string | undefined {
   }
 }
 
+function maybeWrapExecPath(
+  command: InstallCommand,
+  pmName: DetectedPackageManager,
+  execPath?: string
+): InstallCommand {
+  if (!execPath) return command
+  if (commandExists(pmName)) return command
+
+  return {
+    command: process.execPath,
+    args: [execPath, ...command.args]
+  }
+}
+
 function getOptionalInstallCommand(
-  pm: DetectedPackageManager,
+  pm: PackageManagerResolution,
   dependencies: string[],
   installBaseDir: string
 ): InstallCommand {
-  const pmName = pm
+  const pmName = pm.name
 
   if (pmName === 'yarn') {
-    return {
-      command: 'yarn',
+    return maybeWrapExecPath(
+      {
+        command: 'yarn',
+        args: [
+          '--silent',
+          'add',
+          ...dependencies,
+          '--cwd',
+          installBaseDir,
+          '--optional'
+        ]
+      },
+      pmName,
+      pm.execPath
+    )
+  }
+
+  if (pmName === 'npm' || isFromNpx()) {
+    return maybeWrapExecPath(
+      {
+        command: 'npm',
+        args: [
+          '--silent',
+          'install',
+          ...dependencies,
+          '--prefix',
+          installBaseDir,
+          '--save-optional'
+        ]
+      },
+      pmName,
+      pm.execPath
+    )
+  }
+
+  if (pmName === 'pnpm' || isFromPnpx()) {
+    return maybeWrapExecPath(
+      {
+        command: 'pnpm',
+        args: [
+          'add',
+          ...dependencies,
+          '--dir',
+          installBaseDir,
+          '--save-optional',
+          '--silent'
+        ]
+      },
+      pmName,
+      pm.execPath
+    )
+  }
+
+  if (pmName === 'bun') {
+    return maybeWrapExecPath(
+      {
+        command: 'bun',
+        args: [
+          'add',
+          ...dependencies,
+          '--cwd',
+          installBaseDir,
+          '--optional'
+        ]
+      },
+      pmName,
+      pm.execPath
+    )
+  }
+
+  const fallback = pmName || 'npm'
+  return maybeWrapExecPath(
+    {
+      command: fallback,
       args: [
         '--silent',
-        'add',
+        'install',
         ...dependencies,
         '--cwd',
         installBaseDir,
         '--optional'
       ]
-    }
+    },
+    pmName,
+    pm.execPath
+  )
+}
+
+function getRootInstallCommand(pm: PackageManagerResolution): InstallCommand {
+  const pmName = pm.name
+  if (pmName === 'yarn') {
+    return maybeWrapExecPath(
+      {command: 'yarn', args: ['install', '--silent']},
+      pmName,
+      pm.execPath
+    )
   }
 
   if (pmName === 'npm' || isFromNpx()) {
-    return {
-      command: 'npm',
-      args: [
-        '--silent',
-        'install',
-        ...dependencies,
-        '--prefix',
-        installBaseDir,
-        '--save-optional'
-      ]
-    }
+    return maybeWrapExecPath(
+      {command: 'npm', args: ['install', '--silent']},
+      pmName,
+      pm.execPath
+    )
   }
 
   if (pmName === 'pnpm' || isFromPnpx()) {
-    return {
-      command: 'pnpm',
-      args: [
-        'add',
-        ...dependencies,
-        '--dir',
-        installBaseDir,
-        '--save-optional',
-        '--silent'
-      ]
-    }
+    return maybeWrapExecPath(
+      {command: 'pnpm', args: ['install', '--silent']},
+      pmName,
+      pm.execPath
+    )
   }
 
-  const fallback = pmName || 'npm'
-  return {
-    command: fallback,
-    args: [
-      '--silent',
-      'install',
-      ...dependencies,
-      '--cwd',
-      installBaseDir,
-      '--optional'
-    ]
+  if (pmName === 'bun') {
+    return maybeWrapExecPath(
+      {command: 'bun', args: ['install']},
+      pmName,
+      pm.execPath
+    )
   }
-}
 
-function getRootInstallCommand(pm: DetectedPackageManager): InstallCommand {
-  const pmName = pm
-  if (pmName === 'yarn') return {command: 'yarn', args: ['install', '--silent']}
-  if (pmName === 'npm' || isFromNpx())
-    return {command: 'npm', args: ['install', '--silent']}
-  if (isFromPnpx()) return {command: 'pnpm', args: ['install', '--silent']}
-  return {command: pmName || 'npm', args: ['install', '--silent']}
+  return maybeWrapExecPath(
+    {command: pmName || 'npm', args: ['install', '--silent']},
+    pmName,
+    pm.execPath
+  )
 }
 
 export async function installOptionalDependencies(
