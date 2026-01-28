@@ -16,6 +16,30 @@ function getInstallArgs() {
   return ['install', '--silent']
 }
 
+function resolveWindowsCmdExe(): string {
+  const comspec = process.env.ComSpec
+  if (comspec) return comspec
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows'
+  return path.join(systemRoot, 'System32', 'cmd.exe')
+}
+
+function formatCmdArgs(command: string, args: string[]) {
+  const quotedCommand = command.includes(' ') ? `"${command}"` : command
+  const quotedArgs = args.map((arg) => (arg.includes(' ') ? `"${arg}"` : arg))
+  return `${quotedCommand} ${quotedArgs.join(' ')}`.trim()
+}
+
+function resolveInstallInvocation(command: string, args: string[]) {
+  if (process.platform !== 'win32') {
+    return {command, args}
+  }
+
+  return {
+    command: resolveWindowsCmdExe(),
+    args: ['/d', '/s', '/c', formatCmdArgs(command, args)]
+  }
+}
+
 type InstallResult = {
   code: number | null
   stderr: string
@@ -83,7 +107,8 @@ async function runInstall(
   cwd: string,
   stdio: 'inherit' | 'ignore' | 'pipe'
 ): Promise<InstallResult> {
-  const child = spawn(command, args, {stdio, cwd})
+  const invocation = resolveInstallInvocation(command, args)
+  const child = spawn(invocation.command, invocation.args, {stdio, cwd})
   let stdout = ''
   let stderr = ''
 
@@ -163,7 +188,9 @@ export async function installDependencies(
       )
     }
   } catch (error: any) {
-    console.error(messages.installingDependenciesProcessError(projectName, error))
+    console.error(
+      messages.installingDependenciesProcessError(projectName, error)
+    )
     console.error(messages.cantInstallDependencies(projectName, error))
     throw error
   }
