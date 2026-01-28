@@ -1,5 +1,7 @@
-import logo from '../images/preact.png'
 import './styles.css'
+import iconUrl from "../images/icon.png"
+
+const logo = iconUrl
 
 export default function SidebarApp() {
   return (
