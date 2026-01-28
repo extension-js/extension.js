@@ -1,5 +1,5 @@
 import './styles.css'
-import iconUrl from "../images/icon.png"
+import iconUrl from '../images/icon.png'
 
 const reactLogo = iconUrl
 
