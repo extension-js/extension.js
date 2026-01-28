@@ -162,16 +162,16 @@ function getOptionalInstallCommand(
     }
   }
 
-  if (isFromPnpx()) {
+  if (pmName === 'pnpm' || isFromPnpx()) {
     return {
       command: 'pnpm',
       args: [
-        '--silent',
         'add',
         ...dependencies,
-        '--prefix',
+        '--dir',
         installBaseDir,
-        '--save-optional'
+        '--save-optional',
+        '--silent'
       ]
     }
   }
