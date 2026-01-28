@@ -82,7 +82,7 @@ function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
 
 async function resolvePackageManager(): Promise<DetectedPackageManager> {
   const envPm = getPackageManagerFromEnv()
-  if (envPm && commandExists(envPm)) return envPm
+  if (envPm) return envPm
 
   const candidates: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm']
   for (const candidate of candidates) {
