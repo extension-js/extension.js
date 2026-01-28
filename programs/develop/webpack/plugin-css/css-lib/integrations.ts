@@ -116,7 +116,7 @@ async function resolvePackageManager(): Promise<PackageManagerResolution> {
     }
   }
 
-  throw new Error(messages.optionalInstallManagerMissing('Optional'))
+  return {name: 'npm'}
 }
 
 type InstallCommand = {
