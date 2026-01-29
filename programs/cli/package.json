@@ -18,10 +18,11 @@
   "main": "./dist/cli.js",
   "types": "./dist/cli.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "bin": {
-    "extension": "./dist/cli.js"
+    "extension": "./bin/extension.js"
   },
   "name": "extension",
   "version": "3.3.3-next.21",
