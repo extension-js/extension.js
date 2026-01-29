@@ -40,6 +40,22 @@ function resolveInstallInvocation(command: string, args: string[]) {
   }
 }
 
+function buildExecEnv(): NodeJS.ProcessEnv | undefined {
+  if (process.platform !== 'win32') return undefined
+
+  const nodeDir = path.dirname(process.execPath)
+  const pathSep = path.delimiter
+  const existing = process.env.PATH || process.env.Path || ''
+
+  if (existing.includes(nodeDir)) return undefined
+
+  return {
+    ...process.env,
+    PATH: `${nodeDir}${pathSep}${existing}`.trim(),
+    Path: `${nodeDir}${pathSep}${existing}`.trim()
+  }
+}
+
 type InstallResult = {
   code: number | null
   stderr: string
@@ -108,7 +124,12 @@ async function runInstall(
   stdio: 'inherit' | 'ignore' | 'pipe'
 ): Promise<InstallResult> {
   const invocation = resolveInstallInvocation(command, args)
-  const child = spawn(invocation.command, invocation.args, {stdio, cwd})
+  const env = buildExecEnv()
+  const child = spawn(invocation.command, invocation.args, {
+    stdio,
+    cwd,
+    env: env || process.env
+  })
   let stdout = ''
   let stderr = ''
 
