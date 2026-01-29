@@ -9,6 +9,8 @@ function cliRoot(): string {
 
 function cliBin(): string {
   // Use the locally built CLI entrypoint instead of installing from a packed tarball.
+  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
+  if (fs.existsSync(cjs)) return cjs
   return path.join(cliRoot(), 'dist', 'cli.js')
 }
 

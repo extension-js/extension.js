@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -11,11 +12,11 @@
   "exports": {
     ".": {
       "types": "./dist/cli.d.ts",
-      "import": "./dist/cli.js",
-      "require": "./dist/cli.js"
+      "import": "./dist/cli.cjs",
+      "require": "./dist/cli.cjs"
     }
   },
-  "main": "./dist/cli.js",
+  "main": "./dist/cli.cjs",
   "types": "./dist/cli.d.ts",
   "files": [
     "dist",

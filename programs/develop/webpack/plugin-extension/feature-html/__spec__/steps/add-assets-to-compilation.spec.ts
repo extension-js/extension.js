@@ -4,6 +4,8 @@ import * as path from 'path'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 import {Compiler, Compilation} from '@rspack/core'
 
+const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 // Mock fs module
 vi.mock('fs', () => ({
   default: {
@@ -69,10 +71,11 @@ describe('AddAssetsToCompilation', () => {
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
         return name === 'resource.html' ? (mockAsset as any) : undefined
       })
-      vi.mocked(fs.existsSync).mockImplementation((path) => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
+        const normalized = toPosix(String(p))
         return (
-          path === '/test/project/public' ||
-          path === '/test/project/public/image.png'
+          normalized === '/test/project/public' ||
+          normalized === '/test/project/public/image.png'
         )
       })
       vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from('fake image data'))
@@ -82,7 +85,7 @@ describe('AddAssetsToCompilation', () => {
       // Verify that we checked the expected public path
       const calls = (fs.existsSync as any).mock.calls
         .flat()
-        .map(String) as string[]
+        .map((value: any) => toPosix(String(value))) as string[]
       expect(calls.includes('/test/project/public/image.png')).toBe(true)
     })
 
@@ -103,10 +106,11 @@ describe('AddAssetsToCompilation', () => {
         return name === 'resource.html' ? (mockAsset as any) : undefined
       })
       vi.mocked(fs.existsSync).mockImplementation((p: any) => {
+        const normalized = toPosix(String(p))
         return (
-          String(p).endsWith('/public/logo.png') ||
-          String(p).endsWith('/public/ico.png') ||
-          String(p).endsWith('/public/banner.png')
+          normalized.endsWith('/public/logo.png') ||
+          normalized.endsWith('/public/ico.png') ||
+          normalized.endsWith('/public/banner.png')
         )
       })
       vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from('data'))
@@ -115,7 +119,7 @@ describe('AddAssetsToCompilation', () => {
 
       // Ensure public-root assets were checked
       const calls = ((fs.existsSync as any).mock.calls.flat() as any[]).map(
-        String
+        (value: any) => toPosix(String(value))
       )
       expect(calls.some((c) => c.endsWith('/public/logo.png'))).toBe(true)
       expect(calls.some((c) => c.endsWith('/public/ico.png'))).toBe(true)
@@ -140,7 +144,9 @@ describe('AddAssetsToCompilation', () => {
         return name === 'resource.html' ? (mockAsset as any) : undefined
       })
       vi.mocked(fs.existsSync).mockImplementation((p: any) => {
-        return p === '/test/project/public/absolute/path/image.png'
+        return (
+          toPosix(String(p)) === '/test/project/public/absolute/path/image.png'
+        )
       })
       vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from('file-content'))
 

@@ -296,7 +296,10 @@ export function buildSpawnInvocation(
 
   const cmdExe = resolveWindowsCmdExe()
 
-  return {command: cmdExe, args: ['/d', '/s', '/c', formatCmdArgs(command, args)]}
+  return {
+    command: cmdExe,
+    args: ['/d', '/s', '/c', formatCmdArgs(command, args)]
+  }
 }
 
 export function execInstallCommand(
