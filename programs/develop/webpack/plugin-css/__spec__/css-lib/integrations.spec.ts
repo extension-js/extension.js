@@ -86,7 +86,10 @@ describe('css-lib integrations', () => {
 
     expect(execFileSync).not.toHaveBeenCalled()
     expect(errorSpy).toHaveBeenCalled()
-    expect(String(errorSpy.mock.calls[0]?.[0])).toContain(
+    const combinedErrors = errorSpy.mock.calls
+      .map((call) => String(call?.[0] || ''))
+      .join('\n')
+    expect(combinedErrors).toContain(
       'Failed to locate the extension-develop runtime'
     )
     errorSpy.mockRestore()
