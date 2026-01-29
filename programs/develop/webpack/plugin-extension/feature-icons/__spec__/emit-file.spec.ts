@@ -1,5 +1,7 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 
+const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 // Minimal mock of @rspack/core pieces used in the step
 vi.mock('@rspack/core', () => {
   class RawSource {
@@ -84,7 +86,7 @@ describe('EmitFile step', () => {
       '/abs/assets/pa16.png',
       '/abs/assets/sa16.png'
     ])
-    FS.existsSync.mockImplementation((p: string) => existing.has(p))
+    FS.existsSync.mockImplementation((p: string) => existing.has(toPosix(p)))
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
@@ -117,7 +119,7 @@ describe('EmitFile step', () => {
 
     // Only one path exists
     FS.existsSync.mockImplementation(
-      (p: string) => p === '/abs/assets/keep.png'
+      (p: string) => toPosix(p) === '/abs/assets/keep.png'
     )
 
     const step = new EmitFile({
@@ -163,11 +165,13 @@ describe('EmitFile step', () => {
     const {compiler, compilation} = makeCompiler()
 
     // Only the resolved forms should exist
-    FS.existsSync.mockImplementation(
-      (p: string) =>
-        p === '/abs/project/public/icon.png' ||
-        p === '/abs/project/icons/rel.png'
-    )
+    FS.existsSync.mockImplementation((p: string) => {
+      const normalized = toPosix(p)
+      return (
+        normalized === '/abs/project/public/icon.png' ||
+        normalized === '/abs/project/icons/rel.png'
+      )
+    })
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
@@ -189,7 +193,9 @@ describe('EmitFile step', () => {
     const {compiler, compilation} = makeCompiler()
 
     // Simulate an icon under public/
-    FS.existsSync.mockImplementation((p: string) => p.includes('/public/'))
+    FS.existsSync.mockImplementation((p: string) =>
+      toPosix(p).includes('/public/')
+    )
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',

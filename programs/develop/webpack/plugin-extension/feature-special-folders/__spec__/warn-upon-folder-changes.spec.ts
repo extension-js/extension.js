@@ -1,4 +1,5 @@
 import {describe, it, beforeEach, expect, vi} from 'vitest'
+import * as path from 'path'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 import * as messages from '../messages'
 
@@ -11,6 +12,7 @@ vi.mock('../messages', () => ({
 }))
 
 const createFakeCompiler = () => {
+  const projectRoot = path.join(path.parse(process.cwd()).root, 'project')
   const watchRunCallbacks: Array<() => void> = []
   const thisCompilationCallbacks: Array<(c: any) => void> = []
   const hooks: any = {
@@ -34,13 +36,13 @@ const createFakeCompiler = () => {
       mode: 'development',
       watchOptions: {},
       resolve: {extensions: ['.js', '.ts']},
-      context: '/project'
+      context: projectRoot
     },
     hooks,
     modifiedFiles: new Set<string>(),
     removedFiles: new Set<string>()
   }
-  return compiler
+  return {compiler, projectRoot}
 }
 
 const runCycle = (
@@ -69,10 +71,12 @@ beforeEach(() => {
 
 describe('WarnUponFolderChanges', () => {
   it('warns on adding pages/*.html and errors on removing', () => {
-    const compiler = createFakeCompiler()
+    const {compiler, projectRoot} = createFakeCompiler()
     new WarnUponFolderChanges().apply(compiler as any)
 
-    compiler.modifiedFiles = new Set(['/project/pages/foo.html'])
+    compiler.modifiedFiles = new Set([
+      path.join(projectRoot, 'pages', 'foo.html')
+    ])
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
     expect(compilation.warnings.length).toBe(1)
@@ -81,7 +85,9 @@ describe('WarnUponFolderChanges', () => {
     ).toHaveBeenCalledWith('Adding', 'pages', 'HTML pages')
 
     compiler.modifiedFiles = new Set()
-    compiler.removedFiles = new Set(['/project/pages/foo.html'])
+    compiler.removedFiles = new Set([
+      path.join(projectRoot, 'pages', 'foo.html')
+    ])
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
     expect(
@@ -90,12 +96,12 @@ describe('WarnUponFolderChanges', () => {
   })
 
   it('warns on adding supported scripts and errors on removing; ignores unsupported extensions', () => {
-    const compiler = createFakeCompiler()
+    const {compiler, projectRoot} = createFakeCompiler()
     new WarnUponFolderChanges().apply(compiler as any)
 
     compiler.modifiedFiles = new Set([
-      '/project/scripts/content.ts',
-      '/project/scripts/note.md'
+      path.join(projectRoot, 'scripts', 'content.ts'),
+      path.join(projectRoot, 'scripts', 'note.md')
     ])
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
@@ -105,7 +111,9 @@ describe('WarnUponFolderChanges', () => {
     ).toHaveBeenCalledWith('Adding', 'scripts', 'script files')
 
     compiler.modifiedFiles = new Set()
-    compiler.removedFiles = new Set(['/project/scripts/content.ts'])
+    compiler.removedFiles = new Set([
+      path.join(projectRoot, 'scripts', 'content.ts')
+    ])
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
     expect(
@@ -114,11 +122,15 @@ describe('WarnUponFolderChanges', () => {
   })
 
   it('ignores non-HTML additions/removals in pages/', () => {
-    const compiler = createFakeCompiler()
+    const {compiler, projectRoot} = createFakeCompiler()
     new WarnUponFolderChanges().apply(compiler as any)
 
-    compiler.modifiedFiles = new Set(['/project/pages/readme.txt'])
-    compiler.removedFiles = new Set(['/project/pages/readme.txt'])
+    compiler.modifiedFiles = new Set([
+      path.join(projectRoot, 'pages', 'readme.txt')
+    ])
+    compiler.removedFiles = new Set([
+      path.join(projectRoot, 'pages', 'readme.txt')
+    ])
     runCycle(compiler, compilation)
 
     expect(compilation.warnings.length).toBe(0)
@@ -126,11 +138,16 @@ describe('WarnUponFolderChanges', () => {
   })
 
   it('registers pages/ and scripts/ as context dependencies', () => {
-    const compiler = createFakeCompiler()
+    const {compiler, projectRoot} = createFakeCompiler()
     new WarnUponFolderChanges().apply(compiler as any)
     runCycle(compiler, compilation)
 
-    expect(compilation.contextDependencies.has('/project/pages')).toBe(true)
-    expect(compilation.contextDependencies.has('/project/scripts')).toBe(true)
+    const deps = Array.from(compilation.contextDependencies).map((p) =>
+      String(p).replace(/\\/g, '/')
+    )
+    expect(deps).toContain(path.join(projectRoot, 'pages').replace(/\\/g, '/'))
+    expect(deps).toContain(
+      path.join(projectRoot, 'scripts').replace(/\\/g, '/')
+    )
   })
 })

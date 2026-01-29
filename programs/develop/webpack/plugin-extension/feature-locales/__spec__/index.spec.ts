@@ -18,6 +18,7 @@ function createHook() {
 }
 
 const hasAnsi = (s: string) => /\u001b\[[0-9;]*m/.test(s)
+const toPosix = (value: string) => value.replace(/\\/g, '/')
 
 describe('LocalesPlugin (unit)', () => {
   let tmpRoot: string
@@ -107,14 +108,18 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     const emitted: string[] = (compilation as any)._emitted || []
-    expect(emitted.some((p) => p.endsWith('_locales/en/messages.json'))).toBe(
-      true
-    )
     expect(
-      emitted.some((p) => p.endsWith('_locales/pt_BR/messages.json'))
+      emitted.some((p) => toPosix(p).endsWith('_locales/en/messages.json'))
     ).toBe(true)
-    expect(emitted.some((p) => p.endsWith('_locales/en/notes.txt'))).toBe(false)
-    expect(emitted.some((p) => p.endsWith('_locales/en/logo.png'))).toBe(false)
+    expect(
+      emitted.some((p) => toPosix(p).endsWith('_locales/pt_BR/messages.json'))
+    ).toBe(true)
+    expect(
+      emitted.some((p) => toPosix(p).endsWith('_locales/en/notes.txt'))
+    ).toBe(false)
+    expect(
+      emitted.some((p) => toPosix(p).endsWith('_locales/en/logo.png'))
+    ).toBe(false)
     // No warnings/errors for existing files
     expect(compilation.warnings.length).toBe(0)
     expect(compilation.errors.length).toBe(0)
@@ -129,10 +134,12 @@ describe('LocalesPlugin (unit)', () => {
     const compilation = applyAndProcess(plugin)
 
     const deps = Array.from(compilation.fileDependencies) as string[]
-    expect(deps.some((p) => p.endsWith('_locales/en/messages.json'))).toBe(true)
-    expect(deps.some((p) => p.endsWith('_locales/pt_BR/messages.json'))).toBe(
-      true
-    )
+    expect(
+      deps.some((p) => toPosix(p).endsWith('_locales/en/messages.json'))
+    ).toBe(true)
+    expect(
+      deps.some((p) => toPosix(p).endsWith('_locales/pt_BR/messages.json'))
+    ).toBe(true)
   })
 
   it('warns when a referenced file is missing (with metadata, no path in message)', () => {
