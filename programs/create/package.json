@@ -1,9 +1,9 @@
 {
   "license": "MIT",
-  "packageManager": "pnpm@10.28.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/extension-js/extension.js.git"
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/create"
   },
   "engines": {
     "node": ">=18"
@@ -29,10 +29,13 @@
     "email": "boss@cezaraugusto.net",
     "url": "https://cezaraugusto.com"
   },
+  "homepage": "https://github.com/extension-js/extension.js/tree/main/programs/create#readme",
+  "bugs": {
+    "url": "https://github.com/extension-js/extension.js/issues"
+  },
   "publishConfig": {
     "access": "public",
-    "registry": "https://registry.npmjs.org",
-    "tag": "latest"
+    "registry": "https://registry.npmjs.org"
   },
   "scripts": {
     "clean": "rm -rf dist",
