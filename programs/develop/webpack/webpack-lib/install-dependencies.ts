@@ -7,16 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as path from 'path'
-import {spawn} from 'cross-spawn'
 import * as fs from 'fs'
 import * as messages from './messages'
-import {getInstallCommandForPath} from './package-manager'
-
-export async function getInstallCommand() {
-  // Prefer explicit lockfiles in the current working directory
-  // (we chdir(projectPath) before calling this)
-  return getInstallCommandForPath(process.cwd())
-}
+import {
+  buildInstallCommand,
+  execInstallCommand,
+  resolvePackageManager
+} from './package-manager'
 
 function getInstallArgs() {
   return ['install' /*, '--silent' */]
@@ -31,41 +28,25 @@ export async function installDependencies(projectPath: string) {
     // Change to the project directory before detecting package manager
     process.chdir(projectPath)
 
-    const command = await getInstallCommand()
+    const pm = resolvePackageManager({cwd: process.cwd()})
     let dependenciesArgs = getInstallArgs()
     // Ensure devDependencies are installed even if npm production config is set
-    if (command === 'npm') {
+    if (pm.name === 'npm') {
       dependenciesArgs = [...dependenciesArgs, '--include=dev']
     }
 
     // Create the node_modules directory if it doesn't exist
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
-    const stdio =
-      process.env.EXTENSION_AUTHOR_MODE === 'true' ? 'inherit' : 'ignore'
-    const child = spawn(command, dependenciesArgs, {stdio})
+    const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const stdio = isAuthor ? 'inherit' : 'ignore'
 
-    await new Promise<void>((resolve, reject) => {
-      child.on('close', (code) => {
-        if (code !== 0) {
-          reject(
-            new Error(
-              messages.installingDependenciesFailed(
-                command,
-                dependenciesArgs,
-                code
-              )
-            )
-          )
-        } else {
-          resolve()
-        }
-      })
+    if (isAuthor) {
+      console.warn(messages.authorInstallNotice('project dependencies'))
+    }
 
-      child.on('error', (error) => {
-        reject(error)
-      })
-    })
+    const command = buildInstallCommand(pm, dependenciesArgs)
+    await execInstallCommand(command.command, command.args, {cwd: projectPath, stdio})
   } catch (error: any) {
     console.error(messages.cantInstallDependencies(error))
     process.exit(1)

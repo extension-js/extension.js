@@ -140,6 +140,10 @@ export function installingBuildDependencies(dependencies: string[]) {
   return `${getLoggingPrefix('info')} Installing build dependencies: ${list}`
 }
 
+export function authorInstallNotice(target: string) {
+  return `${getLoggingPrefix('warn')} Author mode: installing ${target}.`
+}
+
 export function buildDependenciesInstallFailed(
   command: string,
   args: string[],
