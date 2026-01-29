@@ -9,6 +9,7 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as messages from '../lib/messages'
+import {getPackageManagerSpecFromEnv} from '../lib/package-manager'
 
 const extensionJsPackageJsonScripts = {
   dev:
@@ -71,10 +72,13 @@ export async function overridePackageJson(
       process.env.EXTENSION_ENV === 'development' ? '*' : `^${cliVersion}`
   }
 
+  const packageManagerSpec =
+    packageJson.packageManager || getPackageManagerSpecFromEnv()
   const packageMetadata = {
     ...packageJson,
     name: path.basename(projectPath),
     private: true,
+    ...(packageManagerSpec ? {packageManager: packageManagerSpec} : {}),
     scripts: {
       ...packageJson.scripts,
       ...extensionJsPackageJsonScripts
