@@ -248,10 +248,6 @@ export function resolvePackageManager(opts?: {
       runnerArgs: ['pnpm']
     }
   }
-
-  const npmPath = resolveCommandOnPath('npm')
-  if (npmPath) return {name: 'npm', execPath: npmPath}
-
   const bundledNpmCli = resolveBundledNpmCliPath()
   if (bundledNpmCli) {
     return {
