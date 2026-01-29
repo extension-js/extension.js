@@ -23,7 +23,7 @@
     "bin"
   ],
   "bin": {
-    "extension": "./bin/extension.js"
+    "extension": "./bin/extension.cjs"
   },
   "name": "extension",
   "version": "3.4.0-next.0",
