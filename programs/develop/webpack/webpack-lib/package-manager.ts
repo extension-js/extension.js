@@ -1,32 +1,332 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import {execFileSync, spawn} from 'child_process'
 
-type PackageManagerName = 'pnpm' | 'yarn' | 'npm'
+export type PackageManagerName = 'pnpm' | 'yarn' | 'npm' | 'bun'
 
-function detectPackageManagerFromEnv(): PackageManagerName {
-  const userAgent = process.env.npm_config_user_agent || ''
-
-  if (userAgent.includes('pnpm')) return 'pnpm'
-  if (userAgent.includes('yarn')) return 'yarn'
-  if (userAgent.includes('npm')) return 'npm'
-
-  const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
-
-  if (execPath.includes('pnpm')) return 'pnpm'
-  if (execPath.includes('yarn')) return 'yarn'
-  if (execPath.includes('npm')) return 'npm'
-
-  return 'npm'
+export type PackageManagerResolution = {
+  name: PackageManagerName
+  execPath?: string
+  runnerCommand?: string
+  runnerArgs?: string[]
 }
 
-export function getInstallCommandForPath(cwd: string): PackageManagerName {
+type ExecOptions = {
+  cwd?: string
+  stdio?: 'inherit' | 'ignore' | 'pipe'
+}
+
+function normalizePackageManager(
+  value?: string
+): PackageManagerName | undefined {
+  if (!value) return undefined
+
+  const lower = value.toLowerCase().trim()
+
+  if (lower === 'pnpm') return 'pnpm'
+  if (lower === 'yarn') return 'yarn'
+  if (lower === 'bun') return 'bun'
+  if (lower === 'npm') return 'npm'
+
+  return undefined
+}
+
+function inferPackageManagerFromPath(
+  value?: string
+): PackageManagerName | undefined {
+  if (!value) return undefined
+
+  const lower = value.toLowerCase()
+
+  if (lower.includes('pnpm')) return 'pnpm'
+  if (lower.includes('yarn')) return 'yarn'
+  if (lower.includes('bun')) return 'bun'
+  if (lower.includes('npm')) return 'npm'
+
+  return undefined
+}
+
+function getPackageManagerOverride(): PackageManagerResolution | undefined {
+  const name = normalizePackageManager(process.env.EXTENSION_JS_PACKAGE_MANAGER)
+  const execPath = process.env.EXTENSION_JS_PM_EXEC_PATH
+
+  if (!name && !execPath) return undefined
+  const inferredName = name || inferPackageManagerFromPath(execPath) || 'npm'
+
+  return {name: inferredName, execPath}
+}
+
+function detectPackageManagerFromEnv(): PackageManagerResolution | undefined {
+  const userAgent = process.env.npm_config_user_agent || ''
+  if (userAgent.includes('pnpm')) return {name: 'pnpm'}
+  if (userAgent.includes('yarn')) return {name: 'yarn'}
+  if (userAgent.includes('bun')) return {name: 'bun'}
+  if (userAgent.includes('npm')) return {name: 'npm'}
+
+  const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
+  if (execPath) {
+    const inferred = inferPackageManagerFromPath(execPath) || 'npm'
+    return {name: inferred, execPath}
+  }
+
+  return undefined
+}
+
+function resolveNpmCliFromNode(execPath: string): string | undefined {
+  const execDir = path.dirname(execPath)
+  const candidates = [
+    path.join(execDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(execDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+    path.join(execDir, '..', 'node_modules', 'npm', 'bin', 'npm-cli.js')
+  ]
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate
+  }
+
+  return undefined
+}
+
+function resolveBundledNpmCliPath(): string | undefined {
+  if (process.env.EXTENSION_JS_PM_EXEC_PATH) {
+    const overridePath = process.env.EXTENSION_JS_PM_EXEC_PATH
+
+    if (overridePath && fs.existsSync(overridePath)) return overridePath
+  }
+
+  try {
+    const resolved = require.resolve('npm/bin/npm-cli.js', {
+      paths: [process.cwd(), __dirname]
+    })
+
+    if (resolved && fs.existsSync(resolved)) return resolved
+  } catch {
+    // ignore
+  }
+  return resolveNpmCliFromNode(process.execPath)
+}
+
+function resolveWindowsCmdExe(): string {
+  if (process.platform !== 'win32') return 'cmd.exe'
+  const comspec = process.env.ComSpec
+
+  if (comspec && fs.existsSync(comspec)) return comspec
+
+  const systemRoot = process.env.SystemRoot || 'C:\\Windows'
+  const fallback = path.join(systemRoot, 'System32', 'cmd.exe')
+
+  if (fs.existsSync(fallback)) return fallback
+  return 'cmd.exe'
+}
+
+function formatCmdArgs(command: string, args: string[]) {
+  const quotedCommand = command.includes(' ') ? `"${command}"` : command
+  const quotedArgs = args.map((arg) => (arg.includes(' ') ? `"${arg}"` : arg))
+
+  return `${quotedCommand} ${quotedArgs.join(' ')}`.trim()
+}
+
+function isWindowsExecutablePath(value?: string) {
+  if (!value || process.platform !== 'win32') return false
+
+  return /\.(cmd|bat|exe)$/i.test(value)
+}
+
+function shouldUseCmdExe(command: string) {
+  if (process.platform !== 'win32') return false
+  if (/\.(cmd|bat)$/i.test(command)) return true
+
+  return ['npm', 'pnpm', 'yarn', 'corepack', 'bun'].includes(command)
+}
+
+function resolveWindowsCommandPath(command: string) {
+  if (process.platform !== 'win32') return undefined
+
+  try {
+    const cmdExe = resolveWindowsCmdExe()
+    const output = execFileSync(
+      cmdExe,
+      ['/d', '/s', '/c', `where ${command}`],
+      {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true}
+    )
+    const candidates = String(output)
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    const cmdMatch = candidates.find((line) => /\.cmd$/i.test(line))
+
+    return cmdMatch || candidates[0]
+  } catch {
+    return undefined
+  }
+}
+
+function resolveUnixCommandPath(command: string) {
+  if (process.platform === 'win32') return undefined
+
+  try {
+    const output = execFileSync('which', [command], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore']
+    })
+
+    const candidate = String(output).trim()
+
+    return candidate || undefined
+  } catch {
+    return undefined
+  }
+}
+
+function resolveCommandOnPath(command: string) {
+  return (
+    resolveWindowsCommandPath(command) ||
+    resolveUnixCommandPath(command) ||
+    undefined
+  )
+}
+
+function detectByLockfile(cwd?: string): PackageManagerName | undefined {
+  if (!cwd) return undefined
   const hasPnpmLock = fs.existsSync(path.join(cwd, 'pnpm-lock.yaml'))
   const hasYarnLock = fs.existsSync(path.join(cwd, 'yarn.lock'))
   const hasNpmLock = fs.existsSync(path.join(cwd, 'package-lock.json'))
-
   if (hasPnpmLock) return 'pnpm'
   if (hasYarnLock) return 'yarn'
   if (hasNpmLock) return 'npm'
+  return undefined
+}
 
-  return detectPackageManagerFromEnv()
+export function resolvePackageManager(opts?: {
+  cwd?: string
+}): PackageManagerResolution {
+  const lockPm = detectByLockfile(opts?.cwd)
+  if (lockPm) return {name: lockPm}
+
+  const override = getPackageManagerOverride()
+  if (override) return override
+
+  const envPm = detectPackageManagerFromEnv()
+  if (envPm) return envPm
+
+  const candidates: PackageManagerName[] = ['pnpm', 'yarn', 'npm', 'bun']
+  for (const candidate of candidates) {
+    const resolved = resolveCommandOnPath(candidate)
+    if (resolved) return {name: candidate, execPath: resolved}
+  }
+
+  const bundledNpmCli = resolveBundledNpmCliPath()
+  if (bundledNpmCli) {
+    return {
+      name: 'npm',
+      execPath: bundledNpmCli,
+      runnerCommand: process.execPath,
+      runnerArgs: [bundledNpmCli]
+    }
+  }
+
+  const corepackPath = resolveCommandOnPath('corepack')
+  if (corepackPath) {
+    return {
+      name: 'pnpm',
+      runnerCommand: corepackPath,
+      runnerArgs: ['pnpm']
+    }
+  }
+
+  return {name: 'npm'}
+}
+
+export function buildExecEnv(): NodeJS.ProcessEnv | undefined {
+  if (process.platform !== 'win32') return undefined
+
+  const nodeDir = path.dirname(process.execPath)
+  const pathSep = path.delimiter
+  const existing = process.env.PATH || process.env.Path || ''
+
+  if (existing.includes(nodeDir)) return undefined
+
+  return {
+    ...process.env,
+    PATH: `${nodeDir}${pathSep}${existing}`.trim(),
+    Path: `${nodeDir}${pathSep}${existing}`.trim()
+  }
+}
+
+export function buildInstallCommand(
+  pm: PackageManagerResolution,
+  args: string[]
+): {command: string; args: string[]} {
+  if (pm.runnerCommand) {
+    return {
+      command: pm.runnerCommand,
+      args: [...(pm.runnerArgs || []), ...args]
+    }
+  }
+
+  if (pm.execPath) {
+    if (isWindowsExecutablePath(pm.execPath)) {
+      return {command: pm.execPath, args}
+    }
+    return {command: process.execPath, args: [pm.execPath, ...args]}
+  }
+
+  return {command: pm.name, args}
+}
+
+export function buildNpmCliFallback(
+  args: string[]
+): {command: string; args: string[]} | undefined {
+  const npmCli = resolveBundledNpmCliPath()
+
+  if (!npmCli) return undefined
+
+  return {
+    command: process.execPath,
+    args: [npmCli, ...args]
+  }
+}
+
+export function buildSpawnInvocation(
+  command: string,
+  args: string[]
+): {command: string; args: string[]} {
+  if (!shouldUseCmdExe(command)) return {command, args}
+
+  const cmdExe = resolveWindowsCmdExe()
+
+  return {command: cmdExe, args: ['/d', '/s', '/c', formatCmdArgs(command, args)]}
+}
+
+export function execInstallCommand(
+  command: string,
+  args: string[],
+  options?: ExecOptions
+): Promise<void> {
+  const invocation = buildSpawnInvocation(command, args)
+  const env = buildExecEnv()
+  const stdio = options?.stdio ?? 'ignore'
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(invocation.command, invocation.args, {
+      cwd: options?.cwd,
+      stdio,
+      env: env || process.env
+    })
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(`Install failed with exit code ${code}`))
+      } else {
+        resolve()
+      }
+    })
+
+    child.on('error', (error) => reject(error))
+  })
+}
+
+export function getInstallCommandForPath(cwd: string): PackageManagerName {
+  return resolvePackageManager({cwd}).name
 }
