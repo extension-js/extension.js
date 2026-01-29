@@ -9,4 +9,12 @@ packages:
   # Ignore dist folders used for testing
   - "!programs/cli/dist"
   - "!programs/develop/dist"
+onlyBuiltDependencies:
+  - "@ast-grep/napi"
+  - "@ast-grep/napi-win32-x64-msvc"
+  - "@parcel/watcher"
+  - "@swc/core"
+  - "core-js"
+  - "esbuild"
+  - "less"
   
