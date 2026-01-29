@@ -29,7 +29,9 @@ describe('Firefox profile args', () => {
     } as any)
     expect(args).toMatch(/--profile="/)
     // Accept any ephemeral profile name under firefox-profile/
-    expect(args).toMatch(/extension-js\/profiles\/firefox-profile\//)
+    expect(args).toMatch(
+      /extension-js[\\/]+profiles[\\/]+firefox-profile[\\/]+/
+    )
   })
 
   it('uses persistent dev profile when persistProfile=true', async () => {
@@ -38,7 +40,7 @@ describe('Firefox profile args', () => {
       browser: 'firefox',
       persistProfile: true
     } as any)
-    expect(args).toMatch(/--profile=".*firefox-profile\/dev"/)
+    expect(args).toMatch(/--profile=".*firefox-profile[\\/]dev"/)
   })
 
   it('includes startingUrl in binary args when provided', async () => {

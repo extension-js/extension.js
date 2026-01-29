@@ -202,6 +202,7 @@ export default function webpackConfig(
           ],
       extensions: [
         '.js',
+        '.cjs',
         '.mjs',
         '.jsx',
         '.ts',
@@ -210,6 +211,18 @@ export default function webpackConfig(
         '.json',
         '.wasm',
         '.svelte'
+      ]
+    },
+    resolveLoader: {
+      extensions: [
+        '.js',
+        '.cjs',
+        '.mjs',
+        '.jsx',
+        '.ts',
+        '.mts',
+        '.tsx',
+        '.json'
       ]
     },
     module: {

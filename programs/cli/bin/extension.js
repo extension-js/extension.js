@@ -4,8 +4,14 @@
 const fs = require('fs')
 const path = require('path')
 
+const distCjsEntry = path.resolve(__dirname, '../dist/cli.cjs')
 const distEntry = path.resolve(__dirname, '../dist/cli.js')
 const sourceEntry = path.resolve(__dirname, '../index.ts')
+
+if (fs.existsSync(distCjsEntry)) {
+  require(distCjsEntry)
+  return
+}
 
 if (fs.existsSync(distEntry)) {
   require(distEntry)

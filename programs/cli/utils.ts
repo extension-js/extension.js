@@ -82,8 +82,14 @@ export function resolveModuleEntry(
 
   // Legacy/common filename fallbacks, in order of preference
   const candidates = [
+    path.join(modulePath, 'dist', 'module.cjs'),
+    path.join(modulePath, 'dist', 'module.mjs'),
     path.join(modulePath, 'dist', 'module.js'),
+    path.join(modulePath, 'dist', 'index.cjs'),
+    path.join(modulePath, 'dist', 'index.mjs'),
     path.join(modulePath, 'dist', 'index.js'),
+    path.join(modulePath, 'index.cjs'),
+    path.join(modulePath, 'index.mjs'),
     path.join(modulePath, 'index.js')
   ]
 

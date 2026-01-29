@@ -37,7 +37,9 @@ describe('diagnostics (MESSAGE-GUIDE)', () => {
     // Should include NOT FOUND absolute path line
     const body = String(warnings[0] || '')
     expect(body).toContain('Check the path used in your extension API call.')
-    expect(body).toContain('NOT FOUND /abs/project/src/pages/welcome.html')
+    expect(body).toMatch(
+      /NOT FOUND .*abs[\\/]+project[\\/]+src[\\/]+pages[\\/]+welcome\.html/i
+    )
   })
 
   it('emits missing public asset warning once (dedup)', async () => {

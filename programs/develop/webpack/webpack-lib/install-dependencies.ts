@@ -15,6 +15,10 @@ import {
   resolvePackageManager
 } from './package-manager'
 
+export async function getInstallCommand() {
+  return resolvePackageManager({cwd: process.cwd()}).name
+}
+
 function getInstallArgs() {
   return ['install' /*, '--silent' */]
 }
@@ -46,7 +50,10 @@ export async function installDependencies(projectPath: string) {
     }
 
     const command = buildInstallCommand(pm, dependenciesArgs)
-    await execInstallCommand(command.command, command.args, {cwd: projectPath, stdio})
+    await execInstallCommand(command.command, command.args, {
+      cwd: projectPath,
+      stdio
+    })
   } catch (error: any) {
     console.error(messages.cantInstallDependencies(error))
     process.exit(1)

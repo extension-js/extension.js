@@ -2,6 +2,8 @@ import {describe, it, expect, vi, afterEach} from 'vitest'
 import fs from 'node:fs'
 import {resolveModuleEntry} from '../utils'
 
+const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 describe('dlx / resolveModuleEntry', () => {
   const modulePath = '/tmp/extension-develop'
 
@@ -52,7 +54,7 @@ describe('dlx / resolveModuleEntry', () => {
     const spy = vi
       .spyOn(fs, 'existsSync')
       .mockImplementation((p: any) =>
-        typeof p === 'string' ? p.endsWith('dist/module.js') : false
+        typeof p === 'string' ? toPosix(p).endsWith('dist/module.cjs') : false
       )
 
     const href = resolveModuleEntry(modulePath, {
@@ -61,6 +63,6 @@ describe('dlx / resolveModuleEntry', () => {
 
     expect(spy).toHaveBeenCalled()
     expect(href).toBeDefined()
-    expect(href).toContain('dist/module.js')
+    expect(href).toContain('dist/module.cjs')
   })
 })

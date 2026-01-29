@@ -1,6 +1,13 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import {execFileSync, spawn} from 'child_process'
+import {
+  execFileSync,
+  spawn,
+  spawnSync as spawnSyncImported
+} from 'child_process'
+import {createRequire} from 'module'
+
+const require = createRequire(import.meta.url)
 
 export type PackageManagerName = 'pnpm' | 'yarn' | 'npm' | 'bun'
 
@@ -187,6 +194,23 @@ function resolveCommandOnPath(command: string) {
   )
 }
 
+function canRunCorepack(): boolean {
+  try {
+    const fallback = require('child_process') as typeof import('child_process')
+    const spawnSync =
+      (spawnSyncImported as any)?.mock !== undefined
+        ? spawnSyncImported
+        : fallback.spawnSync || spawnSyncImported
+    const result = spawnSync('corepack', ['--version'], {
+      stdio: 'ignore',
+      windowsHide: true
+    })
+    return result?.status === 0
+  } catch {
+    return false
+  }
+}
+
 function detectByLockfile(cwd?: string): PackageManagerName | undefined {
   if (!cwd) return undefined
   const hasPnpmLock = fs.existsSync(path.join(cwd, 'pnpm-lock.yaml'))
@@ -210,11 +234,23 @@ export function resolvePackageManager(opts?: {
   const envPm = detectPackageManagerFromEnv()
   if (envPm) return envPm
 
-  const candidates: PackageManagerName[] = ['pnpm', 'yarn', 'npm', 'bun']
+  const candidates: PackageManagerName[] = ['pnpm', 'yarn', 'bun']
   for (const candidate of candidates) {
     const resolved = resolveCommandOnPath(candidate)
     if (resolved) return {name: candidate, execPath: resolved}
   }
+
+  const corepackPath = resolveCommandOnPath('corepack')
+  if (corepackPath || canRunCorepack()) {
+    return {
+      name: 'pnpm',
+      runnerCommand: corepackPath || 'corepack',
+      runnerArgs: ['pnpm']
+    }
+  }
+
+  const npmPath = resolveCommandOnPath('npm')
+  if (npmPath) return {name: 'npm', execPath: npmPath}
 
   const bundledNpmCli = resolveBundledNpmCliPath()
   if (bundledNpmCli) {
@@ -223,15 +259,6 @@ export function resolvePackageManager(opts?: {
       execPath: bundledNpmCli,
       runnerCommand: process.execPath,
       runnerArgs: [bundledNpmCli]
-    }
-  }
-
-  const corepackPath = resolveCommandOnPath('corepack')
-  if (corepackPath) {
-    return {
-      name: 'pnpm',
-      runnerCommand: corepackPath,
-      runnerArgs: ['pnpm']
     }
   }
 
@@ -296,7 +323,10 @@ export function buildSpawnInvocation(
 
   const cmdExe = resolveWindowsCmdExe()
 
-  return {command: cmdExe, args: ['/d', '/s', '/c', formatCmdArgs(command, args)]}
+  return {
+    command: cmdExe,
+    args: ['/d', '/s', '/c', formatCmdArgs(command, args)]
+  }
 }
 
 export function execInstallCommand(
