@@ -1,5 +1,7 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
+const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 vi.mock('adm-zip', () => {
   class ZipMock {
     files: Array<{file: string; root?: string}> = []
@@ -87,7 +89,7 @@ describe('ZipPlugin', () => {
     const stats = await emitDone()
     expect(stats).toBeTruthy()
     expect(spy).toHaveBeenCalled()
-    const out = String(spy.mock.calls[0][0])
+    const out = toPosix(String(spy.mock.calls[0][0]))
     expect(out).toContain('/p/out/dist')
     expect(out).toContain('-source.zip')
   })
@@ -103,7 +105,7 @@ describe('ZipPlugin', () => {
     const spy = vi.spyOn((AdmZip as any).prototype, 'writeZip')
     await emitDone()
     expect(spy).toHaveBeenCalled()
-    const out = String(spy.mock.calls[0][0])
+    const out = toPosix(String(spy.mock.calls[0][0]))
     expect(out).toContain('/p/out/dist/edge/')
     expect(out).toMatch(/my-file-name\.zip$/)
   })

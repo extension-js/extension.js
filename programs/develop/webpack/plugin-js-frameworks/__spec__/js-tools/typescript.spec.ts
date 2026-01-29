@@ -1,6 +1,8 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 
+const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 vi.mock('../../frameworks-lib/integrations', () => ({
   isUsingJSFramework: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => true)
@@ -29,7 +31,7 @@ describe('typescript tools', () => {
 
   it('getUserTypeScriptConfigFile finds tsconfig.json next to package.json only', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
-      const s = String(p)
+      const s = toPosix(String(p))
       if (s.endsWith('/project/package.json')) return true
       if (s.endsWith('/project/tsconfig.json')) return true
       return false
@@ -37,7 +39,7 @@ describe('typescript tools', () => {
     const {getUserTypeScriptConfigFile} =
       await import('../../js-tools/typescript')
 
-    expect(getUserTypeScriptConfigFile('/project')).toBe(
+    expect(toPosix(getUserTypeScriptConfigFile('/project') || '')).toBe(
       '/project/tsconfig.json'
     )
   })
@@ -45,10 +47,10 @@ describe('typescript tools', () => {
   it('isUsingTypeScript throws when TS files present but no tsconfig next to package.json', async () => {
     // Package.json in /project (stop search early)
     ;(fs.existsSync as any).mockImplementation((p: string) =>
-      String(p).endsWith('/project/package.json') ? true : false
+      toPosix(String(p)).endsWith('/project/package.json') ? true : false
     )
     ;(fs.readFileSync as any).mockImplementation((p: string) => {
-      if (String(p).endsWith('package.json')) {
+      if (toPosix(String(p)).endsWith('package.json')) {
         return JSON.stringify({dependencies: {}})
       }
       return ''
@@ -70,11 +72,11 @@ describe('typescript tools', () => {
     // Make tsconfig exist
     ;(fs.existsSync as any).mockImplementation(
       (p: string) =>
-        String(p).endsWith('/project/tsconfig.json') ||
-        String(p).endsWith('/project/package.json')
+        toPosix(String(p)).endsWith('/project/tsconfig.json') ||
+        toPosix(String(p)).endsWith('/project/package.json')
     )
     ;(fs.readFileSync as any).mockImplementation((p: string) => {
-      if (String(p).endsWith('package.json')) {
+      if (toPosix(String(p)).endsWith('package.json')) {
         return JSON.stringify({devDependencies: {typescript: '^5'}})
       }
       return ''

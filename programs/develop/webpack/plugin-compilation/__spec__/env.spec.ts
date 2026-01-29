@@ -53,12 +53,14 @@ vi.mock('dotenv', () => ({
 
 import {EnvPlugin} from '../env'
 
+const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 describe('EnvPlugin', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     defineApply.mockReset()
     ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
-      const path = String(p)
+      const path = toPosix(String(p))
       return (
         path.endsWith('/.env.chrome.development') ||
         path.endsWith('/.env.defaults') ||
