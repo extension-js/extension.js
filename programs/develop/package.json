@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -12,11 +13,11 @@
     ".": {
       "development": "./module.ts",
       "types": "./dist/module.d.ts",
-      "import": "./dist/module.js",
-      "require": "./dist/module.js"
+      "import": "./dist/module.cjs",
+      "require": "./dist/module.cjs"
     }
   },
-  "main": "./dist/module.js",
+  "main": "./dist/module.cjs",
   "types": "./dist/module.d.ts",
   "files": [
     "dist"
