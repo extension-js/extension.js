@@ -26,7 +26,7 @@
     "extension": "./bin/extension.js"
   },
   "name": "extension",
-  "version": "3.3.3-next.21",
+  "version": "3.4.0-next.0",
   "description": "Create cross-browser extensions with no build configuration.",
   "homepage": "https://extension.js.org/",
   "bugs": {
