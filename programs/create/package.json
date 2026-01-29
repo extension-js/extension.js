@@ -85,7 +85,7 @@
     "@types/adm-zip": "^0.5.7",
     "@types/chrome": "^0.1.33",
     "@types/cross-spawn": "^6.0.6",
-    "@types/node": "^25.0.9",
+    "@types/node": "^25.1.0",
     "@types/webextension-polyfill": "0.12.4",
     "@vitest/coverage-v8": "^4.0.17",
     "eslint": "^9.39.2",
