@@ -9,8 +9,24 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import colors from 'pintor'
+import {createRequire} from 'module'
 import {defineConfig} from '@rslib/core'
 import type {RslibConfig} from '@rslib/core'
+
+const require = createRequire(import.meta.url)
+const shouldGenerateDts = (() => {
+  try {
+    require('@ast-grep/napi')
+    return true
+  } catch (_error) {
+    // If the native binding cannot load, skip d.ts generation and keep build working.
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[Extension.js] Skipping d.ts generation: @ast-grep/napi failed to load.'
+    )
+    return false
+  }
+})()
 
 function copyReadmePlugin() {
   return {
@@ -81,7 +97,7 @@ export default defineConfig({
     {
       format: 'cjs',
       syntax: 'es2021',
-      dts: true
+      dts: shouldGenerateDts
     }
   ],
   plugins: [copyReadmePlugin()]
