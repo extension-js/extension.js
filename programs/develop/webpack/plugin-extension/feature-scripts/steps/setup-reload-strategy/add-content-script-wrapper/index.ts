@@ -6,6 +6,7 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
@@ -28,6 +29,19 @@ export class AddContentScriptWrapper {
     this.browser = (options.browser as DevOptions['browser']) || 'chrome'
   }
 
+  private resolveLoader(name: string): string {
+    const base = path.resolve(__dirname, name)
+    const candidates = [`${base}.cjs`, `${base}.js`, `${base}.mjs`, base]
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) {
+        return candidate
+      }
+    }
+
+    return base
+  }
+
   public apply(compiler: Compiler) {
     // 1- Add the content script wrapper. webpack-target-webextension
     // needs mounting and internal HMR code to work. This plugin abstracts
@@ -39,7 +53,7 @@ export class AddContentScriptWrapper {
       exclude: [/([\\/])node_modules\1/],
       use: [
         {
-          loader: path.resolve(__dirname, 'content-script-wrapper'),
+          loader: this.resolveLoader('content-script-wrapper'),
           options: {
             manifestPath: this.manifestPath,
             mode: compiler.options.mode
@@ -57,7 +71,7 @@ export class AddContentScriptWrapper {
         exclude: [/([\\/])node_modules\1/],
         use: [
           {
-            loader: path.resolve(__dirname, 'warn-no-default-export'),
+            loader: this.resolveLoader('warn-no-default-export'),
             options: {
               manifestPath: this.manifestPath,
               mode: compiler.options.mode
@@ -74,7 +88,7 @@ export class AddContentScriptWrapper {
         exclude: [/([\\/])node_modules\1/],
         use: [
           {
-            loader: path.resolve(__dirname, 'add-hmr-accept-code'),
+            loader: this.resolveLoader('add-hmr-accept-code'),
             options: {
               manifestPath: this.manifestPath,
               mode: compiler.options.mode

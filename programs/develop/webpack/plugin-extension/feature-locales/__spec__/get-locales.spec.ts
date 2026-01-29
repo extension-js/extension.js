@@ -5,6 +5,7 @@ import {getLocales} from '../get-locales'
 
 // These tests verify that getLocales walks _locales/*/* and returns absolute file paths.
 // They avoid framework/e2e concerns and operate purely on the filesystem.
+const toPosix = (value: string) => value.replace(/\\/g, '/')
 
 describe('getLocales (unit)', () => {
   const uniq = `${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -53,13 +54,17 @@ describe('getLocales (unit)', () => {
 
   it('collects all files under _locales subfolders', () => {
     const files = getLocales(manifestPath) || []
-    expect(files.some((p) => p.endsWith('/_locales/en/messages.json'))).toBe(
-      true
-    )
-    expect(files.some((p) => p.endsWith('/_locales/pt_BR/messages.json'))).toBe(
-      true
-    )
-    expect(files.some((p) => p.endsWith('/_locales/en/notes.txt'))).toBe(true)
-    expect(files.some((p) => p.endsWith('/_locales/en/logo.png'))).toBe(true)
+    expect(
+      files.some((p) => toPosix(p).endsWith('/_locales/en/messages.json'))
+    ).toBe(true)
+    expect(
+      files.some((p) => toPosix(p).endsWith('/_locales/pt_BR/messages.json'))
+    ).toBe(true)
+    expect(
+      files.some((p) => toPosix(p).endsWith('/_locales/en/notes.txt'))
+    ).toBe(true)
+    expect(
+      files.some((p) => toPosix(p).endsWith('/_locales/en/logo.png'))
+    ).toBe(true)
   })
 })

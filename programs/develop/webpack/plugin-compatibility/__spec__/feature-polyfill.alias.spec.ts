@@ -1,5 +1,7 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
+const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 const provideApply = vi.fn()
 
 // Mock rspack to intercept ProvidePlugin usage
@@ -58,10 +60,10 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
 
     expect(compiler.options.resolve.alias.keepMe).toBe('/x/y/z')
     expect(
-      String(compiler.options.resolve.alias['webextension-polyfill$'])
+      toPosix(String(compiler.options.resolve.alias['webextension-polyfill$']))
     ).toContain('webextension-polyfill')
     expect(
-      String(compiler.options.resolve.alias['webextension-polyfill$'])
+      toPosix(String(compiler.options.resolve.alias['webextension-polyfill$']))
     ).toContain('dist/browser-polyfill.js')
 
     const ProvidePlugin = (rspack as any).ProvidePlugin as any
@@ -87,10 +89,14 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
     expect(compiler.options.resolve).toBeTruthy()
     expect(compiler.options.resolve!.alias).toBeTruthy()
     expect(
-      String(compiler.options.resolve!.alias!['webextension-polyfill$'])
+      toPosix(
+        String(compiler.options.resolve!.alias!['webextension-polyfill$'])
+      )
     ).toContain('webextension-polyfill')
     expect(
-      String(compiler.options.resolve!.alias!['webextension-polyfill$'])
+      toPosix(
+        String(compiler.options.resolve!.alias!['webextension-polyfill$'])
+      )
     ).toContain('dist/browser-polyfill.js')
   })
 })

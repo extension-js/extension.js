@@ -1,6 +1,8 @@
 import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 
+const toPosix = (value: string) => value.replace(/\\/g, '/')
+
 const FS = vi.hoisted(() => ({
   existsSync: vi.fn(),
   statSync: vi.fn(),
@@ -83,7 +85,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
 
   it('applies CopyRspackPlugin when public exists (excludes manifest.json)', async () => {
     ;(FS.existsSync as any).mockImplementation(
-      (absPath: string) => absPath === '/project/public'
+      (absPath: string) => toPosix(absPath) === '/project/public'
     )
     ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
       isDirectory: () => true
@@ -103,8 +105,8 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
   it('emits an error when public/ contains manifest.json', async () => {
     ;(FS.existsSync as any).mockImplementation(
       (absPath: string) =>
-        absPath === '/project/public' ||
-        absPath === '/project/public/manifest.json'
+        toPosix(absPath) === '/project/public' ||
+        toPosix(absPath) === '/project/public/manifest.json'
     )
     ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
       isDirectory: () => true

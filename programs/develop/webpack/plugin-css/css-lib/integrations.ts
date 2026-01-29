@@ -68,6 +68,28 @@ type ExecInstallOptions = {
   fallbackNpmCommand?: InstallCommand
 }
 
+async function preferCorepackFallback(
+  pm: PackageManagerResolution
+): Promise<PackageManagerResolution> {
+  if (pm.name !== 'npm' || pm.execPath || pm.runnerCommand) return pm
+
+  try {
+    const {spawnSync} = (await import('child_process')) as any
+    const result = spawnSync('corepack', ['--version'], {
+      stdio: 'ignore',
+      windowsHide: true
+    })
+
+    if (result?.status === 0) {
+      return {name: 'pnpm', runnerCommand: 'corepack', runnerArgs: ['pnpm']}
+    }
+  } catch {
+    // ignore
+  }
+
+  return pm
+}
+
 function isMissingManagerError(error: unknown) {
   const err = error as NodeJS.ErrnoException
   return (
@@ -274,6 +296,9 @@ export async function installOptionalDependencies(
     }
     pm = resolvePackageManager({cwd: installBaseDir})
     wslContext = resolveWslContext(installBaseDir)
+    if (!wslContext.useWsl) {
+      pm = await preferCorepackFallback(pm)
+    }
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
@@ -378,6 +403,9 @@ export async function installOptionalDependenciesBatch(
     }
     pm = resolvePackageManager({cwd: installBaseDir})
     wslContext = resolveWslContext(installBaseDir)
+    if (!wslContext.useWsl) {
+      pm = await preferCorepackFallback(pm)
+    }
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,

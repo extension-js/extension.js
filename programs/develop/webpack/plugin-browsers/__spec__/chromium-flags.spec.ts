@@ -34,7 +34,9 @@ describe('Chromium profile flags', () => {
     const userDir = flags.find((f: string) => f.startsWith('--user-data-dir='))
     expect(userDir).toBeTruthy()
     // Accept any ephemeral profile name under chrome-profile/
-    expect(userDir).toMatch(/extension-js\/profiles\/chrome-profile\//)
+    expect(userDir).toMatch(
+      /extension-js[\\/]+profiles[\\/]+chrome-profile[\\/]+/
+    )
   })
 
   it('uses persistent dev profile when persistProfile=true', () => {
@@ -46,6 +48,8 @@ describe('Chromium profile flags', () => {
     const userDir = flags.find((f: string) => f.startsWith('--user-data-dir='))
     expect(userDir).toBeTruthy()
     // Allow optional trailing quote
-    expect(userDir).toMatch(/extension-js\/profiles\/chrome-profile\/dev"?$/)
+    expect(userDir).toMatch(
+      /extension-js[\\/]+profiles[\\/]+chrome-profile[\\/]dev"?$/
+    )
   })
 })

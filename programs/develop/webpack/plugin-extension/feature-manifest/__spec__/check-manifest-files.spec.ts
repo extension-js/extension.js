@@ -71,6 +71,6 @@ describe('CheckManifestFiles', () => {
     ;(plugin as any).handleErrors(compilation, WebpackError as any)
 
     const msg = String(compilation.errors[0] || '')
-    expect(msg).toMatch(/NOT FOUND \/abs\/missing\.png/i)
+    expect(msg).toMatch(/NOT FOUND .*abs[\\/]+missing\.png/i)
   })
 })
