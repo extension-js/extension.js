@@ -701,13 +701,17 @@ export async function installOptionalDependencies(
 ) {
   if (!dependencies.length) return
 
+  let pm: PackageManagerResolution | undefined
+  let wslContext: WslContext | undefined
+  let installBaseDir: string | undefined
+
   try {
-    const pm = await resolvePackageManager()
-    const installBaseDir = resolveDevelopInstallRoot()
+    pm = await resolvePackageManager()
+    installBaseDir = resolveDevelopInstallRoot()
     if (!installBaseDir) {
       throw new Error(messages.optionalInstallRootMissing(integration))
     }
-    const wslContext = resolveWslContext(installBaseDir)
+    wslContext = resolveWslContext(installBaseDir)
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
@@ -759,6 +763,22 @@ export async function installOptionalDependencies(
     }
     return true
   } catch (error) {
+    console.error('[extension.js][optional-deps] debug', {
+      platform: process.platform,
+      execPath: process.execPath,
+      cwd: process.cwd(),
+      path: process.env.PATH || process.env.Path,
+      comspec: process.env.ComSpec,
+      systemRoot: process.env.SystemRoot,
+      npm_execpath: process.env.npm_execpath,
+      npm_config_user_agent: process.env.npm_config_user_agent,
+      npm_config_prefix: process.env.npm_config_prefix,
+      npm_config_cache: process.env.npm_config_cache,
+      npm_config_userconfig: process.env.npm_config_userconfig,
+      installBaseDir,
+      wslContext,
+      pm
+    })
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     if (isMissingManagerError(error)) {
       console.error(messages.optionalInstallManagerMissing(integration))
@@ -778,13 +798,17 @@ export async function installOptionalDependenciesBatch(
 ) {
   if (!dependencies.length) return
 
+  let pm: PackageManagerResolution | undefined
+  let wslContext: WslContext | undefined
+  let installBaseDir: string | undefined
+
   try {
-    const pm = await resolvePackageManager()
-    const installBaseDir = resolveDevelopInstallRoot()
+    pm = await resolvePackageManager()
+    installBaseDir = resolveDevelopInstallRoot()
     if (!installBaseDir) {
       throw new Error(messages.optionalInstallRootMissing(integration))
     }
-    const wslContext = resolveWslContext(installBaseDir)
+    wslContext = resolveWslContext(installBaseDir)
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
@@ -837,6 +861,22 @@ export async function installOptionalDependenciesBatch(
     }
     return true
   } catch (error) {
+    console.error('[extension.js][optional-deps] debug', {
+      platform: process.platform,
+      execPath: process.execPath,
+      cwd: process.cwd(),
+      path: process.env.PATH || process.env.Path,
+      comspec: process.env.ComSpec,
+      systemRoot: process.env.SystemRoot,
+      npm_execpath: process.env.npm_execpath,
+      npm_config_user_agent: process.env.npm_config_user_agent,
+      npm_config_prefix: process.env.npm_config_prefix,
+      npm_config_cache: process.env.npm_config_cache,
+      npm_config_userconfig: process.env.npm_config_userconfig,
+      installBaseDir,
+      wslContext,
+      pm
+    })
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     if (isMissingManagerError(error)) {
       console.error(messages.optionalInstallManagerMissing(integration))
