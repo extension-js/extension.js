@@ -8,9 +8,15 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {execFileSync, spawnSync} from 'child_process'
 import * as messages from './messages'
 import {findExtensionDevelopRoot} from '../../webpack-lib/check-build-dependencies'
+import {
+  buildInstallCommand,
+  buildNpmCliFallback,
+  execInstallCommand,
+  resolvePackageManager,
+  type PackageManagerResolution
+} from '../../webpack-lib/package-manager'
 
 function parseJsonSafe(text: string) {
   const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
@@ -46,188 +52,6 @@ function findDevelopRootFrom(startDir: string): string | undefined {
 
   return undefined
 }
-function isFromPnpx() {
-  if (process.env.npm_config_user_agent?.includes('pnpm')) return 'pnpm'
-  return false
-}
-
-function isFromNpx() {
-  if ((process.env as any)['npm_execpath']) return 'npm'
-  return false
-}
-
-type DetectedPackageManager = 'pnpm' | 'yarn' | 'npm' | 'bun'
-type PackageManagerResolution = {
-  name: DetectedPackageManager
-  execPath?: string
-  runnerCommand?: string
-  runnerArgs?: string[]
-}
-
-function normalizePackageManager(
-  value?: string
-): DetectedPackageManager | undefined {
-  if (!value) return undefined
-  const lower = value.toLowerCase().trim()
-  if (lower === 'pnpm') return 'pnpm'
-  if (lower === 'yarn') return 'yarn'
-  if (lower === 'bun') return 'bun'
-  if (lower === 'npm') return 'npm'
-  return undefined
-}
-
-function inferPackageManagerFromPath(
-  value?: string
-): DetectedPackageManager | undefined {
-  if (!value) return undefined
-  const lower = value.toLowerCase()
-  if (lower.includes('pnpm')) return 'pnpm'
-  if (lower.includes('yarn')) return 'yarn'
-  if (lower.includes('bun')) return 'bun'
-  if (lower.includes('npm')) return 'npm'
-  return undefined
-}
-
-function getPackageManagerOverride(): PackageManagerResolution | undefined {
-  const name = normalizePackageManager(process.env.EXTENSION_JS_PACKAGE_MANAGER)
-  const execPath = process.env.EXTENSION_JS_PM_EXEC_PATH
-  if (!name && !execPath) return undefined
-  const inferredName = name || inferPackageManagerFromPath(execPath) || 'npm'
-  return {name: inferredName, execPath}
-}
-
-function getPackageManagerFromEnv(): DetectedPackageManager | undefined {
-  const ua = process.env.npm_config_user_agent
-
-  if (ua) {
-    if (ua.includes('pnpm')) return 'pnpm'
-    if (ua.includes('yarn')) return 'yarn'
-    if (ua.includes('bun')) return 'bun'
-    if (ua.includes('npm')) return 'npm'
-  }
-
-  const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH
-
-  if (execPath) {
-    if (execPath.includes('pnpm')) return 'pnpm'
-    if (execPath.includes('yarn')) return 'yarn'
-    if (execPath.includes('bun')) return 'bun'
-    if (execPath.includes('npm')) return 'npm'
-  }
-
-  return undefined
-}
-
-function resolveNpmCliFromNode(execPath: string): string | undefined {
-  const execDir = path.dirname(execPath)
-  const candidates = [
-    path.join(execDir, 'node_modules', 'npm', 'bin', 'npm-cli.js'),
-    path.join(execDir, '..', 'lib', 'node_modules', 'npm', 'bin', 'npm-cli.js'),
-    path.join(execDir, '..', 'node_modules', 'npm', 'bin', 'npm-cli.js')
-  ]
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate
-  }
-  return undefined
-}
-
-function resolveBundledNpmCliPath(): string | undefined {
-  if (process.env.EXTENSION_JS_PM_EXEC_PATH) {
-    const overridePath = process.env.EXTENSION_JS_PM_EXEC_PATH
-    if (overridePath && fs.existsSync(overridePath)) return overridePath
-  }
-  try {
-    const resolved = require.resolve('npm/bin/npm-cli.js', {
-      paths: [process.cwd(), __dirname]
-    })
-    if (resolved && fs.existsSync(resolved)) return resolved
-  } catch {
-    // ignore
-  }
-  return resolveNpmCliFromNode(process.execPath)
-}
-
-async function resolvePackageManager(): Promise<PackageManagerResolution> {
-  console.log('[extension.js][optional-deps] resolvePackageManager start', {
-    platform: process.platform,
-    execPath: process.execPath,
-    npm_execpath: process.env.npm_execpath,
-    npm_config_user_agent: process.env.npm_config_user_agent,
-    npm_config_prefix: process.env.npm_config_prefix,
-    npm_config_cache: process.env.npm_config_cache,
-    npm_config_userconfig: process.env.npm_config_userconfig
-  })
-
-  const override = getPackageManagerOverride()
-  if (override) {
-    console.log('[extension.js][optional-deps] using override', override)
-    return override
-  }
-
-  const envPm = getPackageManagerFromEnv()
-  const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH
-  if (envPm) {
-    console.log('[extension.js][optional-deps] using env package manager', {
-      envPm,
-      execPath
-    })
-    return {name: envPm, execPath}
-  }
-
-  const candidates: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm', 'bun']
-  for (const candidate of candidates) {
-    if (commandExists(candidate)) {
-      console.log('[extension.js][optional-deps] found on PATH', candidate)
-      return {name: candidate}
-    }
-    const windowsPath = resolveWindowsCommandPath(candidate)
-    if (windowsPath) {
-      console.log('[extension.js][optional-deps] found via where', {
-        candidate,
-        windowsPath
-      })
-      return {name: candidate, execPath: windowsPath}
-    }
-  }
-
-  if (execPath) {
-    const inferred: DetectedPackageManager = execPath.includes('pnpm')
-      ? 'pnpm'
-      : execPath.includes('yarn')
-        ? 'yarn'
-        : execPath.includes('npm')
-          ? 'npm'
-          : 'npm'
-    const resolution = {name: inferred, execPath}
-    console.log('[extension.js][optional-deps] inferred from execPath', {
-      execPath,
-      resolution
-    })
-    return resolution
-  }
-
-  const bundledNpmCli = resolveBundledNpmCliPath()
-  if (bundledNpmCli) {
-    console.log('[extension.js][optional-deps] using bundled npm cli', {
-      bundledNpmCli
-    })
-    return {name: 'npm', execPath: bundledNpmCli}
-  }
-
-  if (commandExists('corepack')) {
-    console.log('[extension.js][optional-deps] using corepack fallback')
-    const fallbackChain: DetectedPackageManager[] = ['pnpm', 'yarn', 'npm']
-    return {
-      name: fallbackChain[0],
-      runnerCommand: 'corepack',
-      runnerArgs: [fallbackChain[0]]
-    }
-  }
-
-  console.log('[extension.js][optional-deps] falling back to npm')
-  return {name: 'npm'}
-}
-
 type InstallCommand = {
   command: string
   args: string[]
@@ -244,68 +68,13 @@ type ExecInstallOptions = {
   fallbackNpmCommand?: InstallCommand
 }
 
-function commandExists(command: string) {
-  try {
-    if (shouldUseCmdExe(command)) {
-      const cmdExe = resolveWindowsCmdExe()
-      const result = spawnSync(
-        cmdExe,
-        ['/d', '/s', '/c', formatCmdArgs(command, ['-v'])],
-        {stdio: 'ignore', windowsHide: true}
-      )
-      console.log('[extension.js][optional-deps] commandExists', {
-        command,
-        status: result.status,
-        mode: 'cmd'
-      })
-      return result.status === 0
-    }
-    const result = spawnSync(command, ['-v'], {stdio: 'ignore'})
-    console.log('[extension.js][optional-deps] commandExists', {
-      command,
-      status: result.status,
-      mode: 'direct'
-    })
-    return result.status === 0
-  } catch (error) {
-    console.log('[extension.js][optional-deps] commandExists error', {
-      command,
-      error: (error as Error)?.message || error
-    })
-    return false
-  }
-}
-
-function resolveWindowsCommandPath(command: string) {
-  if (process.platform !== 'win32') return undefined
-  try {
-    const cmdExe = resolveWindowsCmdExe()
-    const output = execFileSync(
-      cmdExe,
-      ['/d', '/s', '/c', `where ${command}`],
-      {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-        windowsHide: true
-      }
-    )
-    const candidates = String(output)
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-    const cmdMatch = candidates.find((line) => /\.cmd$/i.test(line))
-    console.log('[extension.js][optional-deps] where results', {
-      command,
-      candidates
-    })
-    return cmdMatch || candidates[0]
-  } catch (error) {
-    console.log('[extension.js][optional-deps] where error', {
-      command,
-      error: (error as Error)?.message || error
-    })
-    return undefined
-  }
+function isMissingManagerError(error: unknown) {
+  const err = error as NodeJS.ErrnoException
+  return (
+    err?.code === 'ENOENT' ||
+    String(err?.message || '').includes('ENOENT') ||
+    String(err?.message || '').includes('not found')
+  )
 }
 
 function parseWslUncPath(value: string): {distro: string; path: string} | null {
@@ -348,133 +117,24 @@ function wrapCommandForWsl(
   return {command: 'wsl.exe', args}
 }
 
-function resolveNpmCmdFromNodeExec(): string | undefined {
-  if (process.platform !== 'win32') return undefined
-  try {
-    const execDir = path.dirname(process.execPath)
-    const candidate = path.join(execDir, 'npm.cmd')
-    if (fs.existsSync(candidate)) return candidate
-    const posixMatch = /^\/([a-z])\//i.exec(execDir)
-    if (posixMatch) {
-      const drive = posixMatch[1].toUpperCase()
-      const winDir = `${drive}:\\${execDir.slice(3).replace(/\//g, '\\')}`
-      const winCandidate = path.join(winDir, 'npm.cmd')
-      if (fs.existsSync(winCandidate)) return winCandidate
-    }
-  } catch {
-    return undefined
-  }
-  return undefined
-}
-
-function resolveNpmCommand(): string {
-  return resolveNpmCmdFromNodeExec() || 'npm'
-}
-
-function buildNpmCliFallback(args: string[]): InstallCommand | undefined {
-  const npmCli = resolveBundledNpmCliPath()
-  if (!npmCli) return undefined
-  return {command: process.execPath, args: [npmCli, ...args]}
-}
-
-function isMissingManagerError(error: unknown) {
-  const err = error as NodeJS.ErrnoException
-  return (
-    err?.code === 'ENOENT' ||
-    String(err?.message || '').includes('ENOENT') ||
-    String(err?.message || '').includes('not found')
-  )
-}
-
-function isWindowsCmd(command: string) {
-  return process.platform === 'win32' && /\.(cmd|bat)$/i.test(command)
-}
-
-function resolveWindowsCmdExe(): string {
-  if (process.platform !== 'win32') return 'cmd.exe'
-  const comspec = process.env.ComSpec
-  if (comspec && fs.existsSync(comspec)) return comspec
-  const systemRoot = process.env.SystemRoot || 'C:\\Windows'
-  const fallback = path.join(systemRoot, 'System32', 'cmd.exe')
-  if (fs.existsSync(fallback)) return fallback
-  return 'cmd.exe'
-}
-
-function formatCmdArgs(command: string, args: string[]) {
-  const quotedCommand = command.includes(' ') ? `"${command}"` : command
-  const quotedArgs = args.map((arg) => (arg.includes(' ') ? `"${arg}"` : arg))
-  return `${quotedCommand} ${quotedArgs.join(' ')}`.trim()
-}
-
-function shouldUseCmdExe(command: string) {
-  if (process.platform !== 'win32') return false
-  if (isWindowsCmd(command)) return true
-  return ['npm', 'pnpm', 'yarn', 'corepack', 'bun'].includes(command)
-}
-
-function isWindowsExecutablePath(value?: string) {
-  if (!value || process.platform !== 'win32') return false
-  return /\.(cmd|bat|exe)$/i.test(value)
-}
-
-function execFileSyncSafe(
-  command: string,
-  args: string[],
-  options: {
-    stdio: 'inherit' | 'ignore'
-    cwd?: string
-  }
-) {
-  if (shouldUseCmdExe(command)) {
-    const cmdExe = resolveWindowsCmdExe()
-    execFileSync(cmdExe, ['/d', '/s', '/c', formatCmdArgs(command, args)], {
-      ...options,
-      windowsHide: true
-    })
-    return
-  }
-  try {
-    execFileSync(command, args, options)
-  } catch (error) {
-    const err = error as NodeJS.ErrnoException
-    if (process.platform === 'win32' && err?.code === 'EINVAL') {
-      const cmdExe = resolveWindowsCmdExe()
-      execFileSync(cmdExe, ['/d', '/s', '/c', formatCmdArgs(command, args)], {
-        ...options,
-        windowsHide: true
-      })
-      return
-    }
-    throw error
-  }
-}
-
-function execInstallCommand(
+async function execInstallWithFallback(
   command: InstallCommand,
   options: ExecInstallOptions
 ) {
   try {
-    console.log('[extension.js][optional-deps] exec install', {
-      command,
-      cwd: options.cwd
-    })
-    execFileSyncSafe(command.command, command.args, {
-      stdio: 'inherit',
-      cwd: options.cwd
+    await execInstallCommand(command.command, command.args, {
+      cwd: options.cwd,
+      stdio: 'inherit'
     })
     return
   } catch (error) {
     if (options.fallbackNpmCommand && isMissingManagerError(error)) {
-      console.log('[extension.js][optional-deps] exec fallback npm', {
-        fallback: options.fallbackNpmCommand,
-        cwd: options.cwd
-      })
-      execFileSyncSafe(
+      await execInstallCommand(
         options.fallbackNpmCommand.command,
         options.fallbackNpmCommand.args,
         {
-          stdio: 'inherit',
-          cwd: options.cwd
+          cwd: options.cwd,
+          stdio: 'inherit'
         }
       )
       return
@@ -504,31 +164,6 @@ export function resolveDevelopInstallRoot(): string | undefined {
   }
 }
 
-function maybeWrapExecPath(
-  command: InstallCommand,
-  pmName: DetectedPackageManager,
-  execPath?: string,
-  runnerCommand?: string,
-  runnerArgs?: string[]
-): InstallCommand {
-  if (runnerCommand) {
-    return {
-      command: runnerCommand,
-      args: [...(runnerArgs || []), ...command.args]
-    }
-  }
-  if (!execPath) return command
-  if (isWindowsExecutablePath(execPath)) {
-    return {command: execPath, args: command.args}
-  }
-  if (commandExists(pmName)) return command
-
-  return {
-    command: process.execPath,
-    args: [execPath, ...command.args]
-  }
-}
-
 function getOptionalInstallCommand(
   pm: PackageManagerResolution,
   dependencies: string[],
@@ -537,97 +172,56 @@ function getOptionalInstallCommand(
   const pmName = pm.name
 
   if (pmName === 'yarn') {
-    return maybeWrapExecPath(
-      {
-        command: 'yarn',
-        args: [
-          '--silent',
-          'add',
-          ...dependencies,
-          '--cwd',
-          installBaseDir,
-          '--optional'
-        ]
-      },
-      pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
-    )
+    return buildInstallCommand(pm, [
+      '--silent',
+      'add',
+      ...dependencies,
+      '--cwd',
+      installBaseDir,
+      '--optional'
+    ])
   }
 
-  if (pmName === 'npm' || isFromNpx()) {
-    return maybeWrapExecPath(
-      {
-        command: resolveNpmCommand(),
-        args: [
-          '--silent',
-          'install',
-          ...dependencies,
-          '--prefix',
-          installBaseDir,
-          '--save-optional'
-        ]
-      },
-      pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
-    )
+  if (pmName === 'npm') {
+    return buildInstallCommand(pm, [
+      '--silent',
+      'install',
+      ...dependencies,
+      '--prefix',
+      installBaseDir,
+      '--save-optional'
+    ])
   }
 
-  if (pmName === 'pnpm' || isFromPnpx()) {
-    return maybeWrapExecPath(
-      {
-        command: 'pnpm',
-        args: [
-          'add',
-          ...dependencies,
-          '--dir',
-          installBaseDir,
-          '--save-optional',
-          '--silent'
-        ]
-      },
-      pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
-    )
+  if (pmName === 'pnpm') {
+    return buildInstallCommand(pm, [
+      'add',
+      ...dependencies,
+      '--dir',
+      installBaseDir,
+      '--save-optional',
+      '--silent'
+    ])
   }
 
   if (pmName === 'bun') {
-    return maybeWrapExecPath(
-      {
-        command: 'bun',
-        args: ['add', ...dependencies, '--cwd', installBaseDir, '--optional']
-      },
-      pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
-    )
+    return buildInstallCommand(pm, [
+      'add',
+      ...dependencies,
+      '--cwd',
+      installBaseDir,
+      '--optional'
+    ])
   }
 
-  const fallback = pmName || 'npm'
-  const resolvedFallback = fallback === 'npm' ? resolveNpmCommand() : fallback
-  return maybeWrapExecPath(
-    {
-      command: resolvedFallback,
-      args: [
-        '--silent',
-        'install',
-        ...dependencies,
-        '--cwd',
-        installBaseDir,
-        '--optional'
-      ]
-    },
-    pmName,
-    pm.execPath,
-    pm.runnerCommand,
-    pm.runnerArgs
-  )
+  return buildInstallCommand(pm, [
+    '--silent',
+    'install',
+    ...dependencies,
+    '--cwd',
+    installBaseDir,
+    '--optional'
+  ])
 }
 
 function getRootInstallCommand(
@@ -645,54 +239,22 @@ function getRootInstallCommand(
           : ['--prefix', installBaseDir]
     : []
   if (pmName === 'yarn') {
-    return maybeWrapExecPath(
-      {command: 'yarn', args: ['install', '--silent', ...dirArgs]},
-      pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
-    )
+    return buildInstallCommand(pm, ['install', '--silent', ...dirArgs])
   }
 
-  if (pmName === 'npm' || isFromNpx()) {
-    return maybeWrapExecPath(
-      {command: resolveNpmCommand(), args: ['install', '--silent', ...dirArgs]},
-      pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
-    )
+  if (pmName === 'npm') {
+    return buildInstallCommand(pm, ['install', '--silent', ...dirArgs])
   }
 
-  if (pmName === 'pnpm' || isFromPnpx()) {
-    return maybeWrapExecPath(
-      {command: 'pnpm', args: ['install', '--silent', ...dirArgs]},
-      pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
-    )
+  if (pmName === 'pnpm') {
+    return buildInstallCommand(pm, ['install', '--silent', ...dirArgs])
   }
 
   if (pmName === 'bun') {
-    return maybeWrapExecPath(
-      {command: 'bun', args: ['install', ...dirArgs]},
-      pmName,
-      pm.execPath,
-      pm.runnerCommand,
-      pm.runnerArgs
-    )
+    return buildInstallCommand(pm, ['install', ...dirArgs])
   }
 
-  const resolvedFallback =
-    (pmName || 'npm') === 'npm' ? resolveNpmCommand() : pmName || 'npm'
-  return maybeWrapExecPath(
-    {command: resolvedFallback, args: ['install', '--silent', ...dirArgs]},
-    pmName,
-    pm.execPath,
-    pm.runnerCommand,
-    pm.runnerArgs
-  )
+  return buildInstallCommand(pm, ['install', '--silent', ...dirArgs])
 }
 
 export async function installOptionalDependencies(
@@ -706,11 +268,11 @@ export async function installOptionalDependencies(
   let installBaseDir: string | undefined
 
   try {
-    pm = await resolvePackageManager()
     installBaseDir = resolveDevelopInstallRoot()
     if (!installBaseDir) {
       throw new Error(messages.optionalInstallRootMissing(integration))
     }
+    pm = resolvePackageManager({cwd: installBaseDir})
     wslContext = resolveWslContext(installBaseDir)
     const installCommand = getOptionalInstallCommand(
       pm,
@@ -730,11 +292,18 @@ export async function installOptionalDependencies(
         ])
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    console.log(
-      messages.optionalToolingSetup([integration], integration, isAuthor)
+    const setupMessage = messages.optionalToolingSetup(
+      [integration],
+      integration,
+      isAuthor
     )
+    if (isAuthor) {
+      console.warn(setupMessage)
+    } else {
+      console.log(setupMessage)
+    }
 
-    execInstallCommand(execCommand, {
+    await execInstallWithFallback(execCommand, {
       cwd: wslContext.useWsl ? undefined : installBaseDir,
       fallbackNpmCommand
     })
@@ -755,7 +324,7 @@ export async function installOptionalDependencies(
             '--prefix',
             installBaseDir
           ])
-      execInstallCommand(rootCommand, {
+      await execInstallWithFallback(rootCommand, {
         cwd: wslContext.useWsl ? undefined : installBaseDir,
         fallbackNpmCommand: rootFallbackCommand
       })
@@ -803,11 +372,11 @@ export async function installOptionalDependenciesBatch(
   let installBaseDir: string | undefined
 
   try {
-    pm = await resolvePackageManager()
     installBaseDir = resolveDevelopInstallRoot()
     if (!installBaseDir) {
       throw new Error(messages.optionalInstallRootMissing(integration))
     }
+    pm = resolvePackageManager({cwd: installBaseDir})
     wslContext = resolveWslContext(installBaseDir)
     const installCommand = getOptionalInstallCommand(
       pm,
@@ -827,11 +396,18 @@ export async function installOptionalDependenciesBatch(
         ])
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    console.log(
-      messages.optionalToolingSetup(integrations, integration, isAuthor)
+    const setupMessage = messages.optionalToolingSetup(
+      integrations,
+      integration,
+      isAuthor
     )
+    if (isAuthor) {
+      console.warn(setupMessage)
+    } else {
+      console.log(setupMessage)
+    }
 
-    execInstallCommand(execCommand, {
+    await execInstallWithFallback(execCommand, {
       cwd: wslContext.useWsl ? undefined : installBaseDir,
       fallbackNpmCommand
     })
@@ -853,7 +429,7 @@ export async function installOptionalDependenciesBatch(
             '--prefix',
             installBaseDir
           ])
-      execInstallCommand(rootCommand, {
+      await execInstallWithFallback(rootCommand, {
         cwd: wslContext.useWsl ? undefined : installBaseDir,
         fallbackNpmCommand: rootFallbackCommand
       })
