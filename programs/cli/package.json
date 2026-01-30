@@ -14,13 +14,20 @@
       "types": "./dist/cli.d.ts",
       "import": "./dist/cli.cjs",
       "require": "./dist/cli.cjs"
+    },
+    "./types": {
+      "types": "./types/index.d.ts"
+    },
+    "./types/polyfill": {
+      "types": "./types/polyfill.d.ts"
     }
   },
   "main": "./dist/cli.cjs",
   "types": "./dist/cli.d.ts",
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "types"
   ],
   "bin": {
     "extension": "./bin/extension.cjs"
@@ -80,6 +87,9 @@
     "cli"
   ],
   "dependencies": {
+    "@types/chrome": "^0.1.33",
+    "@types/node": "^25.0.9",
+    "@types/webextension-polyfill": "0.12.4",
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
     "commander": "^14.0.2",
@@ -89,11 +99,8 @@
   },
   "devDependencies": {
     "@rslib/core": "^0.19.2",
-    "@types/chrome": "^0.1.33",
-    "@types/node": "^25.0.9",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
-    "@types/webextension-polyfill": "0.12.4",
     "@types/mock-fs": "^4.13.4",
     "@types/semver": "^7.7.1",
     "mock-fs": "^5.5.0",
