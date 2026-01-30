@@ -400,6 +400,14 @@ export function chromeInitializingEnhancedReload() {
   return `${getLoggingPrefix('info')} Initializing enhanced reload service with direct spawn for Chrome`
 }
 
+export function wslDockerDesktopRunnerDisabled() {
+  return [
+    `${getLoggingPrefix('warn')} Browser runner already disabled (docker-desktop WSL detected).`,
+    `This environment can't launch Windows browser binaries or access /mnt/c.`,
+    `If you need the browser open, install a real WSL distro (Ubuntu/Debian) or run dev from Windows.`
+  ].join('\n')
+}
+
 // Dev/utility formatting helpers
 export function locatingBrowser(browser: Browser) {
   return `${getLoggingPrefix('info')} Locating ${capitalizedBrowserName(browser)} browser binary...`

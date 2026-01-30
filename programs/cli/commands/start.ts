@@ -26,7 +26,7 @@ type StartOptions = {
   port?: string | number
   polyfill?: boolean | string
   install?: boolean
-  noRunner?: boolean
+  runner?: boolean
   // Internal maintainer flags
   author?: boolean
   authorMode?: boolean
@@ -158,7 +158,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
           startingUrl: startOptions.startingUrl,
           port: startOptions.port,
           install: startOptions.install,
-          noRunner: startOptions.noRunner,
+          noRunner: startOptions.runner === false,
           source:
             typeof startOptions.source === 'string'
               ? startOptions.source

@@ -26,15 +26,13 @@ if (fs.existsSync(distCjsEntry)) {
       {stdio: 'inherit'}
     )
     process.exit(result.status ?? 1)
-  } catch (error) {
-    // eslint-disable-next-line no-console
+  } catch {
     console.error(
       '[Extension.js] CLI not built. Run "pnpm --filter extension compile".'
     )
     process.exit(1)
   }
 } else {
-  // eslint-disable-next-line no-console
   console.error('[Extension.js] CLI entry not found.')
   process.exit(1)
 }
