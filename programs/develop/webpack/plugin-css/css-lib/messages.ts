@@ -50,7 +50,7 @@ export function optionalToolingSetup(
   const prefix = isAuthor
     ? colors.brightMagenta('►►► Author says')
     : colors.gray('►►►')
-  return `${prefix} Setting up ${list} tooling... (this is a one time op)`
+  return `${prefix} Setting up ${list} tooling after a fresh install... (this is a one time operation)`
 }
 
 export function optionalToolingRootInstall(integration: string) {
