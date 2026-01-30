@@ -19,7 +19,7 @@ type PreviewOptions = {
   geckoBinary?: string
   startingUrl?: string
   port?: string | number
-  noRunner?: boolean
+  runner?: boolean
   // Source inspection (parity with dev)
   source?: boolean | string
   watchSource?: boolean
@@ -144,7 +144,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
           geckoBinary: (previewOptions as any).geckoBinary,
           startingUrl: previewOptions.startingUrl,
           port: previewOptions.port,
-          noRunner: previewOptions.noRunner,
+          noRunner: previewOptions.runner === false,
           source:
             typeof previewOptions.source === 'string'
               ? previewOptions.source

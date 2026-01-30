@@ -197,6 +197,15 @@ importers:
 
   programs/cli:
     dependencies:
+      '@types/chrome':
+        specifier: ^0.1.33
+        version: 0.1.33
+      '@types/node':
+        specifier: ^25.0.9
+        version: 25.0.9
+      '@types/webextension-polyfill':
+        specifier: 0.12.4
+        version: 0.12.4
       commander:
         specifier: ^14.0.2
         version: 14.0.2
@@ -219,15 +228,9 @@ importers:
       '@rslib/core':
         specifier: ^0.19.2
         version: 0.19.2(typescript@5.9.3)
-      '@types/chrome':
-        specifier: ^0.1.33
-        version: 0.1.33
       '@types/mock-fs':
         specifier: ^4.13.4
         version: 4.13.4
-      '@types/node':
-        specifier: ^25.0.9
-        version: 25.0.9
       '@types/react':
         specifier: ^19.2.8
         version: 19.2.8
@@ -237,9 +240,6 @@ importers:
       '@types/semver':
         specifier: ^7.7.1
         version: 7.7.1
-      '@types/webextension-polyfill':
-        specifier: 0.12.4
-        version: 0.12.4
       mock-fs:
         specifier: ^5.5.0
         version: 5.5.0
