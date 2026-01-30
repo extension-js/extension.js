@@ -92,29 +92,81 @@ export async function importExternalTemplate(
         const originalStdoutWrite = process.stdout.write.bind(process.stdout)
         const originalStderrWrite = process.stderr.write.bind(process.stderr)
 
-        // Heuristics to hide only the two specified noisy lines
-        const shouldFilter = (chunk: unknown): boolean => {
-          const s =
-            typeof chunk === 'string'
-              ? chunk
-              : ((chunk as any)?.toString?.() ?? '')
-          if (!s) return false
-          return (
-            /Using git version/i.test(s) ||
+        const stdoutBuffer = {value: ''}
+        const stderrBuffer = {value: ''}
+        let suppressGoGitItStack = false
+
+        const toText = (chunk: unknown): string =>
+          typeof chunk === 'string'
+            ? chunk
+            : ((chunk as any)?.toString?.() ?? '')
+
+        const shouldFilterLine = (line: string): boolean => {
+          if (!line) return false
+          const trimmed = line.trim()
+          if (!trimmed) return false
+
+          if (
+            /Using git version/i.test(line) ||
             /GitHub API rate limit reached, continuing without connectivity check/i.test(
-              s
-            )
-          )
+              line
+            ) ||
+            /\[go-git-it\] An error occurred: Error: Failed to download release asset: HTTP 404/i.test(
+              line
+            ) ||
+            /^Downloading extension\b/i.test(trimmed) ||
+            /^URL https?:\/\/codeload\.github\.com\/extension-js\/examples\/zip\/refs\/heads\/main\b/i.test(
+              trimmed
+            ) ||
+            /^\[[=\s]+\]\s*\d+%/i.test(trimmed)
+          ) {
+            suppressGoGitItStack = true
+            return true
+          }
+
+          if (suppressGoGitItStack && /^\s+at\b/.test(line)) {
+            return true
+          }
+
+          if (suppressGoGitItStack && !/^\s+at\b/.test(line)) {
+            suppressGoGitItStack = false
+          }
+
+          return false
         }
 
-        process.stdout.write = (chunk: any, ...args: any[]) => {
-          if (shouldFilter(chunk)) return true
-          return originalStdoutWrite(chunk, ...args)
-        }
-        process.stderr.write = (chunk: any, ...args: any[]) => {
-          if (shouldFilter(chunk)) return true
-          return originalStderrWrite(chunk, ...args)
-        }
+        const writeWithFilter =
+          (
+            originalWrite: typeof process.stdout.write,
+            buffer: {value: string}
+          ) =>
+          (chunk: any, ...args: any[]) => {
+            const text = buffer.value + toText(chunk)
+            if (!text) return true
+
+            const parts = text.split(/\r?\n|\r/)
+            buffer.value = parts.pop() ?? ''
+
+            if (parts.length === 0) return true
+
+            const kept: string[] = []
+            for (const line of parts) {
+              if (shouldFilterLine(line)) continue
+              kept.push(line)
+            }
+
+            if (kept.length === 0) return true
+            return originalWrite(kept.join('\n') + '\n', ...args)
+          }
+
+        process.stdout.write = writeWithFilter(
+          originalStdoutWrite,
+          stdoutBuffer
+        )
+        process.stderr.write = writeWithFilter(
+          originalStderrWrite,
+          stderrBuffer
+        )
 
         try {
           return await fn()
