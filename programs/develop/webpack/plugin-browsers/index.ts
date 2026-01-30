@@ -143,6 +143,15 @@ export class BrowsersPlugin {
   }
 
   apply(compiler: Compiler) {
+    const wslDistro = String(process.env.WSL_DISTRO_NAME || '')
+      .trim()
+      .toLowerCase()
+
+    if (wslDistro === 'docker-desktop' || wslDistro === 'docker-desktop-data') {
+      console.warn(messages.wslDockerDesktopRunnerDisabled())
+      return
+    }
+
     if (
       this.browser === 'chrome' ||
       this.browser === 'edge' ||

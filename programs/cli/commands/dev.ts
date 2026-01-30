@@ -38,7 +38,7 @@ type DevOptions = {
   logUrl?: string
   logTab?: string | number
   install?: boolean
-  noRunner?: boolean
+  runner?: boolean
 }
 
 export function registerDevCommand(program: Command, telemetry: any) {
@@ -180,7 +180,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
           source: devOptions.source,
           watchSource: devOptions.watchSource,
           install: devOptions.install,
-          noRunner: devOptions.noRunner,
+          noRunner: devOptions.runner === false,
           logLevel: (logsOption || devOptions.logLevel || 'off') as any,
           logContexts: parseLogContexts(logContextOption),
           logFormat: devOptions.logFormat || 'pretty',
