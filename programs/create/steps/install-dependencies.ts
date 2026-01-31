@@ -11,6 +11,7 @@ import {spawn} from 'cross-spawn'
 import * as fs from 'fs'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
+import {shouldShowProgress, startProgressBar} from '../lib/progress'
 
 function getInstallArgs() {
   return ['install', '--silent']
@@ -165,7 +166,13 @@ export async function installDependencies(
   const command = await utils.getInstallCommand()
   const dependenciesArgs = getInstallArgs()
 
-  console.log(messages.installingDependencies())
+  const installMessage = messages.installingDependencies()
+  const progressEnabled = shouldShowProgress()
+  const progress = startProgressBar(installMessage, {enabled: progressEnabled})
+
+  if (!progressEnabled) {
+    console.log(installMessage)
+  }
 
   try {
     // Create the node_modules directory if it doesn't exist
@@ -173,12 +180,12 @@ export async function installDependencies(
 
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
-    const firstRun = await runInstall(
-      command,
-      dependenciesArgs,
-      projectPath,
-      stdio
-    )
+    let firstRun
+    try {
+      firstRun = await runInstall(command, dependenciesArgs, projectPath, stdio)
+    } finally {
+      progress.stop()
+    }
 
     if (firstRun.code !== 0) {
       const output = `${firstRun.stdout}\n${firstRun.stderr}`
@@ -188,12 +195,22 @@ export async function installDependencies(
         : false
 
       if (didUpdate) {
-        const retryRun = await runInstall(
-          command,
-          dependenciesArgs,
-          projectPath,
-          stdio
-        )
+        const retryProgress = startProgressBar(installMessage, {
+          enabled: progressEnabled
+        })
+
+        let retryRun
+
+        try {
+          retryRun = await runInstall(
+            command,
+            dependenciesArgs,
+            projectPath,
+            stdio
+          )
+        } finally {
+          retryProgress.stop()
+        }
 
         if (retryRun.code === 0) {
           return
