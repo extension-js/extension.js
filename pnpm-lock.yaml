@@ -487,7 +487,7 @@ importers:
         version: 16.0.6(@rspack/core@1.7.2(@swc/helpers@0.5.18))(sass@1.97.2)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       svelte-loader:
         specifier: 3.2.4
-        version: 3.2.4(svelte@5.46.4)
+        version: 3.2.4(svelte@5.49.1)
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
@@ -543,8 +543,8 @@ importers:
   templates/svelte:
     dependencies:
       svelte:
-        specifier: ^5.15.0
-        version: 5.46.4
+        specifier: ^5.49.1
+        version: 5.49.1
     devDependencies:
       '@tsconfig/svelte':
         specifier: 5.0.4
@@ -3497,8 +3497,8 @@ packages:
     resolution: {integrity: sha512-Ap6G0WQwcU/LHsvLwON1fAQX9Zp0A2Y6Y/cJBl9r/JbW90Zyg4/zbG6zzKa2OTALELarYHmKu0GhpM5EO+7T0g==}
     engines: {node: '>=0.10'}
 
-  esrap@2.2.1:
-    resolution: {integrity: sha512-GiYWG34AN/4CUyaWAgunGt0Rxvr1PTMlGC0vvEov/uOQYWne2bpN03Um+k8jT+q3op33mKouP2zeJ6OlM+qeUg==}
+  esrap@2.2.2:
+    resolution: {integrity: sha512-zA6497ha+qKvoWIK+WM9NAh5ni17sKZKhbS5B3PoYbBvaYHZWoS33zmFybmyqpn07RLUxSmn+RCls2/XF+d0oQ==}
 
   esrecurse@4.3.0:
     resolution: {integrity: sha512-KmfKL3b6G+RXvP8N1vr3Tq1kL/oCFgn2NYXEtqP8/L3pKapUA4G8cFVaoF3SU323CD4XypR/ffioHmkti6/Tag==}
@@ -5172,8 +5172,8 @@ packages:
     peerDependencies:
       svelte: ^3.0.0 || ^4.0.0-next.0 || ^5.0.0-next.1
 
-  svelte@5.46.4:
-    resolution: {integrity: sha512-VJwdXrmv9L8L7ZasJeWcCjoIuMRVbhuxbss0fpVnR8yorMmjNDwcjIH08vS6wmSzzzgAG5CADQ1JuXPS2nwt9w==}
+  svelte@5.49.1:
+    resolution: {integrity: sha512-jj95WnbKbXsXXngYj28a4zx8jeZx50CN/J4r0CEeax2pbfdsETv/J1K8V9Hbu3DCXnpHz5qAikICuxEooi7eNQ==}
     engines: {node: '>=18'}
 
   symbol-tree@3.2.4:
@@ -8668,7 +8668,7 @@ snapshots:
     dependencies:
       estraverse: 5.3.0
 
-  esrap@2.2.1:
+  esrap@2.2.2:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
 
@@ -10360,18 +10360,18 @@ snapshots:
 
   svelte-dev-helper@1.1.9: {}
 
-  svelte-hmr@0.14.12(svelte@5.46.4):
+  svelte-hmr@0.14.12(svelte@5.49.1):
     dependencies:
-      svelte: 5.46.4
+      svelte: 5.49.1
 
-  svelte-loader@3.2.4(svelte@5.46.4):
+  svelte-loader@3.2.4(svelte@5.49.1):
     dependencies:
       loader-utils: 2.0.4
-      svelte: 5.46.4
+      svelte: 5.49.1
       svelte-dev-helper: 1.1.9
-      svelte-hmr: 0.14.12(svelte@5.46.4)
+      svelte-hmr: 0.14.12(svelte@5.49.1)
 
-  svelte@5.46.4:
+  svelte@5.49.1:
     dependencies:
       '@jridgewell/remapping': 2.3.5
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -10383,7 +10383,7 @@ snapshots:
       clsx: 2.1.1
       devalue: 5.6.2
       esm-env: 1.2.2
-      esrap: 2.2.1
+      esrap: 2.2.2
       is-reference: 3.0.3
       locate-character: 3.0.0
       magic-string: 0.30.21
