@@ -979,7 +979,8 @@ export function runningInDevelopment(
   browser: DevOptions['browser'],
   message: DevClientMessage,
   browserVersionLine?: string,
-  updateSuffix?: string
+  updateSuffix?: string,
+  opts?: {includeExtensionId?: boolean}
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
   const manifestName = manifest.name || 'Extension.js'
@@ -1128,6 +1129,7 @@ export function runningInDevelopment(
   const hasPermissions = permissions && permissions.length
 
   const lines: string[] = []
+  const includeExtensionId = opts?.includeExtensionId !== false
 
   const updateNotice = updateSuffix ? ` ${updateSuffix}` : ''
 
@@ -1138,9 +1140,12 @@ export function runningInDevelopment(
     `    Browser        ${colors.gray(browserLabel)}`,
     `    Extension      ${colors.gray(
       version ? `${name} ${version}` : name || manifestName
-    )}`,
-    `    Extension ID   ${colors.gray(cleanId)}`
+    )}`
   )
+
+  if (includeExtensionId) {
+    lines.push(`    Extension ID   ${colors.gray(cleanId)}`)
+  }
 
   return lines.join('\n')
 }
