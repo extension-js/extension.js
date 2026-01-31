@@ -8,6 +8,7 @@
 
 import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
 import type {Configuration} from '@rspack/core'
+import {createRequire} from 'module'
 import {getProjectStructure} from './webpack-lib/project'
 import * as messages from './webpack-lib/messages'
 import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
@@ -22,6 +23,7 @@ export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
   buildOptions?: BuildOptions
 ): Promise<BuildSummary> {
+  const require = createRequire(import.meta.url)
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const isVitest = process.env.VITEST === 'true'
   const shouldExitOnError = (buildOptions?.exitOnError ?? true) && !isVitest
@@ -50,7 +52,7 @@ export async function extensionBuild(
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =
       await Promise.all([
-        import('@rspack/core'),
+        Promise.resolve(require('@rspack/core')),
         import('webpack-merge'),
         import('./webpack-lib/stats-handler'),
         import('./webpack-config')
