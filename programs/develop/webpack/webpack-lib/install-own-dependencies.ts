@@ -13,6 +13,7 @@ import {
   execInstallCommand,
   resolvePackageManager
 } from './package-manager'
+import {shouldShowProgress, startProgressBar} from './progress'
 
 /**
  * Get install arguments for a specific package manager and dependencies
@@ -76,16 +77,27 @@ export async function installOwnDependencies(
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const stdio = isAuthor ? 'inherit' : 'ignore'
 
-    console.log(messages.installingBuildDependencies(dependencies))
+    const progressLabel = messages.installingBuildDependencies(dependencies)
+    const progressEnabled = !isAuthor && shouldShowProgress()
+    const progress = startProgressBar(progressLabel, {enabled: progressEnabled})
+
+    if (!progressEnabled) {
+      console.log(progressLabel)
+    }
+
     if (isAuthor) {
       console.warn(messages.authorInstallNotice('build dependencies'))
     }
 
     const command = buildInstallCommand(pm, installArgs)
-    await execInstallCommand(command.command, command.args, {
-      cwd: packageRoot,
-      stdio
-    })
+    try {
+      await execInstallCommand(command.command, command.args, {
+        cwd: packageRoot,
+        stdio
+      })
+    } finally {
+      progress.stop()
+    }
   } catch (error: any) {
     console.error(messages.buildDependenciesInstallError(error))
     console.error(

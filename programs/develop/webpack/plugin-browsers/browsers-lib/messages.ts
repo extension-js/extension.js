@@ -6,11 +6,10 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-// @ts-expect-error - pintor is JS-only and doesn't ship .d.ts
-import colors from 'pintor'
 import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
+import colors from 'pintor'
 import locateChrome, {
   locateChromeOrExplain,
   getInstallGuidance as getChromeInstallGuidance

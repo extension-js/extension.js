@@ -17,6 +17,7 @@ import {
   resolvePackageManager,
   type PackageManagerResolution
 } from '../../webpack-lib/package-manager'
+import {shouldShowProgress, startProgressBar} from '../../webpack-lib/progress'
 
 function parseJsonSafe(text: string) {
   const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
@@ -322,16 +323,24 @@ export async function installOptionalDependencies(
       integration,
       isAuthor
     )
+    const progressEnabled = !isAuthor && shouldShowProgress()
+    const progress = startProgressBar(setupMessage, {enabled: progressEnabled})
+
     if (isAuthor) {
       console.warn(setupMessage)
-    } else {
+    } else if (!progressEnabled) {
       console.log(setupMessage)
     }
 
-    await execInstallWithFallback(execCommand, {
-      cwd: wslContext.useWsl ? undefined : installBaseDir,
-      fallbackNpmCommand
-    })
+    try {
+      await execInstallWithFallback(execCommand, {
+        cwd: wslContext.useWsl ? undefined : installBaseDir,
+        fallbackNpmCommand
+      })
+    } finally {
+      progress.stop()
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     if (isAuthor) {
@@ -429,16 +438,24 @@ export async function installOptionalDependenciesBatch(
       integration,
       isAuthor
     )
+    const progressEnabled = !isAuthor && shouldShowProgress()
+    const progress = startProgressBar(setupMessage, {enabled: progressEnabled})
+
     if (isAuthor) {
       console.warn(setupMessage)
-    } else {
+    } else if (!progressEnabled) {
       console.log(setupMessage)
     }
 
-    await execInstallWithFallback(execCommand, {
-      cwd: wslContext.useWsl ? undefined : installBaseDir,
-      fallbackNpmCommand
-    })
+    try {
+      await execInstallWithFallback(execCommand, {
+        cwd: wslContext.useWsl ? undefined : installBaseDir,
+        fallbackNpmCommand
+      })
+    } finally {
+      progress.stop()
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 500))
 
     if (isAuthor) {
