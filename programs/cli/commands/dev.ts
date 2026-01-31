@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import type {Command} from 'commander'
+import {createRequire} from 'module'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
 import {
@@ -40,6 +41,8 @@ type DevOptions = {
   install?: boolean
   runner?: boolean
 }
+
+const require = createRequire(import.meta.url)
 
 export function registerDevCommand(program: Command, telemetry: any) {
   program
@@ -156,8 +159,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
       }
 
       // Load the matching develop runtime from the regular dependency graph.
-      const {extensionDev}: {extensionDev: any} =
-        await import('extension-develop')
+      const {extensionDev}: {extensionDev: any} = require('extension-develop')
 
       for (const vendor of list) {
         const vendorStart = Date.now()
