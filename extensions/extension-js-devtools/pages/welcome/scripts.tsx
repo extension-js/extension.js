@@ -158,11 +158,11 @@ const Welcome: React.FC = () => {
           animation: neonPulse 1.8s ease-in-out infinite;
         }
       `}</style>
-      <header className="mb-4 flex items-center">
-        <div className="flex items-center">
+      <header className="mb-4 flex w-full items-center justify-center">
+        <div className="flex w-full max-w-16 items-center justify-center">
           {userIconUrl ? (
             <img
-              className="size-16 select-none"
+              className="h-auto w-full select-none"
               alt={`${extension?.name || 'User extension'} icon`}
               src={userIconUrl}
               onError={(e) => {
@@ -171,7 +171,7 @@ const Welcome: React.FC = () => {
             />
           ) : (
             <div
-              className="text-muted-foreground flex size-16 items-center justify-center rounded-2xl border text-lg font-medium"
+              className="text-muted-foreground flex aspect-square w-full items-center justify-center rounded-2xl border text-lg font-medium"
               aria-label="Extension icon placeholder"
             >
               ?
