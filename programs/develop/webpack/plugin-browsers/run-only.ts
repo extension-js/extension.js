@@ -103,7 +103,11 @@ export async function runOnlyPreviewBrowser(opts: {
     const ctx = createChromiumContext()
     const launcher = new ChromiumLaunchPlugin(common, ctx)
     await launcher.runOnce(compilationLike, {enableCdpPostLaunch: false})
-    await printProdBannerOnce({browser: opts.browser, outPath: opts.outPath})
+    await printProdBannerOnce({
+      browser: opts.browser,
+      outPath: opts.outPath,
+      includeExtensionId: false
+    })
     return
   }
 

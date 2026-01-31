@@ -93,6 +93,7 @@ export async function printProdBannerOnce(opts: {
   outPath: string
   browserVersionLine?: string
   runtime?: {extensionId?: string; name?: string; version?: string}
+  includeExtensionId?: boolean
 }) {
   const k = keyFor(opts.browser, opts.outPath)
 
@@ -126,7 +127,8 @@ export async function printProdBannerOnce(opts: {
           opts.browser,
           message,
           browserLabel,
-          updateSuffix || undefined
+          updateSuffix || undefined,
+          {includeExtensionId: opts.includeExtensionId}
         )
       )
       console.log(messages.emptyLine())
@@ -149,7 +151,8 @@ export async function printProdBannerOnce(opts: {
           opts.browser,
           message,
           browserLabel,
-          updateSuffix || undefined
+          updateSuffix || undefined,
+          {includeExtensionId: opts.includeExtensionId}
         )
       )
       console.log(messages.emptyLine())
