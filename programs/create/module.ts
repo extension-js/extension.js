@@ -81,8 +81,7 @@ export async function extensionCreate(
 
     console.log(successfulInstall)
   } catch (error) {
-    console.error(error)
-    // Re-throw the error so it can be caught in tests
+    // Re-throw the error so callers can handle logging once
     throw error
   }
 }
