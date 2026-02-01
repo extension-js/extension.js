@@ -12,14 +12,12 @@ import * as utils from './lib/utils'
 import {createDirectory} from './steps/create-directory'
 import {importExternalTemplate} from './steps/import-external-template'
 import {overridePackageJson} from './steps/write-package-json'
-import {installDependencies} from './steps/install-dependencies'
 import {writeReadmeFile} from './steps/write-readme-file'
 import {writeManifestJson} from './steps/write-manifest-json'
 import {generateExtensionTypes} from './steps/generate-extension-types'
 import {writeGitignore} from './steps/write-gitignore'
 import {initializeGitRepository} from './steps/initialize-git-repository'
 import {setupBuiltInTests} from './steps/setup-built-in-tests'
-import {preflightOptionalDependenciesForCreate} from './steps/preflight-optional-deps'
 
 export interface CreateOptions {
   template: string
@@ -29,7 +27,7 @@ export interface CreateOptions {
 
 export async function extensionCreate(
   projectNameInput: string | undefined,
-  {cliVersion, template = 'init', install = false}: CreateOptions
+  {cliVersion, template = 'init', install: _install = false}: CreateOptions
 ) {
   if (!projectNameInput) {
     throw new Error(messages.noProjectName())
@@ -57,11 +55,6 @@ export async function extensionCreate(
       cliVersion
     })
 
-    if (install) {
-      await installDependencies(projectPath, projectName)
-      await preflightOptionalDependenciesForCreate(projectPath)
-    }
-
     await writeReadmeFile(projectPath, projectName)
     await writeManifestJson(projectPath, projectName)
     await initializeGitRepository(projectPath, projectName)
@@ -76,7 +69,7 @@ export async function extensionCreate(
     const successfulInstall = await messages.successfullInstall(
       projectPath,
       projectName,
-      Boolean(install)
+      false
     )
 
     console.log(successfulInstall)

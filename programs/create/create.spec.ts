@@ -151,6 +151,65 @@ describe('extension create', () => {
     ).rejects.toThrow('URLs are not allowed as a project path')
   }, 30000)
 
+  it('does not install dependencies during create', async () => {
+    const uniqueSuffix = Date.now().toString()
+    const projectPath = path.resolve(
+      __dirname,
+      'dist',
+      `user-create-no-install-${uniqueSuffix}`
+    )
+
+    await extensionCreate(projectPath, {
+      template: DEFAULT_TEMPLATE.name,
+      install: true
+    })
+
+    expect(fs.existsSync(path.join(projectPath, 'node_modules'))).toBeFalsy()
+
+    await removeDir(projectPath)
+  }, 30000)
+
+  it('writes packageManager from npm env during create', async () => {
+    const uniqueSuffix = Date.now().toString()
+    const projectPath = path.resolve(
+      __dirname,
+      'dist',
+      `user-create-npm-${uniqueSuffix}`
+    )
+    const prevUserAgent = process.env.npm_config_user_agent
+    const prevExecPath = process.env.npm_execpath
+
+    process.env.npm_config_user_agent =
+      'npm/10.9.2 node/v23.8.0 darwin arm64 workspaces/false'
+    delete process.env.npm_execpath
+
+    try {
+      await extensionCreate(projectPath, {
+        template: DEFAULT_TEMPLATE.name,
+        install: false
+      })
+
+      const raw = fs.readFileSync(
+        path.join(projectPath, 'package.json'),
+        'utf8'
+      )
+      const packageJson = JSON.parse(raw)
+      expect(packageJson.packageManager).toBe('npm@10.9.2')
+    } finally {
+      if (prevUserAgent) {
+        process.env.npm_config_user_agent = prevUserAgent
+      } else {
+        delete process.env.npm_config_user_agent
+      }
+      if (prevExecPath) {
+        process.env.npm_execpath = prevExecPath
+      } else {
+        delete process.env.npm_execpath
+      }
+      await removeDir(projectPath)
+    }
+  }, 30000)
+
   const monorepoCliPath = path.resolve(
     __dirname,
     '..',

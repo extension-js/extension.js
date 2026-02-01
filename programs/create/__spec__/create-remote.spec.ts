@@ -71,7 +71,7 @@ describe('extension create from remote', () => {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(
         process.execPath,
-        [cli, 'create', dest, '--template', url, '--install', 'false'],
+        [cli, 'create', dest, '--template', url],
         {
           cwd: repoRoot,
           // Ensure production-like behavior so remote template fetch path is used
@@ -136,7 +136,7 @@ describe('extension create from remote', () => {
     await new Promise<void>((resolve, reject) => {
       const child = spawn(
         process.execPath,
-        [cli, 'create', dest, '--template', url, '--install', 'false'],
+        [cli, 'create', dest, '--template', url],
         {
           cwd: repoRoot,
           // Ensure production-like behavior so remote template fetch path is used
