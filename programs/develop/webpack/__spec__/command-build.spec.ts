@@ -1,12 +1,27 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as path from 'path'
 import * as fs from 'fs'
+const {rspackMock} = vi.hoisted(() => ({
+  rspackMock: vi.fn()
+}))
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
   return {
     ...actual,
     existsSync: vi.fn(),
     readdirSync: vi.fn()
+  }
+})
+
+vi.mock('module', async () => {
+  const actual = await vi.importActual<any>('module')
+  const realRequire = actual.createRequire(import.meta.url)
+  return {
+    ...actual,
+    createRequire: () => (id: string) => {
+      if (id === '@rspack/core') return {rspack: rspackMock}
+      return realRequire(id)
+    }
   }
 })
 
@@ -65,8 +80,7 @@ function makeCompiler(statsImpl: any, failErr?: any) {
 }
 
 vi.mock('@rspack/core', () => {
-  const rspack = vi.fn()
-  return {rspack}
+  return {rspack: rspackMock}
 })
 
 // Scrub brand is used in error printing
@@ -163,7 +177,9 @@ describe('webpack/command-build', () => {
       expect.any(Object),
       'production',
       expect.objectContaining({
-        skipProjectInstall: false,
+        installUserDeps: false,
+        installBuildDeps: false,
+        installOptionalDeps: false,
         exitOnInstall: false,
         showRunAgainMessage: false
       })
@@ -193,7 +209,9 @@ describe('webpack/command-build', () => {
       expect.any(Object),
       'production',
       expect.objectContaining({
-        skipProjectInstall: true,
+        installUserDeps: false,
+        installBuildDeps: false,
+        installOptionalDeps: false,
         exitOnInstall: false,
         showRunAgainMessage: false
       })

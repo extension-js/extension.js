@@ -24,11 +24,10 @@ export async function extensionStart(
   try {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const debug = isAuthor
-    const shouldInstallProjectDeps = !isAuthor || startOptions.install !== false
-
     await ensureProjectReady(projectStructure, 'development', {
-      skipProjectInstall:
-        !projectStructure.packageJsonPath || !shouldInstallProjectDeps,
+      installUserDeps: false,
+      installBuildDeps: false,
+      installOptionalDeps: false,
       exitOnInstall: false,
       showRunAgainMessage: false
     })
