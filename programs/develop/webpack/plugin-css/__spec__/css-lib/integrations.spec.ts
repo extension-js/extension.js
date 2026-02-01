@@ -27,6 +27,15 @@ vi.mock('../../webpack-lib/check-build-dependencies', () => ({
 }))
 
 describe('css-lib integrations', () => {
+  let originalEnv: {
+    EXTENSION_AUTHOR_MODE?: string
+    npm_config_user_agent?: string
+    npm_execpath?: string
+    NPM_EXEC_PATH?: string
+    EXTENSION_JS_PACKAGE_MANAGER?: string
+    EXTENSION_JS_PM_EXEC_PATH?: string
+  }
+
   const mockDevelopRoot = async (extraExistingPaths: string[] = []) => {
     const isDevelopPackageJson = (p: string) =>
       p.endsWith(`${path.sep}programs${path.sep}develop${path.sep}package.json`)
@@ -53,6 +62,14 @@ describe('css-lib integrations', () => {
     ;(require as any).resolve = vi.fn(() => {
       throw new Error('resolve disabled for test')
     })
+    originalEnv = {
+      EXTENSION_AUTHOR_MODE: process.env.EXTENSION_AUTHOR_MODE,
+      npm_config_user_agent: process.env.npm_config_user_agent,
+      npm_execpath: process.env.npm_execpath,
+      NPM_EXEC_PATH: process.env.NPM_EXEC_PATH,
+      EXTENSION_JS_PACKAGE_MANAGER: process.env.EXTENSION_JS_PACKAGE_MANAGER,
+      EXTENSION_JS_PM_EXEC_PATH: process.env.EXTENSION_JS_PM_EXEC_PATH
+    }
     delete (process as any).env.EXTENSION_AUTHOR_MODE
     delete process.env.npm_config_user_agent
     delete process.env.npm_execpath
@@ -63,6 +80,38 @@ describe('css-lib integrations', () => {
 
   afterEach(() => {
     ;(require as any).resolve = originalResolve
+    if (originalEnv.EXTENSION_AUTHOR_MODE === undefined) {
+      delete (process as any).env.EXTENSION_AUTHOR_MODE
+    } else {
+      process.env.EXTENSION_AUTHOR_MODE = originalEnv.EXTENSION_AUTHOR_MODE
+    }
+    if (originalEnv.npm_config_user_agent === undefined) {
+      delete process.env.npm_config_user_agent
+    } else {
+      process.env.npm_config_user_agent = originalEnv.npm_config_user_agent
+    }
+    if (originalEnv.npm_execpath === undefined) {
+      delete process.env.npm_execpath
+    } else {
+      process.env.npm_execpath = originalEnv.npm_execpath
+    }
+    if (originalEnv.NPM_EXEC_PATH === undefined) {
+      delete process.env.NPM_EXEC_PATH
+    } else {
+      process.env.NPM_EXEC_PATH = originalEnv.NPM_EXEC_PATH
+    }
+    if (originalEnv.EXTENSION_JS_PACKAGE_MANAGER === undefined) {
+      delete process.env.EXTENSION_JS_PACKAGE_MANAGER
+    } else {
+      process.env.EXTENSION_JS_PACKAGE_MANAGER =
+        originalEnv.EXTENSION_JS_PACKAGE_MANAGER
+    }
+    if (originalEnv.EXTENSION_JS_PM_EXEC_PATH === undefined) {
+      delete process.env.EXTENSION_JS_PM_EXEC_PATH
+    } else {
+      process.env.EXTENSION_JS_PM_EXEC_PATH =
+        originalEnv.EXTENSION_JS_PM_EXEC_PATH
+    }
   })
 
   it('installs optional tooling into extension-develop root', async () => {
@@ -153,6 +202,28 @@ describe('css-lib integrations', () => {
     } else {
       expect(call?.[0]).toBe('pnpm')
     }
+  })
+
+  it('keeps npm when npm is active even if corepack is available', async () => {
+    await mockDevelopRoot()
+    process.env.npm_config_user_agent = 'npm/10.9.2 node/v23.8.0'
+
+    const {spawn} = (await import('child_process')) as any
+
+    const {installOptionalDependencies} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    const call = spawn.mock.calls[0]
+    const args = Array.isArray(call?.[1]) ? call?.[1].join(' ') : ''
+    if (process.platform === 'win32') {
+      expect(call?.[0]).toMatch(/cmd\.exe$/i)
+      expect(args).toContain('npm')
+    } else {
+      expect(call?.[0]).toBe('npm')
+    }
+    expect(args).not.toContain('corepack')
   })
 
   it('falls back to npm cli when env manager is missing', async () => {

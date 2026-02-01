@@ -87,7 +87,9 @@ describe('webpack/command-dev', () => {
       expect.any(Object),
       'development',
       expect.objectContaining({
-        skipProjectInstall: false,
+        installUserDeps: false,
+        installBuildDeps: false,
+        installOptionalDeps: false,
         exitOnInstall: false,
         showRunAgainMessage: false
       })

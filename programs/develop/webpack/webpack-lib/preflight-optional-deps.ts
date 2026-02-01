@@ -50,26 +50,10 @@ function canResolve(id: string, projectPath?: string) {
   }
 }
 
-export async function preflightOptionalDependencies(
-  projectStructure: ProjectStructure,
-  mode: DevOptions['mode'],
-  opts?: {
-    exitOnInstall?: boolean
-    showRunAgainMessage?: boolean
-  }
-) {
-  const {packageJsonDir} = getDirs(projectStructure)
-  const projectPath = packageJsonDir as string
-
-  if (hasPreflightMarker(projectPath)) {
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(
-        `${colors.brightMagenta('►►► Author says')} Optional deps preflight skipped (cache hit).`
-      )
-    }
-    return
-  }
-
+export function getMissingOptionalDependencies(projectPath: string): {
+  missingOptionalDeps: string[]
+  usedIntegrations: string[]
+} {
   const missingOptionalDeps = new Set<string>()
   const usedIntegrations: string[] = []
 
@@ -180,12 +164,47 @@ export async function preflightOptionalDependencies(
     usedIntegrations.push('PostCSS')
   }
 
-  if (missingOptionalDeps.size > 0) {
+  return {
+    missingOptionalDeps: Array.from(missingOptionalDeps),
+    usedIntegrations
+  }
+}
+
+export async function preflightOptionalDependencies(
+  projectStructure: ProjectStructure,
+  mode: DevOptions['mode'],
+  opts?: {
+    exitOnInstall?: boolean
+    showRunAgainMessage?: boolean
+    installBaseDir?: string
+    saveMode?: 'optional' | 'dev' | 'none'
+  }
+) {
+  const {packageJsonDir} = getDirs(projectStructure)
+  const projectPath = packageJsonDir as string
+
+  if (hasPreflightMarker(projectPath)) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(
+        `${colors.brightMagenta('►►► Author says')} Optional deps preflight skipped (cache hit).`
+      )
+    }
+    return
+  }
+
+  const {missingOptionalDeps, usedIntegrations} =
+    getMissingOptionalDependencies(projectPath)
+
+  if (missingOptionalDeps.length > 0) {
     const uniqueIntegrations = Array.from(new Set(usedIntegrations))
     const didInstall = await installOptionalDependenciesBatch(
       'Optional',
-      Array.from(missingOptionalDeps),
-      uniqueIntegrations
+      missingOptionalDeps,
+      uniqueIntegrations,
+      {
+        installBaseDir: opts?.installBaseDir,
+        saveMode: opts?.saveMode
+      }
     )
 
     if (!didInstall) {

@@ -6,30 +6,35 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import {extensionBuild} from './webpack/command-build'
-import {extensionDev} from './webpack/command-dev'
-import {extensionPreview} from './webpack/command-preview'
-import {extensionStart} from './webpack/command-start'
-import {ensureDependencies} from './webpack/webpack-lib/ensure-dependencies'
-import {
-  type FileConfig,
-  type BuildOptions,
-  type DevOptions,
-  type PreviewOptions,
-  type StartOptions,
-  type Manifest
-} from './webpack/webpack-types'
+import * as fs from 'fs'
+import * as path from 'path'
+import {ensureProjectReady} from './webpack/webpack-lib/dependency-manager'
 
-export {
-  extensionBuild,
-  BuildOptions,
-  extensionDev,
-  DevOptions,
-  extensionStart,
-  StartOptions,
-  extensionPreview,
-  PreviewOptions,
-  FileConfig,
-  Manifest,
-  ensureDependencies
+async function runPostinstall() {
+  if (process.env.EXTENSION_DISABLE_AUTO_INSTALL === 'true') return
+
+  const initCwd = process.env.INIT_CWD || process.cwd()
+  const packageJsonPath = path.join(initCwd, 'package.json')
+
+  if (!fs.existsSync(packageJsonPath)) return
+
+  try {
+    const projectStructure = {
+      manifestPath: path.join(initCwd, 'manifest.json'),
+      packageJsonPath
+    }
+
+    await ensureProjectReady(projectStructure, 'development', {
+      installUserDeps: true,
+      installBuildDeps: true,
+      installOptionalDeps: true,
+      backgroundOptionalDeps: false,
+      exitOnInstall: false,
+      showRunAgainMessage: false
+    })
+  } catch {
+    // Best-effort: postinstall should never block user installs.
+  }
 }
+
+void runPostinstall()
