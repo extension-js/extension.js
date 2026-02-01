@@ -63,7 +63,9 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Resolve Chromium binary
-        run: echo "CHROMIUM_BIN=$(node -e \"console.log(require('playwright-core').chromium.executablePath())\")" >> $GITHUB_ENV
+        run: |
+          CHROMIUM_BIN="$(node -e 'import("playwright-core").then((m) => console.log(m.chromium.executablePath())).catch((err) => { console.error(err); process.exit(1); })')"
+          echo "CHROMIUM_BIN=$CHROMIUM_BIN" >> "$GITHUB_ENV"
       - name: Build examples (edge)
         run: |
           pnpm extension build templates/typescript --browser edge --silent true
@@ -96,7 +98,9 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Resolve Firefox binary
-        run: echo "FIREFOX_BIN=$(node -e \"console.log(require('playwright-core').firefox.executablePath())\")" >> $GITHUB_ENV
+        run: |
+          FIREFOX_BIN="$(node -e 'import("playwright-core").then((m) => console.log(m.firefox.executablePath())).catch((err) => { console.error(err); process.exit(1); })')"
+          echo "FIREFOX_BIN=$FIREFOX_BIN" >> "$GITHUB_ENV"
       - name: Build examples (firefox)
         run: |
           pnpm extension build templates/typescript --browser firefox --silent true
