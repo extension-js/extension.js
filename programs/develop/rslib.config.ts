@@ -14,6 +14,7 @@ export default defineConfig({
   source: {
     entry: {
       module: path.resolve(__dirname, './module.ts'),
+      postinstall: path.resolve(__dirname, './postinstall.ts'),
       // HTML Plugin Loaders
       'ensure-hmr-for-scripts': path.resolve(
         __dirname,

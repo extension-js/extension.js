@@ -11,7 +11,6 @@ import type {Command} from 'commander'
 import type {CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../cli-lib/messages'
 import {getCliPackageJson} from '../cli-package-json'
-import {parseOptionalBoolean} from '../utils'
 
 export function registerCreateCommand(program: Command, telemetry: any) {
   program
@@ -23,21 +22,14 @@ export function registerCreateCommand(program: Command, telemetry: any) {
       '-t, --template <template-name>',
       'specify a template for the created project'
     )
-    .option(
-      '--install [boolean]',
-      'whether or not to install the dependencies after creating the project (enabled by default)',
-      parseOptionalBoolean,
-      true
-    )
     .action(async function (
       pathOrRemoteUrl: string,
-      {template, install}: CreateOptions
+      {template}: CreateOptions
     ) {
       const startedAt = Date.now()
       telemetry.track('cli_command_start', {
         command: 'create',
-        template: template || 'default',
-        install: Boolean(install)
+        template: template || 'default'
       })
 
       try {
@@ -50,7 +42,6 @@ export function registerCreateCommand(program: Command, telemetry: any) {
 
         await extensionCreate(pathOrRemoteUrl, {
           template,
-          install,
           cliVersion: getCliPackageJson().version
         })
 
