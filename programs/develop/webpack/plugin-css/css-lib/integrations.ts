@@ -74,6 +74,13 @@ async function preferCorepackFallback(
 ): Promise<PackageManagerResolution> {
   if (pm.name !== 'npm' || pm.execPath || pm.runnerCommand) return pm
 
+  const npmUserAgent = process.env.npm_config_user_agent || ''
+  const npmExecPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
+
+  if (npmUserAgent.includes('npm') || npmExecPath) {
+    return pm
+  }
+
   try {
     const {spawnSync} = (await import('child_process')) as any
     const result = spawnSync('corepack', ['--version'], {
