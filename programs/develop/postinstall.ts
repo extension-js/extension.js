@@ -10,8 +10,39 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {ensureProjectReady} from './webpack/webpack-lib/dependency-manager'
 
+function isNpxExec(): boolean {
+  const argv = process.env.npm_config_argv
+  if (argv) {
+    try {
+      const parsed = JSON.parse(argv) as {
+        original?: string[]
+        cooked?: string[]
+      }
+      const original = parsed.original || parsed.cooked || []
+      if (
+        original.includes('exec') ||
+        original.includes('npx') ||
+        original.includes('dlx') ||
+        original.includes('bunx')
+      ) {
+        return true
+      }
+    } catch {
+      // ignore
+    }
+  }
+  const userAgent = process.env.npm_config_user_agent || ''
+  return (
+    userAgent.includes('npx') ||
+    userAgent.includes('pnpm') ||
+    userAgent.includes('yarn') ||
+    userAgent.includes('bun')
+  )
+}
+
 async function runPostinstall() {
   if (process.env.EXTENSION_DISABLE_AUTO_INSTALL === 'true') return
+  if (isNpxExec()) return
 
   const initCwd = process.env.INIT_CWD || process.cwd()
   const packageJsonPath = path.join(initCwd, 'package.json')
