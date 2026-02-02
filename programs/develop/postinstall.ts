@@ -32,12 +32,7 @@ function isNpxExec(): boolean {
     }
   }
   const userAgent = process.env.npm_config_user_agent || ''
-  return (
-    userAgent.includes('npx') ||
-    userAgent.includes('pnpm') ||
-    userAgent.includes('yarn') ||
-    userAgent.includes('bun')
-  )
+  return userAgent.includes('npx')
 }
 
 async function runPostinstall() {
