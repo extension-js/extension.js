@@ -1,27 +1,12 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as path from 'path'
 import * as fs from 'fs'
-const {rspackMock} = vi.hoisted(() => ({
-  rspackMock: vi.fn()
-}))
 vi.mock('fs', async () => {
   const actual = await vi.importActual<any>('fs')
   return {
     ...actual,
     existsSync: vi.fn(),
     readdirSync: vi.fn()
-  }
-})
-
-vi.mock('module', async () => {
-  const actual = await vi.importActual<any>('module')
-  const realRequire = actual.createRequire(import.meta.url)
-  return {
-    ...actual,
-    createRequire: () => (id: string) => {
-      if (id === '@rspack/core') return {rspack: rspackMock}
-      return realRequire(id)
-    }
   }
 })
 
@@ -71,6 +56,22 @@ vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
+const rspackMock = vi.hoisted(() => vi.fn())
+
+vi.mock('module', async () => {
+  const actual = await vi.importActual<any>('module')
+  const realRequire = actual.createRequire(import.meta.url)
+  return {
+    ...actual,
+    createRequire: () => (id: string) => {
+      if (id === '@rspack/core') {
+        return {rspack: rspackMock}
+      }
+      return realRequire(id)
+    }
+  }
+})
+
 // Make rspack compiler controllable
 function makeCompiler(statsImpl: any, failErr?: any) {
   return {
@@ -78,10 +79,6 @@ function makeCompiler(statsImpl: any, failErr?: any) {
     close: (cb: any) => cb?.()
   }
 }
-
-vi.mock('@rspack/core', () => {
-  return {rspack: rspackMock}
-})
 
 // Scrub brand is used in error printing
 vi.mock('../webpack-lib/branding', () => ({
@@ -95,7 +92,6 @@ const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 import {extensionBuild} from '../command-build'
 import * as depsManagerMod from '../webpack-lib/dependency-manager'
 import * as configLoaderMod from '../webpack-lib/config-loader'
-import * as rspackMod from '@rspack/core'
 
 describe('webpack/command-build', () => {
   // fs is mocked; configure per-test behavior below
@@ -104,7 +100,7 @@ describe('webpack/command-build', () => {
     vi.resetModules()
     ;(configLoaderMod as any).userConfigSpy?.mockClear?.()
     ;(depsManagerMod.ensureProjectReady as any)?.mockClear?.()
-    ;(rspackMod as any).rspack?.mockClear?.()
+    rspackMock.mockClear()
     logSpy.mockClear()
     errorSpy.mockClear()
     process.env.VITEST = undefined
@@ -136,7 +132,7 @@ describe('webpack/command-build', () => {
         time: 500
       })
     }
-    ;(rspackMod as any).rspack.mockReturnValue(makeCompiler(stats))
+    rspackMock.mockReturnValue(makeCompiler(stats))
 
     const summary = await extensionBuild('/proj', {
       browser: 'chrome',
@@ -158,7 +154,7 @@ describe('webpack/command-build', () => {
     expect(passedPlugins).toEqual([SOME_OTHER_PLUGIN])
 
     // rspack called with merged config
-    expect((rspackMod as any).rspack).toHaveBeenCalledTimes(1)
+    expect(rspackMock).toHaveBeenCalledTimes(1)
   })
 
   it('ensures dependencies before running the build', async () => {
@@ -170,16 +166,14 @@ describe('webpack/command-build', () => {
     ;(fs.readdirSync as any).mockReturnValue([])
 
     const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
-    ;(rspackMod as any).rspack.mockReturnValue(makeCompiler(stats))
+    rspackMock.mockReturnValue(makeCompiler(stats))
 
     await extensionBuild('/proj', {browser: 'chrome', silent: true})
     expect(depsManagerMod.ensureProjectReady).toHaveBeenCalledWith(
       expect.any(Object),
       'production',
       expect.objectContaining({
-        installUserDeps: false,
-        installBuildDeps: false,
-        installOptionalDeps: false,
+        skipProjectInstall: false,
         exitOnInstall: false,
         showRunAgainMessage: false
       })
@@ -195,7 +189,7 @@ describe('webpack/command-build', () => {
       hasErrors: () => true,
       toString: () => 'Rspack: ModuleBuildError:\n\n\n'
     }
-    ;(rspackMod as any).rspack.mockReturnValue(makeCompiler(stats))
+    rspackMock.mockReturnValue(makeCompiler(stats))
 
     await expect(
       extensionBuild('/proj', {
@@ -209,9 +203,7 @@ describe('webpack/command-build', () => {
       expect.any(Object),
       'production',
       expect.objectContaining({
-        installUserDeps: false,
-        installBuildDeps: false,
-        installOptionalDeps: false,
+        skipProjectInstall: true,
         exitOnInstall: false,
         showRunAgainMessage: false
       })
