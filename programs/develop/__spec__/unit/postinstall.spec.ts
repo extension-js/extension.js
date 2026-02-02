@@ -40,6 +40,63 @@ describe('postinstall auto-install', () => {
     )
   })
 
+  it('skips auto-install when invoked via npm exec', async () => {
+    process.env.INIT_CWD = '/tmp/project'
+    process.env.npm_config_argv = JSON.stringify({
+      original: ['exec', 'extension@next', 'create', 'a5'],
+      cooked: ['exec', 'extension@next', 'create', 'a5']
+    })
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => p === '/tmp/project/package.json'
+      }
+    })
+
+    await import('../../postinstall')
+
+    expect(ensureProjectReady).not.toHaveBeenCalled()
+  })
+
+  it('skips auto-install when invoked via pnpm dlx', async () => {
+    process.env.INIT_CWD = '/tmp/project'
+    process.env.npm_config_argv = JSON.stringify({
+      original: ['dlx', 'extension@next', 'create', 'a5'],
+      cooked: ['dlx', 'extension@next', 'create', 'a5']
+    })
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => p === '/tmp/project/package.json'
+      }
+    })
+
+    await import('../../postinstall')
+
+    expect(ensureProjectReady).not.toHaveBeenCalled()
+  })
+
+  it('skips auto-install when invoked via bunx', async () => {
+    process.env.INIT_CWD = '/tmp/project'
+    process.env.npm_config_argv = JSON.stringify({
+      original: ['bunx', 'extension@next', 'create', 'a5'],
+      cooked: ['bunx', 'extension@next', 'create', 'a5']
+    })
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => p === '/tmp/project/package.json'
+      }
+    })
+
+    await import('../../postinstall')
+
+    expect(ensureProjectReady).not.toHaveBeenCalled()
+  })
+
   it('skips auto-install when disabled', async () => {
     process.env.EXTENSION_DISABLE_AUTO_INSTALL = 'true'
     process.env.INIT_CWD = '/tmp/project'
