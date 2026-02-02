@@ -39,7 +39,6 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
-    "postinstall": "node -e \"const fs=require('fs');const path=require('path');const entry=path.join(__dirname,'dist','postinstall.cjs');if(fs.existsSync(entry))require(entry);\"",
     "prepublishOnly": "node scripts/sync-build-dependencies.mjs && rslib build && node ../../scripts/build-extensions.cjs",
     "sync-build-deps": "node scripts/sync-build-dependencies.mjs",
     "compile": "rslib build",
