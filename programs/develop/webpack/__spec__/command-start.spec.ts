@@ -54,9 +54,7 @@ describe('webpack/command-start', () => {
       expect.any(Object),
       'development',
       expect.objectContaining({
-        installUserDeps: false,
-        installBuildDeps: false,
-        installOptionalDeps: false,
+        skipProjectInstall: false,
         exitOnInstall: false,
         showRunAgainMessage: false
       })

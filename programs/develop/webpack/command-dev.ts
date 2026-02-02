@@ -27,10 +27,11 @@ export async function extensionDev(
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const debug = isAuthor
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+    const shouldInstallProjectDeps = !isAuthor || devOptions.install !== false
+
     await ensureProjectReady(projectStructure, 'development', {
-      installUserDeps: false,
-      installBuildDeps: false,
-      installOptionalDeps: false,
+      skipProjectInstall:
+        !projectStructure.packageJsonPath || !shouldInstallProjectDeps,
       exitOnInstall: false,
       showRunAgainMessage: false
     })

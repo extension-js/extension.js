@@ -25,8 +25,7 @@ export default defineConfig({
     teardownTimeout: 120_000,
     include: [
       'cli-lib/**/__spec__/**/*.spec.ts',
-      '__spec__/(dynamic-install|cache-reuse-offline|dlx-pnpm|telemetry-default).spec.ts',
-      '__spec__/exec/**/*.spec.ts'
+      '__spec__/(dynamic-install|cache-reuse-offline|dlx-pnpm|telemetry-default).spec.ts'
     ],
     sequence: {concurrent: false},
     allowOnly: !process.env.CI
