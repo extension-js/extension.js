@@ -11,6 +11,7 @@ describe('postinstall auto-install', () => {
     ensureProjectReady.mockClear()
     delete process.env.EXTENSION_DISABLE_AUTO_INSTALL
     delete process.env.INIT_CWD
+    delete process.env.npm_config_command
     vi.resetModules()
   })
 
@@ -57,6 +58,41 @@ describe('postinstall auto-install', () => {
     await import('../../postinstall')
 
     expect(ensureProjectReady).not.toHaveBeenCalled()
+  })
+
+  it('skips auto-install when npm_config_command is exec', async () => {
+    process.env.INIT_CWD = '/tmp/project'
+    process.env.npm_config_command = 'exec'
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => p === '/tmp/project/package.json'
+      }
+    })
+
+    await import('../../postinstall')
+
+    expect(ensureProjectReady).not.toHaveBeenCalled()
+  })
+
+  it('skips auto-install when running from npm _npx cache', async () => {
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(
+      '/Users/name/.npm/_npx/12345'
+    )
+    process.env.INIT_CWD = '/tmp/project'
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => p === '/tmp/project/package.json'
+      }
+    })
+
+    await import('../../postinstall')
+
+    expect(ensureProjectReady).not.toHaveBeenCalled()
+    cwdSpy.mockRestore()
   })
 
   it('skips auto-install when invoked via pnpm dlx', async () => {
