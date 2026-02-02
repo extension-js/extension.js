@@ -211,7 +211,24 @@ export function initializingGitForRepositoryError(
 }
 
 export function installingDependencies() {
-  return `${statusPrefix} Installing dependencies (this may take a moment)...`
+  return `${statusPrefix} Installing dependencies...`
+}
+
+export function installingBuildDependencies(dependencies: string[]) {
+  return `${statusPrefix} Installing build tools...`
+}
+
+export function installingProjectIntegrations(integrations: string[]) {
+  const formatList = (items: string[]) => {
+    if (items.length === 1) return items[0]
+    if (items.length === 2) return `${items[0]} and ${items[1]}`
+    return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
+  }
+  const tools =
+    integrations.length > 0
+      ? formatList(integrations.map((name) => colors.yellow(name)))
+      : colors.gray('project tooling')
+  return `${statusPrefix} Installing project integrations for ${tools}...`
 }
 
 export function installingDependenciesFailed(

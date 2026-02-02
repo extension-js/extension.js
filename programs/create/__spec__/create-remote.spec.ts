@@ -75,7 +75,11 @@ describe('extension create from remote', () => {
         {
           cwd: repoRoot,
           // Ensure production-like behavior so remote template fetch path is used
-          env: {...process.env, EXTENSION_ENV: 'test'}
+          env: {
+            ...process.env,
+            EXTENSION_ENV: 'test',
+            EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
+          }
         }
       )
       let err = ''
@@ -140,7 +144,11 @@ describe('extension create from remote', () => {
         {
           cwd: repoRoot,
           // Ensure production-like behavior so remote template fetch path is used
-          env: {...process.env, EXTENSION_ENV: 'test'}
+          env: {
+            ...process.env,
+            EXTENSION_ENV: 'test',
+            EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
+          }
         }
       )
       let err = ''
