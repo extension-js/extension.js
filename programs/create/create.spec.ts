@@ -21,12 +21,17 @@ let extensionCreate: (
   try {
     // Standalone repo path
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    extensionCreate = require('./dist/module.js').extensionCreate
+    extensionCreate = require('./dist/module.cjs').extensionCreate
   } catch {
-    // Monorepo fallback
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    extensionCreate =
-      require('../../programs/create/dist/module.js').extensionCreate
+    try {
+      // Monorepo fallback
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      extensionCreate =
+        require('../../programs/create/dist/module.cjs').extensionCreate
+    } catch {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      extensionCreate = require('./dist/module.js').extensionCreate
+    }
   }
 }
 
@@ -174,7 +179,8 @@ describe('extension create', () => {
       const cwd = path.resolve(__dirname, '..', '..')
       const env = {
         ...process.env,
-        EXTENSION_ENV: 'development'
+        EXTENSION_ENV: 'development',
+        EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
       } as unknown as NodeJS.ProcessEnv
 
       // Ensure target path does not exist

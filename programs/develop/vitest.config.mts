@@ -4,6 +4,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    // Integration specs build real example projects under examples/.../dist.
+    // Run in a single worker to avoid cross-spec interference on those folders.
+    pool: 'forks',
+    maxWorkers: 1,
     testTimeout: 30000,
     hookTimeout: 45000,
     include: [
@@ -22,11 +26,6 @@ export default defineConfig({
       '**/__spec__/.tmp-**/**',
       '**/.tmp-tests/**'
     ],
-    // Integration specs build real example projects under examples/.../dist.
-    // Run in a single thread to avoid cross-spec interference on those folders.
-    poolOptions: {
-      threads: {singleThread: true, isolate: true}
-    },
     allowOnly: !process.env.CI
   }
 })

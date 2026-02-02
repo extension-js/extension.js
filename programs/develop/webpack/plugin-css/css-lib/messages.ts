@@ -45,12 +45,20 @@ export function optionalToolingSetup(
   fallback: string,
   isAuthor: boolean
 ) {
+  const formatList = (items: string[]) => {
+    if (items.length === 1) return items[0]
+    if (items.length === 2) return `${items[0]} and ${items[1]}`
+
+    return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
+  }
   const list =
-    integrations && integrations.length > 0 ? integrations.join('/') : fallback
+    integrations && integrations.length > 0
+      ? formatList(integrations)
+      : fallback
   const prefix = isAuthor
     ? colors.brightMagenta('►►► Author says')
     : colors.gray('►►►')
-  return `${prefix} Setting up ${list} tooling after a fresh install... (this is a one time operation)`
+  return `${prefix} Installing project integrations for ${list} (this is a one time operation)`
 }
 
 export function optionalToolingRootInstall(integration: string) {
