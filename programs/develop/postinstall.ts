@@ -14,6 +14,16 @@ import {ensureProjectReady} from './webpack/webpack-lib/dependency-manager'
 const EXPLICIT_INSTALL_COMMANDS = new Set(['install', 'i', 'add', 'ci'])
 const EXTENSION_DEPENDENCY_NAMES = new Set(['extension', 'extension-develop'])
 
+function getPostinstallModuleDir(): string {
+  return process.env.EXTENSION_POSTINSTALL_MODULE_DIR || __dirname
+}
+
+function isPathWithin(parent: string, child: string): boolean {
+  const normalizedParent = path.resolve(parent)
+  const normalizedChild = path.resolve(child)
+  return normalizedChild.startsWith(`${normalizedParent}${path.sep}`)
+}
+
 function isNpxExec(): boolean {
   const command = process.env.npm_config_command || ''
   if (command === 'exec' || command === 'dlx' || command === 'npx') {
@@ -29,13 +39,22 @@ function isNpxExec(): boolean {
     return true
   }
 
-  const moduleDir = __dirname
+  const moduleDir = getPostinstallModuleDir()
   if (
     moduleDir.includes(`${path.sep}.npm${path.sep}_npx${path.sep}`) ||
     moduleDir.includes(`${path.sep}.pnpm${path.sep}dlx${path.sep}`) ||
     moduleDir.includes(
       `${path.sep}.bun${path.sep}install${path.sep}cache${path.sep}`
     )
+  ) {
+    return true
+  }
+
+  const npmCache = process.env.npm_config_cache || ''
+  if (
+    npmCache &&
+    isPathWithin(npmCache, moduleDir) &&
+    moduleDir.includes(`${path.sep}_npx${path.sep}`)
   ) {
     return true
   }
@@ -148,7 +167,7 @@ function logPostinstallDebug() {
   try {
     const payload = {
       cwd: process.cwd(),
-      moduleDir: __dirname,
+      moduleDir: getPostinstallModuleDir(),
       initCwd: process.env.INIT_CWD || '',
       npmConfigCommand: process.env.npm_config_command || '',
       npmConfigArgv: process.env.npm_config_argv || '',

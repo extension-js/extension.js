@@ -10,11 +10,13 @@ describe('postinstall auto-install', () => {
   beforeEach(() => {
     ensureProjectReady.mockClear()
     delete process.env.EXTENSION_DISABLE_AUTO_INSTALL
+    delete process.env.EXTENSION_POSTINSTALL_MODULE_DIR
     delete process.env.INIT_CWD
     delete process.env.npm_config_command
     delete process.env.npm_config_argv
     delete process.env.npm_config_user_agent
     delete process.env.npm_execpath
+    delete process.env.npm_config_cache
     vi.resetModules()
   })
 
@@ -152,6 +154,29 @@ describe('postinstall auto-install', () => {
 
     expect(ensureProjectReady).not.toHaveBeenCalled()
     cwdSpy.mockRestore()
+  })
+
+  it('skips auto-install when moduleDir is under npm _npx cache', async () => {
+    process.env.INIT_CWD = '/tmp/project'
+    process.env.npm_config_command = 'install'
+    process.env.npm_config_cache = '/Users/name/.npm'
+    process.env.EXTENSION_POSTINSTALL_MODULE_DIR =
+      '/Users/name/.npm/_npx/12345/node_modules/extension-develop'
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => p === '/tmp/project/package.json',
+        readFileSync: (p: string) =>
+          p === '/tmp/project/package.json'
+            ? JSON.stringify({devDependencies: {extension: '^1.0.0'}})
+            : ''
+      }
+    })
+
+    await import('../../postinstall')
+
+    expect(ensureProjectReady).not.toHaveBeenCalled()
   })
 
   it('skips auto-install when invoked via pnpm dlx', async () => {
