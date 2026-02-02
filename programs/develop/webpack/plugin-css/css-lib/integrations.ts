@@ -75,8 +75,7 @@ async function preferCorepackFallback(
   if (pm.name !== 'npm' || pm.execPath || pm.runnerCommand) return pm
 
   const npmUserAgent = process.env.npm_config_user_agent || ''
-  const npmExecPath =
-    process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
+  const npmExecPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
 
   if (npmUserAgent.includes('npm') || npmExecPath) {
     return pm
@@ -198,89 +197,50 @@ export function resolveDevelopInstallRoot(): string | undefined {
 function getOptionalInstallCommand(
   pm: PackageManagerResolution,
   dependencies: string[],
-  installBaseDir: string,
-  saveMode: 'optional' | 'dev' | 'none' = 'optional'
+  installBaseDir: string
 ): InstallCommand {
   const pmName = pm.name
 
   if (pmName === 'yarn') {
-    if (saveMode === 'none') {
-      return buildInstallCommand(pm, [
-        '--silent',
-        'add',
-        ...dependencies,
-        '--cwd',
-        installBaseDir,
-        '--optional'
-      ])
-    }
     return buildInstallCommand(pm, [
       '--silent',
       'add',
       ...dependencies,
       '--cwd',
       installBaseDir,
-      saveMode === 'dev' ? '--dev' : '--optional'
+      '--optional'
     ])
   }
 
   if (pmName === 'npm') {
-    if (saveMode === 'none') {
-      return buildInstallCommand(pm, [
-        '--silent',
-        'install',
-        ...dependencies,
-        '--prefix',
-        installBaseDir,
-        '--no-save'
-      ])
-    }
     return buildInstallCommand(pm, [
       '--silent',
       'install',
       ...dependencies,
       '--prefix',
       installBaseDir,
-      saveMode === 'dev' ? '--save-dev' : '--save-optional'
+      '--save-optional'
     ])
   }
 
   if (pmName === 'pnpm') {
-    if (saveMode === 'none') {
-      return buildInstallCommand(pm, [
-        'add',
-        ...dependencies,
-        '--dir',
-        installBaseDir,
-        '--no-save',
-        '--silent'
-      ])
-    }
     return buildInstallCommand(pm, [
       'add',
       ...dependencies,
       '--dir',
       installBaseDir,
-      saveMode === 'dev' ? '--save-dev' : '--save-optional',
+      '--save-optional',
       '--silent'
     ])
   }
 
   if (pmName === 'bun') {
-    if (saveMode === 'none') {
-      return buildInstallCommand(pm, [
-        'add',
-        ...dependencies,
-        '--cwd',
-        installBaseDir
-      ])
-    }
     return buildInstallCommand(pm, [
       'add',
       ...dependencies,
       '--cwd',
       installBaseDir,
-      saveMode === 'dev' ? '--dev' : '--optional'
+      '--optional'
     ])
   }
 
@@ -444,11 +404,7 @@ export async function installOptionalDependencies(
 export async function installOptionalDependenciesBatch(
   integration: string,
   dependencies: string[],
-  integrations?: string[],
-  opts?: {
-    installBaseDir?: string
-    saveMode?: 'optional' | 'dev' | 'none'
-  }
+  integrations?: string[]
 ) {
   if (!dependencies.length) return
 
@@ -457,7 +413,7 @@ export async function installOptionalDependenciesBatch(
   let installBaseDir: string | undefined
 
   try {
-    installBaseDir = opts?.installBaseDir || resolveDevelopInstallRoot()
+    installBaseDir = resolveDevelopInstallRoot()
     if (!installBaseDir) {
       throw new Error(messages.optionalInstallRootMissing(integration))
     }
@@ -469,8 +425,7 @@ export async function installOptionalDependenciesBatch(
     const installCommand = getOptionalInstallCommand(
       pm,
       dependencies,
-      wslContext.installDir || installBaseDir,
-      opts?.saveMode
+      wslContext.installDir || installBaseDir
     )
     const execCommand = wrapCommandForWsl(installCommand, wslContext)
     const fallbackNpmCommand = wslContext.useWsl
