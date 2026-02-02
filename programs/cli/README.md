@@ -137,11 +137,13 @@ npx extension@latest dev --chromium-binary "/Applications/Google Chrome.app/Cont
 npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacOS/firefox"
 ```
 
+## Sponsors
+
 <div align="center">
   <p>
-    <span style="font-size:21px; color:black;">Browser testing via</span><br>
-    <a href="https://www.lambdatest.com/?utm_source=extensionjs&utm_medium=sponsor" target="_blank" rel="noopener noreferrer">
-      <img src="https://www.lambdatest.com/blue-logo.png" width="250" height="45" alt="LambdaTest Logo" />
+    <span style="font-size:21px">Browser testing via</span><br>
+    <a href="https://www.testmu.ai/?utm_source=extensionjs&utm_medium=sponsor" target="_blank" rel="noopener noreferrer">
+      <img src="https://assets.testmu.ai/resources/images/testmu-ai/common/whiteTestmulogo.svg" width="250" height="45" alt="TestMu AI Logo" />
     </a>
   </p>
 </div>
