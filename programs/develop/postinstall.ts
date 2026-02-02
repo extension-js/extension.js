@@ -11,7 +11,22 @@ import * as path from 'path'
 import {ensureProjectReady} from './webpack/webpack-lib/dependency-manager'
 
 function isNpxExec(): boolean {
+  const command = process.env.npm_config_command || ''
+  if (command === 'exec' || command === 'dlx' || command === 'npx') {
+    return true
+  }
+
+  const cwd = process.cwd()
+  if (
+    cwd.includes(`${path.sep}.npm${path.sep}_npx${path.sep}`) ||
+    cwd.includes(`${path.sep}.pnpm${path.sep}dlx${path.sep}`) ||
+    cwd.includes(`${path.sep}.bun${path.sep}install${path.sep}cache${path.sep}`)
+  ) {
+    return true
+  }
+
   const argv = process.env.npm_config_argv
+
   if (argv) {
     try {
       const parsed = JSON.parse(argv) as {
@@ -31,6 +46,7 @@ function isNpxExec(): boolean {
       // ignore
     }
   }
+
   const userAgent = process.env.npm_config_user_agent || ''
   return userAgent.includes('npx')
 }
