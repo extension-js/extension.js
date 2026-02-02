@@ -28,10 +28,7 @@ export async function ensureProjectReady(
   projectStructure: ProjectStructure,
   mode: DevOptions['mode'],
   opts?: {
-    installUserDeps?: boolean
-    installBuildDeps?: boolean
-    installOptionalDeps?: boolean
-    backgroundOptionalDeps?: boolean
+    skipProjectInstall?: boolean
     exitOnInstall?: boolean
     showRunAgainMessage?: boolean
   }
@@ -41,31 +38,13 @@ export async function ensureProjectReady(
   installedUser: boolean
 }> {
   const {packageJsonDir} = getDirs(projectStructure)
-  const result = await ensureDependencies(packageJsonDir, {
-    installUserDeps: opts?.installUserDeps,
-    installBuildDeps: opts?.installBuildDeps,
-    exitOnInstall: opts?.exitOnInstall,
-    showRunAgainMessage: opts?.showRunAgainMessage
-  })
-  if (opts?.installBuildDeps !== false) {
-    await ensureDevelopArtifacts()
-  }
+  const result = await ensureDependencies(packageJsonDir, opts)
+  await ensureDevelopArtifacts()
 
-  const shouldInstallOptional = opts?.installOptionalDeps !== false
-  if (shouldInstallOptional && shouldRunOptionalPreflight(projectStructure)) {
-    const runOptional = () =>
-      preflightOptionalDependencies(projectStructure, mode, {
-        exitOnInstall: opts?.exitOnInstall,
-        showRunAgainMessage: opts?.showRunAgainMessage
-      })
-
-    if (opts?.backgroundOptionalDeps) {
-      runOptional().catch((error) => {
-        console.error(error)
-      })
-    } else {
-      await runOptional()
-    }
+  if (shouldRunOptionalPreflight(projectStructure)) {
+    await preflightOptionalDependencies(projectStructure, mode, {
+      exitOnInstall: opts?.exitOnInstall
+    })
   }
 
   return result

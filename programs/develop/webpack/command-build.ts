@@ -6,9 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
 import type {Configuration} from '@rspack/core'
 import {createRequire} from 'module'
-import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
 import {getProjectStructure} from './webpack-lib/project'
 import * as messages from './webpack-lib/messages'
 import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
@@ -37,10 +37,14 @@ export async function extensionBuild(
   const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
   try {
+    const shouldInstallProjectDeps =
+      !isAuthor || buildOptions?.install !== false
+
     await ensureProjectReady(projectStructure, 'production', {
-      installUserDeps: false,
-      installBuildDeps: false,
-      installOptionalDeps: false,
+      skipProjectInstall:
+        isVitest ||
+        !projectStructure.packageJsonPath ||
+        !shouldInstallProjectDeps,
       exitOnInstall: false,
       showRunAgainMessage: false
     })

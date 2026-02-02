@@ -19,8 +19,7 @@ import {asAbsolute, needsInstall} from './paths'
 export async function ensureDependencies(
   projectPath?: string,
   opts?: {
-    installUserDeps?: boolean
-    installBuildDeps?: boolean
+    skipProjectInstall?: boolean
     exitOnInstall?: boolean
     showRunAgainMessage?: boolean
   }
@@ -30,18 +29,14 @@ export async function ensureDependencies(
   installedUser: boolean
 }> {
   const packageRoot = findExtensionDevelopRoot()
-  const shouldCheckBuildDeps = opts?.installBuildDeps !== false
   const missingBuild =
-    shouldCheckBuildDeps &&
-    packageRoot &&
-    !areBuildDependenciesInstalled(packageRoot)
+    packageRoot && !areBuildDependenciesInstalled(packageRoot)
       ? getMissingBuildDependencies(packageRoot)
       : []
 
-  const shouldCheckUserDeps = opts?.installUserDeps !== false
   const shouldInstallUserDeps =
-    shouldCheckUserDeps &&
     !!projectPath &&
+    !opts?.skipProjectInstall &&
     needsInstall(asAbsolute(projectPath))
 
   const needsBuildInstall = missingBuild.length > 0

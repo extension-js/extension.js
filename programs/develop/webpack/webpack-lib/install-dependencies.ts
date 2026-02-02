@@ -14,6 +14,7 @@ import {
   execInstallCommand,
   resolvePackageManager
 } from './package-manager'
+import {shouldShowProgress, startProgressBar} from './progress'
 
 export async function getInstallCommand() {
   return resolvePackageManager({cwd: process.cwd()}).name
@@ -27,6 +28,7 @@ export async function installDependencies(projectPath: string) {
   const nodeModulesPath = path.join(projectPath, 'node_modules')
 
   const originalDirectory = process.cwd()
+  const progressLabel = messages.installingDependencies()
 
   try {
     // Change to the project directory before detecting package manager
@@ -44,16 +46,26 @@ export async function installDependencies(projectPath: string) {
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const stdio = isAuthor ? 'inherit' : 'ignore'
+    const progressEnabled = !isAuthor && shouldShowProgress()
+    const progress = startProgressBar(progressLabel, {enabled: progressEnabled})
+
+    if (!progressEnabled) {
+      console.log(progressLabel)
+    }
 
     if (isAuthor) {
       console.warn(messages.authorInstallNotice('project dependencies'))
     }
 
     const command = buildInstallCommand(pm, dependenciesArgs)
-    await execInstallCommand(command.command, command.args, {
-      cwd: projectPath,
-      stdio
-    })
+    try {
+      await execInstallCommand(command.command, command.args, {
+        cwd: projectPath,
+        stdio
+      })
+    } finally {
+      progress.stop()
+    }
   } catch (error: any) {
     console.error(messages.cantInstallDependencies(error))
     process.exit(1)
