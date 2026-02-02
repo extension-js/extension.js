@@ -415,19 +415,19 @@ importers:
     devDependencies:
       '@prefresh/core':
         specifier: 1.5.9
-        version: 1.5.9(preact@10.27.3)
+        version: 1.5.9(preact@10.28.3)
       '@prefresh/utils':
         specifier: 1.2.1
         version: 1.2.1
       '@prefresh/webpack':
         specifier: 4.0.6
-        version: 4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.27.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
+        version: 4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.28.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@rslib/core':
         specifier: ^0.19.2
         version: 0.19.2(typescript@5.9.3)
       '@rspack/plugin-preact-refresh':
         specifier: 1.1.4
-        version: 1.1.4(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)
+        version: 1.1.4(@prefresh/core@1.5.9(preact@10.28.3))(@prefresh/utils@1.2.1)
       '@rspack/plugin-react-refresh':
         specifier: 1.6.0
         version: 1.6.0(react-refresh@0.18.0)
@@ -4708,6 +4708,9 @@ packages:
   preact@10.27.3:
     resolution: {integrity: sha512-ZieIP3zQHiQsNF3BA+SNVS8dcuRIg/nsxlkFbCMBLS2L1Ww4Bkxd9n6Md2A1crfTZsEbQPADV0neYmh/EElgeQ==}
 
+  preact@10.28.3:
+    resolution: {integrity: sha512-tCmoRkPQLpBeWzpmbhryairGnhW9tKV6c6gr/w+RhoRoKEJwsjzipwp//1oCpGPOchvSLaAPlpcJi9MwMmoPyA==}
+
   prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
     engines: {node: '>= 0.8.0'}
@@ -6624,18 +6627,18 @@ snapshots:
 
   '@prefresh/babel-plugin@0.5.2': {}
 
-  '@prefresh/core@1.5.9(preact@10.27.3)':
+  '@prefresh/core@1.5.9(preact@10.28.3)':
     dependencies:
-      preact: 10.27.3
+      preact: 10.28.3
 
   '@prefresh/utils@1.2.1': {}
 
-  '@prefresh/webpack@4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.27.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))':
+  '@prefresh/webpack@4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.28.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))':
     dependencies:
       '@prefresh/babel-plugin': 0.5.2
-      '@prefresh/core': 1.5.9(preact@10.27.3)
+      '@prefresh/core': 1.5.9(preact@10.28.3)
       '@prefresh/utils': 1.2.1
-      preact: 10.27.3
+      preact: 10.28.3
       webpack: 5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2)
 
   '@radix-ui/number@1.1.1': {}
@@ -7392,9 +7395,9 @@ snapshots:
 
   '@rspack/lite-tapable@1.1.0': {}
 
-  '@rspack/plugin-preact-refresh@1.1.4(@prefresh/core@1.5.9(preact@10.27.3))(@prefresh/utils@1.2.1)':
+  '@rspack/plugin-preact-refresh@1.1.4(@prefresh/core@1.5.9(preact@10.28.3))(@prefresh/utils@1.2.1)':
     dependencies:
-      '@prefresh/core': 1.5.9(preact@10.27.3)
+      '@prefresh/core': 1.5.9(preact@10.28.3)
       '@prefresh/utils': 1.2.1
 
   '@rspack/plugin-react-refresh@1.6.0(react-refresh@0.18.0)':
@@ -9885,6 +9888,8 @@ snapshots:
       source-map-js: 1.2.1
 
   preact@10.27.3: {}
+
+  preact@10.28.3: {}
 
   prelude-ls@1.2.1: {}
 
