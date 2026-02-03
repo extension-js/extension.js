@@ -392,109 +392,26 @@ export async function installOptionalDependencies(
 }
 
 export async function installOptionalDependenciesBatch(
-  integration: string,
-  dependencies: string[],
-  integrations?: string[]
+  plans: Array<{integration: string; dependencies: string[]}>
 ) {
-  if (!dependencies.length) return
+  if (!plans.length) return
 
-  let pm: PackageManagerResolution | undefined
-  let wslContext: WslContext | undefined
-  let installBaseDir: string | undefined
+  for (const plan of plans) {
+    if (!plan.dependencies.length) {
+      continue
+    }
 
-  try {
-    installBaseDir = resolveDevelopInstallRoot()
-    if (!installBaseDir) {
-      throw new Error(messages.optionalInstallRootMissing(integration))
-    }
-    pm = resolvePackageManager({cwd: installBaseDir})
-    wslContext = resolveWslContext(installBaseDir)
-    if (!wslContext.useWsl) {
-      pm = await preferCorepackFallback(pm)
-    }
-    const installCommand = getOptionalInstallCommand(
-      pm,
-      dependencies,
-      wslContext.installDir || installBaseDir
+    const didInstall = await installOptionalDependencies(
+      plan.integration,
+      plan.dependencies
     )
-    const execCommand = wrapCommandForWsl(installCommand, wslContext)
-    const fallbackNpmCommand = wslContext.useWsl
-      ? undefined
-      : buildNpmCliFallback([
-          '--silent',
-          'install',
-          ...dependencies,
-          '--prefix',
-          installBaseDir,
-          '--save-optional'
-        ])
 
-    const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    const setupMessages = messages.optionalToolingSetup(
-      integrations,
-      integration,
-      isAuthor
-    )
-    const log = isAuthor ? console.warn : console.log
-    setupMessages.forEach((message) => log(message))
-
-    await execInstallWithFallback(execCommand, {
-      cwd: wslContext.useWsl ? undefined : installBaseDir,
-      fallbackNpmCommand
-    })
-
-    await new Promise((resolve) => setTimeout(resolve, 500))
-
-    if (isAuthor) {
-      console.log(messages.optionalToolingRootInstall(integration))
-      const rootInstall = getRootInstallCommand(
-        pm,
-        wslContext.useWsl ? wslContext.installDir : undefined
-      )
-      const rootCommand = wrapCommandForWsl(rootInstall, wslContext)
-
-      const rootFallbackCommand = wslContext.useWsl
-        ? undefined
-        : buildNpmCliFallback([
-            '--silent',
-            'install',
-            '--prefix',
-            installBaseDir
-          ])
-      await execInstallWithFallback(rootCommand, {
-        cwd: wslContext.useWsl ? undefined : installBaseDir,
-        fallbackNpmCommand: rootFallbackCommand
-      })
-      console.log(messages.optionalToolingReady(integration))
+    if (!didInstall) {
+      return false
     }
-    return true
-  } catch (error) {
-    console.error('[extension.js][optional-deps] debug', {
-      platform: process.platform,
-      execPath: process.execPath,
-      cwd: process.cwd(),
-      path: process.env.PATH || process.env.Path,
-      comspec: process.env.ComSpec,
-      systemRoot: process.env.SystemRoot,
-      npm_execpath: process.env.npm_execpath,
-      npm_config_user_agent: process.env.npm_config_user_agent,
-      npm_config_prefix: process.env.npm_config_prefix,
-      npm_config_cache: process.env.npm_config_cache,
-      npm_config_userconfig: process.env.npm_config_userconfig,
-      installBaseDir,
-      wslContext,
-      pm
-    })
-    const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    if (isMissingManagerError(error)) {
-      console.error(messages.optionalInstallManagerMissing(integration))
-    } else {
-      console.error(
-        messages.optionalInstallFailed(integration, error, isAuthor)
-      )
-    }
-    return false
   }
+
+  return true
 }
 
 export function hasDependency(projectPath: string, dependency: string) {
