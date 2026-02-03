@@ -71,7 +71,13 @@ function resolveBuildDepsPath(developRoot: string): string {
 function loadBuildDependencies(developRoot: string): Record<string, string> {
   const metadataPath = resolveBuildDepsPath(developRoot)
   if (!fs.existsSync(metadataPath)) {
-    throw new Error(`Missing build-dependencies.json at ${metadataPath}`)
+    console.warn(
+      `${messages.installingBuildDependencies([])} ` +
+        '(build-dependencies.json missing; skipping build deps install)'
+    )
+    return {
+      // Do nothing
+    }
   }
 
   return JSON.parse(fs.readFileSync(metadataPath, 'utf8'))
