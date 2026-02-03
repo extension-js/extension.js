@@ -26,12 +26,22 @@ export async function extensionStart(
     const debug = isAuthor
     const shouldInstallProjectDeps = !isAuthor || startOptions.install !== false
 
-    await ensureProjectReady(projectStructure, 'development', {
-      skipProjectInstall:
-        !projectStructure.packageJsonPath || !shouldInstallProjectDeps,
-      exitOnInstall: false,
-      showRunAgainMessage: false
-    })
+    const previousOneTimeHint = process.env.EXTENSION_ONE_TIME_INSTALL_HINT
+    process.env.EXTENSION_ONE_TIME_INSTALL_HINT = 'true'
+    try {
+      await ensureProjectReady(projectStructure, 'development', {
+        skipProjectInstall:
+          !projectStructure.packageJsonPath || !shouldInstallProjectDeps,
+        exitOnInstall: false,
+        showRunAgainMessage: false
+      })
+    } finally {
+      if (previousOneTimeHint === undefined) {
+        delete process.env.EXTENSION_ONE_TIME_INSTALL_HINT
+      } else {
+        process.env.EXTENSION_ONE_TIME_INSTALL_HINT = previousOneTimeHint
+      }
+    }
 
     const browser = normalizeBrowser(
       startOptions.browser || 'chrome',
