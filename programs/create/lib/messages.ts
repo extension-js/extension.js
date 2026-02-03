@@ -218,6 +218,12 @@ export function installingBuildDependencies(dependencies: string[]) {
   return `${statusPrefix} Installing general build dependencies...`
 }
 
+export function foundSpecializedDependencies(count: number) {
+  return `${statusPrefix} Found ${colors.yellow(
+    String(count)
+  )} specialized dependencies needing installation...`
+}
+
 export function installingProjectIntegrations(integrations: string[]) {
   if (integrations.length === 0) {
     return [
