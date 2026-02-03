@@ -23,7 +23,7 @@
     "dist"
   ],
   "name": "extension-create",
-  "version": "3.5.0-next.13",
+  "version": "3.5.0-next.14",
   "description": "The standalone extension creation engine for Extension.js",
   "author": {
     "name": "Cezar Augusto",
