@@ -49,7 +49,10 @@ export async function extensionStart(
       startOptions.geckoBinary || startOptions.firefoxBinary
     )
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
-    const commandConfig = await loadCommandConfig(packageJsonDir, 'start')
+    const commandConfig = (await loadCommandConfig(
+      packageJsonDir,
+      'start'
+    )) as Partial<StartOptions>
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
 
     const distPath = getDistPath(packageJsonDir, browser)
@@ -78,7 +81,13 @@ export async function extensionStart(
       ...commandConfig,
       ...startOptions,
       browser,
-      geckoBinary: startOptions.geckoBinary || startOptions.firefoxBinary,
+      geckoBinary:
+        startOptions.geckoBinary ||
+        startOptions.firefoxBinary ||
+        browserConfig.geckoBinary ||
+        browserConfig.firefoxBinary ||
+        commandConfig.geckoBinary ||
+        commandConfig.firefoxBinary,
       // Starts preview the extension from the build directory
       outputPath: distPath
     })
