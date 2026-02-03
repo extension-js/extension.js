@@ -190,6 +190,14 @@ export interface PreviewOptions extends BrowserOptionsBase {
    * Skip launching the browser runner (no preview window).
    */
   noRunner?: boolean
+  /**
+   * Internal auto-generated instance ID, not user-configurable.
+   */
+  instanceId?: string
+  /**
+   * Dry run mode (no browser launch) for diagnostics.
+   */
+  dryRun?: boolean
   // Port forwarding to browser runner (e.g., debugging/logging server)
   port?: string | number
   // Source inspection options (parity with DevOptions)
@@ -256,6 +264,7 @@ export interface BrowserConfig extends BrowserOptionsBase {
   preferences?: Record<string, unknown>
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
+  firefoxBinary?: GeckoOptions['geckoBinary']
 }
 
 // Shared output shape consumed by webpack-config
