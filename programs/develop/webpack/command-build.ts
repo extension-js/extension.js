@@ -40,14 +40,24 @@ export async function extensionBuild(
     const shouldInstallProjectDeps =
       !isAuthor || buildOptions?.install !== false
 
-    await ensureProjectReady(projectStructure, 'production', {
-      skipProjectInstall:
-        isVitest ||
-        !projectStructure.packageJsonPath ||
-        !shouldInstallProjectDeps,
-      exitOnInstall: false,
-      showRunAgainMessage: false
-    })
+    const previousOneTimeHint = process.env.EXTENSION_ONE_TIME_INSTALL_HINT
+    process.env.EXTENSION_ONE_TIME_INSTALL_HINT = 'true'
+    try {
+      await ensureProjectReady(projectStructure, 'production', {
+        skipProjectInstall:
+          isVitest ||
+          !projectStructure.packageJsonPath ||
+          !shouldInstallProjectDeps,
+        exitOnInstall: false,
+        showRunAgainMessage: false
+      })
+    } finally {
+      if (previousOneTimeHint === undefined) {
+        delete process.env.EXTENSION_ONE_TIME_INSTALL_HINT
+      } else {
+        process.env.EXTENSION_ONE_TIME_INSTALL_HINT = previousOneTimeHint
+      }
+    }
 
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [{rspack}, {merge}, {handleStatsErrors}, {default: webpackConfig}] =
