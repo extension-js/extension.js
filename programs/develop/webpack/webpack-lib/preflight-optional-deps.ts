@@ -95,9 +95,9 @@ export async function preflightOptionalDependencies(
   const usesPostCss = isUsingPostCss(projectPath)
 
   if (usesTypeScript) {
+    usedIntegrations.push('TypeScript')
     if (!canResolveFromProject('typescript', projectPath)) {
       addMissing('TypeScript', 'typescript')
-      usedIntegrations.push('TypeScript')
     }
   }
 
