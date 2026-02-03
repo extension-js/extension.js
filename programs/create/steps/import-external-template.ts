@@ -111,9 +111,6 @@ export async function importExternalTemplate(
             /GitHub API rate limit reached, continuing without connectivity check/i.test(
               line
             ) ||
-            /\[go-git-it\] An error occurred: Error: Failed to download release asset: HTTP 404/i.test(
-              line
-            ) ||
             /^Downloading extension\b/i.test(trimmed) ||
             /^URL https?:\/\/codeload\.github\.com\/extension-js\/examples\/zip\/refs\/heads\/main\b/i.test(
               trimmed
