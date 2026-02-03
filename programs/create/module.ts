@@ -57,9 +57,9 @@ export async function extensionCreate(
       cliVersion
     })
 
-    await installInternalDependencies(projectPath)
     if (install) {
       await installDependencies(projectPath, projectName)
+      await installInternalDependencies(projectPath)
     }
 
     await writeReadmeFile(projectPath, projectName)
