@@ -371,8 +371,8 @@ importers:
         specifier: 3.0.0
         version: 3.0.0
       go-git-it:
-        specifier: ^5.0.3
-        version: 5.0.3
+        specifier: ^5.1.1
+        version: 5.1.1
       ignore:
         specifier: ^7.0.5
         version: 7.0.5
@@ -3719,6 +3719,10 @@ packages:
 
   go-git-it@5.0.3:
     resolution: {integrity: sha512-EofgGCdm8XCuENGLdN3Fwh+zOnu5QIr7F0g48W7FNE3Ejy+01sc51BhbkjUC1H8F2jNVREGCG4UIb3XmokBSpw==}
+    hasBin: true
+
+  go-git-it@5.1.1:
+    resolution: {integrity: sha512-8cTQom1C5SNkB5IxwtbUEPjGm2/htdFOx4T04jjlwDTQQN8kyIG51j5I0rLpBzt+VmW+dMzOzXo+S+d0+nQoyg==}
     hasBin: true
 
   gopd@1.2.0:
@@ -8911,6 +8915,10 @@ snapshots:
   globrex@0.1.2: {}
 
   go-git-it@5.0.3:
+    dependencies:
+      progress: 2.0.3
+
+  go-git-it@5.1.1:
     dependencies:
       progress: 2.0.3
 
