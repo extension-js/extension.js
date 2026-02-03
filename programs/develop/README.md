@@ -68,7 +68,7 @@ run()
 - Rspack-based build with opinionated plugin stack
 - Clean production output in `dist/<browser>`
 - Zipping: distribution and/or source packages (respects `.gitignore`)
-- Auto-install of missing dependencies and package manager detection
+- Auto-install of missing build + optional dependencies on first run
 - Type generation for TS projects via `extension-env.d.ts`
 - User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and webpack config hooks
 - Managed dependency guard to avoid conflicts
@@ -77,7 +77,7 @@ run()
 
 | Name    | Summary                                                                                                                                                                                                                                       |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| dev     | - Starts a local development server with live reload/HMR<br/>- Auto-installs dependencies if missing<br/>- Generates TypeScript shim types (`extension-env.d.ts`) when applicable<br/>- Runs a target browser with an isolated/stable profile |
+| dev     | - Starts a local development server with live reload/HMR<br/>- Auto-installs build + optional deps if missing<br/>- Generates TypeScript shim types (`extension-env.d.ts`) when applicable<br/>- Runs a target browser with an isolated/stable profile |
 | build   | - Production build using the webpack/Rspack plugin stack<br/>- Cleans `dist/<browser>` before emitting<br/>- Optional packaging: distribution zip and/or source zip<br/>- Merges user config; excludes browser runners during compilation     |
 | start   | - Runs a silent production build, then runs preview from `dist/<browser>`<br/>- Mirrors the runtime environment of shipped output                                                                                                             |
 | preview | - Runs the extension for manual testing without dev server<br/>- Uses `dist/<browser>` when present, otherwise uses the project directory<br/>- Preserves production settings; only browser runners are applied                               |
