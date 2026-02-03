@@ -71,7 +71,19 @@ export async function preflightOptionalDependencies(
   }
 
   const missingOptionalDeps = new Set<string>()
+  const missingByIntegration: Record<string, string[]> = {}
   const usedIntegrations: string[] = []
+
+  const addMissing = (integration: string, dependency: string) => {
+    if (missingOptionalDeps.has(dependency)) {
+      return
+    }
+    missingOptionalDeps.add(dependency)
+    if (!missingByIntegration[integration]) {
+      missingByIntegration[integration] = []
+    }
+    missingByIntegration[integration].push(dependency)
+  }
 
   const usesTypeScript = isUsingTypeScript(projectPath)
   const usesReact = isUsingReact(projectPath)
@@ -84,43 +96,43 @@ export async function preflightOptionalDependencies(
 
   if (usesTypeScript) {
     if (!canResolveFromProject('typescript', projectPath)) {
-      missingOptionalDeps.add('typescript')
+      addMissing('TypeScript', 'typescript')
       usedIntegrations.push('TypeScript')
     }
   }
 
   if (usesReact) {
     if (!canResolve('react-refresh', projectPath)) {
-      missingOptionalDeps.add('react-refresh')
+      addMissing('React', 'react-refresh')
     }
     if (!canResolve('@rspack/plugin-react-refresh', projectPath)) {
-      missingOptionalDeps.add('@rspack/plugin-react-refresh')
+      addMissing('React', '@rspack/plugin-react-refresh')
     }
     usedIntegrations.push('React')
   }
 
   if (usesPreact) {
     if (!canResolve('@prefresh/core', projectPath)) {
-      missingOptionalDeps.add('@prefresh/core')
+      addMissing('Preact', '@prefresh/core')
     }
     if (!canResolve('@prefresh/utils', projectPath)) {
-      missingOptionalDeps.add('@prefresh/utils')
+      addMissing('Preact', '@prefresh/utils')
     }
     if (!canResolve('@rspack/plugin-preact-refresh', projectPath)) {
-      missingOptionalDeps.add('@rspack/plugin-preact-refresh')
+      addMissing('Preact', '@rspack/plugin-preact-refresh')
     }
     if (!canResolve('preact', projectPath)) {
-      missingOptionalDeps.add('preact')
+      addMissing('Preact', 'preact')
     }
     usedIntegrations.push('Preact')
   }
 
   if (usesVue) {
     if (!canResolve('vue-loader', projectPath)) {
-      missingOptionalDeps.add('vue-loader')
+      addMissing('Vue', 'vue-loader')
     }
     if (!canResolve('@vue/compiler-sfc', projectPath)) {
-      missingOptionalDeps.add('@vue/compiler-sfc')
+      addMissing('Vue', '@vue/compiler-sfc')
     }
     usedIntegrations.push('Vue')
   }
@@ -130,10 +142,10 @@ export async function preflightOptionalDependencies(
       !canResolveFromProject('svelte-loader', projectPath) &&
       !canResolve('svelte-loader', projectPath)
     ) {
-      missingOptionalDeps.add('svelte-loader')
+      addMissing('Svelte', 'svelte-loader')
     }
     if (!canResolveFromProject('typescript', projectPath)) {
-      missingOptionalDeps.add('typescript')
+      addMissing('Svelte', 'typescript')
     }
     usedIntegrations.push('Svelte')
   }
@@ -147,10 +159,10 @@ export async function preflightOptionalDependencies(
       ]
       for (const dep of postCssDeps) {
         if (!canResolve(dep, projectPath)) {
-          missingOptionalDeps.add(dep)
+          addMissing('Sass', dep)
         }
       }
-      missingOptionalDeps.add('sass-loader')
+      addMissing('Sass', 'sass-loader')
       usedIntegrations.push('Sass')
     }
   }
@@ -158,9 +170,9 @@ export async function preflightOptionalDependencies(
   if (usesLess) {
     if (!canResolve('less-loader', projectPath)) {
       if (!canResolve('less', projectPath)) {
-        missingOptionalDeps.add('less')
+        addMissing('Less', 'less')
       }
-      missingOptionalDeps.add('less-loader')
+      addMissing('Less', 'less-loader')
       usedIntegrations.push('Less')
     }
   }
@@ -172,9 +184,9 @@ export async function preflightOptionalDependencies(
     !usesLess
   ) {
     if (!canResolve('postcss', projectPath)) {
-      missingOptionalDeps.add('postcss')
+      addMissing('PostCSS', 'postcss')
     }
-    missingOptionalDeps.add('postcss-loader')
+    addMissing('PostCSS', 'postcss-loader')
     usedIntegrations.push('PostCSS')
   } else if (usesPostCss) {
     usedIntegrations.push('PostCSS')
@@ -182,11 +194,13 @@ export async function preflightOptionalDependencies(
 
   if (missingOptionalDeps.size > 0) {
     const uniqueIntegrations = Array.from(new Set(usedIntegrations))
-    const didInstall = await installOptionalDependenciesBatch(
-      'Optional',
-      Array.from(missingOptionalDeps),
-      uniqueIntegrations
-    )
+    const installPlans = uniqueIntegrations
+      .map((integration) => ({
+        integration,
+        dependencies: missingByIntegration[integration] || []
+      }))
+      .filter((plan) => plan.dependencies.length > 0)
+    const didInstall = await installOptionalDependenciesBatch(installPlans)
 
     if (!didInstall) {
       throw new Error('[Optional] Optional dependencies failed to install.')
