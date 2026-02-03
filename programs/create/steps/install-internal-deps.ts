@@ -282,14 +282,29 @@ function resolveMissingOptionalDeps(
   projectPath: string
 ): OptionalDepsPlan {
   const plan = detectOptionalDependencies(projectPath)
-  const missing = plan.dependencies.filter(
-    (dep) => !canResolve(dep, [developRoot, projectPath, process.cwd()])
-  )
+  const dependenciesByIntegration: Record<string, string[]> = {}
+  const integrations: string[] = []
+  const missing = new Set<string>()
+
+  for (const integration of plan.integrations) {
+    const depsForIntegration = plan.dependenciesByIntegration[integration] || []
+    const missingForIntegration = depsForIntegration.filter(
+      (dep) => !canResolve(dep, [developRoot, projectPath, process.cwd()])
+    )
+
+    if (missingForIntegration.length === 0) {
+      continue
+    }
+
+    integrations.push(integration)
+    dependenciesByIntegration[integration] = missingForIntegration
+    missingForIntegration.forEach((dep) => missing.add(dep))
+  }
 
   return {
-    integrations: plan.integrations,
-    dependencies: missing,
-    dependenciesByIntegration: plan.dependenciesByIntegration
+    integrations,
+    dependencies: Array.from(missing),
+    dependenciesByIntegration
   }
 }
 
@@ -344,31 +359,46 @@ async function installOptionalDependencies(
   const pm = detectPackageManagerFromEnv()
   const stdio =
     process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+  const progressEnabled = shouldShowProgress()
+  console.log(messages.foundSpecializedDependencies(plan.dependencies.length))
 
-  for (const integration of plan.integrations) {
-    const integrationDeps = plan.dependenciesByIntegration[integration] || []
-    const missingDeps = integrationDeps.filter(
-      (dep) => !canResolve(dep, [developRoot, projectPath, process.cwd()])
+  for (const [index, integration] of plan.integrations.entries()) {
+    const missingDeps = plan.dependenciesByIntegration[integration] || []
+
+    const [baseMessage] = messages.installingProjectIntegrations([integration])
+    const installMessage = baseMessage.replace(
+      '►►► ',
+      `►►► [${index + 1}/${plan.integrations.length}] `
     )
-
-    if (missingDeps.length === 0) {
-      continue
-    }
-
-    messages
-      .installingProjectIntegrations([integration])
-      .forEach((message) => console.log(message))
-
-    const args = buildOptionalInstallArgs(pm, missingDeps, developRoot)
-    const result = await runInstall(pm, args, {
-      cwd: developRoot,
-      stdio
+    const progress = startProgressBar(installMessage, {
+      enabled: progressEnabled,
+      persistLabel: true
     })
 
-    if (result.code !== 0) {
-      throw new Error(
-        messages.installingDependenciesFailed(pm, args, result.code)
-      )
+    if (!progressEnabled) {
+      console.log(installMessage)
+    }
+
+    try {
+      if (missingDeps.length === 0) {
+        continue
+      }
+
+      for (const dep of missingDeps) {
+        const args = buildOptionalInstallArgs(pm, [dep], developRoot)
+        const result = await runInstall(pm, args, {
+          cwd: developRoot,
+          stdio
+        })
+
+        if (result.code !== 0) {
+          throw new Error(
+            messages.installingDependenciesFailed(pm, args, result.code)
+          )
+        }
+      }
+    } finally {
+      progress.stop()
     }
   }
 }
