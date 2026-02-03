@@ -219,16 +219,20 @@ export function installingBuildDependencies(dependencies: string[]) {
 }
 
 export function installingProjectIntegrations(integrations: string[]) {
-  const formatList = (items: string[]) => {
-    if (items.length === 1) return items[0]
-    if (items.length === 2) return `${items[0]} and ${items[1]}`
-    return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
+  if (integrations.length === 0) {
+    return [
+      `${statusPrefix} Installing specialized dependencies for ${colors.gray(
+        'project tooling'
+      )}...`
+    ]
   }
-  const tools =
-    integrations.length > 0
-      ? formatList(integrations.map((name) => colors.yellow(name)))
-      : colors.gray('project tooling')
-  return `${statusPrefix} Installing specialized dependencies for ${tools}...`
+
+  return integrations.map(
+    (integration) =>
+      `${statusPrefix} Installing specialized dependencies for ${colors.yellow(
+        integration
+      )}...`
+  )
 }
 
 export function installingDependenciesFailed(
