@@ -16,13 +16,6 @@ function resolveWindowsCmdExe(): string {
   return path.join(systemRoot, 'System32', 'cmd.exe')
 }
 
-function formatCmdArgs(command: string, args: string[]) {
-  const quotedCommand = command.includes(' ') ? `"${command}"` : command
-  const quotedArgs = args.map((arg) => (arg.includes(' ') ? `"${arg}"` : arg))
-
-  return `${quotedCommand} ${quotedArgs.join(' ')}`.trim()
-}
-
 function resolveInstallInvocation(command: string, args: string[]) {
   if (process.platform !== 'win32') {
     return {command, args}
@@ -30,7 +23,7 @@ function resolveInstallInvocation(command: string, args: string[]) {
 
   return {
     command: resolveWindowsCmdExe(),
-    args: ['/d', '/s', '/c', formatCmdArgs(command, args)]
+    args: ['/d', '/s', '/c', command, ...args]
   }
 }
 
