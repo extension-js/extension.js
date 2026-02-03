@@ -19,8 +19,11 @@ import {
   getDistPath
 } from './webpack-lib/paths'
 import {sanitize} from './webpack-lib/sanitize'
-import type {PreviewOptions} from './webpack-types'
-import {resolveCompanionExtensionDirs} from './webpack-lib/companion-extensions'
+import type {BrowserConfig, PreviewOptions} from './webpack-types'
+import {
+  resolveCompanionExtensionDirs,
+  type CompanionExtensionsConfig
+} from './webpack-lib/companion-extensions'
 import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
 import {withDarkMode} from './webpack-lib/dark-mode'
 import {runOnlyPreviewBrowser} from './plugin-browsers/run-only'
@@ -88,18 +91,40 @@ export async function extensionPreview(
     return
   }
 
-  const safeBrowserConfig = sanitize(browserConfig)
-  const safeCommandConfig = sanitize(commandConfig)
-  const safePreviewOptions = sanitize(previewOptions as Record<string, any>)
+  const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
+  const safeCommandConfig = sanitize(
+    commandConfig
+  ) as Partial<PreviewOptions> & {
+    extensions?: CompanionExtensionsConfig
+  }
+  const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
 
-  const merged = {
+  const mergedGeckoBinary =
+    safePreviewOptions.geckoBinary ||
+    safePreviewOptions.firefoxBinary ||
+    safeCommandConfig.geckoBinary ||
+    safeCommandConfig.firefoxBinary ||
+    safeBrowserConfig.geckoBinary ||
+    safeBrowserConfig.firefoxBinary
+
+  const mergedChromiumBinary =
+    safePreviewOptions.chromiumBinary ||
+    safeCommandConfig.chromiumBinary ||
+    safeBrowserConfig.chromiumBinary
+
+  const merged: PreviewOptions &
+    BrowserConfig & {
+      extensions?: CompanionExtensionsConfig
+      instanceId?: string
+      dryRun?: boolean
+    } = {
     ...safeBrowserConfig,
     ...safeCommandConfig,
     ...safePreviewOptions,
+    chromiumBinary: mergedChromiumBinary,
     // Normalize Gecko binary hints for engine-based behavior
-    geckoBinary:
-      safePreviewOptions.geckoBinary || safePreviewOptions.firefoxBinary
-  } as any
+    geckoBinary: mergedGeckoBinary
+  }
 
   const darkDefaults = withDarkMode({
     browser,
