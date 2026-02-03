@@ -211,11 +211,11 @@ export function initializingGitForRepositoryError(
 }
 
 export function installingDependencies() {
-  return `${statusPrefix} Installing project dependencies...`
+  return `${statusPrefix} Installing project-specific dependencies...`
 }
 
 export function installingBuildDependencies(dependencies: string[]) {
-  return `${statusPrefix} Installing build dependencies...`
+  return `${statusPrefix} Installing general build dependencies...`
 }
 
 export function installingProjectIntegrations(integrations: string[]) {
@@ -228,7 +228,7 @@ export function installingProjectIntegrations(integrations: string[]) {
     integrations.length > 0
       ? formatList(integrations.map((name) => colors.yellow(name)))
       : colors.gray('project tooling')
-  return `${statusPrefix} Installing optional dependencies for ${tools}...`
+  return `${statusPrefix} Installing specialized dependencies for ${tools}...`
 }
 
 export function installingDependenciesFailed(
