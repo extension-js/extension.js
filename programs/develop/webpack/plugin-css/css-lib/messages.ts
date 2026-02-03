@@ -45,16 +45,8 @@ export function optionalToolingSetup(
   fallback: string,
   isAuthor: boolean
 ) {
-  const formatList = (items: string[]) => {
-    if (items.length === 1) return items[0]
-    if (items.length === 2) return `${items[0]} and ${items[1]}`
-
-    return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
-  }
   const list =
-    integrations && integrations.length > 0
-      ? formatList(integrations)
-      : fallback
+    integrations && integrations.length > 0 ? integrations : [fallback]
   const prefix = isAuthor
     ? colors.brightMagenta('►►► Author says')
     : colors.gray('►►►')
@@ -62,7 +54,10 @@ export function optionalToolingSetup(
     process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
       ? ' (this is a one time operation)'
       : ''
-  return `${prefix} Installing specialized dependencies for ${list}...${suffix}`
+  return list.map(
+    (integration) =>
+      `${prefix} Installing specialized dependencies for ${integration}...${suffix}`
+  )
 }
 
 export function optionalToolingRootInstall(integration: string) {
