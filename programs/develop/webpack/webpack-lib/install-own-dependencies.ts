@@ -79,7 +79,11 @@ export async function installOwnDependencies(
 
     const progressLabel = messages.installingBuildDependencies(dependencies)
     const progressEnabled = !isAuthor && shouldShowProgress()
-    const progress = startProgressBar(progressLabel, {enabled: progressEnabled})
+    const persistLabel = process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
+    const progress = startProgressBar(progressLabel, {
+      enabled: progressEnabled,
+      persistLabel
+    })
 
     if (!progressEnabled) {
       console.log(progressLabel)

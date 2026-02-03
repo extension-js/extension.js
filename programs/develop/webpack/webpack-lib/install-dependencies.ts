@@ -47,7 +47,11 @@ export async function installDependencies(projectPath: string) {
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const stdio = isAuthor ? 'inherit' : 'ignore'
     const progressEnabled = !isAuthor && shouldShowProgress()
-    const progress = startProgressBar(progressLabel, {enabled: progressEnabled})
+    const persistLabel = process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
+    const progress = startProgressBar(progressLabel, {
+      enabled: progressEnabled,
+      persistLabel
+    })
 
     if (!progressEnabled) {
       console.log(progressLabel)

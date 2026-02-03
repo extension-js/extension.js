@@ -10,6 +10,7 @@ type ProgressOptions = {
   enabled?: boolean
   intervalMs?: number
   width?: number
+  persistLabel?: boolean
 }
 
 type ProgressHandle = {
@@ -56,6 +57,9 @@ export function startProgressBar(
       clearInterval(timer)
       if (process.stdout.isTTY) {
         process.stdout.write(`\r${' '.repeat(lastVisibleLength)}\r`)
+        if (options?.persistLabel) {
+          process.stdout.write(`${label}\n`)
+        }
       }
     }
   }

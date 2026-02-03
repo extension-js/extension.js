@@ -289,7 +289,10 @@ async function installBuildDependencies(
   const pm = detectPackageManagerFromEnv()
   const installMessage = messages.installingBuildDependencies(plan.dependencies)
   const progressEnabled = shouldShowProgress()
-  const progress = startProgressBar(installMessage, {enabled: progressEnabled})
+  const progress = startProgressBar(installMessage, {
+    enabled: progressEnabled,
+    persistLabel: true
+  })
 
   if (!progressEnabled) {
     console.log(installMessage)
@@ -330,7 +333,10 @@ async function installOptionalDependencies(
   )
 
   const progressEnabled = shouldShowProgress()
-  const progress = startProgressBar(installMessage, {enabled: progressEnabled})
+  const progress = startProgressBar(installMessage, {
+    enabled: progressEnabled,
+    persistLabel: true
+  })
 
   if (!progressEnabled) {
     console.log(installMessage)

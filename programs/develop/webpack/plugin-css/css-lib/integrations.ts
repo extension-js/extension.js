@@ -332,7 +332,11 @@ export async function installOptionalDependencies(
       isAuthor
     )
     const progressEnabled = !isAuthor && shouldShowProgress()
-    const progress = startProgressBar(setupMessage, {enabled: progressEnabled})
+    const persistLabel = process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
+    const progress = startProgressBar(setupMessage, {
+      enabled: progressEnabled,
+      persistLabel
+    })
 
     if (isAuthor) {
       console.warn(setupMessage)
@@ -447,7 +451,11 @@ export async function installOptionalDependenciesBatch(
       isAuthor
     )
     const progressEnabled = !isAuthor && shouldShowProgress()
-    const progress = startProgressBar(setupMessage, {enabled: progressEnabled})
+    const persistLabel = process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
+    const progress = startProgressBar(setupMessage, {
+      enabled: progressEnabled,
+      persistLabel
+    })
 
     if (isAuthor) {
       console.warn(setupMessage)
