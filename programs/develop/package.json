@@ -24,7 +24,7 @@
     "webpack/webpack-lib/build-dependencies.json"
   ],
   "name": "extension-develop",
-  "version": "3.5.0-next.15",
+  "version": "3.5.0-next.16",
   "description": "Develop, build, preview, and package Extension.js projects.",
   "author": {
     "name": "Cezar Augusto",
