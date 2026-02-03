@@ -24,6 +24,7 @@ type PackageJson = {
 type OptionalDepsPlan = {
   integrations: string[]
   dependencies: string[]
+  dependenciesByIntegration: Record<string, string[]>
 }
 
 type BuildDepsPlan = {
@@ -152,65 +153,73 @@ function detectOptionalDependencies(projectPath: string): OptionalDepsPlan {
     hasDependency(pkg, '@tailwindcss/postcss') ||
     findConfigFile(projectPath, tailwindConfigFiles)
 
-  const integrations = new Set<string>()
+  const integrations: string[] = []
+  const dependenciesByIntegration: Record<string, string[]> = {}
   const deps = new Set<string>()
 
+  const addIntegration = (name: string, depsForIntegration: string[]) => {
+    if (!integrations.includes(name)) {
+      integrations.push(name)
+    }
+    if (!dependenciesByIntegration[name]) {
+      dependenciesByIntegration[name] = []
+    }
+    for (const dep of depsForIntegration) {
+      if (!dependenciesByIntegration[name].includes(dep)) {
+        dependenciesByIntegration[name].push(dep)
+      }
+      deps.add(dep)
+    }
+  }
+
   if (usesTypeScript) {
-    integrations.add('TypeScript')
-    deps.add('typescript')
+    addIntegration('TypeScript', ['typescript'])
   }
 
   if (usesReact) {
-    integrations.add('React')
-    deps.add('react-refresh')
-    deps.add('@rspack/plugin-react-refresh')
+    addIntegration('React', ['react-refresh', '@rspack/plugin-react-refresh'])
   }
 
   if (usesPreact) {
-    integrations.add('Preact')
-    deps.add('@prefresh/core')
-    deps.add('@prefresh/utils')
-    deps.add('@rspack/plugin-preact-refresh')
-    deps.add('preact')
+    addIntegration('Preact', [
+      '@prefresh/core',
+      '@prefresh/utils',
+      '@rspack/plugin-preact-refresh',
+      'preact'
+    ])
   }
 
   if (usesVue) {
-    integrations.add('Vue')
-    deps.add('vue-loader')
-    deps.add('@vue/compiler-sfc')
+    addIntegration('Vue', ['vue-loader', '@vue/compiler-sfc'])
   }
 
   if (usesSvelte) {
-    integrations.add('Svelte')
-    deps.add('svelte-loader')
-    deps.add('typescript')
+    addIntegration('Svelte', ['svelte-loader', 'typescript'])
   }
 
   if (usesSass) {
-    integrations.add('Sass')
-    deps.add('sass-loader')
-    deps.add('postcss-loader')
-    deps.add('postcss-scss')
-    deps.add('postcss-preset-env')
+    addIntegration('Sass', [
+      'sass-loader',
+      'postcss-loader',
+      'postcss-scss',
+      'postcss-preset-env'
+    ])
   }
 
   if (usesLess) {
-    integrations.add('Less')
-    deps.add('less')
-    deps.add('less-loader')
+    addIntegration('Less', ['less', 'less-loader'])
   }
 
   if (usesPostCss && !usesSass && !usesLess) {
-    integrations.add('PostCSS')
-    deps.add('postcss')
-    deps.add('postcss-loader')
+    addIntegration('PostCSS', ['postcss', 'postcss-loader'])
   } else if (usesPostCss) {
-    integrations.add('PostCSS')
+    addIntegration('PostCSS', [])
   }
 
   return {
-    integrations: Array.from(integrations),
-    dependencies: Array.from(deps)
+    integrations,
+    dependencies: Array.from(deps),
+    dependenciesByIntegration
   }
 }
 
@@ -277,7 +286,11 @@ function resolveMissingOptionalDeps(
     (dep) => !canResolve(dep, [developRoot, projectPath, process.cwd()])
   )
 
-  return {integrations: plan.integrations, dependencies: missing}
+  return {
+    integrations: plan.integrations,
+    dependencies: missing,
+    dependenciesByIntegration: plan.dependenciesByIntegration
+  }
 }
 
 async function installBuildDependencies(
@@ -323,28 +336,40 @@ async function installBuildDependencies(
 
 async function installOptionalDependencies(
   developRoot: string,
+  projectPath: string,
   plan: OptionalDepsPlan
 ) {
   if (plan.dependencies.length === 0) return
 
   const pm = detectPackageManagerFromEnv()
-  const installMessages = messages.installingProjectIntegrations(
-    plan.integrations
-  )
-  installMessages.forEach((message) => console.log(message))
-
-  const args = buildOptionalInstallArgs(pm, plan.dependencies, developRoot)
   const stdio =
     process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-  const result = await runInstall(pm, args, {
-    cwd: developRoot,
-    stdio
-  })
 
-  if (result.code !== 0) {
-    throw new Error(
-      messages.installingDependenciesFailed(pm, args, result.code)
+  for (const integration of plan.integrations) {
+    const integrationDeps = plan.dependenciesByIntegration[integration] || []
+    const missingDeps = integrationDeps.filter(
+      (dep) => !canResolve(dep, [developRoot, projectPath, process.cwd()])
     )
+
+    if (missingDeps.length === 0) {
+      continue
+    }
+
+    messages
+      .installingProjectIntegrations([integration])
+      .forEach((message) => console.log(message))
+
+    const args = buildOptionalInstallArgs(pm, missingDeps, developRoot)
+    const result = await runInstall(pm, args, {
+      cwd: developRoot,
+      stdio
+    })
+
+    if (result.code !== 0) {
+      throw new Error(
+        messages.installingDependenciesFailed(pm, args, result.code)
+      )
+    }
   }
 }
 
@@ -373,7 +398,7 @@ export async function installInternalDependencies(projectPath: string) {
         .forEach((message) => console.log(message))
     }
   } else {
-    await installOptionalDependencies(developRoot, optionalPlan)
+    await installOptionalDependencies(developRoot, projectPath, optionalPlan)
   }
 }
 
