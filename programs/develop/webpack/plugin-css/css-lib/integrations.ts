@@ -9,6 +9,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from './messages'
+import colors from 'pintor'
 import {findExtensionDevelopRoot} from '../../webpack-lib/check-build-dependencies'
 import {
   buildInstallCommand,
@@ -17,6 +18,7 @@ import {
   resolvePackageManager,
   type PackageManagerResolution
 } from '../../webpack-lib/package-manager'
+import {shouldShowProgress, startProgressBar} from '../../webpack-lib/progress'
 
 function parseJsonSafe(text: string) {
   const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
@@ -289,7 +291,11 @@ function getRootInstallCommand(
 
 export async function installOptionalDependencies(
   integration: string,
-  dependencies: string[]
+  dependencies: string[],
+  options?: {
+    index?: number
+    total?: number
+  }
 ) {
   if (!dependencies.length) return
 
@@ -330,13 +336,34 @@ export async function installOptionalDependencies(
       integration,
       isAuthor
     )
-    const log = isAuthor ? console.warn : console.log
-    setupMessages.forEach((message) => log(message))
-
-    await execInstallWithFallback(execCommand, {
-      cwd: wslContext.useWsl ? undefined : installBaseDir,
-      fallbackNpmCommand
+    const setupMessage = setupMessages[0]
+    const hasIndex = Boolean(options?.index && options?.total)
+    const setupMessageWithIndex = hasIndex
+      ? setupMessage.replace(
+          '►►► ',
+          `►►► [${options?.index}/${options?.total}] `
+        )
+      : setupMessage
+    const progressEnabled = !isAuthor && shouldShowProgress()
+    const progress = startProgressBar(setupMessageWithIndex, {
+      enabled: progressEnabled,
+      persistLabel: true
     })
+
+    if (isAuthor) {
+      console.warn(setupMessageWithIndex)
+    } else if (!progressEnabled) {
+      console.log(setupMessageWithIndex)
+    }
+
+    try {
+      await execInstallWithFallback(execCommand, {
+        cwd: wslContext.useWsl ? undefined : installBaseDir,
+        fallbackNpmCommand
+      })
+    } finally {
+      progress.stop()
+    }
 
     await new Promise((resolve) => setTimeout(resolve, 500))
 
@@ -396,14 +423,26 @@ export async function installOptionalDependenciesBatch(
 ) {
   if (!plans.length) return
 
-  for (const plan of plans) {
-    if (!plan.dependencies.length) {
-      continue
-    }
+  const executablePlans = plans.filter((plan) => plan.dependencies.length > 0)
+  if (executablePlans.length === 0) return
+  const totalDeps = executablePlans.reduce(
+    (sum, plan) => sum + plan.dependencies.length,
+    0
+  )
+  console.log(
+    `${colors.gray('►►►')} Found ${colors.yellow(
+      String(totalDeps)
+    )} specialized dependencies needing installation...`
+  )
 
+  for (const [index, plan] of executablePlans.entries()) {
     const didInstall = await installOptionalDependencies(
       plan.integration,
-      plan.dependencies
+      plan.dependencies,
+      {
+        index: index + 1,
+        total: executablePlans.length
+      }
     )
 
     if (!didInstall) {
