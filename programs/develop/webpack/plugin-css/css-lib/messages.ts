@@ -58,7 +58,11 @@ export function optionalToolingSetup(
   const prefix = isAuthor
     ? colors.brightMagenta('►►► Author says')
     : colors.gray('►►►')
-  return `${prefix} Installing project integrations for ${list} (this is a one time operation)`
+  const suffix =
+    process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
+      ? ' (this is a one time operation)'
+      : ''
+  return `${prefix} Installing specialized dependencies for ${list}...${suffix}`
 }
 
 export function optionalToolingRootInstall(integration: string) {
