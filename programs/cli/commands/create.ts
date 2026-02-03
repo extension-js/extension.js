@@ -8,10 +8,13 @@
 
 import * as path from 'path'
 import type {Command} from 'commander'
+import {createRequire} from 'module'
 import type {CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../cli-lib/messages'
 import {getCliPackageJson} from '../cli-package-json'
 import {parseOptionalBoolean} from '../utils'
+
+const require = createRequire(import.meta.url)
 
 export function registerCreateCommand(program: Command, telemetry: any) {
   program
@@ -41,12 +44,16 @@ export function registerCreateCommand(program: Command, telemetry: any) {
       })
 
       try {
+        if (!process.env.EXTENSION_CREATE_DEVELOP_ROOT) {
+          try {
+            const developPkg = require.resolve('extension-develop/package.json')
+            process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(developPkg)
+          } catch {
+            // Leave unset if extension-develop is not available
+          }
+        }
         // Load the matching create runtime from the regular dependency graph.
         const {extensionCreate} = await import('extension-create')
-
-        const projectPath = path.isAbsolute(pathOrRemoteUrl)
-          ? pathOrRemoteUrl
-          : path.join(process.cwd(), pathOrRemoteUrl)
 
         await extensionCreate(pathOrRemoteUrl, {
           template,
