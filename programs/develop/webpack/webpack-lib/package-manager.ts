@@ -126,13 +126,6 @@ function resolveWindowsCmdExe(): string {
   return 'cmd.exe'
 }
 
-function formatCmdArgs(command: string, args: string[]) {
-  const quotedCommand = command.includes(' ') ? `"${command}"` : command
-  const quotedArgs = args.map((arg) => (arg.includes(' ') ? `"${arg}"` : arg))
-
-  return `${quotedCommand} ${quotedArgs.join(' ')}`.trim()
-}
-
 function isWindowsExecutablePath(value?: string) {
   if (!value || process.platform !== 'win32') return false
 
@@ -321,7 +314,7 @@ export function buildSpawnInvocation(
 
   return {
     command: cmdExe,
-    args: ['/d', '/s', '/c', formatCmdArgs(command, args)]
+    args: ['/d', '/s', '/c', command, ...args]
   }
 }
 
