@@ -132,7 +132,11 @@ export function previewWebpack() {
 }
 
 export function installingRequiredDependencies() {
-  return `${getLoggingPrefix('info')} Installing required dependencies...`
+  const suffix =
+    process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
+      ? ' (this is a one time operation)'
+      : ''
+  return `${getLoggingPrefix('info')} Installing general build dependencies...${suffix}`
 }
 
 export function installingBuildDependencies(dependencies: string[]) {
