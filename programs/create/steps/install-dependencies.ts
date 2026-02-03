@@ -98,7 +98,10 @@ export async function installDependencies(
 
   const installMessage = messages.installingDependencies()
   const progressEnabled = shouldShowProgress()
-  const progress = startProgressBar(installMessage, {enabled: progressEnabled})
+  const progress = startProgressBar(installMessage, {
+    enabled: progressEnabled,
+    persistLabel: true
+  })
 
   if (!progressEnabled) {
     console.log(installMessage)
@@ -126,7 +129,8 @@ export async function installDependencies(
 
       if (didUpdate) {
         const retryProgress = startProgressBar(installMessage, {
-          enabled: progressEnabled
+          enabled: progressEnabled,
+          persistLabel: true
         })
 
         let retryRun
