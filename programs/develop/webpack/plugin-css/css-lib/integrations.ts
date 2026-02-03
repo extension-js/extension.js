@@ -17,7 +17,6 @@ import {
   resolvePackageManager,
   type PackageManagerResolution
 } from '../../webpack-lib/package-manager'
-import {shouldShowProgress, startProgressBar} from '../../webpack-lib/progress'
 
 function parseJsonSafe(text: string) {
   const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
@@ -326,32 +325,18 @@ export async function installOptionalDependencies(
         ])
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    const setupMessage = messages.optionalToolingSetup(
+    const setupMessages = messages.optionalToolingSetup(
       [integration],
       integration,
       isAuthor
     )
-    const progressEnabled = !isAuthor && shouldShowProgress()
-    const persistLabel = process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
-    const progress = startProgressBar(setupMessage, {
-      enabled: progressEnabled,
-      persistLabel
+    const log = isAuthor ? console.warn : console.log
+    setupMessages.forEach((message) => log(message))
+
+    await execInstallWithFallback(execCommand, {
+      cwd: wslContext.useWsl ? undefined : installBaseDir,
+      fallbackNpmCommand
     })
-
-    if (isAuthor) {
-      console.warn(setupMessage)
-    } else if (!progressEnabled) {
-      console.log(setupMessage)
-    }
-
-    try {
-      await execInstallWithFallback(execCommand, {
-        cwd: wslContext.useWsl ? undefined : installBaseDir,
-        fallbackNpmCommand
-      })
-    } finally {
-      progress.stop()
-    }
 
     await new Promise((resolve) => setTimeout(resolve, 500))
 
@@ -445,32 +430,18 @@ export async function installOptionalDependenciesBatch(
         ])
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
-    const setupMessage = messages.optionalToolingSetup(
+    const setupMessages = messages.optionalToolingSetup(
       integrations,
       integration,
       isAuthor
     )
-    const progressEnabled = !isAuthor && shouldShowProgress()
-    const persistLabel = process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
-    const progress = startProgressBar(setupMessage, {
-      enabled: progressEnabled,
-      persistLabel
+    const log = isAuthor ? console.warn : console.log
+    setupMessages.forEach((message) => log(message))
+
+    await execInstallWithFallback(execCommand, {
+      cwd: wslContext.useWsl ? undefined : installBaseDir,
+      fallbackNpmCommand
     })
-
-    if (isAuthor) {
-      console.warn(setupMessage)
-    } else if (!progressEnabled) {
-      console.log(setupMessage)
-    }
-
-    try {
-      await execInstallWithFallback(execCommand, {
-        cwd: wslContext.useWsl ? undefined : installBaseDir,
-        fallbackNpmCommand
-      })
-    } finally {
-      progress.stop()
-    }
 
     await new Promise((resolve) => setTimeout(resolve, 500))
 
