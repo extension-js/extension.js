@@ -75,13 +75,13 @@ run()
 
 ## Commands
 
-| Name    | Summary                                                                                                                                                                                                                                       |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Name    | Summary                                                                                                                                                                                                                                                |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | dev     | - Starts a local development server with live reload/HMR<br/>- Auto-installs build + optional deps if missing<br/>- Generates TypeScript shim types (`extension-env.d.ts`) when applicable<br/>- Runs a target browser with an isolated/stable profile |
-| build   | - Production build using the webpack/Rspack plugin stack<br/>- Cleans `dist/<browser>` before emitting<br/>- Optional packaging: distribution zip and/or source zip<br/>- Merges user config; excludes browser runners during compilation     |
-| start   | - Runs a silent production build, then runs preview from `dist/<browser>`<br/>- Mirrors the runtime environment of shipped output                                                                                                             |
-| preview | - Runs the extension for manual testing without dev server<br/>- Uses `dist/<browser>` when present, otherwise uses the project directory<br/>- Preserves production settings; only browser runners are applied                               |
-| cleanup | - Removes orphaned browser instances and temporary profiles created during development                                                                                                                                                        |
+| build   | - Production build using the webpack/Rspack plugin stack<br/>- Cleans `dist/<browser>` before emitting<br/>- Optional packaging: distribution zip and/or source zip<br/>- Merges user config; excludes browser runners during compilation              |
+| start   | - Runs a silent production build, then runs preview from `dist/<browser>`<br/>- Mirrors the runtime environment of shipped output                                                                                                                      |
+| preview | - Runs the extension for manual testing without dev server<br/>- Uses `dist/<browser>` when present, otherwise uses the project directory<br/>- Preserves production settings; only browser runners are applied                                        |
+| cleanup | - Removes orphaned browser instances and temporary profiles created during development                                                                                                                                                                 |
 
 ## Command options
 

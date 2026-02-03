@@ -31,15 +31,25 @@ type BuildDepsPlan = {
   dependencyMap: Record<string, string>
 }
 
-function resolveDevelopRoot(): string | null {
+function resolveDevelopRoot(projectPath: string): string | null {
   const override = process.env.EXTENSION_CREATE_DEVELOP_ROOT
   if (override) return override
 
   try {
+    const localPkgPath = path.join(
+      projectPath,
+      'node_modules',
+      'extension-develop',
+      'package.json'
+    )
+    if (fs.existsSync(localPkgPath)) {
+      return path.dirname(localPkgPath)
+    }
+
     const pkgPath = requireFromCreate.resolve(
       'extension-develop/package.json',
       {
-        paths: [process.cwd(), __dirname]
+        paths: [projectPath, process.cwd(), __dirname]
       }
     )
 
@@ -346,14 +356,26 @@ export async function installInternalDependencies(projectPath: string) {
   )
     return
 
-  const developRoot = resolveDevelopRoot()
+  const developRoot = resolveDevelopRoot(projectPath)
   if (!developRoot) return
 
   const buildPlan = resolveMissingBuildDeps(developRoot)
-  await installBuildDependencies(developRoot, buildPlan)
+  if (buildPlan.dependencies.length === 0) {
+    console.log(messages.installingBuildDependencies(buildPlan.dependencies))
+  } else {
+    await installBuildDependencies(developRoot, buildPlan)
+  }
 
   const optionalPlan = resolveMissingOptionalDeps(developRoot, projectPath)
-  await installOptionalDependencies(developRoot, optionalPlan)
+  if (optionalPlan.dependencies.length === 0) {
+    if (optionalPlan.integrations.length > 0) {
+      console.log(
+        messages.installingProjectIntegrations(optionalPlan.integrations)
+      )
+    }
+  } else {
+    await installOptionalDependencies(developRoot, optionalPlan)
+  }
 }
 
 export const __testing__ = {
