@@ -68,11 +68,13 @@ async function runUntilTimeout(
   }>((resolvePromise) => {
     const child = spawn(command, args, {
       ...options,
-      stdio: 'pipe'
+      stdio: 'pipe',
+      detached: true
     })
     let stdout = ''
     let stderr = ''
     let timedOut = false
+    let resolved = false
 
     child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString()
@@ -81,14 +83,55 @@ async function runUntilTimeout(
       stderr += chunk.toString()
     })
 
+    const finalize = (status: number | null, signal: NodeJS.Signals | null) => {
+      if (resolved) return
+      resolved = true
+      clearTimeout(timer)
+      clearTimeout(killTimer)
+      resolvePromise({status, signal, stdout, stderr, timedOut})
+    }
+
     const timer = setTimeout(() => {
       timedOut = true
-      child.kill('SIGTERM')
+      try {
+        if (child.pid) {
+          process.kill(-child.pid, 'SIGTERM')
+        } else {
+          throw new Error('missing pid')
+        }
+      } catch {
+        try {
+          child.kill('SIGTERM')
+        } catch {
+          // best-effort only
+        }
+      }
     }, timeoutMs)
 
+    const killTimer = setTimeout(() => {
+      if (resolved) return
+      try {
+        if (child.pid) {
+          process.kill(-child.pid, 'SIGKILL')
+        } else {
+          throw new Error('missing pid')
+        }
+      } catch {
+        try {
+          child.kill('SIGKILL')
+        } catch {
+          // best-effort only
+        }
+      }
+      finalize(null, 'SIGKILL')
+    }, timeoutMs + 3000)
+
     child.on('close', (status, signal) => {
-      clearTimeout(timer)
-      resolvePromise({status, signal, stdout, stderr, timedOut})
+      finalize(status, signal)
+    })
+
+    child.on('error', () => {
+      finalize(null, null)
     })
   })
 }
