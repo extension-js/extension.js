@@ -344,6 +344,7 @@ async function installOptionalDependencies(
   const pm = detectPackageManagerFromEnv()
   const stdio =
     process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+  const progressEnabled = shouldShowProgress()
 
   for (const integration of plan.integrations) {
     const integrationDeps = plan.dependenciesByIntegration[integration] || []
@@ -355,20 +356,32 @@ async function installOptionalDependencies(
       continue
     }
 
-    messages
-      .installingProjectIntegrations([integration])
-      .forEach((message) => console.log(message))
-
-    const args = buildOptionalInstallArgs(pm, missingDeps, developRoot)
-    const result = await runInstall(pm, args, {
-      cwd: developRoot,
-      stdio
+    const [installMessage] = messages.installingProjectIntegrations([
+      integration
+    ])
+    const progress = startProgressBar(installMessage, {
+      enabled: progressEnabled,
+      persistLabel: true
     })
 
-    if (result.code !== 0) {
-      throw new Error(
-        messages.installingDependenciesFailed(pm, args, result.code)
-      )
+    if (!progressEnabled) {
+      console.log(installMessage)
+    }
+
+    try {
+      const args = buildOptionalInstallArgs(pm, missingDeps, developRoot)
+      const result = await runInstall(pm, args, {
+        cwd: developRoot,
+        stdio
+      })
+
+      if (result.code !== 0) {
+        throw new Error(
+          messages.installingDependenciesFailed(pm, args, result.code)
+        )
+      }
+    } finally {
+      progress.stop()
     }
   }
 }
