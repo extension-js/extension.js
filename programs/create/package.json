@@ -74,7 +74,7 @@
     "adm-zip": "^0.5.16",
     "axios": "^1.13.2",
     "cross-spawn": "^7.0.6",
-    "go-git-it": "^5.0.3",
+    "go-git-it": "^5.1.1",
     "pintor": "0.3.0",
     "tiny-glob": "^0.2.9"
   },
