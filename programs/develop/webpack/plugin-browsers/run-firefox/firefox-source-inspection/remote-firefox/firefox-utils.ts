@@ -11,6 +11,20 @@ import * as fs from 'fs'
 import * as messages from '../../../browsers-lib/messages'
 import {printDevBannerOnce} from '../../../browsers-lib/banner'
 
+async function waitForManifest(outPath: string, timeoutMs = 8000) {
+  const manifestPath = path.join(outPath, 'manifest.json')
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    try {
+      if (fs.existsSync(manifestPath)) return true
+    } catch {
+      // ignore
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150))
+  }
+  return false
+}
+
 export async function printRunningInDevelopmentSummary(
   candidateAddonPaths: string[],
   browser: 'firefox',
@@ -41,7 +55,10 @@ export async function printRunningInDevelopmentSummary(
     if (!chosenPath) return false
 
     const manifestPath = path.join(chosenPath, 'manifest.json')
-    if (!fs.existsSync(manifestPath)) return false
+    if (!fs.existsSync(manifestPath)) {
+      const ready = await waitForManifest(chosenPath, 10000)
+      if (!ready) return false
+    }
 
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
     const printed = await printDevBannerOnce({
