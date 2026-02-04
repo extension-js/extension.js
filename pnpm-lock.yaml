@@ -268,8 +268,8 @@ importers:
         specifier: ^7.0.6
         version: 7.0.6
       go-git-it:
-        specifier: ^5.0.3
-        version: 5.0.3
+        specifier: ^5.1.1
+        version: 5.1.1
       pintor:
         specifier: 0.3.0
         version: 0.3.0
@@ -3716,10 +3716,6 @@ packages:
 
   globrex@0.1.2:
     resolution: {integrity: sha512-uHJgbwAMwNFf5mLst7IWLNg14x1CkeqglJb/K3doi4dw6q2IvAAmM/Y81kevy83wP+Sst+nutFTYOGg3d1lsxg==}
-
-  go-git-it@5.0.3:
-    resolution: {integrity: sha512-EofgGCdm8XCuENGLdN3Fwh+zOnu5QIr7F0g48W7FNE3Ejy+01sc51BhbkjUC1H8F2jNVREGCG4UIb3XmokBSpw==}
-    hasBin: true
 
   go-git-it@5.1.1:
     resolution: {integrity: sha512-8cTQom1C5SNkB5IxwtbUEPjGm2/htdFOx4T04jjlwDTQQN8kyIG51j5I0rLpBzt+VmW+dMzOzXo+S+d0+nQoyg==}
@@ -8913,10 +8909,6 @@ snapshots:
       slash: 3.0.0
 
   globrex@0.1.2: {}
-
-  go-git-it@5.0.3:
-    dependencies:
-      progress: 2.0.3
 
   go-git-it@5.1.1:
     dependencies:
