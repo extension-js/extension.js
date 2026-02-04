@@ -136,6 +136,110 @@ async function runUntilTimeout(
   })
 }
 
+async function runUntilMatch(
+  command: string,
+  args: string[],
+  options: {cwd?: string; env?: NodeJS.ProcessEnv} = {},
+  matcher: RegExp,
+  timeoutMs = 15000
+) {
+  return await new Promise<{
+    status: number | null
+    signal: NodeJS.Signals | null
+    stdout: string
+    stderr: string
+    matched: boolean
+    timedOut: boolean
+  }>((resolvePromise) => {
+    const child = spawn(command, args, {
+      ...options,
+      stdio: 'pipe',
+      detached: true
+    })
+    let stdout = ''
+    let stderr = ''
+    let matched = false
+    let timedOut = false
+    let resolved = false
+
+    const finalize = (status: number | null, signal: NodeJS.Signals | null) => {
+      if (resolved) return
+      resolved = true
+      clearTimeout(timer)
+      clearTimeout(killTimer)
+      resolvePromise({status, signal, stdout, stderr, matched, timedOut})
+    }
+
+    const onChunk = (chunk: Buffer, isErr = false) => {
+      const text = chunk.toString()
+      if (isErr) stderr += text
+      else stdout += text
+      if (!matched && matcher.test(stdout + stderr)) {
+        matched = true
+        try {
+          if (child.pid) {
+            process.kill(-child.pid, 'SIGTERM')
+          } else {
+            throw new Error('missing pid')
+          }
+        } catch {
+          try {
+            child.kill('SIGTERM')
+          } catch {
+            // best-effort only
+          }
+        }
+      }
+    }
+
+    child.stdout?.on('data', (chunk) => onChunk(chunk as Buffer))
+    child.stderr?.on('data', (chunk) => onChunk(chunk as Buffer, true))
+
+    const timer = setTimeout(() => {
+      timedOut = true
+      try {
+        if (child.pid) {
+          process.kill(-child.pid, 'SIGTERM')
+        } else {
+          throw new Error('missing pid')
+        }
+      } catch {
+        try {
+          child.kill('SIGTERM')
+        } catch {
+          // best-effort only
+        }
+      }
+    }, timeoutMs)
+
+    const killTimer = setTimeout(() => {
+      if (resolved) return
+      try {
+        if (child.pid) {
+          process.kill(-child.pid, 'SIGKILL')
+        } else {
+          throw new Error('missing pid')
+        }
+      } catch {
+        try {
+          child.kill('SIGKILL')
+        } catch {
+          // best-effort only
+        }
+      }
+      finalize(null, 'SIGKILL')
+    }, timeoutMs + 3000)
+
+    child.on('close', (status, signal) => {
+      finalize(status, signal)
+    })
+
+    child.on('error', () => {
+      finalize(null, null)
+    })
+  })
+}
+
 function ensureCompiled(pkgDir: string, distEntry: string) {
   if (existsSync(distEntry)) return
   const result = runCommand('pnpm', ['-C', pkgDir, 'run', 'compile'], {
@@ -519,4 +623,146 @@ describe('cli direct flow (no npx)', () => {
       rmSync(workspace, {recursive: true, force: true})
     }
   })
+})
+
+describe('cli browser banners (dev/start)', () => {
+  const cliBin = resolveCliBin()
+  const projectPath = resolve(repoRoot, 'templates', 'react')
+  const bannerRegex = /Extension\.js[\s\S]*Browser\s+/m
+  const isCI =
+    process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true'
+  const geckoBinaryEnv = process.env.EXTENSION_TEST_GECKO_BINARY
+  const chromiumBinaryEnv = process.env.EXTENSION_TEST_CHROMIUM_BINARY
+
+  function resolveBinary(
+    envPath: string | undefined,
+    candidates: string[],
+    knownPaths: string[] = []
+  ) {
+    if (envPath && existsSync(envPath)) return envPath
+    for (const p of knownPaths) {
+      if (existsSync(p)) return p
+    }
+    const locator = process.platform === 'win32' ? 'where' : 'which'
+    for (const name of candidates) {
+      try {
+        const result = runCommand(locator, [name])
+        if ((result.status || 0) === 0) {
+          const line = String(result.stdout || '')
+            .split(/\r?\n/)
+            .find(Boolean)
+          if (line) return line.trim()
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return undefined
+  }
+
+  const geckoBinary = resolveBinary(
+    geckoBinaryEnv,
+    ['firefox', 'firefox-esr'],
+    process.platform === 'darwin'
+      ? [
+          '/Applications/Firefox.app/Contents/MacOS/firefox',
+          '/Applications/Firefox Nightly.app/Contents/MacOS/firefox',
+          '/Applications/Firefox Developer Edition.app/Contents/MacOS/firefox'
+        ]
+      : []
+  )
+  const chromiumBinary = resolveBinary(
+    chromiumBinaryEnv,
+    ['chromium-browser', 'chromium'],
+    process.platform === 'darwin'
+      ? ['/Applications/Chromium.app/Contents/MacOS/Chromium']
+      : []
+  )
+
+  function baseBrowserEnv(extra: NodeJS.ProcessEnv = {}) {
+    const env = {...defaultEnv, ...extra}
+    // Ensure we actually launch browsers in these tests.
+    delete env.EXTENSION_DEV_NO_BROWSER
+    env.NO_COLOR = '1'
+    env.EXTENSION_AUTHOR_MODE = 'true'
+    return env
+  }
+
+  const firefoxTest = geckoBinary ? it : isCI ? it : it.skip
+
+  const chromiumTest = chromiumBinary ? it : isCI ? it : it.skip
+
+  firefoxTest(
+    'prints runningInDevelopment banner for Firefox (dev + start)',
+    async () => {
+      if (!geckoBinary) {
+        throw new Error(
+          'Firefox binary not found. Set EXTENSION_TEST_GECKO_BINARY in CI.'
+        )
+      }
+      const env = baseBrowserEnv({MOZ_HEADLESS: '1'})
+      const firefoxArgs = [
+        '--browser',
+        'firefox',
+        '--gecko-binary',
+        geckoBinary
+      ]
+
+      const devResult = await runUntilMatch(
+        process.execPath,
+        [cliBin, 'dev', projectPath, ...firefoxArgs],
+        {cwd: projectPath, env},
+        bannerRegex,
+        30000
+      )
+      expect(devResult.matched).toBe(true)
+
+      const startResult = await runUntilMatch(
+        process.execPath,
+        [cliBin, 'start', projectPath, ...firefoxArgs],
+        {cwd: projectPath, env},
+        bannerRegex,
+        40000
+      )
+      expect(startResult.matched).toBe(true)
+    },
+    40000
+  )
+
+  chromiumTest(
+    'prints runningInDevelopment banner for Chromium (dev + start)',
+    async () => {
+      if (!chromiumBinary) {
+        throw new Error(
+          'Chromium binary not found. Set EXTENSION_TEST_CHROMIUM_BINARY in CI.'
+        )
+      }
+      const env = baseBrowserEnv()
+      const chromiumArgs = [
+        '--browser',
+        'chromium',
+        '--chromium-binary',
+        chromiumBinary
+      ]
+
+      const devResult = await runUntilMatch(
+        process.execPath,
+        [cliBin, 'dev', projectPath, ...chromiumArgs],
+        {cwd: projectPath, env},
+        bannerRegex,
+        30000
+      )
+      expect(devResult.matched).toBe(true)
+
+      const startResult = await runUntilMatch(
+        process.execPath,
+        [cliBin, 'start', projectPath, ...chromiumArgs],
+        {cwd: projectPath, env},
+        bannerRegex,
+        40000
+      )
+      expect(startResult.matched).toBe(true)
+    },
+    40000
+  )
 })
