@@ -25,7 +25,10 @@ import * as messages from '../../browsers-lib/messages'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import * as binariesResolver from '../../browsers-lib/output-binaries-resolver'
 import * as utils from '../../browsers-lib/shared-utils'
-import {printDevBannerOnce, printProdBannerOnce} from '../../browsers-lib/banner'
+import {
+  printDevBannerOnce,
+  printProdBannerOnce
+} from '../../browsers-lib/banner'
 import {browserConfig} from './browser-config'
 import {setupProcessSignalHandlers} from './process-handlers'
 import {logChromiumDryRun} from './dry-run'
@@ -57,7 +60,7 @@ async function waitForManifest(outPath: string, timeoutMs = 8000) {
   return false
 }
 
-async function maybePrintCiDevBanner(args: {
+async function maybePrintDevBanner(args: {
   compilation: Compilation
   chromiumConfig: string[]
   browser: ChromiumLaunchOptions['browser']
@@ -65,12 +68,7 @@ async function maybePrintCiDevBanner(args: {
   browserVersionLine?: string
 }) {
   const mode = (args.compilation?.options?.mode || 'development') as string
-  if (
-    mode !== 'development' ||
-    !(process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true')
-  ) {
-    return
-  }
+  if (mode !== 'development') return
   const loadExtensionFlag = args.chromiumConfig.find((flag: string) =>
     flag.startsWith('--load-extension=')
   )
@@ -631,12 +629,11 @@ export class ChromiumLaunchPlugin {
       cdpPort: selectedPort
     })
 
-    await maybePrintCiDevBanner({
+    await maybePrintDevBanner({
       compilation,
       chromiumConfig,
       browser: this.options.browser,
-      hostPort: {host: '127.0.0.1', port: selectedPort},
-      browserVersionLine: undefined
+      hostPort: {host: '127.0.0.1', port: selectedPort}
     })
 
     if (this.options.dryRun) {
@@ -662,35 +659,6 @@ export class ChromiumLaunchPlugin {
       }
 
       const mode = (compilation?.options?.mode || 'development') as string
-
-      // CI fallback: print dev banner without relying on CDP.
-      // This keeps banner tests stable when CDP connection is flaky in CI.
-      if (
-        mode === 'development' &&
-        (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true')
-      ) {
-        const loadExtensionFlag = chromiumConfig.find((flag: string) =>
-          flag.startsWith('--load-extension=')
-        )
-        const extensionOutputPath = getExtensionOutputPath(
-          compilation,
-          loadExtensionFlag
-        )
-        if (extensionOutputPath) {
-          const ready = await waitForManifest(extensionOutputPath, 10000)
-          if (!ready) {
-            // Best-effort only; CDP banner may still succeed later
-            return
-          }
-          await printDevBannerOnce({
-            browser: this.options.browser,
-            outPath: extensionOutputPath,
-            hostPort: {host: '127.0.0.1', port: selectedPort},
-            getInfo: async () => null,
-            browserVersionLine
-          })
-        }
-      }
 
       // Always print a manifest-based production summary once,
       // even if CDP fails later. CDP will attempt to "upgrade" this when it succeeds.

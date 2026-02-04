@@ -65,12 +65,8 @@ export function normalizeBrowser(
   const requested = String(browser || '')
 
   if (chromiumBinary) {
-    if (
-      !requested ||
-      requested === 'chromium' ||
-      requested === 'chromium-based'
-    )
-      return 'chromium-based'
+    if (!requested || requested === 'chromium-based') return 'chromium-based'
+    if (requested === 'chromium') return 'chromium'
     if (requested === 'edge') return 'edge'
     if (requested === 'chrome') return 'chrome'
   }
