@@ -215,7 +215,9 @@ export function installingDependencies() {
 }
 
 export function installingBuildDependencies(dependencies: string[]) {
-  return `${statusPrefix} Installing general build dependencies...`
+  return `${statusPrefix} Installing general build dependencies... ${colors.gray(
+    '(This may take a moment)'
+  )}`
 }
 
 export function foundSpecializedDependencies(count: number) {
@@ -226,19 +228,22 @@ export function foundSpecializedDependencies(count: number) {
 
 export function installingProjectIntegrations(integrations: string[]) {
   if (integrations.length === 0) {
-    return [
-      `${statusPrefix} Installing specialized dependencies for ${colors.gray(
-        'project tooling'
-      )}...`
-    ]
+    return `${statusPrefix} Installing specialized dependencies for ${colors.gray(
+      'project tooling'
+    )}... ${colors.gray('(This may take a moment)')}`
   }
-
-  return integrations.map(
-    (integration) =>
-      `${statusPrefix} Installing specialized dependencies for ${colors.yellow(
-        integration
-      )}...`
-  )
+  const formatList = (items: string[]) => {
+    if (items.length === 1) return items[0]
+    if (items.length === 2) return `${items[0]} and ${items[1]}`
+    return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`
+  }
+  const tools =
+    integrations.length > 0
+      ? formatList(integrations.map((name) => colors.yellow(name)))
+      : colors.gray('project tooling')
+  return `${statusPrefix} Installing specialized dependencies for ${tools}... ${colors.gray(
+    '(This may take a moment)'
+  )}`
 }
 
 export function installingDependenciesFailed(
