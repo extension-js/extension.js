@@ -7,6 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {Compiler} from '@rspack/core'
+import * as fs from 'fs'
+import * as path from 'path'
 import {getManifestFieldsData} from 'browser-extension-manifest-fields'
 
 // Plugins
@@ -45,6 +47,47 @@ export class ExtensionPlugin {
       browser: this.browser
     })
 
+    const extraHtmlEntries: FilepathList = (() => {
+      try {
+        const manifestDir = path.dirname(manifestPath)
+        const raw = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+        const browser = String(this.browser || '').toLowerCase()
+        const prefixes =
+          browser === 'chromium-based' || browser === 'chromium'
+            ? ['chromium', 'chrome']
+            : browser === 'edge'
+              ? ['edge']
+              : browser === 'firefox' || browser === 'gecko-based'
+                ? ['firefox']
+                : ['chrome']
+
+        const candidates: Array<{key: string; prop: string; entry: string}> = [
+          {key: 'side_panel', prop: 'default_path', entry: 'sidebar/index'},
+          {key: 'sidebar_action', prop: 'default_panel', entry: 'sidebar/index'}
+        ]
+
+        const entries: FilepathList = {}
+        for (const {key, prop, entry} of candidates) {
+          const direct = raw?.[key]
+          if (direct && typeof direct[prop] === 'string') {
+            const resolved = path.resolve(manifestDir, direct[prop])
+            if (fs.existsSync(resolved)) entries[entry] = resolved
+          }
+          for (const prefix of prefixes) {
+            const prefixed = raw?.[`${prefix}:${key}`]
+            if (prefixed && typeof prefixed[prop] === 'string') {
+              const resolved = path.resolve(manifestDir, prefixed[prop])
+              if (fs.existsSync(resolved)) entries[entry] = resolved
+            }
+          }
+        }
+
+        return entries
+      } catch {
+        return {}
+      }
+    })()
+
     const specialFoldersData = getSpecialFoldersDataForCompiler(compiler)
 
     // Generate a manifest file with all the assets we need
@@ -65,6 +108,7 @@ export class ExtensionPlugin {
       browser: this.browser,
       includeList: {
         ...manifestFieldsData.html,
+        ...extraHtmlEntries,
         ...specialFoldersData.pages
       }
     }).apply(compiler)

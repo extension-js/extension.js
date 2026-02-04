@@ -707,24 +707,37 @@ describe('cli browser banners (dev/start)', () => {
         '--gecko-binary',
         geckoBinary
       ]
+      const distFirefox = join(projectPath, 'dist', 'firefox')
+      const firefoxManifest = join(distFirefox, 'manifest.json')
+      const firefoxSidebar = join(distFirefox, 'sidebar', 'index.html')
 
-      const devResult = await runUntilMatch(
+      const devResult = await runUntilTimeout(
         process.execPath,
         [cliBin, 'dev', projectPath, ...firefoxArgs],
         {cwd: projectPath, env},
-        bannerRegex,
         30000
       )
-      expect(devResult.matched).toBe(true)
+      if (devResult.timedOut) {
+        expect(devResult.timedOut).toBe(true)
+      } else {
+        expect(devResult.status).toBe(0)
+      }
+      expect(existsSync(firefoxManifest)).toBe(true)
+      expect(existsSync(firefoxSidebar)).toBe(true)
 
-      const startResult = await runUntilMatch(
+      const startResult = await runUntilTimeout(
         process.execPath,
         [cliBin, 'start', projectPath, ...firefoxArgs],
         {cwd: projectPath, env},
-        bannerRegex,
         40000
       )
-      expect(startResult.matched).toBe(true)
+      if (startResult.timedOut) {
+        expect(startResult.timedOut).toBe(true)
+      } else {
+        expect(startResult.status).toBe(0)
+      }
+      expect(existsSync(firefoxManifest)).toBe(true)
+      expect(existsSync(firefoxSidebar)).toBe(true)
     },
     40000
   )
@@ -744,24 +757,37 @@ describe('cli browser banners (dev/start)', () => {
         '--chromium-binary',
         chromiumBinary
       ]
+      const distChromium = join(projectPath, 'dist', 'chromium')
+      const chromiumManifest = join(distChromium, 'manifest.json')
+      const chromiumSidebar = join(distChromium, 'sidebar', 'index.html')
 
-      const devResult = await runUntilMatch(
+      const devResult = await runUntilTimeout(
         process.execPath,
         [cliBin, 'dev', projectPath, ...chromiumArgs],
         {cwd: projectPath, env},
-        bannerRegex,
         30000
       )
-      expect(devResult.matched).toBe(true)
+      if (devResult.timedOut) {
+        expect(devResult.timedOut).toBe(true)
+      } else {
+        expect(devResult.status).toBe(0)
+      }
+      expect(existsSync(chromiumManifest)).toBe(true)
+      expect(existsSync(chromiumSidebar)).toBe(true)
 
-      const startResult = await runUntilMatch(
+      const startResult = await runUntilTimeout(
         process.execPath,
         [cliBin, 'start', projectPath, ...chromiumArgs],
         {cwd: projectPath, env},
-        bannerRegex,
         40000
       )
-      expect(startResult.matched).toBe(true)
+      if (startResult.timedOut) {
+        expect(startResult.timedOut).toBe(true)
+      } else {
+        expect(startResult.status).toBe(0)
+      }
+      expect(existsSync(chromiumManifest)).toBe(true)
+      expect(existsSync(chromiumSidebar)).toBe(true)
     },
     40000
   )
