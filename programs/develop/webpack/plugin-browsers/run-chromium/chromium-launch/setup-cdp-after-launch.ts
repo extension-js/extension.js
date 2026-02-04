@@ -100,7 +100,22 @@ export async function setupCdpAfterLaunch(
   }
 
   // Get extension and environment info after ensuring everything is loaded
-  const extensionControllerInfo = await cdpExtensionController.ensureLoaded()
+  let extensionControllerInfo: {
+    extensionId: string
+    name?: string
+    version?: string
+  } | null = null
+  try {
+    extensionControllerInfo = await cdpExtensionController.ensureLoaded()
+  } catch (error) {
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.warn(
+        `[CDP] ensureLoaded failed: ${String(
+          (error as Error)?.message || error
+        )}`
+      )
+    }
+  }
 
   try {
     const mode = (compilation?.options?.mode || 'development') as string
@@ -124,15 +139,18 @@ export async function setupCdpAfterLaunch(
         })
       }
     } else if (mode === 'production') {
+      const runtime = extensionControllerInfo
+        ? {
+            extensionId: extensionControllerInfo.extensionId,
+            name: extensionControllerInfo.name,
+            version: extensionControllerInfo.version
+          }
+        : undefined
       await printProdBannerOnce({
         browser: plugin.browser,
         outPath: extensionOutputPath,
         browserVersionLine: plugin.browserVersionLine,
-        runtime: {
-          extensionId: extensionControllerInfo.extensionId,
-          name: extensionControllerInfo.name,
-          version: extensionControllerInfo.version
-        }
+        runtime
       })
     }
   } catch (bannerErr) {
