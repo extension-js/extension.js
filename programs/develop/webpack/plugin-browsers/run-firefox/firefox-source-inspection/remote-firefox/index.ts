@@ -24,6 +24,11 @@ import {deriveMozExtensionId} from './moz-id'
 import {attachConsoleListeners, subscribeUnifiedLogging} from './logging'
 import {ensureTabForUrl, navigateTo, getPageHTML} from './source-inspect'
 import {type PluginInterface} from '../../../browsers-types'
+import {
+  getInstancePorts,
+  getLastRDPPort
+} from '../../../browsers-lib/instance-registry'
+import {deriveDebugPortWithInstance} from '../../../browsers-lib/shared-utils'
 
 const MAX_RETRIES = 150
 const RETRY_INTERVAL = 1000
@@ -48,6 +53,27 @@ export class RemoteFirefox {
     }
   ) {
     this.options = configOptions
+  }
+
+  private resolveRdpPort(compilation?: Compilation): number {
+    const instanceId = (this.options as unknown as {instanceId?: string})
+      ?.instanceId
+    const devPort = (
+      compilation?.options as unknown as {devServer?: {port?: number}}
+    )?.devServer?.port as number | undefined
+    const optionPort = (this.options as unknown as {port?: number})?.port as
+      | number
+      | string
+      | undefined
+    const normalizedOptionPort =
+      typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
+    const basePort = (normalizedOptionPort as number) || devPort
+    const desired = deriveDebugPortWithInstance(basePort, instanceId)
+    const fromInstance = instanceId
+      ? getInstancePorts(instanceId)?.rdpPort
+      : undefined
+
+    return fromInstance || getLastRDPPort() || desired
   }
 
   private async connectClient(port: number) {
@@ -110,18 +136,7 @@ export class RemoteFirefox {
       return 0
     })
     const extensionsToLoad = userFirst
-    const devPort = (
-      compilation.options as unknown as {devServer?: {port?: number}}
-    )?.devServer?.port as number | undefined
-    const optionPort = (this.options as unknown as {port?: number})?.port as
-      | number
-      | string
-      | undefined
-    const normalizedOptionPort =
-      typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
-    // If a port is provided via options, assume it's the actual RDP port
-    const port =
-      (normalizedOptionPort as number) || (devPort ? devPort + 100 : 9222)
+    const port = this.resolveRdpPort(compilation)
     const client = await this.connectClient(port)
     // Fetch addonsActor with retries via helper
     let addonsActor: string | undefined = await getAddonsActorWithRetry(
@@ -136,7 +151,9 @@ export class RemoteFirefox {
     )
 
     for (const [index, addonPath] of candidateAddonPaths.entries()) {
+      const isManager = /extensions\/[a-z-]+-manager/.test(String(addonPath))
       const isDevtoolsEnabled = index === 0 && Boolean(devtools)
+
       try {
         const installResponse = await installTemporaryAddon(
           client,
@@ -144,16 +161,15 @@ export class RemoteFirefox {
           addonPath,
           isDevtoolsEnabled
         )
+
         if (!this.derivedExtensionId) {
           const maybeId = installResponse?.addon?.id
           if (typeof maybeId === 'string' && maybeId.length > 0) {
             this.derivedExtensionId = maybeId
           }
         }
-        if (
-          index === 1 ||
-          (index === 0 && /extensions\/[a-z-]+-manager/.test(String(addonPath)))
-        ) {
+
+        if (isManager) {
           await waitForManagerWelcome(client)
         }
       } catch (err) {
@@ -168,6 +184,7 @@ export class RemoteFirefox {
     try {
       if (this.needsReinstall && candidateAddonPaths[0]) {
         const toActor = addonsActor
+
         if (toActor) {
           await client.request({
             to: toActor,
@@ -190,12 +207,20 @@ export class RemoteFirefox {
     // Print banner with best-effort extensionId when available
     this.lastInstalledAddonPath = candidateAddonPaths[0]
 
-    printRunningInDevelopmentSummary(
+    const bannerPrinted = await printRunningInDevelopmentSummary(
       candidateAddonPaths,
       'firefox',
       this.derivedExtensionId,
       this.options.browserVersionLine
     )
+    if (!bannerPrinted) {
+      throw new Error(
+        messages.addonInstallError(
+          this.options.browser,
+          'Failed to print runningInDevelopment banner; add-on may not be installed.'
+        )
+      )
+    }
   }
 
   public markNeedsReinstall() {
@@ -265,14 +290,7 @@ export class RemoteFirefox {
     changedAssets: string[]
   ): Promise<void> {
     try {
-      const devPort = (
-        compilation.options.devServer as unknown as {port?: number}
-      )?.port
-      const optionPort = (this.options as unknown as {port?: number})?.port
-      const normalizedOptionPort =
-        typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
-      const rdpPort =
-        (normalizedOptionPort as number) || (devPort ? devPort + 100 : 9222)
+      const rdpPort = this.resolveRdpPort(compilation)
       const client = this.client || (await this.connectClient(rdpPort))
 
       const normalized = (changedAssets || [])
@@ -324,16 +342,7 @@ export class RemoteFirefox {
     opts: {startingUrl?: string; source?: string | boolean}
   ): Promise<void> {
     try {
-      const devServerPort = (
-        compilation.options.devServer as unknown as {port?: number}
-      )?.port
-      const optionPort = (this.options as unknown as {port?: number})?.port
-      const normalizedOptionPort =
-        typeof optionPort === 'string' ? parseInt(optionPort, 10) : optionPort
-      const rdpPort =
-        (normalizedOptionPort as number) ||
-        (devServerPort ? devServerPort + 100 : 9222)
-
+      const rdpPort = this.resolveRdpPort(compilation)
       const client = this.client || (await this.connectClient(rdpPort))
 
       const urlToInspect =
@@ -373,10 +382,7 @@ export class RemoteFirefox {
     try {
       if (this.loggingAttached) return
 
-      const devPort = (this.options as unknown as {port?: number})?.port
-      const normalized =
-        typeof devPort === 'string' ? parseInt(devPort, 10) : devPort
-      const rdpPort = (normalized as number) || 9222
+      const rdpPort = this.resolveRdpPort()
       const client = this.client || (await this.connectClient(rdpPort))
 
       // Proactively attach console listeners to all known targets
