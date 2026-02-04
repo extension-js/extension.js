@@ -1093,39 +1093,6 @@ export function runningInDevelopment(
       : capitalize(String(browser || 'unknown'))
 
   const cleanId = String(id || '').trim()
-  const urlScheme =
-    browser === 'firefox' || browser === 'gecko-based'
-      ? 'moz-extension'
-      : 'chrome-extension'
-  const extensionUrl =
-    cleanId.length > 0 ? `${urlScheme}://${cleanId}` : '(temporary)'
-
-  const managerUrl = (() => {
-    if (browser === 'firefox' || browser === 'gecko-based') {
-      return 'about:debugging#/runtime/this-firefox'
-    }
-
-    if (
-      browser === 'chrome' ||
-      browser === 'chromium' ||
-      browser === 'chromium-based' ||
-      browser === 'edge'
-    ) {
-      return cleanId.length > 0
-        ? `chrome://extensions/?id=${cleanId}`
-        : 'chrome://extensions'
-    }
-
-    return cleanId.length > 0 ? `${urlScheme}://${cleanId}` : '(temporary)'
-  })()
-
-  const showExtensionId =
-    (browser === 'firefox' || browser === 'gecko-based') &&
-    process.env.EXTENSION_AUTHOR_MODE === 'true' &&
-    cleanId.length > 0
-
-  const hasHost = hostPermissions && hostPermissions.length
-  const hasPermissions = permissions && permissions.length
 
   const lines: string[] = []
   const includeExtensionId = opts?.includeExtensionId !== false
