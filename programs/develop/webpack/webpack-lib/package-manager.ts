@@ -132,8 +132,16 @@ function isWindowsExecutablePath(value?: string) {
   return /\.(cmd|bat|exe)$/i.test(value)
 }
 
+function isPathLikeCommand(command: string) {
+  if (!command) return false
+  if (path.isAbsolute(command)) return true
+
+  return command.includes(path.sep) || command.includes('/')
+}
+
 function shouldUseCmdExe(command: string) {
   if (process.platform !== 'win32') return false
+  if (isPathLikeCommand(command)) return false
   if (/\.(cmd|bat)$/i.test(command)) return true
 
   return ['npm', 'pnpm', 'yarn', 'corepack', 'bun'].includes(command)
@@ -230,7 +238,12 @@ export function resolvePackageManager(opts?: {
   const candidates: PackageManagerName[] = ['pnpm', 'yarn', 'bun']
   for (const candidate of candidates) {
     const resolved = resolveCommandOnPath(candidate)
-    if (resolved) return {name: candidate, execPath: resolved}
+    if (resolved) {
+      if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved)) {
+        return {name: candidate}
+      }
+      return {name: candidate, execPath: resolved}
+    }
   }
 
   const corepackPath = resolveCommandOnPath('corepack')
