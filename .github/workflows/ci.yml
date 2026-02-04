@@ -32,6 +32,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install browsers (cli suite)
+        if: matrix.suite == 'ci:test:cli'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y firefox xvfb
+          sudo apt-get install -y chromium-browser || sudo apt-get install -y chromium
+          echo "EXTENSION_TEST_GECKO_BINARY=$(command -v firefox || true)" >> $GITHUB_ENV
+          echo "EXTENSION_TEST_CHROMIUM_BINARY=$(command -v chromium-browser || command -v chromium || true)" >> $GITHUB_ENV
+
+      - name: Start Xvfb (cli suite)
+        if: matrix.suite == 'ci:test:cli'
+        run: |
+          Xvfb :99 -screen 0 1280x720x24 &
+          echo "DISPLAY=:99" >> $GITHUB_ENV
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 

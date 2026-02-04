@@ -117,10 +117,34 @@ export async function browserConfig(
       profilePath = tmp
     }
 
-    // mkdir already handled by progress bar section above; keep as best-effort
-    fs.mkdirSync(profilePath, {recursive: true})
+    try {
+      const maxAgeHours = parseInt(
+        String(process.env.EXTENSION_TMP_PROFILE_MAX_AGE_HOURS || ''),
+        10
+      )
+      cleanupOldTempProfiles(
+        base,
+        path.basename(profilePath),
+        Number.isFinite(maxAgeHours) ? maxAgeHours : 12
+      )
+    } catch {
+      // ignore
+    }
+  } else {
+    profilePath = ''
+  }
 
-    // Write Firefox profile preferences (user.js) to enable RDP and unsigned add-ons
+  // Ensure profile directory exists for explicit/managed profiles.
+  if (profilePath) {
+    try {
+      fs.mkdirSync(profilePath, {recursive: true})
+    } catch {
+      // ignore
+    }
+  }
+
+  // Write Firefox profile preferences (user.js) to enable RDP and unsigned add-ons.
+  if (profilePath) {
     try {
       const prefs = getPreferences((configOptions as any)?.preferences || {})
 
@@ -153,22 +177,6 @@ export async function browserConfig(
     } catch {
       // best-effort
     }
-
-    try {
-      const maxAgeHours = parseInt(
-        String(process.env.EXTENSION_TMP_PROFILE_MAX_AGE_HOURS || ''),
-        10
-      )
-      cleanupOldTempProfiles(
-        base,
-        path.basename(profilePath),
-        Number.isFinite(maxAgeHours) ? maxAgeHours : 12
-      )
-    } catch {
-      // ignore
-    }
-  } else {
-    profilePath = ''
   }
 
   const parts = [`--binary-args="${binaryArgs.join(' ')}"`, '--verbose']
