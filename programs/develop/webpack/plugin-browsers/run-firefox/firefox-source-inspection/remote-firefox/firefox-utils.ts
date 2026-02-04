@@ -16,7 +16,7 @@ export async function printRunningInDevelopmentSummary(
   browser: 'firefox',
   extensionId?: string,
   browserVersionLine?: string
-) {
+): Promise<boolean> {
   try {
     // Prefer a path whose manifest name is not the manager name
     let chosenPath: string | null = null
@@ -38,26 +38,26 @@ export async function printRunningInDevelopmentSummary(
       chosenPath = candidateAddonPaths[candidateAddonPaths.length - 1]
     }
 
-    if (chosenPath) {
-      const manifestPath = path.join(chosenPath, 'manifest.json')
+    if (!chosenPath) return false
 
-      if (fs.existsSync(manifestPath)) {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
-        await printDevBannerOnce({
-          browser,
-          outPath: chosenPath,
-          hostPort: {host: '127.0.0.1'},
-          getInfo: async () => ({
-            extensionId: extensionId || '(temporary)',
-            name: manifest.name,
-            version: manifest.version
-          }),
-          browserVersionLine
-        })
-      }
-    }
+    const manifestPath = path.join(chosenPath, 'manifest.json')
+    if (!fs.existsSync(manifestPath)) return false
+
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    const printed = await printDevBannerOnce({
+      browser,
+      outPath: chosenPath,
+      hostPort: {host: '127.0.0.1'},
+      getInfo: async () => ({
+        extensionId: extensionId || '(temporary)',
+        name: manifest.name,
+        version: manifest.version
+      }),
+      browserVersionLine
+    })
+    return printed
   } catch {
-    // Ignore
+    return false
   }
 }
 
