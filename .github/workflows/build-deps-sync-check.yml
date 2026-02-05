@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -33,14 +35,22 @@ jobs:
 
           const base = process.env.SYNC_BASE
           const head = process.env.SYNC_HEAD
-          const output = execSync(`git diff --name-only ${base} ${head}`, {
-            encoding: 'utf-8'
-          })
-          const files = output
-            .split('\n')
-            .map((line) => line.trim())
-            .filter(Boolean)
-          const changed = new Set(files)
+          let changed = new Set()
+
+          try {
+            const output = execSync(`git diff --name-only ${base} ${head}`, {
+              encoding: 'utf-8'
+            })
+            const files = output
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+            changed = new Set(files)
+          } catch (error) {
+            console.warn(
+              'Warning: unable to diff base/head, defaulting to forward sync.'
+            )
+          }
 
           const buildDeps = 'programs/develop/webpack/webpack-lib/build-dependencies.json'
           const tracking = '.github/build-deps/package.json'
