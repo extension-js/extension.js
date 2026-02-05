@@ -122,69 +122,78 @@ export async function handleFirstRun() {
       return
     }
 
-    // Guard against opening multiple welcome pages
-    chrome.tabs.query(
-      {url: chrome.runtime.getURL('pages/welcome.html')},
-      (tabs) => {
-        if (Array.isArray(tabs) && tabs.length > 0) {
-          // Already open. Do not create another
-          return
-        }
-
-        try {
-          const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
-          if (isFirefox) {
-            // Always open a new welcome tab and focus it
-            try {
-              chrome.tabs.create({url: welcomeUrl, active: true})
-            } catch {
-              console.error('Error opening welcome tab')
-            }
-
-            // Ensure the addons manager exists in the background for convenience
-            try {
-              chrome.tabs.query({url: 'about:addons'}, (xtabs) => {
-                if (!Array.isArray(xtabs) || xtabs.length === 0) {
-                  try {
-                    chrome.tabs.create({url: 'about:addons', active: false})
-                  } catch {
-                    console.error('Error creating addons tab')
-                  }
-                }
-              })
-            } catch {
-              console.error('Error querying addons tab')
-            }
-          } else {
-            // Chromium/Edge: open welcome page as the active tab
+    const openWelcomeTab = () => {
+      try {
+        const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
+        if (isFirefox) {
+          // Always open a new welcome tab and focus it
+          try {
             chrome.tabs.create({url: welcomeUrl, active: true})
+          } catch {
+            console.error('Error opening welcome tab')
+          }
 
-            // Then update the original active tab to the extensions page
-            // in the background (avoid stealing focus on Edge).
-            try {
-              if (typeof originalActiveTabId === 'number') {
+          // Ensure the addons manager exists in the background for convenience
+          try {
+            chrome.tabs.query({url: 'about:addons'}, (xtabs) => {
+              if (!Array.isArray(xtabs) || xtabs.length === 0) {
                 try {
-                  chrome.tabs.update(originalActiveTabId, {
-                    url: extensionsPage
-                  })
+                  chrome.tabs.create({url: 'about:addons', active: false})
                 } catch {
-                  console.error('Error updating original active tab')
+                  console.error('Error creating addons tab')
                 }
               }
-            } catch {
-              console.error('Error updating original active tab')
-            }
-          }
-        } catch {
-          // Fallback to relative URL if runtime URL resolution fails
-          try {
-            chrome.tabs.create({url: 'pages/welcome.html', active: true})
+            })
           } catch {
-            console.error('Error creating welcome tab')
+            console.error('Error querying addons tab')
+          }
+        } else {
+          // Chromium/Edge: open welcome page as the active tab
+          chrome.tabs.create({url: welcomeUrl, active: true})
+
+          // Then update the original active tab to the extensions page
+          // in the background (avoid stealing focus on Edge).
+          try {
+            if (typeof originalActiveTabId === 'number') {
+              try {
+                chrome.tabs.update(originalActiveTabId, {
+                  url: extensionsPage
+                })
+              } catch {
+                console.error('Error updating original active tab')
+              }
+            }
+          } catch {
+            console.error('Error updating original active tab')
           }
         }
+      } catch {
+        // Fallback to relative URL if runtime URL resolution fails
+        try {
+          chrome.tabs.create({url: 'pages/welcome.html', active: true})
+        } catch {
+          console.error('Error creating welcome tab')
+        }
       }
-    )
+    }
+
+    // Guard against opening multiple welcome pages
+    try {
+      chrome.tabs.query(
+        {url: chrome.runtime.getURL('pages/welcome.html')},
+        (tabs) => {
+          if (Array.isArray(tabs) && tabs.length > 0) {
+            // Already open. Do not create another
+            return
+          }
+
+          openWelcomeTab()
+        }
+      )
+    } catch {
+      // If querying fails (Firefox restrictions), still open the welcome tab
+      openWelcomeTab()
+    }
 
     // Ensure the welcome page shows only once per extension installation
     chrome.storage.local.set({[storageKey]: {didRun: true}})
