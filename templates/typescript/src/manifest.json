@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/chrome-manifest.json",
-  "manifest_version": 3,
+  "chromium:manifest_version": 3,
   "firefox:manifest_version": 2,
   "version": "1.0.0",
   "name": "Extension.js - TypeScript Sidebar Example",
