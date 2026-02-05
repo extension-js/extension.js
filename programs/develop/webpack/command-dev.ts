@@ -71,6 +71,10 @@ export async function extensionDev(
       )
     }
 
+    if (process.env.EXTENSION_DEV_DRY_RUN === 'true') {
+      return
+    }
+
     // Heavy deps are imported lazily so preview can stay minimal.
     const {devServer} = await import('./dev-server')
 

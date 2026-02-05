@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 
 /**
  * Find the extension-develop package root directory.
@@ -57,6 +58,8 @@ export function loadBuildDependencies(): Record<string, string> {
   }
 }
 
+const require = createRequire(import.meta.url)
+
 /**
  * Check if a dependency is installed in the extension-develop package
  */
@@ -65,7 +68,16 @@ function isDependencyInstalled(
   packageRoot: string
 ): boolean {
   const nodeModulesPath = path.join(packageRoot, 'node_modules', dependency)
-  return fs.existsSync(nodeModulesPath)
+  if (fs.existsSync(nodeModulesPath)) {
+    return true
+  }
+
+  try {
+    require.resolve(dependency, {paths: [packageRoot]})
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
