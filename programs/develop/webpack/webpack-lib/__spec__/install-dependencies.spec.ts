@@ -47,7 +47,7 @@ describe('install-dependencies', () => {
     const tmp = makeTempDir('extjs-installdeps-')
     fs.writeFileSync(
       path.join(tmp, 'package.json'),
-      JSON.stringify({name: 'x'})
+      JSON.stringify({name: 'x', dependencies: {foo: '1.0.0'}})
     )
     // mock spawn to immediately emit close 0
     vi.mock('cross-spawn', () => ({
