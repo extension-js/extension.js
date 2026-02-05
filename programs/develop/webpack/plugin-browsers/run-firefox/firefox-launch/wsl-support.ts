@@ -55,6 +55,12 @@ export async function spawnFirefoxProcess(opts: {
     const child = spawn(bin, args, {
       stdio,
       detached: false,
+      env: {
+        ...process.env,
+        MOZ_DISABLE_AUTO_SAFE_MODE: '1',
+        MOZ_CRASHREPORTER_DISABLE: '1',
+        MOZ_CRASHREPORTER: '0'
+      },
       ...(process.platform === 'win32' ? {windowsHide: true} : {})
     })
     await new Promise<void>((resolve, reject) => {
