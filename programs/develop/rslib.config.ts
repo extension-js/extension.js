@@ -56,6 +56,12 @@ export default defineConfig({
       )
     }
   },
+  tools: {
+    // Disable caching to avoid rspack module graph panics in CI builds.
+    rspack: {
+      cache: false
+    }
+  },
   lib: [
     {
       format: 'cjs',

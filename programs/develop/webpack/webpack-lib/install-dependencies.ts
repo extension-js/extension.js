@@ -15,6 +15,7 @@ import {
   resolvePackageManager
 } from './package-manager'
 import {shouldShowProgress, startProgressBar} from './progress'
+import {writeInstallMarker} from './install-cache'
 
 export async function getInstallCommand() {
   return resolvePackageManager({cwd: process.cwd()}).name
@@ -89,6 +90,7 @@ export async function installDependencies(projectPath: string) {
         cwd: projectPath,
         stdio
       })
+      writeInstallMarker(projectPath)
     } finally {
       progress.stop()
     }

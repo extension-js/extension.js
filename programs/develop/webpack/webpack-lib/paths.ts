@@ -9,6 +9,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import type {ProjectStructure} from './project'
+import {hasInstallMarker} from './install-cache'
 
 export type AbsolutePath = string & {readonly __brand: 'AbsolutePath'}
 export type BrowserInput =
@@ -51,6 +52,42 @@ export function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
 export function needsInstall(packageJsonDir: AbsolutePath): boolean {
   const nm = getNodeModulesDir(packageJsonDir)
   try {
+    const packageJsonPath = path.join(packageJsonDir, 'package.json')
+    if (fs.existsSync(packageJsonPath)) {
+      const raw = fs.readFileSync(packageJsonPath, 'utf-8')
+      const packageJson = JSON.parse(raw)
+      const depsCount = Object.keys(packageJson?.dependencies || {}).length
+      const devDepsCount = Object.keys(
+        packageJson?.devDependencies || {}
+      ).length
+      if (depsCount + devDepsCount === 0) {
+        return false
+      }
+
+      if (hasInstallMarker(packageJsonDir)) {
+        return false
+      }
+
+      if (!fs.existsSync(nm)) {
+        return true
+      }
+
+      const deps = Object.keys(packageJson?.dependencies || {})
+      const devDeps = Object.keys(packageJson?.devDependencies || {})
+
+      if (fs.existsSync(path.join(nm, '.pnpm'))) {
+        return false
+      }
+
+      if (fs.existsSync(path.join(nm, '.modules.yaml'))) {
+        return false
+      }
+
+      const hasInstalledDep = [...deps, ...devDeps].some((dep) =>
+        fs.existsSync(path.join(nm, dep))
+      )
+      return !hasInstalledDep
+    }
     return !fs.existsSync(nm) || fs.readdirSync(nm).length === 0
   } catch {
     return true
