@@ -113,50 +113,24 @@ function resolveBundledNpmCliPath(): string | undefined {
   return resolveNpmCliFromNode(process.execPath)
 }
 
-function resolveWindowsCmdExe(): string {
-  if (process.platform !== 'win32') return 'cmd.exe'
-  const comspec = process.env.ComSpec
-
-  if (comspec && fs.existsSync(comspec)) return comspec
-
-  const systemRoot = process.env.SystemRoot || 'C:\\Windows'
-  const fallback = path.join(systemRoot, 'System32', 'cmd.exe')
-
-  if (fs.existsSync(fallback)) return fallback
-  return 'cmd.exe'
-}
-
 function isWindowsExecutablePath(value?: string) {
   if (!value || process.platform !== 'win32') return false
 
   return /\.(cmd|bat|exe)$/i.test(value)
 }
 
-function isPathLikeCommand(command: string) {
-  if (!command) return false
-  if (path.isAbsolute(command)) return true
-
-  return command.includes(path.sep) || command.includes('/')
-}
-
-function shouldUseCmdExe(command: string) {
-  if (process.platform !== 'win32') return false
-  if (isPathLikeCommand(command)) return false
-  if (/\.(cmd|bat)$/i.test(command)) return true
-
-  return ['npm', 'pnpm', 'yarn', 'corepack', 'bun'].includes(command)
-}
-
 function resolveWindowsCommandPath(command: string) {
   if (process.platform !== 'win32') return undefined
 
   try {
-    const cmdExe = resolveWindowsCmdExe()
-    const output = execFileSync(
-      cmdExe,
-      ['/d', '/s', '/c', `where ${command}`],
-      {encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], windowsHide: true}
-    )
+    const systemRoot = process.env.SystemRoot || 'C:\\Windows'
+    const whereExe = path.join(systemRoot, 'System32', 'where.exe')
+    const whereCommand = fs.existsSync(whereExe) ? whereExe : 'where'
+    const output = execFileSync(whereCommand, [command], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true
+    })
     const candidates = String(output)
       .split(/\r?\n/)
       .map((line) => line.trim())
@@ -321,14 +295,7 @@ export function buildSpawnInvocation(
   command: string,
   args: string[]
 ): {command: string; args: string[]} {
-  if (!shouldUseCmdExe(command)) return {command, args}
-
-  const cmdExe = resolveWindowsCmdExe()
-
-  return {
-    command: cmdExe,
-    args: ['/d', '/s', '/c', command, ...args]
-  }
+  return {command, args}
 }
 
 export function execInstallCommand(

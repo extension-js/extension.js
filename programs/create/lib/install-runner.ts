@@ -9,24 +9,6 @@
 import * as path from 'path'
 import {spawn} from 'cross-spawn'
 
-function resolveWindowsCmdExe(): string {
-  const comspec = process.env.ComSpec
-  if (comspec) return comspec
-  const systemRoot = process.env.SystemRoot || 'C:\\Windows'
-  return path.join(systemRoot, 'System32', 'cmd.exe')
-}
-
-function resolveInstallInvocation(command: string, args: string[]) {
-  if (process.platform !== 'win32') {
-    return {command, args}
-  }
-
-  return {
-    command: resolveWindowsCmdExe(),
-    args: ['/d', '/s', '/c', command, ...args]
-  }
-}
-
 function buildExecEnv(): NodeJS.ProcessEnv | undefined {
   if (process.platform !== 'win32') return undefined
 
@@ -54,9 +36,8 @@ export async function runInstall(
   args: string[],
   opts: {cwd: string; stdio: 'inherit' | 'ignore' | 'pipe'}
 ): Promise<InstallResult> {
-  const invocation = resolveInstallInvocation(command, args)
   const env = buildExecEnv()
-  const child = spawn(invocation.command, invocation.args, {
+  const child = spawn(command, args, {
     stdio: opts.stdio,
     cwd: opts.cwd,
     env: env || process.env
