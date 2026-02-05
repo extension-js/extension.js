@@ -87,11 +87,32 @@ async function runInstall(
   return runInstallCommand(command, args, {cwd, stdio})
 }
 
+async function hasDependenciesToInstall(projectPath: string) {
+  try {
+    const raw = await fs.promises.readFile(
+      path.join(projectPath, 'package.json'),
+      'utf8'
+    )
+    const packageJson = JSON.parse(raw)
+    const depsCount = Object.keys(packageJson?.dependencies || {}).length
+    const devDepsCount = Object.keys(packageJson?.devDependencies || {}).length
+    return depsCount + devDepsCount > 0
+  } catch (error) {
+    return true
+  }
+}
+
 export async function installDependencies(
   projectPath: string,
   projectName: string
 ) {
   const nodeModulesPath = path.join(projectPath, 'node_modules')
+
+  const shouldInstall = await hasDependenciesToInstall(projectPath)
+
+  if (!shouldInstall) {
+    return
+  }
 
   const command = await utils.getInstallCommand()
   const dependenciesArgs = getInstallArgs()
