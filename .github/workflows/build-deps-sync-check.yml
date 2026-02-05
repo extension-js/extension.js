@@ -12,6 +12,9 @@ jobs:
   build_deps_sync:
     name: Verify build deps tracking sync
     runs-on: ubuntu-latest
+    env:
+      SYNC_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+      SYNC_HEAD: ${{ github.sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -21,8 +24,45 @@ jobs:
         with:
           node-version: 20
 
-      - name: Sync tracking manifest
+      - name: Detect build deps changes
+        id: changes
+        run: |
+          node - <<'NODE'
+          import {execSync} from 'node:child_process'
+          import fs from 'node:fs'
+
+          const base = process.env.SYNC_BASE
+          const head = process.env.SYNC_HEAD
+          const output = execSync(`git diff --name-only ${base} ${head}`, {
+            encoding: 'utf-8'
+          })
+          const files = output
+            .split('\n')
+            .map((line) => line.trim())
+            .filter(Boolean)
+          const changed = new Set(files)
+
+          const buildDeps = 'programs/develop/webpack/webpack-lib/build-dependencies.json'
+          const tracking = '.github/build-deps/package.json'
+
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `build_deps_changed=${changed.has(buildDeps)}\n`
+          )
+          fs.appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `tracking_changed=${changed.has(tracking)}\n`
+          )
+          NODE
+
+      - name: Sync build deps from tracking manifest
+        if: steps.changes.outputs.tracking_changed == 'true' && steps.changes.outputs.build_deps_changed != 'true'
+        run: node scripts/sync-build-deps-tracking.mjs --reverse
+
+      - name: Sync tracking manifest from build-dependencies.json
+        if: steps.changes.outputs.tracking_changed != 'true' || steps.changes.outputs.build_deps_changed == 'true'
         run: node scripts/sync-build-deps-tracking.mjs
 
       - name: Ensure tracking manifest is clean
+        if: steps.changes.outputs.tracking_changed != 'true' || steps.changes.outputs.build_deps_changed == 'true'
         run: git diff --exit-code -- .github/build-deps/package.json
