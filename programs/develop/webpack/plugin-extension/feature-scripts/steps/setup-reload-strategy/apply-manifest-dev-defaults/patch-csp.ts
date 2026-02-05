@@ -9,6 +9,20 @@
 import parse from 'content-security-policy-parser'
 import {type Manifest} from '../../../../../webpack-types'
 
+function resolveV2Policy(policy: Manifest['content_security_policy']) {
+  if (!policy) return undefined
+
+  if (typeof policy === 'string') return policy
+
+  if (typeof policy === 'object') {
+    const extensionPages = (policy as {extension_pages?: unknown})
+      .extension_pages
+    if (typeof extensionPages === 'string') return extensionPages
+  }
+
+  return undefined
+}
+
 function buildCSP(cspObject: Record<string, string[]>) {
   const directives = Object.entries(cspObject).map(
     ([directive, values]) => `${directive} ${values.join(' ')}`
@@ -18,7 +32,9 @@ function buildCSP(cspObject: Record<string, string[]>) {
 
 // Function for Manifest V2 CSP patching
 export function patchV2CSP(manifest: Manifest) {
-  let policy: string | undefined = manifest.content_security_policy
+  let policy: string | undefined = resolveV2Policy(
+    manifest.content_security_policy
+  )
 
   if (!policy) {
     // Default V2 policy if none is provided
