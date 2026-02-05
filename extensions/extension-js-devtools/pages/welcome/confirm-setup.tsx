@@ -11,9 +11,20 @@ import {
 } from '@/components/ui/dialog'
 import {Button} from '@/components/ui/button'
 import localNetworkPermission from '@/images/local-network-permission.png'
-import {ChromiumSwitch} from '../../src/components/chromium-switch'
+import developerModeOff from '@/images/developer-mode-off.jpeg'
+import developerModeOn from '@/images/developer-mode-on.jpeg'
 
 export function ConfirmSetupDialog() {
+  const [isDeveloperModeOn, setIsDeveloperModeOn] = React.useState(false)
+
+  React.useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setIsDeveloperModeOn((value) => !value)
+    }, 2400)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -56,8 +67,25 @@ export function ConfirmSetupDialog() {
               </div>
             </div>
             <div className="w-full space-y-2">
-              <div className="pointer-events-none flex items-center justify-between gap-4 rounded-lg border bg-[#1f1f1f] p-4 sm:p-6">
-                <ChromiumSwitch className="max-w-[520px] flex-1" />
+              <div className="relative w-full max-w-[520px] overflow-hidden rounded-lg border border-white/10">
+                <img
+                  alt="Developer mode turned off"
+                  src={developerModeOff}
+                  className={`h-auto w-full transition duration-600 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    isDeveloperModeOn
+                      ? 'opacity-0'
+                      : 'opacity-100'
+                  }`}
+                />
+                <img
+                  alt="Developer mode turned on"
+                  src={developerModeOn}
+                  className={`pointer-events-none absolute inset-0 h-auto w-full transition duration-600 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    isDeveloperModeOn
+                      ? 'opacity-100'
+                      : 'opacity-0'
+                  }`}
+                />
               </div>
               <p className="text-muted-foreground text-xs">
                 Developer mode off/on (animated).

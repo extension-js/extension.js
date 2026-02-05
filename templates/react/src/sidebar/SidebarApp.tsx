@@ -1,15 +1,13 @@
 import './styles.css'
 import iconUrl from '../images/icon.png'
 
-const reactLogo = iconUrl
-
 export default function SidebarApp() {
   return (
     <div className="sidebar_app">
       <header>
         <img
           className="sidebar_logo"
-          src={reactLogo}
+          src={iconUrl}
           alt="The React logo"
           width="120"
         />
