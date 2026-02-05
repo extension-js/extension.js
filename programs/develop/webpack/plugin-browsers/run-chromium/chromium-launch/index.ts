@@ -66,9 +66,11 @@ async function maybePrintDevBanner(args: {
   browser: ChromiumLaunchOptions['browser']
   hostPort: {host: string; port: number}
   browserVersionLine?: string
+  enableCdp: boolean
 }) {
   const mode = (args.compilation?.options?.mode || 'development') as string
   if (mode !== 'development') return
+  if (args.enableCdp) return
   const loadExtensionFlag = args.chromiumConfig.find((flag: string) =>
     flag.startsWith('--load-extension=')
   )
@@ -629,11 +631,13 @@ export class ChromiumLaunchPlugin {
       cdpPort: selectedPort
     })
 
+    const enableCdp = opts?.enableCdpPostLaunch === false ? false : true
     await maybePrintDevBanner({
       compilation,
       chromiumConfig,
       browser: this.options.browser,
-      hostPort: {host: '127.0.0.1', port: selectedPort}
+      hostPort: {host: '127.0.0.1', port: selectedPort},
+      enableCdp
     })
 
     if (this.options.dryRun) {
@@ -715,7 +719,6 @@ export class ChromiumLaunchPlugin {
 
       // Optional CDP wiring (dev + inspection). Run-only preview disables this
       // to avoid pulling in WS/CDP dependencies.
-      const enableCdp = opts?.enableCdpPostLaunch === false ? false : true
       if (enableCdp) {
         const mod = await import('./setup-cdp-after-launch')
         await mod.setupCdpAfterLaunch(compilation, cdpConfig, chromiumConfig)
