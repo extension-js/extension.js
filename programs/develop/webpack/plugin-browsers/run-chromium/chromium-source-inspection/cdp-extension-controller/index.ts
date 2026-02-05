@@ -121,7 +121,7 @@ export class CDPExtensionController {
 
       // 3) If still unknown, derive again from targets with a short wait
       if (!this.extensionId) {
-        this.extensionId = await this.deriveExtensionIdFromTargets(60, 250)
+        this.extensionId = await this.deriveExtensionIdFromTargets(10, 150)
       }
 
       if (!this.extensionId) {
@@ -307,7 +307,7 @@ export class CDPExtensionController {
     try {
       if (!this.cdp) return null
       if (!this.extensionId) {
-        this.extensionId = await this.deriveExtensionIdFromTargets(20, 200)
+        this.extensionId = await this.deriveExtensionIdFromTargets(6, 150)
       }
 
       if (!this.extensionId) return null
