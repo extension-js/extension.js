@@ -414,20 +414,12 @@ export async function installInternalDependencies(projectPath: string) {
   if (!developRoot) return
 
   const buildPlan = resolveMissingBuildDeps(developRoot)
-  if (buildPlan.dependencies.length === 0) {
-    console.log(messages.installingBuildDependencies(buildPlan.dependencies))
-  } else {
+  if (buildPlan.dependencies.length > 0) {
     await installBuildDependencies(developRoot, buildPlan)
   }
 
   const optionalPlan = resolveMissingOptionalDeps(developRoot, projectPath)
-  if (optionalPlan.dependencies.length === 0) {
-    if (optionalPlan.integrations.length > 0) {
-      console.log(
-        messages.installingProjectIntegrations(optionalPlan.integrations)
-      )
-    }
-  } else {
+  if (optionalPlan.dependencies.length > 0) {
     await installOptionalDependencies(developRoot, projectPath, optionalPlan)
   }
 }
