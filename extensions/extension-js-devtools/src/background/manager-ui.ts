@@ -68,11 +68,24 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js Authors
           url === 'about:blank'
         : url.startsWith(`${scheme}://newtab`) ||
           url.startsWith(`${scheme}://welcome`)
+
+      if (isFirefox) {
+        // Always attempt first-run handling on Firefox.
+        // Firefox does not always start on an initial page,
+        // so we ensure the welcome page is still available.
+        await handleFirstRun()
+        if (!isInitialPage) {
+          createExtensionsPageTab(initialTab, extensionsPage)
+        }
+        return
+      }
+
       if (isInitialPage) {
         await handleFirstRun()
-      } else {
-        createExtensionsPageTab(initialTab, extensionsPage)
+        return
       }
+
+      createExtensionsPageTab(initialTab, extensionsPage)
     })
   } catch {}
 }

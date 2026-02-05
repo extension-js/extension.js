@@ -18,5 +18,20 @@
       "ntp_text": [255, 255, 255],
       "button_background": [28, 28, 30]
     }
+  },
+  "firefox:theme": {
+    "firefox:colors": {
+      "frame": [18, 18, 20],
+      "frame_inactive": [15, 15, 17],
+      "toolbar": [30, 30, 32],
+      "tab_background_text": [185, 185, 191],
+      "tab_text": [255, 255, 255],
+      "tab_background_text_inactive": [168, 168, 174],
+      "tab_text_inactive": [255, 255, 255],
+      "bookmark_text": [153, 153, 159],
+      "ntp_background": [28, 28, 30],
+      "ntp_text": [255, 255, 255],
+      "button_background": [28, 28, 30]
+    }
   }
 }
