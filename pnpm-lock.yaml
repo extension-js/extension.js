@@ -487,7 +487,7 @@ importers:
         version: 16.0.6(@rspack/core@1.7.5(@swc/helpers@0.5.18))(sass@1.97.2)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       svelte-loader:
         specifier: 3.2.4
-        version: 3.2.4(svelte@5.49.1)
+        version: 3.2.4(svelte@5.49.2)
       tsup:
         specifier: ^8.5.1
         version: 8.5.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(jiti@2.6.1)(postcss@8.5.6)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.2)
@@ -543,8 +543,8 @@ importers:
   templates/svelte:
     dependencies:
       svelte:
-        specifier: ^5.15.0
-        version: 5.49.1
+        specifier: ^5.49.2
+        version: 5.49.2
     devDependencies:
       '@tsconfig/svelte':
         specifier: 5.0.4
@@ -5129,8 +5129,8 @@ packages:
     peerDependencies:
       svelte: ^3.0.0 || ^4.0.0-next.0 || ^5.0.0-next.1
 
-  svelte@5.49.1:
-    resolution: {integrity: sha512-jj95WnbKbXsXXngYj28a4zx8jeZx50CN/J4r0CEeax2pbfdsETv/J1K8V9Hbu3DCXnpHz5qAikICuxEooi7eNQ==}
+  svelte@5.49.2:
+    resolution: {integrity: sha512-PYLwnngYzyhKzqDlGVlCH4z+NVI8mC0/bTv15vw25CcdOhxENsOHIbQ36oj5DIf3oBazM+STbCAvaskpxtBmWA==}
     engines: {node: '>=18'}
 
   symbol-tree@3.2.4:
@@ -10298,18 +10298,18 @@ snapshots:
 
   svelte-dev-helper@1.1.9: {}
 
-  svelte-hmr@0.14.12(svelte@5.49.1):
+  svelte-hmr@0.14.12(svelte@5.49.2):
     dependencies:
-      svelte: 5.49.1
+      svelte: 5.49.2
 
-  svelte-loader@3.2.4(svelte@5.49.1):
+  svelte-loader@3.2.4(svelte@5.49.2):
     dependencies:
       loader-utils: 2.0.4
-      svelte: 5.49.1
+      svelte: 5.49.2
       svelte-dev-helper: 1.1.9
-      svelte-hmr: 0.14.12(svelte@5.49.1)
+      svelte-hmr: 0.14.12(svelte@5.49.2)
 
-  svelte@5.49.1:
+  svelte@5.49.2:
     dependencies:
       '@jridgewell/remapping': 2.3.5
       '@jridgewell/sourcemap-codec': 1.5.5
