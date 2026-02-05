@@ -9,6 +9,7 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+import {execSync} from 'node:child_process'
 import {fileURLToPath} from 'url'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -24,7 +25,9 @@ const trackingPkgPath = path.join(
   '.github/build-deps/package.json'
 )
 
-const isReverse = process.argv.includes('--reverse')
+const args = new Set(process.argv.slice(2))
+const isReverseArg = args.has('--reverse')
+const isAuto = args.has('--auto')
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf-8'))
@@ -77,6 +80,50 @@ function sortObjectKeys(obj) {
     }, {})
 }
 
+function detectChangedFiles(baseSha, headSha) {
+  if (!baseSha || !headSha) return new Set()
+
+    try {
+    const output = execSync(`git diff --name-only ${baseSha} ${headSha}`, {
+      cwd: repoRoot,
+      encoding: 'utf-8'
+    })
+    const files = output
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+    return new Set(files)
+  } catch (error) {
+    console.warn(
+      'Warning: unable to detect changed files via git diff. Falling back to forward sync.'
+    )
+
+    return new Set()
+  }
+}
+
+function resolveSyncDirection() {
+  if (isReverseArg) return 'reverse'
+  if (!isAuto) return 'forward'
+
+  // Auto mode: if only the tracking manifest changed, prefer reverse sync.
+  const baseSha = process.env.SYNC_BASE
+  const headSha = process.env.SYNC_HEAD
+  const changed = detectChangedFiles(baseSha, headSha)
+
+  const buildDepsRel = path.relative(repoRoot, buildDepsPath)
+  const trackingRel = path.relative(repoRoot, trackingPkgPath)
+
+  const trackingChanged = changed.has(trackingRel)
+  const buildDepsChanged = changed.has(buildDepsRel)
+
+  if (trackingChanged && !buildDepsChanged) {
+    return 'reverse'
+  }
+
+  return 'forward'
+}
+
 if (!fs.existsSync(buildDepsPath)) {
   console.error(`Missing build deps file: ${buildDepsPath}`)
   process.exit(1)
@@ -85,6 +132,13 @@ if (!fs.existsSync(buildDepsPath)) {
 if (!fs.existsSync(trackingPkgPath)) {
   console.error(`Missing tracking package.json: ${trackingPkgPath}`)
   process.exit(1)
+}
+
+const syncDirection = resolveSyncDirection()
+const isReverse = syncDirection === 'reverse'
+
+if (isAuto) {
+  console.log(`Auto sync direction: ${syncDirection}`)
 }
 
 if (!isReverse) {
