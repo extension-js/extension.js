@@ -21,6 +21,7 @@ const isChromiumBased =
   browser === 'chrome' ||
   browser === 'edge' ||
   browser === 'chromium-based'
+const isFirefox = browser === 'firefox'
 
 function AppFooter({className, ...props}: AppFooterProps) {
   return (
@@ -140,6 +141,11 @@ const Welcome: React.FC = () => {
           ?.url
       : undefined
 
+  // Firefox blocks cross-extension moz-extension URLs in pages, so resolve
+  // the icon to a data URL before rendering it.
+  const needsResolvedIcon =
+    isFirefox && Boolean(userIconUrl) && !userIconUrl?.startsWith('data:')
+
   useEffect(() => {
     let isActive = true
 
@@ -150,33 +156,78 @@ const Welcome: React.FC = () => {
       }
     }
 
-    if (browser !== 'firefox' || userIconUrl.startsWith('data:')) {
+    if (!needsResolvedIcon) {
       setResolvedIconUrl(userIconUrl)
       return () => {
         isActive = false
       }
     }
 
-    try {
-      chrome.runtime.sendMessage(
-        {type: 'resolve-icon-url', url: userIconUrl},
-        (response) => {
-          if (!isActive) return
-          if (response?.ok && typeof response.dataUrl === 'string') {
-            setResolvedIconUrl(response.dataUrl)
-          } else {
-            setResolvedIconUrl(userIconUrl)
+    setResolvedIconUrl(undefined)
+
+    const iconSize =
+      extension?.icons && extension.icons.length
+        ? Math.max(...extension.icons.map((icon) => icon.size || 0))
+        : 128
+
+    type ManagementGetIcon = (
+      id: string,
+      size: number,
+      callback: (dataUrl?: string) => void
+    ) => void
+
+    const tryManagementIcon = () =>
+      new Promise<string | undefined>((resolve) => {
+        try {
+          const getIcon = (
+            chrome.management as typeof chrome.management & {
+              getIcon?: ManagementGetIcon
+            }
+          ).getIcon
+
+          if (!extension?.id || !getIcon) {
+            resolve(undefined)
+            return
           }
+
+          getIcon(extension.id, iconSize, (dataUrl) => {
+            resolve(
+              typeof dataUrl === 'string' && dataUrl ? dataUrl : undefined
+            )
+          })
+        } catch {
+          resolve(undefined)
         }
-      )
-    } catch {
-      setResolvedIconUrl(userIconUrl)
-    }
+      })
+
+    tryManagementIcon().then((dataUrl) => {
+      if (!isActive) return
+      if (dataUrl) {
+        setResolvedIconUrl(dataUrl)
+        return
+      }
+
+      try {
+        chrome.runtime.sendMessage(
+          {type: 'resolve-icon-url', url: userIconUrl},
+          (response) => {
+            if (!isActive) return
+            if (response?.ok && typeof response.dataUrl === 'string') {
+              setResolvedIconUrl(response.dataUrl)
+            } else {
+              setResolvedIconUrl(undefined)
+            }
+          }
+        )
+      } catch {
+        setResolvedIconUrl(undefined)
+      }
+    })
 
     return () => {
       isActive = false
     }
-  }, [userIconUrl])
+  }, [userIconUrl, needsResolvedIcon, extension?.id])
 
   return (
     <div className="relative flex h-screen flex-col items-center justify-center bg-[#1C1C1E]">
@@ -201,11 +252,16 @@ const Welcome: React.FC = () => {
       `}</style>
       <header className="mb-4 flex w-full items-center justify-center">
         <div className="flex w-full max-w-16 items-center justify-center">
-          {userIconUrl ? (
+          {(needsResolvedIcon && (resolvedIconUrl || logo)) ||
+          (!needsResolvedIcon && (resolvedIconUrl || userIconUrl)) ? (
             <img
               className="h-auto w-full select-none"
               alt={`${extension?.name || 'User extension'} icon`}
-              src={resolvedIconUrl || userIconUrl}
+              src={
+                needsResolvedIcon
+                  ? resolvedIconUrl || logo
+                  : resolvedIconUrl || userIconUrl
+              }
               onError={(e) => {
                 ;(e.currentTarget as HTMLImageElement).style.display = 'none'
               }}
