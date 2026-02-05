@@ -81,8 +81,6 @@ importers:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@25.2.0)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.30.2)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  extensions/content-main-world: {}
-
   extensions/extension-js-devtools:
     dependencies:
       '@radix-ui/react-avatar':
@@ -200,58 +198,6 @@ importers:
 
   extensions/extension-js-theme: {}
 
-  extensions/sidebar-react-ffmepg:
-    dependencies:
-      '@ffmpeg/core':
-        specifier: '*'
-        version: 0.12.10
-      '@ffmpeg/core-mt':
-        specifier: '*'
-        version: 0.12.10
-      '@ffmpeg/ffmpeg':
-        specifier: '*'
-        version: 0.12.15
-      '@ffmpeg/util':
-        specifier: '*'
-        version: 0.12.2
-      react:
-        specifier: ^18.3.1
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
-    devDependencies:
-      '@types/react':
-        specifier: ^18.2.64
-        version: 18.3.28
-      '@types/react-dom':
-        specifier: ^18.2.21
-        version: 18.3.7(@types/react@18.3.28)
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
-
-  extensions/special-folders-scripts: {}
-
-  extensions/wasm:
-    dependencies:
-      '@ffmpeg/core':
-        specifier: '*'
-        version: 0.12.10
-      '@ffmpeg/core-mt':
-        specifier: '*'
-        version: 0.12.10
-      '@ffmpeg/ffmpeg':
-        specifier: '*'
-        version: 0.12.15
-      '@ffmpeg/util':
-        specifier: '*'
-        version: 0.12.2
-    devDependencies:
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
-
   programs/cli:
     dependencies:
       '@types/chrome':
@@ -283,8 +229,8 @@ importers:
         version: 1.5.4
     devDependencies:
       '@rslib/core':
-        specifier: ^0.19.4
-        version: 0.19.4(typescript@5.9.3)
+        specifier: ^0.19.5
+        version: 0.19.5(typescript@5.9.3)
       '@types/mock-fs':
         specifier: ^4.13.4
         version: 4.13.4
@@ -341,8 +287,8 @@ importers:
         specifier: ^9.39.2
         version: 9.39.2
       '@rslib/core':
-        specifier: ^0.19.4
-        version: 0.19.4(typescript@5.9.3)
+        specifier: ^0.19.5
+        version: 0.19.5(typescript@5.9.3)
       '@types/adm-zip':
         specifier: ^0.5.7
         version: 0.5.7
@@ -480,8 +426,8 @@ importers:
         specifier: 4.0.6
         version: 4.0.6(@prefresh/babel-plugin@0.5.2)(preact@10.28.3)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       '@rslib/core':
-        specifier: ^0.19.4
-        version: 0.19.4(typescript@5.9.3)
+        specifier: ^0.19.5
+        version: 0.19.5(typescript@5.9.3)
       '@rspack/plugin-preact-refresh':
         specifier: 1.1.4
         version: 1.1.4(@prefresh/core@1.5.9(preact@10.28.3))(@prefresh/utils@1.2.1)
@@ -1294,26 +1240,6 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
-  '@ffmpeg/core-mt@0.12.10':
-    resolution: {integrity: sha512-atyRTOpa58bLCIgd6GXBZAXWyWD3AUoQyzxqjvGhp9MuSzdILtOTI62ffLswBsCnLq15lQ8IETHUpm1oe4V9FQ==}
-    engines: {node: '>=16.x'}
-
-  '@ffmpeg/core@0.12.10':
-    resolution: {integrity: sha512-dzNplnn2Nxle2c2i2rrDhqcB19q9cglCkWnoMTDN9Q9l3PvdjZWd1HfSPjCNWc/p8Q3CT+Es9fWOR0UhAeYQZA==}
-    engines: {node: '>=16.x'}
-
-  '@ffmpeg/ffmpeg@0.12.15':
-    resolution: {integrity: sha512-1C8Obr4GsN3xw+/1Ww6PFM84wSQAGsdoTuTWPOj2OizsRDLT4CXTaVjPhkw6ARyDus1B9X/L2LiXHqYYsGnRFw==}
-    engines: {node: '>=18.x'}
-
-  '@ffmpeg/types@0.12.4':
-    resolution: {integrity: sha512-k9vJQNBGTxE5AhYDtOYR5rO5fKsspbg51gbcwtbkw2lCdoIILzklulcjJfIDwrtn7XhDeF2M+THwJ2FGrLeV6A==}
-    engines: {node: '>=16.x'}
-
-  '@ffmpeg/util@0.12.2':
-    resolution: {integrity: sha512-ouyoW+4JB7WxjeZ2y6KpRvB+dLp7Cp4ro8z0HIVpZVCM7AwFlHa0c4R8Y/a4M3wMqATpYKhC7lSFHQ0T11MEDw==}
-    engines: {node: '>=18.x'}
 
   '@floating-ui/core@1.7.3':
     resolution: {integrity: sha512-sGnvb5dmrJaKEZ+LDIpguvdX3bDlEllmv4/ClQ9awcmCZrlx5jQyyMWFM5kBI+EyNOCDDiKk8il0zeuX3Zlg/w==}
@@ -2212,13 +2138,13 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@rsbuild/core@1.7.2':
-    resolution: {integrity: sha512-VAFO6cM+cyg2ntxNW6g3tB2Jc5J5mpLjLluvm7VtW2uceNzyUlVv41o66Yp1t1ikxd3ljtqegViXem62JqzveA==}
+  '@rsbuild/core@1.7.3':
+    resolution: {integrity: sha512-kI1oQvCXbQYxUvQPnDLdjSX4gFsbrFNpuUj6jXEJ7IcJ74Q+n4oeFj74/8tKerhxhe0L90m/ZQfzLeN5ORGA9w==}
     engines: {node: '>=18.12.0'}
     hasBin: true
 
-  '@rslib/core@0.19.4':
-    resolution: {integrity: sha512-qFJKXxFGf582uNWyD+2cxKVoorsDepWn7M0VXZX8BLzaEXVBzQmQ0i9UojWicmJr3ui9nkI7WRh66FQzoyWREg==}
+  '@rslib/core@0.19.5':
+    resolution: {integrity: sha512-ptpO0ZQcWTIjHq4QT9K5YTnlI792EOUlUMwXhbhEoDmiKN5q7FhQSRrCGmoWBe0Mv9s+r3bmZ7YzjmcB6Oxbuw==}
     engines: {node: '>=18.12.0'}
     hasBin: true
     peerDependencies:
@@ -4884,8 +4810,8 @@ packages:
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
     hasBin: true
 
-  rsbuild-plugin-dts@0.19.4:
-    resolution: {integrity: sha512-IDJsg3m9ZT/Jm5RU2e8Hits8b3vI2OWdCKxkly5uDB2owXGWAaswEy3H6uTR9GhnJlQGzvfOTxwy3JQeltiLqQ==}
+  rsbuild-plugin-dts@0.19.5:
+    resolution: {integrity: sha512-gyW8F88ZyjcmwpJZp2q9MOiCQ5wR4GUIKIOR9guUeJrngx4FUOKt0FI6+/bCXxm1LvsRshgGl6Kc/ZV2syxErw==}
     engines: {node: '>=18.12.0'}
     peerDependencies:
       '@microsoft/api-extractor': ^7
@@ -4969,6 +4895,11 @@ packages:
 
   semver@7.7.3:
     resolution: {integrity: sha512-SdsKMrI9TdgjdweUSR9MweHA4EJ8YxHn8DFaDisvhVlUOe4BF1tLD7GAj0lIqWVl+dPb/rExr0Btby5loQm20Q==}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  semver@7.7.4:
+    resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -6313,18 +6244,6 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
-  '@ffmpeg/core-mt@0.12.10': {}
-
-  '@ffmpeg/core@0.12.10': {}
-
-  '@ffmpeg/ffmpeg@0.12.15':
-    dependencies:
-      '@ffmpeg/types': 0.12.4
-
-  '@ffmpeg/types@0.12.4': {}
-
-  '@ffmpeg/util@0.12.2': {}
-
   '@floating-ui/core@1.7.3':
     dependencies:
       '@floating-ui/utils': 0.2.10
@@ -7178,7 +7097,7 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.55.1':
     optional: true
 
-  '@rsbuild/core@1.7.2':
+  '@rsbuild/core@1.7.3':
     dependencies:
       '@rspack/core': 1.7.5(@swc/helpers@0.5.18)
       '@rspack/lite-tapable': 1.1.0
@@ -7186,10 +7105,10 @@ snapshots:
       core-js: 3.47.0
       jiti: 2.6.1
 
-  '@rslib/core@0.19.4(typescript@5.9.3)':
+  '@rslib/core@0.19.5(typescript@5.9.3)':
     dependencies:
-      '@rsbuild/core': 1.7.2
-      rsbuild-plugin-dts: 0.19.4(@rsbuild/core@1.7.2)(typescript@5.9.3)
+      '@rsbuild/core': 1.7.3
+      rsbuild-plugin-dts: 0.19.5(@rsbuild/core@1.7.3)(typescript@5.9.3)
     optionalDependencies:
       typescript: 5.9.3
     transitivePeerDependencies:
@@ -7737,7 +7656,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.54.0
       debug: 4.4.3
       minimatch: 9.0.5
-      semver: 7.7.3
+      semver: 7.7.4
       tinyglobby: 0.2.15
       ts-api-utils: 2.4.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -9947,10 +9866,10 @@ snapshots:
       '@rollup/rollup-win32-x64-msvc': 4.55.1
       fsevents: 2.3.3
 
-  rsbuild-plugin-dts@0.19.4(@rsbuild/core@1.7.2)(typescript@5.9.3):
+  rsbuild-plugin-dts@0.19.5(@rsbuild/core@1.7.3)(typescript@5.9.3):
     dependencies:
       '@ast-grep/napi': 0.37.0
-      '@rsbuild/core': 1.7.2
+      '@rsbuild/core': 1.7.3
     optionalDependencies:
       typescript: 5.9.3
 
@@ -10009,6 +9928,8 @@ snapshots:
     optional: true
 
   semver@7.7.3: {}
+
+  semver@7.7.4: {}
 
   send@0.19.2:
     dependencies:

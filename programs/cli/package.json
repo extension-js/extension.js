@@ -98,7 +98,7 @@
     "update-check": "^1.5.4"
   },
   "devDependencies": {
-    "@rslib/core": "^0.19.4",
+    "@rslib/core": "^0.19.5",
     "@types/react": "^19.2.8",
     "@types/react-dom": "^19.2.3",
     "@types/mock-fs": "^4.13.4",
