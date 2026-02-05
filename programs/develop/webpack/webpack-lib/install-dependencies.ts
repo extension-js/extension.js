@@ -24,10 +24,32 @@ function getInstallArgs() {
   return ['install' /*, '--silent' */]
 }
 
+async function hasDependenciesToInstall(projectPath: string) {
+  try {
+    const raw = await fs.promises.readFile(
+      path.join(projectPath, 'package.json'),
+      'utf8'
+    )
+    const packageJson = JSON.parse(raw)
+    const depsCount = Object.keys(packageJson?.dependencies || {}).length
+    const devDepsCount = Object.keys(packageJson?.devDependencies || {}).length
+
+    return depsCount + devDepsCount > 0
+  } catch (error) {
+    return true
+  }
+}
+
 export async function installDependencies(projectPath: string) {
   const nodeModulesPath = path.join(projectPath, 'node_modules')
 
   const originalDirectory = process.cwd()
+  const shouldInstall = await hasDependenciesToInstall(projectPath)
+
+  if (!shouldInstall) {
+    return
+  }
+
   const progressLabel = messages.installingDependencies()
 
   try {

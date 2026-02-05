@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import {WebResourcesPlugin} from '..'
+import {resolveUserDeclaredWAR} from '../web-resources-lib/resolve-war'
 
 type Manifest =
   | Partial<chrome.runtime.ManifestV2>
@@ -72,7 +73,7 @@ describe('generateManifestPatches', () => {
         emitAsset: emitAssetMock,
         fileDependencies: new Set(),
         options: {mode: options?.mode || 'development'}
-      } as Compilation,
+      } as unknown as Compilation,
       entryImports
     )
 
@@ -148,7 +149,8 @@ describe('generateManifestPatches', () => {
       },
       {mode: 'production'}
     )
-    const res = updated.web_accessible_resources[0].resources[0] as string
+    const res = (updated as any).web_accessible_resources?.[0]
+      ?.resources?.[0] as string
     expect(res.startsWith('assets/readme.')).toBe(true)
     expect(res.endsWith('.md')).toBe(true)
   })
@@ -165,7 +167,8 @@ describe('generateManifestPatches', () => {
         web_accessible_resources: [{matches: ['<all_urls>'], resources: [rel]}]
       }
     )
-    const res = updated.web_accessible_resources[0].resources[0]
+    const res = (updated as any).web_accessible_resources?.[0]
+      ?.resources?.[0] as string
     expect(res).toBe('assets/icon.png')
   })
 
@@ -310,6 +313,41 @@ describe('generateManifestPatches', () => {
   })
 
   describe('user-declared web_accessible_resources resolution', () => {
+    it('ignores malformed mv3 entries without resources', () => {
+      const manifest: any = {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['<all_urls>']},
+          {matches: ['<all_urls>'], resources: ['assets/*.png']}
+        ]
+      }
+
+      const compilation: any = {
+        options: {
+          mode: 'development',
+          context: tmpRoot,
+          output: {path: tmpRoot}
+        },
+        outputOptions: {path: tmpRoot},
+        errors: [],
+        warnings: [],
+        assets: {},
+        getAsset: () => undefined,
+        emitAsset: vi.fn(),
+        fileDependencies: new Set<string>()
+      }
+
+      const resolved = resolveUserDeclaredWAR(
+        compilation as Compilation,
+        manifestPath,
+        manifest,
+        'firefox'
+      )
+
+      expect(resolved.v3.length).toBe(1)
+      expect(Array.from(resolved.v3[0].resources)).toEqual(['assets/*.png'])
+    })
+
     it('errors for invalid mv3 matches pattern (chrome only)', () => {
       const plugin = new WebResourcesPlugin({manifestPath})
       const manifest = {
@@ -330,7 +368,10 @@ describe('generateManifestPatches', () => {
         errors: [] as any[]
       }
 
-      plugin['generateManifestPatches'](compilation as Compilation, {})
+      plugin['generateManifestPatches'](
+        compilation as unknown as Compilation,
+        {}
+      )
 
       expect(compilation.errors.length).toBe(1)
       const err: any = compilation.errors[0]
@@ -478,7 +519,7 @@ describe('generateManifestPatches', () => {
           emitAsset: vi.fn(),
           fileDependencies: new Set(),
           options: {mode: 'development'}
-        } as Compilation,
+        } as unknown as Compilation,
         {}
       )
 
@@ -515,17 +556,21 @@ describe('generateManifestPatches', () => {
         // Public-root warnings are intentionally emitted in production only to
         // avoid noise in dev mode (dev server will surface runtime 404s).
         options: {mode: 'production'},
-        warnings: []
+        warnings: [] as any[]
       }
 
-      pluginLocal['generateManifestPatches'](compilation as Compilation, {})
+      pluginLocal['generateManifestPatches'](
+        compilation as unknown as Compilation,
+        {}
+      )
 
       expect(compilation.warnings.length).toBeGreaterThan(0)
       const msg = String(
-        (compilation.warnings[0] && compilation.warnings[0].message) || ''
+        (compilation.warnings[0] && (compilation.warnings[0] as any).message) ||
+          ''
       )
       expect(msg).toContain('NOT FOUND')
-      expect(compilation.warnings[0].file).toBe('manifest.json')
+      expect((compilation.warnings[0] as any).file).toBe('manifest.json')
     })
 
     it('emits a warning for missing relative file (mv3) and preserves string', () => {
