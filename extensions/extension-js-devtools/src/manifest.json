@@ -25,7 +25,7 @@
   "devtools_page": "devtools/index.html",
   "chromium:permissions": ["management", "tabs", "storage", "webNavigation"],
   "firefox:permissions": ["management", "tabs", "storage"],
-  "host_permissions": ["<all_urls>"],
+  "chromium:host_permissions": ["<all_urls>"],
   "background": {
     "chromium:service_worker": "background/index.ts",
     "firefox:scripts": ["background/index.ts"]
