@@ -146,34 +146,6 @@ export async function browserConfig(
 
   // Best-effort: clear crash/sessionstore artifacts for managed profiles.
   // This avoids "restore session" prompts after fast terminate/restart loops.
-  if (profilePath && isManagedProfile) {
-    try {
-      const artifacts = [
-        'sessionstore.jsonlz4',
-        'recovery.jsonlz4',
-        'recovery.baklz4',
-        'previous.jsonlz4'
-      ]
-      for (const file of artifacts) {
-        try {
-          fs.rmSync(path.join(profilePath, file), {force: true})
-        } catch {
-          // ignore
-        }
-      }
-      try {
-        fs.rmSync(path.join(profilePath, 'sessionstore-backups'), {
-          recursive: true,
-          force: true
-        })
-      } catch {
-        // ignore
-      }
-    } catch {
-      // ignore
-    }
-  }
-
   // Write Firefox profile preferences (user.js) to enable RDP and unsigned add-ons.
   if (profilePath) {
     try {
