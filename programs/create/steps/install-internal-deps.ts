@@ -365,7 +365,7 @@ async function installOptionalDependencies(
   for (const [index, integration] of plan.integrations.entries()) {
     const missingDeps = plan.dependenciesByIntegration[integration] || []
 
-    const [baseMessage] = messages.installingProjectIntegrations([integration])
+    const baseMessage = messages.installingProjectIntegrations([integration])
     const installMessage = baseMessage.replace(
       '►►► ',
       `►►► [${index + 1}/${plan.integrations.length}] `
@@ -423,9 +423,9 @@ export async function installInternalDependencies(projectPath: string) {
   const optionalPlan = resolveMissingOptionalDeps(developRoot, projectPath)
   if (optionalPlan.dependencies.length === 0) {
     if (optionalPlan.integrations.length > 0) {
-      messages
-        .installingProjectIntegrations(optionalPlan.integrations)
-        .forEach((message) => console.log(message))
+      console.log(
+        messages.installingProjectIntegrations(optionalPlan.integrations)
+      )
     }
   } else {
     await installOptionalDependencies(developRoot, projectPath, optionalPlan)
