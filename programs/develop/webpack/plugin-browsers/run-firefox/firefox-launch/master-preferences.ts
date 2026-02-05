@@ -40,6 +40,13 @@ const masterPreferences = {
   // Disable session restore, which can interfere
   // with extension development by restoring previous state
   'browser.sessionstore.enabled': false,
+  // Suppress crash restore prompts after forced shutdowns
+  'browser.sessionstore.resume_from_crash': false,
+  'browser.sessionstore.max_resumed_crashes': 0,
+  'browser.sessionstore.restore_on_demand': false,
+  'browser.sessionstore.resume_session_once': false,
+  // Avoid automatic safe-mode prompts after startup crashes
+  'toolkit.startup.max_resumed_crashes': -1,
   // Disable checking if Firefox is the default browser on startup
   'browser.shell.checkDefaultBrowser': false,
   // Disable all syncing services
