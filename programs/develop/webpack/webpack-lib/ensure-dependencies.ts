@@ -46,7 +46,9 @@ export async function ensureDependencies(
     return {installed: false, installedBuild: false, installedUser: false}
   }
 
-  console.log(messages.installingRequiredDependencies())
+  if (needsBuildInstall) {
+    console.log(messages.installingRequiredDependencies())
+  }
 
   if (needsBuildInstall && packageRoot) {
     await installOwnDependencies(missingBuild, packageRoot)
