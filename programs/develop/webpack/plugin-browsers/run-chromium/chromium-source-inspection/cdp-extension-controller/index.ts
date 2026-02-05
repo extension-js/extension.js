@@ -25,6 +25,8 @@ export class CDPExtensionController {
   private readonly outPath: string
   private readonly browser: 'chrome' | 'edge' | 'chromium-based'
   private readonly cdpPort: number
+  private readonly profilePath?: string
+  private readonly extensionPaths?: string[]
   private cdp: CDPClient | null = null
   private extensionId: string | null = null
 
@@ -32,10 +34,14 @@ export class CDPExtensionController {
     outPath: string
     browser: 'chrome' | 'edge' | 'chromium-based'
     cdpPort: number
+    profilePath?: string
+    extensionPaths?: string[]
   }) {
     this.outPath = args.outPath
     this.browser = args.browser
     this.cdpPort = args.cdpPort
+    this.profilePath = args.profilePath
+    this.extensionPaths = args.extensionPaths
   }
 
   async connect(): Promise<void> {
@@ -173,7 +179,9 @@ export class CDPExtensionController {
       this.cdp,
       this.outPath,
       maxRetries,
-      backoffMs
+      backoffMs,
+      this.profilePath,
+      this.extensionPaths
     )
   }
 
