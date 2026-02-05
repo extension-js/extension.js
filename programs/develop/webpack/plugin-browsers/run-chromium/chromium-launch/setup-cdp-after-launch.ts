@@ -30,6 +30,21 @@ export async function setupCdpAfterLaunch(
     compilation,
     loadExtensionFlag
   )
+  const extensionPaths = loadExtensionFlag
+    ? loadExtensionFlag
+        .replace('--load-extension=', '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : []
+  const userExtensionPaths = extensionPaths.filter(
+    (p) =>
+      !/[\\\/]extension-js-devtools[\\\/]/.test(p) &&
+      !/[\\\/]extension-js-theme[\\\/]/.test(p)
+  )
+  const preferredExtensionPaths = userExtensionPaths.length
+    ? userExtensionPaths
+    : extensionPaths
 
   // Try to find the --remote-debugging-port flag (for CDP port)
   const remoteDebugPortFlag = chromiumArgs.find((flag: string) =>
@@ -44,18 +59,15 @@ export async function setupCdpAfterLaunch(
       )
 
   // Log the Chrome user data directory and debug port if in development
+  const userDataDirFlag = chromiumArgs.find((flag: string) =>
+    flag.startsWith('--user-data-dir=')
+  )
+  const userDataDir = userDataDirFlag
+    ? userDataDirFlag.replace('--user-data-dir=', '').replace(/^"|"$/g, '')
+    : ''
+
   if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-    const userDataDirFlag = chromiumArgs.find((flag: string) =>
-      flag.startsWith('--user-data-dir=')
-    )
-
-    if (userDataDirFlag) {
-      const userDataDir = userDataDirFlag
-        .replace('--user-data-dir=', '')
-        .replace(/^"|"$/g, '')
-
-      console.log(messages.devChromeProfilePath(userDataDir))
-    }
+    if (userDataDir) console.log(messages.devChromeProfilePath(userDataDir))
 
     console.log(
       messages.devChromiumDebugPort(
@@ -70,7 +82,11 @@ export async function setupCdpAfterLaunch(
     browser: (plugin.browser === 'chromium-based'
       ? 'chrome'
       : plugin.browser) as 'chrome' | 'edge' | 'chromium-based',
-    cdpPort: chromeRemoteDebugPort
+    cdpPort: chromeRemoteDebugPort,
+    profilePath: userDataDir || undefined,
+    extensionPaths: preferredExtensionPaths.length
+      ? preferredExtensionPaths
+      : undefined
   })
 
   // Utility function to retry an async operation a certain number of times
