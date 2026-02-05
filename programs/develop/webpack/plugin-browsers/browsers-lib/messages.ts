@@ -1025,7 +1025,7 @@ export function runningInDevelopment(
     }
   }
 
-  const {name = '', version = ''} = management as {
+  const {version = ''} = management as {
     name?: string
     version?: string
   }
@@ -1103,13 +1103,16 @@ export function runningInDevelopment(
 
   const updateNotice = updateSuffix ? ` ${updateSuffix}` : ''
 
+  const displayName = String(manifestName)
+  const displayVersion = String(version || manifest.version || '')
+
   lines.push(
     ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(
       `${extensionVersion}`
     )}${updateNotice}`,
     `    Browser        ${colors.gray(browserLabel)}`,
     `    Extension      ${colors.gray(
-      version ? `${name} ${version}` : name || manifestName
+      displayVersion ? `${displayName} ${displayVersion}` : displayName
     )}`
   )
 

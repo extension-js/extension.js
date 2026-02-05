@@ -72,18 +72,14 @@ export function ConfirmSetupDialog() {
                   alt="Developer mode turned off"
                   src={developerModeOff}
                   className={`h-auto w-full transition duration-600 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    isDeveloperModeOn
-                      ? 'opacity-0'
-                      : 'opacity-100'
+                    isDeveloperModeOn ? 'opacity-0' : 'opacity-100'
                   }`}
                 />
                 <img
                   alt="Developer mode turned on"
                   src={developerModeOn}
                   className={`pointer-events-none absolute inset-0 h-auto w-full transition duration-600 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                    isDeveloperModeOn
-                      ? 'opacity-100'
-                      : 'opacity-0'
+                    isDeveloperModeOn ? 'opacity-100' : 'opacity-0'
                   }`}
                 />
               </div>
