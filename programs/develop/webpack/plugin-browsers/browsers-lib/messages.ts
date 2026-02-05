@@ -1087,10 +1087,14 @@ export function runningInDevelopment(
     }
   }
 
-  const browserLabel =
+  let browserLabel =
     effectiveBrowserLine && effectiveBrowserLine.trim().length > 0
       ? effectiveBrowserLine.trim()
       : capitalize(String(browser || 'unknown'))
+
+  if (browserLabel && !/[a-zA-Z]/.test(browserLabel)) {
+    browserLabel = `${capitalize(String(browser || 'unknown'))} ${browserLabel}`
+  }
 
   const cleanId = String(id || '').trim()
 

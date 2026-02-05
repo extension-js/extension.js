@@ -31,6 +31,7 @@ body {
 }
 
 .sidebar_logo {
+  display: block;
   width: 72px;
   margin: 0 auto 1rem;
 }
