@@ -36,11 +36,24 @@ export async function printRunningInDevelopmentSummary(
     let chosenPath: string | null = null
 
     for (const p of candidateAddonPaths) {
+      const isManager = /extensions\/[a-z-]+-manager/.test(String(p))
+      const isDevtools = /extension-js-devtools/.test(String(p))
+      const isThemePath = /extension-js-theme/.test(String(p))
+      if (isManager || isDevtools || isThemePath) continue
+
       const mp = path.join(p, 'manifest.json')
       if (fs.existsSync(mp)) {
         const mf = JSON.parse(fs.readFileSync(mp, 'utf-8'))
         const name = mf?.name || ''
-        if (typeof name === 'string' && !/Extension\.js DevTools/i.test(name)) {
+        const isThemeManifest =
+          mf?.theme != null || String(mf?.type || '') === 'theme'
+
+        if (
+          typeof name === 'string' &&
+          !/Extension\.js DevTools/i.test(name) &&
+          !/theme/i.test(name) &&
+          !isThemeManifest
+        ) {
           chosenPath = p
           break
         }

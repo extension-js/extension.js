@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json.schemastore.org/chrome-manifest.json",
+  "version": "1.0.0",
+  "name": "Extension.js - Transformers.js Sidebar Example",
+  "description": "Sidebar example that runs a small Transformers.js demo inside a side panel.",
+  "chromium:manifest_version": 3,
+  "firefox:manifest_version": 2,
+  "author": "Your Name",
+  "icons": {
+    "16": "images/icon.png",
+    "32": "images/icon.png",
+    "48": "images/icon.png",
+    "64": "images/icon.png",
+    "128": "images/icon.png"
+  },
+  "chromium:action": {
+    "default_icon": {
+      "16": "images/icon.png",
+      "32": "images/icon.png",
+      "48": "images/icon.png",
+      "64": "images/icon.png",
+      "128": "images/icon.png"
+    },
+    "default_title": "Open Transformers.js Side Panel"
+  },
+  "firefox:browser_action": {
+    "default_icon": {
+      "16": "images/icon.png",
+      "32": "images/icon.png",
+      "48": "images/icon.png",
+      "64": "images/icon.png",
+      "128": "images/icon.png"
+    },
+    "default_title": "Open Transformers.js Side Panel"
+  },
+  "chromium:side_panel": {
+    "default_path": "sidebar/index.html",
+    "default_title": "Transformers.js Side Panel"
+  },
+  "firefox:sidebar_action": {
+    "default_panel": "sidebar/index.html",
+    "default_title": "Transformers.js Side Panel"
+  },
+  "chromium:permissions": ["sidePanel", "storage", "unlimitedStorage"],
+  "firefox:permissions": ["storage", "unlimitedStorage"],
+  "minimum_chrome_version": "92",
+  "background": {
+    "chromium:service_worker": "background.js",
+    "firefox:scripts": ["background.js"]
+  },
+  "chromium:content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'"
+  },
+  "firefox:content_security_policy": "script-src 'self'",
+  "web_accessible_resources": [
+    {
+      "resources": ["images/icon.png"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
