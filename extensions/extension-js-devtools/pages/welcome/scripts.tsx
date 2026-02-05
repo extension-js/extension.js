@@ -125,6 +125,9 @@ const Welcome: React.FC = () => {
   const [extension, setExtension] =
     useState<chrome.management.ExtensionInfo | null>(null)
   const [description, setDescription] = useState<string>('')
+  const [resolvedIconUrl, setResolvedIconUrl] = useState<string | undefined>(
+    undefined
+  )
 
   useEffect(() => {
     onStartup(setExtension, setDescription)
@@ -136,6 +139,44 @@ const Welcome: React.FC = () => {
       ? [...extension.icons].sort((a, b) => (b.size || 0) - (a.size || 0))[0]
           ?.url
       : undefined
+
+  useEffect(() => {
+    let isActive = true
+
+    if (!userIconUrl) {
+      setResolvedIconUrl(undefined)
+      return () => {
+        isActive = false
+      }
+    }
+
+    if (browser !== 'firefox' || userIconUrl.startsWith('data:')) {
+      setResolvedIconUrl(userIconUrl)
+      return () => {
+        isActive = false
+      }
+    }
+
+    try {
+      chrome.runtime.sendMessage(
+        {type: 'resolve-icon-url', url: userIconUrl},
+        (response) => {
+          if (!isActive) return
+          if (response?.ok && typeof response.dataUrl === 'string') {
+            setResolvedIconUrl(response.dataUrl)
+          } else {
+            setResolvedIconUrl(userIconUrl)
+          }
+        }
+      )
+    } catch {
+      setResolvedIconUrl(userIconUrl)
+    }
+
+    return () => {
+      isActive = false
+    }
+  }, [userIconUrl])
 
   return (
     <div className="relative flex h-screen flex-col items-center justify-center bg-[#1C1C1E]">
@@ -164,7 +205,7 @@ const Welcome: React.FC = () => {
             <img
               className="h-auto w-full select-none"
               alt={`${extension?.name || 'User extension'} icon`}
-              src={userIconUrl}
+              src={resolvedIconUrl || userIconUrl}
               onError={(e) => {
                 ;(e.currentTarget as HTMLImageElement).style.display = 'none'
               }}
