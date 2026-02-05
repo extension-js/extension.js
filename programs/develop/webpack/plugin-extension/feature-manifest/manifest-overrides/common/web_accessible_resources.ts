@@ -30,30 +30,44 @@ function normalizeOutputPath(originalPath: string) {
 }
 
 export function webAccessibleResources(manifest: Manifest) {
-  return (
-    manifest.web_accessible_resources &&
-    manifest.web_accessible_resources.length && {
-      // Support MV2 string[] and MV3 object[] formats
-      web_accessible_resources:
-        Array.isArray(manifest.web_accessible_resources) &&
-        typeof manifest.web_accessible_resources[0] === 'string'
-          ? (manifest.web_accessible_resources as string[]).map(
-              (resource: string) =>
-                getFilename(normalizeOutputPath(resource), resource)
-            )
-          : (
-              manifest.web_accessible_resources as Array<{
-                resources: string[]
-                matches?: string[]
-                extension_ids?: string[]
-                use_dynamic_url?: boolean
-              }>
-            ).map((entry) => ({
-              ...entry,
-              resources: entry.resources.map((res) =>
-                getFilename(normalizeOutputPath(res), res)
-              )
-            }))
+  if (
+    !manifest.web_accessible_resources ||
+    !manifest.web_accessible_resources.length
+  ) {
+    return undefined
+  }
+
+  // Support MV2 string[] and MV3 object[] formats
+  if (
+    Array.isArray(manifest.web_accessible_resources) &&
+    typeof manifest.web_accessible_resources[0] === 'string'
+  ) {
+    return {
+      web_accessible_resources: (
+        manifest.web_accessible_resources as string[]
+      ).map((resource: string) =>
+        getFilename(normalizeOutputPath(resource), resource)
+      )
     }
+  }
+
+  const v3 = (
+    manifest.web_accessible_resources as Array<{
+      resources?: string[]
+      matches?: string[]
+      extension_ids?: string[]
+      use_dynamic_url?: boolean
+    }>
   )
+    .filter((entry) => Array.isArray(entry.resources))
+    .map((entry) => ({
+      ...entry,
+      resources: (entry.resources || []).map((res) =>
+        getFilename(normalizeOutputPath(res), res)
+      )
+    }))
+
+  if (v3.length === 0) return undefined
+
+  return {web_accessible_resources: v3}
 }

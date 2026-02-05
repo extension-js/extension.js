@@ -296,6 +296,9 @@ export function resolveUserDeclaredWAR(
       validateMatchesOrReport(compilation, matches, browser)
 
       // @ts-expect-error - group is an object
+      if (!Array.isArray(group.resources)) return
+
+      // @ts-expect-error - group is an object
       group.resources.forEach((res) => handleOne(matches, res))
     })
   }
