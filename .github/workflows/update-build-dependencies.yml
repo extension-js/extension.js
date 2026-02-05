@@ -15,6 +15,9 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      SYNC_BASE: ${{ github.event.before }}
+      SYNC_HEAD: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,8 +26,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Sync tracking manifest from build-dependencies.json
-        run: node scripts/sync-build-deps-tracking.mjs
+      - name: Sync build deps tracking manifests
+        run: node scripts/sync-build-deps-tracking.mjs --auto
 
       - name: Commit changes (if any)
         run: |
@@ -34,6 +37,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/build-deps/package.json
+          git add .github/build-deps/package.json programs/develop/webpack/webpack-lib/build-dependencies.json
           git commit -m "chore: sync build deps tracking manifest"
           git push
