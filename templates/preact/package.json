@@ -11,7 +11,7 @@
     "url": "https://cezaraugusto.com"
   },
   "dependencies": {
-    "preact": "^10.28.3"
+    "preact": "^10.19.6"
   },
   "devDependencies": {
     "@types/react": "^18.2.64",
