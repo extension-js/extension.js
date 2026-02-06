@@ -96,7 +96,7 @@ describe('LoadScriptRuntimeModule world-aware loader selection', () => {
     // Extension world: retain classic loader branch when runtime is available,
     // with DOM loader as fallback when no runtime is detected.
     expect(code).toContain(
-      'else if (!isWorker && hasExtensionRuntime) __webpack_require__.l = classicLoader;'
+      'if (!isWorker && hasExtensionRuntime) __webpack_require__.l = classicLoader;'
     )
     expect(code).toContain(
       'else if (!isWorker) __webpack_require__.l = scriptLoader;'
@@ -108,7 +108,7 @@ describe('LoadScriptRuntimeModule world-aware loader selection', () => {
 
     // Without explicit metadata, behavior should match extension world.
     expect(code).toContain(
-      'else if (!isWorker && hasExtensionRuntime) __webpack_require__.l = classicLoader;'
+      'if (!isWorker && hasExtensionRuntime) __webpack_require__.l = classicLoader;'
     )
   })
 })

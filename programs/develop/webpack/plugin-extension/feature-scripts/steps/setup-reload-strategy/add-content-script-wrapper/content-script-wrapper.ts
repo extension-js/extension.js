@@ -306,6 +306,48 @@ export default function (source) {
       '} catch (error) {',
       '  // Do nothing',
       '}',
+      // MAIN world: ensure HMR publicPath uses extension base, not page origin.
+      'try {',
+      '  if (typeof __webpack_require__ === "function" || typeof __webpack_require__ === "object") {',
+      '    var __extjsHasRuntime = !!(__webpack_require__.webExtRt && __webpack_require__.webExtRt.runtime && typeof __webpack_require__.webExtRt.runtime.getURL === "function");',
+      '    if (!__extjsHasRuntime) {',
+      '    var __extjsGetBase = function(){',
+      '      try {',
+      '        if (typeof document === "object" && document && document.documentElement) {',
+      '          return document.documentElement.getAttribute("data-extjs-extension-base") || "";',
+      '        }',
+      '      } catch (e) {}',
+      '      return "";',
+      '    };',
+      '    var __extjsBase = __extjsGetBase();',
+      '    if (__extjsBase) {',
+      '      __webpack_require__.p = __extjsBase.replace(/\\/+$/, "/");',
+      '    }',
+      '    var __extjsOrigHmrF = __webpack_require__.hmrF;',
+      '    if (typeof __extjsOrigHmrF === "function") {',
+      '      __webpack_require__.hmrF = function(){',
+      '        var base = __extjsGetBase();',
+      '        if (base) {',
+      '          __webpack_require__.p = base.replace(/\\/+$/, "/");',
+      '        }',
+      '        return __extjsOrigHmrF();',
+      '      };',
+      '    }',
+      '    if (!__extjsBase) {',
+      '      var __extjsRetries = 0;',
+      '      var __extjsUpdateBase = function(){',
+      '        var base = __extjsGetBase();',
+      '        if (base) {',
+      '          __webpack_require__.p = base.replace(/\\/+$/, "/");',
+      '        } else if (__extjsRetries++ < 50) {',
+      '          setTimeout(__extjsUpdateBase, 100);',
+      '        }',
+      '      };',
+      '      __extjsUpdateBase();',
+      '    }',
+      '    }',
+      '  }',
+      '} catch (e) {}',
       'function loadInnerWrappedModule(){',
       `  try { import(/* webpackMode: "eager" */ ${innerSpecifier}).catch(function(e){ console.warn('[extension.js] content script failed to load. waiting for next successful compile', e) }) } catch (e) { console.warn('[extension.js] content script failed to load. waiting for next successful compile', e) }`,
       '}',
@@ -395,6 +437,16 @@ export default function (source) {
     "      import.meta.webpackHot.addStatusHandler(function(s){ if (s==='abort'||s==='fail') { console.warn('[extension.js] HMR status:', s) } });\n" +
     '    }\n' +
     '  }\n' +
+    '  try {\n' +
+    '    var hot = (typeof module !== "undefined" && module && module.hot) ? module.hot : null;\n' +
+    '    if (hot) {\n' +
+    '      if (typeof hot.accept === "function") hot.accept();\n' +
+    '      if (typeof hot.dispose === "function") hot.dispose(unmount);\n' +
+    '      if (typeof hot.addStatusHandler === "function") {\n' +
+    "        hot.addStatusHandler(function(s){ if (s==='abort'||s==='fail') { console.warn('[extension.js] HMR status:', s) } });\n" +
+    '      }\n' +
+    '    }\n' +
+    '  } catch (e) {}\n' +
     "  var cssEvt='__EXTENSIONJS_CSS_UPDATE__';\n" +
     '  var onCss=function(){ remount() };\n' +
     '  window.addEventListener(cssEvt, onCss);\n' +

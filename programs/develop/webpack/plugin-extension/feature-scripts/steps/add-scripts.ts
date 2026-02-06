@@ -64,10 +64,10 @@ export class AddScripts {
                 // - Absolute OS = as-is
                 let resolved = entry
                 if (!fs.existsSync(resolved)) {
-                  resolved = entry.startsWith('/')
-                    ? path.join(manifestDir, entry.slice(1))
-                    : path.isAbsolute(entry)
-                      ? entry
+                  resolved = path.isAbsolute(entry)
+                    ? entry
+                    : entry.startsWith('/')
+                      ? path.join(manifestDir, entry.slice(1))
                       : path.join(manifestDir, entry)
                 }
 
