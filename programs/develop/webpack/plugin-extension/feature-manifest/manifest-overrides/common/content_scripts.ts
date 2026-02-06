@@ -23,9 +23,14 @@ export function contentScripts(manifest: Manifest) {
   const originalCount = original.length
   const result: any[] = []
 
-  // 1) Keep user-defined content scripts indices stable
+  // 1) Keep user-defined content scripts indices stable and
+  // insert MAIN-world bridges *before* their MAIN-world entries.
+  //
+  // Bridge order matters: it must run first so MAIN world can read the
+  // extension base URL before HMR initializes.
+  let bridgeOrdinal = 0
   for (let index = 0; index < original.length; index++) {
-    const contentObj: ContentObj = original[index] || {}
+    const contentObj: ContentObj & Record<string, any> = original[index] || {}
     // Manifest overrides work by getting the manifest.json
     // before compilation and re-naming the files to be
     // bundled. But in reality the compilation returns here
@@ -35,6 +40,28 @@ export function contentScripts(manifest: Manifest) {
     const contentJs = [...new Set(contentObj.js || [])]
     const contentCss = [...new Set(contentObj.css || [])]
 
+    if (contentObj.world === 'MAIN') {
+      const bridgeIndex = originalCount + bridgeOrdinal++
+      const {
+        world: _ignoredWorld,
+        js: _ignoredJs,
+        css: _ignoredCss,
+        ...rest
+      } = contentObj as any
+
+      result.push({
+        ...rest,
+        // Default world (isolated) – omit "world" for cross-browser compatibility.
+        js: [
+          getFilename(
+            `content_scripts/content-${bridgeIndex}.js`,
+            'main-world-bridge.js'
+          )
+        ],
+        css: []
+      })
+    }
+
     result.push({
       ...(original[index] || {}),
       js: contentJs.map((js: string) =>
@@ -43,37 +70,6 @@ export function contentScripts(manifest: Manifest) {
       css: contentCss.map((css: string) =>
         getFilename(`content_scripts/content-${index}.css`, css)
       )
-    })
-  }
-
-  // 2) For each MAIN world content script, append an isolated-world bridge script
-  // so MAIN world can still load async chunks without chrome/browser globals.
-  //
-  // Important: we append bridges to avoid renaming user indices, and compute bridge
-  // output filenames based on their appended index (originalCount + bridgeOrdinal).
-  let bridgeOrdinal = 0
-  for (let i = 0; i < original.length; i++) {
-    const cs = original[i] as ContentObj & Record<string, any>
-    if (!cs || cs.world !== 'MAIN') continue
-
-    const bridgeIndex = originalCount + bridgeOrdinal++
-    const {
-      world: _ignoredWorld,
-      js: _ignoredJs,
-      css: _ignoredCss,
-      ...rest
-    } = cs as any
-
-    result.push({
-      ...rest,
-      // Default world (isolated) – omit "world" for cross-browser compatibility.
-      js: [
-        getFilename(
-          `content_scripts/content-${bridgeIndex}.js`,
-          'main-world-bridge.js'
-        )
-      ],
-      css: []
     })
   }
 
