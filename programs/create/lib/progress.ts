@@ -17,6 +17,12 @@ type ProgressHandle = {
   stop: () => void
 }
 
+function clearLine() {
+  if (!process.stdout.isTTY) return
+  process.stdout.write('\r')
+  process.stdout.write('\x1b[2K')
+}
+
 function stripAnsi(input: string): string {
   return input.replace(/\x1b\[[0-9;]*m/g, '')
 }
@@ -46,7 +52,8 @@ export function startProgressBar(
     const bar = `[${'='.repeat(filled)}${' '.repeat(empty)}]`
     const line = `${label} ${bar}`
     lastVisibleLength = stripAnsi(line).length
-    process.stdout.write(`\r${line}`)
+    clearLine()
+    process.stdout.write(line)
     tick = (tick + 1) % (width + 1)
   }
 
@@ -58,7 +65,11 @@ export function startProgressBar(
       clearInterval(timer)
 
       if (process.stdout.isTTY) {
-        process.stdout.write(`\r${' '.repeat(lastVisibleLength)}\r`)
+        clearLine()
+        if (lastVisibleLength > 0) {
+          process.stdout.write(' '.repeat(lastVisibleLength))
+          process.stdout.write('\r')
+        }
         if (options?.persistLabel) {
           process.stdout.write(`${label}\n`)
         }
