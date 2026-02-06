@@ -149,6 +149,16 @@ export class RemoteFirefox {
       compilation,
       extensionsToLoad
     )
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      try {
+        console.log(
+          '[plugin-browsers] Firefox add-on paths:',
+          candidateAddonPaths
+        )
+      } catch {
+        // ignore
+      }
+    }
 
     for (const [index, addonPath] of candidateAddonPaths.entries()) {
       const isManager = /extensions\/[a-z-]+-manager/.test(String(addonPath))
