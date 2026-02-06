@@ -83,7 +83,7 @@
     "chromium-location": "2.0.0",
     "content-security-policy-parser": "^0.6.0",
     "cross-spawn": "^7.0.6",
-    "dotenv": "^17.2.3",
+    "dotenv": "^17.2.4",
     "edge-location": "2.2.0",
     "firefox-location2": "3.0.0",
     "go-git-it": "^5.1.1",
