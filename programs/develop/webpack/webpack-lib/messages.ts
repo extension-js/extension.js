@@ -444,7 +444,9 @@ export function isUsingExperimentalConfig(integration: any) {
 }
 
 export function installingDependencies() {
-  return `${getLoggingPrefix('info')} Installing project dependencies...`
+  return `${getLoggingPrefix('info')} Installing project dependencies... ${colors.gray(
+    '(This may take a moment)'
+  )}`
 }
 
 // Development-only debug helpers
