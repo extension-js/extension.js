@@ -11,6 +11,10 @@ import * as messages from '../../../browsers-lib/messages'
 import {resolveAddonDirectory} from './addons'
 import {MessagingClient} from './messaging-client'
 
+function normalizeFirefoxAddonPath(addonPath: string): string {
+  return String(addonPath).replace(/\\/g, '/')
+}
+
 export async function getAddonsActorWithRetry(
   client: MessagingClient,
   cached: string | undefined,
@@ -59,7 +63,9 @@ export function computeCandidateAddonPaths(
   const projectPath =
     compilation.options.context || projectContext || process.cwd()
 
-  return extensionsToLoad.map((ext) => resolveAddonDirectory(projectPath, ext))
+  return extensionsToLoad.map((ext) =>
+    normalizeFirefoxAddonPath(resolveAddonDirectory(projectPath, ext))
+  )
 }
 
 export async function waitForManagerWelcome(
