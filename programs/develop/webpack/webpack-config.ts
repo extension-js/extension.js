@@ -26,6 +26,7 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {ExtensionPlugin} from './plugin-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
+import {WasmPlugin} from './plugin-wasm'
 
 // Types
 import type {WebpackConfigOptions} from './webpack-types'
@@ -108,6 +109,10 @@ export default function webpackConfig(
     new CssPlugin({
       manifestPath
     }),
+    new WasmPlugin({
+      manifestPath,
+      mode: devOptions.mode
+    }),
     new JsFrameworksPlugin({
       manifestPath,
       mode: devOptions.mode
@@ -188,6 +193,11 @@ export default function webpackConfig(
       mainFields: ['browser', 'module', 'main'],
       conditionNames: ['browser', 'import', 'module', 'default'],
       aliasFields: ['browser'],
+      fallback: {
+        crypto: false,
+        fs: false,
+        path: false
+      },
       modules: projectStructure.packageJsonPath
         ? [
             'node_modules',
@@ -209,9 +219,11 @@ export default function webpackConfig(
         '.mts',
         '.tsx',
         '.json',
-        '.wasm',
         '.svelte'
       ]
+    },
+    node: {
+      __dirname: false
     },
     resolveLoader: {
       extensions: [
@@ -226,7 +238,6 @@ export default function webpackConfig(
       ]
     },
     module: {
-      rules: [],
       // This allows you, when using CSS Modules, to import the entire style module
       // by default import, in addition to namespace imports and named imports.
       // See https://rspack.dev/guide/tech/css#css-modules
@@ -259,28 +270,6 @@ export default function webpackConfig(
       // Sanitize any bundler/dev-server infra logs to use Extension.js branding
       console: makeSanitizedConsole('Extension.js') as any
     },
-    ignoreWarnings: [
-      (warning: any) => {
-        try {
-          const message = String(
-            (warning && (warning.message || warning)) || ''
-          )
-          const modulePath =
-            (warning &&
-              warning.module &&
-              (warning.module.resource || warning.module.userRequest)) ||
-            ''
-          return (
-            message.includes('Accessing import.meta directly is unsupported') &&
-            /[\\\/]@huggingface[\\\/]transformers[\\\/].*transformers\.web\.js$/.test(
-              modulePath
-            )
-          )
-        } catch {
-          return false
-        }
-      }
-    ],
     performance: {
       // Align with defaults: warn in production only
       hints: devOptions.mode === 'production' ? 'warning' : false
@@ -304,10 +293,7 @@ export default function webpackConfig(
     },
     experiments: {
       // Enable native CSS support by default
-      css: true,
-      // Support the new WebAssembly according to the updated specification,
-      // it makes a WebAssembly module an async module.
-      asyncWebAssembly: true
+      css: true
       // Once enabled, webpack will output ECMAScript module syntax whenever possible.
       // For instance, import() to load chunks, ESM exports to expose chunk data, among others.
       // TODO: cezaraugusto as we mature the ManifestPlugin to handle files without hardcoded names,
