@@ -81,20 +81,56 @@ export default function AutoPublicPathRuntimeModule(
             ]),
         '// When supporting browsers where an automatic publicPath is not supported you must specify an output.publicPath manually via configuration',
         '// or pass an empty string ("") and set the __webpack_public_path__ variable from your code to use your own logic.',
+        `var __extjsBase = (typeof globalThis === "object" && globalThis && globalThis.__EXTJS_EXTENSION_BASE__) ? String(globalThis.__EXTJS_EXTENSION_BASE__) : "";`,
+        `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
+        Template.indent([
+          `try { __extjsBase = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { __extjsBase = ""; }`
+        ]),
+        `}`,
+        // MAIN world: ignore page-origin scriptUrl when extension base is known.
+        `if (__extjsBase && scriptUrl && !/^((chrome|moz)-extension):\/\//.test(scriptUrl)) {`,
+        Template.indent([`scriptUrl = __extjsBase;`]),
+        `}`,
         'if (!scriptUrl) {',
         Template.indent([
           `if (${RuntimeGlobal} && ${RuntimeGlobal}.runtime && typeof ${RuntimeGlobal}.runtime.getURL === "function") {`,
           Template.indent(`scriptUrl = ${RuntimeGlobal}.runtime.getURL("/");`),
           `} else {`,
           // MAIN world: extension runtime missing; keep publicPath empty and let bridge resolve chunks.
-          Template.indent('scriptUrl = "";'),
+          Template.indent('scriptUrl = __extjsBase || "";'),
           `}`
         ]),
         '}',
         'scriptUrl = scriptUrl.replace(/#.*$/, "").replace(/\\?.*$/, "").replace(/\\/[^\\/]+$/, "/");',
         !undoPath
           ? `${RuntimeGlobals.publicPath} = scriptUrl;`
-          : `${RuntimeGlobals.publicPath} = scriptUrl + ${JSON.stringify(undoPath)};`
+          : `${RuntimeGlobals.publicPath} = scriptUrl + ${JSON.stringify(undoPath)};`,
+        `if (!scriptUrl && typeof document === "object" && document && document.documentElement) {`,
+        Template.indent([
+          `try {`,
+          Template.indent([
+            `var __extjsRetries = 0;`,
+            `var __extjsUpdateBase = function(){`,
+            Template.indent([
+              `var base = "";`,
+              `try { base = document.documentElement.getAttribute("data-extjs-extension-base") || ""; } catch(_) { base = ""; }`,
+              `if (base) {`,
+              Template.indent([
+                `var normalized = base.replace(/\\/+$/, "/");`,
+                !undoPath
+                  ? `${RuntimeGlobals.publicPath} = normalized;`
+                  : `${RuntimeGlobals.publicPath} = normalized + ${JSON.stringify(undoPath)};`
+              ]),
+              `} else if (__extjsRetries++ < 50) {`,
+              Template.indent([`setTimeout(__extjsUpdateBase, 100);`]),
+              `}`
+            ]),
+            `};`,
+            `__extjsUpdateBase();`
+          ]),
+          `} catch (_) {}`
+        ]),
+        `}`
       ])
     }
   }
