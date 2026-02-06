@@ -5,6 +5,11 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
     labels:
@@ -15,6 +20,11 @@ updates:
     directory: "/.github/build-deps"
     schedule:
       interval: "daily"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
     open-pull-requests-limit: 10
     rebase-strategy: "auto"
     labels:
