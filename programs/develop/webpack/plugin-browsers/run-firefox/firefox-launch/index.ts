@@ -352,21 +352,20 @@ export class FirefoxLaunchPlugin {
       this.ctx.setController(ctrl, debugPort)
 
       try {
-        if (
-          process.env.EXTENSION_AUTHOR_MODE === 'true' &&
-          this.host.instanceId &&
-          profileMatch
-        ) {
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           this.ctx.logger?.info?.(
             messages.devFirefoxDebugPort(debugPort, desiredDebugPort)
           )
-          this.ctx.logger?.info?.(
-            messages.devFirefoxProfilePath(profileMatch[1])
-          )
+          this.ctx.logger?.info?.(messages.devFirefoxProfilePath(profilePath))
         }
       } catch {}
     } else {
       // Launch with default user profile
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        this.ctx.logger?.warn?.(
+          '[plugin-browsers] Firefox profile not set; skipping RDP add-on install.'
+        )
+      }
       const args: string[] = [
         ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
         '--foreground',
