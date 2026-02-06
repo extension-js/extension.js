@@ -38,7 +38,7 @@
     "@types/chrome": "^0.1.33",
     "@types/node": "^25.2.0",
     "@types/webextension-polyfill": "0.12.4",
-    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
     "cross-env": "^10.1.0",
     "cross-spawn": "^7.0.6",
     "dotenv-cli": "^11.0.0",
