@@ -311,6 +311,9 @@ export class RemoteFirefox {
       const isLocalesChanged = normalized.some((n) =>
         /(^|\/)__?locales\/.+\.json$/i.test(n)
       )
+      const isContentScriptChanged = normalized.some((n) =>
+        /(^|\/)content_scripts\/content-\d+\.(js|css)$/i.test(n)
+      )
 
       // Consider service worker changes as critical as well
       let isServiceWorkerChanged = false
@@ -336,7 +339,10 @@ export class RemoteFirefox {
       }
 
       const critical =
-        isManifestChanged || isLocalesChanged || isServiceWorkerChanged
+        isManifestChanged ||
+        isLocalesChanged ||
+        isServiceWorkerChanged ||
+        isContentScriptChanged
 
       if (!critical) return
 

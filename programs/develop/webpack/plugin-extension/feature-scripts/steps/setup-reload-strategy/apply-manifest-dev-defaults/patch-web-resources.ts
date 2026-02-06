@@ -16,7 +16,18 @@ function patchWebResourcesV2(manifest: Manifest) {
     '/*.scss',
     '/*.sass',
     '/*.less',
-    '*.styl'
+    '*.styl',
+    // HMR updates live under /hot/
+    '/hot/*',
+    // Common asset types for content scripts in MAIN world
+    '/*.png',
+    '/*.jpg',
+    '/*.jpeg',
+    '/*.svg',
+    '/*.gif',
+    '/*.webp',
+    '/*.ico',
+    '/*.avif'
   ]
   const resources = manifest.web_accessible_resources as string[] | null
 
@@ -43,7 +54,18 @@ function patchWebResourcesV3(manifest: Manifest) {
     '/*.scss',
     '/*.sass',
     '/*.less',
-    '*.styl'
+    '*.styl',
+    // HMR updates live under /hot/
+    '/hot/*',
+    // Common asset types for content scripts in MAIN world
+    '/*.png',
+    '/*.jpg',
+    '/*.jpeg',
+    '/*.svg',
+    '/*.gif',
+    '/*.webp',
+    '/*.ico',
+    '/*.avif'
   ]
   return [
     ...(manifest.web_accessible_resources || []),

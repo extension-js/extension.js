@@ -108,6 +108,10 @@ describe('content-script-wrapper loader', () => {
     expect(out).toMatch('Object.getPrototypeOf')
     expect(out).toMatch('__extjsProto.reload')
     expect(out).toMatch('blocked HMR-triggered location.reload')
+    expect(out).toMatch('__extjsHasRuntime')
+    expect(out).toMatch('webExtRt.runtime.getURL')
+    expect(out).toMatch('__extjsUpdateBase')
+    expect(out).toMatch('module.hot')
   })
 
   it('is a no-op for non-declared files', () => {

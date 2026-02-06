@@ -30,6 +30,7 @@ export class ChromiumHardReloadPlugin {
    * `manifest.json` reports *output* (dist) paths. Comparing those directly will fail.
    */
   private serviceWorkerSourceDependencyPaths: Set<string> = new Set()
+  private contentScriptSourceDependencyPaths: Set<string> = new Set()
 
   constructor(
     private readonly options: {
@@ -74,6 +75,7 @@ export class ChromiumHardReloadPlugin {
             )
 
             let serviceWorkerChanged = false
+            let contentScriptChanged = false
 
             // Preferred: compare against *source* dependency paths captured from the last successful compilation.
             // This correctly catches edits to the service worker entry *and* any imported module.
@@ -137,12 +139,38 @@ export class ChromiumHardReloadPlugin {
               }
             }
 
+            if (this.contentScriptSourceDependencyPaths.size > 0) {
+              contentScriptChanged = normalizedModifiedFilePaths.some(
+                (modifiedFilePath) => {
+                  if (
+                    this.contentScriptSourceDependencyPaths.has(
+                      modifiedFilePath
+                    )
+                  ) {
+                    return true
+                  }
+
+                  // Best-effort fallback for path normalization differences.
+                  for (const contentPath of this
+                    .contentScriptSourceDependencyPaths) {
+                    if (modifiedFilePath.endsWith(contentPath)) {
+                      return true
+                    }
+                  }
+
+                  return false
+                }
+              )
+            }
+
             if (hitManifest) {
               this.ctx.setPendingReloadReason('manifest')
             } else if (localeChanged) {
               this.ctx.setPendingReloadReason('locales')
             } else if (serviceWorkerChanged) {
               this.ctx.setPendingReloadReason('sw')
+            } else if (contentScriptChanged) {
+              this.ctx.setPendingReloadReason('content')
             }
           } catch (error) {
             this.logger?.warn?.(
@@ -171,8 +199,12 @@ export class ChromiumHardReloadPlugin {
       // - source SW dependency paths (from module graph)
       this.refreshSWFromManifest(stats.compilation)
       this.refreshServiceWorkerSourceDependencyPaths(stats.compilation)
+      this.refreshContentScriptSourceDependencyPaths(stats.compilation)
 
-      const reason = this.ctx.getPendingReloadReason()
+      const pendingReason = this.ctx.getPendingReloadReason()
+      const contentScriptEmitted = this.didEmitContentScripts(stats)
+      const reason =
+        pendingReason || (contentScriptEmitted ? 'content' : undefined)
       if (!reason) {
         return
       }
@@ -230,6 +262,48 @@ export class ChromiumHardReloadPlugin {
         serviceWorkerEntrypointName
       )
       this.serviceWorkerSourceDependencyPaths = discovered
+    } catch {
+      // ignore best-effort
+    }
+  }
+
+  private didEmitContentScripts(stats: any): boolean {
+    try {
+      const json =
+        typeof stats?.toJson === 'function'
+          ? stats.toJson({assets: true})
+          : null
+      const assets: Array<{name?: string; emitted?: boolean}> =
+        (json?.assets as any[]) || []
+      return assets.some((asset) => {
+        const name = String(asset?.name || '')
+        if (!/(^|\/)content_scripts\/content-\d+\.(js|css)$/.test(name)) {
+          return false
+        }
+        if (typeof asset?.emitted === 'boolean') return asset.emitted
+        return true
+      })
+    } catch {
+      return false
+    }
+  }
+
+  private refreshContentScriptSourceDependencyPaths(compilation: Compilation) {
+    try {
+      const entrypoints: Map<string, any> | undefined = (compilation as any)
+        ?.entrypoints
+      if (!entrypoints) return
+
+      const discovered = new Set<string>()
+      for (const [name] of entrypoints) {
+        if (!String(name).startsWith('content_scripts/content-')) continue
+        const deps = this.collectEntrypointModuleResourcePaths(
+          compilation,
+          String(name)
+        )
+        for (const dep of deps) discovered.add(dep)
+      }
+      this.contentScriptSourceDependencyPaths = discovered
     } catch {
       // ignore best-effort
     }

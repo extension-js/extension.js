@@ -10,6 +10,19 @@ import path from 'path'
 import fs from 'fs'
 import type {FilepathList} from '../../../../../webpack-types'
 
+function findPackageRoot(startDir: string): string | undefined {
+  let current = startDir
+  for (let i = 0; i < 15; i++) {
+    if (fs.existsSync(path.join(current, 'package.json'))) {
+      return current
+    }
+    const parent = path.dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+  return undefined
+}
+
 export function getMainWorldBridgeScripts(manifestPath: string): FilepathList {
   const bridgeScripts: FilepathList = {}
 
@@ -20,17 +33,29 @@ export function getMainWorldBridgeScripts(manifestPath: string): FilepathList {
       : []
     const originalCount = contentScripts.length
 
-    // Find the bridge source file by checking multiple possible locations
+    const packageRoot = findPackageRoot(__dirname)
     const bridgeSourceCandidates = [
-      // Same directory (source tree)
+      // Same directory (source tree or dist tree)
       path.resolve(__dirname, 'main-world-bridge.js'),
+      // Monorepo/source tree fallback (when running from dist/)
+      packageRoot
+        ? path.resolve(
+            packageRoot,
+            'webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge.js'
+          )
+        : undefined,
       // Built package (dist) – emitted by rslib as `dist/main-world-bridge.js`
-      path.resolve(__dirname, '../../../../../../main-world-bridge.js')
-    ]
+      packageRoot
+        ? path.resolve(packageRoot, 'main-world-bridge.js')
+        : undefined
+    ].filter((candidate): candidate is string => Boolean(candidate))
 
     const bridgeSource =
-      bridgeSourceCandidates.find((p) => fs.existsSync(p)) ||
-      bridgeSourceCandidates[0]
+      bridgeSourceCandidates.find((p) => fs.existsSync(p)) || undefined
+
+    if (!bridgeSource) {
+      return bridgeScripts
+    }
 
     // Create bridge entries for each MAIN world content script
     let bridgeOrdinal = 0
