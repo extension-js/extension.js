@@ -42,6 +42,7 @@ export class FirefoxLaunchPlugin {
   private readonly host: FirefoxPluginRuntime
   private readonly ctx: FirefoxContext
   private child: ChildProcess | null = null
+  private watchTimeout?: NodeJS.Timeout
 
   constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
     this.host = host
@@ -309,7 +310,12 @@ export class FirefoxLaunchPlugin {
     const firefoxArgs: string[] = []
     const binaryArgsMatch = firefoxCfg.match(/--binary-args="([^"]*)"/)
     if (binaryArgsMatch) {
-      firefoxArgs.push(...binaryArgsMatch[1].split(' '))
+      const rawArgs = String(binaryArgsMatch[1] || '').trim()
+      if (rawArgs) {
+        firefoxArgs.push(
+          ...rawArgs.split(' ').filter((arg) => arg.trim().length > 0)
+        )
+      }
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.ctx.logger?.info?.(
           messages.firefoxBinaryArgsExtracted(binaryArgsMatch[1])
@@ -332,7 +338,14 @@ export class FirefoxLaunchPlugin {
         firefoxArgs
       )
       const isWin = process.platform === 'win32'
-      const stdio: any = isWin ? 'ignore' : ['pipe', 'pipe', 'pipe']
+      // On Windows, use 'pipe' when EXTENSION_AUTHOR_MODE is enabled to allow stdout/stderr piping
+      // Otherwise use array form instead of 'ignore' string to ensure proper process handling
+      // This prevents the process from being terminated prematurely on Windows
+      const stdio: any = isWin
+        ? process.env.EXTENSION_AUTHOR_MODE === 'true'
+          ? ['pipe', 'pipe', 'pipe']
+          : ['ignore', 'ignore', 'ignore']
+        : ['pipe', 'pipe', 'pipe']
       this.child = await spawnFirefoxProcess({
         binary,
         args,
@@ -350,6 +363,7 @@ export class FirefoxLaunchPlugin {
       )
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl, debugPort)
+      this.scheduleWatchTimeout()
 
       try {
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
@@ -376,7 +390,14 @@ export class FirefoxLaunchPlugin {
       ]
 
       const isWin = process.platform === 'win32'
-      const stdio: any = isWin ? 'ignore' : ['pipe', 'pipe', 'pipe']
+      // On Windows, use 'pipe' when EXTENSION_AUTHOR_MODE is enabled to allow stdout/stderr piping
+      // Otherwise use array form instead of 'ignore' string to ensure proper process handling
+      // This prevents the process from being terminated prematurely on Windows
+      const stdio: any = isWin
+        ? process.env.EXTENSION_AUTHOR_MODE === 'true'
+          ? ['pipe', 'pipe', 'pipe']
+          : ['ignore', 'ignore', 'ignore']
+        : ['pipe', 'pipe', 'pipe']
       this.child = await spawnFirefoxProcess({
         binary: binaryPath,
         args,
@@ -385,6 +406,7 @@ export class FirefoxLaunchPlugin {
         logger: this.ctx.logger
       })
       this.wireChildLifecycle(compilation, debugPort, desiredDebugPort)
+      this.scheduleWatchTimeout()
     }
   }
 
@@ -408,6 +430,10 @@ export class FirefoxLaunchPlugin {
     })
 
     child.on('close', (_code) => {
+      if (this.watchTimeout) {
+        clearTimeout(this.watchTimeout)
+        this.watchTimeout = undefined
+      }
       if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
         this.ctx.logger?.info?.(
           messages.browserInstanceExited(this.host.browser)
@@ -443,6 +469,34 @@ export class FirefoxLaunchPlugin {
         }, 2000)
       }
     } catch {}
+  }
+
+  private scheduleWatchTimeout() {
+    if (this.watchTimeout) return
+    if (process.env.VITEST || process.env.VITEST_WORKER_ID) return
+    const raw =
+      process.env.EXTENSION_WATCH_TIMEOUT_MS ||
+      process.env.EXTENSION_DEV_WATCH_TIMEOUT_MS ||
+      process.env.EXTJS_WATCH_TIMEOUT_MS ||
+      process.env.EXTJS_DEV_WATCH_TIMEOUT_MS ||
+      ''
+    const ms = parseInt(String(raw || ''), 10)
+    if (!Number.isFinite(ms) || ms <= 0) return
+    this.watchTimeout = setTimeout(() => {
+      try {
+        this.ctx.logger?.info?.(
+          `[plugin-browsers] Watch timeout reached (${ms}ms). Shutting down.`
+        )
+      } catch {}
+      this.cleanupInstance()
+        .catch(() => {})
+        .finally(() => {
+          process.exit(0)
+        })
+    }, ms)
+    if (typeof this.watchTimeout.unref === 'function') {
+      this.watchTimeout.unref()
+    }
   }
 
   private printInstallHint(compilation: Compilation, raw: string) {
