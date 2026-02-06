@@ -21,6 +21,8 @@
 const EXTJS_MARK = '__extjs__'
 const REQ_TYPE = 'EXTJS_WTW_LOAD'
 const RES_TYPE = 'EXTJS_WTW_LOADED'
+const EXTJS_BASE_KEY = '__EXTJS_EXTENSION_BASE__'
+const EXTJS_BASE_ATTR = 'data-extjs-extension-base'
 
 function safeString(x) {
   return typeof x === 'string' && x.length > 0
@@ -51,6 +53,30 @@ function getRuntime() {
   }
   return null
 }
+
+function setExtensionBaseUrl() {
+  try {
+    const rt = getRuntime()
+    const getURL = rt?.runtime?.getURL
+    if (typeof getURL !== 'function') return
+    const base = String(getURL('/'))
+    if (base) {
+      window[EXTJS_BASE_KEY] = base
+      try {
+        const docEl = document && document.documentElement
+        if (docEl && typeof docEl.setAttribute === 'function') {
+          docEl.setAttribute(EXTJS_BASE_ATTR, base)
+        }
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // ignore
+  }
+}
+
+setExtensionBaseUrl()
 
 function resolveExtensionUrl(inputUrl) {
   if (!safeString(inputUrl)) return null

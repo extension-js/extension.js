@@ -105,5 +105,7 @@ node_modules/
 # Extension.js caches
 **/.cache/extensionjs/
 
+# Future stuff
+extensions/staging/**
 _future/
 extensions/browser-extension/

@@ -9,6 +9,8 @@ const DOM_LOADER = 'scriptLoader'
 const WORKER_LOADER = 'workerLoader'
 // browser.runtime.sendMessage() / MAIN world bridge
 const CLASSIC_LOADER = 'classicLoader'
+// MAIN world bridge loader (avoid redeclare)
+const MAIN_CLASSIC_LOADER = 'classicLoaderMainWorld'
 // fallback choice when DYNAMIC_IMPORT_LOADER fails
 const FALLBACK_LOADER = 'fallbackLoader'
 
@@ -180,61 +182,61 @@ export default function LoadScriptRuntimeModule(
           WorkerLoader,
 
           `${_const} isWorker = typeof importScripts === 'function'`,
-          // extension page
+          // extension page / content script
           "if (typeof location === 'object' && location.protocol.includes('-extension:')) {",
           Template.indent([
             `${RuntimeGlobals.loadScript} = isWorker ? ${WORKER_LOADER} : ${DOM_LOADER};`
           ]),
-          `}`,
-          // content script
-          isMainWorld
-            ? Template.asString([
-                `${_const} __extjsMark = "__extjs__";`,
-                `${_const} __extjsReqType = "EXTJS_WTW_LOAD";`,
-                `${_const} __extjsResType = "EXTJS_WTW_LOADED";`,
-                `${_const} ${CLASSIC_LOADER} = ` +
-                  f('url, done', [
-                    `${_const} requestId = String(Date.now()) + "-" + Math.random().toString(16).slice(2);`,
-                    `${_const} onMessage = ${f('event', [
+          `} else {`,
+          Template.indent(
+            isMainWorld
+              ? Template.asString([
+                  `${_const} __extjsMark = "__extjs__";`,
+                  `${_const} __extjsReqType = "EXTJS_WTW_LOAD";`,
+                  `${_const} __extjsResType = "EXTJS_WTW_LOADED";`,
+                  `${_const} ${MAIN_CLASSIC_LOADER} = ` +
+                    f('url, done', [
+                      `${_const} requestId = String(Date.now()) + "-" + Math.random().toString(16).slice(2);`,
+                      `${_const} onMessage = ${f('event', [
+                        'try {',
+                        Template.indent([
+                          'if (!event || event.source !== window) return;',
+                          `${_const} data = event.data || null;`,
+                          `if (!data || data[__extjsMark] !== true) return;`,
+                          `if (data.type !== __extjsResType || data.requestId !== requestId) return;`,
+                          'window.removeEventListener("message", onMessage);',
+                          'if (data.ok) done();',
+                          'else done(Object.assign(new Error(data.error || "Bridge failed"), { type: "missing" }));'
+                        ]),
+                        '} catch (e) {',
+                        Template.indent([
+                          'window.removeEventListener("message", onMessage);',
+                          'done(Object.assign(e, { type: "missing" }));'
+                        ]),
+                        '}'
+                      ])};`,
+                      'window.addEventListener("message", onMessage);',
                       'try {',
                       Template.indent([
-                        'if (!event || event.source !== window) return;',
-                        `${_const} data = event.data || null;`,
-                        `if (!data || data[__extjsMark] !== true) return;`,
-                        `if (data.type !== __extjsResType || data.requestId !== requestId) return;`,
-                        'window.removeEventListener("message", onMessage);',
-                        'if (data.ok) done();',
-                        'else done(Object.assign(new Error(data.error || "Bridge failed"), { type: "missing" }));'
+                        'window.postMessage({ [__extjsMark]: true, type: __extjsReqType, requestId: requestId, url: url }, "*");'
                       ]),
                       '} catch (e) {',
                       Template.indent([
                         'window.removeEventListener("message", onMessage);',
                         'done(Object.assign(e, { type: "missing" }));'
                       ]),
-                      '}'
-                    ])};`,
-                    'window.addEventListener("message", onMessage);',
-                    'try {',
-                    Template.indent([
-                      'window.postMessage({ [__extjsMark]: true, type: __extjsReqType, requestId: requestId, url: url }, "*");'
-                    ]),
-                    '} catch (e) {',
-                    Template.indent([
-                      'window.removeEventListener("message", onMessage);',
-                      'done(Object.assign(e, { type: "missing" }));'
-                    ]),
-                    '}',
-                    'setTimeout(function(){ try { window.removeEventListener("message", onMessage); } catch(_){} done(Object.assign(new Error("Bridge timeout"), { type: "missing" })); }, 5000);'
-                  ]) +
-                  ';',
-                `else if (!isWorker) ${RuntimeGlobals.loadScript} = ${CLASSIC_LOADER};`
-              ])
-            : Template.asString([
-                `else if (!isWorker && hasExtensionRuntime) ${RuntimeGlobals.loadScript} = ${CLASSIC_LOADER};`,
-                `else if (!isWorker) ${RuntimeGlobals.loadScript} = ${DOM_LOADER};`
-              ]),
-          // worker in content script
-          "else { throw new TypeError('Unable to determinate the chunk loader: content script + Worker'); }",
+                      '}',
+                      'setTimeout(function(){ try { window.removeEventListener("message", onMessage); } catch(_){} done(Object.assign(new Error("Bridge timeout"), { type: "missing" })); }, 5000);'
+                    ]) +
+                    ';',
+                  `if (!isWorker) ${RuntimeGlobals.loadScript} = ${MAIN_CLASSIC_LOADER};`
+                ])
+              : Template.asString([
+                  `if (!isWorker && hasExtensionRuntime) ${RuntimeGlobals.loadScript} = ${CLASSIC_LOADER};`,
+                  `else if (!isWorker) ${RuntimeGlobals.loadScript} = ${DOM_LOADER};`
+                ])
+          ),
+          `}`,
 
           this.supportDynamicImport
             ? `${_const} ${FALLBACK_LOADER} = ${RuntimeGlobals.loadScript};`

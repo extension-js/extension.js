@@ -41,7 +41,69 @@ export class CompilationPlugin {
     this.zipFilename = options.zipFilename
   }
 
+  private applyIgnoreWarnings(compiler: Compiler): void {
+    const existing = compiler.options.ignoreWarnings
+    const ignoreWarnings = Array.isArray(existing)
+      ? [...existing]
+      : existing
+        ? [existing]
+        : []
+
+    ignoreWarnings.push((warning: any) => {
+      try {
+        const message = String((warning && (warning.message || warning)) || '')
+        const modulePath =
+          (warning &&
+            warning.module &&
+            (warning.module.resource || warning.module.userRequest)) ||
+          ''
+        if (
+          message.includes(
+            'Critical dependency: the request of a dependency is an expression'
+          ) &&
+          /[\\\/]@ffmpeg[\\\/]ffmpeg[\\\/]dist[\\\/]esm[\\\/](classes|worker)\.js$/.test(
+            modulePath
+          )
+        ) {
+          return true
+        }
+        if (
+          message.includes(
+            'Critical dependency: the request of a dependency is an expression'
+          ) &&
+          /[\\\/]@techstark[\\\/]opencv-js[\\\/]dist[\\\/]opencv\.js$/.test(
+            modulePath
+          )
+        ) {
+          return true
+        }
+        if (
+          message.includes(
+            'Critical dependency: the request of a dependency is an expression'
+          ) &&
+          /[\\\/]@sqlite\.org[\\\/]sqlite-wasm[\\\/]dist[\\\/]sqlite3-worker1\.mjs$/.test(
+            modulePath
+          )
+        ) {
+          return true
+        }
+        return (
+          message.includes('Accessing import.meta directly is unsupported') &&
+          /[\\\/]@huggingface[\\\/]transformers[\\\/].*transformers\.web\.js$/.test(
+            modulePath
+          )
+        )
+      } catch {
+        return false
+      }
+    })
+
+    compiler.options.ignoreWarnings = ignoreWarnings
+  }
+
   public apply(compiler: Compiler): void {
+    this.applyIgnoreWarnings(compiler)
+
     // TODO: This is outdated
     new CaseSensitivePathsPlugin().apply(compiler as any)
 
