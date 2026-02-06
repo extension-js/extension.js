@@ -211,7 +211,9 @@ export function initializingGitForRepositoryError(
 }
 
 export function installingDependencies() {
-  return `${statusPrefix} Installing project-specific dependencies...`
+  return `${statusPrefix} Installing project-specific dependencies... ${colors.gray(
+    '(This may take a moment)'
+  )}`
 }
 
 export function installingBuildDependencies(dependencies: string[]) {
