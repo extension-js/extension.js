@@ -88,7 +88,7 @@
   ],
   "dependencies": {
     "@types/chrome": "^0.1.33",
-    "@types/node": "^25.2.0",
+    "@types/node": "^25.2.1",
     "@types/webextension-polyfill": "0.12.4",
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
