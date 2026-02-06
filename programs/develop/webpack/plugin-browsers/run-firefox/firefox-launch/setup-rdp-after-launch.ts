@@ -25,6 +25,16 @@ export async function setupRdpAfterLaunch(
         return await fn()
       } catch (error) {
         lastError = error
+        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+          try {
+            const msg = (error as Error)?.message || String(error)
+            console.warn(
+              `[plugin-browsers] Firefox RDP setup retry ${i + 1}/${attempts}: ${msg}`
+            )
+          } catch {
+            // ignore
+          }
+        }
         const ms = baseMs * Math.pow(2, i)
         await new Promise((r) => setTimeout(r, ms))
       }
