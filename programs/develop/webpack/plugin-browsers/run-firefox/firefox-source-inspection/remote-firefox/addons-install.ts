@@ -11,10 +11,6 @@ import * as messages from '../../../browsers-lib/messages'
 import {resolveAddonDirectory} from './addons'
 import {MessagingClient} from './messaging-client'
 
-function normalizeFirefoxAddonPath(addonPath: string): string {
-  return String(addonPath).replace(/\\/g, '/')
-}
-
 export async function getAddonsActorWithRetry(
   client: MessagingClient,
   cached: string | undefined,
@@ -63,9 +59,7 @@ export function computeCandidateAddonPaths(
   const projectPath =
     compilation.options.context || projectContext || process.cwd()
 
-  return extensionsToLoad.map((ext) =>
-    normalizeFirefoxAddonPath(resolveAddonDirectory(projectPath, ext))
-  )
+  return extensionsToLoad.map((ext) => resolveAddonDirectory(projectPath, ext))
 }
 
 export async function waitForManagerWelcome(
@@ -108,12 +102,30 @@ export async function installTemporaryAddon(
     )
   }
 
-  const clientResponse = await client.request({
-    to: addonsActor,
-    type: 'installTemporaryAddon',
-    addonPath,
-    openDevTools
-  })
+  const tryInstall = async (pathToUse: string) => {
+    return client.request({
+      to: addonsActor,
+      type: 'installTemporaryAddon',
+      addonPath: pathToUse,
+      openDevTools
+    })
+  }
+
+  let clientResponse: unknown
+  try {
+    clientResponse = await tryInstall(addonPath)
+  } catch (error) {
+    if (process.platform === 'win32') {
+      const winPath = String(addonPath).replace(/\//g, '\\')
+      if (winPath !== addonPath) {
+        clientResponse = await tryInstall(winPath)
+      } else {
+        throw error
+      }
+    } else {
+      throw error
+    }
+  }
 
   return clientResponse as {addon?: {id?: string}} | undefined
 }
