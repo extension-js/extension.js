@@ -12,7 +12,10 @@ import {resolveAddonDirectory} from './addons'
 import {MessagingClient} from './messaging-client'
 
 function normalizeFirefoxAddonPath(addonPath: string): string {
-  return String(addonPath).replace(/\\/g, '/')
+  const value = String(addonPath)
+  // On Windows, keep native path separators for Firefox's RDP installTemporaryAddon.
+  if (process.platform === 'win32') return value
+  return value.replace(/\\/g, '/')
 }
 
 export async function getAddonsActorWithRetry(

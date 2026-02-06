@@ -182,7 +182,10 @@ export async function browserConfig(
     }
   }
 
-  const parts = [`--binary-args="${binaryArgs.join(' ')}"`, '--verbose']
+  const parts = ['--verbose']
+  if (binaryArgs.length > 0) {
+    parts.unshift(`--binary-args="${binaryArgs.join(' ')}"`)
+  }
   if (profilePath) {
     parts.splice(1, 0, `--profile="${profilePath}"`)
   }
