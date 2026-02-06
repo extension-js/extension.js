@@ -51,6 +51,15 @@ export class StaticAssetsPlugin {
       )
     })
 
+    const hasUrlResourceQueryRule = compiler.options.module.rules.some(
+      (thisRule) => {
+        const rule = thisRule as RuleSetRule
+        const resourceQuery = (rule as any)?.resourceQuery
+        if (!(resourceQuery instanceof RegExp)) return false
+        return resourceQuery.test('url')
+      }
+    )
+
     // Check if any existing rule handles font files.
     // This allows users to opt into `asset/inline` for strict CSP pages
     // (e.g. Firefox content scripts where moz-extension:// font loads can be blocked).
@@ -67,6 +76,14 @@ export class StaticAssetsPlugin {
     )
 
     const loaders: RuleSetRule[] = [
+      ...(hasUrlResourceQueryRule
+        ? []
+        : [
+            {
+              resourceQuery: /url/,
+              type: 'asset/resource'
+            }
+          ]),
       // Only add the default SVG rule if there's no custom SVG rule
       ...(hasCustomSvgRule ? [] : [defaultSvgRule]),
       {
