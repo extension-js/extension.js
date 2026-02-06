@@ -81,8 +81,6 @@ importers:
         specifier: ^7.3.1
         version: 7.3.1(@types/node@25.2.0)(jiti@2.6.1)(less@4.5.1)(lightningcss@1.30.2)(sass@1.97.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  extensions/content-main-world: {}
-
   extensions/extension-js-devtools:
     dependencies:
       '@radix-ui/react-avatar':
@@ -199,58 +197,6 @@ importers:
         version: 5.9.3
 
   extensions/extension-js-theme: {}
-
-  extensions/sidebar-react-ffmepg:
-    dependencies:
-      '@ffmpeg/core':
-        specifier: '*'
-        version: 0.12.10
-      '@ffmpeg/core-mt':
-        specifier: '*'
-        version: 0.12.10
-      '@ffmpeg/ffmpeg':
-        specifier: '*'
-        version: 0.12.15
-      '@ffmpeg/util':
-        specifier: '*'
-        version: 0.12.2
-      react:
-        specifier: ^18.3.1
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.3.1
-        version: 18.3.1(react@18.3.1)
-    devDependencies:
-      '@types/react':
-        specifier: ^18.2.64
-        version: 18.3.28
-      '@types/react-dom':
-        specifier: ^18.2.21
-        version: 18.3.7(@types/react@18.3.28)
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
-
-  extensions/special-folders-scripts: {}
-
-  extensions/wasm:
-    dependencies:
-      '@ffmpeg/core':
-        specifier: '*'
-        version: 0.12.10
-      '@ffmpeg/core-mt':
-        specifier: '*'
-        version: 0.12.10
-      '@ffmpeg/ffmpeg':
-        specifier: '*'
-        version: 0.12.15
-      '@ffmpeg/util':
-        specifier: '*'
-        version: 0.12.2
-    devDependencies:
-      typescript:
-        specifier: 5.3.3
-        version: 5.3.3
 
   programs/cli:
     dependencies:
@@ -540,8 +486,8 @@ importers:
         specifier: 0.18.0
         version: 0.18.0
       sass-loader:
-        specifier: 16.0.6
-        version: 16.0.6(@rspack/core@1.7.5(@swc/helpers@0.5.18))(sass@1.97.2)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
+        specifier: 16.0.7
+        version: 16.0.7(@rspack/core@1.7.5(@swc/helpers@0.5.18))(sass@1.97.2)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2))
       svelte-loader:
         specifier: 3.2.4
         version: 3.2.4(svelte@5.49.1)
@@ -1294,26 +1240,6 @@ packages:
   '@eslint/plugin-kit@0.4.1':
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
-
-  '@ffmpeg/core-mt@0.12.10':
-    resolution: {integrity: sha512-atyRTOpa58bLCIgd6GXBZAXWyWD3AUoQyzxqjvGhp9MuSzdILtOTI62ffLswBsCnLq15lQ8IETHUpm1oe4V9FQ==}
-    engines: {node: '>=16.x'}
-
-  '@ffmpeg/core@0.12.10':
-    resolution: {integrity: sha512-dzNplnn2Nxle2c2i2rrDhqcB19q9cglCkWnoMTDN9Q9l3PvdjZWd1HfSPjCNWc/p8Q3CT+Es9fWOR0UhAeYQZA==}
-    engines: {node: '>=16.x'}
-
-  '@ffmpeg/ffmpeg@0.12.15':
-    resolution: {integrity: sha512-1C8Obr4GsN3xw+/1Ww6PFM84wSQAGsdoTuTWPOj2OizsRDLT4CXTaVjPhkw6ARyDus1B9X/L2LiXHqYYsGnRFw==}
-    engines: {node: '>=18.x'}
-
-  '@ffmpeg/types@0.12.4':
-    resolution: {integrity: sha512-k9vJQNBGTxE5AhYDtOYR5rO5fKsspbg51gbcwtbkw2lCdoIILzklulcjJfIDwrtn7XhDeF2M+THwJ2FGrLeV6A==}
-    engines: {node: '>=16.x'}
-
-  '@ffmpeg/util@0.12.2':
-    resolution: {integrity: sha512-ouyoW+4JB7WxjeZ2y6KpRvB+dLp7Cp4ro8z0HIVpZVCM7AwFlHa0c4R8Y/a4M3wMqATpYKhC7lSFHQ0T11MEDw==}
-    engines: {node: '>=18.x'}
 
   '@floating-ui/core@1.7.3':
     resolution: {integrity: sha512-sGnvb5dmrJaKEZ+LDIpguvdX3bDlEllmv4/ClQ9awcmCZrlx5jQyyMWFM5kBI+EyNOCDDiKk8il0zeuX3Zlg/w==}
@@ -4916,11 +4842,11 @@ packages:
   safer-buffer@2.1.2:
     resolution: {integrity: sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==}
 
-  sass-loader@16.0.6:
-    resolution: {integrity: sha512-sglGzId5gmlfxNs4gK2U3h7HlVRfx278YK6Ono5lwzuvi1jxig80YiuHkaDBVsYIKFhx8wN7XSCI0M2IDS/3qA==}
+  sass-loader@16.0.7:
+    resolution: {integrity: sha512-w6q+fRHourZ+e+xA1kcsF27iGM6jdB8teexYCfdUw0sYgcDNeZESnDNT9sUmmPm3ooziwUJXGwZJSTF3kOdBfA==}
     engines: {node: '>= 18.12.0'}
     peerDependencies:
-      '@rspack/core': 0.x || 1.x
+      '@rspack/core': 0.x || ^1.0.0 || ^2.0.0-0
       node-sass: ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0 || ^9.0.0
       sass: ^1.3.0
       sass-embedded: '*'
@@ -4969,6 +4895,11 @@ packages:
 
   semver@7.7.3:
     resolution: {integrity: sha512-SdsKMrI9TdgjdweUSR9MweHA4EJ8YxHn8DFaDisvhVlUOe4BF1tLD7GAj0lIqWVl+dPb/rExr0Btby5loQm20Q==}
+    engines: {node: '>=10'}
+    hasBin: true
+
+  semver@7.7.4:
+    resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
     engines: {node: '>=10'}
     hasBin: true
 
@@ -6312,18 +6243,6 @@ snapshots:
     dependencies:
       '@eslint/core': 0.17.0
       levn: 0.4.1
-
-  '@ffmpeg/core-mt@0.12.10': {}
-
-  '@ffmpeg/core@0.12.10': {}
-
-  '@ffmpeg/ffmpeg@0.12.15':
-    dependencies:
-      '@ffmpeg/types': 0.12.4
-
-  '@ffmpeg/types@0.12.4': {}
-
-  '@ffmpeg/util@0.12.2': {}
 
   '@floating-ui/core@1.7.3':
     dependencies:
@@ -7737,7 +7656,7 @@ snapshots:
       '@typescript-eslint/visitor-keys': 8.54.0
       debug: 4.4.3
       minimatch: 9.0.5
-      semver: 7.7.3
+      semver: 7.7.4
       tinyglobby: 0.2.15
       ts-api-utils: 2.4.0(typescript@5.9.3)
       typescript: 5.9.3
@@ -9966,7 +9885,7 @@ snapshots:
 
   safer-buffer@2.1.2: {}
 
-  sass-loader@16.0.6(@rspack/core@1.7.5(@swc/helpers@0.5.18))(sass@1.97.2)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2)):
+  sass-loader@16.0.7(@rspack/core@1.7.5(@swc/helpers@0.5.18))(sass@1.97.2)(webpack@5.104.1(@swc/core@1.15.8(@swc/helpers@0.5.18))(esbuild@0.27.2)):
     dependencies:
       neo-async: 2.6.2
     optionalDependencies:
@@ -10009,6 +9928,8 @@ snapshots:
     optional: true
 
   semver@7.7.3: {}
+
+  semver@7.7.4: {}
 
   send@0.19.2:
     dependencies:
