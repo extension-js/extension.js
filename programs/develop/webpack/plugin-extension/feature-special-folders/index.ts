@@ -66,7 +66,10 @@ export class SpecialFoldersPlugin {
             to: '.',
             noErrorOnMissing: true,
             globOptions: {
-              ignore: ['**/manifest.json']
+              // Only ignore the root public/manifest.json to avoid overwriting
+              // the generated manifest. Nested public/**/manifest.json should
+              // be copied through (e.g., templates/assets).
+              ignore: ['manifest.json']
             }
           }
         ]
