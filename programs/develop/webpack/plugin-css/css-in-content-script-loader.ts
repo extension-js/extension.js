@@ -25,7 +25,7 @@ export async function cssInContentScriptLoader(
 ) {
   const {useSass = true, useLess = true} = usage
   const isContentScript = (issuer: string) =>
-    isContentScriptEntry(issuer, manifestPath)
+    isContentScriptEntry(issuer, manifestPath, projectPath)
 
   // Define file type configurations
   const fileTypes = [

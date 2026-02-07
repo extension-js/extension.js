@@ -98,7 +98,7 @@ export async function maybeUseLess(
       type: 'asset/resource',
       generator: {filename: 'content_scripts/[name].[contenthash:8].css'},
       issuer: (issuer: string) =>
-        isContentScriptEntry(issuer, resolvedManifestPath)
+        isContentScriptEntry(issuer, resolvedManifestPath, projectPath)
     }
   ]
 }
