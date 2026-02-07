@@ -81,7 +81,7 @@ describe('isContentScriptEntry', () => {
     const path = require('path')
     const issuer = path.resolve('/project', 'content.js')
     const manifestPath = path.join('/project', 'manifest.json')
-    expect(isContentScriptEntry(issuer, manifestPath)).toBe(true)
+    expect(isContentScriptEntry(issuer, manifestPath, '/project')).toBe(true)
   })
 
   it('returns false for non-matching paths', async () => {
@@ -89,7 +89,9 @@ describe('isContentScriptEntry', () => {
     ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
     const {isContentScriptEntry} =
       (await import('../css-lib/is-content-script')) as any
-    expect(isContentScriptEntry('/x/b.js', '/x/manifest.json')).toBe(false)
+    expect(isContentScriptEntry('/x/b.js', '/x/manifest.json', '/x')).toBe(
+      false
+    )
   })
 })
 
@@ -126,9 +128,9 @@ describe('css tools additional coverage', () => {
 
   it('isContentScriptEntry returns false for empty inputs (early return)', async () => {
     const {isContentScriptEntry} = await import('../css-lib/is-content-script')
-    expect(isContentScriptEntry('', '')).toBe(false)
-    expect(isContentScriptEntry('/x', '')).toBe(false)
-    expect(isContentScriptEntry('', '/x/manifest.json')).toBe(false)
+    expect(isContentScriptEntry('', '', '')).toBe(false)
+    expect(isContentScriptEntry('/x', '', '')).toBe(false)
+    expect(isContentScriptEntry('', '/x/manifest.json', '')).toBe(false)
   })
 
   it('maybeUsePostCss returns loader config when a PostCSS config file exists', async () => {
