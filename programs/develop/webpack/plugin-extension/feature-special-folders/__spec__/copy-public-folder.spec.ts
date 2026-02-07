@@ -98,7 +98,7 @@ describe('SpecialFoldersPlugin (public copying and guards)', () => {
 
     expect(copyApply).toHaveBeenCalledTimes(1)
     expect(lastCopyOptions?.patterns?.[0]?.globOptions?.ignore).toContain(
-      '**/manifest.json'
+      'manifest.json'
     )
   })
 
