@@ -17,9 +17,10 @@ function parseJsonSafe(text: string) {
 
 export function isContentScriptEntry(
   absolutePath: string,
-  manifestPath: string
+  manifestPath: string,
+  projectPath: string
 ): boolean {
-  if (!absolutePath || !manifestPath) {
+  if (!absolutePath || !manifestPath || !projectPath) {
     return false
   }
   if (!fs.existsSync(manifestPath)) return false
@@ -28,11 +29,23 @@ export function isContentScriptEntry(
     fs.readFileSync(manifestPath, 'utf8')
   )
 
+  // Ensure logic for /scripts: if a file is inside the projectPath/scripts folder,
+  // treat as content_script-like (for CSS handling).
+  const scriptsDir = path.resolve(projectPath, 'scripts')
+  const absPathNormalized = path.resolve(absolutePath)
+  const relToScripts = path.relative(scriptsDir, absPathNormalized)
+  const isScriptsFolderScript =
+    relToScripts &&
+    !relToScripts.startsWith('..') &&
+    !path.isAbsolute(relToScripts)
+
+  if (isScriptsFolderScript) return true
+
   for (const content of manifest.content_scripts || []) {
     if (content.js?.length) {
       for (const js of content.js) {
         const contentPath = path.resolve(path.dirname(manifestPath), js)
-        if (contentPath === absolutePath) {
+        if (contentPath === absPathNormalized) {
           return true
         }
       }
