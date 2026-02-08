@@ -118,6 +118,11 @@ export class AddScripts {
     const projectPath = (compiler.options.context as string) || manifestDir
     const publicDir = path.join(projectPath, 'public')
 
+    const isUnderPublic = (filePath: string) => {
+      const rel = path.relative(publicDir, filePath)
+      return rel && !rel.startsWith('..') && !path.isAbsolute(rel)
+    }
+
     const resolveEntryPath = (entry: string) => {
       if (!entry) return entry
       if (isRemoteUrl(entry)) return entry
@@ -144,15 +149,13 @@ export class AddScripts {
       const scriptImports = getScriptEntries(resolvedEntries)
       const cssImports = getCssEntries(resolvedEntries)
       const allImports = [...scriptImports, ...cssImports]
+      const publicOnly =
+        allImports.length > 0 && allImports.every((p) => isUnderPublic(p))
       const entryImports = allImports.filter((filePath) => {
-        const rel = path.relative(publicDir, filePath)
-        const isUnderPublic =
-          rel && !rel.startsWith('..') && !path.isAbsolute(rel)
-
-        return !isUnderPublic
+        return !isUnderPublic(filePath)
       })
 
-      if (cssImports.length || scriptImports.length) {
+      if (!publicOnly && (cssImports.length || scriptImports.length)) {
         // Apply entry-specific configuration for service workers
         if (feature === 'background/service_worker') {
           // Check if this is a module service worker

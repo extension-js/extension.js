@@ -61,4 +61,62 @@ describe('get-project-path', () => {
     expect(s.manifestPath.endsWith('manifest.json')).toBe(true)
     expect(s.packageJsonPath).toBeUndefined()
   })
+
+  it('getProjectStructure ignores manifest.json under public/', async () => {
+    const root = makeTempDir('extjs-public-skip-')
+    const publicDir = path.join(root, 'public', 'sample')
+    const srcDir = path.join(root, 'src')
+    fs.mkdirSync(publicDir, {recursive: true})
+    fs.mkdirSync(srcDir, {recursive: true})
+    fs.writeFileSync(path.join(publicDir, 'manifest.json'), '{}')
+    fs.writeFileSync(path.join(srcDir, 'manifest.json'), '{}')
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    const s = await getProjectStructure(root)
+    expect(path.dirname(s.manifestPath)).toBe(srcDir)
+  })
+
+  it('prefers src/manifest.json over root manifest.json', async () => {
+    const root = makeTempDir('extjs-manifest-prefer-src-')
+    const srcDir = path.join(root, 'src')
+    fs.mkdirSync(srcDir, {recursive: true})
+    fs.writeFileSync(path.join(root, 'manifest.json'), '{"name":"root"}')
+    fs.writeFileSync(path.join(srcDir, 'manifest.json'), '{"name":"src"}')
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    const s = await getProjectStructure(root)
+    expect(path.dirname(s.manifestPath)).toBe(srcDir)
+  })
+
+  it('rejects manifest.json resolved under <packageRoot>/public', async () => {
+    const root = makeTempDir('extjs-manifest-public-guard-')
+    const publicDir = path.join(root, 'public', 'sample')
+    fs.mkdirSync(publicDir, {recursive: true})
+    fs.writeFileSync(path.join(publicDir, 'manifest.json'), '{}')
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    await expect(getProjectStructure(root)).rejects.toThrow(/manifest\.json/i)
+  })
+
+  it('does not guess nested manifest when package.json exists', async () => {
+    const root = makeTempDir('extjs-manifest-no-guess-')
+    const nested = path.join(root, 'nested', 'ext')
+    fs.mkdirSync(nested, {recursive: true})
+    fs.writeFileSync(path.join(nested, 'manifest.json'), '{}')
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({name: 'pkg'})
+    )
+
+    await expect(getProjectStructure(root)).rejects.toThrow(/manifest\.json/i)
+  })
 })

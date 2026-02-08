@@ -53,7 +53,8 @@ export class EmitFile {
 
           const iconFields = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
-          const projectPath = compiler.options.context as string
+          const projectPath =
+            (compiler.options.context as string) || manifestDir
           const publicDir = path.join(projectPath, 'public')
 
           for (const field of Object.entries(iconFields)) {
