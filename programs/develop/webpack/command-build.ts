@@ -16,8 +16,8 @@ import {loadCommandConfig} from './webpack-lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {getDirs, getDistPath, normalizeBrowser} from './webpack-lib/paths'
 import {ensureProjectReady} from './webpack-lib/dependency-manager'
-import {resolveCompanionExtensionsConfig} from './plugin-extension/feature-special-folders/folder-extensions/resolve-config'
-import {getSpecialFoldersDataForProjectRoot} from './plugin-extension/feature-special-folders/get-data'
+import {resolveCompanionExtensionsConfig} from './feature-special-folders/folder-extensions/resolve-config'
+import {getSpecialFoldersDataForProjectRoot} from './feature-special-folders/get-data'
 
 import type {BuildOptions} from './webpack-types'
 

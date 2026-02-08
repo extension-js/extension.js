@@ -26,14 +26,11 @@ vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
-vi.mock(
-  '../plugin-extension/feature-special-folders/companion-extensions',
-  () => ({
-    resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a']),
-    resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
-  })
-)
-vi.mock('../plugin-extension/feature-special-folders/get-data', () => ({
+vi.mock('../feature-special-folders/folder-extensions/companion-extensions', () => ({
+  resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a']),
+  resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
+}))
+vi.mock('../feature-special-folders/get-data', () => ({
   getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
 }))
 
@@ -56,7 +53,7 @@ vi.mock('../plugin-browsers/run-only', () => ({
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
 import {extensionPreview} from '../command-preview'
-import * as companionMod from '../plugin-extension/feature-special-folders/companion-extensions'
+import * as companionMod from '../feature-special-folders/folder-extensions/companion-extensions'
 
 describe('webpack/command-preview (run-only)', () => {
   beforeEach(() => {

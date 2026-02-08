@@ -19,8 +19,8 @@ import {
   loadCommandConfig,
   loadCustomWebpackConfig
 } from '../webpack-lib/config-loader'
-import {resolveCompanionExtensionsConfig} from '../plugin-extension/feature-special-folders/folder-extensions/resolve-config'
-import {getSpecialFoldersDataForProjectRoot} from '../plugin-extension/feature-special-folders/get-data'
+import {resolveCompanionExtensionsConfig} from '../feature-special-folders/folder-extensions/resolve-config'
+import {getSpecialFoldersDataForProjectRoot} from '../feature-special-folders/get-data'
 import {sanitize} from '../webpack-lib/sanitize'
 import {setupCompilerHooks} from './compiler-hooks'
 import {setupCleanupHandlers} from './cleanup'

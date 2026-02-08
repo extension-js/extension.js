@@ -56,13 +56,10 @@ vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
-vi.mock(
-  '../plugin-extension/feature-special-folders/companion-extensions',
-  () => ({
-    resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
-  })
-)
-vi.mock('../plugin-extension/feature-special-folders/get-data', () => ({
+vi.mock('../feature-special-folders/folder-extensions/companion-extensions', () => ({
+  resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
+}))
+vi.mock('../feature-special-folders/get-data', () => ({
   getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
 }))
 
@@ -102,7 +99,7 @@ const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 import {extensionBuild} from '../command-build'
 import * as depsManagerMod from '../webpack-lib/dependency-manager'
 import * as configLoaderMod from '../webpack-lib/config-loader'
-import * as companionMod from '../plugin-extension/feature-special-folders/companion-extensions'
+import * as companionMod from '../feature-special-folders/folder-extensions/companion-extensions'
 import webpackConfig from '../webpack-config'
 
 describe('webpack/command-build', () => {
