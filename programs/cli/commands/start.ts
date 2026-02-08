@@ -16,7 +16,7 @@ import {
   type Browser,
   parseOptionalBoolean
 } from '../utils'
-import {parseLogContexts} from '../utils/normalize-options'
+import {parseExtensionsList, parseLogContexts} from '../utils/normalize-options'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -41,6 +41,7 @@ type StartOptions = {
   logColor?: boolean
   logUrl?: string
   logTab?: string | number
+  extensions?: string
 }
 
 const require = createRequire(import.meta.url)
@@ -107,6 +108,10 @@ export function registerStartCommand(program: Command, telemetry: any) {
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
     )
     .option(
+      '--extensions <list>',
+      'comma-separated list of companion extensions or store URLs to load'
+    )
+    .option(
       '--install [boolean]',
       '[experimental] install project dependencies when missing',
       parseOptionalBoolean
@@ -163,6 +168,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
           port: startOptions.port,
           install: startOptions.install,
           noRunner: startOptions.runner === false,
+          extensions: parseExtensionsList((startOptions as any).extensions),
           source:
             typeof startOptions.source === 'string'
               ? startOptions.source

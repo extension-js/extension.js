@@ -79,7 +79,7 @@ export interface JsFramework {
 }
 
 import {Configuration} from '@rspack/core'
-import type {CompanionExtensionsConfig} from './webpack-lib/companion-extensions'
+import type {CompanionExtensionsConfig} from './plugin-extension/feature-special-folders/folder-extensions/types'
 
 export type BrowserType =
   | 'chrome'
@@ -127,6 +127,10 @@ export interface DevOptions extends BrowserOptionsBase {
   port?: string | number | undefined
   install?: boolean
   /**
+   * Companion extensions (load-only) for this command.
+   */
+  extensions?: CompanionExtensionsConfig
+  /**
    * Skip launching the browser runner (dev server still starts).
    */
   noRunner?: boolean
@@ -164,6 +168,10 @@ export interface BuildOptions {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  /**
+   * Companion extensions (load-only) for this command.
+   */
+  extensions?: CompanionExtensionsConfig
   zipFilename?: string
   zip?: boolean
   zipSource?: boolean
@@ -186,6 +194,10 @@ export interface PreviewOptions extends BrowserOptionsBase {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  /**
+   * Companion extensions (load-only) for this command.
+   */
+  extensions?: CompanionExtensionsConfig
   /**
    * Skip launching the browser runner (no preview window).
    */
@@ -228,6 +240,10 @@ export interface StartOptions extends BrowserOptionsBase {
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
   /**
+   * Companion extensions (load-only) for this command.
+   */
+  extensions?: CompanionExtensionsConfig
+  /**
    * [internal] Auto-install project dependencies when missing.
    */
   install?: boolean
@@ -265,6 +281,11 @@ export interface BrowserConfig extends BrowserOptionsBase {
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
+  /**
+   * Companion extensions (load-only) scoped to a browser config.
+   * Useful for per-browser store URLs or local unpacked extensions.
+   */
+  extensions?: CompanionExtensionsConfig
 }
 
 // Shared output shape consumed by webpack-config
