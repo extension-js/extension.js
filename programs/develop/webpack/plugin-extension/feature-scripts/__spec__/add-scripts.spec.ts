@@ -80,7 +80,7 @@ describe('AddScripts', () => {
     ).toBe('import-scripts')
   })
 
-  it('excludes imports under public/ from entry import list but tracks them for watch', () => {
+  it('skips public-only entries but tracks them for watch', () => {
     const publicJs = '/proj/public/foo.js'
     const publicCss = '/proj/public/style.css'
 
@@ -113,8 +113,7 @@ describe('AddScripts', () => {
     plugin.apply(compiler)
 
     const entry = compiler.options.entry['background/scripts']
-    expect(Array.isArray(entry?.import)).toBe(true)
-    expect(entry.import.length).toBe(0)
+    expect(entry).toBeUndefined()
     expect(addedFiles).toContain(publicJs)
     expect(addedFiles).toContain(publicCss)
   })
