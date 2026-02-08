@@ -10,7 +10,7 @@ import path from 'path'
 import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
-import {type FilepathList} from '../../webpack-types'
+import {type FilepathList} from '../webpack-types'
 import {type CompanionExtensionsConfig} from './folder-extensions/types'
 
 function isUnderPublicDir(

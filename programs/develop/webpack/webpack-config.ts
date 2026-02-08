@@ -16,7 +16,8 @@ import {asAbsolute, getDirs} from './webpack-lib/paths'
 import {withDarkMode} from './webpack-lib/dark-mode'
 import * as messages from './webpack-lib/messages'
 import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
-import {resolveCompanionExtensionDirs} from './webpack-lib/companion-extensions'
+import {resolveCompanionExtensionDirs} from './feature-special-folders/folder-extensions/companion-extensions'
+import {SpecialFoldersPlugin} from './feature-special-folders'
 
 // Plugins
 import {CompilationPlugin} from './plugin-compilation'
@@ -125,7 +126,11 @@ export default function webpackConfig(
     new ExtensionPlugin({
       manifestPath,
       browser: devOptions.browser
+    }),
+    new SpecialFoldersPlugin({
+      manifestPath
     })
+
   ]
 
   if (!devOptions.noRunner) {

@@ -95,6 +95,7 @@ export function resolveCompanionExtensionDirs(opts: {
     const absScan = toAbs(projectRoot, scanDir)
     if (isDir(absScan)) {
       let entries: fs.Dirent[] = []
+
       try {
         entries = fs.readdirSync(absScan, {withFileTypes: true})
       } catch {
@@ -104,7 +105,9 @@ export function resolveCompanionExtensionDirs(opts: {
       for (const ent of entries) {
         if (!ent.isDirectory()) continue
         if (ent.name.startsWith('.')) continue
+
         const candidate = path.join(absScan, ent.name)
+
         if (isValidExtensionRoot(candidate)) found.push(candidate)
       }
     }
@@ -113,8 +116,10 @@ export function resolveCompanionExtensionDirs(opts: {
   // De-dupe while preserving order
   const unique: string[] = []
   const seen = new Set<string>()
+
   for (const p of found) {
     if (seen.has(p)) continue
+
     seen.add(p)
     unique.push(p)
   }
