@@ -16,7 +16,6 @@ import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {HandleCommonErrors} from './steps/handle-common-errors'
 import {ThrowIfManifestEntryChange} from './steps/throw-if-manifest-entry-change'
-import {getExtraHtmlEntries} from './html-lib/extra-entries'
 import type {
   FilepathList,
   PluginInterface,
@@ -62,14 +61,8 @@ export class HtmlPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    const extraHtmlEntries = getExtraHtmlEntries({
-      manifestPath: this.manifestPath,
-      browser: this.browser
-    })
-
     const includeList = {
-      ...(this.includeList || {}),
-      ...extraHtmlEntries
+      ...(this.includeList || {})
     }
 
     // 1 - Gets the original HTML file and add the HTML file to the compilation.

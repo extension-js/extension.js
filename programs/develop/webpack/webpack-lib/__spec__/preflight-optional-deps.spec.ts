@@ -16,7 +16,9 @@ vi.mock('../preflight-cache', () => ({
 }))
 vi.mock('../plugin-js-frameworks/frameworks-lib/integrations', () => ({
   installOptionalDependenciesBatch: (...args: any[]) =>
-    installOptionalDependenciesBatch(...args)
+    installOptionalDependenciesBatch(
+      ...(args as Parameters<typeof installOptionalDependenciesBatch>)
+    )
 }))
 vi.mock('../plugin-js-frameworks/js-tools/react', () => ({
   isUsingReact: () => true
