@@ -230,11 +230,36 @@ export async function getProjectStructure(
 ): Promise<ProjectStructure> {
   const projectPath = await getProjectPath(pathOrRemoteUrl)
 
-  // Search for manifest.json recursively in the project path
-  let manifestPath = path.join(projectPath, 'manifest.json')
+  const isUnderDir = (baseDir: string, candidatePath: string): boolean => {
+    const rel = path.relative(baseDir, candidatePath)
+    return Boolean(rel && !rel.startsWith('..') && !path.isAbsolute(rel))
+  }
+
+  // Find nearest package.json from the project root (if any).
+  const packageJsonPathFromProject = await findNearestPackageJson(
+    path.join(projectPath, 'manifest.json')
+  )
+  const packageJsonDirFromProject = packageJsonPathFromProject
+    ? path.dirname(packageJsonPathFromProject)
+    : undefined
+
+  // Prefer conventional locations before recursive search:
+  // - <root>/manifest.json
+  // - <root>/src/manifest.json
+  const rootManifestPath = path.join(projectPath, 'manifest.json')
+  const srcManifestPath = path.join(projectPath, 'src', 'manifest.json')
+  let manifestPath = fs.existsSync(srcManifestPath)
+    ? srcManifestPath
+    : rootManifestPath
 
   if (!fs.existsSync(manifestPath)) {
-    // Try to find manifest.json in subdirectories
+    // If we have a package.json at/above the project root, do NOT
+    // guess a manifest from arbitrary subfolders. Force explicit location.
+    if (packageJsonDirFromProject) {
+      throw new Error(messages.manifestNotFoundError(manifestPath))
+    }
+
+    // Web-only mode: Try to find manifest.json in subdirectories
     const findManifest = (dir: string): string | null => {
       const files = fs.readdirSync(dir, {withFileTypes: true})
 
@@ -246,7 +271,8 @@ export async function getProjectStructure(
           file.isDirectory() &&
           !file.name.startsWith('.') &&
           file.name !== 'node_modules' &&
-          file.name !== 'dist'
+          file.name !== 'dist' &&
+          file.name !== 'public'
         ) {
           const found = findManifest(path.join(dir, file.name))
           if (found) return found
@@ -265,6 +291,26 @@ export async function getProjectStructure(
 
   // Find nearest package.json, but allow web-only mode when absent or invalid
   const packageJsonPath = await findNearestPackageJson(manifestPath)
+  const packageJsonDir = packageJsonPath
+    ? path.dirname(packageJsonPath)
+    : undefined
+
+  // Guard: never allow manifest.json to be resolved from <packageRoot>/public
+  if (packageJsonDir) {
+    const publicRoot = path.join(packageJsonDir, 'public')
+    if (isUnderDir(publicRoot, manifestPath)) {
+      const fallbackSrc = path.join(packageJsonDir, 'src', 'manifest.json')
+      const fallbackRoot = path.join(packageJsonDir, 'manifest.json')
+      if (fs.existsSync(fallbackSrc)) {
+        manifestPath = fallbackSrc
+      } else if (fs.existsSync(fallbackRoot)) {
+        manifestPath = fallbackRoot
+      } else {
+        // If only public/ contains a manifest, treat as not found
+        throw new Error(messages.manifestNotFoundError(fallbackRoot))
+      }
+    }
+  }
 
   if (!packageJsonPath || !validatePackageJson(packageJsonPath)) {
     // Web-only mode: proceed without a package.json

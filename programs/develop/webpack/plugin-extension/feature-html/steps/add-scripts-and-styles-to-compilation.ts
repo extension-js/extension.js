@@ -25,7 +25,8 @@ export class AddScriptsAndStylesToCompilation {
 
   public apply(compiler: Compiler) {
     const htmlEntries = this.includeList || {}
-    const projectRoot = path.dirname(this.manifestPath)
+    const manifestDir = path.dirname(this.manifestPath)
+    const projectRoot = (compiler.options.context as string) || manifestDir
     const publicDir = path.join(projectRoot, 'public')
     const hasPublicDir = fs.existsSync(publicDir)
 
