@@ -19,6 +19,7 @@ import {
   loadCommandConfig,
   loadCustomWebpackConfig
 } from '../webpack-lib/config-loader'
+import {resolveCompanionExtensionsConfig} from '../webpack-lib/companion-extensions'
 import {sanitize} from '../webpack-lib/sanitize'
 import {setupCompilerHooks} from './compiler-hooks'
 import {setupCleanupHandlers} from './cleanup'
@@ -73,10 +74,21 @@ export async function devServer(
   const safeCommandConfig = sanitize(commandConfig)
   const safeDevOptions = sanitize(devOptions)
 
+  const mergedExtensionsConfig =
+    safeDevOptions.extensions ??
+    safeCommandConfig.extensions ??
+    safeBrowserConfig.extensions
+  const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
+    projectRoot: packageJsonDir,
+    browser: devOptions.browser,
+    config: mergedExtensionsConfig
+  })
+
   const baseConfig = webpackConfig(projectStructure, {
     ...safeBrowserConfig,
     ...safeCommandConfig,
     ...safeDevOptions,
+    extensions: resolvedExtensionsConfig,
     browser: devOptions.browser,
     mode: 'development' as any,
     instanceId: currentInstance.instanceId,
