@@ -19,11 +19,12 @@ interface SpecialFoldersPluginOptions {
 
 /**
  * SpecialFoldersPlugin is responsible for handling the
- * three types of special folders in the extension:
+ * special folders in the extension:
  *
  * - /pages - HTML pages not included in the manifest
  * - /scripts - Script files not included in the manifest
  * - /public - Static files not included in the manifest
+ * - /extensions - Load-only companion extensions (unpacked)
  */
 export class SpecialFoldersPlugin {
   public static readonly name: string = 'plugin-special-folders'

@@ -161,7 +161,7 @@ Options accepted by each command. Values shown are typical types or enumerations
 - Supported sections:
   - config(config: Configuration): mutate the assembled Rspack config. Supports a function or a plain object. When an object is provided, it is deep‑merged on top of the assembled config.
   - commands.dev | .build | .start | .preview: per‑command options (browser, profile, binaries, flags, preferences, unified logger defaults, packaging). These defaults are applied for all respective commands.
-  - browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: start flags, excluded flags, preferences, binaries, and profile reuse (persistProfile).
+- browser.chrome | .firefox | .edge | .chromium-based | .gecko-based: start flags, excluded flags, preferences, binaries, profile reuse (persistProfile), and per-browser `extensions`.
   - extensions: load-only companion extensions (unpacked dirs) loaded alongside your extension in dev/preview/start.
     - Example: { dir: "./extensions" } loads every "./extensions/\*" folder that contains a manifest.json.
 - Precedence when composing options: browser._ → commands._ → CLI flags. CLI flags always win over config defaults.
@@ -180,9 +180,13 @@ Use this when you have other unpacked extensions you want loaded alongside your 
 - **How they’re loaded**: they’re appended into the browser runner’s `--load-extension` list (Chromium) / addon install list (Firefox) **before** your extension. Your extension is always loaded last for precedence.
 - **Discovery**:
   - `extensions.dir`: scans one level deep (e.g. `./extensions/*/manifest.json`)
+    - When `dir` points to `./extensions`, browser folders like `./extensions/chrome/*` and `./extensions/firefox/*` are also scanned.
   - `extensions.paths`: explicit directories (absolute or relative to the project root)
 - **Overrides**: top-level `extensions` applies to all commands, but `commands.<cmd>.extensions` overrides it for that command.
 - **Invalid entries**: ignored. In author mode (`EXTENSION_AUTHOR_MODE=true`) we print a warning if `extensions` is configured but nothing resolves.
+- **Store URLs**: entries pointing to Chrome Web Store, Edge Addons, or AMO are downloaded on-demand into `./extensions/<browser>/<id-or-slug>`.
+- **Local paths**: only paths under `./extensions/` are accepted for companion extensions.
+- **CLI**: use `--extensions <csv>` to provide a comma-separated list of paths or store URLs.
 
 Example:
 

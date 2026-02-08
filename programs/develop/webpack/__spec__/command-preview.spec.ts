@@ -26,8 +26,15 @@ vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
-vi.mock('../webpack-lib/companion-extensions', () => ({
-  resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a'])
+vi.mock(
+  '../plugin-extension/feature-special-folders/companion-extensions',
+  () => ({
+    resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a']),
+    resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
+  })
+)
+vi.mock('../plugin-extension/feature-special-folders/get-data', () => ({
+  getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
 }))
 
 vi.mock('../webpack-lib/extensions-to-load', () => ({
@@ -41,7 +48,7 @@ vi.mock('../webpack-lib/dark-mode', () => ({
   }))
 }))
 
-const runOnlyPreviewBrowser = vi.fn(async () => {})
+const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
 vi.mock('../plugin-browsers/run-only', () => ({
   runOnlyPreviewBrowser: (...args: any[]) => runOnlyPreviewBrowser(...args)
 }))
@@ -49,6 +56,7 @@ vi.mock('../plugin-browsers/run-only', () => ({
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
 import {extensionPreview} from '../command-preview'
+import * as companionMod from '../plugin-extension/feature-special-folders/companion-extensions'
 
 describe('webpack/command-preview (run-only)', () => {
   beforeEach(() => {
@@ -56,6 +64,8 @@ describe('webpack/command-preview (run-only)', () => {
     runOnlyPreviewBrowser.mockClear()
     logSpy.mockClear()
     ;(fs.existsSync as any)?.mockReset?.()
+    ;(companionMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
+    ;(companionMod as any).resolveCompanionExtensionDirs?.mockClear?.()
   })
 
   afterEach(() => {
@@ -73,7 +83,7 @@ describe('webpack/command-preview (run-only)', () => {
     await extensionPreview('/proj', {browser: 'chrome'} as any)
 
     expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
-    const call = runOnlyPreviewBrowser.mock.calls[0][0]
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
     expect(call.outPath).toBe('/proj')
   })
 
@@ -87,7 +97,7 @@ describe('webpack/command-preview (run-only)', () => {
     await extensionPreview('/proj', {browser: 'chrome'} as any)
 
     expect(runOnlyPreviewBrowser).toHaveBeenCalledTimes(1)
-    const call = runOnlyPreviewBrowser.mock.calls[0][0]
+    const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
     expect(call.outPath).toBe(path.join('/proj', 'dist', 'chrome'))
   })
 
@@ -114,5 +124,31 @@ describe('webpack/command-preview (run-only)', () => {
     } as any)
 
     expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
+  })
+
+  it('resolves companion extensions before scanning', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview('/proj', {
+      browser: 'chrome',
+      extensions: [
+        'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
+      ]
+    } as any)
+
+    expect(companionMod.resolveCompanionExtensionsConfig).toHaveBeenCalledWith({
+      projectRoot: '/proj',
+      browser: 'chrome',
+      config: [
+        'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
+      ]
+    })
+    expect(companionMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
+      expect.objectContaining({config: {paths: ['/comp/a']}})
+    )
   })
 })

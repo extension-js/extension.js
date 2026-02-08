@@ -63,3 +63,14 @@ export function parseLogContexts(
 
   return values.length > 0 ? values : undefined
 }
+
+export function parseExtensionsList(raw: string | undefined) {
+  if (!raw || String(raw).trim().length === 0) return undefined
+
+  const values = String(raw)
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+
+  return values.length > 0 ? values : undefined
+}

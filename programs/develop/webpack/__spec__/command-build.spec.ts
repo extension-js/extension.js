@@ -56,6 +56,16 @@ vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
+vi.mock(
+  '../plugin-extension/feature-special-folders/companion-extensions',
+  () => ({
+    resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
+  })
+)
+vi.mock('../plugin-extension/feature-special-folders/get-data', () => ({
+  getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined}))
+}))
+
 const rspackMock = vi.hoisted(() => vi.fn())
 
 vi.mock('module', async () => {
@@ -92,6 +102,8 @@ const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 import {extensionBuild} from '../command-build'
 import * as depsManagerMod from '../webpack-lib/dependency-manager'
 import * as configLoaderMod from '../webpack-lib/config-loader'
+import * as companionMod from '../plugin-extension/feature-special-folders/companion-extensions'
+import webpackConfig from '../webpack-config'
 
 describe('webpack/command-build', () => {
   // fs is mocked; configure per-test behavior below
@@ -100,6 +112,8 @@ describe('webpack/command-build', () => {
     vi.resetModules()
     ;(configLoaderMod as any).userConfigSpy?.mockClear?.()
     ;(depsManagerMod.ensureProjectReady as any)?.mockClear?.()
+    ;(companionMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
+    ;(webpackConfig as any)?.mockClear?.()
     rspackMock.mockClear()
     logSpy.mockClear()
     errorSpy.mockClear()
@@ -177,6 +191,36 @@ describe('webpack/command-build', () => {
         exitOnInstall: false,
         showRunAgainMessage: false
       })
+    )
+  })
+
+  it('resolves companion extensions before building', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await extensionBuild('/proj', {
+      browser: 'chrome',
+      silent: true,
+      extensions: [
+        'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
+      ]
+    })
+
+    expect(companionMod.resolveCompanionExtensionsConfig).toHaveBeenCalledWith({
+      projectRoot: '/proj',
+      browser: 'chrome',
+      config: [
+        'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
+      ]
+    })
+    expect(webpackConfig).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({extensions: {paths: ['/comp/a']}})
     )
   })
 
