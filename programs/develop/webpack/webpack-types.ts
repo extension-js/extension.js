@@ -79,7 +79,7 @@ export interface JsFramework {
 }
 
 import {Configuration} from '@rspack/core'
-import type {CompanionExtensionsConfig} from './plugin-extension/feature-special-folders/folder-extensions/types'
+import type {CompanionExtensionsConfig} from './feature-special-folders/folder-extensions/types'
 
 export type BrowserType =
   | 'chrome'

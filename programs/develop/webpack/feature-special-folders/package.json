@@ -3,14 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Internal placeholder for future extraction from extension.js (plugin-extension/feature-special-folders).",
+  "description": "Internal placeholder for future extraction from extension.js (webpack/feature-special-folders).",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/extension-js/extension.js.git",
-    "directory": "programs/develop/webpack/plugin-extension/feature-special-folders"
+    "directory": "programs/develop/webpack/feature-special-folders"
   },
-  "x-internal-path": "programs/develop/webpack/plugin-extension/feature-special-folders",
+  "x-internal-path": "programs/develop/webpack/feature-special-folders",
   "x-legacy-npm": [
     "webpack-browser-extension-special-folders"
   ]

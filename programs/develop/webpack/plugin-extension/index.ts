@@ -17,11 +17,10 @@ import {LocalesPlugin} from './feature-locales'
 import {JsonPlugin} from './feature-json'
 import {IconsPlugin} from './feature-icons'
 import {WebResourcesPlugin} from './feature-web-resources'
-import {SpecialFoldersPlugin} from './feature-special-folders'
 import {ResolvePlugin} from './feature-resolve'
 
 // Business logic modules
-import {getSpecialFoldersDataForCompiler} from './feature-special-folders/get-data'
+import {getSpecialFoldersDataForCompiler} from '../feature-special-folders/get-data'
 
 // Types
 import type {PluginInterface, FilepathList, DevOptions} from '../webpack-types'
@@ -107,11 +106,6 @@ export class ExtensionPlugin {
         ...manifestFieldsData.scripts,
         ...specialFoldersData.scripts
       }
-    }).apply(compiler)
-
-    // Plugin to add special folders (public, pages, scripts) to the extension
-    new SpecialFoldersPlugin({
-      manifestPath
     }).apply(compiler)
 
     // TODO: cezaraugusto enable this after v3
