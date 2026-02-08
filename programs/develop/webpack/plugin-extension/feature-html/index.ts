@@ -16,6 +16,7 @@ import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {HandleCommonErrors} from './steps/handle-common-errors'
 import {ThrowIfManifestEntryChange} from './steps/throw-if-manifest-entry-change'
+import {getExtraHtmlEntries} from './html-lib/extra-entries'
 import type {
   FilepathList,
   PluginInterface,
@@ -61,10 +62,20 @@ export class HtmlPlugin {
   }
 
   public apply(compiler: Compiler): void {
+    const extraHtmlEntries = getExtraHtmlEntries({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    })
+
+    const includeList = {
+      ...(this.includeList || {}),
+      ...extraHtmlEntries
+    }
+
     // 1 - Gets the original HTML file and add the HTML file to the compilation.
     new EmitHtmlFile({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -72,7 +83,7 @@ export class HtmlPlugin {
     // such as <img>, <iframe>, <link>, <script> etc.
     new AddAssetsToCompilation({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -80,14 +91,14 @@ export class HtmlPlugin {
     // to the compilation.
     new AddScriptsAndStylesToCompilation({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
     // 4 - Updates the HTML file with the new assets and entrypoints.
     new UpdateHtmlFile({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -102,7 +113,7 @@ export class HtmlPlugin {
             loader: path.resolve(__dirname, 'ensure-hmr-for-scripts'),
             options: {
               manifestPath: this.manifestPath,
-              includeList: this.includeList
+              includeList
             }
           }
         ]
@@ -112,7 +123,7 @@ export class HtmlPlugin {
     // 6 - Ensure HTML file is recompiled upon changes.
     new AddToFileDependencies({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
@@ -122,21 +133,21 @@ export class HtmlPlugin {
     // entrypoints at runtime.
     new ThrowIfRecompileIsNeeded({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
     // 8 - Restart-required if manifest HTML entrypoints changed.
     new ThrowIfManifestEntryChange({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
+      includeList,
       browser: this.browser
     }).apply(compiler)
 
     // 9 - Handle common errors.
     new HandleCommonErrors({
       manifestPath: this.manifestPath,
-      includeList: this.includeList,
+      includeList,
       browser: this.browser
     }).apply(compiler)
 

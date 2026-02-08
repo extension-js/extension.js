@@ -116,20 +116,13 @@ export class AddScripts {
 
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
-    const publicDir = path.join(projectPath, 'public')
-
-    const isUnderPublic = (filePath: string) => {
-      const rel = path.relative(publicDir, filePath)
-      return rel && !rel.startsWith('..') && !path.isAbsolute(rel)
-    }
-
     const resolveEntryPath = (entry: string) => {
       if (!entry) return entry
       if (isRemoteUrl(entry)) return entry
 
       if (entry.startsWith('/') && !path.isAbsolute(entry)) {
         // Leading "/" is the extension output root (public/)
-        return path.join(publicDir, entry.slice(1))
+        return path.join(projectPath, entry.slice(1))
       }
 
       if (path.isAbsolute(entry)) return entry
@@ -149,13 +142,9 @@ export class AddScripts {
       const scriptImports = getScriptEntries(resolvedEntries)
       const cssImports = getCssEntries(resolvedEntries)
       const allImports = [...scriptImports, ...cssImports]
-      const publicOnly =
-        allImports.length > 0 && allImports.every((p) => isUnderPublic(p))
-      const entryImports = allImports.filter((filePath) => {
-        return !isUnderPublic(filePath)
-      })
+      const entryImports = allImports
 
-      if (!publicOnly && (cssImports.length || scriptImports.length)) {
+      if (cssImports.length || scriptImports.length) {
         // Apply entry-specific configuration for service workers
         if (feature === 'background/service_worker') {
           // Check if this is a module service worker
@@ -184,46 +173,6 @@ export class AddScripts {
     }
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(messages.scriptsEntriesSummary(entriesAdded, publicTracked))
-    }
-
-    // Track public files for watch; emission handled by SpecialFolders
-    if (compiler?.hooks?.thisCompilation?.tap) {
-      compiler.hooks.thisCompilation.tap(
-        'scripts:add-public-deps',
-        (compilation) => {
-          try {
-            // Recompute all script field entries to avoid closure issues per entry
-            const allScriptFieldImports: string[] = Object.values(
-              scriptFields
-            ).flatMap((scriptFieldEntry: any) =>
-              [].concat(
-                ...(Array.isArray(scriptFieldEntry)
-                  ? scriptFieldEntry
-                  : scriptFieldEntry
-                    ? [scriptFieldEntry]
-                    : [])
-              )
-            )
-
-            const publicFilesOnly: string[] = allScriptFieldImports
-              .filter((importPath) => !isRemoteUrl(String(importPath)))
-              .map((importPath) => resolveEntryPath(String(importPath)))
-              .filter((resolvedPath) => {
-                const rel = path.relative(publicDir, resolvedPath)
-                return rel && !rel.startsWith('..') && !path.isAbsolute(rel)
-              })
-
-            for (const publicFilePath of publicFilesOnly) {
-              if (fs.existsSync(publicFilePath)) {
-                compilation.fileDependencies.add(publicFilePath)
-                publicTracked++
-              }
-            }
-          } catch {
-            // ignore guard errors
-          }
-        }
-      )
     }
   }
 }
