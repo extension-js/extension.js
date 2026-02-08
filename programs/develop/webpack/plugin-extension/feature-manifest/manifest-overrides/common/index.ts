@@ -24,11 +24,11 @@ import {contentSecurityPolicy} from './content_security_policy'
 import {omnibox} from './omnibox'
 import {type Manifest} from '../../../../webpack-types'
 
-export function manifestCommon(manifest: Manifest) {
+export function manifestCommon(manifest: Manifest, manifestPath?: string) {
   return {
     ...backgroundPage(manifest),
     ...chromeUrlOverrides(manifest),
-    ...contentScripts(manifest),
+    ...contentScripts(manifest, manifestPath),
     ...devtoolsPage(manifest),
     ...icons(manifest),
     ...commands(manifest),
