@@ -1,7 +1,17 @@
 import {describe, it, expect, vi} from 'vitest'
+import * as fs from 'fs'
 import {getSpecialFoldersDataForCompiler} from '../get-data'
 
 const getSpecialFoldersDataMock = vi.fn()
+
+vi.mock('fs', async () => {
+  const actual = await vi.importActual<typeof import('fs')>('fs')
+  return {
+    ...actual,
+    existsSync: vi.fn(actual.existsSync),
+    statSync: vi.fn(actual.statSync)
+  }
+})
 
 vi.mock('browser-extension-manifest-fields', () => ({
   getSpecialFoldersData: (...args: any[]) => getSpecialFoldersDataMock(...args)
@@ -35,5 +45,25 @@ describe('getSpecialFoldersDataForCompiler', () => {
     ])
     expect(data.scripts?.['scripts/a']).toEqual(['/project/scripts/a.js'])
     expect((data as any).public).toEqual({foo: 'bar'})
+  })
+
+  it('exposes extensions config when extensions/ exists', () => {
+    getSpecialFoldersDataMock.mockReturnValue({
+      pages: {},
+      scripts: {},
+      public: {}
+    })
+    const existsSpy = vi.mocked(fs.existsSync).mockReturnValue(true as any)
+    const statSpy = vi
+      .mocked(fs.statSync)
+      .mockReturnValue({isDirectory: () => true} as any)
+
+    const compiler = {options: {context: '/project'}} as any
+    const data = getSpecialFoldersDataForCompiler(compiler)
+
+    expect(data.extensions).toEqual({dir: './extensions'})
+
+    existsSpy.mockReset()
+    statSpy.mockReset()
   })
 })

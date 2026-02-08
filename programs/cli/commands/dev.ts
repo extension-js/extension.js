@@ -18,6 +18,7 @@ import {
 } from '../utils'
 import {
   normalizeSourceOption,
+  parseExtensionsList,
   parseLogContexts
 } from '../utils/normalize-options'
 
@@ -40,6 +41,7 @@ type DevOptions = {
   logTab?: string | number
   install?: boolean
   runner?: boolean
+  extensions?: string
 }
 
 const require = createRequire(import.meta.url)
@@ -108,6 +110,10 @@ export function registerDevCommand(program: Command, telemetry: any) {
     .option(
       '--source [url]',
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
+    )
+    .option(
+      '--extensions <list>',
+      'comma-separated list of companion extensions or store URLs to load'
     )
     .option(
       '--install [boolean]',
@@ -183,6 +189,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
           watchSource: devOptions.watchSource,
           install: devOptions.install,
           noRunner: devOptions.runner === false,
+          extensions: parseExtensionsList((devOptions as any).extensions),
           logLevel: (logsOption || devOptions.logLevel || 'off') as any,
           logContexts: parseLogContexts(logContextOption),
           logFormat: devOptions.logFormat || 'pretty',

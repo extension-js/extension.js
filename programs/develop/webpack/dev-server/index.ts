@@ -19,7 +19,8 @@ import {
   loadCommandConfig,
   loadCustomWebpackConfig
 } from '../webpack-lib/config-loader'
-import {resolveCompanionExtensionsConfig} from '../webpack-lib/companion-extensions'
+import {resolveCompanionExtensionsConfig} from '../plugin-extension/feature-special-folders/folder-extensions/resolve-config'
+import {getSpecialFoldersDataForProjectRoot} from '../plugin-extension/feature-special-folders/get-data'
 import {sanitize} from '../webpack-lib/sanitize'
 import {setupCompilerHooks} from './compiler-hooks'
 import {setupCleanupHandlers} from './cleanup'
@@ -73,11 +74,13 @@ export async function devServer(
   const safeBrowserConfig = sanitize(browserConfig)
   const safeCommandConfig = sanitize(commandConfig)
   const safeDevOptions = sanitize(devOptions)
+  const specialFoldersData = getSpecialFoldersDataForProjectRoot(packageJsonDir)
 
   const mergedExtensionsConfig =
     safeDevOptions.extensions ??
     safeCommandConfig.extensions ??
-    safeBrowserConfig.extensions
+    safeBrowserConfig.extensions ??
+    specialFoldersData.extensions
   const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
     projectRoot: packageJsonDir,
     browser: devOptions.browser,

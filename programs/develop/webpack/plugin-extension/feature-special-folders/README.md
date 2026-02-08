@@ -7,9 +7,9 @@
 
 # @/webpack/plugin-extension/feature-special-folders
 
-> Handle extension "special folders" (public, pages, scripts) during builds and development.
+> Handle extension "special folders" (public, pages, scripts, extensions) during builds and development.
 
-This module adds support for special folders in a browser extension project and is part of the [Extension.js](https://extension.js.org) project. It uses Rspack's `CopyRspackPlugin` to emit static assets under `public/` (for proper watch/incremental behavior). In development watch mode, it also warns when HTML files in `pages/` or script files in `scripts/` are added or removed after compilation (which typically requires a server restart).
+This module adds support for special folders in a browser extension project and is part of the [Extension.js](https://extension.js.org) project. It uses Rspack's `CopyRspackPlugin` to emit static assets under `public/` (for proper watch/incremental behavior). In development watch mode, it also warns when HTML files in `pages/` or script files in `scripts/` are added or removed after compilation (which typically requires a server restart). It also defines a conventional `extensions/` folder for load-only companion extensions.
 
 - Emits everything from the exact `public/` directory into the build output root, preserving the folder structure, via `CopyRspackPlugin`.
 - In development with watch enabled, monitors `pages/` and `scripts/`:
@@ -18,11 +18,12 @@ This module adds support for special folders in a browser extension project and 
 
 Output mapping overview:
 
-| Source pattern | Output behavior                                                                   |
-| -------------- | --------------------------------------------------------------------------------- |
-| `public/**`    | Emitted 1:1 into output root (e.g., `public/img/icon.png` → `dist/img/icon.png`). |
-| `pages/**`     | Surfaced via HTML feature; nested routes preserved and `/index` collapses.        |
-| `scripts/**`   | Surfaced via Scripts feature; not copied by this plugin.                          |
+| Source pattern  | Output behavior                                                                   |
+| --------------- | --------------------------------------------------------------------------------- |
+| `public/**`     | Emitted 1:1 into output root (e.g., `public/img/icon.png` → `dist/img/icon.png`). |
+| `pages/**`      | Surfaced via HTML feature; nested routes preserved and `/index` collapses.        |
+| `scripts/**`    | Surfaced via Scripts feature; not copied by this plugin.                          |
+| `extensions/**` | Load-only companion extensions; scanned when no CLI/config `extensions` provided. |
 
 ## Usage
 
@@ -42,7 +43,7 @@ export default {
 
 ## Include semantics
 
-- This plugin does not accept include/exclude lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root.
+- This plugin does not accept include/exclude lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root. It also exposes a default `extensions/` scan when no CLI/config `extensions` are provided.
 - For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
 
 ## Path resolution convention (consistent across @plugin-extension)
