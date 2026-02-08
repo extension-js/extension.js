@@ -59,5 +59,5 @@ export default function ChunkLoaderFallbackRuntimeModule(
       )
     }
   }
-  return new ChunkLoaderFallbackRuntime()
+  return new ChunkLoaderFallbackRuntime() as unknown as import('webpack').RuntimeModule
 }

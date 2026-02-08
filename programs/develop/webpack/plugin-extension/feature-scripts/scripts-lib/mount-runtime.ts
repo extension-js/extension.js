@@ -108,12 +108,12 @@ export function mountWithHMR(mount: MountFn, runAt: RunAt = 'document_idle') {
   cancelReady = whenReady(runAt, apply)
 
   // JS HMR lifecycle
-  // @ts-expect-error - webpackHot is not typed
+  // @ts-ignore - webpackHot is not typed
   if (import.meta.webpackHot) {
     try {
-      // @ts-expect-error - webpackHot is not typed
+      // @ts-ignore - webpackHot is not typed
       import.meta.webpackHot.accept()
-      // @ts-expect-error - webpackHot is not typed
+      // @ts-ignore - webpackHot is not typed
       import.meta.webpackHot.dispose(unmount)
     } catch (error) {
       console.error('[extension.js] Error accepting HMR', error)
