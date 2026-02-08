@@ -16,6 +16,8 @@ import {loadCommandConfig} from './webpack-lib/config-loader'
 import {assertNoManagedDependencyConflicts} from './webpack-lib/validate-user-dependencies'
 import {getDirs, getDistPath, normalizeBrowser} from './webpack-lib/paths'
 import {ensureProjectReady} from './webpack-lib/dependency-manager'
+import {resolveCompanionExtensionsConfig} from './plugin-extension/feature-special-folders/folder-extensions/resolve-config'
+import {getSpecialFoldersDataForProjectRoot} from './plugin-extension/feature-special-folders/get-data'
 
 import type {BuildOptions} from './webpack-types'
 
@@ -78,6 +80,8 @@ export async function extensionBuild(
     }
 
     const commandConfig = await loadCommandConfig(manifestDir, 'build')
+    const specialFoldersData =
+      getSpecialFoldersDataForProjectRoot(packageJsonDir)
 
     const distPath = getDistPath(packageJsonDir, browser)
     if (debug) {
@@ -92,9 +96,20 @@ export async function extensionBuild(
       console.log(messages.debugOutputPath(distPath))
     }
 
+    const mergedExtensionsConfig =
+      buildOptions?.extensions ??
+      commandConfig.extensions ??
+      specialFoldersData.extensions
+    const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
+      projectRoot: packageJsonDir,
+      browser,
+      config: mergedExtensionsConfig
+    })
+
     const baseConfig: Configuration = webpackConfig(projectStructure, {
       ...commandConfig,
       ...buildOptions,
+      extensions: resolvedExtensionsConfig,
       browser,
       mode: 'production',
       output: {

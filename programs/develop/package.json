@@ -85,6 +85,7 @@
     "cross-spawn": "^7.0.6",
     "dotenv": "^17.2.3",
     "edge-location": "2.2.0",
+    "extension-from-store": "^0.1.1",
     "firefox-location2": "3.0.0",
     "go-git-it": "^5.1.1",
     "ignore": "^7.0.5",
