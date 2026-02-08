@@ -5,7 +5,7 @@
 
 [![Empowering Extension.js][powered-image]][powered-url] [![Pull requests welcome][pr-welcome-image]][pr-welcome-url]
 
-# @/webpack/plugin-extension/feature-special-folders
+# @/webpack/feature-special-folders
 
 > Handle extension "special folders" (public, pages, scripts, extensions) during builds and development.
 
@@ -28,7 +28,7 @@ Output mapping overview:
 ## Usage
 
 ```ts
-import {SpecialFoldersPlugin} from '@/webpack/plugin-extension/feature-special-folders'
+import {SpecialFoldersPlugin} from '@/webpack/feature-special-folders'
 
 export default {
   // ... your Rspack/Webpack config
