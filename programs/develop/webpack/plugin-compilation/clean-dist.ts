@@ -11,6 +11,11 @@ import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import * as messages from './compilation-lib/messages'
 
+const rmdirSync = fs.rmdirSync as unknown as (
+  path: fs.PathLike,
+  options?: {recursive?: boolean}
+) => void
+
 export class CleanDistFolderPlugin {
   constructor(private options: {browser: string}) {}
   apply(compiler: Compiler): void {
@@ -33,7 +38,7 @@ export class CleanDistFolderPlugin {
           fs.rmSync(distPath, {recursive: true, force: true})
         } else {
           // Node <14 fallback
-          fs.rmdirSync(distPath, {recursive: true})
+          rmdirSync(distPath, {recursive: true})
         }
         if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
           console.log(messages.cleanDistRemovedSummary(removedCount, distPath))
@@ -55,7 +60,7 @@ export class CleanDistFolderPlugin {
               if (fs.rmSync) {
                 fs.rmSync(distPath, {recursive: true, force: true})
               } else {
-                fs.rmdirSync(distPath, {recursive: true} as any)
+                rmdirSync(distPath, {recursive: true})
               }
             } catch {
               // Ignore

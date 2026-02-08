@@ -11,7 +11,7 @@ import {createRequire} from 'module'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
 import {vendors, validateVendorsOrExit, type Browser} from '../utils'
-import {parseLogContexts} from '../utils/normalize-options'
+import {parseExtensionsList, parseLogContexts} from '../utils/normalize-options'
 
 type PreviewOptions = {
   browser?: Browser | 'all'
@@ -31,6 +31,7 @@ type PreviewOptions = {
   logColor?: boolean
   logUrl?: string
   logTab?: string | number
+  extensions?: string
 }
 
 const require = createRequire(import.meta.url)
@@ -88,6 +89,10 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
     .option(
       '--source [url]',
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
+    )
+    .option(
+      '--extensions <list>',
+      'comma-separated list of companion extensions or store URLs to load'
     )
     .option(
       '--author, --author-mode',
@@ -149,6 +154,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
           startingUrl: previewOptions.startingUrl,
           port: previewOptions.port,
           noRunner: previewOptions.runner === false,
+          extensions: parseExtensionsList((previewOptions as any).extensions),
           source:
             typeof previewOptions.source === 'string'
               ? previewOptions.source
