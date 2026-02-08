@@ -24,7 +24,7 @@ export function getManifestOverrides(manifestPath: string, manifest: Manifest) {
     return rest
   }
 
-  const common = manifestCommon(manifestContent)
+  const common = manifestCommon(manifestContent, manifestPath)
   const mv2 = manifestV2(manifestContent)
   const mv3 = manifestV3(manifestContent)
 
