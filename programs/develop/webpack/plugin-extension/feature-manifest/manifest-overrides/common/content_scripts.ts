@@ -6,9 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import * as path from 'path'
 import {getFilename} from '../../manifest-lib/paths'
-import {findNearestPackageJsonSync} from '../../../../webpack-lib/package-json'
 import {type Manifest} from '../../../../webpack-types'
 
 interface ContentObj {
@@ -25,35 +23,6 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
   const originalCount = original.length
   const result: any[] = []
 
-  const shouldPreserveOriginal = (contentObj: ContentObj): boolean => {
-    if (!manifestPath) return false
-    const entries = [
-      ...(contentObj.js || []),
-      ...(contentObj.css || [])
-    ].filter(Boolean) as string[]
-    if (entries.length === 0) return false
-
-    const manifestDir = path.dirname(manifestPath)
-    const packageJsonPath = findNearestPackageJsonSync(manifestPath)
-    const projectRoot = packageJsonPath
-      ? path.dirname(packageJsonPath)
-      : manifestDir
-    const publicDir = path.join(projectRoot, 'public')
-
-    const isUnderPublic = (entry: string) => {
-      const resolved =
-        entry.startsWith('/') && !path.isAbsolute(entry)
-          ? path.join(publicDir, entry.slice(1))
-          : path.isAbsolute(entry)
-            ? entry
-            : path.join(manifestDir, entry)
-      const rel = path.relative(publicDir, resolved)
-      return rel && !rel.startsWith('..') && !path.isAbsolute(rel)
-    }
-
-    return entries.every((entry) => isUnderPublic(entry))
-  }
-
   // 1) Keep user-defined content scripts indices stable and
   // insert MAIN-world bridges *before* their MAIN-world entries.
   //
@@ -62,10 +31,6 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
   let bridgeOrdinal = 0
   for (let index = 0; index < original.length; index++) {
     const contentObj: ContentObj & Record<string, any> = original[index] || {}
-    if (shouldPreserveOriginal(contentObj)) {
-      result.push(contentObj)
-      continue
-    }
     // Manifest overrides work by getting the manifest.json
     // before compilation and re-naming the files to be
     // bundled. But in reality the compilation returns here

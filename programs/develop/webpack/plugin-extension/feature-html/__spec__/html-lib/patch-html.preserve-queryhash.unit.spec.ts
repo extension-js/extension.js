@@ -15,7 +15,7 @@ function makeCompilation(mode: 'development' | 'production') {
 }
 
 describe('patchHtml (preserve query/hash)', () => {
-  it('rewrites relative static asset to /assets/... and preserves ?query/#hash', () => {
+  it('rewrites relative static asset to assets/... and preserves ?query/#hash', () => {
     const tmpDirectoryPath = fs.mkdtempSync(
       path.join(os.tmpdir(), 'feature-html-patch-qh-')
     )
@@ -41,7 +41,7 @@ describe('patchHtml (preserve query/hash)', () => {
         {}
       )
 
-      expect(updatedHtml).toContain(`src="/assets/img/a.png?x=1#h"`)
+      expect(updatedHtml).toContain(`src="assets/img/a.png?x=1#h"`)
     } finally {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})
     }
@@ -67,8 +67,8 @@ describe('patchHtml (preserve query/hash)', () => {
         {}
       )
 
-      expect(updatedHtml).toContain(`href="/public/x.css?ver=123#sec"`)
-      expect(updatedHtml).toContain(`src="/public/x.js?v=1#h"`)
+      expect(updatedHtml).toContain(`href="public/x.css?ver=123#sec"`)
+      expect(updatedHtml).toContain(`src="public/x.js?v=1#h"`)
     } finally {
       fs.rmSync(tmpDirectoryPath, {recursive: true, force: true})
     }
