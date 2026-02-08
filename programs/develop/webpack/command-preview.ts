@@ -20,10 +20,10 @@ import {
 } from './webpack-lib/paths'
 import {sanitize} from './webpack-lib/sanitize'
 import type {BrowserConfig, PreviewOptions} from './webpack-types'
-import {
-  resolveCompanionExtensionDirs,
-  type CompanionExtensionsConfig
-} from './webpack-lib/companion-extensions'
+import {resolveCompanionExtensionsConfig} from './plugin-extension/feature-special-folders/folder-extensions/resolve-config'
+import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-extension/feature-special-folders/folder-extensions/resolve-dirs'
+import {type CompanionExtensionsConfig} from './plugin-extension/feature-special-folders/folder-extensions/types'
+import {getSpecialFoldersDataForProjectRoot} from './plugin-extension/feature-special-folders/get-data'
 import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
 import {withDarkMode} from './webpack-lib/dark-mode'
 import {runOnlyPreviewBrowser} from './plugin-browsers/run-only'
@@ -98,6 +98,18 @@ export async function extensionPreview(
     extensions?: CompanionExtensionsConfig
   }
   const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
+  const specialFoldersData = getSpecialFoldersDataForProjectRoot(packageJsonDir)
+
+  const mergedExtensionsConfig =
+    safePreviewOptions.extensions ??
+    safeCommandConfig.extensions ??
+    safeBrowserConfig.extensions ??
+    specialFoldersData.extensions
+  const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
+    projectRoot: packageJsonDir,
+    browser,
+    config: mergedExtensionsConfig
+  })
 
   const mergedGeckoBinary =
     safePreviewOptions.geckoBinary ||
@@ -121,6 +133,7 @@ export async function extensionPreview(
     ...safeBrowserConfig,
     ...safeCommandConfig,
     ...safePreviewOptions,
+    extensions: resolvedExtensionsConfig,
     chromiumBinary: mergedChromiumBinary,
     // Normalize Gecko binary hints for engine-based behavior
     geckoBinary: mergedGeckoBinary
@@ -132,10 +145,11 @@ export async function extensionPreview(
     preferences: merged.preferences
   })
 
-  const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
-    projectRoot: packageJsonDir,
-    config: merged.extensions
-  })
+  const companionUnpackedExtensionDirs =
+    resolveCompanionExtensionDirsFromSpecialFolders({
+      projectRoot: packageJsonDir,
+      config: merged.extensions
+    })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
     // IMPORTANT: __dirname changes after publishing (compiled output lives in dist/).

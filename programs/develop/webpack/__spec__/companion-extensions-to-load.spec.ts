@@ -3,7 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import os from 'os'
 import {computeExtensionsToLoad} from '../webpack-lib/extensions-to-load'
-import {resolveCompanionExtensionDirs} from '../webpack-lib/companion-extensions'
+import {resolveCompanionExtensionDirs} from '../plugin-extension/feature-special-folders/companion-extensions'
 
 const created: string[] = []
 const toPosix = (value: string) => value.replace(/\\/g, '/')
