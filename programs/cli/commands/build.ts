@@ -9,6 +9,7 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
+import {parseExtensionsList} from '../utils/normalize-options'
 import {
   vendors,
   validateVendorsOrExit,
@@ -24,6 +25,7 @@ type BuildOptions = {
   zipFilename?: string
   silent?: boolean
   install?: boolean
+  extensions?: string
 }
 
 export function registerBuildCommand(program: Command, telemetry: any) {
@@ -60,6 +62,10 @@ export function registerBuildCommand(program: Command, telemetry: any) {
       '--install [boolean]',
       '[internal] install project dependencies when missing',
       parseOptionalBoolean
+    )
+    .option(
+      '--extensions <list>',
+      'comma-separated list of companion extensions or store URLs to load'
     )
     .option(
       '--author, --author-mode',
@@ -104,7 +110,8 @@ export function registerBuildCommand(program: Command, telemetry: any) {
           zipSource: buildOptions.zipSource,
           zipFilename: buildOptions.zipFilename,
           silent: buildOptions.silent,
-          install: buildOptions.install
+          install: buildOptions.install,
+          extensions: parseExtensionsList((buildOptions as any).extensions)
         })
         telemetry.track('cli_build_summary', {
           ...buildSummary
