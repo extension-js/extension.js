@@ -49,10 +49,10 @@ export default class DevServerConfigPlugin {
   }
 }
 
-function setDefault(obj: any, key: string | number, val: any) {
+function setDefault(obj: unknown, key: string | number, val: unknown) {
   if (isObject(obj) && obj[key] === undefined) obj[key] = val
 }
 
-function isObject(x: any): x is object {
+function isObject(x: unknown): x is Record<string | number, any> {
   return typeof x === 'object' && x !== null
 }
