@@ -17,7 +17,7 @@ import {LocalesPlugin} from './feature-locales'
 import {JsonPlugin} from './feature-json'
 import {IconsPlugin} from './feature-icons'
 import {WebResourcesPlugin} from './feature-web-resources'
-import {ResolvePlugin} from './feature-resolve'
+// import {ResolvePlugin} from './feature-resolve'
 
 // Business logic modules
 import {getSpecialFoldersDataForCompiler} from '../feature-special-folders/get-data'
@@ -25,7 +25,7 @@ import {getSpecialFoldersDataForCompiler} from '../feature-special-folders/get-d
 // Types
 import type {PluginInterface, FilepathList, DevOptions} from '../webpack-types'
 
-export class ExtensionPlugin {
+export class WebExtensionPlugin {
   public static readonly name: string = 'plugin-extension'
 
   public readonly manifestPath: string
