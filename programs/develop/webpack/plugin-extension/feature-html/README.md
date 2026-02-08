@@ -11,14 +11,14 @@
 
 This module is part of the [Extension.js](https://extension.js.org) project. It processes HTML pages declared by the extension manifest (and additional includes), discovers referenced assets, and emits a predictable, “pure HTML”-like output:
 
-- Injects a single JS bundle per page (preserving public-root `<script src="/...">`).
-- Injects a CSS bundle per page when applicable (preserving public-root `<link href="/...">`).
+- Injects a single JS bundle per page (public-root references are rewritten to relative output paths).
+- Injects a CSS bundle per page when applicable (public-root references are rewritten to relative output paths).
 - Rewrites relative static assets to stable public paths and emits them.
 - Preserves `?query`/`#hash` fragments in URLs.
 
 - Emits HTML for pages declared in the manifest and via `includeList`.
 - Consolidates local JS/CSS referenced by the HTML into page-level bundles.
-- Preserves public-root absolute URLs (leading `/`) for scripts/styles and warns if missing under `public/`. Assets under `public/` are not re‑emitted by this plugin; they are delegated to the special‑folders plugin (Rspack copy plugin or internal fallback).
+- Public-root absolute URLs (leading `/`) for scripts/styles are rewritten to relative paths; assets under `public/` are still handled by the special‑folders plugin.
 - Rewrites relative static assets (images/fonts/etc.) under `assets/<relative path>` while preserving directory structure and extensions.
 - Tracks file dependencies to recompile on change, provides HMR hooks for local scripts during development, and warns if page entry lists change (restart required).
 
@@ -30,10 +30,10 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 
 ### Public folder convention and early failure
 
-- Public-root references are resolved to the project’s `public/` folder:
-  - `/foo` → `<project>/public/foo`
-  - `./public/foo` → `<project>/public/foo`
-  - `public/foo` → `<project>/public/foo`
+- Public-root references are resolved to the project’s `public/` folder, but output paths are normalized to be relative in emitted HTML:
+  - `/foo` → `<project>/public/foo` → `foo`
+  - `./public/foo` → `<project>/public/foo` → `foo`
+  - `public/foo` → `<project>/public/foo` → `foo`
     Output preserves the `public/` structure via the special‑folders plugin; this plugin only emits non‑public assets (under `assets/`).
 - Missing HTML entrypoints referenced by the manifest fail the compilation via the manifest feature checks and are printed to stderr before any browser start. This prevents browsers from crashing on load or rejecting the extension when a page is missing.
 - Missing static assets referenced from within HTML (that are not produced by other plugins) generate warnings during compilation so you can iterate without a hard stop.
@@ -44,10 +44,10 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 | Source                                    | Output path                         | Notes                                        |
 | ----------------------------------------- | ----------------------------------- | -------------------------------------------- |
 | Manifest/Include HTML (`<feature>`)       | `<feature>.html`                    | E.g., `pages/main` → `pages/main.html`       |
-| Consolidated JS                           | `/<feature>.js`                     | E.g., `/pages/main.js`                       |
-| Consolidated CSS                          | `/<feature>.css`                    | E.g., `/pages/main.css`                      |
-| Relative static assets referenced by HTML | `/assets/<relative path from HTML>` | Preserves directory structure and extensions |
-| Public-root assets in HTML (leading `/`)  | preserved as-is                     | E.g., `<img src="/img/logo.png">`            |
+| Consolidated JS                           | `<feature>.js`                      | E.g., `pages/main.js`                        |
+| Consolidated CSS                          | `<feature>.css`                     | E.g., `pages/main.css`                       |
+| Relative static assets referenced by HTML | `assets/<relative path from HTML>`  | Preserves directory structure and extensions |
+| Public-root assets in HTML (leading `/`)  | normalized to relative output paths | E.g., `<img src="img/logo.png">`             |
 
 ## Supported pages/fields
 
@@ -116,7 +116,7 @@ export default {
 
 ## Include semantics
 
-- `includeList`: map of feature names to absolute HTML file paths. Each entry becomes a page. The feature name dictates output paths: `feature.html`, `/feature.js`, `/feature.css`.
+- `includeList`: map of feature names to absolute HTML file paths. Each entry becomes a page. The feature name dictates output paths: `feature.html`, `feature.js`, `feature.css`.
 
 ## Compatibility
 
