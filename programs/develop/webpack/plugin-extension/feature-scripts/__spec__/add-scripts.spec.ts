@@ -80,26 +80,15 @@ describe('AddScripts', () => {
     ).toBe('import-scripts')
   })
 
-  it('skips public-only entries but tracks them for watch', () => {
+  it('includes public-root entries in the bundle imports', () => {
     const publicJs = '/proj/public/foo.js'
     const publicCss = '/proj/public/style.css'
 
-    const addedFiles: string[] = []
     const compiler: any = {
       options: {
         context: '/proj',
         entry: {},
         output: {path: '/out'}
-      },
-      hooks: {
-        thisCompilation: {
-          tap: (_name: string, cb: any) => {
-            cb({
-              options: {output: {path: '/out'}},
-              fileDependencies: {add: (f: string) => addedFiles.push(f)}
-            })
-          }
-        }
       }
     }
 
@@ -113,8 +102,7 @@ describe('AddScripts', () => {
     plugin.apply(compiler)
 
     const entry = compiler.options.entry['background/scripts']
-    expect(entry).toBeUndefined()
-    expect(addedFiles).toContain(publicJs)
-    expect(addedFiles).toContain(publicCss)
+    expect(entry.import).toContain(publicJs)
+    expect(entry.import).toContain(publicCss)
   })
 })
