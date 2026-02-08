@@ -249,5 +249,5 @@ export default function LoadScriptRuntimeModule(
     }
   }
 
-  return new LoadScriptRuntime()
+  return new LoadScriptRuntime() as unknown as import('webpack').RuntimeModule
 }

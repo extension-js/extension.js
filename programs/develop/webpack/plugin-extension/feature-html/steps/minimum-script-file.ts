@@ -22,24 +22,29 @@
  * We set that flag only for extension pages (`*-extension:` protocols) so UI pages
  * keep their previous "reload to recover" behavior, while content scripts remain protected.
  */
+const safeLocation =
+  typeof globalThis !== 'undefined' ? (globalThis as any).location : undefined
+const safeHistory =
+  typeof globalThis !== 'undefined' ? (globalThis as any).history : undefined
+
 try {
   if (
-    typeof location === 'object' &&
-    location &&
-    String(location.protocol || '').includes('-extension:')
+    typeof safeLocation === 'object' &&
+    safeLocation &&
+    String(safeLocation.protocol || '').includes('-extension:')
   ) {
-    const q = String(location.search || '')
+    const q = String(safeLocation.search || '')
     if (q.toLowerCase().includes('webpack-dev-server-hot=false')) {
       // already set
     } else if (
       typeof URL === 'function' &&
-      typeof history === 'object' &&
-      history &&
-      typeof history.replaceState === 'function'
+      typeof safeHistory === 'object' &&
+      safeHistory &&
+      typeof safeHistory.replaceState === 'function'
     ) {
-      const u = new URL(String(location.href))
+      const u = new URL(String(safeLocation.href))
       u.searchParams.set('webpack-dev-server-hot', 'false')
-      history.replaceState(null, '', u.toString())
+      safeHistory.replaceState(null, '', u.toString())
     }
   }
 } catch {
