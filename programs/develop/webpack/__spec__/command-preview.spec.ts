@@ -26,8 +26,10 @@ vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
-vi.mock('../feature-special-folders/folder-extensions/companion-extensions', () => ({
-  resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a']),
+vi.mock('../feature-special-folders/folder-extensions/resolve-dirs', () => ({
+  resolveCompanionExtensionDirs: vi.fn(() => ['/comp/a'])
+}))
+vi.mock('../feature-special-folders/folder-extensions/resolve-config', () => ({
   resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
 }))
 vi.mock('../feature-special-folders/get-data', () => ({
@@ -53,7 +55,8 @@ vi.mock('../plugin-browsers/run-only', () => ({
 const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
 import {extensionPreview} from '../command-preview'
-import * as companionMod from '../feature-special-folders/folder-extensions/companion-extensions'
+import * as resolveConfigMod from '../feature-special-folders/folder-extensions/resolve-config'
+import * as resolveDirsMod from '../feature-special-folders/folder-extensions/resolve-dirs'
 
 describe('webpack/command-preview (run-only)', () => {
   beforeEach(() => {
@@ -61,8 +64,8 @@ describe('webpack/command-preview (run-only)', () => {
     runOnlyPreviewBrowser.mockClear()
     logSpy.mockClear()
     ;(fs.existsSync as any)?.mockReset?.()
-    ;(companionMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
-    ;(companionMod as any).resolveCompanionExtensionDirs?.mockClear?.()
+    ;(resolveConfigMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
+    ;(resolveDirsMod as any).resolveCompanionExtensionDirs?.mockClear?.()
   })
 
   afterEach(() => {
@@ -137,14 +140,16 @@ describe('webpack/command-preview (run-only)', () => {
       ]
     } as any)
 
-    expect(companionMod.resolveCompanionExtensionsConfig).toHaveBeenCalledWith({
+    expect(
+      resolveConfigMod.resolveCompanionExtensionsConfig
+    ).toHaveBeenCalledWith({
       projectRoot: '/proj',
       browser: 'chrome',
       config: [
         'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
       ]
     })
-    expect(companionMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
+    expect(resolveDirsMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
       expect.objectContaining({config: {paths: ['/comp/a']}})
     )
   })
