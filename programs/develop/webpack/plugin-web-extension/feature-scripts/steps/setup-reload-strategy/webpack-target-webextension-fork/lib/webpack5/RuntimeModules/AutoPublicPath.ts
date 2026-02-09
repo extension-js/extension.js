@@ -134,7 +134,7 @@ export default function AutoPublicPathRuntimeModule(
       ])
     }
   }
-  return new AutoPublicPathRuntime()
+  return new AutoPublicPathRuntime() as unknown as webpack.RuntimeModule
 }
 
 /**
