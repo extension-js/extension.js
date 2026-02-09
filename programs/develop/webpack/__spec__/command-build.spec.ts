@@ -56,7 +56,7 @@ vi.mock('../webpack-lib/validate-user-dependencies', () => ({
   assertNoManagedDependencyConflicts: vi.fn()
 }))
 
-vi.mock('../feature-special-folders/folder-extensions/companion-extensions', () => ({
+vi.mock('../feature-special-folders/folder-extensions/resolve-config', () => ({
   resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
 }))
 vi.mock('../feature-special-folders/get-data', () => ({
@@ -99,7 +99,7 @@ const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
 import {extensionBuild} from '../command-build'
 import * as depsManagerMod from '../webpack-lib/dependency-manager'
 import * as configLoaderMod from '../webpack-lib/config-loader'
-import * as companionMod from '../feature-special-folders/folder-extensions/companion-extensions'
+import * as resolveConfigMod from '../feature-special-folders/folder-extensions/resolve-config'
 import webpackConfig from '../webpack-config'
 
 describe('webpack/command-build', () => {
@@ -109,7 +109,7 @@ describe('webpack/command-build', () => {
     vi.resetModules()
     ;(configLoaderMod as any).userConfigSpy?.mockClear?.()
     ;(depsManagerMod.ensureProjectReady as any)?.mockClear?.()
-    ;(companionMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
+    ;(resolveConfigMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
     ;(webpackConfig as any)?.mockClear?.()
     rspackMock.mockClear()
     logSpy.mockClear()
@@ -208,7 +208,9 @@ describe('webpack/command-build', () => {
       ]
     })
 
-    expect(companionMod.resolveCompanionExtensionsConfig).toHaveBeenCalledWith({
+    expect(
+      resolveConfigMod.resolveCompanionExtensionsConfig
+    ).toHaveBeenCalledWith({
       projectRoot: '/proj',
       browser: 'chrome',
       config: [
