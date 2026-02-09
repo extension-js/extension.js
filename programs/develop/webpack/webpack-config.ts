@@ -24,7 +24,7 @@ import {CompilationPlugin} from './plugin-compilation'
 import {CssPlugin} from './plugin-css'
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
-import {ExtensionPlugin} from './plugin-extension'
+import {WebExtensionPlugin} from './plugin-web-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
 import {WasmPlugin} from './plugin-wasm'
@@ -123,14 +123,13 @@ export default function webpackConfig(
       browser: devOptions.browser,
       polyfill: devOptions.polyfill
     }),
-    new ExtensionPlugin({
+    new WebExtensionPlugin({
       manifestPath,
       browser: devOptions.browser
     }),
     new SpecialFoldersPlugin({
       manifestPath
     })
-
   ]
 
   if (!devOptions.noRunner) {
