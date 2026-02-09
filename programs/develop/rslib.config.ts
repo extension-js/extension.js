@@ -17,42 +17,42 @@ export default defineConfig({
       // HTML Plugin Loaders
       'ensure-hmr-for-scripts': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-html/steps/ensure-hmr-for-scripts.ts'
+        './webpack/plugin-web-extension/feature-html/steps/ensure-hmr-for-scripts.ts'
       ),
       'minimum-script-file': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-html/steps/minimum-script-file.ts'
+        './webpack/plugin-web-extension/feature-html/steps/minimum-script-file.ts'
       ),
       // Scripts Plugin Loaders
       'add-hmr-accept-code': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/add-hmr-accept-code.ts'
+        './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/add-hmr-accept-code.ts'
       ),
       'content-script-wrapper': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper.ts'
+        './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper.ts'
       ),
       'warn-no-default-export': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/warn-no-default-export.ts'
+        './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/warn-no-default-export.ts'
       ),
       // MAIN world bridge helper (must exist on disk for manifest/script validation during builds)
       'main-world-bridge': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge.js'
+        './webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge.js'
       ),
       'minimum-chromium-file': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-chromium.ts'
+        './webpack/plugin-web-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-chromium.ts'
       ),
       'minimum-firefox-file': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-firefox.ts'
+        './webpack/plugin-web-extension/feature-scripts/scripts-lib/minimum-files/minimum-background-file-firefox.ts'
       ),
       // Resolve Plugin Loaders
       'resolve-paths-loader': path.resolve(
         __dirname,
-        './webpack/plugin-extension/feature-resolve/loader/index.ts'
+        './webpack/plugin-web-extension/feature-resolve/loader/index.ts'
       )
     }
   },
