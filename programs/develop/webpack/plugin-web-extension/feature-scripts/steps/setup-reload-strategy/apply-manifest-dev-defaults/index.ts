@@ -90,8 +90,9 @@ export class ApplyManifestDevDefaults {
         compilation.hooks.processAssets.tap(
           {
             name: 'run-chromium:apply-manifest-dev-defaults',
-            // Summarize the list of existing assets.
-            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+            // Run strictly after REPORT-stage manifest patchers (e.g. WAR patch),
+            // so this remains the final manifest writer before browser runners.
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 100
           },
           (_assets) => {
             if (!this.manifestPath) {

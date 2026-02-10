@@ -74,6 +74,7 @@ Paths are normalized and rewritten to match the final output structure.
 - Public folder convention: files referenced from `public/` (or `/...` which maps to the extension root) are copied to the output root by the special-folders plugin. Manifest paths declared as `public/foo.png` are rewritten to `foo.png` in the emitted manifest so browsers can load them from the root. For background and sidebar HTML/script entries, Extension.js always emits canonical output paths (see table below), even when the source uses `public/`.
 - Leading `/` in manifest paths is treated as extension root (relative to the directory containing `manifest.json`), not the OS filesystem root. This matches industry expectations where `/` denotes public root in web bundles.
 - Early failure: manifest-referenced files (icons, JSON, scripts, HTML) are validated during compilation. Missing files cause compilation errors and are logged to stderr before any browser start.
+- **Manifest writer order:** Path resolution runs in `UpdateManifest` at `PROCESS_ASSETS_STAGE_SUMMARIZE`. Any other step that reads and rewrites `manifest.json` (e.g. dev defaults, WAR) must run at a **later** stage (e.g. `REPORT`) so it reads the manifest with resolved paths and does not overwrite them with source paths. Otherwise the browser can fail with errors like "Side panel file path must exist".
 
 ## Include semantics
 
