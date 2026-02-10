@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
@@ -100,14 +101,44 @@ export async function maybeUsePreact(
     new PreactRefreshPlugin({}) as any // TODO: cezaraugusto fix this
   ]
 
+  const requireFromProject = createRequire(
+    path.join(projectPath, 'package.json')
+  )
+  const resolveFromProject = (id: string) => {
+    try {
+      return requireFromProject.resolve(id)
+    } catch {
+      return undefined
+    }
+  }
+
+  const preactCompat = resolveFromProject('preact/compat')
+  const preactTestUtils = resolveFromProject('preact/test-utils')
+  const preactJsxRuntime = resolveFromProject('preact/jsx-runtime')
+  const preactJsxDevRuntime = resolveFromProject('preact/jsx-dev-runtime')
+
+  const alias: Record<string, string> = {}
+
+  if (preactCompat) {
+    alias.react = preactCompat
+    alias['react-dom'] = preactCompat
+  }
+
+  if (preactTestUtils) {
+    alias['react-dom/test-utils'] = preactTestUtils
+  }
+
+  if (preactJsxRuntime) {
+    alias['react/jsx-runtime'] = preactJsxRuntime
+  }
+
+  if (preactJsxDevRuntime) {
+    alias['react/jsx-dev-runtime'] = preactJsxDevRuntime
+  }
+
   return {
     plugins: preactPlugins,
     loaders: undefined,
-    alias: {
-      react: 'preact/compat',
-      'react-dom/test-utils': 'preact/test-utils',
-      'react-dom': 'preact/compat', // 必须放在 test-utils 下面
-      'react/jsx-runtime': 'preact/jsx-runtime'
-    }
+    alias
   }
 }

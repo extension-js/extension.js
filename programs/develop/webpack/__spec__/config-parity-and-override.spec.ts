@@ -124,4 +124,25 @@ describe('extension.config object-merge and command/browser defaults', () => {
       extensions: {dir: './extensions'}
     })
   })
+
+  it('merges top-level transpilePackages and allows per-command overrides', async () => {
+    const dir = tmpDir('extjs-transpile-')
+    const cfg = `export default {
+      transpilePackages: ['@workspace/ui'],
+      commands: {
+        build: { transpilePackages: ['@workspace/ui', '@workspace/icons'] }
+      }
+    }`
+    fs.writeFileSync(path.join(dir, 'extension.config.mjs'), cfg, 'utf-8')
+
+    const devCfg = await loadCommandConfig(dir, 'dev')
+    expect(devCfg).toMatchObject({
+      transpilePackages: ['@workspace/ui']
+    })
+
+    const buildCfg = await loadCommandConfig(dir, 'build')
+    expect(buildCfg).toMatchObject({
+      transpilePackages: ['@workspace/ui', '@workspace/icons']
+    })
+  })
 })

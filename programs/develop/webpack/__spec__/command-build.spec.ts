@@ -39,7 +39,10 @@ vi.mock('../webpack-lib/config-loader', () => {
   const userConfigSpy = vi.fn((cfg: any) => cfg)
   return {
     loadCustomWebpackConfig: vi.fn(async () => userConfigSpy),
-    loadCommandConfig: vi.fn(async () => ({some: 'cmd'})),
+    loadCommandConfig: vi.fn(async () => ({
+      some: 'cmd',
+      transpilePackages: ['@workspace/ui']
+    })),
     userConfigSpy
   }
 })
@@ -219,7 +222,10 @@ describe('webpack/command-build', () => {
     })
     expect(webpackConfig).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({extensions: {paths: ['/comp/a']}})
+      expect.objectContaining({
+        extensions: {paths: ['/comp/a']},
+        transpilePackages: ['@workspace/ui']
+      })
     )
   })
 
