@@ -19,14 +19,46 @@ export function getManifestContent(
   compilation: Compilation,
   manifestPath: string
 ): Manifest {
-  if (
-    (compilation as any).getAsset?.('manifest.json') ||
-    (compilation as any).assets?.['manifest.json']
-  ) {
-    const source = (compilation as any).assets['manifest.json']?.source?.()
-    const manifest =
-      typeof source === 'function' ? source().toString() : String(source || '')
-    return parseJsonSafe(manifest)
+  const readAssetSource = (asset: any): string => {
+    if (!asset) return ''
+
+    const source = asset.source
+
+    if (typeof source === 'string') return source
+
+    if (typeof source === 'function') {
+      const out = source()
+
+      return typeof out === 'string' ? out : String(out || '')
+    }
+
+    if (source && typeof source.source === 'function') {
+      const out = source.source()
+
+      return typeof out === 'string' ? out : String(out || '')
+    }
+
+    return ''
+  }
+
+  const getAsset = compilation.getAsset
+  if (typeof getAsset === 'function') {
+    const manifestAsset = getAsset.call(compilation, 'manifest.json')
+    const manifest = readAssetSource(manifestAsset)
+
+    if (manifest) {
+      return parseJsonSafe(manifest)
+    }
+  }
+
+  const manifestAsset = compilation.assets?.['manifest.json']
+
+  if (manifestAsset) {
+    const manifest = readAssetSource(manifestAsset)
+
+    if (manifest) {
+      return parseJsonSafe(manifest)
+    }
   }
 
   try {
@@ -46,12 +78,11 @@ export function filterKeysForThisBrowser(
   const GECKO_BASED_BROWSERS = ['firefox']
 
   const isChromiumTarget =
-    CHROMIUM_BASED_BROWSERS.includes(browser as any) ||
+    CHROMIUM_BASED_BROWSERS.includes(browser) ||
     String(browser).includes('chromium')
 
   const isGeckoTarget =
-    GECKO_BASED_BROWSERS.includes(browser as any) ||
-    String(browser).includes('gecko')
+    GECKO_BASED_BROWSERS.includes(browser) || String(browser).includes('gecko')
 
   const chromiumPrefixes = new Set(['chromium', 'chrome', 'edge'])
   const geckoPrefixes = new Set(['gecko', 'firefox'])
