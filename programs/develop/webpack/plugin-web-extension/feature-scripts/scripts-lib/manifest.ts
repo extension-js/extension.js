@@ -14,14 +14,41 @@ export function getManifestContent(
   compilation: Compilation,
   manifestPath: string
 ): Manifest {
-  if (
-    (compilation as any).getAsset?.('manifest.json') ||
-    (compilation as any).assets?.['manifest.json']
-  ) {
-    const source = (compilation as any).assets['manifest.json']?.source?.()
-    const manifest =
-      typeof source === 'function' ? source().toString() : String(source || '')
-    return JSON.parse(manifest || '{}')
+  const readAssetSource = (asset: any): string => {
+    if (!asset) return ''
+
+    const source = asset.source
+
+    if (typeof source === 'string') return source
+
+    if (typeof source === 'function') {
+      const out = source()
+      return typeof out === 'string' ? out : String(out || '')
+    }
+
+    if (source && typeof source.source === 'function') {
+      const out = source.source()
+      return typeof out === 'string' ? out : String(out || '')
+    }
+
+    return ''
+  }
+
+  const getAsset = (compilation as any).getAsset
+  if (typeof getAsset === 'function') {
+    const manifestAsset = getAsset.call(compilation, 'manifest.json')
+    const manifest = readAssetSource(manifestAsset)
+    if (manifest) {
+      return JSON.parse(manifest)
+    }
+  }
+
+  const manifestAsset = (compilation as any).assets?.['manifest.json']
+  if (manifestAsset) {
+    const manifest = readAssetSource(manifestAsset)
+    if (manifest) {
+      return JSON.parse(manifest)
+    }
   }
 
   // Prefer direct fs read to support ESM and test environments reliably
