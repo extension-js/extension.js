@@ -13,23 +13,34 @@ import type {PluginInterface, DevOptions} from '../webpack-types'
 import {isUsingPreact, maybeUsePreact} from './js-tools/preact'
 import {isUsingReact, maybeUseReact} from './js-tools/react'
 import {maybeUseVue} from './js-tools/vue'
-import {
-  isUsingTypeScript,
-  getUserTypeScriptConfigFile
-} from './js-tools/typescript'
 import {maybeUseSvelte} from './js-tools/svelte'
 // import {maybeUseAngular} from './js-tools/angular'
 // import {maybeUseSolid} from './js-tools/solid'
 import * as messages from './js-frameworks-lib/messages'
+import {
+  isUsingTypeScript,
+  getUserTypeScriptConfigFile
+} from './js-tools/typescript'
+import {
+  isSubPath,
+  resolveTranspilePackageDirs
+} from '../webpack-lib/transpile-packages'
 
 export class JsFrameworksPlugin {
   public static readonly name: string = 'plugin-js-frameworks'
   public readonly manifestPath: string
   public readonly mode: DevOptions['mode']
+  public readonly transpilePackages: string[]
 
-  constructor(options: PluginInterface & {mode: DevOptions['mode']}) {
+  constructor(
+    options: PluginInterface & {
+      mode: DevOptions['mode']
+      transpilePackages?: string[]
+    }
+  ) {
     this.manifestPath = options.manifestPath
     this.mode = options.mode
+    this.transpilePackages = options.transpilePackages || []
   }
 
   private findVueLoaderRuleIndices(rules: any[]): number[] {
@@ -120,6 +131,10 @@ export class JsFrameworksPlugin {
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
     const manifestDir = path.dirname(this.manifestPath)
     const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
+    const transpilePackageDirs = resolveTranspilePackageDirs(
+      projectPath,
+      this.transpilePackages
+    )
     const preferTypeScript = !!tsConfigPath || isUsingTypeScript(projectPath)
 
     // Derive transpile targets from extension manifest for leaner output
@@ -190,8 +205,21 @@ export class JsFrameworksPlugin {
     compiler.options.module.rules = [
       {
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: Array.from(new Set([tsRoot, manifestDir])),
-        exclude: [/[\\/]node_modules[\\/]/],
+        include: Array.from(
+          new Set([tsRoot, manifestDir, ...transpilePackageDirs])
+        ),
+        exclude: [
+          (resourcePath: string) => {
+            const isInNodeModules = /[\\/]node_modules[\\/]/.test(resourcePath)
+            if (!isInNodeModules) {
+              return false
+            }
+
+            return !transpilePackageDirs.some((dir) =>
+              isSubPath(resourcePath, dir)
+            )
+          }
+        ],
         use: {
           loader: 'builtin:swc-loader',
           options: {
