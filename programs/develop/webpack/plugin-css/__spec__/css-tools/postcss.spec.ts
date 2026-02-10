@@ -1,4 +1,5 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
+import postcss from 'postcss'
 
 vi.mock('../../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
@@ -148,5 +149,182 @@ describe('postcss detection', () => {
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss('/p', {mode: 'development'})
     expect(rule.loader).toContain('postcss-loader')
+  })
+
+  it('does not override user PostCSS plugins when postcss config exists', async () => {
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => true
+    }))
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => String(p).endsWith('postcss.config.js'),
+        readFileSync: (p: string, enc: string) => {
+          if (String(p).endsWith('package.json')) {
+            return JSON.stringify({})
+          }
+          return (actual as any).readFileSync(p, enc)
+        }
+      }
+    })
+
+    const {maybeUsePostCss} = await import('../../css-tools/postcss')
+    const rule = await maybeUsePostCss('/p', {mode: 'development'})
+    const opts = rule.options?.postcssOptions
+
+    expect(opts?.config).toBe('/p')
+    expect(opts?.cwd).toBe('/p')
+    expect(opts?.plugins).toBeUndefined()
+  })
+
+  it('passes projectPath as Tailwind base in fallback injection mode', async () => {
+    const tailwindFactory = vi.fn((_opts?: any) => ({
+      postcssPlugin: 'tailwindcss'
+    }))
+    vi.doMock('module', async () => {
+      const actual = await vi.importActual<any>('module')
+      return {
+        ...actual,
+        createRequire: () => (id: string) => {
+          if (id === '@tailwindcss/postcss') return tailwindFactory
+          throw new Error(`Cannot resolve ${id}`)
+        }
+      }
+    })
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => true
+    }))
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: () => false,
+        readFileSync: (p: string, enc: string) => {
+          if (String(p).endsWith('package.json')) {
+            return JSON.stringify({})
+          }
+          return (actual as any).readFileSync(p, enc)
+        }
+      }
+    })
+
+    const {maybeUsePostCss} = await import('../../css-tools/postcss')
+    const rule = await maybeUsePostCss('/p', {mode: 'development'})
+    const opts = rule.options?.postcssOptions
+
+    expect(tailwindFactory).toHaveBeenCalledWith({base: '/p'})
+    expect(Array.isArray(opts?.plugins)).toBe(true)
+    expect((opts?.plugins as any[])[0]).toEqual({'@tailwindcss/postcss': false})
+  })
+
+  it('produces css through injected plugin chain in fallback mode', async () => {
+    const arbitraryClass =
+      '.from-\\[\\#1a1333\\]{--tw-gradient-from:#1a1333;--tw-gradient-stops:var(--tw-gradient-via-stops);}'
+    const tailwindFactory = vi.fn((_opts?: any) => ({
+      postcssPlugin: 'tailwindcss-mock',
+      Once(root: any) {
+        root.append(arbitraryClass)
+      }
+    }))
+
+    vi.doMock('module', async () => {
+      const actual = await vi.importActual<any>('module')
+      return {
+        ...actual,
+        createRequire: () => (id: string) => {
+          if (id === '@tailwindcss/postcss') return tailwindFactory
+          throw new Error(`Cannot resolve ${id}`)
+        }
+      }
+    })
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => true
+    }))
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: () => false,
+        readFileSync: (p: string, enc: string) => {
+          if (String(p).endsWith('package.json')) {
+            return JSON.stringify({})
+          }
+          return (actual as any).readFileSync(p, enc)
+        }
+      }
+    })
+
+    const {maybeUsePostCss} = await import('../../css-tools/postcss')
+    const rule = await maybeUsePostCss('/p', {mode: 'development'})
+    const plugins = rule.options?.postcssOptions?.plugins as any[]
+
+    expect(Array.isArray(plugins)).toBe(true)
+    expect(plugins.length).toBe(2)
+
+    // plugins[0] is the config shim object {'@tailwindcss/postcss': false}
+    // and is not executable by postcss() directly.
+    const result = await postcss([plugins[1]] as any).process(
+      '@import "tailwindcss";',
+      {
+        from: undefined
+      }
+    )
+    expect(result.css).toContain('.from-\\[\\#1a1333\\]')
+    expect(result.css).toContain('--tw-gradient-stops')
+  })
+
+  it('uses compatibility fallback for CJS postcss.config.js in type module projects', async () => {
+    const tailwindFactory = vi.fn((_opts?: any) => ({
+      postcssPlugin: 'tailwindcss'
+    }))
+    const autoprefixerFactory = vi.fn(() => ({
+      postcssPlugin: 'autoprefixer'
+    }))
+
+    vi.doMock('module', async () => {
+      const actual = await vi.importActual<any>('module')
+      return {
+        ...actual,
+        createRequire: () => (id: string) => {
+          if (id === 'tailwindcss') return tailwindFactory
+          if (id === 'autoprefixer') return autoprefixerFactory
+          throw new Error(`Cannot resolve ${id}`)
+        }
+      }
+    })
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => true
+    }))
+    vi.doMock('../../css-lib/integrations', () => ({
+      hasDependency: (_p: string, dep: string) =>
+        dep === 'tailwindcss' || dep === 'autoprefixer',
+      installOptionalDependencies: vi.fn(async () => true)
+    }))
+    vi.doMock('fs', async () => {
+      const actual = await vi.importActual<any>('fs')
+      return {
+        ...actual,
+        existsSync: (p: string) => String(p).endsWith('postcss.config.js'),
+        readFileSync: (p: string, enc: string) => {
+          if (String(p).endsWith('package.json')) {
+            return JSON.stringify({type: 'module'})
+          }
+          if (String(p).endsWith('postcss.config.js')) {
+            return "const tailwindcss = require('tailwindcss'); module.exports = { plugins: [tailwindcss] }"
+          }
+          return (actual as any).readFileSync(p, enc)
+        }
+      }
+    })
+
+    const {maybeUsePostCss} = await import('../../css-tools/postcss')
+    const rule = await maybeUsePostCss('/p', {mode: 'development'})
+    const opts = rule.options?.postcssOptions
+
+    expect(opts?.config).toBe(false)
+    expect(Array.isArray(opts?.plugins)).toBe(true)
+    // Tailwind + autoprefixer plugin objects
+    expect((opts?.plugins as any[]).length).toBe(2)
   })
 })
