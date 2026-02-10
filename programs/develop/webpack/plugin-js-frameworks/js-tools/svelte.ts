@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -131,8 +132,30 @@ export async function maybeUseSvelte(
     }
   ]
 
-  // Do not alias 'svelte'; prioritize project node_modules instead
-  const alias: Record<string, string> | undefined = undefined
+  // Force a single Svelte runtime instance across app and transpiled workspace deps.
+  const requireFromProject = createRequire(
+    path.join(projectPath, 'package.json')
+  )
+  const resolveSvelteRuntime = (id: string) => {
+    try {
+      return requireFromProject.resolve(id)
+    } catch {
+      return undefined
+    }
+  }
+
+  const alias: Record<string, string> = {}
+  const svelteEntry = resolveSvelteRuntime('svelte')
+  const svelteInternal = resolveSvelteRuntime('svelte/internal')
+  const svelteStore = resolveSvelteRuntime('svelte/store')
+  const svelteMotion = resolveSvelteRuntime('svelte/motion')
+  const svelteTransition = resolveSvelteRuntime('svelte/transition')
+
+  if (svelteEntry) alias.svelte = svelteEntry
+  if (svelteInternal) alias['svelte/internal'] = svelteInternal
+  if (svelteStore) alias['svelte/store'] = svelteStore
+  if (svelteMotion) alias['svelte/motion'] = svelteMotion
+  if (svelteTransition) alias['svelte/transition'] = svelteTransition
 
   // Small plugin to update resolver fields to align with Svelte ecosystem
   const resolverPlugin = {

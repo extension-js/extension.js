@@ -105,6 +105,7 @@ export async function maybeUseReact(
   let reactDomPath: string | undefined
   let reactDomClientPath: string | undefined
   let jsxRuntimePath: string | undefined
+  let jsxDevRuntimePath: string | undefined
   try {
     reactPath = requireFromProject.resolve('react')
   } catch {
@@ -125,12 +126,18 @@ export async function maybeUseReact(
   } catch {
     // Do nothing
   }
+  try {
+    jsxDevRuntimePath = requireFromProject.resolve('react/jsx-dev-runtime')
+  } catch {
+    // Do nothing
+  }
 
   const alias: Record<string, string> = {}
   if (reactPath) alias['react$'] = reactPath
   if (reactDomPath) alias['react-dom$'] = reactDomPath
   if (reactDomClientPath) alias['react-dom/client'] = reactDomClientPath
   if (jsxRuntimePath) alias['react/jsx-runtime'] = jsxRuntimePath
+  if (jsxDevRuntimePath) alias['react/jsx-dev-runtime'] = jsxDevRuntimePath
 
   return {
     plugins: reactPlugins,

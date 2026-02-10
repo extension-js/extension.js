@@ -2,7 +2,12 @@ import {describe, it, expect, vi, beforeEach} from 'vitest'
 import * as path from 'path'
 
 const mockedReact = {
-  alias: {react$: '/x/react', 'react-dom$': '/x/react-dom'},
+  alias: {
+    react$: '/x/react',
+    'react-dom$': '/x/react-dom',
+    'react/jsx-runtime': '/x/react/jsx-runtime',
+    'react/jsx-dev-runtime': '/x/react/jsx-dev-runtime'
+  },
   loaders: [{test: /react/}],
   plugins: [{apply: vi.fn()}]
 } as any
@@ -27,6 +32,14 @@ const mockedSvelte = {
   loaders: [{test: /\.svelte$/}],
   plugins: [{apply: vi.fn()}]
 } as any
+const transpilePackagesMocks = vi.hoisted(() => ({
+  resolveTranspilePackageDirs: vi.fn(() => []),
+  isSubPath: vi.fn(
+    (resourcePath: string, directoryPath: string) =>
+      resourcePath === directoryPath ||
+      resourcePath.startsWith(`${directoryPath}/`)
+  )
+}))
 
 vi.mock('../js-tools/react', () => ({
   isUsingReact: vi.fn(() => true),
@@ -45,6 +58,11 @@ vi.mock('../js-tools/svelte', () => ({
 vi.mock('../js-tools/typescript', () => ({
   isUsingTypeScript: vi.fn(() => true),
   getUserTypeScriptConfigFile: vi.fn(() => '/project/tsconfig.json')
+}))
+vi.mock('../../webpack-lib/transpile-packages', () => ({
+  resolveTranspilePackageDirs:
+    transpilePackagesMocks.resolveTranspilePackageDirs,
+  isSubPath: transpilePackagesMocks.isSubPath
 }))
 
 // Mock manifest reads inside fs.readFileSync
@@ -92,6 +110,7 @@ function createCompiler(
 describe('JsFrameworksPlugin', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    transpilePackagesMocks.resolveTranspilePackageDirs.mockReturnValue([])
   })
 
   it('applies aliases, SWC rule, framework loaders/plugins and tsconfig in development', async () => {
@@ -210,5 +229,45 @@ describe('JsFrameworksPlugin', () => {
     )
     // Ensure our default options are present (merged into the user rule)
     expect(vueRules[0].options.experimentalInlineMatchResource).toBe(true)
+  })
+
+  it('includes transpile package directories and keeps them out of node_modules exclusion', async () => {
+    transpilePackagesMocks.resolveTranspilePackageDirs.mockReturnValue([
+      '/project/node_modules/@workspace/ui'
+    ])
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development',
+      transpilePackages: ['@workspace/ui']
+    })
+
+    await plugin.apply(compiler)
+
+    const swcRule = compiler.options.module.rules[0]
+    expect(swcRule.include).toContain('/project/node_modules/@workspace/ui')
+
+    const excludeFn = swcRule.exclude?.[0]
+    expect(typeof excludeFn).toBe('function')
+    expect(
+      excludeFn('/project/node_modules/@workspace/ui/src/button.tsx')
+    ).toBe(false)
+    expect(excludeFn('/project/node_modules/other-lib/index.js')).toBe(true)
+  })
+
+  it('auto-transpiles workspace packages even without explicit transpilePackages config', async () => {
+    transpilePackagesMocks.resolveTranspilePackageDirs.mockReturnValue([
+      '/project/node_modules/@workspace/ui'
+    ])
+    const compiler = createCompiler('development')
+    const plugin = new JsFrameworksPlugin({
+      manifestPath: '/project/manifest.json',
+      mode: 'development'
+    })
+
+    await plugin.apply(compiler)
+
+    const swcRule = compiler.options.module.rules[0]
+    expect(swcRule.include).toContain('/project/node_modules/@workspace/ui')
   })
 })

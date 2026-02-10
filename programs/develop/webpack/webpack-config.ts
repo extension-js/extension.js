@@ -16,6 +16,7 @@ import {asAbsolute, getDirs} from './webpack-lib/paths'
 import {withDarkMode} from './webpack-lib/dark-mode'
 import * as messages from './webpack-lib/messages'
 import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
+import {resolveTranspilePackageDirs} from './webpack-lib/transpile-packages'
 import {resolveCompanionExtensionDirs} from './feature-special-folders/folder-extensions/companion-extensions'
 import {SpecialFoldersPlugin} from './feature-special-folders'
 
@@ -67,6 +68,10 @@ export default function webpackConfig(
     companionUnpackedExtensionDirs
   )
   const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const transpilePackageDirs = resolveTranspilePackageDirs(
+    packageJsonDir,
+    devOptions.transpilePackages
+  )
 
   if (debug) {
     console.log(
@@ -116,7 +121,8 @@ export default function webpackConfig(
     }),
     new JsFrameworksPlugin({
       manifestPath,
-      mode: devOptions.mode
+      mode: devOptions.mode,
+      transpilePackages: devOptions.transpilePackages
     }),
     new CompatibilityPlugin({
       manifestPath,
@@ -188,7 +194,12 @@ export default function webpackConfig(
       }
     },
     watchOptions: {
-      ignored: /node_modules|dist|extension-js\/profiles/,
+      // When transpiling workspace packages from node_modules symlinks, avoid
+      // blanket node_modules ignore so edits from those packages can trigger HMR.
+      ignored:
+        transpilePackageDirs.length > 0
+          ? /dist|extension-js\/profiles/
+          : /node_modules|dist|extension-js\/profiles/,
       poll: 1000,
       aggregateTimeout: 200
     },

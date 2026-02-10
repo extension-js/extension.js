@@ -30,6 +30,7 @@ export type PluginInterface = {
   manifestPath: string
   browser?: DevOptions['browser']
   includeList?: FilepathList
+  transpilePackages?: string[]
 }
 
 export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
@@ -300,6 +301,11 @@ export interface CommonWebpackOptions {
   preferences?: Record<string, unknown>
   browserFlags?: string[]
   /**
+   * Workspace/dependency packages that should be transpiled from source.
+   * Useful for monorepos where package exports point to TS/TSX files.
+   */
+  transpilePackages?: string[]
+  /**
    * Companion extensions (load-only). Each entry must be an unpacked extension root
    * containing a manifest.json. These are loaded alongside the user extension in
    * dev/preview/start (and can also be applied to build for packaging scenarios).
@@ -354,6 +360,7 @@ export interface FileConfig {
         preferences?: Record<string, unknown>
         persistProfile?: boolean
         extensions?: CompanionExtensionsConfig
+        transpilePackages?: string[]
       }
 
     start?: Pick<
@@ -380,6 +387,7 @@ export interface FileConfig {
       preferences?: Record<string, unknown>
       persistProfile?: boolean
       extensions?: CompanionExtensionsConfig
+      transpilePackages?: string[]
     }
 
     preview?: Pick<
@@ -405,6 +413,7 @@ export interface FileConfig {
       preferences?: Record<string, unknown>
       persistProfile?: boolean
       extensions?: CompanionExtensionsConfig
+      transpilePackages?: string[]
     }
 
     build?: Pick<
@@ -412,6 +421,7 @@ export interface FileConfig {
       'browser' | 'zipFilename' | 'zip' | 'zipSource' | 'polyfill'
     > & {
       extensions?: CompanionExtensionsConfig
+      transpilePackages?: string[]
     }
   }
   /**
@@ -419,5 +429,10 @@ export interface FileConfig {
    * This is merged into `commands.dev|start|preview|build` by the config loader.
    */
   extensions?: CompanionExtensionsConfig
+  /**
+   * Default transpile allowlist for all commands.
+   * Per-command `commands.<name>.transpilePackages` overrides this value.
+   */
+  transpilePackages?: string[]
   config?: (config: Configuration) => Configuration
 }
