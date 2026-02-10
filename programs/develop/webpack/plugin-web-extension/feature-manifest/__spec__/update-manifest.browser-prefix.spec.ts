@@ -72,4 +72,23 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
     expect(out.background?.service_worker).toBe('background/service_worker.js')
     expect(out.background?.scripts).toBeUndefined()
   })
+
+  it('resolves MV3 side_panel.default_path to canonical output path', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        side_panel: {
+          default_path: 'src/sidebar/index.html',
+          default_title: 'Panel'
+        }
+      }
+    })
+
+    expect(out.side_panel?.default_path).toBe('sidebar/index.html')
+    expect(out.side_panel?.default_title).toBe('Panel')
+  })
 })
