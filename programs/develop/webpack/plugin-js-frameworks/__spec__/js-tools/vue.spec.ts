@@ -34,6 +34,11 @@ describe('vue tools', () => {
     vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
       loadLoaderOptions: vi.fn(async () => ({foo: 1}))
     }))
+    vi.doMock('module', () => ({
+      createRequire: () => ({
+        resolve: (id: string) => `/project/node_modules/${id}`
+      })
+    }))
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const {isUsingVue, maybeUseVue} = await import('../../js-tools/vue')
@@ -46,5 +51,15 @@ describe('vue tools', () => {
     expect(result?.loaders?.[0].test).toEqual(/\.vue$/)
     expect(result?.loaders?.[0].options?.foo).toBe(1)
     expect(result?.plugins?.length).toBeGreaterThan(0)
+    expect(result?.alias?.['vue$']).toContain('/project/node_modules/vue')
+    expect(result?.alias?.['@vue/runtime-dom']).toContain(
+      '/project/node_modules/@vue/runtime-dom'
+    )
+    expect(result?.alias?.['@vue/runtime-core']).toContain(
+      '/project/node_modules/@vue/runtime-core'
+    )
+    expect(result?.alias?.['@vue/shared']).toContain(
+      '/project/node_modules/@vue/shared'
+    )
   })
 })

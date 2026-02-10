@@ -240,12 +240,17 @@ export async function loadCommandConfig(
           userConfig && (userConfig as any).extensions
             ? {extensions: (userConfig as any).extensions}
             : {}
+        const baseTranspilePackages =
+          userConfig && Array.isArray((userConfig as any).transpilePackages)
+            ? {transpilePackages: (userConfig as any).transpilePackages}
+            : {}
         const perCommand =
           userConfig && userConfig.commands && userConfig.commands[command]
             ? userConfig.commands[command]
             : {}
         return {
           ...baseExtensions,
+          ...baseTranspilePackages,
           ...perCommand
         }
       } catch (err: unknown) {

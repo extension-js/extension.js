@@ -33,6 +33,11 @@ describe('preact tools', () => {
     )
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.doMock('module', () => ({
+      createRequire: () => ({
+        resolve: (id: string) => `/project/node_modules/${id}`
+      })
+    }))
     // Mock @rspack/plugin-preact-refresh so getPreactRefreshPlugin() can resolve
     vi.doMock('@rspack/plugin-preact-refresh', () => ({
       default: vi.fn(() => ({apply: vi.fn()}))
@@ -47,7 +52,20 @@ describe('preact tools', () => {
 
     const result = await maybeUsePreact('/p')
     expect(result?.plugins?.length).toBeGreaterThan(0)
-    expect(result?.alias?.react).toBe('preact/compat')
-    expect(result?.alias?.['react/jsx-runtime']).toBe('preact/jsx-runtime')
+    expect(result?.alias?.react).toContain(
+      '/project/node_modules/preact/compat'
+    )
+    expect(result?.alias?.['react-dom']).toContain(
+      '/project/node_modules/preact/compat'
+    )
+    expect(result?.alias?.['react-dom/test-utils']).toContain(
+      '/project/node_modules/preact/test-utils'
+    )
+    expect(result?.alias?.['react/jsx-runtime']).toContain(
+      '/project/node_modules/preact/jsx-runtime'
+    )
+    expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
+      '/project/node_modules/preact/jsx-dev-runtime'
+    )
   })
 })
