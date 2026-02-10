@@ -55,5 +55,11 @@ describe('react tools', () => {
     expect(result?.alias?.['react-dom$']).toContain(
       '/project/node_modules/react-dom'
     )
+    expect(result?.alias?.['react/jsx-runtime']).toContain(
+      '/project/node_modules/react/jsx-runtime'
+    )
+    expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
+      '/project/node_modules/react/jsx-dev-runtime'
+    )
   })
 })

@@ -36,6 +36,11 @@ describe('svelte tools', () => {
     vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
       loadLoaderOptions: vi.fn(async () => ({bar: 2}))
     }))
+    vi.doMock('module', () => ({
+      createRequire: () => ({
+        resolve: (id: string) => `/p/node_modules/${id}`
+      })
+    }))
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const {isUsingSvelte, maybeUseSvelte} =
@@ -60,5 +65,18 @@ describe('svelte tools', () => {
     expect(compiler.options.resolve.mainFields[0]).toBe('svelte')
     expect(compiler.options.resolve.extensions).toContain('.svelte')
     expect(compiler.options.resolve.conditionNames).toContain('svelte')
+    expect(result?.alias?.svelte).toContain('/p/node_modules/svelte')
+    expect(result?.alias?.['svelte/internal']).toContain(
+      '/p/node_modules/svelte/internal'
+    )
+    expect(result?.alias?.['svelte/store']).toContain(
+      '/p/node_modules/svelte/store'
+    )
+    expect(result?.alias?.['svelte/motion']).toContain(
+      '/p/node_modules/svelte/motion'
+    )
+    expect(result?.alias?.['svelte/transition']).toContain(
+      '/p/node_modules/svelte/transition'
+    )
   })
 })

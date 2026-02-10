@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import {DefinePlugin} from '@rspack/core'
 import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
@@ -111,9 +112,32 @@ export async function maybeUseVue(
     })
   ]
 
+  // Force a single Vue runtime instance across app and transpiled workspace deps.
+  const requireFromProject = createRequire(
+    path.join(projectPath, 'package.json')
+  )
+  const resolveFromProject = (id: string) => {
+    try {
+      return requireFromProject.resolve(id)
+    } catch {
+      return undefined
+    }
+  }
+
+  const alias: Record<string, string> = {}
+  const vuePath = resolveFromProject('vue')
+  const vueRuntimeDom = resolveFromProject('@vue/runtime-dom')
+  const vueRuntimeCore = resolveFromProject('@vue/runtime-core')
+  const vueShared = resolveFromProject('@vue/shared')
+
+  if (vuePath) alias['vue$'] = vuePath
+  if (vueRuntimeDom) alias['@vue/runtime-dom'] = vueRuntimeDom
+  if (vueRuntimeCore) alias['@vue/runtime-core'] = vueRuntimeCore
+  if (vueShared) alias['@vue/shared'] = vueShared
+
   return {
     plugins: defaultPlugins,
     loaders: defaultLoaders,
-    alias: undefined
+    alias
   }
 }
