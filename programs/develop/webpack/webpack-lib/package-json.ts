@@ -32,12 +32,50 @@ async function findUpLocal(
   }
 }
 
+function findUpLocalSync(
+  filename: string,
+  options: {cwd: string}
+): string | undefined {
+  const root = path.parse(options.cwd).root
+  let currentDir = options.cwd
+
+  while (true) {
+    const candidate = path.join(currentDir, filename)
+
+    try {
+      const stat = fs.statSync(candidate)
+      if (stat.isFile()) return candidate
+    } catch {
+      // Ignore error
+    }
+
+    if (currentDir === root) return undefined
+    currentDir = path.dirname(currentDir)
+  }
+}
+
 export async function findNearestPackageJson(
   manifestPath: string
 ): Promise<string | null> {
   try {
     const manifestDir = path.dirname(manifestPath)
     const packageJsonPath = await findUpLocal('package.json', {
+      cwd: manifestDir
+    })
+
+    return packageJsonPath || null
+  } catch (error) {
+    console.warn('Failed to find package.json:', error)
+    return null
+  }
+}
+
+export function findNearestPackageJsonSync(
+  manifestPath: string
+): string | null {
+  try {
+    const manifestDir = path.dirname(manifestPath)
+    const packageJsonPath = findUpLocalSync('package.json', {
       cwd: manifestDir
     })
 

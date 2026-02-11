@@ -10,6 +10,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
+import {findNearestPackageJsonSync} from '../../../../../webpack-lib/package-json'
 import type {
   PluginInterface,
   DevOptions,
@@ -43,13 +44,23 @@ export class AddContentScriptWrapper {
   }
 
   public apply(compiler: Compiler) {
+    const manifestDir = path.dirname(this.manifestPath)
+    const packageJsonPath = findNearestPackageJsonSync(this.manifestPath)
+    const packageJsonDir = packageJsonPath
+      ? path.dirname(packageJsonPath)
+      : manifestDir
+    const includeDirs =
+      packageJsonDir === manifestDir
+        ? [manifestDir]
+        : [manifestDir, packageJsonDir]
+
     // 1- Add the content script wrapper. webpack-target-webextension
     // needs mounting and internal HMR code to work. This plugin abstracts
     // this away from the user. The contract requires the user to export a
     // default function that returns an optional cleanup function.
     compiler.options.module.rules.push({
       test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [path.dirname(this.manifestPath)],
+      include: includeDirs,
       exclude: [/([\\/])node_modules\1/],
       use: [
         {
@@ -67,7 +78,7 @@ export class AddContentScriptWrapper {
       // This loader will warn if the script does not have a default export.
       compiler.options.module.rules.push({
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: [path.dirname(this.manifestPath)],
+        include: includeDirs,
         exclude: [/([\\/])node_modules\1/],
         use: [
           {
@@ -84,7 +95,7 @@ export class AddContentScriptWrapper {
       // 3- Inject minimal HMR accept code for declared background and user scripts
       compiler.options.module.rules.push({
         test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: [path.dirname(this.manifestPath)],
+        include: includeDirs,
         exclude: [/([\\/])node_modules\1/],
         use: [
           {
