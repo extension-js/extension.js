@@ -8,6 +8,7 @@
 
 import fs from 'fs'
 import path from 'path'
+import {findNearestPackageJsonSync} from '../../../../../webpack-lib/package-json'
 import {parseSync, type ParseOptions} from '@swc/core'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
@@ -393,7 +394,11 @@ export default function (this: LoaderContext, source: string) {
   // Warn when a content script module lacks a default export
   try {
     const resourceAbsPath = path.normalize(this.resourcePath)
-    const projectPath = path.dirname(manifestPath)
+    const manifestDir = path.dirname(manifestPath)
+    const packageJsonPath = findNearestPackageJsonSync(manifestPath)
+    const packageJsonDir = packageJsonPath
+      ? path.dirname(packageJsonPath)
+      : manifestDir
     const compilation: any = (this as any)._compilation
 
     // Deduplicate warnings per compilation per file
@@ -417,7 +422,7 @@ export default function (this: LoaderContext, source: string) {
 
       for (const contentScriptJs of contentScriptJsList) {
         declaredContentJsAbsPaths.push(
-          path.resolve(projectPath, contentScriptJs as string)
+          path.resolve(manifestDir, contentScriptJs as string)
         )
       }
     }
@@ -426,7 +431,7 @@ export default function (this: LoaderContext, source: string) {
       (abs) => resourceAbsPath === path.normalize(abs)
     )
 
-    const scriptsDir = path.resolve(projectPath, 'scripts')
+    const scriptsDir = path.resolve(packageJsonDir, 'scripts')
     const relToScripts = path.relative(scriptsDir, resourceAbsPath)
     const isScriptsFolderScript =
       relToScripts &&
@@ -442,7 +447,7 @@ export default function (this: LoaderContext, source: string) {
         compilation
       )
       if (!analysis.hasDefaultExport) {
-        const relativeFile = path.relative(projectPath, resourceAbsPath)
+        const relativeFile = path.relative(packageJsonDir, resourceAbsPath)
         const message = [
           'Content script requires a default export.',
           `File: ${relativeFile}`,
@@ -478,7 +483,7 @@ export default function (this: LoaderContext, source: string) {
           }
         }
 
-        const relativeFile = path.relative(projectPath, resourceAbsPath)
+        const relativeFile = path.relative(packageJsonDir, resourceAbsPath)
         const found = analysis.kind === 'class' ? 'class' : 'non-callable value'
         const message = [
           'Content script default export must be a function.',

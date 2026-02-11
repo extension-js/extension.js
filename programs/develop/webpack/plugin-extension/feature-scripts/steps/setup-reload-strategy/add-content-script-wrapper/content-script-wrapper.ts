@@ -9,6 +9,7 @@
 // @ts-nocheck
 import fs from 'fs'
 import path from 'path'
+import {findNearestPackageJsonSync} from '../../../../../webpack-lib/package-json'
 import {validate} from 'schema-utils'
 import {parseSync} from '@swc/core'
 
@@ -121,7 +122,11 @@ export default function (source) {
   const options = this.getOptions()
   const compilation = this._compilation
   const manifestPath = options.manifestPath
-  const projectPath = path.dirname(manifestPath)
+  const manifestDir = path.dirname(manifestPath)
+  const packageJsonPath = findNearestPackageJsonSync(manifestPath)
+  const packageJsonDir = packageJsonPath
+    ? path.dirname(packageJsonPath)
+    : manifestDir
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
   const isProd =
     String((options && options.mode) || '').toLowerCase() === 'production'
@@ -151,7 +156,7 @@ export default function (source) {
         : 'document_idle'
     for (const js of jsList) {
       declaredContentJsAbsEntries.push({
-        abs: path.resolve(projectPath, js),
+        abs: path.resolve(manifestDir, js),
         runAt
       })
     }
@@ -163,7 +168,7 @@ export default function (source) {
   )
   const isDeclaredContentScript = Boolean(declaredEntry)
 
-  const scriptsDir = path.resolve(projectPath, 'scripts')
+  const scriptsDir = path.resolve(packageJsonDir, 'scripts')
   const relToScripts = path.relative(scriptsDir, resourceAbsPath)
   const isScriptsFolderScript =
     relToScripts &&

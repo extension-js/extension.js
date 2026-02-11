@@ -146,6 +146,21 @@ describe('content-script-wrapper loader', () => {
     expect(out).toMatch('export default __EXTENSIONJS_default__')
   })
 
+  it('injects CSS accepts for scripts/ folder entries (inner request)', () => {
+    const scriptsDir = path.join(tmp, 'scripts')
+    fs.mkdirSync(scriptsDir, {recursive: true})
+    const scriptFile = path.join(scriptsDir, 'hello.ts')
+    fs.writeFileSync(scriptFile, '')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
+    )
+    const src = `\nimport './styles.css'\nexport default function m(){}`
+    const out = run(scriptFile, manifestPath, src, '?__extjs_inner=1') as string
+    expect(out).toMatch('webpackHot.accept("./styles.css"')
+    expect(out).toMatch('__EXTENSIONJS_CSS_UPDATE__')
+  })
+
   it('injects CSS accepts for side-effect CSS imports (inner request)', () => {
     const cs = path.join(tmp, 'cs.ts')
     fs.writeFileSync(cs, '')
