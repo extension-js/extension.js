@@ -17,6 +17,8 @@ function patchWebResourcesV2(manifest: Manifest) {
     '/*.sass',
     '/*.less',
     '*.styl',
+    '/scripts/*.js',
+    '/scripts/*.css',
     // HMR updates live under /hot/
     '/hot/*',
     // Common asset types for content scripts in MAIN world
@@ -55,6 +57,8 @@ function patchWebResourcesV3(manifest: Manifest) {
     '/*.sass',
     '/*.less',
     '*.styl',
+    '/scripts/*.js',
+    '/scripts/*.css',
     // HMR updates live under /hot/
     '/hot/*',
     // Common asset types for content scripts in MAIN world
