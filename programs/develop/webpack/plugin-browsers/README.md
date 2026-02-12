@@ -101,6 +101,17 @@ export class BrowsersPlugin {
     // Source inspection (dev only)
     source?: string
     watchSource?: boolean
+    sourceFormat?: 'pretty' | 'json' | 'ndjson'
+    sourceSummary?: boolean
+    sourceMeta?: boolean
+    sourceProbe?: string[]
+    sourceTree?: 'off' | 'root-only'
+    sourceConsole?: boolean
+    sourceDom?: boolean
+    sourceMaxBytes?: number
+    sourceRedact?: 'off' | 'safe' | 'strict'
+    sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+    sourceDiff?: boolean
     // Dry-run (print binary/flags and exit)
     dryRun?: boolean
     // Unified logging (Chromium CDP)

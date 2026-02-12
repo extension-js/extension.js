@@ -146,6 +146,17 @@ export interface DevOptions extends BrowserOptionsBase {
   // Source inspection options
   source?: string
   watchSource?: boolean
+  sourceFormat?: 'pretty' | 'json' | 'ndjson'
+  sourceSummary?: boolean
+  sourceMeta?: boolean
+  sourceProbe?: string[]
+  sourceTree?: 'off' | 'root-only'
+  sourceConsole?: boolean
+  sourceDom?: boolean
+  sourceMaxBytes?: number
+  sourceRedact?: 'off' | 'safe' | 'strict'
+  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+  sourceDiff?: boolean
   // Unified logger CLI output options
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
@@ -157,7 +168,7 @@ export interface DevOptions extends BrowserOptionsBase {
     | 'options'
     | 'devtools'
   )[]
-  logFormat?: 'pretty' | 'json'
+  logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
   logUrl?: string
@@ -216,6 +227,17 @@ export interface PreviewOptions extends BrowserOptionsBase {
   // Source inspection options (parity with DevOptions)
   source?: string
   watchSource?: boolean
+  sourceFormat?: 'pretty' | 'json' | 'ndjson'
+  sourceSummary?: boolean
+  sourceMeta?: boolean
+  sourceProbe?: string[]
+  sourceTree?: 'off' | 'root-only'
+  sourceConsole?: boolean
+  sourceDom?: boolean
+  sourceMaxBytes?: number
+  sourceRedact?: 'off' | 'safe' | 'strict'
+  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+  sourceDiff?: boolean
   // Unified logger CLI output options (parity with DevOptions)
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
@@ -227,7 +249,7 @@ export interface PreviewOptions extends BrowserOptionsBase {
     | 'options'
     | 'devtools'
   )[]
-  logFormat?: 'pretty' | 'json'
+  logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
   logUrl?: string
@@ -257,6 +279,17 @@ export interface StartOptions extends BrowserOptionsBase {
   // Source inspection options (parity with DevOptions)
   source?: string
   watchSource?: boolean
+  sourceFormat?: 'pretty' | 'json' | 'ndjson'
+  sourceSummary?: boolean
+  sourceMeta?: boolean
+  sourceProbe?: string[]
+  sourceTree?: 'off' | 'root-only'
+  sourceConsole?: boolean
+  sourceDom?: boolean
+  sourceMaxBytes?: number
+  sourceRedact?: 'off' | 'safe' | 'strict'
+  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+  sourceDiff?: boolean
   // Unified logger CLI output options (parity with DevOptions)
   logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
   logContexts?: (
@@ -268,7 +301,7 @@ export interface StartOptions extends BrowserOptionsBase {
     | 'options'
     | 'devtools'
   )[]
-  logFormat?: 'pretty' | 'json'
+  logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
   logUrl?: string

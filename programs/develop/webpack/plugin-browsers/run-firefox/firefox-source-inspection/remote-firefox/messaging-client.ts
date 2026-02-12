@@ -23,9 +23,17 @@ import {
 
 export class MessagingClient extends EventEmitter {
   private transport = new RdpTransport()
+  private forwardingSetup = false
 
   async connect(port: number) {
     await this.transport.connect(port)
+    if (!this.forwardingSetup) {
+      this.forwardingSetup = true
+      this.transport.on('message', (message) => this.emit('message', message))
+      this.transport.on('error', (error) => this.emit('error', error))
+      this.transport.on('end', () => this.emit('end'))
+      this.transport.on('timeout', () => this.emit('timeout'))
+    }
   }
 
   disconnect() {
