@@ -9,6 +9,16 @@ vi.mock('../../run-chromium/chromium-source-inspection/cdp-client', () => {
   class MockCDPClient {
     constructor(_port: number) {}
     async connect() {}
+    onProtocolEvent(_cb: (message: Record<string, unknown>) => void) {}
+    async sendCommand(method: string) {
+      if (method === 'Page.getFrameTree') {
+        return {frameTree: {frame: {id: 'frame', url: 'http://example/'}}}
+      }
+      if (method === 'Runtime.evaluate') {
+        return {executionContextId: 1}
+      }
+      return {}
+    }
     async waitForLoadEvent(_sessionId?: string | null) {}
     async waitForContentScriptInjection(_sessionId?: string | null) {}
     async evaluate(_sessionId: string | null, _expr: string) {

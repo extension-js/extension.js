@@ -155,6 +155,12 @@ export default function webpackConfig(
         port: devOptions.port,
         source: devOptions.source,
         watchSource: devOptions.watchSource,
+        sourceFormat: devOptions.sourceFormat,
+        sourceSummary: devOptions.sourceSummary,
+        sourceMaxBytes: devOptions.sourceMaxBytes,
+        sourceRedact: devOptions.sourceRedact,
+        sourceIncludeShadow: devOptions.sourceIncludeShadow,
+        sourceDiff: devOptions.sourceDiff,
         // Prevent actual browser launch during monorepo watch
         dryRun: process.env.EXTENSION_DEV_NO_BROWSER === '1',
         // Forward unified logger options to BrowsersPlugin (CDP logger)

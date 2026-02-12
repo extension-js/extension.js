@@ -10,6 +10,7 @@ import * as path from 'path'
 import type {Compilation, Compiler} from '@rspack/core'
 import type {ChromiumContext} from '../chromium-context'
 import * as messages from '../../browsers-lib/messages'
+import {emitActionEvent} from '../../browsers-lib/source-output'
 import type {DevOptions} from '../../../webpack-types'
 
 /**
@@ -231,6 +232,10 @@ export class ChromiumHardReloadPlugin {
       }
 
       this.logger?.info?.(`[reload] reloading extension (reason:${reason})`)
+      emitActionEvent('extension_reload', {
+        reason: reason || 'unknown',
+        browser: this.options?.browser
+      })
       const ok = await ctrl.hardReload()
 
       if (!ok && !this.warnedDevMode) {

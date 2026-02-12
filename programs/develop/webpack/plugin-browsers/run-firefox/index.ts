@@ -40,6 +40,17 @@ export class RunFirefoxPlugin implements FirefoxPluginRuntime {
   readonly copyFromProfile?: string
   readonly source?: string | boolean
   readonly watchSource?: boolean
+  readonly sourceFormat?: LogFormat
+  readonly sourceSummary?: boolean
+  readonly sourceMeta?: boolean
+  readonly sourceProbe?: string[]
+  readonly sourceTree?: 'off' | 'root-only'
+  readonly sourceConsole?: boolean
+  readonly sourceDom?: boolean
+  readonly sourceMaxBytes?: number
+  readonly sourceRedact?: 'off' | 'safe' | 'strict'
+  readonly sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+  readonly sourceDiff?: boolean
   readonly dryRun?: boolean
 
   // Logger flags
@@ -83,6 +94,17 @@ export class RunFirefoxPlugin implements FirefoxPluginRuntime {
     // Optional watch mode to re-print HTML on file changes
     this.source = options.source
     this.watchSource = options.watchSource
+    this.sourceFormat = options.sourceFormat
+    this.sourceSummary = options.sourceSummary
+    this.sourceMeta = options.sourceMeta
+    this.sourceProbe = options.sourceProbe
+    this.sourceTree = options.sourceTree
+    this.sourceConsole = options.sourceConsole
+    this.sourceDom = options.sourceDom
+    this.sourceMaxBytes = options.sourceMaxBytes
+    this.sourceRedact = options.sourceRedact
+    this.sourceIncludeShadow = options.sourceIncludeShadow
+    this.sourceDiff = options.sourceDiff
 
     // Unified logging flags
     this.logLevel = options.logLevel
