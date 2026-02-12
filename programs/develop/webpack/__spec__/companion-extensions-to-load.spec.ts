@@ -71,4 +71,89 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     expect(normalized[normalized.length - 1].endsWith(userSuffix)).toBe(true)
     expect(companionIndex).toBeLessThan(userIndex)
   })
+
+  it('does not load built-in devtools when both built-in and user define new tab override', () => {
+    const root = tmpDir('extjs-devtools-ntp-guard-')
+    const userOut = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(userOut, {recursive: true})
+    fs.writeFileSync(
+      path.join(userOut, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'User Extension',
+        version: '0.0.0',
+        chrome_url_overrides: {newtab: 'user/newtab.html'}
+      }),
+      'utf-8'
+    )
+
+    const devtoolsForBrowser = path.join(
+      root,
+      'dist',
+      'extension-js-devtools',
+      'chrome'
+    )
+    fs.mkdirSync(devtoolsForBrowser, {recursive: true})
+    fs.writeFileSync(
+      path.join(devtoolsForBrowser, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js',
+        version: '0.0.0',
+        chrome_url_overrides: {newtab: 'pages/newtab.html'}
+      }),
+      'utf-8'
+    )
+
+    const list = computeExtensionsToLoad(
+      root,
+      'development',
+      'chrome',
+      userOut,
+      []
+    )
+    expect(list).toEqual([userOut])
+  })
+
+  it('loads built-in devtools to provide blank new tab when user has no new tab override', () => {
+    const root = tmpDir('extjs-devtools-ntp-default-')
+    const userOut = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(userOut, {recursive: true})
+    fs.writeFileSync(
+      path.join(userOut, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'User Extension',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    const devtoolsForBrowser = path.join(
+      root,
+      'dist',
+      'extension-js-devtools',
+      'chrome'
+    )
+    fs.mkdirSync(devtoolsForBrowser, {recursive: true})
+    fs.writeFileSync(
+      path.join(devtoolsForBrowser, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js',
+        version: '0.0.0',
+        chrome_url_overrides: {newtab: 'pages/newtab.html'}
+      }),
+      'utf-8'
+    )
+
+    const list = computeExtensionsToLoad(
+      root,
+      'development',
+      'chrome',
+      userOut,
+      []
+    )
+    expect(list).toEqual([devtoolsForBrowser, userOut])
+  })
 })
