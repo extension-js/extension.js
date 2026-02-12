@@ -9,6 +9,7 @@
 import type {Compiler} from '@rspack/core'
 import type {FirefoxContext} from '../firefox-context'
 import type {FirefoxPluginRuntime} from '../firefox-types'
+import {emitActionEvent} from '../../browsers-lib/source-output'
 
 export class FirefoxHardReloadPlugin {
   private readonly host: FirefoxPluginRuntime
@@ -82,6 +83,13 @@ export class FirefoxHardReloadPlugin {
           | {hardReload: (c: any, assets: string[]) => Promise<void>}
           | undefined
         if (controller && typeof controller.hardReload === 'function') {
+          const reason = this.ctx.getPendingReloadReason?.()
+
+          emitActionEvent('extension_reload', {
+            reason: reason || 'unknown',
+            browser: this.host.browser
+          })
+
           await controller.hardReload(stats.compilation, changed)
         }
       } catch {
