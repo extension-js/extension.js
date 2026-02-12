@@ -16,7 +16,21 @@ import {
   type Browser,
   parseOptionalBoolean
 } from '../utils'
-import {parseExtensionsList, parseLogContexts} from '../utils/normalize-options'
+import {
+  normalizeSourceFormatOption,
+  normalizeSourceIncludeShadowOption,
+  normalizeSourceMaxBytesOption,
+  normalizeSourceOption,
+  normalizeSourceRedactOption,
+  normalizeSourceMetaOption,
+  normalizeSourceProbeOption,
+  normalizeSourceTreeOption,
+  normalizeSourceConsoleOption,
+  normalizeSourceDomOption,
+  normalizeSourceDiffOption,
+  parseExtensionsList,
+  parseLogContexts
+} from '../utils/normalize-options'
 
 type StartOptions = {
   browser?: Browser | 'all'
@@ -34,9 +48,20 @@ type StartOptions = {
   // Source inspection (parity with dev/preview)
   source?: boolean | string
   watchSource?: boolean
+  sourceFormat?: 'pretty' | 'json' | 'ndjson'
+  sourceSummary?: boolean
+  sourceMeta?: boolean
+  sourceProbe?: string | string[]
+  sourceTree?: 'off' | 'root-only'
+  sourceConsole?: boolean
+  sourceDom?: boolean
+  sourceMaxBytes?: number | string
+  sourceRedact?: 'off' | 'safe' | 'strict'
+  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+  sourceDiff?: boolean | string
   // Unified logger options (parity with dev/preview)
   logLevel?: string
-  logFormat?: 'pretty' | 'json'
+  logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
   logUrl?: string
@@ -93,7 +118,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
       '[experimental] minimum centralized logger level to display in terminal (default: off)'
     )
     .option(
-      '--log-format <pretty|json>',
+      '--log-format <pretty|json|ndjson>',
       '[experimental] output format for logger events. Defaults to `pretty`'
     )
     .option('--no-log-timestamps', 'disable ISO timestamps in pretty output')
@@ -106,6 +131,60 @@ export function registerStartCommand(program: Command, telemetry: any) {
     .option(
       '--source [url]',
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
+    )
+    .option(
+      '--watch-source [boolean]',
+      '[experimental] re-print HTML on rebuilds or file changes',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-format <pretty|json|ndjson>',
+      '[experimental] output format for source HTML (defaults to --log-format when present, otherwise JSON when --source is used)'
+    )
+    .option(
+      '--source-summary [boolean]',
+      '[experimental] output a compact summary instead of full HTML',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-meta [boolean]',
+      '[experimental] output page metadata (readyState, viewport, frames)',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-probe <selectors>',
+      '[experimental] comma-separated CSS selectors to probe'
+    )
+    .option(
+      '--source-tree <off|root-only>',
+      '[experimental] output a compact extension root tree'
+    )
+    .option(
+      '--source-console [boolean]',
+      '[experimental] output console summary (best-effort)',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-dom [boolean]',
+      '[experimental] output DOM snapshots and diffs (default: true when watch is enabled)',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-max-bytes <bytes>',
+      '[experimental] limit HTML output size in bytes (0 disables truncation)'
+    )
+    .option(
+      '--source-redact <off|safe|strict>',
+      '[experimental] redact sensitive content in HTML output (default: safe for JSON/NDJSON)'
+    )
+    .option(
+      '--source-include-shadow <off|open-only|all>',
+      '[experimental] control Shadow DOM inclusion in HTML output (default: open-only)'
+    )
+    .option(
+      '--source-diff [boolean]',
+      '[experimental] include diff metadata on watch updates (default: true when watch is enabled)',
+      parseOptionalBoolean
     )
     .option(
       '--extensions <list>',
@@ -142,6 +221,74 @@ export function registerStartCommand(program: Command, telemetry: any) {
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
 
+      const normalizedSource = normalizeSourceOption(
+        startOptions.source,
+        startOptions.startingUrl
+      )
+
+      if (normalizedSource) {
+        startOptions.source = normalizedSource
+      }
+
+      const sourceEnabled = Boolean(
+        startOptions.source || startOptions.watchSource
+      )
+
+      const normalizedSourceFormat = normalizeSourceFormatOption({
+        sourceFormat: startOptions.sourceFormat,
+        logFormat: startOptions.logFormat,
+        sourceEnabled
+      })
+
+      startOptions.sourceFormat = normalizedSourceFormat
+
+      if (sourceEnabled && normalizedSourceFormat) {
+        process.env.EXTENSION_SOURCE_FORMAT = normalizedSourceFormat
+      }
+
+      startOptions.sourceRedact = normalizeSourceRedactOption(
+        startOptions.sourceRedact,
+        normalizedSourceFormat
+      )
+
+      startOptions.sourceMeta = normalizeSourceMetaOption(
+        startOptions.sourceMeta,
+        sourceEnabled
+      )
+
+      startOptions.sourceProbe = normalizeSourceProbeOption(
+        startOptions.sourceProbe
+      )
+
+      startOptions.sourceTree = normalizeSourceTreeOption(
+        startOptions.sourceTree,
+        sourceEnabled
+      )
+
+      startOptions.sourceConsole = normalizeSourceConsoleOption(
+        startOptions.sourceConsole,
+        sourceEnabled
+      )
+
+      startOptions.sourceDom = normalizeSourceDomOption(
+        startOptions.sourceDom,
+        startOptions.watchSource
+      )
+
+      startOptions.sourceMaxBytes = normalizeSourceMaxBytesOption(
+        startOptions.sourceMaxBytes
+      )
+
+      startOptions.sourceIncludeShadow = normalizeSourceIncludeShadowOption(
+        startOptions.sourceIncludeShadow,
+        sourceEnabled
+      )
+
+      startOptions.sourceDiff = normalizeSourceDiffOption(
+        startOptions.sourceDiff,
+        startOptions.watchSource
+      )
+
       // Load the matching develop runtime from the regular dependency graph.
       const {
         extensionStart
@@ -168,13 +315,24 @@ export function registerStartCommand(program: Command, telemetry: any) {
           port: startOptions.port,
           install: startOptions.install,
           noRunner: startOptions.runner === false,
-          extensions: parseExtensionsList((startOptions as any).extensions),
+          extensions: parseExtensionsList(startOptions.extensions),
           source:
             typeof startOptions.source === 'string'
               ? startOptions.source
-              : (startOptions.source as any),
+              : startOptions.source,
           watchSource: startOptions.watchSource,
-          logLevel: (logsOption || startOptions.logLevel || 'off') as any,
+          sourceFormat: startOptions.sourceFormat,
+          sourceSummary: startOptions.sourceSummary,
+          sourceMeta: startOptions.sourceMeta,
+          sourceProbe: startOptions.sourceProbe,
+          sourceTree: startOptions.sourceTree,
+          sourceConsole: startOptions.sourceConsole,
+          sourceDom: startOptions.sourceDom,
+          sourceMaxBytes: startOptions.sourceMaxBytes,
+          sourceRedact: startOptions.sourceRedact,
+          sourceIncludeShadow: startOptions.sourceIncludeShadow,
+          sourceDiff: startOptions.sourceDiff,
+          logLevel: logsOption || startOptions.logLevel || 'off',
           logContexts,
           logFormat: startOptions.logFormat || 'pretty',
           logTimestamps: startOptions.logTimestamps !== false,

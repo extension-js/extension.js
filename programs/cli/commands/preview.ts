@@ -10,8 +10,27 @@ import type {Command} from 'commander'
 import {createRequire} from 'module'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
-import {vendors, validateVendorsOrExit, type Browser} from '../utils'
-import {parseExtensionsList, parseLogContexts} from '../utils/normalize-options'
+import {
+  vendors,
+  validateVendorsOrExit,
+  type Browser,
+  parseOptionalBoolean
+} from '../utils'
+import {
+  normalizeSourceFormatOption,
+  normalizeSourceIncludeShadowOption,
+  normalizeSourceMaxBytesOption,
+  normalizeSourceOption,
+  normalizeSourceRedactOption,
+  normalizeSourceMetaOption,
+  normalizeSourceProbeOption,
+  normalizeSourceTreeOption,
+  normalizeSourceConsoleOption,
+  normalizeSourceDomOption,
+  normalizeSourceDiffOption,
+  parseExtensionsList,
+  parseLogContexts
+} from '../utils/normalize-options'
 
 type PreviewOptions = {
   browser?: Browser | 'all'
@@ -24,14 +43,27 @@ type PreviewOptions = {
   // Source inspection (parity with dev)
   source?: boolean | string
   watchSource?: boolean
+  sourceFormat?: 'pretty' | 'json' | 'ndjson'
+  sourceSummary?: boolean
+  sourceMeta?: boolean
+  sourceProbe?: string | string[]
+  sourceTree?: 'off' | 'root-only'
+  sourceConsole?: boolean
+  sourceDom?: boolean
+  sourceMaxBytes?: number | string
+  sourceRedact?: 'off' | 'safe' | 'strict'
+  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+  sourceDiff?: boolean | string
   // Unified logger options (parity with dev)
   logLevel?: string
-  logFormat?: 'pretty' | 'json'
+  logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
   logUrl?: string
   logTab?: string | number
   extensions?: string
+  author?: boolean
+  authorMode?: boolean
 }
 
 const require = createRequire(import.meta.url)
@@ -76,7 +108,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       '[experimental] minimum centralized logger level to display in terminal (default: off)'
     )
     .option(
-      '--log-format <pretty|json>',
+      '--log-format <pretty|json|ndjson>',
       '[experimental] output format for logger events. Defaults to `pretty`'
     )
     .option('--no-log-timestamps', 'disable ISO timestamps in pretty output')
@@ -91,6 +123,60 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       '[experimental] opens the provided URL in Chrome and prints the full, live HTML of the page after content scripts are injected'
     )
     .option(
+      '--watch-source [boolean]',
+      '[experimental] re-print HTML on rebuilds or file changes',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-format <pretty|json|ndjson>',
+      '[experimental] output format for source HTML (defaults to --log-format when present, otherwise JSON when --source is used)'
+    )
+    .option(
+      '--source-summary [boolean]',
+      '[experimental] output a compact summary instead of full HTML',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-meta [boolean]',
+      '[experimental] output page metadata (readyState, viewport, frames)',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-probe <selectors>',
+      '[experimental] comma-separated CSS selectors to probe'
+    )
+    .option(
+      '--source-tree <off|root-only>',
+      '[experimental] output a compact extension root tree'
+    )
+    .option(
+      '--source-console [boolean]',
+      '[experimental] output console summary (best-effort)',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-dom [boolean]',
+      '[experimental] output DOM snapshots and diffs (default: true when watch is enabled)',
+      parseOptionalBoolean
+    )
+    .option(
+      '--source-max-bytes <bytes>',
+      '[experimental] limit HTML output size in bytes (0 disables truncation)'
+    )
+    .option(
+      '--source-redact <off|safe|strict>',
+      '[experimental] redact sensitive content in HTML output (default: safe for JSON/NDJSON)'
+    )
+    .option(
+      '--source-include-shadow <off|open-only|all>',
+      '[experimental] control Shadow DOM inclusion in HTML output (default: open-only)'
+    )
+    .option(
+      '--source-diff [boolean]',
+      '[experimental] include diff metadata on watch updates (default: true when watch is enabled)',
+      parseOptionalBoolean
+    )
+    .option(
       '--extensions <list>',
       'comma-separated list of companion extensions or store URLs to load'
     )
@@ -102,10 +188,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...previewOptions}: PreviewOptions
     ) {
-      if (
-        (previewOptions as any).author ||
-        (previewOptions as any)['authorMode']
-      ) {
+      if (previewOptions.author || previewOptions['authorMode']) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
       }
@@ -129,6 +212,74 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         if (isRemote) process.env.EXTJS_LIGHT = '1'
       }
 
+      const normalizedSource = normalizeSourceOption(
+        previewOptions.source,
+        previewOptions.startingUrl
+      )
+
+      if (normalizedSource) {
+        previewOptions.source = normalizedSource
+      }
+
+      const sourceEnabled = Boolean(
+        previewOptions.source || previewOptions.watchSource
+      )
+
+      const normalizedSourceFormat = normalizeSourceFormatOption({
+        sourceFormat: previewOptions.sourceFormat,
+        logFormat: previewOptions.logFormat,
+        sourceEnabled
+      })
+
+      previewOptions.sourceFormat = normalizedSourceFormat
+
+      if (sourceEnabled && normalizedSourceFormat) {
+        process.env.EXTENSION_SOURCE_FORMAT = normalizedSourceFormat
+      }
+
+      previewOptions.sourceRedact = normalizeSourceRedactOption(
+        previewOptions.sourceRedact,
+        normalizedSourceFormat
+      )
+
+      previewOptions.sourceMeta = normalizeSourceMetaOption(
+        previewOptions.sourceMeta,
+        sourceEnabled
+      )
+
+      previewOptions.sourceProbe = normalizeSourceProbeOption(
+        previewOptions.sourceProbe
+      )
+
+      previewOptions.sourceTree = normalizeSourceTreeOption(
+        previewOptions.sourceTree,
+        sourceEnabled
+      )
+
+      previewOptions.sourceConsole = normalizeSourceConsoleOption(
+        previewOptions.sourceConsole,
+        sourceEnabled
+      )
+
+      previewOptions.sourceDom = normalizeSourceDomOption(
+        previewOptions.sourceDom,
+        previewOptions.watchSource
+      )
+
+      previewOptions.sourceMaxBytes = normalizeSourceMaxBytesOption(
+        previewOptions.sourceMaxBytes
+      )
+
+      previewOptions.sourceIncludeShadow = normalizeSourceIncludeShadowOption(
+        previewOptions.sourceIncludeShadow,
+        sourceEnabled
+      )
+
+      previewOptions.sourceDiff = normalizeSourceDiffOption(
+        previewOptions.sourceDiff,
+        previewOptions.watchSource
+      )
+
       // Load the matching develop runtime from the regular dependency graph.
       const {
         extensionPreview
@@ -149,18 +300,29 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
           mode: 'production',
           profile: previewOptions.profile,
           browser: vendor as PreviewOptions['browser'],
-          chromiumBinary: (previewOptions as any).chromiumBinary,
-          geckoBinary: (previewOptions as any).geckoBinary,
+          chromiumBinary: previewOptions.chromiumBinary,
+          geckoBinary: previewOptions.geckoBinary,
           startingUrl: previewOptions.startingUrl,
           port: previewOptions.port,
           noRunner: previewOptions.runner === false,
-          extensions: parseExtensionsList((previewOptions as any).extensions),
+          extensions: parseExtensionsList(previewOptions.extensions),
           source:
             typeof previewOptions.source === 'string'
               ? previewOptions.source
-              : (previewOptions.source as any),
+              : previewOptions.source,
           watchSource: previewOptions.watchSource,
-          logLevel: (logsOption || previewOptions.logLevel || 'off') as any,
+          sourceFormat: previewOptions.sourceFormat,
+          sourceSummary: previewOptions.sourceSummary,
+          sourceMeta: previewOptions.sourceMeta,
+          sourceProbe: previewOptions.sourceProbe,
+          sourceTree: previewOptions.sourceTree,
+          sourceConsole: previewOptions.sourceConsole,
+          sourceDom: previewOptions.sourceDom,
+          sourceMaxBytes: previewOptions.sourceMaxBytes,
+          sourceRedact: previewOptions.sourceRedact,
+          sourceIncludeShadow: previewOptions.sourceIncludeShadow,
+          sourceDiff: previewOptions.sourceDiff,
+          logLevel: logsOption || previewOptions.logLevel || 'off',
           logContexts,
           logFormat: previewOptions.logFormat || 'pretty',
           logTimestamps: previewOptions.logTimestamps !== false,

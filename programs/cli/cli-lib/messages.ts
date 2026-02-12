@@ -153,6 +153,18 @@ ${'Source Inspection'}
 - ${code('--source')} ${arg('<url|boolean>')}         Open URL and print HTML after content scripts inject
   - When provided without a URL, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
   - Watch mode is enabled by default when ${code('--source')} is present
+- ${code('--watch-source')} ${arg('[boolean]')}       Re-print HTML on rebuilds or file changes
+- ${code('--source-format')} ${arg('<pretty|json|ndjson>')} Output format for page HTML (defaults to ${code('--log-format')} when present)
+- ${code('--source-summary')} ${arg('[boolean]')}     Output a compact summary instead of full HTML
+- ${code('--source-meta')} ${arg('[boolean]')}        Output page metadata (readyState, viewport, frames)
+- ${code('--source-probe')} ${arg('<selectors>')}     Comma-separated CSS selectors to probe
+- ${code('--source-tree')} ${arg('<off|root-only>')}  Output a compact extension root tree
+- ${code('--source-console')} ${arg('[boolean]')}     Output console summary (best-effort)
+- ${code('--source-dom')} ${arg('[boolean]')}         Output DOM snapshots and diffs
+- ${code('--source-max-bytes')} ${arg('<bytes>')}      Limit HTML output size (0 disables truncation)
+- ${code('--source-redact')} ${arg('<off|safe|strict>')} Redact sensitive HTML content (default: safe for JSON/NDJSON)
+- ${code('--source-include-shadow')} ${arg('<off|open-only|all>')} Control Shadow DOM inclusion (default: open-only)
+- ${code('--source-diff')} ${arg('[boolean]')}        Include diff metadata on watch updates
 
 ${'Browser-Specific Options'}
 - ${code('--chromium-binary')} ${arg('<path>')}        Custom Chromium binary path
@@ -168,7 +180,7 @@ ${colors.underline('Centralized Logger (terminal output)')}
 - Enable and filter logs directly via ${code('extension dev')} flags:
   - ${code('--logs')} ${arg('<off|error|warn|info|debug|trace>')}    Minimum level (default: info)
   - ${code('--log-context')} ${arg('<list|all>')}                     Contexts: background,content,page,sidebar,popup,options,devtools
-  - ${code('--log-format')} ${arg('<pretty|json>')}                   Output format (default: pretty)
+  - ${code('--log-format')} ${arg('<pretty|json|ndjson>')}            Output format (default: pretty)
   - ${code('--no-log-timestamps')}                                   Hide ISO timestamps in pretty output
   - ${code('--no-log-color')}                                        Disable color in pretty output
   - ${code('--log-url')} ${arg('<substring|/regex/>')}                Filter by event.url
@@ -224,7 +236,7 @@ ${'Centralized Logger (for AI & CI)'}
 - Prefer these flags to control terminal logs during ${code('extension dev')}:
   - ${code('--logs')} ${arg('<off|error|warn|info|debug|trace>')}    Minimum level
   - ${code('--log-context')} ${arg('<list|all>')}                     Contexts to include
-  - ${code('--log-format')} ${arg('<pretty|json>')}                   Pretty for humans; JSON for machines/NDJSON pipelines
+  - ${code('--log-format')} ${arg('<pretty|json|ndjson>')}            Pretty for humans; JSON for machines/NDJSON pipelines
   - ${code('--no-log-timestamps')} ${arg(' ')}                        Disable timestamps (pretty)
   - ${code('--no-log-color')} ${arg(' ')}                             Disable ANSI colors (pretty)
   - ${code('--log-url')} ${arg('<substring|/regex/>')}                Filter by URL
@@ -316,6 +328,19 @@ ${'Source Inspection & Real-Time Monitoring'}
 - Use ${code('--source')} ${arg('<url|boolean>')} to inspect page HTML after content script injection
   - When no URL is provided, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
   - Watch mode is enabled by default when ${code('--source')} is present
+- Use ${code('--watch-source')} to re-print HTML on rebuilds or file changes
+- Use ${code('--source-format')} ${arg('<pretty|json|ndjson>')} for machine-friendly HTML output
+- Use ${code('--source-summary')} to emit a compact JSON summary instead of full HTML
+- Use ${code('--source-meta')} to emit page metadata (readyState, viewport, frames)
+- Use ${code('--source-probe')} to probe CSS selectors for quick validation
+- Use ${code('--source-tree')} to emit a compact extension root tree
+- Use ${code('--source-console')} to emit a console summary (best-effort)
+- Use ${code('--source-dom')} to emit DOM snapshots and diffs
+- Use ${code('--source-redact')} ${arg('<off|safe|strict>')} to redact sensitive content
+- Use ${code('--source-max-bytes')} ${arg('<bytes>')} to limit output size
+- Use ${code('--source-diff')} ${arg('[boolean]')} to emit diff metadata for watch updates
+- Source events include frame context (frameId/frameUrl), and console summaries include best-effort script URLs.
+- Action timeline events ${code('action_event')} report navigation, injection, rebuilds, snapshots, and reloads.
 - Automatically enables Chrome remote debugging (port 9222) when source inspection is active
 - Extracts Shadow DOM content from ${code('#extension-root')} or ${code('[data-extension-root=\"true\"]')} elements
 - Useful for debugging content script behavior and style injection

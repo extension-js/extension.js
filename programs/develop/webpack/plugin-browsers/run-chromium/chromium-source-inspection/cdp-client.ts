@@ -255,8 +255,11 @@ export class CDPClient {
   }
 
   // Get the full HTML of the page including Shadow DOM content
-  async getPageHTML(sessionId: string) {
-    return getPageHTML(this, sessionId)
+  async getPageHTML(
+    sessionId: string,
+    includeShadow: 'off' | 'open-only' | 'all' = 'open-only'
+  ) {
+    return getPageHTML(this, sessionId, includeShadow)
   }
 
   // Close a target (tab)
