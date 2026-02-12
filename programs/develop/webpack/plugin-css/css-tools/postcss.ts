@@ -110,6 +110,65 @@ function isLikelyCjsTailwindConfigInEsmProject(
   }
 }
 
+function isLikelyCjsTailwindConfig(tailwindConfigPath?: string): boolean {
+  if (!tailwindConfigPath) return false
+  if (!tailwindConfigPath.endsWith('.js') && !tailwindConfigPath.endsWith('.cjs')) {
+    return false
+  }
+
+  try {
+    const text = fs.readFileSync(tailwindConfigPath, 'utf8')
+    return /module\.exports|require\(/.test(text)
+  } catch {
+    return false
+  }
+}
+
+function userConfigMentionsTailwindPlugin(
+  postCssConfigPath?: string
+): boolean {
+  if (!postCssConfigPath) return false
+
+  try {
+    const text = fs.readFileSync(postCssConfigPath, 'utf8')
+
+    // Best-effort detection for common config styles:
+    // - JS/CJS/MJS: plugins: {'@tailwindcss/postcss': {}}
+    // - JS/CJS/MJS: plugins: [require('tailwindcss')]
+    // - JSON/YAML rc: "@tailwindcss/postcss" / "tailwindcss"
+    return /@tailwindcss\/postcss|tailwindcss/.test(text)
+  } catch {
+    return false
+  }
+}
+
+function userConfigUsesDirectTailwindPluginReference(
+  postCssConfigPath?: string
+): boolean {
+  if (!postCssConfigPath) return false
+
+  try {
+    const text = fs.readFileSync(postCssConfigPath, 'utf8')
+
+    // Detect CJS/JS patterns where config executes/holds a Tailwind function:
+    // - const tailwindcss = require('tailwindcss')
+    // - plugins: [tailwindcss, ...]
+    // - plugins: [require('tailwindcss'), ...]
+    return (
+      /require\(\s*['"]tailwindcss['"]\s*\)/.test(text) ||
+      /plugins\s*:\s*\[[^\]]*\btailwindcss\b/.test(text)
+    )
+  } catch {
+    return false
+  }
+}
+
+function tailwindStringPluginDisableShims() {
+  // Keep each disable shim as a single-key object.
+  // postcss-loader accepts this shape while resolving string plugins from config.
+  return [{'@tailwindcss/postcss': false}, {tailwindcss: false}]
+}
+
 function tryLoadCjsConfig(configPath: string): any | undefined {
   try {
     const source = fs.readFileSync(configPath, 'utf8')
@@ -170,6 +229,21 @@ function normalizeTailwindContentGlobs(config: any, projectPath: string): any {
   return out
 }
 
+function getDeclaredTailwindMajor(projectPath: string): number | undefined {
+  try {
+    const raw = fs.readFileSync(path.join(projectPath, 'package.json'), 'utf8')
+    const pkg = JSON.parse(raw || '{}')
+    const version =
+      pkg?.dependencies?.tailwindcss || pkg?.devDependencies?.tailwindcss
+    if (typeof version !== 'string') return undefined
+    const match = version.match(/(\d+)/)
+    if (!match) return undefined
+    return parseInt(match[1], 10)
+  } catch {
+    return undefined
+  }
+}
+
 export function isUsingPostCss(projectPath: string): boolean {
   if (hasDependency(projectPath, 'postcss')) {
     if (!userMessageDelivered) {
@@ -219,6 +293,11 @@ export async function maybeUsePostCss(
   opts: StyleLoaderOptions
 ): Promise<Record<string, any>> {
   const userPostCssConfig = findPostCssConfig(projectPath)
+  const userConfigMentionsTailwind = userConfigMentionsTailwindPlugin(
+    userPostCssConfig
+  )
+  const userConfigUsesDirectTailwindReference =
+    userConfigUsesDirectTailwindPluginReference(userPostCssConfig)
   const userConfigIsCjsInEsm = isLikelyCjsConfigInEsmProject(
     projectPath,
     userPostCssConfig
@@ -240,6 +319,7 @@ export async function maybeUsePostCss(
   const {hasPostCss: pkgHasPostCss, config: pkgPostCssConfig} =
     getPackageJsonConfig(projectPath)
   const tailwindPresent = isUsingTailwind(projectPath)
+  const tailwindConfigured = tailwindPresent || userConfigMentionsTailwind
 
   // Only add postcss-loader when there's a clear signal of usage
   if (!userPostCssConfig && !pkgHasPostCss && !tailwindPresent) {
@@ -272,28 +352,34 @@ export async function maybeUsePostCss(
   // so postcss-loader never has to require("@tailwindcss/postcss") from the
   // extensionjs cache path when used via npm/npx.
   let pluginsFromOptions: any[] | undefined
-  const hasTailwindPostCssDependency = hasDependency(
-    projectPath,
-    '@tailwindcss/postcss'
-  )
+  const shouldInjectTailwindPlugin =
+    tailwindConfigured &&
+    !pkgHasPostCss &&
+    (!userPostCssConfig || userConfigIsCjsInEsm || userConfigMentionsTailwind)
+  const declaredTailwindMajor = getDeclaredTailwindMajor(projectPath)
 
-  if (
-    tailwindPresent &&
-    (!userPostCssConfig || userConfigIsCjsInEsm) &&
-    !pkgHasPostCss
-  ) {
+  if (shouldInjectTailwindPlugin) {
     try {
-      const bases = [projectPath, process.cwd()]
-      const pluginCandidates = hasTailwindPostCssDependency
-        ? ['@tailwindcss/postcss', 'tailwindcss']
-        : ['tailwindcss', '@tailwindcss/postcss']
+      const bases = Array.from(
+        new Set([
+          projectPath,
+          userPostCssConfig ? path.dirname(userPostCssConfig) : '',
+          process.cwd()
+        ].filter(Boolean))
+      )
+      // Tailwind v3 uses `tailwindcss` directly as PostCSS plugin.
+      // Tailwind v4 uses `@tailwindcss/postcss`.
+      const pluginCandidates =
+        typeof declaredTailwindMajor === 'number' && declaredTailwindMajor < 4
+          ? ['tailwindcss', '@tailwindcss/postcss']
+          : ['@tailwindcss/postcss', 'tailwindcss']
       let tailwindMod: any | undefined
       let tailwindPluginId: string | undefined
       let lastError: unknown
 
       for (const base of bases) {
         try {
-          const req = createRequire(path.join(base, 'package.json'))
+          const req = createRequire(path.join(base, '__extensionjs__.js'))
           for (const id of pluginCandidates) {
             try {
               tailwindMod = req(id)
@@ -332,11 +418,12 @@ export async function maybeUsePostCss(
             if (tailwindPluginId === 'tailwindcss') {
               const configFile = getTailwindConfigFile(projectPath)
               if (configFile) {
-                // Backward compatibility:
-                // Support CJS tailwind.config.js in type=module projects without
-                // requiring users to rename config files.
+                // Load CJS config to normalize relative `content` globs against
+                // the extension project path. This avoids cwd-dependent misses in
+                // monorepos while preserving JS/CJS compatibility.
                 if (
-                  isLikelyCjsTailwindConfigInEsmProject(projectPath, configFile)
+                  isLikelyCjsTailwindConfigInEsmProject(projectPath, configFile) ||
+                  isLikelyCjsTailwindConfig(configFile)
                 ) {
                   const loaded = tryLoadCjsConfig(configFile)
 
@@ -362,17 +449,47 @@ export async function maybeUsePostCss(
             }
           } catch {
             // Keep compatibility with plugin versions that don't accept options.
-            instance = tailwindMod()
+            try {
+              instance = tailwindMod()
+            } catch {
+              // Recovery path:
+              // If direct tailwindcss plugin execution fails (e.g. v4 package),
+              // try loading @tailwindcss/postcss and anchor it to project root.
+              if (tailwindPluginId === 'tailwindcss') {
+                for (const base of bases) {
+                  try {
+                    const req = createRequire(path.join(base, '__extensionjs__.js'))
+                    let postcssMod = req('@tailwindcss/postcss')
+                    if (
+                      postcssMod &&
+                      typeof postcssMod === 'object' &&
+                      'default' in postcssMod
+                    ) {
+                      postcssMod = postcssMod.default
+                    }
+                    if (typeof postcssMod === 'function') {
+                      instance = postcssMod({base: projectPath})
+                      tailwindPluginId = '@tailwindcss/postcss'
+                      break
+                    }
+                  } catch {
+                    // keep trying fallback bases
+                  }
+                }
+              }
+            }
           }
 
-          pluginsFromOptions = userConfigIsCjsInEsm
-            ? [instance]
-            : [
-                // Disable any string-configured "@tailwindcss/postcss" in user config,
-                // so loadPlugin() won't try to require it from the loader path.
-                {'@tailwindcss/postcss': false},
-                instance
-              ]
+          if (instance) {
+            pluginsFromOptions = userConfigIsCjsInEsm
+              ? [instance]
+              : [
+                  // Disable any string-configured Tailwind plugins from user config,
+                  // so loadPlugin() never resolves them from a cwd-dependent location.
+                  ...tailwindStringPluginDisableShims(),
+                  instance
+                ]
+          }
         } else if (
           tailwindMod &&
           typeof tailwindMod === 'object' &&
@@ -381,7 +498,7 @@ export async function maybeUsePostCss(
           // Already a plugin object
           pluginsFromOptions = userConfigIsCjsInEsm
             ? [tailwindMod]
-            : [{'@tailwindcss/postcss': false}, tailwindMod]
+            : [...tailwindStringPluginDisableShims(), tailwindMod]
         }
       }
     } catch {
@@ -393,7 +510,13 @@ export async function maybeUsePostCss(
   // In "type: module" projects, postcss.config.js authored in CJS syntax
   // (module.exports / require) fails when postcss-loader tries to load config.
   // In this case, bypass config loading and provide a minimal plugin chain.
-  if (userConfigIsCjsInEsm) {
+  const bypassUserConfigForTailwindCompat =
+    !!pluginsFromOptions &&
+    !!userPostCssConfig &&
+    userConfigMentionsTailwind &&
+    userConfigUsesDirectTailwindReference
+
+  if (userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat) {
     try {
       if (hasDependency(projectPath, 'autoprefixer')) {
         const req = createRequire(path.join(projectPath, 'package.json'))
@@ -426,7 +549,10 @@ export async function maybeUsePostCss(
   const postcssOptions: any = {
     ident: 'postcss',
     cwd: projectPath,
-    config: userConfigIsCjsInEsm ? false : projectPath
+    config:
+      userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat
+        ? false
+        : projectPath
   }
 
   if (pluginsFromOptions) {
