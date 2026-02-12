@@ -12,9 +12,10 @@ import {CDPClient} from './cdp-client'
 export async function extractPageHtml(
   cdpClient: CDPClient,
   sessionId: string,
-  logSamples = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  logSamples = process.env.EXTENSION_AUTHOR_MODE === 'true',
+  includeShadow: 'off' | 'open-only' | 'all' = 'open-only'
 ): Promise<string> {
-  let html = await cdpClient.getPageHTML(sessionId)
+  let html = await cdpClient.getPageHTML(sessionId, includeShadow)
 
   if (!html) {
     try {
@@ -34,7 +35,10 @@ export async function extractPageHtml(
           fallbackTarget.targetId
         )
         await cdpClient.waitForContentScriptInjection(newSessionId)
-        const retryHtml = await cdpClient.getPageHTML(newSessionId)
+        const retryHtml = await cdpClient.getPageHTML(
+          newSessionId,
+          includeShadow
+        )
 
         if (logSamples) {
           const sample2 = (retryHtml || '').slice(0, 200).replace(/\n/g, ' ')
@@ -56,7 +60,7 @@ export async function extractPageHtml(
       await new Promise((r) => setTimeout(r, 500))
 
       try {
-        const againHtml = await cdpClient.getPageHTML(sessionId)
+        const againHtml = await cdpClient.getPageHTML(sessionId, includeShadow)
 
         if (logSamples) {
           const sample3 = (againHtml || '').slice(0, 200).replace(/\n/g, ' ')

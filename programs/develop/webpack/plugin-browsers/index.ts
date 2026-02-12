@@ -60,6 +60,17 @@ export class BrowsersPlugin {
   public readonly port?: number | string
   public readonly source?: string
   public readonly watchSource?: boolean
+  public readonly sourceFormat?: LogFormat
+  public readonly sourceSummary?: boolean
+  public readonly sourceMeta?: boolean
+  public readonly sourceProbe?: string[]
+  public readonly sourceTree?: 'off' | 'root-only'
+  public readonly sourceConsole?: boolean
+  public readonly sourceDom?: boolean
+  public readonly sourceMaxBytes?: number
+  public readonly sourceRedact?: 'off' | 'safe' | 'strict'
+  public readonly sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+  public readonly sourceDiff?: boolean
   public readonly dryRun?: boolean
   // Unified logger options (for CDP streaming in Chromium path)
   public readonly logLevel?: LogLevel
@@ -101,6 +112,17 @@ export class BrowsersPlugin {
     // Optional watch mode to re-print HTML on file changes
     this.source = normalized.source
     this.watchSource = normalized.watchSource
+    this.sourceFormat = normalized.sourceFormat as LogFormat | undefined
+    this.sourceSummary = normalized.sourceSummary
+    this.sourceMeta = normalized.sourceMeta
+    this.sourceProbe = normalized.sourceProbe
+    this.sourceTree = normalized.sourceTree
+    this.sourceConsole = normalized.sourceConsole
+    this.sourceDom = normalized.sourceDom
+    this.sourceMaxBytes = normalized.sourceMaxBytes
+    this.sourceRedact = normalized.sourceRedact
+    this.sourceIncludeShadow = normalized.sourceIncludeShadow
+    this.sourceDiff = normalized.sourceDiff
 
     // Unified logging for Chromium via CDP
     // (levels, contexts, formatting, timestamps, color)
