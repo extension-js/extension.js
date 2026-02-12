@@ -166,6 +166,62 @@ export interface PluginInterface extends PluginOptions {
   watchSource?: boolean
 
   /**
+   * Output format for source inspection HTML.
+   */
+  sourceFormat?: 'pretty' | 'json' | 'ndjson'
+
+  /**
+   * Output a compact summary instead of full HTML.
+   * @default false
+   */
+  sourceSummary?: boolean
+
+  /**
+   * Output page metadata (readyState, viewport, frames).
+   */
+  sourceMeta?: boolean
+
+  /**
+   * CSS selectors to probe for debugging.
+   */
+  sourceProbe?: string[]
+
+  /**
+   * Output a compact extension root tree.
+   */
+  sourceTree?: 'off' | 'root-only'
+
+  /**
+   * Output console summary (best-effort).
+   */
+  sourceConsole?: boolean
+
+  /**
+   * Output DOM snapshots and diffs.
+   */
+  sourceDom?: boolean
+
+  /**
+   * Maximum HTML bytes to print (0 disables truncation).
+   */
+  sourceMaxBytes?: number
+
+  /**
+   * Redaction mode for HTML output.
+   */
+  sourceRedact?: 'off' | 'safe' | 'strict'
+
+  /**
+   * Control Shadow DOM inclusion when extracting HTML.
+   */
+  sourceIncludeShadow?: 'off' | 'open-only' | 'all'
+
+  /**
+   * Include diff metadata on watch updates.
+   */
+  sourceDiff?: boolean
+
+  /**
    * Log level for unified logger (Chromium CDP logging).
    * One of: 'off', 'error', 'warn', 'info', 'debug', 'trace', 'all'
    */
