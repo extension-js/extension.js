@@ -64,16 +64,13 @@ export function needsInstall(packageJsonDir: AbsolutePath): boolean {
         return false
       }
 
-      if (hasInstallMarker(packageJsonDir)) {
-        return false
-      }
-
       if (!fs.existsSync(nm)) {
         return true
       }
 
       const deps = Object.keys(packageJson?.dependencies || {})
       const devDeps = Object.keys(packageJson?.devDependencies || {})
+      const hasMarker = hasInstallMarker(packageJsonDir)
 
       if (fs.existsSync(path.join(nm, '.pnpm'))) {
         return false
@@ -81,6 +78,19 @@ export function needsInstall(packageJsonDir: AbsolutePath): boolean {
 
       if (fs.existsSync(path.join(nm, '.modules.yaml'))) {
         return false
+      }
+
+      // If we have an install marker and node_modules exists with entries,
+      // avoid reinstall loops in workspace/hoisted layouts where not every
+      // declared dependency appears as a direct folder under this project.
+      if (hasMarker) {
+        try {
+          if (fs.readdirSync(nm).length > 0) {
+            return false
+          }
+        } catch {
+          // Continue to fallback checks below.
+        }
       }
 
       const hasInstalledDep = [...deps, ...devDeps].some((dep) =>
