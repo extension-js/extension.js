@@ -17,25 +17,25 @@ describe('SetupChromeInspectionStep print behavior', () => {
     warnSpy.mockRestore()
   })
 
-  it('prints raw when sourceRaw=true', () => {
+  it('prints HTML body in pretty output', async () => {
     const step = new Step({
       browser: 'chrome',
       mode: 'development',
-      sourceRaw: true
+      sourceFormat: 'pretty'
     } as any)
     // @ts-ignore private
-    step.printHTML(html)
+    await step.printHTML(html)
     expect(logSpy).toHaveBeenCalledWith(html)
   })
 
-  it('prints header, body, footer for HTML output', () => {
+  it('prints header, body, footer for HTML output', async () => {
     const step = new Step({
       browser: 'chrome',
       mode: 'development',
-      sourceRaw: true
+      sourceFormat: 'pretty'
     } as any)
     // @ts-ignore private
-    step.printHTML('<html></html>')
+    await step.printHTML('<html></html>')
     expect(logSpy).toHaveBeenCalled()
   })
 })

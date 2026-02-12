@@ -12,7 +12,8 @@ import type {CDPClient} from './cdp-client'
 
 export async function getPageHTML(
   cdp: CDPClient,
-  sessionId: string
+  sessionId: string,
+  includeShadow: 'off' | 'open-only' | 'all' = 'open-only'
 ): Promise<string> {
   try {
     const testResult = await cdp.evaluate(sessionId, 'document.title')
@@ -46,6 +47,10 @@ export async function getPageHTML(
   )
   const mainHTML =
     typeof mainHTMLRaw === 'string' ? mainHTMLRaw : String(mainHTMLRaw || '')
+
+  if (includeShadow === 'off') {
+    return mainHTML
+  }
 
   // Attempt full page-context serialization with shadow content injected into a cloned document.
   // This avoids relying on sr.innerHTML visibility nuances.

@@ -101,20 +101,31 @@ Options accepted by each command. Values shown are typical types or enumerations
 
 ### dev
 
-| Option        | Type / Values                       | Description                                                                       |
-| ------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
-| mode          | development, production, none       | Build mode                                                                        |
-| polyfill      | boolean                             | Include `webextension-polyfill` when possible                                     |
-| port          | number or string                    | Dev server port                                                                   |
-| source        | string                              | Inspect a source directory                                                        |
-| watchSource   | boolean                             | Watch the source directory                                                        |
-| logs          | off,error,warn,info,debug,trace,all | Unified logger verbosity (all shows everything)                                   |
-| logContext    | list or `all`                       | Comma-separated contexts (background,content,page,sidebar,popup,options,devtools) |
-| logFormat     | pretty,json                         | Pretty text or JSON output                                                        |
-| logTimestamps | boolean                             | Include timestamps in pretty output                                               |
-| logColor      | boolean                             | Colorize pretty output                                                            |
-| logUrl        | string or /regex/flags              | Filter by URL substring or JS-style regex literal                                 |
-| logTab        | number                              | Filter by tabId                                                                   |
+| Option              | Type / Values                       | Description                                                                       |
+| ------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
+| mode                | development, production, none       | Build mode                                                                        |
+| polyfill            | boolean                             | Include `webextension-polyfill` when possible                                     |
+| port                | number or string                    | Dev server port                                                                   |
+| source              | string                              | Inspect a source directory                                                        |
+| watchSource         | boolean                             | Watch the source directory                                                        |
+| sourceFormat        | pretty,json,ndjson                  | Output format for source HTML                                                     |
+| sourceSummary       | boolean                             | Output a compact summary instead of full HTML                                     |
+| sourceMeta          | boolean                             | Output page metadata (readyState, viewport, frames)                               |
+| sourceProbe         | string[]                            | CSS selectors to probe for quick validation                                       |
+| sourceTree          | off,root-only                       | Output a compact extension root tree                                              |
+| sourceConsole       | boolean                             | Output console summary (best-effort)                                              |
+| sourceDom           | boolean                             | Output DOM snapshots and diffs                                                    |
+| sourceMaxBytes      | number                              | Limit HTML output size in bytes (0 disables truncation)                           |
+| sourceRedact        | off,safe,strict                     | Redact sensitive content in HTML output                                           |
+| sourceIncludeShadow | off,open-only,all                   | Control Shadow DOM inclusion                                                      |
+| sourceDiff          | boolean                             | Include diff metadata on watch updates                                            |
+| logs                | off,error,warn,info,debug,trace,all | Unified logger verbosity (all shows everything)                                   |
+| logContext          | list or `all`                       | Comma-separated contexts (background,content,page,sidebar,popup,options,devtools) |
+| logFormat           | pretty,json,ndjson                  | Pretty text or JSON/NDJSON output                                                 |
+| logTimestamps       | boolean                             | Include timestamps in pretty output                                               |
+| logColor            | boolean                             | Colorize pretty output                                                            |
+| logUrl              | string or /regex/flags              | Filter by URL substring or JS-style regex literal                                 |
+| logTab              | number                              | Filter by tabId                                                                   |
 
 ### build
 
