@@ -66,11 +66,25 @@ export class ChromiumHardReloadPlugin {
             const normalizedModifiedFilePaths = Array.from(modifiedFiles).map(
               (filePath) => String(filePath).replace(/\\/g, '/')
             )
+            const compilerContextRoot = String(
+              compiler?.options?.context || ''
+            ).replace(/\\/g, '/')
+            const filesInCurrentCompilerContext = compilerContextRoot
+              ? normalizedModifiedFilePaths.filter(
+                  (filePath) =>
+                    filePath === compilerContextRoot ||
+                    filePath.startsWith(`${compilerContextRoot}/`)
+                )
+              : normalizedModifiedFilePaths
+            const watchedModifiedFilePaths =
+              filesInCurrentCompilerContext.length > 0
+                ? filesInCurrentCompilerContext
+                : normalizedModifiedFilePaths
 
-            const hitManifest = normalizedModifiedFilePaths.some((filePath) =>
+            const hitManifest = watchedModifiedFilePaths.some((filePath) =>
               /(^|\/)manifest\.json$/i.test(filePath)
             )
-            const localeChanged = normalizedModifiedFilePaths.some((filePath) =>
+            const localeChanged = watchedModifiedFilePaths.some((filePath) =>
               /(^|\/)__?locales\/.+\.json$/i.test(filePath)
             )
 
@@ -80,7 +94,7 @@ export class ChromiumHardReloadPlugin {
             // Preferred: compare against *source* dependency paths captured from the last successful compilation.
             // This correctly catches edits to the service worker entry *and* any imported module.
             if (this.serviceWorkerSourceDependencyPaths.size > 0) {
-              serviceWorkerChanged = normalizedModifiedFilePaths.some(
+              serviceWorkerChanged = watchedModifiedFilePaths.some(
                 (modifiedFilePath) => {
                   if (
                     this.serviceWorkerSourceDependencyPaths.has(
@@ -117,7 +131,7 @@ export class ChromiumHardReloadPlugin {
                 const normalizedServiceWorkerAbsolutePath =
                   serviceWorkerAbsolutePath.replace(/\\/g, '/')
 
-                serviceWorkerChanged = normalizedModifiedFilePaths.some(
+                serviceWorkerChanged = watchedModifiedFilePaths.some(
                   (filePath) => {
                     const normalizedPath = filePath.replace(/\\/g, '/')
 
@@ -140,7 +154,7 @@ export class ChromiumHardReloadPlugin {
             }
 
             if (this.contentScriptSourceDependencyPaths.size > 0) {
-              contentScriptChanged = normalizedModifiedFilePaths.some(
+              contentScriptChanged = watchedModifiedFilePaths.some(
                 (modifiedFilePath) => {
                   if (
                     this.contentScriptSourceDependencyPaths.has(

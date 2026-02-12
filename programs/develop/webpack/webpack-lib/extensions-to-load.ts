@@ -10,6 +10,21 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {devtoolsEngineFor} from './paths'
 
+function hasNewTabOverride(extensionDir: string): boolean {
+  const manifestPath = path.join(extensionDir, 'manifest.json')
+  if (!fs.existsSync(manifestPath)) return false
+
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf-8')
+    const manifest = JSON.parse(raw)
+    const newtab = manifest?.chrome_url_overrides?.newtab
+    return typeof newtab === 'string' && newtab.trim().length > 0
+  } catch {
+    // If the manifest cannot be read/parsed, keep loading behavior unchanged.
+    return false
+  }
+}
+
 export function computeExtensionsToLoad(
   baseDir: string,
   mode: 'development' | 'production' | 'none' | string | undefined,
@@ -33,7 +48,11 @@ export function computeExtensionsToLoad(
     const themeForBrowser = path.join(themeRoot, engine)
 
     // Load DevTools only in non-production (development watch)
-    if (mode !== 'production' && fs.existsSync(devtoolsForBrowser)) {
+    if (
+      mode !== 'production' &&
+      fs.existsSync(devtoolsForBrowser) &&
+      !hasNewTabOverride(devtoolsForBrowser)
+    ) {
       list.push(devtoolsForBrowser)
     }
 
