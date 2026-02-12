@@ -30,6 +30,18 @@ export async function setupCdpAfterLaunch(
     compilation,
     loadExtensionFlag
   )
+  const extensionPaths = loadExtensionFlag
+    ? loadExtensionFlag
+        .replace('--load-extension=', '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : []
+
+  const selectedExtensionPaths =
+    extensionOutputPath && extensionOutputPath.length > 0
+      ? [extensionOutputPath]
+      : extensionPaths
 
   // Try to find the --remote-debugging-port flag (for CDP port)
   const remoteDebugPortFlag = chromiumArgs.find((flag: string) =>
@@ -67,7 +79,9 @@ export async function setupCdpAfterLaunch(
     browser: (plugin.browser === 'chromium-based'
       ? 'chrome'
       : plugin.browser) as 'chrome' | 'edge' | 'chromium-based',
-    cdpPort: chromeRemoteDebugPort
+    cdpPort: chromeRemoteDebugPort,
+    profilePath: userDataDir || undefined,
+    extensionPaths: selectedExtensionPaths
   })
 
   // Utility function to retry an async operation a certain number of times
