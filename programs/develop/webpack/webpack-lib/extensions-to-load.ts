@@ -47,11 +47,19 @@ export function computeExtensionsToLoad(
     const devtoolsForBrowser = path.join(devtoolsRoot, engine)
     const themeForBrowser = path.join(themeRoot, engine)
 
+    const userHasNewTabOverride = hasNewTabOverride(userExtensionOutputPath)
+    const devtoolsHasNewTabOverride = hasNewTabOverride(devtoolsForBrowser)
+
+    // Keep built-in blank NTP only when the user extension does not provide one.
+    // This avoids any NTP conflict while preserving a deterministic default page.
+    const shouldSkipDevtoolsForNtpConflict =
+      userHasNewTabOverride && devtoolsHasNewTabOverride
+
     // Load DevTools only in non-production (development watch)
     if (
       mode !== 'production' &&
       fs.existsSync(devtoolsForBrowser) &&
-      !hasNewTabOverride(devtoolsForBrowser)
+      !shouldSkipDevtoolsForNtpConflict
     ) {
       list.push(devtoolsForBrowser)
     }
