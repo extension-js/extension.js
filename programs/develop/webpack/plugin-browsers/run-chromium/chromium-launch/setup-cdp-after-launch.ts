@@ -117,7 +117,19 @@ export async function setupCdpAfterLaunch(
     version?: string
   } | null = null
   try {
-    extensionControllerInfo = await cdpExtensionController.ensureLoaded()
+    const ensureLoadedTimeoutMs = 10000
+    extensionControllerInfo = await Promise.race([
+      cdpExtensionController.ensureLoaded(),
+      new Promise<never>((_, reject) => {
+        setTimeout(
+          () =>
+            reject(
+              new Error(`ensureLoaded timeout (${ensureLoadedTimeoutMs}ms)`)
+            ),
+          ensureLoadedTimeoutMs
+        )
+      })
+    ])
   } catch (error) {
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.warn(

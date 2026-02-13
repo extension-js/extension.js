@@ -236,7 +236,18 @@ export class ChromiumHardReloadPlugin {
         reason: reason || 'unknown',
         browser: this.options?.browser
       })
-      const ok = await ctrl.hardReload()
+      const reloadTimeoutMs = 8000
+      const ok = await Promise.race<boolean>([
+        ctrl.hardReload(),
+        new Promise<boolean>((resolve) => {
+          setTimeout(() => {
+            this.logger?.warn?.(
+              `[reload] hardReload timed out after ${reloadTimeoutMs}ms; continuing with source inspection`
+            )
+            resolve(false)
+          }, reloadTimeoutMs)
+        })
+      ])
 
       if (!ok && !this.warnedDevMode) {
         this.warnedDevMode = true

@@ -209,7 +209,7 @@ export async function waitForContentScriptInjection(
       const injected = await cdp.evaluate(
         sessionId,
         `(() => { try {
-          const hosts = Array.from(document.querySelectorAll('[data-extension-root="true"]'));
+          const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root="true"]'));
           if (!hosts.length) return false;
           const markers = ['iskilar_box','content_script','content_title','js-probe'];
           for (const h of hosts) {

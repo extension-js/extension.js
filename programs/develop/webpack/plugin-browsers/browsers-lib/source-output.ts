@@ -160,22 +160,143 @@ export function applySourceRedaction(
 
   let output = html
 
-  output = output.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-  output = output.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
+  output = stripTagBlocks(output, 'script')
+  output = stripTagBlocks(output, 'style')
   output = output.replace(/data:[^"'\s>]{1024,}/gi, 'data:[REDACTED_BASE64]')
 
   if (redact === 'strict') {
-    output = output.replace(/\son\w+\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, '')
+    output = stripInlineEventHandlers(output)
     output = output.replace(/="[^"]{257,}"/g, (match) => {
       return `="${match.slice(2, 258)}..."`
     })
     output = output.replace(/='[^']{257,}'/g, (match) => {
       return `='${match.slice(2, 258)}...'`
     })
-    output = output.replace(/javascript:/gi, '')
+    output = output.replace(/\b(?:javascript|data|vbscript)\s*:/gi, '')
   }
 
   return output
+}
+
+function stripTagBlocks(input: string, tagName: 'script' | 'style'): string {
+  const lower = input.toLowerCase()
+  const openToken = `<${tagName}`
+  const closeToken = `</${tagName}`
+
+  let cursor = 0
+  let output = ''
+
+  while (cursor < input.length) {
+    const openIndex = lower.indexOf(openToken, cursor)
+    if (openIndex === -1) {
+      output += input.slice(cursor)
+      break
+    }
+
+    output += input.slice(cursor, openIndex)
+    const openEnd = lower.indexOf('>', openIndex + openToken.length)
+    if (openEnd === -1) break
+
+    const closeIndex = lower.indexOf(closeToken, openEnd + 1)
+    if (closeIndex === -1) {
+      cursor = openEnd + 1
+      continue
+    }
+
+    const closeEnd = lower.indexOf('>', closeIndex + closeToken.length)
+    cursor = closeEnd === -1 ? closeIndex + closeToken.length : closeEnd + 1
+  }
+
+  return output
+}
+
+function stripInlineEventHandlers(input: string): string {
+  let output = ''
+  let cursor = 0
+
+  while (cursor < input.length) {
+    const tagStart = input.indexOf('<', cursor)
+    if (tagStart === -1) {
+      output += input.slice(cursor)
+      break
+    }
+
+    output += input.slice(cursor, tagStart)
+    const tagEnd = input.indexOf('>', tagStart + 1)
+    if (tagEnd === -1) {
+      output += input.slice(tagStart)
+      break
+    }
+
+    const tag = input.slice(tagStart, tagEnd + 1)
+    output += stripInlineEventHandlersFromTag(tag)
+    cursor = tagEnd + 1
+  }
+
+  return output
+}
+
+function stripInlineEventHandlersFromTag(tag: string): string {
+  if (tag.startsWith('</') || tag.startsWith('<!') || tag.startsWith('<?')) {
+    return tag
+  }
+
+  const withoutClose = tag.endsWith('/>') ? tag.slice(0, -2) : tag.slice(0, -1)
+  const closeSuffix = tag.endsWith('/>') ? '/>' : '>'
+  const firstSpace = withoutClose.search(/\s/)
+  if (firstSpace === -1) return tag
+
+  const prefix = withoutClose.slice(0, firstSpace)
+  const attrs = withoutClose.slice(firstSpace)
+  let rebuilt = prefix
+  let i = 0
+
+  while (i < attrs.length) {
+    while (i < attrs.length && /\s/.test(attrs[i])) i += 1
+    if (i >= attrs.length) break
+
+    const attrStart = i
+    while (i < attrs.length && !/[\s=>]/.test(attrs[i])) i += 1
+    const attrName = attrs.slice(attrStart, i)
+    const attrNameLower = attrName.toLowerCase()
+
+    while (i < attrs.length && /\s/.test(attrs[i])) i += 1
+    let value = ''
+
+    if (attrs[i] === '=') {
+      value += '='
+      i += 1
+      while (i < attrs.length && /\s/.test(attrs[i])) {
+        value += attrs[i]
+        i += 1
+      }
+
+      const quote = attrs[i]
+      if (quote === '"' || quote === "'") {
+        value += quote
+        i += 1
+        while (i < attrs.length && attrs[i] !== quote) {
+          value += attrs[i]
+          i += 1
+        }
+        if (i < attrs.length && attrs[i] === quote) {
+          value += attrs[i]
+          i += 1
+        }
+      } else {
+        while (i < attrs.length && !/[\s>]/.test(attrs[i])) {
+          value += attrs[i]
+          i += 1
+        }
+      }
+    }
+
+    if (!attrNameLower.startsWith('on')) {
+      rebuilt += ` ${attrName}${value}`
+    }
+  }
+
+  return `${rebuilt}${closeSuffix}`
 }
 
 export function truncateByBytes(

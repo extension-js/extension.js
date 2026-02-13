@@ -501,9 +501,17 @@ export class FirefoxSourceInspectionPlugin {
   private async evaluateJson(actor: string, expression: string) {
     if (!this.client) return undefined
     try {
+      const serializedExpression = JSON.stringify(expression)
       const json = await this.client.evaluate(
         actor,
-        `(() => { try { return JSON.stringify(${expression}) } catch (e) { return '' } })()`
+        `(() => {
+          try {
+            const __expr = ${serializedExpression};
+            return JSON.stringify((0, eval)(__expr));
+          } catch (e) {
+            return '';
+          }
+        })()`
       )
       if (typeof json === 'string' && json.length > 0) {
         return JSON.parse(json)
