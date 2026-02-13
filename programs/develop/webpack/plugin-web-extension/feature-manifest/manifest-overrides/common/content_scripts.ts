@@ -64,12 +64,20 @@ export function contentScripts(manifest: Manifest, manifestPath?: string) {
 
     result.push({
       ...(original[index] || {}),
-      js: contentJs.map((js: string) =>
-        getFilename(`content_scripts/content-${index}.js`, js)
-      ),
-      css: contentCss.map((css: string) =>
-        getFilename(`content_scripts/content-${index}.css`, css)
-      )
+      js: [
+        ...new Set(
+          contentJs.map((js: string) =>
+            getFilename(`content_scripts/content-${index}.js`, js)
+          )
+        )
+      ],
+      css: [
+        ...new Set(
+          contentCss.map((css: string) =>
+            getFilename(`content_scripts/content-${index}.css`, css)
+          )
+        )
+      ]
     })
   }
 

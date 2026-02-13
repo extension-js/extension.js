@@ -28,6 +28,13 @@ describe('applySourceRedaction', () => {
     expect(redacted).not.toContain('<script>')
     expect(redacted).not.toContain('<style>')
   })
+
+  it('removes inline event handlers in strict mode', () => {
+    const html = '<button onclick="alert(1)" data-id="123">ok</button>'
+    const redacted = applySourceRedaction(html, 'strict')
+    expect(redacted).toContain('data-id="123"')
+    expect(redacted).not.toContain('onclick=')
+  })
 })
 
 describe('truncateByBytes', () => {

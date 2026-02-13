@@ -59,6 +59,7 @@ export class ChromiumSourceInspectionPlugin {
   private currentSessionId: string | null = null
   private isInitialized = false
   private isWatching = false
+  private hasInspectedSourceOnce = false
   private debounceTimer: NodeJS.Timeout | null = null
   private runtimeMode?: string
   private lastOutputHash?: string
@@ -769,7 +770,12 @@ export class ChromiumSourceInspectionPlugin {
   }
 
   // The main step for the user: open a URL and get its HTML content
-  async inspectSource(url: string): Promise<string> {
+  async inspectSource(
+    url: string,
+    options?: {
+      forceNavigate?: boolean
+    }
+  ): Promise<string> {
     if (!this.cdpClient) {
       throw new Error(messages.sourceInspectorNotInitialized())
     }
@@ -783,7 +789,8 @@ export class ChromiumSourceInspectionPlugin {
       emitActionEvent('navigation_start', {url})
       const {targetId, sessionId} = await ensureTargetAndSession(
         this.cdpClient,
-        url
+        url,
+        options
       )
       this.currentTargetId = targetId
       this.currentSessionId = sessionId
@@ -950,6 +957,23 @@ export class ChromiumSourceInspectionPlugin {
           )
         }
 
+        const sourceUrl =
+          typeof this.devOptions.source === 'string' &&
+          this.devOptions.source !== 'true'
+            ? this.devOptions.source
+            : ''
+
+        // Deterministic watch behavior: always re-inspect the requested source URL.
+        // This avoids stale/foreign tabs becoming the active extraction target.
+        if (sourceUrl) {
+          emitActionEvent('watch_reinspect_source_url', {url: sourceUrl})
+          const html = await this.inspectSource(sourceUrl, {
+            forceNavigate: true
+          })
+          await this.emitSourceOutput(html || '', 'updated')
+          return
+        }
+
         await this.cdpClient!.waitForContentScriptInjection(
           this.currentSessionId!
         )
@@ -1097,7 +1121,11 @@ export class ChromiumSourceInspectionPlugin {
         }
 
         // This is the main output for the user:
-        const html = await this.inspectSource(urlToInspect)
+        const html = await this.inspectSource(urlToInspect, {
+          forceNavigate:
+            this.devOptions.watchSource && this.hasInspectedSourceOnce
+        })
+        this.hasInspectedSourceOnce = true
         await this.printHTML(html)
 
         // Watch mode is only for development
@@ -1109,11 +1137,9 @@ export class ChromiumSourceInspectionPlugin {
           } else {
             // Fallback: trigger re-extraction on each rebuild
             try {
-              const outputConfig = this.getOutputConfig()
-              const updated = await this.cdpClient!.getPageHTML(
-                this.currentSessionId!,
-                outputConfig.includeShadow
-              )
+              const updated = await this.inspectSource(urlToInspect, {
+                forceNavigate: true
+              })
               await this.printUpdatedHTML(updated || '')
             } catch {
               // ignore best-effort fallback
