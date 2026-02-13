@@ -32,7 +32,12 @@ export class CDPClient {
   private messageId = 0
   private pendingRequests = new Map<
     number,
-    {resolve: Function; reject: Function}
+    {
+      resolve: Function
+      reject: Function
+      timeout?: ReturnType<typeof setTimeout>
+      method?: string
+    }
   >()
 
   constructor(port: number = 9222, host: string = '127.0.0.1') {
@@ -59,7 +64,7 @@ export class CDPClient {
           (data) => this.handleMessage(data),
           (reason) => {
             // Reject any pending requests to avoid hangs
-            this.pendingRequests.forEach(({reject}, id) => {
+            this.pendingRequests.forEach(({reject, timeout}, id) => {
               try {
                 reject(new Error(reason))
               } catch (error) {
@@ -70,6 +75,7 @@ export class CDPClient {
                   )
                 }
               }
+              if (timeout) clearTimeout(timeout)
               this.pendingRequests.delete(id)
             })
           }
@@ -110,7 +116,12 @@ export class CDPClient {
         const pending = this.pendingRequests.get(message.id)
 
         if (pending) {
+          if (pending.timeout) {
+            clearTimeout(pending.timeout)
+          }
+
           this.pendingRequests.delete(message.id)
+
           if (message.error) {
             pending.reject(new Error(JSON.stringify(message.error)))
           } else {
@@ -148,7 +159,8 @@ export class CDPClient {
   async sendCommand(
     method: string,
     params: Record<string, unknown> = {},
-    sessionId?: string
+    sessionId?: string,
+    timeoutMs: number = 12000
   ): Promise<unknown> {
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -160,9 +172,30 @@ export class CDPClient {
       if (sessionId) message.sessionId = sessionId
 
       try {
-        this.pendingRequests.set(id, {resolve, reject})
+        const timeout = setTimeout(() => {
+          const pending = this.pendingRequests.get(id)
+          if (!pending) return
+
+          this.pendingRequests.delete(id)
+
+          pending.reject(
+            new Error(
+              `CDP command timed out (${timeoutMs}ms): ${String(
+                pending.method || method
+              )}`
+            )
+          )
+        }, timeoutMs)
+
+        this.pendingRequests.set(id, {resolve, reject, timeout, method})
         this.ws.send(JSON.stringify(message))
       } catch (error) {
+        const pending = this.pendingRequests.get(id)
+
+        if (pending?.timeout) {
+          clearTimeout(pending.timeout)
+        }
+
         this.pendingRequests.delete(id)
         reject(error)
       }
