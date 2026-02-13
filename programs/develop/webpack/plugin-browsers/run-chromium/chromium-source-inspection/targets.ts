@@ -11,8 +11,12 @@ import {CDPClient} from './cdp-client'
 
 export async function ensureTargetAndSession(
   cdpClient: CDPClient,
-  url: string
+  url: string,
+  options?: {
+    forceNavigate?: boolean
+  }
 ): Promise<{targetId: string; sessionId: string}> {
+  const forceNavigate = Boolean(options?.forceNavigate)
   const targets = (await cdpClient.getTargets()) as Array<{
     url?: string
     type?: string
@@ -31,6 +35,18 @@ export async function ensureTargetAndSession(
       console.log(
         messages.sourceInspectorUsingExistingTarget(existingTarget.targetId)
       )
+    }
+
+    if (forceNavigate) {
+      const tempSession = await cdpClient.attachToTarget(targetId)
+      if (tempSession) {
+        try {
+          await cdpClient.enableRuntimeAndLog(String(tempSession))
+        } catch {
+          // ignore
+        }
+        await cdpClient.navigate(String(tempSession), url)
+      }
     }
   } else {
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
