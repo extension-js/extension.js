@@ -278,13 +278,14 @@ export class CDPClient {
       return true
     } catch (error) {
       // Fallback: evaluate chrome.runtime.reload() on a suitable target
-      const attempts = 3
+      const attempts = 8
       for (let i = 0; i < attempts; i++) {
         try {
           const ok = await this.reloadExtensionViaTargetEval(extensionId)
           if (ok) return true
         } catch {}
-        await new Promise((r) => setTimeout(r, 150 * (i + 1)))
+        const backoffMs = Math.min(1200, 150 * (i + 1))
+        await new Promise((r) => setTimeout(r, backoffMs))
       }
       console.warn(
         messages.cdpClientExtensionReloadFailed(
@@ -312,38 +313,47 @@ export class CDPClient {
   private async reloadExtensionViaTargetEval(extensionId: string) {
     try {
       const targets = await this.getTargets()
-      const preferredOrder = ['service_worker', 'background_page', 'worker']
+      const preferredOrder = [
+        'service_worker',
+        'background_page',
+        'worker',
+        'page'
+      ]
 
       for (const type of preferredOrder) {
-        const t = (targets || []).find((t: Record<string, unknown>) => {
-          const url: string = String((t as any)?.url || '')
-          const tt: string = String((t as any)?.type || '')
+        const matchingTargets = (targets || []).filter(
+          (t: Record<string, unknown>) => {
+            const url: string = String((t as any)?.url || '')
+            const tt: string = String((t as any)?.type || '')
+            const inExtensionScope = url.startsWith(
+              `chrome-extension://${extensionId}/`
+            )
 
-          return (
-            tt === type && url.startsWith(`chrome-extension://${extensionId}/`)
-          )
-        })
+            return tt === type && inExtensionScope
+          }
+        )
 
-        if (!t) continue
+        for (const target of matchingTargets) {
+          const targetId: string | undefined = (target as any)?.targetId
 
-        const targetId: string | undefined = (t as any)?.targetId
+          if (!targetId) continue
 
-        if (!targetId) continue
-
-        try {
-          const sessionId = await this.attachToTarget(targetId)
-          await this.sendCommand('Runtime.enable', {}, sessionId)
-          await this.sendCommand(
-            'Runtime.evaluate',
-            {
-              expression:
-                'chrome && chrome.runtime && chrome.runtime.reload && chrome.runtime.reload()'
-            },
-            sessionId
-          )
-          return true
-        } catch {
-          // ignore
+          try {
+            const sessionId = await this.attachToTarget(targetId)
+            await this.sendCommand('Runtime.enable', {}, sessionId)
+            await this.sendCommand(
+              'Runtime.evaluate',
+              {
+                expression:
+                  '(function(){ try { if (!chrome || !chrome.runtime || !chrome.runtime.reload) return false; chrome.runtime.reload(); return true; } catch (error) { return false; } })()',
+                returnByValue: true
+              },
+              sessionId
+            )
+            return true
+          } catch {
+            // ignore and try next target
+          }
         }
       }
       return false
