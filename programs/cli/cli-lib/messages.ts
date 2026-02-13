@@ -59,8 +59,7 @@ export const commandDescriptions = {
   dev: 'Starts the development server with hot reloading',
   start: 'Builds and starts the extension in production mode',
   preview: 'Previews the extension in production mode without building',
-  build: 'Builds the extension for packaging/distribution',
-  cleanup: 'Cleans up orphaned instances and frees unused ports'
+  build: 'Builds the extension for packaging/distribution'
 } as const
 
 export function unhandledError(err: unknown) {
@@ -137,22 +136,23 @@ ${'Available Commands'}
 - ${code('extension build ' + arg('[project-path|remote-url]'))}
   ${commandDescriptions.build}
 
-- ${code('extension cleanup')}
-  ${commandDescriptions.cleanup}
-
 ${'Common Options'}
-- ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chrome)
+- ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chromium)
 - ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
 - ${code('--polyfill')} ${arg('[boolean]')}            Enable/disable cross-browser polyfill
 - ${code('--no-telemetry')}                            Disable anonymous telemetry for this run
+- ${code('--ai-help')}                                 Show AI-assistant oriented help and tips
+- ${code('--format')} ${arg('<pretty|json>')}          Output format for ${code('--ai-help')} (default: pretty)
+- ${code('--help')}                                    Show help output
 - ${code('--port')} ${arg('<number>')}                 Development server port (default: 8080)
 - ${code('--starting-url')} ${arg('<url>')}            Initial URL to load in browser
 - ${code('--silent')} ${arg('[boolean]')}              Suppress console output during build
 
-${'Source Inspection'}
-- ${code('--source')} ${arg('<url|boolean>')}         Open URL and print HTML after content scripts inject
+${'Source Inspection (dev command)'}
+- ${code('--source')} ${arg('<url|boolean>')}         Open URL and print HTML after content scripts inject (dev only)
   - When provided without a URL, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
-  - Watch mode is enabled by default when ${code('--source')} is present
+  - For ${code('extension dev')}, watch mode is enabled by default when ${code('--source')} is present
+- ${arg('Note:')} ${code('extension preview')} and ${code('extension start')} do not run source inspection in run-only preview mode.
 - ${code('--watch-source')} ${arg('[boolean]')}       Re-print HTML on rebuilds or file changes
 - ${code('--source-format')} ${arg('<pretty|json|ndjson>')} Output format for page HTML (defaults to ${code('--log-format')} when present)
 - ${code('--source-summary')} ${arg('[boolean]')}     Output a compact summary instead of full HTML
@@ -178,7 +178,7 @@ ${'Build Options'}
 ${colors.underline('Centralized Logger (terminal output)')}
 - The manager extension embeds a centralized logger that streams events to the CLI.
 - Enable and filter logs directly via ${code('extension dev')} flags:
-  - ${code('--logs')} ${arg('<off|error|warn|info|debug|trace>')}    Minimum level (default: info)
+  - ${code('--logs')} ${arg('<off|error|warn|info|debug|trace>')}    Minimum level (default: off)
   - ${code('--log-context')} ${arg('<list|all>')}                     Contexts: background,content,page,sidebar,popup,options,devtools
   - ${code('--log-format')} ${arg('<pretty|json|ndjson>')}            Output format (default: pretty)
   - ${code('--no-log-timestamps')}                                   Hide ISO timestamps in pretty output
@@ -198,6 +198,7 @@ ${colors.underline('Path Resolution (important)')}
 
 ${'AI Assistants'}
 - For AI-oriented guidance and deeper tips, run ${code('extension --ai-help')}
+- For machine-readable AI guidance, run ${code('extension --ai-help --format json')}
 
  ${'Report issues'}
  - ${colors.underline('https://github.com/cezaraugusto/extension/issues/new')}`
@@ -325,7 +326,7 @@ ${'Hot Module Replacement (HMR)'}
 - Service workers, _locales and manifest changes reload the extension
 
 ${'Source Inspection & Real-Time Monitoring'}
-- Use ${code('--source')} ${arg('<url|boolean>')} to inspect page HTML after content script injection
+- Use ${code('extension dev --source')} ${arg('<url|boolean>')} to inspect page HTML after content script injection
   - When no URL is provided, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
   - Watch mode is enabled by default when ${code('--source')} is present
 - Use ${code('--watch-source')} to re-print HTML on rebuilds or file changes
@@ -345,6 +346,7 @@ ${'Source Inspection & Real-Time Monitoring'}
 - Extracts Shadow DOM content from ${code('#extension-root')} or ${code('[data-extension-root=\"true\"]')} elements
 - Useful for debugging content script behavior and style injection
 - Example: ${code('extension dev --source=' + arg('https://example.com'))}
+- ${arg('Note:')} ${code('preview/start')} run in run-only mode and do not perform source inspection.
 
 ${'Non-Destructive Testing in CI'}
 - Prefer ${code('EXTENSION_AUTHOR_MODE=development')} to copy local templates and avoid network.
@@ -370,4 +372,134 @@ ${'Cross-Browser Compatibility'}
 - Use ${code('--polyfill')} flag to enable webextension-polyfill
 - Automatically handles browser API differences
 - Supports Chrome, Edge, Firefox with single codebase`
+}
+
+export type ProgramAIHelpJSON = {
+  version: string
+  commands: Array<{
+    name: 'create' | 'dev' | 'start' | 'preview' | 'build'
+    summary: string
+    supportsSourceInspection: boolean
+  }>
+  globalOptions: Array<{
+    name: '--ai-help' | '--format' | '--no-telemetry'
+    values?: string[]
+    default?: string
+    description: string
+  }>
+  capabilities: {
+    sourceInspection: {
+      supportedIn: string[]
+      unsupportedIn: string[]
+      notes: string[]
+    }
+    logger: {
+      levels: string[]
+      formats: string[]
+      notes: string[]
+    }
+    managedDependencies: {
+      enforcement: string
+      trigger: string
+      action: string
+    }
+  }
+  examples: string[]
+}
+
+export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
+  return {
+    version,
+    commands: [
+      {
+        name: 'create',
+        summary: commandDescriptions.create,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'dev',
+        summary: commandDescriptions.dev,
+        supportsSourceInspection: true
+      },
+      {
+        name: 'start',
+        summary: commandDescriptions.start,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'preview',
+        summary: commandDescriptions.preview,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'build',
+        summary: commandDescriptions.build,
+        supportsSourceInspection: false
+      }
+    ],
+    globalOptions: [
+      {
+        name: '--ai-help',
+        description: 'Show AI-assistant oriented help and tips'
+      },
+      {
+        name: '--format',
+        values: ['pretty', 'json'],
+        default: 'pretty',
+        description: 'Output format for --ai-help'
+      },
+      {
+        name: '--no-telemetry',
+        description: 'Disable anonymous telemetry for this run'
+      }
+    ],
+    capabilities: {
+      sourceInspection: {
+        supportedIn: ['dev'],
+        unsupportedIn: ['start', 'preview', 'build', 'create'],
+        notes: [
+          '--source supports URL fallback to --starting-url or https://example.com',
+          'run-only preview mode does not perform source inspection'
+        ]
+      },
+      logger: {
+        levels: ['off', 'error', 'warn', 'info', 'debug', 'trace', 'all'],
+        formats: ['pretty', 'json', 'ndjson'],
+        notes: [
+          'centralized logger streams logs from multiple extension contexts',
+          '--logs defaults to off unless explicitly enabled'
+        ]
+      },
+      managedDependencies: {
+        enforcement: 'guarded',
+        trigger:
+          'when managed packages are declared in package.json and referenced in extension.config',
+        action: 'print an error and abort'
+      }
+    },
+    examples: [
+      'extension --ai-help',
+      'extension --ai-help --format json',
+      'extension dev ./my-ext --source https://example.com --source-format json',
+      'extension dev ./my-ext --logs=info --log-format=json'
+    ]
+  }
+}
+
+export function invalidAIHelpFormat(value: string) {
+  return (
+    `${getLoggingPrefix('error')} Invalid value for ${code('--format')}: ${colors.red(String(value))}\n` +
+    `Allowed values: ${arg('pretty, json')}. Example: ${code(
+      'extension --ai-help --format json'
+    )}`
+  )
+}
+
+export function sourceInspectionNotSupported(command: 'start' | 'preview') {
+  return (
+    `${getLoggingPrefix('error')} ${code(
+      `extension ${command}`
+    )} currently runs in run-only preview mode and does not support source inspection.\n` +
+    `Use ${code('extension dev --source <url>')} for source inspection features.`
+  )
 }

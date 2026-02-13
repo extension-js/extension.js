@@ -33,6 +33,16 @@ function developVersion() {
 
 process.env.EXTENSION_DEVELOP_VERSION = developVersion()
 
+function resolveAIHelpFormatFromArgv(argv: string[]): string {
+  const equalArg = argv.find((arg) => arg.startsWith('--format='))
+  if (equalArg) return equalArg.slice('--format='.length)
+
+  const formatIndex = argv.indexOf('--format')
+  if (formatIndex >= 0) return argv[formatIndex + 1] || ''
+
+  return 'pretty'
+}
+
 checkUpdates().then((updateMessage) => {
   if (!updateMessage) return
 
@@ -53,6 +63,7 @@ extensionJs
   .version(cliPackageJson.version)
   .option('--no-telemetry', 'disable anonymous telemetry for this run')
   .option('--ai-help', 'show AI-assistant oriented help and tips')
+  .option('--format <pretty|json>', 'output format for --ai-help', 'pretty')
   .addHelpText('after', messages.programUserHelp())
   .showHelpAfterError(true)
   .showSuggestionAfterError(true)
@@ -64,6 +75,26 @@ registerPreviewCommand(extensionJs, telemetry)
 registerBuildCommand(extensionJs, telemetry)
 
 extensionJs.on('option:ai-help', function () {
+  const format = resolveAIHelpFormatFromArgv(process.argv).trim().toLowerCase()
+
+  if (format === 'json') {
+    // eslint-disable-next-line no-console
+    console.log(
+      JSON.stringify(
+        messages.programAIHelpJSON(cliPackageJson.version),
+        null,
+        2
+      )
+    )
+    process.exit(0)
+  }
+
+  if (format !== 'pretty') {
+    // eslint-disable-next-line no-console
+    console.error(messages.invalidAIHelpFormat(format))
+    process.exit(1)
+  }
+
   // eslint-disable-next-line no-console
   console.log(messages.programAIHelp())
   process.exit(0)
