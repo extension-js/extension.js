@@ -203,6 +203,27 @@ export function registerStartCommand(program: Command, telemetry: any) {
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...startOptions}: StartOptions
     ) {
+      const hasSourceInspectionFlags =
+        typeof startOptions.source !== 'undefined' ||
+        typeof startOptions.watchSource !== 'undefined' ||
+        typeof startOptions.sourceFormat !== 'undefined' ||
+        typeof startOptions.sourceSummary !== 'undefined' ||
+        typeof startOptions.sourceMeta !== 'undefined' ||
+        typeof startOptions.sourceProbe !== 'undefined' ||
+        typeof startOptions.sourceTree !== 'undefined' ||
+        typeof startOptions.sourceConsole !== 'undefined' ||
+        typeof startOptions.sourceDom !== 'undefined' ||
+        typeof startOptions.sourceMaxBytes !== 'undefined' ||
+        typeof startOptions.sourceRedact !== 'undefined' ||
+        typeof startOptions.sourceIncludeShadow !== 'undefined' ||
+        typeof startOptions.sourceDiff !== 'undefined'
+
+      if (hasSourceInspectionFlags) {
+        // eslint-disable-next-line no-console
+        console.error(messages.sourceInspectionNotSupported('start'))
+        process.exit(1)
+      }
+
       if (startOptions.author || startOptions.authorMode) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
