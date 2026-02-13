@@ -188,6 +188,27 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       pathOrRemoteUrl: string,
       {browser = 'chromium', ...previewOptions}: PreviewOptions
     ) {
+      const hasSourceInspectionFlags =
+        typeof previewOptions.source !== 'undefined' ||
+        typeof previewOptions.watchSource !== 'undefined' ||
+        typeof previewOptions.sourceFormat !== 'undefined' ||
+        typeof previewOptions.sourceSummary !== 'undefined' ||
+        typeof previewOptions.sourceMeta !== 'undefined' ||
+        typeof previewOptions.sourceProbe !== 'undefined' ||
+        typeof previewOptions.sourceTree !== 'undefined' ||
+        typeof previewOptions.sourceConsole !== 'undefined' ||
+        typeof previewOptions.sourceDom !== 'undefined' ||
+        typeof previewOptions.sourceMaxBytes !== 'undefined' ||
+        typeof previewOptions.sourceRedact !== 'undefined' ||
+        typeof previewOptions.sourceIncludeShadow !== 'undefined' ||
+        typeof previewOptions.sourceDiff !== 'undefined'
+
+      if (hasSourceInspectionFlags) {
+        // eslint-disable-next-line no-console
+        console.error(messages.sourceInspectionNotSupported('preview'))
+        process.exit(1)
+      }
+
       if (previewOptions.author || previewOptions['authorMode']) {
         process.env.EXTENSION_AUTHOR_MODE = 'true'
         if (!process.env.EXTENSION_VERBOSE) process.env.EXTENSION_VERBOSE = '1'
