@@ -77,6 +77,33 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           if [ "$CHANNEL" = "next" ]; then echo "tag=next" >> $GITHUB_OUTPUT; else echo "tag=latest" >> $GITHUB_OUTPUT; fi
 
+      - name: Generate release notes from git history
+        id: changelog
+        env:
+          CURRENT_VERSION: ${{ steps.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Exclude the target release tag in case this job is rerun after tagging.
+          last_tag=$(git tag --list 'v*' --sort=-v:refname | grep -E 'v[0-9]+\.[0-9]+\.[0-9]+$' | grep -Ev "^v${CURRENT_VERSION}$" | head -n 1 || true)
+
+          if [ -n "$last_tag" ]; then
+            range="$last_tag..HEAD"
+          else
+            range="HEAD"
+          fi
+
+          notes=$(git log "$range" --no-merges --pretty=format:'- %s (%h)')
+          if [ -z "$notes" ]; then
+            notes="- No changes listed."
+          fi
+
+          {
+            echo "notes<<EOF"
+            echo "$notes"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "from_tag=$last_tag" >> "$GITHUB_OUTPUT"
+
       - name: Configure git user
         run: |
           git config user.name "github-actions[bot]"
@@ -92,30 +119,6 @@ jobs:
           git tag "v${{ steps.validate.outputs.version }}"
           git push
           git push --tags
-
-      - name: Generate release notes from git history
-        id: changelog
-        run: |
-          set -euo pipefail
-          last_tag=$(git tag --list 'v*' --sort=-v:refname | grep -E 'v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)
-
-          if [ -n "$last_tag" ]; then
-            range="$last_tag..HEAD"
-          else
-            range="HEAD"
-          fi
-
-          notes=$(git log $range --no-merges --pretty=format:'- %s (%h)')
-          if [ -z "$notes" ]; then
-            notes="- No changes listed."
-          fi
-
-          {
-            echo "notes<<EOF"
-            echo "$notes"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-          echo "from_tag=$last_tag" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: actions/github-script@v7
