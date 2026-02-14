@@ -119,6 +119,12 @@ function isWindowsExecutablePath(value?: string) {
   return /\.(cmd|bat|exe)$/i.test(value)
 }
 
+function isNodeScriptPath(value?: string) {
+  if (!value) return false
+
+  return /\.(mjs|cjs|js)$/i.test(value)
+}
+
 function resolveWindowsCommandPath(command: string) {
   if (process.platform !== 'win32') return undefined
 
@@ -272,7 +278,13 @@ export function buildInstallCommand(
     if (isWindowsExecutablePath(pm.execPath)) {
       return {command: pm.execPath, args}
     }
-    return {command: process.execPath, args: [pm.execPath, ...args]}
+
+    // Keep JS entrypoints under node, but execute native/shell binaries directly.
+    if (isNodeScriptPath(pm.execPath)) {
+      return {command: process.execPath, args: [pm.execPath, ...args]}
+    }
+
+    return {command: pm.execPath, args}
   }
 
   return {command: pm.name, args}
