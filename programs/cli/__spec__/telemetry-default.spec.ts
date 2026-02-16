@@ -35,9 +35,7 @@ it('runs successfully even without PostHog keys (local audit allowed)', () => {
   const r = spawnSync(process.execPath, [cliBin(), '--version'], {
     cwd: work,
     env: {
-      ...process.env,
-      EXTENSION_PUBLIC_POSTHOG_KEY: '',
-      EXTENSION_PUBLIC_POSTHOG_HOST: ''
+      ...process.env
     },
     stdio: 'ignore'
   })
@@ -62,9 +60,7 @@ it('falls back to cache when config path is unwritable', () => {
     env: {
       ...process.env,
       XDG_CONFIG_HOME: configHome,
-      XDG_CACHE_HOME: cacheHome,
-      EXTENSION_PUBLIC_POSTHOG_KEY: '',
-      EXTENSION_PUBLIC_POSTHOG_HOST: ''
+      XDG_CACHE_HOME: cacheHome
     },
     stdio: 'ignore'
   })

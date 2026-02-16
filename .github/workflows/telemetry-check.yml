@@ -12,8 +12,6 @@ jobs:
       # Telemetry is normally disabled in CI; explicitly opt-in for this job only
       EXTENSION_TELEMETRY_DISABLED: '0'
       EXTENSION_TELEMETRY_DEBUG: '1'
-      EXTENSION_PUBLIC_POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
-      EXTENSION_PUBLIC_POSTHOG_KEY: ${{ secrets.POSTHOG_INGESTION_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
