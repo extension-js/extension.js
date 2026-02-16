@@ -162,11 +162,6 @@ export async function maybeUseSvelte(
     apply(compiler: any) {
       const existingMainFields =
         (compiler.options.resolve && compiler.options.resolve.mainFields) || []
-      const existingConditionNames =
-        (compiler.options.resolve &&
-          (compiler.options.resolve.conditionNames ||
-            compiler.options.resolve.conditions)) ||
-        []
       const existingExtensions =
         (compiler.options.resolve && compiler.options.resolve.extensions) || []
       const existingAlias =
@@ -187,7 +182,9 @@ export async function maybeUseSvelte(
       compiler.options.resolve = {
         ...compiler.options.resolve,
         mainFields: dedupe(nextMainFields),
-        conditionNames: dedupe(['svelte', ...existingConditionNames]),
+        // Keep the host bundler/browser conditions untouched.
+        // Forcing `svelte` as an export condition can resolve server-oriented
+        // package entries that pull `node:` built-ins in browser builds.
         extensions: dedupe(['.svelte', ...existingExtensions]),
         alias: existingAlias,
         modules: dedupe([
