@@ -64,6 +64,9 @@ export const telemetry = new Telemetry({
 
 if (!telemetryDisabled) {
   const startedAt = Date.now()
+
+  let shutdownTracked = false
+
   const known = new Set([
     'create',
     'dev',
@@ -97,6 +100,10 @@ if (!telemetryDisabled) {
   }
 
   process.on('beforeExit', async function () {
+    if (shutdownTracked) return
+
+    shutdownTracked = true
+
     telemetry.track('cli_shutdown', {
       command_guess: invoked,
       duration_ms: Date.now() - startedAt,
