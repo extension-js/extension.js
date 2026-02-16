@@ -131,10 +131,38 @@ export async function maybeUseSvelte(
     }
   ]
 
-  // Do not force direct aliases for Svelte package entry files.
-  // Resolving these with Node semantics can lock browser builds into
-  // server-oriented exports (including node:* imports).
-  const alias: Record<string, string> | undefined = undefined
+  const sveltePackageJson = resolveFromProject(
+    'svelte/package.json',
+    projectPath
+  )
+  const sveltePackageRoot = sveltePackageJson
+    ? path.dirname(sveltePackageJson)
+    : undefined
+
+  const resolveClientSubpath = (relative: string) => {
+    const direct = resolveFromProject(`svelte/${relative}`, projectPath)
+    if (direct) return direct
+    if (!sveltePackageRoot) return undefined
+
+    const fromRoot = path.join(sveltePackageRoot, relative)
+    return fs.existsSync(fromRoot) ? fromRoot : undefined
+  }
+
+  // Force browser/client Svelte entrypoints so bundling never drifts into
+  // worker/default server branches for extension targets.
+  const alias: Record<string, string> = {}
+  const svelteClient = resolveClientSubpath('src/index-client.js')
+  const svelteStoreClient = resolveClientSubpath('src/store/index-client.js')
+  const svelteReactivityClient = resolveClientSubpath(
+    'src/reactivity/index-client.js'
+  )
+  const svelteLegacyClient = resolveClientSubpath('src/legacy/legacy-client.js')
+
+  if (svelteClient) alias.svelte = svelteClient
+  if (svelteStoreClient) alias['svelte/store'] = svelteStoreClient
+  if (svelteReactivityClient)
+    alias['svelte/reactivity'] = svelteReactivityClient
+  if (svelteLegacyClient) alias['svelte/legacy'] = svelteLegacyClient
 
   // Small plugin to update resolver fields to align with Svelte ecosystem
   const resolverPlugin = {
@@ -171,6 +199,6 @@ export async function maybeUseSvelte(
   return {
     plugins: [resolverPlugin],
     loaders: defaultLoaders,
-    alias
+    alias: Object.keys(alias).length > 0 ? alias : undefined
   }
 }
