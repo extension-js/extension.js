@@ -36,12 +36,6 @@ describe('svelte tools', () => {
     vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
       loadLoaderOptions: vi.fn(async () => ({bar: 2}))
     }))
-    vi.doMock('module', () => ({
-      createRequire: () => ({
-        resolve: (id: string) => `/p/node_modules/${id}`
-      })
-    }))
-
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const {isUsingSvelte, maybeUseSvelte} =
       await import('../../js-tools/svelte')
@@ -68,7 +62,7 @@ describe('svelte tools', () => {
       }
     }
     result?.plugins?.forEach((pl: any) => pl.apply(compiler))
-    expect(compiler.options.resolve.mainFields[0]).toBe('svelte')
+    expect(compiler.options.resolve.mainFields).toEqual([])
     expect(compiler.options.resolve.extensions).toContain('.svelte')
     expect(compiler.options.resolve.conditionNames).toEqual([
       'browser',
@@ -76,18 +70,6 @@ describe('svelte tools', () => {
       'module',
       'default'
     ])
-    expect(result?.alias?.svelte).toContain('/p/node_modules/svelte')
-    expect(result?.alias?.['svelte/internal']).toContain(
-      '/p/node_modules/svelte/internal'
-    )
-    expect(result?.alias?.['svelte/store']).toContain(
-      '/p/node_modules/svelte/store'
-    )
-    expect(result?.alias?.['svelte/motion']).toContain(
-      '/p/node_modules/svelte/motion'
-    )
-    expect(result?.alias?.['svelte/transition']).toContain(
-      '/p/node_modules/svelte/transition'
-    )
+    expect(result?.alias).toBeUndefined()
   })
 })
