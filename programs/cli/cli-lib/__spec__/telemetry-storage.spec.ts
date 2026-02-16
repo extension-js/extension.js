@@ -49,8 +49,6 @@ it('writes audit to cache when config path is unwritable', () => {
 
   process.env.XDG_CONFIG_HOME = configHome
   process.env.XDG_CACHE_HOME = cacheHome
-  process.env.EXTENSION_PUBLIC_POSTHOG_KEY = ''
-  process.env.EXTENSION_PUBLIC_POSTHOG_HOST = ''
   process.chdir(work)
 
   const telemetry = new Telemetry({app: 'extension', version: '0.0.0'})
