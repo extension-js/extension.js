@@ -11,7 +11,9 @@ beforeEach(() => {
   ;(require as any).resolve = vi.fn((id: string) =>
     id === 'svelte-loader' || id === 'typescript'
       ? `/mock/${id}`
-      : originalResolve(id)
+      : id.startsWith('svelte/')
+        ? `/p/node_modules/${id}`
+        : originalResolve(id)
   )
 })
 afterEach(() => {
@@ -70,6 +72,17 @@ describe('svelte tools', () => {
       'module',
       'default'
     ])
-    expect(result?.alias).toBeUndefined()
+    expect(String(result?.alias?.svelte)).toMatch(
+      /svelte\/src\/index-client\.js$/
+    )
+    expect(String(result?.alias?.['svelte/store'])).toMatch(
+      /svelte\/src\/store\/index-client\.js$/
+    )
+    expect(String(result?.alias?.['svelte/reactivity'])).toMatch(
+      /svelte\/src\/reactivity\/index-client\.js$/
+    )
+    expect(String(result?.alias?.['svelte/legacy'])).toMatch(
+      /svelte\/src\/legacy\/legacy-client\.js$/
+    )
   })
 })
