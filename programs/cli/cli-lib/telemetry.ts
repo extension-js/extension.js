@@ -151,6 +151,8 @@ const DEFAULT_FLUSH_INTERVAL = Number(
 const DEFAULT_TIMEOUT_MS = Number(
   process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 200
 )
+const DEFAULT_POSTHOG_KEY = 'phc_Np5x3Jg3h2V7kTFtNch2uz6QBaWDycQpIidzX5PetaN'
+const DEFAULT_POSTHOG_HOST = 'https://us.i.posthog.com'
 
 export class Telemetry {
   private anonId: string
@@ -192,8 +194,8 @@ export class Telemetry {
       schema_version: 1
     }
 
-    this.apiKey = init.apiKey || process.env.EXTENSION_PUBLIC_POSTHOG_KEY
-    this.host = init.host || process.env.EXTENSION_PUBLIC_POSTHOG_HOST
+    this.apiKey = init.apiKey || DEFAULT_POSTHOG_KEY
+    this.host = init.host || DEFAULT_POSTHOG_HOST
 
     // First-run consent marker (non-blocking, no prompt here; just record anonymous opt-in once)
     // Only record consent when telemetry is enabled.
@@ -238,6 +240,13 @@ export class Telemetry {
 
     // No network configured; skip sending
     if (!this.apiKey || !this.host) return
+
+    // `cli_shutdown` is emitted from a `beforeExit` hook. Scheduling a timer here
+    // would keep the event loop alive and can re-trigger `beforeExit` repeatedly.
+    if (event === 'cli_shutdown') {
+      this.buffer.push(payload)
+      return
+    }
 
     this.buffer.push(payload)
     if (this.buffer.length >= DEFAULT_FLUSH_AT) {
