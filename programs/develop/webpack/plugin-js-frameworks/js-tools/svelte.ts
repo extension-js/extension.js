@@ -8,7 +8,6 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
-import {createRequire} from 'module'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -132,30 +131,10 @@ export async function maybeUseSvelte(
     }
   ]
 
-  // Force a single Svelte runtime instance across app and transpiled workspace deps.
-  const requireFromProject = createRequire(
-    path.join(projectPath, 'package.json')
-  )
-  const resolveSvelteRuntime = (id: string) => {
-    try {
-      return requireFromProject.resolve(id)
-    } catch {
-      return undefined
-    }
-  }
-
-  const alias: Record<string, string> = {}
-  const svelteEntry = resolveSvelteRuntime('svelte')
-  const svelteInternal = resolveSvelteRuntime('svelte/internal')
-  const svelteStore = resolveSvelteRuntime('svelte/store')
-  const svelteMotion = resolveSvelteRuntime('svelte/motion')
-  const svelteTransition = resolveSvelteRuntime('svelte/transition')
-
-  if (svelteEntry) alias.svelte = svelteEntry
-  if (svelteInternal) alias['svelte/internal'] = svelteInternal
-  if (svelteStore) alias['svelte/store'] = svelteStore
-  if (svelteMotion) alias['svelte/motion'] = svelteMotion
-  if (svelteTransition) alias['svelte/transition'] = svelteTransition
+  // Do not force direct aliases for Svelte package entry files.
+  // Resolving these with Node semantics can lock browser builds into
+  // server-oriented exports (including node:* imports).
+  const alias: Record<string, string> | undefined = undefined
 
   // Small plugin to update resolver fields to align with Svelte ecosystem
   const resolverPlugin = {
@@ -169,19 +148,13 @@ export async function maybeUseSvelte(
       const existingModules =
         (compiler.options.resolve && compiler.options.resolve.modules) || []
 
-      const nextMainFields = [
-        'svelte',
-        'browser',
-        'module',
-        'main',
-        ...existingMainFields
-      ]
       // de-duplicate while preserving order
       const dedupe = (arr: string[]) => Array.from(new Set(arr))
 
       compiler.options.resolve = {
         ...compiler.options.resolve,
-        mainFields: dedupe(nextMainFields),
+        // Respect existing resolver field priority from the host config.
+        mainFields: dedupe(existingMainFields),
         // Keep the host bundler/browser conditions untouched.
         // Forcing `svelte` as an export condition can resolve server-oriented
         // package entries that pull `node:` built-ins in browser builds.
