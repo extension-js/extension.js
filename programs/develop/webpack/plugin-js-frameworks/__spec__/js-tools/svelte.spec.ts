@@ -59,12 +59,23 @@ describe('svelte tools', () => {
 
     // Apply resolver plugin to a fake compiler to verify additions
     const compiler: any = {
-      options: {resolve: {mainFields: [], conditionNames: [], extensions: []}}
+      options: {
+        resolve: {
+          mainFields: [],
+          conditionNames: ['browser', 'import', 'module', 'default'],
+          extensions: []
+        }
+      }
     }
     result?.plugins?.forEach((pl: any) => pl.apply(compiler))
     expect(compiler.options.resolve.mainFields[0]).toBe('svelte')
     expect(compiler.options.resolve.extensions).toContain('.svelte')
-    expect(compiler.options.resolve.conditionNames).toContain('svelte')
+    expect(compiler.options.resolve.conditionNames).toEqual([
+      'browser',
+      'import',
+      'module',
+      'default'
+    ])
     expect(result?.alias?.svelte).toContain('/p/node_modules/svelte')
     expect(result?.alias?.['svelte/internal']).toContain(
       '/p/node_modules/svelte/internal'
