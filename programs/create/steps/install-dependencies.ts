@@ -10,7 +10,6 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
-import {shouldShowProgress, startProgressBar} from '../lib/progress'
 import {runInstall as runInstallCommand} from '../lib/install-runner'
 
 function getInstallArgs() {
@@ -118,15 +117,7 @@ export async function installDependencies(
   const dependenciesArgs = getInstallArgs()
 
   const installMessage = messages.installingDependencies()
-  const progressEnabled = shouldShowProgress()
-  const progress = startProgressBar(installMessage, {
-    enabled: progressEnabled,
-    persistLabel: true
-  })
-
-  if (!progressEnabled) {
-    console.log(installMessage)
-  }
+  console.log(installMessage)
 
   try {
     // Create the node_modules directory if it doesn't exist
@@ -134,12 +125,12 @@ export async function installDependencies(
 
     const stdio =
       process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
-    let firstRun
-    try {
-      firstRun = await runInstall(command, dependenciesArgs, projectPath, stdio)
-    } finally {
-      progress.stop()
-    }
+    const firstRun = await runInstall(
+      command,
+      dependenciesArgs,
+      projectPath,
+      stdio
+    )
 
     if (firstRun.code !== 0) {
       const output = `${firstRun.stdout}\n${firstRun.stderr}`
@@ -149,23 +140,12 @@ export async function installDependencies(
         : false
 
       if (didUpdate) {
-        const retryProgress = startProgressBar(installMessage, {
-          enabled: progressEnabled,
-          persistLabel: true
-        })
-
-        let retryRun
-
-        try {
-          retryRun = await runInstall(
-            command,
-            dependenciesArgs,
-            projectPath,
-            stdio
-          )
-        } finally {
-          retryProgress.stop()
-        }
+        const retryRun = await runInstall(
+          command,
+          dependenciesArgs,
+          projectPath,
+          stdio
+        )
 
         if (retryRun.code === 0) {
           return
