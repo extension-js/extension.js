@@ -14,7 +14,6 @@ import {
   execInstallCommand,
   resolvePackageManager
 } from './package-manager'
-import {shouldShowProgress, startProgressBar} from './progress'
 import {writeInstallMarker} from './install-cache'
 
 export async function getInstallCommand() {
@@ -69,31 +68,18 @@ export async function installDependencies(projectPath: string) {
 
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     const stdio = isAuthor ? 'inherit' : 'ignore'
-    const progressEnabled = !isAuthor && shouldShowProgress()
-    const persistLabel = process.env.EXTENSION_ONE_TIME_INSTALL_HINT === 'true'
-    const progress = startProgressBar(progressLabel, {
-      enabled: progressEnabled,
-      persistLabel
-    })
-
-    if (!progressEnabled) {
-      console.log(progressLabel)
-    }
+    console.log(progressLabel)
 
     if (isAuthor) {
       console.warn(messages.authorInstallNotice('project dependencies'))
     }
 
     const command = buildInstallCommand(pm, dependenciesArgs)
-    try {
-      await execInstallCommand(command.command, command.args, {
-        cwd: projectPath,
-        stdio
-      })
-      writeInstallMarker(projectPath)
-    } finally {
-      progress.stop()
-    }
+    await execInstallCommand(command.command, command.args, {
+      cwd: projectPath,
+      stdio
+    })
+    writeInstallMarker(projectPath)
   } catch (error: any) {
     console.error(messages.cantInstallDependencies(error))
     process.exit(1)

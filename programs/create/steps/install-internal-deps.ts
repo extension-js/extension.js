@@ -11,7 +11,6 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import * as messages from '../lib/messages'
 import {detectPackageManagerFromEnv} from '../lib/package-manager'
-import {shouldShowProgress, startProgressBar} from '../lib/progress'
 import {runInstall} from '../lib/install-runner'
 
 const requireFromCreate = createRequire(import.meta.url)
@@ -316,36 +315,20 @@ async function installBuildDependencies(
 
   const pm = detectPackageManagerFromEnv()
   const installMessage = messages.installingBuildDependencies(plan.dependencies)
-  const progressEnabled = shouldShowProgress()
-  const progress = startProgressBar(installMessage, {
-    enabled: progressEnabled,
-    persistLabel: true
+  console.log(installMessage)
+
+  const args = buildBuildInstallArgs(pm, plan.dependencies, plan.dependencyMap)
+  const stdio =
+    process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
+  const result = await runInstall(pm, args, {
+    cwd: developRoot,
+    stdio
   })
 
-  if (!progressEnabled) {
-    console.log(installMessage)
-  }
-
-  try {
-    const args = buildBuildInstallArgs(
-      pm,
-      plan.dependencies,
-      plan.dependencyMap
+  if (result.code !== 0) {
+    throw new Error(
+      messages.installingDependenciesFailed(pm, args, result.code)
     )
-    const stdio =
-      process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-    const result = await runInstall(pm, args, {
-      cwd: developRoot,
-      stdio
-    })
-
-    if (result.code !== 0) {
-      throw new Error(
-        messages.installingDependenciesFailed(pm, args, result.code)
-      )
-    }
-  } finally {
-    progress.stop()
   }
 }
 
@@ -359,7 +342,6 @@ async function installOptionalDependencies(
   const pm = detectPackageManagerFromEnv()
   const stdio =
     process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'ignore'
-  const progressEnabled = shouldShowProgress()
   console.log(messages.foundSpecializedDependencies(plan.integrations.length))
 
   for (const [index, integration] of plan.integrations.entries()) {
@@ -370,35 +352,24 @@ async function installOptionalDependencies(
       '►►► ',
       `►►► [${index + 1}/${plan.integrations.length}] `
     )
-    const progress = startProgressBar(installMessage, {
-      enabled: progressEnabled,
-      persistLabel: true
-    })
+    console.log(installMessage)
 
-    if (!progressEnabled) {
-      console.log(installMessage)
+    if (missingDeps.length === 0) {
+      continue
     }
 
-    try {
-      if (missingDeps.length === 0) {
-        continue
-      }
+    for (const dep of missingDeps) {
+      const args = buildOptionalInstallArgs(pm, [dep], developRoot)
+      const result = await runInstall(pm, args, {
+        cwd: developRoot,
+        stdio
+      })
 
-      for (const dep of missingDeps) {
-        const args = buildOptionalInstallArgs(pm, [dep], developRoot)
-        const result = await runInstall(pm, args, {
-          cwd: developRoot,
-          stdio
-        })
-
-        if (result.code !== 0) {
-          throw new Error(
-            messages.installingDependenciesFailed(pm, args, result.code)
-          )
-        }
+      if (result.code !== 0) {
+        throw new Error(
+          messages.installingDependenciesFailed(pm, args, result.code)
+        )
       }
-    } finally {
-      progress.stop()
     }
   }
 }
