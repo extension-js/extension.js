@@ -42,6 +42,7 @@
     "cross-env": "^10.1.0",
     "cross-spawn": "^7.0.6",
     "dotenv-cli": "^11.0.0",
+    "ajv": "8.18.0",
     "eslint": "^9.39.2",
     "extension": "workspace:*",
     "globals": "^17.3.0",
@@ -55,7 +56,8 @@
   },
   "pnpm": {
     "overrides": {
-      "tar": "7.5.7",
+      "ajv@8.17.1": "8.18.0",
+      "tar": "7.5.9",
       "vite": "^7.3.1",
       "vitest": "4.0.18",
       "js-yaml@^3": "3.14.2",
