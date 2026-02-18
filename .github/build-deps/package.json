@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.0.0",
   "description": "Dependency graph tracking for extension-develop build/dev/start lazy deps.",
+  "overrides": {
+    "ajv": "8.18.0"
+  },
   "dependencies": {
     "@rspack/core": "^1.7.2",
     "@rspack/dev-server": "^1.1.5",
