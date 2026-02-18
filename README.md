@@ -142,8 +142,12 @@ npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacO
 <div align="center">
   <p>
     <span style="font-size:21px">Browser testing via</span><br>
-    <a href="https://www.testmu.ai/?utm_source=extensionjs&utm_medium=sponsor" target="_blank" rel="noopener noreferrer">
-      <img src="https://assets.testmu.ai/resources/images/testmu-ai/common/whiteTestmulogo.svg" width="250" height="45" alt="TestMu AI Logo" />
+    <a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=extensionjs" target="_blank" rel="noopener noreferrer">
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://assets.testmu.ai/resources/images/testmu-ai/common/whiteTestmulogo.svg" />
+        <source media="(prefers-color-scheme: light)" srcset="https://assets.testmu.ai/resources/images/logos/black-logo.png" />
+        <img src="https://assets.testmu.ai/resources/images/logos/black-logo.png" width="250" height="45" alt="TestMu AI Logo" />
+      </picture>
     </a>
   </p>
 </div>
