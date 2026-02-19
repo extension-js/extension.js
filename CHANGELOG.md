@@ -9,4 +9,3 @@
 - Update dependencies by Dependabot recommendation (2ab00ae0)
 - Update README.md (2ce370df)
 - chore(release): move changelog to v3.6.3 (73cdd956)
-
