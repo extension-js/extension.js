@@ -5,6 +5,14 @@ vi.mock('child_process', () => ({spawn: vi.fn()}))
 vi.mock('fs', () => ({existsSync: vi.fn()}))
 
 const prevEnv = {...process.env}
+const prevPlatform = process.platform
+
+const setPlatform = (value: NodeJS.Platform) => {
+  Object.defineProperty(process, 'platform', {
+    value,
+    configurable: true
+  })
+}
 
 const loadModule = async () =>
   await import('../../run-firefox/firefox-launch/wsl-support')
@@ -24,11 +32,13 @@ const createChild = () => {
 describe('firefox wsl-support', () => {
   beforeEach(() => {
     process.env = {...prevEnv}
+    setPlatform('linux')
     vi.restoreAllMocks()
   })
 
   afterEach(() => {
     process.env = {...prevEnv}
+    setPlatform(prevPlatform)
   })
 
   it('detects WSL environment', async () => {
@@ -39,6 +49,15 @@ describe('firefox wsl-support', () => {
     expect(mod.isWslEnv()).toBe(false)
     process.env.WSL_DISTRO_NAME = 'Ubuntu'
     expect(mod.isWslEnv()).toBe(true)
+  })
+
+  it('does not treat native Windows as WSL when only WSLENV exists', async () => {
+    const mod = await loadModule()
+    setPlatform('win32')
+    process.env.WSLENV = 'FOO/p'
+    delete process.env.WSL_DISTRO_NAME
+    delete process.env.WSL_INTEROP
+    expect(mod.isWslEnv()).toBe(false)
   })
 
   it('normalizes Windows paths when running on WSL', async () => {
