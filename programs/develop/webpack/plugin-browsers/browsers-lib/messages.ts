@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import * as os from 'os'
 import {createRequire} from 'module'
 import colors from 'pintor'
 import locateChrome, {
@@ -54,6 +55,8 @@ function errorDetail(error: unknown) {
 }
 
 function isWsl(): boolean {
+  if (process.platform !== 'linux') return false
+
   // Heuristic env-based detection (fast, testable). Avoid reading /proc.
   const hasEnv = Boolean(
     String(process.env.WSL_DISTRO_NAME || '').trim() ||
@@ -63,7 +66,7 @@ function isWsl(): boolean {
   // If these env vars are present, treat as WSL even if the host platform
   // running unit tests is not Linux.
   if (hasEnv) return true
-  return false
+  return /microsoft/i.test(os.release())
 }
 
 export function capitalizedBrowserName(browser: Browser) {
