@@ -31,6 +31,8 @@ export async function devServer(
   projectStructure: ProjectStructure,
   devOptions: DevOptions
 ) {
+  process.env.EXTENSION_BROWSER_RUNNER_ENABLED = devOptions.noRunner ? '0' : '1'
+
   const {manifestPath, packageJsonPath} = projectStructure
   const manifestDir = path.dirname(manifestPath)
   const packageJsonDir = path.dirname(packageJsonPath!)
@@ -141,9 +143,8 @@ export async function devServer(
     host: devServerHost,
     allowedHosts: 'all',
     static: {
-      watch: {
-        ignored: /\bnode_modules\b/
-      }
+      directory: path.join(packageJsonDir, 'public'),
+      watch: false
     },
     compress: false,
     devMiddleware: {
@@ -159,6 +160,12 @@ export async function devServer(
           : [path.join(packageJsonDir, '**/*.html')])
       ],
       options: {
+        // Prevent startup self-rebuild: initial emit writes dist/**/*.html.
+        // Those generated files must not be treated as source watch inputs.
+        ignored: [path.join(packageJsonDir, 'dist', '**/*')],
+        // Avoid a startup recompile caused by chokidar "add" events for
+        // existing files in watched folders.
+        ignoreInitial: true,
         usePolling: true,
         interval: 1000
       }
