@@ -1,16 +1,24 @@
 import * as fs from 'fs'
 import {spawn, ChildProcess} from 'child_process'
+import * as os from 'os'
 
 type FirefoxLogger = {
   warn?: (...args: unknown[]) => void
 }
 
 export function isWslEnv(): boolean {
-  return Boolean(
+  // Guard against false positives on native Windows where WSLENV may be set.
+  if (process.platform !== 'linux') return false
+
+  const hasWslEnv = Boolean(
     String(process.env.WSL_DISTRO_NAME || '').trim() ||
     String(process.env.WSL_INTEROP || '').trim() ||
     String(process.env.WSLENV || '').trim()
   )
+  if (hasWslEnv) return true
+
+  // Fallback heuristic for Linux environments where env vars are unavailable.
+  return /microsoft/i.test(os.release())
 }
 
 export function normalizeBinaryPathForWsl(input: string): string {
