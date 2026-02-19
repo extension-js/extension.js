@@ -1,8 +1,9 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {
   applySourceRedaction,
   buildHtmlSummary,
   diffDomSnapshots,
+  emitActionEvent,
   formatHtmlSentinelBegin,
   normalizeSourceOutputConfig,
   truncateByBytes
@@ -91,5 +92,35 @@ describe('diffDomSnapshots', () => {
     const diff = diffDomSnapshots(prev as any, next as any)
     expect(diff.added).toBe(1)
     expect(diff.removed).toBe(0)
+  })
+})
+
+describe('emitActionEvent', () => {
+  it('uses [HH:mm:ss] timestamp in pretty format', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    emitActionEvent('extension_reload', {reason: 'content'}, 'pretty')
+
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    expect(logSpy.mock.calls[0]?.[0]).toMatch(
+      /^►►► \[\d{2}:\d{2}:\d{2}\] \[action\] extension_reload \{"reason":"content"\}$/
+    )
+    logSpy.mockRestore()
+  })
+
+  it('keeps ISO timestamp in json format', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    emitActionEvent('extension_reload', {reason: 'content'}, 'json')
+
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    const payload = JSON.parse(String(logSpy.mock.calls[0]?.[0] || '{}'))
+    expect(payload.type).toBe('action_event')
+    expect(payload.action).toBe('extension_reload')
+    expect(payload.reason).toBe('content')
+    expect(payload.timestamp).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    )
+    logSpy.mockRestore()
   })
 })
