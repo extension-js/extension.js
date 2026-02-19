@@ -28,7 +28,8 @@ export async function cssInHtmlLoader(
 
   // Define file type configurations
   const fileTypes = [
-    {test: /\.css$/, type: 'css', loader: null},
+    {test: /\.module\.css$/, type: 'css/module', loader: null},
+    {test: /\.css$/, exclude: /\.module\.css$/, type: 'css', loader: null},
     ...(useSass
       ? [
           {

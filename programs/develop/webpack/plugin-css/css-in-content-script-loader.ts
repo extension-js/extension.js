@@ -29,35 +29,57 @@ export async function cssInContentScriptLoader(
 
   // Define file type configurations
   const fileTypes = [
-    {test: /\.css$/, loader: null},
+    {test: /\.module\.css$/, type: 'css/module' as const, loader: null},
+    {
+      test: /\.css$/,
+      exclude: /\.module\.css$/,
+      type: 'asset' as const,
+      loader: null
+    },
     ...(useSass
       ? [
           {
             test: /\.(sass|scss)$/,
             exclude: /\.module\.(sass|scss)$/,
+            type: 'asset' as const,
             loader: 'sass-loader'
           },
-          {test: /\.module\.(sass|scss)$/, loader: 'sass-loader'}
+          {
+            test: /\.module\.(sass|scss)$/,
+            type: 'css/module' as const,
+            loader: 'sass-loader'
+          }
         ]
       : []),
     ...(useLess
       ? [
-          {test: /\.less$/, exclude: /\.module\.less$/, loader: 'less-loader'},
-          {test: /\.module\.less$/, loader: 'less-loader'}
+          {
+            test: /\.less$/,
+            exclude: /\.module\.less$/,
+            type: 'asset' as const,
+            loader: 'less-loader'
+          },
+          {
+            test: /\.module\.less$/,
+            type: 'css/module' as const,
+            loader: 'less-loader'
+          }
         ]
       : [])
   ]
 
   const rules = await Promise.all(
-    fileTypes.map(async ({test, exclude, loader}) => {
-      const baseConfig = {
+    fileTypes.map(async ({test, exclude, type = 'asset', loader}) => {
+      const baseConfig: Record<string, any> = {
         test,
         exclude,
-        type: 'asset' as const,
-        generator: {
-          filename: 'content_scripts/[name].[contenthash:8].css'
-        },
+        type,
         issuer: isContentScript
+      }
+      if (type === 'asset') {
+        baseConfig.generator = {
+          filename: 'content_scripts/[name].[contenthash:8].css'
+        }
       }
 
       if (!loader) {
