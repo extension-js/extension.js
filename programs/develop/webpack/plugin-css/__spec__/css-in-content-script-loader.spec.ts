@@ -13,7 +13,7 @@ import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 describe('cssInContentScriptLoader', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('returns asset rules with generator and content-script issuer', async () => {
+  it('returns content-script rules and handles module CSS explicitly', async () => {
     const projectPath = '/project'
     const manifestPath = '/project/manifest.json'
     const mode = 'development' as const
@@ -25,9 +25,26 @@ describe('cssInContentScriptLoader', () => {
     )
 
     expect(Array.isArray(rules)).toBe(true)
+    expect(
+      rules.some(
+        (r: any) =>
+          String(r.test) === String(/\.module\.css$/) && r.type === 'css/module'
+      )
+    ).toBe(true)
+    expect(
+      rules.some(
+        (r: any) =>
+          String(r.test) === String(/\.css$/) &&
+          String(r.exclude) === String(/\.module\.css$/) &&
+          r.type === 'asset'
+      )
+    ).toBe(true)
+
     for (const rule of rules as any[]) {
-      expect(rule.type).toBe('asset')
-      expect(rule.generator?.filename).toContain('content_scripts')
+      expect(['asset', 'css/module']).toContain(rule.type)
+      if (rule.type === 'asset') {
+        expect(rule.generator?.filename).toContain('content_scripts')
+      }
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }

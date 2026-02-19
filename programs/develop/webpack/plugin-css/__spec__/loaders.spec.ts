@@ -14,16 +14,32 @@ import {cssInHtmlLoader} from '../css-in-html-loader'
 describe('cssInContentScriptLoader', () => {
   beforeEach(() => vi.clearAllMocks())
 
-  it('returns rules with asset type and generator for content scripts', async () => {
+  it('returns content-script rules and handles module CSS explicitly', async () => {
     const rules = await cssInContentScriptLoader(
       '/project',
       '/project/manifest.json',
       'development'
     )
     expect(Array.isArray(rules)).toBe(true)
+    expect(
+      rules.some(
+        (r: any) =>
+          String(r.test) === String(/\.module\.css$/) && r.type === 'css/module'
+      )
+    ).toBe(true)
+    expect(
+      rules.some(
+        (r: any) =>
+          String(r.test) === String(/\.css$/) &&
+          String(r.exclude) === String(/\.module\.css$/) &&
+          r.type === 'asset'
+      )
+    ).toBe(true)
     for (const rule of rules) {
-      expect(rule.type).toBe('asset')
-      expect(rule.generator?.filename).toContain('content_scripts')
+      expect(['asset', 'css/module']).toContain((rule as any).type)
+      if ((rule as any).type === 'asset') {
+        expect((rule as any).generator?.filename).toContain('content_scripts')
+      }
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }

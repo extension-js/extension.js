@@ -23,6 +23,20 @@ describe('cssInHtmlLoader', () => {
     expect(Array.isArray(rules)).toBe(true)
     expect(rules.some((r: any) => r.type === 'css')).toBe(true)
     expect(rules.some((r: any) => r.type === 'css/module')).toBe(true)
+    expect(
+      rules.some(
+        (r: any) =>
+          String(r.test) === String(/\.module\.css$/) && r.type === 'css/module'
+      )
+    ).toBe(true)
+    expect(
+      rules.some(
+        (r: any) =>
+          String(r.test) === String(/\.css$/) &&
+          String(r.exclude) === String(/\.module\.css$/) &&
+          r.type === 'css'
+      )
+    ).toBe(true)
 
     for (const rule of rules as any[]) {
       expect(typeof rule.issuer).toBe('function')
