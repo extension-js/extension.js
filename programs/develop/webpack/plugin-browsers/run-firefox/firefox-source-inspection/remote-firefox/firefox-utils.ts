@@ -79,7 +79,7 @@ export async function printRunningInDevelopmentSummary(
       outPath: chosenPath,
       hostPort: {host: '127.0.0.1'},
       getInfo: async () => ({
-        extensionId: extensionId || '(temporary)',
+        extensionId,
         name: manifest.name,
         version: manifest.version
       }),
