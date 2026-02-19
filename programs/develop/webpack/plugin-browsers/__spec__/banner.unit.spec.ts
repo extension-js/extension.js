@@ -31,10 +31,11 @@ describe('printDevBannerOnce', () => {
     })
 
     expect(printed).toBe(true)
-    const output = logSpy.mock.calls.map((call) => String(call[0] || '')).join('\n')
-    const idLine = output
-      .split('\n')
-      .find((line) => line.includes('Extension ID')) || ''
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    const idLine =
+      output.split('\n').find((line) => line.includes('Extension ID')) || ''
     const extracted = idLine.split('Extension ID')[1]?.trim() || ''
     expect(extracted).toMatch(/^[a-p]{32}$/)
     expect(output).not.toContain('(temporary)')
@@ -57,7 +58,9 @@ describe('printDevBannerOnce', () => {
     })
 
     expect(printed).toBe(true)
-    const output = logSpy.mock.calls.map((call) => String(call[0] || '')).join('\n')
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
     expect(output).toContain('Extension ID')
     expect(output).toContain('addon@example.com')
     expect(output).not.toContain('(temporary)')

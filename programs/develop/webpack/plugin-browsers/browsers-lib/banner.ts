@@ -11,7 +11,7 @@ import * as path from 'path'
 import {createHash} from 'crypto'
 import * as messages from './messages'
 import * as coreMessages from '../../webpack-lib/messages'
-import {markBannerPrinted} from './shared-state'
+import {markBannerPrinted} from '../../plugin-compilation/compilation-lib/shared-state'
 import type {DevOptions} from '../../webpack-types'
 
 type Info = {extensionId?: string; name?: string; version?: string} | null
@@ -54,7 +54,10 @@ function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
     const decodedKey = Buffer.from(key.replace(/\s+/g, ''), 'base64')
     if (!decodedKey.length) return ''
 
-    const digest = createHash('sha256').update(decodedKey).digest().subarray(0, 16)
+    const digest = createHash('sha256')
+      .update(decodedKey)
+      .digest()
+      .subarray(0, 16)
     let extensionId = ''
 
     for (const byte of digest) {
@@ -76,8 +79,8 @@ function deriveFirefoxExtensionIdFromManifest(manifest: unknown): string {
   if (fromBrowserSpecificSettings) return fromBrowserSpecificSettings
 
   return toNormalizedId(
-    (manifest as {applications?: {gecko?: {id?: unknown}}})?.applications
-      ?.gecko?.id
+    (manifest as {applications?: {gecko?: {id?: unknown}}})?.applications?.gecko
+      ?.id
   )
 }
 
