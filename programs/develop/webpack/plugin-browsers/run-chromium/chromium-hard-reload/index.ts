@@ -37,6 +37,8 @@ export class ChromiumHardReloadPlugin {
     private readonly options: {
       autoReload?: boolean
       browser?: DevOptions['browser']
+      source?: DevOptions['source']
+      watchSource?: DevOptions['watchSource']
     },
     private readonly ctx: ChromiumContext
   ) {}
@@ -232,10 +234,12 @@ export class ChromiumHardReloadPlugin {
       }
 
       this.logger?.info?.(`[reload] reloading extension (reason:${reason})`)
-      emitActionEvent('extension_reload', {
-        reason: reason || 'unknown',
-        browser: this.options?.browser
-      })
+      if (this.shouldEmitReloadActionEvent()) {
+        emitActionEvent('extension_reload', {
+          reason: reason || 'unknown',
+          browser: this.options?.browser
+        })
+      }
       const reloadTimeoutMs = 8000
       const ok = await Promise.race<boolean>([
         ctrl.hardReload(),
@@ -383,5 +387,9 @@ export class ChromiumHardReloadPlugin {
     }
 
     return collectedResourcePaths
+  }
+
+  private shouldEmitReloadActionEvent(): boolean {
+    return Boolean(this.options?.source || this.options?.watchSource)
   }
 }
