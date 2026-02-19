@@ -85,10 +85,12 @@ export class FirefoxHardReloadPlugin {
         if (controller && typeof controller.hardReload === 'function') {
           const reason = this.ctx.getPendingReloadReason?.()
 
-          emitActionEvent('extension_reload', {
-            reason: reason || 'unknown',
-            browser: this.host.browser
-          })
+          if (this.shouldEmitReloadActionEvent()) {
+            emitActionEvent('extension_reload', {
+              reason: reason || 'unknown',
+              browser: this.host.browser
+            })
+          }
 
           await controller.hardReload(stats.compilation, changed)
         }
@@ -98,5 +100,9 @@ export class FirefoxHardReloadPlugin {
 
       done()
     })
+  }
+
+  private shouldEmitReloadActionEvent(): boolean {
+    return Boolean(this.host.source || this.host.watchSource)
   }
 }

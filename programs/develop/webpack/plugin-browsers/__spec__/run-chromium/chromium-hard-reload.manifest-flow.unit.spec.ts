@@ -2,6 +2,88 @@ import {describe, expect, it, vi} from 'vitest'
 import {ChromiumHardReloadPlugin} from '../../run-chromium/chromium-hard-reload'
 
 describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
+  it('does not emit extension_reload action event when source flags are disabled', async () => {
+    let watchRunHandler:
+      | ((compilerWithModifiedFiles: any, done: () => void) => void)
+      | undefined
+    let doneHandler: ((stats: any) => Promise<void>) | undefined
+
+    const compiler: any = {
+      options: {context: '/project/templates/react'},
+      getInfrastructureLogger: () => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn()
+      }),
+      hooks: {
+        watchRun: {
+          tapAsync: (_name: string, handler: any) => {
+            watchRunHandler = handler
+          }
+        },
+        done: {
+          tapPromise: (_name: string, handler: any) => {
+            doneHandler = handler
+          }
+        }
+      }
+    }
+
+    const hardReload = vi.fn(async () => true)
+    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+
+    const ctx: any = {
+      getController: () => ({hardReload}),
+      onControllerReady: () => {},
+      setController: () => {},
+      getPorts: () => ({}),
+      getExtensionRoot: () => '/project/templates/react/dist/chromium',
+      setExtensionRoot: () => {},
+      setServiceWorkerPaths: () => {},
+      getServiceWorkerPaths: () => ({}),
+      setPendingReloadReason: (
+        reason?: 'manifest' | 'locales' | 'sw' | 'content'
+      ) => {
+        pendingReason = reason
+      },
+      getPendingReloadReason: () => pendingReason,
+      clearPendingReloadReason: () => {
+        pendingReason = undefined
+      }
+    }
+
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const plugin = new ChromiumHardReloadPlugin({}, ctx)
+    plugin.apply(compiler)
+    ;(watchRunHandler as any)(
+      {
+        modifiedFiles: new Set<string>([
+          '/project/templates/react/src/manifest.json'
+        ])
+      },
+      () => {}
+    )
+
+    await (doneHandler as any)({
+      hasErrors: () => false,
+      compilation: {
+        assets: {
+          'manifest.json': {
+            source: () => JSON.stringify({})
+          }
+        },
+        entrypoints: new Map(),
+        chunkGraph: {}
+      },
+      toJson: () => ({assets: []})
+    })
+
+    expect(hardReload).toHaveBeenCalledTimes(1)
+    expect(consoleLogSpy).not.toHaveBeenCalled()
+    consoleLogSpy.mockRestore()
+  })
+
   it('triggers controller hardReload when manifest changes in current context', async () => {
     let watchRunHandler:
       | ((compilerWithModifiedFiles: any, done: () => void) => void)
@@ -87,6 +169,91 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     expect(logger.info).toHaveBeenCalledWith(
       '[reload] reloading extension (reason:manifest)'
     )
+  })
+
+  it('emits extension_reload action event when source flags are enabled', async () => {
+    let watchRunHandler:
+      | ((compilerWithModifiedFiles: any, done: () => void) => void)
+      | undefined
+    let doneHandler: ((stats: any) => Promise<void>) | undefined
+
+    const compiler: any = {
+      options: {context: '/project/templates/react'},
+      getInfrastructureLogger: () => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn()
+      }),
+      hooks: {
+        watchRun: {
+          tapAsync: (_name: string, handler: any) => {
+            watchRunHandler = handler
+          }
+        },
+        done: {
+          tapPromise: (_name: string, handler: any) => {
+            doneHandler = handler
+          }
+        }
+      }
+    }
+
+    const hardReload = vi.fn(async () => true)
+    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+
+    const ctx: any = {
+      getController: () => ({hardReload}),
+      onControllerReady: () => {},
+      setController: () => {},
+      getPorts: () => ({}),
+      getExtensionRoot: () => '/project/templates/react/dist/chromium',
+      setExtensionRoot: () => {},
+      setServiceWorkerPaths: () => {},
+      getServiceWorkerPaths: () => ({}),
+      setPendingReloadReason: (
+        reason?: 'manifest' | 'locales' | 'sw' | 'content'
+      ) => {
+        pendingReason = reason
+      },
+      getPendingReloadReason: () => pendingReason,
+      clearPendingReloadReason: () => {
+        pendingReason = undefined
+      }
+    }
+
+    const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const plugin = new ChromiumHardReloadPlugin({watchSource: true}, ctx)
+    plugin.apply(compiler)
+    ;(watchRunHandler as any)(
+      {
+        modifiedFiles: new Set<string>([
+          '/project/templates/react/src/manifest.json'
+        ])
+      },
+      () => {}
+    )
+
+    await (doneHandler as any)({
+      hasErrors: () => false,
+      compilation: {
+        assets: {
+          'manifest.json': {
+            source: () => JSON.stringify({})
+          }
+        },
+        entrypoints: new Map(),
+        chunkGraph: {}
+      },
+      toJson: () => ({assets: []})
+    })
+
+    expect(hardReload).toHaveBeenCalledTimes(1)
+    expect(consoleLogSpy).toHaveBeenCalledTimes(1)
+    expect(consoleLogSpy.mock.calls[0]?.[0]).toContain(
+      '[action] extension_reload'
+    )
+    consoleLogSpy.mockRestore()
   })
 
   it('does not trigger hard reload for manifest changes outside compiler context', async () => {
