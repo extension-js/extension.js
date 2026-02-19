@@ -404,22 +404,31 @@ export function resolveActionFormat(): SourceFormat {
   return 'pretty'
 }
 
+function formatPrettyClockTime(date: Date): string {
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mm = String(date.getMinutes()).padStart(2, '0')
+  const ss = String(date.getSeconds()).padStart(2, '0')
+  return `${hh}:${mm}:${ss}`
+}
+
 export function emitActionEvent(
   action: string,
   payload: Record<string, unknown> = {},
   format: SourceFormat = resolveActionFormat()
 ) {
+  const eventDate = new Date()
   const base = {
     type: 'action_event',
     schema_version: '1.0',
-    timestamp: new Date().toISOString(),
+    timestamp: eventDate.toISOString(),
     action,
     ...payload
   }
 
   if (format === 'pretty') {
+    const prettyTime = formatPrettyClockTime(eventDate)
     console.log(
-      `${base.timestamp} [action] ${action} ${JSON.stringify(payload)}`
+      `►►► [${prettyTime}] [action] ${action} ${JSON.stringify(payload)}`
     )
     return
   }
