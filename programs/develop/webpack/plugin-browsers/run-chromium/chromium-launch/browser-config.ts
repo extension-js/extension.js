@@ -20,6 +20,10 @@ import {
 import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
 import * as messages from '../../browsers-lib/messages'
 import {
+  chromeMasterPreferences,
+  edgeMasterPreferences
+} from './master-preferences'
+import {
   uniqueNamesGenerator,
   adjectives,
   colors as ucColors,
@@ -83,6 +87,50 @@ export const DEFAULT_BROWSER_FLAGS: DefaultBrowserFlags[] = [
   // @ts-expect-error - this is a valid flag
   '--disable-features=DisableLoadExtensionCommandLineSwitch'
 ]
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function deepMergePreferences(
+  base: Record<string, unknown>,
+  custom: Record<string, unknown>
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {...base}
+
+  for (const [key, value] of Object.entries(custom)) {
+    const current = merged[key]
+    if (isPlainObject(current) && isPlainObject(value)) {
+      merged[key] = deepMergePreferences(current, value)
+      continue
+    }
+    merged[key] = value
+  }
+
+  return merged
+}
+
+function getChromiumMasterPreferences(
+  browser: PluginInterface['browser']
+): Record<string, unknown> {
+  return browser === 'edge' ? edgeMasterPreferences : chromeMasterPreferences
+}
+
+function seedChromiumPreferences(
+  profilePath: string,
+  browser: PluginInterface['browser'],
+  customPreferences: unknown
+) {
+  const preferencesPath = path.join(profilePath, 'Default', 'Preferences')
+  if (fs.existsSync(preferencesPath)) return
+
+  const basePreferences = getChromiumMasterPreferences(browser)
+  const custom = isPlainObject(customPreferences) ? customPreferences : {}
+  const mergedPreferences = deepMergePreferences(basePreferences, custom)
+
+  fs.mkdirSync(path.dirname(preferencesPath), {recursive: true})
+  fs.writeFileSync(preferencesPath, JSON.stringify(mergedPreferences), 'utf8')
+}
 
 export function browserConfig(
   compilation: Compilation,
@@ -182,6 +230,21 @@ export function browserConfig(
     }
   } else {
     userProfilePath = ''
+  }
+
+  // Seed Chromium profile preferences once for managed/explicit profile paths.
+  // This ensures extension developer mode defaults are present on fresh runs.
+  if (userProfilePath) {
+    try {
+      fs.mkdirSync(userProfilePath, {recursive: true})
+      seedChromiumPreferences(
+        userProfilePath,
+        configOptions.browser,
+        configOptions.preferences
+      )
+    } catch {
+      // best-effort only
+    }
   }
 
   // Get excluded flags (if any)
