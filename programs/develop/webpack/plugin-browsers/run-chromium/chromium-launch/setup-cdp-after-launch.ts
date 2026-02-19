@@ -110,6 +110,25 @@ export async function setupCdpAfterLaunch(
     console.log(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
   }
 
+  const mode = (compilation?.options?.mode || 'development') as string
+  let earlyBannerPrinted = false
+
+  // Print the development banner as early as possible with a best-effort
+  // ID lookup. A later pass can still enrich details if needed.
+  if (mode === 'development') {
+    try {
+      earlyBannerPrinted = await printDevBannerOnce({
+        outPath: extensionOutputPath,
+        browser: plugin.browser,
+        hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
+        getInfo: async () => cdpExtensionController.getInfoBestEffort(),
+        browserVersionLine: plugin.browserVersionLine
+      })
+    } catch {
+      // best-effort only
+    }
+  }
+
   // Get extension and environment info after ensuring everything is loaded
   let extensionControllerInfo: {
     extensionId: string
@@ -141,25 +160,25 @@ export async function setupCdpAfterLaunch(
   }
 
   try {
-    const mode = (compilation?.options?.mode || 'development') as string
-
     if (mode === 'development') {
-      const bannerPrinted = await printDevBannerOnce({
-        outPath: extensionOutputPath,
-        browser: plugin.browser,
-        hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
-        getInfo: async () => extensionControllerInfo,
-        browserVersionLine: plugin.browserVersionLine
-      })
-
-      if (!bannerPrinted) {
-        await printDevBannerOnce({
+      if (!earlyBannerPrinted) {
+        const bannerPrinted = await printDevBannerOnce({
           outPath: extensionOutputPath,
           browser: plugin.browser,
           hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
-          getInfo: async () => cdpExtensionController.getInfoBestEffort(),
+          getInfo: async () => extensionControllerInfo,
           browserVersionLine: plugin.browserVersionLine
         })
+
+        if (!bannerPrinted) {
+          await printDevBannerOnce({
+            outPath: extensionOutputPath,
+            browser: plugin.browser,
+            hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
+            getInfo: async () => cdpExtensionController.getInfoBestEffort(),
+            browserVersionLine: plugin.browserVersionLine
+          })
+        }
       }
     } else if (mode === 'production') {
       const runtime = extensionControllerInfo

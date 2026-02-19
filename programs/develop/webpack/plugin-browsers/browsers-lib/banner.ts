@@ -8,12 +8,13 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
+import {createHash} from 'crypto'
 import * as messages from './messages'
 import * as coreMessages from '../../webpack-lib/messages'
 import {markBannerPrinted} from './shared-state'
 import type {DevOptions} from '../../webpack-types'
 
-type Info = {extensionId: string; name?: string; version?: string} | null
+type Info = {extensionId?: string; name?: string; version?: string} | null
 type HostPort = {host?: string; port?: number | string}
 
 const printedKeys = new Set<string>()
@@ -39,6 +40,75 @@ function keyFor(
   return `${browser}::${path.resolve(outPath)}::${host}:${port}`
 }
 
+function toNormalizedId(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim()
+}
+
+function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
+  const key = toNormalizedId((manifest as {key?: unknown})?.key)
+
+  if (!key) return ''
+
+  try {
+    const decodedKey = Buffer.from(key.replace(/\s+/g, ''), 'base64')
+    if (!decodedKey.length) return ''
+
+    const digest = createHash('sha256').update(decodedKey).digest().subarray(0, 16)
+    let extensionId = ''
+
+    for (const byte of digest) {
+      extensionId += String.fromCharCode(97 + ((byte >> 4) & 0x0f))
+      extensionId += String.fromCharCode(97 + (byte & 0x0f))
+    }
+
+    return extensionId
+  } catch {
+    return ''
+  }
+}
+
+function deriveFirefoxExtensionIdFromManifest(manifest: unknown): string {
+  const fromBrowserSpecificSettings = toNormalizedId(
+    (manifest as {browser_specific_settings?: {gecko?: {id?: unknown}}})
+      ?.browser_specific_settings?.gecko?.id
+  )
+  if (fromBrowserSpecificSettings) return fromBrowserSpecificSettings
+
+  return toNormalizedId(
+    (manifest as {applications?: {gecko?: {id?: unknown}}})?.applications
+      ?.gecko?.id
+  )
+}
+
+function resolveExtensionId(args: {
+  browser: DevOptions['browser']
+  info: Info
+  fallback?: {extensionId?: string}
+  manifest: unknown
+}): string {
+  const fromInfo = toNormalizedId(args.info?.extensionId)
+  if (fromInfo) return fromInfo
+
+  const fromFallback = toNormalizedId(args.fallback?.extensionId)
+  if (fromFallback) return fromFallback
+
+  if (
+    args.browser === 'chrome' ||
+    args.browser === 'edge' ||
+    args.browser === 'chromium' ||
+    args.browser === 'chromium-based'
+  ) {
+    return deriveChromiumExtensionIdFromManifest(args.manifest)
+  }
+
+  if (args.browser === 'firefox' || args.browser === 'firefox-based') {
+    return deriveFirefoxExtensionIdFromManifest(args.manifest)
+  }
+
+  return ''
+}
+
 export async function printDevBannerOnce(opts: {
   browser: DevOptions['browser']
   outPath: string
@@ -58,8 +128,15 @@ export async function printDevBannerOnce(opts: {
   if (!fs.existsSync(manifestPath)) return false
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
-  const extensionId =
-    info?.extensionId || opts.fallback?.extensionId || '(temporary)'
+  const extensionId = resolveExtensionId({
+    browser: opts.browser,
+    info,
+    fallback: opts.fallback,
+    manifest
+  })
+
+  if (!extensionId) return false
+
   const name = info?.name || opts.fallback?.name || manifest.name
   const version = info?.version || opts.fallback?.version || manifest.version
 
