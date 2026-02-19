@@ -11,6 +11,12 @@ function makeCompilation(
   return {options: {output: {path: out}}} as any
 }
 
+function getUserDataDir(flags: string[]) {
+  const userDirFlag = flags.find((f) => f.startsWith('--user-data-dir='))
+  expect(userDirFlag).toBeTruthy()
+  return String(userDirFlag).replace('--user-data-dir=', '')
+}
+
 describe('Chromium profile flags', () => {
   const OLD_ENV = process.env
   beforeEach(() => {
@@ -51,5 +57,45 @@ describe('Chromium profile flags', () => {
     expect(userDir).toMatch(
       /extension-js[\\/]+profiles[\\/]+chrome-profile[\\/]dev"?$/
     )
+  })
+
+  it('seeds managed profile with developer mode preferences', () => {
+    const flags = browserConfig(makeCompilation(), {
+      extension: '/ext',
+      browser: 'chromium'
+    } as any)
+
+    const profilePath = getUserDataDir(flags)
+    const preferencesPath = path.join(profilePath, 'Default', 'Preferences')
+    const preferences = JSON.parse(fs.readFileSync(preferencesPath, 'utf8'))
+
+    expect(preferences?.extensions?.developer_mode).toBe(true)
+    expect(preferences?.extensions?.ui?.developer_mode).toBe(true)
+  })
+
+  it('does not overwrite existing Preferences in persistent profiles', () => {
+    const sharedOut = path.join(os.tmpdir(), 'project', 'dist', 'chrome')
+    const initialFlags = browserConfig(makeCompilation(sharedOut), {
+      extension: '/ext',
+      browser: 'chrome',
+      persistProfile: true
+    } as any)
+
+    const profilePath = getUserDataDir(initialFlags)
+    const preferencesPath = path.join(profilePath, 'Default', 'Preferences')
+    fs.writeFileSync(
+      preferencesPath,
+      JSON.stringify({extensions: {developer_mode: false}}),
+      'utf8'
+    )
+
+    browserConfig(makeCompilation(sharedOut), {
+      extension: '/ext',
+      browser: 'chrome',
+      persistProfile: true
+    } as any)
+
+    const preferences = JSON.parse(fs.readFileSync(preferencesPath, 'utf8'))
+    expect(preferences?.extensions?.developer_mode).toBe(false)
   })
 })
