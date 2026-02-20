@@ -38,7 +38,9 @@ const makeWebpackStub = () => {
     Template,
     RuntimeGlobals,
     RuntimeModule: StubRuntimeModule,
-    javascript: {JavascriptModulesPlugin: {getChunkFilenameTemplate: () => ''}},
+    javascript: {
+      JavascriptModulesPlugin: {getChunkFilenameTemplate: () => ''}
+    },
     HotUpdateChunk: function HotUpdateChunk() {}
   }
 

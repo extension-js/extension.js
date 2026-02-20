@@ -12,7 +12,8 @@ function main() {
     // Prefer a single workspace install to avoid per-package pnpm runs.
     const rootNodeModules = path.join(root, 'node_modules')
     const hasWorkspaceInstall =
-      fs.existsSync(rootNodeModules) && fs.readdirSync(rootNodeModules).length > 0
+      fs.existsSync(rootNodeModules) &&
+      fs.readdirSync(rootNodeModules).length > 0
     if (hasWorkspaceInstall) return
 
     const nodeModules = path.join(pkgRoot, 'node_modules')
@@ -43,11 +44,16 @@ function main() {
       }
     }
   }
- 
+
   // Try to build all known targets for a given package folder.
   // Errors for individual targets are ignored to maximize overall success.
   function buildAllTargets(pkgRoot, {strict = false} = {}) {
-    const targets = ['build:chromium', 'build:chrome', 'build:firefox', 'build:edge']
+    const targets = [
+      'build:chromium',
+      'build:chrome',
+      'build:firefox',
+      'build:edge'
+    ]
     for (const script of targets) {
       try {
         execSync(`pnpm run -s ${script}`, {
@@ -67,7 +73,7 @@ function main() {
     const pkgRoot = path.join(root, 'extensions', packageName)
     const distRoot = path.join(pkgRoot, 'dist')
     const engines = ['chromium', 'chrome', 'edge', 'firefox']
-    const missing = engines.filter(engine => {
+    const missing = engines.filter((engine) => {
       const manifestPath = path.join(distRoot, engine, 'manifest.json')
       return !fs.existsSync(manifestPath)
     })
@@ -83,7 +89,7 @@ function main() {
     ensureDependencies(pkgRoot)
     buildAllTargets(pkgRoot, {strict: true})
 
-    const stillMissing = engines.filter(engine => {
+    const stillMissing = engines.filter((engine) => {
       const manifestPath = path.join(distRoot, engine, 'manifest.json')
       return !fs.existsSync(manifestPath)
     })
@@ -101,7 +107,7 @@ function main() {
   function buildAndMirror(packageName) {
     const src = path.join(root, 'extensions', packageName, 'dist')
     const dest = path.join(root, 'programs', 'develop', 'dist', packageName)
- 
+
     // Build if dist is missing, then try to copy again
     if (!fs.existsSync(src)) {
       try {
@@ -120,14 +126,16 @@ function main() {
         // ignore build issues; copy will be skipped if still missing
       }
     }
- 
+
     if (!fs.existsSync(src)) {
       if (verbose) {
-        console.warn(`[Extension.js] ${packageName} dist missing. Skipping mirror.`)
+        console.warn(
+          `[Extension.js] ${packageName} dist missing. Skipping mirror.`
+        )
       }
       return
     }
- 
+
     // Reset destination and copy dist
     // Use a temp folder + rename to avoid EEXIST errors from cpSync on macOS.
     const tmpDest = `${dest}__tmp`
@@ -152,7 +160,7 @@ function main() {
 
     fs.renameSync(tmpDest, dest)
   }
- 
+
   // Hard guard: ensure extension-js-devtools dist exists for all engines
   // before we cut a new extension-develop package. If this fails, we prefer
   // to fail the publish rather than ship a broken devtools experience.
@@ -178,14 +186,14 @@ function main() {
     try {
       const entries = fs.readdirSync(extensionsRoot, {withFileTypes: true})
       return entries
-        .filter(d => d.isDirectory())
-        .map(d => d.name)
-        .filter(name => name !== 'browser-extension')
+        .filter((d) => d.isDirectory())
+        .map((d) => d.name)
+        .filter((name) => name !== 'browser-extension')
     } catch {
       return []
     }
   }
- 
+
   // Build and mirror all discovered extension packages except 'browser-extension'
   for (const packageName of listExtensionPackages()) {
     if (packageName === 'extension-js-devtools') {

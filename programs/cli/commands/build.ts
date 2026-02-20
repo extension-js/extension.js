@@ -96,8 +96,9 @@ export function registerBuildCommand(program: Command, telemetry: any) {
       })
 
       // Load the matching develop runtime from the regular dependency graph.
-      const {extensionBuild}: {extensionBuild: any} =
-        await import('extension-develop')
+      const {extensionBuild}: {extensionBuild: any} = await import(
+        'extension-develop'
+      )
 
       for (const vendor of list) {
         const vendorStart = Date.now()

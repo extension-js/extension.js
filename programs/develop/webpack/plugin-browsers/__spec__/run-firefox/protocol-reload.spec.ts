@@ -33,7 +33,12 @@ describe('Firefox protocol reload path (unit)', () => {
     // First build
     await new Promise<void>((resolve) =>
       tapCb(
-        {compilation: {options: {mode: 'development'}, getAssets: () => []}},
+        {
+          compilation: {
+            options: {mode: 'development'},
+            getAssets: () => []
+          }
+        },
         resolve
       )
     )
@@ -86,7 +91,12 @@ describe('Firefox protocol reload path (unit)', () => {
     // First build
     await new Promise<void>((resolve) =>
       tapCb(
-        {compilation: {options: {mode: 'development'}, getAssets: () => []}},
+        {
+          compilation: {
+            options: {mode: 'development'},
+            getAssets: () => []
+          }
+        },
         resolve
       )
     )
