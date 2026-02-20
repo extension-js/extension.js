@@ -62,8 +62,10 @@ import {CompilationPlugin} from '../index'
 describe('CompilationPlugin', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>
   let stdoutWriteSpy: ReturnType<typeof vi.spyOn>
+  const originalRunnerEnabled = process.env.EXTENSION_BROWSER_RUNNER_ENABLED
 
   beforeEach(() => {
+    process.env.EXTENSION_BROWSER_RUNNER_ENABLED = '0'
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     stdoutWriteSpy = vi
       .spyOn(process.stdout, 'write')
@@ -76,6 +78,7 @@ describe('CompilationPlugin', () => {
   })
 
   afterEach(() => {
+    process.env.EXTENSION_BROWSER_RUNNER_ENABLED = originalRunnerEnabled
     vi.restoreAllMocks()
   })
 
@@ -93,6 +96,9 @@ describe('CompilationPlugin', () => {
         error: console.error
       }),
       hooks: {
+        watchClose: {
+          tap: () => {}
+        },
         // Some third-party plugins call done.tap, so provide both
         done: {
           tap: (_name: string, cb: any) => {

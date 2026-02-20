@@ -17,7 +17,9 @@ function makeCompilation() {
     state,
     assets,
     options: {mode: 'production'},
-    hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}}
+    hooks: {
+      thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}
+    }
   } as any
 }
 
@@ -33,7 +35,10 @@ describe('EmitHtmlFile', () => {
     const c = makeCompilation()
     new EmitHtmlFile({
       manifestPath,
-      includeList: {'feature/index': '/index.html', 'feature/rel': 'index.html'}
+      includeList: {
+        'feature/index': '/index.html',
+        'feature/rel': 'index.html'
+      }
     } as any).apply(c as any)
     const keys = Object.keys(c.assets)
     expect(keys.length).toBeGreaterThanOrEqual(1)

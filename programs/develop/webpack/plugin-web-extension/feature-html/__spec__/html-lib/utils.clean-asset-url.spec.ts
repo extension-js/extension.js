@@ -7,7 +7,11 @@ describe('html-lib utils', () => {
     const r1 = cleanAssetUrl('img/a.png?x=1#h')
     expect(r1).toEqual({cleanPath: 'img/a.png', search: '?x=1', hash: '#h'})
     const r2 = cleanAssetUrl('img/a.png#h?ignored')
-    expect(r2).toEqual({cleanPath: 'img/a.png', search: '', hash: '#h?ignored'})
+    expect(r2).toEqual({
+      cleanPath: 'img/a.png',
+      search: '',
+      hash: '#h?ignored'
+    })
     const r3 = cleanAssetUrl('img/a.png')
     expect(r3).toEqual({cleanPath: 'img/a.png', search: '', hash: ''})
   })

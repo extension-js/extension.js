@@ -233,7 +233,9 @@ function subscribeAllLoggers() {
           try {
             setTimeout(() => {
               try {
-                const p = chrome.runtime.connect(extension.id, {name: 'logger'})
+                const p = chrome.runtime.connect(extension.id, {
+                  name: 'logger'
+                })
                 p.postMessage({type: 'subscribe'})
               } catch {}
             }, 1000)

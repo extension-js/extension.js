@@ -34,7 +34,10 @@ vi.mock('../../run-chromium/chromium-source-inspection/cdp-client', () => {
 })
 
 vi.mock('../../run-chromium/chromium-source-inspection/targets', () => ({
-  ensureTargetAndSession: vi.fn(async () => ({targetId: 't', sessionId: 's'}))
+  ensureTargetAndSession: vi.fn(async () => ({
+    targetId: 't',
+    sessionId: 's'
+  }))
 }))
 
 vi.mock('../../run-chromium/chromium-source-inspection/extract', () => ({
@@ -49,7 +52,10 @@ describe('SetupChromeInspectionStep (unit)', () => {
   })
 
   it('initializes and inspects source returning HTML', async () => {
-    const step = new SetupChromeInspectionStep({browser: 'chrome', port: 9222})
+    const step = new SetupChromeInspectionStep({
+      browser: 'chrome',
+      port: 9222
+    })
     // initialize()
     await step.initialize(9222)
     // inspectSource()
