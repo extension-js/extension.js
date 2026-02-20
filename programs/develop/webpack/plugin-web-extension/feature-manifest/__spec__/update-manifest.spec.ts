@@ -32,7 +32,9 @@ describe('UpdateManifest', () => {
     }
     const compiler: any = {
       options: {mode},
-      hooks: {thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}}
+      hooks: {
+        thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+      }
     }
     return {compiler, updated}
   }

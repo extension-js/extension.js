@@ -233,132 +233,127 @@ describe('extension create', () => {
   )
 
   describe.skip('using the --template flag', () => {
-    it.each(ALL_TEMPLATES)(
-      `creates the "$name" extension template`,
-      async (template) => {
-        const templatePath = path.join(
-          __dirname,
-          'dist',
-          'test-template-' + template.name
-        )
+    it.each(
+      ALL_TEMPLATES
+    )(`creates the "$name" extension template`, async (template) => {
+      const templatePath = path.join(
+        __dirname,
+        'dist',
+        'test-template-' + template.name
+      )
 
-        await extensionCreate(templatePath, {
-          template: template.name,
-          install: true
-        })
+      await extensionCreate(templatePath, {
+        template: template.name,
+        install: true
+      })
 
-        // UI frameworks will use either tsx or jsx files.
-        // Non-UI frameworks will use either ts or js files.
-        // TODO: cezaraugusto this is not going to scale well
-        // but better than nothing for now.
-        const ext = template.uiFramework
-          ? template.uiFramework === 'vue' || template.uiFramework === 'svelte'
-            ? 'ts'
-            : 'tsx'
-          : template.configFiles?.includes('tsconfig.json')
-            ? 'ts'
-            : 'js'
+      // UI frameworks will use either tsx or jsx files.
+      // Non-UI frameworks will use either ts or js files.
+      // TODO: cezaraugusto this is not going to scale well
+      // but better than nothing for now.
+      const ext = template.uiFramework
+        ? template.uiFramework === 'vue' || template.uiFramework === 'svelte'
+          ? 'ts'
+          : 'tsx'
+        : template.configFiles?.includes('tsconfig.json')
+          ? 'ts'
+          : 'js'
 
-        template.uiContext?.forEach((context: string) => {
-          // Expect [context]/index.html for all contexts except 'content'
-          if (!context.includes('content')) {
-            expect(
-              fileExists(template.name, `${context.toLowerCase()}/index.html`)
-            ).toBeTruthy()
-          }
-
-          if (template.name.includes('esm')) {
-            expect(
-              fileExists(template.name, `${context.toLowerCase()}/scripts.mjs`)
-            ).toBeTruthy()
-            // Expect [uiContext]/[uiContext].[ext] for scripts
-          } else {
-            expect(
-              fileExists(
-                template.name,
-                `${context.toLowerCase()}/scripts.${ext}`
-              )
-            ).toBeTruthy()
-          }
-
-          // Expect [uiContext]/styles.sass|less|css for styles
-          if (template.css === 'sass') {
-            expect(
-              fileExists(template.name, `${context.toLowerCase()}/styles.scss`)
-            ).toBeTruthy()
-          } else if (template.name?.includes('less')) {
-            expect(
-              fileExists(template.name, `${context.toLowerCase()}/styles.less`)
-            ).toBeTruthy()
-          } else {
-            expect(
-              fileExists(template.name, `${context.toLowerCase()}/styles.css`)
-            ).toBeTruthy()
-          }
-
-          // Expect [ContextApp].[ext] for all contexts using frameworks
-          if (template.uiFramework) {
-            const capitalizedtemplate =
-              context?.charAt(0).toUpperCase() + context?.slice(1)
-
-            // Vue uses its own file extension
-            const fileExt =
-              template.uiFramework === 'vue'
-                ? 'vue'
-                : template.uiFramework === 'svelte'
-                  ? 'svelte'
-                  : ext
-
-            expect(
-              fileExists(
-                template.name,
-                `${context.toLowerCase()}/${capitalizedtemplate}App.${fileExt}`
-              )
-            ).toBeTruthy()
-          }
-        })
-
-        // Expect images/extension_16.png and expect images/extension_16.png
-        if (template.name !== 'init') {
+      template.uiContext?.forEach((context: string) => {
+        // Expect [context]/index.html for all contexts except 'content'
+        if (!context.includes('content')) {
           expect(
-            fileExists(template.name, 'images/extension_48.png')
+            fileExists(template.name, `${context.toLowerCase()}/index.html`)
           ).toBeTruthy()
         }
 
-        if (template.uiContext?.includes('action')) {
+        if (template.name.includes('esm')) {
           expect(
-            fileExists(template.name, 'images/extension_16.png')
+            fileExists(template.name, `${context.toLowerCase()}/scripts.mjs`)
+          ).toBeTruthy()
+          // Expect [uiContext]/[uiContext].[ext] for scripts
+        } else {
+          expect(
+            fileExists(template.name, `${context.toLowerCase()}/scripts.${ext}`)
           ).toBeTruthy()
         }
 
-        // Expect manifest.json to exist (root, src, or nested template paths)
-        expect(manifestExists(template.name)).toBeTruthy()
-
-        // Expect package.json to exist
-        expect(fileExists(template.name, 'package.json')).toBeTruthy()
-
-        // Expect README.md to exist
-        expect(fileExists(template.name, 'README.md')).toBeTruthy()
-
-        // Expect .gitignore to exist
-        expect(fileExists(template.name, '.gitignore')).toBeTruthy()
-
-        // Expect project to be a .git project
-        expect(fileExists(template.name, '.git')).toBeTruthy()
-
-        if (template.hasEnv) {
-          // For those who need it: Expect .env.sample
-          expect(fileExists(template.name, '.env.example')).toBeTruthy()
+        // Expect [uiContext]/styles.sass|less|css for styles
+        if (template.css === 'sass') {
+          expect(
+            fileExists(template.name, `${context.toLowerCase()}/styles.scss`)
+          ).toBeTruthy()
+        } else if (template.name?.includes('less')) {
+          expect(
+            fileExists(template.name, `${context.toLowerCase()}/styles.less`)
+          ).toBeTruthy()
+        } else {
+          expect(
+            fileExists(template.name, `${context.toLowerCase()}/styles.css`)
+          ).toBeTruthy()
         }
 
-        if (template.configFiles) {
-          template.configFiles.forEach((configFile) => {
-            // Expect every config file declared in the template to exist
-            expect(fileExists(template.name, configFile)).toBeTruthy()
-          })
+        // Expect [ContextApp].[ext] for all contexts using frameworks
+        if (template.uiFramework) {
+          const capitalizedtemplate =
+            context?.charAt(0).toUpperCase() + context?.slice(1)
+
+          // Vue uses its own file extension
+          const fileExt =
+            template.uiFramework === 'vue'
+              ? 'vue'
+              : template.uiFramework === 'svelte'
+                ? 'svelte'
+                : ext
+
+          expect(
+            fileExists(
+              template.name,
+              `${context.toLowerCase()}/${capitalizedtemplate}App.${fileExt}`
+            )
+          ).toBeTruthy()
         }
-      },
-      60000
-    )
+      })
+
+      // Expect images/extension_16.png and expect images/extension_16.png
+      if (template.name !== 'init') {
+        expect(
+          fileExists(template.name, 'images/extension_48.png')
+        ).toBeTruthy()
+      }
+
+      if (template.uiContext?.includes('action')) {
+        expect(
+          fileExists(template.name, 'images/extension_16.png')
+        ).toBeTruthy()
+      }
+
+      // Expect manifest.json to exist (root, src, or nested template paths)
+      expect(manifestExists(template.name)).toBeTruthy()
+
+      // Expect package.json to exist
+      expect(fileExists(template.name, 'package.json')).toBeTruthy()
+
+      // Expect README.md to exist
+      expect(fileExists(template.name, 'README.md')).toBeTruthy()
+
+      // Expect .gitignore to exist
+      expect(fileExists(template.name, '.gitignore')).toBeTruthy()
+
+      // Expect project to be a .git project
+      expect(fileExists(template.name, '.git')).toBeTruthy()
+
+      if (template.hasEnv) {
+        // For those who need it: Expect .env.sample
+        expect(fileExists(template.name, '.env.example')).toBeTruthy()
+      }
+
+      if (template.configFiles) {
+        template.configFiles.forEach((configFile) => {
+          // Expect every config file declared in the template to exist
+          expect(fileExists(template.name, configFile)).toBeTruthy()
+        })
+      }
+    }, 60000)
   })
 })
