@@ -12,8 +12,8 @@
     "compile": "node scripts/run-compile.mjs",
     "extension": "dotenv -- node programs/cli/dist/cli.cjs",
     "watch": "node scripts/run-watch.mjs",
-    "format": "prettier --write \"**/*.{ts,tsx,md,js,json}\"",
-    "lint": "eslint .",
+    "format": "biome format --write package.json programs scripts .github",
+    "lint": "biome lint package.json programs scripts .github --files-max-size=262144",
     "test": "node scripts/run-test.mjs",
     "test:cli": "node scripts/run-test.mjs cli",
     "test:build": "node scripts/run-test.mjs develop",
@@ -33,53 +33,21 @@
     "postcompile": "node scripts/build-extensions.cjs"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.2",
+    "@biomejs/biome": "^2.2.4",
     "@playwright/test": "^1.58.1",
     "@types/chrome": "^0.1.33",
     "@types/node": "^25.2.0",
     "@types/webextension-polyfill": "0.12.4",
-    "@typescript-eslint/eslint-plugin": "^8.53.0",
+    "ajv": "8.18.0",
     "cross-env": "^10.1.0",
     "cross-spawn": "^7.0.6",
     "dotenv-cli": "^11.0.0",
-    "ajv": "8.18.0",
-    "eslint": "^9.39.2",
     "extension": "workspace:*",
-    "globals": "^17.3.0",
     "husky": "9.1.7",
     "lint-staged": "16.2.7",
-    "prettier": "^3.8.0",
     "tsx": "^4.21.0",
     "turbo": "^2.8.3",
     "typescript": "5.9.3",
     "vite": "^7.3.1"
-  },
-  "pnpm": {
-    "overrides": {
-      "ajv@8.17.1": "8.18.0",
-      "tar": "7.5.9",
-      "vite": "^7.3.1",
-      "vitest": "4.0.18",
-      "js-yaml@^3": "3.14.2",
-      "js-yaml@^4": "4.1.1",
-      "glob": "11.1.0",
-      "jsdom": "28.0.0",
-      "node-forge": "1.3.2",
-      "qs": "6.14.2",
-      "preact": "10.28.3",
-      "@remix-run/router": "1.23.2"
-    },
-    "packageExtensions": {
-      "@prefresh/core@1.5.9": {
-        "peerDependencies": {
-          "preact": "^10.27.3"
-        }
-      },
-      "@prefresh/webpack@4.0.6": {
-        "peerDependencies": {
-          "preact": "^10.27.3"
-        }
-      }
-    }
   }
 }
