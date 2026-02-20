@@ -45,9 +45,13 @@ vi.mock('dotenv', () => ({
   config: vi.fn((opts: any) => {
     if (!opts || !opts.path) return {parsed: {}}
     if (String(opts.path).endsWith('.env.defaults')) {
-      return {parsed: {EXTENSION_PUBLIC_FOO: 'defFoo', EXTENSION_BAZ: 'defBaz'}}
+      return {
+        parsed: {EXTENSION_PUBLIC_FOO: 'defFoo', EXTENSION_BAZ: 'defBaz'}
+      }
     }
-    return {parsed: {EXTENSION_PUBLIC_FOO: 'envFoo', EXTENSION_BAR: 'envBar'}}
+    return {
+      parsed: {EXTENSION_PUBLIC_FOO: 'envFoo', EXTENSION_BAR: 'envBar'}
+    }
   })
 }))
 
