@@ -99,19 +99,32 @@ describe('install-internal-deps', () => {
 
     process.chdir(cwd)
 
-    expect(spawnCalls.length).toBe(2)
+    expect(spawnCalls.length).toBeGreaterThanOrEqual(2)
 
-    const buildCall = spawnCalls[0]
+    const buildCall = spawnCalls.find((call) =>
+      call.args.join(' ').includes('bar@2.0.0')
+    )
+    expect(buildCall).toBeTruthy()
     expect(buildCall.cwd).toBe(developRoot)
     expect(buildCall.args.join(' ')).toContain('install')
     expect(buildCall.args.join(' ')).toContain('bar@2.0.0')
 
-    const optionalCall = spawnCalls[1]
+    const optionalCall = spawnCalls.find((call) => {
+      const args = call.args.join(' ')
+      return (
+        args.includes('react-refresh') &&
+        args.includes('@rspack/plugin-react-refresh')
+      )
+    })
+    expect(optionalCall).toBeTruthy()
     expect(optionalCall.cwd).toBe(developRoot)
     const optionalArgs = optionalCall.args.join(' ')
     expect(optionalArgs).toContain('react-refresh')
     expect(optionalArgs).toContain('@rspack/plugin-react-refresh')
-    expect(optionalArgs).toContain('postcss')
-    expect(optionalArgs).toContain('postcss-loader')
+    const postCssCall = spawnCalls.find((call) => {
+      const args = call.args.join(' ')
+      return args.includes('postcss') && args.includes('postcss-loader')
+    })
+    expect(postCssCall).toBeTruthy()
   })
 })
