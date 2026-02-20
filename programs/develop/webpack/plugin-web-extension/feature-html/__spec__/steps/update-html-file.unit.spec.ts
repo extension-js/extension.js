@@ -38,7 +38,9 @@ describe('UpdateHtmlFile', () => {
     const c: any = {
       options: {mode: 'production'},
       assets,
-      hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}}
+      hooks: {
+        thisCompilation: {tap: (_: any, fn: any) => fn(innerCompilation)}
+      }
     }
     new UpdateHtmlFile({
       manifestPath,

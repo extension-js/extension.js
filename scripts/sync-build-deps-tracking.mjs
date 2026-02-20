@@ -20,10 +20,7 @@ const buildDepsPath = path.join(
   repoRoot,
   'programs/develop/webpack/webpack-lib/build-dependencies.json'
 )
-const trackingPkgPath = path.join(
-  repoRoot,
-  '.github/build-deps/package.json'
-)
+const trackingPkgPath = path.join(repoRoot, '.github/build-deps/package.json')
 
 const args = new Set(process.argv.slice(2))
 const isReverseArg = args.has('--reverse')
@@ -83,7 +80,7 @@ function sortObjectKeys(obj) {
 function detectChangedFiles(baseSha, headSha) {
   if (!baseSha || !headSha) return new Set()
 
-    try {
+  try {
     const output = execSync(`git diff --name-only ${baseSha} ${headSha}`, {
       cwd: repoRoot,
       encoding: 'utf-8'
@@ -160,7 +157,9 @@ if (!isReverse) {
   const deps = trackingPkg?.dependencies || {}
 
   if (typeof deps !== 'object' || deps === null || Array.isArray(deps)) {
-    console.error('Invalid tracking package.json: dependencies must be an object')
+    console.error(
+      'Invalid tracking package.json: dependencies must be an object'
+    )
     process.exit(1)
   }
 
@@ -171,4 +170,3 @@ if (!isReverse) {
     `✓ Synced ${Object.keys(sortedDeps).length} deps to build-dependencies.json`
   )
 }
-

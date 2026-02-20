@@ -1,6 +1,8 @@
 import {describe, it, expect, vi, afterEach} from 'vitest'
 import Module from 'module'
-vi.mock('chrome-location2', () => ({default: () => '/Applications/Chrome.app'}))
+vi.mock('chrome-location2', () => ({
+  default: () => '/Applications/Chrome.app'
+}))
 vi.mock('chromium-location', () => ({
   default: () => '/Applications/Chromium.app',
   getInstallGuidance: () => 'npx @puppeteer/browsers install chromium',

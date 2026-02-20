@@ -51,7 +51,9 @@ export class CDPExtensionController {
 
     // Proactively enable auto-attach and capture extensionId from service worker targets as soon as they appear
     try {
-      await this.cdp.sendCommand('Target.setDiscoverTargets', {discover: true})
+      await this.cdp.sendCommand('Target.setDiscoverTargets', {
+        discover: true
+      })
       await this.cdp.sendCommand('Target.setAutoAttach', {
         autoAttach: true,
         waitForDebuggerOnStart: false,
@@ -87,8 +89,9 @@ export class CDPExtensionController {
     if (this.extensionId) {
       try {
         // Try Extensions domain first; if missing, fall back to manifest
-        let info: {extensionInfo?: {name?: string; version?: string}} | null =
-          null
+        let info: {
+          extensionInfo?: {name?: string; version?: string}
+        } | null = null
 
         try {
           info = await this.cdp.getExtensionInfo(this.extensionId)
