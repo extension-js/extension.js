@@ -29,5 +29,3 @@ export default defineConfig({
     allowOnly: !process.env.CI
   }
 })
-
-

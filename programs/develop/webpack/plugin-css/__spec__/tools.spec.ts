@@ -76,8 +76,9 @@ describe('isContentScriptEntry', () => {
     ;(fs.existsSync as any).mockImplementation((p: string) =>
       String(p).endsWith('manifest.json')
     )
-    const {isContentScriptEntry} =
-      (await import('../css-lib/is-content-script')) as any
+    const {isContentScriptEntry} = (await import(
+      '../css-lib/is-content-script'
+    )) as any
     const path = require('path')
     const issuer = path.resolve('/project', 'content.js')
     const manifestPath = path.join('/project', 'manifest.json')
@@ -87,8 +88,9 @@ describe('isContentScriptEntry', () => {
   it('returns false for non-matching paths', async () => {
     const manifest = {content_scripts: [{js: ['a.js']}]} as any
     ;(fs.readFileSync as any).mockReturnValueOnce(JSON.stringify(manifest))
-    const {isContentScriptEntry} =
-      (await import('../css-lib/is-content-script')) as any
+    const {isContentScriptEntry} = (await import(
+      '../css-lib/is-content-script'
+    )) as any
     expect(isContentScriptEntry('/x/b.js', '/x/manifest.json', '/x')).toBe(
       false
     )
@@ -109,10 +111,11 @@ describe('css tools additional coverage', () => {
 
   it('isUsingTailwind logs only once across multiple calls', async () => {
     // Work with the mocked module (declared above) so the implementation used by code under test is affected.
-    const mockedIntegrations =
-      (await import('../css-lib/integrations')) as unknown as {
-        hasDependency: any
-      }
+    const mockedIntegrations = (await import(
+      '../css-lib/integrations'
+    )) as unknown as {
+      hasDependency: any
+    }
     mockedIntegrations.hasDependency.mockImplementation(
       (_: any, dep: string) => dep === 'tailwindcss'
     )

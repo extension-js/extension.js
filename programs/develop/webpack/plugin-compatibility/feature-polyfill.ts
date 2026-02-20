@@ -32,7 +32,9 @@ export class PolyfillPlugin {
       // that the bundler may not be able to resolve in all layouts.
       const polyfillPath = require.resolve(
         'webextension-polyfill/dist/browser-polyfill.js',
-        {paths: [compiler.options.context as string, __dirname].filter(Boolean)}
+        {
+          paths: [compiler.options.context as string, __dirname].filter(Boolean)
+        }
       )
 
       // Ensure the module specifier resolves to our absolute polyfill path,

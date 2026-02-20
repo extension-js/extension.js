@@ -37,7 +37,9 @@ export async function importExternalTemplate(
     // Ensure the project path exists
     await fs.mkdir(projectPath, {recursive: true})
     // Create a temporary directory for fetching remote templates
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'extension-js-create-'))
+    const tempRoot = await fs.mkdtemp(
+      path.join(os.tmpdir(), 'extension-js-create-')
+    )
     const tempPath = path.join(tempRoot, projectName + '-temp')
     await fs.mkdir(tempPath, {recursive: true})
 
@@ -54,7 +56,7 @@ export async function importExternalTemplate(
 
     if (isGithub) {
       await runGoGitIt(template, tempPath)
-        // If a subfolder exists matching the last path segment, use it; otherwise copy from tempPath
+      // If a subfolder exists matching the last path segment, use it; otherwise copy from tempPath
       const candidates = await fs.readdir(tempPath, {withFileTypes: true})
       const preferred = candidates.find(
         (d) => d.isDirectory() && d.name === templateName

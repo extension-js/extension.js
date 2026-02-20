@@ -53,7 +53,11 @@ export async function cssInHtmlLoader(
             type: 'css',
             loader: 'less-loader'
           },
-          {test: /\.module\.less$/, type: 'css/module', loader: 'less-loader'}
+          {
+            test: /\.module\.less$/,
+            type: 'css/module',
+            loader: 'less-loader'
+          }
         ]
       : [])
   ]

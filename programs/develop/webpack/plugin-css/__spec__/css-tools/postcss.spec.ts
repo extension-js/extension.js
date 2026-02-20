@@ -24,7 +24,9 @@ describe('postcss detection', () => {
   })
 
   it('isUsingPostCss returns true when Tailwind is present (bridge detection)', async () => {
-    vi.doMock('../../css-tools/tailwind', () => ({isUsingTailwind: () => true}))
+    vi.doMock('../../css-tools/tailwind', () => ({
+      isUsingTailwind: () => true
+    }))
     const {isUsingPostCss} = await import('../../css-tools/postcss')
     expect(isUsingPostCss('/p')).toBe(true)
   })
@@ -215,7 +217,9 @@ describe('postcss detection', () => {
 
     expect(tailwindFactory).toHaveBeenCalledWith({base: '/p'})
     expect(Array.isArray(opts?.plugins)).toBe(true)
-    expect((opts?.plugins as any[])[0]).toEqual({'@tailwindcss/postcss': false})
+    expect((opts?.plugins as any[])[0]).toEqual({
+      '@tailwindcss/postcss': false
+    })
     expect((opts?.plugins as any[])[1]).toEqual({tailwindcss: false})
   })
 
@@ -372,7 +376,9 @@ describe('postcss detection', () => {
 
     expect(opts?.config).toBe('/p')
     expect(tailwindFactory).toHaveBeenCalledWith({base: '/p'})
-    expect((opts?.plugins as any[])[0]).toEqual({'@tailwindcss/postcss': false})
+    expect((opts?.plugins as any[])[0]).toEqual({
+      '@tailwindcss/postcss': false
+    })
     expect((opts?.plugins as any[])[1]).toEqual({tailwindcss: false})
   })
 
@@ -418,7 +424,9 @@ describe('postcss detection', () => {
 
     expect(opts?.config).toBe(false)
     expect(Array.isArray(opts?.plugins)).toBe(true)
-    expect((opts?.plugins as any[])[0]).toEqual({'@tailwindcss/postcss': false})
+    expect((opts?.plugins as any[])[0]).toEqual({
+      '@tailwindcss/postcss': false
+    })
     expect((opts?.plugins as any[])[1]).toEqual({tailwindcss: false})
   })
 
@@ -465,7 +473,9 @@ describe('postcss detection', () => {
 
     expect(opts?.config).toBe('/p')
     expect(Array.isArray(opts?.plugins)).toBe(true)
-    expect((opts?.plugins as any[])[0]).toEqual({'@tailwindcss/postcss': false})
+    expect((opts?.plugins as any[])[0]).toEqual({
+      '@tailwindcss/postcss': false
+    })
     expect((opts?.plugins as any[])[1]).toEqual({tailwindcss: false})
   })
 
@@ -517,7 +527,9 @@ describe('postcss detection', () => {
     expect(Array.isArray(opts?.plugins)).toBe(true)
     expect(tailwindPostcssFactory).toHaveBeenCalledWith({base: '/p'})
     expect(tailwindCssFactory).not.toHaveBeenCalled()
-    expect((opts?.plugins as any[])[0]).toEqual({'@tailwindcss/postcss': false})
+    expect((opts?.plugins as any[])[0]).toEqual({
+      '@tailwindcss/postcss': false
+    })
     expect((opts?.plugins as any[])[1]).toEqual({tailwindcss: false})
   })
 
@@ -658,7 +670,9 @@ describe('postcss detection', () => {
         existsSync: (p: string) => String(p).endsWith('postcss.config.js'),
         readFileSync: (p: string, enc: string) => {
           if (String(p).endsWith('package.json')) {
-            return JSON.stringify({devDependencies: {tailwindcss: '^3.4.13'}})
+            return JSON.stringify({
+              devDependencies: {tailwindcss: '^3.4.13'}
+            })
           }
           if (String(p).endsWith('postcss.config.js')) {
             return [
@@ -721,7 +735,10 @@ describe('postcss detection', () => {
         readFileSync: (p: string, enc: string) => {
           if (String(p).endsWith('package.json')) {
             return JSON.stringify({
-              devDependencies: {tailwindcss: '^3.4.13', autoprefixer: '^10.0.0'}
+              devDependencies: {
+                tailwindcss: '^3.4.13',
+                autoprefixer: '^10.0.0'
+              }
             })
           }
           if (String(p).endsWith('postcss.config.js')) {

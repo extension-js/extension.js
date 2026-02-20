@@ -61,7 +61,9 @@ describe('FirefoxSourceInspectionPlugin (unit)', () => {
       source: 'http://example/'
     }) as any
     const compiler: any = {
-      hooks: {done: {tapAsync: (_name: string, cb: any) => cb({}, () => {})}},
+      hooks: {
+        done: {tapAsync: (_name: string, cb: any) => cb({}, () => {})}
+      },
       options: {mode: 'development'}
     }
     // Should not throw during apply

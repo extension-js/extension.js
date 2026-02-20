@@ -230,9 +230,11 @@ export function resolveUserDeclaredWAR(
           publicRootHint: true,
           relativeRef: res
         })
-        const err = new (WebpackError as unknown as {
-          new (message: string): Error & {file?: string}
-        })(msg)
+        const err = new (
+          WebpackError as unknown as {
+            new (message: string): Error & {file?: string}
+          }
+        )(msg)
         err.file = 'manifest.json'
 
         compilation.warnings!.push(err)

@@ -37,7 +37,10 @@ describe('web_accessible_resources: public-root presence checks', () => {
     }
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const compilation: any = {
-      getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
+      getAsset: vi.fn(() => ({
+        name: 'manifest.json',
+        source: manifestSource
+      })),
       assets: {'manifest.json': manifestSource},
       updateAsset: vi.fn(),
       emitAsset: vi.fn(),
@@ -66,7 +69,10 @@ describe('web_accessible_resources: public-root presence checks', () => {
     }
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const compilation: any = {
-      getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
+      getAsset: vi.fn(() => ({
+        name: 'manifest.json',
+        source: manifestSource
+      })),
       assets: {'manifest.json': manifestSource},
       updateAsset: vi.fn(),
       emitAsset: vi.fn(),
@@ -95,12 +101,18 @@ describe('web_accessible_resources: public-root presence checks', () => {
     }
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const compilation: any = {
-      getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
+      getAsset: vi.fn(() => ({
+        name: 'manifest.json',
+        source: manifestSource
+      })),
       assets: {'manifest.json': manifestSource},
       updateAsset: vi.fn(),
       emitAsset: vi.fn(),
       fileDependencies: new Set(),
-      options: {mode: 'development', output: {path: path.join(tmpRoot, 'dist')}}
+      options: {
+        mode: 'development',
+        output: {path: path.join(tmpRoot, 'dist')}
+      }
     }
 
     plugin['generateManifestPatches'](compilation as Compilation, {})
