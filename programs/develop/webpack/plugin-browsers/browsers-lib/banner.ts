@@ -8,14 +8,14 @@
 
 import * as fs from 'fs'
 import * as path from 'path'
-import {createHash} from 'crypto'
+import { createHash } from 'crypto'
 import * as messages from './messages'
 import * as coreMessages from '../../webpack-lib/messages'
-import {markBannerPrinted} from '../../plugin-compilation/compilation-lib/shared-state'
-import type {DevOptions} from '../../webpack-types'
+import { markBannerPrinted } from '../../plugin-compilation/compilation-lib/shared-state'
+import type { DevOptions } from '../../webpack-types'
 
-type Info = {extensionId?: string; name?: string; version?: string} | null
-type HostPort = {host?: string; port?: number | string}
+type Info = { extensionId?: string; name?: string; version?: string } | null
+type HostPort = { host?: string; port?: number | string }
 
 const printedKeys = new Set<string>()
 
@@ -32,7 +32,7 @@ function readUpdateSuffixOnce() {
 function keyFor(
   browser: DevOptions['browser'],
   outPath: string,
-  hp?: HostPort
+  hp?: HostPort,
 ) {
   const host = (hp?.host || '127.0.0.1').toString()
   const port = hp?.port == null ? '' : String(hp.port)
@@ -46,7 +46,7 @@ function toNormalizedId(value: unknown): string {
 }
 
 function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
-  const key = toNormalizedId((manifest as {key?: unknown})?.key)
+  const key = toNormalizedId((manifest as { key?: unknown })?.key)
 
   if (!key) return ''
 
@@ -73,21 +73,21 @@ function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
 
 function deriveFirefoxExtensionIdFromManifest(manifest: unknown): string {
   const fromBrowserSpecificSettings = toNormalizedId(
-    (manifest as {browser_specific_settings?: {gecko?: {id?: unknown}}})
-      ?.browser_specific_settings?.gecko?.id
+    (manifest as { browser_specific_settings?: { gecko?: { id?: unknown } } })
+      ?.browser_specific_settings?.gecko?.id,
   )
   if (fromBrowserSpecificSettings) return fromBrowserSpecificSettings
 
   return toNormalizedId(
-    (manifest as {applications?: {gecko?: {id?: unknown}}})?.applications?.gecko
-      ?.id
+    (manifest as { applications?: { gecko?: { id?: unknown } } })?.applications
+      ?.gecko?.id,
   )
 }
 
 function resolveExtensionId(args: {
   browser: DevOptions['browser']
   info: Info
-  fallback?: {extensionId?: string}
+  fallback?: { extensionId?: string }
   manifest: unknown
 }): string {
   const fromInfo = toNormalizedId(args.info?.extensionId)
@@ -117,25 +117,40 @@ export async function printDevBannerOnce(opts: {
   outPath: string
   hostPort?: HostPort
   getInfo: () => Promise<Info>
-  fallback?: {name?: string; version?: string; extensionId?: string}
+  fallback?: { name?: string; version?: string; extensionId?: string }
   browserVersionLine?: string
 }) {
   const k = keyFor(opts.browser, opts.outPath, opts.hostPort)
 
   if (printedKeys.has(k)) return false
 
-  const info = (await opts.getInfo()) || null
   const manifestPath = path.join(opts.outPath, 'manifest.json')
   const updateSuffix = readUpdateSuffixOnce()
 
   if (!fs.existsSync(manifestPath)) return false
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+  const manifestDerivedExtensionId = resolveExtensionId({
+    browser: opts.browser,
+    info: null,
+    fallback: opts.fallback,
+    manifest,
+  })
+
+  // Prefer manifest/fallback IDs first so startup banner can render ASAP.
+  // Runtime info is best-effort and should never stall the first banner.
+  const info = manifestDerivedExtensionId
+    ? await Promise.race<Info>([
+        opts.getInfo().catch(() => null),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 250)),
+      ])
+    : await opts.getInfo().catch(() => null)
+
   const extensionId = resolveExtensionId({
     browser: opts.browser,
     info,
     fallback: opts.fallback,
-    manifest
+    manifest,
   })
 
   if (!extensionId) return false
@@ -146,8 +161,8 @@ export async function printDevBannerOnce(opts: {
   const message = {
     data: {
       id: extensionId,
-      management: {name, version}
-    }
+      management: { name, version },
+    },
   }
 
   console.log(messages.emptyLine())
@@ -157,8 +172,8 @@ export async function printDevBannerOnce(opts: {
       opts.browser,
       message,
       opts.browserVersionLine,
-      updateSuffix || undefined
-    )
+      updateSuffix || undefined,
+    ),
   )
   console.log(messages.emptyLine())
   markBannerPrinted()
@@ -172,7 +187,7 @@ export async function printProdBannerOnce(opts: {
   browser: DevOptions['browser']
   outPath: string
   browserVersionLine?: string
-  runtime?: {extensionId?: string; name?: string; version?: string}
+  runtime?: { extensionId?: string; name?: string; version?: string }
   includeExtensionId?: boolean
 }) {
   const k = keyFor(opts.browser, opts.outPath)
@@ -195,9 +210,9 @@ export async function printProdBannerOnce(opts: {
           id: opts.runtime.extensionId,
           management: {
             name: opts.runtime.name || manifest.name,
-            version: opts.runtime.version || manifest.version
-          }
-        }
+            version: opts.runtime.version || manifest.version,
+          },
+        },
       }
 
       console.log(messages.emptyLine())
@@ -208,8 +223,8 @@ export async function printProdBannerOnce(opts: {
           message,
           browserLabel,
           updateSuffix || undefined,
-          {includeExtensionId: opts.includeExtensionId}
-        )
+          { includeExtensionId: opts.includeExtensionId },
+        ),
       )
       console.log(messages.emptyLine())
     } else {
@@ -219,9 +234,9 @@ export async function printProdBannerOnce(opts: {
           id: '',
           management: {
             name: manifest.name,
-            version: manifest.version
-          }
-        }
+            version: manifest.version,
+          },
+        },
       }
 
       console.log(messages.emptyLine())
@@ -232,8 +247,8 @@ export async function printProdBannerOnce(opts: {
           message,
           browserLabel,
           updateSuffix || undefined,
-          {includeExtensionId: opts.includeExtensionId}
-        )
+          { includeExtensionId: opts.includeExtensionId },
+        ),
       )
       console.log(messages.emptyLine())
     }

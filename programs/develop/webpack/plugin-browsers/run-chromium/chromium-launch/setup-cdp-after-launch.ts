@@ -6,29 +6,29 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝       ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝     ╚═╝╚═╝ ╚═════╝ ╚═╝     ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import type {Compilation} from '@rspack/core'
+import type { Compilation } from '@rspack/core'
 import * as messages from '../../browsers-lib/messages'
-import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
+import { deriveDebugPortWithInstance } from '../../browsers-lib/shared-utils'
 import {
   printDevBannerOnce,
-  printProdBannerOnce
+  printProdBannerOnce,
 } from '../../browsers-lib/banner'
-import {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
-import {type ChromiumPluginRuntime} from '../chromium-types'
-import {getExtensionOutputPath} from './extension-output-path'
+import { CDPExtensionController } from '../chromium-source-inspection/cdp-extension-controller'
+import { type ChromiumPluginRuntime } from '../chromium-types'
+import { getExtensionOutputPath } from './extension-output-path'
 
 export async function setupCdpAfterLaunch(
   compilation: Compilation | undefined,
   plugin: ChromiumPluginRuntime,
-  chromiumArgs: string[]
+  chromiumArgs: string[],
 ): Promise<void> {
   // Try to find the --load-extension flag for getting the user extension's output path
   const loadExtensionFlag = chromiumArgs.find((flag: string) =>
-    flag.startsWith('--load-extension=')
+    flag.startsWith('--load-extension='),
   )
   const extensionOutputPath = getExtensionOutputPath(
     compilation,
-    loadExtensionFlag
+    loadExtensionFlag,
   )
   const extensionPaths = loadExtensionFlag
     ? loadExtensionFlag
@@ -45,19 +45,19 @@ export async function setupCdpAfterLaunch(
 
   // Try to find the --remote-debugging-port flag (for CDP port)
   const remoteDebugPortFlag = chromiumArgs.find((flag: string) =>
-    flag.startsWith('--remote-debugging-port=')
+    flag.startsWith('--remote-debugging-port='),
   )
 
   const chromeRemoteDebugPort = remoteDebugPortFlag
     ? parseInt(remoteDebugPortFlag.split('=')[1], 10)
     : deriveDebugPortWithInstance(
         plugin.port as number | string,
-        plugin.instanceId
+        plugin.instanceId,
       )
 
   // Log the Chrome user data directory and debug port if in development
   const userDataDirFlag = chromiumArgs.find((flag: string) =>
-    flag.startsWith('--user-data-dir=')
+    flag.startsWith('--user-data-dir='),
   )
   const userDataDir = userDataDirFlag
     ? userDataDirFlag.replace('--user-data-dir=', '').replace(/^"|"$/g, '')
@@ -69,8 +69,8 @@ export async function setupCdpAfterLaunch(
     console.log(
       messages.devChromiumDebugPort(
         chromeRemoteDebugPort,
-        chromeRemoteDebugPort
-      )
+        chromeRemoteDebugPort,
+      ),
     )
   }
 
@@ -81,14 +81,14 @@ export async function setupCdpAfterLaunch(
       : plugin.browser) as 'chrome' | 'edge' | 'chromium-based',
     cdpPort: chromeRemoteDebugPort,
     profilePath: userDataDir || undefined,
-    extensionPaths: selectedExtensionPaths
+    extensionPaths: selectedExtensionPaths,
   })
 
   // Utility function to retry an async operation a certain number of times
   const retryAsync = async <T>(
     operation: () => Promise<T>,
     attempts = 5,
-    initialDelayMs = 150
+    initialDelayMs = 150,
   ) => {
     let lastError: unknown
 
@@ -113,6 +113,22 @@ export async function setupCdpAfterLaunch(
   const mode = (compilation?.options?.mode || 'development') as string
   let earlyBannerPrinted = false
 
+  // Fast path: print banner from manifest/fallback data before CDP handshake.
+  // If no extension ID can be derived yet, later passes still print it.
+  if (mode === 'development') {
+    try {
+      earlyBannerPrinted = await printDevBannerOnce({
+        outPath: extensionOutputPath,
+        browser: plugin.browser,
+        hostPort: { host: '127.0.0.1', port: chromeRemoteDebugPort },
+        getInfo: async () => null,
+        browserVersionLine: plugin.browserVersionLine,
+      })
+    } catch {
+      // best-effort only
+    }
+  }
+
   // Print the development banner as early as possible with a best-effort
   // ID lookup. A later pass can still enrich details if needed.
   if (mode === 'development') {
@@ -120,9 +136,9 @@ export async function setupCdpAfterLaunch(
       earlyBannerPrinted = await printDevBannerOnce({
         outPath: extensionOutputPath,
         browser: plugin.browser,
-        hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
+        hostPort: { host: '127.0.0.1', port: chromeRemoteDebugPort },
         getInfo: async () => cdpExtensionController.getInfoBestEffort(),
-        browserVersionLine: plugin.browserVersionLine
+        browserVersionLine: plugin.browserVersionLine,
       })
     } catch {
       // best-effort only
@@ -143,18 +159,18 @@ export async function setupCdpAfterLaunch(
         setTimeout(
           () =>
             reject(
-              new Error(`ensureLoaded timeout (${ensureLoadedTimeoutMs}ms)`)
+              new Error(`ensureLoaded timeout (${ensureLoadedTimeoutMs}ms)`),
             ),
-          ensureLoadedTimeoutMs
+          ensureLoadedTimeoutMs,
         )
-      })
+      }),
     ])
   } catch (error) {
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.warn(
         `[CDP] ensureLoaded failed: ${String(
-          (error as Error)?.message || error
-        )}`
+          (error as Error)?.message || error,
+        )}`,
       )
     }
   }
@@ -165,18 +181,18 @@ export async function setupCdpAfterLaunch(
         const bannerPrinted = await printDevBannerOnce({
           outPath: extensionOutputPath,
           browser: plugin.browser,
-          hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
+          hostPort: { host: '127.0.0.1', port: chromeRemoteDebugPort },
           getInfo: async () => extensionControllerInfo,
-          browserVersionLine: plugin.browserVersionLine
+          browserVersionLine: plugin.browserVersionLine,
         })
 
         if (!bannerPrinted) {
           await printDevBannerOnce({
             outPath: extensionOutputPath,
             browser: plugin.browser,
-            hostPort: {host: '127.0.0.1', port: chromeRemoteDebugPort},
+            hostPort: { host: '127.0.0.1', port: chromeRemoteDebugPort },
             getInfo: async () => cdpExtensionController.getInfoBestEffort(),
-            browserVersionLine: plugin.browserVersionLine
+            browserVersionLine: plugin.browserVersionLine,
           })
         }
       }
@@ -185,14 +201,14 @@ export async function setupCdpAfterLaunch(
         ? {
             extensionId: extensionControllerInfo.extensionId,
             name: extensionControllerInfo.name,
-            version: extensionControllerInfo.version
+            version: extensionControllerInfo.version,
           }
         : undefined
       await printProdBannerOnce({
         browser: plugin.browser,
         outPath: extensionOutputPath,
         browserVersionLine: plugin.browserVersionLine,
-        runtime
+        runtime,
       })
     }
   } catch (bannerErr) {
@@ -208,7 +224,7 @@ export async function setupCdpAfterLaunch(
         await printProdBannerOnce({
           browser: plugin.browser,
           outPath: extensionOutputPath,
-          browserVersionLine: plugin.browserVersionLine
+          browserVersionLine: plugin.browserVersionLine,
         })
       }
     } catch {
