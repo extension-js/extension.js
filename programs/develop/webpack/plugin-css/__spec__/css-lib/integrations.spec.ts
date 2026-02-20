@@ -70,8 +70,9 @@ describe('css-lib integrations', () => {
     await mockDevelopRoot()
 
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -93,8 +94,9 @@ describe('css-lib integrations', () => {
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -114,8 +116,9 @@ describe('css-lib integrations', () => {
     process.env.npm_config_user_agent = 'pnpm'
 
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -140,8 +143,9 @@ describe('css-lib integrations', () => {
     const {spawnSync, spawn} = (await import('child_process')) as any
     spawnSync.mockReturnValueOnce({status: 1})
 
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -165,8 +169,9 @@ describe('css-lib integrations', () => {
     missingManager.code = 'ENOENT'
     spawn.mockImplementationOnce(() => createSpawn({error: missingManager}))
 
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -181,8 +186,9 @@ describe('css-lib integrations', () => {
     process.env.EXTENSION_JS_PACKAGE_MANAGER = 'yarn'
 
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -203,8 +209,9 @@ describe('css-lib integrations', () => {
     const {spawnSync, spawn} = (await import('child_process')) as any
     spawnSync.mockReturnValue({status: 1})
 
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -220,8 +227,9 @@ describe('css-lib integrations', () => {
     const {spawnSync, spawn} = (await import('child_process')) as any
     spawnSync.mockReturnValue({status: 1})
 
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -233,8 +241,9 @@ describe('css-lib integrations', () => {
   it('uses corepack fallback when no manager is available', async () => {
     await mockDevelopRoot()
 
-    const {spawnSync, spawn, execFileSync} =
-      (await import('child_process')) as any
+    const {spawnSync, spawn, execFileSync} = (await import(
+      'child_process'
+    )) as any
     spawnSync.mockImplementation((cmd: string) =>
       cmd === 'corepack' ? {status: 0} : {status: 1}
     )
@@ -253,8 +262,9 @@ describe('css-lib integrations', () => {
       return originalResolve(id, opts)
     })
 
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -273,8 +283,9 @@ describe('css-lib integrations', () => {
   it('falls back to npm when nothing is detected', async () => {
     await mockDevelopRoot()
 
-    const {spawnSync, spawn, execFileSync} =
-      (await import('child_process')) as any
+    const {spawnSync, spawn, execFileSync} = (await import(
+      'child_process'
+    )) as any
     spawnSync.mockReturnValue({status: 1})
     execFileSync.mockImplementation(() => {
       const err: NodeJS.ErrnoException = new Error('not found')
@@ -289,8 +300,9 @@ describe('css-lib integrations', () => {
       return originalResolve(id, opts)
     })
 
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -310,8 +322,9 @@ describe('css-lib integrations', () => {
     process.env.npm_config_user_agent = 'npm'
 
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -333,8 +346,9 @@ describe('css-lib integrations', () => {
     process.env.npm_config_user_agent = 'yarn'
 
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -356,8 +370,9 @@ describe('css-lib integrations', () => {
     process.env.npm_config_user_agent = 'bun'
 
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} =
-      await import('../../css-lib/integrations')
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 

@@ -45,7 +45,9 @@ describe('EmitFile step', () => {
 
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
-      includeList: {'browser_action/theme_icons': ['/abs/assets/missing.png']}
+      includeList: {
+        'browser_action/theme_icons': ['/abs/assets/missing.png']
+      }
     } as any)
 
     step.apply(compiler as any)

@@ -29,7 +29,9 @@ function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   const exports = module.exports
 
   const wrapped = `(function (exports, require, module, __filename, __dirname) {\n${code}\n})`
-  const fn = new vm.Script(wrapped, {filename: absolutePath}).runInThisContext()
+  const fn = new vm.Script(wrapped, {
+    filename: absolutePath
+  }).runInThisContext()
 
   // Execute config with correct filename/dirname.
   fn(exports, requireFn, module, absolutePath, dirname)

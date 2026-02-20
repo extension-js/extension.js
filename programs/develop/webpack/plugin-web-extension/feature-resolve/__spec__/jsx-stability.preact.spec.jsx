@@ -17,7 +17,10 @@ function runLoader(source, resourcePath, opts) {
         return {
           manifestPath:
             (opts && opts.manifestPath) ||
-            path.join(process.cwd(), 'extensions/browser-extension/manifest.json'),
+            path.join(
+              process.cwd(),
+              'extensions/browser-extension/manifest.json'
+            ),
           packageJsonDir:
             (opts && opts.packageJsonDir) ||
             path.join(process.cwd(), 'extensions/browser-extension'),
@@ -54,6 +57,3 @@ describe('feature-resolve: JSX stability (Preact)', () => {
     expect(code).toMatch('<section>')
   })
 })
-
-
-

@@ -12,8 +12,8 @@ export function isWslEnv(): boolean {
 
   const hasWslEnv = Boolean(
     String(process.env.WSL_DISTRO_NAME || '').trim() ||
-    String(process.env.WSL_INTEROP || '').trim() ||
-    String(process.env.WSLENV || '').trim()
+      String(process.env.WSL_INTEROP || '').trim() ||
+      String(process.env.WSLENV || '').trim()
   )
   if (hasWslEnv) return true
 

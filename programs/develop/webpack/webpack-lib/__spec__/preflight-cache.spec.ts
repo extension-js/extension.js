@@ -35,8 +35,9 @@ describe('preflight-cache', () => {
       JSON.stringify({dependencies: {react: '1.0.0'}})
     )
 
-    const {hasPreflightMarker, writePreflightMarker} =
-      await import('../preflight-cache')
+    const {hasPreflightMarker, writePreflightMarker} = await import(
+      '../preflight-cache'
+    )
 
     expect(hasPreflightMarker(projectPath)).toBe(false)
     writePreflightMarker(projectPath)

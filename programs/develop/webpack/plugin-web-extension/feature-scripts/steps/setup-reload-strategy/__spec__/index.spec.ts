@@ -45,8 +45,13 @@ describe('SetupReloadStrategy', () => {
   })
 
   it('uses serviceWorkerEntry for MV3 background', () => {
-    setManifest({manifest_version: 3, background: {service_worker: 'sw.js'}})
-    const plugin = new SetupReloadStrategy({manifestPath: '/abs/m.json'} as any)
+    setManifest({
+      manifest_version: 3,
+      background: {service_worker: 'sw.js'}
+    })
+    const plugin = new SetupReloadStrategy({
+      manifestPath: '/abs/m.json'
+    } as any)
     plugin.apply(makeCompiler())
     expect(webExtSpy).toHaveBeenCalledWith(
       expect.objectContaining({

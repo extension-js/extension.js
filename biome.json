@@ -1,7 +1,30 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
   "files": {
-    "ignoreUnknown": true
+    "ignoreUnknown": true,
+    "maxSize": 262144,
+    "includes": [
+      "**",
+      "!_FUTURE/**",
+      "!extensions/**",
+      "!extensions/**/dist/**",
+      "!templates/**/dist/**",
+      "!**/dist/**",
+      "!**/build/**",
+      "!**/out/**",
+      "!**/coverage/**",
+      "!**/e2e-report/**",
+      "!**/playwright-report/**",
+      "!**/.next/**",
+      "!**/.nuxt/**",
+      "!**/.svelte-kit/**",
+      "!**/.vite/**",
+      "!**/.cache/**",
+      "!**/.turbo/**",
+      "!**/.pnpm-store/**",
+      "!extensions/browser-extension/src/styles/**",
+      "!extensions/browser-extension/src/content_scripts/shared/content-index.css"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -13,7 +36,8 @@
     "formatter": {
       "quoteStyle": "single",
       "jsxQuoteStyle": "double",
-      "trailingCommas": "all",
+      "trailingCommas": "none",
+      "bracketSpacing": false,
       "semicolons": "asNeeded",
       "arrowParentheses": "always"
     }

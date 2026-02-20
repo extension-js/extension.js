@@ -505,7 +505,10 @@ describe('generateManifestPatches', () => {
       const manifest = {
         manifest_version: 3,
         web_accessible_resources: [
-          {matches: ['https://example.com/logout?e=4'], resources: ['/*.json']}
+          {
+            matches: ['https://example.com/logout?e=4'],
+            resources: ['/*.json']
+          }
         ]
       }
 

@@ -24,12 +24,15 @@ function runUpdateManifest(opts: {
   }
   const compiler: any = {
     options: {mode: opts.mode},
-    hooks: {thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}}
+    hooks: {
+      thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+    }
   }
 
-  new UpdateManifest({manifestPath: '/m', browser: opts.browser} as any).apply(
-    compiler
-  )
+  new UpdateManifest({
+    manifestPath: '/m',
+    browser: opts.browser
+  } as any).apply(compiler)
 
   return JSON.parse(updated['manifest.json'])
 }

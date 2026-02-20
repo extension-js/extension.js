@@ -85,8 +85,9 @@ describe('preflight-optional-deps', () => {
   })
 
   it('does not install optional deps when they resolve from extension-develop root', async () => {
-    const {preflightOptionalDependencies} =
-      await import('../preflight-optional-deps')
+    const {preflightOptionalDependencies} = await import(
+      '../preflight-optional-deps'
+    )
 
     await preflightOptionalDependencies(
       {

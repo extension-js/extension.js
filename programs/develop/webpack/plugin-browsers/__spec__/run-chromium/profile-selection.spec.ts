@@ -8,7 +8,9 @@ vi.mock('fs', async (orig) => {
     existsSync: (p: string) => true
   }
 })
-vi.mock('chrome-location2', () => ({default: () => '/Applications/Chrome.app'}))
+vi.mock('chrome-location2', () => ({
+  default: () => '/Applications/Chrome.app'
+}))
 vi.mock('chromium-location', () => ({
   default: () => '/Applications/Chromium.app',
   getInstallGuidance: () => 'npx @puppeteer/browsers install chromium',
@@ -30,12 +32,16 @@ function mkCompiler() {
       done: {
         tapAsync: (_: any, cb: any) =>
           cb(
-            {compilation: {options: {output: {path: '/tmp/out/chrome'}}}},
+            {
+              compilation: {options: {output: {path: '/tmp/out/chrome'}}}
+            },
             () => {}
           ),
         tapPromise: (_: any, fn: any) =>
           Promise.resolve(
-            fn({compilation: {options: {output: {path: '/tmp/out/chrome'}}}})
+            fn({
+              compilation: {options: {output: {path: '/tmp/out/chrome'}}}
+            })
           )
       }
     },

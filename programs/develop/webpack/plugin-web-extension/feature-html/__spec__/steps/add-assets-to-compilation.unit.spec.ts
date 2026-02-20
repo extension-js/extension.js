@@ -13,14 +13,18 @@ function makeCompilation() {
     warnings: [] as any[],
     hooks: {processAssets: {tap: (_: any, cb: any) => cb()}},
     emitAsset: function (name: string, src: any) {
-      assets[name] = {source: {source: () => (src.source ? src.source() : src)}}
+      assets[name] = {
+        source: {source: () => (src.source ? src.source() : src)}
+      }
     }
   }
   return {
     options: {mode: 'production'},
     getAsset: (name: string) => assets[name],
     assets,
-    hooks: {thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}}
+    hooks: {
+      thisCompilation: {tap: (_: any, fn: any) => fn(compilationObj)}
+    }
   }
 }
 
