@@ -475,7 +475,12 @@ export class ChromiumSourceInspectionPlugin {
     if (existing) {
       existing.count += 1
     } else {
-      this.consoleTop.set(hash, {level: normalized, text, count: 1, sourceUrl})
+      this.consoleTop.set(hash, {
+        level: normalized,
+        text,
+        count: 1,
+        sourceUrl
+      })
     }
   }
 

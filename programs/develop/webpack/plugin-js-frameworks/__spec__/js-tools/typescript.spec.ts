@@ -36,8 +36,9 @@ describe('typescript tools', () => {
       if (s.endsWith('/project/tsconfig.json')) return true
       return false
     })
-    const {getUserTypeScriptConfigFile} =
-      await import('../../js-tools/typescript')
+    const {getUserTypeScriptConfigFile} = await import(
+      '../../js-tools/typescript'
+    )
 
     expect(toPosix(getUserTypeScriptConfigFile('/project') || '')).toBe(
       '/project/tsconfig.json'
@@ -95,8 +96,9 @@ describe('typescript tools', () => {
   })
 
   it('getTypeScriptConfigOverrides toggles sourceMap by mode', async () => {
-    const {getTypeScriptConfigOverrides} =
-      await import('../../js-tools/typescript')
+    const {getTypeScriptConfigOverrides} = await import(
+      '../../js-tools/typescript'
+    )
     expect(
       getTypeScriptConfigOverrides({mode: 'development'}).compilerOptions
         .sourceMap

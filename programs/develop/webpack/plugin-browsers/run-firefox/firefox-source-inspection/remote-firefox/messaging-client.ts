@@ -130,7 +130,9 @@ export class MessagingClient extends EventEmitter {
   private async coerceResponseToString(
     tabId: string,
     response: unknown,
-    opts: {fallbackToFullDocument?: boolean} = {fallbackToFullDocument: true}
+    opts: {fallbackToFullDocument?: boolean} = {
+      fallbackToFullDocument: true
+    }
   ): Promise<string> {
     return coerceToString(this, tabId, response, opts)
   }

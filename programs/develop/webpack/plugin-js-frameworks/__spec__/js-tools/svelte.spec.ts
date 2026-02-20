@@ -28,8 +28,9 @@ describe('svelte tools', () => {
   })
 
   it('isUsingSvelte logs once; maybeUseSvelte returns loaders and resolver plugin', async () => {
-    const integrations =
-      (await import('../../frameworks-lib/integrations')) as any
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
     integrations.hasDependency.mockImplementation(
       (_p: string, dep: string) => dep === 'svelte'
     )
@@ -39,8 +40,9 @@ describe('svelte tools', () => {
       loadLoaderOptions: vi.fn(async () => ({bar: 2}))
     }))
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const {isUsingSvelte, maybeUseSvelte} =
-      await import('../../js-tools/svelte')
+    const {isUsingSvelte, maybeUseSvelte} = await import(
+      '../../js-tools/svelte'
+    )
 
     expect(isUsingSvelte('/p')).toBe(true)
     expect(isUsingSvelte('/p')).toBe(true)

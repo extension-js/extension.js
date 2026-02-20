@@ -23,14 +23,20 @@ const buildDepsPath = path.join(
 try {
   // Validate that build-dependencies.json exists and is valid JSON
   if (!fs.existsSync(buildDepsPath)) {
-    console.error(`Error: build-dependencies.json not found at ${buildDepsPath}`)
+    console.error(
+      `Error: build-dependencies.json not found at ${buildDepsPath}`
+    )
     process.exit(1)
   }
 
   const buildDeps = JSON.parse(fs.readFileSync(buildDepsPath, 'utf-8'))
-  
+
   // Validate it's an object with dependencies
-  if (typeof buildDeps !== 'object' || buildDeps === null || Array.isArray(buildDeps)) {
+  if (
+    typeof buildDeps !== 'object' ||
+    buildDeps === null ||
+    Array.isArray(buildDeps)
+  ) {
     throw new Error('build-dependencies.json must contain an object')
   }
 

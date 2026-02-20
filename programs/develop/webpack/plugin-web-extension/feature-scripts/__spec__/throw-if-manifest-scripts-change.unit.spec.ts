@@ -32,7 +32,9 @@ function makeCompiler(modified: string[], errorsArr: any[]) {
     _triggerThisCompilation() {
       const compilation: any = {
         errors: errorsArr,
-        hooks: {processAssets: {tap: (_opts: any, runner: any) => runner()}}
+        hooks: {
+          processAssets: {tap: (_opts: any, runner: any) => runner()}
+        }
       }
       thisCompilationHandler(compilation)
     }
