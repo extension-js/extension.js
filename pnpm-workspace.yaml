@@ -5,7 +5,16 @@ packages:
   # Future extraction: chromium runner core package (placeholder only)
   - './programs/develop/webpack/plugin-browsers/run-chromium'
   - './extensions/*'
-  - './templates/*'
+  # Keep staging/template/browser-extension runnable as standalone projects.
+  # They are intentionally excluded from the monorepo workspace lockfile scope.
+  - '!./extensions/staging'
+  - '!./extensions/staging/**'
+  - '!./extensions/browser-extension'
+  - '!./extensions/browser-extension/**'
+  - '!./browser-extension'
+  - '!./browser-extension/**'
+  - '!./templates'
+  - '!./templates/**'
   # Ignore dist folders used for testing
   - "!programs/cli/dist"
   - "!programs/develop/dist"
