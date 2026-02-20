@@ -4,33 +4,19 @@ import * as os from 'os'
 import * as path from 'path'
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
-// The built-in template download should not require git.
+// The built-in template download now uses go-git-it against the remote examples repo.
 vi.mock('go-git-it', () => ({
-  default: vi.fn(async () => {
-    throw new Error('git should not be used')
+  default: vi.fn(async (_source: string, destination: string) => {
+    const templateRoot = path.join(destination, 'javascript')
+    await fsp.mkdir(templateRoot, {recursive: true})
+    await fsp.writeFile(
+      path.join(templateRoot, 'manifest.json'),
+      JSON.stringify({name: 'x', version: '0.0.1', manifest_version: 3})
+    )
   })
 }))
 
-// Mock ZIP download of the examples repo.
-vi.mock('axios', async () => {
-  const AdmZip = (await import('adm-zip')).default
-  const zip = new AdmZip()
-  // Simulate a GitHub codeload zip: "<repo>-main/examples/javascript/..."
-  zip.addFile(
-    'examples-main/examples/javascript/manifest.json',
-    Buffer.from(
-      JSON.stringify({name: 'x', version: '0.0.1', manifest_version: 3})
-    )
-  )
-  return {
-    default: {
-      get: vi.fn(async () => ({
-        data: zip.toBuffer(),
-        headers: {'content-type': 'application/zip'}
-      }))
-    }
-  }
-})
+vi.mock('axios', () => ({default: {get: vi.fn()}}))
 
 import {importExternalTemplate} from '../import-external-template'
 
