@@ -523,4 +523,3 @@ describe('cli direct flow (no npx)', () => {
     }
   })
 })
-

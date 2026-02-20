@@ -203,14 +203,26 @@ export async function printProdBannerOnce(opts: {
   try {
     const manifestPath = path.join(opts.outPath, 'manifest.json')
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    const runtimeInfo: Info = opts.runtime
+      ? {
+          extensionId: opts.runtime.extensionId,
+          name: opts.runtime.name,
+          version: opts.runtime.version
+        }
+      : null
+    const resolvedExtensionId = resolveExtensionId({
+      browser: opts.browser,
+      info: runtimeInfo,
+      manifest
+    })
 
-    if (opts.runtime && opts.runtime.extensionId) {
+    if (resolvedExtensionId) {
       const message = {
         data: {
-          id: opts.runtime.extensionId,
+          id: resolvedExtensionId,
           management: {
-            name: opts.runtime.name || manifest.name,
-            version: opts.runtime.version || manifest.version
+            name: opts.runtime?.name || manifest.name,
+            version: opts.runtime?.version || manifest.version
           }
         }
       }
