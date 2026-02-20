@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import {describe, expect, it, vi} from 'vitest'
-import {printDevBannerOnce} from '../browsers-lib/banner'
+import {printDevBannerOnce, printProdBannerOnce} from '../browsers-lib/banner'
 
 function makeTempOutPath(manifest: Record<string, unknown>): string {
   const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-banner-'))
@@ -64,6 +64,54 @@ describe('printDevBannerOnce', () => {
     expect(output).toContain('Extension ID')
     expect(output).toContain('addon@example.com')
     expect(output).not.toContain('(temporary)')
+    logSpy.mockRestore()
+  })
+})
+
+describe('printProdBannerOnce', () => {
+  it('does not render an empty Extension ID line when no id is available', async () => {
+    const outPath = makeTempOutPath({
+      name: 'No Key Extension',
+      version: '1.0.0'
+    })
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const printed = await printProdBannerOnce({
+      browser: 'chromium',
+      outPath,
+      browserVersionLine: 'Chromium 120.0'
+    })
+
+    expect(printed).toBe(true)
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).not.toContain('Extension ID')
+    logSpy.mockRestore()
+  })
+
+  it('derives Chromium extension id from manifest key in production banner', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Prod Key Extension',
+      version: '2.0.0',
+      key: Buffer.from('test-public-key-bytes').toString('base64')
+    })
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const printed = await printProdBannerOnce({
+      browser: 'chromium',
+      outPath,
+      browserVersionLine: 'Chromium 120.0'
+    })
+
+    expect(printed).toBe(true)
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    const idLine =
+      output.split('\n').find((line) => line.includes('Extension ID')) || ''
+    const extracted = idLine.split('Extension ID')[1]?.trim() || ''
+    expect(extracted).toMatch(/^[a-p]{32}$/)
     logSpy.mockRestore()
   })
 })
