@@ -85,7 +85,11 @@ export function needsInstall(packageJsonDir: AbsolutePath): boolean {
       // declared dependency appears as a direct folder under this project.
       if (hasMarker) {
         try {
-          if (fs.readdirSync(nm).length > 0) {
+          const entries = fs
+            .readdirSync(nm)
+            .filter((name) => name !== '.bin' && !name.startsWith('.cache'))
+
+          if (entries.length > 0) {
             return false
           }
         } catch {
