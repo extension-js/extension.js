@@ -24,6 +24,100 @@ function getInstallArgs() {
   return ['install' /*, '--silent' */]
 }
 
+function findNearestWorkspaceRoot(startDir: string): string | undefined {
+  let current = path.resolve(startDir)
+  while (true) {
+    const workspaceFile = path.join(current, 'pnpm-workspace.yaml')
+    if (fs.existsSync(workspaceFile)) return current
+    const parent = path.dirname(current)
+    if (parent === current) return undefined
+    current = parent
+  }
+}
+
+function toRelativePath(baseDir: string, targetDir: string): string {
+  return path.relative(baseDir, targetDir).split(path.sep).join('/')
+}
+
+function parseWorkspacePatterns(workspaceFilePath: string): string[] {
+  try {
+    const raw = fs.readFileSync(workspaceFilePath, 'utf8')
+    const lines = raw.split(/\r?\n/)
+    const patterns: string[] = []
+    let inPackages = false
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!inPackages) {
+        if (trimmed === 'packages:') inPackages = true
+        continue
+      }
+      if (trimmed.length === 0 || trimmed.startsWith('#')) continue
+      if (!trimmed.startsWith('-')) break
+      const value = trimmed.slice(1).trim()
+      const unquoted = value.replace(/^['"]|['"]$/g, '')
+      if (unquoted.length > 0) patterns.push(unquoted)
+    }
+
+    return patterns
+  } catch {
+    return []
+  }
+}
+
+function globToRegExp(glob: string): RegExp {
+  const normalized = glob
+    .replace(/^\.\//, '')
+    .replace(/^!/, '')
+    .replace(/\/+$/, '')
+  let pattern = ''
+  for (let i = 0; i < normalized.length; i++) {
+    const char = normalized[i]
+    if (char === '*') {
+      if (normalized[i + 1] === '*') {
+        pattern += '.*'
+        i += 1
+      } else {
+        pattern += '[^/]*'
+      }
+      continue
+    }
+    if (/[|\\{}()[\]^$+?.]/.test(char)) {
+      pattern += `\\${char}`
+    } else {
+      pattern += char
+    }
+  }
+  return new RegExp(`^${pattern}$`)
+}
+
+function isProjectIncludedByWorkspace(
+  workspaceRoot: string,
+  projectPath: string
+): boolean {
+  const workspaceFile = path.join(workspaceRoot, 'pnpm-workspace.yaml')
+  const patterns = parseWorkspacePatterns(workspaceFile)
+  if (patterns.length === 0) return true
+
+  const relativeProjectPath = toRelativePath(workspaceRoot, projectPath)
+  let included = false
+
+  for (const pattern of patterns) {
+    const isNegated = pattern.startsWith('!')
+    const matcher = globToRegExp(pattern)
+    if (!matcher.test(relativeProjectPath)) continue
+    included = !isNegated
+  }
+
+  return included
+}
+
+function shouldUsePnpmIsolatedInstall(projectPath: string): boolean {
+  const workspaceRoot = findNearestWorkspaceRoot(projectPath)
+  if (!workspaceRoot) return false
+  return !isProjectIncludedByWorkspace(workspaceRoot, projectPath)
+}
+
 async function hasDependenciesToInstall(projectPath: string) {
   try {
     const raw = await fs.promises.readFile(
@@ -61,6 +155,15 @@ export async function installDependencies(projectPath: string) {
     // Ensure devDependencies are installed even if npm production config is set
     if (pm.name === 'npm') {
       dependenciesArgs = [...dependenciesArgs, '--include=dev']
+    }
+    // Excluded pnpm-workspace projects must install in isolated mode, otherwise
+    // pnpm walks up to workspace root and skips local dependencies.
+    if (pm.name === 'pnpm' && shouldUsePnpmIsolatedInstall(projectPath)) {
+      dependenciesArgs = [
+        ...dependenciesArgs,
+        '--ignore-workspace',
+        '--lockfile=false'
+      ]
     }
 
     // Create the node_modules directory if it doesn't exist
