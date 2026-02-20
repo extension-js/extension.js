@@ -1119,7 +1119,7 @@ export function runningInDevelopment(
     )}`
   )
 
-  if (includeExtensionId) {
+  if (includeExtensionId && cleanId) {
     lines.push(`    Extension ID   ${colors.gray(cleanId)}`)
   }
 
