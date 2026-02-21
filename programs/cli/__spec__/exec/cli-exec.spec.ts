@@ -30,8 +30,25 @@ const previewFixture = resolve(
   '_FUTURE/extension-develop-dist/extension-js-devtools/chrome'
 )
 
-const defaultEnv: NodeJS.ProcessEnv = {
+// Resolve pnpm so spawn finds it cross-platform (avoids ENOENT when PATH differs in child)
+const nodeDir = dirname(process.execPath)
+const pnpmFromBin = join(repoRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+const pnpmFromNodeDir = join(nodeDir, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+const pnpmCommand = existsSync(pnpmFromBin)
+  ? pnpmFromBin
+  : existsSync(pnpmFromNodeDir)
+    ? pnpmFromNodeDir
+    : 'pnpm'
+
+// Ensure spawned processes find node on PATH when using 'pnpm' by name
+const pathDelim = process.platform === 'win32' ? ';' : ':'
+const baseEnv: NodeJS.ProcessEnv = {
   ...process.env,
+  PATH: `${nodeDir}${pathDelim}${process.env.PATH || process.env.Path || ''}`
+}
+
+const defaultEnv: NodeJS.ProcessEnv = {
+  ...baseEnv,
   EXTENSION_DEV_NO_BROWSER: '1',
   EXTENSION_ENV: 'test',
   EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
@@ -42,10 +59,13 @@ function runCommand(
   args: string[],
   options: {cwd?: string; env?: NodeJS.ProcessEnv} = {}
 ) {
+  // On Windows, .cmd files must be run with shell (spawnSync EINVAL otherwise)
+  const useShell = process.platform === 'win32' && (command.endsWith('.cmd') || command.endsWith('.bat'))
   const result = spawnSync(command, args, {
     ...options,
     stdio: 'pipe',
-    encoding: 'utf8'
+    encoding: 'utf8',
+    ...(useShell ? {shell: true} : {})
   })
   if (result.error) {
     throw result.error
@@ -138,9 +158,9 @@ async function runUntilTimeout(
 
 function ensureCompiled(pkgDir: string, distEntry: string) {
   if (existsSync(distEntry)) return
-  const result = runCommand('pnpm', ['-C', pkgDir, 'run', 'compile'], {
+  const result = runCommand(pnpmCommand, ['-C', pkgDir, 'run', 'compile'], {
     cwd: pkgDir,
-    env: process.env
+    env: baseEnv
   })
   if ((result.status || 0) !== 0) {
     throw new Error(
@@ -151,9 +171,9 @@ function ensureCompiled(pkgDir: string, distEntry: string) {
 
 function packPackage(pkgDir: string, packDir: string) {
   const before = new Set(readdirSync(packDir))
-  const result = runCommand('pnpm', ['pack', '--pack-destination', packDir], {
+  const result = runCommand(pnpmCommand, ['pack', '--pack-destination', packDir], {
     cwd: pkgDir,
-    env: process.env
+    env: baseEnv
   })
   if ((result.status || 0) !== 0) {
     throw new Error(
@@ -268,7 +288,7 @@ const runners: Runner[] = [
   },
   {
     name: 'pnpmDlx',
-    command: 'pnpm',
+    command: pnpmCommand,
     buildArgs: (packages, cmdArgs) => [
       'dlx',
       ...packages.flatMap((pkg) => ['--package', pkg]),
@@ -276,8 +296,8 @@ const runners: Runner[] = [
       ...cmdArgs
     ],
     isAvailable: () =>
-      isRunnerAvailable('pnpm') &&
-      supportsPackageFlag('pnpm', ['dlx', '--help'])
+      isRunnerAvailable(pnpmCommand) &&
+      supportsPackageFlag(pnpmCommand, ['dlx', '--help'])
   },
   {
     name: 'bunx',
