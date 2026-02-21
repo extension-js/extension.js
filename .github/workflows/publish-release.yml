@@ -238,10 +238,10 @@ jobs:
             const p='programs/cli/package.json';
             const j=JSON.parse(fs.readFileSync(p,'utf8'));
             if(j.dependencies && j.dependencies['extension-develop'] && /^workspace:/.test(j.dependencies['extension-develop'])){
-              j.dependencies['extension-develop'] = '^'+process.env.VERSION;
+              j.dependencies['extension-develop'] = process.env.VERSION;
             }
             if(j.dependencies && j.dependencies['extension-create'] && /^workspace:/.test(j.dependencies['extension-create'])){
-              j.dependencies['extension-create'] = '^'+process.env.VERSION;
+              j.dependencies['extension-create'] = process.env.VERSION;
             }
             fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
           "
