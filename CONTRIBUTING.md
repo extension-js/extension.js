@@ -102,6 +102,16 @@ pnpm exec playwright install
 - Handle errors meaningfully; avoid silent catches.
 - Security: minimize browser permissions; sanitize inputs; validate cross-process messages.
 
+## Testing on Windows
+
+The test suite runs on Windows in CI. To avoid regressions:
+
+- **Paths:** Use cross-platform path assertions. In `programs/develop/webpack`, use helpers from `webpack-lib/__spec__/platform-utils.ts`: `normalizePathForAssert()` for string comparison, or `pathPattern(['seg', 'ments'])` for regex matches that accept both `/` and `\`.
+- **Spawning (pnpm, npm, etc.):** Resolve the binary (e.g. from `process.execPath`’s directory or `node_modules/.bin`) and pass it to `spawnSync`/`spawn`; on Windows use `shell: true` when the command is a `.cmd`/`.bat` file so the child runs correctly.
+- **Symlinks:** On Windows, creating symlinks often requires Developer Mode or admin. Prefer `fs.realpathSync()` + `fs.cpSync()` for test fixtures when copying from the pnpm store, or use copy-only paths on Windows.
+
+Run `pnpm test` locally on Windows (or rely on the **Run test suite (Windows)** CI job) before submitting changes that touch tests or spawn logic.
+
 ## Debugging & troubleshooting
 
 - Extra logs: ensure `.env` contains `EXTENSION_AUTHOR_MODE=development`.
