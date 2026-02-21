@@ -51,7 +51,10 @@ describe('install-dependencies', () => {
     )
     // install-dependencies uses package-manager's execInstallCommand (child_process.spawn), not cross-spawn
     vi.mock('../package-manager', async () => {
-      const actual = await vi.importActual<typeof import('../package-manager')>('../package-manager')
+      const actual =
+        await vi.importActual<typeof import('../package-manager')>(
+          '../package-manager'
+        )
       return {
         ...actual,
         execInstallCommand: vi.fn().mockResolvedValue(undefined)
