@@ -74,17 +74,18 @@ describe('svelte tools', () => {
       'module',
       'default'
     ])
+    // Match path with either / or \ (cross-platform)
     expect(String(result?.alias?.svelte)).toMatch(
-      /svelte\/src\/index-client\.js$/
+      /svelte[\\/]src[\\/]index-client\.js$/
     )
     expect(String(result?.alias?.['svelte/store'])).toMatch(
-      /svelte\/src\/store\/index-client\.js$/
+      /svelte[\\/]src[\\/]store[\\/]index-client\.js$/
     )
     expect(String(result?.alias?.['svelte/reactivity'])).toMatch(
-      /svelte\/src\/reactivity\/index-client\.js$/
+      /svelte[\\/]src[\\/]reactivity[\\/]index-client\.js$/
     )
     expect(String(result?.alias?.['svelte/legacy'])).toMatch(
-      /svelte\/src\/legacy\/legacy-client\.js$/
+      /svelte[\\/]src[\\/]legacy[\\/]legacy-client\.js$/
     )
   })
 })
