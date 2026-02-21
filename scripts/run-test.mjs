@@ -14,19 +14,33 @@ const runCommand = (command, args, options = {}) =>
 const getTurboFilters = (target) => {
   switch (target) {
     case 'cli':
-      return ['--filter', './programs/cli']
+      return ['--filter', './programs/cli', '--filter', './programs/install']
+    case 'install':
+      return ['--filter', './programs/install']
     case 'develop':
     case 'build':
     case 'dev':
       return ['--filter', './programs/develop']
     default:
-      return ['--filter', './programs/cli', '--filter', './programs/develop']
+      return [
+        '--filter',
+        './programs/cli',
+        '--filter',
+        './programs/install',
+        '--filter',
+        './programs/develop'
+      ]
   }
 }
 
 const runFallbackTests = async (target) => {
   if (target === 'cli') {
-    return runCommand('pnpm', ['-C', 'programs/cli', 'test'])
+    const cliCode = await runCommand('pnpm', ['-C', 'programs/cli', 'test'])
+    if (cliCode !== 0) return cliCode
+    return runCommand('pnpm', ['-C', 'programs/install', 'test'])
+  }
+  if (target === 'install') {
+    return runCommand('pnpm', ['-C', 'programs/install', 'test'])
   }
   if (target === 'develop' || target === 'build' || target === 'dev') {
     return runCommand('pnpm', ['-C', 'programs/develop', 'test'])
@@ -35,6 +49,15 @@ const runFallbackTests = async (target) => {
   const cliCode = await runCommand('pnpm', ['-C', 'programs/cli', 'test'])
   if (cliCode !== 0) {
     return cliCode
+  }
+
+  const installCode = await runCommand('pnpm', [
+    '-C',
+    'programs/install',
+    'test'
+  ])
+  if (installCode !== 0) {
+    return installCode
   }
 
   return runCommand('pnpm', ['-C', 'programs/develop', 'test'])
