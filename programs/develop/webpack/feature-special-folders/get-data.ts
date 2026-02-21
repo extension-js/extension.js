@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import path from 'path'
-import * as fs from 'fs'
 import {type Compiler} from '@rspack/core'
 import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
 import {type FilepathList} from '../webpack-types'
@@ -101,24 +100,8 @@ function finalizeSpecialFoldersData(
     // public/ is copy-only; exclude nested public entries from compilation entrypoints.
     pages: filterPublicEntrypoints(data.pages, projectRoot, publicDir),
     scripts: filterPublicEntrypoints(data.scripts, projectRoot, publicDir),
-    extensions: getLocalExtensionsConfig(projectRoot)
+    // Do not auto-scan ./extensions by default. Companion extensions are
+    // loaded only when explicitly configured by user options/config.
+    extensions: undefined
   }
-}
-
-function getLocalExtensionsConfig(
-  projectRoot: string
-): CompanionExtensionsConfig | undefined {
-  if (!projectRoot) return undefined
-  const extensionsDir = path.join(projectRoot, 'extensions')
-  try {
-    if (
-      fs.existsSync(extensionsDir) &&
-      fs.statSync(extensionsDir).isDirectory()
-    ) {
-      return {dir: './extensions'}
-    }
-  } catch {
-    // ignore guard errors
-  }
-  return undefined
 }

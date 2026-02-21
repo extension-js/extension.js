@@ -16,8 +16,36 @@ import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+function getArchiveBaseName(url: string): string {
+  const withoutQuery = url.split('?')[0]
+  const fileName = path.basename(withoutQuery)
+
+  if (!fileName.toLowerCase().endsWith('.zip')) return fileName
+
+  return fileName.slice(0, -4)
+}
+
+async function getZipSourcePath(
+  tempPath: string,
+  templateUrl: string
+): Promise<string> {
+  const archiveBase = getArchiveBaseName(templateUrl)
+  let entries: Array<{isDirectory: () => boolean; name: string}> = []
+
+  try {
+    entries = await fs.readdir(tempPath, {withFileTypes: true})
+  } catch {
+    return tempPath
+  }
+
+  const dirs = entries.filter((entry) => entry.isDirectory())
+  if (dirs.length !== 1) return tempPath
+
+  const onlyDir = dirs[0]
+  // Common release archives wrap files in <name>.<browser>/.
+  if (onlyDir.name === archiveBase) return path.join(tempPath, onlyDir.name)
+  return tempPath
+}
 
 export async function importExternalTemplate(
   projectPath: string,
@@ -80,7 +108,8 @@ export async function importExternalTemplate(
       }
       const zip = new AdmZip(Buffer.from(data))
       zip.extractAllTo(tempPath, true)
-      await utils.moveDirectoryContents(tempPath, projectPath)
+      const sourcePath = await getZipSourcePath(tempPath, template)
+      await utils.moveDirectoryContents(sourcePath, projectPath)
     } else {
       // Built-in template names resolve to extension-js/examples tree.
       await runGoGitIt(templateUrl, tempPath)
