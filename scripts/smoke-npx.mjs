@@ -1,11 +1,25 @@
 import {mkdtempSync, rmSync} from 'node:fs'
 import {tmpdir} from 'node:os'
-import {join, resolve} from 'node:path'
+import {dirname, join, resolve} from 'node:path'
 import {spawnSync} from 'node:child_process'
 
+// Ensure spawned processes find node/npm/pnpm (cross-platform, e.g. Windows CI)
+const nodeDir = dirname(process.execPath)
+const pathDelim = process.platform === 'win32' ? ';' : ':'
+const childEnv = {
+  ...process.env,
+  PATH: `${nodeDir}${pathDelim}${process.env.PATH || process.env.Path || ''}`
+}
+
 function run(cmd, args, opts = {}) {
-  const res = spawnSync(cmd, args, {stdio: 'pipe', ...opts})
+  const res = spawnSync(cmd, args, {
+    stdio: 'pipe',
+    env: childEnv,
+    ...opts
+  })
+
   if (res.error) throw res.error
+
   if ((res.status || 0) !== 0) {
     const out = (res.stdout || Buffer.alloc(0)).toString()
     const err = (res.stderr || Buffer.alloc(0)).toString()
@@ -13,6 +27,7 @@ function run(cmd, args, opts = {}) {
       `[${cmd} ${args.join(' ')}] failed with code ${res.status}\n${out}\n${err}`
     )
   }
+
   return res
 }
 
@@ -37,14 +52,18 @@ console.log(`DEV tgz: ${devTgz}`)
 // Scenario A: install CLI only, ensure help works (no develop import)
 {
   const tmp = mkdtempSync(join(tmpdir(), 'extjs-smoke-a-'))
+
   try {
     run('npm', ['init', '-y'], {cwd: tmp})
     run('npm', ['i', join(cliDir, cliTgz)], {cwd: tmp})
+
     const out = run('npx', ['extension', '--help'], {cwd: tmp}).stdout
     const text = out.toString()
+
     if (!/Usage:\s+extension\s+/i.test(text)) {
       throw new Error('Help output missing Usage: extension')
     }
+
     console.log('Scenario A ok: extension --help works with CLI tarball only')
   } finally {
     rmSync(tmp, {recursive: true, force: true})
@@ -54,13 +73,16 @@ console.log(`DEV tgz: ${devTgz}`)
 // Scenario B: install CLI + Develop and run a build
 {
   const tmp = mkdtempSync(join(tmpdir(), 'extjs-smoke-b-'))
+
   try {
     run('npm', ['init', '-y'], {cwd: tmp})
     run('npm', ['i', join(cliDir, cliTgz), join(devDir, devTgz)], {cwd: tmp})
+
     const env = {
-      ...process.env,
+      ...childEnv,
       EXTENSION_AUTHOR_MODE: '1'
     }
+
     run(
       'npx',
       [
@@ -73,6 +95,7 @@ console.log(`DEV tgz: ${devTgz}`)
       ],
       {cwd: tmp, env}
     )
+
     console.log('Scenario B ok: build runs with CLI + Develop tarballs')
   } finally {
     rmSync(tmp, {recursive: true, force: true})

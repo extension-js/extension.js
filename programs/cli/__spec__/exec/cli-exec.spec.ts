@@ -111,13 +111,15 @@ async function runUntilTimeout(
       resolvePromise({status, signal, stdout, stderr, timedOut})
     }
 
+    // On Windows process.kill(-pid) does not target process group; use child.kill only
+    const useProcessGroupKill = process.platform !== 'win32'
     const timer = setTimeout(() => {
       timedOut = true
       try {
-        if (child.pid) {
+        if (useProcessGroupKill && child.pid) {
           process.kill(-child.pid, 'SIGTERM')
         } else {
-          throw new Error('missing pid')
+          throw new Error('skip')
         }
       } catch {
         try {
@@ -131,10 +133,10 @@ async function runUntilTimeout(
     const killTimer = setTimeout(() => {
       if (resolved) return
       try {
-        if (child.pid) {
+        if (useProcessGroupKill && child.pid) {
           process.kill(-child.pid, 'SIGKILL')
         } else {
-          throw new Error('missing pid')
+          throw new Error('skip')
         }
       } catch {
         try {
