@@ -55,6 +55,7 @@ jobs:
           # into programs/develop/dist via the root postcompile hook.
           pnpm --filter extension-develop compile
           pnpm --filter extension-create compile
+          pnpm --filter extension-install compile
           pnpm --filter extension compile
           node scripts/build-extensions.cjs
 
@@ -145,9 +146,9 @@ jobs:
           VERSION: ${{ steps.validate.outputs.version }}
           SHOULD_TAG: ${{ steps.validate.outputs.should_tag }}
         run: |
-          node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/cli/package.json','programs/develop/package.json','programs/create/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
+          node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/cli/package.json','programs/develop/package.json','programs/create/package.json','programs/install/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
           if [ "$SHOULD_TAG" = "true" ]; then
-            git add programs/cli/package.json programs/develop/package.json programs/create/package.json
+            git add programs/cli/package.json programs/develop/package.json programs/create/package.json programs/install/package.json
             if ! git diff --cached --quiet; then git commit -m "release(${{ inputs.channel }}): v${{ steps.validate.outputs.version }}"; fi
             git tag "v${{ steps.validate.outputs.version }}"
             git push
@@ -242,6 +243,9 @@ jobs:
             }
             if(j.dependencies && j.dependencies['extension-create'] && /^workspace:/.test(j.dependencies['extension-create'])){
               j.dependencies['extension-create'] = process.env.VERSION;
+            }
+            if(j.dependencies && j.dependencies['extension-install'] && /^workspace:/.test(j.dependencies['extension-install'])){
+              j.dependencies['extension-install'] = process.env.VERSION;
             }
             fs.writeFileSync(p, JSON.stringify(j,null,2)+'\n');
           "
@@ -344,6 +348,60 @@ jobs:
       - name: Verify publish (extension-develop)
         if: steps.check_develop.outputs.exists == 'false'
         working-directory: programs/develop
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          echo "Verifying $PKG@$VER is visible on npm..."
+          for i in {1..12}; do
+            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+              echo "Found $PKG@$VER on npm."
+              exit 0
+            fi
+            echo "Waiting for npm replication... ($i/12)"
+            sleep 10
+          done
+          echo "Publish not visible on npm after waiting." >&2
+          exit 1
+
+      - name: Check if version exists (extension-install)
+        id: check_install
+        working-directory: programs/install
+        run: |
+          PKG=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Publish extension-install [token+provenance]
+        if: steps.check_install.outputs.exists == 'false'
+        working-directory: programs/install
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "NPM_TOKEN secret is missing." >&2
+            exit 1
+          fi
+          if [ -n "${NPM_CONFIG_USERCONFIG:-}" ]; then
+            mkdir -p "$(dirname "$NPM_CONFIG_USERCONFIG")"
+            {
+              echo "registry=https://registry.npmjs.org/"
+              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
+              echo "always-auth=true"
+            } > "$NPM_CONFIG_USERCONFIG"
+          else
+            {
+              echo "registry=https://registry.npmjs.org/"
+              echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}"
+              echo "always-auth=true"
+            } > "$HOME/.npmrc"
+          fi
+          npm publish --access public --tag ${{ steps.validate.outputs.tag }} --provenance --no-git-checks
+
+      - name: Verify publish (extension-install)
+        if: steps.check_install.outputs.exists == 'false'
+        working-directory: programs/install
         run: |
           PKG=$(node -p "require('./package.json').name")
           VER=$(node -p "require('./package.json').version")
