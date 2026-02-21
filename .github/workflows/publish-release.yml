@@ -4,14 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       channel:
-        description: "Release channel: next or stable"
+        description: "Release channel: next, stable, or canary (silent publish)"
         type: choice
         required: true
-        options: [next, stable]
+        options: [next, stable, canary]
       version:
-        description: "Exact version (e.g., 3.0.0-next.17 or 3.0.0)"
+        description: "Exact version (e.g., 3.0.0-next.17 or 3.0.0). Leave empty for auto canary version."
         type: string
-        required: true
+        required: false
 
 permissions:
   contents: write
@@ -19,7 +19,7 @@ permissions:
   deployments: write
 
 concurrency:
-  group: publish-${{ inputs.channel }}-${{ inputs.version }}
+  group: publish-${{ inputs.channel }}-${{ inputs.version || github.run_id }}
   cancel-in-progress: false
 
 env:
@@ -67,17 +67,47 @@ jobs:
           RAW='${{ inputs.version }}'
           CHANNEL='${{ inputs.channel }}'
           VERSION=$(echo "$RAW" | xargs)
-          if [ -z "$VERSION" ]; then echo "version required" >&2; exit 1; fi
+          if [ "$CHANNEL" = "stable" ] && [ -z "$VERSION" ]; then
+            echo "version required for stable" >&2
+            exit 1
+          fi
+          if [ "$CHANNEL" = "next" ] && [ -z "$VERSION" ]; then
+            echo "version required for next" >&2
+            exit 1
+          fi
+
+          if [ "$CHANNEL" = "canary" ] && [ -z "$VERSION" ]; then
+            BASE=$(node -p "require('./programs/cli/package.json').version.split('-')[0]")
+            SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+            VERSION="${BASE}-canary.${GITHUB_RUN_NUMBER}.${SHA}"
+          fi
+
           if [ "$CHANNEL" = "next" ]; then
             echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$' || { echo "version must be pre-release for next" >&2; exit 1; }
+          elif [ "$CHANNEL" = "canary" ]; then
+            echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$' || { echo "version must be pre-release for canary" >&2; exit 1; }
           else
             echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "version must be plain semver for stable" >&2; exit 1; }
           fi
-          if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION$"; then echo "tag v$VERSION already exists on origin" >&2; exit 1; fi
+
+          SHOULD_TAG=true
+          if [ "$CHANNEL" = "canary" ]; then SHOULD_TAG=false; fi
+          if [ "$SHOULD_TAG" = "true" ]; then
+            if git ls-remote --tags origin | grep -q "refs/tags/v$VERSION$"; then echo "tag v$VERSION already exists on origin" >&2; exit 1; fi
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          if [ "$CHANNEL" = "next" ]; then echo "tag=next" >> $GITHUB_OUTPUT; else echo "tag=latest" >> $GITHUB_OUTPUT; fi
+          if [ "$CHANNEL" = "next" ]; then
+            echo "tag=next" >> $GITHUB_OUTPUT
+          elif [ "$CHANNEL" = "canary" ]; then
+            echo "tag=canary" >> $GITHUB_OUTPUT
+          else
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          fi
+          echo "should_tag=$SHOULD_TAG" >> $GITHUB_OUTPUT
 
       - name: Generate release notes from git history
+        if: ${{ inputs.channel != 'canary' }}
         id: changelog
         env:
           CURRENT_VERSION: ${{ steps.validate.outputs.version }}
@@ -105,6 +135,7 @@ jobs:
           echo "from_tag=$last_tag" >> "$GITHUB_OUTPUT"
 
       - name: Configure git user
+        if: ${{ steps.validate.outputs.should_tag == 'true' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -112,15 +143,21 @@ jobs:
       - name: Bump versions (all packages) and tag
         env:
           VERSION: ${{ steps.validate.outputs.version }}
+          SHOULD_TAG: ${{ steps.validate.outputs.should_tag }}
         run: |
           node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/cli/package.json','programs/develop/package.json','programs/create/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
-          git add programs/cli/package.json programs/develop/package.json programs/create/package.json
-          if ! git diff --cached --quiet; then git commit -m "release(${{ inputs.channel }}): v${{ steps.validate.outputs.version }}"; fi
-          git tag "v${{ steps.validate.outputs.version }}"
-          git push
-          git push --tags
+          if [ "$SHOULD_TAG" = "true" ]; then
+            git add programs/cli/package.json programs/develop/package.json programs/create/package.json
+            if ! git diff --cached --quiet; then git commit -m "release(${{ inputs.channel }}): v${{ steps.validate.outputs.version }}"; fi
+            git tag "v${{ steps.validate.outputs.version }}"
+            git push
+            git push --tags
+          else
+            echo "Canary channel: skipping commit/tag/push."
+          fi
 
       - name: Create GitHub Release
+        if: ${{ inputs.channel != 'canary' }}
         uses: actions/github-script@v7
         env:
           VERSION: ${{ steps.validate.outputs.version }}
@@ -378,6 +415,7 @@ jobs:
           exit 1
 
       - name: Create GitHub Deployment (in_progress)
+        if: ${{ inputs.channel != 'canary' }}
         id: create_deployment
         uses: actions/github-script@v7
         env:
@@ -405,6 +443,7 @@ jobs:
             core.setOutput('id', res.data.id);
 
       - name: Mark Deployment successful
+        if: ${{ inputs.channel != 'canary' }}
         uses: actions/github-script@v7
         env:
           VERSION: ${{ steps.validate.outputs.version }}
