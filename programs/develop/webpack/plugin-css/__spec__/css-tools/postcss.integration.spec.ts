@@ -77,7 +77,9 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
         fs.symlinkSync(workspaceTailwindPath, tailwindDest, 'dir')
       } catch (err: any) {
         if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
-          fs.cpSync(fs.realpathSync(workspaceTailwindPath), tailwindDest, {recursive: true})
+          fs.cpSync(fs.realpathSync(workspaceTailwindPath), tailwindDest, {
+            recursive: true
+          })
         } else {
           throw err
         }

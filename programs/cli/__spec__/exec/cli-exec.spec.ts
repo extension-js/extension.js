@@ -33,13 +33,20 @@ const previewFixture = resolve(
 // Resolve pnpm so spawn finds it cross-platform (avoids ENOENT when PATH differs in child/CI)
 const nodeDir = dirname(process.execPath)
 const pathDelim = process.platform === 'win32' ? ';' : ':'
-const pnpmFromBin = join(repoRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
-const pnpmFromNodeDir = join(nodeDir, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+const pnpmFromBin = join(
+  repoRoot,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+)
+const pnpmFromNodeDir = join(
+  nodeDir,
+  process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+)
 const pnpmHome = process.env.PNPM_HOME
-const pnpmFromPnpmHome =
-  pnpmHome ?
-    join(pnpmHome, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
-    : ''
+const pnpmFromPnpmHome = pnpmHome
+  ? join(pnpmHome, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+  : ''
 const pnpmCommand = existsSync(pnpmFromBin)
   ? pnpmFromBin
   : existsSync(pnpmFromNodeDir)
@@ -70,7 +77,9 @@ function runCommand(
   options: {cwd?: string; env?: NodeJS.ProcessEnv} = {}
 ) {
   // On Windows, .cmd files must be run with shell (spawnSync EINVAL otherwise)
-  const useShell = process.platform === 'win32' && (command.endsWith('.cmd') || command.endsWith('.bat'))
+  const useShell =
+    process.platform === 'win32' &&
+    (command.endsWith('.cmd') || command.endsWith('.bat'))
   const result = spawnSync(command, args, {
     ...options,
     stdio: 'pipe',
@@ -183,10 +192,14 @@ function ensureCompiled(pkgDir: string, distEntry: string) {
 
 function packPackage(pkgDir: string, packDir: string) {
   const before = new Set(readdirSync(packDir))
-  const result = runCommand(pnpmCommand, ['pack', '--pack-destination', packDir], {
-    cwd: pkgDir,
-    env: baseEnv
-  })
+  const result = runCommand(
+    pnpmCommand,
+    ['pack', '--pack-destination', packDir],
+    {
+      cwd: pkgDir,
+      env: baseEnv
+    }
+  )
   if ((result.status || 0) !== 0) {
     throw new Error(
       `Failed to pack ${pkgDir}\n${result.stdout}\n${result.stderr}`

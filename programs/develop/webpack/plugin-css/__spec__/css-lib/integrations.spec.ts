@@ -125,7 +125,11 @@ describe('css-lib integrations', () => {
     const call = spawn.mock.calls[0]
     const args = Array.isArray(call?.[1]) ? call?.[1].join(' ') : ''
     if (process.platform === 'win32') {
-      expect([call?.[0], args].some((v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('pnpm'))).toBe(true)
+      expect(
+        [call?.[0], args].some(
+          (v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('pnpm')
+        )
+      ).toBe(true)
     } else {
       expect(call?.[0]).toBe('pnpm')
     }
@@ -151,7 +155,11 @@ describe('css-lib integrations', () => {
     const call = spawn.mock.calls[0]
     const args = Array.isArray(call?.[1]) ? call?.[1].join(' ') : ''
     if (process.platform === 'win32') {
-      expect([call?.[0], args].some((v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('pnpm'))).toBe(true)
+      expect(
+        [call?.[0], args].some(
+          (v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('pnpm')
+        )
+      ).toBe(true)
     } else {
       expect(call?.[0]).toBe('pnpm')
     }
@@ -193,7 +201,11 @@ describe('css-lib integrations', () => {
     const call = spawn.mock.calls[0]
     const args = Array.isArray(call?.[1]) ? call?.[1].join(' ') : ''
     if (process.platform === 'win32') {
-      expect([call?.[0], args].some((v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('yarn'))).toBe(true)
+      expect(
+        [call?.[0], args].some(
+          (v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('yarn')
+        )
+      ).toBe(true)
     } else {
       expect(call?.[0]).toBe('yarn')
     }
@@ -269,7 +281,14 @@ describe('css-lib integrations', () => {
     const args = Array.isArray(call?.[1]) ? call?.[1] : []
     const argsStr = args.join(' ')
     if (process.platform === 'win32') {
-      expect([call?.[0], argsStr].some((v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('corepack') || String(v).includes('pnpm'))).toBe(true)
+      expect(
+        [call?.[0], argsStr].some(
+          (v) =>
+            /cmd\.exe$/i.test(String(v)) ||
+            String(v).includes('corepack') ||
+            String(v).includes('pnpm')
+        )
+      ).toBe(true)
     } else {
       expect(call?.[0]).toBe('corepack')
     }
@@ -306,7 +325,11 @@ describe('css-lib integrations', () => {
     const call = spawn.mock.calls[0]
     const args = Array.isArray(call?.[1]) ? call?.[1].join(' ') : ''
     if (process.platform === 'win32') {
-      expect([call?.[0], args].some((v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('npm'))).toBe(true)
+      expect(
+        [call?.[0], args].some(
+          (v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('npm')
+        )
+      ).toBe(true)
     } else {
       expect(call?.[0]).toBe('npm')
     }
@@ -327,7 +350,11 @@ describe('css-lib integrations', () => {
     const call = spawn.mock.calls[0]
     const args = Array.isArray(call?.[1]) ? call?.[1].join(' ') : ''
     if (process.platform === 'win32') {
-      expect([call?.[0], args].some((v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('npm'))).toBe(true)
+      expect(
+        [call?.[0], args].some(
+          (v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('npm')
+        )
+      ).toBe(true)
     } else {
       expect(call?.[0]).toBe('npm')
     }
@@ -350,7 +377,11 @@ describe('css-lib integrations', () => {
     const call = spawn.mock.calls[0]
     const args = Array.isArray(call?.[1]) ? call?.[1].join(' ') : ''
     if (process.platform === 'win32') {
-      expect([call?.[0], args].some((v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('yarn'))).toBe(true)
+      expect(
+        [call?.[0], args].some(
+          (v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('yarn')
+        )
+      ).toBe(true)
     } else {
       expect(call?.[0]).toBe('yarn')
     }
@@ -373,7 +404,11 @@ describe('css-lib integrations', () => {
     const call = spawn.mock.calls[0]
     const args = Array.isArray(call?.[1]) ? call?.[1].join(' ') : ''
     if (process.platform === 'win32') {
-      expect([call?.[0], args].some((v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('bun'))).toBe(true)
+      expect(
+        [call?.[0], args].some(
+          (v) => /cmd\.exe$/i.test(String(v)) || String(v).includes('bun')
+        )
+      ).toBe(true)
     } else {
       expect(call?.[0]).toBe('bun')
     }
