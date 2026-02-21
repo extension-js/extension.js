@@ -234,7 +234,7 @@ export class FirefoxLaunchPlugin {
               try {
                 return getFirefoxInstallGuidance()
               } catch {
-                return 'npx @puppeteer/browsers install firefox'
+                return 'npx extension install firefox'
               }
             })()
             this.printInstallHint(compilation, guidance)

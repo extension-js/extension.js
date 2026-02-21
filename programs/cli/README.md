@@ -137,6 +137,45 @@ npx extension@latest dev --chromium-binary "/Applications/Google Chrome.app/Cont
 npx extension@latest dev --gecko-binary "/Applications/Firefox.app/Contents/MacOS/firefox"
 ```
 
+### Managed browser binaries
+
+Use Extension.js commands to install/remove managed browser binaries:
+
+```bash
+# Install into Extension.js managed cache
+npx extension@latest install --browser=chromium
+npx extension@latest install --browser=firefox
+
+# Show managed cache root
+npx extension@latest install --where
+
+# Show managed path for a specific browser
+npx extension@latest install --where --browser=firefox
+
+# Remove one browser binary
+npx extension@latest uninstall chromium
+
+# Remove all managed browser binaries
+npx extension@latest uninstall --all
+
+# Show managed cache root
+npx extension@latest uninstall --where
+
+# Show managed path(s) for target browser(s)
+npx extension@latest uninstall --where --browser=chromium
+```
+
+`uninstall` only removes binaries from the Extension.js managed cache root (or `EXT_BROWSERS_CACHE_DIR` when set). It does not remove browser installations that were installed elsewhere (for example, system browsers or custom paths outside the managed cache).
+
+`edge` note for Linux: Playwright channel installs may require a privileged interactive session (`sudo` prompt). If channel install cannot proceed but a system Edge binary is already present, Extension.js will use that existing binary. Otherwise, install Edge system-wide first and then run Extension.js with `--browser=edge` (or use `chromium`).
+
+Default managed cache locations are stable and human-readable:
+- macOS: `~/Library/Caches/extension.js/browsers`
+- Linux: `~/.cache/extension.js/browsers` (or `$XDG_CACHE_HOME/extension.js/browsers`)
+- Windows: `%LOCALAPPDATA%\\extension.js\\browsers`
+
+If you want a custom path, set `EXT_BROWSERS_CACHE_DIR` to a clean location (for example, `EXT_BROWSERS_CACHE_DIR=/tmp/extension.js/browsers-dev`).
+
 ## Sponsors
 
 <div align="center">
