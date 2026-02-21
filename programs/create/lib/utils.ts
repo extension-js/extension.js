@@ -25,8 +25,17 @@ export async function copyDirectoryWithSymlinks(
     if (entry.isDirectory()) {
       await copyDirectoryWithSymlinks(sourcePath, destPath)
     } else if (entry.isSymbolicLink()) {
-      const target = await fs.readlink(sourcePath)
-      await fs.symlink(target, destPath)
+      try {
+        const target = await fs.readlink(sourcePath)
+        await fs.symlink(target, destPath)
+      } catch (err: any) {
+        if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
+          const real = await fs.realpath(sourcePath)
+          await fs.cp(real, destPath, {recursive: true})
+        } else {
+          throw err
+        }
+      }
     } else {
       await fs.copyFile(sourcePath, destPath)
     }
@@ -49,8 +58,17 @@ export async function moveDirectoryContents(
       // Recursively move subdirectories
       await moveDirectoryContents(sourcePath, destPath)
     } else if (entry.isSymbolicLink()) {
-      const target = await fs.readlink(sourcePath)
-      await fs.symlink(target, destPath)
+      try {
+        const target = await fs.readlink(sourcePath)
+        await fs.symlink(target, destPath)
+      } catch (err: any) {
+        if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
+          const real = await fs.realpath(sourcePath)
+          await fs.cp(real, destPath, {recursive: true})
+        } else {
+          throw err
+        }
+      }
     } else {
       // Move files with EXDEV (cross-device) fallback to copy+unlink
       try {
