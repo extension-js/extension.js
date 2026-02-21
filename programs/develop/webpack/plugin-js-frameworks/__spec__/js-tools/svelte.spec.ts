@@ -1,4 +1,5 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import {pathPattern} from '../../../webpack-lib/__spec__/platform-utils'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
@@ -74,18 +75,18 @@ describe('svelte tools', () => {
       'module',
       'default'
     ])
-    // Match path with either / or \ (cross-platform)
+    // Cross-platform path assertions (see webpack-lib/__spec__/platform-utils)
     expect(String(result?.alias?.svelte)).toMatch(
-      /svelte[\\/]src[\\/]index-client\.js$/
+      pathPattern(['svelte', 'src', 'index-client.js'])
     )
     expect(String(result?.alias?.['svelte/store'])).toMatch(
-      /svelte[\\/]src[\\/]store[\\/]index-client\.js$/
+      pathPattern(['svelte', 'src', 'store', 'index-client.js'])
     )
     expect(String(result?.alias?.['svelte/reactivity'])).toMatch(
-      /svelte[\\/]src[\\/]reactivity[\\/]index-client\.js$/
+      pathPattern(['svelte', 'src', 'reactivity', 'index-client.js'])
     )
     expect(String(result?.alias?.['svelte/legacy'])).toMatch(
-      /svelte[\\/]src[\\/]legacy[\\/]legacy-client\.js$/
+      pathPattern(['svelte', 'src', 'legacy', 'legacy-client.js'])
     )
   })
 })
