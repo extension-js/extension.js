@@ -511,38 +511,18 @@ export function prettyPuppeteerInstallGuidance(
   const finalCachePath =
     browserNorm && cacheDir ? path.join(cacheDir, browserNorm) : cacheDir
 
-  // Inject install destinations for Puppeteer/Playwright to land in our cache
+  // Normalize install guidance to the Extension.js command.
   try {
-    if (finalCachePath && finalCachePath.trim().length > 0) {
-      const lines = cleaned.split(/\r?\n/)
-      // Puppeteer path injection
-      const idx = lines.findIndex((l) =>
-        /npx\s+@puppeteer\/browsers\s+install\s+/i.test(l)
+    const lines = cleaned.split(/\r?\n/)
+    const idx = lines.findIndex((l) =>
+      /npx\s+@puppeteer\/browsers\s+install\s+|npx\s+playwright\s+install(\s+.+)?/i.test(
+        l
       )
-      if (idx !== -1 && !/--path\s+/i.test(lines[idx])) {
-        lines[idx] = `${lines[idx].trim()} --path "${finalCachePath}"`
-        cleaned = lines.join('\n')
-      }
-      // Playwright custom install dir via PLAYWRIGHT_BROWSERS_PATH
-      try {
-        const pwIdx = lines.findIndex((l) =>
-          /npx\s+playwright\s+install(\s+.+)?/i.test(l)
-        )
+    )
 
-        if (pwIdx !== -1) {
-          if (finalCachePath && finalCachePath.trim().length > 0) {
-            const cmd = lines[pwIdx].trim()
-            const withEnv =
-              process.platform === 'win32'
-                ? `set PLAYWRIGHT_BROWSERS_PATH="${finalCachePath}" && ${cmd}`
-                : `PLAYWRIGHT_BROWSERS_PATH="${finalCachePath}" ${cmd}`
-            lines[pwIdx] = withEnv
-            cleaned = lines.join('\n')
-          }
-        }
-      } catch {
-        // noop
-      }
+    if (idx !== -1) {
+      lines[idx] = `npx extension install ${browserNorm}`
+      cleaned = lines.join('\n')
     }
   } catch {
     // noop

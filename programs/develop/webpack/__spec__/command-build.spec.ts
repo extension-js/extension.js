@@ -281,4 +281,22 @@ describe('webpack/command-build', () => {
     expect(message).toContain('Build failed')
     expect(message).toContain('boom')
   })
+
+  it('rejects when compiler returns missing stats (prevents silent success)', async () => {
+    process.env.VITEST = 'true'
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    rspackMock.mockReturnValue(makeCompiler(undefined))
+
+    await expect(
+      extensionBuild('/proj', {
+        browser: 'chrome',
+        silent: true,
+        exitOnError: false
+      })
+    ).rejects.toThrow(/invalid stats output/i)
+  })
 })

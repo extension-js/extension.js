@@ -13,6 +13,7 @@ This repo uses a GitHub Actions release workflow to publish the public packages.
 - `programs/cli` → package: `extension`
 - `programs/create` → package: `extension-create`
 - `programs/develop` → package: `extension-develop`
+- `programs/install` → package: `extension-install`
 
 All other packages are private and not published.
 
@@ -32,7 +33,8 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   - `programs/cli/package.json`
   - `programs/develop/package.json`
   - `programs/create/package.json`
-- CI publishes `extension`, `extension-develop`, and `extension-create` to npm
+- `programs/install/package.json`
+- CI publishes `extension`, `extension-develop`, `extension-create`, and `extension-install` to npm
   using the selected dist-tag (`latest`, `next`, or `canary`).
 - For `stable` and `next`, CI tags the release as `v<version>`, creates a GitHub
   Release, and creates a GitHub Deployment.
@@ -51,7 +53,7 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
 ## Optional hardening implemented
 
 - `publishConfig.tag: "latest"` explicitly set in public packages
-  (`extension`, `extension-develop`, `extension-create`).
+  (`extension`, `extension-develop`, `extension-create`, `extension-install`).
 - Input validation for channel/version in the release workflow.
 
 ## Environments
