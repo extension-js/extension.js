@@ -30,21 +30,31 @@ const previewFixture = resolve(
   '_FUTURE/extension-develop-dist/extension-js-devtools/chrome'
 )
 
-// Resolve pnpm so spawn finds it cross-platform (avoids ENOENT when PATH differs in child)
+// Resolve pnpm so spawn finds it cross-platform (avoids ENOENT when PATH differs in child/CI)
 const nodeDir = dirname(process.execPath)
+const pathDelim = process.platform === 'win32' ? ';' : ':'
 const pnpmFromBin = join(repoRoot, 'node_modules', '.bin', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
 const pnpmFromNodeDir = join(nodeDir, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+const pnpmHome = process.env.PNPM_HOME
+const pnpmFromPnpmHome =
+  pnpmHome ?
+    join(pnpmHome, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm')
+    : ''
 const pnpmCommand = existsSync(pnpmFromBin)
   ? pnpmFromBin
   : existsSync(pnpmFromNodeDir)
     ? pnpmFromNodeDir
-    : 'pnpm'
+    : pnpmFromPnpmHome && existsSync(pnpmFromPnpmHome)
+      ? pnpmFromPnpmHome
+      : 'pnpm'
 
-// Ensure spawned processes find node on PATH when using 'pnpm' by name
-const pathDelim = process.platform === 'win32' ? ';' : ':'
+// Ensure spawned processes find node and pnpm (e.g. CI sets PNPM_HOME)
+const existingPath = process.env.PATH || process.env.Path || ''
+const pathParts = [nodeDir]
+if (pnpmHome) pathParts.push(pnpmHome)
 const baseEnv: NodeJS.ProcessEnv = {
   ...process.env,
-  PATH: `${nodeDir}${pathDelim}${process.env.PATH || process.env.Path || ''}`
+  PATH: pathParts.join(pathDelim) + pathDelim + existingPath
 }
 
 const defaultEnv: NodeJS.ProcessEnv = {
