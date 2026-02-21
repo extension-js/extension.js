@@ -1,0 +1,67 @@
+{
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/extension-js/extension.js.git",
+    "directory": "programs/install"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "exports": {
+    ".": {
+      "development": "./module.ts",
+      "types": "./dist/module.d.ts",
+      "import": "./dist/module.cjs",
+      "require": "./dist/module.cjs"
+    }
+  },
+  "main": "./dist/module.cjs",
+  "types": "./dist/module.d.ts",
+  "files": [
+    "dist"
+  ],
+  "name": "extension-install",
+  "version": "3.7.0",
+  "description": "Managed browser installer/uninstaller for Extension.js",
+  "author": {
+    "name": "Cezar Augusto",
+    "email": "boss@cezaraugusto.net",
+    "url": "https://cezaraugusto.com"
+  },
+  "homepage": "https://github.com/extension-js/extension.js/tree/main/programs/install#readme",
+  "bugs": {
+    "url": "https://github.com/extension-js/extension.js/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "scripts": {
+    "watch": "rslib build --watch",
+    "compile": "rslib build",
+    "test": "vitest run"
+  },
+  "keywords": [
+    "webextension",
+    "browser-extension",
+    "extensionjs",
+    "browser-installer",
+    "chrome",
+    "chromium",
+    "edge",
+    "firefox"
+  ],
+  "dependencies": {
+    "cross-spawn": "^7.0.6",
+    "pintor": "0.3.0"
+  },
+  "devDependencies": {
+    "@rslib/core": "^0.19.4",
+    "@types/node": "^25.2.0",
+    "tsconfig": "*",
+    "typescript": "5.9.3",
+    "vitest": "^4.0.17"
+  }
+}
