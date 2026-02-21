@@ -67,11 +67,22 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
       'tailwindcss'
     )
     expect(fs.existsSync(workspaceTailwindPath)).toBe(true)
-    fs.symlinkSync(
-      workspaceTailwindPath,
-      path.join(fixtureNodeModules, 'tailwindcss'),
-      'dir'
-    )
+    const tailwindDest = path.join(fixtureNodeModules, 'tailwindcss')
+    // On Windows use real path + copy to avoid EPERM (symlinks/junctions in pnpm store)
+    if (process.platform === 'win32') {
+      const realSource = fs.realpathSync(workspaceTailwindPath)
+      fs.cpSync(realSource, tailwindDest, {recursive: true})
+    } else {
+      try {
+        fs.symlinkSync(workspaceTailwindPath, tailwindDest, 'dir')
+      } catch (err: any) {
+        if (err?.code === 'EPERM' || err?.code === 'ENOTSUP') {
+          fs.cpSync(fs.realpathSync(workspaceTailwindPath), tailwindDest, {recursive: true})
+        } else {
+          throw err
+        }
+      }
+    }
 
     // Tailwind v4 entry plus explicit source hint.
     const cssFile = path.join(srcSidebar, 'sidebar-index.css')
