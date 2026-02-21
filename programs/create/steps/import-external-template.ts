@@ -16,6 +16,21 @@ import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
 import * as utils from '../lib/utils'
 
+async function withSuppressedOutput<T>(task: () => Promise<T>): Promise<T> {
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout)
+  const originalStderrWrite = process.stderr.write.bind(process.stderr)
+
+  process.stdout.write = (() => true) as typeof process.stdout.write
+  process.stderr.write = (() => true) as typeof process.stderr.write
+
+  try {
+    return await task()
+  } finally {
+    process.stdout.write = originalStdoutWrite
+    process.stderr.write = originalStderrWrite
+  }
+}
+
 function getArchiveBaseName(url: string): string {
   const withoutQuery = url.split('?')[0]
   const fileName = path.basename(withoutQuery)
@@ -75,10 +90,12 @@ export async function importExternalTemplate(
     const isGithub = /^https?:\/\/github.com\//i.test(template)
 
     const runGoGitIt = async (templatePath: string, destination: string) => {
-      await goGitIt(
-        templatePath,
-        destination,
-        messages.installingFromTemplate(projectName, templateName)
+      await withSuppressedOutput(async () =>
+        goGitIt(
+          templatePath,
+          destination,
+          messages.installingFromTemplate(projectName, templateName)
+        )
       )
     }
 
