@@ -53,7 +53,9 @@ describe('package-manager execInstallCommand', () => {
 
   it('uses shell: true on Windows when command is .cmd or .bat', async () => {
     if (process.platform !== 'win32') return
-    await execInstallCommand('C:\\path\\to\\pnpm.cmd', ['install'], {cwd: process.cwd()})
+    await execInstallCommand('C:\\path\\to\\pnpm.cmd', ['install'], {
+      cwd: process.cwd()
+    })
     expect(spawnMock).toHaveBeenCalledWith(
       'C:\\path\\to\\pnpm.cmd',
       ['install'],

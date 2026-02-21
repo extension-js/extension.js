@@ -320,8 +320,7 @@ export function execInstallCommand(
   const stdio = options?.stdio ?? 'ignore'
   // On Windows, .cmd/.bat must be run with shell (spawn EINVAL otherwise)
   const useShell =
-    process.platform === 'win32' &&
-    (/\.(cmd|bat)$/i.test(invocation.command))
+    process.platform === 'win32' && /\.(cmd|bat)$/i.test(invocation.command)
 
   return new Promise((resolve, reject) => {
     const child = spawn(invocation.command, invocation.args, {
