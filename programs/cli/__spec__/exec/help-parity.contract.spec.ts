@@ -9,6 +9,7 @@ import {registerDevCommand} from '../../commands/dev'
 import {registerStartCommand} from '../../commands/start'
 import {registerPreviewCommand} from '../../commands/preview'
 import {registerBuildCommand} from '../../commands/build'
+import {registerInstallCommand} from '../../commands/install'
 
 function stripAnsi(input: string): string {
   return input.replace(/\u001b\[[0-9;]*m/g, '')
@@ -33,6 +34,7 @@ function buildProgramForInspection() {
   registerStartCommand(program, telemetry)
   registerPreviewCommand(program, telemetry)
   registerBuildCommand(program, telemetry)
+  registerInstallCommand(program, telemetry)
 
   return program
 }
@@ -62,7 +64,15 @@ describe('CLI help parity contract', () => {
       .sort()
 
     expect(helpCommands).toEqual(registeredCommands)
-    expect(helpCommands).toEqual(['build', 'create', 'dev', 'preview', 'start'])
+    expect(helpCommands).toEqual([
+      'build',
+      'create',
+      'dev',
+      'install',
+      'preview',
+      'start',
+      'uninstall'
+    ])
   })
 
   it('contract #2: top-level defaults match runtime defaults', () => {
@@ -177,5 +187,67 @@ describe('CLI help parity contract', () => {
     expect(Array.isArray(parsed.globalOptions)).toBe(true)
     expect(parsed.capabilities).toBeTruthy()
     expect(Array.isArray(parsed.examples)).toBe(true)
+  })
+
+  it('contract #9: install --where prints managed cache path and exits 0', () => {
+    const result = spawnSync(
+      process.execPath,
+      [cliBin(), 'install', '--where'],
+      {
+        cwd: cliRoot(),
+        encoding: 'utf8'
+      }
+    )
+
+    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
+    expect(result.status).toBe(0)
+    expect(output).toMatch(/extension\.js[\/\\]browsers/i)
+  })
+
+  it('contract #10: uninstall --where prints managed cache path and exits 0', () => {
+    const result = spawnSync(
+      process.execPath,
+      [cliBin(), 'uninstall', '--where'],
+      {
+        cwd: cliRoot(),
+        encoding: 'utf8'
+      }
+    )
+
+    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
+    expect(result.status).toBe(0)
+    expect(output).toMatch(/extension\.js[\/\\]browsers/i)
+  })
+
+  it('contract #11: install --where with --browser prints browser-specific path', () => {
+    const result = spawnSync(
+      process.execPath,
+      [cliBin(), 'install', '--where', '--browser=firefox'],
+      {
+        cwd: cliRoot(),
+        encoding: 'utf8'
+      }
+    )
+
+    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
+    expect(result.status).toBe(0)
+    expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]firefox/i)
+  })
+
+  it('contract #12: uninstall --where --all prints browser-specific paths', () => {
+    const result = spawnSync(
+      process.execPath,
+      [cliBin(), 'uninstall', '--where', '--all'],
+      {
+        cwd: cliRoot(),
+        encoding: 'utf8'
+      }
+    )
+
+    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
+    expect(result.status).toBe(0)
+    expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]chrome/i)
+    expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]edge/i)
+    expect(output).toMatch(/extension\.js[\/\\]browsers[\/\\]firefox/i)
   })
 })
