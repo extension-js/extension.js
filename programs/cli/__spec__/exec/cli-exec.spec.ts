@@ -66,7 +66,11 @@ const npmFromNodeDir = join(
   nodeDir,
   process.platform === 'win32' ? 'npm.cmd' : 'npm'
 )
-const npmCommand = existsSync(npmFromBin) ? npmFromBin : existsSync(npmFromNodeDir) ? npmFromNodeDir : 'npm'
+const npmCommand = existsSync(npmFromBin)
+  ? npmFromBin
+  : existsSync(npmFromNodeDir)
+    ? npmFromNodeDir
+    : 'npm'
 
 // Ensure spawned processes find node and pnpm (e.g. CI sets PNPM_HOME)
 const existingPath = process.env.PATH || process.env.Path || ''
