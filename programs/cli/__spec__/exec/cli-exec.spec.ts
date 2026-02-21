@@ -55,6 +55,19 @@ const pnpmCommand = existsSync(pnpmFromBin)
       ? pnpmFromPnpmHome
       : 'pnpm'
 
+// Resolve npm for tests that run npm install (CI may not have npm on PATH)
+const npmFromBin = join(
+  repoRoot,
+  'node_modules',
+  '.bin',
+  process.platform === 'win32' ? 'npm.cmd' : 'npm'
+)
+const npmFromNodeDir = join(
+  nodeDir,
+  process.platform === 'win32' ? 'npm.cmd' : 'npm'
+)
+const npmCommand = existsSync(npmFromBin) ? npmFromBin : existsSync(npmFromNodeDir) ? npmFromNodeDir : 'npm'
+
 // Ensure spawned processes find node and pnpm (e.g. CI sets PNPM_HOME)
 const existingPath = process.env.PATH || process.env.Path || ''
 const pathParts = [nodeDir]
@@ -105,10 +118,15 @@ async function runUntilTimeout(
     stderr: string
     timedOut: boolean
   }>((resolvePromise) => {
+    // On Windows, .cmd/.bat must be run with shell (spawn EINVAL otherwise)
+    const useShell =
+      process.platform === 'win32' &&
+      (command.endsWith('.cmd') || command.endsWith('.bat'))
     const child = spawn(command, args, {
       ...options,
       stdio: 'pipe',
-      detached: true
+      detached: true,
+      ...(useShell ? {shell: true} : {})
     })
     let stdout = ''
     let stderr = ''
@@ -497,11 +515,17 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
       )
       expect(createResult.status).toBe(0)
 
-      const installResult = runCommand(
-        'npm',
-        ['install', '--save-dev', cliTgz, createTgz, developTgz],
-        {cwd: projectPath, env: process.env}
-      )
+      // Prefer npm when we have a path; on CI (e.g. setup-pnpm) npm may be absent, use runner PM
+      const hasNpm = npmCommand !== 'npm'
+      const installCmd = hasNpm ? npmCommand : runner.command
+      const installArgs =
+        installCmd === runner.command
+          ? ['add', '--save-dev', cliTgz, createTgz, developTgz]
+          : ['install', '--save-dev', cliTgz, createTgz, developTgz]
+      const installResult = runCommand(installCmd, installArgs, {
+        cwd: projectPath,
+        env: baseEnv
+      })
       expect(installResult.status).toBe(0)
       expect(existsSync(join(projectPath, 'node_modules'))).toBe(true)
 
