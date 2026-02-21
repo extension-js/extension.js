@@ -1,5 +1,20 @@
-import {describe, expect, it} from 'vitest'
-import {buildInstallCommand} from '../package-manager'
+import {describe, expect, it, vi, beforeEach} from 'vitest'
+
+const fakeChild = {
+  on: (ev: string, fn: (...a: any[]) => void) => {
+    if (ev === 'close') setImmediate(() => fn(0))
+    return fakeChild
+  }
+}
+const spawnMock = vi.fn(() => fakeChild)
+
+vi.mock('child_process', () => ({
+  execFileSync: vi.fn(),
+  spawn: (...args: any[]) => spawnMock(...args),
+  spawnSync: vi.fn(() => ({status: 0}))
+}))
+
+import {buildInstallCommand, execInstallCommand} from '../package-manager'
 
 describe('package-manager buildInstallCommand', () => {
   it('executes native package manager binaries directly', () => {
@@ -30,5 +45,19 @@ describe('package-manager buildInstallCommand', () => {
       command: process.execPath,
       args: [execPath, ...args]
     })
+  })
+})
+
+describe('package-manager execInstallCommand', () => {
+  beforeEach(() => spawnMock.mockClear())
+
+  it('uses shell: true on Windows when command is .cmd or .bat', async () => {
+    if (process.platform !== 'win32') return
+    await execInstallCommand('C:\\path\\to\\pnpm.cmd', ['install'], {cwd: process.cwd()})
+    expect(spawnMock).toHaveBeenCalledWith(
+      'C:\\path\\to\\pnpm.cmd',
+      ['install'],
+      expect.objectContaining({shell: true})
+    )
   })
 })
