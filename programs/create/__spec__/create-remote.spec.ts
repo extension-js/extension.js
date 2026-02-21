@@ -182,4 +182,81 @@ describe('extension create from remote', () => {
       fs.rmSync(tmp, {recursive: true, force: true})
     } catch {}
   })
+
+  itCli(
+    'creates from browser-suffixed zip root folder without nesting',
+    async () => {
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-create-'))
+      const dest = path.join(tmp, 'my-remote-browser-suffix-ext')
+      const manifest = JSON.stringify({
+        name: 'Browser Suffix Created',
+        description: 'Browser-suffixed root folder',
+        version: '0.0.1',
+        manifest_version: 3
+      })
+      const zip = makeZip({'content-react.edge/manifest.json': manifest})
+
+      const port = await new Promise<number>((resolve) => {
+        const srv = createServer((req, res) => {
+          if (req.url?.startsWith('/content-react.edge.zip')) {
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/zip')
+            res.end(zip)
+            return
+          }
+          res.statusCode = 404
+          res.end('not found')
+        })
+        srv.listen(0, '127.0.0.1', () => {
+          server = srv
+          // @ts-ignore
+          resolve((srv.address() as any).port)
+        })
+      })
+      const url = `http://127.0.0.1:${port}/content-react.edge.zip`
+
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(
+          process.execPath,
+          [cli, 'create', dest, '--template', url, '--install', 'false'],
+          {
+            cwd: repoRoot,
+            env: {
+              ...process.env,
+              EXTENSION_ENV: 'test',
+              EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
+            }
+          }
+        )
+        let err = ''
+        const timeout = setTimeout(() => {
+          try {
+            child.kill('SIGTERM')
+          } catch {}
+          reject(
+            new Error('Timed out creating from browser-suffixed remote zip')
+          )
+        }, 60000)
+        child.stderr.on('data', (d) => (err += String(d)))
+        child.on('exit', (code) => {
+          clearTimeout(timeout)
+          if (code === 0) {
+            resolve()
+          } else {
+            reject(new Error(`create failed: code=${code}\n${err}`))
+          }
+        })
+        child.on('error', reject)
+      })
+
+      expect(fs.existsSync(path.join(dest, 'manifest.json'))).toBeTruthy()
+      expect(
+        fs.existsSync(path.join(dest, 'content-react.edge', 'manifest.json'))
+      ).toBeFalsy()
+
+      try {
+        fs.rmSync(tmp, {recursive: true, force: true})
+      } catch {}
+    }
+  )
 })
