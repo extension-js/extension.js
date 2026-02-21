@@ -116,4 +116,52 @@ describe('chromium wsl-support', () => {
     )
     expect(logger.warn).toHaveBeenCalled()
   })
+
+  it('spawns without shell mode on native Windows', async () => {
+    const mod = await loadModule()
+    setPlatform('win32')
+    const spawnMock = await getSpawnMock()
+    const child = createChild()
+    spawnMock.mockReturnValueOnce(child)
+
+    const promise = mod.spawnChromiumProcess({
+      binary: 'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+      launchArgs: ['--remote-debugging-port=9222'],
+      stdio: 'ignore',
+      browser: 'edge'
+    })
+
+    setImmediate(() => child.emit('spawn'))
+    await promise
+
+    const spawnOptions = spawnMock.mock.calls[0]?.[2]
+    expect(spawnOptions).toMatchObject({
+      detached: false
+    })
+    expect(spawnOptions).not.toHaveProperty('shell')
+  })
+
+  it('spawns without shell mode on non-Windows', async () => {
+    const mod = await loadModule()
+    setPlatform('linux')
+    const spawnMock = await getSpawnMock()
+    const child = createChild()
+    spawnMock.mockReturnValueOnce(child)
+
+    const promise = mod.spawnChromiumProcess({
+      binary: '/usr/bin/google-chrome',
+      launchArgs: ['--remote-debugging-port=9222'],
+      stdio: 'ignore',
+      browser: 'chrome'
+    })
+
+    setImmediate(() => child.emit('spawn'))
+    await promise
+
+    const spawnOptions = spawnMock.mock.calls[0]?.[2]
+    expect(spawnOptions).toMatchObject({
+      detached: false
+    })
+    expect(spawnOptions).not.toHaveProperty('shell')
+  })
 })
