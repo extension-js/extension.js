@@ -44,10 +44,19 @@ export async function maybeUseSvelte(
 ): Promise<JsFramework | undefined> {
   if (!isUsingSvelte(projectPath)) return undefined
 
-  try {
-    resolveFromProject('svelte-loader', projectPath) ||
-      require.resolve('svelte-loader')
-  } catch (e) {
+  const canResolveSvelteLoader = () => {
+    if (resolveFromProject('svelte-loader', projectPath)) {
+      return true
+    }
+
+    try {
+      return Boolean(require.resolve('svelte-loader'))
+    } catch {
+      return false
+    }
+  }
+
+  if (!canResolveSvelteLoader()) {
     const typeScriptDependencies = ['typescript']
 
     const didInstallTs = await installOptionalDependencies(
@@ -70,14 +79,29 @@ export async function maybeUseSvelte(
       throw new Error('[Svelte] Optional dependencies failed to install.')
     }
 
-    console.log(messages.youAreAllSet('Svelte'))
-    process.exit(0)
+    if (!canResolveSvelteLoader()) {
+      throw new Error(
+        '[Svelte] Dependencies were installed, but svelte-loader is still unavailable in this runtime.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('Svelte'))
+    }
+  }
+
+  const canResolveTypeScript = () => {
+    try {
+      return Boolean(
+        require.resolve('typescript', {paths: [projectPath, process.cwd()]})
+      )
+    } catch {
+      return false
+    }
   }
 
   // Ensure TypeScript is available for Svelte toolchain expectations (even without preprocess)
-  try {
-    require.resolve('typescript', {paths: [projectPath, process.cwd()]})
-  } catch (e) {
+  if (!canResolveTypeScript()) {
     const typeScriptDependencies = ['typescript']
     const didInstallTs = await installOptionalDependencies(
       'TypeScript',
@@ -86,8 +110,15 @@ export async function maybeUseSvelte(
     if (!didInstallTs) {
       throw new Error('[TypeScript] Optional dependencies failed to install.')
     }
-    console.log(messages.youAreAllSet('TypeScript'))
-    process.exit(0)
+    if (!canResolveTypeScript()) {
+      throw new Error(
+        '[TypeScript] Dependencies were installed, but typescript is still unavailable in this runtime.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('TypeScript'))
+    }
   }
 
   // Load custom loader configuration if it exists

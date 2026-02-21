@@ -128,9 +128,10 @@ describe('webpack/command-build', () => {
   })
 
   it('builds successfully, filters browser plugins, merges user config, and returns summary', async () => {
+    const distManifest = path.join('/proj', 'dist', 'chrome', 'manifest.json')
     // Simulate presence of node_modules (no install)
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
-      return String(p).endsWith('node_modules')
+      return String(p).endsWith('node_modules') || String(p) === distManifest
     })
     ;(fs.readdirSync as any).mockReturnValue(['something'])
 
@@ -173,9 +174,10 @@ describe('webpack/command-build', () => {
 
   it('ensures dependencies before running the build', async () => {
     const nodeModules = path.join('/proj', 'node_modules')
+    const distManifest = path.join('/proj', 'dist', 'chrome', 'manifest.json')
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       // path exists but is empty dir
-      return String(p) === nodeModules || false
+      return String(p) === nodeModules || String(p) === distManifest || false
     })
     ;(fs.readdirSync as any).mockReturnValue([])
 
@@ -195,8 +197,9 @@ describe('webpack/command-build', () => {
   })
 
   it('resolves companion extensions before building', async () => {
+    const distManifest = path.join('/proj', 'dist', 'chrome', 'manifest.json')
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
-      return String(p).endsWith('node_modules')
+      return String(p).endsWith('node_modules') || String(p) === distManifest
     })
     ;(fs.readdirSync as any).mockReturnValue(['something'])
 
@@ -298,5 +301,31 @@ describe('webpack/command-build', () => {
         exitOnError: false
       })
     ).rejects.toThrow(/invalid stats output/i)
+  })
+
+  it('rejects when output manifest is missing after successful compilation', async () => {
+    process.env.VITEST = 'true'
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    const stats = {
+      hasErrors: () => false,
+      toJson: () => ({
+        assets: [{name: 'a.js', size: 10}],
+        warnings: [],
+        errors: []
+      })
+    }
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await expect(
+      extensionBuild('/proj', {
+        browser: 'chrome',
+        silent: true,
+        exitOnError: false
+      })
+    ).rejects.toThrow(/without emitting expected artifact/i)
   })
 })

@@ -208,9 +208,16 @@ export async function maybeUseTypeScript(
 ): Promise<boolean> {
   if (!isUsingTypeScript(projectPath)) return false
 
-  try {
-    require.resolve('typescript')
-  } catch (e) {
+  const canResolveTypeScript = () => {
+    try {
+      require.resolve('typescript')
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  if (!canResolveTypeScript()) {
     const typescriptDependencies = ['typescript']
 
     const didInstall = await installOptionalDependencies(
@@ -222,10 +229,15 @@ export async function maybeUseTypeScript(
       throw new Error('[TypeScript] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('TypeScript'))
-    process.exit(0)
+    if (!canResolveTypeScript()) {
+      throw new Error(
+        '[TypeScript] Dependencies were installed, but typescript is still unavailable in this runtime.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('TypeScript'))
+    }
   }
 
   return true

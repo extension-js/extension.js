@@ -63,9 +63,16 @@ export async function maybeUseVue(
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
-  try {
-    require.resolve('vue-loader')
-  } catch (e) {
+  const canResolveVueLoader = () => {
+    try {
+      require.resolve('vue-loader')
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  if (!canResolveVueLoader()) {
     const vueDependencies = ['vue-loader', '@vue/compiler-sfc']
 
     const didInstall = await installOptionalDependencies('Vue', vueDependencies)
@@ -74,8 +81,15 @@ export async function maybeUseVue(
       throw new Error('[Vue] Optional dependencies failed to install.')
     }
 
-    console.log(messages.youAreAllSet('Vue'))
-    process.exit(0)
+    if (!canResolveVueLoader()) {
+      throw new Error(
+        '[Vue] Dependencies were installed, but vue-loader is still unavailable in this runtime.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('Vue'))
+    }
   }
 
   const VueLoaderPlugin = getVueLoaderPlugin()

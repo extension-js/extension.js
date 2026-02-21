@@ -9,6 +9,8 @@
 import {getBuildSummary, type BuildSummary} from './webpack-lib/build-summary'
 import type {Configuration} from '@rspack/core'
 import {createRequire} from 'module'
+import * as path from 'path'
+import * as fs from 'fs'
 import {getProjectStructure} from './webpack-lib/project'
 import * as messages from './webpack-lib/messages'
 import {loadCustomWebpackConfig} from './webpack-lib/config-loader'
@@ -184,6 +186,13 @@ export async function extensionBuild(
         }
       })
     })
+
+    const emittedManifestPath = path.join(distPath, 'manifest.json')
+    if (!fs.existsSync(emittedManifestPath)) {
+      throw new Error(
+        `Build finished without emitting expected artifact: ${emittedManifestPath}`
+      )
+    }
 
     return summary
   } catch (error) {

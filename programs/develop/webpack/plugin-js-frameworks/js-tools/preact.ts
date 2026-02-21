@@ -62,11 +62,18 @@ export async function maybeUsePreact(
 ): Promise<JsFramework | undefined> {
   if (!isUsingPreact(projectPath)) return undefined
 
-  try {
-    // Fast-refresh for Preact!
-    // https://github.com/preactjs/prefresh
-    require.resolve('@rspack/plugin-preact-refresh')
-  } catch (e) {
+  const canResolvePreactRefresh = () => {
+    try {
+      // Fast-refresh for Preact!
+      // https://github.com/preactjs/prefresh
+      require.resolve('@rspack/plugin-preact-refresh')
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  if (!canResolvePreactRefresh()) {
     const preactDependencies = [
       '@prefresh/core',
       '@prefresh/utils',
@@ -83,10 +90,15 @@ export async function maybeUsePreact(
       throw new Error('[Preact] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('Preact'))
-    process.exit(0)
+    if (!canResolvePreactRefresh()) {
+      throw new Error(
+        '[Preact] Dependencies were installed, but @rspack/plugin-preact-refresh is still unavailable in this runtime.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('Preact'))
+    }
   }
 
   const PreactRefreshPlugin = getPreactRefreshPlugin()

@@ -8,11 +8,13 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
-  hasDependency
+  hasDependency,
+  resolveDevelopInstallRoot
 } from '../css-lib/integrations'
 import {isContentScriptEntry} from '../css-lib/is-content-script'
 
@@ -46,9 +48,40 @@ export async function maybeUseLess(
 
   if (!isUsingLess(projectPath)) return []
 
-  try {
-    require.resolve('less-loader')
-  } catch (e) {
+  const resolveLessLoaderPath = () => {
+    try {
+      return require.resolve('less-loader')
+    } catch {
+      // Try project/develop roots
+    }
+    try {
+      const projectRequire = createRequire(
+        path.join(projectPath, 'package.json')
+      )
+
+      return projectRequire.resolve('less-loader')
+    } catch {
+      // ignore
+    }
+    try {
+      const developRoot =
+        typeof resolveDevelopInstallRoot === 'function'
+          ? resolveDevelopInstallRoot()
+          : undefined
+
+      if (!developRoot) return undefined
+      const developRequire = createRequire(
+        path.join(developRoot, 'package.json')
+      )
+
+      return developRequire.resolve('less-loader')
+    } catch {
+      return undefined
+    }
+  }
+
+  let resolvedLessLoader = resolveLessLoaderPath()
+  if (!resolvedLessLoader) {
     const lessDependencies = ['less', 'less-loader']
 
     const didInstall = await installOptionalDependencies(
@@ -60,10 +93,16 @@ export async function maybeUseLess(
       throw new Error('[LESS] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('LESS'))
-    process.exit(0)
+    resolvedLessLoader = resolveLessLoaderPath()
+    if (!resolvedLessLoader) {
+      throw new Error(
+        '[LESS] Dependencies were installed, but less-loader is still unavailable in this runtime.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('LESS'))
+    }
   }
 
   return [
@@ -73,7 +112,7 @@ export async function maybeUseLess(
       exclude: /\.module\.less$/,
       use: [
         {
-          loader: require.resolve('less-loader'),
+          loader: resolvedLessLoader,
           options: {
             sourceMap: true
           }
@@ -85,7 +124,7 @@ export async function maybeUseLess(
       test: /\.module\.less$/,
       use: [
         {
-          loader: require.resolve('less-loader'),
+          loader: resolvedLessLoader,
           options: {
             sourceMap: true
           }

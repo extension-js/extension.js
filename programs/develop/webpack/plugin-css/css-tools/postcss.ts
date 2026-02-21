@@ -13,7 +13,8 @@ import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
-  hasDependency
+  hasDependency,
+  resolveDevelopInstallRoot
 } from '../css-lib/integrations'
 import {isUsingTailwind, getTailwindConfigFile} from './tailwind'
 import {isUsingSass} from './sass'
@@ -33,6 +34,35 @@ const postCssConfigFiles = [
   'postcss.config.js',
   'postcss.config.cjs'
 ]
+
+function resolvePostCssLoaderPath(projectPath: string): string | undefined {
+  try {
+    return require.resolve('postcss-loader')
+  } catch {
+    // Try project-local resolution first.
+  }
+
+  try {
+    const projectRequire = createRequire(path.join(projectPath, 'package.json'))
+    return projectRequire.resolve('postcss-loader')
+  } catch {
+    // Fall through to extension-develop runtime resolution.
+  }
+
+  try {
+    const developRoot =
+      typeof resolveDevelopInstallRoot === 'function'
+        ? resolveDevelopInstallRoot()
+        : undefined
+
+    if (!developRoot) return undefined
+
+    const developRequire = createRequire(path.join(developRoot, 'package.json'))
+    return developRequire.resolve('postcss-loader')
+  } catch {
+    return undefined
+  }
+}
 
 function findPostCssConfig(projectPath: string): string | undefined {
   const ordered = isTypeModuleProject(projectPath)
@@ -304,9 +334,9 @@ export async function maybeUsePostCss(
     return {}
   }
 
-  try {
-    require.resolve('postcss-loader')
-  } catch (_error) {
+  let resolvedPostCssLoader = resolvePostCssLoaderPath(projectPath)
+
+  if (!resolvedPostCssLoader) {
     // SASS and LESS will install PostCSS as a dependency
     // so we don't need to check for it here.
     if (!isUsingSass(projectPath) && !isUsingLess(projectPath)) {
@@ -322,8 +352,17 @@ export async function maybeUsePostCss(
       }
     }
 
-    console.log(messages.youAreAllSet('PostCSS'))
-    process.exit(0)
+    resolvedPostCssLoader = resolvePostCssLoaderPath(projectPath)
+
+    if (!resolvedPostCssLoader) {
+      throw new Error(
+        '[PostCSS] Dependencies were installed, but postcss-loader is still unavailable in this runtime.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('PostCSS'))
+    }
   }
 
   // Optionally pre-resolve the Tailwind PostCSS plugin from the project/workspace
@@ -559,7 +598,7 @@ export async function maybeUsePostCss(
   return {
     test: /\.css$/,
     type: 'css',
-    loader: require.resolve('postcss-loader'),
+    loader: resolvedPostCssLoader,
     options: {
       postcssOptions,
       sourceMap: opts.mode === 'development'

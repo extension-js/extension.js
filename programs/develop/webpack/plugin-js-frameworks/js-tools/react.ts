@@ -63,9 +63,16 @@ export async function maybeUseReact(
 ): Promise<JsFramework | undefined> {
   if (!isUsingReact(projectPath)) return undefined
 
-  try {
-    require.resolve('react-refresh')
-  } catch (e) {
+  const canResolveReactRefresh = () => {
+    try {
+      require.resolve('react-refresh')
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  if (!canResolveReactRefresh()) {
     const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
 
     const didInstall = await installOptionalDependencies(
@@ -77,10 +84,15 @@ export async function maybeUseReact(
       throw new Error('[React] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('React'))
-    process.exit(0)
+    if (!canResolveReactRefresh()) {
+      throw new Error(
+        '[React] Dependencies were installed, but react-refresh is still unavailable in this runtime.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('React'))
+    }
   }
 
   const ReactRefreshPlugin = getReactRefreshPlugin()
