@@ -21,6 +21,7 @@ export class FirefoxBinaryDetector {
     const args: string[] = [
       '--no-remote',
       '--new-instance',
+      ...(process.platform === 'win32' ? ['-wait-for-browser'] : []),
       '-profile',
       profilePath,
       ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
