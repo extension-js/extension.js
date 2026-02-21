@@ -42,3 +42,19 @@ declare module 'extension-develop' {
     pathOrRemoteUrl: string | undefined
   ): Promise<void>
 }
+
+declare module 'extension-install' {
+  export interface InstallOptions {
+    browser: string
+  }
+
+  export interface UninstallOptions {
+    browser?: string
+    all?: boolean
+  }
+
+  export function getManagedBrowsersCacheRoot(): string
+  export function getManagedBrowserInstallDir(browser: string): string
+  export function extensionInstall(options: InstallOptions): Promise<void>
+  export function extensionUninstall(options: UninstallOptions): Promise<void>
+}

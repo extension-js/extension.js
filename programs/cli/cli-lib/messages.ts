@@ -59,7 +59,9 @@ export const commandDescriptions = {
   dev: 'Starts the development server with hot reloading',
   start: 'Builds and starts the extension in production mode',
   preview: 'Previews the extension in production mode without building',
-  build: 'Builds the extension for packaging/distribution'
+  build: 'Builds the extension for packaging/distribution',
+  install: 'Installs a managed browser binary into Extension.js cache',
+  uninstall: 'Removes managed browser binaries from Extension.js cache'
 } as const
 
 export function unhandledError(err: unknown) {
@@ -135,6 +137,18 @@ ${'Available Commands'}
 
 - ${code('extension build ' + arg('[project-path|remote-url]'))}
   ${commandDescriptions.build}
+
+- ${code('extension install ' + arg('--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>'))}
+  ${commandDescriptions.install}
+
+- ${code('extension install --where')}
+  Prints the managed browser cache root (or browser install path(s) when --browser is provided)
+
+- ${code('extension uninstall ' + arg('<chrome|chromium|edge|firefox> | --all'))}
+  ${commandDescriptions.uninstall}
+
+- ${code('extension uninstall --where')}
+  Prints the managed browser cache root (or browser install path(s) when --browser/--all is provided)
 
 ${'Common Options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chromium)
@@ -377,7 +391,14 @@ ${'Cross-Browser Compatibility'}
 export type ProgramAIHelpJSON = {
   version: string
   commands: Array<{
-    name: 'create' | 'dev' | 'start' | 'preview' | 'build'
+    name:
+      | 'create'
+      | 'dev'
+      | 'start'
+      | 'preview'
+      | 'build'
+      | 'install'
+      | 'uninstall'
     summary: string
     supportsSourceInspection: boolean
   }>
@@ -435,6 +456,16 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
         name: 'build',
         summary: commandDescriptions.build,
         supportsSourceInspection: false
+      },
+      {
+        name: 'install',
+        summary: commandDescriptions.install,
+        supportsSourceInspection: false
+      },
+      {
+        name: 'uninstall',
+        summary: commandDescriptions.uninstall,
+        supportsSourceInspection: false
       }
     ],
     globalOptions: [
@@ -456,7 +487,14 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
     capabilities: {
       sourceInspection: {
         supportedIn: ['dev'],
-        unsupportedIn: ['start', 'preview', 'build', 'create'],
+        unsupportedIn: [
+          'start',
+          'preview',
+          'build',
+          'create',
+          'install',
+          'uninstall'
+        ],
         notes: [
           '--source supports URL fallback to --starting-url or https://example.com',
           'run-only preview mode does not perform source inspection'
@@ -481,7 +519,11 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       'extension --ai-help',
       'extension --ai-help --format json',
       'extension dev ./my-ext --source https://example.com --source-format json',
-      'extension dev ./my-ext --logs=info --log-format=json'
+      'extension dev ./my-ext --logs=info --log-format=json',
+      'extension install chromium',
+      'extension install --where',
+      'extension uninstall --where',
+      'extension uninstall --all'
     ]
   }
 }

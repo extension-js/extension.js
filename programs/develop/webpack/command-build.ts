@@ -147,11 +147,21 @@ export async function extensionBuild(
           return reject(err)
         }
 
+        // Guard against silent-success scenarios where the bundler callback
+        // does not provide stats, which means we cannot trust emission output.
+        if (!stats || typeof stats.hasErrors !== 'function') {
+          return reject(
+            new Error(
+              'Build failed: bundler returned invalid stats output (no reliable compilation result).'
+            )
+          )
+        }
+
         if (!buildOptions?.silent && stats) {
           console.log(messages.buildWebpack(manifestDir, stats, browser))
         }
 
-        if (!stats?.hasErrors()) {
+        if (!stats.hasErrors()) {
           // Anonymized aggregates (no filenames or paths)
           const info = stats?.toJson({
             assets: true,

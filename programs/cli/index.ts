@@ -19,6 +19,7 @@ import {registerDevCommand} from './commands/dev'
 import {registerStartCommand} from './commands/start'
 import {registerPreviewCommand} from './commands/preview'
 import {registerBuildCommand} from './commands/build'
+import {registerInstallCommand} from './commands/install'
 
 const cliPackageJson = getCliPackageJson()
 
@@ -73,6 +74,7 @@ registerDevCommand(extensionJs, telemetry)
 registerStartCommand(extensionJs, telemetry)
 registerPreviewCommand(extensionJs, telemetry)
 registerBuildCommand(extensionJs, telemetry)
+registerInstallCommand(extensionJs, telemetry)
 
 extensionJs.on('option:ai-help', function () {
   const format = resolveAIHelpFormatFromArgv(process.argv).trim().toLowerCase()

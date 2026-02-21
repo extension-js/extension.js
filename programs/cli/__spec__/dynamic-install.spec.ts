@@ -11,4 +11,10 @@ describe('dynamic install', () => {
     const mod: any = await import('extension-create')
     expect(typeof mod.extensionCreate).toBe('function')
   })
+
+  it('has access to extension-install in the workspace dependency graph', async () => {
+    const mod: any = await import('extension-install')
+    expect(typeof mod.extensionInstall).toBe('function')
+    expect(typeof mod.extensionUninstall).toBe('function')
+  })
 })

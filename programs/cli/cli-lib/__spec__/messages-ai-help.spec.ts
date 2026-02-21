@@ -21,7 +21,9 @@ describe('programAIHelp', () => {
       'dev',
       'start',
       'preview',
-      'build'
+      'build',
+      'install',
+      'uninstall'
     ])
     expect(help.capabilities.sourceInspection.supportedIn).toEqual(['dev'])
     expect(help.capabilities.sourceInspection.unsupportedIn).toContain(

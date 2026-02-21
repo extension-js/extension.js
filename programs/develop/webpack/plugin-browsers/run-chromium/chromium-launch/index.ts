@@ -248,7 +248,7 @@ export class ChromiumLaunchPlugin {
       try {
         return getChromeInstallGuidance()
       } catch {
-        return 'npx @puppeteer/browsers install chrome@stable'
+        return 'npx extension install chrome'
       }
     }
 
@@ -378,7 +378,7 @@ export class ChromiumLaunchPlugin {
                 try {
                   return getEdgeInstallGuidance()
                 } catch {
-                  return 'npx playwright install msedge'
+                  return 'npx extension install edge'
                 }
               })()
 
@@ -402,7 +402,7 @@ export class ChromiumLaunchPlugin {
             try {
               return getEdgeInstallGuidance()
             } catch {
-              return 'npx playwright install msedge'
+              return 'npx extension install edge'
             }
           })()
 
@@ -551,7 +551,7 @@ export class ChromiumLaunchPlugin {
             try {
               return getChromiumInstallGuidance()
             } catch {
-              return 'npx @puppeteer/browsers install chromium'
+              return 'npx extension install chromium'
             }
           })()
           this.printEnhancedPuppeteerInstallHint(
