@@ -33,6 +33,32 @@ describe('get-project-path', () => {
     expect(await getProjectPath(rel)).toBe(abs)
   })
 
+  it('treats GitHub .zip URLs as direct archives', async () => {
+    const root = makeTempDir('extjs-github-zip-')
+    const extracted = path.join(root, 'content-react.chrome')
+    const url =
+      'https://github.com/extension-js/examples/releases/download/nightly/content-react.chrome.zip'
+    const cwd = process.cwd()
+    const downloadAndExtractZip = vi.fn(async () => {
+      fs.mkdirSync(extracted, {recursive: true})
+      return extracted
+    })
+
+    try {
+      process.chdir(root)
+      vi.doMock('../zip', () => ({downloadAndExtractZip}))
+      const {getProjectPath: freshGetProjectPath} = await import('../project')
+      const result = await freshGetProjectPath(url)
+      expect(result).toBe(extracted)
+      expect(downloadAndExtractZip).toHaveBeenCalledTimes(1)
+      const [, targetPath] = downloadAndExtractZip.mock.calls[0]
+      expect(fs.realpathSync(targetPath)).toBe(fs.realpathSync(root))
+    } finally {
+      process.chdir(cwd)
+      vi.doUnmock('../zip')
+    }
+  })
+
   it('getProjectStructure finds manifest recursively and optional package.json', async () => {
     const root = makeTempDir('extjs-gps-')
     const nested = path.join(root, 'nested', 'deeper')
