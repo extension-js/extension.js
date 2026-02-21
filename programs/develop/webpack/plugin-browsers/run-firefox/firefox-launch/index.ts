@@ -382,6 +382,7 @@ export class FirefoxLaunchPlugin {
       }
       const args: string[] = [
         ...(debugPort > 0 ? ['-start-debugger-server', String(debugPort)] : []),
+        ...(process.platform === 'win32' ? ['-wait-for-browser'] : []),
         '--foreground',
         '--disable-background-timer-throttling',
         '--disable-backgrounding-occluded-windows',
@@ -439,9 +440,7 @@ export class FirefoxLaunchPlugin {
           messages.browserInstanceExited(this.host.browser)
         )
       }
-      this.cleanupInstance().finally(() => {
-        process.exit()
-      })
+      this.cleanupInstance().catch(() => {})
     })
 
     if (process.env.EXTENSION_AUTHOR_MODE === 'true' && child) {
