@@ -195,6 +195,14 @@ export async function getProjectPath(
     const url = new URL(pathOrRemoteUrl)
 
     if (url.protocol.startsWith('http')) {
+      const pathname = url.pathname.toLowerCase()
+
+      // GitHub release artifacts and other direct ZIP URLs should bypass
+      // repository cloning logic and be downloaded/extracted directly.
+      if (pathname.endsWith('.zip')) {
+        return await importUrlSourceFromZip(pathOrRemoteUrl)
+      }
+
       if (url.origin !== 'https://github.com') {
         const urlSource = await importUrlSourceFromZip(pathOrRemoteUrl)
 
