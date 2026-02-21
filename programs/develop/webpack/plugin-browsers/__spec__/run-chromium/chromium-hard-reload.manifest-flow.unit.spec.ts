@@ -1,7 +1,17 @@
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {ChromiumHardReloadPlugin} from '../../run-chromium/chromium-hard-reload'
 
 describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
+  const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
+
+  afterEach(() => {
+    if (typeof previousAuthorMode === 'undefined') {
+      delete process.env.EXTENSION_AUTHOR_MODE
+      return
+    }
+    process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
+  })
+
   it('does not emit extension_reload action event when source flags are disabled', async () => {
     let watchRunHandler:
       | ((compilerWithModifiedFiles: any, done: () => void) => void)
@@ -172,6 +182,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
   })
 
   it('emits extension_reload action event when source flags are enabled', async () => {
+    process.env.EXTENSION_AUTHOR_MODE = 'true'
     let watchRunHandler:
       | ((compilerWithModifiedFiles: any, done: () => void) => void)
       | undefined
@@ -251,7 +262,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     expect(hardReload).toHaveBeenCalledTimes(1)
     expect(consoleLogSpy).toHaveBeenCalledTimes(1)
     expect(consoleLogSpy.mock.calls[0]?.[0]).toContain(
-      '[action] extension_reload'
+      '"action":"extension_reload"'
     )
     consoleLogSpy.mockRestore()
   })

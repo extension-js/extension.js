@@ -1,4 +1,4 @@
-import {describe, expect, it, vi} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   applySourceRedaction,
   buildHtmlSummary,
@@ -96,19 +96,42 @@ describe('diffDomSnapshots', () => {
 })
 
 describe('emitActionEvent', () => {
-  it('uses [HH:mm:ss] timestamp in pretty format', () => {
+  const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
+
+  afterEach(() => {
+    if (typeof previousAuthorMode === 'undefined') {
+      delete process.env.EXTENSION_AUTHOR_MODE
+      return
+    }
+    process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
+  })
+
+  it('is silent when author mode is disabled', () => {
+    process.env.EXTENSION_AUTHOR_MODE = 'false'
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    emitActionEvent('extension_reload', {reason: 'content'}, 'pretty')
+
+    expect(logSpy).not.toHaveBeenCalled()
+    logSpy.mockRestore()
+  })
+
+  it('outputs json payload even when pretty is requested', () => {
+    process.env.EXTENSION_AUTHOR_MODE = 'true'
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     emitActionEvent('extension_reload', {reason: 'content'}, 'pretty')
 
     expect(logSpy).toHaveBeenCalledTimes(1)
-    expect(logSpy.mock.calls[0]?.[0]).toMatch(
-      /^►►► \[\d{2}:\d{2}:\d{2}\] \[action\] extension_reload \{"reason":"content"\}$/
-    )
+    const payload = JSON.parse(String(logSpy.mock.calls[0]?.[0] || '{}'))
+    expect(payload.type).toBe('action_event')
+    expect(payload.action).toBe('extension_reload')
+    expect(payload.reason).toBe('content')
     logSpy.mockRestore()
   })
 
   it('keeps ISO timestamp in json format', () => {
+    process.env.EXTENSION_AUTHOR_MODE = 'true'
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     emitActionEvent('extension_reload', {reason: 'content'}, 'json')
