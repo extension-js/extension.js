@@ -5,6 +5,15 @@ const {execSync} = require('child_process')
 function main() {
   const root = path.resolve(__dirname, '..')
 
+  // Use the same Node as the current process for all child spawns (cross-platform:
+  // avoids Windows Node path being used in WSL/Git Bash, or wrong node in PATH).
+  const nodeDir = path.dirname(process.execPath)
+  const existingPath = process.env.PATH || process.env.Path || ''
+  const childEnv = {
+    ...process.env,
+    PATH: `${nodeDir}${path.delimiter}${existingPath}`
+  }
+
   const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
 
   // Ensure dependencies are installed in the given package folder.
@@ -29,7 +38,8 @@ function main() {
       try {
         execSync('pnpm install --silent', {
           cwd: installRoot,
-          stdio: verbose ? 'inherit' : 'pipe'
+          stdio: verbose ? 'inherit' : 'pipe',
+          env: childEnv
         })
       } catch (error) {
         if (!verbose) {
@@ -58,7 +68,8 @@ function main() {
       try {
         execSync(`pnpm run -s ${script}`, {
           cwd: pkgRoot,
-          stdio: verbose || strict ? 'inherit' : 'ignore'
+          stdio: verbose || strict ? 'inherit' : 'ignore',
+          env: childEnv
         })
       } catch (error) {
         if (strict) {
