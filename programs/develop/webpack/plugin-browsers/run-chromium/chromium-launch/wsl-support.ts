@@ -79,7 +79,6 @@ export async function spawnChromiumProcess(opts: {
       stdio,
       detached: false,
       ...(isWin ? {windowsHide: true} : {}),
-      ...(isWin && /\s/.test(bin) ? {shell: true} : {}),
       ...(process.platform !== 'win32' && {group: process.getgid?.()})
     })
     await new Promise<void>((resolve, reject) => {
