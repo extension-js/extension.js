@@ -401,21 +401,24 @@ export function resolveActionFormat(): SourceFormat {
   const raw = String(process.env.EXTENSION_SOURCE_FORMAT || '').trim()
   if (raw === 'json' || raw === 'ndjson') return raw
 
-  return 'pretty'
+  return 'json'
 }
 
-function formatPrettyClockTime(date: Date): string {
-  const hh = String(date.getHours()).padStart(2, '0')
-  const mm = String(date.getMinutes()).padStart(2, '0')
-  const ss = String(date.getSeconds()).padStart(2, '0')
-  return `${hh}:${mm}:${ss}`
+function isActionEventOutputEnabled(): boolean {
+  const authorMode = String(process.env.EXTENSION_AUTHOR_MODE || '')
+    .trim()
+    .toLowerCase()
+
+  return authorMode === 'true' || authorMode === 'development'
 }
 
 export function emitActionEvent(
   action: string,
   payload: Record<string, unknown> = {},
-  format: SourceFormat = resolveActionFormat()
+  _format: SourceFormat = resolveActionFormat()
 ) {
+  if (!isActionEventOutputEnabled()) return
+
   const eventDate = new Date()
   const base = {
     type: 'action_event',
@@ -423,14 +426,6 @@ export function emitActionEvent(
     timestamp: eventDate.toISOString(),
     action,
     ...payload
-  }
-
-  if (format === 'pretty') {
-    const prettyTime = formatPrettyClockTime(eventDate)
-    console.log(
-      `►►► [${prettyTime}] [action] ${action} ${JSON.stringify(payload)}`
-    )
-    return
   }
 
   console.log(JSON.stringify(base))
