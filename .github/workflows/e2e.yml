@@ -29,6 +29,9 @@ jobs:
       - name: Compile Extension.js
         run: pnpm compile
 
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
