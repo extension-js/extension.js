@@ -9,7 +9,8 @@
 export {
   installOptionalDependencies,
   installOptionalDependenciesBatch,
-  hasDependency
+  hasDependency,
+  resolveDevelopInstallRoot
 } from '../../plugin-css/css-lib/integrations'
 export function isUsingJSFramework(projectPath: string): boolean {
   const frameworks = [

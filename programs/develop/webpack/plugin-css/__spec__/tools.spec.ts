@@ -12,7 +12,8 @@ vi.mock('fs', async () => {
 
 vi.mock('../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true)
+  installOptionalDependencies: vi.fn(async () => true),
+  resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
 vi.mock('../../webpack-lib/messages', () => ({
@@ -30,6 +31,8 @@ import {isUsingPostCss, maybeUsePostCss} from '../css-tools/postcss'
 import {isUsingStylelint, getStylelintConfigFile} from '../css-tools/stylelint'
 import {isUsingTailwind, getTailwindConfigFile} from '../css-tools/tailwind'
 
+const originalRequireResolve = (require as any).resolve
+
 describe('css tools detection', () => {
   beforeEach(() => {
     vi.resetModules()
@@ -40,6 +43,7 @@ describe('css tools detection', () => {
   afterEach(() => {
     ;(fs.readFileSync as any).mockReset?.()
     ;(fs.existsSync as any).mockReset?.()
+    ;(require as any).resolve = originalRequireResolve
   })
 
   it('stylelint config discovery returns undefined when files are missing', () => {
@@ -150,5 +154,22 @@ describe('css tools additional coverage', () => {
     // we fall back to discovery from the project root
     expect(res.options?.postcssOptions?.config).toBe('/project')
     expect(res.options?.postcssOptions?.plugins).toBeUndefined()
+  })
+
+  it('maybeUsePostCss never exits process while configuring PostCSS', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) =>
+      String(p).endsWith('postcss.config.js')
+    )
+
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((
+      _code?: string | number | null | undefined
+    ) => {
+      throw new Error('process.exit should not be called')
+    }) as any)
+
+    const res = await maybeUsePostCss('/project', {mode: 'production'})
+
+    expect(String(res.loader)).toContain('postcss-loader')
+    expect(exitSpy).not.toHaveBeenCalled()
   })
 })
