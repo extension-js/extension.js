@@ -39,12 +39,21 @@ type Loader = Record<string, any>
 
 function resolveSassLoader(projectPath: string): string | undefined {
   const extensionRoot = resolveDevelopInstallRoot()
-  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
     Boolean
   ) as string[]
 
+  for (const base of bases) {
+    try {
+      const req = createRequire(path.join(base, 'package.json'))
+      return req.resolve('sass-loader')
+    } catch {
+      // Try next base
+    }
+  }
+
   try {
-    return require.resolve('sass-loader', {paths})
+    return require.resolve('sass-loader', {paths: bases})
   } catch {
     return undefined
   }
@@ -59,7 +68,10 @@ function resolveSassLoader(projectPath: string): string | undefined {
 export function resolveSassImplementation(
   projectPath: string
 ): any | undefined {
-  const bases = [projectPath, process.cwd()]
+  const extensionRoot = resolveDevelopInstallRoot()
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
 
   for (const base of bases) {
     try {

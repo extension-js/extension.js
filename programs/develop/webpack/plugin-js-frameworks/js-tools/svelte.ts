@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
@@ -25,17 +26,35 @@ function resolveWithRuntimePaths(
   projectPath: string
 ): string | undefined {
   const extensionRoot = resolveDevelopInstallRoot()
-  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
     Boolean
   ) as string[]
+
+  for (const base of bases) {
+    try {
+      const req = createRequire(path.join(base, 'package.json'))
+      return req.resolve(id)
+    } catch {
+      // Try next base
+    }
+  }
+
   try {
-    return require.resolve(id, {paths})
+    return require.resolve(id, {paths: bases})
   } catch {
     return undefined
   }
 }
 
 function resolveFromProject(id: string, projectPath: string) {
+  for (const base of [projectPath, process.cwd()]) {
+    try {
+      const req = createRequire(path.join(base, 'package.json'))
+      return req.resolve(id)
+    } catch {
+      // Try next base
+    }
+  }
   try {
     return require.resolve(id, {paths: [projectPath, process.cwd()]})
   } catch {
