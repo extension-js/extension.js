@@ -14,28 +14,47 @@ import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
-  hasDependency
+  hasDependency,
+  resolveDevelopInstallRoot
 } from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 
 type ReactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
 
 let userMessageDelivered = false
-let cachedReactRefreshPlugin: ReactRefreshPluginCtor | undefined
 
-function getReactRefreshPlugin(): ReactRefreshPluginCtor | undefined {
-  if (cachedReactRefreshPlugin) return cachedReactRefreshPlugin
-
+function resolveWithRuntimePaths(
+  id: string,
+  projectPath: string
+): string | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('@rspack/plugin-react-refresh')
-    const plugin = (mod && (mod as any).default) || (mod as any)
-    cachedReactRefreshPlugin = plugin as ReactRefreshPluginCtor
-
-    return cachedReactRefreshPlugin
+    return require.resolve(id, {paths})
   } catch {
-    // If the plugin isn't installed or the export shape changed,
-    // we fall through and let maybeUseReact handle error signalling.
+    return undefined
+  }
+}
+
+function getReactRefreshPlugin(
+  projectPath: string
+): ReactRefreshPluginCtor | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
+
+  for (const base of bases) {
+    try {
+      const req = createRequire(path.join(base, 'package.json'))
+      const mod = req('@rspack/plugin-react-refresh')
+      const plugin = (mod && (mod as any).default) || (mod as any)
+      if (plugin) return plugin as ReactRefreshPluginCtor
+    } catch {
+      // Try next base
+    }
   }
 
   return undefined
@@ -63,9 +82,9 @@ export async function maybeUseReact(
 ): Promise<JsFramework | undefined> {
   if (!isUsingReact(projectPath)) return undefined
 
-  try {
-    require.resolve('react-refresh')
-  } catch (e) {
+  let reactRefreshPath = resolveWithRuntimePaths('react-refresh', projectPath)
+
+  if (!reactRefreshPath) {
     const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
 
     const didInstall = await installOptionalDependencies(
@@ -77,13 +96,18 @@ export async function maybeUseReact(
       throw new Error('[React] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('React'))
-    process.exit(0)
+    reactRefreshPath = resolveWithRuntimePaths('react-refresh', projectPath)
+    if (!reactRefreshPath) {
+      throw new Error(
+        '[React] react-refresh could not be resolved after optional dependency installation.'
+      )
+    }
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('React'))
+    }
   }
 
-  const ReactRefreshPlugin = getReactRefreshPlugin()
+  const ReactRefreshPlugin = getReactRefreshPlugin(projectPath)
 
   if (!ReactRefreshPlugin) {
     throw new Error(

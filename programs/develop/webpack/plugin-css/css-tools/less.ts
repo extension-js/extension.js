@@ -12,7 +12,8 @@ import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
-  hasDependency
+  hasDependency,
+  resolveDevelopInstallRoot
 } from '../css-lib/integrations'
 import {isContentScriptEntry} from '../css-lib/is-content-script'
 
@@ -37,6 +38,18 @@ export function isUsingLess(projectPath: string): boolean {
 
 type Loader = Record<string, any>
 
+function resolveLessLoader(projectPath: string): string | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
+  try {
+    return require.resolve('less-loader', {paths})
+  } catch {
+    return undefined
+  }
+}
+
 export async function maybeUseLess(
   projectPath: string,
   manifestPath: string
@@ -46,9 +59,9 @@ export async function maybeUseLess(
 
   if (!isUsingLess(projectPath)) return []
 
-  try {
-    require.resolve('less-loader')
-  } catch (e) {
+  let lessLoaderPath = resolveLessLoader(projectPath)
+
+  if (!lessLoaderPath) {
     const lessDependencies = ['less', 'less-loader']
 
     const didInstall = await installOptionalDependencies(
@@ -60,10 +73,15 @@ export async function maybeUseLess(
       throw new Error('[LESS] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('LESS'))
-    process.exit(0)
+    lessLoaderPath = resolveLessLoader(projectPath)
+    if (!lessLoaderPath) {
+      throw new Error(
+        '[LESS] less-loader could not be resolved after optional dependency installation.'
+      )
+    }
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('LESS'))
+    }
   }
 
   return [
@@ -73,7 +91,7 @@ export async function maybeUseLess(
       exclude: /\.module\.less$/,
       use: [
         {
-          loader: require.resolve('less-loader'),
+          loader: lessLoaderPath,
           options: {
             sourceMap: true
           }
@@ -85,7 +103,7 @@ export async function maybeUseLess(
       test: /\.module\.less$/,
       use: [
         {
-          loader: require.resolve('less-loader'),
+          loader: lessLoaderPath,
           options: {
             sourceMap: true
           }

@@ -12,7 +12,8 @@ import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {
   installOptionalDependencies,
-  hasDependency
+  hasDependency,
+  resolveDevelopInstallRoot
 } from '../css-lib/integrations'
 
 let userMessageDelivered = false
@@ -35,6 +36,19 @@ export function isUsingSass(projectPath: string): boolean {
 }
 
 type Loader = Record<string, any>
+
+function resolveSassLoader(projectPath: string): string | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
+
+  try {
+    return require.resolve('sass-loader', {paths})
+  } catch {
+    return undefined
+  }
+}
 
 /**
  * Resolve the Sass implementation from the user's project first, then fall back
@@ -111,9 +125,9 @@ export function createSassLoaderOptions(
 export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
   if (!isUsingSass(projectPath)) return []
 
-  try {
-    require.resolve('sass-loader')
-  } catch (e) {
+  let sassLoaderPath = resolveSassLoader(projectPath)
+
+  if (!sassLoaderPath) {
     const postCssDependencies = [
       'postcss-loader',
       'postcss-scss',
@@ -143,10 +157,16 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
       throw new Error('[SASS] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('SASS'))
-    process.exit(0)
+    sassLoaderPath = resolveSassLoader(projectPath)
+    if (!sassLoaderPath) {
+      throw new Error(
+        '[SASS] sass-loader could not be resolved after optional dependency installation.'
+      )
+    }
+
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('SASS'))
+    }
   }
 
   return [
@@ -156,7 +176,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
       exclude: /\.module\.(sass|scss)$/,
       use: [
         {
-          loader: require.resolve('sass-loader'),
+          loader: sassLoaderPath,
           options: createSassLoaderOptions(projectPath, 'development')
         }
       ]
@@ -166,7 +186,7 @@ export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
       test: /\.module\.(sass|scss)$/,
       use: [
         {
-          loader: require.resolve('sass-loader'),
+          loader: sassLoaderPath,
           options: createSassLoaderOptions(projectPath, 'development')
         }
       ]

@@ -12,11 +12,24 @@ import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
-  isUsingJSFramework
+  isUsingJSFramework,
+  resolveDevelopInstallRoot
 } from '../frameworks-lib/integrations'
 import {type DevOptions} from '../../webpack-types'
 
 let hasShownUserMessage = false
+
+function resolveTypeScript(projectPath: string): string | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
+  try {
+    return require.resolve('typescript', {paths})
+  } catch {
+    return undefined
+  }
+}
 
 function findNearestPackageJsonDirectory(
   startPath: string
@@ -208,9 +221,9 @@ export async function maybeUseTypeScript(
 ): Promise<boolean> {
   if (!isUsingTypeScript(projectPath)) return false
 
-  try {
-    require.resolve('typescript')
-  } catch (e) {
+  let typeScriptPath = resolveTypeScript(projectPath)
+
+  if (!typeScriptPath) {
     const typescriptDependencies = ['typescript']
 
     const didInstall = await installOptionalDependencies(
@@ -222,10 +235,15 @@ export async function maybeUseTypeScript(
       throw new Error('[TypeScript] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('TypeScript'))
-    process.exit(0)
+    typeScriptPath = resolveTypeScript(projectPath)
+    if (!typeScriptPath) {
+      throw new Error(
+        '[TypeScript] TypeScript could not be resolved after optional dependency installation.'
+      )
+    }
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('TypeScript'))
+    }
   }
 
   return true

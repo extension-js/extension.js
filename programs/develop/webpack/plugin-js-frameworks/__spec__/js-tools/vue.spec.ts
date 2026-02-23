@@ -2,7 +2,8 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true)
+  installOptionalDependencies: vi.fn(async () => true),
+  resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
 // Ensure vue-loader resolves
@@ -35,10 +36,20 @@ describe('vue tools', () => {
     vi.doMock('../../js-frameworks-lib/load-loader-options', () => ({
       loadLoaderOptions: vi.fn(async () => ({foo: 1}))
     }))
+    const VueLoaderPluginMock = function (this: any) {
+      this.apply = vi.fn()
+    } as any
     vi.doMock('module', () => ({
-      createRequire: () => ({
-        resolve: (id: string) => `/project/node_modules/${id}`
-      })
+      createRequire: () => {
+        const req = ((id: string) => {
+          if (id === 'vue-loader') {
+            return {VueLoaderPlugin: VueLoaderPluginMock}
+          }
+          throw new Error(`Cannot find module ${id}`)
+        }) as any
+        req.resolve = (id: string) => `/project/node_modules/${id}`
+        return req
+      }
     }))
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})

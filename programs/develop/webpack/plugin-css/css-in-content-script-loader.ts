@@ -10,11 +10,29 @@ import * as path from 'path'
 import {commonStyleLoaders} from './common-style-loaders'
 import {isContentScriptEntry} from './css-lib/is-content-script'
 import {createSassLoaderOptions} from './css-tools/sass'
+import {resolveDevelopInstallRoot} from './css-lib/integrations'
 import type {DevOptions} from '../webpack-types'
 
 interface PreprocessorUsage {
   useSass?: boolean
   useLess?: boolean
+}
+
+function resolvePreprocessorLoader(
+  loader: 'sass-loader' | 'less-loader',
+  projectPath: string
+): string {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
+  try {
+    return require.resolve(loader, {paths})
+  } catch {
+    throw new Error(
+      `[CSS] ${loader} could not be resolved for content scripts. Searched: ${paths.join(', ')}`
+    )
+  }
 }
 
 export async function cssInContentScriptLoader(
@@ -105,7 +123,10 @@ export async function cssInContentScriptLoader(
         ...baseConfig,
         use: await commonStyleLoaders(projectPath, {
           mode: mode as 'development' | 'production',
-          loader: require.resolve(loader),
+          loader: resolvePreprocessorLoader(
+            loader as 'sass-loader' | 'less-loader',
+            projectPath
+          ),
           loaderOptions
         })
       }

@@ -2,7 +2,8 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true)
+  installOptionalDependencies: vi.fn(async () => true),
+  resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
 // Ensure require.resolve('react-refresh') succeeds to avoid install+exit
@@ -31,18 +32,24 @@ describe('react tools', () => {
       (_p: string, dep: string) => dep === 'react'
     )
 
-    // Mock module.createRequire to control resolve() of project deps
+    const ReactRefreshPluginMock = function (this: any) {
+      this.apply = vi.fn()
+    } as any
+    // Mock module.createRequire to control both resolve() and require() paths.
     vi.doMock('module', () => ({
-      createRequire: () => ({
-        resolve: (id: string) => `/project/node_modules/${id}`
-      })
+      createRequire: () => {
+        const req = ((id: string) => {
+          if (id === '@rspack/plugin-react-refresh') {
+            return {default: ReactRefreshPluginMock}
+          }
+          throw new Error(`Cannot find module ${id}`)
+        }) as any
+        req.resolve = (id: string) => `/project/node_modules/${id}`
+        return req
+      }
     }))
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    // Mock @rspack/plugin-react-refresh so getReactRefreshPlugin() can resolve
-    vi.doMock('@rspack/plugin-react-refresh', () => ({
-      default: vi.fn(() => ({apply: vi.fn()}))
-    }))
 
     const {isUsingReact, maybeUseReact} = await import('../../js-tools/react')
 
