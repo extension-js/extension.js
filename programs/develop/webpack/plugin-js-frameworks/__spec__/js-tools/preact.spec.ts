@@ -2,7 +2,8 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true)
+  installOptionalDependencies: vi.fn(async () => true),
+  resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
 // Ensure @rspack/plugin-preact-refresh resolves
@@ -34,14 +35,20 @@ describe('preact tools', () => {
     )
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const PreactRefreshPluginMock = function (this: any) {
+      this.apply = vi.fn()
+    } as any
     vi.doMock('module', () => ({
-      createRequire: () => ({
-        resolve: (id: string) => `/project/node_modules/${id}`
-      })
-    }))
-    // Mock @rspack/plugin-preact-refresh so getPreactRefreshPlugin() can resolve
-    vi.doMock('@rspack/plugin-preact-refresh', () => ({
-      default: vi.fn(() => ({apply: vi.fn()}))
+      createRequire: () => {
+        const req = ((id: string) => {
+          if (id === '@rspack/plugin-preact-refresh') {
+            return {default: PreactRefreshPluginMock}
+          }
+          throw new Error(`Cannot find module ${id}`)
+        }) as any
+        req.resolve = (id: string) => `/project/node_modules/${id}`
+        return req
+      }
     }))
 
     const {isUsingPreact, maybeUsePreact} = await import(
