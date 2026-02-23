@@ -13,7 +13,8 @@ import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
-  hasDependency
+  hasDependency,
+  resolveDevelopInstallRoot
 } from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 import {RspackPluginInstance} from '@rspack/core'
@@ -21,21 +22,38 @@ import {RspackPluginInstance} from '@rspack/core'
 type PreactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
 
 let userMessageDelivered = false
-let cachedPreactRefreshPlugin: PreactRefreshPluginCtor | undefined
 
-function getPreactRefreshPlugin(): PreactRefreshPluginCtor | undefined {
-  if (cachedPreactRefreshPlugin) return cachedPreactRefreshPlugin
-
+function resolveWithRuntimePaths(
+  id: string,
+  projectPath: string
+): string | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('@rspack/plugin-preact-refresh')
-    const plugin = (mod && (mod as any).default) || (mod as any)
-    cachedPreactRefreshPlugin = plugin as PreactRefreshPluginCtor
-
-    return cachedPreactRefreshPlugin
+    return require.resolve(id, {paths})
   } catch {
-    // If the plugin isn't installed or the export shape changed,
-    // we fall through and let maybeUsePreact handle error signalling.
+    return undefined
+  }
+}
+
+function getPreactRefreshPlugin(
+  projectPath: string
+): PreactRefreshPluginCtor | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
+  for (const base of bases) {
+    try {
+      const req = createRequire(path.join(base, 'package.json'))
+      const mod = req('@rspack/plugin-preact-refresh')
+      const plugin = (mod && (mod as any).default) || (mod as any)
+      if (plugin) return plugin as PreactRefreshPluginCtor
+    } catch {
+      // Try next base
+    }
   }
   return undefined
 }
@@ -62,11 +80,14 @@ export async function maybeUsePreact(
 ): Promise<JsFramework | undefined> {
   if (!isUsingPreact(projectPath)) return undefined
 
-  try {
-    // Fast-refresh for Preact!
-    // https://github.com/preactjs/prefresh
-    require.resolve('@rspack/plugin-preact-refresh')
-  } catch (e) {
+  // Fast-refresh for Preact!
+  // https://github.com/preactjs/prefresh
+  let preactRefreshPath = resolveWithRuntimePaths(
+    '@rspack/plugin-preact-refresh',
+    projectPath
+  )
+
+  if (!preactRefreshPath) {
     const preactDependencies = [
       '@prefresh/core',
       '@prefresh/utils',
@@ -83,13 +104,21 @@ export async function maybeUsePreact(
       throw new Error('[Preact] Optional dependencies failed to install.')
     }
 
-    // The compiler will exit after installing the dependencies
-    // as it can't read the new dependencies without a restart.
-    console.log(messages.youAreAllSet('Preact'))
-    process.exit(0)
+    preactRefreshPath = resolveWithRuntimePaths(
+      '@rspack/plugin-preact-refresh',
+      projectPath
+    )
+    if (!preactRefreshPath) {
+      throw new Error(
+        '[Preact] @rspack/plugin-preact-refresh could not be resolved after optional dependency installation.'
+      )
+    }
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('Preact'))
+    }
   }
 
-  const PreactRefreshPlugin = getPreactRefreshPlugin()
+  const PreactRefreshPlugin = getPreactRefreshPlugin(projectPath)
 
   if (!PreactRefreshPlugin) {
     throw new Error(

@@ -3,7 +3,8 @@ import postcss from 'postcss'
 
 vi.mock('../../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true)
+  installOptionalDependencies: vi.fn(async () => true),
+  resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
 describe('postcss detection', () => {
@@ -145,7 +146,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (p: string, dep: string) =>
         dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
 
     const {maybeUsePostCss} = await import('../../css-tools/postcss')
@@ -304,7 +306,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === 'autoprefixer',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -353,7 +356,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === '@tailwindcss/postcss',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -401,7 +405,8 @@ describe('postcss detection', () => {
     }))
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -450,7 +455,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === '@tailwindcss/postcss',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -503,7 +509,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-lib/integrations', () => ({
       // Simulate config mentions Tailwind but no explicit @tailwindcss/postcss dependency.
       hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -553,7 +560,8 @@ describe('postcss detection', () => {
     }))
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: () => false,
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -607,7 +615,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === 'autoprefixer',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -661,7 +670,8 @@ describe('postcss detection', () => {
     }))
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
@@ -725,7 +735,8 @@ describe('postcss detection', () => {
     vi.doMock('../../css-lib/integrations', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === 'autoprefixer',
-      installOptionalDependencies: vi.fn(async () => true)
+      installOptionalDependencies: vi.fn(async () => true),
+      resolveDevelopInstallRoot: vi.fn(() => undefined)
     }))
     vi.doMock('fs', async () => {
       const actual = await vi.importActual<any>('fs')
