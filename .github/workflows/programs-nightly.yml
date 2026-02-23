@@ -27,6 +27,8 @@ jobs:
           node-version: '20'
       - name: Compile
         run: pnpm compile
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Run CLI Tests
@@ -60,6 +62,8 @@ jobs:
           node-version: '20'
       - name: Compile
         run: pnpm compile
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Resolve Chromium binary
@@ -95,6 +99,8 @@ jobs:
           node-version: '20'
       - name: Compile
         run: pnpm compile
+      - name: Hydrate templates from examples repo
+        run: bash scripts/hydrate-templates-from-examples.sh
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
       - name: Resolve Firefox binary
