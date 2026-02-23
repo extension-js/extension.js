@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
@@ -21,11 +22,21 @@ let hasShownUserMessage = false
 
 function resolveTypeScript(projectPath: string): string | undefined {
   const extensionRoot = resolveDevelopInstallRoot()
-  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
     Boolean
   ) as string[]
+
+  for (const base of bases) {
+    try {
+      const req = createRequire(path.join(base, 'package.json'))
+      return req.resolve('typescript')
+    } catch {
+      // Try next base
+    }
+  }
+
   try {
-    return require.resolve('typescript', {paths})
+    return require.resolve('typescript', {paths: bases})
   } catch {
     return undefined
   }
