@@ -5,7 +5,8 @@ const toPosix = (value: string) => value.replace(/\\/g, '/')
 
 vi.mock('../../frameworks-lib/integrations', () => ({
   isUsingJSFramework: vi.fn(() => false),
-  installOptionalDependencies: vi.fn(async () => true)
+  installOptionalDependencies: vi.fn(async () => true),
+  resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
 vi.mock('fs', async () => {

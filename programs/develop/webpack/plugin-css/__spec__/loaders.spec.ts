@@ -1,4 +1,4 @@
-import {describe, it, expect, vi, beforeEach} from 'vitest'
+import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 
 vi.mock('../common-style-loaders', () => ({
   commonStyleLoaders: vi.fn(async () => [{loader: 'mock-style-loader'}])
@@ -8,11 +8,24 @@ vi.mock('../css-lib/is-content-script', () => ({
   isContentScriptEntry: vi.fn((issuer: string) => issuer.includes('content'))
 }))
 
+vi.mock('../css-lib/integrations', async () => {
+  const actual = await vi.importActual<any>('../css-lib/integrations')
+  return {
+    ...actual,
+    resolveDevelopInstallRoot: vi.fn(() => '/extension-root')
+  }
+})
+
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 import {cssInHtmlLoader} from '../css-in-html-loader'
 
 describe('cssInContentScriptLoader', () => {
+  const originalResolve = (require as any).resolve
   beforeEach(() => vi.clearAllMocks())
+
+  afterEach(() => {
+    ;(require as any).resolve = originalResolve
+  })
 
   it('returns content-script rules and handles module CSS explicitly', async () => {
     const rules = await cssInContentScriptLoader(
@@ -43,6 +56,18 @@ describe('cssInContentScriptLoader', () => {
       expect(typeof rule.issuer).toBe('function')
       expect((rule.use as any[])?.length).toBeGreaterThan(0)
     }
+  })
+
+  it('resolves preprocessor loaders using project/runtime paths', async () => {
+    await cssInContentScriptLoader(
+      '/project',
+      '/project/manifest.json',
+      'development'
+    )
+    await cssInHtmlLoader('/project', 'development', '/project/manifest.json')
+
+    const integrations = (await import('../css-lib/integrations')) as any
+    expect(integrations.resolveDevelopInstallRoot).toHaveBeenCalled()
   })
 })
 
