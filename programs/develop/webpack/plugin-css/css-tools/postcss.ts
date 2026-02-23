@@ -283,7 +283,23 @@ export async function maybeUsePostCss(
     return Array.from(new Set(paths))
   }
 
+  const resolveWithCreateRequire = (id: string) => {
+    const bases = getResolutionPaths()
+    for (const base of bases) {
+      try {
+        const req = createRequire(path.join(base, 'package.json'))
+        return req.resolve(id)
+      } catch {
+        // Try next base
+      }
+    }
+    return undefined
+  }
+
   const resolvePostCssLoader = () => {
+    const fromRuntimeRequire = resolveWithCreateRequire('postcss-loader')
+    if (fromRuntimeRequire) return fromRuntimeRequire
+
     try {
       return require.resolve('postcss-loader', {
         paths: getResolutionPaths()
