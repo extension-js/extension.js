@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {
@@ -40,11 +41,21 @@ type Loader = Record<string, any>
 
 function resolveLessLoader(projectPath: string): string | undefined {
   const extensionRoot = resolveDevelopInstallRoot()
-  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
     Boolean
   ) as string[]
+
+  for (const base of bases) {
+    try {
+      const req = createRequire(path.join(base, 'package.json'))
+      return req.resolve('less-loader')
+    } catch {
+      // Try next base
+    }
+  }
+
   try {
-    return require.resolve('less-loader', {paths})
+    return require.resolve('less-loader', {paths: bases})
   } catch {
     return undefined
   }
