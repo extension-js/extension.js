@@ -14,7 +14,8 @@ import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {
   installOptionalDependencies,
-  hasDependency
+  hasDependency,
+  resolveDevelopInstallRoot
 } from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
@@ -22,23 +23,41 @@ import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 type VueLoaderPluginCtor = new (...args: any[]) => {apply(compiler: any): void}
 
 let userMessageDelivered = false
-let cachedVueLoaderPlugin: VueLoaderPluginCtor | undefined
 
-function getVueLoaderPlugin(): VueLoaderPluginCtor | undefined {
-  if (cachedVueLoaderPlugin) return cachedVueLoaderPlugin
+function resolveWithRuntimePaths(
+  id: string,
+  projectPath: string
+): string | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = require('vue-loader')
-    const plugin =
-      (mod && (mod as any).VueLoaderPlugin) ||
-      (mod && (mod as any).default && (mod as any).default.VueLoaderPlugin)
-    if (plugin) {
-      cachedVueLoaderPlugin = plugin as VueLoaderPluginCtor
-      return cachedVueLoaderPlugin
-    }
+    return require.resolve(id, {paths})
   } catch {
-    // If vue-loader isn't installed or the export shape changed,
-    // we fall through and let maybeUseVue handle error signalling.
+    return undefined
+  }
+}
+
+function getVueLoaderPlugin(
+  projectPath: string
+): VueLoaderPluginCtor | undefined {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
+
+  for (const base of bases) {
+    try {
+      const req = createRequire(path.join(base, 'package.json'))
+      const mod = req('vue-loader')
+      const plugin =
+        (mod && (mod as any).VueLoaderPlugin) ||
+        (mod && (mod as any).default && (mod as any).default.VueLoaderPlugin)
+      if (plugin) return plugin as VueLoaderPluginCtor
+    } catch {
+      // Try next base
+    }
   }
 
   return undefined
@@ -63,9 +82,9 @@ export async function maybeUseVue(
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
-  try {
-    require.resolve('vue-loader')
-  } catch (e) {
+  let vueLoaderPath = resolveWithRuntimePaths('vue-loader', projectPath)
+
+  if (!vueLoaderPath) {
     const vueDependencies = ['vue-loader', '@vue/compiler-sfc']
 
     const didInstall = await installOptionalDependencies('Vue', vueDependencies)
@@ -74,11 +93,18 @@ export async function maybeUseVue(
       throw new Error('[Vue] Optional dependencies failed to install.')
     }
 
-    console.log(messages.youAreAllSet('Vue'))
-    process.exit(0)
+    vueLoaderPath = resolveWithRuntimePaths('vue-loader', projectPath)
+    if (!vueLoaderPath) {
+      throw new Error(
+        '[Vue] vue-loader could not be resolved after optional dependency installation.'
+      )
+    }
+    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+      console.log(messages.youAreAllSet('Vue'))
+    }
   }
 
-  const VueLoaderPlugin = getVueLoaderPlugin()
+  const VueLoaderPlugin = getVueLoaderPlugin(projectPath)
 
   if (!VueLoaderPlugin) {
     throw new Error(
@@ -92,7 +118,7 @@ export async function maybeUseVue(
   const defaultLoaders: JsFramework['loaders'] = [
     {
       test: /\.vue$/,
-      loader: require.resolve('vue-loader'),
+      loader: vueLoaderPath,
       options: {
         experimentalInlineMatchResource: true,
         ...(customOptions || {})
