@@ -6,11 +6,10 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as path from 'path'
 import {commonStyleLoaders} from './common-style-loaders'
 import {isContentScriptEntry} from './css-lib/is-content-script'
 import {createSassLoaderOptions} from './css-tools/sass'
-import {resolveDevelopInstallRoot} from './css-lib/integrations'
+import {resolveOptionalDependencySync} from '../webpack-lib/optional-deps-resolver'
 import type {DevOptions} from '../webpack-types'
 
 interface PreprocessorUsage {
@@ -22,17 +21,7 @@ function resolvePreprocessorLoader(
   loader: 'sass-loader' | 'less-loader',
   projectPath: string
 ): string {
-  const extensionRoot = resolveDevelopInstallRoot()
-  const paths = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
-  try {
-    return require.resolve(loader, {paths})
-  } catch {
-    throw new Error(
-      `[CSS] ${loader} could not be resolved for content scripts. Searched: ${paths.join(', ')}`
-    )
-  }
+  return resolveOptionalDependencySync(loader, projectPath)
 }
 
 export async function cssInContentScriptLoader(
