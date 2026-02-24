@@ -153,9 +153,14 @@ async function writeFallbackFixture(targetDir) {
 
   await fs.writeFile(
     path.join(targetDir, 'src', 'popup.css'),
-    ['@import "tailwindcss";', '', 'body {', '  font-family: sans-serif;', '}', ''].join(
-      '\n'
-    )
+    [
+      '@import "tailwindcss";',
+      '',
+      'body {',
+      '  font-family: sans-serif;',
+      '}',
+      ''
+    ].join('\n')
   )
 
   await fs.writeFile(
@@ -187,9 +192,16 @@ async function resolveConsumerSourceDir(tempRoot) {
     return {sourceDir: fromEnv, sourceName: 'BROWSER_EXTENSION_DIR override'}
   }
 
-  const defaultBrowserExtension = path.join(ROOT_DIR, 'extensions', 'browser-extension')
+  const defaultBrowserExtension = path.join(
+    ROOT_DIR,
+    'extensions',
+    'browser-extension'
+  )
   if (await pathExists(defaultBrowserExtension)) {
-    return {sourceDir: defaultBrowserExtension, sourceName: 'extensions/browser-extension'}
+    return {
+      sourceDir: defaultBrowserExtension,
+      sourceName: 'extensions/browser-extension'
+    }
   }
 
   const fallbackFixture = path.join(tempRoot, 'fallback-consumer-fixture')
@@ -208,7 +220,9 @@ async function rewriteConsumerPackageJson(workdir, pm) {
 
   packageJson.devDependencies ||= {}
   const useRegistryExtension =
-    pm === 'bun' || pm === 'yarn' || (pm === 'pnpm' && process.platform === 'win32')
+    pm === 'bun' ||
+    pm === 'yarn' ||
+    (pm === 'pnpm' && process.platform === 'win32')
 
   if (useRegistryExtension) {
     // Bun and Yarn classic do not resolve workspace:* dependency ranges inside
@@ -231,7 +245,10 @@ async function rewriteConsumerPackageJson(workdir, pm) {
     packageJson.pnpm ||= {}
     packageJson.pnpm.overrides ||= {}
     packageJson.pnpm.overrides.extension = fileSpecifier(cliPath, workdir)
-    packageJson.pnpm.overrides['extension-create'] = fileSpecifier(createPath, workdir)
+    packageJson.pnpm.overrides['extension-create'] = fileSpecifier(
+      createPath,
+      workdir
+    )
     packageJson.pnpm.overrides['extension-develop'] = fileSpecifier(
       developPath,
       workdir
@@ -298,7 +315,11 @@ function installWorkspaceDependencies() {
     console.warn(
       '\nFrozen workspace install failed; retrying with --no-frozen-lockfile for smoke execution.'
     )
-    run('pnpm', ['--dir', ROOT_DIR, 'install', '--no-frozen-lockfile'], ROOT_DIR)
+    run(
+      'pnpm',
+      ['--dir', ROOT_DIR, 'install', '--no-frozen-lockfile'],
+      ROOT_DIR
+    )
     if (error instanceof Error) {
       console.warn(`Original frozen-lockfile failure: ${error.message}`)
     }

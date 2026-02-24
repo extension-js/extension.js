@@ -91,6 +91,52 @@ function getPackageDirFromInstallRoot(
   return path.join(installRoot, 'node_modules', ...dependencyId.split('/'))
 }
 
+function readPackageJsonFromDir(packageDir: string): any | undefined {
+  const manifestPath = path.join(packageDir, 'package.json')
+  if (!fs.existsSync(manifestPath)) return undefined
+
+  try {
+    const raw = fs.readFileSync(manifestPath, 'utf8')
+    return JSON.parse(raw || '{}')
+  } catch {
+    return undefined
+  }
+}
+
+function getPackageEntryCandidates(pkg: any): string[] {
+  const candidateEntries: string[] = []
+
+  if (typeof pkg?.main === 'string') candidateEntries.push(pkg.main)
+  if (typeof pkg?.module === 'string') candidateEntries.push(pkg.module)
+  if (typeof pkg?.exports === 'string') candidateEntries.push(pkg.exports)
+
+  const dotExport = pkg?.exports?.['.']
+  if (typeof dotExport === 'string') candidateEntries.push(dotExport)
+
+  if (dotExport && typeof dotExport === 'object') {
+    if (typeof dotExport.require === 'string')
+      candidateEntries.push(dotExport.require)
+    if (typeof dotExport.default === 'string')
+      candidateEntries.push(dotExport.default)
+    if (typeof dotExport.import === 'string')
+      candidateEntries.push(dotExport.import)
+  }
+
+  candidateEntries.push('index.js', 'index.cjs', 'index.mjs')
+  return candidateEntries
+}
+
+function resolveFirstExistingEntry(
+  packageDir: string,
+  candidateEntries: string[]
+): string | undefined {
+  for (const relativeEntry of candidateEntries) {
+    const absoluteEntry = path.resolve(packageDir, relativeEntry)
+    if (fs.existsSync(absoluteEntry)) return absoluteEntry
+  }
+  return undefined
+}
+
 function resolveFromInstallRootPackageDir(
   dependencyId: string,
   installRoot: string
@@ -106,43 +152,11 @@ function resolveFromInstallRootPackageDir(
     // fall through to package.json guided fallback
   }
 
-  try {
-    const packageJsonPath = path.join(packageDir, 'package.json')
-    if (!fs.existsSync(packageJsonPath)) return undefined
+  const pkg = readPackageJsonFromDir(packageDir)
+  if (!pkg) return undefined
 
-    const raw = fs.readFileSync(packageJsonPath, 'utf8')
-    const pkg = JSON.parse(raw || '{}')
-
-    const candidateEntries: string[] = []
-
-    if (typeof pkg?.main === 'string') candidateEntries.push(pkg.main)
-    if (typeof pkg?.module === 'string') candidateEntries.push(pkg.module)
-    if (typeof pkg?.exports === 'string') candidateEntries.push(pkg.exports)
-
-    const dotExport = pkg?.exports?.['.']
-
-    if (typeof dotExport === 'string') candidateEntries.push(dotExport)
-
-    if (dotExport && typeof dotExport === 'object') {
-      if (typeof dotExport.require === 'string')
-        candidateEntries.push(dotExport.require)
-      if (typeof dotExport.default === 'string')
-        candidateEntries.push(dotExport.default)
-      if (typeof dotExport.import === 'string')
-        candidateEntries.push(dotExport.import)
-    }
-
-    candidateEntries.push('index.js', 'index.cjs', 'index.mjs')
-
-    for (const relativeEntry of candidateEntries) {
-      const absoluteEntry = path.resolve(packageDir, relativeEntry)
-      if (fs.existsSync(absoluteEntry)) return absoluteEntry
-    }
-  } catch {
-    return undefined
-  }
-
-  return undefined
+  const candidateEntries = getPackageEntryCandidates(pkg)
+  return resolveFirstExistingEntry(packageDir, candidateEntries)
 }
 
 function verifyPackageInInstallRoot(
