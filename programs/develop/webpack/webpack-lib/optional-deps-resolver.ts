@@ -72,15 +72,73 @@ function resolveDependency(
   }
 }
 
+function getPackageDirFromInstallRoot(
+  dependencyId: string,
+  installRoot: string
+): string {
+  return path.join(installRoot, 'node_modules', ...dependencyId.split('/'))
+}
+
+function resolveFromInstallRootPackageDir(
+  dependencyId: string,
+  installRoot: string
+): string | undefined {
+  const packageDir = getPackageDirFromInstallRoot(dependencyId, installRoot)
+  if (!fs.existsSync(packageDir)) return undefined
+
+  // Direct absolute directory resolution handles pnpm-linked trees where
+  // bare-specifier lookup can still fail despite package presence.
+  try {
+    return require.resolve(packageDir)
+  } catch {
+    // fall through to package.json guided fallback
+  }
+
+  try {
+    const packageJsonPath = path.join(packageDir, 'package.json')
+    if (!fs.existsSync(packageJsonPath)) return undefined
+
+    const raw = fs.readFileSync(packageJsonPath, 'utf8')
+    const pkg = JSON.parse(raw || '{}')
+
+    const candidateEntries: string[] = []
+
+    if (typeof pkg?.main === 'string') candidateEntries.push(pkg.main)
+    if (typeof pkg?.module === 'string') candidateEntries.push(pkg.module)
+    if (typeof pkg?.exports === 'string') candidateEntries.push(pkg.exports)
+
+    const dotExport = pkg?.exports?.['.']
+
+    if (typeof dotExport === 'string') candidateEntries.push(dotExport)
+
+      if (dotExport && typeof dotExport === 'object') {
+      if (typeof dotExport.require === 'string')
+        candidateEntries.push(dotExport.require)
+      if (typeof dotExport.default === 'string')
+        candidateEntries.push(dotExport.default)
+      if (typeof dotExport.import === 'string')
+        candidateEntries.push(dotExport.import)
+    }
+
+    candidateEntries.push('index.js', 'index.cjs', 'index.mjs')
+
+    for (const relativeEntry of candidateEntries) {
+      const absoluteEntry = path.resolve(packageDir, relativeEntry)
+      if (fs.existsSync(absoluteEntry)) return absoluteEntry
+    }
+  } catch {
+    return undefined
+  }
+
+  return undefined
+}
+
 function verifyPackageInInstallRoot(
   packageId: string,
   installRoot: string
 ): boolean {
-  const segments = packageId.split('/')
   const packageJson = path.join(
-    installRoot,
-    'node_modules',
-    ...segments,
+    getPackageDirFromInstallRoot(packageId, installRoot),
     'package.json'
   )
 
@@ -221,11 +279,21 @@ async function ensureInstalledAndVerified(input: {
 export async function ensureOptionalPackageResolved(
   input: EnsureResolveInput
 ): Promise<string> {
+  const installRoot = resolveDevelopInstallRoot()
+
   const resolvedBeforeInstall = resolveDependency(
     input.dependencyId,
     input.projectPath
   )
   if (resolvedBeforeInstall) return resolvedBeforeInstall.resolvedPath
+
+  if (installRoot) {
+    const resolvedFromInstallRoot = resolveFromInstallRootPackageDir(
+      input.dependencyId,
+      installRoot
+    )
+    if (resolvedFromInstallRoot) return resolvedFromInstallRoot
+  }
 
   const installDependencies = input.installDependencies || [input.dependencyId]
   const verifyPackageIds = input.verifyPackageIds || installDependencies
@@ -245,11 +313,19 @@ export async function ensureOptionalPackageResolved(
 
   if (resolvedAfterInstall) return resolvedAfterInstall.resolvedPath
 
+  if (installRoot) {
+    const resolvedFromInstallRoot = resolveFromInstallRootPackageDir(
+      input.dependencyId,
+      installRoot
+    )
+    if (resolvedFromInstallRoot) return resolvedFromInstallRoot
+  }
+
   const diagnostics = buildDiagnostics({
     integration: input.integration,
     dependencyId: input.dependencyId,
     projectPath: input.projectPath,
-    installRoot: resolveDevelopInstallRoot(),
+    installRoot,
     installDependencies,
     verifyPackageIds
   })
