@@ -7,66 +7,20 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as path from 'path'
-import * as fs from 'fs'
 import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
-import {
-  installOptionalDependencies,
-  hasDependency,
-  resolveDevelopInstallRoot
-} from '../frameworks-lib/integrations'
+import {hasDependency} from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 import {RspackPluginInstance} from '@rspack/core'
+import {
+  ensureOptionalModuleLoaded,
+  ensureOptionalPackageResolved
+} from '../../webpack-lib/optional-deps-resolver'
 
 type PreactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
 
 let userMessageDelivered = false
-
-function resolveWithRuntimePaths(
-  id: string,
-  projectPath: string
-): string | undefined {
-  const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
-
-  for (const base of bases) {
-    try {
-      const req = createRequire(path.join(base, 'package.json'))
-      return req.resolve(id)
-    } catch {
-      // Try next base
-    }
-  }
-
-  try {
-    return require.resolve(id, {paths: bases})
-  } catch {
-    return undefined
-  }
-}
-
-function getPreactRefreshPlugin(
-  projectPath: string
-): PreactRefreshPluginCtor | undefined {
-  const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
-  for (const base of bases) {
-    try {
-      const req = createRequire(path.join(base, 'package.json'))
-      const mod = req('@rspack/plugin-preact-refresh')
-      const plugin = (mod && (mod as any).default) || (mod as any)
-      if (plugin) return plugin as PreactRefreshPluginCtor
-    } catch {
-      // Try next base
-    }
-  }
-  return undefined
-}
 
 export function isUsingPreact(projectPath: string) {
   if (hasDependency(projectPath, 'preact')) {
@@ -92,49 +46,30 @@ export async function maybeUsePreact(
 
   // Fast-refresh for Preact!
   // https://github.com/preactjs/prefresh
-  let preactRefreshPath = resolveWithRuntimePaths(
+  const preactDependencies = [
+    '@prefresh/core',
+    '@prefresh/utils',
     '@rspack/plugin-preact-refresh',
-    projectPath
-  )
+    'preact'
+  ]
+  await ensureOptionalPackageResolved({
+    integration: 'Preact',
+    projectPath,
+    dependencyId: '@rspack/plugin-preact-refresh',
+    installDependencies: preactDependencies,
+    verifyPackageIds: preactDependencies
+  })
 
-  if (!preactRefreshPath) {
-    const preactDependencies = [
-      '@prefresh/core',
-      '@prefresh/utils',
-      '@rspack/plugin-preact-refresh',
-      'preact'
-    ]
-
-    const didInstall = await installOptionalDependencies(
-      'Preact',
-      preactDependencies
-    )
-
-    if (!didInstall) {
-      throw new Error('[Preact] Optional dependencies failed to install.')
-    }
-
-    preactRefreshPath = resolveWithRuntimePaths(
-      '@rspack/plugin-preact-refresh',
-      projectPath
-    )
-    if (!preactRefreshPath) {
-      throw new Error(
-        '[Preact] @rspack/plugin-preact-refresh could not be resolved after optional dependency installation.'
-      )
-    }
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.youAreAllSet('Preact'))
-    }
-  }
-
-  const PreactRefreshPlugin = getPreactRefreshPlugin(projectPath)
-
-  if (!PreactRefreshPlugin) {
-    throw new Error(
-      '[Preact] @rspack/plugin-preact-refresh is installed but its plugin could not be resolved.'
-    )
-  }
+  const PreactRefreshPlugin =
+    await ensureOptionalModuleLoaded<PreactRefreshPluginCtor>({
+      integration: 'Preact',
+      projectPath,
+      dependencyId: '@rspack/plugin-preact-refresh',
+      installDependencies: preactDependencies,
+      verifyPackageIds: preactDependencies,
+      moduleAdapter: (mod: any) =>
+        ((mod && mod.default) || mod) as PreactRefreshPluginCtor
+    })
 
   const preactPlugins: RspackPluginInstance[] = [
     new PreactRefreshPlugin({}) as any // TODO: cezaraugusto fix this
