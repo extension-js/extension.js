@@ -60,7 +60,12 @@ function run(command, args, cwd, env = baseEnv) {
   }
 }
 
-function fileSpecifier(toAbsPath) {
+function fileSpecifier(toAbsPath, fromDir) {
+  if (process.platform === 'win32') {
+    const relative = path.relative(fromDir, toAbsPath).split(path.sep).join('/')
+    const normalized = relative.startsWith('.') ? relative : `./${relative}`
+    return `file:${normalized}`
+  }
   return pathToFileURL(toAbsPath).toString()
 }
 
@@ -215,16 +220,22 @@ async function rewriteConsumerPackageJson(workdir, pm) {
       delete packageJson.pnpm.overrides['extension-install']
     }
   } else {
-    packageJson.devDependencies.extension = fileSpecifier(cliPath)
+    packageJson.devDependencies.extension = fileSpecifier(cliPath, workdir)
   }
 
   if (pm !== 'bun' && pm !== 'yarn') {
     packageJson.pnpm ||= {}
     packageJson.pnpm.overrides ||= {}
-    packageJson.pnpm.overrides.extension = fileSpecifier(cliPath)
-    packageJson.pnpm.overrides['extension-create'] = fileSpecifier(createPath)
-    packageJson.pnpm.overrides['extension-develop'] = fileSpecifier(developPath)
-    packageJson.pnpm.overrides['extension-install'] = fileSpecifier(installPath)
+    packageJson.pnpm.overrides.extension = fileSpecifier(cliPath, workdir)
+    packageJson.pnpm.overrides['extension-create'] = fileSpecifier(createPath, workdir)
+    packageJson.pnpm.overrides['extension-develop'] = fileSpecifier(
+      developPath,
+      workdir
+    )
+    packageJson.pnpm.overrides['extension-install'] = fileSpecifier(
+      installPath,
+      workdir
+    )
   }
 
   await fs.writeFile(
