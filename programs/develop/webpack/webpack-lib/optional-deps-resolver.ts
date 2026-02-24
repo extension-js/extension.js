@@ -31,6 +31,14 @@ function getResolutionBases(projectPath: string): string[] {
     Boolean
   ) as string[]
 
+  // In pnpm dlx/npx, optional deps live in extension-develop's sibling node_modules
+  // (e.g. .../.pnpm/extension-develop@x/node_modules/sass-loader). For
+  // require.resolve(id, {paths}), Node looks for path/node_modules/id, so we add
+  // the parent of that node_modules (the .pnpm store dir).
+  if (extensionRoot && extensionRoot.includes('.pnpm')) {
+    bases.push(path.join(extensionRoot, '..', '..'))
+  }
+
   return Array.from(new Set(bases))
 }
 
@@ -81,7 +89,21 @@ function resolveFromKnownLocations(
   if (resolved) return resolved.resolvedPath
 
   if (!installRoot) return undefined
-  return resolveFromInstallRootPackageDir(dependencyId, installRoot)
+
+  // Try installRoot/node_modules first (npm/yarn, or pnpm add --dir)
+  const fromRoot = resolveFromInstallRootPackageDir(dependencyId, installRoot)
+  if (fromRoot) return fromRoot
+
+  // In pnpm dlx, deps are in extension-develop's sibling node_modules
+  // (.../.pnpm/extension-develop@x/node_modules/sass-loader). The parent of
+  // that node_modules is the .pnpm store dir.
+  if (installRoot.includes('.pnpm')) {
+    return resolveFromInstallRootPackageDir(
+      dependencyId,
+      path.join(installRoot, '..', '..')
+    )
+  }
+  return undefined
 }
 
 function getPackageDirFromInstallRoot(
@@ -300,6 +322,27 @@ async function ensureInstalledAndVerified(input: {
   } finally {
     installSingleFlight.delete(key)
   }
+}
+
+/**
+ * Resolve an optional dependency (e.g. sass-loader, less-loader) from known
+ * locations. Use after preflight has run. Throws if not found.
+ */
+export function resolveOptionalDependencySync(
+  dependencyId: string,
+  projectPath: string
+): string {
+  const installRoot = resolveDevelopInstallRoot()
+  const resolved = resolveFromKnownLocations(
+    dependencyId,
+    projectPath,
+    installRoot
+  )
+  if (resolved) return resolved
+  const bases = getResolutionBases(projectPath)
+  throw new Error(
+    `[CSS] ${dependencyId} could not be resolved. Searched: ${bases.join(', ')}`
+  )
 }
 
 export async function ensureOptionalPackageResolved(
