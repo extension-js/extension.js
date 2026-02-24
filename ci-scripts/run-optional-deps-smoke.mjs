@@ -45,7 +45,8 @@ function run(command, args, cwd, env = baseEnv) {
   const result = spawnSync(resolvedCommand, args, {
     cwd,
     env,
-    stdio: 'inherit'
+    stdio: 'inherit',
+    shell: process.platform === 'win32'
   })
 
   if (result.error) {
