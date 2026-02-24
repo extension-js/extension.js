@@ -35,8 +35,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  optional-deps-smoke-pr:
-    if: github.event_name == 'pull_request' || github.event_name == 'push'
+  optional-deps-smoke:
     name: smoke (${{ matrix.os }} / ${{ matrix.pm }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -45,13 +44,10 @@ jobs:
         include:
           - os: ubuntu-latest
             pm: pnpm
-            experimental: false
           - os: ubuntu-latest
             pm: npm
-            experimental: false
           - os: ubuntu-latest
             pm: yarn
-            experimental: false
           - os: ubuntu-latest
             pm: bun
           - os: macos-latest
@@ -74,79 +70,8 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      - name: Enable corepack for Yarn
-        if: matrix.pm == 'yarn'
-        run: corepack enable
-
-      - name: Setup Bun
-        if: matrix.pm == 'bun'
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Run optional deps smoke
-        run: node ci-scripts/run-optional-deps-smoke.mjs --pm ${{ matrix.pm }}
-
-  optional-deps-smoke-full:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    name: full smoke (${{ matrix.os }} / ${{ matrix.pm }})
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-latest
-            pm: pnpm
-            experimental: false
-          - os: ubuntu-latest
-            pm: npm
-            experimental: false
-          - os: ubuntu-latest
-            pm: yarn
-            experimental: false
-          - os: ubuntu-latest
-            pm: bun
-            experimental: false
-          - os: macos-latest
-            pm: pnpm
-            experimental: false
-          - os: macos-latest
-            pm: npm
-            experimental: false
-          - os: macos-latest
-            pm: yarn
-            experimental: false
-          - os: macos-latest
-            pm: bun
-            experimental: false
-          - os: windows-latest
-            pm: pnpm
-            experimental: false
-          - os: windows-latest
-            pm: npm
-            experimental: false
-          - os: windows-latest
-            pm: yarn
-            experimental: false
-          - os: windows-latest
-            pm: bun
-            experimental: true
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.28.0
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Enable corepack for Yarn
         if: matrix.pm == 'yarn'
