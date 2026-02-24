@@ -207,9 +207,13 @@ async function rewriteConsumerPackageJson(workdir, pm) {
   const installPath = path.join(ROOT_DIR, 'programs', 'install')
 
   packageJson.devDependencies ||= {}
-  if (pm === 'bun' || pm === 'yarn') {
+  const useRegistryExtension =
+    pm === 'bun' || pm === 'yarn' || (pm === 'pnpm' && process.platform === 'win32')
+
+  if (useRegistryExtension) {
     // Bun and Yarn classic do not resolve workspace:* dependency ranges inside
-    // a file-linked CLI package in this isolated fixture setup. Use a registry
+    // a file-linked CLI package in this isolated fixture setup. Windows pnpm
+    // also fails for the same reason under temp fixture paths. Use a registry
     // tag so these lanes still verify install/build behavior.
     packageJson.devDependencies.extension =
       process.env.EXTJS_SMOKE_REGISTRY_EXTENSION_VERSION || 'canary'
@@ -223,7 +227,7 @@ async function rewriteConsumerPackageJson(workdir, pm) {
     packageJson.devDependencies.extension = fileSpecifier(cliPath, workdir)
   }
 
-  if (pm !== 'bun' && pm !== 'yarn') {
+  if (!useRegistryExtension) {
     packageJson.pnpm ||= {}
     packageJson.pnpm.overrides ||= {}
     packageJson.pnpm.overrides.extension = fileSpecifier(cliPath, workdir)
