@@ -11,15 +11,10 @@ import * as fs from 'fs'
 import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
-import {
-  installOptionalDependencies,
-  hasDependency,
-  resolveDevelopInstallRoot
-} from '../css-lib/integrations'
+import {hasDependency} from '../css-lib/integrations'
 import {isUsingTailwind, getTailwindConfigFile} from './tailwind'
-import {isUsingSass} from './sass'
-import {isUsingLess} from './less'
 import type {StyleLoaderOptions} from '../common-style-loaders'
+import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
 
@@ -273,42 +268,6 @@ export async function maybeUsePostCss(
   projectPath: string,
   opts: StyleLoaderOptions
 ): Promise<Record<string, any>> {
-  const getResolutionPaths = () => {
-    const extensionRoot = resolveDevelopInstallRoot()
-    const paths = [
-      projectPath,
-      extensionRoot || undefined,
-      process.cwd()
-    ].filter(Boolean) as string[]
-    return Array.from(new Set(paths))
-  }
-
-  const resolveWithCreateRequire = (id: string) => {
-    const bases = getResolutionPaths()
-    for (const base of bases) {
-      try {
-        const req = createRequire(path.join(base, 'package.json'))
-        return req.resolve(id)
-      } catch {
-        // Try next base
-      }
-    }
-    return undefined
-  }
-
-  const resolvePostCssLoader = () => {
-    const fromRuntimeRequire = resolveWithCreateRequire('postcss-loader')
-    if (fromRuntimeRequire) return fromRuntimeRequire
-
-    try {
-      return require.resolve('postcss-loader', {
-        paths: getResolutionPaths()
-      })
-    } catch {
-      return undefined
-    }
-  }
-
   const userPostCssConfig = findPostCssConfig(projectPath)
   const userConfigMentionsTailwind =
     userConfigMentionsTailwindPlugin(userPostCssConfig)
@@ -341,36 +300,13 @@ export async function maybeUsePostCss(
     return {}
   }
 
-  let resolvedPostCssLoader = resolvePostCssLoader()
-
-  if (!resolvedPostCssLoader) {
-    // SASS and LESS will install PostCSS as a dependency
-    // so we don't need to check for it here.
-    if (!isUsingSass(projectPath) && !isUsingLess(projectPath)) {
-      const postCssDependencies = ['postcss', 'postcss-loader']
-
-      const didInstall = await installOptionalDependencies(
-        'PostCSS',
-        postCssDependencies
-      )
-
-      if (!didInstall) {
-        throw new Error('[PostCSS] Optional dependencies failed to install.')
-      }
-    }
-
-    resolvedPostCssLoader = resolvePostCssLoader()
-
-    if (!resolvedPostCssLoader) {
-      throw new Error(
-        '[PostCSS] postcss-loader could not be resolved after optional dependency installation.'
-      )
-    }
-
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.youAreAllSet('PostCSS'))
-    }
-  }
+  const resolvedPostCssLoader = await ensureOptionalPackageResolved({
+    integration: 'PostCSS',
+    projectPath,
+    dependencyId: 'postcss-loader',
+    installDependencies: ['postcss', 'postcss-loader'],
+    verifyPackageIds: ['postcss', 'postcss-loader']
+  })
 
   // Optionally pre-resolve the Tailwind PostCSS plugin from the project/workspace
   // so postcss-loader never has to require("@tailwindcss/postcss") from the

@@ -10,41 +10,13 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
 import * as messages from '../js-frameworks-lib/messages'
-import {
-  installOptionalDependencies,
-  hasDependency,
-  resolveDevelopInstallRoot
-} from '../frameworks-lib/integrations'
+import {hasDependency} from '../frameworks-lib/integrations'
 import type {JsFramework} from '../../webpack-types'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 import type {DevOptions} from '../../webpack-types'
+import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
-
-function resolveWithRuntimePaths(
-  id: string,
-  projectPath: string
-): string | undefined {
-  const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
-
-  for (const base of bases) {
-    try {
-      const req = createRequire(path.join(base, 'package.json'))
-      return req.resolve(id)
-    } catch {
-      // Try next base
-    }
-  }
-
-  try {
-    return require.resolve(id, {paths: bases})
-  } catch {
-    return undefined
-  }
-}
 
 function resolveFromProject(id: string, projectPath: string) {
   for (const base of [projectPath, process.cwd()]) {
@@ -79,71 +51,22 @@ export async function maybeUseSvelte(
 ): Promise<JsFramework | undefined> {
   if (!isUsingSvelte(projectPath)) return undefined
 
-  let svelteLoaderPath =
-    resolveFromProject('svelte-loader', projectPath) ||
-    resolveWithRuntimePaths('svelte-loader', projectPath)
-
-  if (!svelteLoaderPath) {
-    const typeScriptDependencies = ['typescript']
-
-    const didInstallTs = await installOptionalDependencies(
-      'TypeScript',
-      typeScriptDependencies
-    )
-
-    if (!didInstallTs) {
-      throw new Error('[TypeScript] Optional dependencies failed to install.')
-    }
-
-    const svelteDependencies = ['svelte-loader']
-
-    const didInstallSvelte = await installOptionalDependencies(
-      'Svelte',
-      svelteDependencies
-    )
-
-    if (!didInstallSvelte) {
-      throw new Error('[Svelte] Optional dependencies failed to install.')
-    }
-
-    svelteLoaderPath =
-      resolveFromProject('svelte-loader', projectPath) ||
-      resolveWithRuntimePaths('svelte-loader', projectPath)
-    if (!svelteLoaderPath) {
-      throw new Error(
-        '[Svelte] svelte-loader could not be resolved after optional dependency installation.'
-      )
-    }
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.youAreAllSet('Svelte'))
-    }
-  }
+  const svelteLoaderPath = await ensureOptionalPackageResolved({
+    integration: 'Svelte',
+    projectPath,
+    dependencyId: 'svelte-loader',
+    installDependencies: ['typescript', 'svelte-loader'],
+    verifyPackageIds: ['typescript', 'svelte-loader']
+  })
 
   // Ensure TypeScript is available for Svelte toolchain expectations (even without preprocess)
-  const resolvedTypescript =
-    resolveFromProject('typescript', projectPath) ||
-    resolveWithRuntimePaths('typescript', projectPath)
-  if (!resolvedTypescript) {
-    const typeScriptDependencies = ['typescript']
-    const didInstallTs = await installOptionalDependencies(
-      'TypeScript',
-      typeScriptDependencies
-    )
-    if (!didInstallTs) {
-      throw new Error('[TypeScript] Optional dependencies failed to install.')
-    }
-    const reResolvedTypescript =
-      resolveFromProject('typescript', projectPath) ||
-      resolveWithRuntimePaths('typescript', projectPath)
-    if (!reResolvedTypescript) {
-      throw new Error(
-        '[TypeScript] TypeScript could not be resolved after optional dependency installation.'
-      )
-    }
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.youAreAllSet('TypeScript'))
-    }
-  }
+  await ensureOptionalPackageResolved({
+    integration: 'TypeScript',
+    projectPath,
+    dependencyId: 'typescript',
+    installDependencies: ['typescript'],
+    verifyPackageIds: ['typescript']
+  })
 
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'svelte')

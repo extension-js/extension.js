@@ -7,16 +7,11 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as path from 'path'
-import * as fs from 'fs'
-import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
-import {
-  installOptionalDependencies,
-  hasDependency,
-  resolveDevelopInstallRoot
-} from '../css-lib/integrations'
+import {hasDependency} from '../css-lib/integrations'
 import {isContentScriptEntry} from '../css-lib/is-content-script'
+import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
 
@@ -39,28 +34,6 @@ export function isUsingLess(projectPath: string): boolean {
 
 type Loader = Record<string, any>
 
-function resolveLessLoader(projectPath: string): string | undefined {
-  const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
-
-  for (const base of bases) {
-    try {
-      const req = createRequire(path.join(base, 'package.json'))
-      return req.resolve('less-loader')
-    } catch {
-      // Try next base
-    }
-  }
-
-  try {
-    return require.resolve('less-loader', {paths: bases})
-  } catch {
-    return undefined
-  }
-}
-
 export async function maybeUseLess(
   projectPath: string,
   manifestPath: string
@@ -70,30 +43,13 @@ export async function maybeUseLess(
 
   if (!isUsingLess(projectPath)) return []
 
-  let lessLoaderPath = resolveLessLoader(projectPath)
-
-  if (!lessLoaderPath) {
-    const lessDependencies = ['less', 'less-loader']
-
-    const didInstall = await installOptionalDependencies(
-      'LESS',
-      lessDependencies
-    )
-
-    if (!didInstall) {
-      throw new Error('[LESS] Optional dependencies failed to install.')
-    }
-
-    lessLoaderPath = resolveLessLoader(projectPath)
-    if (!lessLoaderPath) {
-      throw new Error(
-        '[LESS] less-loader could not be resolved after optional dependency installation.'
-      )
-    }
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.youAreAllSet('LESS'))
-    }
-  }
+  const lessLoaderPath = await ensureOptionalPackageResolved({
+    integration: 'LESS',
+    projectPath,
+    dependencyId: 'less-loader',
+    installDependencies: ['less', 'less-loader'],
+    verifyPackageIds: ['less', 'less-loader']
+  })
 
   return [
     // Regular .less files
