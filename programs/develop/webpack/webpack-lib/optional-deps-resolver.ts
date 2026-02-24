@@ -72,6 +72,18 @@ function resolveDependency(
   }
 }
 
+function resolveFromKnownLocations(
+  dependencyId: string,
+  projectPath: string,
+  installRoot?: string
+): string | undefined {
+  const resolved = resolveDependency(dependencyId, projectPath)
+  if (resolved) return resolved.resolvedPath
+
+  if (!installRoot) return undefined
+  return resolveFromInstallRootPackageDir(dependencyId, installRoot)
+}
+
 function getPackageDirFromInstallRoot(
   dependencyId: string,
   installRoot: string
@@ -280,20 +292,12 @@ export async function ensureOptionalPackageResolved(
   input: EnsureResolveInput
 ): Promise<string> {
   const installRoot = resolveDevelopInstallRoot()
-
-  const resolvedBeforeInstall = resolveDependency(
+  const resolvedBeforeInstall = resolveFromKnownLocations(
     input.dependencyId,
-    input.projectPath
+    input.projectPath,
+    installRoot
   )
-  if (resolvedBeforeInstall) return resolvedBeforeInstall.resolvedPath
-
-  if (installRoot) {
-    const resolvedFromInstallRoot = resolveFromInstallRootPackageDir(
-      input.dependencyId,
-      installRoot
-    )
-    if (resolvedFromInstallRoot) return resolvedFromInstallRoot
-  }
+  if (resolvedBeforeInstall) return resolvedBeforeInstall
 
   const installDependencies = input.installDependencies || [input.dependencyId]
   const verifyPackageIds = input.verifyPackageIds || installDependencies
@@ -306,20 +310,12 @@ export async function ensureOptionalPackageResolved(
     dependencyId: input.dependencyId
   })
 
-  const resolvedAfterInstall = resolveDependency(
+  const resolvedAfterInstall = resolveFromKnownLocations(
     input.dependencyId,
-    input.projectPath
+    input.projectPath,
+    installRoot
   )
-
-  if (resolvedAfterInstall) return resolvedAfterInstall.resolvedPath
-
-  if (installRoot) {
-    const resolvedFromInstallRoot = resolveFromInstallRootPackageDir(
-      input.dependencyId,
-      installRoot
-    )
-    if (resolvedFromInstallRoot) return resolvedFromInstallRoot
-  }
+  if (resolvedAfterInstall) return resolvedAfterInstall
 
   const diagnostics = buildDiagnostics({
     integration: input.integration,
@@ -346,21 +342,19 @@ export async function ensureOptionalModuleLoaded<T = any>(
 
   for (const basePath of candidateBases) {
     const req = createRequire(packageJsonPath(basePath))
-    try {
-      loaded = req(input.dependencyId)
-      didLoad = true
-      break
-    } catch (bareSpecifierError) {
+    const candidateModuleIds = [input.dependencyId, resolvedPath]
+    for (const candidateModuleId of candidateModuleIds) {
       try {
         // pnpm-linked layouts can fail bare-id loading even after successful
         // resolution; absolute-path loading preserves deterministic behavior.
-        loaded = req(resolvedPath)
+        loaded = req(candidateModuleId)
         didLoad = true
         break
-      } catch (resolvedPathError) {
-        lastLoadError = resolvedPathError || bareSpecifierError
+      } catch (error) {
+        lastLoadError = error
       }
     }
+    if (didLoad) break
   }
 
   if (!didLoad) {
