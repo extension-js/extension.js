@@ -502,7 +502,12 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     }
   })
 
-  it('installs local tarballs and can build', () => {
+  const installAndBuildTimeoutMs =
+    process.platform === 'win32' && runner.name === 'pnpmDlx' ? 300_000 : 120_000
+
+  it(
+    'installs local tarballs and can build',
+    () => {
     if (!runnerReady.get(runner.name)) return
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-install-'))
     const projectPath = join(workspace, 'app-build')
@@ -545,7 +550,9 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     } finally {
       rmSync(workspace, {recursive: true, force: true})
     }
-  })
+    },
+    installAndBuildTimeoutMs
+  )
 })
 
 describe('cli direct flow (no npx)', () => {
