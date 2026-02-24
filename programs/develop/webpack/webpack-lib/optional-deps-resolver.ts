@@ -111,7 +111,7 @@ function resolveFromInstallRootPackageDir(
 
     if (typeof dotExport === 'string') candidateEntries.push(dotExport)
 
-      if (dotExport && typeof dotExport === 'object') {
+    if (dotExport && typeof dotExport === 'object') {
       if (typeof dotExport.require === 'string')
         candidateEntries.push(dotExport.require)
       if (typeof dotExport.default === 'string')
@@ -338,28 +338,63 @@ export async function ensureOptionalPackageResolved(
 export async function ensureOptionalModuleLoaded<T = any>(
   input: EnsureLoadInput<T>
 ): Promise<T> {
-  await ensureOptionalPackageResolved(input)
-  const resolution = resolveDependency(input.dependencyId, input.projectPath)
+  const resolvedPath = await ensureOptionalPackageResolved(input)
+  const candidateBases = getResolutionBases(input.projectPath)
+  let loaded: any
+  let didLoad = false
+  let lastLoadError: unknown
 
-  if (!resolution) {
-    const diagnostics = buildDiagnostics({
-      integration: input.integration,
-      dependencyId: input.dependencyId,
-      projectPath: input.projectPath,
-      installRoot: resolveDevelopInstallRoot(),
-      installDependencies: input.installDependencies || [input.dependencyId],
-      verifyPackageIds: input.verifyPackageIds ||
-        input.installDependencies || [input.dependencyId]
-    })
+  for (const basePath of candidateBases) {
+    const req = createRequire(packageJsonPath(basePath))
+    try {
+      loaded = req(input.dependencyId)
+      didLoad = true
+      break
+    } catch (bareSpecifierError) {
+      try {
+        // pnpm-linked layouts can fail bare-id loading even after successful
+        // resolution; absolute-path loading preserves deterministic behavior.
+        loaded = req(resolvedPath)
+        didLoad = true
+        break
+      } catch (resolvedPathError) {
+        lastLoadError = resolvedPathError || bareSpecifierError
+      }
+    }
+  }
+
+  if (!didLoad) {
+    try {
+      loaded = require(resolvedPath)
+      didLoad = true
+    } catch (directRequireError) {
+      lastLoadError = directRequireError
+    }
+  }
+
+  if (!didLoad) {
+    const diagnostics = {
+      ...buildDiagnostics({
+        integration: input.integration,
+        dependencyId: input.dependencyId,
+        projectPath: input.projectPath,
+        installRoot: resolveDevelopInstallRoot(),
+        installDependencies: input.installDependencies || [input.dependencyId],
+        verifyPackageIds: input.verifyPackageIds ||
+          input.installDependencies || [input.dependencyId]
+      }),
+      resolvedPath,
+      loadError:
+        lastLoadError instanceof Error
+          ? lastLoadError.message
+          : String(lastLoadError)
+    }
 
     throw new Error(
       `[${input.integration}] ${input.dependencyId} could not be loaded after it resolved.\n` +
         JSON.stringify(diagnostics, null, 2)
     )
   }
-
-  const req = createRequire(packageJsonPath(resolution.basePath))
-  const loaded = req(input.dependencyId)
 
   return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
 }
