@@ -29,10 +29,20 @@ const baseEnv = {
   HUSKY: '0'
 }
 
+function commandFor(tool) {
+  if (process.platform !== 'win32') return tool
+  if (tool === 'pnpm') return 'pnpm.cmd'
+  if (tool === 'npm') return 'npm.cmd'
+  if (tool === 'yarn') return 'yarn.cmd'
+  if (tool === 'bun') return 'bun.exe'
+  return tool
+}
+
 function run(command, args, cwd, env = baseEnv) {
-  const rendered = [command, ...args].join(' ')
+  const resolvedCommand = commandFor(command)
+  const rendered = [resolvedCommand, ...args].join(' ')
   console.log(`\n$ (${cwd}) ${rendered}`)
-  const result = spawnSync(command, args, {
+  const result = spawnSync(resolvedCommand, args, {
     cwd,
     env,
     stdio: 'inherit'
@@ -70,7 +80,6 @@ async function writeFallbackFixture(targetDir) {
     name: 'extjs-optional-deps-smoke',
     version: '0.0.0',
     type: 'module',
-    packageManager: 'pnpm@10.28.0',
     scripts: {
       build: 'extension build',
       'build:production': 'extension build'
@@ -182,7 +191,7 @@ async function resolveConsumerSourceDir(tempRoot) {
   return {sourceDir: fallbackFixture, sourceName: 'generated fallback fixture'}
 }
 
-async function rewriteConsumerPackageJson(workdir) {
+async function rewriteConsumerPackageJson(workdir, pm) {
   const packageJsonPath = path.join(workdir, 'package.json')
   const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
 
@@ -192,14 +201,30 @@ async function rewriteConsumerPackageJson(workdir) {
   const installPath = path.join(ROOT_DIR, 'programs', 'install')
 
   packageJson.devDependencies ||= {}
-  packageJson.devDependencies.extension = fileSpecifier(cliPath)
+  if (pm === 'bun' || pm === 'yarn') {
+    // Bun and Yarn classic do not resolve workspace:* dependency ranges inside
+    // a file-linked CLI package in this isolated fixture setup. Use a registry
+    // tag so these lanes still verify install/build behavior.
+    packageJson.devDependencies.extension =
+      process.env.EXTJS_SMOKE_REGISTRY_EXTENSION_VERSION || 'canary'
+    if (packageJson.pnpm?.overrides) {
+      delete packageJson.pnpm.overrides.extension
+      delete packageJson.pnpm.overrides['extension-create']
+      delete packageJson.pnpm.overrides['extension-develop']
+      delete packageJson.pnpm.overrides['extension-install']
+    }
+  } else {
+    packageJson.devDependencies.extension = fileSpecifier(cliPath)
+  }
 
-  packageJson.pnpm ||= {}
-  packageJson.pnpm.overrides ||= {}
-  packageJson.pnpm.overrides.extension = fileSpecifier(cliPath)
-  packageJson.pnpm.overrides['extension-create'] = fileSpecifier(createPath)
-  packageJson.pnpm.overrides['extension-develop'] = fileSpecifier(developPath)
-  packageJson.pnpm.overrides['extension-install'] = fileSpecifier(installPath)
+  if (pm !== 'bun' && pm !== 'yarn') {
+    packageJson.pnpm ||= {}
+    packageJson.pnpm.overrides ||= {}
+    packageJson.pnpm.overrides.extension = fileSpecifier(cliPath)
+    packageJson.pnpm.overrides['extension-create'] = fileSpecifier(createPath)
+    packageJson.pnpm.overrides['extension-develop'] = fileSpecifier(developPath)
+    packageJson.pnpm.overrides['extension-install'] = fileSpecifier(installPath)
+  }
 
   await fs.writeFile(
     packageJsonPath,
@@ -301,7 +326,7 @@ async function main() {
     )
 
     await fs.cp(sourceDir, workdir, {recursive: true})
-    await rewriteConsumerPackageJson(workdir)
+    await rewriteConsumerPackageJson(workdir, packageManager)
     installAndBuild(workdir, packageManager)
 
     console.log(
