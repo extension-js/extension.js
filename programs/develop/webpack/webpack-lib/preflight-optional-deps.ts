@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import * as path from 'path'
 import {getDirs} from './paths'
 import {resolveDevelopInstallRoot} from '../plugin-css/css-lib/integrations'
 import colors from 'pintor'
@@ -30,6 +31,11 @@ function getResolutionPaths(projectPath?: string) {
     extensionRoot || undefined,
     process.cwd()
   ].filter(Boolean) as string[]
+
+  // In pnpm dlx, optional deps live in extension-develop's sibling node_modules
+  if (extensionRoot && extensionRoot.includes('.pnpm')) {
+    paths.push(path.join(extensionRoot, '..', '..'))
+  }
 
   return Array.from(new Set(paths))
 }
