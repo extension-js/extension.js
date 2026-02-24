@@ -10,11 +10,8 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
-import {
-  installOptionalDependencies,
-  hasDependency,
-  resolveDevelopInstallRoot
-} from '../css-lib/integrations'
+import {hasDependency, resolveDevelopInstallRoot} from '../css-lib/integrations'
+import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
 
@@ -36,28 +33,6 @@ export function isUsingSass(projectPath: string): boolean {
 }
 
 type Loader = Record<string, any>
-
-function resolveSassLoader(projectPath: string): string | undefined {
-  const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
-
-  for (const base of bases) {
-    try {
-      const req = createRequire(path.join(base, 'package.json'))
-      return req.resolve('sass-loader')
-    } catch {
-      // Try next base
-    }
-  }
-
-  try {
-    return require.resolve('sass-loader', {paths: bases})
-  } catch {
-    return undefined
-  }
-}
 
 /**
  * Resolve the Sass implementation from the user's project first, then fall back
@@ -137,49 +112,23 @@ export function createSassLoaderOptions(
 export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
   if (!isUsingSass(projectPath)) return []
 
-  let sassLoaderPath = resolveSassLoader(projectPath)
-
-  if (!sassLoaderPath) {
-    const postCssDependencies = [
+  const sassLoaderPath = await ensureOptionalPackageResolved({
+    integration: 'SASS',
+    projectPath,
+    dependencyId: 'sass-loader',
+    installDependencies: [
       'postcss-loader',
       'postcss-scss',
-      'postcss-preset-env'
+      'postcss-preset-env',
+      'sass-loader'
+    ],
+    verifyPackageIds: [
+      'postcss-loader',
+      'postcss-scss',
+      'postcss-preset-env',
+      'sass-loader'
     ]
-
-    const didInstallPostCss = await installOptionalDependencies(
-      'PostCSS',
-      postCssDependencies
-    )
-
-    if (!didInstallPostCss) {
-      throw new Error('[PostCSS] Optional dependencies failed to install.')
-    }
-
-    // We expect users to install "sass" in their project. Here we only
-    // bootstrap the loader itself so that the npx / cache-based runtime
-    // can function without users having to think about peer deps.
-    const sassDependencies = ['sass-loader']
-
-    const didInstallSass = await installOptionalDependencies(
-      'SASS',
-      sassDependencies
-    )
-
-    if (!didInstallSass) {
-      throw new Error('[SASS] Optional dependencies failed to install.')
-    }
-
-    sassLoaderPath = resolveSassLoader(projectPath)
-    if (!sassLoaderPath) {
-      throw new Error(
-        '[SASS] sass-loader could not be resolved after optional dependency installation.'
-      )
-    }
-
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.youAreAllSet('SASS'))
-    }
-  }
+  })
 
   return [
     // Regular .sass/.scss files

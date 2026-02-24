@@ -1,0 +1,289 @@
+import * as fs from 'fs'
+import * as path from 'path'
+import {createRequire} from 'module'
+import {
+  installOptionalDependencies,
+  resolveDevelopInstallRoot
+} from '../plugin-css/css-lib/integrations'
+
+type ResolutionResult = {
+  resolvedPath: string
+  basePath: string
+}
+
+type EnsureResolveInput = {
+  integration: string
+  projectPath: string
+  dependencyId: string
+  installDependencies?: string[]
+  verifyPackageIds?: string[]
+}
+
+type EnsureLoadInput<T = any> = EnsureResolveInput & {
+  moduleAdapter?: (loaded: any) => T
+}
+
+const installSingleFlight = new Map<string, Promise<void>>()
+
+function getResolutionBases(projectPath: string): string[] {
+  const extensionRoot = resolveDevelopInstallRoot()
+  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
+    Boolean
+  ) as string[]
+
+  return Array.from(new Set(bases))
+}
+
+function packageJsonPath(basePath: string): string {
+  return path.join(basePath, 'package.json')
+}
+
+function tryResolveWithBase(
+  dependencyId: string,
+  basePath: string
+): string | undefined {
+  try {
+    const req = createRequire(packageJsonPath(basePath))
+    return req.resolve(dependencyId)
+  } catch {
+    return undefined
+  }
+}
+
+function resolveDependency(
+  dependencyId: string,
+  projectPath: string
+): ResolutionResult | undefined {
+  const bases = getResolutionBases(projectPath)
+
+  for (const basePath of bases) {
+    const resolvedPath = tryResolveWithBase(dependencyId, basePath)
+
+    if (resolvedPath) {
+      return {resolvedPath, basePath}
+    }
+  }
+
+  try {
+    const resolvedPath = require.resolve(dependencyId, {paths: bases})
+    return {resolvedPath, basePath: projectPath}
+  } catch {
+    return undefined
+  }
+}
+
+function verifyPackageInInstallRoot(
+  packageId: string,
+  installRoot: string
+): boolean {
+  const segments = packageId.split('/')
+  const packageJson = path.join(
+    installRoot,
+    'node_modules',
+    ...segments,
+    'package.json'
+  )
+
+  return fs.existsSync(packageJson)
+}
+
+function buildDiagnostics(input: {
+  integration: string
+  dependencyId: string
+  projectPath: string
+  installRoot?: string
+  installDependencies: string[]
+  verifyPackageIds: string[]
+}) {
+  const bases = getResolutionBases(input.projectPath)
+  const verifyState = input.verifyPackageIds.map((id) => ({
+    dependency: id,
+    existsAtInstallRoot: input.installRoot
+      ? verifyPackageInInstallRoot(id, input.installRoot)
+      : false
+  }))
+
+  return {
+    integration: input.integration,
+    dependencyId: input.dependencyId,
+    projectPath: input.projectPath,
+    installRoot: input.installRoot || null,
+    installDependencies: input.installDependencies,
+    verifyPackageIds: input.verifyPackageIds,
+    resolutionBases: bases,
+    verifyState
+  }
+}
+
+async function runInstallAndVerify(input: {
+  integration: string
+  installDependencies: string[]
+  verifyPackageIds: string[]
+  projectPath: string
+  dependencyId: string
+  installRoot?: string
+}): Promise<void> {
+  const didInstall = await installOptionalDependencies(
+    input.integration,
+    input.installDependencies
+  )
+
+  if (!didInstall) {
+    const diagnostics = buildDiagnostics({
+      integration: input.integration,
+      dependencyId: input.dependencyId,
+      projectPath: input.projectPath,
+      installRoot: input.installRoot,
+      installDependencies: input.installDependencies,
+      verifyPackageIds: input.verifyPackageIds
+    })
+
+    throw new Error(
+      `[${input.integration}] Optional dependencies failed to install.\n` +
+        JSON.stringify(diagnostics, null, 2)
+    )
+  }
+
+  if (!input.installRoot) {
+    const diagnostics = buildDiagnostics({
+      integration: input.integration,
+      dependencyId: input.dependencyId,
+      projectPath: input.projectPath,
+      installRoot: input.installRoot,
+      installDependencies: input.installDependencies,
+      verifyPackageIds: input.verifyPackageIds
+    })
+
+    throw new Error(
+      `[${input.integration}] Optional dependency install root is unavailable.\n` +
+        JSON.stringify(diagnostics, null, 2)
+    )
+  }
+
+  const missingAfterInstall = input.verifyPackageIds.filter(
+    (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
+  )
+
+  if (missingAfterInstall.length > 0) {
+    const diagnostics = buildDiagnostics({
+      integration: input.integration,
+      dependencyId: input.dependencyId,
+      projectPath: input.projectPath,
+      installRoot: input.installRoot,
+      installDependencies: input.installDependencies,
+      verifyPackageIds: input.verifyPackageIds
+    })
+
+    throw new Error(
+      `[${input.integration}] Optional dependency install reported success but packages are missing: ${missingAfterInstall.join(', ')}.\n` +
+        JSON.stringify(diagnostics, null, 2)
+    )
+  }
+}
+
+async function ensureInstalledAndVerified(input: {
+  integration: string
+  installDependencies: string[]
+  verifyPackageIds: string[]
+  projectPath: string
+  dependencyId: string
+}): Promise<void> {
+  const installRoot = resolveDevelopInstallRoot()
+  const key = [
+    installRoot || 'missing-install-root',
+    ...input.installDependencies.slice().sort()
+  ].join('::')
+
+  const existing = installSingleFlight.get(key)
+
+  if (existing) {
+    await existing
+    return
+  }
+
+  const installPromise = runInstallAndVerify({
+    integration: input.integration,
+    installDependencies: input.installDependencies,
+    verifyPackageIds: input.verifyPackageIds,
+    projectPath: input.projectPath,
+    dependencyId: input.dependencyId,
+    installRoot
+  })
+
+  installSingleFlight.set(key, installPromise)
+  try {
+    await installPromise
+  } finally {
+    installSingleFlight.delete(key)
+  }
+}
+
+export async function ensureOptionalPackageResolved(
+  input: EnsureResolveInput
+): Promise<string> {
+  const resolvedBeforeInstall = resolveDependency(
+    input.dependencyId,
+    input.projectPath
+  )
+  if (resolvedBeforeInstall) return resolvedBeforeInstall.resolvedPath
+
+  const installDependencies = input.installDependencies || [input.dependencyId]
+  const verifyPackageIds = input.verifyPackageIds || installDependencies
+
+  await ensureInstalledAndVerified({
+    integration: input.integration,
+    installDependencies,
+    verifyPackageIds,
+    projectPath: input.projectPath,
+    dependencyId: input.dependencyId
+  })
+
+  const resolvedAfterInstall = resolveDependency(
+    input.dependencyId,
+    input.projectPath
+  )
+
+  if (resolvedAfterInstall) return resolvedAfterInstall.resolvedPath
+
+  const diagnostics = buildDiagnostics({
+    integration: input.integration,
+    dependencyId: input.dependencyId,
+    projectPath: input.projectPath,
+    installRoot: resolveDevelopInstallRoot(),
+    installDependencies,
+    verifyPackageIds
+  })
+  throw new Error(
+    `[${input.integration}] ${input.dependencyId} could not be resolved after optional dependency installation.\n` +
+      JSON.stringify(diagnostics, null, 2)
+  )
+}
+
+export async function ensureOptionalModuleLoaded<T = any>(
+  input: EnsureLoadInput<T>
+): Promise<T> {
+  await ensureOptionalPackageResolved(input)
+  const resolution = resolveDependency(input.dependencyId, input.projectPath)
+
+  if (!resolution) {
+    const diagnostics = buildDiagnostics({
+      integration: input.integration,
+      dependencyId: input.dependencyId,
+      projectPath: input.projectPath,
+      installRoot: resolveDevelopInstallRoot(),
+      installDependencies: input.installDependencies || [input.dependencyId],
+      verifyPackageIds: input.verifyPackageIds ||
+        input.installDependencies || [input.dependencyId]
+    })
+
+    throw new Error(
+      `[${input.integration}] ${input.dependencyId} could not be loaded after it resolved.\n` +
+        JSON.stringify(diagnostics, null, 2)
+    )
+  }
+
+  const req = createRequire(packageJsonPath(resolution.basePath))
+  const loaded = req(input.dependencyId)
+
+  return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
+}
