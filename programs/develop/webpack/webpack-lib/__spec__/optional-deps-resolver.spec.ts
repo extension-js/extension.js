@@ -105,6 +105,115 @@ describe('optional-deps-resolver', () => {
     expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
   })
 
+  it('resolves from install root package exports without triggering install', async () => {
+    const dependencyId = '@extjs-test/exported-loader'
+    const packageDir = path.join(
+      runtimePath,
+      'node_modules',
+      ...dependencyId.split('/')
+    )
+
+    fs.mkdirSync(path.join(packageDir, 'dist'), {recursive: true})
+    writeJson(path.join(packageDir, 'package.json'), {
+      name: dependencyId,
+      version: '0.0.0',
+      exports: {
+        '.': {
+          require: './dist/index.cjs'
+        }
+      }
+    })
+    fs.writeFileSync(
+      path.join(packageDir, 'dist', 'index.cjs'),
+      'module.exports = {name: "exported-loader"}',
+      'utf8'
+    )
+    installOptionalDependenciesMock.mockResolvedValue(true)
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+    const resolvedPath = await ensureOptionalPackageResolved({
+      integration: 'PostCSS',
+      projectPath,
+      dependencyId
+    })
+
+    expect(resolvedPath).toContain(
+      `${path.sep}node_modules${path.sep}@extjs-test${path.sep}exported-loader${path.sep}dist${path.sep}index.cjs`
+    )
+    expect(installOptionalDependenciesMock).not.toHaveBeenCalled()
+  })
+
+  it('does not require a second run after successful first install', async () => {
+    const dependencyId = '@extjs-test/first-run-loader'
+    installOptionalDependenciesMock.mockImplementation(async () => {
+      createPackage(
+        runtimePath,
+        dependencyId,
+        'module.exports = {name: "first-run-loader"}'
+      )
+      return true
+    })
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+    const firstResolvedPath = await ensureOptionalPackageResolved({
+      integration: 'PostCSS',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId],
+      verifyPackageIds: [dependencyId]
+    })
+    const secondResolvedPath = await ensureOptionalPackageResolved({
+      integration: 'PostCSS',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId],
+      verifyPackageIds: [dependencyId]
+    })
+
+    expect(firstResolvedPath).toContain('first-run-loader')
+    expect(secondResolvedPath).toContain('first-run-loader')
+    expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries install on next call after a failed first attempt', async () => {
+    const dependencyId = '@extjs-test/retry-loader'
+    installOptionalDependenciesMock
+      .mockResolvedValueOnce(false)
+      .mockImplementationOnce(async () => {
+        createPackage(runtimePath, dependencyId, 'module.exports = {ok: true}')
+        return true
+      })
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+
+    await expect(
+      ensureOptionalPackageResolved({
+        integration: 'React',
+        projectPath,
+        dependencyId,
+        installDependencies: [dependencyId],
+        verifyPackageIds: [dependencyId]
+      })
+    ).rejects.toThrow('Optional dependencies failed to install')
+
+    const resolvedPath = await ensureOptionalPackageResolved({
+      integration: 'React',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId],
+      verifyPackageIds: [dependencyId]
+    })
+
+    expect(resolvedPath).toContain('retry-loader')
+    expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(2)
+  })
+
   it('fails with diagnostics when install succeeds but package is missing', async () => {
     const dependencyId = '@extjs-test/missing-loader'
     installOptionalDependenciesMock.mockResolvedValue(true)
