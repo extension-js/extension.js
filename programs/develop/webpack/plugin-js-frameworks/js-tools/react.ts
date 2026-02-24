@@ -8,67 +8,19 @@
 
 import * as path from 'path'
 import {createRequire} from 'module'
-import * as fs from 'fs'
 import {type RspackPluginInstance} from '@rspack/core'
 import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
-import {
-  installOptionalDependencies,
-  hasDependency,
-  resolveDevelopInstallRoot
-} from '../frameworks-lib/integrations'
+import {hasDependency} from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
+import {
+  ensureOptionalModuleLoaded,
+  ensureOptionalPackageResolved
+} from '../../webpack-lib/optional-deps-resolver'
 
 type ReactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
 
 let userMessageDelivered = false
-
-function resolveWithRuntimePaths(
-  id: string,
-  projectPath: string
-): string | undefined {
-  const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
-
-  for (const base of bases) {
-    try {
-      const req = createRequire(path.join(base, 'package.json'))
-      return req.resolve(id)
-    } catch {
-      // Try next base
-    }
-  }
-
-  try {
-    return require.resolve(id, {paths: bases})
-  } catch {
-    return undefined
-  }
-}
-
-function getReactRefreshPlugin(
-  projectPath: string
-): ReactRefreshPluginCtor | undefined {
-  const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
-
-  for (const base of bases) {
-    try {
-      const req = createRequire(path.join(base, 'package.json'))
-      const mod = req('@rspack/plugin-react-refresh')
-      const plugin = (mod && (mod as any).default) || (mod as any)
-      if (plugin) return plugin as ReactRefreshPluginCtor
-    } catch {
-      // Try next base
-    }
-  }
-
-  return undefined
-}
 
 export function isUsingReact(projectPath: string) {
   if (hasDependency(projectPath, 'react')) {
@@ -92,38 +44,25 @@ export async function maybeUseReact(
 ): Promise<JsFramework | undefined> {
   if (!isUsingReact(projectPath)) return undefined
 
-  let reactRefreshPath = resolveWithRuntimePaths('react-refresh', projectPath)
+  const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
+  await ensureOptionalPackageResolved({
+    integration: 'React',
+    projectPath,
+    dependencyId: 'react-refresh',
+    installDependencies: reactDependencies,
+    verifyPackageIds: reactDependencies
+  })
 
-  if (!reactRefreshPath) {
-    const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
-
-    const didInstall = await installOptionalDependencies(
-      'React',
-      reactDependencies
-    )
-
-    if (!didInstall) {
-      throw new Error('[React] Optional dependencies failed to install.')
-    }
-
-    reactRefreshPath = resolveWithRuntimePaths('react-refresh', projectPath)
-    if (!reactRefreshPath) {
-      throw new Error(
-        '[React] react-refresh could not be resolved after optional dependency installation.'
-      )
-    }
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.youAreAllSet('React'))
-    }
-  }
-
-  const ReactRefreshPlugin = getReactRefreshPlugin(projectPath)
-
-  if (!ReactRefreshPlugin) {
-    throw new Error(
-      '[React] @rspack/plugin-react-refresh is installed but its plugin could not be resolved.'
-    )
-  }
+  const ReactRefreshPlugin =
+    await ensureOptionalModuleLoaded<ReactRefreshPluginCtor>({
+      integration: 'React',
+      projectPath,
+      dependencyId: '@rspack/plugin-react-refresh',
+      installDependencies: reactDependencies,
+      verifyPackageIds: reactDependencies,
+      moduleAdapter: (mod: any) =>
+        ((mod && mod.default) || mod) as ReactRefreshPluginCtor
+    })
 
   const reactPlugins: RspackPluginInstance[] = [
     new ReactRefreshPlugin({
