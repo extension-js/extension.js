@@ -503,53 +503,60 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
   })
 
   const installAndBuildTimeoutMs =
-    process.platform === 'win32' && runner.name === 'pnpmDlx' ? 300_000 : 120_000
+    process.platform === 'win32' && runner.name === 'pnpmDlx'
+      ? 300_000
+      : 120_000
 
   it(
     'installs local tarballs and can build',
     () => {
-    if (!runnerReady.get(runner.name)) return
-    const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-install-'))
-    const projectPath = join(workspace, 'app-build')
-    try {
-      const createResult = runCommand(
-        runner.command,
-        runner.buildArgs(packages, [
-          'create',
-          projectPath,
-          '--install',
-          'false'
-        ]),
-        {cwd: workspace, env: defaultEnv}
-      )
-      expect(createResult.status).toBe(0)
+      if (!runnerReady.get(runner.name)) return
+      const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-install-'))
+      const projectPath = join(workspace, 'app-build')
+      try {
+        const createResult = runCommand(
+          runner.command,
+          runner.buildArgs(packages, [
+            'create',
+            projectPath,
+            '--install',
+            'false'
+          ]),
+          {cwd: workspace, env: defaultEnv}
+        )
+        expect(createResult.status).toBe(0)
 
-      // Prefer npm when we have a path; on CI (e.g. setup-pnpm) npm may be absent, use runner PM
-      const hasNpm = npmCommand !== 'npm'
-      const installCmd = hasNpm ? npmCommand : runner.command
-      const installArgs =
-        installCmd === runner.command
-          ? ['add', '--save-dev', cliTgz, createTgz, developTgz]
-          : ['install', '--save-dev', cliTgz, createTgz, developTgz]
-      const installResult = runCommand(installCmd, installArgs, {
-        cwd: projectPath,
-        env: baseEnv
-      })
-      expect(installResult.status).toBe(0)
-      expect(existsSync(join(projectPath, 'node_modules'))).toBe(true)
-
-      const buildResult = runCommand(
-        runner.command,
-        runner.buildArgs(packages, ['build', projectPath, '--silent', 'true']),
-        {
+        // Prefer npm when we have a path; on CI (e.g. setup-pnpm) npm may be absent, use runner PM
+        const hasNpm = npmCommand !== 'npm'
+        const installCmd = hasNpm ? npmCommand : runner.command
+        const installArgs =
+          installCmd === runner.command
+            ? ['add', '--save-dev', cliTgz, createTgz, developTgz]
+            : ['install', '--save-dev', cliTgz, createTgz, developTgz]
+        const installResult = runCommand(installCmd, installArgs, {
           cwd: projectPath,
-          env: {...defaultEnv, EXTENSION_AUTHOR_MODE: 'true'}
-        }
-      )
-      expect(buildResult.status).toBe(0)
-    } finally {
-      rmSync(workspace, {recursive: true, force: true})
-    }
+          env: baseEnv
+        })
+        expect(installResult.status).toBe(0)
+        expect(existsSync(join(projectPath, 'node_modules'))).toBe(true)
+
+        const buildResult = runCommand(
+          runner.command,
+          runner.buildArgs(packages, [
+            'build',
+            projectPath,
+            '--silent',
+            'true'
+          ]),
+          {
+            cwd: projectPath,
+            env: {...defaultEnv, EXTENSION_AUTHOR_MODE: 'true'}
+          }
+        )
+        expect(buildResult.status).toBe(0)
+      } finally {
+        rmSync(workspace, {recursive: true, force: true})
+      }
     },
     installAndBuildTimeoutMs
   )
