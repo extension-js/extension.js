@@ -2,9 +2,8 @@
 
 ## Unreleased
 
-- Improve optional dependency resolution reliability and deterministic first-run behavior.
-- Expand cross-platform optional dependency smoke coverage and CI portability.
-- Improve Windows compatibility for optional dependency install and resolution flows.
+- Fix bundled extensions regression (1ed6641e)
+- Resolve sass-loader in pnpm dlx one-run builds (bce6ef5d)
 
 ## 3.8.2
 
