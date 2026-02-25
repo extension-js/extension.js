@@ -149,11 +149,75 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
 
     const list = computeExtensionsToLoad(
       root,
-      'development',
+      'production',
       'chrome',
       userOut,
       []
     )
     expect(list).toEqual([devtoolsForBrowser, userOut])
+  })
+
+  it('falls back to monorepo extensions/*/dist when programs/develop/dist is absent', () => {
+    const root = tmpDir('extjs-devtools-fallback-')
+    const userOut = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(userOut, {recursive: true})
+    fs.writeFileSync(
+      path.join(userOut, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'User Extension',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    const fallbackDevtoolsForBrowser = path.join(
+      root,
+      'extensions',
+      'extension-js-devtools',
+      'dist',
+      'chrome'
+    )
+    const fallbackThemeForBrowser = path.join(
+      root,
+      'extensions',
+      'extension-js-theme',
+      'dist',
+      'chrome'
+    )
+    fs.mkdirSync(fallbackDevtoolsForBrowser, {recursive: true})
+    fs.mkdirSync(fallbackThemeForBrowser, {recursive: true})
+    fs.writeFileSync(
+      path.join(fallbackDevtoolsForBrowser, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js DevTools',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+    fs.writeFileSync(
+      path.join(fallbackThemeForBrowser, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js Theme',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    const list = computeExtensionsToLoad(
+      path.join(root, 'programs', 'develop'),
+      'production',
+      'chrome',
+      userOut,
+      []
+    )
+
+    expect(list).toEqual([
+      path.resolve(fallbackDevtoolsForBrowser),
+      path.resolve(fallbackThemeForBrowser),
+      userOut
+    ])
   })
 })
