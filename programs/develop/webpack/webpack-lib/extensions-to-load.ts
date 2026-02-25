@@ -62,7 +62,8 @@ export function computeExtensionsToLoad(
   mode: 'development' | 'production' | 'none' | string | undefined,
   browser: string,
   userExtensionOutputPath: string,
-  extraExtensionDirs: string[] = []
+  extraExtensionDirs: string[] = [],
+  userManifestPath?: string
 ): string[] {
   const list: string[] = []
   try {
@@ -77,7 +78,11 @@ export function computeExtensionsToLoad(
       browser
     })
 
-    const userHasNewTabOverride = hasNewTabOverride(userExtensionOutputPath)
+    const userHasNewTabOverride =
+      hasNewTabOverride(userExtensionOutputPath) ||
+      (typeof userManifestPath === 'string'
+        ? hasNewTabOverride(path.dirname(userManifestPath))
+        : false)
     const devtoolsHasNewTabOverride = devtoolsForBrowser
       ? hasNewTabOverride(devtoolsForBrowser)
       : false

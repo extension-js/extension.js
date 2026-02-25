@@ -159,7 +159,8 @@ export async function extensionPreview(
     'production',
     browser,
     outputPath,
-    companionUnpackedExtensionDirs
+    companionUnpackedExtensionDirs,
+    projectStructure.manifestPath
   )
 
   await runOnlyPreviewBrowser({

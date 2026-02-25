@@ -65,7 +65,8 @@ export default function webpackConfig(
     devOptions.mode,
     devOptions.browser,
     primaryExtensionOutputDir,
-    companionUnpackedExtensionDirs
+    companionUnpackedExtensionDirs,
+    manifestPath
   )
   const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
   const transpilePackageDirs = resolveTranspilePackageDirs(
