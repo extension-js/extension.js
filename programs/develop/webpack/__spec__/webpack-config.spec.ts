@@ -4,8 +4,12 @@ import * as path from 'path'
 import os from 'os'
 import webpackConfig from '../webpack-config'
 
-const resolveTranspilePackageDirsMock = vi.hoisted(() => vi.fn(() => []))
-const computeExtensionsToLoadMock = vi.hoisted(() => vi.fn(() => []))
+const resolveTranspilePackageDirsMock = vi.hoisted(() =>
+  vi.fn<(..._args: any[]) => string[]>(() => [])
+)
+const computeExtensionsToLoadMock = vi.hoisted(() =>
+  vi.fn<(..._args: any[]) => string[]>(() => [])
+)
 const BrowsersPluginMock = vi.hoisted(() => vi.fn())
 
 vi.mock('../webpack-lib/transpile-packages', async () => {
@@ -136,7 +140,8 @@ describe('webpack-config transpile packages watch behavior', () => {
       'development',
       'chrome',
       '/project/dist/chrome',
-      expect.any(Array)
+      expect.any(Array),
+      projectStructure.manifestPath
     )
     expect(BrowsersPluginMock).toHaveBeenCalledWith(
       expect.objectContaining({

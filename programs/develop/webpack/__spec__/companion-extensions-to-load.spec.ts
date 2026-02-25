@@ -273,4 +273,67 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       expect(list).toEqual([devtoolsForBrowser, themeForBrowser, userOut])
     }
   })
+
+  it('skips built-in devtools when user source manifest defines newtab but output manifest is not built yet', () => {
+    const root = tmpDir('extjs-devtools-source-manifest-')
+    const userOut = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(userOut, {recursive: true})
+    // Intentionally do not write dist/chrome/manifest.json to simulate startup race.
+
+    const sourceManifestPath = path.join(root, 'manifest.json')
+    fs.writeFileSync(
+      sourceManifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'User Extension',
+        version: '0.0.0',
+        chrome_url_overrides: {newtab: 'user/newtab.html'}
+      }),
+      'utf-8'
+    )
+
+    const devtoolsForBrowser = path.join(
+      root,
+      'dist',
+      'extension-js-devtools',
+      'chrome'
+    )
+    const themeForBrowser = path.join(
+      root,
+      'dist',
+      'extension-js-theme',
+      'chrome'
+    )
+    fs.mkdirSync(devtoolsForBrowser, {recursive: true})
+    fs.mkdirSync(themeForBrowser, {recursive: true})
+    fs.writeFileSync(
+      path.join(devtoolsForBrowser, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js',
+        version: '0.0.0',
+        chrome_url_overrides: {newtab: 'pages/newtab.html'}
+      }),
+      'utf-8'
+    )
+    fs.writeFileSync(
+      path.join(themeForBrowser, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js Theme',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    const list = computeExtensionsToLoad(
+      root,
+      'development',
+      'chrome',
+      userOut,
+      [],
+      sourceManifestPath
+    )
+    expect(list).toEqual([themeForBrowser, userOut])
+  })
 })
