@@ -220,4 +220,57 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       userOut
     ])
   })
+
+  it('always includes built-in devtools + theme before user extension when available', () => {
+    const root = tmpDir('extjs-builtins-always-')
+    const userOut = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(userOut, {recursive: true})
+    fs.writeFileSync(
+      path.join(userOut, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'User Extension',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    const devtoolsForBrowser = path.join(
+      root,
+      'dist',
+      'extension-js-devtools',
+      'chrome'
+    )
+    const themeForBrowser = path.join(
+      root,
+      'dist',
+      'extension-js-theme',
+      'chrome'
+    )
+    fs.mkdirSync(devtoolsForBrowser, {recursive: true})
+    fs.mkdirSync(themeForBrowser, {recursive: true})
+    fs.writeFileSync(
+      path.join(devtoolsForBrowser, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js DevTools',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+    fs.writeFileSync(
+      path.join(themeForBrowser, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Extension.js Theme',
+        version: '0.0.0'
+      }),
+      'utf-8'
+    )
+
+    for (const mode of ['development', 'production'] as const) {
+      const list = computeExtensionsToLoad(root, mode, 'chrome', userOut, [])
+      expect(list).toEqual([devtoolsForBrowser, themeForBrowser, userOut])
+    }
+  })
 })

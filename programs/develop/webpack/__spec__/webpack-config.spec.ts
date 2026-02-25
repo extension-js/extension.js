@@ -5,6 +5,8 @@ import os from 'os'
 import webpackConfig from '../webpack-config'
 
 const resolveTranspilePackageDirsMock = vi.hoisted(() => vi.fn(() => []))
+const computeExtensionsToLoadMock = vi.hoisted(() => vi.fn(() => []))
+const BrowsersPluginMock = vi.hoisted(() => vi.fn())
 
 vi.mock('../webpack-lib/transpile-packages', async () => {
   const actual = await vi.importActual<
@@ -13,6 +15,27 @@ vi.mock('../webpack-lib/transpile-packages', async () => {
   return {
     ...actual,
     resolveTranspilePackageDirs: resolveTranspilePackageDirsMock
+  }
+})
+
+vi.mock('../webpack-lib/extensions-to-load', async () => {
+  const actual = await vi.importActual<
+    typeof import('../webpack-lib/extensions-to-load')
+  >('../webpack-lib/extensions-to-load')
+  return {
+    ...actual,
+    computeExtensionsToLoad: computeExtensionsToLoadMock
+  }
+})
+
+vi.mock('../plugin-browsers', async () => {
+  const actual =
+    await vi.importActual<typeof import('../plugin-browsers')>(
+      '../plugin-browsers'
+    )
+  return {
+    ...actual,
+    BrowsersPlugin: BrowsersPluginMock
   }
 })
 
@@ -83,5 +106,46 @@ describe('webpack-config transpile packages watch behavior', () => {
       ignored.test('/repo/node_modules/@workspace/ui/src/button.tsx')
     ).toBe(false)
     expect(ignored.test('/repo/dist/chrome/background.js')).toBe(true)
+  })
+
+  it('passes built-in devtools + theme + user output extensions to BrowsersPlugin', () => {
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    computeExtensionsToLoadMock.mockReturnValue([
+      '/builtins/devtools',
+      '/builtins/theme',
+      '/project/dist/chrome'
+    ])
+    BrowsersPluginMock.mockClear()
+
+    const projectStructure = createProjectStructure()
+    webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chrome',
+        mode: 'development',
+        output: {
+          clean: false,
+          path: '/project/dist/chrome'
+        },
+        noRunner: false
+      } as any
+    )
+
+    expect(computeExtensionsToLoadMock).toHaveBeenCalledWith(
+      expect.any(String),
+      'development',
+      'chrome',
+      '/project/dist/chrome',
+      expect.any(Array)
+    )
+    expect(BrowsersPluginMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extension: [
+          '/builtins/devtools',
+          '/builtins/theme',
+          '/project/dist/chrome'
+        ]
+      })
+    )
   })
 })

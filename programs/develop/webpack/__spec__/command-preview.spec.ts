@@ -57,6 +57,7 @@ const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 import {extensionPreview} from '../command-preview'
 import * as resolveConfigMod from '../feature-special-folders/folder-extensions/resolve-config'
 import * as resolveDirsMod from '../feature-special-folders/folder-extensions/resolve-dirs'
+import * as extensionsToLoadMod from '../webpack-lib/extensions-to-load'
 
 describe('webpack/command-preview (run-only)', () => {
   beforeEach(() => {
@@ -151,6 +152,41 @@ describe('webpack/command-preview (run-only)', () => {
     })
     expect(resolveDirsMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
       expect.objectContaining({config: {paths: ['/comp/a']}})
+    )
+  })
+
+  it('passes built-in devtools + theme + user output to preview runner', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    ;(extensionsToLoadMod.computeExtensionsToLoad as any).mockReturnValue([
+      '/builtins/devtools',
+      '/builtins/theme',
+      '/comp/a',
+      '/proj/dist/chrome'
+    ])
+
+    await extensionPreview('/proj', {browser: 'chrome'} as any)
+
+    expect(extensionsToLoadMod.computeExtensionsToLoad).toHaveBeenCalledWith(
+      expect.any(String),
+      'production',
+      'chrome',
+      '/proj/dist/chrome',
+      ['/comp/a']
+    )
+    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith(
+      expect.objectContaining({
+        extensionsToLoad: [
+          '/builtins/devtools',
+          '/builtins/theme',
+          '/comp/a',
+          '/proj/dist/chrome'
+        ]
+      })
     )
   })
 })
