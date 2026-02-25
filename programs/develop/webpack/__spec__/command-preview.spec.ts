@@ -176,7 +176,8 @@ describe('webpack/command-preview (run-only)', () => {
       'production',
       'chrome',
       '/proj/dist/chrome',
-      ['/comp/a']
+      ['/comp/a'],
+      '/proj/manifest.json'
     )
     expect(runOnlyPreviewBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
