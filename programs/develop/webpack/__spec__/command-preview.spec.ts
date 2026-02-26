@@ -166,7 +166,7 @@ describe('webpack/command-preview (run-only)', () => {
       '/builtins/devtools',
       '/builtins/theme',
       '/comp/a',
-      '/proj/dist/chrome'
+      path.join('/proj', 'dist', 'chrome')
     ])
 
     await extensionPreview('/proj', {browser: 'chrome'} as any)
@@ -175,7 +175,7 @@ describe('webpack/command-preview (run-only)', () => {
       expect.any(String),
       'production',
       'chrome',
-      '/proj/dist/chrome',
+      path.join('/proj', 'dist', 'chrome'),
       ['/comp/a'],
       '/proj/manifest.json'
     )
@@ -185,7 +185,7 @@ describe('webpack/command-preview (run-only)', () => {
           '/builtins/devtools',
           '/builtins/theme',
           '/comp/a',
-          '/proj/dist/chrome'
+          path.join('/proj', 'dist', 'chrome')
         ]
       })
     )
