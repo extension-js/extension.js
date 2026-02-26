@@ -11,10 +11,11 @@
   },
   "exports": {
     ".": {
-      "development": "./module.ts",
+      "development": "./dist/module.cjs",
       "types": "./dist/module.d.ts",
       "import": "./dist/module.cjs",
-      "require": "./dist/module.cjs"
+      "require": "./dist/module.cjs",
+      "default": "./dist/module.cjs"
     }
   },
   "main": "./dist/module.cjs",
