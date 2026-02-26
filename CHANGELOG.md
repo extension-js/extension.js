@@ -2,8 +2,11 @@
 
 ## Unreleased
 
-- Fix bundled extensions regression (1ed6641e)
-- Resolve sass-loader in pnpm dlx one-run builds (bce6ef5d)
+- Fix Windows path assertions in preview spec (1d5995e5)
+- Fix extension-create not running through Node.js interface (47cca82f)
+- Follow up on built-in extension overriding user NTP (16ec25bd)
+- Add tests to prevent built-in extension not bundling (078cf500)
+- chore(release): move changelog to v3.8.5 (4903d1d3)
 
 ## 3.8.2
 
