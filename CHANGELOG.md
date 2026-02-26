@@ -2,11 +2,8 @@
 
 ## Unreleased
 
-- Fix Windows path assertions in preview spec (1d5995e5)
-- Fix extension-create not running through Node.js interface (47cca82f)
-- Follow up on built-in extension overriding user NTP (16ec25bd)
-- Add tests to prevent built-in extension not bundling (078cf500)
-- chore(release): move changelog to v3.8.5 (4903d1d3)
+- Fix .gitignore writing to avoid GC-closed file handles (62d2f689)
+- chore(release): move changelog to v3.8.6 (7ee79d60)
 
 ## 3.8.2
 
