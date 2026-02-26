@@ -23,6 +23,7 @@ import type {DevOptions} from '../../../webpack-types'
 export class ChromiumHardReloadPlugin {
   private logger?: ReturnType<Compiler['getInfrastructureLogger']>
   private warnedDevMode?: boolean
+  private hasCompletedSuccessfulBuild = false
   /**
    * Tracks the *author/source* file paths that are part of the service worker entrypoint
    * (including transitive dependencies) from the last successful compilation.
@@ -221,7 +222,12 @@ export class ChromiumHardReloadPlugin {
       const pendingReason = this.ctx.getPendingReloadReason()
       const contentScriptEmitted = this.didEmitContentScripts(stats)
       const reason =
-        pendingReason || (contentScriptEmitted ? 'content' : undefined)
+        pendingReason ||
+        (this.hasCompletedSuccessfulBuild && contentScriptEmitted
+          ? 'content'
+          : undefined)
+      this.hasCompletedSuccessfulBuild = true
+
       if (!reason) {
         return
       }
