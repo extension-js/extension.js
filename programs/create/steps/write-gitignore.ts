@@ -42,16 +42,20 @@ const globalLines = [
 
 export async function writeGitignore(projectPath: string) {
   const gitIgnorePath = path.join(projectPath, '.gitignore')
+  const paths = new Set<string>()
+  let currentContents = ''
 
-  const fileHandle = await fs.open(gitIgnorePath, 'a+').catch((err) => {
+  currentContents = await fs.readFile(gitIgnorePath, 'utf8').catch((err) => {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      return ''
+    }
+
     console.error(err)
     throw err
   })
 
-  const paths = new Set<String>()
-
-  for await (let line of fileHandle.readLines({autoClose: false})) {
-    line = line.trim()
+  for (const rawLine of currentContents.split(/\r?\n/)) {
+    const line = rawLine.trim()
     if (line.length === 0) {
       continue
     }
@@ -65,10 +69,18 @@ export async function writeGitignore(projectPath: string) {
     linesToAdd.pop()
   }
 
+  if (linesToAdd.length === 0) {
+    return
+  }
+
   console.log(messages.writingGitIgnore())
 
-  // Append the lines without adding an extra newline at the end
-  await fileHandle.appendFile(linesToAdd.join('\n')).catch((err) => {
+  const shouldPrefixWithNewline =
+    currentContents.length > 0 && !currentContents.endsWith('\n')
+  const contentToAppend = `${shouldPrefixWithNewline ? '\n' : ''}${linesToAdd.join('\n')}`
+
+  // Append the missing lines while preserving final newline behavior.
+  await fs.appendFile(gitIgnorePath, contentToAppend).catch((err) => {
     console.error(err)
     throw err
   })
