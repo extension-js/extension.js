@@ -75,7 +75,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       () => {}
     )
 
-    await (doneHandler as any)({
+    const stats = {
       hasErrors: () => false,
       compilation: {
         assets: {
@@ -87,7 +87,17 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
         chunkGraph: {}
       },
       toJson: () => ({assets: []})
-    })
+    }
+    await (doneHandler as any)(stats)
+    ;(watchRunHandler as any)(
+      {
+        modifiedFiles: new Set<string>([
+          '/project/templates/react/src/manifest.json'
+        ])
+      },
+      () => {}
+    )
+    await (doneHandler as any)(stats)
 
     expect(hardReload).toHaveBeenCalledTimes(1)
     expect(consoleLogSpy).not.toHaveBeenCalled()
@@ -161,7 +171,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       () => {}
     )
 
-    await (doneHandler as any)({
+    const stats = {
       hasErrors: () => false,
       compilation: {
         assets: {
@@ -173,7 +183,17 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
         chunkGraph: {}
       },
       toJson: () => ({assets: []})
-    })
+    }
+    await (doneHandler as any)(stats)
+    ;(watchRunHandler as any)(
+      {
+        modifiedFiles: new Set<string>([
+          '/project/templates/react/src/manifest.json'
+        ])
+      },
+      () => {}
+    )
+    await (doneHandler as any)(stats)
 
     expect(hardReload).toHaveBeenCalledTimes(1)
     expect(logger.info).toHaveBeenCalledWith(
@@ -245,7 +265,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       () => {}
     )
 
-    await (doneHandler as any)({
+    const stats = {
       hasErrors: () => false,
       compilation: {
         assets: {
@@ -257,7 +277,17 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
         chunkGraph: {}
       },
       toJson: () => ({assets: []})
-    })
+    }
+    await (doneHandler as any)(stats)
+    ;(watchRunHandler as any)(
+      {
+        modifiedFiles: new Set<string>([
+          '/project/templates/react/src/manifest.json'
+        ])
+      },
+      () => {}
+    )
+    await (doneHandler as any)(stats)
 
     expect(hardReload).toHaveBeenCalledTimes(1)
     expect(consoleLogSpy).toHaveBeenCalledTimes(1)
@@ -325,6 +355,165 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
         modifiedFiles: new Set<string>([
           '/project/other-ext/src/manifest.json',
           '/project/templates/react/src/background.ts'
+        ])
+      },
+      () => {}
+    )
+
+    await (doneHandler as any)({
+      hasErrors: () => false,
+      compilation: {
+        assets: {
+          'manifest.json': {
+            source: () => JSON.stringify({})
+          }
+        },
+        entrypoints: new Map(),
+        chunkGraph: {}
+      },
+      toJson: () => ({assets: []})
+    })
+
+    expect(hardReload).not.toHaveBeenCalled()
+  })
+
+  it('does not trigger hard reload on initial successful build with manifest pending reason', async () => {
+    let watchRunHandler:
+      | ((compilerWithModifiedFiles: any, done: () => void) => void)
+      | undefined
+    let doneHandler: ((stats: any) => Promise<void>) | undefined
+
+    const compiler: any = {
+      options: {context: '/project/templates/react'},
+      getInfrastructureLogger: () => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn()
+      }),
+      hooks: {
+        watchRun: {
+          tapAsync: (_name: string, handler: any) => {
+            watchRunHandler = handler
+          }
+        },
+        done: {
+          tapPromise: (_name: string, handler: any) => {
+            doneHandler = handler
+          }
+        }
+      }
+    }
+
+    const hardReload = vi.fn(async () => true)
+    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    const ctx: any = {
+      getController: () => ({hardReload}),
+      onControllerReady: () => {},
+      setController: () => {},
+      getPorts: () => ({}),
+      getExtensionRoot: () => '/project/templates/react/dist/chromium',
+      setExtensionRoot: () => {},
+      setServiceWorkerPaths: () => {},
+      getServiceWorkerPaths: () => ({}),
+      setPendingReloadReason: (
+        reason?: 'manifest' | 'locales' | 'sw' | 'content'
+      ) => {
+        pendingReason = reason
+      },
+      getPendingReloadReason: () => pendingReason,
+      clearPendingReloadReason: () => {
+        pendingReason = undefined
+      }
+    }
+
+    const plugin = new ChromiumHardReloadPlugin({}, ctx)
+    plugin.apply(compiler)
+    ;(watchRunHandler as any)(
+      {
+        modifiedFiles: new Set<string>([
+          '/project/templates/react/src/manifest.json'
+        ])
+      },
+      () => {}
+    )
+
+    await (doneHandler as any)({
+      hasErrors: () => false,
+      compilation: {
+        assets: {
+          'manifest.json': {
+            source: () => JSON.stringify({})
+          }
+        },
+        entrypoints: new Map(),
+        chunkGraph: {}
+      },
+      toJson: () => ({assets: []})
+    })
+
+    expect(hardReload).not.toHaveBeenCalled()
+  })
+
+  it('does not trigger hard reload on initial successful build with service-worker pending reason', async () => {
+    let watchRunHandler:
+      | ((compilerWithModifiedFiles: any, done: () => void) => void)
+      | undefined
+    let doneHandler: ((stats: any) => Promise<void>) | undefined
+
+    const compiler: any = {
+      options: {context: '/project/templates/react'},
+      getInfrastructureLogger: () => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn()
+      }),
+      hooks: {
+        watchRun: {
+          tapAsync: (_name: string, handler: any) => {
+            watchRunHandler = handler
+          }
+        },
+        done: {
+          tapPromise: (_name: string, handler: any) => {
+            doneHandler = handler
+          }
+        }
+      }
+    }
+
+    const hardReload = vi.fn(async () => true)
+    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    const ctx: any = {
+      getController: () => ({hardReload}),
+      onControllerReady: () => {},
+      setController: () => {},
+      getPorts: () => ({}),
+      getExtensionRoot: () => '/project/templates/react/dist/chromium',
+      setExtensionRoot: () => {},
+      setServiceWorkerPaths: () => {},
+      getServiceWorkerPaths: () => ({
+        absolutePath:
+          '/project/templates/react/src/background/service-worker.ts'
+      }),
+      setPendingReloadReason: (
+        reason?: 'manifest' | 'locales' | 'sw' | 'content'
+      ) => {
+        pendingReason = reason
+      },
+      getPendingReloadReason: () => pendingReason,
+      clearPendingReloadReason: () => {
+        pendingReason = undefined
+      }
+    }
+
+    const plugin = new ChromiumHardReloadPlugin({}, ctx)
+    plugin.apply(compiler)
+    ;(watchRunHandler as any)(
+      {
+        modifiedFiles: new Set<string>([
+          '/project/templates/react/src/background/service-worker.ts'
         ])
       },
       () => {}
