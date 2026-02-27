@@ -74,9 +74,7 @@ describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
   it('prints a one-time warning when hardReload() returns false', async () => {
     const ctx = makeCtx(false)
     const plugin = new ChromiumHardReloadPlugin({}, ctx as any)
-    vi.spyOn(Date, 'now')
-      .mockReturnValueOnce(1000)
-      .mockReturnValue(7000)
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(7000)
     plugin.apply(compiler as any)
 
     // First successful build warms up startup state.
@@ -97,9 +95,7 @@ describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
   it('does not warn when hardReload() succeeds', async () => {
     const ctx = makeCtx(true)
     const plugin = new ChromiumHardReloadPlugin({}, ctx as any)
-    vi.spyOn(Date, 'now')
-      .mockReturnValueOnce(1000)
-      .mockReturnValue(7000)
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(7000)
     plugin.apply(compiler as any)
 
     // First successful build warms up startup state.
