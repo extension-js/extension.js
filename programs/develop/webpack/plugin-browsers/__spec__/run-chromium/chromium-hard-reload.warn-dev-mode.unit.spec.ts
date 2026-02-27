@@ -15,8 +15,8 @@ describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
     // Minimal fake compiler with infrastructure logger and done hook
     compiler = {
       getInfrastructureLogger: () => ({
-        info: (...a: unknown[]) => infoMock(...a),
-        warn: (...a: unknown[]) => warnMock(...a),
+        info: (...a: unknown[]) => (infoMock as any)(...a),
+        warn: (...a: unknown[]) => (warnMock as any)(...a),
         error: (..._a: unknown[]) => {},
         debug: (..._a: unknown[]) => {}
       }),
