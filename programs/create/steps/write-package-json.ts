@@ -43,7 +43,9 @@ function extensionJsPackageJsonScripts(extensionBinary: string) {
     dev: `${extensionBinary} dev`,
     start: `${extensionBinary} start`,
     build: `${extensionBinary} build`,
+    preview: `${extensionBinary} preview`,
     // Convenience scripts to highlight multi-browser builds
+    'build:chrome': `${extensionBinary} build --browser chrome`,
     'build:firefox': `${extensionBinary} build --browser firefox`,
     'build:edge': `${extensionBinary} build --browser edge`
   }
@@ -60,6 +62,8 @@ function getTemplateAwareScripts(
     return {
       dev: `${extensionBinary} dev ${target}`,
       start: `${extensionBinary} start ${target}`,
+      build: `${extensionBinary} build ${target}`,
+      preview: `${extensionBinary} preview ${target}`,
       'build:chrome': `${extensionBinary} build ${target} --browser chrome`,
       'build:firefox': `${extensionBinary} build ${target} --browser firefox`,
       'build:edge': `${extensionBinary} build ${target} --browser edge`
@@ -115,8 +119,8 @@ export async function overridePackageJson(
     private: true,
     ...(packageManagerSpec ? {packageManager: packageManagerSpec} : {}),
     scripts: {
-      ...packageJson.scripts,
-      ...getTemplateAwareScripts(template, extensionBinary)
+      ...getTemplateAwareScripts(template, extensionBinary),
+      ...packageJson.scripts
     },
     dependencies: packageJson.dependencies,
     devDependencies: packageJson.devDependencies,
