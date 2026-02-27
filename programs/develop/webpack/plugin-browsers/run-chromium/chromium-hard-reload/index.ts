@@ -24,6 +24,8 @@ export class ChromiumHardReloadPlugin {
   private logger?: ReturnType<Compiler['getInfrastructureLogger']>
   private warnedDevMode?: boolean
   private hasCompletedSuccessfulBuild = false
+  private firstSuccessfulBuildAtMs: number | null = null
+  private static readonly INITIAL_RELOAD_COOLDOWN_MS = 5000
   /**
    * Tracks the *author/source* file paths that are part of the service worker entrypoint
    * (including transitive dependencies) from the last successful compilation.
@@ -224,6 +226,7 @@ export class ChromiumHardReloadPlugin {
       // Chromium can leave unpacked extensions disabled in this window.
       if (!this.hasCompletedSuccessfulBuild) {
         this.hasCompletedSuccessfulBuild = true
+        this.firstSuccessfulBuildAtMs = Date.now()
         this.ctx.clearPendingReloadReason()
         return
       }
@@ -238,6 +241,19 @@ export class ChromiumHardReloadPlugin {
       }
 
       this.ctx.clearPendingReloadReason()
+
+      const now = Date.now()
+
+      if (
+        this.firstSuccessfulBuildAtMs &&
+        now - this.firstSuccessfulBuildAtMs <
+          ChromiumHardReloadPlugin.INITIAL_RELOAD_COOLDOWN_MS
+      ) {
+        this.logger?.info?.(
+          `[reload] skipping early reload during startup cooldown (reason:${reason})`
+        )
+        return
+      }
 
       const ctrl = this.ctx.getController()
       if (!ctrl) {

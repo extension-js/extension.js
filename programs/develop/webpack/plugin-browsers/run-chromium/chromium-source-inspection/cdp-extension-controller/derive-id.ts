@@ -163,6 +163,11 @@ export async function deriveExtensionIdFromTargetsHelper(
   }
 
   let retries = 0
+  let deferredFirstEvalId: string | null = null
+  let deferredUrlDerivedId: string | null = null
+  const hasExpectedManifestIdentity = Boolean(
+    expectedName || expectedVersion || expectedManifestVersion
+  )
 
   while (retries <= maxRetries) {
     try {
@@ -250,7 +255,11 @@ export async function deriveExtensionIdFromTargetsHelper(
 
       // With exactly one viable extension runtime, use it.
       if (evalIdCount === 1 && firstEvalId) {
-        return firstEvalId
+        if (!hasExpectedManifestIdentity) {
+          return firstEvalId
+        }
+
+        deferredFirstEvalId = deferredFirstEvalId || firstEvalId
       }
 
       if (profileCandidateId) {
@@ -259,7 +268,11 @@ export async function deriveExtensionIdFromTargetsHelper(
 
       // Best-effort fallback if evaluation is blocked but URL is available.
       if (urlDerivedId) {
-        return urlDerivedId
+        if (!hasExpectedManifestIdentity) {
+          return urlDerivedId
+        }
+
+        deferredUrlDerivedId = deferredUrlDerivedId || urlDerivedId
       }
     } catch {
       // Ignore
@@ -269,5 +282,7 @@ export async function deriveExtensionIdFromTargetsHelper(
     retries++
   }
 
-  return null
+  // Last-resort fallback after retries: prefer profile/path identity, then
+  // evaluated runtime ID, then URL-derived ID.
+  return deriveFromProfile() || deferredFirstEvalId || deferredUrlDerivedId
 }

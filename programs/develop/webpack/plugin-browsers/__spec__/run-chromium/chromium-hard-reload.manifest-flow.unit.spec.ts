@@ -64,6 +64,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(7000)
     const plugin = new ChromiumHardReloadPlugin({}, ctx)
     plugin.apply(compiler)
     ;(watchRunHandler as any)(
@@ -158,6 +159,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const plugin = new ChromiumHardReloadPlugin({}, ctx)
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(7000)
     plugin.apply(compiler)
 
     expect(watchRunHandler).toBeTypeOf('function')
@@ -254,6 +256,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(7000)
     const plugin = new ChromiumHardReloadPlugin({watchSource: true}, ctx)
     plugin.apply(compiler)
     ;(watchRunHandler as any)(
@@ -536,6 +539,92 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     expect(hardReload).not.toHaveBeenCalled()
   })
 
+  it('skips early reload attempts during startup cooldown window', async () => {
+    let watchRunHandler:
+      | ((compilerWithModifiedFiles: any, done: () => void) => void)
+      | undefined
+    let doneHandler: ((stats: any) => Promise<void>) | undefined
+
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn()
+    }
+    const compiler: any = {
+      options: {context: '/project/templates/react'},
+      getInfrastructureLogger: () => logger,
+      hooks: {
+        watchRun: {
+          tapAsync: (_name: string, handler: any) => {
+            watchRunHandler = handler
+          }
+        },
+        done: {
+          tapPromise: (_name: string, handler: any) => {
+            doneHandler = handler
+          }
+        }
+      }
+    }
+
+    const hardReload = vi.fn(async () => true)
+    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    const ctx: any = {
+      getController: () => ({hardReload}),
+      onControllerReady: () => {},
+      setController: () => {},
+      getPorts: () => ({}),
+      getExtensionRoot: () => '/project/templates/react/dist/chromium',
+      setExtensionRoot: () => {},
+      setServiceWorkerPaths: () => {},
+      getServiceWorkerPaths: () => ({}),
+      setPendingReloadReason: (
+        reason?: 'manifest' | 'locales' | 'sw' | 'content'
+      ) => {
+        pendingReason = reason
+      },
+      getPendingReloadReason: () => pendingReason,
+      clearPendingReloadReason: () => {
+        pendingReason = undefined
+      }
+    }
+
+    const plugin = new ChromiumHardReloadPlugin({}, ctx)
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(2000)
+    plugin.apply(compiler)
+
+    const stats = {
+      hasErrors: () => false,
+      compilation: {
+        assets: {
+          'manifest.json': {
+            source: () => JSON.stringify({})
+          }
+        },
+        entrypoints: new Map(),
+        chunkGraph: {}
+      },
+      toJson: () => ({assets: []})
+    }
+
+    await (doneHandler as any)(stats)
+    ;(watchRunHandler as any)(
+      {
+        modifiedFiles: new Set<string>([
+          '/project/templates/react/src/manifest.json'
+        ])
+      },
+      () => {}
+    )
+    await (doneHandler as any)(stats)
+
+    expect(hardReload).not.toHaveBeenCalled()
+    expect(logger.info).toHaveBeenCalledWith(
+      '[reload] skipping early reload during startup cooldown (reason:manifest)'
+    )
+  })
+
   it('does not trigger hard reload on initial successful content-script emission', async () => {
     let doneHandler: ((stats: any) => Promise<void>) | undefined
 
@@ -650,6 +739,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const plugin = new ChromiumHardReloadPlugin({}, ctx)
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(7000)
     plugin.apply(compiler)
 
     const contentStats = {

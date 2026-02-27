@@ -11,28 +11,62 @@ import * as fs from 'fs/promises'
 import * as messages from '../lib/messages'
 import {getPackageManagerSpecFromEnv} from '../lib/package-manager'
 
-const extensionJsPackageJsonScripts = {
-  dev:
-    process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/extension dev'
-      : 'extension dev',
-  start:
-    process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/extension start'
-      : 'extension start',
-  build:
-    process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/extension build'
-      : 'extension build',
-  // Convenience scripts to highlight multi-browser builds
-  'build:firefox':
-    process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/extension build --browser firefox'
-      : 'extension build --browser firefox',
-  'build:edge':
-    process.env.EXTENSION_ENV === 'development'
-      ? 'node node_modules/extension build --browser edge'
-      : 'extension build --browser edge'
+async function resolveExtensionBinary(): Promise<string> {
+  const developRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
+  if (developRoot) {
+    // In repo author mode, route scaffolded scripts to the local CLI build so
+    // `npm run dev` exercises current source changes instead of npm-published bits.
+    const localCliPath = path.resolve(
+      developRoot,
+      '..',
+      'cli',
+      'dist',
+      'cli.cjs'
+    )
+    try {
+      await fs.access(localCliPath)
+      return `node "${localCliPath}"`
+    } catch {
+      // Fall through to installed package binary path.
+    }
+  }
+
+  if (process.env.EXTENSION_ENV === 'development') {
+    return 'node node_modules/extension'
+  }
+
+  return 'extension'
+}
+
+function extensionJsPackageJsonScripts(extensionBinary: string) {
+  return {
+    dev: `${extensionBinary} dev`,
+    start: `${extensionBinary} start`,
+    build: `${extensionBinary} build`,
+    // Convenience scripts to highlight multi-browser builds
+    'build:firefox': `${extensionBinary} build --browser firefox`,
+    'build:edge': `${extensionBinary} build --browser edge`
+  }
+}
+
+function getTemplateAwareScripts(
+  template: string,
+  extensionBinary: string
+): Record<string, string> {
+  // Monorepo templates keep manifest under packages/extension/src.
+  // Root scripts must target that package path explicitly.
+  if (String(template).toLowerCase().includes('monorepo')) {
+    const target = 'packages/extension'
+    return {
+      dev: `${extensionBinary} dev ${target}`,
+      start: `${extensionBinary} start ${target}`,
+      'build:chrome': `${extensionBinary} build ${target} --browser chrome`,
+      'build:firefox': `${extensionBinary} build ${target} --browser firefox`,
+      'build:edge': `${extensionBinary} build ${target} --browser edge`
+    }
+  }
+
+  return extensionJsPackageJsonScripts(extensionBinary)
 }
 
 interface OverridePackageJsonOptions {
@@ -43,8 +77,9 @@ interface OverridePackageJsonOptions {
 export async function overridePackageJson(
   projectPath: string,
   projectName: string,
-  {template: _template, cliVersion}: OverridePackageJsonOptions
+  {template, cliVersion}: OverridePackageJsonOptions
 ) {
+  const extensionBinary = await resolveExtensionBinary()
   const candidatePath = path.join(projectPath, 'package.json')
 
   // Web-only remote templates may not include package.json; start from a minimal base
@@ -81,7 +116,7 @@ export async function overridePackageJson(
     ...(packageManagerSpec ? {packageManager: packageManagerSpec} : {}),
     scripts: {
       ...packageJson.scripts,
-      ...extensionJsPackageJsonScripts
+      ...getTemplateAwareScripts(template, extensionBinary)
     },
     dependencies: packageJson.dependencies,
     devDependencies: packageJson.devDependencies,
