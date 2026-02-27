@@ -60,6 +60,7 @@ describe('overridePackageJson template-aware scripts', () => {
       expect(pkg.scripts.dev).toContain(localCliPath)
       expect(pkg.scripts.start).toContain(localCliPath)
       expect(pkg.scripts.build).toContain(localCliPath)
+      expect(pkg.scripts.preview).toContain(localCliPath)
     })
   })
 
@@ -86,8 +87,42 @@ describe('overridePackageJson template-aware scripts', () => {
       expect(pkg.scripts['build:chrome']).toContain('packages/extension')
       expect(pkg.scripts.dev).toContain('packages/extension')
       expect(pkg.scripts.start).toContain('packages/extension')
+      expect(pkg.scripts.build).toContain('packages/extension')
+      expect(pkg.scripts.preview).toContain('packages/extension')
       expect(pkg.scripts['build:firefox']).toContain('packages/extension')
       expect(pkg.scripts['build:edge']).toContain('packages/extension')
+    })
+  })
+
+  it('does not override existing dev/build/start/preview scripts', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          scripts: {
+            dev: 'custom dev',
+            start: 'custom start',
+            build: 'custom build',
+            preview: 'custom preview'
+          }
+        })
+      )
+
+      await overridePackageJson(projectPath, 'seed', {
+        template: 'custom-monorepo-template',
+        cliVersion: '0.0.1'
+      })
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg.scripts.dev).toBe('custom dev')
+      expect(pkg.scripts.start).toBe('custom start')
+      expect(pkg.scripts.build).toBe('custom build')
+      expect(pkg.scripts.preview).toBe('custom preview')
     })
   })
 })
