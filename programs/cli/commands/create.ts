@@ -49,7 +49,16 @@ export function registerCreateCommand(program: Command, telemetry: any) {
             const developPkg = require.resolve('extension-develop/package.json')
             process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(developPkg)
           } catch {
-            // Leave unset if extension-develop is not available
+            // Some extension-develop builds don't export package.json.
+            // Fallback to the main entry and infer package root.
+            try {
+              const developEntry = require.resolve('extension-develop')
+              process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(
+                path.dirname(developEntry)
+              )
+            } catch {
+              // Leave unset if extension-develop is not available
+            }
           }
         }
         // Load the matching create runtime from the regular dependency graph.
