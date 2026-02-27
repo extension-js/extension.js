@@ -204,4 +204,62 @@ describe('deriveExtensionIdFromTargetsHelper', () => {
     )
     expect(id).toBe('userid')
   })
+
+  it('retries when only non-matching extension target appears initially', async () => {
+    const outPath = createExtensionFixture({
+      name: 'User Extension',
+      version: '1.2.3',
+      manifest_version: 3
+    })
+
+    let targetCall = 0
+    const cdp: any = {
+      getTargets: vi.fn(async () => {
+        targetCall += 1
+        if (targetCall === 1) {
+          return [
+            {
+              targetId: 'target-manager',
+              type: 'service_worker',
+              url: 'chrome-extension://managerid/background/service_worker.js'
+            }
+          ]
+        }
+        return [
+          {
+            targetId: 'target-manager',
+            type: 'service_worker',
+            url: 'chrome-extension://managerid/background/service_worker.js'
+          },
+          {
+            targetId: 'target-user',
+            type: 'service_worker',
+            url: 'chrome-extension://userid/background/service_worker.js'
+          }
+        ]
+      }),
+      attachToTarget: vi.fn(async (targetId: string) => `session:${targetId}`),
+      sendCommand: vi.fn(async () => ({})),
+      evaluate: vi.fn(async (sessionId: string) => {
+        if (sessionId === 'session:target-manager') {
+          return {
+            id: 'managerid',
+            name: 'Manager Extension',
+            version: '9.9.9',
+            manifestVersion: 3
+          }
+        }
+        return {
+          id: 'userid',
+          name: 'User Extension',
+          version: '1.2.3',
+          manifestVersion: 3
+        }
+      })
+    }
+
+    const id = await deriveExtensionIdFromTargetsHelper(cdp, outPath, 2, 1)
+    expect(id).toBe('userid')
+    expect(cdp.getTargets).toHaveBeenCalledTimes(2)
+  })
 })
