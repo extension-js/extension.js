@@ -123,7 +123,7 @@ export class CDPExtensionController {
 
     try {
       // 2) If still unknown, attempt Extensions.loadUnpacked (best effort)
-      if (!this.extensionId) {
+      if (!this.extensionId && this.shouldAttemptLoadUnpacked()) {
         const id = await loadUnpackedIfNeeded(this.cdp, this.outPath)
         if (id) this.extensionId = id
       }
@@ -186,6 +186,30 @@ export class CDPExtensionController {
       this.profilePath,
       this.extensionPaths
     )
+  }
+
+  private shouldAttemptLoadUnpacked(): boolean {
+    const normalizePath = (input: string) => {
+      try {
+        return fs.realpathSync(path.resolve(input))
+      } catch {
+        return path.resolve(input)
+      }
+    }
+
+    const normalizedOutPath = normalizePath(this.outPath)
+    const normalizedExtensionPaths = (this.extensionPaths || [])
+      .map((candidate) => String(candidate || '').trim())
+      .filter(Boolean)
+      .map(normalizePath)
+
+    if (normalizedExtensionPaths.length === 0) {
+      return true
+    }
+
+    // If this outPath is already loaded via --load-extension, avoid a second
+    // CDP loadUnpacked call that can relocate/disable the user extension.
+    return !normalizedExtensionPaths.includes(normalizedOutPath)
   }
 
   async hardReload(): Promise<boolean> {
