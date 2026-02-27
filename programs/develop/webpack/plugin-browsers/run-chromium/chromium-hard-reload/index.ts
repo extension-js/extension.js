@@ -219,14 +219,19 @@ export class ChromiumHardReloadPlugin {
       this.refreshServiceWorkerSourceDependencyPaths(stats.compilation)
       this.refreshContentScriptSourceDependencyPaths(stats.compilation)
 
+      // First successful build is the extension cold-start phase.
+      // Avoid any hard reload attempts here (manifest/sw/locales/content) because
+      // Chromium can leave unpacked extensions disabled in this window.
+      if (!this.hasCompletedSuccessfulBuild) {
+        this.hasCompletedSuccessfulBuild = true
+        this.ctx.clearPendingReloadReason()
+        return
+      }
+
       const pendingReason = this.ctx.getPendingReloadReason()
       const contentScriptEmitted = this.didEmitContentScripts(stats)
       const reason =
-        pendingReason ||
-        (this.hasCompletedSuccessfulBuild && contentScriptEmitted
-          ? 'content'
-          : undefined)
-      this.hasCompletedSuccessfulBuild = true
+        pendingReason || (contentScriptEmitted ? 'content' : undefined)
 
       if (!reason) {
         return
