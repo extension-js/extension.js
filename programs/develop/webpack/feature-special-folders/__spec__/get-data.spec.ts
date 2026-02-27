@@ -47,7 +47,7 @@ describe('getSpecialFoldersDataForCompiler', () => {
     expect((data as any).public).toEqual({foo: 'bar'})
   })
 
-  it('does not auto-configure companion extensions from extensions/', () => {
+  it('auto-configures companion extensions scan from extensions/', () => {
     getSpecialFoldersDataMock.mockReturnValue({
       pages: {},
       scripts: {},
@@ -61,7 +61,7 @@ describe('getSpecialFoldersDataForCompiler', () => {
     const compiler = {options: {context: '/project'}} as any
     const data = getSpecialFoldersDataForCompiler(compiler)
 
-    expect(data.extensions).toBeUndefined()
+    expect(data.extensions).toEqual({dir: './extensions'})
 
     existsSpy.mockReset()
     statSpy.mockReset()
