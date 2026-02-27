@@ -74,11 +74,17 @@ describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
   it('prints a one-time warning when hardReload() returns false', async () => {
     const ctx = makeCtx(false)
     const plugin = new ChromiumHardReloadPlugin({}, ctx as any)
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(1000)
+      .mockReturnValue(7000)
     plugin.apply(compiler as any)
 
-    // simulate a pending hard-reload reason
-    ;(ctx as any).setPendingReloadReason('manifest')
+    // First successful build warms up startup state.
     expect(doneCb).toBeTypeOf('function')
+    await (doneCb as any)(makeStats())
+
+    // simulate a pending hard-reload reason after warmup
+    ;(ctx as any).setPendingReloadReason('manifest')
     await (doneCb as any)(makeStats())
     expect(warnMock).toHaveBeenCalledTimes(1)
 
@@ -91,9 +97,16 @@ describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
   it('does not warn when hardReload() succeeds', async () => {
     const ctx = makeCtx(true)
     const plugin = new ChromiumHardReloadPlugin({}, ctx as any)
+    vi.spyOn(Date, 'now')
+      .mockReturnValueOnce(1000)
+      .mockReturnValue(7000)
     plugin.apply(compiler as any)
-    ;(ctx as any).setPendingReloadReason('manifest')
+
+    // First successful build warms up startup state.
     expect(doneCb).toBeTypeOf('function')
+    await (doneCb as any)(makeStats())
+
+    ;(ctx as any).setPendingReloadReason('manifest')
     await (doneCb as any)(makeStats())
     expect(warnMock).not.toHaveBeenCalled()
   })
