@@ -100,8 +100,9 @@ function finalizeSpecialFoldersData(
     // public/ is copy-only; exclude nested public entries from compilation entrypoints.
     pages: filterPublicEntrypoints(data.pages, projectRoot, publicDir),
     scripts: filterPublicEntrypoints(data.scripts, projectRoot, publicDir),
-    // Do not auto-scan ./extensions by default. Companion extensions are
-    // loaded only when explicitly configured by user options/config.
-    extensions: undefined
+    // Default behavior: auto-scan top-level ./extensions for companion
+    // unpacked extensions (one level deep), with optional browser subfolders
+    // handled by the resolver when applicable.
+    extensions: {dir: './extensions'}
   }
 }
