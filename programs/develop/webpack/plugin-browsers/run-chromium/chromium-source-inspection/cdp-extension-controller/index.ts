@@ -85,6 +85,13 @@ export class CDPExtensionController {
       if (id) this.extensionId = id
     }
 
+    if (this.extensionId) {
+      const belongsToOutPath = this.extensionIdBelongsToOutPath(this.extensionId)
+      if (belongsToOutPath === false) {
+        this.extensionId = null
+      }
+    }
+
     // If already known, verify info
     if (this.extensionId) {
       try {
@@ -189,19 +196,11 @@ export class CDPExtensionController {
   }
 
   private shouldAttemptLoadUnpacked(): boolean {
-    const normalizePath = (input: string) => {
-      try {
-        return fs.realpathSync(path.resolve(input))
-      } catch {
-        return path.resolve(input)
-      }
-    }
-
-    const normalizedOutPath = normalizePath(this.outPath)
+    const normalizedOutPath = this.normalizePath(this.outPath)
     const normalizedExtensionPaths = (this.extensionPaths || [])
       .map((candidate) => String(candidate || '').trim())
       .filter(Boolean)
-      .map(normalizePath)
+      .map((candidate) => this.normalizePath(candidate))
 
     if (normalizedExtensionPaths.length === 0) {
       return true
@@ -210,6 +209,53 @@ export class CDPExtensionController {
     // If this outPath is already loaded via --load-extension, avoid a second
     // CDP loadUnpacked call that can relocate/disable the user extension.
     return !normalizedExtensionPaths.includes(normalizedOutPath)
+  }
+
+  private normalizePath(input: string): string {
+    try {
+      return fs.realpathSync(path.resolve(input))
+    } catch {
+      return path.resolve(input)
+    }
+  }
+
+  private extensionIdBelongsToOutPath(extensionId: string): boolean | null {
+    if (!this.profilePath || !extensionId) return null
+
+    const prefCandidates: string[] = []
+    const addPrefCandidate = (dir: string) => {
+      const prefPath = path.join(dir, 'Preferences')
+      if (fs.existsSync(prefPath)) prefCandidates.push(prefPath)
+    }
+
+    try {
+      addPrefCandidate(this.profilePath)
+      addPrefCandidate(path.join(this.profilePath, 'Default'))
+      for (const entry of fs.readdirSync(this.profilePath)) {
+        if (!/^Profile\s+\d+$/i.test(entry)) continue
+        addPrefCandidate(path.join(this.profilePath, entry))
+      }
+    } catch {
+      // Ignore profile listing errors.
+    }
+
+    if (prefCandidates.length === 0) return null
+
+    const normalizedOutPath = this.normalizePath(this.outPath)
+    for (const prefPath of prefCandidates) {
+      try {
+        const prefs = JSON.parse(fs.readFileSync(prefPath, 'utf-8'))
+        const settings = prefs?.extensions?.settings
+        const info = settings?.[extensionId]
+        const storedPath = String(info?.path || '')
+        if (!storedPath) continue
+        return this.normalizePath(storedPath) === normalizedOutPath
+      } catch {
+        // Ignore malformed preference files.
+      }
+    }
+
+    return null
   }
 
   async hardReload(): Promise<boolean> {
@@ -343,6 +389,13 @@ export class CDPExtensionController {
       if (!this.cdp) return null
       if (!this.extensionId) {
         this.extensionId = await this.deriveExtensionIdFromTargets(6, 150)
+      }
+
+      if (this.extensionId) {
+        const belongsToOutPath = this.extensionIdBelongsToOutPath(this.extensionId)
+        if (belongsToOutPath === false) {
+          this.extensionId = await this.deriveExtensionIdFromTargets(10, 150)
+        }
       }
 
       if (!this.extensionId) return null
