@@ -84,28 +84,9 @@ export async function setupCdpAfterLaunch(
     extensionPaths: selectedExtensionPaths
   })
 
-  // Utility function to retry an async operation a certain number of times
-  const retryAsync = async <T>(
-    operation: () => Promise<T>,
-    attempts = 5,
-    initialDelayMs = 150
-  ) => {
-    let lastError: unknown
-
-    for (let attempt = 0; attempt < attempts; attempt++) {
-      try {
-        return await operation()
-      } catch (error) {
-        lastError = error
-        const backoffMs = initialDelayMs * Math.pow(2, attempt)
-        await new Promise((resolve) => setTimeout(resolve, backoffMs))
-      }
-    }
-
-    throw lastError
-  }
-
-  await retryAsync(() => cdpExtensionController.connect())
+  // connectToChromeCdp already performs bounded startup retries internally.
+  // Avoid layering another retry loop here, which can make startup feel hung.
+  await cdpExtensionController.connect()
   if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     console.log(messages.cdpClientConnected('127.0.0.1', chromeRemoteDebugPort))
   }
