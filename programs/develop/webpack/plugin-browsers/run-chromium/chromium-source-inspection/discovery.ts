@@ -10,6 +10,8 @@ import * as http from 'http'
 import * as net from 'net'
 import * as messages from '../../browsers-lib/messages'
 
+const CDP_HTTP_REQUEST_TIMEOUT_MS = 1200
+
 async function getJson(
   host: string,
   port: number,
@@ -31,6 +33,9 @@ async function getJson(
       }
     )
     req.on('error', (err) => reject(err))
+    req.setTimeout(CDP_HTTP_REQUEST_TIMEOUT_MS, () => {
+      req.destroy(new Error(`CDP endpoint timed out: ${path}`))
+    })
     req.end()
   })
 }
