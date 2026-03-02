@@ -23,6 +23,13 @@
     "default_title": "Open Extension.js"
   },
   "devtools_page": "devtools/index.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/scripts.tsx"],
+      "run_at": "document_idle"
+    }
+  ],
   "chromium:permissions": ["management", "tabs", "storage", "webNavigation"],
   "firefox:permissions": ["management", "tabs", "storage"],
   "chromium:host_permissions": ["<all_urls>"],

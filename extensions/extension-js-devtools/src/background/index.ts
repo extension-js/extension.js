@@ -1,4 +1,5 @@
 import {initManagerUI} from './manager-ui'
+import {appendExternalLog} from './log-central'
 
 type ResolveIconMessage = {
   type: 'resolve-icon-url'
@@ -9,6 +10,21 @@ type GetDxStatusMessage = {
   type: 'get-dx-status'
 }
 
+type DxSignalMessage = {
+  type: 'dx-signal'
+  level?: 'log' | 'info' | 'warn' | 'error' | 'debug' | 'trace'
+  context?: 'background' | 'content' | 'page' | 'sidebar' | 'popup' | 'options' | 'devtools'
+  eventType?: 'log' | 'dx.signal'
+  code?: string
+  status?: 'ok' | 'warn' | 'fail'
+  data?: Record<string, unknown>
+  remediation?: string
+  messageParts?: unknown[]
+  url?: string
+  stack?: string
+  errorName?: string
+}
+
 type DxStatusResponse = {
   ok: true
   extensionEnabled: boolean | null
@@ -16,7 +32,7 @@ type DxStatusResponse = {
   extensionId?: string
 }
 
-type KnownMessage = ResolveIconMessage | GetDxStatusMessage
+type KnownMessage = ResolveIconMessage | GetDxStatusMessage | DxSignalMessage
 
 function isBuiltInExtension(extension: chrome.management.ExtensionInfo) {
   const name = String(extension.name || '').toLowerCase()
@@ -111,6 +127,32 @@ chrome.runtime.onMessage.addListener(
         .catch((error) =>
           sendResponse({ok: false, error: String(error || 'Unknown error')})
         )
+      return true
+    }
+
+    if (message.type === 'dx-signal') {
+      try {
+        appendExternalLog({
+          level: message.level || 'info',
+          context: message.context || 'content',
+          messageParts:
+            Array.isArray(message.messageParts) && message.messageParts.length > 0
+              ? message.messageParts
+              : [message.code || 'DX_SIGNAL'],
+          eventType: message.eventType || 'dx.signal',
+          code: message.code,
+          status: message.status,
+          data: message.data,
+          remediation: message.remediation,
+          url: typeof message.url === 'string' ? message.url : undefined,
+          stack: typeof message.stack === 'string' ? message.stack : undefined,
+          errorName:
+            typeof message.errorName === 'string' ? message.errorName : undefined
+        })
+        sendResponse({ok: true})
+      } catch (error) {
+        sendResponse({ok: false, error: String(error || 'Unknown error')})
+      }
       return true
     }
   }
