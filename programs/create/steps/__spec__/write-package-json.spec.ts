@@ -14,6 +14,54 @@ async function withTempDir<T>(fn: (dir: string) => Promise<T>) {
 }
 
 describe('overridePackageJson template-aware scripts', () => {
+  it('pins prerelease extension versions without semver range prefix', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          scripts: {}
+        })
+      )
+
+      await overridePackageJson(projectPath, 'seed', {
+        template: 'init',
+        cliVersion: '3.8.7-canary.205.b380650'
+      })
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg.devDependencies.extension).toBe('3.8.7-canary.205.b380650')
+    })
+  })
+
+  it('uses caret range for stable extension versions', async () => {
+    await withTempDir(async (projectPath) => {
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({
+          name: 'seed',
+          private: true,
+          scripts: {}
+        })
+      )
+
+      await overridePackageJson(projectPath, 'seed', {
+        template: 'init',
+        cliVersion: '3.8.7'
+      })
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg.devDependencies.extension).toBe('^3.8.7')
+    })
+  })
+
   it('uses local CLI binary when create provides a local develop root', async () => {
     await withTempDir(async (projectPath) => {
       const prevDevelopRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT

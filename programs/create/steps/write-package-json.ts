@@ -78,6 +78,16 @@ interface OverridePackageJsonOptions {
   cliVersion?: string
 }
 
+function resolveExtensionDevDependencyVersion(cliVersion?: string): string {
+  if (!cliVersion) {
+    return 'latest'
+  }
+
+  // Prerelease ranges like ^3.8.7-canary... can resolve to stable releases
+  // with npm semver range matching; pin prereleases exactly.
+  return cliVersion.includes('-') ? cliVersion : `^${cliVersion}`
+}
+
 export async function overridePackageJson(
   projectPath: string,
   projectName: string,
@@ -108,7 +118,9 @@ export async function overridePackageJson(
     ...(packageJson.devDependencies || {}),
     // During development, we want to use the local version of Extension.js
     extension:
-      process.env.EXTENSION_ENV === 'development' ? '*' : `^${cliVersion}`
+      process.env.EXTENSION_ENV === 'development'
+        ? '*'
+        : resolveExtensionDevDependencyVersion(cliVersion)
   }
 
   const packageManagerSpec =
