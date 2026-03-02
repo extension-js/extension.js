@@ -21,6 +21,7 @@
     "test:e2e": "pnpm exec playwright test",
     "smoke:npx": "node scripts/smoke-npx.mjs",
     "smoke:first-dev": "node scripts/validate-first-dev-run.mjs",
+    "smoke:content-reload": "node scripts/validate-content-reload-no-hard-reload.mjs",
     "ci:test:core": "pnpm run test:dev",
     "ci:test:develop": "pnpm run test:dev",
     "ci:test:cli": "pnpm run test:cli",
