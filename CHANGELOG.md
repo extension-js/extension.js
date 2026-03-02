@@ -2,8 +2,23 @@
 
 ## Unreleased
 
-- Fix .gitignore writing to avoid GC-closed file handles (62d2f689)
-- chore(release): move changelog to v3.8.6 (7ee79d60)
+- Improve version resolution during create step (de9b8143)
+- Fix dependabot alerts (36fdec15)
+- Add deterministic deep content-script reload validation. (191d77bf)
+- Ignore dist output changes in hard reload watch detection (19e53727)
+- Gate first-run canary reload regression (d641bcc8)
+- Bump svelte from 5.51.5 to 5.53.5 (#413) (cd34d7b9)
+- Experimental error overlay (fbbc302a)
+- Harden Chromium CDP startup against short-circuit failures (a4f2056f)
+- Fix warn-dev-mode spec logger mock typing (0df141e8)
+- Harden CDP extension ownership during first-run startup (98da8b8e)
+- Fix Chromium hard-reload test (6494abb1)
+- Add more scripts to default creation projects (c7c70caf)
+- Fix first-run Chromium extension disable regressions (c760bf8b)
+- Fix hard-reload running on first runs and breaking UX (9766d301)
+- Auto-scan top-level ./extensions (c9a435cd)
+- Avoid Chromium extension hard reload on initial dev build (2bb934fd)
+- chore(release): move changelog to v3.8.7 (1d6fee51)
 
 ## 3.8.2
 
