@@ -48,9 +48,12 @@ describe('connectToChromeCdp', () => {
 
     expect(mocks.connectMock).toHaveBeenCalledTimes(2)
     expect(mocks.disconnectMock).toHaveBeenCalledTimes(1)
-    expect(mocks.sendCommandMock).toHaveBeenCalledWith('Target.setDiscoverTargets', {
-      discover: true
-    })
+    expect(mocks.sendCommandMock).toHaveBeenCalledWith(
+      'Target.setDiscoverTargets',
+      {
+        discover: true
+      }
+    )
     expect(mocks.sendCommandMock).toHaveBeenCalledWith('Target.setAutoAttach', {
       autoAttach: true,
       waitForDebuggerOnStart: false,

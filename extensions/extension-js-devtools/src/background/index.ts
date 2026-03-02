@@ -5,6 +5,58 @@ type ResolveIconMessage = {
   url: string
 }
 
+type GetDxStatusMessage = {
+  type: 'get-dx-status'
+}
+
+type DxStatusResponse = {
+  ok: true
+  extensionEnabled: boolean | null
+  extensionName?: string
+  extensionId?: string
+}
+
+type KnownMessage = ResolveIconMessage | GetDxStatusMessage
+
+function isBuiltInExtension(extension: chrome.management.ExtensionInfo) {
+  const name = String(extension.name || '').toLowerCase()
+  return (
+    name.includes('extension.js built-in developer tools') ||
+    name.includes('extension.js theme')
+  )
+}
+
+async function getUserDevExtensionStatus(): Promise<DxStatusResponse> {
+  const allExtensions = (await new Promise((resolve) => {
+    chrome.management.getAll(resolve)
+  })) as chrome.management.ExtensionInfo[]
+
+  const candidates = (allExtensions || []).filter((extension) => {
+    return (
+      extension.id !== chrome.runtime.id &&
+      extension.id !== 'igcijhgmihmjbbahdabahfbpffalcfnn' &&
+      extension.installType === 'development' &&
+      extension.type !== 'theme' &&
+      !isBuiltInExtension(extension)
+    )
+  })
+
+  if (candidates.length === 0) {
+    return {ok: true, extensionEnabled: null}
+  }
+
+  const preferred =
+    candidates.find((extension) => extension.enabled) ||
+    candidates[candidates.length - 1]
+
+  return {
+    ok: true,
+    extensionEnabled: Boolean(preferred?.enabled),
+    extensionName: preferred?.name,
+    extensionId: preferred?.id
+  }
+}
+
 function isAllowedIconUrl(rawUrl: string) {
   if (rawUrl.startsWith('data:')) return true
   try {
@@ -36,19 +88,31 @@ async function fetchIconAsDataUrl(rawUrl: string) {
 }
 
 chrome.runtime.onMessage.addListener(
-  (message: ResolveIconMessage, sender, sendResponse) => {
+  (message: KnownMessage, sender, sendResponse) => {
     if (sender?.id && sender.id !== chrome.runtime.id) return
-    if (!message || message.type !== 'resolve-icon-url') return
-    if (!message.url || !isAllowedIconUrl(message.url)) {
-      sendResponse({ok: false, error: 'Unsupported icon URL'})
-      return
+    if (!message) return
+
+    if (message.type === 'resolve-icon-url') {
+      if (!message.url || !isAllowedIconUrl(message.url)) {
+        sendResponse({ok: false, error: 'Unsupported icon URL'})
+        return
+      }
+
+      fetchIconAsDataUrl(message.url)
+        .then((dataUrl) => sendResponse({ok: true, dataUrl}))
+        .catch((error) => sendResponse({ok: false, error: String(error)}))
+
+      return true
     }
 
-    fetchIconAsDataUrl(message.url)
-      .then((dataUrl) => sendResponse({ok: true, dataUrl}))
-      .catch((error) => sendResponse({ok: false, error: String(error)}))
-
-    return true
+    if (message.type === 'get-dx-status') {
+      getUserDevExtensionStatus()
+        .then((payload) => sendResponse(payload))
+        .catch((error) =>
+          sendResponse({ok: false, error: String(error || 'Unknown error')})
+        )
+      return true
+    }
   }
 )
 

@@ -86,7 +86,9 @@ export class CDPExtensionController {
     }
 
     if (this.extensionId) {
-      const belongsToOutPath = this.extensionIdBelongsToOutPath(this.extensionId)
+      const belongsToOutPath = this.extensionIdBelongsToOutPath(
+        this.extensionId
+      )
       if (belongsToOutPath === false) {
         this.extensionId = null
       }
@@ -392,7 +394,9 @@ export class CDPExtensionController {
       }
 
       if (this.extensionId) {
-        const belongsToOutPath = this.extensionIdBelongsToOutPath(this.extensionId)
+        const belongsToOutPath = this.extensionIdBelongsToOutPath(
+          this.extensionId
+        )
         if (belongsToOutPath === false) {
           this.extensionId = await this.deriveExtensionIdFromTargets(10, 150)
         }

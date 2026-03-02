@@ -1,0 +1,21 @@
+@import '../styles.css';
+
+.extjs-overlay-host {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.extjs-overlay-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Reset inherited page styles at the extension app boundary. */
+.content_script {
+  all: initial;
+  display: block;
+}
