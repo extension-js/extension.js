@@ -41,7 +41,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
 
     const ctx: any = {
       getController: () => ({hardReload}),
@@ -52,9 +52,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       setExtensionRoot: () => {},
       setServiceWorkerPaths: () => {},
       getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
+      setPendingReloadReason: (reason?: 'manifest' | 'locales' | 'sw') => {
         pendingReason = reason
       },
       getPendingReloadReason: () => pendingReason,
@@ -136,7 +134,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
 
     const ctx: any = {
       getController: () => ({hardReload}),
@@ -147,9 +145,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       setExtensionRoot: () => {},
       setServiceWorkerPaths: () => {},
       getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
+      setPendingReloadReason: (reason?: 'manifest' | 'locales' | 'sw') => {
         pendingReason = reason
       },
       getPendingReloadReason: () => pendingReason,
@@ -237,7 +233,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
 
     const ctx: any = {
       getController: () => ({hardReload}),
@@ -248,9 +244,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       setExtensionRoot: () => {},
       setServiceWorkerPaths: () => {},
       getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
+      setPendingReloadReason: (reason?: 'manifest' | 'locales' | 'sw') => {
         pendingReason = reason
       },
       getPendingReloadReason: () => pendingReason,
@@ -324,7 +318,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
 
     const ctx: any = {
       getController: () => ({hardReload}),
@@ -335,9 +329,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       setExtensionRoot: () => {},
       setServiceWorkerPaths: () => {},
       getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
+      setPendingReloadReason: (reason?: 'manifest' | 'locales' | 'sw') => {
         pendingReason = reason
       },
       getPendingReloadReason: () => pendingReason,
@@ -420,7 +412,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
 
     const ctx: any = {
       getController: () => ({hardReload}),
@@ -431,9 +423,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       setExtensionRoot: () => {},
       setServiceWorkerPaths: () => {},
       getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
+      setPendingReloadReason: (reason?: 'manifest' | 'locales' | 'sw') => {
         pendingReason = reason
       },
       getPendingReloadReason: () => pendingReason,
@@ -500,7 +490,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
     const ctx: any = {
       getController: () => ({hardReload}),
       onControllerReady: () => {},
@@ -510,9 +500,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       setExtensionRoot: () => {},
       setServiceWorkerPaths: () => {},
       getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
+      setPendingReloadReason: (reason?: 'manifest' | 'locales' | 'sw') => {
         pendingReason = reason
       },
       getPendingReloadReason: () => pendingReason,
@@ -578,7 +566,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
     const ctx: any = {
       getController: () => ({hardReload}),
       onControllerReady: () => {},
@@ -591,9 +579,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
         absolutePath:
           '/project/templates/react/src/background/service-worker.ts'
       }),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
+      setPendingReloadReason: (reason?: 'manifest' | 'locales' | 'sw') => {
         pendingReason = reason
       },
       getPendingReloadReason: () => pendingReason,
@@ -660,7 +646,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+    let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
     const ctx: any = {
       getController: () => ({hardReload}),
       onControllerReady: () => {},
@@ -670,9 +656,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
       setExtensionRoot: () => {},
       setServiceWorkerPaths: () => {},
       getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
+      setPendingReloadReason: (reason?: 'manifest' | 'locales' | 'sw') => {
         pendingReason = reason
       },
       getPendingReloadReason: () => pendingReason,
@@ -713,149 +697,6 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     expect(hardReload).not.toHaveBeenCalled()
     expect(logger.info).toHaveBeenCalledWith(
       '[reload] skipping early reload during startup cooldown (reason:manifest)'
-    )
-  })
-
-  it('does not trigger hard reload on initial successful content-script emission', async () => {
-    let doneHandler: ((stats: any) => Promise<void>) | undefined
-
-    const compiler: any = {
-      options: {context: '/project/templates/react'},
-      getInfrastructureLogger: () => ({
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-        debug: vi.fn()
-      }),
-      hooks: {
-        watchRun: {
-          tapAsync: (_name: string, _handler: any) => {}
-        },
-        done: {
-          tapPromise: (_name: string, handler: any) => {
-            doneHandler = handler
-          }
-        }
-      }
-    }
-
-    const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
-    const ctx: any = {
-      getController: () => ({hardReload}),
-      onControllerReady: () => {},
-      setController: () => {},
-      getPorts: () => ({}),
-      getExtensionRoot: () => '/project/templates/react/dist/chromium',
-      setExtensionRoot: () => {},
-      setServiceWorkerPaths: () => {},
-      getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
-        pendingReason = reason
-      },
-      getPendingReloadReason: () => pendingReason,
-      clearPendingReloadReason: () => {
-        pendingReason = undefined
-      }
-    }
-
-    const plugin = new ChromiumHardReloadPlugin({}, ctx)
-    plugin.apply(compiler)
-
-    await (doneHandler as any)({
-      hasErrors: () => false,
-      compilation: {
-        assets: {
-          'manifest.json': {
-            source: () => JSON.stringify({})
-          }
-        },
-        entrypoints: new Map(),
-        chunkGraph: {}
-      },
-      toJson: () => ({
-        assets: [{name: 'content_scripts/content-0.js', emitted: true}]
-      })
-    })
-
-    expect(hardReload).not.toHaveBeenCalled()
-  })
-
-  it('triggers hard reload when content reason is pending after initial successful build', async () => {
-    let doneHandler: ((stats: any) => Promise<void>) | undefined
-
-    const logger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    }
-    const compiler: any = {
-      options: {context: '/project/templates/react'},
-      getInfrastructureLogger: () => logger,
-      hooks: {
-        watchRun: {
-          tapAsync: (_name: string, _handler: any) => {}
-        },
-        done: {
-          tapPromise: (_name: string, handler: any) => {
-            doneHandler = handler
-          }
-        }
-      }
-    }
-
-    const hardReload = vi.fn(async () => true)
-    let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
-    const ctx: any = {
-      getController: () => ({hardReload}),
-      onControllerReady: () => {},
-      setController: () => {},
-      getPorts: () => ({}),
-      getExtensionRoot: () => '/project/templates/react/dist/chromium',
-      setExtensionRoot: () => {},
-      setServiceWorkerPaths: () => {},
-      getServiceWorkerPaths: () => ({}),
-      setPendingReloadReason: (
-        reason?: 'manifest' | 'locales' | 'sw' | 'content'
-      ) => {
-        pendingReason = reason
-      },
-      getPendingReloadReason: () => pendingReason,
-      clearPendingReloadReason: () => {
-        pendingReason = undefined
-      }
-    }
-
-    const plugin = new ChromiumHardReloadPlugin({}, ctx)
-    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(7000)
-    plugin.apply(compiler)
-
-    const contentStats = {
-      hasErrors: () => false,
-      compilation: {
-        assets: {
-          'manifest.json': {
-            source: () => JSON.stringify({})
-          }
-        },
-        entrypoints: new Map(),
-        chunkGraph: {}
-      },
-      toJson: () => ({
-        assets: [{name: 'content_scripts/content-0.js', emitted: true}]
-      })
-    }
-
-    await (doneHandler as any)(contentStats)
-    ;(ctx as any).setPendingReloadReason('content')
-    await (doneHandler as any)(contentStats)
-
-    expect(hardReload).toHaveBeenCalledTimes(1)
-    expect(logger.info).toHaveBeenCalledWith(
-      '[reload] reloading extension (reason:content)'
     )
   })
 })

@@ -34,7 +34,6 @@ export class ChromiumHardReloadPlugin {
    * `manifest.json` reports *output* (dist) paths. Comparing those directly will fail.
    */
   private serviceWorkerSourceDependencyPaths: Set<string> = new Set()
-  private contentScriptSourceDependencyPaths: Set<string> = new Set()
 
   constructor(
     private readonly options: {
@@ -82,13 +81,15 @@ export class ChromiumHardReloadPlugin {
                     filePath.startsWith(`${compilerContextRoot}/`)
                 )
               : normalizedModifiedFilePaths
-            const watchedModifiedFilePaths =
-              filesInCurrentCompilerContext.length > 0
-                ? filesInCurrentCompilerContext
-                : normalizedModifiedFilePaths
+            const watchedModifiedFilePaths = compilerContextRoot
+              ? filesInCurrentCompilerContext
+              : normalizedModifiedFilePaths
             const normalizedOutputPath = String(
               compiler?.options?.output?.path || ''
             ).replace(/\\/g, '/')
+            const normalizedSourceRootPath = compilerContextRoot
+              ? `${compilerContextRoot}/src`
+              : ''
             const sourceModifiedFilePaths = watchedModifiedFilePaths.filter(
               (filePath) =>
                 !(
@@ -98,15 +99,22 @@ export class ChromiumHardReloadPlugin {
                 )
             )
 
-            const hitManifest = sourceModifiedFilePaths.some((filePath) =>
-              /(^|\/)manifest\.json$/i.test(filePath)
-            )
-            const localeChanged = sourceModifiedFilePaths.some((filePath) =>
-              /(^|\/)__?locales\/.+\.json$/i.test(filePath)
-            )
+            const hitManifest = sourceModifiedFilePaths.some((filePath) => {
+              if (normalizedSourceRootPath) {
+                return filePath === `${normalizedSourceRootPath}/manifest.json`
+              }
+              return /(^|\/)manifest\.json$/i.test(filePath)
+            })
+            const localeChanged = sourceModifiedFilePaths.some((filePath) => {
+              if (normalizedSourceRootPath) {
+                return filePath.startsWith(
+                  `${normalizedSourceRootPath}/_locales/`
+                )
+              }
+              return /(^|\/)__?locales\/.+\.json$/i.test(filePath)
+            })
 
             let serviceWorkerChanged = false
-            let contentScriptChanged = false
 
             // Preferred: compare against *source* dependency paths captured from the last successful compilation.
             // This correctly catches edits to the service worker entry *and* any imported module.
@@ -170,38 +178,12 @@ export class ChromiumHardReloadPlugin {
               }
             }
 
-            if (this.contentScriptSourceDependencyPaths.size > 0) {
-              contentScriptChanged = sourceModifiedFilePaths.some(
-                (modifiedFilePath) => {
-                  if (
-                    this.contentScriptSourceDependencyPaths.has(
-                      modifiedFilePath
-                    )
-                  ) {
-                    return true
-                  }
-
-                  // Best-effort fallback for path normalization differences.
-                  for (const contentPath of this
-                    .contentScriptSourceDependencyPaths) {
-                    if (modifiedFilePath.endsWith(contentPath)) {
-                      return true
-                    }
-                  }
-
-                  return false
-                }
-              )
-            }
-
             if (hitManifest) {
               this.ctx.setPendingReloadReason('manifest')
             } else if (localeChanged) {
               this.ctx.setPendingReloadReason('locales')
             } else if (serviceWorkerChanged) {
               this.ctx.setPendingReloadReason('sw')
-            } else if (contentScriptChanged) {
-              this.ctx.setPendingReloadReason('content')
             }
           } catch (error) {
             this.logger?.warn?.(
@@ -230,10 +212,9 @@ export class ChromiumHardReloadPlugin {
       // - source SW dependency paths (from module graph)
       this.refreshSWFromManifest(stats.compilation)
       this.refreshServiceWorkerSourceDependencyPaths(stats.compilation)
-      this.refreshContentScriptSourceDependencyPaths(stats.compilation)
 
       // First successful build is the extension cold-start phase.
-      // Avoid any hard reload attempts here (manifest/sw/locales/content) because
+      // Avoid any hard reload attempts here (manifest/sw/locales) because
       // Chromium can leave unpacked extensions disabled in this window.
       if (!this.hasCompletedSuccessfulBuild) {
         this.hasCompletedSuccessfulBuild = true
@@ -332,27 +313,6 @@ export class ChromiumHardReloadPlugin {
         serviceWorkerEntrypointName
       )
       this.serviceWorkerSourceDependencyPaths = discovered
-    } catch {
-      // ignore best-effort
-    }
-  }
-
-  private refreshContentScriptSourceDependencyPaths(compilation: Compilation) {
-    try {
-      const entrypoints: Map<string, any> | undefined = (compilation as any)
-        ?.entrypoints
-      if (!entrypoints) return
-
-      const discovered = new Set<string>()
-      for (const [name] of entrypoints) {
-        if (!String(name).startsWith('content_scripts/content-')) continue
-        const deps = this.collectEntrypointModuleResourcePaths(
-          compilation,
-          String(name)
-        )
-        for (const dep of deps) discovered.add(dep)
-      }
-      this.contentScriptSourceDependencyPaths = discovered
     } catch {
       // ignore best-effort
     }

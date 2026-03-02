@@ -24,15 +24,8 @@ export type ChromiumContext = {
   getServiceWorkerPaths(): {relativePath?: string; absolutePath?: string}
 
   // Pending reload reason
-  setPendingReloadReason(
-    reason?: 'manifest' | 'locales' | 'sw' | 'content'
-  ): void
-  getPendingReloadReason():
-    | 'manifest'
-    | 'locales'
-    | 'sw'
-    | 'content'
-    | undefined
+  setPendingReloadReason(reason?: 'manifest' | 'locales' | 'sw'): void
+  getPendingReloadReason(): 'manifest' | 'locales' | 'sw' | undefined
   clearPendingReloadReason(): void
 }
 
@@ -42,7 +35,7 @@ export function createChromiumContext(): ChromiumContext {
   let extensionRoot: string | undefined
   let swRel: string | undefined
   let swAbs: string | undefined
-  let pendingReason: 'manifest' | 'locales' | 'sw' | 'content' | undefined
+  let pendingReason: 'manifest' | 'locales' | 'sw' | undefined
   const readyCbs: Array<(c: CDPExtensionController, p: number) => void> = []
 
   return {
