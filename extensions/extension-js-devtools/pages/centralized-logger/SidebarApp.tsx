@@ -22,6 +22,9 @@ export default function SidebarApp() {
   )
   const [tabFilter, setTabFilter] = useState<number | 'all'>('all')
   const [levelFilter, setLevelFilter] = useState<LogLevel | 'all'>('all')
+  const [sourceFilter, setSourceFilter] = useState<
+    'all' | 'setup' | 'page-errors' | 'content-errors'
+  >('all')
   const [autoScroll, setAutoScroll] = useState(true)
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
@@ -58,20 +61,56 @@ export default function SidebarApp() {
   useEffect(() => {
     try {
       chrome.storage.session.get(
-        ['logger_context', 'logger_tab', 'logger_level', 'logger_autoscroll'],
+        [
+          'logger_context',
+          'logger_tab',
+          'logger_level',
+          'logger_source_filter',
+          'logger_autoscroll'
+        ],
         (data) => {
-          if (data?.logger_context) {
-            setContextFilter(data.logger_context)
+          const ctx = String(data?.logger_context || '')
+          if (
+            ctx === 'all' ||
+            ctx === 'background' ||
+            ctx === 'content' ||
+            ctx === 'page' ||
+            ctx === 'sidebar' ||
+            ctx === 'popup' ||
+            ctx === 'options' ||
+            ctx === 'devtools'
+          ) {
+            setContextFilter(ctx)
             return
           }
 
-          if (typeof data?.logger_tab !== 'undefined') {
+          if (typeof data?.logger_tab === 'number' || data?.logger_tab === 'all') {
             setTabFilter(data.logger_tab)
             return
           }
 
-          if (data?.logger_level) {
-            setLevelFilter(data.logger_level)
+          const lvl = String(data?.logger_level || '')
+          if (
+            lvl === 'all' ||
+            lvl === 'log' ||
+            lvl === 'info' ||
+            lvl === 'warn' ||
+            lvl === 'error' ||
+            lvl === 'debug' ||
+            lvl === 'trace'
+          ) {
+            setLevelFilter(lvl)
+            return
+          }
+
+          const src = String(data?.logger_source_filter || '')
+          if (
+            src === 'all' ||
+            src === 'setup' ||
+            src === 'page-errors' ||
+            src === 'content-errors'
+          ) {
+            setSourceFilter(src)
             return
           }
 
@@ -91,10 +130,11 @@ export default function SidebarApp() {
         logger_context: contextFilter,
         logger_tab: tabFilter,
         logger_level: levelFilter,
+        logger_source_filter: sourceFilter,
         logger_autoscroll: autoScroll
       })
     } catch {}
-  }, [contextFilter, tabFilter, levelFilter, autoScroll])
+  }, [contextFilter, tabFilter, levelFilter, sourceFilter, autoScroll])
 
   const filtered = useMemo(() => {
     const query = debouncedSearch.trim().toLowerCase()
@@ -111,6 +151,16 @@ export default function SidebarApp() {
         return false
       }
 
+      if (sourceFilter === 'setup' && e.eventType !== 'dx.signal') {
+        return false
+      }
+      if (sourceFilter === 'page-errors') {
+        if (!(e.context === 'page' && e.level === 'error')) return false
+      }
+      if (sourceFilter === 'content-errors') {
+        if (!(e.context === 'content' && e.level === 'error')) return false
+      }
+
       if (query) {
         const text = formatMessageParts(e.messageParts).toLowerCase()
         const inUrl = (e.url || '').toLowerCase().includes(query)
@@ -121,7 +171,14 @@ export default function SidebarApp() {
       }
       return true
     })
-  }, [events, contextFilter, tabFilter, levelFilter, debouncedSearch])
+  }, [
+    events,
+    contextFilter,
+    tabFilter,
+    levelFilter,
+    sourceFilter,
+    debouncedSearch
+  ])
 
   const uniqueTabs = useMemo(() => {
     const set = new Set<number>()
@@ -176,6 +233,8 @@ export default function SidebarApp() {
           <FiltersRow
             contextFilter={contextFilter}
             setContextFilter={(v) => setContextFilter(v)}
+            sourceFilter={sourceFilter}
+            setSourceFilter={setSourceFilter}
             tabFilter={tabFilter}
             setTabFilter={setTabFilter}
             levelFilter={levelFilter}

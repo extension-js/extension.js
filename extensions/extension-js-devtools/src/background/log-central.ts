@@ -9,11 +9,20 @@ type ContextType =
   | 'options'
   | 'devtools'
 
+type DxSignalStatus = 'ok' | 'warn' | 'fail'
+
+type LogEventType = 'log' | 'dx.signal'
+
 interface IncomingLogMessage {
   type: 'log'
   level: LogLevel
   messageParts: unknown[]
   context: ContextType
+  eventType?: LogEventType
+  code?: string
+  status?: DxSignalStatus
+  data?: Record<string, unknown>
+  remediation?: string
   url?: string
   stack?: string
   errorName?: string
@@ -42,6 +51,11 @@ interface LogEvent {
   level: LogLevel
   context: ContextType
   messageParts: unknown[]
+  eventType?: LogEventType
+  code?: string
+  status?: DxSignalStatus
+  data?: Record<string, unknown>
+  remediation?: string
   url?: string
   stack?: string
   errorName?: string
@@ -141,6 +155,20 @@ function handleClientMessage(port: chrome.runtime.Port, msg: ClientMessage) {
     level: msg.level,
     context: msg.context,
     messageParts: sanitizedParts,
+    eventType:
+      msg.eventType === 'dx.signal' || msg.eventType === 'log'
+        ? msg.eventType
+        : 'log',
+    code: typeof msg.code === 'string' ? truncate(msg.code, 128) : undefined,
+    status:
+      msg.status === 'ok' || msg.status === 'warn' || msg.status === 'fail'
+        ? msg.status
+        : undefined,
+    data: sanitizeStructuredData(msg.data),
+    remediation:
+      typeof msg.remediation === 'string'
+        ? truncate(msg.remediation, 512)
+        : undefined,
     url: msg.url,
     stack: msg.stack,
     errorName: msg.errorName,
@@ -177,7 +205,7 @@ const recentKeys: string[] = []
 const recentSet = new Set<string>()
 
 function computeKey(event: LogEvent): string {
-  const base = `${event.level}|${event.context}|${event.tabId ?? ''}|${event.frameId ?? ''}|${event.url ?? ''}|${safeJson(event.messageParts)}`
+  const base = `${event.eventType ?? 'log'}|${event.code ?? ''}|${event.status ?? ''}|${event.level}|${event.context}|${event.tabId ?? ''}|${event.frameId ?? ''}|${event.url ?? ''}|${safeJson(event.messageParts)}|${safeJson(event.data)}`
   return base.slice(0, 512)
 }
 
@@ -229,6 +257,11 @@ export function appendExternalLog(partial: {
   level: LogLevel
   context: ContextType
   messageParts: unknown[]
+  eventType?: LogEventType
+  code?: string
+  status?: DxSignalStatus
+  data?: Record<string, unknown>
+  remediation?: string
   url?: string
   tabId?: number
   frameId?: number
@@ -241,6 +274,25 @@ export function appendExternalLog(partial: {
     level: partial.level,
     context: partial.context,
     messageParts: sanitizeParts(partial.messageParts || []),
+    eventType:
+      partial.eventType === 'dx.signal' || partial.eventType === 'log'
+        ? partial.eventType
+        : 'log',
+    code:
+      typeof partial.code === 'string'
+        ? truncate(String(partial.code), 128)
+        : undefined,
+    status:
+      partial.status === 'ok' ||
+      partial.status === 'warn' ||
+      partial.status === 'fail'
+        ? partial.status
+        : undefined,
+    data: sanitizeStructuredData(partial.data),
+    remediation:
+      typeof partial.remediation === 'string'
+        ? truncate(partial.remediation, 512)
+        : undefined,
     url: partial.url,
     stack: partial.stack,
     errorName: partial.errorName,
@@ -309,6 +361,21 @@ function sanitizeParts(parts: unknown[]): unknown[] {
     return out
   } catch {
     return [safeStringify(parts)]
+  }
+}
+
+function sanitizeStructuredData(
+  value: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  try {
+    const serialized = JSON.stringify(value)
+    if (!serialized) return undefined
+    const parsed = JSON.parse(serialized) as Record<string, unknown>
+    if (Object.keys(parsed).length === 0) return undefined
+    return parsed
+  } catch {
+    return undefined
   }
 }
 

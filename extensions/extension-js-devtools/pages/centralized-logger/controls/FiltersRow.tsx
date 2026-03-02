@@ -13,6 +13,10 @@ import type {LoggerContext, LogLevel} from '@/types/logger'
 export type FiltersRowProps = {
   contextFilter: LoggerContext | 'all'
   setContextFilter: (value: LoggerContext | 'all') => void
+  sourceFilter: 'all' | 'setup' | 'page-errors' | 'content-errors'
+  setSourceFilter: (
+    value: 'all' | 'setup' | 'page-errors' | 'content-errors'
+  ) => void
   tabFilter: number | 'all'
   setTabFilter: (value: number | 'all') => void
   levelFilter: LogLevel | 'all'
@@ -35,6 +39,8 @@ const LOG_LEVEL_COLOR_CLASS: Record<LogLevel, string> = {
 export function FiltersRow({
   contextFilter,
   setContextFilter,
+  sourceFilter,
+  setSourceFilter,
   tabFilter,
   setTabFilter,
   levelFilter,
@@ -79,6 +85,39 @@ export function FiltersRow({
               <span className={getContextColorClass?.(ctx)}>[{ctx}]</span>
             </SelectItem>
           ))}
+        </SelectContent>
+      </Select>
+
+      <Label htmlFor="source-split" className="text-xs">
+        Source:
+      </Label>
+      <Select
+        value={sourceFilter}
+        onValueChange={(value) =>
+          setSourceFilter(
+            value as 'all' | 'setup' | 'page-errors' | 'content-errors'
+          )
+        }
+      >
+        <SelectTrigger
+          id="source-split"
+          className="h-7 px-2 py-1 text-xs w-auto w-[140px]"
+        >
+          <SelectValue placeholder="Source" />
+        </SelectTrigger>
+        <SelectContent className="p-0 text-xs">
+          <SelectItem className="text-xs" value="all">
+            All
+          </SelectItem>
+          <SelectItem className="text-xs" value="setup">
+            Setup
+          </SelectItem>
+          <SelectItem className="text-xs" value="page-errors">
+            Page errors
+          </SelectItem>
+          <SelectItem className="text-xs" value="content-errors">
+            Content errors
+          </SelectItem>
         </SelectContent>
       </Select>
 

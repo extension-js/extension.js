@@ -69,6 +69,11 @@ export function LogTableView({
     const json = JSON.stringify(
       {
         timestamp: event.timestamp,
+        eventType: event.eventType,
+        code: event.code,
+        status: event.status,
+        remediation: event.remediation,
+        data: event.data,
         level: event.level,
         context: event.context,
         tabId: event.tabId,
