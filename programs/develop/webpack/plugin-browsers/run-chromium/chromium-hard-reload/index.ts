@@ -232,9 +232,7 @@ export class ChromiumHardReloadPlugin {
       }
 
       const pendingReason = this.ctx.getPendingReloadReason()
-      const contentScriptEmitted = this.didEmitContentScripts(stats)
-      const reason =
-        pendingReason || (contentScriptEmitted ? 'content' : undefined)
+      const reason = pendingReason
 
       if (!reason) {
         return
@@ -325,27 +323,6 @@ export class ChromiumHardReloadPlugin {
       this.serviceWorkerSourceDependencyPaths = discovered
     } catch {
       // ignore best-effort
-    }
-  }
-
-  private didEmitContentScripts(stats: any): boolean {
-    try {
-      const json =
-        typeof stats?.toJson === 'function'
-          ? stats.toJson({assets: true})
-          : null
-      const assets: Array<{name?: string; emitted?: boolean}> =
-        (json?.assets as any[]) || []
-      return assets.some((asset) => {
-        const name = String(asset?.name || '')
-        if (!/(^|\/)content_scripts\/content-\d+\.(js|css)$/.test(name)) {
-          return false
-        }
-        if (typeof asset?.emitted === 'boolean') return asset.emitted
-        return true
-      })
-    } catch {
-      return false
     }
   }
 

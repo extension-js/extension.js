@@ -692,7 +692,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     expect(hardReload).not.toHaveBeenCalled()
   })
 
-  it('triggers hard reload on content-script emission after initial successful build', async () => {
+  it('triggers hard reload when content reason is pending after initial successful build', async () => {
     let doneHandler: ((stats: any) => Promise<void>) | undefined
 
     const logger = {
@@ -759,6 +759,7 @@ describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
     }
 
     await (doneHandler as any)(contentStats)
+    ;(ctx as any).setPendingReloadReason('content')
     await (doneHandler as any)(contentStats)
 
     expect(hardReload).toHaveBeenCalledTimes(1)
