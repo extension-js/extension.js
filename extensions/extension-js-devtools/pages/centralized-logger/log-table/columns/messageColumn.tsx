@@ -31,21 +31,25 @@ export function messageColumn(searchQuery: string): ColumnDef<LogEvent> {
     header: () => 'Message',
     cell: ({row}) => {
       const event = row.original
+      const message = formatMessageParts(event.messageParts)
+      const isDxSignal = event.eventType === 'dx.signal'
 
       return (
         <div className="flex items-center gap-1.5 text-neutral-400">
+          {isDxSignal ? (
+            <span className="inline-flex rounded border border-amber-700/50 bg-amber-950/40 px-1 py-0.5 text-[10px] uppercase tracking-wide text-amber-300">
+              setup
+            </span>
+          ) : null}
           <span
             className="whitespace-nowrap overflow-hidden text-ellipsis"
-            title={formatMessageParts(event.messageParts)}
+            title={message}
           >
-            {highlightQuery(
-              formatMessageParts(event.messageParts),
-              searchQuery
-            )}{' '}
+            {highlightQuery(message, searchQuery)}{' '}
             {event.url ? `(${highlightQuery(event.url, searchQuery)})` : ''}
           </span>
           <CopyButton
-            text={formatMessageParts(event.messageParts)}
+            text={message}
             idKey={`msg:${event.id}`}
             ariaLabel="Copy message"
           />
