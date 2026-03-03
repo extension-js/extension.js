@@ -260,4 +260,80 @@ describe('optional-deps-resolver', () => {
 
     expect(typeof pluginCtor).toBe('function')
   })
+
+  it('installs when pre-resolved package misses runtime peer dependency', async () => {
+    const dependencyId = '@extjs-test/vue-loader'
+    const peerId = '@extjs-test/compiler-sfc'
+
+    // Simulate a pre-resolved package in projectPath that cannot resolve peerId.
+    createPackage(
+      projectPath,
+      dependencyId,
+      'module.exports = {name: "project-vue-loader"}'
+    )
+
+    installOptionalDependenciesMock.mockImplementation(async () => {
+      createPackage(
+        runtimePath,
+        dependencyId,
+        'module.exports = {name: "runtime-vue-loader"}'
+      )
+      createPackage(runtimePath, peerId, 'module.exports = {ok: true}')
+      return true
+    })
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+    const resolvedPath = await ensureOptionalPackageResolved({
+      integration: 'Vue',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId, peerId],
+      verifyPackageIds: [dependencyId, peerId]
+    })
+
+    expect(resolvedPath).toContain('tmp-extjs-runtime-')
+    expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('installs for Vue when peer resolves but cannot be required', async () => {
+    const dependencyId = '@extjs-test/vue-loader'
+    const peerId = '@extjs-test/compiler-sfc'
+
+    createPackage(
+      projectPath,
+      dependencyId,
+      'module.exports = {name: "project-vue-loader"}'
+    )
+    createPackage(
+      projectPath,
+      peerId,
+      'throw new Error("broken peer in project tree")'
+    )
+
+    installOptionalDependenciesMock.mockImplementation(async () => {
+      createPackage(
+        runtimePath,
+        dependencyId,
+        'module.exports = {name: "runtime-vue-loader"}'
+      )
+      createPackage(runtimePath, peerId, 'module.exports = {ok: true}')
+      return true
+    })
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+    const resolvedPath = await ensureOptionalPackageResolved({
+      integration: 'Vue',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId, peerId],
+      verifyPackageIds: [dependencyId, peerId]
+    })
+
+    expect(resolvedPath).toContain('tmp-extjs-runtime-')
+    expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
+  })
 })
