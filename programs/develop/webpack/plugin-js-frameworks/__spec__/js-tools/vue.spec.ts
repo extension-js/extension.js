@@ -45,6 +45,12 @@ describe('vue tools', () => {
           if (id === 'vue-loader') {
             return {VueLoaderPlugin: VueLoaderPluginMock}
           }
+          if (id === '@vue/compiler-sfc') {
+            return {parse: vi.fn()}
+          }
+          if (id === 'vue') {
+            return {version: '3.5.0'}
+          }
           throw new Error(`Cannot find module ${id}`)
         }) as any
         req.resolve = (id: string) => `/project/node_modules/${id}`
