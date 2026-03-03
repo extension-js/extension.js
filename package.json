@@ -8,6 +8,12 @@
   "workspaces": [
     "programs/*"
   ],
+  "pnpm": {
+    "overrides": {
+      "serialize-javascript": "^7.0.3",
+      "rollup": "^4.59.0"
+    }
+  },
   "scripts": {
     "compile": "node scripts/run-compile.mjs",
     "extension": "dotenv -- node programs/cli/dist/cli.cjs",
@@ -35,20 +41,21 @@
     "postcompile": "node scripts/build-extensions.cjs"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.4",
-    "@playwright/test": "^1.58.1",
-    "@types/chrome": "^0.1.33",
-    "@types/node": "^25.2.0",
-    "@types/webextension-polyfill": "0.12.4",
+    "@biomejs/biome": "^2.4.5",
+    "@playwright/test": "^1.58.2",
+    "@types/chrome": "^0.1.37",
+    "@types/node": "^25.3.3",
+    "@types/webextension-polyfill": "0.12.5",
     "ajv": "8.18.0",
     "cross-env": "^10.1.0",
     "cross-spawn": "^7.0.6",
     "dotenv-cli": "^11.0.0",
-    "extension": "workspace:*",
+    "extension": "workspace:^3.8.8",
     "husky": "9.1.7",
-    "lint-staged": "16.2.7",
+    "lint-staged": "16.3.1",
+    "serialize-javascript": "7.0.3",
     "tsx": "^4.21.0",
-    "turbo": "^2.8.3",
+    "turbo": "^2.8.12",
     "typescript": "5.9.3",
     "vite": "^7.3.1"
   }
