@@ -106,6 +106,38 @@ function resolveFromKnownLocations(
   return undefined
 }
 
+function getModuleContextMissingDependencies(
+  resolvedPath: string,
+  verifyPackageIds: string[],
+  dependencyId: string,
+  options?: {integration?: string}
+) {
+  if (!verifyPackageIds.length) return []
+
+  try {
+    const req = createRequire(resolvedPath)
+
+    return verifyPackageIds.filter((id) => {
+      if (id === dependencyId) return false
+
+      try {
+        req.resolve(id)
+        if (options?.integration === 'Vue') {
+          // Vue compiler deps can resolve but still fail to execute in a
+          // mismatched hoisted tree; validate runtime loadability as well.
+          req(id)
+        }
+        return false
+      } catch {
+        return true
+      }
+    })
+  } catch {
+    // If we cannot establish a module context, treat all peer checks as missing.
+    return verifyPackageIds.filter((id) => id !== dependencyId)
+  }
+}
+
 function getPackageDirFromInstallRoot(
   dependencyId: string,
   installRoot: string
@@ -185,12 +217,15 @@ function verifyPackageInInstallRoot(
   packageId: string,
   installRoot: string
 ): boolean {
-  const packageJson = path.join(
-    getPackageDirFromInstallRoot(packageId, installRoot),
-    'package.json'
-  )
+  if (tryResolveWithBase(packageId, installRoot)) return true
+  if (resolveFromInstallRootPackageDir(packageId, installRoot)) return true
 
-  return fs.existsSync(packageJson)
+  if (installRoot.includes('.pnpm')) {
+    const pnpmStoreBase = path.join(installRoot, '..', '..')
+    if (resolveFromInstallRootPackageDir(packageId, pnpmStoreBase)) return true
+  }
+
+  return false
 }
 
 function buildDiagnostics(input: {
@@ -348,16 +383,26 @@ export function resolveOptionalDependencySync(
 export async function ensureOptionalPackageResolved(
   input: EnsureResolveInput
 ): Promise<string> {
+  const installDependencies = input.installDependencies || [input.dependencyId]
+  const verifyPackageIds = input.verifyPackageIds || installDependencies
   const installRoot = resolveDevelopInstallRoot()
   const resolvedBeforeInstall = resolveFromKnownLocations(
     input.dependencyId,
     input.projectPath,
     installRoot
   )
-  if (resolvedBeforeInstall) return resolvedBeforeInstall
+  const missingBeforeInstall = resolvedBeforeInstall
+    ? getModuleContextMissingDependencies(
+        resolvedBeforeInstall,
+        verifyPackageIds,
+        input.dependencyId,
+        {integration: input.integration}
+      )
+    : []
 
-  const installDependencies = input.installDependencies || [input.dependencyId]
-  const verifyPackageIds = input.verifyPackageIds || installDependencies
+  if (resolvedBeforeInstall && missingBeforeInstall.length === 0) {
+    return resolvedBeforeInstall
+  }
 
   await ensureInstalledAndVerified({
     integration: input.integration,
@@ -372,7 +417,34 @@ export async function ensureOptionalPackageResolved(
     input.projectPath,
     installRoot
   )
-  if (resolvedAfterInstall) return resolvedAfterInstall
+  const missingAfterInstall = resolvedAfterInstall
+    ? getModuleContextMissingDependencies(
+        resolvedAfterInstall,
+        verifyPackageIds,
+        input.dependencyId,
+        {integration: input.integration}
+      )
+    : verifyPackageIds.filter((id) => id !== input.dependencyId)
+
+  if (resolvedAfterInstall && missingAfterInstall.length === 0) {
+    return resolvedAfterInstall
+  }
+
+  const resolvedFromInstallRoot = installRoot
+    ? resolveFromInstallRootPackageDir(input.dependencyId, installRoot)
+    : undefined
+  const missingFromInstallRoot = resolvedFromInstallRoot
+    ? getModuleContextMissingDependencies(
+        resolvedFromInstallRoot,
+        verifyPackageIds,
+        input.dependencyId,
+        {integration: input.integration}
+      )
+    : verifyPackageIds.filter((id) => id !== input.dependencyId)
+
+  if (resolvedFromInstallRoot && missingFromInstallRoot.length === 0) {
+    return resolvedFromInstallRoot
+  }
 
   const diagnostics = buildDiagnostics({
     integration: input.integration,
@@ -382,9 +454,25 @@ export async function ensureOptionalPackageResolved(
     installDependencies,
     verifyPackageIds
   })
+  const peerDiagnostics = {
+    resolvedBeforeInstall: resolvedBeforeInstall || null,
+    missingBeforeInstall,
+    resolvedAfterInstall: resolvedAfterInstall || null,
+    missingAfterInstall,
+    resolvedFromInstallRoot: resolvedFromInstallRoot || null,
+    missingFromInstallRoot
+  }
+
   throw new Error(
     `[${input.integration}] ${input.dependencyId} could not be resolved after optional dependency installation.\n` +
-      JSON.stringify(diagnostics, null, 2)
+      JSON.stringify(
+        {
+          ...diagnostics,
+          peerDiagnostics
+        },
+        null,
+        2
+      )
   )
 }
 

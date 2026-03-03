@@ -42,7 +42,7 @@ export async function maybeUseVue(
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
-  const vueDependencies = ['vue-loader', '@vue/compiler-sfc']
+  const vueDependencies = ['vue-loader', '@vue/compiler-sfc', 'vue']
   const vueLoaderPath = await ensureOptionalPackageResolved({
     integration: 'Vue',
     projectPath,
