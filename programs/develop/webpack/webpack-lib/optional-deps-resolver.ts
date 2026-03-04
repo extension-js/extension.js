@@ -113,6 +113,7 @@ function getModuleContextMissingDependencies(
   options?: {integration?: string}
 ) {
   if (!verifyPackageIds.length) return []
+  if (options?.integration !== 'Vue') return []
 
   try {
     const req = createRequire(resolvedPath)
@@ -122,11 +123,9 @@ function getModuleContextMissingDependencies(
 
       try {
         req.resolve(id)
-        if (options?.integration === 'Vue') {
-          // Vue compiler deps can resolve but still fail to execute in a
-          // mismatched hoisted tree; validate runtime loadability as well.
-          req(id)
-        }
+        // Vue compiler deps can resolve but still fail to execute in a
+        // mismatched hoisted tree; validate runtime loadability as well.
+        req(id)
         return false
       } catch {
         return true
