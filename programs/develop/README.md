@@ -228,6 +228,7 @@ export default {
   2. `.env.development`
   3. `.env.local`
   4. `.env`
+- In monorepos, if none of the files above exist in the project directory, develop falls back to the nearest workspace root (directory containing `pnpm-workspace.yaml`) and applies the same loading order there.
 - Only variables you read explicitly in the config are used there; client-side injection still requires the `EXTENSION_PUBLIC_*` prefix.
 - Example:
 
