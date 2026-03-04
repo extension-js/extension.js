@@ -17,6 +17,11 @@ import type {Configuration} from '@rspack/core'
 import * as messages from './messages'
 import type {BrowserConfig, FileConfig, DevOptions} from '../webpack-types'
 
+type EnvPreloadResult = {
+  loadedAny: boolean
+  envDir: string
+}
+
 function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   const code = fs.readFileSync(absolutePath, 'utf-8')
   const dirname = path.dirname(absolutePath)
@@ -38,25 +43,60 @@ function loadCommonJsConfigWithStableDirname(absolutePath: string) {
   return module.exports?.default || module.exports
 }
 
-function preloadEnvFiles(projectDir: string) {
+function findNearestWorkspaceRoot(startDir: string): string | undefined {
+  let current = path.resolve(startDir)
+  while (true) {
+    if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))) {
+      return current
+    }
+    const parent = path.dirname(current)
+    if (parent === current) {
+      return undefined
+    }
+    current = parent
+  }
+}
+
+function preloadEnvFilesFromDir(
+  envDir: string,
+  options?: {
+    override?: boolean
+  }
+): EnvPreloadResult {
+  let loadedAny = false
   try {
-    const defaultsPath = path.join(projectDir, '.env.defaults')
+    const defaultsPath = path.join(envDir, '.env.defaults')
     if (fs.existsSync(defaultsPath)) {
-      dotenv.config({path: defaultsPath})
+      dotenv.config({path: defaultsPath, override: Boolean(options?.override)})
+      loadedAny = true
     }
 
     const envCandidates = ['.env.development', '.env.local', '.env']
 
     for (const filename of envCandidates) {
-      const filePath = path.join(projectDir, filename)
+      const filePath = path.join(envDir, filename)
       if (fs.existsSync(filePath)) {
-        dotenv.config({path: filePath})
+        dotenv.config({path: filePath, override: Boolean(options?.override)})
+        loadedAny = true
         break
       }
     }
   } catch {
     // Best-effort env loading for config stage
   }
+  return {loadedAny, envDir}
+}
+
+function preloadEnvFiles(projectDir: string) {
+  const local = preloadEnvFilesFromDir(projectDir)
+  if (local.loadedAny) return local
+
+  const workspaceRoot = findNearestWorkspaceRoot(projectDir)
+  if (workspaceRoot && workspaceRoot !== projectDir) {
+    return preloadEnvFilesFromDir(workspaceRoot)
+  }
+
+  return local
 }
 
 async function loadConfigFile(configPath: string): Promise<FileConfig> {
