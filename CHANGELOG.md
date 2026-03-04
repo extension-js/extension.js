@@ -2,12 +2,9 @@
 
 ## Unreleased
 
-- Scope optional peer runtime checks to Vue (3d6cbc7e)
-- Remove vulnerable serialize-javascript from build-deps lockfile (2b54e069)
-- Hotfix for Vue examples not working (03342899)
-- Setup experimental error overlay (84de76ff)
-- Resolve 2 security vulnerabilities (#414) (6376f539)
-- chore(release): move changelog to v3.8.8 (db1db77e)
+- Support monorepo root env fallback for extension config loading (30b93ed3)
+- No loading for first-time optional deps install (27dc0eb2)
+- chore(release): move changelog to v3.8.9 (43139986)
 
 ## 3.8.2
 
