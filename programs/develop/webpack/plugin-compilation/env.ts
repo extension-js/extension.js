@@ -53,10 +53,12 @@ export class EnvPlugin {
     }
 
     // Load the .env file manually and filter variables prefixed with 'EXTENSION_PUBLIC_'
-    const envVars = envPath ? dotenv.config({path: envPath}).parsed || {} : {}
+    const envVars = envPath
+      ? dotenv.config({path: envPath, quiet: true}).parsed || {}
+      : {}
     const defaultsPath = path.join(projectPath, '.env.defaults')
     const defaultsVars = fs.existsSync(defaultsPath)
-      ? dotenv.config({path: defaultsPath}).parsed || {}
+      ? dotenv.config({path: defaultsPath, quiet: true}).parsed || {}
       : {}
 
     // Merge all environment variables (including system env vars)

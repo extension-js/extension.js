@@ -44,8 +44,8 @@ export class BoringPlugin {
     compiler.hooks.done.tap('develop:brand', (stats) => {
       const hasErrors = Boolean((stats as any)?.hasErrors?.())
       const hasWarnings = Boolean((stats as any)?.hasWarnings?.())
-      const runnerEnabled =
-        String(process.env.EXTENSION_BROWSER_RUNNER_ENABLED || '1') !== '0'
+      const browserLaunchEnabled =
+        String(process.env.EXTENSION_BROWSER_LAUNCH_ENABLED || '1') !== '0'
 
       stats.compilation.name = undefined
       const duration = stats.compilation.endTime! - stats.compilation.startTime!
@@ -72,10 +72,15 @@ export class BoringPlugin {
           if (hasUserFileChange) this.sawUserInvalidation = true
         }
 
-        // During startup with browser runner enabled, multiple successful
+        // During startup with browser launch enabled, multiple successful
         // compiles can happen before the banner is printed. Keep only the last
         // one and flush it when the banner arrives to avoid noisy duplicates
-        if (runnerEnabled && !isBannerPrinted() && !hasErrors && !hasWarnings) {
+        if (
+          browserLaunchEnabled &&
+          !isBannerPrinted() &&
+          !hasErrors &&
+          !hasWarnings
+        ) {
           this.printedPostBannerStartupSuccess = true
           setPendingCompilationLine(line)
           return
@@ -85,7 +90,7 @@ export class BoringPlugin {
         // source invalidation happens. Keep one post-banner success line and
         // suppress additional startup-only duplicates until the first user/source
         // invalidation event
-        if (runnerEnabled && !hasErrors && !hasWarnings) {
+        if (browserLaunchEnabled && !hasErrors && !hasWarnings) {
           if (!this.sawUserInvalidation) {
             if (!this.printedPostBannerStartupSuccess) {
               this.printedPostBannerStartupSuccess = true
