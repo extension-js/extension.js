@@ -62,10 +62,11 @@ import {CompilationPlugin} from '../index'
 describe('CompilationPlugin', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>
   let stdoutWriteSpy: ReturnType<typeof vi.spyOn>
-  const originalRunnerEnabled = process.env.EXTENSION_BROWSER_RUNNER_ENABLED
+  const originalBrowserLaunchEnabled =
+    process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
 
   beforeEach(() => {
-    process.env.EXTENSION_BROWSER_RUNNER_ENABLED = '0'
+    process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = '0'
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     stdoutWriteSpy = vi
       .spyOn(process.stdout, 'write')
@@ -78,7 +79,7 @@ describe('CompilationPlugin', () => {
   })
 
   afterEach(() => {
-    process.env.EXTENSION_BROWSER_RUNNER_ENABLED = originalRunnerEnabled
+    process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = originalBrowserLaunchEnabled
     vi.restoreAllMocks()
   })
 
