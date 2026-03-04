@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- Support monorepo root env fallback for extension config loading (30b93ed3)
-- No loading for first-time optional deps install (27dc0eb2)
-- chore(release): move changelog to v3.8.9 (43139986)
+- Rename no-runner behavior to no-browser (e5a13ba5)
+- Invalidate optional-deps preflight cache when lockfiles change (a47c83a5)
+- chore(release): move changelog to v3.8.10 (d4928815)
 
 ## 3.8.2
 
