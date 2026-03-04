@@ -424,7 +424,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     try {
       const result = runCommand(
         runner.command,
-        runner.buildArgs(packages, ['preview', previewFixture, '--no-runner']),
+        runner.buildArgs(packages, ['preview', previewFixture, '--no-browser']),
         {cwd: workspace, env: defaultEnv}
       )
       expect(result.status).toBe(0)
@@ -488,7 +488,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
 
       const devResult = await runUntilTimeout(
         runner.command,
-        runner.buildArgs(packages, ['dev', projectPath, '--no-runner']),
+        runner.buildArgs(packages, ['dev', projectPath, '--no-browser']),
         {cwd: projectPath, env: defaultEnv},
         6000
       )
@@ -589,14 +589,14 @@ describe('cli direct flow (no npx)', () => {
       expect(buildResult.status).toBe(0)
 
       const previewResult = runCli(
-        ['preview', projectPath, '--no-runner'],
+        ['preview', projectPath, '--no-browser'],
         projectPath
       )
       expect(previewResult.status).toBe(0)
 
       const devResult = await runUntilTimeout(
         process.execPath,
-        [cliBin, 'dev', projectPath, '--no-runner'],
+        [cliBin, 'dev', projectPath, '--no-browser'],
         {cwd: projectPath, env: defaultEnv},
         6000
       )

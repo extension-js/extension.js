@@ -39,7 +39,6 @@ type PreviewOptions = {
   geckoBinary?: string
   startingUrl?: string
   port?: string | number
-  runner?: boolean
   // Source inspection (parity with dev)
   source?: boolean | string
   watchSource?: boolean
@@ -74,6 +73,10 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
     .arguments('[project-name]')
     .usage('preview [path-to-remote-extension] [options]')
     .description(commandDescriptions.preview)
+    .addHelpText(
+      'after',
+      '\nAdditional option:\n  --no-browser    do not launch the browser\n'
+    )
     .option(
       '--profile <path-to-file | boolean>',
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
@@ -94,7 +97,6 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
     )
-    .option('--no-runner', 'do not launch the browser runner')
     .option(
       '--port <port>',
       'specify the port to use for the development server. Defaults to `8080`'
@@ -325,7 +327,7 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
           geckoBinary: previewOptions.geckoBinary,
           startingUrl: previewOptions.startingUrl,
           port: previewOptions.port,
-          noRunner: previewOptions.runner === false,
+          noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
           extensions: parseExtensionsList(previewOptions.extensions),
           source:
             typeof previewOptions.source === 'string'

@@ -67,7 +67,11 @@ function preloadEnvFilesFromDir(
   try {
     const defaultsPath = path.join(envDir, '.env.defaults')
     if (fs.existsSync(defaultsPath)) {
-      dotenv.config({path: defaultsPath, override: Boolean(options?.override)})
+      dotenv.config({
+        path: defaultsPath,
+        override: Boolean(options?.override),
+        quiet: true
+      })
       loadedAny = true
     }
 
@@ -76,7 +80,11 @@ function preloadEnvFilesFromDir(
     for (const filename of envCandidates) {
       const filePath = path.join(envDir, filename)
       if (fs.existsSync(filePath)) {
-        dotenv.config({path: filePath, override: Boolean(options?.override)})
+        dotenv.config({
+          path: filePath,
+          override: Boolean(options?.override),
+          quiet: true
+        })
         loadedAny = true
         break
       }

@@ -61,7 +61,6 @@ type DevOptions = {
   logUrl?: string
   logTab?: string | number
   install?: boolean
-  runner?: boolean
   extensions?: string
 }
 
@@ -73,6 +72,10 @@ export function registerDevCommand(program: Command, telemetry: any) {
     .arguments('[project-path|remote-url]')
     .usage('dev [project-path|remote-url] [options]')
     .description(commandDescriptions.dev)
+    .addHelpText(
+      'after',
+      '\nAdditional option:\n  --no-browser    do not launch the browser (dev server still starts)\n'
+    )
     .option(
       '--profile <path-to-file | boolean>',
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
@@ -96,10 +99,6 @@ export function registerDevCommand(program: Command, telemetry: any) {
     .option(
       '--no-open',
       'do not open the browser automatically (default: open)'
-    )
-    .option(
-      '--no-runner',
-      'do not launch the browser runner (dev server still starts)'
     )
     .option(
       '--starting-url <url>',
@@ -331,7 +330,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
           sourceIncludeShadow: devOptions.sourceIncludeShadow,
           sourceDiff: devOptions.sourceDiff,
           install: devOptions.install,
-          noRunner: devOptions.runner === false,
+          noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
           extensions: parseExtensionsList(devOptions.extensions),
           logLevel: (logsOption || devOptions.logLevel || 'off') as any,
           logContexts: parseLogContexts(logContextOption),
