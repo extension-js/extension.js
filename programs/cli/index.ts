@@ -44,6 +44,39 @@ function resolveAIHelpFormatFromArgv(argv: string[]): string {
   return 'pretty'
 }
 
+function resolveCommandFromArgv(argv: string[]): string | undefined {
+  for (let i = 2; i < argv.length; i += 1) {
+    const arg = argv[i]
+    if (!arg.startsWith('-')) return arg
+  }
+  return undefined
+}
+
+function applyNoBrowserArgvShim(argv: string[]): string[] {
+  const hasNoRunner = argv.includes('--no-runner')
+  if (hasNoRunner) {
+    // eslint-disable-next-line no-console
+    console.error(messages.removedNoRunnerFlag())
+    process.exit(1)
+  }
+
+  const hasNoBrowser = argv.includes('--no-browser')
+  if (!hasNoBrowser) return argv
+
+  const command = resolveCommandFromArgv(argv)
+  const supportsNoBrowser =
+    command === 'dev' || command === 'start' || command === 'preview'
+
+  if (!supportsNoBrowser) {
+    // eslint-disable-next-line no-console
+    console.error(messages.noBrowserNotSupportedForCommand(command))
+    process.exit(1)
+  }
+
+  process.env.EXTENSION_CLI_NO_BROWSER = '1'
+  return argv.filter((arg) => arg !== '--no-browser')
+}
+
 checkUpdates().then((updateMessage) => {
   if (!updateMessage) return
 
@@ -108,7 +141,9 @@ if (process.argv.length <= 2) {
   process.exit(0)
 }
 
-extensionJs.parseAsync().catch((err: unknown) => {
+const argv = applyNoBrowserArgvShim(process.argv)
+
+extensionJs.parseAsync(argv).catch((err: unknown) => {
   // eslint-disable-next-line no-console
   console.error(messages.unhandledError(err))
   process.exit(1)

@@ -31,7 +31,9 @@ export async function devServer(
   projectStructure: ProjectStructure,
   devOptions: DevOptions
 ) {
-  process.env.EXTENSION_BROWSER_RUNNER_ENABLED = devOptions.noRunner ? '0' : '1'
+  process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = devOptions.noBrowser
+    ? '0'
+    : '1'
 
   const {manifestPath, packageJsonPath} = projectStructure
   const manifestDir = path.dirname(manifestPath)
@@ -209,7 +211,7 @@ export async function devServer(
 
     console.log(messages.ready('development', devOptions.browser))
 
-    if (devOptions.noRunner) {
+    if (devOptions.noBrowser) {
       console.log(messages.browserRunnerDisabled())
     }
   } catch (error) {

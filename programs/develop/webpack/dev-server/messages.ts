@@ -35,7 +35,7 @@ export function ready(mode: 'development' | 'production', browser: string) {
 }
 
 export function browserRunnerDisabled() {
-  return `${getLoggingPrefix('info')} Browser runner disabled (no-runner).`
+  return `${getLoggingPrefix('info')} Browser launch disabled (no-browser).`
 }
 
 export function portInUse(requestedPort: number, newPort: number) {

@@ -545,3 +545,20 @@ export function sourceInspectionNotSupported(command: 'start' | 'preview') {
     `Use ${code('extension dev --source <url>')} for source inspection features.`
   )
 }
+
+export function removedNoRunnerFlag() {
+  return (
+    `${getLoggingPrefix('error')} ${code('--no-runner')} was removed.\n` +
+    `Use ${code('--no-browser')} instead.`
+  )
+}
+
+export function noBrowserNotSupportedForCommand(command?: string) {
+  return (
+    `${getLoggingPrefix('error')} ${code(
+      '--no-browser'
+    )} is only supported for ${code('dev')}, ${code('start')}, and ${code(
+      'preview'
+    )}.\n` + `Received command: ${code(command || '(none)')}`
+  )
+}

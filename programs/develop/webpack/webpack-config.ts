@@ -139,7 +139,7 @@ export default function webpackConfig(
     })
   ]
 
-  if (!devOptions.noRunner) {
+  if (!devOptions.noBrowser) {
     plugins.push(
       new BrowsersPlugin({
         extension: unpackedExtensionDirsToLoad,
