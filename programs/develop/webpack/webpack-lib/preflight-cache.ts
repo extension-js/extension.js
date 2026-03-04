@@ -25,10 +25,18 @@ function getCacheVersionPath(cacheDir: string): string {
 }
 
 function getProjectDepsHash(projectPath: string): string {
+  const lockfileSignature = getNearestLockfileSignature(projectPath)
   try {
     const packageJsonPath = path.join(projectPath, 'package.json')
     if (!fs.existsSync(packageJsonPath)) {
-      return 'no-package-json'
+      return createHash('sha1')
+        .update(
+          JSON.stringify({
+            packageJson: 'no-package-json',
+            lockfile: lockfileSignature
+          })
+        )
+        .digest('hex')
     }
     const raw = fs.readFileSync(packageJsonPath, 'utf8')
     const parsed = JSON.parse(raw || '{}')
@@ -48,13 +56,53 @@ function getProjectDepsHash(projectPath: string): string {
 
     const stable = JSON.stringify({
       dependencies: normalize(deps),
-      devDependencies: normalize(devDeps)
+      devDependencies: normalize(devDeps),
+      lockfile: lockfileSignature
     })
 
     return createHash('sha1').update(stable).digest('hex')
   } catch {
-    return 'invalid-package-json'
+    return createHash('sha1')
+      .update(
+        JSON.stringify({
+          packageJson: 'invalid-package-json',
+          lockfile: lockfileSignature
+        })
+      )
+      .digest('hex')
   }
+}
+
+function getNearestLockfileSignature(projectPath: string): string {
+  const lockfileNames = [
+    'pnpm-lock.yaml',
+    'package-lock.json',
+    'yarn.lock',
+    'bun.lock',
+    'bun.lockb'
+  ]
+  let current = path.resolve(projectPath)
+
+  while (true) {
+    for (const lockfileName of lockfileNames) {
+      const lockfilePath = path.join(current, lockfileName)
+      if (!fs.existsSync(lockfilePath)) continue
+
+      try {
+        const content = fs.readFileSync(lockfilePath)
+        const digest = createHash('sha1').update(content).digest('hex')
+        return `${lockfileName}:${digest}`
+      } catch {
+        return `${lockfileName}:unreadable`
+      }
+    }
+
+    const parent = path.dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+
+  return 'none'
 }
 
 function ensureCacheVersion(cacheDir: string): boolean {
