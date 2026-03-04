@@ -41,7 +41,6 @@ type StartOptions = {
   port?: string | number
   polyfill?: boolean | string
   install?: boolean
-  runner?: boolean
   // Internal maintainer flags
   author?: boolean
   authorMode?: boolean
@@ -77,6 +76,10 @@ export function registerStartCommand(program: Command, telemetry: any) {
     .arguments('[project-path|remote-url]')
     .usage('start [project-path|remote-url] [options]')
     .description(commandDescriptions.start)
+    .addHelpText(
+      'after',
+      '\nAdditional option:\n  --no-browser    do not launch the browser (build still runs)\n'
+    )
     .option(
       '--profile <path-to-file | boolean>',
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
@@ -100,10 +103,6 @@ export function registerStartCommand(program: Command, telemetry: any) {
     .option(
       '--starting-url <url>',
       'specify the starting URL for the browser. Defaults to `undefined`'
-    )
-    .option(
-      '--no-runner',
-      'do not launch the browser runner (build still runs)'
     )
     .option(
       '--port <port>',
@@ -335,7 +334,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
           startingUrl: startOptions.startingUrl,
           port: startOptions.port,
           install: startOptions.install,
-          noRunner: startOptions.runner === false,
+          noBrowser: process.env.EXTENSION_CLI_NO_BROWSER === '1',
           extensions: parseExtensionsList(startOptions.extensions),
           source:
             typeof startOptions.source === 'string'
