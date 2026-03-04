@@ -39,4 +39,43 @@ module.exports = {
     const cfg = await loadBrowserConfig(dir, 'chrome')
     expect(cfg.profile).toBe(path.join(dir, 'dist', 'stable-profile'))
   })
+
+  it('falls back to workspace-root env files when project has none', async () => {
+    const workspace = fs.mkdtempSync(path.join(process.cwd(), 'tmp-extjs-ws-'))
+    const appDir = path.join(workspace, 'apps', 'demo-extension')
+    fs.mkdirSync(appDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(workspace, 'pnpm-workspace.yaml'),
+      'packages:\n  - "apps/*"\n',
+      'utf-8'
+    )
+    fs.writeFileSync(
+      path.join(workspace, '.env'),
+      'EXTENSION_PUBLIC_START_URL=https://workspace-root.example\n',
+      'utf-8'
+    )
+    fs.writeFileSync(
+      path.join(appDir, 'extension.config.mjs'),
+      `
+export default {
+  browser: {
+    chrome: {
+      startingUrl: process.env.EXTENSION_PUBLIC_START_URL
+    }
+  }
+}
+`.trimStart(),
+      'utf-8'
+    )
+
+    const previous = process.env.EXTENSION_PUBLIC_START_URL
+    delete process.env.EXTENSION_PUBLIC_START_URL
+    const cfg = await loadBrowserConfig(appDir, 'chrome')
+    expect(cfg.startingUrl).toBe('https://workspace-root.example')
+    if (previous === undefined) {
+      delete process.env.EXTENSION_PUBLIC_START_URL
+    } else {
+      process.env.EXTENSION_PUBLIC_START_URL = previous
+    }
+  })
 })
