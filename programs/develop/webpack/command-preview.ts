@@ -86,8 +86,8 @@ export async function extensionPreview(
 
   console.log(messages.previewing(browser))
 
-  if (previewOptions.noRunner) {
-    console.log(messages.previewSkippedNoRunner(browser))
+  if (previewOptions.noBrowser) {
+    console.log(messages.previewSkippedNoBrowser(browser))
     return
   }
 
