@@ -297,6 +297,34 @@ describe('optional-deps-resolver', () => {
     expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
   })
 
+  it('does not enforce peer runtime checks for non-Vue integrations', async () => {
+    const dependencyId = '@extjs-test/react-refresh'
+    const peerId = '@extjs-test/plugin-react-refresh'
+
+    createPackage(
+      projectPath,
+      dependencyId,
+      'module.exports = {name: "project-react-refresh"}'
+    )
+    installOptionalDependenciesMock.mockResolvedValue(true)
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+    const resolvedPath = await ensureOptionalPackageResolved({
+      integration: 'React',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId, peerId],
+      verifyPackageIds: [dependencyId, peerId]
+    })
+
+    expect(resolvedPath).toContain(
+      `${path.sep}node_modules${path.sep}@extjs-test${path.sep}react-refresh${path.sep}index.js`
+    )
+    expect(installOptionalDependenciesMock).not.toHaveBeenCalled()
+  })
+
   it('installs for Vue when peer resolves but cannot be required', async () => {
     const dependencyId = '@extjs-test/vue-loader'
     const peerId = '@extjs-test/compiler-sfc'
