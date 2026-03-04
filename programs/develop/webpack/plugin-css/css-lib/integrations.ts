@@ -18,7 +18,6 @@ import {
   resolvePackageManager,
   type PackageManagerResolution
 } from '../../webpack-lib/package-manager'
-import {shouldShowProgress, startProgressBar} from '../../webpack-lib/progress'
 
 function parseJsonSafe(text: string) {
   const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
@@ -327,44 +326,35 @@ export async function installOptionalDependencies(
           `►►► [${options?.index}/${options?.total}] `
         )
       : setupMessage
-    const progressEnabled = !isAuthor && shouldShowProgress()
-    const progress = startProgressBar(setupMessageWithIndex, {
-      enabled: progressEnabled,
-      persistLabel: true
-    })
 
     if (isAuthor) {
       console.warn(setupMessageWithIndex)
-    } else if (!progressEnabled) {
+    } else {
       console.log(setupMessageWithIndex)
     }
 
-    try {
-      for (const dependency of dependencies) {
-        const installCommand = getOptionalInstallCommand(
-          pm,
-          [dependency],
-          wslContext.installDir || installBaseDir
-        )
-        const execCommand = wrapCommandForWsl(installCommand, wslContext)
-        const fallbackNpmCommand = wslContext.useWsl
-          ? undefined
-          : buildNpmCliFallback([
-              '--silent',
-              'install',
-              dependency,
-              '--prefix',
-              installBaseDir,
-              '--save-optional'
-            ])
+    for (const dependency of dependencies) {
+      const installCommand = getOptionalInstallCommand(
+        pm,
+        [dependency],
+        wslContext.installDir || installBaseDir
+      )
+      const execCommand = wrapCommandForWsl(installCommand, wslContext)
+      const fallbackNpmCommand = wslContext.useWsl
+        ? undefined
+        : buildNpmCliFallback([
+            '--silent',
+            'install',
+            dependency,
+            '--prefix',
+            installBaseDir,
+            '--save-optional'
+          ])
 
-        await execInstallWithFallback(execCommand, {
-          cwd: wslContext.useWsl ? undefined : installBaseDir,
-          fallbackNpmCommand
-        })
-      }
-    } finally {
-      progress.stop()
+      await execInstallWithFallback(execCommand, {
+        cwd: wslContext.useWsl ? undefined : installBaseDir,
+        fallbackNpmCommand
+      })
     }
 
     await new Promise((resolve) => setTimeout(resolve, 500))
