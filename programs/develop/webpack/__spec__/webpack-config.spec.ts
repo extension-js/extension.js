@@ -75,7 +75,7 @@ describe('webpack-config transpile packages watch behavior', () => {
             'chrome'
           )
         },
-        noRunner: true
+        noBrowser: true
       } as any
     )
 
@@ -101,7 +101,7 @@ describe('webpack-config transpile packages watch behavior', () => {
             'chrome'
           )
         },
-        noRunner: true
+        noBrowser: true
       } as any
     )
 
@@ -131,7 +131,7 @@ describe('webpack-config transpile packages watch behavior', () => {
           clean: false,
           path: '/project/dist/chrome'
         },
-        noRunner: false
+        noBrowser: false
       } as any
     )
 
