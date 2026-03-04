@@ -75,4 +75,27 @@ describe('preflight-cache', () => {
     expect(hasPreflightMarker(projectPath)).toBe(false)
     expect(fs.existsSync(cacheDir)).toBe(false)
   })
+
+  it('invalidates marker when nearest lockfile changes', async () => {
+    const workspacePath = path.join(mockRoot, 'workspace')
+    const projectPath = path.join(workspacePath, 'apps', 'project')
+    fs.mkdirSync(projectPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({dependencies: {react: '1.0.0'}})
+    )
+    fs.writeFileSync(path.join(workspacePath, 'pnpm-lock.yaml'), 'lock-v1')
+
+    const {hasPreflightMarker, writePreflightMarker} = await import(
+      '../preflight-cache'
+    )
+
+    expect(hasPreflightMarker(projectPath)).toBe(false)
+    writePreflightMarker(projectPath)
+    expect(hasPreflightMarker(projectPath)).toBe(true)
+
+    fs.writeFileSync(path.join(workspacePath, 'pnpm-lock.yaml'), 'lock-v2')
+
+    expect(hasPreflightMarker(projectPath)).toBe(false)
+  })
 })
