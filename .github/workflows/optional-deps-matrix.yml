@@ -5,6 +5,7 @@ on:
     paths:
       - 'programs/**'
       - 'extensions/browser-extension/**'
+      - 'extensions/monorepo/**'
       - 'scripts/**'
       - 'ci-scripts/run-optional-deps-smoke.mjs'
       - '.github/workflows/optional-deps-matrix.yml'
@@ -17,6 +18,7 @@ on:
     paths:
       - 'programs/**'
       - 'extensions/browser-extension/**'
+      - 'extensions/monorepo/**'
       - 'scripts/**'
       - 'ci-scripts/run-optional-deps-smoke.mjs'
       - '.github/workflows/optional-deps-matrix.yml'
