@@ -203,6 +203,10 @@ export interface BuildOptions {
 export interface PreviewOptions extends BrowserOptionsBase {
   mode: 'production'
   outputPath?: string
+  /**
+   * Internal metadata command override used by start->preview delegation.
+   */
+  metadataCommand?: 'preview' | 'start'
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
