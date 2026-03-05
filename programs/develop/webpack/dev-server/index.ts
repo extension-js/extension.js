@@ -226,7 +226,13 @@ export async function devServer(
     console.log(messages.ready('development', devOptions.browser))
 
     if (devOptions.noBrowser) {
-      console.log(messages.browserRunnerDisabled())
+      console.log(
+        messages.browserRunnerDisabled({
+          browser: String(devOptions.browser || 'chromium'),
+          manifestPath,
+          readyPath: metadata.readyPath
+        })
+      )
     }
   } catch (error) {
     if (startTimeout) clearTimeout(startTimeout)
