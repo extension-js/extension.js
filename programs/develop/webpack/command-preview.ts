@@ -56,10 +56,12 @@ export async function extensionPreview(
     previewOptions.outputPath
   )
   const distPath = getDistPath(packageJsonDir, browser)
+  const metadataCommand =
+    previewOptions.metadataCommand === 'start' ? 'start' : 'preview'
   const metadata = createPlaywrightMetadataWriter({
     packageJsonDir,
     browser: String(browser),
-    command: 'preview',
+    command: metadataCommand,
     distPath,
     manifestPath: projectStructure.manifestPath,
     port:

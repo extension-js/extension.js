@@ -81,6 +81,7 @@ export async function extensionStart(
       ...commandConfig,
       ...startOptions,
       browser,
+      metadataCommand: 'start',
       geckoBinary:
         startOptions.geckoBinary ||
         startOptions.firefoxBinary ||
