@@ -127,7 +127,8 @@ async function waitForReadyContract(options: {
         }
         if (payload.status === 'ready') return payload
         if (payload.status === 'error') {
-          const detail = payload.message || payload.errors?.[0] || 'unknown error'
+          const detail =
+            payload.message || payload.errors?.[0] || 'unknown error'
           throw new Error(String(detail))
         }
       } catch (error) {
@@ -147,7 +148,9 @@ export async function runWaitMode(
   options: RunWaitModeOptions
 ): Promise<RunWaitModeResult> {
   if (isHttpUrl(options.pathOrRemoteUrl)) {
-    throw new Error('--wait requires a local project path (remote URLs are not supported)')
+    throw new Error(
+      '--wait requires a local project path (remote URLs are not supported)'
+    )
   }
 
   const projectPath = resolveProjectPath(options.pathOrRemoteUrl)
