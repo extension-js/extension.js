@@ -8,6 +8,7 @@
 
 import type {Command} from 'commander'
 import {createRequire} from 'module'
+import {runWaitMode} from './dev-wait'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
 import {
@@ -62,6 +63,9 @@ type DevOptions = {
   logTab?: string | number
   install?: boolean
   extensions?: string
+  wait?: boolean
+  waitTimeout?: string | number
+  waitFormat?: 'pretty' | 'json'
 }
 
 const require = createRequire(import.meta.url)
@@ -74,7 +78,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
     .description(commandDescriptions.dev)
     .addHelpText(
       'after',
-      '\nAdditional option:\n  --no-browser    do not launch the browser (dev server still starts)\n'
+      '\nAdditional options:\n  --no-browser    do not launch the browser (dev server still starts)\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
     )
     .option(
       '--profile <path-to-file | boolean>',
@@ -195,6 +199,19 @@ export function registerDevCommand(program: Command, telemetry: any) {
       parseOptionalBoolean
     )
     .option(
+      '--wait [boolean]',
+      'wait for dist/extension-js/<browser>/ready.json and exit',
+      parseOptionalBoolean
+    )
+    .option(
+      '--wait-timeout <ms>',
+      'timeout in milliseconds when using --wait (default: 60000)'
+    )
+    .option(
+      '--wait-format <pretty|json>',
+      'output format for --wait results (default: pretty)'
+    )
+    .option(
       '--author, --author-mode',
       '[internal] enable maintainer diagnostics (does not affect user runtime logs)'
     )
@@ -225,6 +242,37 @@ export function registerDevCommand(program: Command, telemetry: any) {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
+
+      if (devOptions.wait) {
+        const waitResult = await runWaitMode({
+          command: 'dev',
+          pathOrRemoteUrl,
+          browsers: list,
+          waitTimeout: devOptions.waitTimeout,
+          waitFormat: devOptions.waitFormat
+        })
+
+        if (waitResult.format === 'json') {
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify({
+              ok: true,
+              mode: 'wait',
+              command: 'dev',
+              browsers: waitResult.browsers,
+              results: waitResult.results
+            })
+          )
+        }
+
+        telemetry.track('cli_command_finish', {
+          command: 'dev',
+          duration_ms: Date.now() - cmdStart,
+          success: true,
+          exit_code: 0
+        })
+        return
+      }
 
       // Normalize source/watch behavior:
       // - If --source present without URL, fall back to startingUrl or https://example.com

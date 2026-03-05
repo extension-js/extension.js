@@ -9,6 +9,7 @@
 import type {Command} from 'commander'
 import {createRequire} from 'module'
 import * as messages from '../cli-lib/messages'
+import {runWaitMode} from './dev-wait'
 import {commandDescriptions} from '../cli-lib/messages'
 import {
   vendors,
@@ -66,6 +67,9 @@ type StartOptions = {
   logUrl?: string
   logTab?: string | number
   extensions?: string
+  wait?: boolean
+  waitTimeout?: string | number
+  waitFormat?: 'pretty' | 'json'
 }
 
 const require = createRequire(import.meta.url)
@@ -78,7 +82,7 @@ export function registerStartCommand(program: Command, telemetry: any) {
     .description(commandDescriptions.start)
     .addHelpText(
       'after',
-      '\nAdditional option:\n  --no-browser    do not launch the browser (build still runs)\n'
+      '\nAdditional options:\n  --no-browser    do not launch the browser (build still runs)\n  --wait          wait for ready contract and exit\n  --wait-format   pretty|json output for wait mode\n'
     )
     .option(
       '--profile <path-to-file | boolean>',
@@ -195,6 +199,19 @@ export function registerStartCommand(program: Command, telemetry: any) {
       parseOptionalBoolean
     )
     .option(
+      '--wait [boolean]',
+      'wait for dist/extension-js/<browser>/ready.json and exit',
+      parseOptionalBoolean
+    )
+    .option(
+      '--wait-timeout <ms>',
+      'timeout in milliseconds when using --wait (default: 60000)'
+    )
+    .option(
+      '--wait-format <pretty|json>',
+      'output format for --wait results (default: pretty)'
+    )
+    .option(
       '--author, --author-mode',
       '[experimental] enable maintainer diagnostics (does not affect user runtime logs)'
     )
@@ -240,6 +257,37 @@ export function registerStartCommand(program: Command, telemetry: any) {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
+
+      if (startOptions.wait) {
+        const waitResult = await runWaitMode({
+          command: 'start',
+          pathOrRemoteUrl,
+          browsers: list,
+          waitTimeout: startOptions.waitTimeout,
+          waitFormat: startOptions.waitFormat
+        })
+
+        if (waitResult.format === 'json') {
+          // eslint-disable-next-line no-console
+          console.log(
+            JSON.stringify({
+              ok: true,
+              mode: 'wait',
+              command: 'start',
+              browsers: waitResult.browsers,
+              results: waitResult.results
+            })
+          )
+        }
+
+        telemetry.track('cli_command_finish', {
+          command: 'start',
+          duration_ms: Date.now() - cmdStart,
+          success: true,
+          exit_code: 0
+        })
+        return
+      }
 
       const normalizedSource = normalizeSourceOption(
         startOptions.source,

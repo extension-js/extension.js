@@ -28,6 +28,7 @@ import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {WebExtensionPlugin} from './plugin-web-extension'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {BrowsersPlugin} from './plugin-browsers'
+import {PlaywrightPlugin} from './plugin-playwright'
 import {WasmPlugin} from './plugin-wasm'
 
 // Types
@@ -138,6 +139,19 @@ export default function webpackConfig(
       manifestPath
     })
   ]
+
+  if (devOptions.noBrowser) {
+    plugins.push(
+      new PlaywrightPlugin({
+        packageJsonDir,
+        browser: devOptions.browser,
+        mode: devOptions.mode,
+        outputPath: primaryExtensionOutputDir,
+        manifestPath,
+        port: devOptions.port
+      })
+    )
+  }
 
   if (!devOptions.noBrowser) {
     plugins.push(
