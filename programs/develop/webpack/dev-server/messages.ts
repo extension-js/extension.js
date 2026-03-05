@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import * as fs from 'fs'
 import colors from 'pintor'
 
 function getLoggingPrefix(type: 'warn' | 'info' | 'error' | 'success') {
@@ -34,8 +35,50 @@ export function ready(mode: 'development' | 'production', browser: string) {
   return `${getLoggingPrefix('info')} ${cap} ${extensionOutput} ${pretty}.`
 }
 
-export function browserRunnerDisabled() {
-  return `${getLoggingPrefix('info')} Browser launch disabled (no-browser).`
+function readJsonRecord(filePath: string): Record<string, unknown> | null {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as Record<
+      string,
+      unknown
+    >
+  } catch {
+    return null
+  }
+}
+
+function capitalizeToken(value: string): string {
+  return value
+    .split('-')
+    .filter(Boolean)
+    .map((token) => token.charAt(0).toUpperCase() + token.slice(1))
+    .join('-')
+}
+
+export function browserRunnerDisabled(args: {
+  browser: string
+  manifestPath: string
+  readyPath: string
+}) {
+  const manifest = readJsonRecord(args.manifestPath)
+  const ready = readJsonRecord(args.readyPath)
+  const browserLabel = capitalizeToken(String(args.browser || 'unknown'))
+  const runId = String(ready?.runId || '').trim()
+  const pid = Number.isInteger(ready?.pid) ? String(ready?.pid) : ''
+  const runLine = runId
+    ? ` · ${colors.gray('Run')} ${colors.gray(runId)}${pid ? ` · ${colors.gray(`pid ${pid}`)}` : ''}`
+    : ''
+  const extensionName = String(manifest?.name || 'Extension')
+  const extensionVersion = String(manifest?.version || '').trim()
+  const extensionLabel = extensionVersion
+    ? `${extensionName} ${extensionVersion}`
+    : extensionName
+
+  return [
+    ` 🧩 ${colors.brightBlue('Extension.js')}`,
+    `    Browser        ${colors.gray(browserLabel)}${runLine}`,
+    `    Extension      ${colors.gray(extensionLabel)}`,
+    `    Contract       ${colors.gray(args.readyPath)}`
+  ].join('\n')
 }
 
 export function portInUse(requestedPort: number, newPort: number) {
