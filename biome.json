@@ -22,8 +22,8 @@
       "!**/.cache/**",
       "!**/.turbo/**",
       "!**/.pnpm-store/**",
-      "!extensions/browser-extension/src/styles/**",
-      "!extensions/browser-extension/src/content_scripts/shared/content-index.css"
+      "!extensions/browser-extension/**",
+      "!extensions/monorepo/**"
     ]
   },
   "formatter": {
