@@ -191,7 +191,7 @@ function main() {
   }
 
   // Discover top-level extension packages (directories) under extensions/,
-  // excluding the folder named 'browser-extension'
+  // excluding the folder named 'browser-extension' and 'monorepo'
   function listExtensionPackages() {
     const extensionsRoot = path.join(root, 'extensions')
     try {
@@ -199,7 +199,7 @@ function main() {
       return entries
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
-        .filter((name) => name !== 'browser-extension')
+        .filter((name) => name !== 'browser-extension' && name !== 'monorepo')
     } catch {
       return []
     }
