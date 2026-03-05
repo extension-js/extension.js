@@ -47,6 +47,18 @@ vi.mock('../webpack-lib/dark-mode', () => ({
   }))
 }))
 
+const metadataWriter = vi.hoisted(() => ({
+  writeStarting: vi.fn(),
+  writeReady: vi.fn(),
+  writeError: vi.fn(),
+  appendEvent: vi.fn()
+}))
+const createAutomationMetadataWriter = vi.fn(() => metadataWriter)
+vi.mock('../plugin-playwright', () => ({
+  createPlaywrightMetadataWriter: (...args: any[]) =>
+    createAutomationMetadataWriter(...args)
+}))
+
 const runOnlyPreviewBrowser = vi.fn(async (..._args: any[]) => {})
 vi.mock('../plugin-browsers/run-only', () => ({
   runOnlyPreviewBrowser: (...args: any[]) => runOnlyPreviewBrowser(...args)
@@ -67,6 +79,11 @@ describe('webpack/command-preview (run-only)', () => {
     ;(fs.existsSync as any)?.mockReset?.()
     ;(resolveConfigMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
     ;(resolveDirsMod as any).resolveCompanionExtensionDirs?.mockClear?.()
+    metadataWriter.writeStarting.mockClear()
+    metadataWriter.writeReady.mockClear()
+    metadataWriter.writeError.mockClear()
+    metadataWriter.appendEvent.mockClear()
+    createAutomationMetadataWriter.mockClear()
   })
 
   afterEach(() => {
@@ -110,6 +127,10 @@ describe('webpack/command-preview (run-only)', () => {
     ).rejects.toThrow(/Preview is run-only and does not compile/)
 
     expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
+    expect(metadataWriter.writeError).toHaveBeenCalledWith(
+      'preview_manifest_missing',
+      expect.stringContaining('Expected manifest at')
+    )
   })
 
   it('skips browser launch when noBrowser is true', async () => {
@@ -125,6 +146,8 @@ describe('webpack/command-preview (run-only)', () => {
     } as any)
 
     expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
+    expect(metadataWriter.writeStarting).toHaveBeenCalledTimes(1)
+    expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
   })
 
   it('resolves companion extensions before scanning', async () => {
