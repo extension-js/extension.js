@@ -109,3 +109,5 @@ node_modules/
 extensions/staging/**
 _future/
 extensions/browser-extension/
+extensions/monorepo/
+
