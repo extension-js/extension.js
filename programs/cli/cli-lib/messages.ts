@@ -167,6 +167,7 @@ ${'Source Inspection (dev command)'}
   - When provided without a URL, falls back to ${arg('--starting-url')} or ${arg('https://example.com')}
   - For ${code('extension dev')}, watch mode is enabled by default when ${code('--source')} is present
 - ${arg('Note:')} ${code('extension preview')} and ${code('extension start')} do not run source inspection in run-only preview mode.
+- ${arg('Automation sync:')} when using ${code('extension dev --no-browser')} or ${code('extension start --no-browser')}, run ${code('extension <dev|start> --wait --browser=<browser>')} in a second process to gate on ${code('ready.json')} (add ${code('--wait-format=json')} for machine-readable output).
 - ${code('--watch-source')} ${arg('[boolean]')}       Re-print HTML on rebuilds or file changes
 - ${code('--source-format')} ${arg('<pretty|json|ndjson>')} Output format for page HTML (defaults to ${code('--log-format')} when present)
 - ${code('--source-summary')} ${arg('[boolean]')}     Output a compact summary instead of full HTML
@@ -361,6 +362,7 @@ ${'Source Inspection & Real-Time Monitoring'}
 - Useful for debugging content script behavior and style injection
 - Example: ${code('extension dev --source=' + arg('https://example.com'))}
 - ${arg('Note:')} ${code('preview/start')} run in run-only mode and do not perform source inspection.
+- For machine synchronization with ${code('--no-browser')}, use ${code('extension dev --wait --browser=<browser>')} or ${code('extension start --wait --browser=<browser>')} in a second process (use ${code('--wait-format=json')} when a parser consumes stdout).
 
 ${'Non-Destructive Testing in CI'}
 - Prefer ${code('EXTENSION_AUTHOR_MODE=development')} to copy local templates and avoid network.
@@ -520,6 +522,8 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       'extension --ai-help --format json',
       'extension dev ./my-ext --source https://example.com --source-format json',
       'extension dev ./my-ext --logs=info --log-format=json',
+      'extension dev ./my-ext --wait --browser=chromium --wait-format=json',
+      'extension start ./my-ext --wait --browser=chromium --wait-format=json',
       'extension install chromium',
       'extension install --where',
       'extension uninstall --where',

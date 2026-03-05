@@ -24,6 +24,7 @@ import {getSpecialFoldersDataForProjectRoot} from '../feature-special-folders/ge
 import {sanitize} from '../webpack-lib/sanitize'
 import {setupCompilerHooks} from './compiler-hooks'
 import {setupCleanupHandlers} from './cleanup'
+import {createPlaywrightMetadataWriter} from '../plugin-playwright'
 import webpackConfig from '../webpack-config'
 import type {DevOptions} from '../webpack-types'
 
@@ -132,6 +133,19 @@ export async function devServer(
   }
   const compiler = rspack(compilerConfig)
 
+  const metadata = createPlaywrightMetadataWriter({
+    packageJsonDir,
+    browser: String(devOptions.browser || 'chromium'),
+    command: 'dev',
+    distPath: path.join(
+      packageJsonDir,
+      'dist',
+      String(devOptions.browser || 'chromium')
+    ),
+    manifestPath,
+    port
+  })
+
   // Surface bundler diagnostics during startup (even if start() hangs)
   setupCompilerHooks(compiler, portAllocation.port)
 
@@ -216,6 +230,11 @@ export async function devServer(
     }
   } catch (error) {
     if (startTimeout) clearTimeout(startTimeout)
+
+    metadata.writeError(
+      'dev_server_start_failed',
+      error instanceof Error ? error.message : String(error)
+    )
 
     console.log(messages.extensionJsRunnerError(error))
     process.exit(1)

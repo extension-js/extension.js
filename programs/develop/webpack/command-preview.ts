@@ -18,6 +18,7 @@ import {
   normalizeBrowser,
   getDistPath
 } from './webpack-lib/paths'
+import {createPlaywrightMetadataWriter} from './plugin-playwright'
 import {sanitize} from './webpack-lib/sanitize'
 import type {BrowserConfig, PreviewOptions} from './webpack-types'
 import {resolveCompanionExtensionsConfig} from './feature-special-folders/folder-extensions/resolve-config'
@@ -55,6 +56,21 @@ export async function extensionPreview(
     previewOptions.outputPath
   )
   const distPath = getDistPath(packageJsonDir, browser)
+  const metadata = createPlaywrightMetadataWriter({
+    packageJsonDir,
+    browser: String(browser),
+    command: 'preview',
+    distPath,
+    manifestPath: projectStructure.manifestPath,
+    port:
+      typeof previewOptions.port === 'number'
+        ? previewOptions.port
+        : typeof previewOptions.port === 'string'
+          ? parseInt(previewOptions.port, 10)
+          : null
+  })
+
+  metadata.writeStarting()
 
   if (debug) {
     console.log(messages.debugDirs(manifestDir, packageJsonDir))
@@ -72,6 +88,11 @@ export async function extensionPreview(
   // If dist/<browser> doesn't exist, computePreviewOutputPath falls back to manifestDir.
   const manifestAtOutput = path.join(outputPath, 'manifest.json')
   if (!fs.existsSync(manifestAtOutput)) {
+    metadata.writeError(
+      'preview_manifest_missing',
+      `Expected manifest at ${manifestAtOutput}`
+    )
+
     throw new Error(
       `Preview is run-only and does not compile.\n` +
         `Expected an unpacked extension at:\n` +
@@ -88,6 +109,7 @@ export async function extensionPreview(
 
   if (previewOptions.noBrowser) {
     console.log(messages.previewSkippedNoBrowser(browser))
+    metadata.writeReady()
     return
   }
 
@@ -181,4 +203,6 @@ export async function extensionPreview(
     port: merged.port,
     dryRun: merged.dryRun
   })
+
+  metadata.writeReady()
 }
