@@ -209,5 +209,4 @@ describe('dev --wait contract', () => {
     expect(result.code).toBe(0)
     rmSync(projectDir, {recursive: true, force: true})
   })
-
 })
