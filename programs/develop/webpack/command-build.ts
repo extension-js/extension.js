@@ -164,6 +164,7 @@ export async function extensionBuild(
         if (!stats.hasErrors()) {
           // Anonymized aggregates (no filenames or paths)
           const info = stats?.toJson({
+            all: false,
             assets: true,
             warnings: true,
             errors: true
@@ -171,7 +172,16 @@ export async function extensionBuild(
 
           summary = getBuildSummary(browser, info)
 
-          console.log(messages.buildSuccess())
+          if (summary.warnings_count > 0) {
+            console.log(messages.buildSuccessWithWarnings(summary.warnings_count))
+            const warningDetails = messages.buildWarningsDetails(info?.warnings || [])
+
+            if (warningDetails) {
+              console.log(`\n${warningDetails}`)
+            }
+          } else {
+            console.log(messages.buildSuccess())
+          }
           resolve()
         } else {
           // Print sanitized bundler output using stats.toString
