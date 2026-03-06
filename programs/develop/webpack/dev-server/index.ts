@@ -223,6 +223,7 @@ export async function devServer(
 
     if (startTimeout) clearTimeout(startTimeout)
 
+    console.log(messages.spacerLine())
     console.log(messages.ready('development', devOptions.browser))
 
     if (devOptions.noBrowser) {
@@ -234,6 +235,7 @@ export async function devServer(
         })
       )
     }
+    console.log(messages.spacerLine())
   } catch (error) {
     if (startTimeout) clearTimeout(startTimeout)
 
