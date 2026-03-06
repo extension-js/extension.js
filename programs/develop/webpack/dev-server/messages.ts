@@ -195,3 +195,8 @@ export function devServerConfig(
 export function devServerWsSummary(connections: number) {
   return `${getLoggingPrefix('info')} DevServer: WS connections ${colors.underline(String(connections))}`
 }
+
+export function spacerLine() {
+  // Turbo-prefixed logs can collapse truly empty lines; keep one space.
+  return ' '
+}
