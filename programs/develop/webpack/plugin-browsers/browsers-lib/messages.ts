@@ -1107,7 +1107,8 @@ export function runningInDevelopment(
 }
 
 export function emptyLine() {
-  return ''
+  // Turbo-prefixed logs can collapse truly empty lines; keep one space.
+  return ' '
 }
 
 export function separatorLine() {
