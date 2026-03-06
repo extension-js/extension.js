@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Improve build warning summaries and remove contradictory success output (ba9e0ee1)
-- chore(release): move changelog to v3.8.12 (db8f2ec7)
+- Fix regression on optional deps install on Windows (4f7a8c42)
+- chore(release): move changelog to v3.8.13 (9cccf7e9)
 
 ## 3.8.2
 
