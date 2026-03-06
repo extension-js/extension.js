@@ -67,6 +67,7 @@ type WslContext = {
 type ExecInstallOptions = {
   cwd?: string
   fallbackNpmCommand?: InstallCommand
+  allowFallbackOnFailure?: boolean
 }
 
 async function preferCorepackFallback(
@@ -106,6 +107,11 @@ function isMissingManagerError(error: unknown) {
     String(err?.message || '').includes('ENOENT') ||
     String(err?.message || '').includes('not found')
   )
+}
+
+function isInstallExitFailure(error: unknown) {
+  const message = String((error as Error)?.message || error || '')
+  return /Install failed with exit code \d+/.test(message)
 }
 
 function parseWslUncPath(value: string): {distro: string; path: string} | null {
@@ -159,7 +165,11 @@ async function execInstallWithFallback(
     })
     return
   } catch (error) {
-    if (options.fallbackNpmCommand && isMissingManagerError(error)) {
+    if (
+      options.fallbackNpmCommand &&
+      (isMissingManagerError(error) ||
+        (options.allowFallbackOnFailure && isInstallExitFailure(error)))
+    ) {
       await execInstallCommand(
         options.fallbackNpmCommand.command,
         options.fallbackNpmCommand.args,
@@ -353,7 +363,11 @@ export async function installOptionalDependencies(
 
       await execInstallWithFallback(execCommand, {
         cwd: wslContext.useWsl ? undefined : installBaseDir,
-        fallbackNpmCommand
+        fallbackNpmCommand,
+        allowFallbackOnFailure:
+          !wslContext.useWsl &&
+          pm.name !== 'npm' &&
+          fallbackNpmCommand !== undefined
       })
     }
 
@@ -376,7 +390,11 @@ export async function installOptionalDependencies(
           ])
       await execInstallWithFallback(rootCommand, {
         cwd: wslContext.useWsl ? undefined : installBaseDir,
-        fallbackNpmCommand: rootFallbackCommand
+        fallbackNpmCommand: rootFallbackCommand,
+        allowFallbackOnFailure:
+          !wslContext.useWsl &&
+          pm.name !== 'npm' &&
+          rootFallbackCommand !== undefined
       })
       console.log(messages.optionalToolingReady(integration))
     }
