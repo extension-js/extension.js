@@ -2,6 +2,14 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as path from 'path'
 
 const originalResolve = (require as any).resolve
+const originalPlatform = process.platform
+
+const setPlatform = (value: NodeJS.Platform) => {
+  Object.defineProperty(process, 'platform', {
+    value,
+    configurable: true
+  })
+}
 
 const createSpawn = (
   options: {exitCode?: number; error?: NodeJS.ErrnoException} = {}
@@ -63,6 +71,7 @@ describe('css-lib integrations', () => {
 
   afterEach(() => {
     ;(require as any).resolve = originalResolve
+    setPlatform(originalPlatform)
   })
 
   it('installs optional tooling into extension-develop root', async () => {
@@ -185,6 +194,74 @@ describe('css-lib integrations', () => {
     const fallbackCall = spawn.mock.calls[1]
     expect(fallbackCall?.[0]).toBe(process.execPath)
     expect(fallbackCall?.[1]?.[0]).toBe('/tmp/npm-cli.js')
+  })
+
+  it('falls back to npm cli when manager exits with non-zero code', async () => {
+    await mockDevelopRoot(['/tmp/npm-cli.js'])
+    process.env.EXTENSION_JS_PACKAGE_MANAGER = 'pnpm'
+    process.env.EXTENSION_JS_PM_EXEC_PATH = '/tmp/npm-cli.js'
+
+    const {spawn} = (await import('child_process')) as any
+    spawn.mockImplementationOnce(() => createSpawn({exitCode: 1}))
+
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
+
+    await installOptionalDependencies('React', ['react-refresh'])
+
+    expect(spawn).toHaveBeenCalledTimes(2)
+    const fallbackCall = spawn.mock.calls[1]
+    expect(fallbackCall?.[0]).toBe(process.execPath)
+    expect(fallbackCall?.[1]?.[0]).toBe('/tmp/npm-cli.js')
+  })
+
+  it('falls back to npm cli on Windows when manager exits with non-zero code', async () => {
+    setPlatform('win32')
+    await mockDevelopRoot(['/tmp/npm-cli.js'])
+    process.env.EXTENSION_JS_PACKAGE_MANAGER = 'pnpm'
+    process.env.EXTENSION_JS_PM_EXEC_PATH = '/tmp/npm-cli.js'
+
+    const {spawn} = (await import('child_process')) as any
+    spawn.mockImplementationOnce(() => createSpawn({exitCode: 1}))
+
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
+
+    await installOptionalDependencies('React', ['react-refresh'])
+
+    expect(spawn).toHaveBeenCalledTimes(2)
+    const fallbackCall = spawn.mock.calls[1]
+    expect(fallbackCall?.[0]).toBe(process.execPath)
+    const fallbackArgs = Array.isArray(fallbackCall?.[1]) ? fallbackCall[1] : []
+    expect(fallbackArgs[0]).toBe('/tmp/npm-cli.js')
+    expect(fallbackArgs.join(' ')).toContain('install')
+    expect(fallbackArgs.join(' ')).toContain('--save-optional')
+  })
+
+  it('does not fallback on Windows when primary manager is npm', async () => {
+    setPlatform('win32')
+    await mockDevelopRoot(['/tmp/npm-cli.js'])
+    process.env.npm_config_user_agent = 'npm'
+    process.env.EXTENSION_JS_PM_EXEC_PATH = '/tmp/npm-cli.js'
+
+    const {spawn} = (await import('child_process')) as any
+    spawn.mockImplementationOnce(() => createSpawn({exitCode: 1}))
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    expect(spawn).toHaveBeenCalledTimes(1)
+    const combinedErrors = errorSpy.mock.calls
+      .map((call) => String(call?.[0] || ''))
+      .join('\n')
+    expect(combinedErrors).toContain('Failed to install dependencies')
+    errorSpy.mockRestore()
   })
 
   it('uses EXTENSION_JS_PACKAGE_MANAGER override when provided', async () => {
