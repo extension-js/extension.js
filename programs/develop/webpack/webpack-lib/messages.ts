@@ -224,9 +224,179 @@ export function buildWebpack(
 export function buildSuccess() {
   return `${getLoggingPrefix(
     'success'
-  )} No errors or warnings found. Your extension is ${colors.green(
+  )} Build succeeded with no warnings. Your extension is ${colors.green(
     'ready for deployment'
   )}.`
+}
+
+type BuildWarningCategory =
+  | 'Performance'
+  | 'Deprecation'
+  | 'Configuration'
+  | 'Compatibility'
+  | 'Runtime-risk'
+  | 'Warning'
+
+function getWarningMessage(warning: any): string {
+  if (!warning) return ''
+  if (typeof warning === 'string') return warning.trim()
+
+  const candidates = [
+    warning.message,
+    warning.details,
+    warning.reason,
+    warning.description
+  ]
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim()
+    }
+  }
+
+  return ''
+}
+
+function getWarningSource(warning: any): string {
+  if (!warning || typeof warning === 'string') return 'bundler'
+
+  const candidates = [
+    warning.name,
+    warning.moduleName,
+    warning.moduleIdentifier,
+    warning.originName,
+    warning.pluginName
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim()
+    }
+  }
+
+  return 'bundler'
+}
+
+function getWarningArtifact(warning: any): string {
+  if (!warning || typeof warning === 'string') return ''
+
+  const candidates = [warning.file, warning.chunkName, warning.moduleName]
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim()
+    }
+  }
+
+  return ''
+}
+
+function classifyWarning(message: string, source: string): BuildWarningCategory {
+  const haystack = `${message} ${source}`.toLowerCase()
+
+  if (
+    haystack.includes('performance') ||
+    haystack.includes('asset size') ||
+    haystack.includes('entrypoint size') ||
+    haystack.includes('exceeds the recommended size') ||
+    haystack.includes('hints')
+  ) {
+    return 'Performance'
+  }
+
+  if (
+    haystack.includes('deprecat') ||
+    haystack.includes('[dep_') ||
+    haystack.includes('legacy')
+  ) {
+    return 'Deprecation'
+  }
+
+  if (
+    haystack.includes('invalid') ||
+    haystack.includes('unknown option') ||
+    haystack.includes('configuration') ||
+    haystack.includes('schema')
+  ) {
+    return 'Configuration'
+  }
+
+  if (
+    haystack.includes('manifest') ||
+    haystack.includes('browser') ||
+    haystack.includes('target')
+  ) {
+    return 'Compatibility'
+  }
+
+  if (
+    haystack.includes('runtime') ||
+    haystack.includes('will fail') ||
+    haystack.includes('cannot resolve') ||
+    haystack.includes('service_worker')
+  ) {
+    return 'Runtime-risk'
+  }
+
+  return 'Warning'
+}
+
+function suggestedActionForWarning(category: BuildWarningCategory): string {
+  if (category === 'Performance') {
+    return 'Split optional features and lazy-load heavy paths. Tune thresholds only if large assets are intentional.'
+  }
+  if (category === 'Deprecation') {
+    return 'Move to the supported API/plugin path to avoid breakage in future updates.'
+  }
+  if (category === 'Configuration') {
+    return 'Review extension and bundler config keys, then remove or rename invalid options.'
+  }
+  if (category === 'Compatibility') {
+    return 'Verify browser target and manifest compatibility for this build.'
+  }
+  if (category === 'Runtime-risk') {
+    return 'Address this warning before release; it may fail or degrade at runtime.'
+  }
+  return 'Re-run with verbose output to inspect warning details and apply targeted fixes.'
+}
+
+export function buildSuccessWithWarnings(warningCount: number) {
+  return `${getLoggingPrefix(
+    'warn'
+  )} Build succeeded with ${warningCount} warning(s). Your extension is ${colors.green(
+    'ready for deployment'
+  )}.`
+}
+
+export function buildWarningsDetails(warnings: any[]): string {
+  if (!Array.isArray(warnings) || warnings.length === 0) return ''
+
+  const lines: string[] = []
+
+  warnings.forEach((warning, index) => {
+    const message = getWarningMessage(warning)
+    const source = getWarningSource(warning)
+    const artifact = getWarningArtifact(warning)
+    const category = classifyWarning(message, source)
+    const action = suggestedActionForWarning(category)
+
+    if (!message) {
+      lines.push(
+        `- Warning ${index + 1}: details were suppressed by tool output.`,
+        `  Source: ${source}`,
+        `  Action: Re-run with EXTENSION_VERBOSE=1 to inspect full warning messages.`
+      )
+      return
+    }
+
+    const oneLine = message.replace(/\s+/g, ' ').trim()
+    const artifactSuffix = artifact ? ` (${artifact})` : ''
+    lines.push(
+      `- ${category}: ${oneLine}${artifactSuffix}`,
+      `  Source: ${source}`,
+      `  Action: ${action}`
+    )
+  })
+
+  return lines.join('\n')
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
