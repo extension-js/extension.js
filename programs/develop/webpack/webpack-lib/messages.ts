@@ -289,7 +289,10 @@ function getWarningArtifact(warning: any): string {
   return ''
 }
 
-function classifyWarning(message: string, source: string): BuildWarningCategory {
+function classifyWarning(
+  message: string,
+  source: string
+): BuildWarningCategory {
   const haystack = `${message} ${source}`.toLowerCase()
 
   if (
