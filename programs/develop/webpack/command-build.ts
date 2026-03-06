@@ -173,8 +173,12 @@ export async function extensionBuild(
           summary = getBuildSummary(browser, info)
 
           if (summary.warnings_count > 0) {
-            console.log(messages.buildSuccessWithWarnings(summary.warnings_count))
-            const warningDetails = messages.buildWarningsDetails(info?.warnings || [])
+            console.log(
+              messages.buildSuccessWithWarnings(summary.warnings_count)
+            )
+            const warningDetails = messages.buildWarningsDetails(
+              info?.warnings || []
+            )
 
             if (warningDetails) {
               console.log(`\n${warningDetails}`)
