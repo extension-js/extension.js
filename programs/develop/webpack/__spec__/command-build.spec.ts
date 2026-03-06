@@ -171,6 +171,72 @@ describe('webpack/command-build', () => {
     expect(rspackMock).toHaveBeenCalledTimes(1)
   })
 
+  it('prints branded success message when there are no warnings', async () => {
+    const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    const stats = {
+      hasErrors: () => false,
+      toJson: () => ({
+        assets: [{name: 'a.js', size: 10}],
+        warnings: [],
+        errors: []
+      })
+    }
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    await extensionBuild('/proj', {
+      browser: 'chrome',
+      silent: true
+    })
+
+    const printed = localLogSpy.mock.calls.map((call) => String(call[0] || ''))
+    expect(
+      printed.some((line) => line.includes('Build succeeded with no warnings'))
+    ).toBe(true)
+  })
+
+  it('prints warning summary and warning details when warnings are present', async () => {
+    const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    const stats = {
+      hasErrors: () => false,
+      toJson: () => ({
+        assets: [{name: 'background/service_worker.js', size: 1000}],
+        warnings: [
+          {
+            message:
+              'asset size limit: background/service_worker.js exceeds the recommended size limit',
+            pluginName: 'rspack/performance-hints',
+            file: 'background/service_worker.js'
+          }
+        ],
+        errors: []
+      })
+    }
+    rspackMock.mockReturnValue(makeCompiler(stats))
+
+    const summary = await extensionBuild('/proj', {
+      browser: 'chrome',
+      silent: true
+    })
+    expect(summary.warnings_count).toBe(1)
+
+    const printed = localLogSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(printed).toContain('Build succeeded with 1 warning(s)')
+    expect(printed).toContain('- Performance:')
+    expect(printed).toContain('Action:')
+  })
+
   it('ensures dependencies before running the build', async () => {
     const nodeModules = path.join('/proj', 'node_modules')
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
