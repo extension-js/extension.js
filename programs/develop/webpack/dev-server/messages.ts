@@ -54,6 +54,20 @@ function capitalizeToken(value: string): string {
     .join('-')
 }
 
+function getExtensionVersion(): string {
+  return (
+    process.env.EXTENSION_DEVELOP_VERSION ||
+    process.env.EXTENSION_CLI_VERSION ||
+    (() => {
+      try {
+        return require('../../package.json').version
+      } catch {
+        return 'unknown'
+      }
+    })()
+  )
+}
+
 export function browserRunnerDisabled(args: {
   browser: string
   manifestPath: string
@@ -64,20 +78,23 @@ export function browserRunnerDisabled(args: {
   const browserLabel = capitalizeToken(String(args.browser || 'unknown'))
   const runId = String(ready?.runId || '').trim()
   const pid = Number.isInteger(ready?.pid) ? String(ready?.pid) : ''
-  const runLine = runId
-    ? ` · ${colors.gray('Run')} ${colors.gray(runId)}${pid ? ` · ${colors.gray(`pid ${pid}`)}` : ''}`
-    : ''
+  const runLabel = runId
+    ? `${colors.gray(runId)}${pid ? ` · ${colors.gray(`PID ${pid}`)}` : ''}`
+    : pid
+      ? colors.gray(`PID ${pid}`)
+      : colors.gray('n/a')
   const extensionName = String(manifest?.name || 'Extension')
   const extensionVersion = String(manifest?.version || '').trim()
   const extensionLabel = extensionVersion
     ? `${extensionName} ${extensionVersion}`
     : extensionName
+  const extensionJsVersion = getExtensionVersion()
 
   return [
-    ` 🧩 ${colors.brightBlue('Extension.js')}`,
-    `    Browser        ${colors.gray(browserLabel)}${runLine}`,
+    ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(extensionJsVersion)}`,
+    `    Browser        ${colors.gray(`${browserLabel} (build-only mode)`)}`,
     `    Extension      ${colors.gray(extensionLabel)}`,
-    `    Contract       ${colors.gray(args.readyPath)}`
+    `    Run ID         ${runLabel}`
   ].join('\n')
 }
 
