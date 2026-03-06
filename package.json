@@ -11,7 +11,8 @@
   "pnpm": {
     "overrides": {
       "serialize-javascript": "^7.0.3",
-      "rollup": "^4.59.0"
+      "rollup": "^4.59.0",
+      "immutable": "^5.1.5"
     }
   },
   "scripts": {
