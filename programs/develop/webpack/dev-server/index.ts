@@ -108,7 +108,7 @@ export async function devServer(
   })
 
   // Get webpack config defaults from extension.config.js
-  const customWebpackConfig = await loadCustomWebpackConfig(manifestDir)
+  const customWebpackConfig = await loadCustomWebpackConfig(packageJsonDir)
   const finalConfig = customWebpackConfig(baseConfig)
 
   // Use merge to combine the base config with the custom config.

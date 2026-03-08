@@ -35,16 +35,15 @@ export async function extensionPreview(
 ) {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const debug = process.env.EXTENSION_AUTHOR_MODE === 'true'
+  const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
   // Guard: only error if user references managed deps in extension.config.js
   if (projectStructure.packageJsonPath) {
     assertNoManagedDependencyConflicts(
       projectStructure.packageJsonPath,
-      path.dirname(projectStructure.manifestPath)
+      packageJsonDir
     )
   }
-
-  const {manifestDir, packageJsonDir} = getDirs(projectStructure)
   const browser = normalizeBrowser(
     previewOptions.browser || 'chrome',
     previewOptions.chromiumBinary,
