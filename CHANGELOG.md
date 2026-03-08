@@ -2,8 +2,10 @@
 
 ## Unreleased
 
-- Fix regression on optional deps install on Windows (4f7a8c42)
-- chore(release): move changelog to v3.8.13 (9cccf7e9)
+- Preserve webpackIgnore comments in production builds (b734cb2a)
+- Fix extension.config root resolution with src manifests (a8384bf8)
+- Preserve CLI spacer lines in Turbo-prefixed output (39c90c2b)
+- chore(release): move changelog to v3.8.14 (ada44b92)
 
 ## 3.8.2
 
