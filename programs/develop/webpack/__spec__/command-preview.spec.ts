@@ -70,6 +70,8 @@ import {extensionPreview} from '../command-preview'
 import * as resolveConfigMod from '../feature-special-folders/folder-extensions/resolve-config'
 import * as resolveDirsMod from '../feature-special-folders/folder-extensions/resolve-dirs'
 import * as extensionsToLoadMod from '../webpack-lib/extensions-to-load'
+import * as projectMod from '../webpack-lib/project'
+import * as validateDepsMod from '../webpack-lib/validate-user-dependencies'
 
 describe('webpack/command-preview (run-only)', () => {
   beforeEach(() => {
@@ -79,6 +81,7 @@ describe('webpack/command-preview (run-only)', () => {
     ;(fs.existsSync as any)?.mockReset?.()
     ;(resolveConfigMod as any).resolveCompanionExtensionsConfig?.mockClear?.()
     ;(resolveDirsMod as any).resolveCompanionExtensionDirs?.mockClear?.()
+    ;(validateDepsMod as any).assertNoManagedDependencyConflicts?.mockClear?.()
     metadataWriter.writeStarting.mockClear()
     metadataWriter.writeReady.mockClear()
     metadataWriter.writeError.mockClear()
@@ -212,5 +215,23 @@ describe('webpack/command-preview (run-only)', () => {
         ]
       })
     )
+  })
+
+  it('checks managed dependency conflicts using package root when manifest is in src', async () => {
+    ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+      manifestPath: '/proj/src/manifest.json',
+      packageJsonPath: '/proj/package.json'
+    })
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview('/proj', {browser: 'chrome'} as any)
+
+    expect(
+      validateDepsMod.assertNoManagedDependencyConflicts
+    ).toHaveBeenCalledWith('/proj/package.json', '/proj')
   })
 })
