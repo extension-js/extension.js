@@ -155,7 +155,7 @@ describe('JsFrameworksPlugin', () => {
     )
   })
 
-  it('defers configuration to beforeRun in production', async () => {
+  it('defers configuration to beforeRun in production and keeps SWC minify off', async () => {
     const compiler = createCompiler('production')
     const plugin = new JsFrameworksPlugin({
       manifestPath: '/project/manifest.json',
@@ -170,7 +170,9 @@ describe('JsFrameworksPlugin', () => {
 
     // Now the SWC rule should be present
     const swcRule = compiler.options.module.rules[0]
-    expect(swcRule?.use?.options?.minify).toBe(true)
+    // Regression: keep SWC minify disabled in production so magic comments
+    // (e.g. webpackIgnore/rspackIgnore) are preserved for bundler parsing.
+    expect(swcRule?.use?.options?.minify).toBe(false)
   })
 
   it('enables SWC sourcemaps in production when devtool is enabled', async () => {

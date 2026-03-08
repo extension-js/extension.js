@@ -227,7 +227,10 @@ export class JsFrameworksPlugin {
             module: {
               type: 'es6'
             },
-            minify: mode === 'production',
+            // Keep SWC in transform-only mode. Production minification is handled
+            // by Rspack optimization, and disabling SWC minify preserves magic
+            // comments like /* webpackIgnore: true */ for native dynamic imports
+            minify: false,
             isModule: true,
             sourceMap: wantsSourceMaps,
             env: {targets},
