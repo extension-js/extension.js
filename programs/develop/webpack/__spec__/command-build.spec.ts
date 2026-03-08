@@ -13,7 +13,7 @@ vi.mock('fs', async () => {
 // Mocks for modules the SUT uses
 vi.mock('../webpack-lib/project', () => ({
   getProjectStructure: vi.fn(async () => ({
-    manifestPath: '/proj/manifest.json',
+    manifestPath: '/proj/src/manifest.json',
     packageJsonPath: '/proj/package.json'
   }))
 }))
@@ -169,6 +169,13 @@ describe('webpack/command-build', () => {
 
     // rspack called with merged config
     expect(rspackMock).toHaveBeenCalledTimes(1)
+    expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
+      '/proj',
+      'build'
+    )
+    expect(configLoaderMod.loadCustomWebpackConfig).toHaveBeenCalledWith(
+      '/proj'
+    )
   })
 
   it('prints branded success message when there are no warnings', async () => {
