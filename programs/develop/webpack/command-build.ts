@@ -79,7 +79,7 @@ export async function extensionBuild(
       )
     }
 
-    const commandConfig = await loadCommandConfig(manifestDir, 'build')
+    const commandConfig = await loadCommandConfig(packageJsonDir, 'build')
     const specialFoldersData =
       getSpecialFoldersDataForProjectRoot(packageJsonDir)
 
@@ -122,7 +122,7 @@ export async function extensionBuild(
       return plugin?.constructor.name !== 'plugin-browsers'
     })
 
-    const userExtensionConfig = await loadCustomWebpackConfig(manifestDir)
+    const userExtensionConfig = await loadCustomWebpackConfig(packageJsonDir)
     const userConfig = userExtensionConfig({
       ...baseConfig,
       plugins: allPluginsButBrowserRunners
