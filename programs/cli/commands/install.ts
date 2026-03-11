@@ -10,6 +10,7 @@ import type {Command} from 'commander'
 import path from 'node:path'
 import {commandDescriptions} from '../cli-lib/messages'
 import * as messages from '../cli-lib/messages'
+import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {type Browser, validateVendorsOrExit, vendors} from '../utils'
 
 type InstallOptions = {
@@ -97,14 +98,27 @@ export function registerInstallCommand(program: Command, telemetry: any) {
         | Browser
         | 'all'
       const browserList = vendors(selectedBrowser)
+      const workflowProfile = collectWorkflowProfile({
+        command: 'install',
+        isMultiBrowser: browserList.length > 1,
+        whereMode: Boolean(options.where)
+      })
+
       validateVendorsOrExit(browserList, (invalid, supported) => {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
       })
+      telemetry.track('workflow_profile', {
+        command: 'install',
+        ...workflowProfile
+      })
       telemetry.track('cli_command_start', {
         command: 'install',
         vendors: browserList,
-        where: Boolean(options.where)
+        browser_count: browserList.length,
+        is_multi_browser: browserList.length > 1,
+        where: Boolean(options.where),
+        ...workflowProfile
       })
 
       try {
@@ -130,14 +144,16 @@ export function registerInstallCommand(program: Command, telemetry: any) {
           command: 'install',
           duration_ms: Date.now() - startedAt,
           success: true,
-          exit_code: 0
+          exit_code: 0,
+          ...workflowProfile
         })
       } catch (err) {
         telemetry.track('cli_command_finish', {
           command: 'install',
           duration_ms: Date.now() - startedAt,
           success: false,
-          exit_code: 1
+          exit_code: 1,
+          ...workflowProfile
         })
         throw err
       }
@@ -157,11 +173,21 @@ export function registerInstallCommand(program: Command, telemetry: any) {
     ) {
       const startedAt = Date.now()
       const target = browserArg || browser
+      const workflowProfile = collectWorkflowProfile({
+        command: 'uninstall',
+        whereMode: Boolean(where)
+      })
+
+      telemetry.track('workflow_profile', {
+        command: 'uninstall',
+        ...workflowProfile
+      })
       telemetry.track('cli_command_start', {
         command: 'uninstall',
         browser: target,
         all: Boolean(all),
-        where: Boolean(where)
+        where: Boolean(where),
+        ...workflowProfile
       })
 
       try {
@@ -199,14 +225,16 @@ export function registerInstallCommand(program: Command, telemetry: any) {
           command: 'uninstall',
           duration_ms: Date.now() - startedAt,
           success: true,
-          exit_code: 0
+          exit_code: 0,
+          ...workflowProfile
         })
       } catch (err) {
         telemetry.track('cli_command_finish', {
           command: 'uninstall',
           duration_ms: Date.now() - startedAt,
           success: false,
-          exit_code: 1
+          exit_code: 1,
+          ...workflowProfile
         })
         throw err
       }
