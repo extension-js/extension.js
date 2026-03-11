@@ -7,8 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
 import * as path from 'path'
+import * as fs from 'fs'
 import {getDirs} from './paths'
-import {resolveDevelopInstallRoot} from '../plugin-css/css-lib/integrations'
+import {
+  resolveDevelopInstallRoot,
+  resolveOptionalInstallRoot
+} from '../plugin-css/css-lib/integrations'
 import colors from 'pintor'
 import {hasPreflightMarker, writePreflightMarker} from './preflight-cache'
 import type {ProjectStructure} from './project'
@@ -25,12 +29,20 @@ import {isUsingPostCss} from '../plugin-css/css-tools/postcss'
 import * as messages from '../plugin-js-frameworks/js-frameworks-lib/messages'
 
 function getResolutionPaths(projectPath?: string) {
+  const optionalInstallRoot = resolveOptionalInstallRoot()
   const extensionRoot = resolveDevelopInstallRoot()
   const paths = [
     projectPath || undefined,
+    optionalInstallRoot && fs.existsSync(optionalInstallRoot)
+      ? optionalInstallRoot
+      : undefined,
     extensionRoot || undefined,
     process.cwd()
   ].filter(Boolean) as string[]
+
+  if (optionalInstallRoot && optionalInstallRoot.includes('.pnpm')) {
+    paths.push(path.join(optionalInstallRoot, '..', '..'))
+  }
 
   // In pnpm dlx, optional deps live in extension-develop's sibling node_modules
   if (extensionRoot && extensionRoot.includes('.pnpm')) {
