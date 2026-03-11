@@ -254,7 +254,9 @@ export class ChromiumHardReloadPlugin {
       const developerModeStatus =
         typeof (ctrl as {getDeveloperModeStatus?: () => string})
           .getDeveloperModeStatus === 'function'
-          ? (ctrl as {getDeveloperModeStatus: () => string}).getDeveloperModeStatus()
+          ? (
+              ctrl as {getDeveloperModeStatus: () => string}
+            ).getDeveloperModeStatus()
           : 'unknown'
 
       if (developerModeStatus === 'disabled') {
