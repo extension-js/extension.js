@@ -11,6 +11,8 @@ import {createRequire} from 'module'
 import {runWaitMode} from './dev-wait'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
+import {collectProjectProfile} from '../cli-lib/project-profile'
+import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {
   vendors,
   validateVendorsOrExit,
@@ -225,19 +227,60 @@ export function registerDevCommand(program: Command, telemetry: any) {
       }
 
       const cmdStart = Date.now()
+      const list = vendors(browser)
+      const isRemoteInput =
+        typeof pathOrRemoteUrl === 'string' && /^https?:/i.test(pathOrRemoteUrl)
+      const projectProfile = collectProjectProfile(
+        !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
+      )
+      const workflowProfile = collectWorkflowProfile({
+        command: 'dev',
+        isMultiBrowser: list.length > 1,
+        isRemoteInput: isRemoteInput,
+        isWaitMode: Boolean(devOptions.wait),
+        isNoBrowserMode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
+        usesMachineReadableOutput:
+          devOptions.waitFormat === 'json' ||
+          devOptions.logFormat === 'json' ||
+          devOptions.logFormat === 'ndjson' ||
+          devOptions.sourceFormat === 'json' ||
+          devOptions.sourceFormat === 'ndjson',
+        sourceInspectionRequested: Boolean(
+          devOptions.source || devOptions.watchSource
+        ),
+        companionExtensionsProvided: Boolean(devOptions.extensions),
+        packageManager: projectProfile?.package_manager,
+        frameworkPrimary: projectProfile?.framework_primary,
+        hasNextDependency: projectProfile?.has_next_dependency,
+        hasTurboDependency: projectProfile?.has_turbo_dependency
+      })
+
+      telemetry.track('workflow_profile', {
+        command: 'dev',
+        ...workflowProfile
+      })
       telemetry.track('cli_command_start', {
         command: 'dev',
-        vendors: vendors(browser),
+        vendors: list,
+        browser_count: list.length,
+        is_multi_browser: list.length > 1,
+        is_remote_input: isRemoteInput,
+        is_wait_mode: Boolean(devOptions.wait),
+        is_no_browser_mode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
         polyfill_used:
           devOptions.polyfill?.toString() === 'false' ? false : true,
+        source_inspection_requested: Boolean(
+          devOptions.source || devOptions.watchSource
+        ),
+        companion_extensions_provided: Boolean(devOptions.extensions),
         log_level: devOptions.logLevel || 'off',
         log_format: devOptions.logFormat || 'pretty',
         custom_binary_used: Boolean(
           devOptions.chromiumBinary || devOptions.geckoBinary
-        )
+        ),
+        ...workflowProfile
       })
 
-      const list = vendors(browser)
       validateVendorsOrExit(list, (invalid, supported) => {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
@@ -269,7 +312,8 @@ export function registerDevCommand(program: Command, telemetry: any) {
           command: 'dev',
           duration_ms: Date.now() - cmdStart,
           success: true,
-          exit_code: 0
+          exit_code: 0,
+          ...workflowProfile
         })
         return
       }
@@ -402,7 +446,8 @@ export function registerDevCommand(program: Command, telemetry: any) {
         command: 'dev',
         duration_ms: Date.now() - cmdStart,
         success: process.exitCode === 0 || process.exitCode == null,
-        exit_code: process.exitCode ?? 0
+        exit_code: process.exitCode ?? 0,
+        ...workflowProfile
       })
     })
 }

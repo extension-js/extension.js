@@ -11,6 +11,8 @@ import {createRequire} from 'module'
 import * as messages from '../cli-lib/messages'
 import {runWaitMode} from './dev-wait'
 import {commandDescriptions} from '../cli-lib/messages'
+import {collectProjectProfile} from '../cli-lib/project-profile'
+import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {
   vendors,
   validateVendorsOrExit,
@@ -246,13 +248,46 @@ export function registerStartCommand(program: Command, telemetry: any) {
       }
 
       const cmdStart = Date.now()
-      telemetry.track('cli_command_start', {
+      const list = vendors(browser)
+      const isRemoteInput =
+        typeof pathOrRemoteUrl === 'string' && /^https?:/i.test(pathOrRemoteUrl)
+      const projectProfile = collectProjectProfile(
+        !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
+      )
+      const workflowProfile = collectWorkflowProfile({
         command: 'start',
-        vendors: vendors(browser),
-        polyfill_used: startOptions.polyfill?.toString() !== 'false'
+        isMultiBrowser: list.length > 1,
+        isRemoteInput: isRemoteInput,
+        isWaitMode: Boolean(startOptions.wait),
+        isNoBrowserMode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
+        usesMachineReadableOutput:
+          startOptions.waitFormat === 'json' ||
+          startOptions.logFormat === 'json' ||
+          startOptions.logFormat === 'ndjson',
+        companionExtensionsProvided: Boolean(startOptions.extensions),
+        packageManager: projectProfile?.package_manager,
+        frameworkPrimary: projectProfile?.framework_primary,
+        hasNextDependency: projectProfile?.has_next_dependency,
+        hasTurboDependency: projectProfile?.has_turbo_dependency
       })
 
-      const list = vendors(browser)
+      telemetry.track('workflow_profile', {
+        command: 'start',
+        ...workflowProfile
+      })
+      telemetry.track('cli_command_start', {
+        command: 'start',
+        vendors: list,
+        browser_count: list.length,
+        is_multi_browser: list.length > 1,
+        is_remote_input: isRemoteInput,
+        is_wait_mode: Boolean(startOptions.wait),
+        is_no_browser_mode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
+        companion_extensions_provided: Boolean(startOptions.extensions),
+        polyfill_used: startOptions.polyfill?.toString() !== 'false',
+        ...workflowProfile
+      })
+
       validateVendorsOrExit(list, (invalid, supported) => {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
@@ -284,7 +319,8 @@ export function registerStartCommand(program: Command, telemetry: any) {
           command: 'start',
           duration_ms: Date.now() - cmdStart,
           success: true,
-          exit_code: 0
+          exit_code: 0,
+          ...workflowProfile
         })
         return
       }
@@ -420,7 +456,8 @@ export function registerStartCommand(program: Command, telemetry: any) {
         command: 'start',
         duration_ms: Date.now() - cmdStart,
         success: process.exitCode === 0 || process.exitCode == null,
-        exit_code: process.exitCode ?? 0
+        exit_code: process.exitCode ?? 0,
+        ...workflowProfile
       })
     })
 }

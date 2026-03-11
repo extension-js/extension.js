@@ -10,6 +10,8 @@ import type {Command} from 'commander'
 import {createRequire} from 'module'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
+import {collectProjectProfile} from '../cli-lib/project-profile'
+import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {
   vendors,
   validateVendorsOrExit,
@@ -217,12 +219,42 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
       }
 
       const cmdStart = Date.now()
-      telemetry.track('cli_command_start', {
+      const list = vendors(browser)
+      const isRemoteInput =
+        typeof pathOrRemoteUrl === 'string' && /^https?:/i.test(pathOrRemoteUrl)
+      const projectProfile = collectProjectProfile(
+        !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
+      )
+      const workflowProfile = collectWorkflowProfile({
         command: 'preview',
-        vendors: vendors(browser)
+        isMultiBrowser: list.length > 1,
+        isRemoteInput: isRemoteInput,
+        isNoBrowserMode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
+        usesMachineReadableOutput:
+          previewOptions.logFormat === 'json' ||
+          previewOptions.logFormat === 'ndjson',
+        companionExtensionsProvided: Boolean(previewOptions.extensions),
+        packageManager: projectProfile?.package_manager,
+        frameworkPrimary: projectProfile?.framework_primary,
+        hasNextDependency: projectProfile?.has_next_dependency,
+        hasTurboDependency: projectProfile?.has_turbo_dependency
       })
 
-      const list = vendors(browser)
+      telemetry.track('workflow_profile', {
+        command: 'preview',
+        ...workflowProfile
+      })
+      telemetry.track('cli_command_start', {
+        command: 'preview',
+        vendors: list,
+        browser_count: list.length,
+        is_multi_browser: list.length > 1,
+        is_remote_input: isRemoteInput,
+        is_no_browser_mode: process.env.EXTENSION_CLI_NO_BROWSER === '1',
+        companion_extensions_provided: Boolean(previewOptions.extensions),
+        ...workflowProfile
+      })
+
       validateVendorsOrExit(list, (invalid, supported) => {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
@@ -364,7 +396,8 @@ export function registerPreviewCommand(program: Command, telemetry: any) {
         command: 'preview',
         duration_ms: Date.now() - cmdStart,
         success: process.exitCode === 0 || process.exitCode == null,
-        exit_code: process.exitCode ?? 0
+        exit_code: process.exitCode ?? 0,
+        ...workflowProfile
       })
     })
 }

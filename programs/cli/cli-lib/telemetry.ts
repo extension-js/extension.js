@@ -151,8 +151,10 @@ const DEFAULT_FLUSH_INTERVAL = Number(
 const DEFAULT_TIMEOUT_MS = Number(
   process.env.EXTENSION_TELEMETRY_TIMEOUT_MS || 200
 )
-const DEFAULT_POSTHOG_KEY = 'phc_Np5x3Jg3h2V7kTFtNch2uz6QBaWDycQpIidzX5PetaN'
-const DEFAULT_POSTHOG_HOST = 'https://us.i.posthog.com'
+const DEFAULT_POSTHOG_KEY =
+  process.env.POSTHOG_KEY || 'phc_Np5x3Jg3h2V7kTFtNch2uz6QBaWDycQpIidzX5PetaN'
+const DEFAULT_POSTHOG_HOST =
+  process.env.POSTHOG_HOST || 'https://us.i.posthog.com'
 
 export class Telemetry {
   private anonId: string
@@ -191,7 +193,7 @@ export class Telemetry {
       arch: process.arch,
       node: process.versions.node,
       is_ci: isCI(),
-      schema_version: 1
+      schema_version: 2
     }
 
     this.apiKey = init.apiKey || DEFAULT_POSTHOG_KEY

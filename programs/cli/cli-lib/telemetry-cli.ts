@@ -11,6 +11,7 @@ import path from 'path'
 import {Telemetry} from './telemetry'
 import {getCliPackageJson} from '../cli-package-json'
 import {summarizeManifest} from './manifest-summary'
+import {collectProjectProfile} from './project-profile'
 
 // Initialize telemetry singleton for CLI
 // Opt-out is controlled via CLI flag only: --no-telemetry
@@ -19,6 +20,17 @@ function isTelemetryDisabledFromArgs(argv: string[]): boolean {
 }
 
 const telemetryDisabled = isTelemetryDisabledFromArgs(process.argv)
+
+type KnownCommand =
+  | 'create'
+  | 'dev'
+  | 'start'
+  | 'preview'
+  | 'build'
+  | 'install'
+  | 'uninstall'
+  | 'cleanup'
+  | 'unknown'
 
 function findManifestJson(projectRoot: string): string | null {
   // Best-effort: match project detection behavior (manifest may live under src/).
@@ -62,28 +74,31 @@ export const telemetry = new Telemetry({
   disabled: telemetryDisabled
 })
 
-if (!telemetryDisabled) {
-  const startedAt = Date.now()
-
-  let shutdownTracked = false
-
-  const known = new Set([
+export function detectInvokedCommand(argv: string[]): KnownCommand {
+  const known = new Set<KnownCommand>([
     'create',
     'dev',
     'start',
     'preview',
     'build',
-    'cleanup'
+    'install',
+    'uninstall',
+    'cleanup',
+    'unknown'
   ])
-  const invoked = (process.argv.slice(2).find((a) => known.has(a)) ||
-    'unknown') as
-    | 'create'
-    | 'dev'
-    | 'start'
-    | 'preview'
-    | 'build'
-    | 'cleanup'
-    | 'unknown'
+
+  return (argv
+    .slice(2)
+    .find((a): a is KnownCommand => known.has(a as KnownCommand)) ||
+    'unknown') as KnownCommand
+}
+
+if (!telemetryDisabled) {
+  const startedAt = Date.now()
+
+  let shutdownTracked = false
+
+  const invoked = detectInvokedCommand(process.argv)
 
   telemetry.track('cli_boot', {
     command_guess: invoked
@@ -91,12 +106,23 @@ if (!telemetryDisabled) {
 
   // Attempt to emit a one-time, privacy-safe manifest summary when present
   const manifestPath = findManifestJson(process.cwd())
+  let manifestSummary: ReturnType<typeof summarizeManifest> | null = null
 
   if (manifestPath) {
-    const raw = fs.readFileSync(manifestPath, 'utf8')
-    const json = JSON.parse(raw)
-    const summary = summarizeManifest(json)
-    telemetry.track('manifest_summary', summary)
+    try {
+      const raw = fs.readFileSync(manifestPath, 'utf8')
+      const json = JSON.parse(raw)
+      manifestSummary = summarizeManifest(json)
+      telemetry.track('manifest_summary', manifestSummary)
+    } catch {
+      // Best-effort only: telemetry must never make project parsing stricter.
+    }
+  }
+
+  const projectProfile = collectProjectProfile(process.cwd(), manifestSummary)
+
+  if (projectProfile) {
+    telemetry.track('project_profile', projectProfile)
   }
 
   process.on('beforeExit', async function () {
