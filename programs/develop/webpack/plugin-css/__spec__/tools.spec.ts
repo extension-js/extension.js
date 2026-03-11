@@ -13,7 +13,8 @@ vi.mock('fs', async () => {
 vi.mock('../css-lib/integrations', () => ({
   hasDependency: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => true),
-  resolveDevelopInstallRoot: vi.fn(() => undefined)
+  resolveDevelopInstallRoot: vi.fn(() => undefined),
+  resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
 }))
 
 vi.mock('../../webpack-lib/messages', () => ({
