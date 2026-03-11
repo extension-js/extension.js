@@ -1262,3 +1262,25 @@ export function chromiumDeveloperModeGuidance(browser?: DevOptions['browser']) {
     `Without it, hard reloads may disable your unpacked extension.`
   )
 }
+
+export function chromiumHardReloadFailed(browser?: DevOptions['browser']) {
+  let exts = ''
+
+  if (browser === 'edge') {
+    exts = colors.underline('edge://extensions')
+  } else if (
+    browser === 'chrome' ||
+    browser === 'chromium' ||
+    browser === 'chromium-based'
+  ) {
+    exts = colors.underline('chrome://extensions')
+  } else {
+    exts = colors.underline('chrome://extensions')
+  }
+
+  return (
+    `${getLoggingPrefix('warn')} Reload failed\n` +
+    `Chromium could not reload your unpacked extension.\n` +
+    `If you are using an existing profile, verify ${colors.yellow('Developer mode')} is enabled in ${exts}.`
+  )
+}
