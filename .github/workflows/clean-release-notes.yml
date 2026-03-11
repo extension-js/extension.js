@@ -1,0 +1,29 @@
+# One-off workflow to retroactively clean past GitHub release bodies.
+# Removes chore(release) and release(...) lines from release notes.
+#
+# Trigger: workflow_dispatch
+# Or: gh workflow run clean-release-notes.yml
+name: Clean release notes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Clean release notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/clean-release-notes.mjs
