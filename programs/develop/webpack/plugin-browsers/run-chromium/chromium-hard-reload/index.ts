@@ -23,6 +23,7 @@ import type {DevOptions} from '../../../webpack-types'
 export class ChromiumHardReloadPlugin {
   private logger?: ReturnType<Compiler['getInfrastructureLogger']>
   private warnedDevMode?: boolean
+  private warnedHardReloadFailure?: boolean
   private hasCompletedSuccessfulBuild = false
   private firstSuccessfulBuildAtMs: number | null = null
   private static readonly INITIAL_RELOAD_COOLDOWN_MS = 5000
@@ -250,6 +251,22 @@ export class ChromiumHardReloadPlugin {
         return
       }
 
+      const developerModeStatus =
+        typeof (ctrl as {getDeveloperModeStatus?: () => string})
+          .getDeveloperModeStatus === 'function'
+          ? (ctrl as {getDeveloperModeStatus: () => string}).getDeveloperModeStatus()
+          : 'unknown'
+
+      if (developerModeStatus === 'disabled') {
+        if (!this.warnedDevMode) {
+          this.warnedDevMode = true
+          this.logger?.warn?.(
+            messages.chromiumDeveloperModeGuidance(this.options?.browser)
+          )
+        }
+        return
+      }
+
       this.logger?.info?.(`[reload] reloading extension (reason:${reason})`)
       if (this.shouldEmitReloadActionEvent()) {
         emitActionEvent('extension_reload', {
@@ -270,10 +287,10 @@ export class ChromiumHardReloadPlugin {
         })
       ])
 
-      if (!ok && !this.warnedDevMode) {
-        this.warnedDevMode = true
+      if (!ok && !this.warnedHardReloadFailure) {
+        this.warnedHardReloadFailure = true
         this.logger?.warn?.(
-          messages.chromiumDeveloperModeGuidance(this.options?.browser)
+          messages.chromiumHardReloadFailed(this.options?.browser)
         )
       }
     })
