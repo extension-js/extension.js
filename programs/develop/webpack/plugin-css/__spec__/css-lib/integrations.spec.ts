@@ -313,7 +313,7 @@ describe('css-lib integrations', () => {
     )
     execFileSync.mockImplementation((_cmd: string, args: string[]) => {
       const joined = Array.isArray(args) ? args.join(' ') : String(args || '')
-      if (joined.includes('where corepack')) return 'C:\\corepack\\corepack.cmd'
+      if (joined.trim() === 'corepack') return 'C:\\corepack\\corepack.cmd'
       const err: NodeJS.ErrnoException = new Error('not found')
       err.code = 'ENOENT'
       throw err

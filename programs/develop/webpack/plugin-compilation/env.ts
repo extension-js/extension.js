@@ -14,7 +14,9 @@ import type {PluginInterface, DevOptions} from '../webpack-types'
 import * as messages from './compilation-lib/messages'
 
 function findNearestWorkspaceRoot(startDir: string): string | undefined {
-  let current = path.resolve(startDir)
+  let current = path.isAbsolute(startDir)
+    ? path.normalize(startDir)
+    : path.resolve(startDir)
   while (true) {
     if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))) {
       return current

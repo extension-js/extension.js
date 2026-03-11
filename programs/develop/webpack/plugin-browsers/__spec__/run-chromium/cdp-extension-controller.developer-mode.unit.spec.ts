@@ -18,7 +18,9 @@ describe('CDPExtensionController developer mode status', () => {
   })
 
   it('reads developer mode enabled from Chromium profile preferences', () => {
-    const profilePath = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-dev-mode-on-'))
+    const profilePath = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'ext-dev-mode-on-')
+    )
     tempDirs.push(profilePath)
 
     const defaultDir = path.join(profilePath, 'Default')
@@ -45,7 +47,9 @@ describe('CDPExtensionController developer mode status', () => {
   })
 
   it('reads developer mode disabled from Chromium profile preferences', () => {
-    const profilePath = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-dev-mode-off-'))
+    const profilePath = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'ext-dev-mode-off-')
+    )
     tempDirs.push(profilePath)
 
     const defaultDir = path.join(profilePath, 'Default')
@@ -72,7 +76,9 @@ describe('CDPExtensionController developer mode status', () => {
   })
 
   it('returns unknown when no Chromium developer mode preference is present', () => {
-    const profilePath = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-dev-mode-unknown-'))
+    const profilePath = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'ext-dev-mode-unknown-')
+    )
     tempDirs.push(profilePath)
 
     const defaultDir = path.join(profilePath, 'Default')

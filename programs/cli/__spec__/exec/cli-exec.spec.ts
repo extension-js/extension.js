@@ -88,6 +88,30 @@ const defaultEnv: NodeJS.ProcessEnv = {
   EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
 }
 
+function removeWorkspaceWithRetry(targetPath: string) {
+  const attempts = process.platform === 'win32' ? 6 : 1
+  let lastError: unknown
+
+  for (let index = 0; index < attempts; index++) {
+    try {
+      rmSync(targetPath, {
+        recursive: true,
+        force: true,
+        maxRetries: 5,
+        retryDelay: 100
+      })
+      return
+    } catch (error) {
+      lastError = error
+      if (process.platform !== 'win32') throw error
+
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150)
+    }
+  }
+
+  if (lastError) throw lastError
+}
+
 function runCommand(
   command: string,
   args: string[],
@@ -391,7 +415,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
       }
     } finally {
-      rmSync(workspace, {recursive: true, force: true})
+      removeWorkspaceWithRetry(workspace)
     }
   })
 
@@ -418,7 +442,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
       expect(result.status).toBe(0)
       expect(existsSync(join(projectPath, 'package.json'))).toBe(true)
     } finally {
-      rmSync(workspace, {recursive: true, force: true})
+      removeWorkspaceWithRetry(workspace)
     }
   })
 
@@ -436,7 +460,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
       )
       expect(result.status).toBe(0)
     } finally {
-      rmSync(workspace, {recursive: true, force: true})
+      removeWorkspaceWithRetry(workspace)
     }
   })
 
@@ -477,7 +501,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
       }
     } finally {
-      rmSync(workspace, {recursive: true, force: true})
+      removeWorkspaceWithRetry(workspace)
     }
   })
 
@@ -510,7 +534,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         expect([0, 1]).toContain(devResult.status)
       }
     } finally {
-      rmSync(workspace, {recursive: true, force: true})
+      removeWorkspaceWithRetry(workspace)
     }
   })
 
@@ -567,7 +591,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         )
         expect(buildResult.status).toBe(0)
       } finally {
-        rmSync(workspace, {recursive: true, force: true})
+        removeWorkspaceWithRetry(workspace)
       }
     },
     installAndBuildTimeoutMs
@@ -618,7 +642,7 @@ describe('cli direct flow (no npx)', () => {
         expect([0, 1]).toContain(devResult.status)
       }
     } finally {
-      rmSync(workspace, {recursive: true, force: true})
+      removeWorkspaceWithRetry(workspace)
     }
   })
 })
