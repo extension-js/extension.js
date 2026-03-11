@@ -1,7 +1,4 @@
-import type {
-  FrameworkPrimary,
-  PackageManagerName
-} from './project-profile'
+import type {FrameworkPrimary, PackageManagerName} from './project-profile'
 
 export type WorkflowCohort = 'local_only' | 'shipping' | 'automation_heavy'
 
