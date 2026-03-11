@@ -240,8 +240,9 @@ describe('webpack/command-build', () => {
       .map((call) => String(call[0] || ''))
       .join('\n')
     expect(printed).toContain('Build succeeded with 1 warning(s)')
-    expect(printed).toContain('- Performance:')
-    expect(printed).toContain('Action:')
+    expect(printed).toContain('Performance')
+    expect(printed).toContain('Warning details')
+    expect(printed).toContain('ACTION')
   })
 
   it('ensures dependencies before running the build', async () => {
