@@ -191,7 +191,13 @@ export function buildWebpack(
   browser: DevOptions['browser']
 ): string {
   const statsJson = stats?.toJson()
-  const manifestPath = path.join(projectDir, 'manifest.json')
+  const outputPath =
+    typeof stats?.compilation?.outputOptions?.path === 'string'
+      ? stats.compilation.outputOptions.path
+      : ''
+  const manifestPath = outputPath
+    ? path.join(outputPath, 'manifest.json')
+    : path.join(projectDir, 'manifest.json')
   const manifest: Record<string, string> = JSON.parse(
     fs.readFileSync(manifestPath, 'utf8')
   )
