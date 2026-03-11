@@ -44,7 +44,17 @@ import * as dotenv from 'dotenv'
 vi.mock('dotenv', () => ({
   config: vi.fn((opts: any) => {
     if (!opts || !opts.path) return {parsed: {}}
-    if (String(opts.path).endsWith('.env.defaults')) {
+    const envPath = toPosix(String(opts.path))
+    if (envPath.endsWith('/repo/.env')) {
+      return {
+        parsed: {
+          EXTENSION_PUBLIC_ROOT_ONLY: 'rootOnly',
+          EXTENSION_PUBLIC_FOO: 'rootFoo',
+          EXTENSION_BAR: 'rootBar'
+        }
+      }
+    }
+    if (envPath.endsWith('.env.defaults')) {
       return {
         parsed: {EXTENSION_PUBLIC_FOO: 'defFoo', EXTENSION_BAZ: 'defBaz'}
       }
@@ -174,5 +184,42 @@ describe('EnvPlugin', () => {
     expect(updated['index.html']).toContain('$EXTENSION_MISS') // untouched when missing
     expect(updated['manifest.json']).toContain('sysFoo')
     expect(updated['manifest.json']).toContain('envBar')
+  })
+
+  it('falls back to the nearest workspace root env file', async () => {
+    ;(fs.existsSync as unknown as (p: any) => boolean) = vi.fn((p: any) => {
+      const filePath = toPosix(String(p))
+      return (
+        filePath === '/repo/pnpm-workspace.yaml' || filePath === '/repo/.env'
+      )
+    })
+
+    const {compiler, triggerCompilation} = createCompiler('development')
+    compiler.options.context = '/repo/packages/extension'
+
+    const plugin = new EnvPlugin({
+      manifestPath: '/repo/packages/extension/src/manifest.json',
+      browser: 'chrome'
+    })
+    plugin.apply(compiler as any)
+
+    expect(lastDefineArgs['process.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
+      JSON.stringify('rootOnly')
+    )
+    expect(lastDefineArgs['import.meta.env.EXTENSION_PUBLIC_ROOT_ONLY']).toBe(
+      JSON.stringify('rootOnly')
+    )
+
+    const {compilation, runProcessAssets, updated} =
+      createCompilationWithAssets({
+        'manifest.json':
+          '{"name":"$EXTENSION_PUBLIC_ROOT_ONLY","desc":"$EXTENSION_BAR"}'
+      })
+
+    triggerCompilation(compilation)
+    runProcessAssets()
+
+    expect(updated['manifest.json']).toContain('rootOnly')
+    expect(updated['manifest.json']).toContain('rootBar')
   })
 })

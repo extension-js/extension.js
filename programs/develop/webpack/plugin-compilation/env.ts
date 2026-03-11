@@ -13,6 +13,56 @@ import * as dotenv from 'dotenv'
 import type {PluginInterface, DevOptions} from '../webpack-types'
 import * as messages from './compilation-lib/messages'
 
+function findNearestWorkspaceRoot(startDir: string): string | undefined {
+  let current = path.resolve(startDir)
+  while (true) {
+    if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))) {
+      return current
+    }
+    const parent = path.dirname(current)
+    if (parent === current) {
+      return undefined
+    }
+    current = parent
+  }
+}
+
+function resolveEnvPaths(projectPath: string, envFiles: string[]) {
+  const localEnvPath =
+    envFiles
+      .map((file) => path.join(projectPath, file))
+      .find((filePath) => fs.existsSync(filePath)) || ''
+  const localDefaultsPath = path.join(projectPath, '.env.defaults')
+
+  if (localEnvPath || fs.existsSync(localDefaultsPath)) {
+    return {
+      envPath: localEnvPath,
+      defaultsPath: localDefaultsPath
+    }
+  }
+
+  const workspaceRoot = findNearestWorkspaceRoot(projectPath)
+  if (workspaceRoot && workspaceRoot !== projectPath) {
+    const workspaceEnvPath =
+      envFiles
+        .map((file) => path.join(workspaceRoot, file))
+        .find((filePath) => fs.existsSync(filePath)) || ''
+    const workspaceDefaultsPath = path.join(workspaceRoot, '.env.defaults')
+
+    if (workspaceEnvPath || fs.existsSync(workspaceDefaultsPath)) {
+      return {
+        envPath: workspaceEnvPath,
+        defaultsPath: workspaceDefaultsPath
+      }
+    }
+  }
+
+  return {
+    envPath: '',
+    defaultsPath: localDefaultsPath
+  }
+}
+
 export class EnvPlugin {
   public readonly browser: DevOptions['browser']
   public readonly manifestPath?: string
@@ -38,15 +88,7 @@ export class EnvPlugin {
       '.env.example' // .env.example as fallback
     ]
 
-    // Find the first valid .env file that exists
-    let envPath = ''
-    for (const file of envFiles) {
-      const filePath = path.join(projectPath, file)
-      if (fs.existsSync(filePath)) {
-        envPath = filePath
-        break
-      }
-    }
+    const {envPath, defaultsPath} = resolveEnvPaths(projectPath, envFiles)
 
     if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
       console.log(messages.envSelectedFile(envPath))
@@ -56,7 +98,6 @@ export class EnvPlugin {
     const envVars = envPath
       ? dotenv.config({path: envPath, quiet: true}).parsed || {}
       : {}
-    const defaultsPath = path.join(projectPath, '.env.defaults')
     const defaultsVars = fs.existsSync(defaultsPath)
       ? dotenv.config({path: defaultsPath, quiet: true}).parsed || {}
       : {}
