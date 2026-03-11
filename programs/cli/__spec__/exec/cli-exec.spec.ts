@@ -112,6 +112,19 @@ function removeWorkspaceWithRetry(targetPath: string) {
   if (lastError) throw lastError
 }
 
+function cleanupWorkspaceAfterTimedDev(targetPath: string, timedOut: boolean) {
+  try {
+    removeWorkspaceWithRetry(targetPath)
+  } catch (error) {
+    const err = error as NodeJS.ErrnoException
+    const isBusy = err?.code === 'EBUSY'
+    if (process.platform === 'win32' && timedOut && isBusy) {
+      return
+    }
+    throw error
+  }
+}
+
 function runCommand(
   command: string,
   args: string[],
@@ -536,6 +549,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     if (!runnerReady.get(runner.name)) return
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
     const projectPath = join(workspace, 'app-dev')
+    let devTimedOut = false
     try {
       const createResult = runCommand(
         runner.command,
@@ -555,13 +569,14 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
         {cwd: projectPath, env: defaultEnv},
         6000
       )
+      devTimedOut = devResult.timedOut
       if (devResult.timedOut) {
         expect(devResult.timedOut).toBe(true)
       } else {
         expect([0, 1]).toContain(devResult.status)
       }
     } finally {
-      removeWorkspaceWithRetry(workspace)
+      cleanupWorkspaceAfterTimedDev(workspace, devTimedOut)
     }
   })
 
@@ -638,6 +653,7 @@ describe('cli direct flow (no npx)', () => {
   it('creates, builds, and previews without npx', async () => {
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-direct-'))
     const projectPath = join(workspace, 'app-direct')
+    let devTimedOut = false
     try {
       const createResult = runCli(
         ['create', projectPath, '--install', 'false'],
@@ -663,13 +679,14 @@ describe('cli direct flow (no npx)', () => {
         {cwd: projectPath, env: defaultEnv},
         6000
       )
+      devTimedOut = devResult.timedOut
       if (devResult.timedOut) {
         expect(devResult.timedOut).toBe(true)
       } else {
         expect([0, 1]).toContain(devResult.status)
       }
     } finally {
-      removeWorkspaceWithRetry(workspace)
+      cleanupWorkspaceAfterTimedDev(workspace, devTimedOut)
     }
   })
 })
