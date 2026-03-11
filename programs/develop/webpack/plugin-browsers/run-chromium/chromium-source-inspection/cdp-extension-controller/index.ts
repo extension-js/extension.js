@@ -21,6 +21,8 @@ interface ExtensionInfoResult {
   version?: string
 }
 
+export type ChromiumDeveloperModeStatus = 'enabled' | 'disabled' | 'unknown'
+
 export class CDPExtensionController {
   private readonly outPath: string
   private readonly browser: 'chrome' | 'edge' | 'chromium-based'
@@ -258,6 +260,54 @@ export class CDPExtensionController {
     }
 
     return null
+  }
+
+  getDeveloperModeStatus(): ChromiumDeveloperModeStatus {
+    if (!this.profilePath) return 'unknown'
+
+    const prefCandidates: string[] = []
+    const seen = new Set<string>()
+
+    const addPrefCandidate = (dir: string) => {
+      const prefPath = path.join(dir, 'Preferences')
+      if (!fs.existsSync(prefPath)) return
+      const dedupeKey = path.resolve(prefPath)
+      if (seen.has(dedupeKey)) return
+      seen.add(dedupeKey)
+      prefCandidates.push(prefPath)
+    }
+
+    try {
+      addPrefCandidate(this.profilePath)
+      addPrefCandidate(path.join(this.profilePath, 'Default'))
+
+      for (const entry of fs.readdirSync(this.profilePath)) {
+        if (!/^Profile\s+\d+$/i.test(entry)) continue
+        addPrefCandidate(path.join(this.profilePath, entry))
+      }
+    } catch {
+      // Ignore profile listing errors.
+    }
+
+    for (const prefPath of prefCandidates) {
+      try {
+        const prefs = JSON.parse(fs.readFileSync(prefPath, 'utf-8'))
+        const uiFlag = prefs?.extensions?.ui?.developer_mode
+
+        if (typeof uiFlag === 'boolean') {
+          return uiFlag ? 'enabled' : 'disabled'
+        }
+
+        const legacyFlag = prefs?.extensions?.developer_mode
+        if (typeof legacyFlag === 'boolean') {
+          return legacyFlag ? 'enabled' : 'disabled'
+        }
+      } catch {
+        // Ignore malformed preference files.
+      }
+    }
+
+    return 'unknown'
   }
 
   async hardReload(): Promise<boolean> {
