@@ -11,6 +11,7 @@ import type {Command} from 'commander'
 import {createRequire} from 'module'
 import type {CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../cli-lib/messages'
+import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {getCliPackageJson} from '../cli-package-json'
 import {parseOptionalBoolean} from '../utils'
 
@@ -37,10 +38,23 @@ export function registerCreateCommand(program: Command, telemetry: any) {
       {template, install}: CreateOptions
     ) {
       const startedAt = Date.now()
+      const templateValue = String(template || 'default')
+      const isRemoteTemplate = /^https?:/i.test(templateValue)
+      const workflowProfile = collectWorkflowProfile({
+        command: 'create',
+        isRemoteInput: isRemoteTemplate
+      })
+
+      telemetry.track('workflow_profile', {
+        command: 'create',
+        ...workflowProfile
+      })
       telemetry.track('cli_command_start', {
         command: 'create',
-        template: template || 'default',
-        install: Boolean(install)
+        template: templateValue,
+        template_source: isRemoteTemplate ? 'remote' : 'built_in',
+        install: Boolean(install),
+        ...workflowProfile
       })
 
       try {
@@ -74,14 +88,16 @@ export function registerCreateCommand(program: Command, telemetry: any) {
           command: 'create',
           duration_ms: Date.now() - startedAt,
           success: true,
-          exit_code: 0
+          exit_code: 0,
+          ...workflowProfile
         })
       } catch (err) {
         telemetry.track('cli_command_finish', {
           command: 'create',
           duration_ms: Date.now() - startedAt,
           success: false,
-          exit_code: 1
+          exit_code: 1,
+          ...workflowProfile
         })
         throw err
       }
