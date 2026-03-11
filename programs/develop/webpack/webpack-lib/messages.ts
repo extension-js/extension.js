@@ -378,7 +378,8 @@ export function buildSuccessWithWarnings(warningCount: number) {
 export function buildWarningsDetails(warnings: any[]): string {
   if (!Array.isArray(warnings) || warnings.length === 0) return ''
 
-  const lines: string[] = []
+  const blocks: string[] = []
+  const sectionHeader = `${getLoggingPrefix('warn')} Warning details\n`
 
   warnings.forEach((warning, index) => {
     const message = getWarningMessage(warning)
@@ -388,24 +389,24 @@ export function buildWarningsDetails(warnings: any[]): string {
     const action = suggestedActionForWarning(category)
 
     if (!message) {
-      lines.push(
-        `- Warning ${index + 1}: details were suppressed by tool output.`,
-        `  Source: ${source}`,
-        `  Action: Re-run with EXTENSION_VERBOSE=1 to inspect full warning messages.`
+      blocks.push(
+        `  ${colors.brightYellow('Warning ' + (index + 1))}: details were suppressed by tool output.\n` +
+          `  ${fmt.label('SOURCE')} ${colors.gray(source)}\n` +
+          `  ${fmt.label('ACTION')} Re-run with EXTENSION_VERBOSE=1 to inspect full warning messages.`
       )
       return
     }
 
     const oneLine = message.replace(/\s+/g, ' ').trim()
-    const artifactSuffix = artifact ? ` (${artifact})` : ''
-    lines.push(
-      `- ${category}: ${oneLine}${artifactSuffix}`,
-      `  Source: ${source}`,
-      `  Action: ${action}`
+    const artifactSuffix = artifact ? ` ${colors.gray(`(${artifact})`)}` : ''
+    blocks.push(
+      `  ${colors.brightYellow(category)}: ${oneLine}${artifactSuffix}\n` +
+        `  ${fmt.label('SOURCE')} ${colors.gray(source)}\n` +
+        `  ${fmt.label('ACTION')} ${action}`
     )
   })
 
-  return lines.join('\n')
+  return sectionHeader + blocks.join('\n\n')
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
