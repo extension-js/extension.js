@@ -9,6 +9,8 @@
 import type {Command} from 'commander'
 import * as messages from '../cli-lib/messages'
 import {commandDescriptions} from '../cli-lib/messages'
+import {collectProjectProfile} from '../cli-lib/project-profile'
+import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {parseExtensionsList} from '../utils/normalize-options'
 import {
   vendors,
@@ -81,15 +83,48 @@ export function registerBuildCommand(program: Command, telemetry: any) {
       }
 
       const cmdStart = Date.now()
-      telemetry.track('cli_command_start', {
+      const list = vendors(browser)
+      const isRemoteInput =
+        typeof pathOrRemoteUrl === 'string' && /^https?:/i.test(pathOrRemoteUrl)
+      const artifactKind = buildOptions.zipSource
+        ? buildOptions.zip
+          ? 'zip_and_source'
+          : 'source_zip'
+        : buildOptions.zip
+          ? 'zip'
+          : 'directory'
+      const projectProfile = collectProjectProfile(
+        !isRemoteInput && pathOrRemoteUrl ? pathOrRemoteUrl : process.cwd()
+      )
+      const workflowProfile = collectWorkflowProfile({
         command: 'build',
-        vendors: vendors(browser),
-        polyfill_used: buildOptions.polyfill || false,
-        zip: buildOptions.zip || false,
-        zip_source: buildOptions.zipSource || false
+        isMultiBrowser: list.length > 1,
+        isRemoteInput: isRemoteInput,
+        companionExtensionsProvided: Boolean(buildOptions.extensions),
+        artifactKind,
+        packageManager: projectProfile?.package_manager,
+        frameworkPrimary: projectProfile?.framework_primary,
+        hasNextDependency: projectProfile?.has_next_dependency,
+        hasTurboDependency: projectProfile?.has_turbo_dependency
       })
 
-      const list = vendors(browser)
+      telemetry.track('workflow_profile', {
+        command: 'build',
+        ...workflowProfile
+      })
+      telemetry.track('cli_command_start', {
+        command: 'build',
+        vendors: list,
+        browser_count: list.length,
+        is_multi_browser: list.length > 1,
+        is_remote_input: isRemoteInput,
+        polyfill_used: buildOptions.polyfill || false,
+        zip: buildOptions.zip || false,
+        zip_source: buildOptions.zipSource || false,
+        artifact_kind: artifactKind,
+        ...workflowProfile
+      })
+
       validateVendorsOrExit(list, (invalid, supported) => {
         // eslint-disable-next-line no-console
         console.error(messages.unsupportedBrowserFlag(invalid, supported))
@@ -114,9 +149,16 @@ export function registerBuildCommand(program: Command, telemetry: any) {
           install: buildOptions.install,
           extensions: parseExtensionsList((buildOptions as any).extensions)
         })
+
         telemetry.track('cli_build_summary', {
-          ...buildSummary
+          ...buildSummary,
+          browser_count: list.length,
+          is_multi_browser: list.length > 1,
+          is_remote_input: isRemoteInput,
+          artifact_kind: artifactKind,
+          ...workflowProfile
         })
+
         telemetry.track('cli_vendor_finish', {
           command: 'build',
           vendor,
@@ -128,7 +170,8 @@ export function registerBuildCommand(program: Command, telemetry: any) {
         command: 'build',
         duration_ms: Date.now() - cmdStart,
         success: process.exitCode === 0 || process.exitCode == null,
-        exit_code: process.exitCode ?? 0
+        exit_code: process.exitCode ?? 0,
+        ...workflowProfile
       })
     })
 }
