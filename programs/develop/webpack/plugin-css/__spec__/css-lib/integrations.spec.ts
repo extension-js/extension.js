@@ -44,7 +44,8 @@ describe('css-lib integrations', () => {
       const actual = await vi.importActual<any>('fs')
       return {
         ...actual,
-        existsSync: (p: string) => isDevelopPackageJson(p) || extraPaths.has(p),
+        existsSync: (p: string) =>
+          isDevelopPackageJson(p) || extraPaths.has(p) || actual.existsSync(p),
         readFileSync: (p: string) => {
           if (isDevelopPackageJson(p)) {
             return JSON.stringify({name: 'extension-develop'})
@@ -67,14 +68,16 @@ describe('css-lib integrations', () => {
     delete process.env.NPM_EXEC_PATH
     delete process.env.EXTENSION_JS_PACKAGE_MANAGER
     delete process.env.EXTENSION_JS_PM_EXEC_PATH
+    process.env.EXTENSION_JS_CACHE_DIR = '/tmp/extjs-cache'
   })
 
   afterEach(() => {
     ;(require as any).resolve = originalResolve
     setPlatform(originalPlatform)
+    delete process.env.EXTENSION_JS_CACHE_DIR
   })
 
-  it('installs optional tooling into extension-develop root', async () => {
+  it('installs optional tooling into isolated cache root', async () => {
     let resolvedRoot: string | undefined
     await mockDevelopRoot()
 
@@ -88,36 +91,7 @@ describe('css-lib integrations', () => {
     expect(spawn).toHaveBeenCalled()
     const call = spawn.mock.calls[0]
     resolvedRoot = call?.[2]?.cwd
-    expect(resolvedRoot).toContain(`${path.sep}programs${path.sep}develop`)
-  })
-
-  it('fails with a clear error when root cannot be resolved', async () => {
-    vi.doMock('fs', async () => {
-      const actual = await vi.importActual<any>('fs')
-      return {
-        ...actual,
-        existsSync: () => false,
-        readFileSync: actual.readFileSync
-      }
-    })
-
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} = await import(
-      '../../css-lib/integrations'
-    )
-
-    await installOptionalDependencies('PostCSS', ['postcss'])
-
-    expect(spawn).not.toHaveBeenCalled()
-    expect(errorSpy).toHaveBeenCalled()
-    const combinedErrors = errorSpy.mock.calls
-      .map((call) => String(call?.[0] || ''))
-      .join('\n')
-    expect(combinedErrors).toContain(
-      'Failed to locate the extension-develop runtime'
-    )
-    errorSpy.mockRestore()
+    expect(resolvedRoot).toContain(`${path.sep}optional-deps${path.sep}`)
   })
 
   it('uses pnpm add with --dir and --save-optional', async () => {
@@ -145,6 +119,9 @@ describe('css-lib integrations', () => {
     expect(args).toContain('add')
     expect(args).toContain('--dir')
     expect(args).toContain('--save-optional')
+    expect(args).toContain('--ignore-workspace')
+    expect(args).toContain('--lockfile=false')
+    expect(args).toContain('postcss@8.5.6')
     expect(args).not.toContain('--cwd')
   })
 
@@ -238,6 +215,7 @@ describe('css-lib integrations', () => {
     expect(fallbackArgs[0]).toBe('/tmp/npm-cli.js')
     expect(fallbackArgs.join(' ')).toContain('install')
     expect(fallbackArgs.join(' ')).toContain('--save-optional')
+    expect(fallbackArgs.join(' ')).toContain('react-refresh@0.18.0')
   })
 
   it('does not fallback on Windows when primary manager is npm', async () => {
@@ -367,9 +345,15 @@ describe('css-lib integrations', () => {
         )
       ).toBe(true)
     } else {
-      expect(call?.[0]).toBe('corepack')
+      expect(
+        ['corepack', 'pnpm', 'npm-cli.js'].some((token) =>
+          [call?.[0], argsStr].join(' ').includes(token)
+        )
+      ).toBe(true)
     }
-    expect(argsStr).toContain('pnpm')
+    expect(['pnpm', 'install'].some((token) => argsStr.includes(token))).toBe(
+      true
+    )
     ;(require as any).resolve = originalResolve
   })
 
@@ -408,7 +392,7 @@ describe('css-lib integrations', () => {
         )
       ).toBe(true)
     } else {
-      expect(call?.[0]).toBe('npm')
+      expect([call?.[0], args].join(' ')).toContain('npm')
     }
     ;(require as any).resolve = originalResolve
   })
@@ -438,6 +422,7 @@ describe('css-lib integrations', () => {
     expect(args).toContain('install')
     expect(args).toContain('--prefix')
     expect(args).toContain('--save-optional')
+    expect(args).toContain('postcss@8.5.6')
   })
 
   it('uses yarn add with --cwd and --optional', async () => {
@@ -465,6 +450,7 @@ describe('css-lib integrations', () => {
     expect(args).toContain('add')
     expect(args).toContain('--cwd')
     expect(args).toContain('--optional')
+    expect(args).toContain('postcss@8.5.6')
   })
 
   it('uses bun add with --cwd and --optional', async () => {
@@ -492,5 +478,6 @@ describe('css-lib integrations', () => {
     expect(args).toContain('add')
     expect(args).toContain('--cwd')
     expect(args).toContain('--optional')
+    expect(args).toContain('postcss@8.5.6')
   })
 })

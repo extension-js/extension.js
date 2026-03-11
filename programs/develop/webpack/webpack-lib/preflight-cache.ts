@@ -10,6 +10,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {createHash} from 'crypto'
 import {resolveDevelopInstallRoot} from '../plugin-css/css-lib/integrations'
+import {getOptionalDependenciesSignature} from './optional-dependencies'
 import packageJson from '../../package.json'
 
 function getPreflightCacheDir(packageRoot: string): string {
@@ -25,7 +26,7 @@ function getCacheVersionPath(cacheDir: string): string {
 }
 
 function getProjectDepsHash(projectPath: string): string {
-  const lockfileSignature = getNearestLockfileSignature(projectPath)
+  const optionalDepsSignature = getOptionalDependenciesSignature()
   try {
     const packageJsonPath = path.join(projectPath, 'package.json')
     if (!fs.existsSync(packageJsonPath)) {
@@ -33,7 +34,7 @@ function getProjectDepsHash(projectPath: string): string {
         .update(
           JSON.stringify({
             packageJson: 'no-package-json',
-            lockfile: lockfileSignature
+            optionalDeps: optionalDepsSignature
           })
         )
         .digest('hex')
@@ -57,7 +58,7 @@ function getProjectDepsHash(projectPath: string): string {
     const stable = JSON.stringify({
       dependencies: normalize(deps),
       devDependencies: normalize(devDeps),
-      lockfile: lockfileSignature
+      optionalDeps: optionalDepsSignature
     })
 
     return createHash('sha1').update(stable).digest('hex')
@@ -66,43 +67,11 @@ function getProjectDepsHash(projectPath: string): string {
       .update(
         JSON.stringify({
           packageJson: 'invalid-package-json',
-          lockfile: lockfileSignature
+          optionalDeps: optionalDepsSignature
         })
       )
       .digest('hex')
   }
-}
-
-function getNearestLockfileSignature(projectPath: string): string {
-  const lockfileNames = [
-    'pnpm-lock.yaml',
-    'package-lock.json',
-    'yarn.lock',
-    'bun.lock',
-    'bun.lockb'
-  ]
-  let current = path.resolve(projectPath)
-
-  while (true) {
-    for (const lockfileName of lockfileNames) {
-      const lockfilePath = path.join(current, lockfileName)
-      if (!fs.existsSync(lockfilePath)) continue
-
-      try {
-        const content = fs.readFileSync(lockfilePath)
-        const digest = createHash('sha1').update(content).digest('hex')
-        return `${lockfileName}:${digest}`
-      } catch {
-        return `${lockfileName}:unreadable`
-      }
-    }
-
-    const parent = path.dirname(current)
-    if (parent === current) break
-    current = parent
-  }
-
-  return 'none'
 }
 
 function ensureCacheVersion(cacheDir: string): boolean {

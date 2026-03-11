@@ -5,9 +5,14 @@ import * as path from 'path'
 import {createHash} from 'crypto'
 
 let mockRoot = ''
+let optionalDepsSignature = 'optional-deps-v1'
 
 vi.mock('../check-build-dependencies', () => ({
   findExtensionDevelopRoot: () => mockRoot
+}))
+
+vi.mock('../optional-dependencies', () => ({
+  getOptionalDependenciesSignature: () => optionalDepsSignature
 }))
 
 function getMarkerPath(projectPath: string, packageRoot: string) {
@@ -25,6 +30,7 @@ function getMarkerPath(projectPath: string, packageRoot: string) {
 describe('preflight-cache', () => {
   beforeEach(() => {
     mockRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-preflight-'))
+    optionalDepsSignature = 'optional-deps-v1'
   })
 
   it('invalidates marker when dependency hash changes', async () => {
@@ -76,7 +82,7 @@ describe('preflight-cache', () => {
     expect(fs.existsSync(cacheDir)).toBe(false)
   })
 
-  it('invalidates marker when nearest lockfile changes', async () => {
+  it('does not invalidate marker when nearest lockfile changes', async () => {
     const workspacePath = path.join(mockRoot, 'workspace')
     const projectPath = path.join(workspacePath, 'apps', 'project')
     fs.mkdirSync(projectPath, {recursive: true})
@@ -95,6 +101,27 @@ describe('preflight-cache', () => {
     expect(hasPreflightMarker(projectPath)).toBe(true)
 
     fs.writeFileSync(path.join(workspacePath, 'pnpm-lock.yaml'), 'lock-v2')
+
+    expect(hasPreflightMarker(projectPath)).toBe(true)
+  })
+
+  it('invalidates marker when optional dependency metadata changes', async () => {
+    const projectPath = path.join(mockRoot, 'project')
+    fs.mkdirSync(projectPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(projectPath, 'package.json'),
+      JSON.stringify({dependencies: {react: '1.0.0'}})
+    )
+
+    const {hasPreflightMarker, writePreflightMarker} = await import(
+      '../preflight-cache'
+    )
+
+    expect(hasPreflightMarker(projectPath)).toBe(false)
+    writePreflightMarker(projectPath)
+    expect(hasPreflightMarker(projectPath)).toBe(true)
+
+    optionalDepsSignature = 'optional-deps-v2'
 
     expect(hasPreflightMarker(projectPath)).toBe(false)
   })

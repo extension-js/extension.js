@@ -21,7 +21,8 @@
   "types": "./dist/module.d.ts",
   "files": [
     "dist",
-    "webpack/webpack-lib/build-dependencies.json"
+    "webpack/webpack-lib/build-dependencies.json",
+    "webpack/webpack-lib/optional-dependencies.json"
   ],
   "name": "extension-develop",
   "version": "3.8.16",

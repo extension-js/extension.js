@@ -14,7 +14,11 @@ vi.mock('child_process', () => ({
   spawnSync: vi.fn(() => ({status: 0}))
 }))
 
-import {buildInstallCommand, execInstallCommand} from '../package-manager'
+import {
+  buildInstallCommand,
+  execInstallCommand,
+  resolvePackageManager
+} from '../package-manager'
 
 describe('package-manager buildInstallCommand', () => {
   it('executes native package manager binaries directly', () => {
@@ -45,6 +49,70 @@ describe('package-manager buildInstallCommand', () => {
       command: process.execPath,
       args: [execPath, ...args]
     })
+  })
+
+  it('preserves npm_execpath when env user agent identifies pnpm', () => {
+    const originalUserAgent = process.env.npm_config_user_agent
+    const originalExecPath = process.env.npm_execpath
+
+    process.env.npm_config_user_agent = 'pnpm/10.24.0 npm/? node/v23.8.0 darwin'
+    process.env.npm_execpath = '/tmp/pnpm.cjs'
+
+    try {
+      const resolution = resolvePackageManager()
+      expect(resolution).toEqual({
+        name: 'pnpm',
+        execPath: '/tmp/pnpm.cjs'
+      })
+    } finally {
+      if (originalUserAgent === undefined) {
+        delete process.env.npm_config_user_agent
+      } else {
+        process.env.npm_config_user_agent = originalUserAgent
+      }
+
+      if (originalExecPath === undefined) {
+        delete process.env.npm_execpath
+      } else {
+        process.env.npm_execpath = originalExecPath
+      }
+    }
+  })
+
+  it('reuses npm_execpath when override only specifies manager name', () => {
+    const originalOverride = process.env.EXTENSION_JS_PACKAGE_MANAGER
+    const originalOverrideExecPath = process.env.EXTENSION_JS_PM_EXEC_PATH
+    const originalExecPath = process.env.npm_execpath
+
+    process.env.EXTENSION_JS_PACKAGE_MANAGER = 'pnpm'
+    delete process.env.EXTENSION_JS_PM_EXEC_PATH
+    process.env.npm_execpath = '/tmp/pnpm.cjs'
+
+    try {
+      const resolution = resolvePackageManager()
+      expect(resolution).toEqual({
+        name: 'pnpm',
+        execPath: '/tmp/pnpm.cjs'
+      })
+    } finally {
+      if (originalOverride === undefined) {
+        delete process.env.EXTENSION_JS_PACKAGE_MANAGER
+      } else {
+        process.env.EXTENSION_JS_PACKAGE_MANAGER = originalOverride
+      }
+
+      if (originalOverrideExecPath === undefined) {
+        delete process.env.EXTENSION_JS_PM_EXEC_PATH
+      } else {
+        process.env.EXTENSION_JS_PM_EXEC_PATH = originalOverrideExecPath
+      }
+
+      if (originalExecPath === undefined) {
+        delete process.env.npm_execpath
+      } else {
+        process.env.npm_execpath = originalExecPath
+      }
+    }
   })
 })
 

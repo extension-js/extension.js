@@ -55,7 +55,10 @@ function inferPackageManagerFromPath(
 
 function getPackageManagerOverride(): PackageManagerResolution | undefined {
   const name = normalizePackageManager(process.env.EXTENSION_JS_PACKAGE_MANAGER)
-  const execPath = process.env.EXTENSION_JS_PM_EXEC_PATH
+  const execPath =
+    process.env.EXTENSION_JS_PM_EXEC_PATH ||
+    process.env.npm_execpath ||
+    process.env.NPM_EXEC_PATH
 
   if (!name && !execPath) return undefined
   const inferredName = name || inferPackageManagerFromPath(execPath) || 'npm'
@@ -65,12 +68,20 @@ function getPackageManagerOverride(): PackageManagerResolution | undefined {
 
 function detectPackageManagerFromEnv(): PackageManagerResolution | undefined {
   const userAgent = process.env.npm_config_user_agent || ''
-  if (userAgent.includes('pnpm')) return {name: 'pnpm'}
-  if (userAgent.includes('yarn')) return {name: 'yarn'}
-  if (userAgent.includes('bun')) return {name: 'bun'}
-  if (userAgent.includes('npm')) return {name: 'npm'}
-
   const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
+  if (userAgent.includes('pnpm')) {
+    return {name: 'pnpm', execPath: execPath || undefined}
+  }
+  if (userAgent.includes('yarn')) {
+    return {name: 'yarn', execPath: execPath || undefined}
+  }
+  if (userAgent.includes('bun')) {
+    return {name: 'bun', execPath: execPath || undefined}
+  }
+  if (userAgent.includes('npm')) {
+    return {name: 'npm', execPath: execPath || undefined}
+  }
+
   if (execPath) {
     const inferred = inferPackageManagerFromPath(execPath) || 'npm'
     return {name: inferred, execPath}
