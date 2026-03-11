@@ -25,7 +25,8 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
       installOptionalDependencies: vi.fn(async () => true),
-      resolveDevelopInstallRoot: vi.fn(() => undefined)
+      resolveDevelopInstallRoot: vi.fn(() => undefined),
+      resolveOptionalInstallRoot: vi.fn(() => '/tmp/extensionjs-optional-deps')
     }))
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
