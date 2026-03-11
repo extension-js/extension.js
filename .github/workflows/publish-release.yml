@@ -9,7 +9,7 @@ on:
         required: true
         options: [next, stable, canary]
       version:
-        description: "Exact version (e.g., 3.0.0-next.17 or 3.0.0). Leave empty for auto canary version."
+        description: "Exact version. Use -next.* only with channel=next, plain semver only with stable. Leave empty for auto canary version."
         type: string
         required: false
 
@@ -85,8 +85,10 @@ jobs:
 
           if [ "$CHANNEL" = "next" ]; then
             echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$' || { echo "version must be pre-release for next" >&2; exit 1; }
+            echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-next\.[0-9A-Za-z.-]+$' || { echo "next channel requires a -next.* version" >&2; exit 1; }
           elif [ "$CHANNEL" = "canary" ]; then
             echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-[0-9A-Za-z.-]+$' || { echo "version must be pre-release for canary" >&2; exit 1; }
+            echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-canary\.[0-9A-Za-z.-]+$' || { echo "canary channel requires a -canary.* version (or leave version empty for auto canary)" >&2; exit 1; }
           else
             echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "version must be plain semver for stable" >&2; exit 1; }
           fi
@@ -106,6 +108,7 @@ jobs:
             echo "tag=latest" >> $GITHUB_OUTPUT
           fi
           echo "should_tag=$SHOULD_TAG" >> $GITHUB_OUTPUT
+          echo "Resolved publish target: channel=$CHANNEL version=$VERSION npm_tag=$( [ \"$CHANNEL\" = \"next\" ] && echo next || ( [ \"$CHANNEL\" = \"canary\" ] && echo canary || echo latest ) )"
 
       - name: Generate release notes from git history
         if: ${{ inputs.channel != 'canary' }}
