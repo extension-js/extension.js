@@ -1,5 +1,5 @@
 import {beforeAll, afterAll, describe, expect, it} from 'vitest'
-import {spawn, spawnSync} from 'node:child_process'
+import {spawn, spawnSync, execFileSync} from 'node:child_process'
 import {
   mkdtempSync,
   rmSync,
@@ -161,6 +161,24 @@ async function runUntilTimeout(
     let timedOut = false
     let resolved = false
 
+    const killWindowsProcessTree = (force: boolean) => {
+      if (process.platform !== 'win32' || !child.pid) return false
+
+      try {
+        execFileSync(
+          'taskkill',
+          ['/pid', String(child.pid), '/t', ...(force ? ['/f'] : [])],
+          {
+            stdio: ['ignore', 'ignore', 'ignore'],
+            windowsHide: true
+          }
+        )
+        return true
+      } catch {
+        return false
+      }
+    }
+
     child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString()
     })
@@ -173,6 +191,7 @@ async function runUntilTimeout(
       resolved = true
       clearTimeout(timer)
       clearTimeout(killTimer)
+      clearTimeout(forceFinalizeTimer)
       resolvePromise({status, signal, stdout, stderr, timedOut})
     }
 
@@ -183,6 +202,8 @@ async function runUntilTimeout(
       try {
         if (useProcessGroupKill && child.pid) {
           process.kill(-child.pid, 'SIGTERM')
+        } else if (killWindowsProcessTree(false)) {
+          return
         } else {
           throw new Error('skip')
         }
@@ -200,6 +221,8 @@ async function runUntilTimeout(
       try {
         if (useProcessGroupKill && child.pid) {
           process.kill(-child.pid, 'SIGKILL')
+        } else if (killWindowsProcessTree(true)) {
+          return
         } else {
           throw new Error('skip')
         }
@@ -210,8 +233,12 @@ async function runUntilTimeout(
           // best-effort only
         }
       }
-      finalize(null, 'SIGKILL')
     }, timeoutMs + 3000)
+
+    const forceFinalizeTimer = setTimeout(() => {
+      if (resolved) return
+      finalize(null, 'SIGKILL')
+    }, timeoutMs + 10000)
 
     child.on('close', (status, signal) => {
       finalize(status, signal)
