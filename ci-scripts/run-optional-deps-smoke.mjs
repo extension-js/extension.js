@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs/promises'
+import fsSync from 'node:fs'
+import crypto from 'node:crypto'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
@@ -29,6 +31,20 @@ const baseEnv = {
   HUSKY: '0'
 }
 
+function buildSmokeEnv(pm) {
+  if (pm !== 'pnpm') return baseEnv
+
+  const npmCommandPath = resolveCommandPath('npm')
+  return {
+    ...baseEnv,
+    // Force the isolated optional-deps cache installs through npm so the
+    // smoke test can focus on lockfile stability instead of host-specific
+    // pnpm shim resolution in nested child processes.
+    EXTENSION_JS_PACKAGE_MANAGER: 'npm',
+    ...(npmCommandPath ? {EXTENSION_JS_PM_EXEC_PATH: npmCommandPath} : {})
+  }
+}
+
 function commandFor(tool) {
   if (process.platform !== 'win32') return tool
   if (tool === 'pnpm') return 'pnpm.cmd'
@@ -36,6 +52,26 @@ function commandFor(tool) {
   if (tool === 'yarn') return 'yarn.cmd'
   if (tool === 'bun') return 'bun.exe'
   return tool
+}
+
+function resolveCommandPath(tool) {
+  const resolvedCommand = commandFor(tool)
+
+  if (process.platform === 'win32') {
+    return resolvedCommand
+  }
+
+  const result = spawnSync('which', [resolvedCommand], {
+    env: baseEnv,
+    encoding: 'utf8'
+  })
+
+  if (result.status === 0) {
+    const value = String(result.stdout || '').trim()
+    if (value) return value
+  }
+
+  return undefined
 }
 
 function run(command, args, cwd, env = baseEnv) {
@@ -76,6 +112,15 @@ async function pathExists(targetPath) {
   } catch {
     return false
   }
+}
+
+function sha1FileSync(filePath) {
+  const content = fsSync.readFileSync(filePath)
+  return crypto.createHash('sha1').update(content).digest('hex')
+}
+
+async function isWorkspaceBootstrapped() {
+  return pathExists(path.join(ROOT_DIR, 'node_modules', '.pnpm', 'lock.yaml'))
 }
 
 async function writeFallbackFixture(targetDir) {
@@ -266,7 +311,10 @@ async function rewriteConsumerPackageJson(workdir, pm) {
 }
 
 function installAndBuild(workdir, pm) {
+  const smokeEnv = buildSmokeEnv(pm)
+
   if (pm === 'pnpm') {
+    const lockfilePath = path.join(workdir, 'pnpm-lock.yaml')
     run(
       'pnpm',
       [
@@ -275,40 +323,67 @@ function installAndBuild(workdir, pm) {
         '--ignore-workspace',
         '--no-frozen-lockfile'
       ],
-      workdir
+      workdir,
+      smokeEnv
     )
-    run('pnpm', ['install', '--frozen-lockfile'], workdir)
-    run('pnpm', ['build:production'], workdir)
+    run('pnpm', ['install', '--frozen-lockfile'], workdir, smokeEnv)
+    const firstLockHash = sha1FileSync(lockfilePath)
+    run('pnpm', ['build:production'], workdir, smokeEnv)
+    const firstBuildLockHash = sha1FileSync(lockfilePath)
+
+    if (firstLockHash !== firstBuildLockHash) {
+      throw new Error('pnpm build mutated pnpm-lock.yaml after initial install')
+    }
+
+    run('pnpm', ['install', '--frozen-lockfile'], workdir, smokeEnv)
+
+    const secondLockHash = sha1FileSync(lockfilePath)
+    run('pnpm', ['build:production'], workdir, smokeEnv)
+
+    const secondBuildLockHash = sha1FileSync(lockfilePath)
+
+    if (secondLockHash !== secondBuildLockHash) {
+      throw new Error(
+        'pnpm build mutated pnpm-lock.yaml after frozen reinstall'
+      )
+    }
     return
   }
 
   if (pm === 'npm') {
-    run('npm', ['install', '--no-audit', '--no-fund'], workdir)
-    run('npm', ['run', 'build:production'], workdir)
+    run('npm', ['install', '--no-audit', '--no-fund'], workdir, smokeEnv)
+    run('npm', ['run', 'build:production'], workdir, smokeEnv)
     return
   }
 
   if (pm === 'yarn') {
     try {
-      run('yarn', ['install', '--immutable'], workdir)
+      run('yarn', ['install', '--immutable'], workdir, smokeEnv)
     } catch {
-      run('yarn', ['install'], workdir)
+      run('yarn', ['install'], workdir, smokeEnv)
     }
-    run('yarn', ['build:production'], workdir)
+    run('yarn', ['build:production'], workdir, smokeEnv)
     return
   }
 
   if (pm === 'bun') {
     try {
-      run('bun', ['install', '--frozen-lockfile'], workdir)
+      run('bun', ['install', '--frozen-lockfile'], workdir, smokeEnv)
     } catch {
-      run('bun', ['install'], workdir)
+      run('bun', ['install'], workdir, smokeEnv)
     }
-    run('bun', ['run', 'build:production'], workdir)
+    run('bun', ['run', 'build:production'], workdir, smokeEnv)
   }
 }
 
-function installWorkspaceDependencies() {
+async function installWorkspaceDependencies() {
+  if (await isWorkspaceBootstrapped()) {
+    console.log(
+      '\nWorkspace dependencies already present; skipping broad workspace install.'
+    )
+    return
+  }
+
   try {
     run('pnpm', ['--dir', ROOT_DIR, 'install', '--frozen-lockfile'], ROOT_DIR)
   } catch (error) {
@@ -339,7 +414,7 @@ async function main() {
 
     // CI jobs may check out source without node_modules. Install workspace deps
     // before compiling local packages that rely on build tools like rslib.
-    installWorkspaceDependencies()
+    await installWorkspaceDependencies()
 
     run(
       'pnpm',

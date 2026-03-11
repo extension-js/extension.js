@@ -3,7 +3,8 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import {
   installOptionalDependencies,
-  resolveDevelopInstallRoot
+  resolveDevelopInstallRoot,
+  resolveOptionalInstallRoot
 } from '../plugin-css/css-lib/integrations'
 
 type ResolutionResult = {
@@ -26,15 +27,24 @@ type EnsureLoadInput<T = any> = EnsureResolveInput & {
 const installSingleFlight = new Map<string, Promise<void>>()
 
 function getResolutionBases(projectPath: string): string[] {
+  const optionalInstallRoot = resolveOptionalInstallRoot()
   const extensionRoot = resolveDevelopInstallRoot()
-  const bases = [projectPath, extensionRoot || undefined, process.cwd()].filter(
-    Boolean
-  ) as string[]
+  const bases = [
+    projectPath,
+    optionalInstallRoot && fs.existsSync(optionalInstallRoot)
+      ? optionalInstallRoot
+      : undefined,
+    extensionRoot || undefined,
+    process.cwd()
+  ].filter(Boolean) as string[]
 
   // In pnpm dlx/npx, optional deps live in extension-develop's sibling node_modules
   // (e.g. .../.pnpm/extension-develop@x/node_modules/sass-loader). For
   // require.resolve(id, {paths}), Node looks for path/node_modules/id, so we add
   // the parent of that node_modules (the .pnpm store dir).
+  if (optionalInstallRoot && optionalInstallRoot.includes('.pnpm')) {
+    bases.push(path.join(optionalInstallRoot, '..', '..'))
+  }
   if (extensionRoot && extensionRoot.includes('.pnpm')) {
     bases.push(path.join(extensionRoot, '..', '..'))
   }
@@ -328,7 +338,7 @@ async function ensureInstalledAndVerified(input: {
   projectPath: string
   dependencyId: string
 }): Promise<void> {
-  const installRoot = resolveDevelopInstallRoot()
+  const installRoot = resolveOptionalInstallRoot()
   const key = [
     installRoot || 'missing-install-root',
     ...input.installDependencies.slice().sort()
@@ -366,7 +376,7 @@ export function resolveOptionalDependencySync(
   dependencyId: string,
   projectPath: string
 ): string {
-  const installRoot = resolveDevelopInstallRoot()
+  const installRoot = resolveOptionalInstallRoot()
   const resolved = resolveFromKnownLocations(
     dependencyId,
     projectPath,
@@ -384,7 +394,7 @@ export async function ensureOptionalPackageResolved(
 ): Promise<string> {
   const installDependencies = input.installDependencies || [input.dependencyId]
   const verifyPackageIds = input.verifyPackageIds || installDependencies
-  const installRoot = resolveDevelopInstallRoot()
+  const installRoot = resolveOptionalInstallRoot()
   const resolvedBeforeInstall = resolveFromKnownLocations(
     input.dependencyId,
     input.projectPath,
@@ -516,7 +526,7 @@ export async function ensureOptionalModuleLoaded<T = any>(
         integration: input.integration,
         dependencyId: input.dependencyId,
         projectPath: input.projectPath,
-        installRoot: resolveDevelopInstallRoot(),
+        installRoot: resolveOptionalInstallRoot(),
         installDependencies: input.installDependencies || [input.dependencyId],
         verifyPackageIds: input.verifyPackageIds ||
           input.installDependencies || [input.dependencyId]

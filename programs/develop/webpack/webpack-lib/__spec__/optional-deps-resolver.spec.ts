@@ -3,12 +3,14 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 let developInstallRoot: string | undefined
+let optionalInstallRoot: string | undefined
 const installOptionalDependenciesMock = vi.fn()
 
 vi.mock('../../plugin-css/css-lib/integrations', () => ({
   installOptionalDependencies: (...args: unknown[]) =>
     installOptionalDependenciesMock(...args),
-  resolveDevelopInstallRoot: () => developInstallRoot
+  resolveDevelopInstallRoot: () => developInstallRoot,
+  resolveOptionalInstallRoot: () => optionalInstallRoot
 }))
 
 function writeJson(filePath: string, value: unknown) {
@@ -41,12 +43,14 @@ describe('optional-deps-resolver', () => {
       name: 'extension-develop'
     })
     developInstallRoot = runtimePath
+    optionalInstallRoot = runtimePath
   })
 
   afterEach(() => {
     fs.rmSync(projectPath, {recursive: true, force: true})
     fs.rmSync(runtimePath, {recursive: true, force: true})
     developInstallRoot = undefined
+    optionalInstallRoot = undefined
   })
 
   it('resolves optional package from project root when already installed', async () => {

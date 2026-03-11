@@ -8,9 +8,12 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import * as os from 'os'
 import * as messages from './messages'
 import colors from 'pintor'
+import packageJson from '../../../package.json'
 import {findExtensionDevelopRoot} from '../../webpack-lib/check-build-dependencies'
+import {resolveOptionalDependencySpecs} from '../../webpack-lib/optional-dependencies'
 import {
   buildInstallCommand,
   buildNpmCliFallback,
@@ -205,18 +208,62 @@ export function resolveDevelopInstallRoot(): string | undefined {
   }
 }
 
+function getExtensionJsCacheBaseDir(): string {
+  const override = process.env.EXTENSION_JS_CACHE_DIR
+  if (override) return path.resolve(override)
+
+  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
+    return path.join(process.env.LOCALAPPDATA, 'extensionjs')
+  }
+
+  if (process.env.XDG_CACHE_HOME) {
+    return path.join(process.env.XDG_CACHE_HOME, 'extensionjs')
+  }
+
+  return path.join(os.homedir(), '.cache', 'extensionjs')
+}
+
+export function resolveOptionalInstallRoot(): string {
+  return path.join(
+    getExtensionJsCacheBaseDir(),
+    'optional-deps',
+    packageJson.version
+  )
+}
+
+function ensureOptionalInstallBaseDir(installBaseDir: string): void {
+  fs.mkdirSync(installBaseDir, {recursive: true})
+
+  const packageJsonPath = path.join(installBaseDir, 'package.json')
+  if (!fs.existsSync(packageJsonPath)) {
+    fs.writeFileSync(
+      packageJsonPath,
+      JSON.stringify(
+        {
+          name: `extensionjs-optional-deps-${packageJson.version}`,
+          private: true,
+          version: packageJson.version
+        },
+        null,
+        2
+      ) + '\n'
+    )
+  }
+}
+
 function getOptionalInstallCommand(
   pm: PackageManagerResolution,
   dependencies: string[],
   installBaseDir: string
 ): InstallCommand {
   const pmName = pm.name
+  const dependencySpecs = resolveOptionalDependencySpecs(dependencies)
 
   if (pmName === 'yarn') {
     return buildInstallCommand(pm, [
       '--silent',
       'add',
-      ...dependencies,
+      ...dependencySpecs,
       '--cwd',
       installBaseDir,
       '--optional'
@@ -227,7 +274,7 @@ function getOptionalInstallCommand(
     return buildInstallCommand(pm, [
       '--silent',
       'install',
-      ...dependencies,
+      ...dependencySpecs,
       '--prefix',
       installBaseDir,
       '--save-optional'
@@ -237,10 +284,12 @@ function getOptionalInstallCommand(
   if (pmName === 'pnpm') {
     return buildInstallCommand(pm, [
       'add',
-      ...dependencies,
+      ...dependencySpecs,
       '--dir',
       installBaseDir,
       '--save-optional',
+      '--ignore-workspace',
+      '--lockfile=false',
       '--silent'
     ])
   }
@@ -248,7 +297,7 @@ function getOptionalInstallCommand(
   if (pmName === 'bun') {
     return buildInstallCommand(pm, [
       'add',
-      ...dependencies,
+      ...dependencySpecs,
       '--cwd',
       installBaseDir,
       '--optional'
@@ -258,7 +307,7 @@ function getOptionalInstallCommand(
   return buildInstallCommand(pm, [
     '--silent',
     'install',
-    ...dependencies,
+    ...dependencySpecs,
     '--cwd',
     installBaseDir,
     '--optional'
@@ -288,7 +337,13 @@ function getRootInstallCommand(
   }
 
   if (pmName === 'pnpm') {
-    return buildInstallCommand(pm, ['install', '--silent', ...dirArgs])
+    return buildInstallCommand(pm, [
+      'install',
+      '--silent',
+      ...dirArgs,
+      '--ignore-workspace',
+      '--lockfile=false'
+    ])
   }
 
   if (pmName === 'bun') {
@@ -313,10 +368,8 @@ export async function installOptionalDependencies(
   let installBaseDir: string | undefined
 
   try {
-    installBaseDir = resolveDevelopInstallRoot()
-    if (!installBaseDir) {
-      throw new Error(messages.optionalInstallRootMissing(integration))
-    }
+    installBaseDir = resolveOptionalInstallRoot()
+    ensureOptionalInstallBaseDir(installBaseDir)
     pm = resolvePackageManager({cwd: installBaseDir})
     wslContext = resolveWslContext(installBaseDir)
     if (!wslContext.useWsl) {
@@ -355,7 +408,7 @@ export async function installOptionalDependencies(
         : buildNpmCliFallback([
             '--silent',
             'install',
-            dependency,
+            ...resolveOptionalDependencySpecs([dependency]),
             '--prefix',
             installBaseDir,
             '--save-optional'
@@ -414,7 +467,12 @@ export async function installOptionalDependencies(
       npm_config_userconfig: process.env.npm_config_userconfig,
       installBaseDir,
       wslContext,
-      pm
+      pm,
+      errorCode: (error as NodeJS.ErrnoException)?.code,
+      errorMessage:
+        error instanceof Error
+          ? error.message
+          : String(error || 'unknown error')
     })
     const isAuthor = process.env.EXTENSION_AUTHOR_MODE === 'true'
     if (isMissingManagerError(error)) {
