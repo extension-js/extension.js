@@ -87,6 +87,16 @@ export class CompilationPlugin {
         ) {
           return true
         }
+        if (
+          message.includes(
+            'Critical dependency: require function is used in a way in which dependencies cannot be statically extracted'
+          ) &&
+          /[\\\/]@vue[\\\/]compiler-sfc[\\\/]dist[\\\/]compiler-sfc\.esm-browser\.js$/.test(
+            modulePath
+          )
+        ) {
+          return true
+        }
         return (
           message.includes('Accessing import.meta directly is unsupported') &&
           /[\\\/]@huggingface[\\\/]transformers[\\\/].*transformers\.web\.js$/.test(
