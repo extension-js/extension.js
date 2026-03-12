@@ -1,4 +1,6 @@
-import {describe, it, beforeEach, expect, vi} from 'vitest'
+import {describe, it, beforeEach, afterEach, expect, vi} from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 import * as messages from '../messages'
@@ -12,7 +14,9 @@ vi.mock('../messages', () => ({
 }))
 
 const createFakeCompiler = () => {
-  const projectRoot = path.join(path.parse(process.cwd()).root, 'project')
+  const projectRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'extensionjs-special-folders-')
+  )
   const watchRunCallbacks: Array<() => void> = []
   const thisCompilationCallbacks: Array<(c: any) => void> = []
   const hooks: any = {
@@ -63,15 +67,25 @@ let compilation: {
   errors: any[]
   contextDependencies: Set<string>
 }
+const tempDirs = new Set<string>()
 
 beforeEach(() => {
   compilation = {warnings: [], errors: [], contextDependencies: new Set()}
   vi.clearAllMocks()
 })
 
+afterEach(() => {
+  for (const dir of tempDirs) {
+    fs.rmSync(dir, {recursive: true, force: true})
+  }
+  tempDirs.clear()
+})
+
 describe('WarnUponFolderChanges', () => {
   it('warns on adding pages/*.html and errors on removing', () => {
     const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
     new WarnUponFolderChanges().apply(compiler as any)
 
     compiler.modifiedFiles = new Set([
@@ -97,6 +111,8 @@ describe('WarnUponFolderChanges', () => {
 
   it('warns on adding supported scripts and errors on removing; ignores unsupported extensions', () => {
     const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
     new WarnUponFolderChanges().apply(compiler as any)
 
     compiler.modifiedFiles = new Set([
@@ -123,6 +139,8 @@ describe('WarnUponFolderChanges', () => {
 
   it('ignores non-HTML additions/removals in pages/', () => {
     const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
     new WarnUponFolderChanges().apply(compiler as any)
 
     compiler.modifiedFiles = new Set([
@@ -137,8 +155,11 @@ describe('WarnUponFolderChanges', () => {
     expect(compilation.errors.length).toBe(0)
   })
 
-  it('registers pages/ and scripts/ as context dependencies', () => {
+  it('registers pages/ and scripts/ as context dependencies when they exist', () => {
     const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
+    fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
     new WarnUponFolderChanges().apply(compiler as any)
     runCycle(compiler, compilation)
 
@@ -149,5 +170,18 @@ describe('WarnUponFolderChanges', () => {
     expect(deps).toContain(
       path.join(projectRoot, 'scripts').replace(/\\/g, '/')
     )
+  })
+
+  it('falls back to the project root when special folders are missing', () => {
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+
+    new WarnUponFolderChanges().apply(compiler as any)
+    runCycle(compiler, compilation)
+
+    const deps = Array.from(compilation.contextDependencies).map((p) =>
+      String(p).replace(/\\/g, '/')
+    )
+    expect(deps).toEqual([projectRoot.replace(/\\/g, '/')])
   })
 })
