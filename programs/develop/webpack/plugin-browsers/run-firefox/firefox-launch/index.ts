@@ -68,12 +68,14 @@ export class FirefoxLaunchPlugin {
       } as any
     }
     await this.launch(compilation, options)
-    this.ctx.logger?.info?.(
-      messages.stdoutData(this.host.browser, options.mode)
-    )
-    this.ctx.logger?.info?.(
-      devServerMessages.ready(options.mode, this.host.browser)
-    )
+    if (options.mode === 'development') {
+      this.ctx.logger?.info?.(
+        messages.stdoutData(this.host.browser, options.mode)
+      )
+      this.ctx.logger?.info?.(
+        devServerMessages.ready(options.mode, this.host.browser)
+      )
+    }
     this.ctx.didLaunch = true
   }
 

@@ -28,6 +28,7 @@ import {getSpecialFoldersDataForProjectRoot} from './feature-special-folders/get
 import {computeExtensionsToLoad} from './webpack-lib/extensions-to-load'
 import {withDarkMode} from './webpack-lib/dark-mode'
 import {runOnlyPreviewBrowser} from './plugin-browsers/run-only'
+import * as devServerMessages from './dev-server/messages'
 
 export async function extensionPreview(
   pathOrRemoteUrl: string | undefined,
@@ -111,6 +112,18 @@ export async function extensionPreview(
   if (previewOptions.noBrowser) {
     console.log(messages.previewSkippedNoBrowser(browser))
     metadata.writeReady()
+    console.log(devServerMessages.spacerLine())
+    const browserLabel = String(browser || 'unknown')
+    console.log(
+      devServerMessages.browserRunnerDisabled({
+        browser: browserLabel,
+        manifestPath: projectStructure.manifestPath,
+        readyPath: metadata.readyPath,
+        browserModeLabel: `${
+          browserLabel.charAt(0).toUpperCase() + browserLabel.slice(1)
+        } (no-browser mode)`
+      })
+    )
     return
   }
 
@@ -190,6 +203,7 @@ export async function extensionPreview(
     browser,
     outPath: outputPath,
     contextDir: packageJsonDir,
+    readyPath: metadata.readyPath,
     extensionsToLoad: unpackedExtensionDirsToLoad,
     noOpen: merged.noOpen,
     profile: merged.profile,

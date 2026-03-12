@@ -16,6 +16,7 @@ import type {DevOptions} from '../../webpack-types'
 
 type Info = {extensionId?: string; name?: string; version?: string} | null
 type HostPort = {host?: string; port?: number | string}
+type ReadyLike = {runId?: unknown; pid?: unknown} | null
 
 const printedKeys = new Set<string>()
 
@@ -43,6 +44,29 @@ function keyFor(
 function toNormalizedId(value: unknown): string {
   if (typeof value !== 'string') return ''
   return value.trim()
+}
+
+function readReadyMetadata(readyPath?: string): ReadyLike {
+  if (!readyPath) return null
+
+  try {
+    return JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as ReadyLike
+  } catch {
+    return null
+  }
+}
+
+function resolveRunLabel(ready: ReadyLike): string {
+  const runId = toNormalizedId(ready?.runId)
+  const pid =
+    typeof ready?.pid === 'number' && Number.isFinite(ready.pid)
+      ? String(ready.pid)
+      : ''
+
+  if (runId && pid) return `${runId} · PID ${pid}`
+  if (runId) return runId
+  if (pid) return `PID ${pid}`
+  return ''
 }
 
 function deriveChromiumExtensionIdFromManifest(manifest: unknown): string {
@@ -189,6 +213,8 @@ export async function printProdBannerOnce(opts: {
   browserVersionLine?: string
   runtime?: {extensionId?: string; name?: string; version?: string}
   includeExtensionId?: boolean
+  readyPath?: string
+  includeRunId?: boolean
 }) {
   const k = keyFor(opts.browser, opts.outPath)
 
@@ -203,6 +229,8 @@ export async function printProdBannerOnce(opts: {
   try {
     const manifestPath = path.join(opts.outPath, 'manifest.json')
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
+    const ready = readReadyMetadata(opts.readyPath)
+    const runLabel = opts.includeRunId ? resolveRunLabel(ready) : ''
     const runtimeInfo: Info = opts.runtime
       ? {
           extensionId: opts.runtime.extensionId,
@@ -235,7 +263,10 @@ export async function printProdBannerOnce(opts: {
           message,
           browserLabel,
           updateSuffix || undefined,
-          {includeExtensionId: opts.includeExtensionId}
+          {
+            includeExtensionId: opts.includeExtensionId,
+            runLabel
+          }
         )
       )
       console.log(messages.emptyLine())
@@ -259,7 +290,10 @@ export async function printProdBannerOnce(opts: {
           message,
           browserLabel,
           updateSuffix || undefined,
-          {includeExtensionId: opts.includeExtensionId}
+          {
+            includeExtensionId: opts.includeExtensionId,
+            runLabel
+          }
         )
       )
       console.log(messages.emptyLine())
