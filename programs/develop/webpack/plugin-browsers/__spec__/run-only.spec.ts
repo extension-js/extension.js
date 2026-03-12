@@ -1,10 +1,12 @@
 import {describe, expect, it, vi, beforeEach} from 'vitest'
 
-const {chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} = vi.hoisted(() => ({
-  chromiumRunOnce: vi.fn(async () => {}),
-  firefoxRunOnce: vi.fn(async () => {}),
-  printProdBannerOnce: vi.fn(async () => true)
-}))
+const {chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} = vi.hoisted(
+  () => ({
+    chromiumRunOnce: vi.fn(async () => {}),
+    firefoxRunOnce: vi.fn(async () => {}),
+    printProdBannerOnce: vi.fn(async () => true)
+  })
+)
 
 vi.mock('../run-chromium/chromium-context', () => ({
   createChromiumContext: vi.fn(() => ({}))
