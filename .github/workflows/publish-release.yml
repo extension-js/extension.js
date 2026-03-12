@@ -127,7 +127,7 @@ jobs:
           fi
 
           # Exclude release machinery commits (chore(release), release(...)) from changelog.
-          notes=$(git log "$range" --no-merges --invert-grep --grep='chore(release)' --grep='release\(' --pretty=format:'- %s (%h)')
+          notes=$(git log "$range" --no-merges --invert-grep --grep='chore(release)' --grep='release(' --pretty=format:'- %s (%h)')
           if [ -z "$notes" ]; then
             notes="- No changes listed."
           fi
