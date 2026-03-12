@@ -171,6 +171,33 @@ describe('CompilationPlugin', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtB, 5ms)')
   })
 
+  it('ignores known Vue compiler-sfc critical dependency warnings', () => {
+    const {compiler} = createCompiler('development')
+    const plugin = new CompilationPlugin({
+      manifestPath: '/p/manifest.json',
+      browser: 'chrome',
+      clean: true
+    })
+
+    plugin.apply(compiler as any)
+
+    const ignoreWarnings = compiler.options.ignoreWarnings as Array<
+      (warning: any) => boolean
+    >
+    const shouldIgnore = ignoreWarnings.some((matcher) =>
+      matcher({
+        message:
+          'Critical dependency: require function is used in a way in which dependencies cannot be statically extracted',
+        module: {
+          resource:
+            '/tmp/node_modules/@vue/compiler-sfc/dist/compiler-sfc.esm-browser.js'
+        }
+      })
+    )
+
+    expect(shouldIgnore).toBe(true)
+  })
+
   it('logs a boring success message on repeated compilations', () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'ExtC'})
