@@ -25,4 +25,18 @@ describe('webAccessibleResources override', () => {
       'fonts/font.woff2'
     ])
   })
+
+  it('preserves wildcard entries verbatim', () => {
+    const manifest = {
+      web_accessible_resources: [
+        {matches: ['<all_urls>'], resources: ['/*.json', 'assets/*.svg']}
+      ]
+    } as any
+
+    const result = webAccessibleResources(manifest) as any
+    expect(result.web_accessible_resources[0].resources).toEqual([
+      '/*.json',
+      'assets/*.svg'
+    ])
+  })
 })

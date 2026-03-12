@@ -10,6 +10,11 @@ describe('ManifestLegacyWarnings', () => {
         thisCompilation: {
           tap: (_n: string, fn: any) =>
             fn({
+              hooks: {
+                processAssets: {
+                  tap: (_opts: any, run: any) => run()
+                }
+              },
               getAsset: () => ({
                 source: {
                   source: () =>

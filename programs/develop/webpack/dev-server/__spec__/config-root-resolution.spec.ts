@@ -7,12 +7,21 @@ const {loadCommandConfig, loadBrowserConfig, loadCustomWebpackConfig} =
     loadCustomWebpackConfig: vi.fn(async () => (config: any) => config)
   }))
 
+const {rspackSpy, devServerConfigCapture} = vi.hoisted(() => ({
+  rspackSpy: vi.fn(() => ({})),
+  devServerConfigCapture: {current: undefined as any}
+}))
+
 vi.mock('@rspack/core', () => ({
-  rspack: vi.fn(() => ({}))
+  rspack: rspackSpy
 }))
 
 vi.mock('@rspack/dev-server', () => ({
   RspackDevServer: class MockRspackDevServer {
+    constructor(config: any) {
+      devServerConfigCapture.current = config
+    }
+
     start = vi.fn(async () => {})
   }
 }))
@@ -43,7 +52,7 @@ vi.mock('../../webpack-lib/sanitize', () => ({
 }))
 
 vi.mock('../compiler-hooks', () => ({
-  setupCompilerHooks: vi.fn()
+  setupCompilerLifecycleHooks: vi.fn()
 }))
 
 vi.mock('../cleanup', () => ({
@@ -75,6 +84,8 @@ describe('dev-server config root resolution', () => {
     loadCommandConfig.mockClear()
     loadBrowserConfig.mockClear()
     loadCustomWebpackConfig.mockClear()
+    rspackSpy.mockClear()
+    devServerConfigCapture.current = undefined
   })
 
   it('loads extension.config from package root when manifest is in src', async () => {
@@ -89,5 +100,29 @@ describe('dev-server config root resolution', () => {
     expect(loadCommandConfig).toHaveBeenCalledWith('/proj', 'dev')
     expect(loadBrowserConfig).toHaveBeenCalledWith('/proj', 'chrome')
     expect(loadCustomWebpackConfig).toHaveBeenCalledWith('/proj')
+  })
+
+  it('keeps manifest writes out of dev-middleware disk persistence', async () => {
+    await devServer(
+      {
+        manifestPath: '/proj/src/manifest.json',
+        packageJsonPath: '/proj/package.json'
+      },
+      {browser: 'chrome'} as any
+    )
+
+    expect(
+      devServerConfigCapture.current.devMiddleware.writeToDisk(
+        '/proj/dist/chrome/background.js'
+      )
+    ).toBe(true)
+    expect(
+      devServerConfigCapture.current.devMiddleware.writeToDisk(
+        '/proj/dist/chrome/manifest.json'
+      )
+    ).toBe(false)
+    expect(
+      devServerConfigCapture.current.devMiddleware.writeToDisk('manifest.json')
+    ).toBe(false)
   })
 })
