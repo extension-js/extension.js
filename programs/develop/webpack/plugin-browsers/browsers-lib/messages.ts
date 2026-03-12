@@ -962,7 +962,7 @@ export function runningInDevelopment(
   message: DevClientMessage,
   browserVersionLine?: string,
   updateSuffix?: string,
-  opts?: {includeExtensionId?: boolean}
+  opts?: {includeExtensionId?: boolean; runLabel?: string}
 ) {
   const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
   const manifestName = manifest.name || 'Extension.js'
@@ -1101,6 +1101,10 @@ export function runningInDevelopment(
 
   if (includeExtensionId && cleanId) {
     lines.push(`    Extension ID   ${colors.gray(cleanId)}`)
+  }
+
+  if (opts?.runLabel) {
+    lines.push(`    Run ID         ${colors.gray(opts.runLabel)}`)
   }
 
   return lines.join('\n')
