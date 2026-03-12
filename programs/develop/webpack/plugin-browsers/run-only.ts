@@ -42,6 +42,7 @@ export async function runOnlyPreviewBrowser(opts: {
   instanceId?: string
   port?: number | string
   dryRun?: boolean
+  readyPath?: string
 }): Promise<void> {
   // In preview we intentionally do not support source inspection unless we decide to ship `ws`.
   // Guard here for clarity and to keep preview dependency footprint minimal.
@@ -106,7 +107,9 @@ export async function runOnlyPreviewBrowser(opts: {
     await printProdBannerOnce({
       browser: opts.browser,
       outPath: opts.outPath,
-      includeExtensionId: false
+      includeExtensionId: true,
+      includeRunId: false,
+      readyPath: opts.readyPath
     })
     return
   }
@@ -130,6 +133,13 @@ export async function runOnlyPreviewBrowser(opts: {
       geckoBinary: opts.geckoBinary,
       port: opts.port
     } as any)
+    await printProdBannerOnce({
+      browser: opts.browser,
+      outPath: opts.outPath,
+      includeExtensionId: true,
+      includeRunId: false,
+      readyPath: opts.readyPath
+    })
     return
   }
 
