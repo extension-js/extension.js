@@ -6,6 +6,7 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
+import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler, type Compilation, WebpackError} from '@rspack/core'
 import * as messages from './messages'
@@ -20,6 +21,21 @@ type PendingChange = {
 
 export class WarnUponFolderChanges {
   private pendingChanges: PendingChange[] = []
+
+  private getContextDependencyPaths(projectPath: string): string[] {
+    const dependencies = new Set<string>()
+
+    for (const folder of ['pages', 'scripts'] as const) {
+      const folderPath = path.join(projectPath, folder)
+
+      // Watching a missing folder can trigger an empty startup invalidation in
+      // watch mode. Fall back to the project root so later folder creation is
+      // still detected without causing a bootstrap recompile.
+      dependencies.add(fs.existsSync(folderPath) ? folderPath : projectPath)
+    }
+
+    return Array.from(dependencies)
+  }
 
   private throwCompilationError(
     compilation: Compilation,
@@ -153,11 +169,11 @@ export class WarnUponFolderChanges {
       (compilation) => {
         const projectPath: string =
           (compiler.options.context as string) || process.cwd()
-        const pagesPath: string = path.join(projectPath, 'pages')
-        const scriptsPath: string = path.join(projectPath, 'scripts')
-
-        compilation.contextDependencies?.add(pagesPath)
-        compilation.contextDependencies?.add(scriptsPath)
+        for (const dependencyPath of this.getContextDependencyPaths(
+          projectPath
+        )) {
+          compilation.contextDependencies?.add(dependencyPath)
+        }
 
         this.applyPendingChanges(compilation)
       }
