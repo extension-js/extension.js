@@ -72,6 +72,7 @@ export function browserRunnerDisabled(args: {
   browser: string
   manifestPath: string
   readyPath: string
+  browserModeLabel?: string
 }) {
   const manifest = readJsonRecord(args.manifestPath)
   const ready = readJsonRecord(args.readyPath)
@@ -92,7 +93,9 @@ export function browserRunnerDisabled(args: {
 
   return [
     ` 🧩 ${colors.brightBlue('Extension.js')} ${colors.gray(extensionJsVersion)}`,
-    `    Browser        ${colors.gray(`${browserLabel} (build-only mode)`)}`,
+    `    Browser        ${colors.gray(
+      args.browserModeLabel || `${browserLabel} (build-only mode)`
+    )}`,
     `    Extension      ${colors.gray(extensionLabel)}`,
     `    Run ID         ${runLabel}`
   ].join('\n')
