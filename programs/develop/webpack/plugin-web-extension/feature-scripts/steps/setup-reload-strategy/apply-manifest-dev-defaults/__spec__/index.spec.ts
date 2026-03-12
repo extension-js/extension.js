@@ -106,4 +106,70 @@ describe('ApplyManifestDevDefaults', () => {
     expect(out.side_panel?.default_path).toBe('sidebar/index.html')
     expect(out.background?.service_worker).toBe('background/service_worker.js')
   })
+
+  it('patches dev defaults without re-canonicalizing manifest paths', () => {
+    const canonicalManifest = {
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      side_panel: {
+        default_path: 'sidebar/index.html',
+        default_title: 'Panel'
+      },
+      background: {
+        service_worker: 'background/service_worker.js'
+      },
+      content_scripts: [
+        {
+          matches: ['<all_urls>'],
+          js: ['content_scripts/content-0.js']
+        }
+      ]
+    }
+
+    let updatedManifestJson: string | undefined
+    const compilation = {
+      errors: [],
+      getAsset: (name: string) =>
+        name === 'manifest.json'
+          ? {source: () => JSON.stringify(canonicalManifest)}
+          : undefined,
+      assets: {
+        'manifest.json': {
+          source: () => JSON.stringify(canonicalManifest)
+        }
+      },
+      updateAsset: (name: string, rawSource: {source: () => string}) => {
+        if (name === 'manifest.json') {
+          updatedManifestJson = rawSource.source()
+        }
+      },
+      hooks: {
+        processAssets: {
+          tap: (_opts: unknown, fn: () => void) => fn()
+        }
+      }
+    } as unknown as Compilation
+
+    const compiler = {
+      hooks: {
+        thisCompilation: {
+          tap: (_name: string, fn: (c: Compilation) => void) => fn(compilation)
+        }
+      }
+    } as any
+
+    new ApplyManifestDevDefaults({
+      manifestPath: '/m/manifest.json',
+      browser: 'chrome'
+    }).apply(compiler)
+
+    expect(updatedManifestJson).toBeDefined()
+    const out = JSON.parse(updatedManifestJson!)
+    expect(out.side_panel?.default_path).toBe('sidebar/index.html')
+    expect(out.background?.service_worker).toBe('background/service_worker.js')
+    expect(out.content_scripts?.[0]?.js).toEqual([
+      'content_scripts/content-0.js'
+    ])
+  })
 })

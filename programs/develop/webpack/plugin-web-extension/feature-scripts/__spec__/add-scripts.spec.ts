@@ -7,6 +7,7 @@ vi.mock('fs', () => ({
 }))
 
 import {AddScripts} from '../steps/add-scripts'
+import {AddContentScriptWrapper} from '../steps/setup-reload-strategy/add-content-script-wrapper'
 import * as path from 'path'
 
 describe('AddScripts', () => {
@@ -104,5 +105,67 @@ describe('AddScripts', () => {
     const entry = compiler.options.entry['background/scripts']
     expect(entry.import).toContain(publicJs)
     expect(entry.import).toContain(publicCss)
+  })
+
+  it('includes bridge entries resolved from compiled .cjs artifacts', () => {
+    vi.spyOn(AddContentScriptWrapper, 'getBridgeScripts').mockReturnValue({
+      'content_scripts/content-5': '/proj/dist/main-world-bridge.cjs'
+    } as any)
+
+    const compiler: any = {
+      options: {
+        context: '/proj',
+        entry: {}
+      }
+    }
+
+    const plugin = new AddScripts({
+      manifestPath: '/proj/manifest.json',
+      includeList: {}
+    } as any)
+
+    plugin.apply(compiler)
+
+    expect(compiler.options.entry['content_scripts/content-5']).toEqual({
+      import: ['/proj/dist/main-world-bridge.cjs']
+    })
+  })
+
+  it('includes all supported script extensions in bundle imports', () => {
+    const compiler: any = {
+      options: {
+        context: '/proj',
+        entry: {}
+      }
+    }
+
+    const plugin = new AddScripts({
+      manifestPath: '/proj/manifest.json',
+      includeList: {
+        'background/scripts': [
+          '/proj/bg.cjs',
+          '/proj/bg.mjs',
+          '/proj/bg.jsx',
+          '/proj/bg.mjsx',
+          '/proj/bg.ts',
+          '/proj/bg.mts',
+          '/proj/bg.tsx',
+          '/proj/bg.mtsx'
+        ]
+      }
+    } as any)
+
+    plugin.apply(compiler)
+
+    expect(compiler.options.entry['background/scripts'].import).toEqual([
+      '/proj/bg.cjs',
+      '/proj/bg.mjs',
+      '/proj/bg.jsx',
+      '/proj/bg.mjsx',
+      '/proj/bg.ts',
+      '/proj/bg.mts',
+      '/proj/bg.tsx',
+      '/proj/bg.mtsx'
+    ])
   })
 })

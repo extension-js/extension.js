@@ -59,7 +59,7 @@ export class AddContentScriptWrapper {
     // this away from the user. The contract requires the user to export a
     // default function that returns an optional cleanup function.
     compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: includeDirs,
       exclude: [/([\\/])node_modules\1/],
       use: [
@@ -77,7 +77,7 @@ export class AddContentScriptWrapper {
       // 2- The wrapper above requires a default export.
       // This loader will warn if the script does not have a default export.
       compiler.options.module.rules.push({
-        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: includeDirs,
         exclude: [/([\\/])node_modules\1/],
         use: [
@@ -94,7 +94,7 @@ export class AddContentScriptWrapper {
 
       // 3- Inject minimal HMR accept code for declared background and user scripts
       compiler.options.module.rules.push({
-        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: includeDirs,
         exclude: [/([\\/])node_modules\1/],
         use: [
