@@ -23,4 +23,31 @@ describe('manifest content_scripts override', () => {
     expect(first?.js).toEqual(['content_scripts/content-0.js'])
     expect(first?.css).toEqual(['content_scripts/content-0.css'])
   })
+
+  it('is idempotent for already bundled MAIN-world content scripts', () => {
+    const oncePatched = {
+      content_scripts: [
+        {
+          matches: ['<all_urls>'],
+          js: ['content_scripts/content-0.js'],
+          css: []
+        },
+        {
+          matches: ['https://example.com/*'],
+          js: ['content_scripts/content-2.js'],
+          css: []
+        },
+        {
+          matches: ['https://example.com/*'],
+          world: 'MAIN',
+          js: ['content_scripts/content-1.js'],
+          css: []
+        }
+      ]
+    } as any
+
+    const twicePatched = contentScripts(oncePatched)
+
+    expect(twicePatched?.content_scripts).toEqual(oncePatched.content_scripts)
+  })
 })

@@ -22,7 +22,7 @@ export class ResolvePlugin {
 
   public apply(compiler: Compiler): void {
     compiler.options.module.rules.push({
-      test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+      test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [path.dirname(this.manifestPath)],
       exclude: [/([\\/])node_modules\1/],
       use: [

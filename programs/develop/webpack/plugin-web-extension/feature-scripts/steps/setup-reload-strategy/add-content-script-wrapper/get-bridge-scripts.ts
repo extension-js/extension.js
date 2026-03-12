@@ -23,6 +23,49 @@ function findPackageRoot(startDir: string): string | undefined {
   return undefined
 }
 
+function resolveExistingFile(
+  candidates: Array<string | undefined>
+): string | undefined {
+  const suffixes = ['', '.js', '.cjs', '.mjs']
+
+  for (const candidate of candidates) {
+    if (!candidate) continue
+
+    for (const suffix of suffixes) {
+      const resolved = suffix ? `${candidate}${suffix}` : candidate
+      if (fs.existsSync(resolved)) {
+        return resolved
+      }
+    }
+  }
+
+  return undefined
+}
+
+export function resolveMainWorldBridgeSourcePath(options?: {
+  lookupDir?: string
+  packageRoot?: string
+}): string | undefined {
+  const lookupDir = options?.lookupDir || __dirname
+  const packageRoot = options?.packageRoot || findPackageRoot(lookupDir)
+
+  return resolveExistingFile([
+    // Source tree: same directory as this file.
+    path.resolve(lookupDir, 'main-world-bridge'),
+    // Monorepo/source tree fallback when running from compiled output.
+    packageRoot
+      ? path.resolve(
+          packageRoot,
+          'webpack/plugin-web-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge'
+        )
+      : undefined,
+    // Published/compiled package fallback.
+    packageRoot
+      ? path.resolve(packageRoot, 'dist', 'main-world-bridge')
+      : undefined
+  ])
+}
+
 export function getMainWorldBridgeScripts(manifestPath: string): FilepathList {
   const bridgeScripts: FilepathList = {}
 
@@ -33,25 +76,7 @@ export function getMainWorldBridgeScripts(manifestPath: string): FilepathList {
       : []
     const originalCount = contentScripts.length
 
-    const packageRoot = findPackageRoot(__dirname)
-    const bridgeSourceCandidates = [
-      // Same directory (source tree or dist tree)
-      path.resolve(__dirname, 'main-world-bridge.js'),
-      // Monorepo/source tree fallback (when running from dist/)
-      packageRoot
-        ? path.resolve(
-            packageRoot,
-            'webpack/plugin-extension/feature-scripts/steps/setup-reload-strategy/add-content-script-wrapper/main-world-bridge.js'
-          )
-        : undefined,
-      // Built package (dist) – emitted by rslib as `dist/main-world-bridge.js`
-      packageRoot
-        ? path.resolve(packageRoot, 'main-world-bridge.js')
-        : undefined
-    ].filter((candidate): candidate is string => Boolean(candidate))
-
-    const bridgeSource =
-      bridgeSourceCandidates.find((p) => fs.existsSync(p)) || undefined
+    const bridgeSource = resolveMainWorldBridgeSourcePath()
 
     if (!bridgeSource) {
       return bridgeScripts
