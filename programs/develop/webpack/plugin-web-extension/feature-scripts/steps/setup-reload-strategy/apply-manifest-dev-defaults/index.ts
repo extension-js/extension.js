@@ -12,7 +12,6 @@ import {patchWebResourcesV2, patchWebResourcesV3} from './patch-web-resources'
 import patchBackground from './patch-background'
 import patchExternallyConnectable from './patch-externally-connectable'
 import {getManifestContent} from '../../../scripts-lib/manifest'
-import {filterKeysForThisBrowser} from '../../../scripts-lib/manifest'
 import type {PluginInterface, DevOptions} from '../../../../../webpack-types'
 
 export class ApplyManifestDevDefaults {
@@ -25,31 +24,35 @@ export class ApplyManifestDevDefaults {
   }
 
   private generateManifestPatches(compilation: Compilation) {
-    // Read original manifest then filter namespaced keys for the active browser
-    const manifest = getManifestContent(compilation, this.manifestPath!)
-    const browser = this.browser as DevOptions['browser']
-    const filtered = filterKeysForThisBrowser(manifest, browser)
+    const canonicalManifest = getManifestContent(
+      compilation,
+      this.manifestPath!
+    )
 
     const patchedManifest = {
       // Preserve all other user entries
-      ...filtered,
+      ...canonicalManifest,
       // Allow usig source map based on eval, using Manifest V2.
       // script-src 'self' 'unsafe-eval';
       // See https://github.com/awesome-webextension/webpack-target-webextension#source-map.
       // For V3, see https://developer.chrome.com/docs/extensions/migrating/improve-security/#update-csp
       content_security_policy:
-        filtered.manifest_version === 3
-          ? patchV3CSP(filtered)
-          : patchV2CSP(filtered),
+        canonicalManifest.manifest_version === 3
+          ? patchV3CSP(canonicalManifest)
+          : patchV2CSP(canonicalManifest),
 
       // Set permission scripting as it's required for reload to work
       // with content scripts in v3. See:
       // https://github.com/awesome-webextension/webpack-target-webextension#content-script
-      ...(filtered.manifest_version === 3
-        ? filtered.permissions
+      ...(canonicalManifest.manifest_version === 3
+        ? canonicalManifest.permissions
           ? {
               permissions: [
-                ...new Set(['scripting', 'management', ...filtered.permissions])
+                ...new Set([
+                  'scripting',
+                  'management',
+                  ...canonicalManifest.permissions
+                ])
               ]
             }
           : {permissions: ['scripting', 'management']}
@@ -57,19 +60,19 @@ export class ApplyManifestDevDefaults {
           {}),
 
       // Use the background script to inject the reload handler.
-      ...patchBackground(filtered, this.browser),
+      ...patchBackground(canonicalManifest, this.browser),
 
       // A misuse of external_connectable can break communication
       // across extension reloads, so we ensure that the extension
       // is externally connectable to all other extensions.
-      ...patchExternallyConnectable(manifest),
+      ...patchExternallyConnectable(canonicalManifest),
 
       // We need to allow /*.json', '/*.js', '/*.css to be able to load
       // the reload script and the reload handler assets.
       web_accessible_resources:
-        filtered.manifest_version === 3
-          ? patchWebResourcesV3(filtered)
-          : patchWebResourcesV2(filtered)
+        canonicalManifest.manifest_version === 3
+          ? patchWebResourcesV3(canonicalManifest)
+          : patchWebResourcesV2(canonicalManifest)
     }
 
     const source = JSON.stringify(patchedManifest, null, 2)

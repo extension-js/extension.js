@@ -51,9 +51,13 @@ export function getScriptEntries(scriptPath: string | string[] | undefined) {
     return (
       validFile &&
       (assetExtension === '.js' ||
+        assetExtension === '.cjs' ||
         assetExtension === '.mjs' ||
         assetExtension === '.jsx' ||
+        assetExtension === '.mjsx' ||
         assetExtension === '.ts' ||
+        assetExtension === '.mts' ||
+        assetExtension === '.mtsx' ||
         assetExtension === '.tsx')
     )
   })
