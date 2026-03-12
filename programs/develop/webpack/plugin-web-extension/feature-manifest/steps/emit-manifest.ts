@@ -9,6 +9,7 @@
 import * as fs from 'fs'
 import rspack, {sources, Compiler, Compilation} from '@rspack/core'
 import * as messages from '../messages'
+import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {type PluginInterface} from '../../../webpack-types'
 
 export class EmitManifest {
@@ -48,13 +49,14 @@ export class EmitManifest {
               return
             }
 
-            // Stringify the JSON without $schema
+            // Keep the sanitized source manifest available to later plugins without
+            // losing the original author intent. UpdateManifest is the single
+            // canonical writer that rewrites browser-specific fields and paths.
             const jsonString = JSON.stringify(jsonContent, null, 2)
+            setOriginalManifestContent(compilation, jsonString)
 
-            // Emit the modified JSON file
-            const outputFilename = 'manifest.json'
             compilation.emitAsset(
-              outputFilename,
+              'manifest.json',
               new sources.RawSource(jsonString)
             )
 

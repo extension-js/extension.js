@@ -108,7 +108,11 @@ export default function webpackConfig(
       clean: devOptions.output.clean,
       zip: devOptions.zip === true,
       zipSource: devOptions.zipSource === true,
-      zipFilename: devOptions.zipFilename
+      zipFilename: devOptions.zipFilename,
+      port:
+        typeof devOptions.port === 'string'
+          ? parseInt(devOptions.port, 10)
+          : devOptions.port
     }),
     new StaticAssetsPlugin({
       manifestPath,

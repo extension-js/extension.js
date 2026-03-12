@@ -22,11 +22,15 @@ import {
 import {resolveCompanionExtensionsConfig} from '../feature-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from '../feature-special-folders/get-data'
 import {sanitize} from '../webpack-lib/sanitize'
-import {setupCompilerHooks} from './compiler-hooks'
+import {setupCompilerLifecycleHooks} from './compiler-hooks'
 import {setupCleanupHandlers} from './cleanup'
 import {createPlaywrightMetadataWriter} from '../plugin-playwright'
 import webpackConfig from '../webpack-config'
 import type {DevOptions} from '../webpack-types'
+
+function shouldWriteAssetToDisk(filePath: string) {
+  return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
+}
 
 export async function devServer(
   projectStructure: ProjectStructure,
@@ -146,8 +150,10 @@ export async function devServer(
     port
   })
 
-  // Surface bundler diagnostics during startup (even if start() hangs)
-  setupCompilerHooks(compiler, portAllocation.port)
+  // Surface invalidation/fatal startup diagnostics during startup.
+  // Done-hook warning/error output is registered earlier in CompilationPlugin
+  // so it prints before browser launch hooks.
+  setupCompilerLifecycleHooks(compiler)
 
   // Log port information only in verbose mode
   if (typeof devOptions.port !== 'undefined' && devOptions.port !== port) {
@@ -164,7 +170,9 @@ export async function devServer(
     },
     compress: false,
     devMiddleware: {
-      writeToDisk: true,
+      // Manifest writes must stay atomic; let the manifest plugin own disk
+      // persistence so Chromium never reads an in-place truncated file.
+      writeToDisk: shouldWriteAssetToDisk,
       // Ensure no server-side stats spam leaks to users
       stats: false
     },
@@ -223,10 +231,9 @@ export async function devServer(
 
     if (startTimeout) clearTimeout(startTimeout)
 
-    console.log(messages.ready('development', devOptions.browser))
-    console.log(messages.spacerLine())
-
     if (devOptions.noBrowser) {
+      console.log(messages.ready('development', devOptions.browser))
+      console.log(messages.spacerLine())
       console.log(
         messages.browserRunnerDisabled({
           browser: String(devOptions.browser || 'chromium'),
