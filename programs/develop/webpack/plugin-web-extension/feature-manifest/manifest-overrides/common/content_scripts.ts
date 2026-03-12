@@ -16,10 +16,39 @@ interface ContentObj {
   world?: 'MAIN' | 'ISOLATED' | string | undefined
 }
 
+function isBundledContentPath(filePath: string, ext: 'js' | 'css') {
+  const normalized = String(filePath || '').replace(/\\/g, '/')
+  return new RegExp(`^content_scripts/content-\\d+\\.${ext}$`).test(normalized)
+}
+
+function isAlreadyBundledContentScripts(contentScripts: any[]) {
+  if (!Array.isArray(contentScripts) || contentScripts.length === 0)
+    return false
+
+  return contentScripts.every((contentObj) => {
+    const js = Array.isArray(contentObj?.js) ? contentObj.js : []
+    const css = Array.isArray(contentObj?.css) ? contentObj.css : []
+
+    return (
+      js.every((filePath: string) => isBundledContentPath(filePath, 'js')) &&
+      css.every((filePath: string) => isBundledContentPath(filePath, 'css'))
+    )
+  })
+}
+
 export function contentScripts(manifest: Manifest, manifestPath?: string) {
   if (!manifest.content_scripts) return undefined
 
   const original = manifest.content_scripts as any[]
+
+  // Idempotency guard: later manifest writers may re-read a manifest asset that
+  // already contains emitted `content_scripts/content-*.js` entries. Reapplying
+  // the MAIN-world bridge insertion against that shape would inflate the array
+  // and reference non-existent bundles like `content-7.js`.
+  if (isAlreadyBundledContentScripts(original)) {
+    return {content_scripts: original}
+  }
+
   const originalCount = original.length
   const result: any[] = []
 
