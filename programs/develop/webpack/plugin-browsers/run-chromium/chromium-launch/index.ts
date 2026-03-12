@@ -640,10 +640,7 @@ export class ChromiumLaunchPlugin {
 
     await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
 
-    if (
-      compilation.options.mode === 'development' &&
-      !this.didReportReady
-    ) {
+    if (compilation.options.mode === 'development' && !this.didReportReady) {
       this.logger.info(
         devServerMessages.ready(
           compilation.options.mode as 'development' | 'production',
