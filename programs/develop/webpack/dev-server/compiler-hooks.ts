@@ -10,9 +10,8 @@ import {type Compiler} from '@rspack/core'
 import * as messages from './messages'
 import {scrubBrand} from '../webpack-lib/branding'
 
-export function setupCompilerHooks(compiler: Compiler, port: number): void {
+export function setupCompilerLifecycleHooks(compiler: Compiler): void {
   const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
-  let reportedNoEntries = false
 
   compiler.hooks.invalid.tap('extension.js:invalid', () => {
     if (verbose) {
@@ -23,7 +22,13 @@ export function setupCompilerHooks(compiler: Compiler, port: number): void {
   compiler.hooks.failed.tap('extension.js:failed', (error: unknown) => {
     console.error(messages.bundlerFatalError(error))
   })
+}
 
+export function setupCompilerDoneDiagnostics(
+  compiler: Compiler,
+  port?: number
+): void {
+  let reportedNoEntries = false
   compiler.hooks.done.tap('extension.js:done', (stats: any) => {
     try {
       if (stats?.hasErrors?.()) {
@@ -46,7 +51,7 @@ export function setupCompilerHooks(compiler: Compiler, port: number): void {
       }
 
       // Warn when nothing is being built on the first pass
-      if (!reportedNoEntries) {
+      if (!reportedNoEntries && typeof port === 'number') {
         const info = stats.toJson({
           all: false,
           assets: true,

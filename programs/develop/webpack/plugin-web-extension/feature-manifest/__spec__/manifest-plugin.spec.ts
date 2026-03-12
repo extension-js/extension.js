@@ -24,6 +24,12 @@ vi.mock('../steps/update-manifest', () => ({
   }
 }))
 
+vi.mock('../steps/persist-manifest', () => ({
+  PersistManifestToDisk: class {
+    apply = applySpy
+  }
+}))
+
 vi.mock('../steps/add-dependencies', () => ({
   AddDependencies: class {
     constructor(_deps: any) {}
@@ -65,7 +71,6 @@ describe('ManifestPlugin', () => {
 
     // Ensure each step had apply called
     expect(applySpy).toHaveBeenCalled()
-    // Called for each of the current 5 steps (central checks removed)
-    expect(applySpy.mock.calls.length).toBe(5)
+    expect(applySpy.mock.calls.length).toBe(6)
   })
 })

@@ -1,5 +1,6 @@
 import {describe, it, expect, vi} from 'vitest'
 import {UpdateManifest} from '../steps/update-manifest'
+import {setOriginalManifestContent} from '../manifest-lib/manifest'
 
 vi.mock('../../webpack-lib/utils', () => ({
   getManifestContent: (_c: any, _p: string) => ({
@@ -53,5 +54,36 @@ describe('UpdateManifest', () => {
     new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
     expect(out.icons).toBeDefined()
+  })
+
+  it('emits manifest.json when no public asset exists yet', () => {
+    const emitted: Record<string, string> = {}
+    const compilation: any = {
+      errors: [],
+      assets: {},
+      getAsset: () => undefined,
+      hooks: {
+        processAssets: {tap: (_opts: any, fn: any) => fn()}
+      },
+      updateAsset: vi.fn(),
+      emitAsset: (name: string, src: any) => {
+        emitted[name] = src.source().toString()
+      }
+    }
+    const compiler: any = {
+      options: {mode: 'production'},
+      hooks: {
+        thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+      }
+    }
+    setOriginalManifestContent(
+      compilation,
+      JSON.stringify({name: 'x', content_scripts: [{js: [], css: ['a.css']}]})
+    )
+
+    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+
+    expect(compilation.updateAsset).not.toHaveBeenCalled()
+    expect(JSON.parse(emitted['manifest.json']).icons).toBeDefined()
   })
 })

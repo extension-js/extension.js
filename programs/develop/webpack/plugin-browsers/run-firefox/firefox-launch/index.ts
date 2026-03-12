@@ -23,6 +23,7 @@ import {
   findAvailablePortNear
 } from '../../browsers-lib/shared-utils'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
+import * as devServerMessages from '../../../dev-server/messages'
 import {setupFirefoxProcessHandlers} from './process-handlers'
 import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {logFirefoxDryRun} from './dry-run'
@@ -70,6 +71,9 @@ export class FirefoxLaunchPlugin {
     this.ctx.logger?.info?.(
       messages.stdoutData(this.host.browser, options.mode)
     )
+    this.ctx.logger?.info?.(
+      devServerMessages.ready(options.mode, this.host.browser)
+    )
     this.ctx.didLaunch = true
   }
 
@@ -108,6 +112,12 @@ export class FirefoxLaunchPlugin {
           messages.stdoutData(
             this.host.browser,
             stats.compilation.options.mode as DevOptions['mode']
+          )
+        )
+        this.ctx.logger?.info?.(
+          devServerMessages.ready(
+            stats.compilation.options.mode as DevOptions['mode'],
+            this.host.browser
           )
         )
 

@@ -6,7 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {type Compiler, WebpackError} from '@rspack/core'
+import {type Compiler, Compilation, WebpackError} from '@rspack/core'
 import * as messages from '../messages'
 
 export class ManifestLegacyWarnings {
@@ -28,26 +28,34 @@ export class ManifestLegacyWarnings {
     compiler.hooks.thisCompilation.tap(
       ManifestLegacyWarnings.name,
       (compilation) => {
-        const asset = compilation.getAsset('manifest.json')
-        if (!asset) return
+        compilation.hooks.processAssets.tap(
+          {
+            name: ManifestLegacyWarnings.name,
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
+          },
+          () => {
+            const asset = compilation.getAsset('manifest.json')
+            if (!asset) return
 
-        const text = asset.source.source().toString()
-        let count = 0
+            const text = asset.source.source().toString()
+            let count = 0
 
-        legacy.forEach((needle) => {
-          if (text.includes(needle)) {
-            const warn = new WebpackError(
-              messages.legacyManifestPathWarning(needle)
-            ) as Error & {file?: string; name?: string}
-            warn.name = 'ManifestLegacyWarning'
-            warn.file = 'manifest.json'
-            compilation.warnings.push(warn)
-            count++
+            legacy.forEach((needle) => {
+              if (text.includes(needle)) {
+                const warn = new WebpackError(
+                  messages.legacyManifestPathWarning(needle)
+                ) as Error & {file?: string; name?: string}
+                warn.name = 'ManifestLegacyWarning'
+                warn.file = 'manifest.json'
+                compilation.warnings.push(warn)
+                count++
+              }
+            })
+            if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+              console.log(messages.manifestLegacyWarningsSummary(count))
+            }
           }
-        })
-        if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-          console.log(messages.manifestLegacyWarningsSummary(count))
-        }
+        )
       }
     )
   }

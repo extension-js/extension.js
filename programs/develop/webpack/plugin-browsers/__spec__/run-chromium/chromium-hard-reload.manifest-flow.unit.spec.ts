@@ -1,6 +1,10 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {ChromiumHardReloadPlugin} from '../../run-chromium/chromium-hard-reload'
 
+vi.mock('../../run-chromium/manifest-readiness', () => ({
+  waitForStableManifest: vi.fn(async () => true)
+}))
+
 describe('ChromiumHardReloadPlugin - manifest hard reload flow', () => {
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
 
