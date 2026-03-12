@@ -98,7 +98,7 @@ export class HtmlPlugin {
     // 5 - Ensure scripts within the HTML file are HMR enabled (development only).
     if ((compiler.options.mode || 'development') !== 'production') {
       compiler.options.module.rules.push({
-        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: [path.dirname(this.manifestPath)],
         exclude: [/([\\/])node_modules\1/],
         use: [
@@ -148,7 +148,7 @@ export class HtmlPlugin {
     // TODO: cezaraugusto enable this after v3
     // if ((compiler.options.mode || 'development') !== 'production') {
     //   compiler.options.module.rules.push({
-    //     test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+    //     test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
     //     include: [path.dirname(this.manifestPath)],
     //     exclude: [/([\\/])node_modules\1/],
     //     use: [
