@@ -31,20 +31,22 @@ jobs:
     environment: ${{ inputs.channel }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
           always-auth: true
+
+      - name: Enable corepack pnpm
+        run: |
+          corepack enable
+          pnpm --version
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -163,7 +165,7 @@ jobs:
 
       - name: Create GitHub Release
         if: ${{ inputs.channel != 'canary' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           CHANNEL: ${{ inputs.channel }}
@@ -479,7 +481,7 @@ jobs:
       - name: Create GitHub Deployment (in_progress)
         if: ${{ inputs.channel != 'canary' }}
         id: create_deployment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           CHANNEL: ${{ inputs.channel }}
@@ -506,7 +508,7 @@ jobs:
 
       - name: Mark Deployment successful
         if: ${{ inputs.channel != 'canary' }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           VERSION: ${{ steps.validate.outputs.version }}
         with:
