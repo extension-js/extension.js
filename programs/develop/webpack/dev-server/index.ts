@@ -223,8 +223,8 @@ export async function devServer(
 
     if (startTimeout) clearTimeout(startTimeout)
 
-    console.log(messages.spacerLine())
     console.log(messages.ready('development', devOptions.browser))
+    console.log(messages.spacerLine())
 
     if (devOptions.noBrowser) {
       console.log(
