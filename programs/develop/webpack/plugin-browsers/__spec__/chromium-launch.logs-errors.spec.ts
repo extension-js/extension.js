@@ -128,9 +128,11 @@ describe('ChromiumLaunchPlugin', () => {
       }
     }
 
-    ;(plugin as any).launchChromium = vi.fn().mockImplementationOnce(async () => {
-      ;(plugin as any).didReportReady = true
-    })
+    ;(plugin as any).launchChromium = vi
+      .fn()
+      .mockImplementationOnce(async () => {
+        ;(plugin as any).didReportReady = true
+      })
 
     plugin.apply(compiler)
     expect(typeof doneHandler).toBe('function')
