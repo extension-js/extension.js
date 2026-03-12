@@ -204,7 +204,7 @@ export class JsFrameworksPlugin {
 
     compiler.options.module.rules = [
       {
-        test: /\.(js|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
         include: Array.from(
           new Set([tsRoot, manifestDir, ...transpilePackageDirs])
         ),
