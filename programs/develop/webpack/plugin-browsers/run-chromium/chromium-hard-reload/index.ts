@@ -11,6 +11,7 @@ import type {Compilation, Compiler} from '@rspack/core'
 import type {ChromiumContext} from '../chromium-context'
 import * as messages from '../../browsers-lib/messages'
 import {emitActionEvent} from '../../browsers-lib/source-output'
+import {waitForStableManifest} from '../manifest-readiness'
 import type {DevOptions} from '../../../webpack-types'
 
 /**
@@ -275,6 +276,18 @@ export class ChromiumHardReloadPlugin {
           reason: reason || 'unknown',
           browser: this.options?.browser
         })
+      }
+      const extensionRoot = this.ctx.getExtensionRoot()
+      if (extensionRoot) {
+        const manifestReady = await waitForStableManifest(extensionRoot, {
+          timeoutMs: 8000
+        })
+        if (!manifestReady) {
+          this.logger?.warn?.(
+            '[reload] manifest.json did not stabilize before hard reload'
+          )
+          return
+        }
       }
       const reloadTimeoutMs = 8000
       const ok = await Promise.race<boolean>([

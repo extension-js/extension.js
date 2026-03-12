@@ -196,6 +196,46 @@ describe('generateManifestPatches', () => {
     ).toBeUndefined()
   })
 
+  it('preserves canonical script and panel paths while adding WAR patches', () => {
+    const result = runWith(
+      {
+        'content_scripts/content-0': ['content_scripts/content-0.svg']
+      },
+      {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        side_panel: {
+          default_path: 'sidebar/index.html',
+          default_title: 'Panel'
+        },
+        background: {
+          service_worker: 'background/service_worker.js'
+        },
+        content_scripts: [
+          {
+            matches: ['*://example.com/*'],
+            js: ['content_scripts/content-0.js']
+          }
+        ]
+      }
+    )
+
+    expect(result.side_panel?.default_path).toBe('sidebar/index.html')
+    expect((result.background as any)?.service_worker).toBe(
+      'background/service_worker.js'
+    )
+    expect(result.content_scripts?.[0]?.js).toEqual([
+      'content_scripts/content-0.js'
+    ])
+    expect((result as any).web_accessible_resources).toEqual([
+      {
+        matches: ['*://example.com/*'],
+        resources: ['content_scripts/content-0.svg']
+      }
+    ])
+  })
+
   it('should correctly merge existing web_accessible_resources', () => {
     expect(
       runWith(

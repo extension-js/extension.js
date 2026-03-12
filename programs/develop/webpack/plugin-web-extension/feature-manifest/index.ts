@@ -12,6 +12,7 @@ import * as messages from './messages'
 // Manifest plugins
 import {EmitManifest} from './steps/emit-manifest'
 import {UpdateManifest} from './steps/update-manifest'
+import {PersistManifestToDisk} from './steps/persist-manifest'
 import {AddDependencies} from './steps/add-dependencies'
 import {CheckManifestFiles} from './steps/check-manifest-files'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile'
@@ -59,7 +60,8 @@ export class ManifestPlugin {
     // it's emitted to the assets bundle so other plugins
     // can modify it.
     new EmitManifest({
-      manifestPath: this.manifestPath
+      manifestPath: this.manifestPath,
+      browser: this.browser
     }).apply(compiler)
 
     // 2 - This is the end result of the manifest plugin, it updates the
@@ -68,6 +70,10 @@ export class ManifestPlugin {
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)
+
+    // 3 - Persist the final manifest atomically so Chromium never
+    // observes a partially written file during startup reloads.
+    new PersistManifestToDisk().apply(compiler)
 
     // 4 - Ensure this manifest is stored as file dependency
     // so webpack can watch and trigger changes.

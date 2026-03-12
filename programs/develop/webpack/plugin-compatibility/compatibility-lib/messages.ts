@@ -59,10 +59,3 @@ export function compatibilityPolyfillSkipped(
 export function compatibilityPolyfillDisabled(browser: DevOptions['browser']) {
   return `${colors.gray('►►►')} Compatibility: Polyfill ${colors.gray('disabled')} for ${capitalizedBrowserName(browser)}`
 }
-
-export function compatibilityManifestFilteredKeys(
-  browser: DevOptions['browser'],
-  filteredCount: number
-) {
-  return `${colors.gray('►►►')} Compatibility: Filtered ${colors.gray(String(filteredCount))} manifest key(s) for ${capitalizedBrowserName(browser)}`
-}
