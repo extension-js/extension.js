@@ -14,6 +14,12 @@ function normalizeOutputPath(originalPath: string) {
 
   const unix = originalPath.replace(/\\/g, '/')
 
+  // Preserve WAR glob patterns verbatim. Normalizing away a leading slash would
+  // change the user's intended match from `/*.ext` to `*.ext`.
+  if (/[*?\[\]{}]/.test(unix)) {
+    return unix
+  }
+
   if (/^\/public\//i.test(unix)) {
     return unix.replace(/^\/public\//i, '')
   }

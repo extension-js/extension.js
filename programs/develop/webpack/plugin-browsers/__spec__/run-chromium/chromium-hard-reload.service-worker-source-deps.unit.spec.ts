@@ -1,5 +1,9 @@
-import {describe, it, expect} from 'vitest'
+import {describe, it, expect, vi} from 'vitest'
 import {ChromiumHardReloadPlugin} from '../../run-chromium/chromium-hard-reload'
+
+vi.mock('../../run-chromium/manifest-readiness', () => ({
+  waitForStableManifest: vi.fn(async () => true)
+}))
 
 describe('ChromiumHardReloadPlugin - service worker source dependency tracking', () => {
   it('marks sw reload when a source dependency of the service worker changes', async () => {

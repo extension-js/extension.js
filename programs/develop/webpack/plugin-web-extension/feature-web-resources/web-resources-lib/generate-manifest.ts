@@ -90,31 +90,31 @@ export function generateManifestPatches(
   entryImports: Record<string, string[]>,
   browser?: string
 ) {
-  const manifest = getManifestContent(compilation, manifestPath)
+  const canonicalManifest = getManifestContent(compilation, manifestPath)
 
   const resolved = resolveUserDeclaredWAR(
     compilation,
     manifestPath,
-    manifest,
+    canonicalManifest,
     browser
   )
 
   const webAccessibleResourcesV3: {resources: string[]; matches: string[]}[] =
-    manifest.manifest_version === 3
+    canonicalManifest.manifest_version === 3
       ? resolved.v3.map((g) => ({
           matches: g.matches,
           resources: Array.from(g.resources)
         }))
       : []
   const webAccessibleResourcesV2: string[] =
-    manifest.manifest_version === 2 ? Array.from(resolved.v2) : []
+    canonicalManifest.manifest_version === 2 ? Array.from(resolved.v2) : []
 
   // Fallback scan: inspect emitted JS for content_scripts to discover referenced assets (e.g., assets/*.png)
   if (
-    manifest.manifest_version === 3 &&
-    Array.isArray(manifest.content_scripts)
+    canonicalManifest.manifest_version === 3 &&
+    Array.isArray(canonicalManifest.content_scripts)
   ) {
-    for (const contentScript of manifest.content_scripts) {
+    for (const contentScript of canonicalManifest.content_scripts) {
       const matches = contentScript.matches || []
       const normalizedMatches = cleanMatches(matches)
       const jsFiles: string[] = Array.isArray(contentScript.js)
@@ -162,8 +162,9 @@ export function generateManifestPatches(
   }
 
   for (const [entryName, resources] of Object.entries(entryImports)) {
-    const contentScript = manifest.content_scripts?.find((script: any) =>
-      script.js?.some((jsFile: string) => jsFile.includes(entryName))
+    const contentScript = canonicalManifest.content_scripts?.find(
+      (script: any) =>
+        script.js?.some((jsFile: string) => jsFile.includes(entryName))
     )
 
     if (contentScript) {
@@ -173,7 +174,7 @@ export function generateManifestPatches(
       )
       if (filteredResources.length === 0) continue
 
-      if (manifest.manifest_version === 3) {
+      if (canonicalManifest.manifest_version === 3) {
         const normalizedMatches = cleanMatches(matches)
         const existingResource = webAccessibleResourcesV3.find(
           (resourceEntry) => {
@@ -334,7 +335,7 @@ export function generateManifestPatches(
   // }
 
   // Last-resort fallback: expose emitted static assets under assets/ to the union of content_scripts matches
-  if (manifest.manifest_version === 3) {
+  if (canonicalManifest.manifest_version === 3) {
     const assetKeys: string[] = Object.keys(compilation.assets || {})
     const staticAssets = assetKeys
       .filter((k) => k.startsWith('assets/'))
@@ -344,7 +345,7 @@ export function generateManifestPatches(
     if (staticAssets.length > 0) {
       const allMatches: string[] = Array.from(
         new Set(
-          (manifest.content_scripts || []).flatMap(
+          (canonicalManifest.content_scripts || []).flatMap(
             (cs: {matches?: string[]}) => cs.matches || []
           )
         )
@@ -383,7 +384,7 @@ export function generateManifestPatches(
   //
   // We intentionally exclude files already emitted under `assets/` (bundled) or `content_scripts/`.
   const fontExtRe = /\.(woff2?|eot|ttf|otf)$/i
-  if (manifest.manifest_version === 3) {
+  if (canonicalManifest.manifest_version === 3) {
     const assetKeys: string[] = Object.keys(compilation.assets || {})
     const fontAssets = assetKeys
       .filter((k) => fontExtRe.test(k))
@@ -394,7 +395,7 @@ export function generateManifestPatches(
     if (fontAssets.length > 0) {
       const allMatches: string[] = Array.from(
         new Set(
-          (manifest.content_scripts || []).flatMap(
+          (canonicalManifest.content_scripts || []).flatMap(
             (cs: {matches?: string[]}) => cs.matches || []
           )
         )
@@ -425,7 +426,7 @@ export function generateManifestPatches(
         }
       }
     }
-  } else if (manifest.manifest_version === 2) {
+  } else if (canonicalManifest.manifest_version === 2) {
     const assetKeys: string[] = Object.keys(compilation.assets || {})
     const fontAssets = assetKeys.filter((k) => fontExtRe.test(k)).sort()
     if (fontAssets.length > 0) {
@@ -439,7 +440,7 @@ export function generateManifestPatches(
 
   // Also expose emitted CSS under content_scripts/ to the union of content_scripts matches.
   // This covers CSS imported by content scripts that end up emitted as files (e.g. styles.<hash>.css).
-  if (manifest.manifest_version === 3) {
+  if (canonicalManifest.manifest_version === 3) {
     const assetKeys: string[] = Object.keys(compilation.assets || {})
     const cssUnderContentScripts = assetKeys
       .filter((k) => k.startsWith('content_scripts/'))
@@ -449,7 +450,7 @@ export function generateManifestPatches(
     if (cssUnderContentScripts.length > 0) {
       const allMatches: string[] = Array.from(
         new Set(
-          (manifest.content_scripts || []).flatMap(
+          (canonicalManifest.content_scripts || []).flatMap(
             (cs: {matches?: string[]}) => cs.matches || []
           )
         )
@@ -483,9 +484,9 @@ export function generateManifestPatches(
     }
   }
 
-  if (manifest.manifest_version === 3) {
+  if (canonicalManifest.manifest_version === 3) {
     if (webAccessibleResourcesV3.length > 0) {
-      manifest.web_accessible_resources = webAccessibleResourcesV3
+      canonicalManifest.web_accessible_resources = webAccessibleResourcesV3
         .map((entry) => ({
           resources: Array.from(new Set(entry.resources)).sort(),
           matches: Array.from(new Set(entry.matches)).sort()
@@ -496,28 +497,32 @@ export function generateManifestPatches(
     }
   } else {
     if (webAccessibleResourcesV2.length > 0) {
-      manifest.web_accessible_resources = Array.from(
+      canonicalManifest.web_accessible_resources = Array.from(
         new Set(webAccessibleResourcesV2)
       ).sort() as Manifest['web_accessible_resources']
     }
   }
 
-  const source = JSON.stringify(manifest, null, 2)
+  const source = JSON.stringify(canonicalManifest, null, 2)
   const rawSource = new sources.RawSource(source)
 
   if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     try {
       const v3Groups =
-        manifest.manifest_version === 3 ? webAccessibleResourcesV3.length : 0
+        canonicalManifest.manifest_version === 3
+          ? webAccessibleResourcesV3.length
+          : 0
       const v3ResourcesTotal =
-        manifest.manifest_version === 3
+        canonicalManifest.manifest_version === 3
           ? webAccessibleResourcesV3.reduce(
               (sum, g) => sum + (g.resources?.length || 0),
               0
             )
           : 0
       const v2Resources =
-        manifest.manifest_version === 2 ? webAccessibleResourcesV2.length : 0
+        canonicalManifest.manifest_version === 2
+          ? webAccessibleResourcesV2.length
+          : 0
       console.log(warPatchedSummary(v3Groups, v3ResourcesTotal, v2Resources))
     } catch {
       // ignore

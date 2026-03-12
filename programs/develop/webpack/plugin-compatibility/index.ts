@@ -8,7 +8,6 @@
 
 import {type Compiler} from '@rspack/core'
 import {PolyfillPlugin} from './feature-polyfill'
-import {BrowserSpecificFieldsPlugin} from './feature-browser-specific-fields'
 import type {PluginInterface, DevOptions} from '../webpack-types'
 import * as messages from './compatibility-lib/messages'
 
@@ -57,11 +56,5 @@ export class CompatibilityPlugin {
         console.log(messages.compatibilityPolyfillDisabled(this.browser))
       }
     }
-
-    // Handle manifest compatibilities across browser vendors.
-    new BrowserSpecificFieldsPlugin({
-      manifestPath: this.manifestPath,
-      browser: this.browser || 'chrome'
-    }).apply(compiler)
   }
 }

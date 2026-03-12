@@ -29,10 +29,12 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
+import * as devServerMessages from '../../../dev-server/messages'
 import {browserConfig} from './browser-config'
 import {setupProcessSignalHandlers} from './process-handlers'
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
+import {waitForStableManifest} from '../manifest-readiness'
 import {
   isWslEnv,
   normalizeBinaryPathForWsl,
@@ -45,20 +47,6 @@ import type {
   ChromiumPluginRuntime
 } from '../chromium-types'
 import type {CDPExtensionController} from '../chromium-source-inspection/cdp-extension-controller'
-
-async function waitForManifest(outPath: string, timeoutMs = 8000) {
-  const manifestPath = `${outPath}/manifest.json`
-  const start = Date.now()
-  while (Date.now() - start < timeoutMs) {
-    try {
-      if (fs.existsSync(manifestPath)) return true
-    } catch {
-      // ignore
-    }
-    await new Promise((resolve) => setTimeout(resolve, 150))
-  }
-  return false
-}
 
 async function maybePrintDevBanner(args: {
   compilation: Compilation
@@ -79,7 +67,9 @@ async function maybePrintDevBanner(args: {
     loadExtensionFlag
   )
   if (!extensionOutputPath) return
-  const ready = await waitForManifest(extensionOutputPath, 10000)
+  const ready = await waitForStableManifest(extensionOutputPath, {
+    timeoutMs: 10000
+  })
   if (!ready) return
   await printDevBannerOnce({
     browser: args.browser,
@@ -161,6 +151,12 @@ export class ChromiumLaunchPlugin {
           messages.stdoutData(
             this.options.browser,
             stats.compilation.options.mode as 'development' | 'production'
+          )
+        )
+        this.logger.info(
+          devServerMessages.ready(
+            stats.compilation.options.mode as 'development' | 'production',
+            this.options.browser
           )
         )
       } catch (error) {

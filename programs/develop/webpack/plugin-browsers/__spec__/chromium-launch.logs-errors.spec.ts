@@ -51,4 +51,53 @@ describe('ChromiumLaunchPlugin', () => {
     expect(msg).toMatch(/Error launching/i)
     expect(msg).toMatch(/boom/)
   })
+
+  it('logs ready after the browser response line', async () => {
+    const ctx = createChromiumContext()
+    const plugin = new ChromiumLaunchPlugin(
+      {
+        browser: 'chrome',
+        extension: ['/ext'],
+        dryRun: false
+      } as any,
+      ctx as any
+    )
+
+    let doneHandler: any = null
+    const logger = {
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      debug: vi.fn()
+    }
+
+    const compiler: any = {
+      getInfrastructureLogger: () => logger,
+      hooks: {
+        done: {
+          tapPromise: (_name: string, fn: any) => {
+            doneHandler = fn
+          }
+        }
+      }
+    }
+
+    ;(plugin as any).launchChromium = vi.fn().mockResolvedValueOnce(undefined)
+
+    plugin.apply(compiler)
+    expect(typeof doneHandler).toBe('function')
+
+    await doneHandler({
+      hasErrors: () => false,
+      compilation: {options: {mode: 'development'}, errors: []}
+    })
+
+    expect(logger.info).toHaveBeenCalledTimes(2)
+    expect(String(logger.info.mock.calls[0]?.[0] || '')).toMatch(
+      /running in development mode/i
+    )
+    expect(String(logger.info.mock.calls[1]?.[0] || '')).toMatch(
+      /ready for development/i
+    )
+  })
 })

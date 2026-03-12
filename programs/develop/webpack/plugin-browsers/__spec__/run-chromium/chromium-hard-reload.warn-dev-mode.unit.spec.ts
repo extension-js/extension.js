@@ -1,5 +1,10 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import {ChromiumHardReloadPlugin} from '../../run-chromium/chromium-hard-reload'
+import * as manifestReadiness from '../../run-chromium/manifest-readiness'
+
+vi.mock('../../run-chromium/manifest-readiness', () => ({
+  waitForStableManifest: vi.fn(async () => true)
+}))
 
 describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
   let warnMock: ReturnType<typeof vi.fn>
@@ -127,5 +132,27 @@ describe('ChromiumHardReloadPlugin - developer mode guidance', () => {
     ;(ctx as any).setPendingReloadReason('manifest')
     await (doneCb as any)(makeStats())
     expect(warnMock).not.toHaveBeenCalled()
+  })
+
+  it('skips hard reload when manifest.json does not stabilize', async () => {
+    vi.mocked(manifestReadiness.waitForStableManifest).mockResolvedValueOnce(
+      false
+    )
+
+    const ctx = makeCtx(true, 'enabled')
+    const plugin = new ChromiumHardReloadPlugin({}, ctx as any)
+    vi.spyOn(Date, 'now').mockReturnValueOnce(1000).mockReturnValue(7000)
+    plugin.apply(compiler as any)
+
+    expect(doneCb).toBeTypeOf('function')
+    await (doneCb as any)(makeStats())
+
+    ;(ctx as any).setPendingReloadReason('manifest')
+    await (doneCb as any)(makeStats())
+
+    expect((ctx as any).getControl().hardReload).not.toHaveBeenCalled()
+    expect(warnMock).toHaveBeenCalledWith(
+      '[reload] manifest.json did not stabilize before hard reload'
+    )
   })
 })
