@@ -1,5 +1,6 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
 
 vi.mock('fs', async () => {
@@ -48,6 +49,7 @@ vi.mock('../webpack-lib/dark-mode', () => ({
 }))
 
 const metadataWriter = vi.hoisted(() => ({
+  readyPath: '',
   writeStarting: vi.fn(),
   writeReady: vi.fn(),
   writeError: vi.fn(),
@@ -74,6 +76,8 @@ import * as projectMod from '../webpack-lib/project'
 import * as validateDepsMod from '../webpack-lib/validate-user-dependencies'
 
 describe('webpack/command-preview (run-only)', () => {
+  let metadataRoot = ''
+
   beforeEach(() => {
     vi.resetModules()
     runOnlyPreviewBrowser.mockClear()
@@ -87,10 +91,30 @@ describe('webpack/command-preview (run-only)', () => {
     metadataWriter.writeError.mockClear()
     metadataWriter.appendEvent.mockClear()
     createAutomationMetadataWriter.mockClear()
+    metadataRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-preview-meta-'))
+    metadataWriter.readyPath = path.join(metadataRoot, 'ready.json')
+    metadataWriter.writeStarting.mockImplementation(() => {
+      fs.writeFileSync(
+        metadataWriter.readyPath,
+        JSON.stringify({runId: 'preview-run', pid: 1234, status: 'starting'}),
+        'utf-8'
+      )
+    })
+    metadataWriter.writeReady.mockImplementation(() => {
+      fs.writeFileSync(
+        metadataWriter.readyPath,
+        JSON.stringify({runId: 'preview-run', pid: 1234, status: 'ready'}),
+        'utf-8'
+      )
+    })
+    metadataWriter.writeError.mockImplementation(() => {})
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    try {
+      fs.rmSync(metadataRoot, {recursive: true, force: true})
+    } catch {}
   })
 
   it('falls back to manifest directory when dist/<browser> lacks manifest.json', async () => {
@@ -137,6 +161,7 @@ describe('webpack/command-preview (run-only)', () => {
   })
 
   it('skips browser launch when noBrowser is true', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     ;(fs.existsSync as any).mockImplementation((p: string) => {
       if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json'))
         return true
@@ -151,6 +176,35 @@ describe('webpack/command-preview (run-only)', () => {
     expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
     expect(metadataWriter.writeStarting).toHaveBeenCalledTimes(1)
     expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
+    const output = consoleSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).toContain('Run ID')
+    expect(output).toContain('preview-run')
+    consoleSpy.mockRestore()
+  })
+
+  it('shows Run ID for firefox no-browser preview', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    ;(fs.existsSync as any).mockImplementation((p: string) => {
+      if (p === path.join('/proj', 'dist', 'firefox', 'manifest.json'))
+        return true
+      return false
+    })
+
+    await extensionPreview('/proj', {
+      browser: 'firefox',
+      noBrowser: true
+    } as any)
+
+    expect(runOnlyPreviewBrowser).not.toHaveBeenCalled()
+    const output = consoleSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).toContain('Run ID')
+    expect(output).toContain('preview-run')
+    expect(output).toContain('Firefox (no-browser mode)')
+    consoleSpy.mockRestore()
   })
 
   it('resolves companion extensions before scanning', async () => {
@@ -207,6 +261,7 @@ describe('webpack/command-preview (run-only)', () => {
     )
     expect(runOnlyPreviewBrowser).toHaveBeenCalledWith(
       expect.objectContaining({
+        readyPath: metadataWriter.readyPath,
         extensionsToLoad: [
           '/builtins/devtools',
           '/builtins/theme',

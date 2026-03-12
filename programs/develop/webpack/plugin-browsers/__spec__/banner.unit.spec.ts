@@ -114,4 +114,59 @@ describe('printProdBannerOnce', () => {
     expect(extracted).toMatch(/^[a-p]{32}$/)
     logSpy.mockRestore()
   })
+
+  it('derives Firefox extension id from manifest gecko id in production banner', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Prod Firefox Extension',
+      version: '2.0.1',
+      browser_specific_settings: {gecko: {id: 'prod-addon@example.com'}}
+    })
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const printed = await printProdBannerOnce({
+      browser: 'firefox',
+      outPath,
+      browserVersionLine: 'Firefox 145.0'
+    })
+
+    expect(printed).toBe(true)
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).toContain('Extension ID')
+    expect(output).toContain('prod-addon@example.com')
+    logSpy.mockRestore()
+  })
+
+  it('includes Run ID when ready metadata is provided', async () => {
+    const outPath = makeTempOutPath({
+      name: 'Prod Key Extension',
+      version: '2.0.0',
+      key: Buffer.from('test-public-key-bytes').toString('base64')
+    })
+    const readyPath = path.join(outPath, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({runId: 'run-123', pid: 4242}),
+      'utf-8'
+    )
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const printed = await printProdBannerOnce({
+      browser: 'chromium',
+      outPath,
+      browserVersionLine: 'Chromium 120.0',
+      readyPath,
+      includeRunId: true
+    })
+
+    expect(printed).toBe(true)
+    const output = logSpy.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).toContain('Run ID')
+    expect(output).toContain('run-123')
+    expect(output).toContain('4242')
+    logSpy.mockRestore()
+  })
 })

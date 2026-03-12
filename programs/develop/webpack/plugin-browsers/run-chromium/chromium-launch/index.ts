@@ -91,6 +91,7 @@ async function maybePrintDevBanner(args: {
  */
 export class ChromiumLaunchPlugin {
   private didLaunch = false
+  private didReportReady = false
   private logger!: ReturnType<Compiler['getInfrastructureLogger']>
 
   constructor(
@@ -147,18 +148,14 @@ export class ChromiumLaunchPlugin {
 
         await this.launchChromium(stats.compilation)
         this.didLaunch = true
-        this.logger.info(
-          messages.stdoutData(
-            this.options.browser,
-            stats.compilation.options.mode as 'development' | 'production'
+        if (!this.didReportReady) {
+          this.logger.info(
+            devServerMessages.ready(
+              stats.compilation.options.mode as 'development' | 'production',
+              this.options.browser
+            )
           )
-        )
-        this.logger.info(
-          devServerMessages.ready(
-            stats.compilation.options.mode as 'development' | 'production',
-            this.options.browser
-          )
-        )
+        }
       } catch (error) {
         // Do not swallow: otherwise users can get stuck at "compiled successfully"
         // with no feedback when the browser fails to launch (common in WSL/CI).
@@ -642,6 +639,19 @@ export class ChromiumLaunchPlugin {
     }
 
     await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
+
+    if (
+      compilation.options.mode === 'development' &&
+      !this.didReportReady
+    ) {
+      this.logger.info(
+        devServerMessages.ready(
+          compilation.options.mode as 'development' | 'production',
+          this.options.browser
+        )
+      )
+      this.didReportReady = true
+    }
 
     try {
       // Best-effort: derive a human-readable browser version line for dev/prod banners.
