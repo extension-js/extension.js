@@ -9,33 +9,55 @@
 import * as fs from 'fs'
 import {type Compilation} from '@rspack/core'
 import type {Manifest, DevOptions} from '../../../webpack-types'
+import {getManifestOverrides} from '../manifest-overrides'
+
+const INTERNAL_MANIFEST_SOURCE = '__extensionjs_manifest_source__'
+
+function parseJsonSafe(text: string) {
+  const normalized =
+    text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+  return JSON.parse(normalized || '{}')
+}
+
+function readAssetSource(asset: any): string {
+  if (!asset) return ''
+
+  const source = asset.source
+
+  if (typeof source === 'string') return source
+
+  if (typeof source === 'function') {
+    const out = source()
+
+    return typeof out === 'string' ? out : String(out || '')
+  }
+
+  if (source && typeof source.source === 'function') {
+    const out = source.source()
+
+    return typeof out === 'string' ? out : String(out || '')
+  }
+
+  return ''
+}
+
+export function setOriginalManifestContent(
+  compilation: Compilation,
+  source: string
+): void {
+  ;(compilation as any)[INTERNAL_MANIFEST_SOURCE] = source
+}
+
+export function getOriginalManifestContent(
+  compilation: Compilation
+): string | undefined {
+  return (compilation as any)[INTERNAL_MANIFEST_SOURCE]
+}
 
 export function getManifestContent(
   compilation: Compilation,
   manifestPath: string
 ): Manifest {
-  const readAssetSource = (asset: any): string => {
-    if (!asset) return ''
-
-    const source = asset.source
-
-    if (typeof source === 'string') return source
-
-    if (typeof source === 'function') {
-      const out = source()
-
-      return typeof out === 'string' ? out : String(out || '')
-    }
-
-    if (source && typeof source.source === 'function') {
-      const out = source.source()
-
-      return typeof out === 'string' ? out : String(out || '')
-    }
-
-    return ''
-  }
-
   const getAsset = compilation.getAsset
 
   if (typeof getAsset === 'function') {
@@ -43,7 +65,7 @@ export function getManifestContent(
     const manifest = readAssetSource(manifestAsset)
 
     if (manifest) {
-      return JSON.parse(manifest)
+      return parseJsonSafe(manifest)
     }
   }
 
@@ -53,14 +75,19 @@ export function getManifestContent(
     const manifest = readAssetSource(manifestAsset)
 
     if (manifest) {
-      return JSON.parse(manifest)
+      return parseJsonSafe(manifest)
     }
+  }
+
+  const originalManifest = getOriginalManifestContent(compilation)
+  if (originalManifest) {
+    return parseJsonSafe(originalManifest)
   }
 
   // Prefer direct fs read to support ESM and test environments reliably
   try {
     const text = fs.readFileSync(manifestPath, 'utf8')
-    return JSON.parse(text)
+    return parseJsonSafe(text)
   } catch {
     // Fallback to require when available
     // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -114,4 +141,20 @@ export function filterKeysForThisBrowser(
   )
 
   return patchedManifest
+}
+
+export function buildCanonicalManifest(
+  manifestPath: string,
+  manifest: Manifest,
+  browser: DevOptions['browser']
+): Manifest {
+  const filteredManifest = filterKeysForThisBrowser(
+    manifest,
+    browser
+  ) as Manifest
+
+  return {
+    ...filteredManifest,
+    ...JSON.parse(getManifestOverrides(manifestPath, filteredManifest))
+  } as Manifest
 }

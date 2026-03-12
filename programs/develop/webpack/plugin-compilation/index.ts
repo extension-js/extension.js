@@ -13,6 +13,7 @@ import {EnvPlugin} from './env'
 import {CleanDistFolderPlugin} from './clean-dist'
 import {ZipPlugin} from './zip'
 import {BoringPlugin} from './boring'
+import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
 
 import {type PluginInterface} from '../webpack-types'
 
@@ -25,12 +26,14 @@ export class CompilationPlugin {
   public readonly zip?: boolean
   public readonly zipSource?: boolean
   public readonly zipFilename?: string
+  public readonly port?: number
 
   constructor(
     options: PluginInterface & {clean: boolean} & {
       zip?: boolean
       zipSource?: boolean
       zipFilename?: string
+      port?: number
     }
   ) {
     this.manifestPath = options.manifestPath
@@ -39,6 +42,7 @@ export class CompilationPlugin {
     this.zip = options.zip
     this.zipSource = options.zipSource
     this.zipFilename = options.zipFilename
+    this.port = options.port
   }
 
   private applyIgnoreWarnings(compiler: Compiler): void {
@@ -178,5 +182,9 @@ export class CompilationPlugin {
       manifestPath: this.manifestPath,
       browser: this.browser || 'chrome'
     }).apply(compiler)
+
+    // Register warning/error stats output before browser-runner done hooks.
+    // This keeps aggregated diagnostics visible before launch-related logs.
+    setupCompilerDoneDiagnostics(compiler, this.port)
   }
 }
