@@ -61,6 +61,7 @@ import {CompilationPlugin} from '../index'
 
 describe('CompilationPlugin', () => {
   let consoleLogSpy: ReturnType<typeof vi.spyOn>
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
   let stdoutWriteSpy: ReturnType<typeof vi.spyOn>
   const originalBrowserLaunchEnabled =
     process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
@@ -68,6 +69,7 @@ describe('CompilationPlugin', () => {
   beforeEach(() => {
     process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = '0'
     consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     stdoutWriteSpy = vi
       .spyOn(process.stdout, 'write')
       .mockImplementation(() => true)
@@ -84,7 +86,7 @@ describe('CompilationPlugin', () => {
   })
 
   function createCompiler(mode: 'development' | 'production' = 'development') {
-    let doneHandler: any
+    const doneHandlers: Array<(stats: any, done?: any) => any> = []
     const compiler: any = {
       options: {
         mode,
@@ -103,17 +105,21 @@ describe('CompilationPlugin', () => {
         // Some third-party plugins call done.tap, so provide both
         done: {
           tap: (_name: string, cb: any) => {
-            doneHandler = (stats: any, _done: any) => cb(stats)
+            doneHandlers.push((stats: any, _done: any) => cb(stats))
           },
           tapAsync: (_name: string, cb: any) => {
-            doneHandler = cb
+            doneHandlers.push(cb)
+          },
+          tapPromise: (_name: string, cb: any) => {
+            doneHandlers.push((stats: any, _done: any) => cb(stats))
           }
         }
       }
     }
     return {
       compiler,
-      emitDone: (stats: any, done = () => {}) => doneHandler(stats, done)
+      emitDone: (stats: any, done = () => {}) =>
+        doneHandlers.forEach((handler) => handler(stats, done))
     }
   }
 
@@ -222,6 +228,68 @@ describe('CompilationPlugin', () => {
 
     // Each successful compilation prints a boring log line.
     expect(consoleLogSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('prints aggregated warnings before later done hooks like browser launch', () => {
+    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
+      JSON.stringify({name: 'ExtWarn'})
+    )
+
+    const doneTapOrder: Array<(stats: any) => any> = []
+    const browserLaunchSpy = vi.fn()
+    const compiler: any = {
+      options: {
+        mode: 'development',
+        output: {environment: {}}
+      },
+      hooks: {
+        watchClose: {
+          tap: () => {}
+        },
+        done: {
+          tap: (_name: string, cb: any) => {
+            doneTapOrder.push(cb)
+          }
+        }
+      }
+    }
+
+    const plugin = new CompilationPlugin({
+      manifestPath: '/p/manifest.json',
+      browser: 'chrome',
+      clean: true,
+      port: 8080
+    })
+    plugin.apply(compiler as any)
+
+    compiler.hooks.done.tapPromise = (_name: string, cb: any) => {
+      doneTapOrder.push(cb)
+    }
+    compiler.hooks.done.tapPromise('chromium:launch', async () => {
+      browserLaunchSpy('launch')
+    })
+
+    const stats = {
+      hasErrors: () => false,
+      hasWarnings: () => true,
+      toString: () => 'WARNING in Content script requires a default export.',
+      toJson: () => ({assets: [{name: 'a.js'}], entrypoints: {main: {}}}),
+      compilation: {startTime: 0, endTime: 12}
+    }
+
+    for (const cb of doneTapOrder) {
+      cb(stats)
+    }
+
+    expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtWarn, 12ms)')
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'WARNING in Content script requires a default export.'
+    )
+    expect(browserLaunchSpy).toHaveBeenCalledWith('launch')
+
+    const warnOrder = consoleWarnSpy.mock.invocationCallOrder[0]
+    const launchOrder = browserLaunchSpy.mock.invocationCallOrder[0]
+    expect(warnOrder).toBeLessThan(launchOrder)
   })
 
   vi.mock('../zip', () => {
