@@ -29,6 +29,9 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
     - For `canary`, this can be left empty to auto-generate:
       `<base>-canary.<run_number>.<short_sha>`
 - CI validates inputs, builds, and runs tests.
+- Release notes are generated from git history using `scripts/generate-release-notes.mjs`.
+  Stable and next releases use grouped, user-facing bullets with commit refs, while
+  release-machinery and internal pipeline commits are omitted.
 - Versions are set for:
   - `programs/cli/package.json`
   - `programs/develop/package.json`

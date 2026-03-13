@@ -122,20 +122,8 @@ jobs:
           CURRENT_VERSION: ${{ steps.validate.outputs.version }}
         run: |
           set -euo pipefail
-          # Exclude the target release tag in case this job is rerun after tagging.
           last_tag=$(git tag --list 'v*' --sort=-v:refname | grep -E 'v[0-9]+\.[0-9]+\.[0-9]+$' | grep -Ev "^v${CURRENT_VERSION}$" | head -n 1 || true)
-
-          if [ -n "$last_tag" ]; then
-            range="$last_tag..HEAD"
-          else
-            range="HEAD"
-          fi
-
-          # Exclude release machinery commits (chore(release), release(...)) from changelog.
-          notes=$(git log "$range" --no-merges --invert-grep --grep='chore(release)' --grep='release(' --pretty=format:'- %s (%h)')
-          if [ -z "$notes" ]; then
-            notes="- No changes listed."
-          fi
+          notes=$(node scripts/generate-release-notes.mjs --current-version "$CURRENT_VERSION")
 
           {
             echo "notes<<EOF"
