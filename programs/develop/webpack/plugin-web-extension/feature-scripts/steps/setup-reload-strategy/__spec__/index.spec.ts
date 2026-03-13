@@ -7,14 +7,8 @@ vi.mock('fs', () => ({
 vi.mock('../../../scripts-lib/manifest', () => ({
   filterKeysForThisBrowser: (m: any) => m
 }))
-const applyManifestSpy = vi.fn()
 const setupBgSpy = vi.fn()
 
-vi.mock('../apply-manifest-dev-defaults', () => ({
-  ApplyManifestDevDefaults: vi.fn().mockImplementation(function () {
-    this.apply = applyManifestSpy
-  })
-}))
 vi.mock('../setup-background-entry', () => ({
   SetupBackgroundEntry: vi.fn().mockImplementation(function () {
     this.apply = setupBgSpy
@@ -60,7 +54,6 @@ describe('SetupReloadStrategy', () => {
         })
       })
     )
-    expect(applyManifestSpy).toHaveBeenCalled()
     expect(setupBgSpy).toHaveBeenCalled()
   })
 

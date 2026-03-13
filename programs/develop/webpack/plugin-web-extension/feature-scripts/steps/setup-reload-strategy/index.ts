@@ -11,7 +11,6 @@ import {type Compiler} from '@rspack/core'
 import WebExtension from './webpack-target-webextension-fork'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {SetupBackgroundEntry} from './setup-background-entry'
-import {ApplyManifestDevDefaults} from './apply-manifest-dev-defaults'
 import type {
   Manifest,
   PluginInterface,
@@ -112,20 +111,16 @@ export class SetupReloadStrategy {
       // ignore – safe defaults in runtime
     }
 
-    // 1 - Apply the manifest defaults needed
-    // for webpack-target-webextension to work correctly
-    new ApplyManifestDevDefaults({
-      manifestPath: this.manifestPath,
-      browser: this.browser
-    }).apply(compiler)
+    // 1 - Manifest dev defaults (CSP, permissions, WAR) are applied by
+    // ManifestPlugin (ApplyDevDefaults step) in feature-manifest.
 
-    // 3 - Setup the background entry needed for webpack-target-webextension
+    // 2 - Setup the background entry needed for webpack-target-webextension
     new SetupBackgroundEntry({
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)
 
-    // 4 - Now that we know the background exists, add the web extension target.
+    // 3 - Now that we know the background exists, add the web extension target.
     new WebExtension({
       background: this.getEntryName(patchedManifest),
       weakRuntimeCheck: true,

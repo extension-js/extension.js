@@ -4,6 +4,7 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import {WebResourcesPlugin} from '..'
+import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 import {resolveUserDeclaredWAR} from '../web-resources-lib/resolve-war'
 
 type Manifest =
@@ -52,12 +53,8 @@ describe('generateManifestPatches', () => {
     const updateAssetMock = vi.fn()
     const emitAssetMock = vi.fn()
 
-    const plugin = new WebResourcesPlugin({
-      manifestPath
-    })
-
     const extraAssets = options?.extraAssets || {}
-    plugin['generateManifestPatches'](
+    generateManifestPatches(
       {
         getAsset: () => manifestAsset,
         assets: {
@@ -74,6 +71,7 @@ describe('generateManifestPatches', () => {
         fileDependencies: new Set(),
         options: {mode: options?.mode || 'development'}
       } as unknown as Compilation,
+      manifestPath,
       entryImports
     )
 
@@ -389,7 +387,6 @@ describe('generateManifestPatches', () => {
     })
 
     it('errors for invalid mv3 matches pattern (chrome only)', () => {
-      const plugin = new WebResourcesPlugin({manifestPath})
       const manifest = {
         manifest_version: 3,
         web_accessible_resources: [
@@ -408,8 +405,9 @@ describe('generateManifestPatches', () => {
         errors: [] as any[]
       }
 
-      plugin['generateManifestPatches'](
+      generateManifestPatches(
         compilation as unknown as Compilation,
+        manifestPath,
         {}
       )
 
@@ -537,11 +535,6 @@ describe('generateManifestPatches', () => {
     })
 
     it('keeps user-provided mv3 matches intact on firefox', () => {
-      const pluginFx = new WebResourcesPlugin({
-        manifestPath,
-        browser: 'firefox'
-      })
-
       const manifest = {
         manifest_version: 3,
         web_accessible_resources: [
@@ -554,7 +547,7 @@ describe('generateManifestPatches', () => {
 
       const manifestSource = {source: () => JSON.stringify(manifest)}
       const updateAssetMock = vi.fn()
-      pluginFx['generateManifestPatches'](
+      generateManifestPatches(
         {
           getAsset: () => ({name: 'manifest.json', source: manifestSource}),
           assets: {'manifest.json': manifestSource},
@@ -563,7 +556,9 @@ describe('generateManifestPatches', () => {
           fileDependencies: new Set(),
           options: {mode: 'development'}
         } as unknown as Compilation,
-        {}
+        manifestPath,
+        {},
+        'firefox'
       )
 
       const updated = JSON.parse(
@@ -575,10 +570,6 @@ describe('generateManifestPatches', () => {
     })
 
     it('emits a warning for missing public-root path', () => {
-      const pluginLocal = new WebResourcesPlugin({
-        manifestPath
-      })
-
       // public-root points to /root/app/public/img/logo.png which does not exist
       const manifest = {
         manifest_version: 3,
@@ -602,8 +593,9 @@ describe('generateManifestPatches', () => {
         warnings: [] as any[]
       }
 
-      pluginLocal['generateManifestPatches'](
+      generateManifestPatches(
         compilation as unknown as Compilation,
+        manifestPath,
         {}
       )
 
@@ -617,10 +609,6 @@ describe('generateManifestPatches', () => {
     })
 
     it('emits a warning for missing relative file (mv3) and preserves string', () => {
-      const pluginLocal = new WebResourcesPlugin({
-        manifestPath
-      })
-
       const rel = 'images/missing.png'
       const manifest = {
         manifest_version: 3,
@@ -638,8 +626,9 @@ describe('generateManifestPatches', () => {
         warnings: [] as any[]
       }
 
-      pluginLocal['generateManifestPatches'](
+      generateManifestPatches(
         compilation as unknown as Compilation,
+        manifestPath,
         {}
       )
 
@@ -660,7 +649,6 @@ describe('generateManifestPatches', () => {
     })
 
     it('adds emitted relative files to fileDependencies', () => {
-      const pluginLocal = new WebResourcesPlugin({manifestPath})
       const rel = 'images/logo.png'
       const abs = path.join(tmpRoot, rel)
       fs.mkdirSync(path.dirname(abs), {recursive: true})
@@ -680,7 +668,7 @@ describe('generateManifestPatches', () => {
         options: {mode: 'development'}
       }
 
-      pluginLocal['generateManifestPatches'](compilation as Compilation, {})
+      generateManifestPatches(compilation as Compilation, manifestPath, {})
 
       expect(Array.from(compilation.fileDependencies)).toContain(abs)
     })
