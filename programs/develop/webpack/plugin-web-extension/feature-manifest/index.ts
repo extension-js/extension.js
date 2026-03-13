@@ -12,6 +12,8 @@ import * as messages from './messages'
 // Manifest plugins
 import {EmitManifest} from './steps/emit-manifest'
 import {UpdateManifest} from './steps/update-manifest'
+import {PatchWAR} from './steps/patch-war'
+import {ApplyDevDefaults} from './steps/apply-dev-defaults'
 import {PersistManifestToDisk} from './steps/persist-manifest'
 import {AddDependencies} from './steps/add-dependencies'
 import {CheckManifestFiles} from './steps/check-manifest-files'
@@ -71,15 +73,28 @@ export class ManifestPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // 3 - Persist the final manifest atomically so Chromium never
+    // 3 - Patch web_accessible_resources from content script imports.
+    // Depends on CollectContentEntryImports (WebResourcesPlugin) at SUMMARIZE.
+    new PatchWAR({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
+
+    // 4 - Apply dev-only defaults (CSP, permissions, reload WAR). Development only.
+    new ApplyDevDefaults({
+      manifestPath: this.manifestPath,
+      browser: this.browser
+    }).apply(compiler)
+
+    // 5 - Persist the final manifest atomically so Chromium never
     // observes a partially written file during startup reloads.
     new PersistManifestToDisk().apply(compiler)
 
-    // 4 - Ensure this manifest is stored as file dependency
+    // 6 - Ensure this manifest is stored as file dependency
     // so webpack can watch and trigger changes.
     new AddDependencies([this.manifestPath]).apply(compiler)
 
-    // 5 - Some files in manifest are used as entrypoints. Since
+    // 7 - Some files in manifest are used as entrypoints. Since
     // we can't recompile entrypoints at runtime, we need to
     // throw an error if any of those files change.
     new ThrowIfRecompileIsNeeded({
@@ -88,7 +103,7 @@ export class ManifestPlugin {
       includeList: this.includeList
     }).apply(compiler)
 
-    // 6 - Deprecation warnings for legacy paths (development only)
+    // 8 - Deprecation warnings for legacy paths (development only)
     new ManifestLegacyWarnings().apply(compiler)
   }
 }

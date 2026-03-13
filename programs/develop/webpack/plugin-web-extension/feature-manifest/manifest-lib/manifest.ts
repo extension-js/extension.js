@@ -12,6 +12,8 @@ import type {Manifest, DevOptions} from '../../../webpack-types'
 import {getManifestOverrides} from '../manifest-overrides'
 
 const INTERNAL_MANIFEST_SOURCE = '__extensionjs_manifest_source__'
+const INTERNAL_MANIFEST_CURRENT_SOURCE =
+  '__extensionjs_manifest_current_source__'
 
 function parseJsonSafe(text: string) {
   const normalized =
@@ -54,10 +56,28 @@ export function getOriginalManifestContent(
   return (compilation as any)[INTERNAL_MANIFEST_SOURCE]
 }
 
+export function setCurrentManifestContent(
+  compilation: Compilation,
+  source: string
+): void {
+  ;(compilation as any)[INTERNAL_MANIFEST_CURRENT_SOURCE] = source
+}
+
+export function getCurrentManifestContent(
+  compilation: Compilation
+): string | undefined {
+  return (compilation as any)[INTERNAL_MANIFEST_CURRENT_SOURCE]
+}
+
 export function getManifestContent(
   compilation: Compilation,
   manifestPath: string
 ): Manifest {
+  const currentManifest = getCurrentManifestContent(compilation)
+  if (currentManifest) {
+    return parseJsonSafe(currentManifest)
+  }
+
   const getAsset = compilation.getAsset
 
   if (typeof getAsset === 'function') {
