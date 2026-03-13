@@ -103,6 +103,7 @@ import {extensionBuild} from '../command-build'
 import * as depsManagerMod from '../webpack-lib/dependency-manager'
 import * as configLoaderMod from '../webpack-lib/config-loader'
 import * as resolveConfigMod from '../feature-special-folders/folder-extensions/resolve-config'
+import * as messages from '../webpack-lib/messages'
 import webpackConfig from '../webpack-config'
 
 describe('webpack/command-build', () => {
@@ -219,10 +220,23 @@ describe('webpack/command-build', () => {
         assets: [{name: 'background/service_worker.js', size: 1000}],
         warnings: [
           {
-            message:
-              'asset size limit: background/service_worker.js exceeds the recommended size limit',
+            message: `asset size limit: The following asset(s) exceed the recommended size limit (244.141 KiB). This can impact web performance.
+Assets:
+  03bc89f8e5771202.wasm (20.596 MiB)
+  background/service_worker.js (1.560 MiB)
+  sidebar/index.js (1.116 MiB)`,
             pluginName: 'rspack/performance-hints',
             file: 'background/service_worker.js'
+          },
+          {
+            message: `entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244.141 KiB). This can impact web performance.
+Entrypoints:
+  background/service_worker (1.560 MiB)
+    background/service_worker.js
+  sidebar/index (1.250 MiB)
+    sidebar/index.js
+    sidebar/index.css`,
+            pluginName: 'rspack/performance-hints'
           }
         ],
         errors: []
@@ -234,15 +248,68 @@ describe('webpack/command-build', () => {
       browser: 'chrome',
       silent: true
     })
-    expect(summary.warnings_count).toBe(1)
+    expect(summary.warnings_count).toBe(2)
 
     const printed = localLogSpy.mock.calls
       .map((call) => String(call[0] || ''))
       .join('\n')
-    expect(printed).toContain('Build succeeded with 1 warning(s)')
-    expect(printed).toContain('Performance')
-    expect(printed).toContain('Warning details')
-    expect(printed).toContain('ACTION')
+    expect(printed).toContain('Build succeeded with 2 warning(s)')
+    expect(printed).toContain('Performance: asset size limit exceeded')
+    expect(printed).toContain('Threshold:')
+    expect(printed).toContain('Assets over limit')
+    expect(printed).toContain('Source:')
+    expect(printed).toContain('Hint:')
+    expect(printed).toContain('Entrypoints over limit')
+  })
+
+  it('formats build output with entrypoints and largest assets sections', () => {
+    const readFileSyncSpy = vi
+      .spyOn(fs, 'readFileSync')
+      .mockReturnValue(JSON.stringify({name: 'Maro', version: '0.1.0'}) as any)
+
+    const stats = {
+      hasErrors: () => false,
+      compilation: {
+        outputOptions: {
+          path: '/proj/dist'
+        }
+      },
+      toJson: () => ({
+        assets: [
+          {name: '03bc89f8e5771202.wasm', size: 21596463},
+          {name: 'background/service_worker.js', size: 1635779},
+          {name: 'sidebar/index.js', size: 1170411},
+          {name: 'sidebar/index.css', size: 140073},
+          {name: 'content_scripts/content-1.js', size: 954204},
+          {name: 'content_scripts/content-0.js', size: 551151},
+          {name: 'maro-buddy.gif', size: 1101005}
+        ],
+        entrypoints: {
+          'background/service_worker': {
+            assets: [{name: 'background/service_worker.js'}]
+          },
+          'sidebar/index': {
+            assets: [{name: 'sidebar/index.js'}, {name: 'sidebar/index.css'}]
+          },
+          'content_scripts/content-1': {
+            assets: [{name: 'content_scripts/content-1.js'}]
+          },
+          'content_scripts/content-0': {
+            assets: [{name: 'content_scripts/content-0.js'}]
+          }
+        },
+        time: 1039
+      })
+    }
+
+    const output = messages.buildWebpack('/proj', stats, 'chromium' as any)
+
+    expect(readFileSyncSpy).toHaveBeenCalled()
+    expect(output).toContain('Entrypoints')
+    expect(output).toContain('Largest assets')
+    expect(output).toContain('background/service_worker.js')
+    expect(output).toContain('03bc89f8e5771202.wasm')
+    expect(output).not.toContain('.\n├─')
   })
 
   it('ensures dependencies before running the build', async () => {
