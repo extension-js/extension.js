@@ -7,9 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
 import * as net from 'net'
 import {DEFAULT_DEBUG_PORT, PORT_OFFSET} from './constants'
+
+const MANAGED_EPHEMERAL_PROFILE_MARKER = '.extension-js-managed-profile'
 
 export function shortInstanceId(instanceId?: string): string {
   return instanceId ? String(instanceId).slice(0, 8) : ''
@@ -33,9 +36,6 @@ export function deriveDebugPortWithInstance(
   return basePlusOffset + instanceOffsetFromId(instanceId)
 }
 
-// Detect Chromium lock files under a profile path
-// Profile lock and instance selection helpers removed
-// with ephemeral profiles
 // Calculates debug port from various sources
 export function calculateDebugPort(
   portFromConfig?: number | string,
@@ -93,7 +93,104 @@ export async function findAvailablePortNear(
   return startPort
 }
 
-// Remove old ephemeral temp profile directories (tmp-*)
+function isProcessLikelyAlive(pid: number): boolean {
+  if (!Number.isInteger(pid) || pid <= 0) return false
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
+
+function parseChromiumSingletonOwner(
+  raw: string
+): {host: string; pid: number} | null {
+  const value = String(raw || '').trim()
+  const lastDash = value.lastIndexOf('-')
+  if (lastDash <= 0) return null
+
+  const host = value.slice(0, lastDash).trim()
+  const pid = parseInt(value.slice(lastDash + 1).trim(), 10)
+  if (!host || !Number.isInteger(pid) || pid <= 0) return null
+
+  return {host, pid}
+}
+
+function readChromiumSingletonOwner(
+  profilePath: string
+): {host: string; pid: number} | null {
+  const lockPath = path.join(profilePath, 'SingletonLock')
+  if (!fs.existsSync(lockPath)) return null
+
+  try {
+    const stat = fs.lstatSync(lockPath)
+    if (stat.isSymbolicLink()) {
+      return parseChromiumSingletonOwner(fs.readlinkSync(lockPath))
+    }
+  } catch {
+    // Fall back to plain-file parsing below.
+  }
+
+  try {
+    return parseChromiumSingletonOwner(fs.readFileSync(lockPath, 'utf8'))
+  } catch {
+    return null
+  }
+}
+
+function removeChromiumSingletonArtifacts(profilePath: string): string[] {
+  const removed: string[] = []
+  for (const name of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    const full = path.join(profilePath, name)
+    if (!fs.existsSync(full)) continue
+
+    try {
+      fs.rmSync(full, {recursive: true, force: true})
+      removed.push(name)
+    } catch {
+      // ignore
+    }
+  }
+  return removed
+}
+
+export function prepareChromiumProfileForLaunch(profilePath: string) {
+  const owner = readChromiumSingletonOwner(profilePath)
+  if (!owner) return {removedArtifacts: [] as string[]}
+
+  const currentHost = os.hostname().trim().toLowerCase()
+  const ownerHost = owner.host.trim().toLowerCase()
+  const sameHost = currentHost.length > 0 && currentHost === ownerHost
+  const alive = isProcessLikelyAlive(owner.pid)
+
+  if (!sameHost || !alive) {
+    return {
+      removedArtifacts: removeChromiumSingletonArtifacts(profilePath)
+    }
+  }
+
+  throw new Error(
+    `Chromium profile "${profilePath}" is already in use by process ${owner.pid}` +
+      ` on host ${owner.host}. Close that browser session or use a different profile ` +
+      `before starting Extension.js.`
+  )
+}
+
+export function markManagedEphemeralProfile(profilePath: string) {
+  try {
+    fs.writeFileSync(
+      path.join(profilePath, MANAGED_EPHEMERAL_PROFILE_MARKER),
+      'managed-ephemeral-profile\n',
+      'utf8'
+    )
+  } catch {
+    // ignore
+  }
+}
+
+// Remove old managed ephemeral profile directories while preserving the active
+// profile and the stable persistent profile directory (`dev`).
 export function cleanupOldTempProfiles(
   baseDir: string,
   excludeBasename: string | undefined,
@@ -109,11 +206,14 @@ export function cleanupOldTempProfiles(
       if (!entry.isDirectory()) continue
 
       const name = entry.name
-      if (!name.startsWith('tmp-')) continue
+      if (name === 'dev') continue
 
       if (excludeBasename && name === excludeBasename) continue
 
       const full = path.join(baseDir, name)
+      const markerPath = path.join(full, MANAGED_EPHEMERAL_PROFILE_MARKER)
+      if (!fs.existsSync(markerPath)) continue
+
       let mtime = 0
 
       try {

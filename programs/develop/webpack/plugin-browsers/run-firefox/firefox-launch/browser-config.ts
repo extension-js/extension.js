@@ -16,7 +16,10 @@ import {
   animals
 } from 'unique-names-generator'
 import * as messages from '../../browsers-lib/messages'
-import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
+import {
+  cleanupOldTempProfiles,
+  markManagedEphemeralProfile
+} from '../../browsers-lib/shared-utils'
 import {getPreferences} from './master-preferences'
 import {type DevOptions, type BrowserConfig} from '../../../webpack-types'
 
@@ -115,6 +118,7 @@ export async function browserConfig(
         messages.creatingUserProfile(hasExplicitProfile ? tmp : shownPath(tmp))
       )
       fs.mkdirSync(tmp, {recursive: true})
+      markManagedEphemeralProfile(tmp)
       profilePath = tmp
     }
 
