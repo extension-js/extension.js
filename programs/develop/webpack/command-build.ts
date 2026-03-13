@@ -129,6 +129,7 @@ export async function extensionBuild(
     })
 
     const compilerConfig = merge(userConfig)
+    compilerConfig.stats = false
     const compiler = rspack(compilerConfig)
 
     let summary: BuildSummary = {
