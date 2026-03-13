@@ -51,8 +51,13 @@ describe('warn-no-default-export loader', () => {
     const src = `export const x = 1`
     run(scriptFile, manifestPath, src, compilation)
     expect(compilation.warnings.length).toBe(1)
-    expect(String(compilation.warnings[0])).toContain(
-      'Content script requires a default export.'
+    const msg = String(compilation.warnings[0])
+    expect(msg).toContain('Content script requires a default export.')
+    expect(msg).toContain(
+      'Export a default function so Extension.js can mount and cleanup safely.'
+    )
+    expect(msg).toMatch(
+      /See (TypeScript|vanilla JS|React|Vue|Svelte|Preact) sample/
     )
   })
 
@@ -94,6 +99,30 @@ describe('warn-no-default-export loader', () => {
       'Content script default export must be a function.'
     )
     expect(String(compilation.warnings[0])).toContain('Found: class')
+  })
+
+  it('includes React sample link when project has react dependency', () => {
+    const pkgPath = path.join(tmp, 'package.json')
+    fs.writeFileSync(
+      pkgPath,
+      JSON.stringify({dependencies: {react: '^18.0.0'}})
+    )
+    const scriptsDir = path.join(tmp, 'scripts')
+    fs.mkdirSync(scriptsDir, {recursive: true})
+    const scriptFile = path.join(scriptsDir, 'hello.tsx')
+    fs.writeFileSync(scriptFile, '')
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({content_scripts: [{js: ['cs.tsx']}], background: {}})
+    )
+
+    const compilation: any = {warnings: []}
+    const src = `export const x = 1`
+    run(scriptFile, manifestPath, src, compilation)
+    expect(compilation.warnings.length).toBe(1)
+    const msg = String(compilation.warnings[0])
+    expect(msg).toContain('See React sample')
+    expect(msg).toContain('react/src/content/scripts.tsx')
   })
 
   it('does not warn when default export is a function identifier (scripts/ folder)', () => {
