@@ -37,6 +37,19 @@ export class ChromiumHardReloadPlugin {
    */
   private serviceWorkerSourceDependencyPaths: Set<string> = new Set()
 
+  private getWatchedManifestSourcePaths(compiler: Compiler): string[] {
+    const compilerContextRoot = String(
+      compiler?.options?.context || ''
+    ).replace(/\\/g, '/')
+
+    if (!compilerContextRoot) return []
+
+    return [
+      `${compilerContextRoot}/manifest.json`,
+      `${compilerContextRoot}/src/manifest.json`
+    ]
+  }
+
   constructor(
     private readonly options: {
       autoReload?: boolean
@@ -89,9 +102,8 @@ export class ChromiumHardReloadPlugin {
             const normalizedOutputPath = String(
               compiler?.options?.output?.path || ''
             ).replace(/\\/g, '/')
-            const normalizedSourceRootPath = compilerContextRoot
-              ? `${compilerContextRoot}/src`
-              : ''
+            const normalizedManifestSourcePaths =
+              this.getWatchedManifestSourcePaths(compiler)
             const sourceModifiedFilePaths = watchedModifiedFilePaths.filter(
               (filePath) =>
                 !(
@@ -102,15 +114,15 @@ export class ChromiumHardReloadPlugin {
             )
 
             const hitManifest = sourceModifiedFilePaths.some((filePath) => {
-              if (normalizedSourceRootPath) {
-                return filePath === `${normalizedSourceRootPath}/manifest.json`
+              if (normalizedManifestSourcePaths.length > 0) {
+                return normalizedManifestSourcePaths.includes(filePath)
               }
               return /(^|\/)manifest\.json$/i.test(filePath)
             })
             const localeChanged = sourceModifiedFilePaths.some((filePath) => {
-              if (normalizedSourceRootPath) {
+              if (compilerContextRoot) {
                 return filePath.startsWith(
-                  `${normalizedSourceRootPath}/_locales/`
+                  `${compilerContextRoot}/src/_locales/`
                 )
               }
               return /(^|\/)__?locales\/.+\.json$/i.test(filePath)
