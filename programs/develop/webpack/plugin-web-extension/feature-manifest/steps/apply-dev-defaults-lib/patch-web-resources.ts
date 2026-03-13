@@ -6,7 +6,7 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import {type Manifest} from '../../../../../webpack-types'
+import {type Manifest} from '../../../../webpack-types'
 
 function patchWebResourcesV2(manifest: Manifest) {
   const defaultResources = [
@@ -19,9 +19,7 @@ function patchWebResourcesV2(manifest: Manifest) {
     '*.styl',
     '/scripts/*.js',
     '/scripts/*.css',
-    // HMR updates live under /hot/
     '/hot/*',
-    // Common asset types for content scripts in MAIN world
     '/*.png',
     '/*.jpg',
     '/*.jpeg',
@@ -38,13 +36,11 @@ function patchWebResourcesV2(manifest: Manifest) {
   }
 
   const webResources = new Set(resources)
-
   for (const resource of defaultResources) {
     if (!webResources.has(resource)) {
       webResources.add(resource)
     }
   }
-
   return Array.from(webResources)
 }
 
@@ -59,9 +55,7 @@ function patchWebResourcesV3(manifest: Manifest) {
     '*.styl',
     '/scripts/*.js',
     '/scripts/*.css',
-    // HMR updates live under /hot/
     '/hot/*',
-    // Common asset types for content scripts in MAIN world
     '/*.png',
     '/*.jpg',
     '/*.jpeg',

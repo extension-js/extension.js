@@ -24,6 +24,33 @@ export function setupCompilerLifecycleHooks(compiler: Compiler): void {
   })
 }
 
+export function setupNoBrowserBannerOnFirstDone(opts: {
+  compiler: Compiler
+  browser: string
+  manifestPath: string
+  readyPath: string
+}): void {
+  let printed = false
+  opts.compiler.hooks.done.tap(
+    'extension.js:no-browser-banner',
+    (stats: any) => {
+      if (printed) return
+      if (stats?.hasErrors?.()) return
+      printed = true
+      console.log(messages.ready('development', opts.browser))
+      console.log(messages.spacerLine())
+      console.log(
+        messages.browserRunnerDisabled({
+          browser: opts.browser,
+          manifestPath: opts.manifestPath,
+          readyPath: opts.readyPath
+        })
+      )
+      console.log(messages.spacerLine())
+    }
+  )
+}
+
 export function setupCompilerDoneDiagnostics(
   compiler: Compiler,
   port?: number
