@@ -396,38 +396,41 @@ export async function installOptionalDependencies(
       console.log(setupMessageWithIndex)
     }
 
-    for (const dependency of dependencies) {
-      const installCommand = getOptionalInstallCommand(
-        pm,
-        [dependency],
-        wslContext.installDir || installBaseDir
-      )
-      const execCommand = wrapCommandForWsl(installCommand, wslContext)
-      const fallbackNpmCommand = wslContext.useWsl
-        ? undefined
-        : buildNpmCliFallback([
-            '--silent',
-            'install',
-            ...resolveOptionalDependencySpecs([dependency]),
-            '--prefix',
-            installBaseDir,
-            '--save-optional'
-          ])
+    const installCommand = getOptionalInstallCommand(
+      pm,
+      dependencies,
+      wslContext.installDir || installBaseDir
+    )
+    const execCommand = wrapCommandForWsl(installCommand, wslContext)
+    const fallbackNpmCommand = wslContext.useWsl
+      ? undefined
+      : buildNpmCliFallback([
+          '--silent',
+          'install',
+          ...resolveOptionalDependencySpecs(dependencies),
+          '--prefix',
+          installBaseDir,
+          '--save-optional'
+        ])
 
-      await execInstallWithFallback(execCommand, {
-        cwd: wslContext.useWsl ? undefined : installBaseDir,
-        fallbackNpmCommand,
-        allowFallbackOnFailure:
-          !wslContext.useWsl &&
-          pm.name !== 'npm' &&
-          fallbackNpmCommand !== undefined
-      })
-    }
+    await execInstallWithFallback(execCommand, {
+      cwd: wslContext.useWsl ? undefined : installBaseDir,
+      fallbackNpmCommand,
+      allowFallbackOnFailure:
+        !wslContext.useWsl &&
+        pm.name !== 'npm' &&
+        fallbackNpmCommand !== undefined
+    })
 
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    if (isAuthor) {
-      console.log(messages.optionalToolingRootInstall(integration))
+    const needsRootRelink = isAuthor || dependencies.length > 1
+
+    if (needsRootRelink) {
+      if (isAuthor) {
+        console.log(messages.optionalToolingRootInstall(integration))
+      }
+
       const rootInstall = getRootInstallCommand(
         pm,
         wslContext.useWsl ? wslContext.installDir : undefined
@@ -449,7 +452,10 @@ export async function installOptionalDependencies(
           pm.name !== 'npm' &&
           rootFallbackCommand !== undefined
       })
-      console.log(messages.optionalToolingReady(integration))
+
+      if (isAuthor) {
+        console.log(messages.optionalToolingReady(integration))
+      }
     }
     return true
   } catch (error) {
