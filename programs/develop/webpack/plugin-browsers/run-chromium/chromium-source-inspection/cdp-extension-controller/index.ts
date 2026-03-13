@@ -48,30 +48,7 @@ export class CDPExtensionController {
 
   async connect(): Promise<void> {
     if (this.cdp) return
-    // Use helper to wait for port, connect, and set auto-attach
-    this.cdp = await connectToChromeCdp(this.cdpPort)
-
-    // Proactively enable auto-attach and capture extensionId from service worker targets as soon as they appear
-    try {
-      await this.cdp.sendCommand('Target.setDiscoverTargets', {
-        discover: true
-      })
-      await this.cdp.sendCommand('Target.setAutoAttach', {
-        autoAttach: true,
-        waitForDebuggerOnStart: false,
-        flatten: true
-      })
-    } catch (error: unknown) {
-      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-        console.warn(
-          messages.cdpAutoAttachSetupFailed(
-            String((error as Error)?.message || error)
-          )
-        )
-      }
-    }
-
-    registerAutoEnableLogging(this.cdp, () => this.extensionId)
+    await this.connectFreshClient()
   }
 
   async ensureLoaded(): Promise<ExtensionInfoResult> {
@@ -311,12 +288,76 @@ export class CDPExtensionController {
   }
 
   async hardReload(): Promise<boolean> {
-    if (!this.cdp || !this.extensionId) return false
+    if (!this.extensionId) return false
 
     try {
-      return await this.cdp.forceReloadExtension(this.extensionId)
+      if (!this.cdp) {
+        await this.connectFreshClient()
+      }
+
+      if (this.cdp && (await this.cdp.forceReloadExtension(this.extensionId))) {
+        return true
+      }
+    } catch {
+      // Retry once with a fresh CDP session below.
+    }
+
+    try {
+      await this.reconnectForReload()
+      return Boolean(
+        this.cdp &&
+          this.extensionId &&
+          (await this.cdp.forceReloadExtension(this.extensionId))
+      )
     } catch {
       return false
+    }
+  }
+
+  private async connectFreshClient(): Promise<void> {
+    // Use helper to wait for port, connect, and set auto-attach
+    this.cdp = await connectToChromeCdp(this.cdpPort)
+
+    // Proactively enable auto-attach and capture extensionId from service worker targets as soon as they appear
+    try {
+      await this.cdp.sendCommand('Target.setDiscoverTargets', {
+        discover: true
+      })
+      await this.cdp.sendCommand('Target.setAutoAttach', {
+        autoAttach: true,
+        waitForDebuggerOnStart: false,
+        flatten: true
+      })
+    } catch (error: unknown) {
+      if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+        console.warn(
+          messages.cdpAutoAttachSetupFailed(
+            String((error as Error)?.message || error)
+          )
+        )
+      }
+    }
+
+    registerAutoEnableLogging(this.cdp, () => this.extensionId)
+  }
+
+  private async reconnectForReload(): Promise<void> {
+    try {
+      this.cdp?.disconnect?.()
+    } catch {
+      // ignore best-effort cleanup
+    }
+
+    this.cdp = null
+    await this.connectFreshClient()
+
+    try {
+      const derivedExtensionId = await this.deriveExtensionIdFromTargets(10, 150)
+      if (derivedExtensionId) {
+        this.extensionId = derivedExtensionId
+      }
+    } catch {
+      // Keep the previous extension id if re-derivation fails.
     }
   }
 
