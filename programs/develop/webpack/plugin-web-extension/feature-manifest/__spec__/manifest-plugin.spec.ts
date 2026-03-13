@@ -24,6 +24,18 @@ vi.mock('../steps/update-manifest', () => ({
   }
 }))
 
+vi.mock('../steps/patch-war', () => ({
+  PatchWAR: class {
+    constructor(_opts: any) {}
+    apply = applySpy
+  }
+}))
+vi.mock('../steps/apply-dev-defaults', () => ({
+  ApplyDevDefaults: class {
+    constructor(_opts: any) {}
+    apply = applySpy
+  }
+}))
 vi.mock('../steps/persist-manifest', () => ({
   PersistManifestToDisk: class {
     apply = applySpy
@@ -71,6 +83,6 @@ describe('ManifestPlugin', () => {
 
     // Ensure each step had apply called
     expect(applySpy).toHaveBeenCalled()
-    expect(applySpy.mock.calls.length).toBe(6)
+    expect(applySpy.mock.calls.length).toBe(8)
   })
 })

@@ -12,6 +12,7 @@ import {Compiler, Compilation, DefinePlugin, sources} from '@rspack/core'
 import * as dotenv from 'dotenv'
 import type {PluginInterface, DevOptions} from '../webpack-types'
 import * as messages from './compilation-lib/messages'
+import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 
 function findNearestWorkspaceRoot(startDir: string): string | undefined {
   let current = path.isAbsolute(startDir)
@@ -251,6 +252,10 @@ export class EnvPlugin {
                   filename,
                   new sources.RawSource(fileContent)
                 )
+
+                if (filename === 'manifest.json') {
+                  setCurrentManifestContent(compilation, fileContent)
+                }
               }
             })
           }

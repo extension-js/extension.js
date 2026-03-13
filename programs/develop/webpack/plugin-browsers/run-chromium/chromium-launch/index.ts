@@ -58,7 +58,6 @@ async function maybePrintDevBanner(args: {
 }) {
   const mode = (args.compilation?.options?.mode || 'development') as string
   if (mode !== 'development') return
-  if (args.enableCdp) return
   const loadExtensionFlag = args.chromiumConfig.find((flag: string) =>
     flag.startsWith('--load-extension=')
   )
@@ -71,6 +70,7 @@ async function maybePrintDevBanner(args: {
     timeoutMs: 10000
   })
   if (!ready) return
+  if (args.enableCdp) return
   await printDevBannerOnce({
     browser: args.browser,
     outPath: extensionOutputPath,
@@ -149,7 +149,9 @@ export class ChromiumLaunchPlugin {
         await this.launchChromium(stats.compilation)
         this.didLaunch = true
         if (!this.didReportReady) {
-          this.logger.info(
+          // Use console.log so the message is always visible; infrastructureLogging
+          // level is 'error' by default, which would suppress logger.info()
+          console.log(
             devServerMessages.ready(
               stats.compilation.options.mode as 'development' | 'production',
               this.options.browser
@@ -245,9 +247,11 @@ export class ChromiumLaunchPlugin {
       }
     }
 
+    const isAuthorMode = process.env.EXTENSION_AUTHOR_MODE === 'true'
+
     switch (browser) {
       case 'chrome': {
-        console.log(messages.locatingBrowser(browser))
+        if (isAuthorMode) console.log(messages.locatingBrowser(browser))
 
         if (!skipDetection) {
           try {
@@ -305,7 +309,7 @@ export class ChromiumLaunchPlugin {
       }
 
       case 'chromium': {
-        console.log(messages.locatingBrowser(browser))
+        if (isAuthorMode) console.log(messages.locatingBrowser(browser))
 
         // Prefer explicit binary when provided
         browserBinaryLocation = this.options?.chromiumBinary || null
@@ -341,7 +345,7 @@ export class ChromiumLaunchPlugin {
       }
 
       case 'edge': {
-        console.log(messages.locatingBrowser(browser))
+        if (isAuthorMode) console.log(messages.locatingBrowser(browser))
 
         try {
           // Honor explicit env override first
@@ -641,7 +645,9 @@ export class ChromiumLaunchPlugin {
     await this.launchWithDirectSpawn(browserBinaryLocation, chromiumConfig)
 
     if (compilation.options.mode === 'development' && !this.didReportReady) {
-      this.logger.info(
+      // Use console.log so the message is always visible; infrastructureLogging
+      // level is 'error' by default, which would suppress logger.info()
+      console.log(
         devServerMessages.ready(
           compilation.options.mode as 'development' | 'production',
           this.options.browser

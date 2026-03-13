@@ -66,6 +66,7 @@ vi.mock('dotenv', () => ({
 }))
 
 import {EnvPlugin} from '../env'
+import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -184,6 +185,9 @@ describe('EnvPlugin', () => {
     expect(updated['index.html']).toContain('$EXTENSION_MISS') // untouched when missing
     expect(updated['manifest.json']).toContain('sysFoo')
     expect(updated['manifest.json']).toContain('envBar')
+    expect(getCurrentManifestContent(compilation as any)).toBe(
+      updated['manifest.json']
+    )
   })
 
   it('falls back to the nearest workspace root env file', async () => {
@@ -221,5 +225,27 @@ describe('EnvPlugin', () => {
 
     expect(updated['manifest.json']).toContain('rootOnly')
     expect(updated['manifest.json']).toContain('rootBar')
+  })
+
+  it('keeps the current manifest state in sync for later manifest steps', () => {
+    const {compiler, triggerCompilation} = createCompiler('development')
+    const plugin = new EnvPlugin({
+      manifestPath: '/proj/manifest.json',
+      browser: 'chrome'
+    })
+    plugin.apply(compiler as any)
+
+    const {compilation, runProcessAssets, updated} =
+      createCompilationWithAssets({
+        'manifest.json': '{"key":"$EXTENSION_PUBLIC_FOO"}'
+      })
+
+    triggerCompilation(compilation)
+    runProcessAssets()
+
+    expect(updated['manifest.json']).toContain('sysFoo')
+    expect(getCurrentManifestContent(compilation as any)).toBe(
+      updated['manifest.json']
+    )
   })
 })

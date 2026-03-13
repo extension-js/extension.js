@@ -6,7 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import * as fs from 'fs'
 import * as path from 'path'
+import {Writable} from 'stream'
 import {rspack} from '@rspack/core'
 import {RspackDevServer, Configuration} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
@@ -22,7 +24,10 @@ import {
 import {resolveCompanionExtensionsConfig} from '../feature-special-folders/folder-extensions/resolve-config'
 import {getSpecialFoldersDataForProjectRoot} from '../feature-special-folders/get-data'
 import {sanitize} from '../webpack-lib/sanitize'
-import {setupCompilerLifecycleHooks} from './compiler-hooks'
+import {
+  setupCompilerLifecycleHooks,
+  setupNoBrowserBannerOnFirstDone
+} from './compiler-hooks'
 import {setupCleanupHandlers} from './cleanup'
 import {createPlaywrightMetadataWriter} from '../plugin-playwright'
 import webpackConfig from '../webpack-config'
@@ -30,6 +35,200 @@ import type {DevOptions} from '../webpack-types'
 
 function shouldWriteAssetToDisk(filePath: string) {
   return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
+}
+
+function isSamePath(left: string, right: string) {
+  return path.resolve(left) === path.resolve(right)
+}
+
+function isManifestTempPath(filePath: string) {
+  const base = path.basename(filePath)
+  return base.startsWith('.manifest.') && base.endsWith('.tmp')
+}
+
+function createDiscardWriteStream() {
+  const stream = new Writable({
+    write(_chunk, _encoding, callback) {
+      callback()
+    }
+  })
+
+  stream.on('finish', () => {
+    stream.emit('close')
+  })
+
+  process.nextTick(() => {
+    stream.emit('open', 0)
+  })
+
+  return stream as Writable & {path?: string}
+}
+
+function suppressManifestOutputWrites(
+  compiler: any,
+  manifestOutputPath: string
+) {
+  const outputFileSystem = compiler?.outputFileSystem as any
+  if (!outputFileSystem || outputFileSystem.__extensionjsManifestWriteGuard)
+    return
+
+  const isManifestPath = (filePath: unknown) =>
+    typeof filePath === 'string' && isSamePath(filePath, manifestOutputPath)
+
+  if (typeof outputFileSystem.writeFile === 'function') {
+    const originalWriteFile = outputFileSystem.writeFile.bind(outputFileSystem)
+    outputFileSystem.writeFile = (filePath: string, ...args: any[]) => {
+      if (isManifestPath(filePath)) {
+        const callback = args[args.length - 1]
+        if (typeof callback === 'function') callback(null)
+        return
+      }
+
+      return originalWriteFile(filePath, ...args)
+    }
+  }
+
+  if (typeof outputFileSystem.writeFileSync === 'function') {
+    const originalWriteFileSync =
+      outputFileSystem.writeFileSync.bind(outputFileSystem)
+    outputFileSystem.writeFileSync = (filePath: string, ...args: any[]) => {
+      if (isManifestPath(filePath)) return
+      return originalWriteFileSync(filePath, ...args)
+    }
+  }
+
+  if (typeof outputFileSystem.createWriteStream === 'function') {
+    const originalCreateWriteStream =
+      outputFileSystem.createWriteStream.bind(outputFileSystem)
+    outputFileSystem.createWriteStream = (filePath: string, ...args: any[]) => {
+      if (isManifestPath(filePath)) {
+        const stream = createDiscardWriteStream()
+        stream.path = filePath
+        return stream
+      }
+
+      return originalCreateWriteStream(filePath, ...args)
+    }
+  }
+
+  if (typeof outputFileSystem?.promises?.writeFile === 'function') {
+    const originalPromiseWriteFile = outputFileSystem.promises.writeFile.bind(
+      outputFileSystem.promises
+    )
+    outputFileSystem.promises.writeFile = async (
+      filePath: string,
+      ...args: any[]
+    ) => {
+      if (isManifestPath(filePath)) return
+      return originalPromiseWriteFile(filePath, ...args)
+    }
+  }
+
+  outputFileSystem.__extensionjsManifestWriteGuard = true
+}
+
+function installManifestDiskWriteGuard(manifestOutputPath: string) {
+  const guardedFs = fs as typeof fs & {
+    __extensionjsManifestDiskWriteGuard?: Set<string>
+  }
+
+  if (!guardedFs.__extensionjsManifestDiskWriteGuard) {
+    guardedFs.__extensionjsManifestDiskWriteGuard = new Set()
+  }
+
+  const guardKey = path.resolve(manifestOutputPath)
+  if (guardedFs.__extensionjsManifestDiskWriteGuard.has(guardKey)) return
+
+  const isManifestPath = (filePath: unknown) =>
+    typeof filePath === 'string' && isSamePath(filePath, manifestOutputPath)
+
+  const allowManifestRename = (fromPath: unknown, toPath: unknown) =>
+    typeof fromPath === 'string' &&
+    typeof toPath === 'string' &&
+    isManifestPath(toPath) &&
+    isManifestTempPath(fromPath)
+
+  const originalWriteFile = guardedFs.writeFile.bind(guardedFs)
+  guardedFs.writeFile = ((
+    filePath: fs.PathOrFileDescriptor,
+    ...args: any[]
+  ) => {
+    if (isManifestPath(filePath)) {
+      const callback = args[args.length - 1]
+      if (typeof callback === 'function') callback(null)
+      return
+    }
+
+    return (originalWriteFile as any)(filePath, ...args)
+  }) as typeof fs.writeFile
+
+  const originalWriteFileSync = guardedFs.writeFileSync.bind(guardedFs)
+  guardedFs.writeFileSync = ((
+    filePath: fs.PathOrFileDescriptor,
+    ...args: any[]
+  ) => {
+    if (isManifestPath(filePath)) return
+    return (originalWriteFileSync as any)(filePath, ...args)
+  }) as typeof fs.writeFileSync
+
+  const originalCreateWriteStream = guardedFs.createWriteStream.bind(guardedFs)
+  guardedFs.createWriteStream = ((filePath: fs.PathLike, ...args: any[]) => {
+    if (isManifestPath(filePath)) {
+      const stream = createDiscardWriteStream()
+      stream.path = String(filePath)
+      return stream as any
+    }
+
+    return (originalCreateWriteStream as any)(filePath, ...args)
+  }) as typeof fs.createWriteStream
+
+  const originalOpen = guardedFs.open.bind(guardedFs)
+  guardedFs.open = ((pathLike: fs.PathLike, flags: any, ...args: any[]) => {
+    const nextPath = isManifestPath(pathLike) ? '/dev/null' : pathLike
+    return (originalOpen as any)(nextPath, flags, ...args)
+  }) as typeof fs.open
+
+  const originalOpenSync = guardedFs.openSync.bind(guardedFs)
+  guardedFs.openSync = ((pathLike: fs.PathLike, flags: any, ...args: any[]) => {
+    const nextPath = isManifestPath(pathLike) ? '/dev/null' : pathLike
+    return (originalOpenSync as any)(nextPath, flags, ...args)
+  }) as typeof fs.openSync
+
+  const originalRename = guardedFs.rename.bind(guardedFs)
+  guardedFs.rename = ((
+    oldPath: fs.PathLike,
+    newPath: fs.PathLike,
+    callback: any
+  ) => {
+    if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath)) {
+      if (typeof callback === 'function') callback(null)
+      return
+    }
+
+    return originalRename(oldPath, newPath, callback)
+  }) as typeof fs.rename
+
+  const originalRenameSync = guardedFs.renameSync.bind(guardedFs)
+  guardedFs.renameSync = ((oldPath: fs.PathLike, newPath: fs.PathLike) => {
+    if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath))
+      return
+    return originalRenameSync(oldPath, newPath)
+  }) as typeof fs.renameSync
+
+  if (guardedFs.promises?.writeFile) {
+    const originalPromiseWriteFile = guardedFs.promises.writeFile.bind(
+      guardedFs.promises
+    )
+    guardedFs.promises.writeFile = (async (
+      filePath: unknown,
+      ...args: any[]
+    ) => {
+      if (isManifestPath(filePath)) return
+      return (originalPromiseWriteFile as any)(filePath, ...args)
+    }) as typeof fs.promises.writeFile
+  }
+
+  guardedFs.__extensionjsManifestDiskWriteGuard.add(guardKey)
 }
 
 export async function devServer(
@@ -136,6 +335,14 @@ export async function devServer(
     }
   }
   const compiler = rspack(compilerConfig)
+  const manifestOutputPath = path.join(
+    packageJsonDir,
+    'dist',
+    devOptions.browser,
+    'manifest.json'
+  )
+  installManifestDiskWriteGuard(manifestOutputPath)
+  suppressManifestOutputWrites(compiler, manifestOutputPath)
 
   const metadata = createPlaywrightMetadataWriter({
     packageJsonDir,
@@ -154,6 +361,15 @@ export async function devServer(
   // Done-hook warning/error output is registered earlier in CompilationPlugin
   // so it prints before browser launch hooks.
   setupCompilerLifecycleHooks(compiler)
+
+  if (devOptions.noBrowser) {
+    setupNoBrowserBannerOnFirstDone({
+      compiler,
+      browser: String(devOptions.browser || 'chromium'),
+      manifestPath,
+      readyPath: metadata.readyPath
+    })
+  }
 
   // Log port information only in verbose mode
   if (typeof devOptions.port !== 'undefined' && devOptions.port !== port) {
@@ -230,19 +446,6 @@ export async function devServer(
     await devServer.start()
 
     if (startTimeout) clearTimeout(startTimeout)
-
-    if (devOptions.noBrowser) {
-      console.log(messages.ready('development', devOptions.browser))
-      console.log(messages.spacerLine())
-      console.log(
-        messages.browserRunnerDisabled({
-          browser: String(devOptions.browser || 'chromium'),
-          manifestPath,
-          readyPath: metadata.readyPath
-        })
-      )
-    }
-    console.log(messages.spacerLine())
   } catch (error) {
     if (startTimeout) clearTimeout(startTimeout)
 

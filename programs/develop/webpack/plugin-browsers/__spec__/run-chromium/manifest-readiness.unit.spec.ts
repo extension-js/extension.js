@@ -53,4 +53,60 @@ describe('waitForStableManifest', () => {
 
     expect(ready).toBe(false)
   })
+
+  it('waits until manifest-referenced files exist on disk', async () => {
+    const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'manifest-ready-'))
+    tempDirs.push(outPath)
+    const manifestPath = path.join(outPath, 'manifest.json')
+
+    fs.writeFileSync(
+      manifestPath,
+      JSON.stringify({
+        manifest_version: 3,
+        background: {service_worker: 'background/service_worker.js'},
+        side_panel: {default_path: 'sidebar/index.html'}
+      }),
+      'utf-8'
+    )
+
+    setTimeout(() => {
+      fs.mkdirSync(path.join(outPath, 'background'), {recursive: true})
+      fs.writeFileSync(
+        path.join(outPath, 'background', 'service_worker.js'),
+        'self;'
+      )
+    }, 20)
+
+    setTimeout(() => {
+      fs.mkdirSync(path.join(outPath, 'sidebar'), {recursive: true})
+      fs.writeFileSync(path.join(outPath, 'sidebar', 'index.html'), '<html/>')
+    }, 40)
+
+    const ready = await waitForStableManifest(outPath, {
+      timeoutMs: 500,
+      pollIntervalMs: 20
+    })
+
+    expect(ready).toBe(true)
+  })
+
+  it('returns false when manifest references missing files', async () => {
+    const outPath = fs.mkdtempSync(path.join(os.tmpdir(), 'manifest-ready-'))
+    tempDirs.push(outPath)
+    fs.writeFileSync(
+      path.join(outPath, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        background: {service_worker: 'background/service_worker.js'}
+      }),
+      'utf-8'
+    )
+
+    const ready = await waitForStableManifest(outPath, {
+      timeoutMs: 120,
+      pollIntervalMs: 20
+    })
+
+    expect(ready).toBe(false)
+  })
 })

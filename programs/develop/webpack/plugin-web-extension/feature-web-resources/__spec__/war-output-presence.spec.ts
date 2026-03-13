@@ -3,7 +3,7 @@ import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
-import {WebResourcesPlugin} from '..'
+import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 
 describe('web_accessible_resources: public-root presence checks', () => {
   let tmpRoot: string
@@ -22,7 +22,6 @@ describe('web_accessible_resources: public-root presence checks', () => {
   })
 
   it("does not warn when public-root resource exists in output (builtAbs present under 'dist/')", () => {
-    const plugin = new WebResourcesPlugin({manifestPath})
     const rel = 'pages/oauth-callback.html'
     const warRef = `/${rel}`
 
@@ -48,14 +47,13 @@ describe('web_accessible_resources: public-root presence checks', () => {
       options: {mode: 'development'}
     }
 
-    plugin['generateManifestPatches'](compilation as Compilation, {})
+    generateManifestPatches(compilation as Compilation, manifestPath, {})
 
     // Should not warn since file exists in the output root
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 
   it('does not warn for relative WAR path when file exists in public/', () => {
-    const plugin = new WebResourcesPlugin({manifestPath})
     const rel = 'pages/oauth-callback.js'
 
     // Simulate public file presence: <tmpRoot>/public/pages/oauth-callback.js
@@ -80,14 +78,13 @@ describe('web_accessible_resources: public-root presence checks', () => {
       options: {mode: 'development'}
     }
 
-    plugin['generateManifestPatches'](compilation as Compilation, {})
+    generateManifestPatches(compilation as Compilation, manifestPath, {})
 
     // Should not warn, since the relative resource is backed by a public/ file
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 
   it('does not warn for relative WAR path when file exists in output root', () => {
-    const plugin = new WebResourcesPlugin({manifestPath})
     const rel = 'sidebar/index.html'
 
     // Simulate built output file presence: <tmpRoot>/dist/sidebar/index.html
@@ -115,14 +112,13 @@ describe('web_accessible_resources: public-root presence checks', () => {
       }
     }
 
-    plugin['generateManifestPatches'](compilation as Compilation, {})
+    generateManifestPatches(compilation as Compilation, manifestPath, {})
 
     // Should not warn since the relative resource exists in the built output
     expect(compilation.warnings?.length || 0).toBe(0)
   })
 
   it('does not warn when compilation already has the output asset (getAsset returns truthy for the resource)', () => {
-    const plugin = new WebResourcesPlugin({manifestPath})
     const rel = 'sidebar/index.html'
     const warRef = `/${rel}`
 
@@ -152,7 +148,7 @@ describe('web_accessible_resources: public-root presence checks', () => {
       options: {mode: 'development'}
     }
 
-    plugin['generateManifestPatches'](compilation as Compilation, {})
+    generateManifestPatches(compilation as Compilation, manifestPath, {})
 
     // Should not warn since getAsset(rel) returned an asset
     expect(compilation.warnings?.length || 0).toBe(0)

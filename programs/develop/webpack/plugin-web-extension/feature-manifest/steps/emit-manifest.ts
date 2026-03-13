@@ -9,7 +9,10 @@
 import * as fs from 'fs'
 import rspack, {sources, Compiler, Compilation} from '@rspack/core'
 import * as messages from '../messages'
-import {setOriginalManifestContent} from '../manifest-lib/manifest'
+import {
+  setOriginalManifestContent,
+  setCurrentManifestContent
+} from '../manifest-lib/manifest'
 import {type PluginInterface} from '../../../webpack-types'
 
 export class EmitManifest {
@@ -54,6 +57,7 @@ export class EmitManifest {
             // canonical writer that rewrites browser-specific fields and paths.
             const jsonString = JSON.stringify(jsonContent, null, 2)
             setOriginalManifestContent(compilation, jsonString)
+            setCurrentManifestContent(compilation, jsonString)
 
             compilation.emitAsset(
               'manifest.json',
