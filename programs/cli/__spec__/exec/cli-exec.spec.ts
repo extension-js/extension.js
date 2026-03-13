@@ -88,8 +88,11 @@ const defaultEnv: NodeJS.ProcessEnv = {
   EXTENSION_SKIP_INTERNAL_INSTALL: 'true'
 }
 
-function removeWorkspaceWithRetry(targetPath: string) {
-  const attempts = process.platform === 'win32' ? 6 : 1
+function sleepSync(ms: number) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+function removeWorkspaceWithRetry(targetPath: string, attempts = 6) {
   let lastError: unknown
 
   for (let index = 0; index < attempts; index++) {
@@ -103,9 +106,16 @@ function removeWorkspaceWithRetry(targetPath: string) {
       return
     } catch (error) {
       lastError = error
-      if (process.platform !== 'win32') throw error
+      const err = error as NodeJS.ErrnoException
+      const retryable =
+        err?.code === 'EBUSY' ||
+        err?.code === 'ENOTEMPTY' ||
+        err?.code === 'EPERM'
+      if (!retryable || index === attempts - 1) {
+        throw error
+      }
 
-      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 150)
+      sleepSync(150)
     }
   }
 
@@ -114,11 +124,14 @@ function removeWorkspaceWithRetry(targetPath: string) {
 
 function cleanupWorkspaceAfterTimedDev(targetPath: string, timedOut: boolean) {
   try {
-    removeWorkspaceWithRetry(targetPath)
+    removeWorkspaceWithRetry(targetPath, timedOut ? 12 : 6)
   } catch (error) {
     const err = error as NodeJS.ErrnoException
-    const isBusy = err?.code === 'EBUSY'
-    if (process.platform === 'win32' && timedOut && isBusy) {
+    const isBusy =
+      err?.code === 'EBUSY' ||
+      err?.code === 'ENOTEMPTY' ||
+      err?.code === 'EPERM'
+    if (timedOut && isBusy) {
       return
     }
     throw error
