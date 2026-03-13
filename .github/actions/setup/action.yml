@@ -29,7 +29,6 @@ runs:
         node-version: ${{ inputs.node-version }}
         cache: 'pnpm'
         registry-url: 'https://registry.npmjs.org'
-        always-auth: true
 
     - name: Verify pnpm
       shell: bash
