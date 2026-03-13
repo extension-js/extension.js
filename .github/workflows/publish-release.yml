@@ -35,17 +35,20 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
       - name: Setup Node
         uses: actions/setup-node@v6
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
-          always-auth: true
 
-      - name: Enable corepack pnpm
+      - name: Verify pnpm
         run: |
-          corepack enable
           pnpm --version
 
       - name: Install dependencies
