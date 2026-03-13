@@ -9,6 +9,7 @@
 import fs from 'fs'
 import path from 'path'
 import {findNearestPackageJsonSync} from '../../../../../webpack-lib/package-json'
+import {hasDependency} from '../../../../../plugin-css/css-lib/integrations'
 import {parseSync, type ParseOptions} from '@swc/core'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'
@@ -26,6 +27,49 @@ const schema: Schema = {
     mode: {
       type: 'string'
     }
+  }
+}
+
+const EXAMPLES_BASE = 'https://github.com/extension-js/examples/blob/main'
+
+function getContentScriptSampleInfo(
+  packageJsonDir: string,
+  resourcePath: string
+): {phrase: string; url: string} {
+  if (hasDependency(packageJsonDir, 'react')) {
+    return {
+      phrase: 'See React sample',
+      url: `${EXAMPLES_BASE}/react/src/content/scripts.tsx`
+    }
+  }
+  if (hasDependency(packageJsonDir, 'preact')) {
+    return {
+      phrase: 'See Preact sample',
+      url: `${EXAMPLES_BASE}/preact/src/content/scripts.tsx`
+    }
+  }
+  if (hasDependency(packageJsonDir, 'vue')) {
+    return {
+      phrase: 'See Vue sample',
+      url: `${EXAMPLES_BASE}/vue/src/content/scripts.ts`
+    }
+  }
+  if (hasDependency(packageJsonDir, 'svelte')) {
+    return {
+      phrase: 'See Svelte sample',
+      url: `${EXAMPLES_BASE}/svelte/src/content/scripts.ts`
+    }
+  }
+  const ext = path.extname(resourcePath).toLowerCase()
+  if (ext === '.ts' || ext === '.tsx' || ext === '.mts' || ext === '.mtsx') {
+    return {
+      phrase: 'See TypeScript sample',
+      url: `${EXAMPLES_BASE}/typescript/src/content/scripts.ts`
+    }
+  }
+  return {
+    phrase: 'See vanilla JS sample',
+    url: `${EXAMPLES_BASE}/content/src/content/scripts.js`
   }
 }
 
@@ -448,25 +492,17 @@ export default function (this: LoaderContext, source: string) {
       )
       if (!analysis.hasDefaultExport) {
         const relativeFile = path.relative(packageJsonDir, resourceAbsPath)
+        const sample = getContentScriptSampleInfo(
+          packageJsonDir,
+          this.resourcePath
+        )
         const message = [
           'Content script requires a default export.',
-          `File: ${relativeFile}`,
+          ` File: ${relativeFile}`,
           ``,
-          `Why:`,
-          `  - During development, Extension.js uses your default export to start and stop your content script safely.`,
-          `  - Without it, automatic reloads and cleanup might not work reliably.`,
-          ``,
-          `Required:`,
-          `  - Export a default function (it can optionally return a cleanup callback).`,
-          ``,
-          `Example:`,
-          `  export default function main() {`,
-          `    // setup...`,
-          `    return () => { /* cleanup */ }`,
-          `  }`,
-          ``,
-          `Side effects if omitted:`,
-          `  - Duplicate UI mounts, memory leaks, and inconsistent state during development.`
+          ` Export a default function so Extension.js can mount and cleanup safely.`,
+          ` Without it: duplicate UI mounts and inconsistent state during HMR.`,
+          ` ${sample.phrase}: ${sample.url}`
         ].join('\n')
 
         // Prefer a compilation-level warning to avoid the noisy "Module Warning (from loader)" prefix.
@@ -485,22 +521,17 @@ export default function (this: LoaderContext, source: string) {
 
         const relativeFile = path.relative(packageJsonDir, resourceAbsPath)
         const found = analysis.kind === 'class' ? 'class' : 'non-callable value'
+        const sample = getContentScriptSampleInfo(
+          packageJsonDir,
+          this.resourcePath
+        )
         const message = [
           'Content script default export must be a function.',
-          `File: ${relativeFile}`,
-          ``,
-          `Found: ${found}`,
-          ``,
-          `Fix:`,
-          `  - Export a default function that sets up your script and returns optional cleanup.`,
-          `  - If you want to use a class, instantiate it inside the default function and call its methods.`,
-          ``,
-          `Example:`,
-          `  class App { start(){} stop(){} }`,
-          `  export default function main(){`,
-          `    const app = new App(); app.start();`,
-          `    return () => app.stop();`,
-          `  }`
+          `  │ File: ${relativeFile}`,
+          `  │`,
+          `  │ Found: ${found}. Export a default function that sets up your script and returns optional cleanup.`,
+          `  │ Without it: duplicate UI mounts, memory leaks, and inconsistent state during HMR.`,
+          `  │ ${sample.phrase} ${sample.url}`
         ].join('\n')
 
         compilation?.warnings.push(message)
