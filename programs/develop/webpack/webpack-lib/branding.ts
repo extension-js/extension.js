@@ -18,6 +18,7 @@ export function scrubBrand(txt: string, brand = 'Extension.js'): string {
     .replace(/ModuleParseError:\s*/g, '')
     .replace(/Error:\s*Module\s+build\s+failed.*?\n/gi, '')
     .replace(/\n{3,}/g, '\n\n')
+    .replace(/\n{2}(?=WARNING in )/g, '\n')
 }
 
 export function makeSanitizedConsole(brand = 'Extension.js') {
