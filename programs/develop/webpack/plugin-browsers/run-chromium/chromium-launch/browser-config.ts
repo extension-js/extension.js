@@ -15,7 +15,9 @@ import {
 } from '../../browsers-types'
 import {
   filterBrowserFlags,
-  deriveDebugPortWithInstance
+  deriveDebugPortWithInstance,
+  markManagedEphemeralProfile,
+  prepareChromiumProfileForLaunch
 } from '../../browsers-lib/shared-utils'
 import {cleanupOldTempProfiles} from '../../browsers-lib/shared-utils'
 import * as messages from '../../browsers-lib/messages'
@@ -211,9 +213,10 @@ export function browserConfig(
         )
       )
       fs.mkdirSync(ephemDir, {recursive: true})
+      markManagedEphemeralProfile(ephemDir)
       userProfilePath = ephemDir
 
-      // Best-effort cleanup of old tmp-* profiles; exclude current basename
+      // Best-effort cleanup of old managed temp profiles; exclude current basename
       try {
         const maxAgeHours = parseInt(
           String(process.env.EXTENSION_TMP_PROFILE_MAX_AGE_HOURS || ''),
@@ -235,8 +238,9 @@ export function browserConfig(
   // Seed Chromium profile preferences once for managed/explicit profile paths.
   // This ensures extension developer mode defaults are present on fresh runs.
   if (userProfilePath) {
+    fs.mkdirSync(userProfilePath, {recursive: true})
+    prepareChromiumProfileForLaunch(userProfilePath)
     try {
-      fs.mkdirSync(userProfilePath, {recursive: true})
       seedChromiumPreferences(
         userProfilePath,
         configOptions.browser,
