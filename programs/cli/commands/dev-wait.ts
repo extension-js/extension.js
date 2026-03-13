@@ -111,22 +111,26 @@ async function waitForReadyContract(options: {
           fs.readFileSync(readyPath, 'utf8')
         ) as ReadyContractPayload
         const isLive = isProcessLikelyAlive(payload.pid)
+        const isFresh = isFreshContractPayload(payload, options.timeoutMs)
         if (payload.command !== options.command) {
           await new Promise((resolve) => setTimeout(resolve, 250))
           continue
         }
         if (!isLive) {
-          // start can complete quickly; accept recent contracts from completed start runs.
-          if (
-            options.command !== 'start' ||
-            !isFreshContractPayload(payload, options.timeoutMs)
-          ) {
+          // start can complete quickly; accept recent contracts from completed
+          // start runs. Dead dev producers are always stale for wait purposes.
+          if (options.command !== 'start' || !isFresh) {
             await new Promise((resolve) => setTimeout(resolve, 250))
             continue
           }
         }
         if (payload.status === 'ready') return payload
         if (payload.status === 'error') {
+          if (!isLive && options.command !== 'start') {
+            await new Promise((resolve) => setTimeout(resolve, 250))
+            continue
+          }
+
           const detail =
             payload.message || payload.errors?.[0] || 'unknown error'
           throw new Error(String(detail))

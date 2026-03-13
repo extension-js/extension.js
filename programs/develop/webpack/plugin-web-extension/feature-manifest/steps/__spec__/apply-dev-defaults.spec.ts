@@ -1,16 +1,16 @@
 import {describe, it, expect} from 'vitest'
 import {Compilation} from '@rspack/core'
-import {ApplyManifestDevDefaults} from '../index'
+import {ApplyDevDefaults} from '../apply-dev-defaults'
 
 /**
- * Regression: ApplyManifestDevDefaults must run after REPORT-stage manifest patchers
+ * Regression: ApplyDevDefaults must run after REPORT-stage manifest patchers
  * (e.g. WAR patch) and after UpdateManifest (SUMMARIZE), so it is the final
  * manifest writer before browser launch.
  *
  * If it runs too early, a later hook can overwrite resolved paths and Chromium
  * may fail with errors like "Side panel file path must exist".
  */
-describe('ApplyManifestDevDefaults', () => {
+describe('ApplyDevDefaults', () => {
   it('registers processAssets after REPORT so it runs after WAR patching', () => {
     let capturedStage: number | undefined
     const minimalManifest = {manifest_version: 3, name: 'x'}
@@ -35,6 +35,7 @@ describe('ApplyManifestDevDefaults', () => {
     } as unknown as Compilation
 
     const compiler = {
+      options: {mode: 'development'},
       hooks: {
         thisCompilation: {
           tap: (_name: string, fn: (c: Compilation) => void) => fn(compilation)
@@ -42,7 +43,7 @@ describe('ApplyManifestDevDefaults', () => {
       }
     } as any
 
-    new ApplyManifestDevDefaults({
+    new ApplyDevDefaults({
       manifestPath: '/m/manifest.json',
       browser: 'chrome'
     }).apply(compiler)
@@ -89,6 +90,7 @@ describe('ApplyManifestDevDefaults', () => {
     } as unknown as Compilation
 
     const compiler = {
+      options: {mode: 'development'},
       hooks: {
         thisCompilation: {
           tap: (_name: string, fn: (c: Compilation) => void) => fn(compilation)
@@ -96,7 +98,7 @@ describe('ApplyManifestDevDefaults', () => {
       }
     } as any
 
-    new ApplyManifestDevDefaults({
+    new ApplyDevDefaults({
       manifestPath: '/m/manifest.json',
       browser: 'chrome'
     }).apply(compiler)
@@ -152,6 +154,7 @@ describe('ApplyManifestDevDefaults', () => {
     } as unknown as Compilation
 
     const compiler = {
+      options: {mode: 'development'},
       hooks: {
         thisCompilation: {
           tap: (_name: string, fn: (c: Compilation) => void) => fn(compilation)
@@ -159,7 +162,7 @@ describe('ApplyManifestDevDefaults', () => {
       }
     } as any
 
-    new ApplyManifestDevDefaults({
+    new ApplyDevDefaults({
       manifestPath: '/m/manifest.json',
       browser: 'chrome'
     }).apply(compiler)

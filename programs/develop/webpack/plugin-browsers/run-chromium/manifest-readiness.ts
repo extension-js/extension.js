@@ -24,6 +24,74 @@ function readValidManifest(manifestPath: string): string | undefined {
   }
 }
 
+function normalizeManifestFile(filePath: unknown): string | undefined {
+  if (typeof filePath !== 'string') return undefined
+  const normalized = filePath.trim().replace(/^\/+/, '')
+  if (!normalized) return undefined
+  if (/^(https?:)?\/\//i.test(filePath)) return undefined
+  if (/[*?[\]{}]/.test(normalized)) return undefined
+  return normalized
+}
+
+function getManifestRequiredFiles(content: string): string[] {
+  try {
+    const manifest = JSON.parse(content) as {
+      background?: {
+        service_worker?: unknown
+        page?: unknown
+        scripts?: unknown
+      }
+      side_panel?: {default_path?: unknown}
+      content_scripts?: Array<{js?: unknown; css?: unknown}>
+    }
+
+    const requiredFiles = new Set<string>()
+
+    const addFile = (filePath: unknown) => {
+      const normalized = normalizeManifestFile(filePath)
+      if (normalized) requiredFiles.add(normalized)
+    }
+
+    addFile(manifest.background?.service_worker)
+    addFile(manifest.background?.page)
+
+    if (Array.isArray(manifest.background?.scripts)) {
+      for (const script of manifest.background?.scripts || []) {
+        addFile(script)
+      }
+    }
+
+    addFile(manifest.side_panel?.default_path)
+
+    if (Array.isArray(manifest.content_scripts)) {
+      for (const contentScript of manifest.content_scripts) {
+        if (Array.isArray(contentScript?.js)) {
+          for (const jsFile of contentScript.js) addFile(jsFile)
+        }
+        if (Array.isArray(contentScript?.css)) {
+          for (const cssFile of contentScript.css) addFile(cssFile)
+        }
+      }
+    }
+
+    return [...requiredFiles]
+  } catch {
+    return []
+  }
+}
+
+function hasRequiredManifestFiles(outPath: string, content: string): boolean {
+  const requiredFiles = getManifestRequiredFiles(content)
+
+  for (const relativeFile of requiredFiles) {
+    if (!fs.existsSync(path.join(outPath, relativeFile))) {
+      return false
+    }
+  }
+
+  return true
+}
+
 export async function waitForStableManifest(
   outPath: string,
   options?: {
@@ -43,7 +111,7 @@ export async function waitForStableManifest(
   while (Date.now() - start < timeoutMs) {
     const currentContent = readValidManifest(manifestPath)
 
-    if (currentContent) {
+    if (currentContent && hasRequiredManifestFiles(outPath, currentContent)) {
       if (currentContent === lastValidContent) {
         stableReads += 1
       } else {

@@ -38,6 +38,37 @@ function runUpdateManifest(opts: {
 }
 
 describe('UpdateManifest (browser-prefixed background keys)', () => {
+  it('keeps a plain key field for chromium builds', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        key: 'plain-chromium-key'
+      }
+    })
+
+    expect(out.key).toBe('plain-chromium-key')
+  })
+
+  it('maps chromium:key onto key for chromium builds', () => {
+    const out = runUpdateManifest({
+      mode: 'production',
+      browser: 'chrome',
+      manifest: {
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        'chromium:key': 'chromium-only-key',
+        'firefox:key': 'firefox-only-key'
+      }
+    })
+
+    expect(out.key).toBe('chromium-only-key')
+  })
+
   it('rewrites firefox: background scripts when using firefox:scripts', () => {
     const out = runUpdateManifest({
       mode: 'production',

@@ -7,7 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import {Compilation, sources} from '@rspack/core'
-import {getManifestContent} from '../../feature-manifest/manifest-lib/manifest'
+import {
+  getManifestContent,
+  setCurrentManifestContent
+} from '../../feature-manifest/manifest-lib/manifest'
 import {resolveUserDeclaredWAR} from './resolve-war'
 import {cleanMatches} from './clean-matches'
 import type {Manifest} from '../../../webpack-types'
@@ -505,6 +508,7 @@ export function generateManifestPatches(
 
   const source = JSON.stringify(canonicalManifest, null, 2)
   const rawSource = new sources.RawSource(source)
+  setCurrentManifestContent(compilation, source)
 
   if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
     try {

@@ -52,7 +52,8 @@ vi.mock('../../webpack-lib/sanitize', () => ({
 }))
 
 vi.mock('../compiler-hooks', () => ({
-  setupCompilerLifecycleHooks: vi.fn()
+  setupCompilerLifecycleHooks: vi.fn(),
+  setupNoBrowserBannerOnFirstDone: vi.fn()
 }))
 
 vi.mock('../cleanup', () => ({
