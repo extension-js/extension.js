@@ -190,7 +190,12 @@ export function buildWebpack(
   stats: any,
   browser: DevOptions['browser']
 ): string {
-  const statsJson = stats?.toJson()
+  const statsJson = stats?.toJson({
+    all: false,
+    assets: true,
+    entrypoints: true,
+    time: true
+  })
   const outputPath =
     typeof stats?.compilation?.outputOptions?.path === 'string'
       ? stats.compilation.outputOptions.path
@@ -217,7 +222,9 @@ export function buildWebpack(
 
   let output = ''
   output += heading
-  output += getAssetsTree(assets)
+  output += getEntrypointsSummary(statsJson?.entrypoints, assets)
+  output += '\n'
+  output += getLargestAssetsSummary(assets)
   output += version
   output += size
   output += buildTarget
@@ -348,12 +355,12 @@ function classifyWarning(
   return 'Warning'
 }
 
-function suggestedActionForWarning(category: BuildWarningCategory): string {
+function suggestedHintForWarning(category: BuildWarningCategory): string {
   if (category === 'Performance') {
-    return 'Split optional features and lazy-load heavy paths. Tune thresholds only if large assets are intentional.'
+    return 'Inspect the largest startup bundles and split optional code paths.'
   }
   if (category === 'Deprecation') {
-    return 'Move to the supported API/plugin path to avoid breakage in future updates.'
+    return 'Move to the supported API or plugin path before the next update.'
   }
   if (category === 'Configuration') {
     return 'Review extension and bundler config keys, then remove or rename invalid options.'
@@ -362,9 +369,9 @@ function suggestedActionForWarning(category: BuildWarningCategory): string {
     return 'Verify browser target and manifest compatibility for this build.'
   }
   if (category === 'Runtime-risk') {
-    return 'Address this warning before release; it may fail or degrade at runtime.'
+    return 'Address this before release; it may fail or degrade at runtime.'
   }
-  return 'Re-run with verbose output to inspect warning details and apply targeted fixes.'
+  return 'Re-run with EXTENSION_VERBOSE=1 to inspect full warning details.'
 }
 
 export function buildSuccessWithWarnings(warningCount: number) {
@@ -379,34 +386,46 @@ export function buildWarningsDetails(warnings: any[]): string {
   if (!Array.isArray(warnings) || warnings.length === 0) return ''
 
   const blocks: string[] = []
-  const sectionHeader = `${getLoggingPrefix('warn')} Warning details\n`
 
   warnings.forEach((warning, index) => {
     const message = getWarningMessage(warning)
     const source = getWarningSource(warning)
     const artifact = getWarningArtifact(warning)
     const category = classifyWarning(message, source)
-    const action = suggestedActionForWarning(category)
+    const hint = suggestedHintForWarning(category)
 
     if (!message) {
       blocks.push(
-        `  ${colors.brightYellow('Warning ' + (index + 1))}: details were suppressed by tool output.\n` +
-          `  ${fmt.label('SOURCE')} ${colors.gray(source)}\n` +
-          `  ${fmt.label('ACTION')} Re-run with EXTENSION_VERBOSE=1 to inspect full warning messages.`
+        `${getLoggingPrefix('warn')} Warning ${index + 1}: details were suppressed by tool output.\n` +
+          `${formatWarningLabelLine('Source', colors.gray(source))}\n` +
+          `${formatWarningLabelLine(
+            'Hint',
+            'Re-run with EXTENSION_VERBOSE=1 to inspect full warning messages.'
+          )}`
       )
+      return
+    }
+
+    const performanceWarning = parsePerformanceWarning(
+      message,
+      source,
+      artifact
+    )
+    if (performanceWarning) {
+      blocks.push(performanceWarning)
       return
     }
 
     const oneLine = message.replace(/\s+/g, ' ').trim()
     const artifactSuffix = artifact ? ` ${colors.gray(`(${artifact})`)}` : ''
     blocks.push(
-      `  ${colors.brightYellow(category)}: ${oneLine}${artifactSuffix}\n` +
-        `  ${fmt.label('SOURCE')} ${colors.gray(source)}\n` +
-        `  ${fmt.label('ACTION')} ${action}`
+      `${getLoggingPrefix('warn')} ${category}: ${oneLine}${artifactSuffix}\n` +
+        `${formatWarningLabelLine('Source', colors.gray(source))}\n` +
+        `${formatWarningLabelLine('Hint', hint)}`
     )
   })
 
-  return sectionHeader + blocks.join('\n\n')
+  return blocks.join('\n\n')
 }
 
 export function fetchingProjectPath(owner: string, project: string) {
@@ -566,6 +585,14 @@ function getFileSize(fileSizeInBytes: number): string {
   return `${(fileSizeInBytes / 1024).toFixed(2)}KB`
 }
 
+function getPrettyFileSize(fileSizeInBytes: number): string {
+  const kib = fileSizeInBytes / 1024
+  if (kib >= 1024) {
+    return `${(kib / 1024).toFixed(3)} MiB`
+  }
+  return `${kib.toFixed(3)} KiB`
+}
+
 function getAssetsSize(assets: {size: number}[] | undefined) {
   let totalSize = 0
   assets?.forEach((asset) => {
@@ -575,48 +602,308 @@ function getAssetsSize(assets: {size: number}[] | undefined) {
   return getFileSize(totalSize)
 }
 
-function printTree(node: Record<string, any>, prefix = ''): string {
-  let output = ''
-
-  Object.keys(node).forEach((key, index, array) => {
-    const isLast = index === array.length - 1
-    const connector = isLast ? '└─' : '├─'
-    const sizeInKB = node[key].size
-      ? ` (${getFileSize(node[key].size as number)})`
-      : ''
-    output += `${colors.gray(prefix)}${colors.gray(connector)} ${key}${colors.gray(sizeInKB)}\n`
-    if (typeof node[key] === 'object' && !node[key].size) {
-      output += printTree(
-        node[key],
-        `${prefix}${isLast ? '   ' : colors.gray('│  ')}`
-      )
-    }
-  })
-
-  return output
+type BuildAssetRow = {
+  name: string
+  size: number
 }
 
-function getAssetsTree(assets: StatsAsset[] | undefined): string {
-  const assetTree: Record<string, {size: number}> = {}
+type WarningTreeItem = {
+  label: string
+  children?: string[]
+}
 
-  assets?.forEach((asset) => {
-    const paths = asset.name.split('/')
-    let currentLevel: any = assetTree
+function getAssetRows(assets: StatsAsset[] | undefined): BuildAssetRow[] {
+  return (assets || [])
+    .filter(
+      (asset): asset is StatsAsset & {name: string; size: number} =>
+        typeof asset?.name === 'string' &&
+        typeof asset?.size === 'number' &&
+        !asset.name.endsWith('.map')
+    )
+    .map((asset) => ({name: asset.name, size: asset.size}))
+}
 
-    paths.forEach((part, index) => {
-      if (!currentLevel[part]) {
-        currentLevel[part] = {}
-      }
-      if (index === paths.length - 1) {
-        // Last part of the path, add size info
-        currentLevel[part] = {size: asset.size}
-      } else {
-        currentLevel = currentLevel[part]
-      }
+function getEntrypointsSummary(
+  entrypoints: Record<string, any> | undefined,
+  assets: StatsAsset[] | undefined
+): string {
+  const rows = getEntrypointRows(entrypoints, assets).slice(0, 5)
+  if (rows.length === 0) return ''
+  return renderAssetSummarySection('Entrypoints', rows)
+}
+
+function getLargestAssetsSummary(assets: StatsAsset[] | undefined): string {
+  const rows = getAssetRows(assets)
+    .sort((a, b) => b.size - a.size || a.name.localeCompare(b.name))
+    .slice(0, 7)
+
+  if (rows.length === 0) return ''
+  return renderAssetSummarySection('Largest assets', rows)
+}
+
+function renderAssetSummarySection(
+  title: string,
+  rows: BuildAssetRow[]
+): string {
+  if (rows.length === 0) return ''
+
+  const lines = rows.map((row, index) => {
+    const connector = index === rows.length - 1 ? '└─' : '├─'
+    return `${colors.gray(connector)} ${row.name} ${colors.gray(
+      `(${getPrettyFileSize(row.size)})`
+    )}`
+  })
+
+  return `${title}\n${lines.join('\n')}\n`
+}
+
+function getEntrypointRows(
+  entrypoints: Record<string, any> | undefined,
+  assets: StatsAsset[] | undefined
+): BuildAssetRow[] {
+  const assetMap = new Map(
+    getAssetRows(assets).map((asset) => [asset.name, asset])
+  )
+  const rows: BuildAssetRow[] = []
+  const seen = new Set<string>()
+
+  const addRow = (name: string) => {
+    if (!name || seen.has(name) || !isRelevantEntrypointAsset(name)) return
+    const asset = assetMap.get(name)
+
+    if (!asset) return
+
+    seen.add(name)
+    rows.push(asset)
+  }
+
+  const statsEntrypoints =
+    entrypoints && typeof entrypoints === 'object'
+      ? Object.values(entrypoints)
+      : []
+  for (const entrypoint of statsEntrypoints) {
+    const entryAssets = Array.isArray((entrypoint as any)?.assets)
+      ? (entrypoint as any).assets
+      : []
+
+    for (const assetRef of entryAssets) {
+      const name =
+        typeof assetRef === 'string'
+          ? assetRef
+          : typeof assetRef?.name === 'string'
+            ? assetRef.name
+            : ''
+      addRow(name)
+    }
+  }
+
+  if (rows.length === 0) {
+    for (const asset of getAssetRows(assets)) {
+      addRow(asset.name)
+    }
+  }
+
+  return rows.sort(compareEntrypointRows)
+}
+
+function isRelevantEntrypointAsset(name: string): boolean {
+  if (!/\.(css|js|mjs)$/i.test(name)) return false
+
+  return /^(background|content_scripts|sidebar|popup|options|newtab|action|panel|devtools)\//.test(
+    name
+  )
+}
+
+function compareEntrypointRows(a: BuildAssetRow, b: BuildAssetRow): number {
+  const rootDiff =
+    getEntrypointRootPriority(a.name) - getEntrypointRootPriority(b.name)
+  if (rootDiff !== 0) return rootDiff
+
+  const [aRoot = '', aRest = ''] = splitAssetPath(a.name)
+  const [bRoot = '', bRest = ''] = splitAssetPath(b.name)
+  const rootNameDiff = aRoot.localeCompare(bRoot)
+
+  if (rootNameDiff !== 0) return rootNameDiff
+
+  const extDiff =
+    getEntrypointExtensionPriority(aRest) -
+    getEntrypointExtensionPriority(bRest)
+
+  if (extDiff !== 0) return extDiff
+
+  return b.size - a.size || a.name.localeCompare(b.name)
+}
+
+function splitAssetPath(name: string): [string, string] {
+  const index = name.indexOf('/')
+  if (index === -1) return [name, '']
+
+  return [name.slice(0, index), name.slice(index + 1)]
+}
+
+function getEntrypointRootPriority(name: string): number {
+  if (name.startsWith('background/')) return 0
+
+  if (/^(sidebar|popup|options|newtab|action|panel|devtools)\//.test(name)) {
+    return 1
+  }
+
+  if (name.startsWith('content_scripts/')) return 2
+
+  return 3
+}
+
+function getEntrypointExtensionPriority(name: string): number {
+  if (name.endsWith('.js') || name.endsWith('.mjs')) return 0
+  if (name.endsWith('.css')) return 1
+  return 2
+}
+
+function formatWarningLabelLine(label: string, value: string): string {
+  return `${colors.gray('│')}  ${colors.gray(`${label}:`)} ${value}`
+}
+
+function formatWarningTreeSection(
+  title: string,
+  items: WarningTreeItem[]
+): string[] {
+  const lines = [`${colors.gray('├─')} ${title}`]
+
+  items.forEach((item, index) => {
+    const isLastItem = index === items.length - 1
+    const itemConnector = isLastItem ? '└─' : '├─'
+    lines.push(
+      `${colors.gray('│')}  ${colors.gray(itemConnector)} ${item.label}`
+    )
+
+    const childPrefix = isLastItem ? '   ' : `${colors.gray('│')}  `
+    const children = item.children || []
+    children.forEach((child, childIndex) => {
+      const childConnector = childIndex === children.length - 1 ? '└─' : '├─'
+      lines.push(
+        `${colors.gray('│')}  ${childPrefix}${colors.gray(childConnector)} ${child}`
+      )
     })
   })
 
-  return `.\n${printTree(assetTree)}`
+  return lines
+}
+
+function parsePerformanceWarning(
+  message: string,
+  source: string,
+  artifact: string
+): string | undefined {
+  const normalized = message.replace(/\r/g, '')
+  const lower = normalized.toLowerCase()
+  const threshold =
+    normalized.match(/\(([\d.]+\s(?:KiB|MiB|GiB|KB|MB|GB))\)/)?.[1] || ''
+
+  if (lower.includes('asset size limit')) {
+    const items = parseWarningTreeItems(normalized, 'Assets:', artifact)
+    return formatPerformanceWarningBlock({
+      title: 'asset size limit exceeded',
+      threshold,
+      impact:
+        'Large emitted files can increase package size and slow extension startup.',
+      sectionTitle: 'Assets over limit',
+      items,
+      source,
+      hint: 'Inspect the largest startup bundles and split optional code paths.'
+    })
+  }
+
+  if (lower.includes('entrypoint size limit')) {
+    const items = parseWarningTreeItems(normalized, 'Entrypoints:')
+    return formatPerformanceWarningBlock({
+      title: 'entrypoint size limit exceeded',
+      threshold,
+      impact: 'Startup entrypoints are heavier than recommended.',
+      sectionTitle: 'Entrypoints over limit',
+      items,
+      source,
+      hint: 'Keep startup entrypoints thin and defer non-critical code.'
+    })
+  }
+
+  return undefined
+}
+
+function formatPerformanceWarningBlock(options: {
+  title: string
+  threshold: string
+  impact: string
+  sectionTitle: string
+  items: WarningTreeItem[]
+  source: string
+  hint: string
+}): string {
+  const lines = [`${getLoggingPrefix('warn')} Performance: ${options.title}`]
+
+  if (options.threshold) {
+    lines.push(formatWarningLabelLine('Threshold', options.threshold))
+  }
+  lines.push(formatWarningLabelLine('Impact', options.impact))
+
+  if (options.items.length > 0) {
+    lines.push(colors.gray('│'))
+    lines.push(...formatWarningTreeSection(options.sectionTitle, options.items))
+  }
+
+  lines.push(colors.gray('│'))
+  lines.push(formatWarningLabelLine('Source', colors.gray(options.source)))
+  lines.push(formatWarningLabelLine('Hint', options.hint))
+
+  return lines.join('\n')
+}
+
+function parseWarningTreeItems(
+  message: string,
+  sectionLabel: string,
+  artifact?: string
+): WarningTreeItem[] {
+  const lines = message.split('\n').map(stripWarningGutter)
+  const sectionIndex = lines.findIndex((line) => line.trim() === sectionLabel)
+
+  if (sectionIndex === -1) {
+    return artifact ? [{label: artifact}] : []
+  }
+
+  const items: WarningTreeItem[] = []
+  let currentItem: WarningTreeItem | undefined
+
+  for (let index = sectionIndex + 1; index < lines.length; index++) {
+    const rawLine = lines[index]
+    if (!rawLine.trim()) break
+
+    const value = rawLine.trim()
+    const indent = rawLine.match(/^ */)?.[0].length || 0
+
+    if (indent <= 2) {
+      currentItem = {label: value}
+      items.push(currentItem)
+      continue
+    }
+
+    if (!currentItem) {
+      currentItem = {label: value}
+      items.push(currentItem)
+      continue
+    }
+
+    currentItem.children = currentItem.children || []
+    currentItem.children.push(value)
+  }
+
+  return items
+}
+
+function stripWarningGutter(line: string): string {
+  const withPipe = line.match(/^\s*[│|]\s?(.*)$/)
+
+  if (withPipe) return withPipe[1].replace(/\s+$/, '')
+
+  return line.replace(/\s+$/, '')
 }
 
 export function isUsingExperimentalConfig(integration: any) {
