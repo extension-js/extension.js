@@ -220,8 +220,9 @@ describe('webpack/command-build', () => {
         assets: [{name: 'background/service_worker.js', size: 1000}],
         warnings: [
           {
-            message: `asset size limit: The following asset(s) exceed the recommended size limit (244.141 KiB). This can impact web performance.
-Assets:
+            message:
+              'asset size limit: The following asset(s) exceed the recommended size limit (244.141 KiB). This can impact web performance.',
+            details: `Assets:
   03bc89f8e5771202.wasm (20.596 MiB)
   background/service_worker.js (1.560 MiB)
   sidebar/index.js (1.116 MiB)`,
@@ -229,8 +230,9 @@ Assets:
             file: 'background/service_worker.js'
           },
           {
-            message: `entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244.141 KiB). This can impact web performance.
-Entrypoints:
+            message:
+              'entrypoint size limit: The following entrypoint(s) combined asset size exceeds the recommended limit (244.141 KiB). This can impact web performance.',
+            details: `Entrypoints:
   background/service_worker (1.560 MiB)
     background/service_worker.js
   sidebar/index (1.250 MiB)
@@ -256,13 +258,13 @@ Entrypoints:
     expect(printed).toContain('Build succeeded with 2 warning(s)')
     expect(printed).toContain('Performance: asset size limit exceeded')
     expect(printed).toContain('Threshold:')
-    expect(printed).toContain('Assets over limit')
     expect(printed).toContain('Source:')
     expect(printed).toContain('Hint:')
-    expect(printed).toContain('Entrypoints over limit')
+    expect(printed).toContain('Performance: entrypoint size limit exceeded')
+    expect(printed).not.toContain('Assets over limit')
   })
 
-  it('formats build output with entrypoints and largest assets sections', () => {
+  it('formats build output with the original asset tree', () => {
     const readFileSyncSpy = vi
       .spyOn(fs, 'readFileSync')
       .mockReturnValue(JSON.stringify({name: 'Maro', version: '0.1.0'}) as any)
@@ -305,11 +307,14 @@ Entrypoints:
     const output = messages.buildWebpack('/proj', stats, 'chromium' as any)
 
     expect(readFileSyncSpy).toHaveBeenCalled()
-    expect(output).toContain('Entrypoints')
-    expect(output).toContain('Largest assets')
-    expect(output).toContain('background/service_worker.js')
+    expect(output).toContain('.\n├─')
+    expect(output).toContain('background')
+    expect(output).toContain('service_worker.js')
+    expect(output).toContain('sidebar')
     expect(output).toContain('03bc89f8e5771202.wasm')
-    expect(output).not.toContain('.\n├─')
+    expect(output).toContain('Build completed in 1.04 seconds.\n')
+    expect(output).not.toContain('Entrypoints')
+    expect(output).not.toContain('Largest assets')
   })
 
   it('ensures dependencies before running the build', async () => {
