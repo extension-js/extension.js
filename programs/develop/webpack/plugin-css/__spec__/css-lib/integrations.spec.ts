@@ -94,6 +94,86 @@ describe('css-lib integrations', () => {
     expect(resolvedRoot).toContain(`${path.sep}optional-deps${path.sep}`)
   })
 
+  it('keeps single-package installs to a single command', async () => {
+    await mockDevelopRoot()
+    process.env.npm_config_user_agent = 'npm'
+
+    const {spawn} = (await import('child_process')) as any
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
+
+    await installOptionalDependencies('PostCSS', ['postcss'])
+
+    expect(spawn).toHaveBeenCalledTimes(1)
+  })
+
+  it('installs peer-heavy Vue deps together and relinks the cache root', async () => {
+    await mockDevelopRoot()
+    process.env.npm_config_user_agent = 'npm'
+
+    const {spawn} = (await import('child_process')) as any
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
+
+    await installOptionalDependencies('Vue', [
+      'vue-loader',
+      '@vue/compiler-sfc',
+      'vue'
+    ])
+
+    expect(spawn).toHaveBeenCalledTimes(2)
+
+    const installArgs = Array.isArray(spawn.mock.calls[0]?.[1])
+      ? spawn.mock.calls[0][1].join(' ')
+      : ''
+    expect(installArgs).toContain('vue-loader')
+    expect(installArgs).toContain('@vue/compiler-sfc')
+    expect(installArgs).toContain('vue@')
+
+    const relinkArgs = Array.isArray(spawn.mock.calls[1]?.[1])
+      ? spawn.mock.calls[1][1].join(' ')
+      : ''
+    expect(relinkArgs).toContain('install')
+    expect(relinkArgs).not.toContain('vue-loader')
+    expect(relinkArgs).not.toContain('@vue/compiler-sfc')
+  })
+
+  it('relinks peer-heavy Vue installs for pnpm consumers too', async () => {
+    await mockDevelopRoot()
+    process.env.npm_config_user_agent = 'pnpm'
+
+    const {spawn} = (await import('child_process')) as any
+    const {installOptionalDependencies} = await import(
+      '../../css-lib/integrations'
+    )
+
+    await installOptionalDependencies('Vue', [
+      'vue-loader',
+      '@vue/compiler-sfc',
+      'vue'
+    ])
+
+    expect(spawn).toHaveBeenCalledTimes(2)
+
+    const installArgs = Array.isArray(spawn.mock.calls[0]?.[1])
+      ? spawn.mock.calls[0][1].join(' ')
+      : ''
+    expect(installArgs).toContain('add')
+    expect(installArgs).toContain('--dir')
+    expect(installArgs).toContain('vue-loader')
+    expect(installArgs).toContain('@vue/compiler-sfc')
+    expect(installArgs).toContain('vue@')
+
+    const relinkArgs = Array.isArray(spawn.mock.calls[1]?.[1])
+      ? spawn.mock.calls[1][1].join(' ')
+      : ''
+    expect(relinkArgs).toContain('install')
+    expect(relinkArgs).toContain('--lockfile=false')
+    expect(relinkArgs).not.toContain('vue-loader')
+  })
+
   it('uses pnpm add with --dir and --save-optional', async () => {
     await mockDevelopRoot()
     process.env.npm_config_user_agent = 'pnpm'
