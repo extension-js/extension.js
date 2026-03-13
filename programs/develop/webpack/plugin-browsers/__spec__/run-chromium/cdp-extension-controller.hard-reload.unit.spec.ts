@@ -60,11 +60,14 @@ describe('CDPExtensionController hardReload', () => {
       'Target.setDiscoverTargets',
       {discover: true}
     )
-    expect(reconnectedCdp.sendCommand).toHaveBeenCalledWith('Target.setAutoAttach', {
-      autoAttach: true,
-      waitForDebuggerOnStart: false,
-      flatten: true
-    })
+    expect(reconnectedCdp.sendCommand).toHaveBeenCalledWith(
+      'Target.setAutoAttach',
+      {
+        autoAttach: true,
+        waitForDebuggerOnStart: false,
+        flatten: true
+      }
+    )
     expect(reconnectedCdp.forceReloadExtension).toHaveBeenCalledWith('ext-id')
   })
 })

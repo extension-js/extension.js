@@ -352,7 +352,10 @@ export class CDPExtensionController {
     await this.connectFreshClient()
 
     try {
-      const derivedExtensionId = await this.deriveExtensionIdFromTargets(10, 150)
+      const derivedExtensionId = await this.deriveExtensionIdFromTargets(
+        10,
+        150
+      )
       if (derivedExtensionId) {
         this.extensionId = derivedExtensionId
       }
