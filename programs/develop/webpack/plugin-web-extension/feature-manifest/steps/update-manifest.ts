@@ -11,7 +11,8 @@ import {getManifestOverrides} from '../manifest-overrides'
 import {getFilename} from '../manifest-lib/paths'
 import {
   getManifestContent,
-  buildCanonicalManifest
+  buildCanonicalManifest,
+  setCurrentManifestContent
 } from '../manifest-lib/manifest'
 import {PluginInterface, Manifest, DevOptions} from '../../../webpack-types'
 import * as messages from '../messages'
@@ -113,6 +114,7 @@ export class UpdateManifest {
 
             const source = JSON.stringify(patchedManifest, null, 2)
             const rawSource = new sources.RawSource(source)
+            setCurrentManifestContent(compilation, source)
 
             if (compilation.getAsset('manifest.json')) {
               compilation.updateAsset('manifest.json', rawSource)

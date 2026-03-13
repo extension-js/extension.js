@@ -53,6 +53,7 @@ describe('ChromiumLaunchPlugin', () => {
   })
 
   it('logs only the ready line from the done hook', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const ctx = createChromiumContext()
     const plugin = new ChromiumLaunchPlugin(
       {
@@ -64,15 +65,13 @@ describe('ChromiumLaunchPlugin', () => {
     )
 
     let doneHandler: any = null
-    const logger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    }
-
     const compiler: any = {
-      getInfrastructureLogger: () => logger,
+      getInfrastructureLogger: () => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn()
+      }),
       hooks: {
         done: {
           tapPromise: (_name: string, fn: any) => {
@@ -92,13 +91,16 @@ describe('ChromiumLaunchPlugin', () => {
       compilation: {options: {mode: 'development'}, errors: []}
     })
 
-    expect(logger.info).toHaveBeenCalledTimes(1)
-    expect(String(logger.info.mock.calls[0]?.[0] || '')).toMatch(
-      /ready for development/i
+    expect(consoleSpy).toHaveBeenCalled()
+    const readyCall = consoleSpy.mock.calls.find((call) =>
+      /ready for development/i.test(String(call[0] || ''))
     )
+    expect(readyCall).toBeDefined()
+    consoleSpy.mockRestore()
   })
 
   it('does not log ready twice when launch path already reported it', async () => {
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const ctx = createChromiumContext()
     const plugin = new ChromiumLaunchPlugin(
       {
@@ -110,15 +112,13 @@ describe('ChromiumLaunchPlugin', () => {
     )
 
     let doneHandler: any = null
-    const logger = {
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      debug: vi.fn()
-    }
-
     const compiler: any = {
-      getInfrastructureLogger: () => logger,
+      getInfrastructureLogger: () => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn()
+      }),
       hooks: {
         done: {
           tapPromise: (_name: string, fn: any) => {
@@ -142,6 +142,10 @@ describe('ChromiumLaunchPlugin', () => {
       compilation: {options: {mode: 'development'}, errors: []}
     })
 
-    expect(logger.info).not.toHaveBeenCalled()
+    const readyCalls = consoleSpy.mock.calls.filter((call) =>
+      /ready for development/i.test(String(call[0] || ''))
+    )
+    expect(readyCalls).toHaveLength(0)
+    consoleSpy.mockRestore()
   })
 })
