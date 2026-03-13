@@ -6,7 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
-import * as fs from 'fs'
+import fs from 'fs'
+import type * as FsTypes from 'fs'
 import * as path from 'path'
 import {Writable} from 'stream'
 import {rspack} from '@rspack/core'
@@ -62,6 +63,20 @@ function createDiscardWriteStream() {
   })
 
   return stream as Writable & {path?: string}
+}
+
+const guardedManifestDiskWritePaths = new Set<string>()
+let isManifestDiskWriteGuardInstalled = false
+
+function hasGuardedManifestDiskPath(filePath: unknown) {
+  if (typeof filePath !== 'string') return false
+
+  const resolvedPath = path.resolve(filePath)
+  for (const guardedPath of guardedManifestDiskWritePaths) {
+    if (isSamePath(guardedPath, resolvedPath)) return true
+  }
+
+  return false
 }
 
 function suppressManifestOutputWrites(
@@ -128,19 +143,14 @@ function suppressManifestOutputWrites(
 }
 
 function installManifestDiskWriteGuard(manifestOutputPath: string) {
-  const guardedFs = fs as typeof fs & {
-    __extensionjsManifestDiskWriteGuard?: Set<string>
-  }
-
-  if (!guardedFs.__extensionjsManifestDiskWriteGuard) {
-    guardedFs.__extensionjsManifestDiskWriteGuard = new Set()
-  }
-
   const guardKey = path.resolve(manifestOutputPath)
-  if (guardedFs.__extensionjsManifestDiskWriteGuard.has(guardKey)) return
+  guardedManifestDiskWritePaths.add(guardKey)
+  if (isManifestDiskWriteGuardInstalled) return
+
+  const guardedFs = fs
 
   const isManifestPath = (filePath: unknown) =>
-    typeof filePath === 'string' && isSamePath(filePath, manifestOutputPath)
+    hasGuardedManifestDiskPath(filePath)
 
   const allowManifestRename = (fromPath: unknown, toPath: unknown) =>
     typeof fromPath === 'string' &&
@@ -150,7 +160,7 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
 
   const originalWriteFile = guardedFs.writeFile.bind(guardedFs)
   guardedFs.writeFile = ((
-    filePath: fs.PathOrFileDescriptor,
+    filePath: FsTypes.PathOrFileDescriptor,
     ...args: any[]
   ) => {
     if (isManifestPath(filePath)) {
@@ -164,7 +174,7 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
 
   const originalWriteFileSync = guardedFs.writeFileSync.bind(guardedFs)
   guardedFs.writeFileSync = ((
-    filePath: fs.PathOrFileDescriptor,
+    filePath: FsTypes.PathOrFileDescriptor,
     ...args: any[]
   ) => {
     if (isManifestPath(filePath)) return
@@ -172,7 +182,10 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
   }) as typeof fs.writeFileSync
 
   const originalCreateWriteStream = guardedFs.createWriteStream.bind(guardedFs)
-  guardedFs.createWriteStream = ((filePath: fs.PathLike, ...args: any[]) => {
+  guardedFs.createWriteStream = ((
+    filePath: FsTypes.PathLike,
+    ...args: any[]
+  ) => {
     if (isManifestPath(filePath)) {
       const stream = createDiscardWriteStream()
       stream.path = String(filePath)
@@ -183,21 +196,29 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
   }) as typeof fs.createWriteStream
 
   const originalOpen = guardedFs.open.bind(guardedFs)
-  guardedFs.open = ((pathLike: fs.PathLike, flags: any, ...args: any[]) => {
+  guardedFs.open = ((
+    pathLike: FsTypes.PathLike,
+    flags: any,
+    ...args: any[]
+  ) => {
     const nextPath = isManifestPath(pathLike) ? '/dev/null' : pathLike
     return (originalOpen as any)(nextPath, flags, ...args)
   }) as typeof fs.open
 
   const originalOpenSync = guardedFs.openSync.bind(guardedFs)
-  guardedFs.openSync = ((pathLike: fs.PathLike, flags: any, ...args: any[]) => {
+  guardedFs.openSync = ((
+    pathLike: FsTypes.PathLike,
+    flags: any,
+    ...args: any[]
+  ) => {
     const nextPath = isManifestPath(pathLike) ? '/dev/null' : pathLike
     return (originalOpenSync as any)(nextPath, flags, ...args)
   }) as typeof fs.openSync
 
   const originalRename = guardedFs.rename.bind(guardedFs)
   guardedFs.rename = ((
-    oldPath: fs.PathLike,
-    newPath: fs.PathLike,
+    oldPath: FsTypes.PathLike,
+    newPath: FsTypes.PathLike,
     callback: any
   ) => {
     if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath)) {
@@ -209,7 +230,10 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
   }) as typeof fs.rename
 
   const originalRenameSync = guardedFs.renameSync.bind(guardedFs)
-  guardedFs.renameSync = ((oldPath: fs.PathLike, newPath: fs.PathLike) => {
+  guardedFs.renameSync = ((
+    oldPath: FsTypes.PathLike,
+    newPath: FsTypes.PathLike
+  ) => {
     if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath))
       return
     return originalRenameSync(oldPath, newPath)
@@ -228,7 +252,7 @@ function installManifestDiskWriteGuard(manifestOutputPath: string) {
     }) as typeof fs.promises.writeFile
   }
 
-  guardedFs.__extensionjsManifestDiskWriteGuard.add(guardKey)
+  isManifestDiskWriteGuardInstalled = true
 }
 
 export async function devServer(
