@@ -358,18 +358,16 @@ async function installOptionalDependencies(
       continue
     }
 
-    for (const dep of missingDeps) {
-      const args = buildOptionalInstallArgs(pm, [dep], developRoot)
-      const result = await runInstall(pm, args, {
-        cwd: developRoot,
-        stdio
-      })
+    const args = buildOptionalInstallArgs(pm, missingDeps, developRoot)
+    const result = await runInstall(pm, args, {
+      cwd: developRoot,
+      stdio
+    })
 
-      if (result.code !== 0) {
-        throw new Error(
-          messages.installingDependenciesFailed(pm, args, result.code)
-        )
-      }
+    if (result.code !== 0) {
+      throw new Error(
+        messages.installingDependenciesFailed(pm, args, result.code)
+      )
     }
   }
 }
