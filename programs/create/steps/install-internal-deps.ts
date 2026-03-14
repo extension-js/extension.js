@@ -32,9 +32,6 @@ type BuildDepsPlan = {
 }
 
 function resolveDevelopRoot(projectPath: string): string | null {
-  const override = process.env.EXTENSION_CREATE_DEVELOP_ROOT
-  if (override) return override
-
   try {
     const localPkgPath = path.join(
       projectPath,
@@ -45,7 +42,14 @@ function resolveDevelopRoot(projectPath: string): string | null {
     if (fs.existsSync(localPkgPath)) {
       return path.dirname(localPkgPath)
     }
+  } catch {
+    // ignore local resolution errors and fall back to the CLI/runtime install
+  }
 
+  const override = process.env.EXTENSION_CREATE_DEVELOP_ROOT
+  if (override) return override
+
+  try {
     const pkgPath = requireFromCreate.resolve(
       'extension-develop/package.json',
       {
