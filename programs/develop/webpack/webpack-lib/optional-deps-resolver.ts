@@ -154,6 +154,90 @@ function getPackageDirFromInstallRoot(
   return path.join(installRoot, 'node_modules', ...dependencyId.split('/'))
 }
 
+function listInstalledPackageDirs(nodeModulesDir: string): string[] {
+  if (!fs.existsSync(nodeModulesDir)) return []
+
+  try {
+    const entries = fs.readdirSync(nodeModulesDir, {withFileTypes: true})
+    const packageDirs: string[] = []
+
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name === '.bin') continue
+
+      const entryPath = path.join(nodeModulesDir, entry.name)
+
+      if (!entry.name.startsWith('@')) {
+        packageDirs.push(entryPath)
+        continue
+      }
+
+      const scopedEntries = fs.readdirSync(entryPath, {withFileTypes: true})
+      for (const scopedEntry of scopedEntries) {
+        if (!scopedEntry.isDirectory()) continue
+        packageDirs.push(path.join(entryPath, scopedEntry.name))
+      }
+    }
+
+    return packageDirs
+  } catch {
+    return []
+  }
+}
+
+function findNestedPackageDir(
+  dependencyId: string,
+  installRoot: string
+): string | undefined {
+  const targetPackageJson = path.join(
+    installRoot,
+    'node_modules',
+    ...dependencyId.split('/'),
+    'package.json'
+  )
+  if (fs.existsSync(targetPackageJson)) {
+    return path.dirname(targetPackageJson)
+  }
+
+  const visited = new Set<string>()
+  const queue: Array<{nodeModulesDir: string; depth: number}> = [
+    {
+      nodeModulesDir: path.join(installRoot, 'node_modules'),
+      depth: 0
+    }
+  ]
+  const maxDepth = 4
+
+  while (queue.length > 0) {
+    const current = queue.shift() as {nodeModulesDir: string; depth: number}
+    if (visited.has(current.nodeModulesDir)) continue
+    visited.add(current.nodeModulesDir)
+
+    const candidatePackageJson = path.join(
+      current.nodeModulesDir,
+      ...dependencyId.split('/'),
+      'package.json'
+    )
+
+    if (fs.existsSync(candidatePackageJson)) {
+      return path.dirname(candidatePackageJson)
+    }
+
+    if (current.depth >= maxDepth) continue
+
+    for (const packageDir of listInstalledPackageDirs(current.nodeModulesDir)) {
+      const nestedNodeModulesDir = path.join(packageDir, 'node_modules')
+      if (fs.existsSync(nestedNodeModulesDir)) {
+        queue.push({
+          nodeModulesDir: nestedNodeModulesDir,
+          depth: current.depth + 1
+        })
+      }
+    }
+  }
+
+  return undefined
+}
+
 function readPackageJsonFromDir(packageDir: string): any | undefined {
   const manifestPath = path.join(packageDir, 'package.json')
   if (!fs.existsSync(manifestPath)) return undefined
@@ -200,11 +284,7 @@ function resolveFirstExistingEntry(
   return undefined
 }
 
-function resolveFromInstallRootPackageDir(
-  dependencyId: string,
-  installRoot: string
-): string | undefined {
-  const packageDir = getPackageDirFromInstallRoot(dependencyId, installRoot)
+function resolveFromPackageDir(packageDir: string): string | undefined {
   if (!fs.existsSync(packageDir)) return undefined
 
   // Direct absolute directory resolution handles pnpm-linked trees where
@@ -220,6 +300,20 @@ function resolveFromInstallRootPackageDir(
 
   const candidateEntries = getPackageEntryCandidates(pkg)
   return resolveFirstExistingEntry(packageDir, candidateEntries)
+}
+
+function resolveFromInstallRootPackageDir(
+  dependencyId: string,
+  installRoot: string
+): string | undefined {
+  const packageDir = getPackageDirFromInstallRoot(dependencyId, installRoot)
+  const directResolution = resolveFromPackageDir(packageDir)
+  if (directResolution) return directResolution
+
+  const nestedPackageDir = findNestedPackageDir(dependencyId, installRoot)
+  if (!nestedPackageDir || nestedPackageDir === packageDir) return undefined
+
+  return resolveFromPackageDir(nestedPackageDir)
 }
 
 function verifyPackageInInstallRoot(
