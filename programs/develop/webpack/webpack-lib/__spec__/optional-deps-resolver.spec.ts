@@ -239,6 +239,42 @@ describe('optional-deps-resolver', () => {
     )
   })
 
+  it('resolves React refresh from a nested plugin install tree', async () => {
+    const dependencyId = '@extjs-test/react-refresh'
+    const pluginId = '@extjs-test/plugin-react-refresh'
+
+    installOptionalDependenciesMock.mockImplementation(async () => {
+      createPackage(
+        runtimePath,
+        pluginId,
+        'module.exports = { default: class ReactRefreshPlugin {} }'
+      )
+      createPackage(
+        path.join(runtimePath, 'node_modules', ...pluginId.split('/')),
+        dependencyId,
+        'module.exports = {runtime: true}'
+      )
+      return true
+    })
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const resolvedPath = await ensureOptionalPackageResolved({
+      integration: 'React',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId, pluginId],
+      verifyPackageIds: [dependencyId, pluginId]
+    })
+
+    expect(resolvedPath).toContain(
+      `${path.sep}@extjs-test${path.sep}plugin-react-refresh${path.sep}node_modules${path.sep}@extjs-test${path.sep}react-refresh${path.sep}index.js`
+    )
+    expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
+  })
+
   it('loads optional module with adapter after deterministic resolution', async () => {
     const dependencyId = '@extjs-test/plugin-react-refresh'
     installOptionalDependenciesMock.mockImplementation(async () => {
