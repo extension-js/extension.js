@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- Fix Vue optional dependency installs for consumer builds (7b387a7c)
+- Fix Dependabot alerts (8976161a)
+- Fix React optional dependency installs for content dev (776256d7)
+- Harden managed browser profile reuse (0a95a641)
 
 ## 3.8.2
 
