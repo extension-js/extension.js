@@ -127,4 +127,58 @@ describe('install-internal-deps', () => {
     })
     expect(postCssCall).toBeTruthy()
   })
+
+  it('prefers the project local extension-develop over the CLI override', async () => {
+    const overrideDevelopRoot = makeTempDir('extjs-develop-override-')
+    const localDevelopRoot = path.join(
+      makeTempDir('extjs-project-local-'),
+      'node_modules',
+      'extension-develop'
+    )
+    const projectRoot = path.dirname(path.dirname(localDevelopRoot))
+
+    writeJson(path.join(overrideDevelopRoot, 'package.json'), {
+      name: 'extension-develop'
+    })
+    writeJson(path.join(localDevelopRoot, 'package.json'), {
+      name: 'extension-develop'
+    })
+    writeJson(
+      path.join(
+        localDevelopRoot,
+        'webpack',
+        'webpack-lib',
+        'build-dependencies.json'
+      ),
+      {}
+    )
+    writeJson(path.join(projectRoot, 'package.json'), {
+      name: 'demo',
+      dependencies: {react: '^18.0.0'}
+    })
+
+    process.env.EXTENSION_CREATE_DEVELOP_ROOT = overrideDevelopRoot
+    process.env.npm_config_user_agent = 'npm/9.0.0'
+    process.env.EXTENSION_ENV = 'development'
+
+    const cwd = process.cwd()
+    process.chdir(projectRoot)
+
+    const mod = await import('../steps/install-internal-deps')
+    await mod.installInternalDependencies(projectRoot)
+
+    process.chdir(cwd)
+
+    const optionalCall = spawnCalls.find((call) => {
+      const args = call.args.join(' ')
+      return (
+        args.includes('react-refresh') &&
+        args.includes('@rspack/plugin-react-refresh')
+      )
+    })
+
+    expect(optionalCall).toBeTruthy()
+    expect(optionalCall?.cwd).toBe(localDevelopRoot)
+    expect(optionalCall?.cwd).not.toBe(overrideDevelopRoot)
+  })
 })
