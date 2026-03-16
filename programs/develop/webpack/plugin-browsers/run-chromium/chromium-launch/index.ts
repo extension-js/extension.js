@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
+import {spawnSync} from 'node:child_process'
 import type {Compilation, Compiler} from '@rspack/core'
 import locateChrome, {
   getChromeVersion,
@@ -231,7 +232,13 @@ export class ChromiumLaunchPlugin {
         if (browser === 'chromium' || browser === 'chromium-based') {
           return getChromiumVersion(bin, {allowExec: true}) || ''
         }
-        return getChromeVersion(bin, {allowExec: true}) || ''
+        const versionResult = spawnSync(bin, ['--version'], {
+          stdio: 'pipe',
+          encoding: 'utf8'
+        })
+        const versionLine = String(versionResult.stdout || '').trim()
+
+        return versionLine || getChromeVersion(bin, {allowExec: true}) || ''
       } catch {
         return ''
       }
