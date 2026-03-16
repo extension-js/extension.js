@@ -131,7 +131,9 @@ function detectCurrentPackageManager(
 function preferredManagedInstallCommand(browser: string): string {
   const packageJsonPath = findNearestPackageJson(process.cwd())
   const pkg = packageJsonPath ? safeReadPackageJson(packageJsonPath) : null
-  const projectRoot = packageJsonPath ? path.dirname(packageJsonPath) : process.cwd()
+  const projectRoot = packageJsonPath
+    ? path.dirname(packageJsonPath)
+    : process.cwd()
   const hasExtensionScript = Boolean(pkg?.scripts?.extension)
   const packageManager = detectCurrentPackageManager(projectRoot, pkg)
 
