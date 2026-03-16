@@ -2,9 +2,8 @@
 
 ## Unreleased
 
-- Fix Dependabot alerts (8976161a)
-- Fix React optional dependency installs for content dev (776256d7)
-- Harden managed browser profile reuse (0a95a641)
+- Improve managed browser install guidance. (8a2fd002)
+- Prefer the project-local develop runtime during create (29bce73d)
 
 ## 3.8.2
 
