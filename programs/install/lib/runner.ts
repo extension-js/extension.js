@@ -4,6 +4,8 @@ import {spawnSync} from 'node:child_process'
 import {spawn} from 'cross-spawn'
 import {InstallBrowserTarget} from './browser-target'
 
+type PackageManagerName = 'pnpm' | 'npm' | 'bun' | 'unknown'
+
 function buildExecEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   if (process.platform !== 'win32') return base
 
@@ -21,7 +23,27 @@ function buildExecEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   }
 }
 
+function detectCurrentPackageManager(): PackageManagerName {
+  const userAgent = String(process.env.npm_config_user_agent || '').toLowerCase()
+
+  if (userAgent.includes('pnpm')) return 'pnpm'
+  if (userAgent.includes('bun')) return 'bun'
+  if (userAgent.includes('npm')) return 'npm'
+
+  return 'unknown'
+}
+
 export function browserInstallCommand(_target: InstallBrowserTarget): string {
+  const packageManager = detectCurrentPackageManager()
+
+  if (packageManager === 'pnpm') {
+    return process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
+  }
+
+  if (packageManager === 'bun') {
+    return process.platform === 'win32' ? 'bunx.cmd' : 'bunx'
+  }
+
   return process.platform === 'win32' ? 'npx.cmd' : 'npx'
 }
 
@@ -29,13 +51,17 @@ export function browserInstallArgs(
   target: InstallBrowserTarget,
   destination: string
 ): string[] {
+  const packageManager = detectCurrentPackageManager()
+  const packageRunnerPrefix =
+    packageManager === 'pnpm' ? ['dlx'] : packageManager === 'bun' ? [] : ['-y']
+
   if (target === 'edge') {
-    return ['-y', 'playwright@latest', 'install', 'msedge']
+    return [...packageRunnerPrefix, 'playwright@latest', 'install', 'msedge']
   }
 
   const browserRef = target === 'chrome' ? 'chrome@stable' : target
   return [
-    '-y',
+    ...packageRunnerPrefix,
     '@puppeteer/browsers@latest',
     'install',
     browserRef,
