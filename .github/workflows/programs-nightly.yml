@@ -15,7 +15,7 @@ jobs:
     env:
       EXTENSION_AUTHOR_MODE: development
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/cache@v4
         with:
           path: |
@@ -50,7 +50,7 @@ jobs:
       EXTENSION_AUTO_EXIT_MS: '8000'
       EXTENSION_FORCE_KILL_MS: '12000'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/cache@v4
         with:
           path: |
@@ -87,7 +87,7 @@ jobs:
       EXTENSION_AUTO_EXIT_MS: '8000'
       EXTENSION_FORCE_KILL_MS: '12000'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/cache@v4
         with:
           path: |
