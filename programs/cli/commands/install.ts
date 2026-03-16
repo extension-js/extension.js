@@ -82,11 +82,11 @@ export function registerInstallCommand(program: Command, telemetry: any) {
   program
     .command('install')
     .arguments('[browser-name]')
-    .usage('install [browser-name] [--browser <name>] [--where]')
+    .usage('[browser-name] [options]')
     .description(commandDescriptions.install)
     .option(
       '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based | all>',
-      'specify browser(s) to install. Supports comma-separated values and `all`.'
+      'override the positional browser name. Supports comma-separated values and `all`.'
     )
     .option('--where', 'print the resolved managed browser cache root')
     .action(async function (
