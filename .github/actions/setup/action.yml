@@ -16,7 +16,7 @@ runs:
   steps:
     - name: Checkout repository
       if: ${{ env.ACT != 'true' }}
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Install pnpm
       uses: pnpm/action-setup@v4
@@ -24,7 +24,7 @@ runs:
         version: 10.28.0
 
     - name: Use Node.js ${{ inputs.node-version }}
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: ${{ inputs.node-version }}
         cache: 'pnpm'

@@ -13,8 +13,8 @@ jobs:
       EXTENSION_TELEMETRY_DISABLED: '0'
       EXTENSION_TELEMETRY_DEBUG: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Seed a minimal extension (manifest.json)
