@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it} from 'vitest'
 import {
   browserInstallArgs,
   browserInstallEnv,
@@ -7,7 +7,15 @@ import {
 } from '../lib/runner'
 
 describe('install runner mapping', () => {
+  const prevEnv = {...process.env}
+
+  afterEach(() => {
+    process.env = {...prevEnv}
+  })
+
   it('maps chromium-family browsers to puppeteer installer args', () => {
+    delete process.env.npm_config_user_agent
+
     const chromiumArgs = browserInstallArgs('chromium', '/tmp/x')
     expect(chromiumArgs).toEqual([
       '-y',
@@ -30,6 +38,8 @@ describe('install runner mapping', () => {
   })
 
   it('maps edge to playwright installer args + env', () => {
+    delete process.env.npm_config_user_agent
+
     expect(browserInstallArgs('edge', '/tmp/edge')).toEqual([
       '-y',
       'playwright@latest',
@@ -41,9 +51,26 @@ describe('install runner mapping', () => {
     ).toBe('/tmp/edge')
   })
 
-  it('returns npx command variant by platform', () => {
+  it('returns package runner command variant by platform', () => {
+    delete process.env.npm_config_user_agent
+
     const cmd = browserInstallCommand('firefox')
     expect(cmd === 'npx' || cmd === 'npx.cmd').toBe(true)
+  })
+
+  it('prefers pnpm dlx when running under pnpm', () => {
+    process.env.npm_config_user_agent = 'pnpm/10.28.0 npm/? node/v23.8.0'
+
+    const cmd = browserInstallCommand('chrome')
+    expect(cmd === 'pnpm' || cmd === 'pnpm.cmd').toBe(true)
+    expect(browserInstallArgs('chrome', '/tmp/x')).toEqual([
+      'dlx',
+      '@puppeteer/browsers@latest',
+      'install',
+      'chrome@stable',
+      '--path',
+      '/tmp/x'
+    ])
   })
 
   it('detects sudo-driven edge installation failures', () => {
