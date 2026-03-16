@@ -28,6 +28,11 @@ import type {DevOptions} from '../../webpack-types'
 
 type Browser = NonNullable<DevOptions['browser']>
 type Mode = DevOptions['mode']
+type PackageManagerName = 'pnpm' | 'yarn' | 'npm' | 'bun' | 'unknown'
+type PackageJson = {
+  packageManager?: string
+  scripts?: Record<string, string>
+}
 
 // Keep CJS `require` for JSON / dynamic loads (avoid import-assertions in toolchains)
 const require = createRequire(import.meta.url)
@@ -67,6 +72,89 @@ function isWsl(): boolean {
   // running unit tests is not Linux.
   if (hasEnv) return true
   return /microsoft/i.test(os.release())
+}
+
+function findNearestPackageJson(startPath: string): string | null {
+  let current = path.resolve(startPath)
+
+  for (let i = 0; i < 6; i += 1) {
+    const candidate = path.join(current, 'package.json')
+    if (fs.existsSync(candidate)) return candidate
+
+    const parent = path.dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+
+  return null
+}
+
+function safeReadPackageJson(filePath: string): PackageJson | null {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as PackageJson
+  } catch {
+    return null
+  }
+}
+
+function detectCurrentPackageManager(
+  projectRoot: string,
+  pkg?: PackageJson | null
+): PackageManagerName {
+  const userAgent = String(
+    process.env.npm_config_user_agent || ''
+  ).toLowerCase()
+
+  if (userAgent.includes('pnpm')) return 'pnpm'
+  if (userAgent.includes('yarn')) return 'yarn'
+  if (userAgent.includes('bun')) return 'bun'
+  if (userAgent.includes('npm')) return 'npm'
+
+  const declared = String(pkg?.packageManager || '')
+    .trim()
+    .toLowerCase()
+
+  if (declared.startsWith('pnpm@')) return 'pnpm'
+  if (declared.startsWith('yarn@')) return 'yarn'
+  if (declared.startsWith('bun@')) return 'bun'
+  if (declared.startsWith('npm@')) return 'npm'
+
+  if (fs.existsSync(path.join(projectRoot, 'pnpm-lock.yaml'))) return 'pnpm'
+  if (fs.existsSync(path.join(projectRoot, 'yarn.lock'))) return 'yarn'
+  if (fs.existsSync(path.join(projectRoot, 'bun.lockb'))) return 'bun'
+  if (fs.existsSync(path.join(projectRoot, 'bun.lock'))) return 'bun'
+  if (fs.existsSync(path.join(projectRoot, 'package-lock.json'))) return 'npm'
+
+  return 'unknown'
+}
+
+function preferredManagedInstallCommand(browser: string): string {
+  const packageJsonPath = findNearestPackageJson(process.cwd())
+  const pkg = packageJsonPath ? safeReadPackageJson(packageJsonPath) : null
+  const projectRoot = packageJsonPath ? path.dirname(packageJsonPath) : process.cwd()
+  const hasExtensionScript = Boolean(pkg?.scripts?.extension)
+  const packageManager = detectCurrentPackageManager(projectRoot, pkg)
+
+  if (hasExtensionScript) {
+    if (packageManager === 'pnpm') return `pnpm extension install ${browser}`
+    if (packageManager === 'npm')
+      return `npm run extension -- install ${browser}`
+    if (packageManager === 'bun')
+      return `bun run extension -- install ${browser}`
+    if (packageManager === 'yarn') return `yarn extension install ${browser}`
+  }
+
+  if (packageManager === 'pnpm') return `pnpm exec extension install ${browser}`
+  if (packageManager === 'bun') return `bunx extension install ${browser}`
+  return `npx extension install ${browser}`
+}
+
+function managedBrowserDisplayName(browser: string): string {
+  if (browser === 'chrome') return 'Chrome for Testing'
+  if (browser === 'chromium') return 'Chromium'
+  if (browser === 'firefox') return 'Firefox'
+  if (browser === 'edge') return 'Edge'
+  return browser
 }
 
 export function capitalizedBrowserName(browser: Browser) {
@@ -444,54 +532,8 @@ export function prettyPuppeteerInstallGuidance(
   rawGuidance: string,
   cacheDir: string
 ): string {
-  // Preserve the exact guidance text from the location package,
-  // append the installation path (colored) as the only difference.
   const dim = colors.gray
   const body: string[] = []
-  // Some callers pass String(Error) which prefixes with "Error: ".
-  let cleaned = String(rawGuidance || '')
-    .replace(/^Error:\s*/i, '')
-    .trim()
-
-  // If we only received a minimal one-liner (e.g. just the install command),
-  // expand it using the location package's own getInstallGuidance to match npx output.
-  try {
-    const looksMinimal = cleaned.split(/\r?\n/).filter(Boolean).length < 2
-    if (looksMinimal) {
-      const b = String(browser || '').toLowerCase()
-      if (b === 'chromium' || b === 'chromium-based') {
-        try {
-          const txt = getChromiumInstallGuidance()
-          if (txt && typeof txt === 'string') cleaned = String(txt).trim()
-        } catch {
-          // fall through; keep minimal text
-        }
-      } else if (b === 'chrome') {
-        try {
-          const txt = getChromeInstallGuidance()
-          if (txt && typeof txt === 'string') cleaned = String(txt).trim()
-        } catch {
-          // fall through; keep minimal text
-        }
-      } else if (b === 'firefox' || b === 'gecko-based') {
-        try {
-          const txt = getFirefoxInstallGuidance()
-          if (txt && typeof txt === 'string') cleaned = String(txt).trim()
-        } catch {
-          // fall through; keep minimal text
-        }
-      } else if (b === 'edge') {
-        try {
-          const txt = getEdgeInstallGuidance()
-          if (txt && typeof txt === 'string') cleaned = String(txt).trim()
-        } catch {
-          // fall through; keep minimal text
-        }
-      }
-    }
-  } catch {
-    // ignore expansion errors
-  }
 
   // Normalize browser subdir for our binaries layout (shared across installers)
   let browserNorm = 'chromium'
@@ -510,28 +552,23 @@ export function prettyPuppeteerInstallGuidance(
 
   const finalCachePath =
     browserNorm && cacheDir ? path.join(cacheDir, browserNorm) : cacheDir
+  const installCommand = preferredManagedInstallCommand(browserNorm)
+  const browserDisplay = managedBrowserDisplayName(browserNorm)
 
-  // Normalize install guidance to the Extension.js command.
-  try {
-    const lines = cleaned.split(/\r?\n/)
-    const idx = lines.findIndex((l) =>
-      /npx\s+@puppeteer\/browsers\s+install\s+|npx\s+playwright\s+install(\s+.+)?/i.test(
-        l
-      )
-    )
-
-    if (idx !== -1) {
-      lines[idx] = `npx extension install ${browserNorm}`
-      cleaned = lines.join('\n')
-    }
-  } catch {
-    // noop
-  }
-
-  body.push(cleaned)
+  body.push(`${getLoggingPrefix('warn')} Browser setup required`)
+  body.push('')
+  body.push(`${browserDisplay} is not available in the managed browser cache.`)
+  body.push('')
+  body.push(
+    colors.gray(`Install ${browserDisplay} into the managed browser cache:`)
+  )
+  body.push('')
+  body.push(`  ${colors.bold(colors.blue(installCommand))}`)
   if (finalCachePath) {
+    body.push('')
     body.push(`${dim('INSTALL PATH')} ${colors.underline(finalCachePath)}`)
   }
+  body.push(`${dim('NEXT')} Re-run your command after the install finishes.`)
   return body.join('\n') + '\n'
 }
 

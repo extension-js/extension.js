@@ -139,11 +139,14 @@ ${'Available Commands'}
 - ${code('extension build ' + arg('[project-path|remote-url]'))}
   ${commandDescriptions.build}
 
-- ${code('extension install ' + arg('--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>'))}
+- ${code('extension install ' + arg('<chrome|chromium|edge|firefox>'))}
   ${commandDescriptions.install}
 
+- ${code('extension install ' + arg('--browser <chrome|chromium|edge|firefox|chromium-based|gecko-based|firefox-based|all>'))}
+  Install multiple browsers, browser families, or ${code('all')}
+
 - ${code('extension install --where')}
-  Prints the managed browser cache root (or browser install path(s) when --browser is provided)
+  Prints the managed browser cache root (or browser install path(s) when a browser name or ${code('--browser')} is provided)
 
 - ${code('extension uninstall ' + arg('<chrome|chromium|edge|firefox> | --all'))}
   ${commandDescriptions.uninstall}
