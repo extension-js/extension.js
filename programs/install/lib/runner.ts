@@ -24,7 +24,9 @@ function buildExecEnv(base: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
 }
 
 function detectCurrentPackageManager(): PackageManagerName {
-  const userAgent = String(process.env.npm_config_user_agent || '').toLowerCase()
+  const userAgent = String(
+    process.env.npm_config_user_agent || ''
+  ).toLowerCase()
 
   if (userAgent.includes('pnpm')) return 'pnpm'
   if (userAgent.includes('bun')) return 'bun'
