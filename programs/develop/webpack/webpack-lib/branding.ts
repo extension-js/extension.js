@@ -9,7 +9,17 @@
 export function scrubBrand(txt: string, brand = 'Extension.js'): string {
   if (!txt) return txt
   const safeBrand = brand.replace(/\$/g, '$$$$')
-  return txt
+  const preserved: string[] = []
+  const preserve = (value: string) => {
+    const token = `__EXT_BRAND_PRESERVE_${preserved.length}__`
+    preserved.push(value)
+    return token
+  }
+
+  let output = txt
+    // Keep upstream optimization warnings pointing to the actual bundler/docs.
+    .replace(/\bRspack\b(?=\s+performance recommendations:)/gi, preserve)
+    .replace(/https?:\/\/rspack\.(?:rs|dev)\/[^\s)]+/gi, preserve)
     .replace(/(?<!@)\bRspack\b/gi, safeBrand)
     .replace(/(?<!@)\bWebpack\b/gi, safeBrand)
     .replace(/(?<!@)\bwebpack-dev-server\b/gi, `${safeBrand} dev server`)
@@ -19,6 +29,12 @@ export function scrubBrand(txt: string, brand = 'Extension.js'): string {
     .replace(/Error:\s*Module\s+build\s+failed.*?\n/gi, '')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/\n{2}(?=WARNING in )/g, '\n')
+
+  preserved.forEach((value, index) => {
+    output = output.replace(`__EXT_BRAND_PRESERVE_${index}__`, value)
+  })
+
+  return output
 }
 
 export function makeSanitizedConsole(brand = 'Extension.js') {
