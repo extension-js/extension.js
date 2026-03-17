@@ -168,6 +168,7 @@ export default function webpackConfig(
         persistProfile: (devOptions as any).persistProfile,
         preferences: darkDefaults.preferences,
         browserFlags: darkDefaults.browserFlags,
+        excludeBrowserFlags: devOptions.excludeBrowserFlags,
         chromiumBinary: devOptions.chromiumBinary,
         geckoBinary: devOptions.geckoBinary,
         instanceId: devOptions.instanceId,
