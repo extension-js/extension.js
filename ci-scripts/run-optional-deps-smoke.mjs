@@ -674,7 +674,12 @@ function runReactContentDevSmoke(workdir) {
 
   return new Promise((resolve, reject) => {
     const child = shouldUseDirectLocalCli('npm')
-      ? runExtensionCliLong(['dev', '--browser=chrome', '--no-browser'], workdir, smokeEnv, 'npm')
+      ? runExtensionCliLong(
+          ['dev', '--browser=chrome', '--no-browser'],
+          workdir,
+          smokeEnv,
+          'npm'
+        )
       : runLong(
           'npm',
           ['run', 'dev', '--', '--browser=chrome', '--no-browser'],
