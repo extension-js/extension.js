@@ -409,6 +409,22 @@ async function runInstallAndVerify(input: {
   )
 
   if (missingAfterInstall.length > 0) {
+    // Some package managers can report success while leaving the isolated cache
+    // in a partial state. Retry once against the recorded optionalDependencies
+    // manifest so React/Preact refresh peers land deterministically.
+    await installOptionalDependencies(
+      input.integration,
+      input.installDependencies
+    )
+
+    const missingAfterRetry = input.verifyPackageIds.filter(
+      (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
+    )
+
+    if (missingAfterRetry.length === 0) {
+      return
+    }
+
     const diagnostics = buildDiagnostics({
       integration: input.integration,
       dependencyId: input.dependencyId,
@@ -419,7 +435,7 @@ async function runInstallAndVerify(input: {
     })
 
     throw new Error(
-      `[${input.integration}] Optional dependency install reported success but packages are missing: ${missingAfterInstall.join(', ')}.\n` +
+      `[${input.integration}] Optional dependency install reported success but packages are missing: ${missingAfterRetry.join(', ')}.\n` +
         JSON.stringify(diagnostics, null, 2)
     )
   }
