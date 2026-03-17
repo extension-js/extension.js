@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Send Release Notification
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' && !github.event.release.prerelease
         uses: SethCohen/github-releases-to-discord@v1.13.1
         with:
           webhook_url: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
@@ -49,9 +49,10 @@ jobs:
             core.setOutput('title', release.data.name || release.data.tag_name);
             core.setOutput('url', release.data.html_url);
             core.setOutput('body', release.data.body || '');
+            core.setOutput('prerelease', String(Boolean(release.data.prerelease)));
 
       - name: Send Release Notification (manual)
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'workflow_dispatch' && steps.release.outputs.prerelease != 'true'
         env:
           WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
           RELEASE_TITLE: ${{ steps.release.outputs.title }}
