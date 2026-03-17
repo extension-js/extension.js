@@ -2,8 +2,8 @@
 
 ## Unreleased
 
-- Improve managed browser install guidance. (8a2fd002)
-- Prefer the project-local develop runtime during create (29bce73d)
+- Preserve Rspack branding in optimization warnings (28958936)
+- Fix GitHub Actions Node 24 deprecation warnings (71de51cd)
 
 ## 3.8.2
 
