@@ -153,4 +153,30 @@ describe('webpack-config transpile packages watch behavior', () => {
       })
     )
   })
+
+  it('forwards excludeBrowserFlags to BrowsersPlugin', () => {
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+    BrowsersPluginMock.mockClear()
+
+    const projectStructure = createProjectStructure()
+    webpackConfig(
+      projectStructure as any,
+      {
+        browser: 'chromium',
+        mode: 'development',
+        output: {
+          clean: false,
+          path: '/project/dist/chromium'
+        },
+        excludeBrowserFlags: ['--hide-scrollbars', '--mute-audio'],
+        noBrowser: false
+      } as any
+    )
+
+    expect(BrowsersPluginMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        excludeBrowserFlags: ['--hide-scrollbars', '--mute-audio']
+      })
+    )
+  })
 })
