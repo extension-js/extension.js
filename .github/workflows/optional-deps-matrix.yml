@@ -56,6 +56,8 @@ jobs:
             pm: pnpm
           - os: windows-latest
             pm: pnpm
+          - os: windows-latest
+            pm: npm
 
     steps:
       - name: Checkout
@@ -84,6 +86,9 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+
+      - name: Test optional deps smoke helpers
+        run: node --test ci-scripts/__spec__/run-optional-deps-smoke.spec.mjs
 
       - name: Run optional deps smoke
         run: node ci-scripts/run-optional-deps-smoke.mjs --pm ${{ matrix.pm }}

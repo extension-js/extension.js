@@ -1,8 +1,11 @@
 import {describe, it, expect, vi, beforeEach, afterEach} from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
 
 const originalResolve = (require as any).resolve
 const originalPlatform = process.platform
+let cacheDir = ''
 
 const setPlatform = (value: NodeJS.Platform) => {
   Object.defineProperty(process, 'platform', {
@@ -68,13 +71,18 @@ describe('css-lib integrations', () => {
     delete process.env.NPM_EXEC_PATH
     delete process.env.EXTENSION_JS_PACKAGE_MANAGER
     delete process.env.EXTENSION_JS_PM_EXEC_PATH
-    process.env.EXTENSION_JS_CACHE_DIR = '/tmp/extjs-cache'
+    cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cache-'))
+    process.env.EXTENSION_JS_CACHE_DIR = cacheDir
   })
 
   afterEach(() => {
     ;(require as any).resolve = originalResolve
     setPlatform(originalPlatform)
     delete process.env.EXTENSION_JS_CACHE_DIR
+    if (cacheDir) {
+      fs.rmSync(cacheDir, {recursive: true, force: true})
+      cacheDir = ''
+    }
   })
 
   it('installs optional tooling into isolated cache root', async () => {
@@ -92,6 +100,29 @@ describe('css-lib integrations', () => {
     const call = spawn.mock.calls[0]
     resolvedRoot = call?.[2]?.cwd
     expect(resolvedRoot).toContain(`${path.sep}optional-deps${path.sep}`)
+  })
+
+  it('records requested optional dependencies in the cache manifest before install', async () => {
+    await mockDevelopRoot()
+    process.env.npm_config_user_agent = 'npm'
+
+    const {installOptionalDependencies, resolveOptionalInstallRoot} =
+      await import('../../css-lib/integrations')
+
+    await installOptionalDependencies('React', [
+      'react-refresh',
+      '@rspack/plugin-react-refresh'
+    ])
+
+    const packageJsonPath = path.join(
+      resolveOptionalInstallRoot(),
+      'package.json'
+    )
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+    expect(pkg.optionalDependencies?.['react-refresh']).toBe('0.18.0')
+    expect(pkg.optionalDependencies?.['@rspack/plugin-react-refresh']).toBe(
+      '1.6.0'
+    )
   })
 
   it('keeps single-package installs to a single command', async () => {
