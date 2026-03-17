@@ -156,6 +156,7 @@ jobs:
 
       - name: Create GitHub Release
         if: ${{ inputs.channel != 'canary' }}
+        id: create_release
         uses: actions/github-script@v8
         env:
           VERSION: ${{ steps.validate.outputs.version }}
@@ -173,7 +174,7 @@ jobs:
               timeZone: 'UTC'
             }).format(new Date());
             const body = notes ? notes : 'No changes listed.';
-            await github.rest.repos.createRelease({
+            const release = await github.rest.repos.createRelease({
               ...context.repo,
               tag_name: `v${version}`,
               name: `${version} (${date})`,
@@ -181,6 +182,70 @@ jobs:
               draft: false,
               prerelease: process.env.CHANNEL === 'next'
             });
+            core.setOutput('url', release.data.html_url);
+
+      - name: Verify Discord webhook secret for stable release
+        if: ${{ inputs.channel == 'stable' }}
+        env:
+          WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
+        run: |
+          if [ -z "$WEBHOOK_URL" ]; then
+            echo "CHANGELOG_WEBHOOK_URL secret is required for stable Discord notifications." >&2
+            exit 1
+          fi
+
+      - name: Notify Discord for stable release
+        if: ${{ inputs.channel == 'stable' }}
+        env:
+          WEBHOOK_URL: ${{ secrets.CHANGELOG_WEBHOOK_URL }}
+          RELEASE_TITLE: ${{ steps.validate.outputs.version }}
+          RELEASE_URL: ${{ steps.create_release.outputs.url }}
+          RELEASE_BODY: ${{ steps.changelog.outputs.notes }}
+          AVATAR_URL: "https://user-images.githubusercontent.com/4672033/102850460-4d22aa80-43f8-11eb-82db-9efce586f73e.png"
+        run: |
+          python - <<'PY'
+          import datetime
+          import json
+          import os
+          import urllib.error
+          import urllib.request
+
+          body = os.environ.get("RELEASE_BODY", "").strip() or "No release notes provided."
+          if len(body) > 4000:
+            body = body[:3997].rstrip() + "..."
+
+          payload = {
+            "content": "||@everyone||",
+            "username": "Extension.js",
+            "avatar_url": os.environ.get("AVATAR_URL"),
+            "embeds": [{
+              "title": os.environ.get("RELEASE_TITLE"),
+              "url": os.environ.get("RELEASE_URL"),
+              "description": body,
+              "color": 2105893,
+              "footer": {"text": "Changelog"},
+              "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
+            }]
+          }
+
+          data = json.dumps(payload).encode("utf-8")
+          req = urllib.request.Request(
+            os.environ["WEBHOOK_URL"].strip(),
+            data=data,
+            headers={
+              "Content-Type": "application/json",
+              "User-Agent": "Extension.js Release Notifier"
+            }
+          )
+
+          try:
+            with urllib.request.urlopen(req) as resp:
+              resp.read()
+          except urllib.error.HTTPError as err:
+            detail = err.read().decode("utf-8", errors="ignore")
+            print(f"Discord webhook error {err.code}: {detail}")
+            raise
+          PY
 
       - name: Update changelog for stable release
         if: ${{ inputs.channel == 'stable' }}

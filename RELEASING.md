@@ -52,6 +52,7 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
 - `canary` releases must use a pre-release semver (validated in CI).
 - `canary` is intentionally silent: no release notes broadcast and no GitHub
   release event.
+- Stable Discord notifications are sent directly from the publish workflow.
 
 ## Optional hardening implemented
 
