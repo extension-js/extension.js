@@ -22,8 +22,9 @@ import {
   type PackageManagerResolution
 } from '../../webpack-lib/package-manager'
 
-function parseJsonSafe(text: string) {
-  const s = text && text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+function parseJsonSafe(text: string | Buffer) {
+  const raw = typeof text === 'string' ? text : String(text || '')
+  const s = raw && raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw
   return JSON.parse(s || '{}')
 }
 
@@ -251,6 +252,59 @@ function ensureOptionalInstallBaseDir(installBaseDir: string): void {
   }
 }
 
+function getPinnedOptionalDependencyMap(
+  dependencies: string[]
+): Record<string, string> {
+  const specs = resolveOptionalDependencySpecs(dependencies)
+  const pinned: Record<string, string> = {}
+
+  for (let i = 0; i < dependencies.length; i++) {
+    const dependencyId = dependencies[i]
+    const spec = specs[i] || ''
+    const versionSeparator = spec.lastIndexOf('@')
+
+    if (!dependencyId || versionSeparator <= 0) continue
+    pinned[dependencyId] = spec.slice(versionSeparator + 1)
+  }
+
+  return pinned
+}
+
+function ensureOptionalDependenciesManifest(
+  installBaseDir: string,
+  dependencies: string[]
+): void {
+  if (!dependencies.length) return
+
+  const packageJsonPath = path.join(installBaseDir, 'package.json')
+  const current = parseJsonSafe(fs.readFileSync(packageJsonPath, 'utf8'))
+  const nextOptionalDependencies = {
+    ...(current.optionalDependencies || {}),
+    ...getPinnedOptionalDependencyMap(dependencies)
+  }
+
+  const didChange = dependencies.some(
+    (dependencyId) =>
+      current.optionalDependencies?.[dependencyId] !==
+      nextOptionalDependencies[dependencyId]
+  )
+
+  if (!didChange) return
+
+  fs.writeFileSync(
+    packageJsonPath,
+    JSON.stringify(
+      {
+        ...current,
+        private: true,
+        optionalDependencies: nextOptionalDependencies
+      },
+      null,
+      2
+    ) + '\n'
+  )
+}
+
 function getOptionalInstallCommand(
   pm: PackageManagerResolution,
   dependencies: string[],
@@ -370,6 +424,7 @@ export async function installOptionalDependencies(
   try {
     installBaseDir = resolveOptionalInstallRoot()
     ensureOptionalInstallBaseDir(installBaseDir)
+    ensureOptionalDependenciesManifest(installBaseDir, dependencies)
     pm = resolvePackageManager({cwd: installBaseDir})
     wslContext = resolveWslContext(installBaseDir)
     if (!wslContext.useWsl) {
