@@ -337,6 +337,7 @@ export interface CommonWebpackOptions {
   output: OutputConfig
   preferences?: Record<string, unknown>
   browserFlags?: string[]
+  excludeBrowserFlags?: string[]
   /**
    * Workspace/dependency packages that should be transpiled from source.
    * Useful for monorepos where package exports point to TS/TSX files.
