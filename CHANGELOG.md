@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- Preserve Rspack branding in optimization warnings (28958936)
-- Fix GitHub Actions Node 24 deprecation warnings (71de51cd)
+- Fix excludeBrowserFlags forwarding in dev config (e074a42b)
+- Fix optional dependency installs across framework tooling (461e1b3d)
+- Fix Discord release not working (3e85528b)
 
 ## 3.8.2
 
