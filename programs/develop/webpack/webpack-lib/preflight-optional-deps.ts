@@ -8,6 +8,7 @@
 
 import * as path from 'path'
 import * as fs from 'fs'
+import {createRequire} from 'module'
 import {getDirs} from './paths'
 import {
   resolveDevelopInstallRoot,
@@ -66,6 +67,25 @@ function canResolve(id: string, projectPath?: string) {
   } catch {
     return undefined
   }
+}
+
+function verifyOptionalDepsResolvedAtInstallRoot(dependencies: string[]) {
+  const installRoot = resolveOptionalInstallRoot()
+  const req = createRequire(path.join(installRoot, 'package.json'))
+  const missing = dependencies.filter((dependencyId) => {
+    try {
+      req.resolve(dependencyId)
+      return false
+    } catch {
+      return true
+    }
+  })
+
+  if (missing.length === 0) return
+
+  throw new Error(
+    `[Optional] Optional dependency install reported success but packages are missing at install root: ${missing.join(', ')}`
+  )
 }
 
 export async function preflightOptionalDependencies(
@@ -223,6 +243,9 @@ export async function preflightOptionalDependencies(
     if (!didInstall) {
       throw new Error('[Optional] Optional dependencies failed to install.')
     }
+
+    verifyOptionalDepsResolvedAtInstallRoot(Array.from(missingOptionalDeps))
+
     if (
       opts?.showRunAgainMessage !== false &&
       process.env.EXTENSION_AUTHOR_MODE === 'true'
