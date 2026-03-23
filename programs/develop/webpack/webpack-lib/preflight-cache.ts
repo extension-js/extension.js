@@ -9,7 +9,7 @@
 import * as path from 'path'
 import * as fs from 'fs'
 import {createHash} from 'crypto'
-import {resolveDevelopInstallRoot} from '../plugin-css/css-lib/integrations'
+import {resolveDevelopInstallRoot} from '../optional-deps-lib'
 import {getOptionalDependenciesSignature} from './optional-dependencies'
 import packageJson from '../../package.json'
 
