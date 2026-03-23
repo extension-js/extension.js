@@ -10,7 +10,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
-import {hasDependency} from '../css-lib/integrations'
+import {hasDependency} from '../../optional-deps-lib'
 
 let userMessageDelivered = false
 

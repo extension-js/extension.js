@@ -1,7 +1,7 @@
 import {describe, it, expect, vi, beforeEach} from 'vitest'
 import postcss from 'postcss'
 
-vi.mock('../../css-lib/integrations', () => ({
+vi.mock('../../../optional-deps-lib', () => ({
   hasDependency: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => true),
   resolveDevelopInstallRoot: vi.fn(() => undefined),
@@ -16,7 +16,7 @@ describe('postcss detection', () => {
   })
 
   it('isUsingPostCss returns true when postcss is a dependency', async () => {
-    const integrations = (await import('../../css-lib/integrations')) as any
+    const integrations = (await import('../../../optional-deps-lib')) as any
     integrations.hasDependency.mockImplementation(
       (_p: string, dep: string) => dep === 'postcss'
     )
@@ -144,7 +144,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: (p: string, dep: string) =>
         dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
       installOptionalDependencies: vi.fn(async () => true),
@@ -305,7 +305,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === 'autoprefixer',
       installOptionalDependencies: vi.fn(async () => true),
@@ -356,7 +356,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === '@tailwindcss/postcss',
       installOptionalDependencies: vi.fn(async () => true),
@@ -407,7 +407,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
       installOptionalDependencies: vi.fn(async () => true),
       resolveDevelopInstallRoot: vi.fn(() => undefined),
@@ -457,7 +457,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === '@tailwindcss/postcss',
       installOptionalDependencies: vi.fn(async () => true),
@@ -512,7 +512,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       // Simulate config mentions Tailwind but no explicit @tailwindcss/postcss dependency.
       hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
       installOptionalDependencies: vi.fn(async () => true),
@@ -565,7 +565,7 @@ describe('postcss detection', () => {
       // Simulate no declared deps in package.json
       isUsingTailwind: () => false
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: () => false,
       installOptionalDependencies: vi.fn(async () => true),
       resolveDevelopInstallRoot: vi.fn(() => undefined),
@@ -620,7 +620,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === 'autoprefixer',
       installOptionalDependencies: vi.fn(async () => true),
@@ -677,7 +677,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: (_p: string, dep: string) => dep === 'tailwindcss',
       installOptionalDependencies: vi.fn(async () => true),
       resolveDevelopInstallRoot: vi.fn(() => undefined),
@@ -742,7 +742,7 @@ describe('postcss detection', () => {
     vi.doMock('../../css-tools/tailwind', () => ({
       isUsingTailwind: () => true
     }))
-    vi.doMock('../../css-lib/integrations', () => ({
+    vi.doMock('../../../optional-deps-lib', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === 'autoprefixer',
       installOptionalDependencies: vi.fn(async () => true),

@@ -8,8 +8,8 @@ vi.mock('../css-lib/is-content-script', () => ({
   isContentScriptEntry: vi.fn((issuer: string) => issuer.includes('content'))
 }))
 
-vi.mock('../css-lib/integrations', async () => {
-  const actual = await vi.importActual<any>('../css-lib/integrations')
+vi.mock('../../optional-deps-lib', async () => {
+  const actual = await vi.importActual<any>('../../optional-deps-lib')
   return {
     ...actual,
     resolveDevelopInstallRoot: vi.fn(() => '/extension-root')
@@ -66,7 +66,7 @@ describe('cssInContentScriptLoader', () => {
     )
     await cssInHtmlLoader('/project', 'development', '/project/manifest.json')
 
-    const integrations = (await import('../css-lib/integrations')) as any
+    const integrations = (await import('../../optional-deps-lib')) as any
     expect(integrations.resolveDevelopInstallRoot).toHaveBeenCalled()
   })
 })

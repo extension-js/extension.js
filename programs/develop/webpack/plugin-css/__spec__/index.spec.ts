@@ -6,7 +6,8 @@ const mockedContentLoaders = [{test: /a\.css$/}]
 const mockedHtmlLoaders = [{test: /b\.css$/}]
 
 vi.mock('../css-tools/stylelint', () => ({
-  maybeUseStylelint: vi.fn(async () => mockedStylelintPlugins)
+  maybeUseStylelint: vi.fn(async () => mockedStylelintPlugins),
+  getStylelintConfigFile: vi.fn(() => undefined)
 }))
 
 vi.mock('../css-tools/sass', () => ({

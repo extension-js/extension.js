@@ -9,7 +9,7 @@
 import * as path from 'path'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
-import {hasDependency} from '../css-lib/integrations'
+import {hasDependency} from '../../optional-deps-lib'
 import {isContentScriptEntry} from '../css-lib/is-content-script'
 import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 

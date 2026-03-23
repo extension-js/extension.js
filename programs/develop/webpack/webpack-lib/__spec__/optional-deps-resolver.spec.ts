@@ -6,7 +6,7 @@ let developInstallRoot: string | undefined
 let optionalInstallRoot: string | undefined
 const installOptionalDependenciesMock = vi.fn()
 
-vi.mock('../../plugin-css/css-lib/integrations', () => ({
+vi.mock('../../optional-deps-lib', () => ({
   installOptionalDependencies: (...args: unknown[]) =>
     installOptionalDependenciesMock(...args),
   resolveDevelopInstallRoot: () => developInstallRoot,
@@ -275,6 +275,95 @@ describe('optional-deps-resolver', () => {
     expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(2)
   })
 
+  it('tops up only missing deps after retry still leaves partial install', async () => {
+    const dependencyId = '@extjs-test/react-refresh'
+    const pluginId = '@extjs-test/plugin-react-refresh'
+
+    installOptionalDependenciesMock
+      .mockImplementationOnce(async () => {
+        createPackage(
+          runtimePath,
+          pluginId,
+          'module.exports = { default: class ReactRefreshPlugin {} }'
+        )
+        return true
+      })
+      .mockImplementationOnce(async () => true)
+      .mockImplementationOnce(async () => {
+        createPackage(runtimePath, dependencyId, 'module.exports = {ok: true}')
+        return true
+      })
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const resolvedPath = await ensureOptionalPackageResolved({
+      integration: 'React',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId, pluginId],
+      verifyPackageIds: [dependencyId, pluginId]
+    })
+
+    expect(resolvedPath).toContain(
+      `${path.sep}node_modules${path.sep}@extjs-test${path.sep}react-refresh${path.sep}index.js`
+    )
+    expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(3)
+    expect(installOptionalDependenciesMock.mock.calls[2]?.[1]).toEqual([
+      dependencyId
+    ])
+  })
+
+  it('force-cleans install root when retries still leave a partial cache', async () => {
+    const dependencyId = '@extjs-test/react-refresh'
+    const pluginId = '@extjs-test/plugin-react-refresh'
+
+    installOptionalDependenciesMock
+      .mockImplementationOnce(async () => {
+        createPackage(
+          runtimePath,
+          pluginId,
+          'module.exports = { default: class ReactRefreshPlugin {} }'
+        )
+        return true
+      })
+      .mockImplementationOnce(async () => true)
+      .mockImplementationOnce(async () => true)
+      .mockImplementationOnce(async () => {
+        createPackage(runtimePath, dependencyId, 'module.exports = {ok: true}')
+        createPackage(
+          runtimePath,
+          pluginId,
+          'module.exports = { default: class ReactRefreshPlugin {} }'
+        )
+        return true
+      })
+
+    const {ensureOptionalPackageResolved} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const resolvedPath = await ensureOptionalPackageResolved({
+      integration: 'React',
+      projectPath,
+      dependencyId,
+      installDependencies: [dependencyId, pluginId],
+      verifyPackageIds: [dependencyId, pluginId]
+    })
+
+    expect(resolvedPath).toContain(
+      `${path.sep}node_modules${path.sep}@extjs-test${path.sep}react-refresh${path.sep}index.js`
+    )
+    expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(4)
+    expect(installOptionalDependenciesMock.mock.calls[3]?.[1]).toEqual([
+      dependencyId,
+      pluginId
+    ])
+    expect(installOptionalDependenciesMock.mock.calls[3]?.[2]).toMatchObject({
+      forceRecreateInstallRoot: true
+    })
+  })
   it('retries a partial single-package install before failing verification', async () => {
     const dependencyId = '@extjs-test/postcss-loader'
 
