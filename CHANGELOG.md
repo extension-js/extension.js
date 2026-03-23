@@ -4,6 +4,7 @@
 
 - Fix excludeBrowserFlags forwarding in dev config (e074a42b)
 - Fix optional dependency installs across framework tooling (461e1b3d)
+- Refactor optional dependency bootstrap into `optional-deps-lib` and remove legacy integration facade.
 - Fix Discord release not working (3e85528b)
 
 ## 3.8.2
