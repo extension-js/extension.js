@@ -14,8 +14,8 @@ import * as messages from '../js-frameworks-lib/messages'
 import {hasDependency} from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 import {
-  ensureOptionalModuleLoaded,
-  ensureOptionalPackageResolved
+  loadOptionalModuleWithoutInstall,
+  resolveOptionalPackageWithoutInstall
 } from '../../webpack-lib/optional-deps-resolver'
 
 type ReactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
@@ -43,32 +43,6 @@ export async function maybeUseReact(
   projectPath: string
 ): Promise<JsFramework | undefined> {
   if (!isUsingReact(projectPath)) return undefined
-
-  const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
-  await ensureOptionalPackageResolved({
-    integration: 'React',
-    projectPath,
-    dependencyId: 'react-refresh',
-    installDependencies: reactDependencies,
-    verifyPackageIds: reactDependencies
-  })
-
-  const ReactRefreshPlugin =
-    await ensureOptionalModuleLoaded<ReactRefreshPluginCtor>({
-      integration: 'React',
-      projectPath,
-      dependencyId: '@rspack/plugin-react-refresh',
-      installDependencies: reactDependencies,
-      verifyPackageIds: reactDependencies,
-      moduleAdapter: (mod: any) =>
-        ((mod && mod.default) || mod) as ReactRefreshPluginCtor
-    })
-
-  const reactPlugins: RspackPluginInstance[] = [
-    new ReactRefreshPlugin({
-      overlay: false
-    }) as any // TODO: cezaraugusto fix this
-  ]
 
   // Ensure a single React/renderer instance is bundled to avoid invalid hook calls
   const requireFromProject = createRequire(
@@ -111,6 +85,33 @@ export async function maybeUseReact(
   if (reactDomClientPath) alias['react-dom/client'] = reactDomClientPath
   if (jsxRuntimePath) alias['react/jsx-runtime'] = jsxRuntimePath
   if (jsxDevRuntimePath) alias['react/jsx-dev-runtime'] = jsxDevRuntimePath
+
+  const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
+  resolveOptionalPackageWithoutInstall({
+    integration: 'React',
+    projectPath,
+    dependencyId: 'react-refresh',
+    installDependencies: reactDependencies,
+    verifyPackageIds: reactDependencies
+  })
+
+  const ReactRefreshPlugin = loadOptionalModuleWithoutInstall<
+    ReactRefreshPluginCtor
+  >({
+    integration: 'React',
+    projectPath,
+    dependencyId: '@rspack/plugin-react-refresh',
+    installDependencies: reactDependencies,
+    verifyPackageIds: reactDependencies,
+    moduleAdapter: (mod: any) =>
+      ((mod && mod.default) || mod) as ReactRefreshPluginCtor
+  })
+
+  const reactPlugins: RspackPluginInstance[] = [
+    new ReactRefreshPlugin({
+      overlay: false
+    }) as any // TODO: cezaraugusto fix this
+  ]
 
   return {
     plugins: reactPlugins,
