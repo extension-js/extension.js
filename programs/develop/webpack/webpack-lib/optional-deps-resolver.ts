@@ -5,7 +5,7 @@ import {
   installOptionalDependencies,
   resolveDevelopInstallRoot,
   resolveOptionalInstallRoot
-} from '../plugin-css/css-lib/integrations'
+} from '../optional-deps-lib'
 
 type ResolutionResult = {
   resolvedPath: string
@@ -320,7 +320,8 @@ function verifyPackageInInstallRoot(
   packageId: string,
   installRoot: string
 ): boolean {
-  if (tryResolveWithBase(packageId, installRoot)) return true
+  // Do not use generic module resolution here; it can climb parent directories
+  // and report a false positive even when the package is absent in installRoot.
   if (resolveFromInstallRootPackageDir(packageId, installRoot)) return true
 
   if (installRoot.includes('.pnpm')) {
@@ -421,8 +422,37 @@ async function runInstallAndVerify(input: {
       (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
     )
 
-    if (missingAfterRetry.length === 0) {
-      return
+    if (missingAfterRetry.length === 0) return
+
+    // Some Windows/npm lanes report success for a batched optional install
+    // while still leaving one package absent. Top up only the missing ids
+    const didInstallMissingOnly = await installOptionalDependencies(
+      input.integration,
+      missingAfterRetry
+    )
+    if (didInstallMissingOnly) {
+      const missingAfterTargetedTopUp = input.verifyPackageIds.filter(
+        (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
+      )
+      if (missingAfterTargetedTopUp.length === 0) {
+        return
+      }
+    }
+
+    // Last-resort recovery for corrupted optional-deps cache roots where lock
+    // metadata can get stuck in a partial state across retries.
+    const didRecoverWithCleanInstall = await installOptionalDependencies(
+      input.integration,
+      input.verifyPackageIds,
+      {forceRecreateInstallRoot: true}
+    )
+    if (didRecoverWithCleanInstall) {
+      const missingAfterCleanInstall = input.verifyPackageIds.filter(
+        (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
+      )
+      if (missingAfterCleanInstall.length === 0) {
+        return
+      }
     }
 
     const diagnostics = buildDiagnostics({
