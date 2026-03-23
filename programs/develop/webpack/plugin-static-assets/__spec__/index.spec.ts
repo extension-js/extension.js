@@ -7,6 +7,11 @@ function createCompiler() {
       mode: 'development',
       module: {rules: [] as any[]},
       resolve: {alias: {} as Record<string, string>}
+    },
+    hooks: {
+      afterEmit: {
+        tap: vi.fn()
+      }
     }
   } as any
 }

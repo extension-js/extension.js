@@ -9,7 +9,7 @@
 import fs from 'fs'
 import path from 'path'
 import {findNearestPackageJsonSync} from '../../../../../webpack-lib/package-json'
-import {hasDependency} from '../../../../../plugin-css/css-lib/integrations'
+import {hasDependency} from '../../../../../optional-deps-lib'
 import {parseSync, type ParseOptions} from '@swc/core'
 import {validate} from 'schema-utils'
 import {type Schema} from 'schema-utils/declarations/validate'

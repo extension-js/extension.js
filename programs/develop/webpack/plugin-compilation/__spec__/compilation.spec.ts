@@ -39,7 +39,8 @@ vi.mock('../clean-dist', () => {
 })
 
 vi.mock('../compilation-lib/messages', () => ({
-  boring: (name: string, duration: number) => `build(${name}, ${duration}ms)`
+  boring: (name: string, duration: number) => `build(${name}, ${duration}ms)`,
+  zipPackagingSkipped: (reason: string) => `zip-skip(${reason})`
 }))
 
 vi.mock('pintor', () => ({
@@ -226,8 +227,11 @@ describe('CompilationPlugin', () => {
     emitDone(stats)
     emitDone(stats)
 
-    // Each successful compilation prints a boring log line.
-    expect(consoleLogSpy).toHaveBeenCalledTimes(2)
+    // Successful compilations always emit the boring build line.
+    const buildLines = consoleLogSpy.mock.calls.filter((call) =>
+      String(call[0] || '').startsWith('build(')
+    )
+    expect(buildLines.length).toBe(2)
   })
 
   it('prints aggregated warnings before later done hooks like browser launch', () => {

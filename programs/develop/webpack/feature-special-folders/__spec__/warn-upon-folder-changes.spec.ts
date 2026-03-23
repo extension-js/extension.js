@@ -10,6 +10,9 @@ vi.mock('../messages', () => ({
   serverRestartRequiredFromSpecialFolderMessageOnly: vi.fn(
     (addingOrRemoving: string, folder: string, typeOfAsset: string) =>
       `[${addingOrRemoving}] ${folder} ${typeOfAsset}`
+  ),
+  specialFolderChangeDetected: vi.fn(
+    (_change: string, _folder: string, _filePath: string) => ''
   )
 }))
 
