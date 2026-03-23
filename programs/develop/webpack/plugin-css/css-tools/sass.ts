@@ -10,7 +10,7 @@ import * as path from 'path'
 import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
-import {hasDependency, resolveDevelopInstallRoot} from '../css-lib/integrations'
+import {hasDependency, resolveDevelopInstallRoot} from '../../optional-deps-lib'
 import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
