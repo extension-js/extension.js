@@ -31,6 +31,7 @@
     "test:e2e": "pnpm exec playwright test",
     "smoke:npx": "node scripts/smoke-npx.mjs",
     "smoke:first-dev": "node scripts/validate-first-dev-run.mjs",
+    "smoke:content-template-first-dev": "node scripts/verify-content-template-first-dev.mjs",
     "smoke:content-reload": "node scripts/validate-content-reload-no-hard-reload.mjs",
     "ci:test:core": "pnpm run test:dev",
     "ci:test:develop": "pnpm run test:dev",
@@ -42,6 +43,7 @@
     "ci:test:plugin-extension": "pnpm run test:dev",
     "ci:test:plugin-js-frameworks": "pnpm run test:dev",
     "ci:test:plugin-compilation": "pnpm run test:dev",
+    "ci:test:optional-deps-lib": "pnpm --dir programs/develop exec vitest run webpack/optional-deps-lib/__spec__/installer-engine.spec.ts webpack/optional-deps-lib/__spec__/scenarios.spec.ts webpack/webpack-lib/__spec__/optional-deps-resolver.spec.ts webpack/webpack-lib/__spec__/preflight-optional-deps.spec.ts",
     "postcompile": "node scripts/build-extensions.cjs"
   },
   "devDependencies": {
