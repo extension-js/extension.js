@@ -424,7 +424,7 @@ describe('webpack/command-build', () => {
 
     expect(localErrorSpy).toHaveBeenCalled()
     const message = String(localErrorSpy.mock.calls[0]?.[0] || '')
-    expect(message).toContain('Error')
+    expect(message).toContain('Build failed')
     expect(message).toContain('boom')
   })
 
