@@ -11,7 +11,7 @@ export {
   installOptionalDependenciesBatch,
   hasDependency,
   resolveDevelopInstallRoot
-} from '../../plugin-css/css-lib/integrations'
+} from '../../optional-deps-lib'
 export function isUsingJSFramework(projectPath: string): boolean {
   const frameworks = [
     'react',
@@ -22,9 +22,6 @@ export function isUsingJSFramework(projectPath: string): boolean {
     'preact'
   ]
   return frameworks.some((fw) =>
-    require('../../plugin-css/css-lib/integrations').hasDependency(
-      projectPath,
-      fw
-    )
+    require('../../optional-deps-lib').hasDependency(projectPath, fw)
   )
 }
