@@ -125,6 +125,8 @@ describe('optional-deps-lib scenario matrix', () => {
   })
 
   it('wraps install with wsl.exe for WSL UNC cache roots on Windows', async () => {
+    if (originalPlatform !== 'win32') return
+
     setPlatform('win32')
     process.env.npm_config_user_agent = 'npm'
     process.env.EXTENSION_JS_CACHE_DIR = '\\\\wsl.localhost\\Ubuntu\\tmp\\extjs'
