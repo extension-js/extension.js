@@ -12,7 +12,7 @@ import {getDirs} from './paths'
 import {
   resolveDevelopInstallRoot,
   resolveOptionalInstallRoot
-} from '../plugin-css/css-lib/integrations'
+} from '../optional-deps-lib'
 import colors from 'pintor'
 import {hasPreflightMarker, writePreflightMarker} from './preflight-cache'
 import type {ProjectStructure} from './project'
