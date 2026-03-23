@@ -6,6 +6,13 @@ vi.mock('../../frameworks-lib/integrations', () => ({
   resolveDevelopInstallRoot: vi.fn(() => undefined)
 }))
 
+vi.mock('../../../webpack-lib/optional-deps-resolver', () => ({
+  resolveOptionalPackageWithoutInstall: vi.fn(() => '/mock/react-refresh'),
+  loadOptionalModuleWithoutInstall: vi.fn(
+    () => class ReactRefreshPluginMock {}
+  )
+}))
+
 // Ensure require.resolve('react-refresh') succeeds to avoid install+exit
 const originalResolve = (require as any).resolve
 beforeEach(() => {
@@ -68,6 +75,39 @@ describe('react tools', () => {
     )
     expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
       '/project/node_modules/react/jsx-dev-runtime'
+    )
+  })
+
+  it('throws when optional react tooling cannot be resolved', async () => {
+    const integrations = (await import(
+      '../../frameworks-lib/integrations'
+    )) as any
+    integrations.hasDependency.mockImplementation(
+      (_p: string, dep: string) => dep === 'react'
+    )
+
+    const optionalResolver = (await import(
+      '../../../webpack-lib/optional-deps-resolver'
+    )) as any
+    optionalResolver.resolveOptionalPackageWithoutInstall.mockImplementationOnce(
+      () => {
+        throw new Error('optional deps missing')
+      }
+    )
+
+    vi.doMock('module', () => ({
+      createRequire: () => {
+        const req = (() => {
+          throw new Error('not expected')
+        }) as any
+        req.resolve = (id: string) => `/project/node_modules/${id}`
+        return req
+      }
+    }))
+
+    const {maybeUseReact} = await import('../../js-tools/react')
+    await expect(maybeUseReact('/p')).rejects.toThrow(
+      new Error('optional deps missing')
     )
   })
 })
