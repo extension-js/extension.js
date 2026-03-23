@@ -131,6 +131,11 @@ describe('optional-deps-lib scenario matrix', () => {
     process.env.npm_config_user_agent = 'npm'
     process.env.EXTENSION_JS_CACHE_DIR = '\\\\wsl.localhost\\Ubuntu\\tmp\\extjs'
 
+    const cacheState = await import('../cache-state')
+    vi.spyOn(cacheState, 'prepareOptionalInstallState').mockImplementationOnce(
+      () => {}
+    )
+
     const {spawn} = (await import('child_process')) as any
     const {installOptionalDependencies} = await import('../index')
     await installOptionalDependencies('React', ['react-refresh'])
