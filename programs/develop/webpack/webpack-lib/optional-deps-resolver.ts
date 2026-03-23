@@ -625,6 +625,53 @@ export async function ensureOptionalPackageResolved(
   )
 }
 
+export function resolveOptionalPackageWithoutInstall(input: EnsureResolveInput) {
+  const installDependencies = input.installDependencies || [input.dependencyId]
+  const verifyPackageIds = input.verifyPackageIds || installDependencies
+  const installRoot = resolveOptionalInstallRoot()
+  const resolved = resolveFromKnownLocations(
+    input.dependencyId,
+    input.projectPath,
+    installRoot
+  )
+
+  const missingPeerDeps = resolved
+    ? getModuleContextMissingDependencies(
+        resolved,
+        verifyPackageIds,
+        input.dependencyId,
+        {integration: input.integration}
+      )
+    : verifyPackageIds.filter((id) => id !== input.dependencyId)
+
+  if (resolved && missingPeerDeps.length === 0) {
+    return resolved
+  }
+
+  const diagnostics = buildDiagnostics({
+    integration: input.integration,
+    dependencyId: input.dependencyId,
+    projectPath: input.projectPath,
+    installRoot,
+    installDependencies,
+    verifyPackageIds
+  })
+
+  throw new Error(
+    `[${input.integration}] ${input.dependencyId} could not be resolved from known optional dependency roots.\n` +
+      JSON.stringify(
+        {
+          ...diagnostics,
+          missingPeerDeps,
+          expectation:
+            'Optional dependency preflight should install and verify these packages before framework setup.'
+        },
+        null,
+        2
+      )
+  )
+}
+
 export async function ensureOptionalModuleLoaded<T = any>(
   input: EnsureLoadInput<T>
 ): Promise<T> {
@@ -681,6 +728,62 @@ export async function ensureOptionalModuleLoaded<T = any>(
     throw new Error(
       `[${input.integration}] ${input.dependencyId} could not be loaded after it resolved.\n` +
         JSON.stringify(diagnostics, null, 2)
+    )
+  }
+
+  return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
+}
+
+export function loadOptionalModuleWithoutInstall<T = any>(
+  input: EnsureLoadInput<T>
+): T {
+  const resolvedPath = resolveOptionalPackageWithoutInstall(input)
+  const candidateBases = getResolutionBases(input.projectPath)
+
+  let loaded: any
+  let didLoad = false
+  let lastLoadError: unknown
+
+  for (const basePath of candidateBases) {
+    const req = createRequire(packageJsonPath(basePath))
+    const candidateModuleIds = [input.dependencyId, resolvedPath]
+
+    for (const candidateModuleId of candidateModuleIds) {
+      try {
+        loaded = req(candidateModuleId)
+        didLoad = true
+        break
+      } catch (error) {
+        lastLoadError = error
+      }
+    }
+
+    if (didLoad) break
+  }
+
+  if (!didLoad) {
+    try {
+      loaded = require(resolvedPath)
+      didLoad = true
+    } catch (directRequireError) {
+      lastLoadError = directRequireError
+    }
+  }
+
+  if (!didLoad) {
+    throw new Error(
+      `[${input.integration}] ${input.dependencyId} could not be loaded after resolving from optional dependency roots.\n` +
+        JSON.stringify(
+          {
+            resolvedPath,
+            loadError:
+              lastLoadError instanceof Error
+                ? lastLoadError.message
+                : String(lastLoadError)
+          },
+          null,
+          2
+        )
     )
   }
 
