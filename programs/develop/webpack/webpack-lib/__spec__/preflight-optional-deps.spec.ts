@@ -5,6 +5,8 @@ import * as path from 'path'
 
 let mockRoot = ''
 let projectRoot = ''
+let originalCwd = ''
+let originalCacheDir: string | undefined
 const installOptionalDependenciesBatch = vi.fn(async () => undefined)
 
 vi.mock('../check-build-dependencies', () => ({
@@ -52,6 +54,9 @@ function writeFile(filePath: string, content: string) {
 
 describe('preflight-optional-deps', () => {
   beforeEach(() => {
+    vi.resetModules()
+    originalCwd = process.cwd()
+    originalCacheDir = process.env.EXTENSION_JS_CACHE_DIR
     installOptionalDependenciesBatch.mockClear()
     mockRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-preflight-'))
     projectRoot = path.join(mockRoot, 'project')
@@ -76,9 +81,16 @@ describe('preflight-optional-deps', () => {
       ),
       'module.exports = {};'
     )
+    process.env.EXTENSION_JS_CACHE_DIR = path.join(mockRoot, '.cache')
   })
 
   afterEach(() => {
+    process.chdir(originalCwd)
+    if (originalCacheDir === undefined) {
+      delete process.env.EXTENSION_JS_CACHE_DIR
+    } else {
+      process.env.EXTENSION_JS_CACHE_DIR = originalCacheDir
+    }
     if (mockRoot && fs.existsSync(mockRoot)) {
       fs.rmSync(mockRoot, {recursive: true, force: true})
     }
@@ -100,4 +112,5 @@ describe('preflight-optional-deps', () => {
 
     expect(installOptionalDependenciesBatch).not.toHaveBeenCalled()
   })
+
 })
