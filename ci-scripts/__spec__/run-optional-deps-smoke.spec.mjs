@@ -1,10 +1,26 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import path from 'node:path'
+import {pathToFileURL} from 'node:url'
 import {
+  fileSpecifier,
   removeDirectoryWithRetries,
   shouldUseRegistryExtensionForSmoke,
   shouldRetryCleanupError
 } from '../run-optional-deps-smoke.mjs'
+
+const originalPlatform = process.platform
+
+function setPlatform(value) {
+  Object.defineProperty(process, 'platform', {
+    value,
+    configurable: true
+  })
+}
+
+test.after(() => {
+  setPlatform(originalPlatform)
+})
 
 test('shouldRetryCleanupError matches transient Windows cleanup errors', () => {
   assert.equal(shouldRetryCleanupError({code: 'EBUSY'}), true)
@@ -58,4 +74,28 @@ test('shouldUseRegistryExtensionForSmoke keeps pnpm aligned with source-under-te
   assert.equal(shouldUseRegistryExtensionForSmoke('npm'), false)
   assert.equal(shouldUseRegistryExtensionForSmoke('yarn'), true)
   assert.equal(shouldUseRegistryExtensionForSmoke('bun'), true)
+})
+
+test('fileSpecifier keeps same-drive Windows paths relative', () => {
+  setPlatform('win32')
+
+  const specifier = fileSpecifier(
+    'C:\\repo\\extension.js\\programs\\create',
+    'C:\\Users\\runner\\AppData\\Local\\Temp\\fixture\\browser-extension'
+  )
+
+  assert.equal(specifier.startsWith('file:./') || specifier.startsWith('file:../'), true)
+  assert.equal(specifier.includes('D:'), false)
+})
+
+test('fileSpecifier uses absolute file URL for cross-drive Windows paths', () => {
+  setPlatform('win32')
+
+  const targetPath = path.win32.resolve('D:\\a\\extension.js\\extension.js\\programs\\create')
+  const specifier = fileSpecifier(
+    targetPath,
+    'C:\\Users\\runner\\AppData\\Local\\Temp\\fixture\\browser-extension'
+  )
+
+  assert.equal(specifier, pathToFileURL(targetPath).toString())
 })
