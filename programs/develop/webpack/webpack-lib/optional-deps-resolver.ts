@@ -333,13 +333,50 @@ function verifyPackageInInstallRoot(
   return false
 }
 
-function isPathInside(basePath: string, candidatePath: string): boolean {
-  const relative = path.relative(path.resolve(basePath), path.resolve(candidatePath))
-  return !relative.startsWith('..') && !path.isAbsolute(relative)
-}
-
 function dedupeFailures(packageIds: string[]) {
   return Array.from(new Set(packageIds))
+}
+
+function resolveRealPathSafe(targetPath: string): string {
+  try {
+    return fs.realpathSync(targetPath)
+  } catch {
+    return path.resolve(targetPath)
+  }
+}
+
+function findOwningPackageDir(resolvedPath: string): string | undefined {
+  let currentPath = path.dirname(resolvedPath)
+
+  for (let depth = 0; depth < 8; depth++) {
+    const packageJson = path.join(currentPath, 'package.json')
+    if (fs.existsSync(packageJson)) return currentPath
+
+    const parent = path.dirname(currentPath)
+    if (parent === currentPath) break
+    currentPath = parent
+  }
+
+  return undefined
+}
+
+function isSameInstalledPackage(
+  resolvedPath: string,
+  expectedInstalledPath: string
+): boolean {
+  const resolvedPackageDir = findOwningPackageDir(resolvedPath)
+  const expectedPackageDir = findOwningPackageDir(expectedInstalledPath)
+
+  if (resolvedPackageDir && expectedPackageDir) {
+    return (
+      resolveRealPathSafe(resolvedPackageDir) ===
+      resolveRealPathSafe(expectedPackageDir)
+    )
+  }
+
+  return (
+    resolveRealPathSafe(resolvedPath) === resolveRealPathSafe(expectedInstalledPath)
+  )
 }
 
 function evaluateModuleContextRule(
@@ -348,14 +385,14 @@ function evaluateModuleContextRule(
     {type: 'module-context-resolve' | 'module-context-load'}
   >,
   fromPackagePath: string,
-  options?: {mustStayInsideRoot?: string}
+  options?: {expectedInstalledPath?: string}
 ): string | undefined {
   try {
     const req = createRequire(fromPackagePath)
     const resolvedPeer = req.resolve(rule.packageId)
     if (
-      options?.mustStayInsideRoot &&
-      !isPathInside(options.mustStayInsideRoot, resolvedPeer)
+      options?.expectedInstalledPath &&
+      !isSameInstalledPackage(resolvedPeer, options.expectedInstalledPath)
     ) {
       return rule.packageId
     }
@@ -427,20 +464,24 @@ export function getContractVerificationFailuresAtInstallRoot(
   for (const rule of contract.verificationRules) {
     if (rule.type === 'install-root') {
       const resolvedPath = resolvePackage(rule.packageId)
-      if (!resolvedPath || !installRoot || !isPathInside(installRoot, resolvedPath)) {
-        failures.push(rule.packageId)
-      }
+      if (!resolvedPath || !installRoot) failures.push(rule.packageId)
       continue
     }
 
     const fromPackagePath = resolvePackage(rule.fromPackage)
-    if (!fromPackagePath || !installRoot || !isPathInside(installRoot, fromPackagePath)) {
+    if (!fromPackagePath || !installRoot) {
       failures.push(rule.fromPackage)
       continue
     }
 
+    const expectedPeerPath = resolvePackage(rule.packageId)
+    if (!expectedPeerPath) {
+      failures.push(rule.packageId)
+      continue
+    }
+
     const failure = evaluateModuleContextRule(rule, fromPackagePath, {
-      mustStayInsideRoot: installRoot
+      expectedInstalledPath: expectedPeerPath
     })
     if (failure) failures.push(failure)
   }

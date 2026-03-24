@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   removeDirectoryWithRetries,
+  shouldUseRegistryExtensionForSmoke,
   shouldRetryCleanupError
 } from '../run-optional-deps-smoke.mjs'
 
@@ -50,4 +51,11 @@ test('removeDirectoryWithRetries surfaces non-retriable cleanup failures', async
   )
 
   assert.equal(attempts, 1)
+})
+
+test('shouldUseRegistryExtensionForSmoke keeps pnpm aligned with source-under-test', () => {
+  assert.equal(shouldUseRegistryExtensionForSmoke('pnpm'), false)
+  assert.equal(shouldUseRegistryExtensionForSmoke('npm'), false)
+  assert.equal(shouldUseRegistryExtensionForSmoke('yarn'), true)
+  assert.equal(shouldUseRegistryExtensionForSmoke('bun'), true)
 })
