@@ -126,7 +126,7 @@ describe('optional-deps-lib installer engine', () => {
   })
 
   it('runs root relink for multi-package install', async () => {
-    process.env.npm_config_user_agent = 'npm'
+    process.env.npm_config_user_agent = 'pnpm'
     const {spawn} = (await import('child_process')) as any
     const {installOptionalDependencies, resolveOptionalInstallRoot} =
       await import('../index')
@@ -149,7 +149,7 @@ describe('optional-deps-lib installer engine', () => {
   })
 
   it('recovers from partial install by topping up missing dependency', async () => {
-    process.env.npm_config_user_agent = 'npm'
+    process.env.npm_config_user_agent = 'pnpm'
     const {spawn} = (await import('child_process')) as any
     const {installOptionalDependencies, resolveOptionalInstallRoot} =
       await import('../index')
@@ -172,6 +172,36 @@ describe('optional-deps-lib installer engine', () => {
 
     expect(result).toBe(true)
     expect(callIndex).toBeGreaterThanOrEqual(3)
+  })
+
+  it('recreates npm install root after incremental update leaves packages missing', async () => {
+    process.env.npm_config_user_agent = 'npm'
+    const {spawn} = (await import('child_process')) as any
+    const {installOptionalDependencies, resolveOptionalInstallRoot} =
+      await import('../index')
+    const installRoot = resolveOptionalInstallRoot()
+    seedInstalledDependency(installRoot, 'postcss-loader')
+
+    let callIndex = 0
+    spawn.mockImplementation(() => {
+      if (callIndex === 0) {
+        seedInstalledDependency(installRoot, '@rspack/plugin-react-refresh')
+      }
+      if (callIndex === 1) {
+        seedInstalledDependency(installRoot, '@rspack/plugin-react-refresh')
+        seedInstalledDependency(installRoot, 'react-refresh')
+      }
+      callIndex += 1
+      return createSpawn({exitCode: 0})
+    })
+
+    const result = await installOptionalDependencies('React', [
+      'react-refresh',
+      '@rspack/plugin-react-refresh'
+    ])
+
+    expect(result).toBe(true)
+    expect(callIndex).toBe(2)
   })
 
   it('does not fallback on windows when primary manager is npm', async () => {

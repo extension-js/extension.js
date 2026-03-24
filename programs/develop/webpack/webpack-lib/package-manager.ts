@@ -214,11 +214,38 @@ function detectByLockfile(cwd?: string): PackageManagerName | undefined {
   return undefined
 }
 
+function hydrateResolvedPackageManager(
+  name: PackageManagerName
+): PackageManagerResolution | undefined {
+  const resolvedCommand = resolveCommandOnPath(name)
+  if (resolvedCommand) {
+    return {name, execPath: resolvedCommand}
+  }
+
+  if (name === 'npm') {
+    const bundledNpmCli = resolveBundledNpmCliPath()
+    if (bundledNpmCli) {
+      return {
+        name: 'npm',
+        execPath: bundledNpmCli,
+        runnerCommand: process.execPath,
+        runnerArgs: [bundledNpmCli]
+      }
+    }
+  }
+
+  return undefined
+}
+
 export function resolvePackageManager(opts?: {
   cwd?: string
 }): PackageManagerResolution {
   const lockPm = detectByLockfile(opts?.cwd)
-  if (lockPm) return {name: lockPm}
+  if (lockPm) {
+    const hydrated = hydrateResolvedPackageManager(lockPm)
+    if (hydrated) return hydrated
+    return {name: lockPm}
+  }
 
   const override = getPackageManagerOverride()
   if (override) return override
@@ -230,9 +257,6 @@ export function resolvePackageManager(opts?: {
   for (const candidate of candidates) {
     const resolved = resolveCommandOnPath(candidate)
     if (resolved) {
-      if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(resolved)) {
-        return {name: candidate}
-      }
       return {name: candidate, execPath: resolved}
     }
   }

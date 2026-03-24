@@ -96,8 +96,8 @@ function verifyOptionalDepsResolvedAtInstallRoot(dependencies: string[]) {
   )
 }
 
-function verifyContractsResolvedAtInstallRoot(contractIds: string[]) {
-  const failures = Array.from(
+function getInstallRootVerificationFailures(contractIds: string[]) {
+  return Array.from(
     new Set(
       contractIds.flatMap((contractId) =>
         getContractVerificationFailuresAtInstallRoot(
@@ -106,8 +106,17 @@ function verifyContractsResolvedAtInstallRoot(contractIds: string[]) {
       )
     )
   )
+}
 
+async function verifyContractsResolvedAtInstallRoot(contractIds: string[]) {
+  let failures = getInstallRootVerificationFailures(contractIds)
   if (failures.length === 0) return
+
+  for (const waitMs of [250, 500, 1000]) {
+    await new Promise((resolve) => setTimeout(resolve, waitMs))
+    failures = getInstallRootVerificationFailures(contractIds)
+    if (failures.length === 0) return
+  }
 
   throw new Error(
     `[Optional] Optional dependency install reported success but contract verification failed at install root: ${failures.join(', ')}`
@@ -228,7 +237,9 @@ export async function preflightOptionalDependencies(
       throw new Error('[Optional] Optional dependencies failed to install.')
     }
 
-    verifyContractsResolvedAtInstallRoot(Array.from(new Set(contractsNeedingInstall)))
+    await verifyContractsResolvedAtInstallRoot(
+      Array.from(new Set(contractsNeedingInstall))
+    )
 
     if (
       opts?.showRunAgainMessage !== false &&
