@@ -29,6 +29,29 @@ function createPackage(rootDir: string, packageId: string, source: string) {
   fs.writeFileSync(path.join(packageDir, 'index.js'), source, 'utf8')
 }
 
+function createPnpmStorePackage(
+  rootDir: string,
+  storeKey: string,
+  packageId: string,
+  source: string
+) {
+  const packageDir = path.join(
+    rootDir,
+    'node_modules',
+    '.pnpm',
+    storeKey,
+    'node_modules',
+    ...packageId.split('/')
+  )
+  fs.mkdirSync(packageDir, {recursive: true})
+  writeJson(path.join(packageDir, 'package.json'), {
+    name: packageId,
+    version: '0.0.0',
+    main: 'index.js'
+  })
+  fs.writeFileSync(path.join(packageDir, 'index.js'), source, 'utf8')
+}
+
 describe('optional-deps-resolver', () => {
   let projectPath: string
   let runtimePath: string
@@ -509,6 +532,49 @@ describe('optional-deps-resolver', () => {
     expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
   })
 
+  it('verifies a pnpm store-backed React contract at install root', async () => {
+    const dependencyId = '@extjs-test/react-refresh'
+    const pluginId = '@extjs-test/plugin-react-refresh'
+    const storeKey = '@extjs-test+plugin-react-refresh@0.0.0'
+
+    createPnpmStorePackage(
+      runtimePath,
+      storeKey,
+      pluginId,
+      'module.exports = { default: class ReactRefreshPlugin {} }'
+    )
+    createPnpmStorePackage(
+      runtimePath,
+      storeKey,
+      dependencyId,
+      'module.exports = {runtime: true}'
+    )
+
+    const {getContractVerificationFailuresAtInstallRoot} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const failures = getContractVerificationFailuresAtInstallRoot(
+      {
+        id: 'test-react-refresh',
+        integration: 'React',
+        installPackages: [dependencyId, pluginId],
+        verificationRules: [
+          {type: 'install-root', packageId: dependencyId},
+          {type: 'install-root', packageId: pluginId},
+          {
+            type: 'module-context-resolve',
+            fromPackage: pluginId,
+            packageId: dependencyId
+          }
+        ]
+      },
+      runtimePath
+    )
+
+    expect(failures).toEqual([])
+  })
+
   it('loads optional module with adapter after deterministic resolution', async () => {
     const dependencyId = '@extjs-test/plugin-react-refresh'
     installOptionalDependenciesMock.mockImplementation(async () => {
@@ -563,15 +629,27 @@ describe('optional-deps-resolver', () => {
       integration: 'Vue',
       projectPath,
       dependencyId,
-      installDependencies: [dependencyId, peerId],
-      verifyPackageIds: [dependencyId, peerId]
+      contract: {
+        id: 'test-vue',
+        integration: 'Vue',
+        installPackages: [dependencyId, peerId],
+        verificationRules: [
+          {type: 'install-root', packageId: dependencyId},
+          {type: 'install-root', packageId: peerId},
+          {
+            type: 'module-context-resolve',
+            fromPackage: dependencyId,
+            packageId: peerId
+          }
+        ]
+      }
     })
 
     expect(resolvedPath).toContain('tmp-extjs-runtime-')
     expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
   })
 
-  it('does not enforce peer runtime checks for non-Vue integrations', async () => {
+  it('installs for React when peer is missing from module context', async () => {
     const dependencyId = '@extjs-test/react-refresh'
     const peerId = '@extjs-test/plugin-react-refresh'
 
@@ -580,7 +658,19 @@ describe('optional-deps-resolver', () => {
       dependencyId,
       'module.exports = {name: "project-react-refresh"}'
     )
-    installOptionalDependenciesMock.mockResolvedValue(true)
+    installOptionalDependenciesMock.mockImplementation(async () => {
+      createPackage(
+        runtimePath,
+        dependencyId,
+        'module.exports = {name: "runtime-react-refresh"}'
+      )
+      createPackage(
+        runtimePath,
+        peerId,
+        'module.exports = {name: "runtime-plugin-react-refresh"}'
+      )
+      return true
+    })
 
     const {ensureOptionalPackageResolved} = await import(
       '../optional-deps-resolver'
@@ -589,14 +679,24 @@ describe('optional-deps-resolver', () => {
       integration: 'React',
       projectPath,
       dependencyId,
-      installDependencies: [dependencyId, peerId],
-      verifyPackageIds: [dependencyId, peerId]
+      contract: {
+        id: 'test-react-refresh',
+        integration: 'React',
+        installPackages: [dependencyId, peerId],
+        verificationRules: [
+          {type: 'install-root', packageId: dependencyId},
+          {type: 'install-root', packageId: peerId},
+          {
+            type: 'module-context-resolve',
+            fromPackage: peerId,
+            packageId: dependencyId
+          }
+        ]
+      }
     })
 
-    expect(resolvedPath).toContain(
-      `${path.sep}node_modules${path.sep}@extjs-test${path.sep}react-refresh${path.sep}index.js`
-    )
-    expect(installOptionalDependenciesMock).not.toHaveBeenCalled()
+    expect(resolvedPath).toContain('tmp-extjs-runtime-')
+    expect(installOptionalDependenciesMock).toHaveBeenCalledTimes(1)
   })
 
   it('installs for Vue when peer resolves but cannot be required', async () => {
@@ -631,8 +731,20 @@ describe('optional-deps-resolver', () => {
       integration: 'Vue',
       projectPath,
       dependencyId,
-      installDependencies: [dependencyId, peerId],
-      verifyPackageIds: [dependencyId, peerId]
+      contract: {
+        id: 'test-vue',
+        integration: 'Vue',
+        installPackages: [dependencyId, peerId],
+        verificationRules: [
+          {type: 'install-root', packageId: dependencyId},
+          {type: 'install-root', packageId: peerId},
+          {
+            type: 'module-context-load',
+            fromPackage: dependencyId,
+            packageId: peerId
+          }
+        ]
+      }
     })
 
     expect(resolvedPath).toContain('tmp-extjs-runtime-')
