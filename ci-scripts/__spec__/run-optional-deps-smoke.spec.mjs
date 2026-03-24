@@ -5,6 +5,7 @@ import {pathToFileURL} from 'node:url'
 import {
   fileSpecifier,
   removeDirectoryWithRetries,
+  resolveSmokeTempRootParent,
   shouldUseRegistryExtensionForSmoke,
   shouldRetryCleanupError
 } from '../run-optional-deps-smoke.mjs'
@@ -97,5 +98,14 @@ test('fileSpecifier uses absolute file URL for cross-drive Windows paths', () =>
     'C:\\Users\\runner\\AppData\\Local\\Temp\\fixture\\browser-extension'
   )
 
-  assert.equal(specifier, pathToFileURL(targetPath).toString())
+  assert.equal(specifier, 'file:///D:/a/extension.js/extension.js/programs/create')
+})
+
+test('resolveSmokeTempRootParent keeps Windows smoke workspace on repo drive', async () => {
+  setPlatform('win32')
+
+  const tempParent = await resolveSmokeTempRootParent()
+
+  assert.equal(tempParent.includes('.tmp'), true)
+  assert.equal(path.win32.parse(tempParent).root.toLowerCase(), path.win32.parse(process.cwd()).root.toLowerCase())
 })
