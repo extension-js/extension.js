@@ -1,3 +1,69 @@
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import * as fs from 'fs'
+import * as os from 'os'
+import * as path from 'path'
+
+const originalPlatform = process.platform
+
+const setPlatform = (value: NodeJS.Platform) => {
+  Object.defineProperty(process, 'platform', {
+    value,
+    configurable: true
+  })
+}
+
+vi.mock('child_process', () => ({
+  execFileSync: vi.fn(),
+  spawnSync: vi.fn(() => ({status: 1})),
+  spawn: vi.fn()
+}))
+
+describe('package-manager', () => {
+  let tempDir = ''
+
+  beforeEach(() => {
+    vi.resetModules()
+    vi.clearAllMocks()
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pm-spec-'))
+    delete process.env.EXTENSION_JS_PACKAGE_MANAGER
+    delete process.env.EXTENSION_JS_PM_EXEC_PATH
+    delete process.env.npm_execpath
+    delete process.env.NPM_EXEC_PATH
+    delete process.env.npm_config_user_agent
+  })
+
+  afterEach(() => {
+    setPlatform(originalPlatform)
+    if (tempDir) {
+      fs.rmSync(tempDir, {recursive: true, force: true})
+      tempDir = ''
+    }
+  })
+
+  it('hydrates npm executable path when package-lock selects npm on Windows', async () => {
+    setPlatform('win32')
+    fs.writeFileSync(path.join(tempDir, 'package-lock.json'), '{}', 'utf8')
+
+    const {execFileSync} = (await import('child_process')) as any
+    execFileSync.mockReturnValue('C:\\nvm4w\\nodejs\\npm.cmd\r\n')
+
+    const {resolvePackageManager, buildInstallCommand} = await import(
+      '../package-manager'
+    )
+
+    const pm = resolvePackageManager({cwd: tempDir})
+    const command = buildInstallCommand(pm, ['install'])
+
+    expect(pm).toMatchObject({
+      name: 'npm',
+      execPath: 'C:\\nvm4w\\nodejs\\npm.cmd'
+    })
+    expect(command).toMatchObject({
+      command: 'C:\\nvm4w\\nodejs\\npm.cmd',
+      args: ['install']
+    })
+  })
+})
 import {describe, expect, it, vi, beforeEach} from 'vitest'
 
 const fakeChild = {
