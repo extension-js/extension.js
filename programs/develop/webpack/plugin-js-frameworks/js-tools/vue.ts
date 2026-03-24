@@ -15,8 +15,8 @@ import {hasDependency} from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 import {
-  ensureOptionalModuleLoaded,
-  ensureOptionalPackageResolved
+  ensureOptionalContractModuleLoaded,
+  ensureOptionalContractPackageResolved
 } from '../../webpack-lib/optional-deps-resolver'
 
 type VueLoaderPluginCtor = new (...args: any[]) => {apply(compiler: any): void}
@@ -42,22 +42,17 @@ export async function maybeUseVue(
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
-  const vueDependencies = ['vue-loader', '@vue/compiler-sfc', 'vue']
-  const vueLoaderPath = await ensureOptionalPackageResolved({
-    integration: 'Vue',
+  const vueLoaderPath = await ensureOptionalContractPackageResolved({
+    contractId: 'vue',
     projectPath,
-    dependencyId: 'vue-loader',
-    installDependencies: vueDependencies,
-    verifyPackageIds: vueDependencies
+    dependencyId: 'vue-loader'
   })
 
-  const VueLoaderPlugin = await ensureOptionalModuleLoaded<VueLoaderPluginCtor>(
+  const VueLoaderPlugin = await ensureOptionalContractModuleLoaded<VueLoaderPluginCtor>(
     {
-      integration: 'Vue',
+      contractId: 'vue',
       projectPath,
       dependencyId: 'vue-loader',
-      installDependencies: vueDependencies,
-      verifyPackageIds: vueDependencies,
       moduleAdapter: (mod: any) => {
         return ((mod && mod.VueLoaderPlugin) ||
           (mod &&
