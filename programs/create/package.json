@@ -90,7 +90,7 @@
     "@types/webextension-polyfill": "0.12.4",
     "@vitest/coverage-v8": "^4.0.17",
     "tsconfig": "*",
-    "typescript": "5.9.3",
+    "typescript": "6.0.2",
     "vitest": "^4.0.17",
     "webextension-polyfill": "^0.12.0"
   }
