@@ -7,7 +7,7 @@ let mockRoot = ''
 let projectRoot = ''
 let originalCwd = ''
 let originalCacheDir: string | undefined
-const installOptionalDependenciesBatch = vi.fn(async () => undefined)
+const installOptionalDependenciesBatch = vi.fn(async () => true)
 
 vi.mock('../check-build-dependencies', () => ({
   findExtensionDevelopRoot: () => mockRoot
