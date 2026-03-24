@@ -234,8 +234,21 @@ function runExtensionCliLong(args, cwd, env = baseEnv, pm = packageManager) {
   return runLong('extension', args, cwd, env)
 }
 
+function windowsDriveRoot(value) {
+  const resolved = path.resolve(value)
+  const root = path.parse(resolved).root || ''
+  return root.replace(/[\\/]+$/, '').toLowerCase()
+}
+
 function fileSpecifier(toAbsPath, fromDir) {
   if (process.platform === 'win32') {
+    const sourceRoot = windowsDriveRoot(fromDir)
+    const targetRoot = windowsDriveRoot(toAbsPath)
+
+    if (sourceRoot && targetRoot && sourceRoot !== targetRoot) {
+      return pathToFileURL(path.resolve(toAbsPath)).toString()
+    }
+
     const relative = path.relative(fromDir, toAbsPath).split(path.sep).join('/')
     const normalized = relative.startsWith('.') ? relative : `./${relative}`
     return `file:${normalized}`
@@ -851,6 +864,7 @@ if (isDirectExecution) {
 }
 
 export {
+  fileSpecifier,
   removeDirectoryWithRetries,
   shouldUseRegistryExtensionForSmoke,
   shouldRetryCleanupError,
