@@ -14,8 +14,8 @@ import * as messages from '../js-frameworks-lib/messages'
 import {hasDependency} from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 import {
-  loadOptionalModuleWithoutInstall,
-  resolveOptionalPackageWithoutInstall
+  loadOptionalContractModuleWithoutInstall,
+  resolveOptionalContractPackageWithoutInstall
 } from '../../webpack-lib/optional-deps-resolver'
 
 type ReactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
@@ -86,23 +86,18 @@ export async function maybeUseReact(
   if (jsxRuntimePath) alias['react/jsx-runtime'] = jsxRuntimePath
   if (jsxDevRuntimePath) alias['react/jsx-dev-runtime'] = jsxDevRuntimePath
 
-  const reactDependencies = ['react-refresh', '@rspack/plugin-react-refresh']
-  resolveOptionalPackageWithoutInstall({
-    integration: 'React',
+  resolveOptionalContractPackageWithoutInstall({
+    contractId: 'react-refresh',
     projectPath,
-    dependencyId: 'react-refresh',
-    installDependencies: reactDependencies,
-    verifyPackageIds: reactDependencies
+    dependencyId: 'react-refresh'
   })
 
-  const ReactRefreshPlugin = loadOptionalModuleWithoutInstall<
+  const ReactRefreshPlugin = loadOptionalContractModuleWithoutInstall<
     ReactRefreshPluginCtor
   >({
-    integration: 'React',
+    contractId: 'react-refresh',
     projectPath,
     dependencyId: '@rspack/plugin-react-refresh',
-    installDependencies: reactDependencies,
-    verifyPackageIds: reactDependencies,
     moduleAdapter: (mod: any) =>
       ((mod && mod.default) || mod) as ReactRefreshPluginCtor
   })
