@@ -18,6 +18,7 @@ import colors from 'pintor'
 import {hasPreflightMarker, writePreflightMarker} from './preflight-cache'
 import type {ProjectStructure} from './project'
 import type {DevOptions} from '../webpack-types'
+import {getOptionalDependencyContract} from './optional-deps-contracts'
 import {isUsingReact} from '../plugin-js-frameworks/js-tools/react'
 import {isUsingPreact} from '../plugin-js-frameworks/js-tools/preact'
 import {isUsingVue} from '../plugin-js-frameworks/js-tools/vue'
@@ -28,6 +29,10 @@ import {isUsingSass} from '../plugin-css/css-tools/sass'
 import {isUsingLess} from '../plugin-css/css-tools/less'
 import {isUsingPostCss} from '../plugin-css/css-tools/postcss'
 import * as messages from '../plugin-js-frameworks/js-frameworks-lib/messages'
+import {
+  getContractVerificationFailuresAtInstallRoot,
+  getContractVerificationFailuresFromKnownLocations
+} from './optional-deps-resolver'
 
 function getResolutionPaths(projectPath?: string) {
   const optionalInstallRoot = resolveOptionalInstallRoot()
@@ -53,20 +58,23 @@ function getResolutionPaths(projectPath?: string) {
   return Array.from(new Set(paths))
 }
 
-function canResolveFromProject(id: string, projectPath: string) {
+function canResolveFromModuleContext(
+  resolvedPath: string | undefined,
+  dependencyId: string
+) {
+  if (!resolvedPath) return undefined
+
   try {
-    return require.resolve(id, {paths: getResolutionPaths(projectPath)})
+    const req = createRequire(resolvedPath)
+    return req.resolve(dependencyId)
   } catch {
     return undefined
   }
 }
 
-function canResolve(id: string, projectPath?: string) {
-  try {
-    return require.resolve(id, {paths: getResolutionPaths(projectPath)})
-  } catch {
-    return undefined
-  }
+function isPathInside(basePath: string, candidatePath: string) {
+  const relative = path.relative(path.resolve(basePath), path.resolve(candidatePath))
+  return !relative.startsWith('..') && !path.isAbsolute(relative)
 }
 
 function verifyOptionalDepsResolvedAtInstallRoot(dependencies: string[]) {
@@ -74,8 +82,8 @@ function verifyOptionalDepsResolvedAtInstallRoot(dependencies: string[]) {
   const req = createRequire(path.join(installRoot, 'package.json'))
   const missing = dependencies.filter((dependencyId) => {
     try {
-      req.resolve(dependencyId)
-      return false
+      const resolvedPath = req.resolve(dependencyId)
+      return !isPathInside(installRoot, resolvedPath)
     } catch {
       return true
     }
@@ -85,6 +93,24 @@ function verifyOptionalDepsResolvedAtInstallRoot(dependencies: string[]) {
 
   throw new Error(
     `[Optional] Optional dependency install reported success but packages are missing at install root: ${missing.join(', ')}`
+  )
+}
+
+function verifyContractsResolvedAtInstallRoot(contractIds: string[]) {
+  const failures = Array.from(
+    new Set(
+      contractIds.flatMap((contractId) =>
+        getContractVerificationFailuresAtInstallRoot(
+          getOptionalDependencyContract(contractId)
+        )
+      )
+    )
+  )
+
+  if (failures.length === 0) return
+
+  throw new Error(
+    `[Optional] Optional dependency install reported success but contract verification failed at install root: ${failures.join(', ')}`
   )
 }
 
@@ -111,6 +137,8 @@ export async function preflightOptionalDependencies(
   const missingOptionalDeps = new Set<string>()
   const missingByIntegration: Record<string, string[]> = {}
   const usedIntegrations: string[] = []
+  const activeContractIds: string[] = []
+  const contractsNeedingInstall: string[] = []
 
   const addMissing = (integration: string, dependency: string) => {
     if (missingOptionalDeps.has(dependency)) {
@@ -123,6 +151,11 @@ export async function preflightOptionalDependencies(
     missingByIntegration[integration].push(dependency)
   }
 
+  const addActiveContract = (contractId: string) => {
+    activeContractIds.push(contractId)
+    usedIntegrations.push(getOptionalDependencyContract(contractId).integration)
+  }
+
   const usesTypeScript = isUsingTypeScript(projectPath)
   const usesReact = isUsingReact(projectPath)
   const usesPreact = isUsingPreact(projectPath)
@@ -133,101 +166,52 @@ export async function preflightOptionalDependencies(
   const usesPostCss = isUsingPostCss(projectPath)
 
   if (usesTypeScript) {
-    usedIntegrations.push('TypeScript')
-    if (!canResolveFromProject('typescript', projectPath)) {
-      addMissing('TypeScript', 'typescript')
-    }
+    addActiveContract('typescript')
   }
 
   if (usesReact) {
-    if (!canResolve('react-refresh', projectPath)) {
-      addMissing('React', 'react-refresh')
-    }
-    if (!canResolve('@rspack/plugin-react-refresh', projectPath)) {
-      addMissing('React', '@rspack/plugin-react-refresh')
-    }
-    usedIntegrations.push('React')
+    addActiveContract('react-refresh')
   }
 
   if (usesPreact) {
-    if (!canResolve('@prefresh/core', projectPath)) {
-      addMissing('Preact', '@prefresh/core')
-    }
-    if (!canResolve('@prefresh/utils', projectPath)) {
-      addMissing('Preact', '@prefresh/utils')
-    }
-    if (!canResolve('@rspack/plugin-preact-refresh', projectPath)) {
-      addMissing('Preact', '@rspack/plugin-preact-refresh')
-    }
-    if (!canResolve('preact', projectPath)) {
-      addMissing('Preact', 'preact')
-    }
-    usedIntegrations.push('Preact')
+    addActiveContract('preact-refresh')
   }
 
   if (usesVue) {
-    if (!canResolve('vue-loader', projectPath)) {
-      addMissing('Vue', 'vue-loader')
-    }
-    if (!canResolve('@vue/compiler-sfc', projectPath)) {
-      addMissing('Vue', '@vue/compiler-sfc')
-    }
-    usedIntegrations.push('Vue')
+    addActiveContract('vue')
   }
 
   if (usesSvelte) {
-    if (
-      !canResolveFromProject('svelte-loader', projectPath) &&
-      !canResolve('svelte-loader', projectPath)
-    ) {
-      addMissing('Svelte', 'svelte-loader')
-    }
-    if (!canResolveFromProject('typescript', projectPath)) {
-      addMissing('Svelte', 'typescript')
-    }
-    usedIntegrations.push('Svelte')
+    addActiveContract('svelte')
   }
 
   if (usesSass) {
-    if (!canResolve('sass-loader', projectPath)) {
-      const postCssDeps = [
-        'postcss-loader',
-        'postcss-scss',
-        'postcss-preset-env'
-      ]
-      for (const dep of postCssDeps) {
-        if (!canResolve(dep, projectPath)) {
-          addMissing('Sass', dep)
-        }
-      }
-      addMissing('Sass', 'sass-loader')
-      usedIntegrations.push('Sass')
-    }
+    addActiveContract('sass')
   }
 
   if (usesLess) {
-    if (!canResolve('less-loader', projectPath)) {
-      if (!canResolve('less', projectPath)) {
-        addMissing('Less', 'less')
-      }
-      addMissing('Less', 'less-loader')
-      usedIntegrations.push('Less')
-    }
+    addActiveContract('less')
   }
 
-  if (
-    usesPostCss &&
-    !canResolve('postcss-loader', projectPath) &&
-    !usesSass &&
-    !usesLess
-  ) {
-    if (!canResolve('postcss', projectPath)) {
-      addMissing('PostCSS', 'postcss')
-    }
-    addMissing('PostCSS', 'postcss-loader')
-    usedIntegrations.push('PostCSS')
+  if (usesPostCss && !usesSass && !usesLess) {
+    addActiveContract('postcss')
   } else if (usesPostCss) {
     usedIntegrations.push('PostCSS')
+  }
+
+  for (const contractId of Array.from(new Set(activeContractIds))) {
+    const contract = getOptionalDependencyContract(contractId)
+    const failures = getContractVerificationFailuresFromKnownLocations(
+      contract,
+      projectPath
+    )
+
+    if (failures.length === 0) continue
+
+    contractsNeedingInstall.push(contractId)
+    for (const dependency of contract.installPackages) {
+      addMissing(contract.integration, dependency)
+    }
   }
 
   if (missingOptionalDeps.size > 0) {
@@ -244,7 +228,7 @@ export async function preflightOptionalDependencies(
       throw new Error('[Optional] Optional dependencies failed to install.')
     }
 
-    verifyOptionalDepsResolvedAtInstallRoot(Array.from(missingOptionalDeps))
+    verifyContractsResolvedAtInstallRoot(Array.from(new Set(contractsNeedingInstall)))
 
     if (
       opts?.showRunAgainMessage !== false &&
