@@ -235,9 +235,15 @@ function runExtensionCliLong(args, cwd, env = baseEnv, pm = packageManager) {
 }
 
 function windowsDriveRoot(value) {
-  const resolved = path.resolve(value)
-  const root = path.parse(resolved).root || ''
+  const resolved = path.win32.resolve(value)
+  const root = path.win32.parse(resolved).root || ''
   return root.replace(/[\\/]+$/, '').toLowerCase()
+}
+
+function windowsPathToFileURL(value) {
+  const resolved = path.win32.resolve(value).replace(/\\/g, '/')
+  const withLeadingSlash = resolved.startsWith('/') ? resolved : `/${resolved}`
+  return encodeURI(`file://${withLeadingSlash}`)
 }
 
 function fileSpecifier(toAbsPath, fromDir) {
@@ -246,14 +252,27 @@ function fileSpecifier(toAbsPath, fromDir) {
     const targetRoot = windowsDriveRoot(toAbsPath)
 
     if (sourceRoot && targetRoot && sourceRoot !== targetRoot) {
-      return pathToFileURL(path.resolve(toAbsPath)).toString()
+      return windowsPathToFileURL(toAbsPath)
     }
 
-    const relative = path.relative(fromDir, toAbsPath).split(path.sep).join('/')
+    const relative = path.win32
+      .relative(path.win32.resolve(fromDir), path.win32.resolve(toAbsPath))
+      .split(path.win32.sep)
+      .join('/')
     const normalized = relative.startsWith('.') ? relative : `./${relative}`
     return `file:${normalized}`
   }
   return pathToFileURL(toAbsPath).toString()
+}
+
+async function resolveSmokeTempRootParent() {
+  if (process.platform !== 'win32') {
+    return os.tmpdir()
+  }
+
+  const repoScopedTempDir = path.join(ROOT_DIR, '.tmp', 'optional-deps-smoke')
+  await fs.mkdir(repoScopedTempDir, {recursive: true})
+  return repoScopedTempDir
 }
 
 async function pathExists(targetPath) {
@@ -783,8 +802,9 @@ async function installWorkspaceDependencies() {
 async function main() {
   assertValidCliArgs(cliPackageManager, cliScenario)
 
+  const tempParentDir = await resolveSmokeTempRootParent()
   const tempRoot = await fs.mkdtemp(
-    path.join(os.tmpdir(), 'extjs-optional-deps-')
+    path.join(tempParentDir, 'extjs-optional-deps-')
   )
   const workdir = path.join(tempRoot, 'browser-extension')
 
@@ -866,6 +886,7 @@ if (isDirectExecution) {
 export {
   fileSpecifier,
   removeDirectoryWithRetries,
+  resolveSmokeTempRootParent,
   shouldUseRegistryExtensionForSmoke,
   shouldRetryCleanupError,
   terminateChildProcess,
