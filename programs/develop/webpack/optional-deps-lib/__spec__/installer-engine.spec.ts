@@ -27,6 +27,20 @@ const createSpawn = (
   }
 })
 
+function seedInstalledDependency(installRoot: string, dependencyId: string) {
+  const packageDir = path.join(
+    installRoot,
+    'node_modules',
+    ...dependencyId.split('/')
+  )
+  fs.mkdirSync(packageDir, {recursive: true})
+  fs.writeFileSync(path.join(packageDir, 'index.js'), 'module.exports = {}')
+  fs.writeFileSync(
+    path.join(packageDir, 'package.json'),
+    JSON.stringify({name: dependencyId, version: '0.0.0'})
+  )
+}
+
 vi.mock('child_process', () => ({
   execFileSync: vi.fn(),
   spawnSync: vi.fn(() => ({status: 0})),
@@ -66,7 +80,9 @@ describe('optional-deps-lib installer engine', () => {
 
   it('installs optional tooling into isolated cache root', async () => {
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} = await import('../index')
+    const {installOptionalDependencies, resolveOptionalInstallRoot} =
+      await import('../index')
+    seedInstalledDependency(resolveOptionalInstallRoot(), 'postcss')
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -80,6 +96,9 @@ describe('optional-deps-lib installer engine', () => {
     process.env.npm_config_user_agent = 'npm'
     const {installOptionalDependencies, resolveOptionalInstallRoot} =
       await import('../index')
+    const installRoot = resolveOptionalInstallRoot()
+    seedInstalledDependency(installRoot, 'react-refresh')
+    seedInstalledDependency(installRoot, '@rspack/plugin-react-refresh')
 
     await installOptionalDependencies('React', [
       'react-refresh',
@@ -97,7 +116,9 @@ describe('optional-deps-lib installer engine', () => {
   it('runs a single command for single-package install', async () => {
     process.env.npm_config_user_agent = 'npm'
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} = await import('../index')
+    const {installOptionalDependencies, resolveOptionalInstallRoot} =
+      await import('../index')
+    seedInstalledDependency(resolveOptionalInstallRoot(), 'postcss')
 
     await installOptionalDependencies('PostCSS', ['postcss'])
 
@@ -107,7 +128,12 @@ describe('optional-deps-lib installer engine', () => {
   it('runs root relink for multi-package install', async () => {
     process.env.npm_config_user_agent = 'npm'
     const {spawn} = (await import('child_process')) as any
-    const {installOptionalDependencies} = await import('../index')
+    const {installOptionalDependencies, resolveOptionalInstallRoot} =
+      await import('../index')
+    const installRoot = resolveOptionalInstallRoot()
+    seedInstalledDependency(installRoot, 'vue-loader')
+    seedInstalledDependency(installRoot, '@vue/compiler-sfc')
+    seedInstalledDependency(installRoot, 'vue')
 
     await installOptionalDependencies('Vue', [
       'vue-loader',
@@ -120,6 +146,32 @@ describe('optional-deps-lib installer engine', () => {
       ? spawn.mock.calls[1][1].join(' ')
       : ''
     expect(relinkArgs).toContain('install')
+  })
+
+  it('recovers from partial install by topping up missing dependency', async () => {
+    process.env.npm_config_user_agent = 'npm'
+    const {spawn} = (await import('child_process')) as any
+    const {installOptionalDependencies, resolveOptionalInstallRoot} =
+      await import('../index')
+    const installRoot = resolveOptionalInstallRoot()
+    seedInstalledDependency(installRoot, '@rspack/plugin-react-refresh')
+
+    let callIndex = 0
+    spawn.mockImplementation(() => {
+      if (callIndex === 2) {
+        seedInstalledDependency(installRoot, 'react-refresh')
+      }
+      callIndex += 1
+      return createSpawn({exitCode: 0})
+    })
+
+    const result = await installOptionalDependencies('React', [
+      'react-refresh',
+      '@rspack/plugin-react-refresh'
+    ])
+
+    expect(result).toBe(true)
+    expect(callIndex).toBeGreaterThanOrEqual(3)
   })
 
   it('does not fallback on windows when primary manager is npm', async () => {

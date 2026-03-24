@@ -141,17 +141,7 @@ async function terminateChildProcess(child) {
 }
 
 function buildSmokeEnv(pm) {
-  if (pm !== 'pnpm') return baseEnv
-
-  const npmCommandPath = resolveCommandPath('npm')
-  return {
-    ...baseEnv,
-    // Force the isolated optional-deps cache installs through npm so the
-    // smoke test can focus on lockfile stability instead of host-specific
-    // pnpm shim resolution in nested child processes.
-    EXTENSION_JS_PACKAGE_MANAGER: 'npm',
-    ...(npmCommandPath ? {EXTENSION_JS_PM_EXEC_PATH: npmCommandPath} : {})
-  }
+  return baseEnv
 }
 
 function commandFor(tool) {
