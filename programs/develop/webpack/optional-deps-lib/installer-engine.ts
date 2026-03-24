@@ -1,5 +1,4 @@
 import * as path from 'path'
-import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../plugin-css/css-lib/messages'
 import {resolveOptionalDependencySpecs} from '../webpack-lib/optional-dependencies'
@@ -11,6 +10,7 @@ import {
   type PackageManagerResolution
 } from '../webpack-lib/package-manager'
 import {prepareOptionalInstallState} from './cache-state'
+import {resolvePackageFromInstallRoot} from './install-root-packages'
 import {resolveOptionalInstallRoot} from './runtime-context'
 
 type InstallCommand = {
@@ -36,23 +36,12 @@ export type InstallOptionalDependenciesOptions = {
   forceRecreateInstallRoot?: boolean
 }
 
-function isPathInside(basePath: string, candidatePath: string) {
-  const relative = path.relative(path.resolve(basePath), path.resolve(candidatePath))
-  return !relative.startsWith('..') && !path.isAbsolute(relative)
-}
-
 function getMissingDependenciesAtInstallRoot(
   dependencies: string[],
   installBaseDir: string
 ) {
-  const req = createRequire(path.join(installBaseDir, 'package.json'))
   return dependencies.filter((dependencyId) => {
-    try {
-      const resolvedPath = req.resolve(dependencyId)
-      return !isPathInside(installBaseDir, resolvedPath)
-    } catch {
-      return true
-    }
+    return !resolvePackageFromInstallRoot(dependencyId, installBaseDir)
   })
 }
 
@@ -184,11 +173,9 @@ function getOptionalInstallCommand(
   }
   if (pmName === 'pnpm') {
     return buildInstallCommand(pm, [
-      'add',
-      ...dependencySpecs,
+      'install',
       '--dir',
       installBaseDir,
-      '--save-optional',
       '--ignore-workspace',
       '--lockfile=false',
       '--silent'

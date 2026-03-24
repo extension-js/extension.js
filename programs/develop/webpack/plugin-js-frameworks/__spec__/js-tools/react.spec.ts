@@ -7,8 +7,10 @@ vi.mock('../../frameworks-lib/integrations', () => ({
 }))
 
 vi.mock('../../../webpack-lib/optional-deps-resolver', () => ({
-  resolveOptionalPackageWithoutInstall: vi.fn(() => '/mock/react-refresh'),
-  loadOptionalModuleWithoutInstall: vi.fn(
+  resolveOptionalContractPackageWithoutInstall: vi.fn(
+    () => '/mock/react-refresh'
+  ),
+  loadOptionalContractModuleWithoutInstall: vi.fn(
     () => class ReactRefreshPluginMock {}
   )
 }))
@@ -89,7 +91,7 @@ describe('react tools', () => {
     const optionalResolver = (await import(
       '../../../webpack-lib/optional-deps-resolver'
     )) as any
-    optionalResolver.resolveOptionalPackageWithoutInstall.mockImplementationOnce(
+    optionalResolver.resolveOptionalContractPackageWithoutInstall.mockImplementationOnce(
       () => {
         throw new Error('optional deps missing')
       }

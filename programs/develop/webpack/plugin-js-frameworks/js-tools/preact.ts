@@ -14,8 +14,8 @@ import {hasDependency} from '../frameworks-lib/integrations'
 import {JsFramework} from '../../webpack-types'
 import {RspackPluginInstance} from '@rspack/core'
 import {
-  ensureOptionalModuleLoaded,
-  ensureOptionalPackageResolved
+  ensureOptionalContractModuleLoaded,
+  ensureOptionalContractPackageResolved
 } from '../../webpack-lib/optional-deps-resolver'
 
 type PreactRefreshPluginCtor = new (...args: any[]) => RspackPluginInstance
@@ -46,27 +46,17 @@ export async function maybeUsePreact(
 
   // Fast-refresh for Preact!
   // https://github.com/preactjs/prefresh
-  const preactDependencies = [
-    '@prefresh/core',
-    '@prefresh/utils',
-    '@rspack/plugin-preact-refresh',
-    'preact'
-  ]
-  await ensureOptionalPackageResolved({
-    integration: 'Preact',
+  await ensureOptionalContractPackageResolved({
+    contractId: 'preact-refresh',
     projectPath,
-    dependencyId: '@rspack/plugin-preact-refresh',
-    installDependencies: preactDependencies,
-    verifyPackageIds: preactDependencies
+    dependencyId: '@rspack/plugin-preact-refresh'
   })
 
   const PreactRefreshPlugin =
-    await ensureOptionalModuleLoaded<PreactRefreshPluginCtor>({
-      integration: 'Preact',
+    await ensureOptionalContractModuleLoaded<PreactRefreshPluginCtor>({
+      contractId: 'preact-refresh',
       projectPath,
       dependencyId: '@rspack/plugin-preact-refresh',
-      installDependencies: preactDependencies,
-      verifyPackageIds: preactDependencies,
       moduleAdapter: (mod: any) =>
         ((mod && mod.default) || mod) as PreactRefreshPluginCtor
     })

@@ -6,6 +6,12 @@ import {
   resolveDevelopInstallRoot,
   resolveOptionalInstallRoot
 } from '../optional-deps-lib'
+import {resolvePackageFromInstallRoot} from '../optional-deps-lib/install-root-packages'
+import type {
+  OptionalDependencyContract,
+  OptionalDependencyVerificationRule
+} from '../optional-deps-lib/contract-types'
+import {getOptionalDependencyContract} from './optional-deps-contracts'
 
 type ResolutionResult = {
   resolvedPath: string
@@ -18,6 +24,7 @@ type EnsureResolveInput = {
   dependencyId: string
   installDependencies?: string[]
   verifyPackageIds?: string[]
+  contract?: OptionalDependencyContract
 }
 
 type EnsureLoadInput<T = any> = EnsureResolveInput & {
@@ -25,6 +32,38 @@ type EnsureLoadInput<T = any> = EnsureResolveInput & {
 }
 
 const installSingleFlight = new Map<string, Promise<void>>()
+
+function toInstallRootContract(
+  integration: string,
+  contractId: string,
+  installDependencies: string[],
+  verifyPackageIds: string[]
+): OptionalDependencyContract {
+  return {
+    id: contractId,
+    integration,
+    installPackages: installDependencies,
+    verificationRules: verifyPackageIds.map((packageId) => ({
+      type: 'install-root',
+      packageId
+    }))
+  }
+}
+
+function getVerificationContract(
+  input: EnsureResolveInput | EnsureLoadInput<any>
+): OptionalDependencyContract {
+  if (input.contract) return input.contract
+
+  const installDependencies = input.installDependencies || [input.dependencyId]
+  const verifyPackageIds = input.verifyPackageIds || installDependencies
+  return toInstallRootContract(
+    input.integration,
+    input.integration,
+    installDependencies,
+    verifyPackageIds
+  )
+}
 
 function getResolutionBases(projectPath: string): string[] {
   const optionalInstallRoot = resolveOptionalInstallRoot()
@@ -114,37 +153,6 @@ function resolveFromKnownLocations(
     )
   }
   return undefined
-}
-
-function getModuleContextMissingDependencies(
-  resolvedPath: string,
-  verifyPackageIds: string[],
-  dependencyId: string,
-  options?: {integration?: string}
-) {
-  if (!verifyPackageIds.length) return []
-  if (options?.integration !== 'Vue') return []
-
-  try {
-    const req = createRequire(resolvedPath)
-
-    return verifyPackageIds.filter((id) => {
-      if (id === dependencyId) return false
-
-      try {
-        req.resolve(id)
-        // Vue compiler deps can resolve but still fail to execute in a
-        // mismatched hoisted tree; validate runtime loadability as well.
-        req(id)
-        return false
-      } catch {
-        return true
-      }
-    })
-  } catch {
-    // If we cannot establish a module context, treat all peer checks as missing.
-    return verifyPackageIds.filter((id) => id !== dependencyId)
-  }
 }
 
 function getPackageDirFromInstallRoot(
@@ -306,14 +314,7 @@ function resolveFromInstallRootPackageDir(
   dependencyId: string,
   installRoot: string
 ): string | undefined {
-  const packageDir = getPackageDirFromInstallRoot(dependencyId, installRoot)
-  const directResolution = resolveFromPackageDir(packageDir)
-  if (directResolution) return directResolution
-
-  const nestedPackageDir = findNestedPackageDir(dependencyId, installRoot)
-  if (!nestedPackageDir || nestedPackageDir === packageDir) return undefined
-
-  return resolveFromPackageDir(nestedPackageDir)
+  return resolvePackageFromInstallRoot(dependencyId, installRoot)
 }
 
 function verifyPackageInInstallRoot(
@@ -332,7 +333,123 @@ function verifyPackageInInstallRoot(
   return false
 }
 
+function isPathInside(basePath: string, candidatePath: string): boolean {
+  const relative = path.relative(path.resolve(basePath), path.resolve(candidatePath))
+  return !relative.startsWith('..') && !path.isAbsolute(relative)
+}
+
+function dedupeFailures(packageIds: string[]) {
+  return Array.from(new Set(packageIds))
+}
+
+function evaluateModuleContextRule(
+  rule: Extract<
+    OptionalDependencyVerificationRule,
+    {type: 'module-context-resolve' | 'module-context-load'}
+  >,
+  fromPackagePath: string,
+  options?: {mustStayInsideRoot?: string}
+): string | undefined {
+  try {
+    const req = createRequire(fromPackagePath)
+    const resolvedPeer = req.resolve(rule.packageId)
+    if (
+      options?.mustStayInsideRoot &&
+      !isPathInside(options.mustStayInsideRoot, resolvedPeer)
+    ) {
+      return rule.packageId
+    }
+    if (rule.type === 'module-context-load') {
+      req(rule.packageId)
+    }
+    return undefined
+  } catch {
+    return rule.packageId
+  }
+}
+
+export function getContractVerificationFailuresFromKnownLocations(
+  contract: OptionalDependencyContract,
+  projectPath: string,
+  installRoot = resolveOptionalInstallRoot()
+) {
+  const resolvedByPackage = new Map<string, string | undefined>()
+  const resolvePackage = (packageId: string) => {
+    if (!resolvedByPackage.has(packageId)) {
+      resolvedByPackage.set(
+        packageId,
+        resolveFromKnownLocations(packageId, projectPath, installRoot)
+      )
+    }
+    return resolvedByPackage.get(packageId)
+  }
+
+  const failures: string[] = []
+
+  for (const rule of contract.verificationRules) {
+    if (rule.type === 'install-root') {
+      if (!resolvePackage(rule.packageId)) failures.push(rule.packageId)
+      continue
+    }
+
+    const fromPackagePath = resolvePackage(rule.fromPackage)
+    if (!fromPackagePath) {
+      failures.push(rule.fromPackage)
+      continue
+    }
+
+    const failure = evaluateModuleContextRule(rule, fromPackagePath)
+    if (failure) failures.push(failure)
+  }
+
+  return dedupeFailures(failures)
+}
+
+export function getContractVerificationFailuresAtInstallRoot(
+  contract: OptionalDependencyContract,
+  installRoot = resolveOptionalInstallRoot()
+) {
+  const resolvedByPackage = new Map<string, string | undefined>()
+  const resolvePackage = (packageId: string) => {
+    if (!resolvedByPackage.has(packageId)) {
+      resolvedByPackage.set(
+        packageId,
+        installRoot
+          ? resolveFromInstallRootPackageDir(packageId, installRoot)
+          : undefined
+      )
+    }
+    return resolvedByPackage.get(packageId)
+  }
+
+  const failures: string[] = []
+
+  for (const rule of contract.verificationRules) {
+    if (rule.type === 'install-root') {
+      const resolvedPath = resolvePackage(rule.packageId)
+      if (!resolvedPath || !installRoot || !isPathInside(installRoot, resolvedPath)) {
+        failures.push(rule.packageId)
+      }
+      continue
+    }
+
+    const fromPackagePath = resolvePackage(rule.fromPackage)
+    if (!fromPackagePath || !installRoot || !isPathInside(installRoot, fromPackagePath)) {
+      failures.push(rule.fromPackage)
+      continue
+    }
+
+    const failure = evaluateModuleContextRule(rule, fromPackagePath, {
+      mustStayInsideRoot: installRoot
+    })
+    if (failure) failures.push(failure)
+  }
+
+  return dedupeFailures(failures)
+}
+
 function buildDiagnostics(input: {
+  contract?: OptionalDependencyContract
   integration: string
   dependencyId: string
   projectPath: string
@@ -349,6 +466,7 @@ function buildDiagnostics(input: {
   }))
 
   return {
+    contractId: input.contract?.id || null,
     integration: input.integration,
     dependencyId: input.dependencyId,
     projectPath: input.projectPath,
@@ -361,6 +479,7 @@ function buildDiagnostics(input: {
 }
 
 async function runInstallAndVerify(input: {
+  contract: OptionalDependencyContract
   integration: string
   installDependencies: string[]
   verifyPackageIds: string[]
@@ -378,6 +497,7 @@ async function runInstallAndVerify(input: {
       integration: input.integration,
       dependencyId: input.dependencyId,
       projectPath: input.projectPath,
+      contract: input.contract,
       installRoot: input.installRoot,
       installDependencies: input.installDependencies,
       verifyPackageIds: input.verifyPackageIds
@@ -394,6 +514,7 @@ async function runInstallAndVerify(input: {
       integration: input.integration,
       dependencyId: input.dependencyId,
       projectPath: input.projectPath,
+      contract: input.contract,
       installRoot: input.installRoot,
       installDependencies: input.installDependencies,
       verifyPackageIds: input.verifyPackageIds
@@ -405,8 +526,9 @@ async function runInstallAndVerify(input: {
     )
   }
 
-  const missingAfterInstall = input.verifyPackageIds.filter(
-    (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
+  const missingAfterInstall = getContractVerificationFailuresAtInstallRoot(
+    input.contract,
+    input.installRoot
   )
 
   if (missingAfterInstall.length > 0) {
@@ -418,8 +540,9 @@ async function runInstallAndVerify(input: {
       input.installDependencies
     )
 
-    const missingAfterRetry = input.verifyPackageIds.filter(
-      (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
+    const missingAfterRetry = getContractVerificationFailuresAtInstallRoot(
+      input.contract,
+      input.installRoot
     )
 
     if (missingAfterRetry.length === 0) return
@@ -431,8 +554,9 @@ async function runInstallAndVerify(input: {
       missingAfterRetry
     )
     if (didInstallMissingOnly) {
-      const missingAfterTargetedTopUp = input.verifyPackageIds.filter(
-        (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
+      const missingAfterTargetedTopUp = getContractVerificationFailuresAtInstallRoot(
+        input.contract,
+        input.installRoot
       )
       if (missingAfterTargetedTopUp.length === 0) {
         return
@@ -443,12 +567,13 @@ async function runInstallAndVerify(input: {
     // metadata can get stuck in a partial state across retries.
     const didRecoverWithCleanInstall = await installOptionalDependencies(
       input.integration,
-      input.verifyPackageIds,
+      input.contract.installPackages,
       {forceRecreateInstallRoot: true}
     )
     if (didRecoverWithCleanInstall) {
-      const missingAfterCleanInstall = input.verifyPackageIds.filter(
-        (id) => !verifyPackageInInstallRoot(id, input.installRoot as string)
+      const missingAfterCleanInstall = getContractVerificationFailuresAtInstallRoot(
+        input.contract,
+        input.installRoot
       )
       if (missingAfterCleanInstall.length === 0) {
         return
@@ -459,6 +584,7 @@ async function runInstallAndVerify(input: {
       integration: input.integration,
       dependencyId: input.dependencyId,
       projectPath: input.projectPath,
+      contract: input.contract,
       installRoot: input.installRoot,
       installDependencies: input.installDependencies,
       verifyPackageIds: input.verifyPackageIds
@@ -472,6 +598,7 @@ async function runInstallAndVerify(input: {
 }
 
 async function ensureInstalledAndVerified(input: {
+  contract: OptionalDependencyContract
   integration: string
   installDependencies: string[]
   verifyPackageIds: string[]
@@ -492,6 +619,7 @@ async function ensureInstalledAndVerified(input: {
   }
 
   const installPromise = runInstallAndVerify({
+    contract: input.contract,
     integration: input.integration,
     installDependencies: input.installDependencies,
     verifyPackageIds: input.verifyPackageIds,
@@ -532,28 +660,27 @@ export function resolveOptionalDependencySync(
 export async function ensureOptionalPackageResolved(
   input: EnsureResolveInput
 ): Promise<string> {
-  const installDependencies = input.installDependencies || [input.dependencyId]
-  const verifyPackageIds = input.verifyPackageIds || installDependencies
+  const contract = getVerificationContract(input)
+  const installDependencies = contract.installPackages
+  const verifyPackageIds = contract.installPackages
   const installRoot = resolveOptionalInstallRoot()
   const resolvedBeforeInstall = resolveFromKnownLocations(
     input.dependencyId,
     input.projectPath,
     installRoot
   )
-  const missingBeforeInstall = resolvedBeforeInstall
-    ? getModuleContextMissingDependencies(
-        resolvedBeforeInstall,
-        verifyPackageIds,
-        input.dependencyId,
-        {integration: input.integration}
-      )
-    : []
+  const missingBeforeInstall = getContractVerificationFailuresFromKnownLocations(
+    contract,
+    input.projectPath,
+    installRoot
+  )
 
   if (resolvedBeforeInstall && missingBeforeInstall.length === 0) {
     return resolvedBeforeInstall
   }
 
   await ensureInstalledAndVerified({
+    contract,
     integration: input.integration,
     installDependencies,
     verifyPackageIds,
@@ -561,35 +688,32 @@ export async function ensureOptionalPackageResolved(
     dependencyId: input.dependencyId
   })
 
+  const resolvedFromInstallRoot = installRoot
+    ? resolveFromInstallRootPackageDir(input.dependencyId, installRoot)
+    : undefined
+  const missingFromInstallRoot = getContractVerificationFailuresAtInstallRoot(
+    contract,
+    installRoot
+  )
+
+  if (resolvedFromInstallRoot && missingFromInstallRoot.length === 0) {
+    return resolvedFromInstallRoot
+  }
+
   const resolvedAfterInstall = resolveFromKnownLocations(
     input.dependencyId,
     input.projectPath,
     installRoot
   )
-  const missingAfterInstall = resolvedAfterInstall
-    ? getModuleContextMissingDependencies(
-        resolvedAfterInstall,
-        verifyPackageIds,
-        input.dependencyId,
-        {integration: input.integration}
-      )
-    : verifyPackageIds.filter((id) => id !== input.dependencyId)
+  const missingAfterInstall = getContractVerificationFailuresFromKnownLocations(
+    contract,
+    input.projectPath,
+    installRoot
+  )
 
   if (resolvedAfterInstall && missingAfterInstall.length === 0) {
     return resolvedAfterInstall
   }
-
-  const resolvedFromInstallRoot = installRoot
-    ? resolveFromInstallRootPackageDir(input.dependencyId, installRoot)
-    : undefined
-  const missingFromInstallRoot = resolvedFromInstallRoot
-    ? getModuleContextMissingDependencies(
-        resolvedFromInstallRoot,
-        verifyPackageIds,
-        input.dependencyId,
-        {integration: input.integration}
-      )
-    : verifyPackageIds.filter((id) => id !== input.dependencyId)
 
   if (resolvedFromInstallRoot && missingFromInstallRoot.length === 0) {
     return resolvedFromInstallRoot
@@ -599,6 +723,7 @@ export async function ensureOptionalPackageResolved(
     integration: input.integration,
     dependencyId: input.dependencyId,
     projectPath: input.projectPath,
+    contract,
     installRoot,
     installDependencies,
     verifyPackageIds
@@ -626,23 +751,33 @@ export async function ensureOptionalPackageResolved(
 }
 
 export function resolveOptionalPackageWithoutInstall(input: EnsureResolveInput) {
-  const installDependencies = input.installDependencies || [input.dependencyId]
-  const verifyPackageIds = input.verifyPackageIds || installDependencies
+  const contract = getVerificationContract(input)
+  const installDependencies = contract.installPackages
+  const verifyPackageIds = contract.installPackages
   const installRoot = resolveOptionalInstallRoot()
+  const resolvedFromInstallRoot = installRoot
+    ? resolveFromInstallRootPackageDir(input.dependencyId, installRoot)
+    : undefined
+  const missingFromInstallRoot = getContractVerificationFailuresAtInstallRoot(
+    contract,
+    installRoot
+  )
+
+  if (resolvedFromInstallRoot && missingFromInstallRoot.length === 0) {
+    return resolvedFromInstallRoot
+  }
+
   const resolved = resolveFromKnownLocations(
     input.dependencyId,
     input.projectPath,
     installRoot
   )
 
-  const missingPeerDeps = resolved
-    ? getModuleContextMissingDependencies(
-        resolved,
-        verifyPackageIds,
-        input.dependencyId,
-        {integration: input.integration}
-      )
-    : verifyPackageIds.filter((id) => id !== input.dependencyId)
+  const missingPeerDeps = getContractVerificationFailuresFromKnownLocations(
+    contract,
+    input.projectPath,
+    installRoot
+  )
 
   if (resolved && missingPeerDeps.length === 0) {
     return resolved
@@ -652,6 +787,7 @@ export function resolveOptionalPackageWithoutInstall(input: EnsureResolveInput) 
     integration: input.integration,
     dependencyId: input.dependencyId,
     projectPath: input.projectPath,
+    contract,
     installRoot,
     installDependencies,
     verifyPackageIds
@@ -788,4 +924,68 @@ export function loadOptionalModuleWithoutInstall<T = any>(
   }
 
   return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
+}
+
+export async function ensureOptionalContractPackageResolved(input: {
+  contractId: string
+  projectPath: string
+  dependencyId: string
+}) {
+  const contract = getOptionalDependencyContract(input.contractId)
+  return ensureOptionalPackageResolved({
+    integration: contract.integration,
+    projectPath: input.projectPath,
+    dependencyId: input.dependencyId,
+    contract
+  })
+}
+
+export async function ensureOptionalContractModuleLoaded<T = any>(
+  input: {
+    contractId: string
+    projectPath: string
+    dependencyId: string
+    moduleAdapter?: (loaded: any) => T
+  }
+): Promise<T> {
+  const contract = getOptionalDependencyContract(input.contractId)
+  return ensureOptionalModuleLoaded<T>({
+    integration: contract.integration,
+    projectPath: input.projectPath,
+    dependencyId: input.dependencyId,
+    contract,
+    moduleAdapter: input.moduleAdapter
+  })
+}
+
+export function resolveOptionalContractPackageWithoutInstall(input: {
+  contractId: string
+  projectPath: string
+  dependencyId: string
+}) {
+  const contract = getOptionalDependencyContract(input.contractId)
+  return resolveOptionalPackageWithoutInstall({
+    integration: contract.integration,
+    projectPath: input.projectPath,
+    dependencyId: input.dependencyId,
+    contract
+  })
+}
+
+export function loadOptionalContractModuleWithoutInstall<T = any>(
+  input: {
+    contractId: string
+    projectPath: string
+    dependencyId: string
+    moduleAdapter?: (loaded: any) => T
+  }
+): T {
+  const contract = getOptionalDependencyContract(input.contractId)
+  return loadOptionalModuleWithoutInstall<T>({
+    integration: contract.integration,
+    projectPath: input.projectPath,
+    dependencyId: input.dependencyId,
+    contract,
+    moduleAdapter: input.moduleAdapter
+  })
 }

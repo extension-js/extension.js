@@ -66,7 +66,7 @@ describe('optional-deps-lib scenario matrix', () => {
 
   it.each([
     {label: 'linux-npm', userAgent: 'npm', expected: ['install', '--prefix']},
-    {label: 'linux-pnpm', userAgent: 'pnpm', expected: ['add', '--dir']},
+    {label: 'linux-pnpm', userAgent: 'pnpm', expected: ['install', '--dir']},
     {label: 'linux-yarn', userAgent: 'yarn', expected: ['add', '--cwd']},
     {label: 'linux-bun', userAgent: 'bun', expected: ['add', '--cwd']}
   ])('uses expected manager command shape: $label', async (scenario) => {
