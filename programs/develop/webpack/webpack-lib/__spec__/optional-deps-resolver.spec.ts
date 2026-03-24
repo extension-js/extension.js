@@ -55,12 +55,14 @@ function createPnpmStorePackage(
 describe('optional-deps-resolver', () => {
   let projectPath: string
   let runtimePath: string
+  let auxPaths: string[]
 
   beforeEach(() => {
     vi.resetModules()
     installOptionalDependenciesMock.mockReset()
     projectPath = fs.mkdtempSync(path.join(process.cwd(), 'tmp-extjs-project-'))
     runtimePath = fs.mkdtempSync(path.join(process.cwd(), 'tmp-extjs-runtime-'))
+    auxPaths = []
     writeJson(path.join(projectPath, 'package.json'), {name: 'test-project'})
     writeJson(path.join(runtimePath, 'package.json'), {
       name: 'extension-develop'
@@ -72,6 +74,9 @@ describe('optional-deps-resolver', () => {
   afterEach(() => {
     fs.rmSync(projectPath, {recursive: true, force: true})
     fs.rmSync(runtimePath, {recursive: true, force: true})
+    for (const extraPath of auxPaths) {
+      fs.rmSync(extraPath, {recursive: true, force: true})
+    }
     developInstallRoot = undefined
     optionalInstallRoot = undefined
   })
@@ -557,6 +562,79 @@ describe('optional-deps-resolver', () => {
     const failures = getContractVerificationFailuresAtInstallRoot(
       {
         id: 'test-react-refresh',
+        integration: 'React',
+        installPackages: [dependencyId, pluginId],
+        verificationRules: [
+          {type: 'install-root', packageId: dependencyId},
+          {type: 'install-root', packageId: pluginId},
+          {
+            type: 'module-context-resolve',
+            fromPackage: pluginId,
+            packageId: dependencyId
+          }
+        ]
+      },
+      runtimePath
+    )
+
+    expect(failures).toEqual([])
+  })
+
+  it('accepts module-context peer resolution through an alias of the installed package', async () => {
+    const dependencyId = '@extjs-test/react-refresh'
+    const pluginId = '@extjs-test/plugin-react-refresh'
+
+    createPackage(runtimePath, dependencyId, 'module.exports = {runtime: true}')
+    createPackage(
+      runtimePath,
+      pluginId,
+      'module.exports = { default: class ReactRefreshPlugin {} }'
+    )
+
+    const externalRoot = fs.mkdtempSync(path.join(process.cwd(), 'tmp-extjs-link-'))
+    auxPaths.push(externalRoot)
+    const aliasDir = path.join(externalRoot, 'react-refresh-alias')
+    fs.symlinkSync(
+      path.join(runtimePath, 'node_modules', ...dependencyId.split('/')),
+      aliasDir,
+      'junction'
+    )
+
+    const pluginEntryPath = path.join(
+      runtimePath,
+      'node_modules',
+      ...pluginId.split('/'),
+      'index.js'
+    )
+    const externalResolvedPath = path.join(aliasDir, 'index.js')
+
+    vi.doMock('module', async () => {
+      const actual = await vi.importActual<typeof import('module')>('module')
+
+      return {
+        ...actual,
+        createRequire: (specifier: string) => {
+          const req = actual.createRequire(specifier)
+          const wrapped = ((id: string) => req(id)) as NodeRequire
+          Object.assign(wrapped, req)
+          wrapped.resolve = ((id: string) => {
+            if (specifier === pluginEntryPath && id === dependencyId) {
+              return externalResolvedPath
+            }
+            return req.resolve(id)
+          }) as NodeJS.RequireResolve
+          return wrapped
+        }
+      }
+    })
+
+    const {getContractVerificationFailuresAtInstallRoot} = await import(
+      '../optional-deps-resolver'
+    )
+
+    const failures = getContractVerificationFailuresAtInstallRoot(
+      {
+        id: 'test-react-refresh-aliased-peer',
         integration: 'React',
         installPackages: [dependencyId, pluginId],
         verificationRules: [
