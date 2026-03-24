@@ -162,14 +162,7 @@ function getOptionalInstallCommand(
     ])
   }
   if (pmName === 'npm') {
-    return buildInstallCommand(pm, [
-      '--silent',
-      'install',
-      ...dependencySpecs,
-      '--prefix',
-      installBaseDir,
-      '--save-optional'
-    ])
+    return getRootInstallCommand(pm, installBaseDir)
   }
   if (pmName === 'pnpm') {
     return buildInstallCommand(pm, [
@@ -270,7 +263,8 @@ async function runInstallAttempt(input: {
 
   await new Promise((resolve) => setTimeout(resolve, 500))
 
-  const needsRootRelink = input.isAuthor || input.dependencies.length > 1
+  const needsRootRelink =
+    input.pm.name !== 'npm' && (input.isAuthor || input.dependencies.length > 1)
   if (!needsRootRelink) return
 
   if (input.isAuthor) {
@@ -361,7 +355,7 @@ export async function installOptionalDependencies(
       installBaseDir
     )
 
-    if (missingDependencies.length > 0) {
+    if (missingDependencies.length > 0 && pm.name !== 'npm') {
       await runInstallAttempt({
         pm,
         wslContext,
