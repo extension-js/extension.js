@@ -11,7 +11,7 @@ import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {hasDependency, resolveDevelopInstallRoot} from '../../optional-deps-lib'
-import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
+import {ensureOptionalContractPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
 
@@ -112,22 +112,10 @@ export function createSassLoaderOptions(
 export async function maybeUseSass(projectPath: string): Promise<Loader[]> {
   if (!isUsingSass(projectPath)) return []
 
-  const sassLoaderPath = await ensureOptionalPackageResolved({
-    integration: 'SASS',
+  const sassLoaderPath = await ensureOptionalContractPackageResolved({
+    contractId: 'sass',
     projectPath,
-    dependencyId: 'sass-loader',
-    installDependencies: [
-      'postcss-loader',
-      'postcss-scss',
-      'postcss-preset-env',
-      'sass-loader'
-    ],
-    verifyPackageIds: [
-      'postcss-loader',
-      'postcss-scss',
-      'postcss-preset-env',
-      'sass-loader'
-    ]
+    dependencyId: 'sass-loader'
   })
 
   return [

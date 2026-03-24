@@ -14,7 +14,7 @@ import {hasDependency} from '../frameworks-lib/integrations'
 import type {JsFramework} from '../../webpack-types'
 import {loadLoaderOptions} from '../js-frameworks-lib/load-loader-options'
 import type {DevOptions} from '../../webpack-types'
-import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
+import {ensureOptionalContractPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
 
@@ -51,21 +51,17 @@ export async function maybeUseSvelte(
 ): Promise<JsFramework | undefined> {
   if (!isUsingSvelte(projectPath)) return undefined
 
-  const svelteLoaderPath = await ensureOptionalPackageResolved({
-    integration: 'Svelte',
+  const svelteLoaderPath = await ensureOptionalContractPackageResolved({
+    contractId: 'svelte',
     projectPath,
-    dependencyId: 'svelte-loader',
-    installDependencies: ['typescript', 'svelte-loader'],
-    verifyPackageIds: ['typescript', 'svelte-loader']
+    dependencyId: 'svelte-loader'
   })
 
   // Ensure TypeScript is available for Svelte toolchain expectations (even without preprocess)
-  await ensureOptionalPackageResolved({
-    integration: 'TypeScript',
+  await ensureOptionalContractPackageResolved({
+    contractId: 'typescript',
     projectPath,
-    dependencyId: 'typescript',
-    installDependencies: ['typescript'],
-    verifyPackageIds: ['typescript']
+    dependencyId: 'typescript'
   })
 
   // Load custom loader configuration if it exists
