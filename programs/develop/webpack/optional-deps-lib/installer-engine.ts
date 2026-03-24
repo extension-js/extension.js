@@ -1,3 +1,5 @@
+import * as path from 'path'
+import {createRequire} from 'module'
 import colors from 'pintor'
 import * as messages from '../plugin-css/css-lib/messages'
 import {resolveOptionalDependencySpecs} from '../webpack-lib/optional-dependencies'
@@ -32,6 +34,26 @@ export type InstallOptionalDependenciesOptions = {
   index?: number
   total?: number
   forceRecreateInstallRoot?: boolean
+}
+
+function isPathInside(basePath: string, candidatePath: string) {
+  const relative = path.relative(path.resolve(basePath), path.resolve(candidatePath))
+  return !relative.startsWith('..') && !path.isAbsolute(relative)
+}
+
+function getMissingDependenciesAtInstallRoot(
+  dependencies: string[],
+  installBaseDir: string
+) {
+  const req = createRequire(path.join(installBaseDir, 'package.json'))
+  return dependencies.filter((dependencyId) => {
+    try {
+      const resolvedPath = req.resolve(dependencyId)
+      return !isPathInside(installBaseDir, resolvedPath)
+    } catch {
+      return true
+    }
+  })
 }
 
 function parseWslUncPath(value: string): {distro: string; path: string} | null {
@@ -226,6 +248,76 @@ function getRootInstallCommand(
   return buildInstallCommand(pm, ['install', '--silent', ...dirArgs])
 }
 
+async function runInstallAttempt(input: {
+  pm: PackageManagerResolution
+  wslContext: WslContext
+  installBaseDir: string
+  dependencies: string[]
+  isAuthor: boolean
+  integration: string
+}) {
+  const installCommand = getOptionalInstallCommand(
+    input.pm,
+    input.dependencies,
+    input.wslContext.installDir || input.installBaseDir
+  )
+  const execCommand = wrapCommandForWsl(installCommand, input.wslContext)
+  const fallbackNpmCommand = input.wslContext.useWsl
+    ? undefined
+    : buildNpmCliFallback([
+        '--silent',
+        'install',
+        ...resolveOptionalDependencySpecs(input.dependencies),
+        '--prefix',
+        input.installBaseDir,
+        '--save-optional'
+      ])
+  await execInstallWithFallback(execCommand, {
+    cwd: input.wslContext.useWsl ? undefined : input.installBaseDir,
+    fallbackNpmCommand,
+    allowFallbackOnFailure:
+      !input.wslContext.useWsl &&
+      input.pm.name !== 'npm' &&
+      fallbackNpmCommand !== undefined
+  })
+
+  await new Promise((resolve) => setTimeout(resolve, 500))
+
+  const needsRootRelink = input.isAuthor || input.dependencies.length > 1
+  if (!needsRootRelink) return
+
+  if (input.isAuthor) {
+    console.log(messages.optionalToolingRootInstall(input.integration))
+  }
+
+  const rootInstall = getRootInstallCommand(
+    input.pm,
+    input.wslContext.useWsl ? input.wslContext.installDir : undefined
+  )
+  const rootCommand = wrapCommandForWsl(rootInstall, input.wslContext)
+  const rootFallbackCommand = input.wslContext.useWsl
+    ? undefined
+    : buildNpmCliFallback([
+        '--silent',
+        'install',
+        '--prefix',
+        input.installBaseDir
+      ])
+
+  await execInstallWithFallback(rootCommand, {
+    cwd: input.wslContext.useWsl ? undefined : input.installBaseDir,
+    fallbackNpmCommand: rootFallbackCommand,
+    allowFallbackOnFailure:
+      !input.wslContext.useWsl &&
+      input.pm.name !== 'npm' &&
+      rootFallbackCommand !== undefined
+  })
+
+  if (input.isAuthor) {
+    console.log(messages.optionalToolingReady(input.integration))
+  }
+}
+
 export async function installOptionalDependencies(
   integration: string,
   dependencies: string[],
@@ -268,63 +360,63 @@ export async function installOptionalDependencies(
     if (isAuthor) console.warn(setupMessageWithIndex)
     else console.log(setupMessageWithIndex)
 
-    const installCommand = getOptionalInstallCommand(
+    await runInstallAttempt({
       pm,
+      wslContext,
+      installBaseDir,
       dependencies,
-      wslContext.installDir || installBaseDir
-    )
-    const execCommand = wrapCommandForWsl(installCommand, wslContext)
-    const fallbackNpmCommand = wslContext.useWsl
-      ? undefined
-      : buildNpmCliFallback([
-          '--silent',
-          'install',
-          ...resolveOptionalDependencySpecs(dependencies),
-          '--prefix',
-          installBaseDir,
-          '--save-optional'
-        ])
-    await execInstallWithFallback(execCommand, {
-      cwd: wslContext.useWsl ? undefined : installBaseDir,
-      fallbackNpmCommand,
-      allowFallbackOnFailure:
-        !wslContext.useWsl &&
-        pm.name !== 'npm' &&
-        fallbackNpmCommand !== undefined
+      isAuthor,
+      integration
     })
 
-    await new Promise((resolve) => setTimeout(resolve, 500))
+    let missingDependencies = getMissingDependenciesAtInstallRoot(
+      dependencies,
+      installBaseDir
+    )
 
-    const needsRootRelink = isAuthor || dependencies.length > 1
-    if (needsRootRelink) {
-      if (isAuthor) {
-        console.log(messages.optionalToolingRootInstall(integration))
-      }
-      const rootInstall = getRootInstallCommand(
+    if (missingDependencies.length > 0) {
+      await runInstallAttempt({
         pm,
-        wslContext.useWsl ? wslContext.installDir : undefined
-      )
-      const rootCommand = wrapCommandForWsl(rootInstall, wslContext)
-      const rootFallbackCommand = wslContext.useWsl
-        ? undefined
-        : buildNpmCliFallback([
-            '--silent',
-            'install',
-            '--prefix',
-            installBaseDir
-          ])
-      await execInstallWithFallback(rootCommand, {
-        cwd: wslContext.useWsl ? undefined : installBaseDir,
-        fallbackNpmCommand: rootFallbackCommand,
-        allowFallbackOnFailure:
-          !wslContext.useWsl &&
-          pm.name !== 'npm' &&
-          rootFallbackCommand !== undefined
+        wslContext,
+        installBaseDir,
+        dependencies: missingDependencies,
+        isAuthor,
+        integration
       })
-      if (isAuthor) {
-        console.log(messages.optionalToolingReady(integration))
-      }
+
+      missingDependencies = getMissingDependenciesAtInstallRoot(
+        dependencies,
+        installBaseDir
+      )
     }
+
+    if (missingDependencies.length > 0) {
+      prepareOptionalInstallState({
+        installBaseDir,
+        dependencies,
+        forceRecreateInstallRoot: true
+      })
+      await runInstallAttempt({
+        pm,
+        wslContext,
+        installBaseDir,
+        dependencies,
+        isAuthor,
+        integration
+      })
+
+      missingDependencies = getMissingDependenciesAtInstallRoot(
+        dependencies,
+        installBaseDir
+      )
+    }
+
+    if (missingDependencies.length > 0) {
+      throw new Error(
+        `[${integration}] Optional dependency install reported success but packages are missing: ${missingDependencies.join(', ')}`
+      )
+    }
+
     return true
   } catch (error) {
     console.error('[extension.js][optional-deps] debug', {
