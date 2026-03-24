@@ -14,7 +14,7 @@ import * as messages from '../css-lib/messages'
 import {hasDependency} from '../../optional-deps-lib'
 import {isUsingTailwind, getTailwindConfigFile} from './tailwind'
 import type {StyleLoaderOptions} from '../common-style-loaders'
-import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
+import {ensureOptionalContractPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
 
@@ -300,12 +300,10 @@ export async function maybeUsePostCss(
     return {}
   }
 
-  const resolvedPostCssLoader = await ensureOptionalPackageResolved({
-    integration: 'PostCSS',
+  const resolvedPostCssLoader = await ensureOptionalContractPackageResolved({
+    contractId: 'postcss',
     projectPath,
-    dependencyId: 'postcss-loader',
-    installDependencies: ['postcss', 'postcss-loader'],
-    verifyPackageIds: ['postcss', 'postcss-loader']
+    dependencyId: 'postcss-loader'
   })
 
   // Optionally pre-resolve the Tailwind PostCSS plugin from the project/workspace

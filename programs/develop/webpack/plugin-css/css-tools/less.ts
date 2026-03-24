@@ -11,7 +11,7 @@ import colors from 'pintor'
 import * as messages from '../css-lib/messages'
 import {hasDependency} from '../../optional-deps-lib'
 import {isContentScriptEntry} from '../css-lib/is-content-script'
-import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
+import {ensureOptionalContractPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let userMessageDelivered = false
 
@@ -43,12 +43,10 @@ export async function maybeUseLess(
 
   if (!isUsingLess(projectPath)) return []
 
-  const lessLoaderPath = await ensureOptionalPackageResolved({
-    integration: 'LESS',
+  const lessLoaderPath = await ensureOptionalContractPackageResolved({
+    contractId: 'less',
     projectPath,
-    dependencyId: 'less-loader',
-    installDependencies: ['less', 'less-loader'],
-    verifyPackageIds: ['less', 'less-loader']
+    dependencyId: 'less-loader'
   })
 
   return [

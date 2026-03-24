@@ -12,7 +12,7 @@ import colors from 'pintor'
 import * as messages from '../js-frameworks-lib/messages'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
 import {type DevOptions} from '../../webpack-types'
-import {ensureOptionalPackageResolved} from '../../webpack-lib/optional-deps-resolver'
+import {ensureOptionalContractPackageResolved} from '../../webpack-lib/optional-deps-resolver'
 
 let hasShownUserMessage = false
 
@@ -206,12 +206,10 @@ export async function maybeUseTypeScript(
 ): Promise<boolean> {
   if (!isUsingTypeScript(projectPath)) return false
 
-  await ensureOptionalPackageResolved({
-    integration: 'TypeScript',
+  await ensureOptionalContractPackageResolved({
+    contractId: 'typescript',
     projectPath,
-    dependencyId: 'typescript',
-    installDependencies: ['typescript'],
-    verifyPackageIds: ['typescript']
+    dependencyId: 'typescript'
   })
 
   return true
