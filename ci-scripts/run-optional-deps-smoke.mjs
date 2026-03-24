@@ -44,6 +44,10 @@ const baseEnv = {
   HUSKY: '0'
 }
 
+function shouldUseRegistryExtensionForSmoke(pm) {
+  return pm === 'bun' || pm === 'yarn'
+}
+
 function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -528,15 +532,11 @@ async function rewriteConsumerPackageJson(workdir, pm) {
   const installPath = path.join(ROOT_DIR, 'programs', 'install')
 
   packageJson.devDependencies ||= {}
-  const useRegistryExtension =
-    pm === 'bun' ||
-    pm === 'yarn' ||
-    (pm === 'pnpm' && process.platform === 'win32')
+  const useRegistryExtension = shouldUseRegistryExtensionForSmoke(pm)
 
   if (useRegistryExtension) {
     // Bun and Yarn classic do not resolve workspace:* dependency ranges inside
-    // a file-linked CLI package in this isolated fixture setup. Windows pnpm
-    // also fails for the same reason under temp fixture paths. Use a registry
+    // a file-linked CLI package in this isolated fixture setup. Use a registry
     // tag so these lanes still verify install/build behavior.
     packageJson.devDependencies.extension =
       process.env.EXTJS_SMOKE_REGISTRY_EXTENSION_VERSION || 'canary'
@@ -852,6 +852,7 @@ if (isDirectExecution) {
 
 export {
   removeDirectoryWithRetries,
+  shouldUseRegistryExtensionForSmoke,
   shouldRetryCleanupError,
   terminateChildProcess,
   waitForChildExit
