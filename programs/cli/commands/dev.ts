@@ -87,7 +87,7 @@ export function registerDevCommand(program: Command, telemetry: any) {
       'what path to use for the browser profile. A boolean value of false sets the profile to the default user profile. Defaults to a fresh profile'
     )
     .option(
-      '--browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
+      '-b, --browser <chrome | chromium | edge | firefox | chromium-based | gecko-based | firefox-based>',
       'specify a browser/engine to run. Defaults to `chromium`'
     )
     .option(
