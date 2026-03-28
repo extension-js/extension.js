@@ -87,6 +87,10 @@ function isCoveredByExistingGlobs(
   return false
 }
 
+function isCanonicalContentScriptCss(resource: string) {
+  return /^content_scripts\/content-\d+\.css$/.test(resource)
+}
+
 export function generateManifestPatches(
   compilation: Compilation,
   manifestPath: string,
@@ -175,6 +179,16 @@ export function generateManifestPatches(
       const filteredResources = resources.filter(
         (resource) => !resource.endsWith('.map') && !resource.endsWith('.js')
       )
+      const importedContentCss = filteredResources
+        .filter((resource) => resource.endsWith('.css'))
+        .filter(isCanonicalContentScriptCss)
+
+      if (importedContentCss.length > 0) {
+        contentScript.css = Array.from(
+          new Set([...(contentScript.css || []), ...importedContentCss])
+        ).sort()
+      }
+
       if (filteredResources.length === 0) continue
 
       if (canonicalManifest.manifest_version === 3) {

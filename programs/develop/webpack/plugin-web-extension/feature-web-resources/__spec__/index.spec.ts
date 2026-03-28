@@ -116,6 +116,58 @@ describe('generateManifestPatches', () => {
     })
   })
 
+  it('adds canonical emitted content css back to content_scripts.css', () => {
+    const result = runWith(
+      {
+        'content_scripts/content-0': ['content_scripts/content-0.css']
+      },
+      {
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content_scripts/content-0.js']
+          }
+        ]
+      }
+    )
+
+    expect(result.content_scripts?.[0]?.css).toEqual([
+      'content_scripts/content-0.css'
+    ])
+    expect((result as any).web_accessible_resources).toEqual([
+      {
+        matches: ['<all_urls>'],
+        resources: ['content_scripts/content-0.css']
+      }
+    ])
+  })
+
+  it('keeps url-imported content css out of content_scripts.css', () => {
+    const result = runWith(
+      {
+        'content_scripts/content-0': ['content_scripts/styles.12345678.css']
+      },
+      {
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content_scripts/content-0.js']
+          }
+        ]
+      }
+    )
+
+    expect(result.content_scripts?.[0]?.css).toBeUndefined()
+    expect((result as any).web_accessible_resources).toEqual([
+      {
+        matches: ['<all_urls>'],
+        resources: ['content_scripts/styles.12345678.css']
+      }
+    ])
+  })
+
   it('preserves globs as-is for mv3 user-declared', () => {
     const result = runWith(
       {},
