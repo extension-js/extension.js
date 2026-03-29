@@ -74,7 +74,7 @@
   ],
   "dependencies": {
     "@rspack/core": "^1.7.5",
-    "@rspack/dev-server": "^1.1.5",
+    "@rspack/dev-server": "^1.2.1",
     "@swc/core": "^1.15.8",
     "@swc/helpers": "^0.5.18",
     "adm-zip": "^0.5.16",
@@ -131,7 +131,7 @@
     "svelte": "5.53.5",
     "svelte-loader": "3.2.4",
     "tsup": "^8.5.1",
-    "typescript": "5.9.3",
+    "typescript": "6.0.2",
     "vitest": "^4.0.17",
     "vue-loader": "17.4.2",
     "vue-style-loader": "4.1.3"
