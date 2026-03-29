@@ -58,11 +58,11 @@
     "dotenv-cli": "^11.0.0",
     "extension": "workspace:^3.8.8",
     "husky": "9.1.7",
-    "lint-staged": "16.3.1",
-    "serialize-javascript": "7.0.3",
+    "lint-staged": "16.4.0",
+    "serialize-javascript": "^7.0.5",
     "tsx": "^4.21.0",
     "turbo": "^2.8.12",
-    "typescript": "5.9.3",
-    "vite": "^7.3.1"
+    "typescript": "6.0.2",
+    "vite": "^8.0.3"
   }
 }
