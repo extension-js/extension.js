@@ -13,15 +13,19 @@ import {createRequire} from 'module'
 import colors from 'pintor'
 import locateChrome, {
   locateChromeOrExplain,
+  getChromeVersion,
   getInstallGuidance as getChromeInstallGuidance
 } from 'chrome-location2'
 import locateChromium, {
+  getChromiumVersion,
   getInstallGuidance as getChromiumInstallGuidance
 } from 'chromium-location'
 import locateEdge, {
+  getEdgeVersion,
   getInstallGuidance as getEdgeInstallGuidance
 } from 'edge-location'
 import locateFirefox, {
+  getFirefoxVersion,
   getInstallGuidance as getFirefoxInstallGuidance
 } from 'firefox-location2'
 import type {DevOptions} from '../../webpack-types'
@@ -1074,34 +1078,22 @@ export function runningInDevelopment(
       if (browser === 'chromium' || browser === 'chromium-based') {
         const p = locateChromium()
         if (p && typeof p === 'string' && fs.existsSync(p)) {
-          const v = require('child_process')
-            .execFileSync(p, ['--version'], {encoding: 'utf8'})
-            .trim()
-          effectiveBrowserLine = v || 'Chromium'
+          effectiveBrowserLine = getChromiumVersion(p) || 'Chromium'
         }
       } else if (browser === 'chrome') {
         const p: string = locateChromeOrExplain({allowFallback: true})
         if (p && fs.existsSync(p)) {
-          const v = require('child_process')
-            .execFileSync(p, ['--version'], {encoding: 'utf8'})
-            .trim()
-          effectiveBrowserLine = v || 'Chrome'
+          effectiveBrowserLine = getChromeVersion(p) || 'Chrome'
         }
       } else if (browser === 'edge') {
         const p = locateEdge()
         if (p && fs.existsSync(p)) {
-          const v = require('child_process')
-            .execFileSync(p, ['--version'], {encoding: 'utf8'})
-            .trim()
-          effectiveBrowserLine = v || 'Microsoft Edge'
+          effectiveBrowserLine = getEdgeVersion(p) || 'Microsoft Edge'
         }
       } else if (browser === 'firefox') {
         const p = locateFirefox(true)
         if (p && typeof p === 'string' && fs.existsSync(p)) {
-          const v = require('child_process')
-            .execFileSync(p, ['--version'], {encoding: 'utf8'})
-            .trim()
-          effectiveBrowserLine = v || 'Firefox'
+          effectiveBrowserLine = getFirefoxVersion(p) || 'Firefox'
         }
       }
     } catch {
