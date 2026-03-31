@@ -7,12 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
 import * as fs from 'fs'
-import {spawnSync} from 'node:child_process'
 import type {Compilation, Compiler} from '@rspack/core'
 import locateChrome, {
   getChromeVersion,
-  getInstallGuidance as getChromeInstallGuidance,
-  locateChromeOrExplain
+  getInstallGuidance as getChromeInstallGuidance
 } from 'chrome-location2'
 import locateChromium, {
   getChromiumVersion,
@@ -227,24 +225,34 @@ export class ChromiumLaunchPlugin {
     const getBrowserVersionLine = (bin: string): string => {
       try {
         if (browser === 'edge') {
-          return getEdgeVersion(bin, {allowExec: true}) || ''
+          return getEdgeVersion(bin) || ''
         }
         if (browser === 'chromium' || browser === 'chromium-based') {
-          return getChromiumVersion(bin, {allowExec: true}) || ''
+          return getChromiumVersion(bin) || ''
         }
-        const versionResult = spawnSync(bin, ['--version'], {
-          stdio: 'pipe',
-          encoding: 'utf8'
-        })
-        const versionLine = String(versionResult.stdout || '').trim()
-
-        return versionLine || getChromeVersion(bin, {allowExec: true}) || ''
+        return getChromeVersion(bin) || ''
       } catch {
         return ''
       }
     }
-    const looksOfficialChrome = (line: string): boolean =>
-      /^Google Chrome\s(?!for Testing)/i.test(line)
+    const looksOfficialChromeBinaryPath = (bin: string): boolean => {
+      const p = String(bin || '')
+      if (!p) return false
+      // macOS system Chrome install
+      if (
+        /\/Applications\/Google Chrome(?: (?:Beta|Dev|Canary))?\.app\/Contents\/MacOS\/Google Chrome/i.test(
+          p
+        )
+      ) {
+        return true
+      }
+      // Windows system Chrome install
+      if (/\\Google\\Chrome\\Application\\chrome\.exe$/i.test(p)) return true
+      // Linux system Chrome install (typical)
+      if (/\/opt\/google\/chrome\//i.test(p)) return true
+      if (/\/google-chrome(?:-stable)?$/i.test(p)) return true
+      return false
+    }
 
     const getInstallGuidanceText = (): string => {
       try {
@@ -253,6 +261,13 @@ export class ChromiumLaunchPlugin {
         return 'npx extension install chrome'
       }
     }
+
+    const managedCacheRoot =
+      binariesResolver.computeBinariesBaseDir(compilation)
+    const managedEnvFor = (b: ChromiumLaunchOptions['browser']) => ({
+      ...process.env,
+      ...binariesResolver.managedBrowserCacheEnv(String(managedCacheRoot), b)
+    })
 
     const isAuthorMode = process.env.EXTENSION_AUTHOR_MODE === 'true'
 
@@ -263,11 +278,12 @@ export class ChromiumLaunchPlugin {
         if (!skipDetection) {
           try {
             try {
-              const located = locateChromeOrExplain({allowFallback: true})
+              const env = managedEnvFor('chrome')
+              const located = locateChrome(true, {env}) || null
+              if (!located) throw new Error(getInstallGuidanceText())
               const normalized = normalizePath(located || null)
               if (normalized && fs.existsSync(normalized)) {
-                const versionLine = getBrowserVersionLine(normalized)
-                if (looksOfficialChrome(versionLine) && !isWslEnv()) {
+                if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
                   this.printEnhancedPuppeteerInstallHint(
                     compilation,
                     getInstallGuidanceText(),
@@ -282,11 +298,11 @@ export class ChromiumLaunchPlugin {
                 browserBinaryLocation = null
               }
             } catch (err) {
-              let candidate: string | null = locateChrome(true) || null
+              const env = managedEnvFor('chrome')
+              let candidate: string | null = locateChrome(true, {env}) || null
               const normalized = normalizePath(candidate || null)
               if (normalized) {
-                const versionLine = getBrowserVersionLine(normalized)
-                if (looksOfficialChrome(versionLine) && !isWslEnv()) {
+                if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
                   this.printEnhancedPuppeteerInstallHint(
                     compilation,
                     getInstallGuidanceText(),
@@ -336,7 +352,8 @@ export class ChromiumLaunchPlugin {
 
         if (!browserBinaryLocation && !skipDetection) {
           try {
-            const p = locateChromium()
+            const env = managedEnvFor('chromium')
+            const p = locateChromium({env})
             const normalized = normalizePath(p || null)
             if (normalized && typeof normalized === 'string') {
               if (fs.existsSync(normalized)) browserBinaryLocation = normalized
@@ -365,7 +382,8 @@ export class ChromiumLaunchPlugin {
               throw new Error('EDGE_BINARY points to a non-existent path')
             }
           } else {
-            const located = locateEdge()
+            const env = managedEnvFor('edge')
+            const located = locateEdge({env})
             const normalized = normalizePath(located || null)
             browserBinaryLocation = normalized
             // Validate detected path. If not found, show install guidance just like the catch block.
@@ -455,7 +473,8 @@ export class ChromiumLaunchPlugin {
         }
         if (!browserBinaryLocation && !skipDetection) {
           try {
-            const p = locateChromium()
+            const env = managedEnvFor('chromium')
+            const p = locateChromium({env})
             const normalized = normalizePath(p || null)
             if (normalized && typeof normalized === 'string') {
               if (fs.existsSync(normalized)) browserBinaryLocation = normalized
@@ -473,11 +492,12 @@ export class ChromiumLaunchPlugin {
       default: {
         try {
           try {
-            const located = locateChromeOrExplain({allowFallback: true})
+            const env = managedEnvFor('chrome')
+            const located = locateChrome(true, {env}) || null
+            if (!located) throw new Error(getInstallGuidanceText())
             const normalized = normalizePath(located || null)
             if (normalized && fs.existsSync(normalized)) {
-              const versionLine = getBrowserVersionLine(normalized)
-              if (looksOfficialChrome(versionLine) && !isWslEnv()) {
+              if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
                 this.printEnhancedPuppeteerInstallHint(
                   compilation,
                   getInstallGuidanceText(),
@@ -492,11 +512,11 @@ export class ChromiumLaunchPlugin {
               browserBinaryLocation = null
             }
           } catch (err) {
-            let candidate: string | null = locateChrome(true) || null
+            const env = managedEnvFor('chrome')
+            let candidate: string | null = locateChrome(true, {env}) || null
             const normalized = normalizePath(candidate || null)
             if (normalized) {
-              const versionLine = getBrowserVersionLine(normalized)
-              if (looksOfficialChrome(versionLine) && !isWslEnv()) {
+              if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
                 this.printEnhancedPuppeteerInstallHint(
                   compilation,
                   getInstallGuidanceText(),
