@@ -16,6 +16,7 @@ import locateFirefox, {
 import * as messages from '../../browsers-lib/messages'
 import {
   computeBinariesBaseDir,
+  managedBrowserCacheEnv,
   resolveFromBinaries
 } from '../../browsers-lib/output-binaries-resolver'
 import {
@@ -118,7 +119,7 @@ export class FirefoxLaunchPlugin {
         )
         this.ctx.logger?.info?.(
           devServerMessages.ready(
-            stats.compilation.options.mode as DevOptions['mode'],
+            stats.compilation.options.mode as 'development' | 'production',
             this.host.browser
           )
         )
@@ -201,7 +202,12 @@ export class FirefoxLaunchPlugin {
           console.error(messages.requireGeckoBinaryForGeckoBased())
           process.exit(1)
         } else {
-          const located = locateFirefox(true)
+          const cacheRoot = computeBinariesBaseDir(compilation)
+          const env = {
+            ...process.env,
+            ...managedBrowserCacheEnv(String(cacheRoot), 'firefox')
+          }
+          const located = locateFirefox(true, {env})
           const normalized = located ? normalizeBinaryPathForWsl(located) : null
           if (normalized && fs.existsSync(normalized)) {
             browserBinaryLocation = normalized
