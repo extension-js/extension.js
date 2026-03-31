@@ -91,6 +91,45 @@ export function computeBinariesBaseDir(compilation: Compilation) {
   return path.resolve(process.cwd(), 'dist', 'extension-js', 'binaries')
 }
 
+export function managedBrowserCacheEnv(
+  cacheRoot: string,
+  browser:
+    | 'chrome'
+    | 'chromium'
+    | 'firefox'
+    | 'edge'
+    | 'chromium-based'
+    | 'gecko-based'
+    | 'firefox-based'
+): NodeJS.ProcessEnv {
+  const root = String(cacheRoot || '').trim()
+  if (!root) return {}
+
+  // Managed installs are stored as:
+  // - Chrome:   <root>/chrome/chrome/<platformOrVersion>/...
+  // - Chromium: <root>/chromium/chromium/<platformOrVersion>/...
+  // - Firefox:  <root>/firefox/firefox/<platformOrChannel>/...
+  //
+  // Puppeteer cache resolvers expect to see platform directories (mac_*/linux*/win*)
+  // at the base path, so we point them at the *nested* folder.
+  if (browser === 'chrome') {
+    return {PUPPETEER_CACHE_DIR: path.join(root, 'chrome', 'chrome')}
+  }
+  if (browser === 'chromium' || browser === 'chromium-based') {
+    return {PUPPETEER_CACHE_DIR: path.join(root, 'chromium', 'chromium')}
+  }
+  if (
+    browser === 'firefox' ||
+    browser === 'gecko-based' ||
+    browser === 'firefox-based'
+  ) {
+    return {PUPPETEER_CACHE_DIR: path.join(root, 'firefox', 'firefox')}
+  }
+  // Edge is installed via Playwright; the installer sets PLAYWRIGHT_BROWSERS_PATH
+  // to the managed cache dir for edge.
+  return {PLAYWRIGHT_BROWSERS_PATH: path.join(root, 'edge')}
+}
+
 export function resolveFromBinaries(
   compilation: Compilation,
   browser: 'chrome' | 'chromium' | 'firefox' | 'edge'
