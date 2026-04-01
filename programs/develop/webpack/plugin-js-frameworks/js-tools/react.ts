@@ -92,15 +92,14 @@ export async function maybeUseReact(
     dependencyId: 'react-refresh'
   })
 
-  const ReactRefreshPlugin = loadOptionalContractModuleWithoutInstall<
-    ReactRefreshPluginCtor
-  >({
-    contractId: 'react-refresh',
-    projectPath,
-    dependencyId: '@rspack/plugin-react-refresh',
-    moduleAdapter: (mod: any) =>
-      ((mod && mod.default) || mod) as ReactRefreshPluginCtor
-  })
+  const ReactRefreshPlugin =
+    loadOptionalContractModuleWithoutInstall<ReactRefreshPluginCtor>({
+      contractId: 'react-refresh',
+      projectPath,
+      dependencyId: '@rspack/plugin-react-refresh',
+      moduleAdapter: (mod: any) =>
+        ((mod && mod.default) || mod) as ReactRefreshPluginCtor
+    })
 
   const reactPlugins: RspackPluginInstance[] = [
     new ReactRefreshPlugin({
