@@ -85,20 +85,28 @@ test('fileSpecifier keeps same-drive Windows paths relative', () => {
     'C:\\Users\\runner\\AppData\\Local\\Temp\\fixture\\browser-extension'
   )
 
-  assert.equal(specifier.startsWith('file:./') || specifier.startsWith('file:../'), true)
+  assert.equal(
+    specifier.startsWith('file:./') || specifier.startsWith('file:../'),
+    true
+  )
   assert.equal(specifier.includes('D:'), false)
 })
 
 test('fileSpecifier uses absolute file URL for cross-drive Windows paths', () => {
   setPlatform('win32')
 
-  const targetPath = path.win32.resolve('D:\\a\\extension.js\\extension.js\\programs\\create')
+  const targetPath = path.win32.resolve(
+    'D:\\a\\extension.js\\extension.js\\programs\\create'
+  )
   const specifier = fileSpecifier(
     targetPath,
     'C:\\Users\\runner\\AppData\\Local\\Temp\\fixture\\browser-extension'
   )
 
-  assert.equal(specifier, 'file:///D:/a/extension.js/extension.js/programs/create')
+  assert.equal(
+    specifier,
+    'file:///D:/a/extension.js/extension.js/programs/create'
+  )
 })
 
 test('resolveSmokeTempRootParent keeps Windows smoke workspace on repo drive', async () => {
@@ -107,5 +115,8 @@ test('resolveSmokeTempRootParent keeps Windows smoke workspace on repo drive', a
   const tempParent = await resolveSmokeTempRootParent()
 
   assert.equal(tempParent.includes('.tmp'), true)
-  assert.equal(path.win32.parse(tempParent).root.toLowerCase(), path.win32.parse(process.cwd()).root.toLowerCase())
+  assert.equal(
+    path.win32.parse(tempParent).root.toLowerCase(),
+    path.win32.parse(process.cwd()).root.toLowerCase()
+  )
 })
