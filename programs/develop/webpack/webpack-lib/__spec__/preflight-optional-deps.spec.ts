@@ -112,5 +112,4 @@ describe('preflight-optional-deps', () => {
 
     expect(installOptionalDependenciesBatch).not.toHaveBeenCalled()
   })
-
 })

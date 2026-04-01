@@ -6,6 +6,7 @@ import fsSync from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import process from 'node:process'
+import {fileURLToPath} from 'node:url'
 
 const args = process.argv.slice(2)
 
@@ -33,7 +34,18 @@ const timeoutMs = Number(parseArg('--timeout-ms', '180000'))
 const keepTemp = parseFlag('--keep-temp')
 const keepCache = parseFlag('--keep-cache')
 const useIsolatedCache = !parseFlag('--use-default-cache')
-const packageSpecifier = parseArg('--package', 'extension@latest')
+const useWorkspacePackage = parseFlag('--use-workspace-package')
+const scriptDir = path.dirname(fileURLToPath(import.meta.url))
+const workspaceCliPackage = path.resolve(scriptDir, '..', 'programs', 'cli')
+const workspaceDevelopRoot = path.resolve(
+  scriptDir,
+  '..',
+  'programs',
+  'develop'
+)
+const packageSpecifier = useWorkspacePackage
+  ? workspaceCliPackage
+  : parseArg('--package', 'extension@latest')
 const devArgsRaw = parseArg('--dev-args', '--no-browser --port 0')
 const devArgs = devArgsRaw.split(/\s+/).filter(Boolean)
 
@@ -337,6 +349,11 @@ async function verifyTemplate(template) {
   const projectDir = path.join(root, projectName)
   const isolatedCacheRoot = path.join(root, 'cache', 'optional-deps')
   const env = {...process.env}
+
+  if (useWorkspacePackage) {
+    env.EXTENSION_ENV = 'development'
+    env.EXTENSION_CREATE_DEVELOP_ROOT = workspaceDevelopRoot
+  }
 
   if (useIsolatedCache) {
     env.EXTENSION_JS_CACHE_DIR = path.join(root, 'cache')

@@ -243,7 +243,11 @@ function buildOptionalInstallArgs(
     return ['add', ...dependencies, '--cwd', installDir, '--optional']
   }
 
-  return ['install', ...dependencies, '--prefix', installDir, '--save-optional']
+  // npm already runs with cwd=installDir below. Avoid --prefix here because
+  // Windows npm has known save-flag regressions with --prefix. npm also treats
+  // peer mismatches inside extension-develop as hard failures, even though this
+  // path installs optional author/runtime tooling rather than app deps.
+  return ['install', ...dependencies, '--save-optional', '--legacy-peer-deps']
 }
 
 function buildBuildInstallArgs(
