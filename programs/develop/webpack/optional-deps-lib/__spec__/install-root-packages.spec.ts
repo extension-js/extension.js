@@ -28,7 +28,11 @@ function createPnpmStorePackage(
     version: '0.0.0',
     main: 'index.js'
   })
-  fs.writeFileSync(path.join(packageDir, 'index.js'), 'module.exports = {}', 'utf8')
+  fs.writeFileSync(
+    path.join(packageDir, 'index.js'),
+    'module.exports = {}',
+    'utf8'
+  )
 }
 
 describe('install-root package resolution', () => {
@@ -41,7 +45,9 @@ describe('install-root package resolution', () => {
   })
 
   it('finds packages inside pnpm store layout', () => {
-    const installRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-opt-root-'))
+    const installRoot = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'extjs-opt-root-')
+    )
     tempDirs.push(installRoot)
 
     createPnpmStorePackage(
