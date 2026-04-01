@@ -91,6 +91,12 @@ function isCanonicalContentScriptCss(resource: string) {
   return /^content_scripts\/content-\d+\.css$/.test(resource)
 }
 
+function toCanonicalContentScriptCss(jsFile: string) {
+  const normalized = String(jsFile || '')
+  if (!/^content_scripts\/content-\d+\.js$/.test(normalized)) return undefined
+  return normalized.replace(/\.js$/, '.css')
+}
+
 export function generateManifestPatches(
   compilation: Compilation,
   manifestPath: string,
@@ -463,6 +469,23 @@ export function generateManifestPatches(
       .filter((k) => k.startsWith('content_scripts/'))
       .filter((k) => k.endsWith('.css'))
       .sort()
+
+    if (Array.isArray(canonicalManifest.content_scripts)) {
+      for (const contentScript of canonicalManifest.content_scripts) {
+        const jsFiles = Array.isArray(contentScript.js) ? contentScript.js : []
+        const canonicalCss = jsFiles
+          .map(toCanonicalContentScriptCss)
+          .filter((resource): resource is string =>
+            Boolean(resource && cssUnderContentScripts.includes(resource))
+          )
+
+        if (canonicalCss.length > 0) {
+          contentScript.css = Array.from(
+            new Set([...(contentScript.css || []), ...canonicalCss])
+          ).sort()
+        }
+      }
+    }
 
     if (cssUnderContentScripts.length > 0) {
       const allMatches: string[] = Array.from(
