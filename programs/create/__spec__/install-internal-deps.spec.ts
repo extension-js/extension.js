@@ -121,6 +121,9 @@ describe('install-internal-deps', () => {
     const optionalArgs = optionalCall.args.join(' ')
     expect(optionalArgs).toContain('react-refresh')
     expect(optionalArgs).toContain('@rspack/plugin-react-refresh')
+    expect(optionalArgs).not.toContain('--prefix')
+    expect(optionalArgs).toContain('--save-optional')
+    expect(optionalArgs).toContain('--legacy-peer-deps')
     const postCssCall = spawnCalls.find((call) => {
       const args = call.args.join(' ')
       return args.includes('postcss') && args.includes('postcss-loader')
@@ -180,5 +183,7 @@ describe('install-internal-deps', () => {
     expect(optionalCall).toBeTruthy()
     expect(optionalCall?.cwd).toBe(localDevelopRoot)
     expect(optionalCall?.cwd).not.toBe(overrideDevelopRoot)
+    expect(optionalCall?.args.join(' ')).not.toContain('--prefix')
+    expect(optionalCall?.args.join(' ')).toContain('--legacy-peer-deps')
   })
 })

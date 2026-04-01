@@ -122,6 +122,10 @@ jobs:
       - name: Run optional deps smoke
         run: node ci-scripts/run-optional-deps-smoke.mjs --pm ${{ matrix.pm }}
 
+      - name: Compile local Extension.js packages for workspace first-dev check
+        if: matrix.os == 'windows-latest' && matrix.pm == 'npm'
+        run: pnpm --dir programs/create run compile && pnpm --dir programs/develop run compile && pnpm --dir programs/cli run compile
+
       - name: Verify first dev content-react contract (Windows npm)
         if: matrix.os == 'windows-latest' && matrix.pm == 'npm'
-        run: node scripts/verify-content-template-first-dev.mjs --templates content-react --use-default-cache
+        run: node scripts/verify-content-template-first-dev.mjs --templates content-react --use-default-cache --use-workspace-package

@@ -375,7 +375,8 @@ function isSameInstalledPackage(
   }
 
   return (
-    resolveRealPathSafe(resolvedPath) === resolveRealPathSafe(expectedInstalledPath)
+    resolveRealPathSafe(resolvedPath) ===
+    resolveRealPathSafe(expectedInstalledPath)
   )
 }
 
@@ -595,10 +596,11 @@ async function runInstallAndVerify(input: {
       missingAfterRetry
     )
     if (didInstallMissingOnly) {
-      const missingAfterTargetedTopUp = getContractVerificationFailuresAtInstallRoot(
-        input.contract,
-        input.installRoot
-      )
+      const missingAfterTargetedTopUp =
+        getContractVerificationFailuresAtInstallRoot(
+          input.contract,
+          input.installRoot
+        )
       if (missingAfterTargetedTopUp.length === 0) {
         return
       }
@@ -612,10 +614,11 @@ async function runInstallAndVerify(input: {
       {forceRecreateInstallRoot: true}
     )
     if (didRecoverWithCleanInstall) {
-      const missingAfterCleanInstall = getContractVerificationFailuresAtInstallRoot(
-        input.contract,
-        input.installRoot
-      )
+      const missingAfterCleanInstall =
+        getContractVerificationFailuresAtInstallRoot(
+          input.contract,
+          input.installRoot
+        )
       if (missingAfterCleanInstall.length === 0) {
         return
       }
@@ -710,11 +713,12 @@ export async function ensureOptionalPackageResolved(
     input.projectPath,
     installRoot
   )
-  const missingBeforeInstall = getContractVerificationFailuresFromKnownLocations(
-    contract,
-    input.projectPath,
-    installRoot
-  )
+  const missingBeforeInstall =
+    getContractVerificationFailuresFromKnownLocations(
+      contract,
+      input.projectPath,
+      installRoot
+    )
 
   if (resolvedBeforeInstall && missingBeforeInstall.length === 0) {
     return resolvedBeforeInstall
@@ -791,7 +795,9 @@ export async function ensureOptionalPackageResolved(
   )
 }
 
-export function resolveOptionalPackageWithoutInstall(input: EnsureResolveInput) {
+export function resolveOptionalPackageWithoutInstall(
+  input: EnsureResolveInput
+) {
   const contract = getVerificationContract(input)
   const installDependencies = contract.installPackages
   const verifyPackageIds = contract.installPackages
@@ -981,14 +987,12 @@ export async function ensureOptionalContractPackageResolved(input: {
   })
 }
 
-export async function ensureOptionalContractModuleLoaded<T = any>(
-  input: {
-    contractId: string
-    projectPath: string
-    dependencyId: string
-    moduleAdapter?: (loaded: any) => T
-  }
-): Promise<T> {
+export async function ensureOptionalContractModuleLoaded<T = any>(input: {
+  contractId: string
+  projectPath: string
+  dependencyId: string
+  moduleAdapter?: (loaded: any) => T
+}): Promise<T> {
   const contract = getOptionalDependencyContract(input.contractId)
   return ensureOptionalModuleLoaded<T>({
     integration: contract.integration,
@@ -1013,14 +1017,12 @@ export function resolveOptionalContractPackageWithoutInstall(input: {
   })
 }
 
-export function loadOptionalContractModuleWithoutInstall<T = any>(
-  input: {
-    contractId: string
-    projectPath: string
-    dependencyId: string
-    moduleAdapter?: (loaded: any) => T
-  }
-): T {
+export function loadOptionalContractModuleWithoutInstall<T = any>(input: {
+  contractId: string
+  projectPath: string
+  dependencyId: string
+  moduleAdapter?: (loaded: any) => T
+}): T {
   const contract = getOptionalDependencyContract(input.contractId)
   return loadOptionalModuleWithoutInstall<T>({
     integration: contract.integration,
