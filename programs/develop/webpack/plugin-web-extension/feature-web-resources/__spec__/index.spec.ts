@@ -168,6 +168,36 @@ describe('generateManifestPatches', () => {
     ])
   })
 
+  it('adds emitted canonical content css back to content_scripts.css during asset fallback', () => {
+    const result = runWith(
+      {},
+      {
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content_scripts/content-0.js']
+          }
+        ]
+      },
+      {
+        extraAssets: {
+          'content_scripts/content-0.css': '/* emitted css module output */'
+        }
+      }
+    )
+
+    expect(result.content_scripts?.[0]?.css).toEqual([
+      'content_scripts/content-0.css'
+    ])
+    expect((result as any).web_accessible_resources).toEqual([
+      {
+        matches: ['<all_urls>'],
+        resources: ['content_scripts/content-0.css']
+      }
+    ])
+  })
+
   it('preserves globs as-is for mv3 user-declared', () => {
     const result = runWith(
       {},
