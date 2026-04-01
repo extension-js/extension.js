@@ -34,7 +34,6 @@ import {
   getContractVerificationFailuresFromKnownLocations
 } from './optional-deps-resolver'
 
-
 function getInstallRootVerificationFailures(contractIds: string[]) {
   return Array.from(
     new Set(

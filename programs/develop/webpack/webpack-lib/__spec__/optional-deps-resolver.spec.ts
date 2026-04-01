@@ -591,7 +591,9 @@ describe('optional-deps-resolver', () => {
       'module.exports = { default: class ReactRefreshPlugin {} }'
     )
 
-    const externalRoot = fs.mkdtempSync(path.join(process.cwd(), 'tmp-extjs-link-'))
+    const externalRoot = fs.mkdtempSync(
+      path.join(process.cwd(), 'tmp-extjs-link-')
+    )
     auxPaths.push(externalRoot)
     const aliasDir = path.join(externalRoot, 'react-refresh-alias')
     fs.symlinkSync(
