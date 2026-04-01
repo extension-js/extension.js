@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- chore: sync build deps tracking manifest (55ab8964)
-- Bump dependency bundle and clear audit alerts (5287263c)
-- Fix content script manifest CSS restoration (d3e182e0)
+- Fix Windows optional dependency installs and smoke coverage (0e1303f1)
+- Fix content script CSS fallback restoration (002aa829)
+- Offload browser discovery to location libs (7035b423)
 
 ## 3.8.2
 
