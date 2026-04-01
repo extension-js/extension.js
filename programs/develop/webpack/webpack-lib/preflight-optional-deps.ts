@@ -34,67 +34,6 @@ import {
   getContractVerificationFailuresFromKnownLocations
 } from './optional-deps-resolver'
 
-function getResolutionPaths(projectPath?: string) {
-  const optionalInstallRoot = resolveOptionalInstallRoot()
-  const extensionRoot = resolveDevelopInstallRoot()
-  const paths = [
-    projectPath || undefined,
-    optionalInstallRoot && fs.existsSync(optionalInstallRoot)
-      ? optionalInstallRoot
-      : undefined,
-    extensionRoot || undefined,
-    process.cwd()
-  ].filter(Boolean) as string[]
-
-  if (optionalInstallRoot && optionalInstallRoot.includes('.pnpm')) {
-    paths.push(path.join(optionalInstallRoot, '..', '..'))
-  }
-
-  // In pnpm dlx, optional deps live in extension-develop's sibling node_modules
-  if (extensionRoot && extensionRoot.includes('.pnpm')) {
-    paths.push(path.join(extensionRoot, '..', '..'))
-  }
-
-  return Array.from(new Set(paths))
-}
-
-function canResolveFromModuleContext(
-  resolvedPath: string | undefined,
-  dependencyId: string
-) {
-  if (!resolvedPath) return undefined
-
-  try {
-    const req = createRequire(resolvedPath)
-    return req.resolve(dependencyId)
-  } catch {
-    return undefined
-  }
-}
-
-function isPathInside(basePath: string, candidatePath: string) {
-  const relative = path.relative(path.resolve(basePath), path.resolve(candidatePath))
-  return !relative.startsWith('..') && !path.isAbsolute(relative)
-}
-
-function verifyOptionalDepsResolvedAtInstallRoot(dependencies: string[]) {
-  const installRoot = resolveOptionalInstallRoot()
-  const req = createRequire(path.join(installRoot, 'package.json'))
-  const missing = dependencies.filter((dependencyId) => {
-    try {
-      const resolvedPath = req.resolve(dependencyId)
-      return !isPathInside(installRoot, resolvedPath)
-    } catch {
-      return true
-    }
-  })
-
-  if (missing.length === 0) return
-
-  throw new Error(
-    `[Optional] Optional dependency install reported success but packages are missing at install root: ${missing.join(', ')}`
-  )
-}
 
 function getInstallRootVerificationFailures(contractIds: string[]) {
   return Array.from(
