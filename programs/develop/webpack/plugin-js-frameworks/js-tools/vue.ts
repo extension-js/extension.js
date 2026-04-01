@@ -48,8 +48,8 @@ export async function maybeUseVue(
     dependencyId: 'vue-loader'
   })
 
-  const VueLoaderPlugin = await ensureOptionalContractModuleLoaded<VueLoaderPluginCtor>(
-    {
+  const VueLoaderPlugin =
+    await ensureOptionalContractModuleLoaded<VueLoaderPluginCtor>({
       contractId: 'vue',
       projectPath,
       dependencyId: 'vue-loader',
@@ -59,8 +59,7 @@ export async function maybeUseVue(
             mod.default &&
             mod.default.VueLoaderPlugin)) as VueLoaderPluginCtor
       }
-    }
-  )
+    })
 
   // Load custom loader configuration if it exists
   const customOptions = await loadLoaderOptions(projectPath, 'vue')
