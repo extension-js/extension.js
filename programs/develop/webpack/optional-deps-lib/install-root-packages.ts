@@ -5,7 +5,10 @@ function isPackageEntry(entry: fs.Dirent): boolean {
   return entry.isDirectory() || entry.isSymbolicLink()
 }
 
-function getDirectPackageDir(dependencyId: string, installRoot: string): string {
+function getDirectPackageDir(
+  dependencyId: string,
+  installRoot: string
+): string {
   return path.join(installRoot, 'node_modules', ...dependencyId.split('/'))
 }
 
