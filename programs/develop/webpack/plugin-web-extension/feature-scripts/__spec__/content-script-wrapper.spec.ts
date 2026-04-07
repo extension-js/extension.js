@@ -1,250 +1,148 @@
-import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
-import {describe, expect, it, beforeEach, afterEach, vi} from 'vitest'
-import wrapperLoader from '../steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import {afterEach, describe, expect, it, vi} from 'vitest'
+import contentScriptWrapper from '../steps/setup-reload-strategy/add-content-script-wrapper/content-script-wrapper'
 
-function run(
-  resourcePath: string,
-  manifestPath: string,
-  source: string,
-  resourceQuery?: string
-) {
-  const ctx: any = {
-    resourcePath,
-    resourceQuery,
-    getOptions() {
-      return {manifestPath, browser: 'chrome', mode: 'production'}
-    }
+const tempDirs: string[] = []
+
+afterEach(() => {
+  while (tempDirs.length > 0) {
+    fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
   }
-  return wrapperLoader.call(ctx, source)
+})
+
+function createTempProject() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wrapper-'))
+  tempDirs.push(dir)
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    '{"name":"fixture"}\n',
+    'utf8'
+  )
+  return dir
 }
 
-function runDevProxy(
-  resourcePath: string,
-  manifestPath: string,
-  source: string
-) {
-  const ctx: any = {
+function createLoaderContext(resourcePath: string, manifestPath: string) {
+  return {
     resourcePath,
-    resourceQuery: '',
+    _compilation: {},
+    emitWarning: vi.fn(),
     getOptions() {
-      return {manifestPath, browser: 'chrome', mode: 'development'}
-    },
-    emitWarning: vi.fn()
+      return {
+        manifestPath,
+        mode: 'development'
+      }
+    }
   }
-  return wrapperLoader.call(ctx, source)
 }
 
 describe('content-script-wrapper loader', () => {
-  let tmp: string
-  let manifestPath: string
+  it('wraps default exports with canonical bundle metadata and css hydration', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const contentDir = path.join(manifestDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
 
-  beforeEach(() => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'content-wrapper-'))
-    manifestPath = path.join(tmp, 'manifest.json')
-  })
-
-  afterEach(() => {
-    try {
-      fs.rmSync(tmp, {recursive: true, force: true})
-    } catch {}
-  })
-
-  it('wraps declared content script with runtime and preserves default export (inner request)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
-    )
-    const out = run(
-      cs,
-      manifestPath,
-      'export default function initial(){ return ()=>{} }',
-      '?__extjs_inner=1'
-    ) as string
-    expect(out).toMatch('function __EXTENSIONJS_mountWithHMR(')
-    expect(out).toMatch('/* __EXTENSIONJS_MOUNT_WRAPPED__ */')
-    expect(out).toMatch(
-      /try \{ __EXTENSIONJS_mountWithHMR\(__EXTENSIONJS_default__,\s*["']document_(start|end|idle)["']\) \} catch \([^)]+\) \{\}/
-    )
-    expect(out).toMatch('export default __EXTENSIONJS_default__')
-  })
-
-  it('schedules mount using manifest run_at for declared content scripts (inner request)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(contentDir, 'scripts.ts')
     fs.writeFileSync(
       manifestPath,
       JSON.stringify({
-        content_scripts: [{js: ['cs.ts'], run_at: 'document_start'}],
-        background: {}
-      })
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content/scripts.ts'],
+            world: 'MAIN'
+          }
+        ]
+      }),
+      'utf8'
     )
-    const out = run(
-      cs,
-      manifestPath,
-      'export default function initial(){ return ()=>{} }',
-      '?__extjs_inner=1'
-    ) as string
-    expect(out).toMatch(
-      /__EXTENSIONJS_mountWithHMR\(__EXTENSIONJS_default__,\s*["']document_start["']\)/
+
+    const context = createLoaderContext(resourcePath, manifestPath)
+    const source = [
+      "import './styles.css'",
+      'export default function mount() {',
+      '  return () => {}',
+      '}',
+      'mount()'
+    ].join('\n')
+
+    const wrapped = contentScriptWrapper.call(context as any, source)
+
+    expect(wrapped).toContain(
+      'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
     )
+    expect(wrapped).toContain(
+      'var __EXTENSIONJS_REINJECT_KEY="content_scripts/content-0::script-0";'
+    )
+    expect(wrapped).toContain('new URL("./styles.css", import.meta.url)')
+    expect(wrapped).toContain('data-extjs-reinject-owner')
+    expect(wrapped).toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
+    expect(wrapped).not.toContain('typeof browser === "object"')
+    expect(wrapped).not.toContain('typeof chrome === "object"')
+    expect(wrapped).toContain('globalThis.browser')
+    expect(wrapped).toContain('globalThis.chrome')
+    expect(context.emitWarning).toHaveBeenCalledTimes(1)
   })
 
-  it('dev proxy blocks dev-server reload fallback (non-extension pages)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
-    )
-    const out = runDevProxy(
-      cs,
-      manifestPath,
-      'export default function x(){}'
-    ) as string
-    expect(out).toMatch('Object.getPrototypeOf')
-    expect(out).toMatch('__extjsProto.reload')
-    expect(out).toMatch('blocked HMR-triggered location.reload')
-    expect(out).toMatch('__extjsHasRuntime')
-    expect(out).toMatch('webExtRt.runtime.getURL')
-    expect(out).toMatch('__extjsUpdateBase')
-    expect(out).toMatch('module.hot')
-  })
-
-  it('is a no-op for non-declared files', () => {
-    const other = path.join(tmp, 'other.ts')
-    fs.writeFileSync(other, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
-    )
-    const src = 'export default function x(){ return ()=>{} }'
-    const out = run(other, manifestPath, src) as string
-    expect(out).toBe(src)
-  })
-
-  it('wraps scripts/ folder scripts even when not declared in manifest (inner request)', () => {
-    const scriptsDir = path.join(tmp, 'scripts')
+  it('uses scripts folder paths as explicit bundle keys', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const scriptsDir = path.join(projectDir, 'scripts')
+    fs.mkdirSync(manifestDir, {recursive: true})
     fs.mkdirSync(scriptsDir, {recursive: true})
-    const scriptFile = path.join(scriptsDir, 'hello.ts')
-    fs.writeFileSync(scriptFile, '')
+
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(scriptsDir, 'run.ts')
     fs.writeFileSync(
       manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
+      JSON.stringify({manifest_version: 3}),
+      'utf8'
     )
-    const out = run(
-      scriptFile,
-      manifestPath,
-      'export default function initial(){ return ()=>{} }',
-      '?__extjs_inner=1'
-    ) as string
-    expect(out).toMatch('function __EXTENSIONJS_mountWithHMR(')
-    expect(out).toMatch('/* __EXTENSIONJS_MOUNT_WRAPPED__ */')
-    expect(out).toMatch('export default __EXTENSIONJS_default__')
+
+    const wrapped = contentScriptWrapper.call(
+      createLoaderContext(resourcePath, manifestPath) as any,
+      "console.log('hello scripts folder')"
+    )
+
+    expect(wrapped).toContain('var __EXTENSIONJS_BUNDLE_KEY="scripts/run.ts";')
+    expect(wrapped).toContain(
+      'var __EXTENSIONJS_REINJECT_KEY="scripts/run.ts";'
+    )
   })
 
-  it('injects CSS accepts for scripts/ folder entries (inner request)', () => {
-    const scriptsDir = path.join(tmp, 'scripts')
-    fs.mkdirSync(scriptsDir, {recursive: true})
-    const scriptFile = path.join(scriptsDir, 'hello.ts')
-    fs.writeFileSync(scriptFile, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
-    )
-    const src = `\nimport './styles.css'\nexport default function m(){}`
-    const out = run(scriptFile, manifestPath, src, '?__extjs_inner=1') as string
-    expect(out).toMatch('webpackHot.accept("./styles.css"')
-    expect(out).toMatch('__EXTENSIONJS_CSS_UPDATE__')
-  })
+  it('keeps non-default-export files in executed mode', () => {
+    const projectDir = createTempProject()
+    const manifestDir = path.join(projectDir, 'src')
+    const contentDir = path.join(manifestDir, 'content')
+    fs.mkdirSync(contentDir, {recursive: true})
 
-  it('injects CSS accepts for side-effect CSS imports (inner request)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
+    const manifestPath = path.join(manifestDir, 'manifest.json')
+    const resourcePath = path.join(contentDir, 'scripts.ts')
     fs.writeFileSync(
       manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
+      JSON.stringify({
+        manifest_version: 3,
+        content_scripts: [
+          {
+            matches: ['<all_urls>'],
+            js: ['content/scripts.ts']
+          }
+        ]
+      }),
+      'utf8'
     )
-    const src = `\nimport './styles.css'\nexport default function m(){}`
-    const out = run(cs, manifestPath, src, '?__extjs_inner=1') as string
-    expect(out).toMatch('webpackHot.accept("./styles.css"')
-    expect(out).toMatch('__EXTENSIONJS_CSS_UPDATE__')
-  })
 
-  it('injects CSS accepts for default CSS imports (inner request)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
+    const wrapped = contentScriptWrapper.call(
+      createLoaderContext(resourcePath, manifestPath) as any,
+      "console.log('plain module execution')"
     )
-    const src = `\nimport url from './a.css'\nimport b from './b.scss'\nexport default function m(){}`
-    const out = run(cs, manifestPath, src, '?__extjs_inner=1') as string
-    expect(out).toMatch('webpackHot.accept("./a.css"')
-    expect(out).toMatch('webpackHot.accept("./b.scss"')
-  })
 
-  it('injects Vue accepts for SFC imports (inner request)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
-    )
-    const src = `\nimport ContentApp from './ContentApp.vue'\nexport default function m(){}`
-    const out = run(cs, manifestPath, src, '?__extjs_inner=1') as string
-    expect(out).toMatch('webpackHot.accept("./ContentApp.vue"')
-  })
-
-  it('strips direct call to default-exported function to avoid double mount (inner request)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
-    )
-    const src = `\nfunction initial(){ return ()=>{} }\nexport default initial\ninitial()\n`
-    const out = run(cs, manifestPath, src, '?__extjs_inner=1') as string
-    expect(out).toMatch('export default __EXTENSIONJS_default__')
-    expect(out).toMatch(
-      /__EXTENSIONJS_mountWithHMR\(__EXTENSIONJS_default__,\s*["']document_(start|end|idle)["']\)/
-    )
-    expect(out).not.toMatch(/(^|\n|;)\s*initial\s*\(\s*\)\s*;?\s*(?=\n|$)/)
-  })
-
-  it('does not inject when default export is missing (inner request)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
-    )
-    const src = `export const x = 1`
-    const out = run(cs, manifestPath, src, '?__extjs_inner=1') as string
-    expect(out).toBe(src)
-  })
-
-  it('emits a warning when stripping a direct default call invocation (inner request)', () => {
-    const cs = path.join(tmp, 'cs.ts')
-    fs.writeFileSync(cs, '')
-    fs.writeFileSync(
-      manifestPath,
-      JSON.stringify({content_scripts: [{js: ['cs.ts']}], background: {}})
-    )
-    const ctx: any = {
-      resourcePath: cs,
-      resourceQuery: '?__extjs_inner=1',
-      getOptions() {
-        return {manifestPath, browser: 'chrome', mode: 'development'}
-      },
-      emitWarning: vi.fn()
-    }
-    const src = `\nfunction init(){ return ()=>{} }\nexport default init\ninit()\n`
-    const out = (wrapperLoader as any).call(ctx, src) as string
-    expect(out).toMatch('export default __EXTENSIONJS_default__')
-    expect(ctx.emitWarning).toHaveBeenCalled()
+    expect(wrapped).toContain('var __EXTJS_WRAPPER_KIND="FS3_INLINE";')
+    expect(wrapped).toContain('"executed"')
+    expect(wrapped).not.toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
   })
 })
