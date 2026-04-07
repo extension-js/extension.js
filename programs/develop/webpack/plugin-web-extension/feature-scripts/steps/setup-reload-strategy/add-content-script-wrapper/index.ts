@@ -9,7 +9,7 @@
 import * as path from 'path'
 import {type Compiler} from '@rspack/core'
 import {findNearestPackageJsonSync} from '../../../scripts-lib/package-json'
-import {resolveDevelopDistFile} from '../../../../../optional-deps-lib/runtime-context'
+import {resolveDevelopDistFile} from '../../../../../webpack-lib/develop-context'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
 import type {
   PluginInterface,

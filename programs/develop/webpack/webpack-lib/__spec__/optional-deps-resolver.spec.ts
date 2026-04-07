@@ -6,11 +6,18 @@ let developInstallRoot: string | undefined
 let optionalInstallRoot: string | undefined
 const installOptionalDependenciesMock = vi.fn()
 
-vi.mock('../../optional-deps-lib', () => ({
-  installOptionalDependencies: (...args: unknown[]) =>
-    installOptionalDependenciesMock(...args),
-  resolveDevelopInstallRoot: () => developInstallRoot,
-  resolveOptionalInstallRoot: () => optionalInstallRoot
+vi.mock('isolated-deps', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('isolated-deps')>()
+  return {
+    ...actual,
+    installOptionalDependencies: (...args: unknown[]) =>
+      installOptionalDependenciesMock(...args),
+    resolveOptionalInstallRoot: () => optionalInstallRoot
+  }
+})
+
+vi.mock('../develop-context', () => ({
+  resolveDevelopInstallRoot: () => developInstallRoot
 }))
 
 function writeJson(filePath: string, value: unknown) {

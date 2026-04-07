@@ -1,8 +1,11 @@
 import * as path from 'path'
 import * as fs from 'fs'
-import * as os from 'os'
+import {findExtensionDevelopRoot} from './check-build-dependencies'
 import packageJson from '../../package.json'
-import {findExtensionDevelopRoot} from '../webpack-lib/check-build-dependencies'
+
+if (!process.env.EXTENSION_JS_OPTIONAL_DEPS_VERSION) {
+  process.env.EXTENSION_JS_OPTIONAL_DEPS_VERSION = packageJson.version
+}
 
 function parseJsonSafe(text: string | Buffer) {
   const raw = typeof text === 'string' ? text : String(text || '')
@@ -93,57 +96,4 @@ export function resolveDevelopDistFile(stem: string): string {
   }
 
   return base
-}
-
-function getExtensionJsCacheBaseDir(): string {
-  const override = process.env.EXTENSION_JS_CACHE_DIR
-  if (override) return path.resolve(override)
-
-  if (process.platform === 'win32' && process.env.LOCALAPPDATA) {
-    return path.join(process.env.LOCALAPPDATA, 'extensionjs')
-  }
-
-  if (process.env.XDG_CACHE_HOME) {
-    return path.join(process.env.XDG_CACHE_HOME, 'extensionjs')
-  }
-
-  return path.join(os.homedir(), '.cache', 'extensionjs')
-}
-
-export function resolveOptionalInstallRoot(): string {
-  return path.join(
-    getExtensionJsCacheBaseDir(),
-    'optional-deps',
-    packageJson.version
-  )
-}
-
-export function hasDependency(projectPath: string, dependency: string) {
-  const findNearestPackageJsonDirectory = (
-    startPath: string
-  ): string | undefined => {
-    let currentDirectory = startPath
-    const maxDepth = 4
-
-    for (let i = 0; i < maxDepth; i++) {
-      const candidate = path.join(currentDirectory, 'package.json')
-      if (fs.existsSync(candidate)) return currentDirectory
-
-      const parentDirectory = path.dirname(currentDirectory)
-      if (parentDirectory === currentDirectory) break
-      currentDirectory = parentDirectory
-    }
-    return undefined
-  }
-
-  const packageJsonDirectory = findNearestPackageJsonDirectory(projectPath)
-  if (!packageJsonDirectory) return false
-
-  const packageJsonPath = path.join(packageJsonDirectory, 'package.json')
-  if (!fs.existsSync(packageJsonPath)) return false
-
-  const parsed = parseJsonSafe(fs.readFileSync(packageJsonPath, 'utf8'))
-  const dependencies = parsed.dependencies || {}
-  const devDependencies = parsed.devDependencies || {}
-  return !!dependencies[dependency] || !!devDependencies[dependency]
 }

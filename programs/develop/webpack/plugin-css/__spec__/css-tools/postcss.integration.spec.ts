@@ -21,7 +21,7 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
 
   it('emits arbitrary gradient-stop utility from fixture sources', async () => {
     vi.resetModules()
-    vi.doMock('../../../optional-deps-lib', () => ({
+    vi.doMock('isolated-deps', () => ({
       hasDependency: (_p: string, dep: string) =>
         dep === 'tailwindcss' || dep === '@tailwindcss/postcss',
       installOptionalDependencies: vi.fn(async () => true),
