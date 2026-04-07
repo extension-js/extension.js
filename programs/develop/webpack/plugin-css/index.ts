@@ -14,7 +14,7 @@ import {
   type RuleSetRule
 } from '@rspack/core'
 import * as messages from './css-lib/messages'
-import {hasDependency} from '../optional-deps-lib'
+import {hasDependency} from 'isolated-deps'
 import {maybeUseSass} from './css-tools/sass'
 import {maybeUseLess} from './css-tools/less'
 import {maybeUseStylelint} from './css-tools/stylelint'

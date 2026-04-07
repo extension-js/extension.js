@@ -43,7 +43,7 @@
     "ci:test:plugin-extension": "pnpm run test:dev",
     "ci:test:plugin-js-frameworks": "pnpm run test:dev",
     "ci:test:plugin-compilation": "pnpm run test:dev",
-    "ci:test:optional-deps-lib": "pnpm --dir programs/develop exec vitest run webpack/optional-deps-lib/__spec__/installer-engine.spec.ts webpack/optional-deps-lib/__spec__/scenarios.spec.ts webpack/webpack-lib/__spec__/optional-deps-resolver.spec.ts webpack/webpack-lib/__spec__/preflight-optional-deps.spec.ts",
+    "ci:test:isolated-deps": "pnpm --dir programs/develop exec vitest run webpack/webpack-lib/__spec__/optional-deps-resolver.spec.ts webpack/webpack-lib/__spec__/preflight-optional-deps.spec.ts webpack/webpack-lib/__spec__/preflight-cache.spec.ts",
     "postcompile": "node scripts/build-extensions.cjs"
   },
   "devDependencies": {

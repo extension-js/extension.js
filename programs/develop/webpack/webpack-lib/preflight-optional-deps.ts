@@ -10,10 +10,6 @@ import * as path from 'path'
 import * as fs from 'fs'
 import {createRequire} from 'module'
 import {getDirs} from './paths'
-import {
-  resolveDevelopInstallRoot,
-  resolveOptionalInstallRoot
-} from '../optional-deps-lib'
 import colors from 'pintor'
 import {hasPreflightMarker, writePreflightMarker} from './preflight-cache'
 import type {ProjectStructure} from './project'
@@ -166,9 +162,9 @@ export async function preflightOptionalDependencies(
     const installPlans = uniqueIntegrations
       .map((integration) => ({
         integration,
-        dependencies: missingByIntegration[integration] || []
+        dependencySpecs: missingByIntegration[integration] || []
       }))
-      .filter((plan) => plan.dependencies.length > 0)
+      .filter((plan) => plan.dependencySpecs.length > 0)
     const didInstall = await installOptionalDependenciesBatch(installPlans)
 
     if (!didInstall) {
