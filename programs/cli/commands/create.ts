@@ -11,6 +11,7 @@ import type {Command} from 'commander'
 import {createRequire} from 'module'
 import type {CreateOptions} from 'extension-create'
 import {commandDescriptions} from '../cli-lib/messages'
+import {resolveExtensionDevelopRoot} from '../cli-lib/extension-develop-runtime'
 import {collectWorkflowProfile} from '../cli-lib/workflow-profile'
 import {getCliPackageJson} from '../cli-package-json'
 import {parseOptionalBoolean} from '../utils'
@@ -60,18 +61,26 @@ export function registerCreateCommand(program: Command, telemetry: any) {
       try {
         if (!process.env.EXTENSION_CREATE_DEVELOP_ROOT) {
           try {
-            const developPkg = require.resolve('extension-develop/package.json')
-            process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(developPkg)
+            process.env.EXTENSION_CREATE_DEVELOP_ROOT =
+              resolveExtensionDevelopRoot()
           } catch {
-            // Some extension-develop builds don't export package.json.
-            // Fallback to the main entry and infer package root.
             try {
-              const developEntry = require.resolve('extension-develop')
-              process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(
-                path.dirname(developEntry)
+              const developPkg = require.resolve(
+                'extension-develop/package.json'
               )
+              process.env.EXTENSION_CREATE_DEVELOP_ROOT =
+                path.dirname(developPkg)
             } catch {
-              // Leave unset if extension-develop is not available
+              // Some extension-develop builds don't export package.json.
+              // Fallback to the main entry and infer package root.
+              try {
+                const developEntry = require.resolve('extension-develop')
+                process.env.EXTENSION_CREATE_DEVELOP_ROOT = path.dirname(
+                  path.dirname(developEntry)
+                )
+              } catch {
+                // Leave unset if extension-develop is not available
+              }
             }
           }
         }

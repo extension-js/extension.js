@@ -28,6 +28,11 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
+import {
+  pickSharedBrowserRuntimeOptions,
+  publishUserExtensionRoot,
+  toExtensionLoadList
+} from '../../browsers-lib/runtime-options'
 import * as devServerMessages from '../../../dev-server/messages'
 import {browserConfig} from './browser-config'
 import {setupProcessSignalHandlers} from './process-handlers'
@@ -195,27 +200,54 @@ export class ChromiumLaunchPlugin {
       const normalized = normalizeBinaryPathForWsl(p)
       return normalized || null
     }
-
-    try {
-      const resolved = binariesResolver.resolveFromBinaries(
-        compilation,
-        browser === 'chromium' || browser === 'chromium-based'
-          ? 'chromium'
-          : browser === 'edge'
-            ? 'edge'
-            : 'chrome'
-      )
-      const normalized = normalizePath(resolved || null)
-      if (normalized && fs.existsSync(normalized)) {
-        browserBinaryLocation = normalized
+    const isUsableBinary = (p: string | null): p is string =>
+      Boolean(p && fs.existsSync(p))
+    const resolveManagedBinary = (): string | null => {
+      try {
+        const resolved = binariesResolver.resolveFromBinaries(
+          compilation,
+          browser === 'chromium' || browser === 'chromium-based'
+            ? 'chromium'
+            : browser === 'edge'
+              ? 'edge'
+              : 'chrome'
+        )
+        const normalized = normalizePath(resolved || null)
+        return isUsableBinary(normalized) ? normalized : null
+      } catch {
+        return null
       }
-    } catch {
-      // ignore
     }
+    const resolveWslFallback = (): string | null =>
+      resolveWslWindowsBinary(browser)
+    const getInstallGuidanceText = (
+      target: 'chrome' | 'chromium' | 'edge'
+    ): string => {
+      try {
+        if (target === 'edge') {
+          return getEdgeInstallGuidance()
+        }
+        if (target === 'chromium') {
+          return getChromiumInstallGuidance()
+        }
+        return getChromeInstallGuidance()
+      } catch {
+        return `npx extension install ${target}`
+      }
+    }
+    const printInstallGuidance = (
+      raw: string,
+      browserName: ChromiumLaunchOptions['browser'] | 'edge' | 'chromium'
+    ) => {
+      this.printEnhancedPuppeteerInstallHint(compilation, raw, browserName)
+      printedGuidance = true
+    }
+
+    browserBinaryLocation = resolveManagedBinary()
 
     let skipDetection = Boolean(browserBinaryLocation)
     if (!browserBinaryLocation && isWslEnv()) {
-      const wslFallback = resolveWslWindowsBinary(browser)
+      const wslFallback = resolveWslFallback()
       if (wslFallback) {
         browserBinaryLocation = wslFallback
         skipDetection = true
@@ -235,6 +267,7 @@ export class ChromiumLaunchPlugin {
         return ''
       }
     }
+
     const looksOfficialChromeBinaryPath = (bin: string): boolean => {
       const p = String(bin || '')
       if (!p) return false
@@ -254,14 +287,6 @@ export class ChromiumLaunchPlugin {
       return false
     }
 
-    const getInstallGuidanceText = (): string => {
-      try {
-        return getChromeInstallGuidance()
-      } catch {
-        return 'npx extension install chrome'
-      }
-    }
-
     const managedCacheRoot =
       binariesResolver.computeBinariesBaseDir(compilation)
     const managedEnvFor = (b: ChromiumLaunchOptions['browser']) => ({
@@ -270,63 +295,54 @@ export class ChromiumLaunchPlugin {
     })
 
     const isAuthorMode = process.env.EXTENSION_AUTHOR_MODE === 'true'
+    const resolveChromeLikeBinary = (): string | null => {
+      try {
+        try {
+          const env = managedEnvFor('chrome')
+          const located = locateChrome(true, {env}) || null
+          if (!located) throw new Error(getInstallGuidanceText('chrome'))
+          const normalized = normalizePath(located || null)
+          if (isUsableBinary(normalized)) {
+            if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
+              printInstallGuidance(
+                getInstallGuidanceText('chrome'),
+                browser as any
+              )
+              return null
+            }
+            return normalized
+          }
+          return null
+        } catch (err) {
+          const env = managedEnvFor('chrome')
+          let candidate: string | null = locateChrome(true, {env}) || null
+          const normalized = normalizePath(candidate || null)
+          if (normalized) {
+            if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
+              printInstallGuidance(
+                getInstallGuidanceText('chrome'),
+                browser as any
+              )
+              candidate = null
+            }
+          }
+          const resolved = normalizePath(candidate || null)
+          const fallback = resolved || resolveWslFallback()
+          if (!fallback) throw err
+          return fallback
+        }
+      } catch (error) {
+        printInstallGuidance(String(error), browser as any)
+        return null
+      }
+    }
 
     switch (browser) {
       case 'chrome': {
         if (isAuthorMode) console.log(messages.locatingBrowser(browser))
 
         if (!skipDetection) {
-          try {
-            try {
-              const env = managedEnvFor('chrome')
-              const located = locateChrome(true, {env}) || null
-              if (!located) throw new Error(getInstallGuidanceText())
-              const normalized = normalizePath(located || null)
-              if (normalized && fs.existsSync(normalized)) {
-                if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
-                  this.printEnhancedPuppeteerInstallHint(
-                    compilation,
-                    getInstallGuidanceText(),
-                    browser
-                  )
-                  printedGuidance = true
-                  browserBinaryLocation = null
-                } else {
-                  browserBinaryLocation = normalized
-                }
-              } else {
-                browserBinaryLocation = null
-              }
-            } catch (err) {
-              const env = managedEnvFor('chrome')
-              let candidate: string | null = locateChrome(true, {env}) || null
-              const normalized = normalizePath(candidate || null)
-              if (normalized) {
-                if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
-                  this.printEnhancedPuppeteerInstallHint(
-                    compilation,
-                    getInstallGuidanceText(),
-                    browser
-                  )
-                  printedGuidance = true
-                  candidate = null
-                }
-              }
-              browserBinaryLocation = normalized
-              if (!browserBinaryLocation) {
-                browserBinaryLocation = resolveWslWindowsBinary(browser)
-              }
-              if (!browserBinaryLocation) throw err
-            }
-          } catch (e) {
-            this.printEnhancedPuppeteerInstallHint(
-              compilation,
-              String(e),
-              browser
-            )
-            printedGuidance = true
-            browserBinaryLocation = null
-          }
+          browserBinaryLocation = resolveChromeLikeBinary()
         }
         break
       }
@@ -363,7 +379,7 @@ export class ChromiumLaunchPlugin {
           }
         }
         if (!browserBinaryLocation) {
-          browserBinaryLocation = resolveWslWindowsBinary(browser)
+          browserBinaryLocation = resolveWslFallback()
         }
         break
       }
@@ -396,20 +412,9 @@ export class ChromiumLaunchPlugin {
                 browserBinaryLocation = fallback
                 break
               }
-              const guidance = (() => {
-                try {
-                  return getEdgeInstallGuidance()
-                } catch {
-                  return 'npx extension install edge'
-                }
-              })()
+              const guidance = getInstallGuidanceText('edge')
 
-              this.printEnhancedPuppeteerInstallHint(
-                compilation,
-                guidance,
-                'edge'
-              )
-              printedGuidance = true
+              printInstallGuidance(guidance, 'edge')
               browserBinaryLocation = null
 
               if (process.env.VITEST || process.env.VITEST_WORKER_ID) {
@@ -420,24 +425,13 @@ export class ChromiumLaunchPlugin {
             }
           }
         } catch {
-          const guidance = (() => {
-            try {
-              return getEdgeInstallGuidance()
-            } catch {
-              return 'npx extension install edge'
-            }
-          })()
+          const guidance = getInstallGuidanceText('edge')
 
-          const fallback = resolveWslWindowsBinary(browser)
+          const fallback = resolveWslFallback()
           if (fallback) {
             browserBinaryLocation = fallback
           } else {
-            this.printEnhancedPuppeteerInstallHint(
-              compilation,
-              guidance,
-              'edge'
-            )
-            printedGuidance = true
+            printInstallGuidance(guidance, 'edge')
             browserBinaryLocation = null
           }
 
@@ -484,106 +478,28 @@ export class ChromiumLaunchPlugin {
           }
         }
         if (!browserBinaryLocation) {
-          browserBinaryLocation = resolveWslWindowsBinary(browser)
+          browserBinaryLocation = resolveWslFallback()
         }
         break
       }
 
       default: {
-        try {
-          try {
-            const env = managedEnvFor('chrome')
-            const located = locateChrome(true, {env}) || null
-            if (!located) throw new Error(getInstallGuidanceText())
-            const normalized = normalizePath(located || null)
-            if (normalized && fs.existsSync(normalized)) {
-              if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
-                this.printEnhancedPuppeteerInstallHint(
-                  compilation,
-                  getInstallGuidanceText(),
-                  browser
-                )
-                printedGuidance = true
-                browserBinaryLocation = null
-              } else {
-                browserBinaryLocation = normalized
-              }
-            } else {
-              browserBinaryLocation = null
-            }
-          } catch (err) {
-            const env = managedEnvFor('chrome')
-            let candidate: string | null = locateChrome(true, {env}) || null
-            const normalized = normalizePath(candidate || null)
-            if (normalized) {
-              if (looksOfficialChromeBinaryPath(normalized) && !isWslEnv()) {
-                this.printEnhancedPuppeteerInstallHint(
-                  compilation,
-                  getInstallGuidanceText(),
-                  browser
-                )
-                printedGuidance = true
-                candidate = null
-              }
-            }
-            browserBinaryLocation = normalized
-            if (!browserBinaryLocation) {
-              browserBinaryLocation = resolveWslWindowsBinary(browser)
-            }
-            if (!browserBinaryLocation) throw err
-          }
-        } catch (e) {
-          this.printEnhancedPuppeteerInstallHint(
-            compilation,
-            String(e),
-            browser
-          )
-          printedGuidance = true
-          browserBinaryLocation = null
-        }
+        browserBinaryLocation = resolveChromeLikeBinary()
         break
       }
     }
 
     if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
-      try {
-        const resolved = binariesResolver.resolveFromBinaries(
-          compilation,
-          browser === 'chromium' || browser === 'chromium-based'
-            ? 'chromium'
-            : browser === 'edge'
-              ? 'edge'
-              : 'chrome'
-        )
-
-        const normalized = normalizePath(resolved || null)
-        if (normalized && fs.existsSync(normalized)) {
-          browserBinaryLocation = normalized
-        }
-      } catch {
-        // ignore
-      }
+      browserBinaryLocation = browserBinaryLocation || resolveManagedBinary()
 
       if (!browserBinaryLocation) {
-        browserBinaryLocation = resolveWslWindowsBinary(browser)
+        browserBinaryLocation = resolveWslFallback()
       }
 
       if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
         // Always print pretty guidance for Chromium flavors
         if (browser === 'chromium' || browser === 'chromium-based') {
-          const chromiumGuidance = (() => {
-            try {
-              return getChromiumInstallGuidance()
-            } catch {
-              return 'npx extension install chromium'
-            }
-          })()
-          this.printEnhancedPuppeteerInstallHint(
-            compilation,
-            chromiumGuidance,
-            'chromium'
-          )
-          printedGuidance = true
+          printInstallGuidance(getInstallGuidanceText('chromium'), 'chromium')
         }
 
         if (
@@ -607,23 +523,8 @@ export class ChromiumLaunchPlugin {
       }
     }
 
-    const extensionsToLoad = Array.isArray(this.options.extension)
-      ? [...this.options.extension]
-      : [this.options.extension]
-
-    // Publish extension root once (prefer the USER extension path).
-    // Since we now load devtools first and user last, pick the last string entry.
-    try {
-      const last = [...extensionsToLoad]
-        .reverse()
-        .find((e) => typeof e === 'string')
-      if (last) {
-        const root = String(last)
-        this.ctx.setExtensionRoot(root)
-      }
-    } catch {
-      // ignore
-    }
+    const extensionsToLoad = toExtensionLoadList(this.options.extension)
+    publishUserExtensionRoot(extensionsToLoad, this.ctx.setExtensionRoot)
 
     let chromiumConfig: string[] = browserConfig(compilation, {
       ...this.options,
@@ -725,31 +626,13 @@ export class ChromiumLaunchPlugin {
       }
 
       const cdpConfig: ChromiumPluginRuntime = {
-        extension: Array.isArray(this.options.extension)
-          ? this.options.extension
-          : [this.options.extension],
-        browser: this.options.browser,
-        port: this.options.port,
-        instanceId: this.options.instanceId,
-        bannerPrintedOnce: false,
-        logLevel: this.options.logLevel,
-        logContexts: this.options.logContexts,
-        logUrl: this.options.logUrl,
-        logTab: this.options.logTab,
-        logFormat: this.options.logFormat,
-        logTimestamps: this.options.logTimestamps,
-        logColor: this.options.logColor,
-        cdpController: undefined,
-        noOpen: this.options.noOpen,
-        browserFlags: this.options.browserFlags,
-        excludeBrowserFlags: this.options.excludeBrowserFlags,
-        profile: this.options.profile,
-        preferences: this.options.preferences,
-        startingUrl: this.options.startingUrl,
+        ...pickSharedBrowserRuntimeOptions({
+          ...this.options,
+          extension: extensionsToLoad
+        }),
         chromiumBinary: this.options.chromiumBinary,
-        source: this.options.source,
-        watchSource: this.options.watchSource,
-        dryRun: this.options.dryRun,
+        bannerPrintedOnce: false,
+        cdpController: undefined,
         browserVersionLine
       }
 

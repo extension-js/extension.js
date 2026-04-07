@@ -64,7 +64,6 @@ function createDiscardWriteStream() {
 
   return stream as Writable & {path?: string}
 }
-
 const guardedManifestDiskWritePaths = new Set<string>()
 let isManifestDiskWriteGuardInstalled = false
 
@@ -300,6 +299,10 @@ export async function devServer(
     hostname: devServerHost,
     port
   }
+  process.env.EXTENSION_DEV_SERVER_PROTOCOL = devServerWebSocketURL.protocol
+  process.env.EXTENSION_DEV_SERVER_HOST = devServerHost
+  process.env.EXTENSION_DEV_SERVER_PORT = String(port)
+  process.env.EXTENSION_DEV_SERVER_PATH = '/ws'
 
   // Get the user defined args and merge with the Extension.js base webpack config
   // Avoid overriding file-config values with undefined from CLI args
@@ -358,6 +361,7 @@ export async function devServer(
       }
     }
   }
+  delete (compilerConfig as any).devServer
   const compiler = rspack(compilerConfig)
   const manifestOutputPath = path.join(
     packageJsonDir,
@@ -434,23 +438,17 @@ export async function devServer(
         interval: 1000
       }
     },
-    client: {
-      // Do not surface bundler/dev-server names to end users
-      logging: 'none',
-      progress: false,
-      overlay: false,
-      webSocketURL: devServerWebSocketURL
-    },
+    client: false,
     headers: {
       'Access-Control-Allow-Origin': '*'
     },
     port,
-    // Use HMR "only" mode globally so the injected hot runtime does NOT hard-reload the page
-    // when HMR can't apply updates (important for content scripts to avoid infinite reload loops).
-    hot: 'only',
-    // Keep liveReload enabled so extension pages can still recover via full reload
-    // (we selectively disable hot for those pages via a dev-only runtime patch).
-    liveReload: true
+    // Rspack must inject `module.hot` so `webpack/hot/dev-server` (prepended to
+    // HTML entry chains in development) does not throw. Content scripts do not
+    // rely on that client: StripContentScriptDevServerRuntime strips HMR startup
+    // from `content_scripts/content-*.js` bundles.
+    hot: true,
+    liveReload: false
   }
 
   const devServer = new RspackDevServer(serverConfig, compiler)

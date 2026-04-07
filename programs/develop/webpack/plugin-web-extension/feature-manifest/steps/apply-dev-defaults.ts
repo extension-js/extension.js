@@ -84,12 +84,13 @@ export class ApplyDevDefaults {
                       permissions: [
                         ...new Set([
                           'scripting',
+                          'tabs',
                           'management',
                           ...(canonicalManifest.permissions || [])
                         ])
                       ]
                     }
-                  : {permissions: ['scripting', 'management']}
+                  : {permissions: ['scripting', 'tabs', 'management']}
                 : {}),
 
               ...patchBackground(canonicalManifest, this.browser),

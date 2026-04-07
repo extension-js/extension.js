@@ -93,8 +93,12 @@ export default function AutoPublicPathRuntimeModule(
         `}`,
         'if (!scriptUrl) {',
         Template.indent([
+          `var __extjsRuntimeRoot = "";`,
           `if (${RuntimeGlobal} && ${RuntimeGlobal}.runtime && typeof ${RuntimeGlobal}.runtime.getURL === "function") {`,
-          Template.indent(`scriptUrl = ${RuntimeGlobal}.runtime.getURL("/");`),
+          Template.indent(
+            `try { __extjsRuntimeRoot = ${RuntimeGlobal}.runtime.getURL("/"); } catch (_) { __extjsRuntimeRoot = ""; }`
+          ),
+          Template.indent(`scriptUrl = __extjsRuntimeRoot || scriptUrl;`),
           `} else {`,
           // MAIN world: extension runtime missing; keep publicPath empty and let bridge resolve chunks.
           Template.indent('scriptUrl = __extjsBase || "";'),

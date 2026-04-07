@@ -41,9 +41,9 @@
     "registry": "https://registry.npmjs.org"
   },
   "scripts": {
-    "prepublishOnly": "node scripts/sync-build-dependencies.mjs && rslib build && node ../../scripts/build-extensions.cjs",
+    "prepublishOnly": "node scripts/sync-build-dependencies.mjs && rslib build && node scripts/write-dist-js-aliases.mjs && node ../../scripts/build-extensions.cjs",
     "sync-build-deps": "node scripts/sync-build-dependencies.mjs",
-    "compile": "rslib build",
+    "compile": "rslib build && node scripts/write-dist-js-aliases.mjs",
     "watch": "rslib build --watch",
     "test": "vitest run"
   },

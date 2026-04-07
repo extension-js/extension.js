@@ -8,26 +8,26 @@
 
 import {type Compiler} from '@rspack/core'
 import {WebSocketServer} from 'ws'
+import {type DevOptions} from '../../../webpack-types'
 import * as messages from '../../browsers-lib/messages'
 import {deriveDebugPortWithInstance} from '../../browsers-lib/shared-utils'
-import {CDPClient} from './cdp-client'
-import {waitForChromeRemoteDebugging} from './readiness'
-import {ensureTargetAndSession} from './targets'
-import {extractPageHtml} from './extract'
-import {type DevOptions} from '../../../webpack-types'
 import {
   applySourceRedaction,
   buildHtmlSummary,
+  type DomSnapshot,
   diffDomSnapshots,
   emitActionEvent,
   formatHtmlSentinelBegin,
   formatHtmlSentinelEnd,
   hashStringFNV1a,
   normalizeSourceOutputConfig,
-  truncateByBytes,
-  type DomSnapshot,
-  type SourceStage
+  type SourceStage,
+  truncateByBytes
 } from '../../browsers-lib/source-output'
+import {CDPClient} from './cdp-client'
+import {extractPageHtml} from './extract'
+import {waitForChromeRemoteDebugging} from './readiness'
+import {ensureTargetAndSession} from './targets'
 
 /**
  * ChromiumSourceInspectionPlugin
@@ -60,7 +60,13 @@ export class ChromiumSourceInspectionPlugin {
   private isInitialized = false
   private isWatching = false
   private hasInspectedSourceOnce = false
+  private pendingWatchSourceUpdate = false
+  private pendingWatchSourceRootMeta?: Awaited<
+    ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
+  >
   private debounceTimer: NodeJS.Timeout | null = null
+  private watchSourceFlushTimer: NodeJS.Timeout | null = null
+  private isFlushingWatchSourceUpdate = false
   private runtimeMode?: string
   private lastOutputHash?: string
   private lastByteLength?: number
@@ -190,7 +196,7 @@ export class ChromiumSourceInspectionPlugin {
       const payload = await this.cdpClient.evaluate(
         this.currentSessionId,
         `(() => {
-          const rootEl = document.querySelector('#extension-root,[data-extension-root="true"]');
+          const rootEl = document.querySelector('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])');
           if (!rootEl) return null;
           const root = (${includeShadow ? 'rootEl.shadowRoot || rootEl' : 'rootEl'});
           const maxDepth = 6;
@@ -257,6 +263,77 @@ export class ChromiumSourceInspectionPlugin {
       // ignore
     }
     return undefined
+  }
+
+  private async getExtensionRootMeta(): Promise<
+    | {
+        rootCount: number
+        markerCount: number
+        latestGeneration: number
+        roots: Array<{
+          tag: string
+          id?: string
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }>
+        markers: Array<{
+          tag: string
+          id?: string
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }>
+        registries: Array<{
+          key: string
+          generation?: number
+          hasCleanup?: boolean
+          build?: string
+        }>
+        page?: {
+          key?: string
+          generation?: number
+          status?: string
+          build?: string
+        }
+      }
+    | undefined
+  > {
+    if (!this.cdpClient || !this.currentSessionId) return undefined
+    try {
+      return await this.cdpClient.getExtensionRootMeta(this.currentSessionId)
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
+   * Require structural evidence (counted roots or shadow style nodes) after the
+   * injection wait, with a short settle loop for async shadow hydration. Falls back to
+   * the same shadow-innerHTML probe as {@link waitForContentScriptInjection}.
+   */
+  private async shouldEmitContentScriptInjected(
+    injectionWaitOk: boolean
+  ): Promise<boolean> {
+    if (!injectionWaitOk || !this.cdpClient || !this.currentSessionId) {
+      return false
+    }
+    const sessionId = this.currentSessionId
+    const deadline = Date.now() + 2800
+    while (Date.now() < deadline) {
+      const rootMeta = await this.cdpClient.getExtensionRootMeta(sessionId)
+      const shadow = await this.cdpClient.getShadowStyleSnapshot(sessionId)
+      const hasUserRoot = Boolean(rootMeta && rootMeta.rootCount >= 1)
+      const hasShadowStyles =
+        shadow && typeof shadow.count === 'number' && Number(shadow.count) > 0
+      if (hasUserRoot || hasShadowStyles) {
+        return true
+      }
+      await new Promise((r) => setTimeout(r, 200))
+    }
+    return this.cdpClient.hasVisibleShadowHostContent(sessionId)
   }
 
   private async getPageMetaSnapshot(): Promise<{
@@ -365,7 +442,7 @@ export class ChromiumSourceInspectionPlugin {
       const payload = await this.cdpClient.evaluate(
         this.currentSessionId,
         `(() => {
-          const rootEl = document.querySelector('#extension-root,[data-extension-root="true"]');
+          const rootEl = document.querySelector('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])');
           if (!rootEl) return null;
           const root = (${includeShadow ? 'rootEl.shadowRoot || rootEl' : 'rootEl'});
           const maxDepth = 4;
@@ -661,6 +738,14 @@ export class ChromiumSourceInspectionPlugin {
     if (this.devOptions.sourceMeta) {
       const metaSnapshot = await this.getPageMetaSnapshot()
       this.emitEventPayload('page_meta', stage, meta, metaSnapshot)
+      const rootMeta = await this.getExtensionRootMeta()
+      if (rootMeta) {
+        this.emitEventPayload('extension_root_meta', stage, meta, rootMeta)
+      }
+      const styleSnapshot = await this.getShadowStyleSnapshot()
+      if (styleSnapshot) {
+        this.emitEventPayload('shadow_style_output', stage, meta, styleSnapshot)
+      }
     }
 
     if (Array.isArray(this.devOptions.sourceProbe)) {
@@ -741,6 +826,17 @@ export class ChromiumSourceInspectionPlugin {
     }
 
     console.log(JSON.stringify({...base, ...payload}))
+  }
+
+  private async getShadowStyleSnapshot(): Promise<
+    Record<string, unknown> | undefined
+  > {
+    if (!this.cdpClient || !this.currentSessionId) return undefined
+    try {
+      return await this.cdpClient.getShadowStyleSnapshot(this.currentSessionId)
+    } catch {
+      return undefined
+    }
   }
 
   private async getCdpPort(): Promise<number> {
@@ -826,36 +922,24 @@ export class ChromiumSourceInspectionPlugin {
         console.log(messages.sourceInspectorWaitingForContentScripts())
       }
 
-      await this.cdpClient.waitForContentScriptInjection(this.currentSessionId)
-      emitActionEvent('content_script_injected', {url})
+      const injected = await this.cdpClient.waitForContentScriptInjection(
+        this.currentSessionId
+      )
+      const emitInjection = await this.shouldEmitContentScriptInjected(injected)
+      if (emitInjection) {
+        emitActionEvent('content_script_injected', {url})
+      }
 
-      // Extra reliable poll: wait until #extension-root with shadowRoot exists (up to ~12s)
+      if (!injected) {
+        await this.cdpClient.pollForVisibleShadowHostContent(
+          this.currentSessionId
+        )
+      }
+
       try {
-        const deadline = Date.now() + 20000
-        const started = Date.now()
-
-        while (Date.now() < deadline) {
-          const hasRoot = await this.cdpClient.evaluate(
-            this.currentSessionId,
-            `(() => { try {
-              const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root="true"]'));
-              if (!hosts.length) return false;
-              for (const h of hosts) {
-                try {
-                  const sr = h && h.shadowRoot;
-                  if (sr && (String(sr.innerHTML||'').length > 0)) return true;
-                } catch { /* ignore */ }
-              }
-              return false;
-            } catch { return false } })()`
-          )
-          if (hasRoot) break
-          const elapsed = Date.now() - started
-          const delay = elapsed < 2000 ? 150 : 500
-          await new Promise((r) => setTimeout(r, delay))
-        }
+        await this.waitForContentScriptStyles(this.currentSessionId)
       } catch {
-        // ignore
+        // Ignore style wait failures; HTML extraction still proceeds.
       }
 
       // This is the real inspection data step for the user (post-injection):
@@ -927,7 +1011,18 @@ export class ChromiumSourceInspectionPlugin {
       try {
         const message = JSON.parse(data)
         if (message.type === 'changedFile' && this.isWatching) {
-          await this.handleFileChange()
+          if (!this.pendingWatchSourceUpdate) {
+            this.pendingWatchSourceRootMeta =
+              await this.getExtensionRootMeta().catch(() => undefined)
+          }
+          this.pendingWatchSourceUpdate = true
+        } else if (message.type === 'contentReloaded' && this.isWatching) {
+          if (this.pendingWatchSourceUpdate) {
+            const previousRootMeta = this.pendingWatchSourceRootMeta
+            this.pendingWatchSourceUpdate = false
+            this.pendingWatchSourceRootMeta = undefined
+            this.scheduleWatchSourceUpdate(previousRootMeta)
+          }
         }
       } catch (error) {
         // Ignore parsing errors
@@ -937,9 +1032,157 @@ export class ChromiumSourceInspectionPlugin {
 
   stopWatching() {
     this.isWatching = false
+    this.pendingWatchSourceUpdate = false
+    this.pendingWatchSourceRootMeta = undefined
+    if (this.watchSourceFlushTimer) {
+      clearTimeout(this.watchSourceFlushTimer)
+      this.watchSourceFlushTimer = null
+    }
     if (this.isAuthorMode()) {
       console.log(messages.sourceInspectorWatchModeStopped())
     }
+  }
+
+  private registerContentReloadSnapshotHook() {
+    ;(globalThis as any).__EXTJS_ON_CHROMIUM_CONTENT_RELOADED__ = async () => {
+      if (!this.currentSessionId || !this.hasInspectedSourceOnce) return
+      if (this.isWatching) return
+      if (this.watchSourceFlushTimer) {
+        clearTimeout(this.watchSourceFlushTimer)
+      }
+      this.watchSourceFlushTimer = setTimeout(async () => {
+        this.watchSourceFlushTimer = null
+        if (this.isFlushingWatchSourceUpdate || !this.currentSessionId) return
+        this.isFlushingWatchSourceUpdate = true
+        try {
+          await this.emitImmediateUpdatedSnapshotFromCurrentSession(
+            this.currentSessionId
+          )
+        } finally {
+          this.isFlushingWatchSourceUpdate = false
+        }
+      }, 0)
+    }
+  }
+
+  private scheduleWatchSourceUpdate(
+    previousRootMeta?: Awaited<
+      ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
+    >
+  ) {
+    if (this.watchSourceFlushTimer) {
+      clearTimeout(this.watchSourceFlushTimer)
+    }
+
+    this.watchSourceFlushTimer = setTimeout(async () => {
+      if (this.isFlushingWatchSourceUpdate) {
+        this.scheduleWatchSourceUpdate(previousRootMeta)
+        return
+      }
+
+      this.watchSourceFlushTimer = null
+      if (!this.currentSessionId) {
+        return
+      }
+
+      this.isFlushingWatchSourceUpdate = true
+      try {
+        await this.emitUpdatedSnapshotFromCurrentSession(
+          this.currentSessionId,
+          previousRootMeta
+        )
+      } finally {
+        this.isFlushingWatchSourceUpdate = false
+      }
+    }, 0)
+  }
+
+  private async emitImmediateUpdatedSnapshotFromCurrentSession(
+    sessionId: string
+  ): Promise<void> {
+    if (!this.cdpClient) return
+    const readBuildSignature = (
+      rootMeta?: Awaited<
+        ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
+      >
+    ): string => {
+      const builds = [
+        rootMeta?.page?.build,
+        ...(rootMeta?.roots || []).map((entry) => entry?.build),
+        ...(rootMeta?.markers || []).map((entry) => entry?.build),
+        ...(rootMeta?.registries || []).map((entry) => entry?.build)
+      ]
+        .filter(
+          (value): value is string =>
+            typeof value === 'string' && value.length > 0
+        )
+        .sort()
+
+      return JSON.stringify(builds)
+    }
+
+    const previousOutputHash = this.lastOutputHash
+    const previousRootMeta = await this.getExtensionRootMeta().catch(
+      () => undefined
+    )
+    const previousBuildSignature = readBuildSignature(previousRootMeta)
+
+    try {
+      await this.waitForContentScriptStyles(sessionId)
+    } catch {
+      // Ignore style wait failures; extraction still proceeds.
+    }
+    try {
+      await this.waitForMeaningfulContentScriptContent(sessionId)
+    } catch {
+      // Ignore content wait failures; extraction still proceeds.
+    }
+
+    let html = ''
+    const outputConfig = this.getOutputConfig()
+    const deadline = Date.now() + 5000
+    while (Date.now() < deadline) {
+      try {
+        html = await this.cdpClient.getPageHTML(
+          sessionId,
+          outputConfig.includeShadow
+        )
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        html = await this.cdpClient.getPageHTML(
+          sessionId,
+          outputConfig.includeShadow
+        )
+      }
+
+      if (!html) {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        html = await this.cdpClient.getPageHTML(
+          sessionId,
+          outputConfig.includeShadow
+        )
+      }
+
+      const currentRootMeta = await this.getExtensionRootMeta().catch(
+        () => undefined
+      )
+      const currentBuildSignature = readBuildSignature(currentRootMeta)
+      const htmlChanged =
+        !previousOutputHash ||
+        hashStringFNV1a(html || '') !== previousOutputHash
+      const buildsChanged =
+        previousBuildSignature.length > 2 &&
+        currentBuildSignature.length > 2 &&
+        previousBuildSignature !== currentBuildSignature
+
+      if (htmlChanged || buildsChanged) {
+        break
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    }
+
+    await this.emitSourceOutput(html || '', 'updated')
   }
 
   private async handleFileChange(): Promise<void> {
@@ -967,92 +1210,326 @@ export class ChromiumSourceInspectionPlugin {
           this.devOptions.source !== 'true'
             ? this.devOptions.source
             : ''
+        const previousRootMeta = await this.getExtensionRootMeta()
+        // The changedFile websocket pulse can arrive before the rebuild has
+        // emitted fresh assets. Give the rebuild a short head start so the
+        // reinjection wait does not snapshot the pre-change DOM.
+        await new Promise((resolve) => setTimeout(resolve, 1000))
 
-        // Deterministic watch behavior: always re-inspect the requested source URL.
-        // This avoids stale/foreign tabs becoming the active extraction target.
-        if (sourceUrl) {
-          emitActionEvent('watch_reinspect_source_url', {url: sourceUrl})
-          const html = await this.inspectSource(sourceUrl, {
-            forceNavigate: true
-          })
-          await this.emitSourceOutput(html || '', 'updated')
-          return
-        }
-
-        await this.cdpClient!.waitForContentScriptInjection(
-          this.currentSessionId!
+        await this.waitForContentScriptReinjection(
+          this.currentSessionId!,
+          previousRootMeta
         )
+        try {
+          await this.waitForContentScriptStyles(this.currentSessionId!)
+        } catch {
+          // Ignore style wait failures; extraction still proceeds.
+        }
 
         if (this.isAuthorMode()) {
           console.log(messages.sourceInspectorReExtractingHTML())
         }
-        let html = ''
-        const outputConfig = this.getOutputConfig()
-
-        try {
-          html = await this.cdpClient!.getPageHTML(
-            this.currentSessionId!,
-            outputConfig.includeShadow
-          )
-        } catch (e) {
-          // Fallback: small delay then try one more time
-          // to ensure a print even if timing is tight
-          await new Promise((r) => setTimeout(r, 250))
-          try {
-            html = await this.cdpClient!.getPageHTML(
-              this.currentSessionId!,
-              outputConfig.includeShadow
-            )
-          } catch {
-            // ignore
-          }
-        }
-
-        // If still empty, force one more probe read a moment later (JS can be late)
-        if (!html) {
-          await new Promise((r) => setTimeout(r, 300))
-          try {
-            html = await this.cdpClient!.getPageHTML(
-              this.currentSessionId!,
-              outputConfig.includeShadow
-            )
-          } catch {
-            // ignore
-          }
-        }
-
-        await this.emitSourceOutput(html || '', 'updated')
+        await this.emitUpdatedSnapshotFromCurrentSession(
+          this.currentSessionId!,
+          previousRootMeta
+        )
       } catch (error) {
+        const sourceUrl =
+          typeof this.devOptions.source === 'string' &&
+          this.devOptions.source !== 'true'
+            ? this.devOptions.source
+            : ''
+        if (sourceUrl) {
+          try {
+            emitActionEvent('watch_reinspect_source_url', {url: sourceUrl})
+            const html = await this.inspectSource(sourceUrl, {
+              forceNavigate: false
+            })
+            await this.emitSourceOutput(html || '', 'updated')
+            return
+          } catch {
+            // fall through to error handling below
+          }
+        }
         console.error(
           messages.sourceInspectorHTMLUpdateFailed((error as Error).message)
         )
 
+        const errorMessage = String((error as Error).message || error || '')
         if (
-          (error as Error).message.includes('session') ||
-          (error as Error).message.includes('target')
+          errorMessage.includes('session') ||
+          errorMessage.includes('target') ||
+          errorMessage.includes('WebSocket is not open') ||
+          errorMessage.includes('connection is closed')
         ) {
           console.log(messages.sourceInspectorAttemptingReconnection())
-          await this.reconnectToTarget()
+          await this.reconnectToTarget(sourceUrl || undefined)
         }
       }
     }, 300)
   }
 
-  private async reconnectToTarget(): Promise<void> {
+  private async waitForContentScriptReinjection(
+    sessionId: string,
+    previousRootMeta?: Awaited<
+      ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
+    >
+  ): Promise<void> {
+    if (!this.cdpClient) return
+
+    const readBuildSignature = (
+      rootMeta?: Awaited<
+        ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
+      >
+    ): string => {
+      const builds = [
+        rootMeta?.page?.build,
+        ...(rootMeta?.roots || []).map((entry) => entry?.build),
+        ...(rootMeta?.markers || []).map((entry) => entry?.build),
+        ...(rootMeta?.registries || []).map((entry) => entry?.build)
+      ]
+        .filter(
+          (value): value is string =>
+            typeof value === 'string' && value.length > 0
+        )
+        .sort()
+
+      return JSON.stringify(builds)
+    }
+
+    const previousGeneration = Number(previousRootMeta?.latestGeneration || 0)
+    const previousBuildSignature = readBuildSignature(previousRootMeta)
+
+    const deadline = Date.now() + 20000
+    while (Date.now() < deadline) {
+      try {
+        const rootMeta = await this.getExtensionRootMeta()
+        if (rootMeta) {
+          const nextBuildSignature = readBuildSignature(rootMeta)
+          const generationAdvanced =
+            Number(rootMeta.latestGeneration || 0) > previousGeneration
+          const buildAdvanced =
+            previousBuildSignature.length > 2 &&
+            nextBuildSignature.length > 2 &&
+            previousBuildSignature !== nextBuildSignature
+          const pageMounted =
+            rootMeta.page?.status === undefined ||
+            rootMeta.page?.status === 'mounted'
+          if (
+            (generationAdvanced || buildAdvanced) &&
+            rootMeta.rootCount >= 1 &&
+            rootMeta.markerCount >= 1 &&
+            pageMounted
+          ) {
+            return
+          }
+        }
+      } catch {
+        // Ignore transient evaluation failures while the page settles.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+
+    await this.cdpClient.waitForContentScriptInjection(sessionId)
+  }
+
+  private async emitUpdatedSnapshotFromCurrentSession(
+    sessionId: string,
+    previousRootMeta?: Awaited<
+      ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
+    >
+  ): Promise<void> {
+    const readBuildSignature = (
+      rootMeta?: Awaited<
+        ReturnType<ChromiumSourceInspectionPlugin['getExtensionRootMeta']>
+      >
+    ): string => {
+      const builds = [
+        rootMeta?.page?.build,
+        ...(rootMeta?.roots || []).map((entry) => entry?.build),
+        ...(rootMeta?.markers || []).map((entry) => entry?.build),
+        ...(rootMeta?.registries || []).map((entry) => entry?.build)
+      ]
+        .filter(
+          (value): value is string =>
+            typeof value === 'string' && value.length > 0
+        )
+        .sort()
+
+      return JSON.stringify(builds)
+    }
+
+    await this.waitForContentScriptReinjection(sessionId, previousRootMeta)
+    try {
+      await this.waitForContentScriptStyles(sessionId)
+    } catch {
+      // Ignore style wait failures; extraction still proceeds.
+    }
+    try {
+      await this.waitForMeaningfulContentScriptContent(sessionId)
+    } catch {
+      // Ignore content wait failures; extraction still proceeds.
+    }
+
+    const previousOutputHash = this.lastOutputHash
+    const previousBuildSignature = readBuildSignature(previousRootMeta)
+    let html = ''
+    const outputConfig = this.getOutputConfig()
+    const deadline = Date.now() + 5000
+    while (Date.now() < deadline) {
+      try {
+        html = await this.cdpClient!.getPageHTML(
+          sessionId,
+          outputConfig.includeShadow
+        )
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        html = await this.cdpClient!.getPageHTML(
+          sessionId,
+          outputConfig.includeShadow
+        )
+      }
+
+      if (!html) {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        html = await this.cdpClient!.getPageHTML(
+          sessionId,
+          outputConfig.includeShadow
+        )
+      }
+
+      const currentRootMeta = await this.getExtensionRootMeta().catch(
+        () => undefined
+      )
+      const currentBuildSignature = readBuildSignature(currentRootMeta)
+      const htmlChanged =
+        !previousOutputHash ||
+        hashStringFNV1a(html || '') !== previousOutputHash
+      const buildsChanged =
+        previousBuildSignature.length > 2 &&
+        currentBuildSignature.length > 2 &&
+        previousBuildSignature !== currentBuildSignature
+
+      if (htmlChanged || buildsChanged) {
+        break
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 350))
+    }
+
+    await this.emitSourceOutput(html || '', 'updated')
+  }
+
+  private async waitForMeaningfulContentScriptContent(
+    sessionId: string
+  ): Promise<void> {
+    if (!this.cdpClient) return
+
+    const deadline = Date.now() + 10000
+    while (Date.now() < deadline) {
+      try {
+        const hasMeaningfulContent = await this.cdpClient.evaluate(
+          sessionId,
+          `(() => { try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            if (!hosts.length) return false;
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              const elements = Array.from(sr.querySelectorAll('*')).filter((element) => {
+                const tagName = String(element?.nodeName || '').toLowerCase();
+                return tagName !== 'style' && tagName !== 'script';
+              });
+              const hasMeaningfulText = elements.some((element) => {
+                const text = String(element?.textContent || '').replace(/\\s+/g, ' ').trim();
+                return text.length > 0;
+              });
+              if (hasMeaningfulText) return true;
+              const hasMeaningfulVisualElement = elements.some((element) => {
+                const tagName = String(element?.nodeName || '').toLowerCase();
+                return ['img', 'svg', 'canvas', 'input', 'button', 'textarea', 'select'].includes(tagName);
+              });
+              if (hasMeaningfulVisualElement) return true;
+            }
+            return false;
+          } catch { return false } })()`
+        )
+        if (hasMeaningfulContent) {
+          return
+        }
+      } catch {
+        // Ignore transient evaluation failures while the page settles.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+  }
+
+  private async waitForContentScriptStyles(sessionId: string): Promise<void> {
+    if (!this.cdpClient) return
+
+    const deadline = Date.now() + 10000
+    while (Date.now() < deadline) {
+      try {
+        const hasStyles = await this.cdpClient.evaluate(
+          sessionId,
+          `(() => { try {
+            const hosts = Array.from(document.querySelectorAll('#extension-root,[data-extension-root]:not([data-extension-root="extension-js-devtools"])'));
+            if (!hosts.length) return false;
+            for (const host of hosts) {
+              const sr = host && host.shadowRoot;
+              if (!sr) continue;
+              const styles = Array.from(sr.querySelectorAll('style'));
+              if (styles.some((styleEl) => String(styleEl.outerHTML || '').includes('<style') && String(styleEl.textContent || '').trim().length > 0)) {
+                return true;
+              }
+            }
+            return false;
+          } catch { return false } })()`
+        )
+        if (hasStyles) {
+          return
+        }
+      } catch {
+        // Ignore transient evaluation failures while the page settles.
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200))
+    }
+  }
+
+  private async reconnectToTarget(sourceUrl?: string): Promise<void> {
     if (!this.isAuthorMode()) return
 
     try {
-      if (!this.cdpClient || !this.currentTargetId) {
-        console.warn(messages.sourceInspectorCannotReconnect())
+      console.log(messages.sourceInspectorReconnectingToTarget())
+      if (!this.cdpClient || !this.cdpClient.isConnected()) {
+        try {
+          this.cdpClient?.disconnect()
+        } catch {
+          // ignore best-effort cleanup
+        }
+        this.cdpClient = null
+        this.currentSessionId = null
+        await this.initialize()
+      }
+
+      if (this.cdpClient && this.currentTargetId) {
+        this.currentSessionId =
+          (await this.cdpClient.attachToTarget(this.currentTargetId)) || null
+        console.log(
+          messages.sourceInspectorReconnectedToTarget(
+            this.currentSessionId || ''
+          )
+        )
         return
       }
 
-      console.log(messages.sourceInspectorReconnectingToTarget())
-      this.currentSessionId =
-        (await this.cdpClient.attachToTarget(this.currentTargetId)) || null
-      console.log(
-        messages.sourceInspectorReconnectedToTarget(this.currentSessionId || '')
-      )
+      if (sourceUrl) {
+        await this.inspectSource(sourceUrl, {forceNavigate: false})
+        console.log(messages.sourceInspectorReconnectedToTarget('source-url'))
+        return
+      }
+
+      console.warn(messages.sourceInspectorCannotReconnect())
     } catch (error) {
       console.error(
         messages.sourceInspectorReconnectionFailed((error as Error).message)
@@ -1125,6 +1602,25 @@ export class ChromiumSourceInspectionPlugin {
           throw new Error(messages.sourceInspectorUrlRequired())
         }
 
+        // Watch mode should inspect once, then let the live watcher own updates.
+        const webSocketServer = (compiler.options as any).webSocketServer
+        if (this.devOptions.watchSource && this.hasInspectedSourceOnce) {
+          if (webSocketServer) {
+            if (!this.isWatching) {
+              await this.startWatching(webSocketServer)
+            }
+            return
+          }
+          if (this.currentSessionId) {
+            if ((globalThis as any).__EXTJS_PENDING_CHROMIUM_CONTENT_RELOAD__) {
+              return
+            }
+            const previousRootMeta = await this.getExtensionRootMeta()
+            this.scheduleWatchSourceUpdate(previousRootMeta)
+            return
+          }
+        }
+
         // This is the main output for the user:
         const html = await this.inspectSource(urlToInspect, {
           forceNavigate:
@@ -1134,18 +1630,20 @@ export class ChromiumSourceInspectionPlugin {
         await this.printHTML(html)
 
         // Watch mode is only for development
-        const webSocketServer = (compiler.options as any).webSocketServer
-
         if (this.devOptions.watchSource) {
+          this.registerContentReloadSnapshotHook()
           if (webSocketServer) {
             await this.startWatching(webSocketServer)
           } else {
-            // Fallback: trigger re-extraction on each rebuild
+            // Fallback: reuse the attached tab when a source websocket is unavailable.
             try {
-              const updated = await this.inspectSource(urlToInspect, {
-                forceNavigate: true
-              })
-              await this.printUpdatedHTML(updated || '')
+              const previousRootMeta = await this.getExtensionRootMeta()
+              if (this.currentSessionId) {
+                await this.emitUpdatedSnapshotFromCurrentSession(
+                  this.currentSessionId,
+                  previousRootMeta
+                )
+              }
             } catch {
               // ignore best-effort fallback
             }
