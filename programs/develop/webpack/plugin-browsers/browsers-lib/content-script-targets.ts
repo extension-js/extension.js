@@ -71,7 +71,15 @@ export function getChangedContentScriptEntryNames(
 ): string[] {
   const changed = new Set<string>()
 
-  for (const modifiedFilePath of modifiedFilePaths) {
+  for (const rawModified of modifiedFilePaths) {
+    const modifiedFilePath =
+      normalizeModuleResourcePath(rawModified) ??
+      String(rawModified || '')
+        .replace(/\\/g, '/')
+        .replace(/\/+/g, '/')
+        .trim()
+    if (!modifiedFilePath) continue
+
     for (const [
       entryName,
       dependencyPaths
@@ -366,10 +374,20 @@ export function normalizeModuleResourcePath(
     return undefined
   }
 
-  let normalized = resourcePath
-    .replace(/\\/g, '/')
-    .replace(/(?<!:)\/{2,}/g, '/')
-    .trim()
+  let normalized = resourcePath.replace(/\\/g, '/').trim()
+  // Collapse duplicate slashes. Preserve scheme:// (http:, https:, file:, webpack:, …)
+  // but not Windows drive roots: C:\\... becomes C://... after backslash replace and must
+  // normalize to C:/... (see content-script-targets.spec on Windows CI).
+  const urlWithAuthority =
+    /^(?![A-Za-z]:\/)([a-z][a-z0-9+.-]*:)(\/\/)(.*)$/i.exec(normalized)
+  if (urlWithAuthority) {
+    normalized =
+      urlWithAuthority[1] +
+      urlWithAuthority[2] +
+      urlWithAuthority[3].replace(/\/+/g, '/')
+  } else {
+    normalized = normalized.replace(/\/+/g, '/')
+  }
   if (!normalized) return undefined
 
   const loaderIndex = normalized.lastIndexOf('!')
