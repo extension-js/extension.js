@@ -6,12 +6,42 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto — presence implies inheritance
 
-import colors from 'pintor'
+import {DevOptions} from '../../../../../webpack-types'
+import {type Manifest} from '../../../../../webpack-types'
+export default function patchBackground(
+  manifest: Manifest,
+  browser: DevOptions['browser']
+) {
+  if (!manifest.background) {
+    if (browser === 'firefox' || browser === 'gecko-based') {
+      return {
+        background: {
+          ...(manifest.background || {}),
+          scripts: ['background/script.js']
+        }
+      }
+    }
 
-export function backgroundIsRequiredMessageOnly(backgroundChunkName: string) {
-  return (
-    '' +
-    `Check the ${colors.yellow(backgroundChunkName.replace('/', '.'))} ` +
-    `field in your ${colors.yellow('manifest.json')} file.`
-  )
+    if (manifest.manifest_version === 2) {
+      return {
+        background: {
+          ...(manifest.background || {}),
+          scripts: ['background/script.js']
+        }
+      }
+    }
+
+    return {
+      background: {
+        ...(manifest.background || {}),
+        service_worker: 'background/service_worker.js'
+      }
+    }
+  }
+
+  return {
+    background: {
+      ...manifest.background
+    }
+  }
 }

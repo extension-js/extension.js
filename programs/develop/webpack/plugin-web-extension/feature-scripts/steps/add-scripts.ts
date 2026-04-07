@@ -10,11 +10,29 @@ import * as fs from 'fs'
 import * as path from 'path'
 import {type Compiler, type EntryObject} from '@rspack/core'
 import {getScriptEntries, getCssEntries} from '../scripts-lib/utils'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {AddContentScriptWrapper} from './setup-reload-strategy/add-content-script-wrapper'
 import {type FilepathList, type PluginInterface} from '../../../webpack-types'
-import * as messages from '../messages'
 
 const isRemoteUrl = (entry: string) => /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
+const isContentScriptFeature = (feature: string) =>
+  feature.startsWith('content_scripts/')
+const isScriptsFolderFeature = (feature: string) =>
+  feature.startsWith('scripts/')
+
+function createSequentialEntryModule(
+  feature: string,
+  entryImports: string[]
+): string {
+  const source = [
+    `/* extension.js sequential entry: ${feature} */`,
+    ...entryImports.map(
+      (entryImport) => `import ${JSON.stringify(String(entryImport))};`
+    )
+  ].join('\n')
+
+  return `data:text/javascript;charset=utf-8,${encodeURIComponent(source)}`
+}
 
 export class AddScripts {
   public readonly manifestPath: string
@@ -26,18 +44,14 @@ export class AddScripts {
   }
 
   public apply(compiler: Compiler): void {
-    // Merge bridge scripts into includeList internally
     const bridgeScripts = AddContentScriptWrapper.getBridgeScripts(
       this.manifestPath
     )
-    const mergedIncludeList: FilepathList = {
+    const scriptFields: FilepathList = {
       ...this.includeList,
       ...bridgeScripts
     }
-    const scriptFields = mergedIncludeList
 
-    // Validate includeList (manifest-derived and extras)
-    // early and fail before browser launch
     if (compiler?.hooks?.thisCompilation?.tap) {
       compiler.hooks.thisCompilation.tap(
         'scripts:validate-include-list',
@@ -55,13 +69,10 @@ export class AddScripts {
                   : []
 
               for (const entry of rawEntries) {
-                if (!entry || typeof entry !== 'string') continue
-                if (isRemoteUrl(entry)) continue
+                if (!entry || typeof entry !== 'string' || isRemoteUrl(entry)) {
+                  continue
+                }
 
-                // Resolve authoring convention:
-                // - Leading '/' = extension root (public root), not OS root
-                // - Relative = from manifest dir
-                // - Absolute OS = as-is
                 let resolved = entry
                 if (!fs.existsSync(resolved)) {
                   resolved = path.isAbsolute(entry)
@@ -81,25 +92,19 @@ export class AddScripts {
                     : entry
                   : resolved
 
-                const lines: string[] = []
-                lines.push(
-                  `Check the ${feature.replace('/', '.')} field in your manifest.json file.`
-                )
-                lines.push(
-                  `The script path must point to an existing file that will be bundled.`
-                )
-                if (isPublicRoot) {
-                  lines.push(
-                    `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
-                  )
-                }
-                lines.push('')
-                lines.push(`NOT FOUND ${displayPath}`)
-
-                const err = new ErrorCtor(lines.join('\n')) as Error & {
-                  file?: string
-                  name?: string
-                }
+                const err = new ErrorCtor(
+                  [
+                    `Check the ${feature.replace('/', '.')} field in your manifest.json file.`,
+                    `The script path must point to an existing file that will be bundled.`,
+                    isPublicRoot
+                      ? `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
+                      : '',
+                    '',
+                    `NOT FOUND ${displayPath}`
+                  ]
+                    .filter(Boolean)
+                    .join('\n')
+                ) as Error & {file?: string; name?: string}
                 err.file = 'manifest.json'
                 err.name = 'ScriptsMissingFile'
                 ;(compilation.errors ||= []).push(err)
@@ -113,24 +118,22 @@ export class AddScripts {
     }
 
     const newEntries: Record<string, EntryObject> = {}
-
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
+    let manifestJson: any = {}
+    try {
+      manifestJson = JSON.parse(fs.readFileSync(this.manifestPath, 'utf8'))
+    } catch {
+      manifestJson = {}
+    }
     const resolveEntryPath = (entry: string) => {
-      if (!entry) return entry
-      if (isRemoteUrl(entry)) return entry
-
+      if (!entry || isRemoteUrl(entry)) return entry
       if (entry.startsWith('/') && !path.isAbsolute(entry)) {
-        // Leading "/" is the extension output root (public/)
         return path.join(projectPath, entry.slice(1))
       }
-
       if (path.isAbsolute(entry)) return entry
       return path.join(manifestDir, entry)
     }
-
-    let entriesAdded = 0
-    let publicTracked = 0
 
     for (const [feature, scriptPath] of Object.entries(scriptFields)) {
       const rawEntries: string[] = Array.isArray(scriptPath)
@@ -141,38 +144,35 @@ export class AddScripts {
       const resolvedEntries = rawEntries.map(resolveEntryPath)
       const scriptImports = getScriptEntries(resolvedEntries)
       const cssImports = getCssEntries(resolvedEntries)
-      const allImports = [...scriptImports, ...cssImports]
-      const entryImports = allImports
+      const entryImports = [...new Set([...scriptImports, ...cssImports])]
+      const shouldUseSequentialEntryModule =
+        isContentScriptFeature(feature) && scriptImports.length > 1
+      const finalEntryImports = shouldUseSequentialEntryModule
+        ? [createSequentialEntryModule(feature, entryImports)]
+        : entryImports
 
-      if (cssImports.length || scriptImports.length) {
-        // Apply entry-specific configuration for service workers
-        if (feature === 'background/service_worker') {
-          // Check if this is a module service worker
-          const manifest = JSON.parse(
-            fs.readFileSync(this.manifestPath, 'utf8')
-          )
-          const isModuleServiceWorker = manifest.background?.type === 'module'
+      if (!finalEntryImports.length) continue
 
-          newEntries[feature] = {
-            import: entryImports,
-            // Only apply import-scripts for non-module service workers
-            // This ensures non-module service workers work correctly without affecting module ones
-            ...(isModuleServiceWorker ? {} : {chunkLoading: 'import-scripts'})
-          }
-        } else {
-          newEntries[feature] = {import: entryImports}
-        }
-        entriesAdded++
-      }
+      newEntries[feature] =
+        feature === 'background/service_worker'
+          ? {
+              import: finalEntryImports,
+              ...(manifestJson.background?.type === 'module'
+                ? {}
+                : {chunkLoading: 'import-scripts'})
+            }
+          : {
+              import: finalEntryImports,
+              ...(isContentScriptFeature(feature) ||
+              isScriptsFolderFeature(feature)
+                ? {layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER}
+                : {})
+            }
     }
 
-    // Add all the new entries to the compilation at once
     compiler.options.entry = {
       ...compiler.options.entry,
       ...newEntries
-    }
-    if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
-      console.log(messages.scriptsEntriesSummary(entriesAdded, publicTracked))
     }
   }
 }
