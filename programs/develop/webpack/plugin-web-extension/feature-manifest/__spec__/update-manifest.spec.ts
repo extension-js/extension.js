@@ -22,9 +22,12 @@ describe('UpdateManifest', () => {
     const updated: Record<string, string> = {}
     const compilation: any = {
       errors: [],
+      options: {mode},
       assets,
       getAsset: (n: string) =>
         assets[n] ? {source: assets[n].source} : undefined,
+      getAssets: () =>
+        Object.entries(assets).map(([name, src]) => ({name, source: src})),
       hooks: {
         processAssets: {tap: (_opts: any, fn: any) => fn()}
       },
