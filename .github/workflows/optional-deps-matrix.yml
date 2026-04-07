@@ -62,7 +62,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run optional deps library specs
-        run: pnpm run ci:test:optional-deps-lib
+        run: pnpm run ci:test:isolated-deps
 
   optional-deps-smoke:
     name: smoke (${{ matrix.os }} / ${{ matrix.pm }})
