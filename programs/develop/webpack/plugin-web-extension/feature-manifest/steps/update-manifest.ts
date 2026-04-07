@@ -16,6 +16,7 @@ import {
 } from '../manifest-lib/manifest'
 import {PluginInterface, Manifest, DevOptions} from '../../../webpack-types'
 import * as messages from '../messages'
+import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 
 export class UpdateManifest {
   public readonly manifestPath: string
@@ -58,12 +59,19 @@ export class UpdateManifest {
 
             const manifest = getManifestContent(compilation, this.manifestPath)
 
-            const patchedManifest = buildCanonicalManifest(
+            let patchedManifest = buildCanonicalManifest(
               this.manifestPath,
               manifest,
               this.browser
             ) as Manifest
             const overrides = getManifestOverrides(this.manifestPath, manifest)
+
+            if (compiler.options.mode === 'development') {
+              patchedManifest = patchDevContentScriptManifestPaths(
+                compilation,
+                patchedManifest
+              )
+            }
 
             // During development, if user has only CSS files in content_scripts,
             // we add a JS file to the content_scripts bundle so that
