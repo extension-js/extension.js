@@ -9,10 +9,11 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import {Compiler} from '@rspack/core'
-import * as messages from '../../scripts-lib/messages'
+import * as featureScriptMessages from '../../messages'
 import {reportToCompilation} from '../../scripts-lib/utils'
 import {filterKeysForThisBrowser} from '../../scripts-lib/manifest'
 import {type DevOptions} from '../../../../webpack-types'
+import {resolveDevelopDistFile} from '../../../../optional-deps-lib/runtime-context'
 
 export class SetupBackgroundEntry {
   private manifestPath: string
@@ -34,7 +35,7 @@ export class SetupBackgroundEntry {
         patched.manifest_version === 3
           ? 'background/service_worker'
           : 'background/scripts'
-      return messages.backgroundIsRequiredMessageOnly(fieldKey)
+      return featureScriptMessages.backgroundIsRequiredMessageOnly(fieldKey)
     }
     return undefined
   }
@@ -54,8 +55,7 @@ export class SetupBackgroundEntry {
     // Guards are handled at the root plugin level
     const manifest = JSON.parse(fs.readFileSync(this.manifestPath, 'utf-8'))
     const browser = this.browser
-    const minimumBgScript = path.resolve(
-      __dirname,
+    const minimumBgScript = resolveDevelopDistFile(
       browser === 'firefox' || browser === 'gecko-based'
         ? 'minimum-firefox-file'
         : 'minimum-chromium-file'
