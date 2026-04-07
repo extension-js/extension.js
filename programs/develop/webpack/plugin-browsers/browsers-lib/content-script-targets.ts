@@ -56,25 +56,13 @@ export function resolveEmittedContentScriptFile(
   if (!fs.existsSync(dir)) return null
   try {
     const re = new RegExp(`^content-${index}\\.[a-f0-9]+\\.${ext}$`, 'i')
-    let best: string | null = null
-    let bestMtime = 0
     for (const name of fs.readdirSync(dir)) {
-      if (!re.test(name)) continue
-      const full = path.join(dir, name)
-      try {
-        const mt = fs.statSync(full).mtimeMs
-        if (mt > bestMtime) {
-          bestMtime = mt
-          best = full
-        }
-      } catch {
-        if (!best) best = full
-      }
+      if (re.test(name)) return path.join(dir, name)
     }
-    return best
   } catch {
     return null
   }
+  return null
 }
 
 export function getChangedContentScriptEntryNames(
