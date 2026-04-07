@@ -263,11 +263,14 @@ export class FirefoxHardReloadPlugin {
           // Suppress that inferred 'manifest' reason so the fast content-reinject
           // path runs instead of a full add-on hard reload.
           const inferredAssetReason =
-            this.pendingContentReloadEntryNames.length > 0
-              ? this.inferHardReloadReasonFromChangedAssetsExcludingManifest(
-                  changed
-                )
-              : this.inferHardReloadReasonFromChangedAssets(changed)
+            this.inferHardReloadReasonFromChangedAssets(
+              this.pendingContentReloadEntryNames.length > 0
+                ? changed.filter(
+                    (a) =>
+                      String(a || '').replace(/\\/g, '/') !== 'manifest.json'
+                  )
+                : changed
+            )
           const reason =
             this.ctx.getPendingReloadReason?.() ||
             inferredHardReloadReason ||
@@ -598,16 +601,6 @@ export class FirefoxHardReloadPlugin {
     }
 
     return Array.from(changed)
-  }
-
-  private inferHardReloadReasonFromChangedAssetsExcludingManifest(
-    changedAssets: string[]
-  ): 'locales' | 'sw' | undefined {
-    return this.inferHardReloadReasonFromChangedAssets(
-      changedAssets.filter(
-        (a) => String(a || '').replace(/\\/g, '/') !== 'manifest.json'
-      )
-    ) as 'locales' | 'sw' | undefined
   }
 
   private inferHardReloadReasonFromChangedAssets(
