@@ -10,7 +10,7 @@ vi.mock('fs', async () => {
   }
 })
 
-vi.mock('../../optional-deps-lib', () => ({
+vi.mock('isolated-deps', () => ({
   hasDependency: vi.fn(() => false),
   installOptionalDependencies: vi.fn(async () => true),
   resolveDevelopInstallRoot: vi.fn(() => undefined),
@@ -116,9 +116,7 @@ describe('css tools additional coverage', () => {
 
   it('isUsingTailwind logs only once across multiple calls', async () => {
     // Work with the mocked module (declared above) so the implementation used by code under test is affected.
-    const mockedIntegrations = (await import(
-      '../../optional-deps-lib'
-    )) as unknown as {
+    const mockedIntegrations = (await import('isolated-deps')) as unknown as {
       hasDependency: any
     }
     mockedIntegrations.hasDependency.mockImplementation(

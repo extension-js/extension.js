@@ -6,12 +6,20 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors — presence implies inheritance
 
+import {
+  installOptionalDependencies,
+  installOptionalDependenciesBatch,
+  hasDependency
+} from 'isolated-deps'
+import {resolveDevelopInstallRoot} from '../../webpack-lib/develop-context'
+
 export {
   installOptionalDependencies,
   installOptionalDependenciesBatch,
   hasDependency,
   resolveDevelopInstallRoot
-} from '../../optional-deps-lib'
+}
+
 export function isUsingJSFramework(projectPath: string): boolean {
   const frameworks = [
     'react',
@@ -21,7 +29,5 @@ export function isUsingJSFramework(projectPath: string): boolean {
     'solid-js',
     'preact'
   ]
-  return frameworks.some((fw) =>
-    require('../../optional-deps-lib').hasDependency(projectPath, fw)
-  )
+  return frameworks.some((fw) => hasDependency(projectPath, fw))
 }
